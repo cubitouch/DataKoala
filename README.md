@@ -105,3 +105,7 @@ Copyright © 2026 Hugo Carnicelli.
 DataKoala is open-source software licensed under the **GNU Affero General Public License v3.0 or later (`AGPL-3.0-or-later`)**. See [`LICENSE`](LICENSE) for the full terms.
 
 The copyright holder may also offer DataKoala under separate commercial/proprietary terms. If outside contributions are accepted in the future, contributor terms should preserve the rights needed for any such dual-licensing model.
+
+## Thanks
+
+[Here is to our beautiful logo](https://www.flaticon.com/free-icon/koala_9308987?term=koala&page=1&position=7&origin=tag&related_id=9308987)
