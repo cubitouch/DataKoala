@@ -1,0 +1,93 @@
+{
+  "name": "datakoala",
+  "version": "0.1.0",
+  "description": "A local-first desktop data explorer for PostgreSQL, BigQuery, SQLite, and local files.",
+  "private": true,
+  "main": "out/main/index.js",
+  "author": "Hugo Carnicelli",
+  "license": "AGPL-3.0-or-later",
+  "build": {
+    "appId": "com.cubitouch.datakoala",
+    "productName": "DataKoala",
+    "directories": {
+      "buildResources": "build"
+    },
+    "mac": {
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "icon": "build/icons"
+    },
+    "asarUnpack": [
+      "node_modules/@duckdb/**"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/duckdb-extensions",
+        "to": "duckdb-extensions",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "dev": "pnpm prepare:sqlite-extension && electron-vite dev",
+    "build": "pnpm prepare:sqlite-extension && electron-vite build",
+    "preview": "pnpm prepare:sqlite-extension && electron-vite preview",
+    "start": "pnpm prepare:sqlite-extension && electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.test.json",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
+    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
+    "test:unit": "node --experimental-strip-types --test \"src/**/!(*.e2e).test.ts\"",
+    "test:e2e": "node --experimental-strip-types --test \"src/**/*.e2e.test.ts\"",
+    "test:ui": "vitest run --config vitest.ui.config.ts",
+    "smoke": "node scripts/smoke-render.mjs",
+    "smoke:db": "node scripts/smoke-db.mjs",
+    "smoke:flow": "node scripts/smoke-flow.mjs",
+    "smoke:duckdb": "node scripts/smoke-duckdb.mjs",
+    "prepare:sqlite-extension": "node scripts/prepare-sqlite-extension.mjs",
+    "smoke:sqlite": "node --experimental-strip-types --test src/main/adapters/sqlite-file-adapter.integration.test.ts",
+    "smoke:sqlite:electron": "node scripts/smoke-sqlite-electron.mjs",
+    "smoke:bigquery-client": "ELECTRON_RUN_AS_NODE=1 electron scripts/smoke-bigquery-client.mjs",
+    "db:up": "node scripts/db-up.mjs",
+    "db:down": "docker stop datakoala-test",
+    "verify": "pnpm typecheck && pnpm test && pnpm build && pnpm smoke && pnpm smoke:db && pnpm smoke:flow",
+    "package": "pnpm build && electron-builder"
+  },
+  "dependencies": {
+    "@codemirror/lang-sql": "^6.8.0",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@duckdb/node-api": "1.5.5-r.3",
+    "@google-cloud/bigquery": "8.3.1",
+    "@uiw/react-codemirror": "^4.23.7",
+    "echarts": "^5.5.1",
+    "echarts-for-react": "^3.0.2",
+    "node-sql-parser": "^5.3.6",
+    "pg": "^8.13.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sql-formatter": "^15.8.2",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.1.0",
+    "@types/node": "^22.9.0",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "jsdom": "25.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "2.1.9"
+  }
+}

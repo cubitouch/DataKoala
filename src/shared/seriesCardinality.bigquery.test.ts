@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { buildSeriesCardinalityProbe } from './seriesCardinality.ts'
+
+test('GoogleSQL cardinality uses STRUCT for multiple Series dimensions', () => {
+  const probe = buildSeriesCardinalityProbe({ schema: 'my-project.analytics', table: 'events', seriesColumns: ['region', 'channel'], predicates: [] }, 'google-sql')
+  assert.match(probe.sql, /SELECT STRUCT\(`region`, `channel`\)/)
+  assert.match(probe.sql, /GROUP BY STRUCT\(`region`, `channel`\)/)
+  assert.match(probe.sql, /FROM `my-project\.analytics\.events`/)
+})
+
+test('GoogleSQL cardinality rolling ranges are type-aware, including TIMESTAMP months', () => {
+  const cases = [
+    ['date', /DATE_SUB\(CURRENT_DATE\(\), INTERVAL 3 MONTH\)/],
+    ['datetime', /DATETIME_SUB\(CURRENT_DATETIME\(\), INTERVAL 3 MONTH\)/],
+    ['timestamp', /TIMESTAMP\(DATETIME_SUB\(DATETIME\(CURRENT_TIMESTAMP\(\)\), INTERVAL 3 MONTH\)\)/]
+  ] as const
+  for (const [temporalType, expected] of cases) {
+    const probe = buildSeriesCardinalityProbe({ schema: 'p.d', table: 't', seriesColumns: ['series'], predicates: [{ column: 'at', operator: 'rolling', amount: 3, unit: 'month', temporalType }] }, 'google-sql')
+    assert.match(probe.sql, expected)
+  }
+})
+
+test('GoogleSQL cardinality casts temporal string parameters and strips DATE times', () => {
+  const probe = buildSeriesCardinalityProbe({ schema: 'p.d', table: 't', seriesColumns: ['series'], predicates: [
+    { column: 'd', operator: 'range', startInclusive: '2026-01-02T03:04', endExclusive: '2026-02-03T04:05', temporalType: 'date' },
+    { column: 'dt', operator: 'gte', value: '2026-01-02T03:04', temporalType: 'datetime' }
+  ] }, 'google-sql')
+  assert.match(probe.sql, /`d` >= CAST\(\? AS DATE\) AND `d` < CAST\(\? AS DATE\)/)
+  assert.match(probe.sql, /`dt` >= CAST\(\? AS DATETIME\)/)
+  assert.deepEqual(probe.parameters, ['2026-01-02', '2026-02-03', '2026-01-02T03:04'])
+})

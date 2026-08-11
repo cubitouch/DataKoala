@@ -1,0 +1,17 @@
+export const IPC = {
+  CONNECTION_TEST: 'connection:test',
+  CONNECTION_CONNECT: 'connection:connect',
+  CONNECTION_DISCONNECT: 'connection:disconnect',
+  CONNECTION_STATE_CHANGED: 'connection:state-changed',
+  CONNECTION_LIST_OBJECTS: 'connection:list-objects',
+  CONNECTION_DESCRIBE_TABLE: 'connection:describe-table',
+  CONNECTION_CHOOSE_FILES: 'connection:choose-files',
+  CONNECTION_CHOOSE_SQLITE_FILE: 'connection:choose-sqlite-file',
+  QUERY_RUN: 'query:run',
+  QUERY_PROBE_SERIES_CARDINALITY: 'query:probe-series-cardinality',
+  QUERY_SERIES_STATISTICS: 'query:series-statistics',
+  QUERY_EXPLAIN: 'query:explain',
+  CLIPBOARD_WRITE_PNG: 'clipboard:write-png'
+} as const
+
+export type IpcChannels = (typeof IPC)[keyof typeof IPC]

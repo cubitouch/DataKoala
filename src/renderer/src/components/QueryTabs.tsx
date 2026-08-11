@@ -1,0 +1,86 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { selectActiveSession, useStore } from '../store/useStore'
+
+export function QueryTabs() {
+  const tabs = useStore((state) => state.tabs)
+  const activeTabId = useStore((state) => state.activeTabId)
+  const profiles = useStore((state) => state.profiles)
+  const createTab = useStore((state) => state.createTab)
+  const closeTab = useStore((state) => state.closeTab)
+  const renameTab = useStore((state) => state.renameTab)
+  const clearResults = useStore((state) => state.clearActiveResults)
+  const resetQuery = useStore((state) => state.resetActiveQuery)
+  const active = useStore(selectActiveSession)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [draftTitle, setDraftTitle] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const profileNames = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.name])), [profiles])
+
+  useEffect(() => {
+    if (renamingId) inputRef.current?.select()
+  }, [renamingId])
+
+  const switchTo = (id: string) => {
+    if (id === activeTabId || !tabs.some((tab) => tab.id === id)) return
+    useStore.setState({ activeTabId: id })
+  }
+
+  const close = (id: string) => {
+    const closing = tabs.find((tab) => tab.id === id)
+    if (closing?.running && !window.confirm('This query is still running. Close the tab and stop waiting for its result?')) return
+    closeTab(id)
+  }
+
+  const beginRename = (id: string, title: string) => {
+    setRenamingId(id)
+    setDraftTitle(title)
+  }
+  const finishRename = () => {
+    if (renamingId) renameTab(renamingId, draftTitle)
+    setRenamingId(null)
+  }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return
+      if (event.key.toLowerCase() === 't') {
+        event.preventDefault()
+        createTab()
+      } else if (event.key.toLowerCase() === 'w') {
+        event.preventDefault()
+        close(useStore.getState().activeTabId)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [tabs, activeTabId])
+
+  return <div className="query-tabs-shell">
+    <div className="query-tabs" role="tablist" aria-label="Query tabs">
+      {tabs.map((tab) => {
+        const selected = tab.id === activeTabId
+        const connectionName = tab.connectionProfileId ? profileNames.get(tab.connectionProfileId) : null
+        return <div key={tab.id} className={`query-tab ${selected ? 'active' : ''}`} role="tab" aria-selected={selected}>
+          <button className="query-tab-main" onClick={() => switchTo(tab.id)} onDoubleClick={() => beginRename(tab.id, tab.title)} title={`${tab.title}${connectionName ? ` — ${connectionName}` : ''}`}>
+            {tab.running && <span className="query-tab-running" aria-label="Query running" />}
+            {renamingId === tab.id ? <input ref={inputRef} className="query-tab-title-input" value={draftTitle}
+              onClick={(event) => event.stopPropagation()} onChange={(event) => setDraftTitle(event.target.value)}
+              onBlur={finishRename} onKeyDown={(event) => {
+                if (event.key === 'Enter') { event.preventDefault(); finishRename() }
+                if (event.key === 'Escape') { event.preventDefault(); setRenamingId(null) }
+              }} /> : <span className="query-tab-title">{tab.title}</span>}
+            {connectionName && <span className="query-tab-connection">{connectionName}</span>}
+          </button>
+          <button className="query-tab-close" aria-label={`Close ${tab.title}`} title="Close tab (⌘/Ctrl+W)" onClick={(event) => { event.stopPropagation(); close(tab.id) }}>×</button>
+        </div>
+      })}
+      <button className="query-tab-add" aria-label="New query tab" title="New query tab (⌘/Ctrl+T)" onClick={() => createTab()}>+</button>
+    </div>
+    <div className="query-tab-actions">
+      <button className="btn ghost" onClick={clearResults} disabled={!active.result && !active.queryError && !active.explainText && active.sqlResultFilters.every((filter) => filter.execution === 'query') && active.builderResultFilters.every((filter) => filter.execution === 'query')}>Clear results</button>
+      <button className="btn ghost" onClick={() => {
+        if (window.confirm(`Reset ${active.title} to a fresh query?`)) resetQuery()
+      }}>Reset query</button>
+    </div>
+  </div>
+}

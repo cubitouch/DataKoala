@@ -1,0 +1,98 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import type { BigQueryProfile } from '../../shared/types.ts'
+import { BigQueryAdapter, __testing, normalizeBigQueryValue, type BigQueryClientLike } from './bigquery-adapter.ts'
+import { BigQueryDate, BigQueryDatetime, BigQueryInt, BigQueryTime, BigQueryTimestamp, Geography } from '@google-cloud/bigquery'
+
+const profile: BigQueryProfile = { kind: 'bigquery', version: 1, id: 'bq', name: 'BQ', billingProject: 'billing', defaultProject: 'data', defaultDataset: 'analytics', location: 'US', maximumBytesBilled: '1073741824', readonly: true }
+
+test('advertises Builder without unsupported explain, analyze, or cancellation', () => {
+  assert.deepEqual(__testing.capabilities, { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: false })
+})
+
+function client(statementType = 'SELECT', rows: any[] = [{ exact: new BigQueryInt('9007199254740993') }], pageToken?: string) {
+  const calls: Record<string, unknown>[] = []
+  let dryRunGetMetadataCalls = 0
+  const value: BigQueryClientLike = {
+    async getDatasets() { return [[{ id: 'analytics' }]] },
+    dataset() { return { async getTables() { return [[]] }, table() { return { async getMetadata() { return [{ schema: { fields: [] } }] } } } } },
+    async createQueryJob(options) {
+      calls.push(options)
+      const metadata = options.dryRun
+        ? { statistics: { query: { statementType, totalBytesProcessed: '12' } } }
+        : { statistics: { query: { totalBytesProcessed: '12', cacheHit: false } } }
+      if (options.dryRun) return [{ metadata, async getMetadata() { dryRunGetMetadataCalls++; throw new Error('dry-run metadata must be read inline') } }]
+      return [{ metadata, async getMetadata() { return [metadata] }, async getQueryResults() { return [rows, pageToken ? { pageToken } : null, { schema: { fields: [{ name: 'exact', type: 'NUMERIC' }] }, pageToken }] } }]
+    }
+  }
+  return { value, calls, dryRunGetMetadataCalls: () => dryRunGetMetadataCalls }
+}
+
+test('constructs an ADC client with only the billing project', async () => {
+  let options: unknown
+  const fake = client()
+  const adapter = new BigQueryAdapter((received) => { options = received; return fake.value })
+  assert.equal((await adapter.test(profile)).ok, true)
+  assert.deepEqual(options, { projectId: 'billing' })
+  assert.equal(JSON.stringify(options).includes('credential'), false)
+})
+
+test('dry-runs SELECT, applies positional params and maximum bytes, and preserves exact values', async () => {
+  const fake = client(); const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
+  assert.equal(connected.result.ok, true)
+  const result = await connected.session!.query({ sql: 'SELECT ?', parameters: ['x'] })
+  assert.deepEqual(fake.calls.map((call) => ({ dryRun: call.dryRun, params: call.params, maximumBytesBilled: call.maximumBytesBilled, useLegacySql: call.useLegacySql })), [
+    { dryRun: true, params: ['x'], maximumBytesBilled: '1073741824', useLegacySql: false },
+    { dryRun: undefined, params: ['x'], maximumBytesBilled: '1073741824', useLegacySql: false }
+  ])
+  assert.equal(result.rows[0].exact, '9007199254740993')
+  assert.deepEqual(result.columns.map((column) => [column.name, column.nativeType]), [['exact', 'NUMERIC']])
+  assert.equal(result.execution?.provider, 'bigquery')
+  assert.equal(fake.dryRunGetMetadataCalls(), 0)
+})
+
+test('estimates from inline dry-run metadata without fetching persisted job metadata', async () => {
+  const fake = client(); const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
+  assert.deepEqual(await connected.session!.estimateQuery?.('SELECT 1'), { bytesProcessed: 12 })
+  assert.equal(fake.dryRunGetMetadataCalls(), 0)
+  assert.deepEqual(fake.calls.at(-1), { query: 'SELECT 1', dryRun: true, useLegacySql: false, location: 'US', maximumBytesBilled: '1073741824' })
+})
+
+test('rejects non-SELECT dry-run statement types before execution', async () => {
+  const fake = client('INSERT'); const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
+  await assert.rejects(() => connected.session!.query({ sql: 'INSERT INTO x VALUES (1)' }), /only one SELECT/)
+  assert.equal(fake.calls.length, 1)
+})
+
+test('caps renderer-bound rows and reports truncation', async () => {
+  const fake = client('SELECT', Array.from({ length: __testing.ROW_LIMIT + 1 }, (_, n) => ({ n })))
+  const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
+  const result = await connected.session!.query({ sql: 'SELECT n FROM t' })
+  assert.equal(result.rows.length, 10_000); assert.equal(result.execution?.truncated, true)
+})
+
+test('reports truncation when BigQuery returns a next page below the local row cap', async () => {
+  const fake = client('SELECT', [{ exact: 1 }], 'next-page')
+  const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
+  const result = await connected.session!.query({ sql: 'SELECT exact FROM t' })
+  assert.equal(result.rows.length, 1); assert.equal(result.execution?.truncated, true)
+})
+
+test('normalizes IPC-unsafe nested values', () => {
+  assert.deepEqual(normalizeBigQueryValue({ bytes: Buffer.from('ok'), list: [1n, null], record: { value: 123 }, nested: { value: { x: 2n } } }), { bytes: 'b2s=', list: ['1', null], record: { value: 123 }, nested: { value: { x: '2' } } })
+})
+
+test('unwraps only concrete BigQuery scalar wrapper instances', () => {
+  assert.deepEqual(normalizeBigQueryValue({
+    integer: new BigQueryInt('9007199254740993'), date: new BigQueryDate('2026-01-02'),
+    datetime: new BigQueryDatetime('2026-01-02T03:04:05'), time: new BigQueryTime('03:04:05'),
+    timestamp: new BigQueryTimestamp('2026-01-02T03:04:05Z'), geography: new Geography('POINT(1 2)')
+  }), { integer: '9007199254740993', date: '2026-01-02', datetime: '2026-01-02T03:04:05', time: '03:04:05', timestamp: '2026-01-02T03:04:05.000Z', geography: 'POINT(1 2)' })
+})
+
+test('returns actionable provider errors', async () => {
+  for (const [error, expected] of [[{ code: 401, message: 'bad credentials' }, /Application Default Credentials/], [{ code: 403, message: 'denied', errors: [{ reason: 'accessDenied' }] }, /permission denied/], [{ code: 403, message: 'API has not been used and is disabled' }, /API is disabled/], [{ message: 'Dataset is in location EU, not US' }, /location mismatch/]] as const) {
+    const adapter = new BigQueryAdapter(() => ({ ...client().value, async getDatasets() { throw error } }))
+    const result = await adapter.test(profile); assert.equal(result.ok, false); if (!result.ok) assert.match(result.error, expected)
+  }
+})

@@ -1,0 +1,14 @@
+node_modules/
+out/
+dist/
+release/
+*.log
+*.tsbuildinfo
+.DS_Store
+
+visual-preview/
+
+# Official DuckDB extensions acquired for the current developer/build platform.
+resources/duckdb-extensions/*/*.duckdb_extension
+resources/duckdb-extensions/*/*.duckdb_extension.sha256
+.env

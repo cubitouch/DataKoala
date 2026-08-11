@@ -1,0 +1,38 @@
+import React from 'react'
+void React
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Popover } from '../Popover'
+import { ComboboxOption as OptionRow } from './ComboboxOption'
+import { ComboboxSearch } from './ComboboxSearch'
+import { ComboboxTrigger } from './ComboboxTrigger'
+import type { ComboboxOption } from './types'
+
+interface Props { label: string; values: string[]; options: ComboboxOption[]; onChange: (values: string[]) => void; placeholder?: string; searchable?: boolean; showChips?: boolean; disabled?: boolean; emptyMessage?: string; invalidationKey?: unknown }
+const norm = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase()
+const optionText = (option: ComboboxOption) => norm([option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' '))
+const optionId = (prefix: string, value: string) => `${prefix}-option-${encodeURIComponent(value)}`
+
+export function MultiCombobox({ label, values, options, onChange, placeholder = 'Select options…', searchable = true, showChips = false, disabled = false, emptyMessage = 'No matching options', invalidationKey }: Props) {
+  const reactId = useId(); const menuId = `${reactId}-listbox`; const [open, setOpen] = useState(false); const [query, setQuery] = useState(''); const [activeValue, setActiveValue] = useState<string | null>(null); const searchRef = useRef<HTMLInputElement>(null); const triggerRef = useRef<HTMLButtonElement>(null)
+  const filtered = useMemo(() => { const q = norm(query); return q ? options.filter((option) => optionText(option).includes(q)) : options }, [options, query])
+  const enabled = useMemo(() => filtered.filter((option) => !option.disabled), [filtered]); const active = filtered.find((option) => option.value === activeValue && !option.disabled) ?? enabled[0]
+  const optionByValue = useMemo(() => new Map(options.map((option) => [option.value, option])), [options])
+  const selectedOptions = values.map((value) => optionByValue.get(value)).filter((option): option is ComboboxOption => Boolean(option))
+  useEffect(() => { if (!open) { setQuery(''); setActiveValue(null); return }; setActiveValue((current) => filtered.some((option) => option.value === current && !option.disabled) ? current : (enabled[0]?.value ?? null)) }, [open, filtered, enabled])
+  useEffect(() => { if (open && searchable) searchRef.current?.focus() }, [open, searchable])
+  useEffect(() => { if (active) document.getElementById(optionId(reactId, active.value))?.scrollIntoView({ block: 'nearest' }) }, [active?.value, reactId])
+  const toggle = (option = active) => { if (!option || option.disabled) return; onChange(values.includes(option.value) ? values.filter((value) => value !== option.value) : [...values, option.value]) }
+  const remove = (value: string) => onChange(values.filter((existing) => existing !== value))
+  const move = (direction: 1 | -1) => { if (!enabled.length) return; const index = active ? enabled.findIndex((option) => option.value === active.value) : -1; setActiveValue(enabled[(index + direction + enabled.length) % enabled.length].value) }
+  const onKeyDown = (event: React.KeyboardEvent) => { if (event.key === 'ArrowDown') { event.preventDefault(); move(1) } else if (event.key === 'ArrowUp') { event.preventDefault(); move(-1) } else if (event.key === 'Home') { event.preventDefault(); setActiveValue(enabled[0]?.value ?? null) } else if (event.key === 'End') { event.preventDefault(); setActiveValue(enabled.at(-1)?.value ?? null) } else if (event.key === 'Enter' || (!searchable && event.key === ' ')) { event.preventDefault(); toggle() } else if (event.key === 'Escape' || event.key === 'Tab') setOpen(false); else if (event.key === 'Backspace' && searchable && query === '' && values.length) remove(values.at(-1)!) }
+  const clearAll = () => onChange([])
+  const triggerSummary = selectedOptions.length ? { value: 'summary', label: `${selectedOptions.length} selected` } : undefined
+  return <Popover triggerRef={triggerRef} className="combobox multi-combobox" contentClassName="combobox-menu" maxHeight={360} open={open} onOpenChange={setOpen} disabled={disabled} invalidationKey={invalidationKey} ariaLabel={`${label}: ${selectedOptions.map((o) => o.label).join(', ') || placeholder}`} popupType="listbox" focusOptionsOnKeyboardOpen={false} triggerButtonProps={{ role: 'combobox', 'aria-controls': menuId, 'aria-activedescendant': active ? optionId(reactId, active.value) : undefined, onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(true); return } if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true); setActiveValue((event.key === 'ArrowDown' ? enabled[0] : enabled.at(-1))?.value ?? null) } } }} trigger={<ComboboxTrigger selected={triggerSummary} chips={showChips ? selectedOptions : undefined} onRemoveChip={remove} placeholder={placeholder} />}>
+    <div id={menuId} role="listbox" aria-label={label} aria-multiselectable="true" aria-activedescendant={active ? optionId(reactId, active.value) : undefined} onKeyDown={onKeyDown} tabIndex={searchable ? -1 : 0}>
+      {searchable && <ComboboxSearch inputRef={searchRef} value={query} onChange={setQuery} onKeyDown={onKeyDown} label={label} />}
+      {values.length > 0 && <button type="button" className="combobox-clear" onClick={clearAll}>Clear all</button>}
+      {filtered.map((option) => <OptionRow key={option.value} id={optionId(reactId, option.value)} option={option} selected={values.includes(option.value)} active={option.value === active?.value} onMouseEnter={() => { if (!option.disabled) setActiveValue(option.value) }} onSelect={() => toggle(option)} />)}
+      {filtered.length === 0 && <div className="combobox-state" role="status">{emptyMessage}</div>}
+    </div>
+  </Popover>
+}
