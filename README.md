@@ -1,5 +1,7 @@
 # DataKoala
 
+<img src="build/icon.png" alt="DataKoala logo" width="200"/>
+
 A local-first desktop data explorer for PostgreSQL, BigQuery, SQLite, and local files. Connect a source, write SQL or use the visual Builder, then explore the result as a table or chart.
 
 > Status: early working prototype. The core loop (connect → query/build → table → chart → export) works and is covered by automated tests and smoke checks.
