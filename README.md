@@ -48,6 +48,14 @@ pnpm dev
 
 Then create a connection or local source from the left sidebar.
 
+## macOS releases
+
+Version tags matching `vX.Y.Z` build separate native macOS releases for Apple Silicon (`arm64`) and Intel (`x64`). The release workflow produces DMG and ZIP artifacts for both architectures, smoke-tests the packaged applications, generates SHA-256 checksums, and creates a **draft GitHub Release** for manual review before publication.
+
+The macOS builds are currently **unsigned and not notarized** because DataKoala does not yet use an Apple Developer ID certificate. macOS Gatekeeper may therefore warn or block the first launch, and managed work Macs may apply stricter organization policies. Do not disable Gatekeeper globally to install DataKoala.
+
+Published builds will be available from [GitHub Releases](../../releases).
+
 ## Development
 
 ```bash
