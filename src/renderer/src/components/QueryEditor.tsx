@@ -2,16 +2,19 @@ import React from 'react'
 void React
 import { useEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
-import { sql as sqlExtension, PostgreSQL, StandardSQL } from '@codemirror/lang-sql'
+import { sql as sqlExtension } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { api } from '../lib/api'
 import { ensureConnectionForTab } from '../lib/tabConnection'
 import { CopySqlButton } from './CopySqlButton'
-import type { QueryResult } from '@shared/types'
+import { sqlDialectForSourceKind, type QueryResult } from '@shared/types'
 import { formatSql } from '../lib/formatSql'
 import { ModeSwitch } from './ModeSwitch'
 import { queryResultFilters, wrapSqlWithResultFilters } from '../lib/resultFilters'
+import { codeMirrorDialect, formatterDialect } from '../lib/sqlDialect'
+import { buildSqlCompletionSchema } from '../lib/sqlCompletionSchema'
+import { sqlAliasCompletionSource } from '../lib/sqlAliasCompletion'
 
 export function QueryEditor() {
   const tabId = useStore((s) => s.activeTabId)
@@ -19,7 +22,9 @@ export function QueryEditor() {
   const setSql = useStore((s) => s.setSql)
   const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const connectionKind = useStore((s) => s.profiles.find((profile) => profile.id === tabConnectionId)?.kind)
-  const dialect = connectionKind === 'bigquery' ? 'bigquery' : 'postgresql'
+  const dialect = sqlDialectForSourceKind(connectionKind ?? 'postgres')
+  const metadata = useStore((s) => tabConnectionId ? s.metadataByProfileId[tabConnectionId] : undefined)
+  const schemas = metadata?.schemas ?? []
   const connecting = useStore((s) => s.connecting)
   const running = useStore((s) => selectActiveSession(s).running)
   const startQuery = useStore((s) => s.startQuery)
@@ -41,7 +46,14 @@ export function QueryEditor() {
     setTimeout(() => setShowToast(null), ms)
   }
 
-  const extensions = useMemo(() => [sqlExtension({ dialect: dialect === 'bigquery' ? StandardSQL : PostgreSQL, upperCaseKeywords: true })], [dialect])
+  const extensions = useMemo(() => {
+    const editorDialect = codeMirrorDialect(dialect)
+    const completion = buildSqlCompletionSchema(schemas, dialect)
+    return [
+      sqlExtension({ dialect: editorDialect, schema: completion.schema, defaultSchema: completion.defaultSchema, upperCaseKeywords: true }),
+      editorDialect.language.data.of({ autocomplete: sqlAliasCompletionSource(schemas, dialect) })
+    ]
+  }, [dialect, schemas])
   const stillBoundTo = (requestTabId: string, profileId: string) => selectSession(useStore.getState(), requestTabId)?.connectionProfileId === profileId
 
   const run = async () => {
@@ -69,7 +81,7 @@ export function QueryEditor() {
     startQuery(requestTabId)
     try {
       const promoted = queryResultFilters(requestFilters)
-      const execution = promoted.length ? wrapSqlWithResultFilters(requestSql, promoted, dialect === 'bigquery' ? 'google-sql' : 'postgres') : { sql: requestSql, parameters: [] }
+      const execution = promoted.length ? wrapSqlWithResultFilters(requestSql, promoted, dialect) : { sql: requestSql, parameters: [] }
       if (!execution) throw new Error('This SQL cannot safely be wrapped; move query filters back to the client.')
       const res: QueryResult = await api.query.run(requestProfileId, execution.sql, execution.parameters)
       if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(res, null, requestTabId)
@@ -114,7 +126,7 @@ export function QueryEditor() {
   const canExplain = canUseDatabase && (connectionKind === undefined || connectionKind === 'postgres')
 
   const doFormat = () => {
-    const r = formatSql(sql, dialect)
+    const r = formatSql(sql, formatterDialect(dialect))
     if (r.ok) {
       setSql(r.sql, tabId)
       flash('Formatted')

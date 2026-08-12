@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { isNumericType, type DatabaseColumnNode, type QueryResult } from '@shared/types'
+import { isNumericType, sqlDialectForSourceKind, type DatabaseColumnNode, type QueryResult } from '@shared/types'
 import { api } from '../lib/api'
 import { BUILDER_AGGREGATIONS, generateBuilderQuery, isBuilderTemporalDataType, isBuilderTimeBucketSupported, materializeSqlParameters, TIME_BUCKETS } from '../lib/builderSql'
 import { canLoadRelationColumns, relationIdentity, relationsForSchema, selectionPatchForColumns } from '../lib/builderRelations'
@@ -17,6 +17,7 @@ import { TimeRangeField } from './time-range/TimeRangeField'
 import { formatSqlOrOriginal } from '../lib/formatSql'
 import type { Aggregation } from '../lib/resultVisualization'
 import '../axisBuilder.css'
+import { formatterDialect as formatterDialectForSql } from '../lib/sqlDialect'
 
 const isTimeColumn = (column: DatabaseColumnNode) => isBuilderTemporalDataType(column.dataTypeName)
 const aggregationLabel = (aggregation: Aggregation) => aggregation === 'average' ? 'Average' : aggregation === 'minimum' ? 'Minimum' : aggregation === 'maximum' ? 'Maximum' : aggregation === 'count' ? 'Count' : 'Sum'
@@ -157,7 +158,7 @@ export function BuilderPanel() {
   }, [metadataStatus, tabConnected, selectedRelation?.qualifiedName, selectedRelation?.columnsStatus])
 
   const generatedQuery = useMemo(() => configurationComplete && builder.table && selectedX ? generateBuilderQuery({
-    dialect: connectionKind === 'bigquery' ? 'google-sql' : connectionKind === 'local-files' || connectionKind === 'sqlite-file' ? 'duckdb' : 'postgres',
+    dialect: sqlDialectForSourceKind(connectionKind ?? 'postgres'),
     table: builder.table,
     xColumn: selectedX,
     xColumnDataType: xColumn?.dataTypeName,
@@ -171,7 +172,7 @@ export function BuilderPanel() {
     filters
   }) : null, [configurationComplete, builder, connectionKind, selectedX, xColumn?.dataTypeName, timeFilterColumn?.dataTypeName, selectedY, aggregation, effectiveTimeRange, filters])
   const generatedSql = generatedQuery?.sql ?? ''
-  const formatterDialect = connectionKind === 'bigquery' ? 'bigquery' as const : 'postgresql' as const
+  const formatterDialect = formatterDialectForSql(sqlDialectForSourceKind(connectionKind ?? 'postgres'))
   const formattedGeneratedSql = useMemo(() => generatedSql ? formatSqlOrOriginal(generatedSql, formatterDialect) : '', [generatedSql, formatterDialect])
 
   useEffect(() => {

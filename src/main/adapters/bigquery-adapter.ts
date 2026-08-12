@@ -4,7 +4,7 @@ import type { DataColumn, DataRelation, DataSourceAdapter, DataSourceSession, Qu
 
 const ROW_LIMIT = 10_000
 const DATASET_RELATION_CONCURRENCY = 5
-const capabilities: DataSourceCapabilities = { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: false }
+const capabilities: DataSourceCapabilities = { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: true }
 
 export interface BigQueryClientLike {
   getDatasets(options?: Record<string, unknown>): Promise<unknown[]>

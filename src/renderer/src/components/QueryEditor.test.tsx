@@ -7,7 +7,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 const { explain } = vi.hoisted(() => ({ explain: vi.fn() }))
 vi.mock('../lib/api', () => ({ api: { query: { explain, run: vi.fn() }, export: { saveText: vi.fn() } } }))
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value, onChange, editable = true }: { value: string, onChange: (value: string) => void, editable?: boolean }) => <textarea aria-label="SQL editor" value={value} disabled={!editable} onChange={(event) => onChange(event.target.value)} /> }))
-vi.mock('@codemirror/lang-sql', () => ({ sql: () => ({}), PostgreSQL: {} }))
+vi.mock('@codemirror/lang-sql', () => {
+  const dialect = { spec: {}, language: { data: { of: () => ({}) } } }
+  return { sql: () => ({}), PostgreSQL: dialect, StandardSQL: dialect, SQLDialect: { define: () => dialect } }
+})
 vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: {} }))
 vi.mock('./ModeSwitch', () => ({ ModeSwitch: () => <div aria-label="Query mode" /> }))
 

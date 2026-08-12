@@ -2,7 +2,7 @@
  * Provider-neutral main-process facade. IPC continues to call this stable API;
  * provider behavior lives behind adapters and sessions.
  */
-import type { ConnectionId, ConnectionStateEvent, ConnectResult, DataSourceProfile, QueryResult } from '../shared/types.ts'
+import { sqlDialectForSourceKind, type ConnectionId, type ConnectionStateEvent, type ConnectResult, type DataSourceProfile, type QueryResult } from '../shared/types.ts'
 import { AdapterRegistry } from './data-source.ts'
 import type { DataSourceSession } from './data-source.ts'
 import { PostgresAdapter, DatabaseConnectionError, __testing } from './adapters/postgres-adapter.ts'
@@ -134,7 +134,7 @@ export function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = 
 }
 
 export function queryDialect(id: ConnectionId) {
-  return session(id).info.provider === 'bigquery' ? 'google-sql' as const : session(id).info.provider === 'local-files' || session(id).info.provider === 'sqlite-file' ? 'duckdb' as const : 'postgres' as const
+  return sqlDialectForSourceKind(session(id).info.provider)
 }
 
 export async function listObjects(id: ConnectionId) {

@@ -7,7 +7,7 @@ import { BigQueryDate, BigQueryDatetime, BigQueryInt, BigQueryTime, BigQueryTime
 const profile: BigQueryProfile = { kind: 'bigquery', version: 1, id: 'bq', name: 'BQ', billingProject: 'billing', defaultProject: 'data', defaultDataset: 'analytics', location: 'US', maximumBytesBilled: '1073741824', readonly: true }
 
 test('advertises Builder without unsupported explain, analyze, or cancellation', () => {
-  assert.deepEqual(__testing.capabilities, { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: false })
+  assert.deepEqual(__testing.capabilities, { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: true })
 })
 
 function client(statementType = 'SELECT', rows: any[] = [{ exact: new BigQueryInt('9007199254740993') }], pageToken?: string) {

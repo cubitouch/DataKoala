@@ -15,12 +15,12 @@ export interface FormatResult {
   error?: string
 }
 
-export function formatSqlOrOriginal(input: string, dialect: 'postgresql' | 'bigquery' = 'postgresql'): string {
+export function formatSqlOrOriginal(input: string, dialect: 'postgresql' | 'bigquery' | 'duckdb' = 'postgresql'): string {
   const result = formatSql(input, dialect)
   return result.ok ? result.sql : input
 }
 
-export function formatSql(input: string, dialect: 'postgresql' | 'bigquery' = 'postgresql'): FormatResult {
+export function formatSql(input: string, dialect: 'postgresql' | 'bigquery' | 'duckdb' = 'postgresql'): FormatResult {
   const trimmed = input.trim()
   if (!trimmed) return { ok: false, sql: input, error: 'Nothing to format.' }
   try {
