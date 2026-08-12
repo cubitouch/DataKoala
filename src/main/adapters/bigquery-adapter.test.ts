@@ -85,6 +85,64 @@ test('passes defaultDataset to query jobs only when selected', async () => {
   assert.equal(Object.hasOwn(all.calls.at(-1)!, 'defaultDataset'), false)
 })
 
+function relationClient(datasetTables: Record<string, Array<{ id: string; type?: string }>>, hooks?: { start?: (dataset: string) => void; finish?: (dataset: string) => void }): BigQueryClientLike {
+  return {
+    async getDatasets(options) {
+      if (options?.maxResults === 1) return [[]]
+      return [Object.keys(datasetTables).map((id) => ({ id }))]
+    },
+    dataset(datasetId, _options) {
+      return {
+        async getTables() {
+          hooks?.start?.(datasetId)
+          await new Promise((resolve) => setTimeout(resolve, 2))
+          hooks?.finish?.(datasetId)
+          return [datasetTables[datasetId].map(({ id, type = 'TABLE' }) => ({ id, async getMetadata() { return [{ type }] } }))]
+        },
+        table() { return { async getMetadata() { return [{ schema: { fields: [] } }] } } }
+      }
+    },
+    async createQueryJob() { throw new Error('not used') }
+  }
+}
+
+test('listRelations without a namespace flattens every dataset regardless of the default', async () => {
+  const datasets = { empty: [], dataset_b: [{ id: 'events', type: 'VIEW' }], dataset_a: [{ id: 'zebra' }, { id: 'events' }] }
+  for (const defaultDataset of [undefined, 'dataset_a']) {
+    const connected = await new BigQueryAdapter(() => relationClient(datasets)).connect({ ...profile, defaultDataset })
+    assert.deepEqual(await connected.session!.listRelations(), [
+      { namespace: 'data.dataset_a', name: 'events', kind: 'table' },
+      { namespace: 'data.dataset_a', name: 'zebra', kind: 'table' },
+      { namespace: 'data.dataset_b', name: 'events', kind: 'view' }
+    ])
+  }
+})
+
+test('a qualified namespace queries only that namespace project and dataset', async () => {
+  const requested: Array<{ datasetId: string; projectId: unknown }> = []
+  const base = relationClient({ dataset_a: [{ id: 'events' }], dataset_b: [{ id: 'other' }] })
+  const connected = await new BigQueryAdapter(() => ({
+    ...base,
+    dataset(datasetId, options) { requested.push({ datasetId, projectId: options?.projectId }); return base.dataset(datasetId, options) }
+  })).connect(profile)
+  requested.length = 0
+  assert.deepEqual(await connected.session!.listRelations({ name: 'other-project.dataset_a' }), [
+    { namespace: 'other-project.dataset_a', name: 'events', kind: 'table' }
+  ])
+  assert.deepEqual(requested, [{ datasetId: 'dataset_a', projectId: 'other-project' }])
+})
+
+test('all-dataset relation enumeration uses bounded concurrency', async () => {
+  const datasets = Object.fromEntries(Array.from({ length: 17 }, (_, index) => [`dataset_${index}`, [{ id: 'events' }]]))
+  let active = 0; let peak = 0
+  const connected = await new BigQueryAdapter(() => relationClient(datasets, {
+    start() { active++; peak = Math.max(peak, active) }, finish() { active-- }
+  })).connect({ ...profile, defaultDataset: undefined })
+  assert.equal((await connected.session!.listRelations()).length, 17)
+  assert.ok(peak > 1)
+  assert.ok(peak <= __testing.DATASET_RELATION_CONCURRENCY)
+})
+
 test('rejects non-SELECT dry-run statement types before execution', async () => {
   const fake = client('INSERT'); const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
   await assert.rejects(() => connected.session!.query({ sql: 'INSERT INTO x VALUES (1)' }), /only one SELECT/)

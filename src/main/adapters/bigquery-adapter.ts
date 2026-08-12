@@ -3,6 +3,7 @@ import type { BigQueryProfile, ColumnMeta, ConnectResult, DataSourceCapabilities
 import type { DataColumn, DataRelation, DataSourceAdapter, DataSourceSession, QueryRequest } from '../data-source.ts'
 
 const ROW_LIMIT = 10_000
+const DATASET_RELATION_CONCURRENCY = 5
 const capabilities: DataSourceCapabilities = { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: false }
 
 export interface BigQueryClientLike {
@@ -21,6 +22,25 @@ function profile(value: DataSourceProfile): BigQueryProfile {
 
 function effectiveDataProject(value: BigQueryProfile): string {
   return value.defaultProject?.trim() || value.billingProject.trim()
+}
+
+async function mapWithConcurrency<T, R>(values: T[], limit: number, mapper: (value: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(values.length)
+  let next = 0
+  const workers = Array.from({ length: Math.min(limit, values.length) }, async () => {
+    while (next < values.length) {
+      const index = next++
+      results[index] = await mapper(values[index])
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
+function parseNamespace(name: string): { projectId: string; datasetId: string } {
+  const separator = name.lastIndexOf('.')
+  if (separator <= 0 || separator === name.length - 1) throw new Error(`Invalid BigQuery dataset namespace: ${name}`)
+  return { projectId: name.slice(0, separator), datasetId: name.slice(separator + 1) }
 }
 
 function friendlyError(error: unknown): string {
@@ -72,18 +92,23 @@ class BigQuerySession implements DataSourceSession {
     this.info = { profileId: p.id, provider: 'bigquery' as const }
   }
   private project() { return effectiveDataProject(this.p) }
-  async listNamespaces() {
-    const [datasets] = await this.client.getDatasets({ projectId: this.project(), all: true }) as any
+  async listNamespaces(): Promise<Array<{ name: string }>> {
+    const [datasets] = await this.client.getDatasets({ projectId: this.project(), all: true }) as [any[]]
     return datasets.map((d: any) => ({ name: `${this.project()}.${d.id}` }))
   }
-  async listRelations(namespace?: { name: string }): Promise<DataRelation[]> {
-    const datasetId = namespace?.name.split('.').at(-1) || this.p.defaultDataset
-    if (!datasetId) return []
-    const [tables] = await this.client.dataset(datasetId, { projectId: this.project() }).getTables({ autoPaginate: true })
+  private async listRelationsForNamespace(namespace: { name: string }): Promise<DataRelation[]> {
+    const { projectId, datasetId } = parseNamespace(namespace.name)
+    const [tables] = await this.client.dataset(datasetId, { projectId }).getTables({ autoPaginate: true })
     return Promise.all(tables.map(async (table: any) => {
       const [metadata] = await table.getMetadata(); const type = metadata.type
-      return { namespace: `${this.project()}.${datasetId}`, name: table.id, kind: type === 'VIEW' ? 'view' : type === 'MATERIALIZED_VIEW' ? 'materialized-view' : 'table' }
+      return { namespace: namespace.name, name: table.id, kind: type === 'VIEW' ? 'view' as const : type === 'MATERIALIZED_VIEW' ? 'materialized-view' as const : 'table' as const }
     }))
+  }
+  async listRelations(namespace?: { name: string }): Promise<DataRelation[]> {
+    const groups = namespace
+      ? [await this.listRelationsForNamespace(namespace)]
+      : await mapWithConcurrency(await this.listNamespaces(), DATASET_RELATION_CONCURRENCY, (item) => this.listRelationsForNamespace(item))
+    return groups.flat().sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name))
   }
   async describeRelation(ref: { namespace: string; name: string }): Promise<DataColumn[]> {
     const datasetId = ref.namespace.split('.').at(-1)!
@@ -128,4 +153,4 @@ export class BigQueryAdapter implements DataSourceAdapter {
   }
 }
 
-export const __testing = { friendlyError, capabilities, effectiveDataProject, ROW_LIMIT }
+export const __testing = { friendlyError, capabilities, effectiveDataProject, mapWithConcurrency, parseNamespace, DATASET_RELATION_CONCURRENCY, ROW_LIMIT }
