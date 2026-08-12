@@ -16,8 +16,9 @@ export type BigQueryClientFactory = (options: { projectId: string }) => BigQuery
 function profile(value: DataSourceProfile): BigQueryProfile {
   if (value.kind !== 'bigquery') throw new Error('A BigQuery profile is required.')
   if (!value.billingProject.trim()) throw new Error('Billing project is required.')
-  if (value.maximumBytesBilled && (!/^\d+$/.test(value.maximumBytesBilled) || BigInt(value.maximumBytesBilled) <= 0n)) throw new Error('Maximum bytes billed must be a positive decimal integer.')
-  return value
+  const maximumBytesBilled = value.maximumBytesBilled.trim()
+  if (maximumBytesBilled && (!/^\d+$/.test(maximumBytesBilled) || BigInt(maximumBytesBilled) <= 0n)) throw new Error('Maximum bytes billed must be a positive decimal integer.')
+  return { ...value, maximumBytesBilled }
 }
 
 function effectiveDataProject(value: BigQueryProfile): string {

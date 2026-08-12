@@ -65,12 +65,18 @@ test('omits location from query jobs without an explicit override', async () => 
 })
 
 test('omits maximumBytesBilled from query jobs when the optional cap is blank', async () => {
-  const fake = client(); const connected = await new BigQueryAdapter(() => fake.value).connect({ ...profile, maximumBytesBilled: '' })
+  const fake = client(); const connected = await new BigQueryAdapter(() => fake.value).connect({ ...profile, maximumBytesBilled: '   ' })
   await connected.session!.query({ sql: 'SELECT 1' })
   assert.equal(fake.calls.length, 2)
   assert.equal(fake.calls.every((call) => !Object.hasOwn(call, 'maximumBytesBilled')), true)
   await connected.session!.estimateQuery?.('SELECT 1')
   assert.equal(Object.hasOwn(fake.calls.at(-1)!, 'maximumBytesBilled'), false)
+})
+
+test('normalizes surrounding whitespace in maximumBytesBilled before query jobs', async () => {
+  const fake = client(); const connected = await new BigQueryAdapter(() => fake.value).connect({ ...profile, maximumBytesBilled: ' 1000\t' })
+  await connected.session!.estimateQuery?.('SELECT 1')
+  assert.equal(fake.calls.at(-1)?.maximumBytesBilled, '1000')
 })
 
 test('uses the effective data project and always exposes every visible dataset', async () => {
