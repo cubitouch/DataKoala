@@ -9,6 +9,7 @@ import type {
   TestResult
 } from '@shared/types'
 import type { SeriesCardinalityProbeRequest, SeriesCardinalityProbeResult, SeriesStatisticsRequest, SeriesStatisticsResult } from '@shared/chartLimits'
+import type { BigQueryDatasetOption, BigQueryDiscoveryDefaults, BigQueryProjectOption } from '@shared/bigqueryDiscovery'
 
 const api = {
   /** True only when the app is launched by a test/repro harness. */
@@ -36,7 +37,12 @@ const api = {
     },
     listObjects: (id: string): Promise<TableInfo[]> => ipcRenderer.invoke(IPC.CONNECTION_LIST_OBJECTS, id),
     describeTable: (id: string, schema: string, table: string) =>
-      ipcRenderer.invoke(IPC.CONNECTION_DESCRIBE_TABLE, id, schema, table)
+      ipcRenderer.invoke(IPC.CONNECTION_DESCRIBE_TABLE, id, schema, table),
+    bigquery: {
+      discoverProjects: (): Promise<BigQueryProjectOption[]> => ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_PROJECTS),
+      listDatasets: (projectId: string): Promise<BigQueryDatasetOption[]> => ipcRenderer.invoke(IPC.BIGQUERY_LIST_DATASETS, projectId),
+      discoverDefaults: (): Promise<BigQueryDiscoveryDefaults> => ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_DEFAULTS)
+    }
   },
   query: {
     run: (id: string, sql: string, parameters: unknown[] = []): Promise<QueryResult> => ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters),

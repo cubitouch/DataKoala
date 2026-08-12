@@ -58,6 +58,12 @@ test('estimates from inline dry-run metadata without fetching persisted job meta
   assert.deepEqual(fake.calls.at(-1), { query: 'SELECT 1', dryRun: true, useLegacySql: false, location: 'US', maximumBytesBilled: '1073741824' })
 })
 
+test('omits location from query jobs without an explicit override', async () => {
+  const fake = client(); const connected = await new BigQueryAdapter(() => fake.value).connect({ ...profile, location: undefined })
+  await connected.session!.estimateQuery?.('SELECT 1')
+  assert.equal(Object.hasOwn(fake.calls.at(-1)!, 'location'), false)
+})
+
 test('rejects non-SELECT dry-run statement types before execution', async () => {
   const fake = client('INSERT'); const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
   await assert.rejects(() => connected.session!.query({ sql: 'INSERT INTO x VALUES (1)' }), /only one SELECT/)

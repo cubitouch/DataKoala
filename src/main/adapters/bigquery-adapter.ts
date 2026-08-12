@@ -87,7 +87,7 @@ class BigQuerySession implements DataSourceSession {
     return (metadata.schema?.fields || []).map((field: any) => ({ name: field.name, nativeType: field.type, nullable: field.mode !== 'REQUIRED' }))
   }
   async query(request: QueryRequest): Promise<QueryResult> {
-    const common = { query: request.sql, params: request.parameters || [], useLegacySql: false, location: this.p.location || undefined, defaultDataset: this.p.defaultDataset ? { projectId: this.project(), datasetId: this.p.defaultDataset } : undefined, maximumBytesBilled: this.p.maximumBytesBilled }
+    const common = { query: request.sql, params: request.parameters || [], useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), defaultDataset: this.p.defaultDataset ? { projectId: this.project(), datasetId: this.p.defaultDataset } : undefined, maximumBytesBilled: this.p.maximumBytesBilled }
     const [dryJob] = await this.client.createQueryJob({ ...common, dryRun: true })
     const dryMetadata = dryJob.metadata
     const statementType = dryMetadata.statistics?.query?.statementType
@@ -104,7 +104,7 @@ class BigQuerySession implements DataSourceSession {
     const bytes = Number(query.totalBytesProcessed)
     return { columns, rows: safeRows, rowCount: safeRows.length, durationMs, execution: { provider: 'bigquery', durationMs, rowCount: safeRows.length, truncated, bytesProcessed: Number.isSafeInteger(bytes) ? bytes : undefined, cacheHit: query.cacheHit } }
   }
-  async estimateQuery(sql: string) { const [job] = await this.client.createQueryJob({ query: sql, dryRun: true, useLegacySql: false, location: this.p.location || undefined, maximumBytesBilled: this.p.maximumBytesBilled }); return { bytesProcessed: Number(job.metadata?.statistics?.query?.totalBytesProcessed) } }
+  async estimateQuery(sql: string) { const [job] = await this.client.createQueryJob({ query: sql, dryRun: true, useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), maximumBytesBilled: this.p.maximumBytesBilled }); return { bytesProcessed: Number(job.metadata?.statistics?.query?.totalBytesProcessed) } }
   async close() {}
 }
 

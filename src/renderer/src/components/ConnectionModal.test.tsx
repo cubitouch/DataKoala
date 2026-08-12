@@ -3,10 +3,10 @@ void React
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { ConnectionProfile } from '../../../shared/types'
+import type { ConnectionProfile, DataSourceProfile } from '../../../shared/types'
 
-const { testConnection, upsert, chooseSqliteFile, chooseFiles } = vi.hoisted(() => ({ testConnection: vi.fn(), upsert: vi.fn(), chooseSqliteFile: vi.fn(), chooseFiles: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: { connections: { test: testConnection, upsert, chooseSqliteFile, chooseFiles } } }))
+const { testConnection, upsert, chooseSqliteFile, chooseFiles, discoverProjects, discoverDefaults, listDatasets } = vi.hoisted(() => ({ testConnection: vi.fn(), upsert: vi.fn(), chooseSqliteFile: vi.fn(), chooseFiles: vi.fn(), discoverProjects: vi.fn(), discoverDefaults: vi.fn(), listDatasets: vi.fn() }))
+vi.mock('../lib/api', () => ({ api: { connections: { test: testConnection, upsert, chooseSqliteFile, chooseFiles, bigquery: { discoverProjects, discoverDefaults, listDatasets } } } }))
 import { ConnectionModal } from './ConnectionModal'
 
 const existing: ConnectionProfile = {
@@ -14,7 +14,7 @@ const existing: ConnectionProfile = {
   id: 'profile-1', name: 'Original', host: 'old.host', port: 5432, database: 'old_db',
   user: 'old_user', password: 'old password', ssl: false, readonly: true
 }
-const renderModal = (profile: ConnectionProfile | null = null) => {
+const renderModal = (profile: DataSourceProfile | null = null) => {
   const onSaved = vi.fn()
   render(<ConnectionModal existing={profile} onClose={vi.fn()} onSaved={onSaved} />)
   return { onSaved }
@@ -30,6 +30,9 @@ beforeEach(() => {
   chooseFiles.mockReset()
   chooseSqliteFile.mockResolvedValue('/fixtures/analytics.sqlite3')
   chooseFiles.mockResolvedValue([])
+  discoverProjects.mockReset(); discoverProjects.mockResolvedValue([])
+  discoverDefaults.mockReset(); discoverDefaults.mockResolvedValue({})
+  listDatasets.mockReset(); listDatasets.mockResolvedValue([])
 })
 afterEach(cleanup)
 

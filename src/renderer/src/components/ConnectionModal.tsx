@@ -3,6 +3,8 @@ void React
 import type { BigQueryProfile, ConnectionProfile, DataSourceProfile, LocalFilesProfile, SqliteFileProfile } from '../../../shared/types'
 import { parseConnectionString, buildConnectionString, DEFAULT_PORT } from '../../../shared/connString'
 import { api } from '../lib/api'
+import { Combobox } from './ui/combobox'
+import { parseBigQueryReference, type BigQueryDatasetOption, type BigQueryProjectOption } from '../../../shared/bigqueryDiscovery'
 import {
   buildConnectionProfileDraft,
   draftFromProfile,
@@ -307,19 +309,48 @@ function SqliteFileConnectionModal({ existing, onClose, onSaved }: Props & { exi
 function BigQueryConnectionModal({ existing, onClose, onSaved }: Props & { existing: BigQueryProfile | null }) {
   const [draft, setDraft] = useState(() => ({ name: existing?.name ?? '', billingProject: existing?.billingProject ?? '', defaultProject: existing?.defaultProject ?? '', defaultDataset: existing?.defaultDataset ?? '', location: existing?.location ?? '', maximumBytesBilled: existing?.maximumBytesBilled ?? '1073741824' }))
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null); const [busy, setBusy] = useState(false); const revision = useRef(0)
-  useEffect(() => () => { revision.current++ }, [])
+  const [projects, setProjects] = useState<BigQueryProjectOption[]>([])
+  const [projectLoading, setProjectLoading] = useState(true); const [projectError, setProjectError] = useState<string | null>(null)
+  const [datasets, setDatasets] = useState<BigQueryDatasetOption[]>([])
+  const [datasetLoading, setDatasetLoading] = useState(false); const [datasetError, setDatasetError] = useState<string | null>(null)
+  const [reference, setReference] = useState(''); const [referenceError, setReferenceError] = useState<string | null>(null)
+  const datasetRevision = useRef(0); const untouched = useRef(!existing)
+  useEffect(() => {
+    let active = true
+    void api.connections.bigquery.discoverProjects().then((values: BigQueryProjectOption[]) => { if (active) setProjects(values) }).catch(() => { if (active) setProjectError('Could not discover projects. You can still enter a project ID manually.') }).finally(() => { if (active) setProjectLoading(false) })
+    if (!existing) void api.connections.bigquery.discoverDefaults().then(({ projectId }: { projectId?: string }) => { if (active && untouched.current && projectId) { setDraft((current) => ({ ...current, billingProject: projectId, defaultProject: projectId })); loadDatasets(projectId) } }).catch(() => undefined)
+    return () => { active = false; revision.current++; datasetRevision.current++ }
+  }, [existing])
+  const loadDatasets = (projectId: string) => {
+    const current = ++datasetRevision.current; setDatasets([]); setDatasetError(null)
+    if (!projectId.trim()) { setDatasetLoading(false); return }
+    setDatasetLoading(true)
+    void api.connections.bigquery.listDatasets(projectId.trim()).then((values: BigQueryDatasetOption[]) => { if (current === datasetRevision.current) setDatasets(values) }).catch(() => { if (current === datasetRevision.current) setDatasetError('Could not discover datasets. You can still enter a dataset ID manually.') }).finally(() => { if (current === datasetRevision.current) setDatasetLoading(false) })
+  }
+  useEffect(() => { const projectId = existing?.defaultProject || existing?.billingProject; if (projectId) loadDatasets(projectId) }, [existing])
   const makeProfile = (): BigQueryProfile => ({ kind: 'bigquery', version: 1, id: existing?.id ?? '', name: draft.name.trim(), billingProject: draft.billingProject.trim(), defaultProject: draft.defaultProject.trim() || draft.billingProject.trim(), defaultDataset: draft.defaultDataset.trim() || undefined, location: draft.location.trim() || undefined, maximumBytesBilled: draft.maximumBytesBilled.trim(), readonly: true })
   const validate = () => !draft.name.trim() ? 'Enter a connection name.' : !draft.billingProject.trim() ? 'Enter a billing project.' : !/^\d+$/.test(draft.maximumBytesBilled) || BigInt(draft.maximumBytesBilled) <= 0n ? 'Maximum bytes billed must be a positive decimal integer.' : null
   const test = async () => { const error = validate(); if (error) return setMessage({ ok: false, text: error }); const current = ++revision.current; setBusy(true); setMessage(null); try { const result = await api.connections.test(makeProfile()); if (current === revision.current) setMessage(result.ok ? { ok: true, text: 'Credentials and metadata access verified.' } : { ok: false, text: result.error }) } catch (caught) { if (current === revision.current) setMessage({ ok: false, text: failureMessage(caught) }) } finally { if (current === revision.current) setBusy(false) } }
   const save = async () => { const error = validate(); if (error) return setMessage({ ok: false, text: error }); setBusy(true); try { onSaved(await api.connections.upsert(makeProfile())); onClose() } catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }) } finally { setBusy(false) } }
-  const set = (field: keyof typeof draft, value: string) => { revision.current++; setBusy(false); setMessage(null); setDraft((valueNow) => ({ ...valueNow, [field]: value })) }
+  const set = (field: keyof typeof draft, value: string) => { untouched.current = false; revision.current++; setBusy(false); setMessage(null); setDraft((valueNow) => ({ ...valueNow, [field]: value })) }
+  const setDataProject = (value: string, dataset = '') => { untouched.current = false; revision.current++; setBusy(false); setMessage(null); setDraft((current) => ({ ...current, defaultProject: value, defaultDataset: dataset })); loadDatasets(value) }
+  const applyReference = (value: string) => {
+    setReference(value); if (!value.trim()) return setReferenceError(null)
+    const parsed = parseBigQueryReference(value)
+    if (!parsed) return setReferenceError('Enter a valid BigQuery project and dataset reference.')
+    setReferenceError(null); setDataProject(parsed.projectId, parsed.datasetId ?? '')
+  }
+  const projectOptions = useMemo(() => projects.map((project) => ({ value: project.projectId, label: project.friendlyName || project.projectId, subtitle: project.friendlyName ? project.projectId : undefined })), [projects])
+  const datasetOptions = useMemo(() => datasets.map((dataset) => ({ value: dataset.datasetId, label: dataset.datasetId, subtitle: [dataset.friendlyName, dataset.location].filter(Boolean).join(' · ') || undefined })), [datasets])
+  const selectedDataset = datasets.find((dataset) => dataset.datasetId === draft.defaultDataset)
   return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="bigquery-title" onClick={(event) => event.stopPropagation()}>
     <h2 id="bigquery-title">{existing ? 'Edit BigQuery connection' : 'New BigQuery connection'}</h2>
     <div className="test-msg info">Authentication uses Google Application Default Credentials (ADC). DataKoala does not import or store service-account JSON, tokens, or credentials.</div>
     <div className="field"><label htmlFor="bq-name">Connection name</label><input id="bq-name" value={draft.name} onChange={(e) => set('name', e.target.value)} /></div>
-    <div className="row"><div className="field"><label htmlFor="bq-billing">Billing project</label><input id="bq-billing" value={draft.billingProject} onChange={(e) => set('billingProject', e.target.value)} /></div><div className="field"><label htmlFor="bq-data">Data project <span className="opt">— defaults to billing project</span></label><input id="bq-data" value={draft.defaultProject} onChange={(e) => set('defaultProject', e.target.value)} /></div></div>
-    <div className="row"><div className="field"><label htmlFor="bq-dataset">Dataset <span className="opt">— optional</span></label><input id="bq-dataset" value={draft.defaultDataset} onChange={(e) => set('defaultDataset', e.target.value)} /></div><div className="field"><label htmlFor="bq-location">Location <span className="opt">— optional</span></label><input id="bq-location" placeholder="e.g. US or europe-west1" value={draft.location} onChange={(e) => set('location', e.target.value)} /></div></div>
-    <div className="field"><label htmlFor="bq-max">Maximum bytes billed <span className="opt">— decimal bytes</span></label><input id="bq-max" inputMode="numeric" value={draft.maximumBytesBilled} onChange={(e) => set('maximumBytesBilled', e.target.value)} /><div className="paste-hint">Applied to dry runs and every query. New connections default to 1 GiB.</div></div>
+    <div className="field"><label htmlFor="bq-reference">Paste BigQuery reference <span className="opt">— optional</span></label><input id="bq-reference" placeholder="project.dataset or projects/project/datasets/dataset" value={reference} onChange={(event) => applyReference(event.target.value)} aria-invalid={!!referenceError} />{referenceError && <div className="field-error" role="alert">{referenceError}</div>}</div>
+    <div className="row"><div className="field"><label>Billing project</label><Combobox label="Billing project" value={draft.billingProject} options={projectOptions} onChange={(value) => set('billingProject', value)} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div><div className="field"><label>Data project <span className="opt">— defaults to billing project</span></label><Combobox label="Data project" value={draft.defaultProject} options={projectOptions} onChange={setDataProject} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div></div>
+    <div className="field"><label>Dataset <span className="opt">— optional</span></label><Combobox label="Dataset" value={draft.defaultDataset} options={datasetOptions} onChange={(value) => set('defaultDataset', value)} searchable allowCustomValue disabled={!draft.defaultProject.trim()} loading={datasetLoading} error={datasetError} emptyMessage="No datasets found. Enter a dataset ID manually." invalidationKey={draft.defaultProject} />{selectedDataset?.location && <div className="paste-hint" role="status">Dataset location: <strong>{selectedDataset.location}</strong></div>}</div>
+    <details className="bq-advanced"><summary>Advanced</summary><div className="field"><label htmlFor="bq-location">Location override <span className="opt">— optional</span></label><input id="bq-location" placeholder="e.g. US or europe-west1" value={draft.location} onChange={(e) => set('location', e.target.value)} /><div className="paste-hint">Normally leave blank so BigQuery infers the query location from referenced datasets.</div></div><div className="field"><label htmlFor="bq-max">Maximum bytes billed <span className="opt">— decimal bytes</span></label><input id="bq-max" inputMode="numeric" value={draft.maximumBytesBilled} onChange={(e) => set('maximumBytesBilled', e.target.value)} /><div className="paste-hint">Applied to dry runs and every query. New connections default to 1 GiB.</div></div></details>
     {message && <div className={`test-msg ${message.ok ? 'ok' : 'err'}`} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
     <div className="actions"><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy}>{busy ? 'Testing…' : 'Test'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy}>Save</button></div>
   </div></div>
