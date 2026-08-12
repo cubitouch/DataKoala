@@ -12,7 +12,7 @@ import { ConnectionModal } from './ConnectionModal'
 const renderBigQuery = (existing: BigQueryProfile | null = null) => {
   const onSaved = vi.fn()
   render(<ConnectionModal existing={existing} onClose={vi.fn()} onSaved={onSaved} />)
-  if (!existing) fireEvent.click(screen.getByRole('button', { name: 'BigQuery' }))
+  if (!existing) fireEvent.click(screen.getByRole('radio', { name: /BigQuery/ }))
   return { onSaved }
 }
 
@@ -21,6 +21,17 @@ beforeEach(() => {
   mocks.listDatasets.mockReset().mockResolvedValue([]); mocks.test.mockReset(); mocks.upsert.mockReset().mockImplementation(async (profile) => profile)
 })
 afterEach(cleanup)
+
+it('allows a blank billing cap when saving', async () => {
+  const { onSaved } = renderBigQuery()
+  fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'Warehouse' } })
+  fireEvent.click(screen.getByRole('combobox', { name: /Billing project/ }))
+  fireEvent.change(screen.getByLabelText('Search Billing project'), { target: { value: 'billing' } })
+  fireEvent.click(screen.getByText('Use “billing”'))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(onSaved).toHaveBeenCalled())
+  expect(mocks.upsert).toHaveBeenCalledWith(expect.objectContaining({ maximumBytesBilled: '' }))
+})
 
 it('surfaces discovered project, dataset friendly name, and location', async () => {
   mocks.discoverProjects.mockResolvedValue([{ projectId: 'analytics-prod', friendlyName: 'My analytics project' }])

@@ -16,8 +16,9 @@ export type BigQueryClientFactory = (options: { projectId: string }) => BigQuery
 function profile(value: DataSourceProfile): BigQueryProfile {
   if (value.kind !== 'bigquery') throw new Error('A BigQuery profile is required.')
   if (!value.billingProject.trim()) throw new Error('Billing project is required.')
-  if (!/^\d+$/.test(value.maximumBytesBilled) || BigInt(value.maximumBytesBilled) <= 0n) throw new Error('Maximum bytes billed must be a positive decimal integer.')
-  return value
+  const maximumBytesBilled = value.maximumBytesBilled.trim()
+  if (maximumBytesBilled && (!/^\d+$/.test(maximumBytesBilled) || BigInt(maximumBytesBilled) <= 0n)) throw new Error('Maximum bytes billed must be a positive decimal integer.')
+  return { ...value, maximumBytesBilled }
 }
 
 function effectiveDataProject(value: BigQueryProfile): string {
@@ -118,7 +119,7 @@ class BigQuerySession implements DataSourceSession {
     return (metadata.schema?.fields || []).map((field: any) => ({ name: field.name, nativeType: field.type, nullable: field.mode !== 'REQUIRED' }))
   }
   async query(request: QueryRequest): Promise<QueryResult> {
-    const common = { query: request.sql, params: request.parameters || [], useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), ...(this.p.defaultDataset ? { defaultDataset: { projectId: this.project(), datasetId: this.p.defaultDataset } } : {}), maximumBytesBilled: this.p.maximumBytesBilled }
+    const common = { query: request.sql, params: request.parameters || [], useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), ...(this.p.defaultDataset ? { defaultDataset: { projectId: this.project(), datasetId: this.p.defaultDataset } } : {}), ...(this.p.maximumBytesBilled ? { maximumBytesBilled: this.p.maximumBytesBilled } : {}) }
     const [dryJob] = await this.client.createQueryJob({ ...common, dryRun: true })
     const dryMetadata = dryJob.metadata
     const statementType = dryMetadata.statistics?.query?.statementType
@@ -135,7 +136,7 @@ class BigQuerySession implements DataSourceSession {
     const bytes = Number(query.totalBytesProcessed)
     return { columns, rows: safeRows, rowCount: safeRows.length, durationMs, execution: { provider: 'bigquery', durationMs, rowCount: safeRows.length, truncated, bytesProcessed: Number.isSafeInteger(bytes) ? bytes : undefined, cacheHit: query.cacheHit } }
   }
-  async estimateQuery(sql: string) { const [job] = await this.client.createQueryJob({ query: sql, dryRun: true, useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), maximumBytesBilled: this.p.maximumBytesBilled }); return { bytesProcessed: Number(job.metadata?.statistics?.query?.totalBytesProcessed) } }
+  async estimateQuery(sql: string) { const [job] = await this.client.createQueryJob({ query: sql, dryRun: true, useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), ...(this.p.maximumBytesBilled ? { maximumBytesBilled: this.p.maximumBytesBilled } : {}) }); return { bytesProcessed: Number(job.metadata?.statistics?.query?.totalBytesProcessed) } }
   async close() {}
 }
 
