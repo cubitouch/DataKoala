@@ -2,7 +2,7 @@ import { isNumericType, isTimeType, type QueryResult } from '../../../shared/typ
 import { orderChartSeries } from './chartSeries.ts'
 import { CHART_POINTS_HARD_LIMIT, CHART_POINTS_SOFT_LIMIT, CHART_SERIES_HARD_LIMIT, CHART_SERIES_SOFT_LIMIT } from '../../../shared/chartLimits.ts'
 
-export type ResultView = 'table' | 'line' | 'bar'
+export type ResultView = 'table' | 'bar' | 'line' | 'area' | 'scatter' | 'treemap' | 'sunburst'
 export type Aggregation = 'sum' | 'average' | 'minimum' | 'maximum' | 'count'
 export type ValueAxisScale = 'linear' | 'log'
 export interface VisualizationConfiguration {

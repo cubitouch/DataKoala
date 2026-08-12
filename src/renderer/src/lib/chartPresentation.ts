@@ -2,6 +2,7 @@ import type { ChartSeries, ResultView } from './resultVisualization.ts'
 import { summarizeTooltipRows } from './chartTooltip.ts'
 import { prepareLogScaleSeries, type ValueAxisScale } from './chartAxisScale.ts'
 import type { ChartAnomaly } from './chartAnomalies.ts'
+import type { HierarchyNode } from './chartHierarchy.ts'
 
 export type TimeDisplayPrecision = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
 
@@ -112,9 +113,34 @@ interface PresentationInput {
   anomalies?: readonly ChartAnomaly[]
   hoveredSeriesIdentity?: string | (() => string | undefined)
   rangeSelectionEnabled?: boolean
+  hierarchy?: HierarchyNode[]
 }
 
 export function buildChartPresentationOptions(input: PresentationInput): Record<string, unknown> {
+  if (input.view === 'treemap' || input.view === 'sunburst') {
+    const total = (input.hierarchy ?? []).reduce((sum, node) => sum + node.value, 0)
+    return {
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'item', confine: true,
+        formatter: (param: { treePathInfo?: Array<{ name: string }>; name?: string; value?: unknown }) => {
+          const path = (param.treePathInfo ?? []).map(({ name }) => name).filter(Boolean).join(' → ') || String(param.name ?? '')
+          const value = typeof param.value === 'number' ? param.value : Number(param.value)
+          const percentage = total > 0 && Number.isFinite(value) ? `${(value / total * 100).toFixed(1)}%` : '—'
+          return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(path)}</div><div class="chart-tooltip-row"><span>Value</span><strong>${escapeHtml(formatChartNumber(value))}</strong></div><div class="chart-tooltip-row"><span>Share</span><strong>${percentage}</strong></div></div>`
+        },
+        backgroundColor: '#161922', borderColor: '#2a2f3d', borderWidth: 1,
+        textStyle: { color: '#f2f4f8' }
+      },
+      series: [{
+        type: input.view,
+        data: input.hierarchy ?? [],
+        ...(input.view === 'treemap'
+          ? { roam: true, nodeClick: 'zoomToNode', breadcrumb: { show: true, top: 4, itemStyle: { color: '#252a36', borderColor: '#3a4050', textStyle: { color: '#f2f4f8' } } }, top: 34, left: 8, right: 8, bottom: 8 }
+          : { radius: ['10%', '90%'], sort: null, emphasis: { focus: 'ancestor' }, label: { rotate: 'radial', minAngle: 8 } })
+      }]
+    }
+  }
   const precision = input.mode === 'builder' ? input.timeBucket as TimeDisplayPrecision : inferTimeDisplayPrecision(input.labels)
   const formatLabel = precision ? (value: unknown) => formatTimeBucketLabel(value, precision) : (value: unknown) => String(value)
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
@@ -150,16 +176,19 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     },
     legend: { top: 4, left: 8, right: 150, type: 'scroll', selected: input.visibility, textStyle: { color: '#9aa0b0' } },
     grid: { left: 50, right: 24, top: 42, bottom: 45 },
-    xAxis: { type: 'category', data: input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
+    xAxis: { type: input.view === 'scatter' ? 'value' : 'category', data: input.view === 'scatter' ? undefined : input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
     yAxis: { type: input.valueAxisScale === 'log' ? 'log' : 'value', axisLabel: { color: '#9aa0b0', formatter: formatChartNumber } },
     ...(input.rangeSelectionEnabled ? {
       toolbox: { show: false },
       brush: { toolbox: [], xAxisIndex: 'all', brushMode: 'single', transformable: false, throttleType: 'debounce', throttleDelay: 0 }
     } : {}),
     series: renderedSeries.map((series) => ({
-      ...series, missing: undefined, type: input.view,
-      stack: input.view === 'bar' && input.hasSeriesColumn ? 'total' : undefined,
-      smooth: input.view === 'line', connectNulls: false, showSymbol: input.view === 'line', symbolSize: 6,
+      ...series, missing: undefined,
+      type: input.view === 'area' ? 'line' : input.view,
+      data: input.view === 'scatter' ? series.data.map((value, index) => [Number(input.labels[index]), value]) : series.data,
+      stack: (input.view === 'bar' || input.view === 'area') && input.hasSeriesColumn ? 'total' : undefined,
+      areaStyle: input.view === 'area' ? { opacity: 0.3 } : undefined,
+      smooth: input.view === 'line' || input.view === 'area', connectNulls: false, showSymbol: input.view === 'line', symbolSize: input.view === 'scatter' ? 8 : 6,
       markPoint: input.view === 'line' ? {
         silent: true, symbol: 'circle', symbolSize: 13,
         label: { show: false }, itemStyle: { color: 'transparent', borderColor: '#f59e0b', borderWidth: 3 },

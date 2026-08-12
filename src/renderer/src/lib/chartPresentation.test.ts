@@ -94,3 +94,24 @@ test('time range selection never exposes the generic ECharts brush toolbox', () 
   assert.deepEqual(options.toolbox, { show: false })
   assert.deepEqual((options.brush as { toolbox?: unknown[] }).toolbox, [])
 })
+
+test('area presentation stacks Series and uses a filled line renderer', () => {
+  const options = buildChartPresentationOptions({ labels: ['x'], series: [{ name: 'A', data: [2] }], view: 'area', hasSeriesColumn: true, mode: 'sql' })
+  const series = (options.series as Array<Record<string, unknown>>)[0]
+  assert.equal(series.type, 'line')
+  assert.equal(series.stack, 'total')
+  assert.deepEqual(series.areaStyle, { opacity: 0.3 })
+})
+
+test('hierarchical presentation shares data and exposes path, value, and share tooltip', () => {
+  const hierarchy = [{ name: 'France', value: 120, children: [{ name: 'Tech', value: 75 }] }]
+  for (const view of ['treemap', 'sunburst'] as const) {
+    const options = buildChartPresentationOptions({ labels: [], series: [], view, hasSeriesColumn: true, mode: 'sql', hierarchy })
+    const series = (options.series as Array<Record<string, unknown>>)[0]
+    assert.equal(series.type, view)
+    assert.equal(series.data, hierarchy)
+    const formatter = (options.tooltip as { formatter: (value: unknown) => string }).formatter
+    assert.match(formatter({ treePathInfo: [{ name: 'France' }, { name: 'Tech' }], value: 75 }), /France → Tech/)
+    assert.match(formatter({ treePathInfo: [{ name: 'France' }, { name: 'Tech' }], value: 75 }), /62.5%/)
+  }
+})

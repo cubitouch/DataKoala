@@ -12,7 +12,7 @@ import { api } from '../lib/api'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'idle' | 'reconnecting' | 'error'
 export type MetadataStatus = 'idle' | 'loading' | 'loaded' | 'error'
 
-export type ChartType = 'bar' | 'line' | 'scatter' | 'area'
+export type ChartType = 'bar' | 'line' | 'scatter' | 'area' | 'treemap' | 'sunburst'
 export type QueryMode = 'sql' | 'builder'
 export type ExplainRequest = 'explain' | 'analyze' | null
 export type TimeBucket = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'

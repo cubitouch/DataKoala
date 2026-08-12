@@ -12,7 +12,7 @@ const SAVE_DELAY_MS = 150
 
 const QUERY_MODES: QueryMode[] = ['sql', 'builder']
 const TIME_BUCKETS: TimeBucket[] = ['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year']
-const RESULT_VIEWS: ResultView[] = ['table', 'line', 'bar']
+const RESULT_VIEWS: ResultView[] = ['table', 'bar', 'line', 'area', 'scatter', 'treemap', 'sunburst']
 const AGGREGATIONS: Aggregation[] = ['sum', 'average', 'minimum', 'maximum', 'count']
 const VALUE_AXIS_SCALES: ValueAxisScale[] = ['linear', 'log']
 
