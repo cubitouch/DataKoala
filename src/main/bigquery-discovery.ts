@@ -5,10 +5,16 @@ import type { BigQueryDatasetOption, BigQueryDiscoveryDefaults, BigQueryProjectO
 interface ProjectsResponse { projects?: Array<{ id?: string; friendlyName?: string }>; nextPageToken?: string }
 
 export class BigQueryDiscoveryService {
+  private readonly createBigQuery: (projectId?: string) => BigQuery
+  private readonly auth: GoogleAuth
+
   constructor(
-    private readonly createBigQuery = (projectId?: string) => new BigQuery(projectId ? { projectId } : undefined),
-    private readonly auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/bigquery'] })
-  ) {}
+    createBigQuery = (projectId?: string) => new BigQuery(projectId ? { projectId } : undefined),
+    auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/bigquery'] })
+  ) {
+    this.createBigQuery = createBigQuery
+    this.auth = auth
+  }
 
   async discoverDefaults(): Promise<BigQueryDiscoveryDefaults> {
     const projectId = await this.auth.getProjectId()

@@ -19,6 +19,10 @@ function profile(value: DataSourceProfile): BigQueryProfile {
   return value
 }
 
+function effectiveDataProject(value: BigQueryProfile): string {
+  return value.defaultProject?.trim() || value.billingProject.trim()
+}
+
 function friendlyError(error: unknown): string {
   const e = error as { code?: number | string; message?: string; errors?: { reason?: string }[] }
   const message = e?.message || String(error)
@@ -67,10 +71,10 @@ class BigQuerySession implements DataSourceSession {
     this.p = p
     this.info = { profileId: p.id, provider: 'bigquery' as const }
   }
-  private project() { return this.p.defaultProject?.trim() || this.p.billingProject }
+  private project() { return effectiveDataProject(this.p) }
   async listNamespaces() {
     const [datasets] = await this.client.getDatasets({ projectId: this.project(), all: true }) as any
-    return datasets.filter((d: any) => !this.p.defaultDataset || d.id === this.p.defaultDataset).map((d: any) => ({ name: `${this.project()}.${d.id}` }))
+    return datasets.map((d: any) => ({ name: `${this.project()}.${d.id}` }))
   }
   async listRelations(namespace?: { name: string }): Promise<DataRelation[]> {
     const datasetId = namespace?.name.split('.').at(-1) || this.p.defaultDataset
@@ -87,7 +91,7 @@ class BigQuerySession implements DataSourceSession {
     return (metadata.schema?.fields || []).map((field: any) => ({ name: field.name, nativeType: field.type, nullable: field.mode !== 'REQUIRED' }))
   }
   async query(request: QueryRequest): Promise<QueryResult> {
-    const common = { query: request.sql, params: request.parameters || [], useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), defaultDataset: this.p.defaultDataset ? { projectId: this.project(), datasetId: this.p.defaultDataset } : undefined, maximumBytesBilled: this.p.maximumBytesBilled }
+    const common = { query: request.sql, params: request.parameters || [], useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), ...(this.p.defaultDataset ? { defaultDataset: { projectId: this.project(), datasetId: this.p.defaultDataset } } : {}), maximumBytesBilled: this.p.maximumBytesBilled }
     const [dryJob] = await this.client.createQueryJob({ ...common, dryRun: true })
     const dryMetadata = dryJob.metadata
     const statementType = dryMetadata.statistics?.query?.statementType
@@ -114,7 +118,7 @@ export class BigQueryAdapter implements DataSourceAdapter {
   constructor(createClient: BigQueryClientFactory = (options) => new BigQuery(options)) { this.createClient = createClient }
   private client(p: BigQueryProfile) { return this.createClient({ projectId: p.billingProject }) }
   async test(value: DataSourceProfile): Promise<TestResult> {
-    try { const p = profile(value); await this.client(p).getDatasets({ projectId: p.defaultProject || p.billingProject, maxResults: 1 }); return { ok: true, sourceInfo: { label: 'Google BigQuery' } } }
+    try { const p = profile(value); await this.client(p).getDatasets({ projectId: effectiveDataProject(p), maxResults: 1 }); return { ok: true, sourceInfo: { label: 'Google BigQuery' } } }
     catch (error) { return { ok: false, error: friendlyError(error) } }
   }
   async connect(value: DataSourceProfile): Promise<{ result: ConnectResult; session?: DataSourceSession }> {
@@ -124,4 +128,4 @@ export class BigQueryAdapter implements DataSourceAdapter {
   }
 }
 
-export const __testing = { friendlyError, capabilities, ROW_LIMIT }
+export const __testing = { friendlyError, capabilities, effectiveDataProject, ROW_LIMIT }

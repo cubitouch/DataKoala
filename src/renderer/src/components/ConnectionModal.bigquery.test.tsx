@@ -10,13 +10,15 @@ vi.mock('../lib/api', () => ({ api: { connections: { ...mocks, bigquery: { disco
 import { ConnectionModal } from './ConnectionModal'
 
 const renderBigQuery = (existing: BigQueryProfile | null = null) => {
-  render(<ConnectionModal existing={existing} onClose={vi.fn()} onSaved={vi.fn()} />)
+  const onSaved = vi.fn()
+  render(<ConnectionModal existing={existing} onClose={vi.fn()} onSaved={onSaved} />)
   if (!existing) fireEvent.click(screen.getByRole('button', { name: 'BigQuery' }))
+  return { onSaved }
 }
 
 beforeEach(() => {
   mocks.discoverProjects.mockReset().mockResolvedValue([]); mocks.discoverDefaults.mockReset().mockResolvedValue({})
-  mocks.listDatasets.mockReset().mockResolvedValue([]); mocks.test.mockReset(); mocks.upsert.mockReset()
+  mocks.listDatasets.mockReset().mockResolvedValue([]); mocks.test.mockReset(); mocks.upsert.mockReset().mockImplementation(async (profile) => profile)
 })
 afterEach(cleanup)
 
@@ -36,6 +38,34 @@ it('does not overwrite an existing profile with ADC defaults', async () => {
   await Promise.resolve()
   expect(screen.getByRole('combobox', { name: /Billing project/ }).textContent).toContain('saved-billing')
   expect(screen.getByRole('combobox', { name: /Data project/ }).textContent).toContain('saved-data')
+  expect(screen.getByRole('combobox', { name: /Dataset/ }).textContent).toContain('saved')
+})
+
+it('defaults to all datasets and clears a selected default before saving', async () => {
+  mocks.discoverDefaults.mockResolvedValue({ projectId: 'data' })
+  const { onSaved } = renderBigQuery()
+  expect((await screen.findByRole('combobox', { name: /Dataset/ })).textContent).toContain('All datasets')
+  fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'Warehouse' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(onSaved).toHaveBeenCalled())
+  expect(mocks.upsert.mock.calls[0][0].defaultDataset).toBeUndefined()
+
+  cleanup()
+  mocks.listDatasets.mockResolvedValue([{ projectId: 'data', datasetId: 'analytics' }])
+  renderBigQuery({ kind: 'bigquery', version: 1, id: 'bq', name: 'Saved', billingProject: 'billing', defaultProject: 'data', defaultDataset: 'analytics', maximumBytesBilled: '1000', readonly: true })
+  const dataset = screen.getByRole('combobox', { name: /Dataset/ })
+  expect(dataset.textContent).toContain('analytics')
+  fireEvent.click(dataset); fireEvent.click(await screen.findByRole('option', { name: /All datasets/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(mocks.upsert).toHaveBeenLastCalledWith(expect.objectContaining({ defaultDataset: undefined })))
+})
+
+it('changing data project resets a selected dataset to all datasets', async () => {
+  mocks.discoverProjects.mockResolvedValue([{ projectId: 'project-a' }, { projectId: 'project-b' }])
+  renderBigQuery({ kind: 'bigquery', version: 1, id: 'bq', name: 'Saved', billingProject: 'project-a', defaultProject: 'project-a', defaultDataset: 'analytics', maximumBytesBilled: '1000', readonly: true })
+  const project = await screen.findByRole('combobox', { name: /Data project/ })
+  fireEvent.click(project); fireEvent.click(await screen.findByRole('option', { name: 'project-b' }))
+  expect(screen.getByRole('combobox', { name: /Dataset/ }).textContent).toContain('All datasets')
 })
 
 it('applies valid pasted references while malformed input is non-destructive', async () => {

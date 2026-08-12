@@ -14,7 +14,7 @@ function client(statementType = 'SELECT', rows: any[] = [{ exact: new BigQueryIn
   const calls: Record<string, unknown>[] = []
   let dryRunGetMetadataCalls = 0
   const value: BigQueryClientLike = {
-    async getDatasets() { return [[{ id: 'analytics' }]] },
+    async getDatasets() { return [[{ id: 'analytics' }, { id: 'events' }, { id: 'finance' }]] },
     dataset() { return { async getTables() { return [[]] }, table() { return { async getMetadata() { return [{ schema: { fields: [] } }] } } } } },
     async createQueryJob(options) {
       calls.push(options)
@@ -62,6 +62,27 @@ test('omits location from query jobs without an explicit override', async () => 
   const fake = client(); const connected = await new BigQueryAdapter(() => fake.value).connect({ ...profile, location: undefined })
   await connected.session!.estimateQuery?.('SELECT 1')
   assert.equal(Object.hasOwn(fake.calls.at(-1)!, 'location'), false)
+})
+
+test('uses the effective data project and always exposes every visible dataset', async () => {
+  for (const candidate of [profile, { ...profile, defaultDataset: undefined }, { ...profile, defaultProject: undefined, defaultDataset: undefined }]) {
+    const fake = client(); const connected = await new BigQueryAdapter(() => fake.value).connect(candidate)
+    const projectId = candidate.defaultProject || candidate.billingProject
+    assert.deepEqual(await connected.session!.listNamespaces(), [
+      { name: `${projectId}.analytics` }, { name: `${projectId}.events` }, { name: `${projectId}.finance` }
+    ])
+  }
+  assert.equal(__testing.effectiveDataProject({ ...profile, defaultProject: '  ' }), 'billing')
+})
+
+test('passes defaultDataset to query jobs only when selected', async () => {
+  const selected = client(); const selectedSession = await new BigQueryAdapter(() => selected.value).connect(profile)
+  await selectedSession.session!.query({ sql: 'SELECT 1' })
+  assert.deepEqual(selected.calls.at(-1)?.defaultDataset, { projectId: 'data', datasetId: 'analytics' })
+
+  const all = client(); const allSession = await new BigQueryAdapter(() => all.value).connect({ ...profile, defaultDataset: undefined })
+  await allSession.session!.query({ sql: 'SELECT 1' })
+  assert.equal(Object.hasOwn(all.calls.at(-1)!, 'defaultDataset'), false)
 })
 
 test('rejects non-SELECT dry-run statement types before execution', async () => {
