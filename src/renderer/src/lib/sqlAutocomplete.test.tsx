@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { sqlDialectForSourceKind, type DatabaseSchemaNode } from '../../../shared/types.ts'
 import { buildSqlCompletionSchema } from './sqlCompletionSchema.ts'
-import { codeMirrorDialect, DuckDBDialect, formatterDialect } from './sqlDialect.ts'
+import { codeMirrorDialect, DuckDBDialect, formatterDialect, GoogleSQLDialect } from './sqlDialect.ts'
 import { quoteSqlIdentifier, resolveQuerySources, sqlAliasCompletionSource } from './sqlAliasCompletion.ts'
-import { PostgreSQL, StandardSQL } from '@codemirror/lang-sql'
+import { PostgreSQL, schemaCompletionSource } from '@codemirror/lang-sql'
 import { CompletionContext } from '@codemirror/autocomplete'
 import { EditorState } from '@codemirror/state'
 
@@ -21,7 +21,8 @@ test('source kinds share one dialect mapping', () => {
   assert.equal(sqlDialectForSourceKind('local-files'), 'duckdb')
   assert.equal(sqlDialectForSourceKind('sqlite-file'), 'duckdb')
   assert.equal(codeMirrorDialect('postgres'), PostgreSQL)
-  assert.equal(codeMirrorDialect('google-sql'), StandardSQL)
+  assert.equal(codeMirrorDialect('google-sql'), GoogleSQLDialect)
+  assert.equal(GoogleSQLDialect.spec.identifierQuotes, '`')
   assert.equal(codeMirrorDialect('duckdb'), DuckDBDialect)
   assert.equal(formatterDialect('duckdb'), 'duckdb')
   assert.match(DuckDBDialect.spec.keywords ?? '', /\bpivot\b/)
@@ -29,11 +30,11 @@ test('source kinds share one dialect mapping', () => {
   assert.match(DuckDBDialect.spec.keywords ?? '', /\bselect\b/)
 })
 
-test('completion schema retains unloaded relations and cached columns', () => {
-  assert.deepEqual(buildSqlCompletionSchema(schemas, 'postgres').schema, { public: { orders: ['id', 'created_at'], customers: [] } })
+test('completion schema retains relations but delegates all columns to contextual completion', () => {
+  assert.deepEqual(buildSqlCompletionSchema(schemas, 'postgres').schema, { public: { orders: [], customers: [] } })
   const local = buildSqlCompletionSchema([{ ...schemas[0], name: 'main' }], 'duckdb')
   assert.equal(local.defaultSchema, 'main')
-  assert.deepEqual(buildSqlCompletionSchema([{ ...schemas[0], name: 'sqlite' }], 'duckdb').schema, { sqlite: { orders: ['id', 'created_at'], customers: [] } })
+  assert.deepEqual(buildSqlCompletionSchema([{ ...schemas[0], name: 'sqlite' }], 'duckdb').schema, { sqlite: { orders: [], customers: [] } })
 })
 
 test('BigQuery project.dataset namespaces are nested without merging duplicate tables', () => {
@@ -43,10 +44,29 @@ test('BigQuery project.dataset namespaces are nested without merging duplicate t
   ]
   assert.deepEqual(buildSqlCompletionSchema(input, 'google-sql').schema, {
     'my-project': {
-      analytics: { orders: ['id', 'created_at'], customers: [] },
-      reporting: { orders: ['id', 'created_at'], customers: [] }
+      analytics: { orders: [], customers: [] },
+      reporting: { orders: [], customers: [] }
     }
   })
+})
+
+async function schemaOptions(doc: string, schema: ReturnType<typeof buildSqlCompletionSchema>['schema']) {
+  const state = EditorState.create({ doc })
+  return schemaCompletionSource({ dialect: GoogleSQLDialect, schema })(new CompletionContext(state, doc.length, true))
+}
+
+test('GoogleSQL built-in schema completion never applies ANSI double quotes', async () => {
+  const projects = await schemaOptions('SELECT * FROM ', { 'analytics-prod': [] })
+  const project = projects?.options.find((option) => option.label === 'analytics-prod')
+  assert.equal(project?.apply, '`analytics-prod`')
+  assert.doesNotMatch(String(project?.apply), /"/)
+
+  const datasets = await schemaOptions('SELECT * FROM ', { analytics: [] })
+  assert.equal(datasets?.options.find((option) => option.label === 'analytics')?.apply, undefined)
+  const tables = await schemaOptions('SELECT * FROM ', { events: [], 'Order Events': [] })
+  assert.equal(tables?.options.find((option) => option.label === 'events')?.apply, undefined)
+  assert.equal(tables?.options.find((option) => option.label === 'Order Events')?.apply, '`Order Events`')
+  assert.equal(tables?.options.some((option) => String(option.apply).includes('"')), false)
 })
 
 test('conservative relation resolution supports aliases and cached state', () => {

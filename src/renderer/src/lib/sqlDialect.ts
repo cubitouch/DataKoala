@@ -11,8 +11,15 @@ export const DuckDBDialect = SQLDialect.define({
   types: append(PostgreSQL.spec.types, 'hugeint uhugeint ubigint uinteger usmallint utinyint blob struct map union')
 })
 
+/** StandardSQL defaults to ANSI double quotes in CodeMirror's schema completer,
+ * but GoogleSQL quoted identifiers exclusively use backticks. */
+export const GoogleSQLDialect = SQLDialect.define({
+  ...StandardSQL.spec,
+  identifierQuotes: '`'
+})
+
 export function codeMirrorDialect(dialect: SqlDialect): SQLDialect {
-  if (dialect === 'google-sql') return StandardSQL
+  if (dialect === 'google-sql') return GoogleSQLDialect
   if (dialect === 'duckdb') return DuckDBDialect
   return PostgreSQL
 }
