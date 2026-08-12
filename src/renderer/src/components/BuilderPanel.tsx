@@ -18,6 +18,7 @@ import { formatSqlOrOriginal } from '../lib/formatSql'
 import type { Aggregation } from '../lib/resultVisualization'
 import '../axisBuilder.css'
 import { formatterDialect as formatterDialectForSql } from '../lib/sqlDialect'
+import { ensureRelationColumns } from '../lib/relationColumns'
 
 const isTimeColumn = (column: DatabaseColumnNode) => isBuilderTemporalDataType(column.dataTypeName)
 const aggregationLabel = (aggregation: Aggregation) => aggregation === 'average' ? 'Average' : aggregation === 'minimum' ? 'Minimum' : aggregation === 'maximum' ? 'Maximum' : aggregation === 'count' ? 'Count' : 'Sum'
@@ -121,10 +122,9 @@ export function BuilderPanel() {
     const requested = { schema: relation.schema, name: relation.name }
     const qualifiedName = relation.qualifiedName
     setMetadataError(null)
-    setRelationColumns(qualifiedName, undefined, 'loading', undefined, requestProfileId)
     try {
-      const next = await api.connections.describeTable(requestProfileId, requested.schema, requested.name) as DatabaseColumnNode[]
-      setRelationColumns(qualifiedName, next, 'loaded', undefined, requestProfileId)
+      const next = await ensureRelationColumns(requestProfileId, relation, explicitRetry)
+      if (!next) return
       let state = useStore.getState()
       let session = selectSession(state, requestTabId)
       if (!session || session.connectionProfileId !== requestProfileId) return

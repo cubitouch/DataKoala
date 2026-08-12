@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DataSourceProfile, DatabaseColumnNode, DatabaseRelationNode } from '@shared/types'
 import { api } from '../lib/api'
+import { ensureRelationColumns } from '../lib/relationColumns'
 import { normalizeDatabaseObjects } from '../lib/databaseObjects'
 import { relationIdentity, selectionPatchForColumns } from '../lib/builderRelations'
 import { isBuilderTemporalDataType } from '../lib/builderSql'
@@ -26,7 +27,6 @@ export function Sidebar() {
   const metadataStatus = metadata?.status ?? 'idle'
   const metadataError = metadata?.error ?? null
   const setMetadata = useStore((s) => s.setMetadata)
-  const setRelationColumns = useStore((s) => s.setRelationColumns)
   const builderTable = useStore((s) => selectActiveSession(s).builder.table)
   const selectBuilderRelation = useStore((s) => s.selectBuilderRelation)
   const [editing, setEditing] = useState<DataSourceProfile | null>(null)
@@ -101,14 +101,8 @@ export function Sidebar() {
     if (relation.columnsStatus !== 'idle' && relation.columnsStatus !== 'error') return
     const requestProfileId = await ensureConnectionForTab(activeTabId)
     if (!requestProfileId) return
-    setRelationColumns(relation.qualifiedName, undefined, 'loading', undefined, requestProfileId)
-    try {
-      const columns = await api.connections.describeTable(requestProfileId, relation.schema, relation.name) as DatabaseColumnNode[]
-      setRelationColumns(relation.qualifiedName, columns, 'loaded', undefined, requestProfileId)
-      reconcileSelectedBuilderColumns(relation, columns)
-    } catch (error) {
-      setRelationColumns(relation.qualifiedName, undefined, 'error', error instanceof Error ? error.message : String(error), requestProfileId)
-    }
+    const columns = await ensureRelationColumns(requestProfileId, relation, relation.columnsStatus === 'error')
+    if (columns) reconcileSelectedBuilderColumns(relation, columns)
   }
 
   const expandRelation = async (relation: DatabaseRelationNode) => {

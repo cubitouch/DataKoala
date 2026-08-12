@@ -61,6 +61,7 @@
     "package": "pnpm build && electron-builder"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/lang-sql": "^6.8.0",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@duckdb/node-api": "1.5.5-r.3",

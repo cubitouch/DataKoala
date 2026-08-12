@@ -15,6 +15,7 @@ import { queryResultFilters, wrapSqlWithResultFilters } from '../lib/resultFilte
 import { codeMirrorDialect, formatterDialect } from '../lib/sqlDialect'
 import { buildSqlCompletionSchema } from '../lib/sqlCompletionSchema'
 import { sqlAliasCompletionSource } from '../lib/sqlAliasCompletion'
+import { ensureRelationColumns } from '../lib/relationColumns'
 
 export function QueryEditor() {
   const tabId = useStore((s) => s.activeTabId)
@@ -51,9 +52,13 @@ export function QueryEditor() {
     const completion = buildSqlCompletionSchema(schemas, dialect)
     return [
       sqlExtension({ dialect: editorDialect, schema: completion.schema, defaultSchema: completion.defaultSchema, upperCaseKeywords: true }),
-      editorDialect.language.data.of({ autocomplete: sqlAliasCompletionSource(schemas, dialect) })
+      editorDialect.language.data.of({ autocomplete: sqlAliasCompletionSource(schemas, dialect, async (relation) => {
+        const state = useStore.getState()
+        if (!tabConnectionId || state.activeProfileId !== tabConnectionId || !state.connected) return undefined
+        return ensureRelationColumns(tabConnectionId, relation)
+      }) })
     ]
-  }, [dialect, schemas])
+  }, [dialect, schemas, tabConnectionId])
   const stillBoundTo = (requestTabId: string, profileId: string) => selectSession(useStore.getState(), requestTabId)?.connectionProfileId === profileId
 
   const run = async () => {

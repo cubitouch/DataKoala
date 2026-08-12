@@ -2,7 +2,7 @@ import type { Completion, CompletionContext, CompletionResult, CompletionSource 
 import type { DatabaseColumnNode, DatabaseRelationNode, DatabaseSchemaNode, SqlDialect } from '@shared/types'
 
 interface ResolvedSource { alias?: string; relation: DatabaseRelationNode }
-const RESERVED = new Set(['select', 'from', 'where', 'group', 'order', 'join', 'table', 'view', 'user', 'limit'])
+const RESERVED = new Set('select from where group order having limit offset join left right full inner outer cross natural on using union except intersect table view user'.split(' '))
 
 export function quoteSqlIdentifier(name: string, dialect: SqlDialect): string {
   if (/^[a-z_][a-z0-9_$]*$/.test(name) && !RESERVED.has(name)) return name
@@ -36,19 +36,32 @@ function columnCompletion(column: DatabaseColumnNode, dialect: SqlDialect): Comp
   return { label: column.name, type: 'property', detail: `column · ${column.dataTypeName}`, apply: quoteSqlIdentifier(column.name, dialect) }
 }
 
-export function sqlAliasCompletionSource(schemas: DatabaseSchemaNode[], dialect: SqlDialect): CompletionSource {
-  return (context: CompletionContext): CompletionResult | null => {
+export function sqlAliasCompletionSource(
+  schemas: DatabaseSchemaNode[],
+  dialect: SqlDialect,
+  loadColumns?: (relation: DatabaseRelationNode) => Promise<DatabaseColumnNode[] | undefined>
+): CompletionSource {
+  return async (context: CompletionContext): Promise<CompletionResult | null> => {
     const sources = resolveQuerySources(context.state.doc.toString(), schemas)
-    const qualified = context.matchBefore(/(?:[\p{L}_][\p{L}\p{N}_$]*\.)[\p{L}\p{N}_$]*$/u)
+    const qualified = context.matchBefore(/(?:`[^`]+`|"[^"]+"|[\p{L}_][\p{L}\p{N}_$-]*)(?:\.(?:`[^`]+`|"[^"]+"|[\p{L}_][\p{L}\p{N}_$-]*))*\.[\p{L}\p{N}_$]*$/u)
     if (qualified) {
-      const alias = qualified.text.slice(0, qualified.text.indexOf('.'))
-      const source = sources.find((item) => item.alias === alias)
-      if (!source || source.relation.columnsStatus !== 'loaded') return null
-      return { from: qualified.from + alias.length + 1, options: (source.relation.columns ?? []).map((column) => columnCompletion(column, dialect)), validFor: /^[\p{L}\p{N}_$]*$/u }
+      const dot = qualified.text.lastIndexOf('.')
+      const qualifier = qualified.text.slice(0, dot)
+      const parts = unquote(qualifier)
+      const relationName = parts.at(-1)
+      const matches = sources.filter((item) => item.alias === qualifier || (!item.alias && item.relation.name === relationName))
+      if (matches.length !== 1) return null
+      const source = matches[0]
+      const columns = source.relation.columnsStatus === 'loaded' ? source.relation.columns : await loadColumns?.(source.relation)
+      if (!columns) return null
+      return { from: qualified.from + dot + 1, options: columns.map((column) => columnCompletion(column, dialect)), validFor: /^[\p{L}\p{N}_$]*$/u }
     }
     const word = context.matchBefore(/[\p{L}\p{N}_$]*$/u)
     if (!word || (!context.explicit && !word.text)) return null
-    if (sources.length !== 1 || sources[0].relation.columnsStatus !== 'loaded') return null
-    return { from: word.from, options: (sources[0].relation.columns ?? []).map((column) => columnCompletion(column, dialect)), validFor: /^[\p{L}\p{N}_$]*$/u }
+    if (sources.length !== 1) return null
+    const source = sources[0]
+    const columns = source.relation.columnsStatus === 'loaded' ? source.relation.columns : context.explicit ? await loadColumns?.(source.relation) : undefined
+    if (!columns) return null
+    return { from: word.from, options: columns.map((column) => columnCompletion(column, dialect)), validFor: /^[\p{L}\p{N}_$]*$/u }
   }
 }

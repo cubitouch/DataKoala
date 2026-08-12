@@ -6,7 +6,9 @@ export interface SqlCompletionSchema {
   defaultSchema?: string
 }
 
-type MutableNamespace = Record<string, MutableNamespace | readonly string[]>
+interface MutableNamespace {
+  [key: string]: MutableNamespace | readonly string[]
+}
 
 /** Converts the store cache only. This function has no access to IPC or adapters. */
 export function buildSqlCompletionSchema(schemas: DatabaseSchemaNode[], dialect: SqlDialect): SqlCompletionSchema {
@@ -20,9 +22,10 @@ export function buildSqlCompletionSchema(schemas: DatabaseSchemaNode[], dialect:
       target = target[part] as MutableNamespace
     }
     for (const relation of namespace.relations) {
-      target[relation.name] = relation.columnsStatus === 'loaded'
-        ? (relation.columns ?? []).map((column) => column.name)
-        : []
+      // Contextual completion is the sole column provider, so columns have
+      // datatype details and never appear twice. CodeMirror still discovers
+      // every namespace and relation through this empty leaf.
+      target[relation.name] = []
     }
   }
   return { schema: root as SQLNamespace, defaultSchema: dialect === 'duckdb' && schemas.some((item) => item.name === 'main') ? 'main' : undefined }

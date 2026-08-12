@@ -3,8 +3,10 @@ import test from 'node:test'
 import { sqlDialectForSourceKind, type DatabaseSchemaNode } from '../../../shared/types.ts'
 import { buildSqlCompletionSchema } from './sqlCompletionSchema.ts'
 import { codeMirrorDialect, DuckDBDialect, formatterDialect } from './sqlDialect.ts'
-import { quoteSqlIdentifier, resolveQuerySources } from './sqlAliasCompletion.ts'
+import { quoteSqlIdentifier, resolveQuerySources, sqlAliasCompletionSource } from './sqlAliasCompletion.ts'
 import { PostgreSQL, StandardSQL } from '@codemirror/lang-sql'
+import { CompletionContext } from '@codemirror/autocomplete'
+import { EditorState } from '@codemirror/state'
 
 const schemas: DatabaseSchemaNode[] = [{
   name: 'public', isSystem: false, relations: [
@@ -51,6 +53,9 @@ test('conservative relation resolution supports aliases and cached state', () =>
   const found = resolveQuerySources('SELECT o. FROM public.orders AS o JOIN public.customers c ON c.id=o.id', schemas)
   assert.deepEqual(found.map(({ alias, relation }) => [alias, relation.name, relation.columnsStatus]), [['o', 'orders', 'loaded'], ['c', 'customers', 'idle']])
   assert.equal(resolveQuerySources('SELECT created_at FROM public.orders WHERE id = 1', schemas)[0].alias, undefined)
+  for (const tail of ['LEFT JOIN public.customers c ON true', 'INNER JOIN public.customers c ON true', 'WHERE id=1', 'ORDER BY id']) {
+    assert.equal(resolveQuerySources(`SELECT * FROM public.orders ${tail}`, schemas)[0].alias, undefined, tail)
+  }
 })
 
 test('completion application quotes sensitive identifiers for each dialect', () => {
@@ -59,4 +64,25 @@ test('completion application quotes sensitive identifiers for each dialect', () 
   assert.equal(quoteSqlIdentifier('Événement', 'duckdb'), '"Événement"')
   assert.equal(quoteSqlIdentifier('select', 'postgres'), '"select"')
   assert.equal(quoteSqlIdentifier('Order Items', 'google-sql'), '`Order Items`')
+})
+
+test('contextual completion is the single typed column provider', async () => {
+  const sql = 'SELECT o. FROM public.orders o'
+  const state = EditorState.create({ doc: sql, selection: { anchor: 'SELECT o.'.length } })
+  const result = await sqlAliasCompletionSource(schemas, 'postgres')(new CompletionContext(state, state.selection.main.head, true))
+  assert.deepEqual(result?.options.map((option) => option.label), ['id', 'created_at'])
+  assert.equal(result?.options.filter((option) => option.label === 'id').length, 1)
+  assert.equal(result?.options[0].detail, 'column · integer')
+})
+
+test('alias dot loads only its uniquely resolved unloaded relation', async () => {
+  const sql = 'SELECT c. FROM public.orders o JOIN public.customers c ON true'
+  const state = EditorState.create({ doc: sql, selection: { anchor: 'SELECT c.'.length } })
+  let loaded = ''
+  const result = await sqlAliasCompletionSource(schemas, 'postgres', async (relation) => {
+    loaded = relation.qualifiedName
+    return [{ name: 'name', dataTypeName: 'text' }]
+  })(new CompletionContext(state, state.selection.main.head, false))
+  assert.equal(loaded, 'public.customers')
+  assert.equal(result?.options[0].detail, 'column · text')
 })
