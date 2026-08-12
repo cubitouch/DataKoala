@@ -20,6 +20,7 @@ interface Props {
   emptyMessage?: string
   loadingMessage?: string
   invalidationKey?: unknown
+  allowCustomValue?: boolean
 }
 
 const norm = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase()
@@ -27,10 +28,10 @@ const optionId = (prefix: string, value: string) => `${prefix}-option-${encodeUR
 const optionText = (option: ComboboxOption) => norm([option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' '))
 const isTypingKey = (event: React.KeyboardEvent) => event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
 
-export function Combobox({ label, value, options, onChange, placeholder = 'Select an option…', searchable = false, disabled = false, loading = false, error = null, emptyMessage = 'No matching options', loadingMessage = 'Loading…', invalidationKey }: Props) {
+export function Combobox({ label, value, options, onChange, placeholder = 'Select an option…', searchable = false, disabled = false, loading = false, error = null, emptyMessage = 'No matching options', loadingMessage = 'Loading…', invalidationKey, allowCustomValue = false }: Props) {
   const reactId = useId()
   const menuId = `${reactId}-listbox`
-  const selected = options.find((option) => option.value === value)
+  const selected = options.find((option) => option.value === value) ?? (allowCustomValue && value ? { value, label: value, subtitle: 'Manually entered' } : undefined)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [activeValue, setActiveValue] = useState<string | null>(null)
@@ -62,6 +63,7 @@ export function Combobox({ label, value, options, onChange, placeholder = 'Selec
     const index = active ? enabled.findIndex((option) => option.value === active.value) : -1
     setActiveValue(enabled[(index + direction + enabled.length) % enabled.length].value)
   }
+  const commitCustom = () => { const custom = query.trim(); if (!custom) return; onChange(custom); setOpen(false); window.requestAnimationFrame(() => triggerRef.current?.focus()) }
   const commit = (option = active) => {
     if (!option || option.disabled) return
     onChange(option.value)
@@ -73,7 +75,7 @@ export function Combobox({ label, value, options, onChange, placeholder = 'Selec
     if (event.key === 'ArrowUp') { event.preventDefault(); move(-1); return }
     if (event.key === 'Home') { event.preventDefault(); setActiveValue(enabled[0]?.value ?? null); return }
     if (event.key === 'End') { event.preventDefault(); setActiveValue(enabled.at(-1)?.value ?? null); return }
-    if (event.key === 'Enter' || (!searchable && event.key === ' ')) { event.preventDefault(); commit(); return }
+    if (event.key === 'Enter' || (!searchable && event.key === ' ')) { event.preventDefault(); if (allowCustomValue && query.trim() && !filtered.some((option) => option.value === query.trim())) commitCustom(); else commit(); return }
     if (event.key === 'Escape') { setOpen(false); return }
     if (event.key === 'Tab') { setOpen(false); return }
     if (!searchable && isTypingKey(event)) {
@@ -96,6 +98,7 @@ export function Combobox({ label, value, options, onChange, placeholder = 'Selec
       {searchable && <ComboboxSearch inputRef={searchRef} value={query} onChange={setQuery} onKeyDown={onMenuKeyDown} label={label} />}
       {loading && <div className="combobox-state" role="status">{loadingMessage}</div>}
       {error && <div className="combobox-state error" role="alert">{error}</div>}
+      {allowCustomValue && query.trim() && !options.some((option) => option.value === query.trim()) && <button type="button" className="combobox-custom" onClick={commitCustom}>Use “{query.trim()}”</button>}
       {!loading && !error && filtered.map((option) => <OptionRow key={option.value} id={optionId(reactId, option.value)} option={option} selected={option.value === value} active={option.value === active?.value} onMouseEnter={() => { if (!option.disabled) setActiveValue(option.value) }} onSelect={() => commit(option)} />)}
       {!loading && !error && filtered.length === 0 && <div className="combobox-state" role="status">{emptyMessage}</div>}
     </div>

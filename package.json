@@ -68,6 +68,7 @@
     "@uiw/react-codemirror": "^4.23.7",
     "echarts": "^5.5.1",
     "echarts-for-react": "^3.0.2",
+    "google-auth-library": "10.9.1",
     "node-sql-parser": "^5.3.6",
     "pg": "^8.13.1",
     "react": "^18.3.1",

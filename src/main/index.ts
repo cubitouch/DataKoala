@@ -14,6 +14,7 @@ import { writePngDataUrl } from './clipboard-image'
 import { createGracefulShutdown } from './gracefulShutdown'
 import { smokeDuckDB } from './adapters/local-files-adapter'
 import type { SqliteFileProfile } from '@shared/types'
+import { bigQueryDiscovery } from './bigquery-discovery'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -544,6 +545,12 @@ function registerIpc(): void {
     logError: (error) => console.error('[clipboard] Could not write chart PNG', error)
   }))
   ipcMain.handle(IPC.CONNECTION_TEST, (_e, profile: DataSourceProfile) => db.testConnection(profile))
+  ipcMain.handle(IPC.BIGQUERY_DISCOVER_PROJECTS, () => bigQueryDiscovery.discoverProjects())
+  ipcMain.handle(IPC.BIGQUERY_DISCOVER_DEFAULTS, () => bigQueryDiscovery.discoverDefaults())
+  ipcMain.handle(IPC.BIGQUERY_LIST_DATASETS, (_e, projectId: unknown) => {
+    if (typeof projectId !== 'string' || !projectId.trim()) throw new Error('A BigQuery project ID is required.')
+    return bigQueryDiscovery.listDatasets(projectId.trim())
+  })
   ipcMain.handle(IPC.CONNECTION_CONNECT, async (_e, profile: DataSourceProfile) => {
     const saved = profile.id ? connectionProfiles.get(profile.id) : undefined
     const toUse = saved ?? connectionProfiles.upsert(profile)

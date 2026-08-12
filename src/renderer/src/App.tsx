@@ -12,6 +12,7 @@ import {
 } from '@shared/layoutDimensions'
 import { api } from './lib/api'
 import type { ConnectionStateEvent } from '@shared/types'
+import { connectionKindLabel } from './lib/connectionKind'
 
 const SIDEBAR_STORAGE_KEY = 'datakoala.layout.v1.sidebarWidth'
 const EDITOR_STORAGE_KEY = 'datakoala.layout.v1.editorHeight'
@@ -51,7 +52,8 @@ export function App() {
     useStore.getState().applyConnectionEvent(event)
   }), [])
 
-  const activeName = profiles.find((p) => p.id === activeId)?.name
+  const activeProfile = profiles.find((p) => p.id === activeId)
+  const activeName = activeProfile?.name
 
   const currentSidebarBounds = () => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth)
   const currentEditorBounds = () => editorBounds(mainRef.current?.clientHeight ?? window.innerHeight - TITLEBAR_HEIGHT)
@@ -148,7 +150,7 @@ export function App() {
             : connecting
             ? 'Connecting…'
             : connected
-              ? `${activeName} · pg ${serverVersion ?? ''}`.trim()
+              ? `${activeName} · ${activeProfile ? connectionKindLabel(activeProfile.kind) : ''}${serverVersion ? ` ${serverVersion}` : ''}`.trim()
               : error
                 ? error
                 : connectionStatus === 'idle' ? 'Idle' : activeName ? `${activeName} · disconnected` : 'Disconnected'}

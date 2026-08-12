@@ -498,6 +498,8 @@ table.results td:hover .cell-filter-menu summary, .cell-filter-menu[open] summar
 .combobox-option-check { width: 14px; flex: none; color: var(--accent); text-align: center; font-weight: 700; }
 .combobox-state { padding: 8px; color: var(--text-mute); font-size: 12px; }
 .combobox-state.error { color: var(--red); }
+.combobox-custom { width: 100%; padding: 7px; border: 0; border-radius: 4px; background: transparent; color: var(--accent); text-align: left; cursor: pointer; }
+.combobox-custom:hover, .combobox-custom:focus-visible { background: var(--bg-4); outline: 1px solid var(--border-hi); }
 .combobox-chips { display: flex; gap: 4px; min-width: 0; overflow: hidden; }
 .combobox-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 110px; cursor: pointer; padding: 1px 5px; border: 1px solid var(--border-hi); border-radius: 4px; background: var(--bg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combobox-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

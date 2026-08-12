@@ -3,6 +3,7 @@ import type { BigQueryProfile, ColumnMeta, ConnectResult, DataSourceCapabilities
 import type { DataColumn, DataRelation, DataSourceAdapter, DataSourceSession, QueryRequest } from '../data-source.ts'
 
 const ROW_LIMIT = 10_000
+const DATASET_RELATION_CONCURRENCY = 5
 const capabilities: DataSourceCapabilities = { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: false }
 
 export interface BigQueryClientLike {
@@ -17,6 +18,29 @@ function profile(value: DataSourceProfile): BigQueryProfile {
   if (!value.billingProject.trim()) throw new Error('Billing project is required.')
   if (!/^\d+$/.test(value.maximumBytesBilled) || BigInt(value.maximumBytesBilled) <= 0n) throw new Error('Maximum bytes billed must be a positive decimal integer.')
   return value
+}
+
+function effectiveDataProject(value: BigQueryProfile): string {
+  return value.defaultProject?.trim() || value.billingProject.trim()
+}
+
+async function mapWithConcurrency<T, R>(values: T[], limit: number, mapper: (value: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(values.length)
+  let next = 0
+  const workers = Array.from({ length: Math.min(limit, values.length) }, async () => {
+    while (next < values.length) {
+      const index = next++
+      results[index] = await mapper(values[index])
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
+function parseNamespace(name: string): { projectId: string; datasetId: string } {
+  const separator = name.lastIndexOf('.')
+  if (separator <= 0 || separator === name.length - 1) throw new Error(`Invalid BigQuery dataset namespace: ${name}`)
+  return { projectId: name.slice(0, separator), datasetId: name.slice(separator + 1) }
 }
 
 function friendlyError(error: unknown): string {
@@ -67,19 +91,26 @@ class BigQuerySession implements DataSourceSession {
     this.p = p
     this.info = { profileId: p.id, provider: 'bigquery' as const }
   }
-  private project() { return this.p.defaultProject?.trim() || this.p.billingProject }
-  async listNamespaces() {
-    const [datasets] = await this.client.getDatasets({ projectId: this.project(), all: true }) as any
-    return datasets.filter((d: any) => !this.p.defaultDataset || d.id === this.p.defaultDataset).map((d: any) => ({ name: `${this.project()}.${d.id}` }))
+  private project() { return effectiveDataProject(this.p) }
+  async listNamespaces(): Promise<Array<{ name: string }>> {
+    // BigQuery's `all` flag includes hidden anonymous query-result datasets. Those
+    // are not normal browsing targets and can represent another user's job.
+    const [datasets] = await this.client.getDatasets({ projectId: this.project() }) as [any[]]
+    return datasets.map((d: any) => ({ name: `${this.project()}.${d.id}` }))
   }
-  async listRelations(namespace?: { name: string }): Promise<DataRelation[]> {
-    const datasetId = namespace?.name.split('.').at(-1) || this.p.defaultDataset
-    if (!datasetId) return []
-    const [tables] = await this.client.dataset(datasetId, { projectId: this.project() }).getTables({ autoPaginate: true })
+  private async listRelationsForNamespace(namespace: { name: string }): Promise<DataRelation[]> {
+    const { projectId, datasetId } = parseNamespace(namespace.name)
+    const [tables] = await this.client.dataset(datasetId, { projectId }).getTables({ autoPaginate: true })
     return Promise.all(tables.map(async (table: any) => {
       const [metadata] = await table.getMetadata(); const type = metadata.type
-      return { namespace: `${this.project()}.${datasetId}`, name: table.id, kind: type === 'VIEW' ? 'view' : type === 'MATERIALIZED_VIEW' ? 'materialized-view' : 'table' }
+      return { namespace: namespace.name, name: table.id, kind: type === 'VIEW' ? 'view' as const : type === 'MATERIALIZED_VIEW' ? 'materialized-view' as const : 'table' as const }
     }))
+  }
+  async listRelations(namespace?: { name: string }): Promise<DataRelation[]> {
+    const groups = namespace
+      ? [await this.listRelationsForNamespace(namespace)]
+      : await mapWithConcurrency(await this.listNamespaces(), DATASET_RELATION_CONCURRENCY, (item) => this.listRelationsForNamespace(item))
+    return groups.flat().sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name))
   }
   async describeRelation(ref: { namespace: string; name: string }): Promise<DataColumn[]> {
     const datasetId = ref.namespace.split('.').at(-1)!
@@ -87,7 +118,7 @@ class BigQuerySession implements DataSourceSession {
     return (metadata.schema?.fields || []).map((field: any) => ({ name: field.name, nativeType: field.type, nullable: field.mode !== 'REQUIRED' }))
   }
   async query(request: QueryRequest): Promise<QueryResult> {
-    const common = { query: request.sql, params: request.parameters || [], useLegacySql: false, location: this.p.location || undefined, defaultDataset: this.p.defaultDataset ? { projectId: this.project(), datasetId: this.p.defaultDataset } : undefined, maximumBytesBilled: this.p.maximumBytesBilled }
+    const common = { query: request.sql, params: request.parameters || [], useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), ...(this.p.defaultDataset ? { defaultDataset: { projectId: this.project(), datasetId: this.p.defaultDataset } } : {}), maximumBytesBilled: this.p.maximumBytesBilled }
     const [dryJob] = await this.client.createQueryJob({ ...common, dryRun: true })
     const dryMetadata = dryJob.metadata
     const statementType = dryMetadata.statistics?.query?.statementType
@@ -104,7 +135,7 @@ class BigQuerySession implements DataSourceSession {
     const bytes = Number(query.totalBytesProcessed)
     return { columns, rows: safeRows, rowCount: safeRows.length, durationMs, execution: { provider: 'bigquery', durationMs, rowCount: safeRows.length, truncated, bytesProcessed: Number.isSafeInteger(bytes) ? bytes : undefined, cacheHit: query.cacheHit } }
   }
-  async estimateQuery(sql: string) { const [job] = await this.client.createQueryJob({ query: sql, dryRun: true, useLegacySql: false, location: this.p.location || undefined, maximumBytesBilled: this.p.maximumBytesBilled }); return { bytesProcessed: Number(job.metadata?.statistics?.query?.totalBytesProcessed) } }
+  async estimateQuery(sql: string) { const [job] = await this.client.createQueryJob({ query: sql, dryRun: true, useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), maximumBytesBilled: this.p.maximumBytesBilled }); return { bytesProcessed: Number(job.metadata?.statistics?.query?.totalBytesProcessed) } }
   async close() {}
 }
 
@@ -114,7 +145,7 @@ export class BigQueryAdapter implements DataSourceAdapter {
   constructor(createClient: BigQueryClientFactory = (options) => new BigQuery(options)) { this.createClient = createClient }
   private client(p: BigQueryProfile) { return this.createClient({ projectId: p.billingProject }) }
   async test(value: DataSourceProfile): Promise<TestResult> {
-    try { const p = profile(value); await this.client(p).getDatasets({ projectId: p.defaultProject || p.billingProject, maxResults: 1 }); return { ok: true, sourceInfo: { label: 'Google BigQuery' } } }
+    try { const p = profile(value); await this.client(p).getDatasets({ projectId: effectiveDataProject(p), maxResults: 1 }); return { ok: true, sourceInfo: { label: 'Google BigQuery' } } }
     catch (error) { return { ok: false, error: friendlyError(error) } }
   }
   async connect(value: DataSourceProfile): Promise<{ result: ConnectResult; session?: DataSourceSession }> {
@@ -124,4 +155,4 @@ export class BigQueryAdapter implements DataSourceAdapter {
   }
 }
 
-export const __testing = { friendlyError, capabilities, ROW_LIMIT }
+export const __testing = { friendlyError, capabilities, effectiveDataProject, mapWithConcurrency, parseNamespace, DATASET_RELATION_CONCURRENCY, ROW_LIMIT }
