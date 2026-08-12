@@ -106,3 +106,27 @@ test('alias dot loads only its uniquely resolved unloaded relation', async () =>
   assert.equal(loaded, 'public.customers')
   assert.equal(result?.options[0].detail, 'column · text')
 })
+
+for (const relationReference of ['`my-project.analytics.orders`', 'my-project.analytics.orders']) {
+  test(`BigQuery alias dot lazily resolves ${relationReference}`, async () => {
+    const bigQuerySchemas: DatabaseSchemaNode[] = [{
+      name: 'my-project.analytics', isSystem: false, relations: [{
+        schema: 'my-project.analytics', name: 'orders', kind: 'r',
+        qualifiedName: 'my-project.analytics.orders', columnsStatus: 'idle'
+      }]
+    }]
+    const sql = `SELECT o.\nFROM ${relationReference} AS o`
+    const state = EditorState.create({ doc: sql, selection: { anchor: 'SELECT o.'.length } })
+    let loads = 0
+    const result = await sqlAliasCompletionSource(bigQuerySchemas, 'google-sql', async (relation) => {
+      loads += 1
+      assert.equal(relation.qualifiedName, 'my-project.analytics.orders')
+      return [{ name: 'Order ID', dataTypeName: 'INT64' }]
+    })(new CompletionContext(state, state.selection.main.head, false))
+
+    assert.equal(loads, 1)
+    assert.equal(result?.options.length, 1)
+    assert.equal(result?.options[0].detail, 'column · INT64')
+    assert.equal(result?.options[0].apply, '`Order ID`')
+  })
+}

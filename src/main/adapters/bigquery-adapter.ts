@@ -113,8 +113,8 @@ class BigQuerySession implements DataSourceSession {
     return groups.flat().sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name))
   }
   async describeRelation(ref: { namespace: string; name: string }): Promise<DataColumn[]> {
-    const datasetId = ref.namespace.split('.').at(-1)!
-    const [metadata] = await this.client.dataset(datasetId, { projectId: this.project() }).table(ref.name).getMetadata()
+    const { projectId, datasetId } = parseNamespace(ref.namespace)
+    const [metadata] = await this.client.dataset(datasetId, { projectId }).table(ref.name).getMetadata()
     return (metadata.schema?.fields || []).map((field: any) => ({ name: field.name, nativeType: field.type, nullable: field.mode !== 'REQUIRED' }))
   }
   async query(request: QueryRequest): Promise<QueryResult> {

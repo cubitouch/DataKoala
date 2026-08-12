@@ -141,6 +141,28 @@ test('a qualified namespace queries only that namespace project and dataset', as
   assert.deepEqual(requested, [{ datasetId: 'dataset_a', projectId: 'other-project' }])
 })
 
+test('describeRelation uses the project encoded in its qualified namespace', async () => {
+  const requested: Array<{ datasetId: string; projectId: unknown; tableId: string }> = []
+  const fake = client()
+  const connected = await new BigQueryAdapter(() => ({
+    ...fake.value,
+    dataset(datasetId, options) {
+      return {
+        async getTables() { return [[]] },
+        table(tableId: string) {
+          requested.push({ datasetId, projectId: options?.projectId, tableId })
+          return { async getMetadata() { return [{ schema: { fields: [{ name: 'order_id', type: 'INT64', mode: 'REQUIRED' }] } }] } }
+        }
+      }
+    }
+  })).connect(profile)
+
+  assert.deepEqual(await connected.session!.describeRelation({ namespace: 'other-project.analytics', name: 'orders' }), [
+    { name: 'order_id', nativeType: 'INT64', nullable: false }
+  ])
+  assert.deepEqual(requested, [{ datasetId: 'analytics', projectId: 'other-project', tableId: 'orders' }])
+})
+
 test('all-dataset relation enumeration uses bounded concurrency', async () => {
   const datasets = Object.fromEntries(Array.from({ length: 17 }, (_, index) => [`dataset_${index}`, [{ id: 'events' }]]))
   let active = 0; let peak = 0
