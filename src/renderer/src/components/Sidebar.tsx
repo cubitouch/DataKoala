@@ -7,6 +7,7 @@ import { isBuilderTemporalDataType } from '../lib/builderSql'
 import { bindTabConnection, ensureConnectionForTab } from '../lib/tabConnection'
 import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { ConnectionModal } from './ConnectionModal'
+import { connectionKindLabel } from '../lib/connectionKind'
 
 const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
 
@@ -145,7 +146,7 @@ export function Sidebar() {
         onClick={() => { if (!connecting) void connect(profile) }} aria-busy={isConnecting} aria-current={isSelected ? 'true' : undefined}>
         <span className={isConnecting ? 'spinner' : 'dot'} aria-label={isConnecting ? 'Connecting' : undefined} />
         <span className="name">{profile.name}</span>
-        <span className="kind">{profile.kind === 'local-files' ? 'files' : profile.kind === 'sqlite-file' ? 'sqlite' : 'pg'}</span>
+        <span className="kind">{connectionKindLabel(profile.kind)}</span>
         {isConnecting && <span className="connecting-label">Connecting…</span>}
         {isSelected && !isLive && !isConnecting && <span className="connecting-label">connect on run</span>}
         <button className="del" disabled={connecting} onClick={(event) => { event.stopPropagation(); setEditing(profile); setShowModal(true) }}>✎</button>
