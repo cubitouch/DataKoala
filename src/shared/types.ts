@@ -29,6 +29,17 @@ export interface DataSourceDescriptor {
   dialect: SqlDialect
 }
 
+export const DATA_SOURCE_DESCRIPTORS: Record<DataSourceKind, DataSourceDescriptor> = {
+  postgres: { sourceKind: 'postgres', engine: 'postgres', dialect: 'postgres' },
+  'local-files': { sourceKind: 'local-files', engine: 'duckdb', dialect: 'duckdb' },
+  'sqlite-file': { sourceKind: 'sqlite-file', engine: 'duckdb', dialect: 'duckdb' },
+  bigquery: { sourceKind: 'bigquery', engine: 'bigquery', dialect: 'google-sql' }
+}
+
+export function sqlDialectForSourceKind(kind: DataSourceKind): SqlDialect {
+  return DATA_SOURCE_DESCRIPTORS[kind].dialect
+}
+
 interface ProfileBase {
   id: ConnectionId
   name: string

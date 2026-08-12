@@ -7,7 +7,7 @@ import { BigQueryDate, BigQueryDatetime, BigQueryInt, BigQueryTime, BigQueryTime
 const profile: BigQueryProfile = { kind: 'bigquery', version: 1, id: 'bq', name: 'BQ', billingProject: 'billing', defaultProject: 'data', defaultDataset: 'analytics', location: 'US', maximumBytesBilled: '1073741824', readonly: true }
 
 test('advertises Builder without unsupported explain, analyze, or cancellation', () => {
-  assert.deepEqual(__testing.capabilities, { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: false })
+  assert.deepEqual(__testing.capabilities, { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: true })
 })
 
 function client(statementType = 'SELECT', rows: any[] = [{ exact: new BigQueryInt('9007199254740993') }], pageToken?: string) {
@@ -154,6 +154,28 @@ test('a qualified namespace queries only that namespace project and dataset', as
     { namespace: 'other-project.dataset_a', name: 'events', kind: 'table' }
   ])
   assert.deepEqual(requested, [{ datasetId: 'dataset_a', projectId: 'other-project' }])
+})
+
+test('describeRelation uses the project encoded in its qualified namespace', async () => {
+  const requested: Array<{ datasetId: string; projectId: unknown; tableId: string }> = []
+  const fake = client()
+  const connected = await new BigQueryAdapter(() => ({
+    ...fake.value,
+    dataset(datasetId, options) {
+      return {
+        async getTables() { return [[]] },
+        table(tableId: string) {
+          requested.push({ datasetId, projectId: options?.projectId, tableId })
+          return { async getMetadata() { return [{ schema: { fields: [{ name: 'order_id', type: 'INT64', mode: 'REQUIRED' }] } }] } }
+        }
+      }
+    }
+  })).connect(profile)
+
+  assert.deepEqual(await connected.session!.describeRelation({ namespace: 'other-project.analytics', name: 'orders' }), [
+    { name: 'order_id', nativeType: 'INT64', nullable: false }
+  ])
+  assert.deepEqual(requested, [{ datasetId: 'analytics', projectId: 'other-project', tableId: 'orders' }])
 })
 
 test('all-dataset relation enumeration uses bounded concurrency', async () => {
