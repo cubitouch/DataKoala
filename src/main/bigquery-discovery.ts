@@ -36,7 +36,9 @@ export class BigQueryDiscoveryService {
   }
 
   async listDatasets(projectId: string): Promise<BigQueryDatasetOption[]> {
-    const [datasets] = await this.createBigQuery(projectId).getDatasets({ projectId, all: true, autoPaginate: true })
+    // Deliberately omit `all`: BigQuery uses it to include hidden anonymous
+    // query-result datasets, which should not appear in the connection picker.
+    const [datasets] = await this.createBigQuery(projectId).getDatasets({ projectId, autoPaginate: true })
     return datasets.map((dataset) => {
       const metadata = dataset.metadata
       const reference = metadata.datasetReference

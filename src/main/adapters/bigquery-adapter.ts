@@ -93,7 +93,9 @@ class BigQuerySession implements DataSourceSession {
   }
   private project() { return effectiveDataProject(this.p) }
   async listNamespaces(): Promise<Array<{ name: string }>> {
-    const [datasets] = await this.client.getDatasets({ projectId: this.project(), all: true }) as [any[]]
+    // BigQuery's `all` flag includes hidden anonymous query-result datasets. Those
+    // are not normal browsing targets and can represent another user's job.
+    const [datasets] = await this.client.getDatasets({ projectId: this.project() }) as [any[]]
     return datasets.map((d: any) => ({ name: `${this.project()}.${d.id}` }))
   }
   private async listRelationsForNamespace(namespace: { name: string }): Promise<DataRelation[]> {

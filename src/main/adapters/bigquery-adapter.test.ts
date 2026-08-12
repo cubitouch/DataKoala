@@ -85,10 +85,11 @@ test('passes defaultDataset to query jobs only when selected', async () => {
   assert.equal(Object.hasOwn(all.calls.at(-1)!, 'defaultDataset'), false)
 })
 
-function relationClient(datasetTables: Record<string, Array<{ id: string; type?: string }>>, hooks?: { start?: (dataset: string) => void; finish?: (dataset: string) => void }): BigQueryClientLike {
+function relationClient(datasetTables: Record<string, Array<{ id: string; type?: string }>>, hooks?: { start?: (dataset: string) => void; finish?: (dataset: string) => void; list?: (options?: Record<string, unknown>) => void }): BigQueryClientLike {
   return {
     async getDatasets(options) {
       if (options?.maxResults === 1) return [[]]
+      hooks?.list?.(options)
       return [Object.keys(datasetTables).map((id) => ({ id }))]
     },
     dataset(datasetId, _options) {
@@ -116,6 +117,14 @@ test('listRelations without a namespace flattens every dataset regardless of the
       { namespace: 'data.dataset_b', name: 'events', kind: 'view' }
     ])
   }
+})
+
+test('tree enumeration excludes hidden anonymous datasets by omitting the all flag', async () => {
+  const requests: Array<Record<string, unknown> | undefined> = []
+  const connected = await new BigQueryAdapter(() => relationClient({ analytics: [] }, { list: (options) => requests.push(options) })).connect({ ...profile, defaultDataset: undefined })
+  await connected.session!.listRelations()
+  assert.deepEqual(requests, [{ projectId: 'data' }])
+  assert.equal(Object.hasOwn(requests[0]!, 'all'), false)
 })
 
 test('a qualified namespace queries only that namespace project and dataset', async () => {

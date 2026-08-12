@@ -10,6 +10,8 @@ test('discovers and sorts projects across provider pages', async () => {
 
 test('surfaces only datasets returned by the provider with list metadata', async () => {
   const datasets = [{ id: 'events', metadata: { datasetReference: { projectId: 'data', datasetId: 'events' }, friendlyName: 'Analytics events', location: 'EU' } }]
-  const service = new BigQueryDiscoveryService(() => ({ getDatasets: async () => [datasets] }) as never)
+  let options: unknown
+  const service = new BigQueryDiscoveryService(() => ({ getDatasets: async (received: unknown) => { options = received; return [datasets] } }) as never)
   assert.deepEqual(await service.listDatasets('data'), [{ projectId: 'data', datasetId: 'events', friendlyName: 'Analytics events', location: 'EU' }])
+  assert.deepEqual(options, { projectId: 'data', autoPaginate: true })
 })
