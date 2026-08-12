@@ -14,9 +14,10 @@ const existing: ConnectionProfile = {
   id: 'profile-1', name: 'Original', host: 'old.host', port: 5432, database: 'old_db',
   user: 'old_user', password: 'old password', ssl: false, readonly: true
 }
-const renderModal = (profile: DataSourceProfile | null = null) => {
+const renderModal = (profile: DataSourceProfile | null = null, stayOnPicker = false) => {
   const onSaved = vi.fn()
   render(<ConnectionModal existing={profile} onClose={vi.fn()} onSaved={onSaved} />)
+  if (!profile && !stayOnPicker) fireEvent.click(screen.getByRole('radio', { name: /PostgreSQL/ }))
   return { onSaved }
 }
 const change = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } })
@@ -37,27 +38,30 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('ConnectionModal canonical connection draft', () => {
-  it('switches the complete new-connection form from both typed selector buttons', () => {
-    renderModal()
-    const postgres = screen.getByRole('button', { name: 'PostgreSQL' })
-    const localFiles = screen.getByRole('button', { name: 'Local files' })
+  it('starts with a source picker and preserves drafts across Back', () => {
+    renderModal(null, true)
+    const postgres = screen.getByRole('radio', { name: /PostgreSQL/ })
+    const localFiles = screen.getByRole('radio', { name: /Local files/ })
     expect(postgres.getAttribute('type')).toBe('button')
     expect(localFiles.getAttribute('type')).toBe('button')
-    expect(screen.getByRole('heading', { name: 'New Postgres connection' })).toBeTruthy()
-
-    fireEvent.click(localFiles)
-    expect(screen.getByRole('heading', { name: 'New local file connection' })).toBeTruthy()
-    expect(screen.queryByLabelText('Paste a connection string')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Choose a connection type' })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: /Excel/ }).hasAttribute('disabled')).toBe(true)
 
     fireEvent.click(postgres)
-    expect(screen.getByRole('heading', { name: 'New Postgres connection' })).toBeTruthy()
     expect(screen.getByLabelText('Paste a connection string')).toBeTruthy()
+    change('Profile name', 'Draft Postgres')
+    fireEvent.click(screen.getByRole('button', { name: /Back to connection types/ }))
+    fireEvent.click(screen.getByRole('radio', { name: /Local files/ }))
+    expect(screen.getByRole('heading', { name: 'Local files' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Back to connection types/ }))
+    fireEvent.click(screen.getByRole('radio', { name: /PostgreSQL/ }))
+    expect(screen.getByLabelText('Profile name')).toHaveProperty('value', 'Draft Postgres')
   })
 
   it('chooses, tests, and saves a SQLite profile while retaining all three connection choices', async () => {
-    const { onSaved } = renderModal()
-    fireEvent.click(screen.getByRole('button', { name: 'SQLite database' }))
-    expect(screen.getByRole('heading', { name: 'New SQLite database connection' })).toBeTruthy()
+    const { onSaved } = renderModal(null, true)
+    fireEvent.click(screen.getByRole('radio', { name: /SQLite/ }))
+    expect(screen.getByRole('heading', { name: 'SQLite' })).toBeTruthy()
     expect(screen.getByText(/filename extension does not matter/i)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Choose database…' }))
     expect(await screen.findByText('/fixtures/analytics.sqlite3')).toBeTruthy()
@@ -71,10 +75,6 @@ describe('ConnectionModal canonical connection draft', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ kind: 'sqlite-file', path: '/fixtures/analytics.sqlite3' })))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Local files' }))
-    expect(screen.getByRole('heading', { name: 'New local file connection' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'PostgreSQL' }))
-    expect(screen.getByRole('heading', { name: 'New Postgres connection' })).toBeTruthy()
   })
 
   it('tests populated visible fields after a pasted string is cleared', async () => {

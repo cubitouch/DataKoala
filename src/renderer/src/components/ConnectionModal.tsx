@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 void React
-import type { BigQueryProfile, ConnectionProfile, DataSourceProfile, LocalFilesProfile, SqliteFileProfile } from '../../../shared/types'
+import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, SqliteFileProfile } from '../../../shared/types'
 import { parseConnectionString, buildConnectionString, DEFAULT_PORT } from '../../../shared/connString'
 import { api } from '../lib/api'
 import { Combobox } from './ui/combobox'
@@ -17,6 +17,45 @@ interface Props {
   existing: DataSourceProfile | null
   onClose: () => void
   onSaved: (p: DataSourceProfile) => void
+}
+
+type FormProps = Props & { onBack?: () => void; active?: boolean }
+type PickerKind = DataSourceKind | 'excel'
+export interface ConnectionSourceDescriptor {
+  kind: PickerKind
+  label: string
+  description: string
+  hint: string
+  icon: 'database' | 'files' | 'sqlite' | 'cloud' | 'sheet'
+  status: 'available' | 'coming-soon'
+  supportsCreate: boolean
+}
+
+export const CONNECTION_SOURCE_DESCRIPTORS: readonly ConnectionSourceDescriptor[] = [
+  { kind: 'postgres', label: 'PostgreSQL', description: 'Connect with host, port, database and credentials.', hint: 'Postgres database', icon: 'database', status: 'available', supportsCreate: true },
+  { kind: 'local-files', label: 'Local files', description: 'Query CSV, Parquet and JSON files through DuckDB.', hint: 'One or more files', icon: 'files', status: 'available', supportsCreate: true },
+  { kind: 'sqlite-file', label: 'SQLite', description: 'Open a SQLite database file through DuckDB.', hint: '.sqlite or .db file', icon: 'sqlite', status: 'available', supportsCreate: true },
+  { kind: 'bigquery', label: 'BigQuery', description: 'Use Google ADC credentials to browse and query datasets.', hint: 'Cloud data warehouse', icon: 'cloud', status: 'available', supportsCreate: true },
+  { kind: 'excel', label: 'Excel', description: 'Explore workbook sheets as tables.', hint: 'Coming soon', icon: 'sheet', status: 'coming-soon', supportsCreate: false }
+]
+
+function SourceIcon({ type }: { type: ConnectionSourceDescriptor['icon'] }) {
+  const common = { width: 28, height: 28, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, 'aria-hidden': true }
+  if (type === 'cloud') return <svg {...common}><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.3 8.2 4.9 4.9 0 0 0 7 18Z"/><path d="M9 14h6M11 11.5h2M11 16.5h2"/></svg>
+  if (type === 'files') return <svg {...common}><path d="M4 5h6l2 2h8v12H4Z"/><path d="M8 11h8M8 15h6"/></svg>
+  if (type === 'sheet') return <svg {...common}><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 9h14M10 9v12M15 9v12M5 15h14"/></svg>
+  if (type === 'sqlite') return <svg {...common}><path d="M5 6c0-2 14-2 14 0v12c0 2-14 2-14 0Z"/><path d="M5 6c0 2 14 2 14 0M5 12c0 2 9 2 12 1"/><path d="m14 18 4-5"/></svg>
+  return <svg {...common}><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 4 14 4 14 0V6M5 12c0 4 14 4 14 0"/></svg>
+}
+
+function ConnectionFormHeader({ kind, editing, onBack }: { kind: DataSourceKind; editing: boolean; onBack?: () => void }) {
+  const descriptor = CONNECTION_SOURCE_DESCRIPTORS.find((item) => item.kind === kind)!
+  return <header className="connection-form-header">
+    {onBack && <button type="button" className="btn ghost connection-back" onClick={onBack} aria-label="Back to connection types">← Back</button>}
+    <span className="source-icon"><SourceIcon type={descriptor.icon} /></span>
+    <div><div className="wizard-steps">{editing ? 'Connection type' : 'Step 2 of 2 · Details'}</div><h2 id={`${kind}-connection-title`}>{editing ? `Edit ${descriptor.label} connection` : descriptor.label}</h2></div>
+    {editing && <span className="source-kind-badge">Fixed type</span>}
+  </header>
 }
 
 const blank: ConnectionProfile = {
@@ -43,7 +82,7 @@ const failureMessage = (value: unknown): string => {
   return 'Connection test failed. The server did not provide an error message.'
 }
 
-function PostgresConnectionModal({ existing, onClose, onSaved }: Props & { existing: ConnectionProfile | null }) {
+function PostgresConnectionModal({ existing, onClose, onSaved, onBack, active = true }: FormProps & { existing: ConnectionProfile | null }) {
   const [draft, setDraft] = useState(() => draftFromProfile(existing ?? blank))
   const [errors, setErrors] = useState<ConnectionDraftErrors>({})
   const [testState, setTestState] = useState<TestState>({ status: 'idle' })
@@ -55,6 +94,7 @@ function PostgresConnectionModal({ existing, onClose, onSaved }: Props & { exist
   const requestRevision = useRef(0)
   const fieldRefs = useRef<Partial<Record<ConnectionDraftField, HTMLInputElement | null>>>({})
 
+  useEffect(() => { if (!active) requestRevision.current += 1 }, [active])
   useEffect(() => () => { requestRevision.current += 1 }, [])
 
   const updateDraft = (patch: Partial<ConnectionDraft>, affectsConnection = false) => {
@@ -169,8 +209,8 @@ function PostgresConnectionModal({ existing, onClose, onSaved }: Props & { exist
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="connection-modal-title" onClick={(e) => e.stopPropagation()}>
-        <h2 id="connection-modal-title">{existing ? 'Edit connection' : 'New Postgres connection'}</h2>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="postgres-connection-title" onClick={(e) => e.stopPropagation()}>
+        <ConnectionFormHeader kind="postgres" editing={!!existing} onBack={onBack} />
         <div className="field">
           <label htmlFor="connection-string">Paste a connection string</label>
           <textarea id="connection-string" className="conn-paste" value={pasted} spellCheck={false} autoComplete="off"
@@ -218,7 +258,7 @@ function PostgresConnectionModal({ existing, onClose, onSaved }: Props & { exist
   )
 }
 
-function LocalFilesConnectionModal({ existing, onClose, onSaved }: Props & { existing: LocalFilesProfile | null }) {
+function LocalFilesConnectionModal({ existing, onClose, onSaved, onBack }: FormProps & { existing: LocalFilesProfile | null }) {
   const [name, setName] = useState(existing?.name ?? 'Local files')
   const [files, setFiles] = useState(existing?.files ?? [])
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -261,8 +301,8 @@ function LocalFilesConnectionModal({ existing, onClose, onSaved }: Props & { exi
     catch (error) { setMessage({ ok: false, text: error instanceof Error ? error.message : String(error) }) }
     finally { setBusy(false) }
   }
-  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="local-files-title" onClick={(event) => event.stopPropagation()}>
-    <h2 id="local-files-title">{existing ? 'Edit local files' : 'New local file connection'}</h2>
+  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="local-files-connection-title" onClick={(event) => event.stopPropagation()}>
+    <ConnectionFormHeader kind="local-files" editing={!!existing} onBack={onBack} />
     <div className="field"><label htmlFor="local-profile-name">Connection name</label><input id="local-profile-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
     <div className="field"><label>Data files</label><button type="button" className="btn ghost" onClick={() => void choose()}>Choose files…</button><div className="paste-hint">CSV, TSV, Parquet, JSON, JSONL, and NDJSON. Each file is exposed as a read-only SQL view.</div></div>
     {files.map((file, index) => <div className="row file-connection-row" key={file.path}>
@@ -274,7 +314,7 @@ function LocalFilesConnectionModal({ existing, onClose, onSaved }: Props & { exi
   </div></div>
 }
 
-function SqliteFileConnectionModal({ existing, onClose, onSaved }: Props & { existing: SqliteFileProfile | null }) {
+function SqliteFileConnectionModal({ existing, onClose, onSaved, onBack }: FormProps & { existing: SqliteFileProfile | null }) {
   const [name, setName] = useState(existing?.name ?? 'SQLite database')
   const [path, setPath] = useState(existing?.path ?? '')
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -297,8 +337,8 @@ function SqliteFileConnectionModal({ existing, onClose, onSaved }: Props & { exi
     try { onSaved(await api.connections.upsert(profile())); onClose() }
     catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }) } finally { setBusy(false) }
   }
-  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="sqlite-file-title" onClick={(event) => event.stopPropagation()}>
-    <h2 id="sqlite-file-title">{existing ? 'Edit SQLite database' : 'New SQLite database connection'}</h2>
+  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="sqlite-file-connection-title" onClick={(event) => event.stopPropagation()}>
+    <ConnectionFormHeader kind="sqlite-file" editing={!!existing} onBack={onBack} />
     <div className="field"><label htmlFor="sqlite-profile-name">Connection name</label><input id="sqlite-profile-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
     <div className="field"><label>Database file</label><button type="button" className="btn ghost" onClick={() => void choose()}>Choose database…</button>{path && <div className="conn-preview" title={path}>{path}</div>}<div className="paste-hint">Select exactly one database file. Its SQLite contents are validated, so the filename extension does not matter. The database is attached directly in read-only mode.</div></div>
     {message && <div className={`test-msg ${message.ok ? 'ok' : 'err'}`} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
@@ -306,8 +346,8 @@ function SqliteFileConnectionModal({ existing, onClose, onSaved }: Props & { exi
   </div></div>
 }
 
-function BigQueryConnectionModal({ existing, onClose, onSaved }: Props & { existing: BigQueryProfile | null }) {
-  const [draft, setDraft] = useState(() => ({ name: existing?.name ?? '', billingProject: existing?.billingProject ?? '', defaultProject: existing?.defaultProject ?? '', defaultDataset: existing?.defaultDataset ?? '', location: existing?.location ?? '', maximumBytesBilled: existing?.maximumBytesBilled ?? '1073741824' }))
+function BigQueryConnectionModal({ existing, onClose, onSaved, onBack, active = true }: FormProps & { existing: BigQueryProfile | null }) {
+  const [draft, setDraft] = useState(() => ({ name: existing?.name ?? '', billingProject: existing?.billingProject ?? '', defaultProject: existing?.defaultProject ?? '', defaultDataset: existing?.defaultDataset ?? '', location: existing?.location ?? '', maximumBytesBilled: existing?.maximumBytesBilled ?? '' }))
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null); const [busy, setBusy] = useState(false); const revision = useRef(0)
   const [projects, setProjects] = useState<BigQueryProjectOption[]>([])
   const [projectLoading, setProjectLoading] = useState(true); const [projectError, setProjectError] = useState<string | null>(null)
@@ -321,6 +361,7 @@ function BigQueryConnectionModal({ existing, onClose, onSaved }: Props & { exist
     if (!existing) void api.connections.bigquery.discoverDefaults().then(({ projectId }: { projectId?: string }) => { if (active && untouched.current && projectId) { setDraft((current) => ({ ...current, billingProject: projectId, defaultProject: projectId })); loadDatasets(projectId) } }).catch(() => undefined)
     return () => { active = false; revision.current++; datasetRevision.current++ }
   }, [existing])
+  useEffect(() => { if (!active) { revision.current++; datasetRevision.current++ } }, [active])
   const loadDatasets = (projectId: string) => {
     const current = ++datasetRevision.current; setDatasets([]); setDatasetError(null)
     if (!projectId.trim()) { setDatasetLoading(false); return }
@@ -329,7 +370,7 @@ function BigQueryConnectionModal({ existing, onClose, onSaved }: Props & { exist
   }
   useEffect(() => { const projectId = existing?.defaultProject || existing?.billingProject; if (projectId) loadDatasets(projectId) }, [existing])
   const makeProfile = (): BigQueryProfile => ({ kind: 'bigquery', version: 1, id: existing?.id ?? '', name: draft.name.trim(), billingProject: draft.billingProject.trim(), defaultProject: draft.defaultProject.trim() || draft.billingProject.trim(), defaultDataset: draft.defaultDataset.trim() || undefined, location: draft.location.trim() || undefined, maximumBytesBilled: draft.maximumBytesBilled.trim(), readonly: true })
-  const validate = () => !draft.name.trim() ? 'Enter a connection name.' : !draft.billingProject.trim() ? 'Enter a billing project.' : !/^\d+$/.test(draft.maximumBytesBilled) || BigInt(draft.maximumBytesBilled) <= 0n ? 'Maximum bytes billed must be a positive decimal integer.' : null
+  const validate = () => !draft.name.trim() ? 'Enter a connection name.' : !draft.billingProject.trim() ? 'Enter a billing project.' : draft.maximumBytesBilled.trim() && (!/^\d+$/.test(draft.maximumBytesBilled) || BigInt(draft.maximumBytesBilled) <= 0n) ? 'Maximum bytes billed must be a positive decimal integer.' : null
   const test = async () => { const error = validate(); if (error) return setMessage({ ok: false, text: error }); const current = ++revision.current; setBusy(true); setMessage(null); try { const result = await api.connections.test(makeProfile()); if (current === revision.current) setMessage(result.ok ? { ok: true, text: 'Credentials and metadata access verified.' } : { ok: false, text: result.error }) } catch (caught) { if (current === revision.current) setMessage({ ok: false, text: failureMessage(caught) }) } finally { if (current === revision.current) setBusy(false) } }
   const save = async () => { const error = validate(); if (error) return setMessage({ ok: false, text: error }); setBusy(true); try { onSaved(await api.connections.upsert(makeProfile())); onClose() } catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }) } finally { setBusy(false) } }
   const set = (field: keyof typeof draft, value: string) => { untouched.current = false; revision.current++; setBusy(false); setMessage(null); setDraft((valueNow) => ({ ...valueNow, [field]: value })) }
@@ -346,31 +387,53 @@ function BigQueryConnectionModal({ existing, onClose, onSaved }: Props & { exist
     ...datasets.map((dataset) => ({ value: dataset.datasetId, label: dataset.datasetId, subtitle: [dataset.friendlyName, dataset.location].filter(Boolean).join(' · ') || undefined }))
   ], [datasets])
   const selectedDataset = datasets.find((dataset) => dataset.datasetId === draft.defaultDataset)
-  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="bigquery-title" onClick={(event) => event.stopPropagation()}>
-    <h2 id="bigquery-title">{existing ? 'Edit BigQuery connection' : 'New BigQuery connection'}</h2>
+  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="bigquery-connection-title" onClick={(event) => event.stopPropagation()}>
+    <ConnectionFormHeader kind="bigquery" editing={!!existing} onBack={onBack} />
     <div className="test-msg info">Authentication uses Google Application Default Credentials (ADC). DataKoala does not import or store service-account JSON, tokens, or credentials.</div>
     <div className="field"><label htmlFor="bq-name">Connection name</label><input id="bq-name" value={draft.name} onChange={(e) => set('name', e.target.value)} /></div>
     <div className="field"><label htmlFor="bq-reference">Paste BigQuery reference <span className="opt">— optional</span></label><input id="bq-reference" placeholder="project.dataset or projects/project/datasets/dataset" value={reference} onChange={(event) => applyReference(event.target.value)} aria-invalid={!!referenceError} />{referenceError && <div className="field-error" role="alert">{referenceError}</div>}</div>
     <div className="row"><div className="field"><label>Billing project</label><Combobox label="Billing project" value={draft.billingProject} options={projectOptions} onChange={(value) => set('billingProject', value)} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div><div className="field"><label>Data project <span className="opt">— defaults to billing project</span></label><Combobox label="Data project" value={draft.defaultProject} options={projectOptions} onChange={setDataProject} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div></div>
     <div className="field"><label>Dataset <span className="opt">— optional default</span></label><Combobox label="Dataset" value={draft.defaultDataset} options={datasetOptions} onChange={(value) => set('defaultDataset', value)} searchable allowCustomValue disabled={!draft.defaultProject.trim()} loading={datasetLoading} error={datasetError} placeholder="All datasets" emptyMessage="No datasets found. Enter a dataset ID manually." invalidationKey={draft.defaultProject} />{selectedDataset?.location && <div className="paste-hint" role="status">Dataset location: <strong>{selectedDataset.location}</strong></div>}<div className="paste-hint">All accessible datasets remain visible in the object tree. A selection only provides the default SQL context.</div></div>
-    <details className="bq-advanced"><summary>Advanced</summary><div className="field"><label htmlFor="bq-location">Location override <span className="opt">— optional</span></label><input id="bq-location" placeholder="e.g. US or europe-west1" value={draft.location} onChange={(e) => set('location', e.target.value)} /><div className="paste-hint">Normally leave blank so BigQuery infers the query location from referenced datasets.</div></div><div className="field"><label htmlFor="bq-max">Maximum bytes billed <span className="opt">— decimal bytes</span></label><input id="bq-max" inputMode="numeric" value={draft.maximumBytesBilled} onChange={(e) => set('maximumBytesBilled', e.target.value)} /><div className="paste-hint">Applied to dry runs and every query. New connections default to 1 GiB.</div></div></details>
+    <details className="bq-advanced"><summary>Advanced</summary><div className="field"><label htmlFor="bq-location">Location override (optional)</label><input id="bq-location" placeholder="e.g. US or europe-west1" value={draft.location} onChange={(e) => set('location', e.target.value)} /><div className="paste-hint">Normally leave blank so BigQuery infers the query location from referenced datasets.</div></div><div className="field"><label htmlFor="bq-max">Maximum bytes billed (optional)</label><input id="bq-max" inputMode="numeric" placeholder="No explicit billing cap" value={draft.maximumBytesBilled} onChange={(e) => set('maximumBytesBilled', e.target.value)} /><div className="paste-hint">Leave blank to omit the maximumBytesBilled job option.</div></div></details>
     {message && <div className={`test-msg ${message.ok ? 'ok' : 'err'}`} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
     <div className="actions"><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy}>{busy ? 'Testing…' : 'Test'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy}>Save</button></div>
   </div></div>
 }
 
 export function ConnectionModal(props: Props) {
-  const [kind, setKind] = useState<DataSourceProfile['kind']>(props.existing?.kind ?? 'postgres')
+  const [kind, setKind] = useState<DataSourceProfile['kind'] | null>(props.existing?.kind ?? null)
+  const [visited, setVisited] = useState<DataSourceKind[]>([])
   if (!props.existing) {
-    const modal = kind === 'postgres'
-      ? <PostgresConnectionModal {...props} existing={null} />
-      : kind === 'local-files' ? <LocalFilesConnectionModal {...props} existing={null} /> : kind === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={null} /> : <BigQueryConnectionModal {...props} existing={null} />
-    return <>{<div className="connection-kind-switch" role="group" aria-label="Connection type">
-      <button type="button" className={kind === 'postgres' ? 'active' : ''} onClick={() => setKind('postgres')}>PostgreSQL</button>
-      <button type="button" className={kind === 'local-files' ? 'active' : ''} onClick={() => setKind('local-files')}>Local files</button>
-      <button type="button" className={kind === 'sqlite-file' ? 'active' : ''} onClick={() => setKind('sqlite-file')}>SQLite database</button>
-      <button type="button" className={kind === 'bigquery' ? 'active' : ''} onClick={() => setKind('bigquery')}>BigQuery</button>
-    </div>}{modal}</>
+    const select = (next: DataSourceKind) => { setVisited((current) => current.includes(next) ? current : [...current, next]); setKind(next) }
+    const onPickerKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) return
+      event.preventDefault()
+      const cards = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
+      const index = Math.max(0, cards.indexOf(document.activeElement as HTMLButtonElement))
+      cards[(index + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : cards.length - 1)) % cards.length]?.focus()
+    }
+    return <>
+      {!kind && <div className="modal-overlay" onClick={props.onClose}><div className="modal connection-picker" role="dialog" aria-modal="true" aria-labelledby="connection-picker-title" onClick={(event) => event.stopPropagation()}>
+        <div className="wizard-steps">Step 1 of 2 · Source</div>
+        <h2 id="connection-picker-title">Choose a connection type</h2>
+        <p className="connection-picker-intro">Select where your data lives. You can return here before saving.</p>
+        <div className="connection-source-grid" role="radiogroup" aria-label="Connection types" onKeyDown={onPickerKeyDown}>
+          {CONNECTION_SOURCE_DESCRIPTORS.map((source, index) => {
+            const disabled = !source.supportsCreate
+            return <button key={source.kind} type="button" role="radio" aria-checked="false" aria-disabled={disabled} disabled={disabled} tabIndex={disabled ? -1 : index === 0 ? 0 : -1} className="connection-source-card" onClick={() => !disabled && select(source.kind as DataSourceKind)}>
+              <span className="source-icon"><SourceIcon type={source.icon} /></span><span className="source-card-copy"><strong>{source.label}</strong><span>{source.description}</span><small>{source.hint}</small></span>
+            </button>
+          })}
+        </div>
+        <div className="actions"><button type="button" className="btn ghost" onClick={props.onClose}>Cancel</button></div>
+      </div></div>}
+      {visited.map((item) => <div key={item} className={kind === item ? '' : 'wizard-form-hidden'} aria-hidden={kind !== item}>
+        {item === 'postgres' ? <PostgresConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
+          : item === 'local-files' ? <LocalFilesConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
+            : item === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
+              : <BigQueryConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />}
+      </div>)}
+    </>
   }
   return props.existing.kind === 'local-files' ? <LocalFilesConnectionModal {...props} existing={props.existing} />
     : props.existing.kind === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={props.existing} />

@@ -28,7 +28,7 @@ function isBigQueryV1(stored: Record<string, unknown>): boolean {
   return stored.kind === 'bigquery' && stored.version === 1 && stored.readonly === true &&
     typeof stored.id === 'string' && typeof stored.name === 'string' &&
     typeof stored.billingProject === 'string' && typeof stored.maximumBytesBilled === 'string' &&
-    /^\d+$/.test(stored.maximumBytesBilled) &&
+    (stored.maximumBytesBilled === '' || /^\d+$/.test(stored.maximumBytesBilled)) &&
     (stored.defaultProject === undefined || typeof stored.defaultProject === 'string') &&
     (stored.defaultDataset === undefined || typeof stored.defaultDataset === 'string') &&
     (stored.location === undefined || typeof stored.location === 'string')
