@@ -270,6 +270,33 @@ async function configureTablePreview(win) {
   await sleep(300)
 }
 
+async function configureBuilderControls(win, variant) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    if (!store) return { error: 'window.__datakoalaStore is unavailable' }
+    const variant = '${variant}'
+    const temporal = variant === 'temporal-series'
+    const count = variant === 'count-without-y'
+    store.getState().setBuilder({
+      table: { schema: 'analytics', name: 'monthly_market_activity' },
+      timeColumn: 'time_bucket',
+      timeBucket: 'month',
+      seriesColumns: temporal ? ['series'] : []
+    })
+    store.getState().setVisualization('builder', {
+      view: temporal ? 'line' : 'bar',
+      xColumn: temporal ? 'time_bucket' : 'series',
+      valueColumn: count ? null : 'count',
+      seriesColumn: null,
+      seriesColumns: temporal ? ['series'] : [],
+      aggregation: count ? 'count' : 'sum'
+    })
+    return { ok: true }
+  })()`)
+  if (report?.error) throw new Error(report.error)
+  await sleep(250)
+}
+
 async function capture(win, filename) {
   const image = await win.webContents.capturePage()
   const path = resolve(outputDir, filename)
@@ -422,7 +449,18 @@ app.whenReady().then(async () => {
 
     await configureMode(win, 'builder')
     await verifySeriesTriggerAlignment(win)
-    await capture(win, 'builder.png')
+    await configureBuilderControls(win, 'temporal-series')
+    await capture(win, 'builder-temporal-series.png')
+
+    await configureBuilderControls(win, 'categorical-numeric')
+    await capture(win, 'builder-categorical-numeric.png')
+
+    await configureBuilderControls(win, 'count-without-y')
+    await capture(win, 'builder-count-without-y.png')
+
+    win.setSize(760, 760)
+    await sleep(350)
+    await capture(win, 'builder-narrow.png')
 
     await configureTablePreview(win)
     await capture(win, 'table.png')

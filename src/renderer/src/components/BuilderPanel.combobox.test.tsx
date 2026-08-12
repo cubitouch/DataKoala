@@ -74,6 +74,27 @@ const chooseXAxis = (name: RegExp) => {
 }
 
 describe('BuilderPanel axis-first controls', () => {
+  it('groups dimensions before their aligned transformations', () => {
+    const view = arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    const dimensions = view.container.querySelector('[data-builder-control-row="dimensions"]')!
+    const transformations = view.container.querySelector('[data-builder-control-row="transformations"]')!
+    expect(Array.from(dimensions.querySelectorAll('.builder-field-label')).map((label) => label.textContent)).toEqual(['X axis', 'Y axis (optional for Count)', 'Series'])
+    expect(Array.from(transformations.querySelectorAll('.builder-field-label')).map((label) => label.textContent)).toEqual(['Time bucket', 'Aggregation'])
+  })
+
+  it('omits only Time bucket for a categorical X and retains Count without Y', () => {
+    const view = arrange()
+    chooseOrders()
+    chooseXAxis(/region, text/)
+    const transformations = view.container.querySelector('[data-builder-control-row="transformations"]')!
+    expect(screen.queryByRole('combobox', { name: /Time bucket/ })).toBeNull()
+    expect(transformations.querySelector('.builder-field-label')?.textContent).toBe('Aggregation')
+    expect(screen.getByRole('combobox', { name: /Y axis: Count rows \(no Y axis\)/ })).toBeTruthy()
+    expect(activeTestSession().builderVisualization.aggregation).toBe('count')
+  })
+
   it('updates schema selection and invalidates the selected relation', () => {
     arrange()
     fireEvent.click(screen.getByRole('combobox', { name: /Schema: Select a schema/ }))
@@ -176,7 +197,7 @@ describe('BuilderPanel axis-first controls', () => {
     expect(screen.getByRole('option', { name: /^Minute,/ })).toBeTruthy()
     for (const bucket of ['Hour', 'Day', 'Week', 'Month', 'Quarter', 'Year']) expect(screen.getByRole('option', { name: bucket })).toBeTruthy()
     fireEvent.click(screen.getByRole('option', { name: 'Hour' }))
-    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => setTimeout(resolve, 100))
     expect(activeTestSession().builder.timeBucket).toBe('hour')
     expect(document.activeElement).toBe(screen.getByRole('combobox', { name: /Time bucket: Hour/ }))
   })
@@ -205,10 +226,10 @@ describe('BuilderPanel axis-first controls', () => {
     const region = screen.getByRole('option', { name: /region, text/ })
     expect(region.querySelector('.combobox-option-subtitle')?.textContent).toBe('text')
     fireEvent.click(region)
-    await new Promise((resolve) => setTimeout(resolve))
+    await new Promise((resolve) => setTimeout(resolve, 100))
     fireEvent.click(screen.getByRole('combobox', { name: /Series columns/ }))
     fireEvent.click(screen.getByRole('option', { name: /customer_id, text/ }))
-    await new Promise((resolve) => setTimeout(resolve))
+    await new Promise((resolve) => setTimeout(resolve, 100))
     expect(activeTestSession().builder.seriesColumns).toEqual(['region', 'customer_id'])
     expect(Array.from(view.container.querySelectorAll('.combobox-chip')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['region', 'customer_id'])
     fireEvent.click(screen.getByRole('combobox', { name: /Series columns/ }))
