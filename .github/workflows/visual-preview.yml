@@ -23,7 +23,10 @@ jobs:
         sql-long-query-scroll.png
         sql-wide-sidebar-long-names.png
         sql-narrow-short-tooltip.png
-        builder.png
+        builder-temporal-series.png
+        builder-categorical-numeric.png
+        builder-count-without-y.png
+        builder-narrow.png
         table.png
 
     steps:
@@ -114,7 +117,10 @@ jobs:
               'sql-long-query-scroll.png': 'SQL mode — long query scrolling internally',
               'sql-wide-sidebar-long-names.png': 'SQL mode — widened sidebar with long object names',
               'sql-narrow-short-tooltip.png': 'SQL mode — narrow/short window with chart tooltip',
-              'builder.png': 'Builder mode',
+              'builder-temporal-series.png': 'Builder — temporal X, numeric Y, and Series',
+              'builder-categorical-numeric.png': 'Builder — categorical X and numeric Y',
+              'builder-count-without-y.png': 'Builder — Count without a Y axis',
+              'builder-narrow.png': 'Builder — narrow responsive layout',
               'table.png': 'Filtered results table'
             }
             const files = process.env.PREVIEW_FILES.split(/\r?\n/).filter(Boolean)
