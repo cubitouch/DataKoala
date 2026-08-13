@@ -462,6 +462,8 @@ app.whenReady().then(async () => {
     await sleep(350)
     await capture(win, 'builder-narrow.png')
 
+    win.setSize(1440, 900)
+    await sleep(350)
     await configureTablePreview(win)
     await capture(win, 'table.png')
 
