@@ -1,6 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { ChartPicker } from './ChartPicker'
+
+const styles = readFileSync('src/renderer/src/styles.css', 'utf8')
 
 describe('ChartPicker', () => {
   it('exposes every view by accessible name and reports the selected view', () => {
@@ -10,5 +13,12 @@ describe('ChartPicker', () => {
     for (const name of ['Table', 'Bar', 'Line', 'Area', 'Scatter', 'Treemap', 'Sunburst']) expect(screen.getByRole('button', { name })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Sunburst' }))
     expect(onChange).toHaveBeenCalledWith('sunburst')
+  })
+
+  it('uses its result-pane container and wraps safely instead of the viewport width', () => {
+    expect(styles).toContain('container: result-pane / inline-size')
+    expect(styles).toContain('@container result-pane (max-width: 760px)')
+    expect(styles).toMatch(/\.result-view-bar\s*\{[^}]*flex-wrap:\s*wrap[^}]*overflow:\s*hidden/s)
+    expect(styles).not.toMatch(/@media\s*\(max-width:\s*900px\).*result-view-bar/s)
   })
 })

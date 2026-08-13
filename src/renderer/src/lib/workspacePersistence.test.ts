@@ -58,7 +58,7 @@ const tab = (id: string, title: string, connectionProfileId: string | null, sql:
   },
   builderHasRun: true,
   sqlVisualization: { view: 'bar' as const, xColumn: 'created_at', valueColumn: 'amount', aggregation: 'sum' as const, seriesColumn: null, seriesColumns: ['country', 'device'], valueAxisScale: 'log' as const },
-  builderVisualization: { view: 'line' as const, xColumn: 'created_at', valueColumn: null, aggregation: 'count' as const, seriesColumn: null, seriesColumns: ['country', 'device'], valueAxisScale: 'linear' as const },
+  builderVisualization: { view: 'line' as const, xColumn: 'created_at', valueColumn: null, aggregation: 'count' as const, seriesColumn: null, seriesColumns: ['country', 'device'], hierarchyDimensions: ['device', 'country'], valueAxisScale: 'linear' as const },
   sqlResultFilters: [clientFilter()],
   builderResultFilters: [promotedFilter(), clientFilter()],
   queryFilterRevision: { sql: 3, builder: 4 },
@@ -102,6 +102,7 @@ test('workspace v2 round-trips ordered tabs, names, connection references and ax
   assert.equal(restored.tabs[0].builderVisualization.aggregation, 'count')
   assert.equal(restored.tabs[0].builderVisualization.valueColumn, null)
   assert.deepEqual(restored.tabs[0].builder.seriesColumns, ['country', 'device'])
+  assert.deepEqual(restored.tabs[0].builderVisualization.hierarchyDimensions, ['device', 'country'])
   assert.equal(restored.tabs[0].builderQueryFilters.length, 1)
   assert.equal(restored.tabs[0].builderQueryFilters[0].execution, 'query')
 })

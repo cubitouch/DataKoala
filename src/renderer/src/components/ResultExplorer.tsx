@@ -7,7 +7,7 @@ import { chartSeriesResultFilters, timeBucketRange, type ChartPointContext } fro
 import { chartTimeSelectionRange, isTemporalChartValues } from '../lib/chartRangeSelection'
 import { createResultFilter, createResultRangeFilter, filterQueryResult, resultFilterDemotion } from '../lib/resultFilters'
 import { isBuilderFilterPromotable } from '../lib/builderSql'
-import { decodeBuilderSeriesTuple, deriveEffectiveVisualization, numericColumns, pivotRowsForChart, visualizationConfigurationsEqual, type ValueAxisScale } from '../lib/resultVisualization'
+import { decodeBuilderSeriesTuple, deriveEffectiveVisualization, numericColumns, pivotRowsForChart, reconcileHierarchyDimensions, visualizationConfigurationsEqual, type ValueAxisScale } from '../lib/resultVisualization'
 import { selectActiveSession, selectSession, useStore, type QueryMode } from '../store/useStore'
 import { ResultsTable } from './ResultsTable'
 import { ChartFilterPopover, type ChartFilterAction } from './result-filters/ChartFilterPopover'
@@ -51,7 +51,6 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     return mode === 'sql' ? session.sqlVisualization : session.builderVisualization
   })
   const setVisualization = useStore((state) => state.setVisualization)
-  const setBuilder = useStore((state) => state.setBuilder)
   const builderSeries = useStore((state) => selectActiveSession(state).builder.seriesColumns)
   const builder = useStore((state) => selectActiveSession(state).builder)
   const activeFilters = useStore((state) => {
@@ -117,7 +116,8 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
   const sqlSeriesValues = useMemo(() => effectiveConfiguration.seriesColumns?.length
     ? effectiveConfiguration.seriesColumns
     : effectiveConfiguration.seriesColumn ? [effectiveConfiguration.seriesColumn] : [], [effectiveConfiguration.seriesColumn, effectiveConfiguration.seriesColumns])
-  const hierarchyDimensions = mode === 'builder' ? builderSeries : sqlSeriesValues
+  const availableHierarchyDimensions = mode === 'builder' ? builderSeries : sqlSeriesValues
+  const hierarchyDimensions = reconcileHierarchyDimensions(effectiveConfiguration.hierarchyDimensions, availableHierarchyDimensions)
   const hierarchyStats = useMemo(() => hierarchyCardinalities(filteredResult?.rows ?? [], hierarchyDimensions), [filteredResult, hierarchyDimensions.join('\0')])
   const suggestedHierarchyDimensions = useMemo(() => suggestHierarchyDimensions(filteredResult?.rows ?? [], hierarchyDimensions), [filteredResult, hierarchyDimensions.join('\0')])
   const hierarchy = useMemo(() => buildHierarchy({ rows: filteredResult?.rows ?? [], dimensions: hierarchyDimensions, valueColumn: effectiveConfiguration.valueColumn, aggregation: effectiveConfiguration.aggregation }), [filteredResult, hierarchyDimensions.join('\0'), effectiveConfiguration.valueColumn, effectiveConfiguration.aggregation])
@@ -148,18 +148,15 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     rangeSelectionEnabled: temporalRangeSelectionEnabled && !hierarchical,
     hierarchy
   }) : null, [chart, chartReady, effectiveConfiguration, seriesVisibility, mode, activeBuilderTimeBucket, temporalRangeSelectionEnabled, anomalies, hierarchy, hierarchical])
-  const setHierarchyDimensions = (dimensions: string[]) => {
-    if (mode === 'builder') {
-      setBuilder({ seriesColumns: dimensions }, tabId)
-      update({ seriesColumn: dimensions.length ? 'series' : null, seriesColumns: dimensions })
-    } else updateSqlSeries(dimensions)
-  }
+  const setHierarchyDimensions = (dimensions: string[]) => update({ hierarchyDimensions: dimensions })
   const chooseView = (view: typeof effectiveConfiguration.view) => {
-    if ((view === 'treemap' || view === 'sunburst') && suggestedHierarchyDimensions.length > 1) setHierarchyDimensions(suggestedHierarchyDimensions)
+    const enteringHierarchy = view === 'treemap' || view === 'sunburst'
+    const savedHierarchy = reconcileHierarchyDimensions(configuration.hierarchyDimensions, availableHierarchyDimensions)
+    const hierarchyOrder = configuration.hierarchyDimensions?.length ? savedHierarchy : suggestedHierarchyDimensions
     const numericX = view === 'scatter' && effectiveConfiguration.xColumn && !numeric.includes(effectiveConfiguration.xColumn)
       ? numeric.find((column) => column !== effectiveConfiguration.valueColumn) ?? null
       : effectiveConfiguration.xColumn
-    update({ view, ...(view === 'scatter' ? { xColumn: numericX } : {}) })
+    update({ view, ...(enteringHierarchy ? { hierarchyDimensions: hierarchyOrder } : {}), ...(view === 'scatter' ? { xColumn: numericX } : {}) })
   }
   const moveHierarchyDimension = (index: number, offset: number) => {
     const next = [...hierarchyDimensions]

@@ -174,9 +174,9 @@ button.tree-row, .tree-row button { background: none; border: 0; color: inherit;
 .generated-sql p { color: var(--text-mute); padding: 0 10px; }
 .generated-actions { display: flex; justify-content: flex-end; gap: 6px; padding: 6px; }
 .inline-error { color: var(--red); padding: 0 12px 8px; font-size: 11px; }
-.result-view-bar { display: flex; align-items: center; gap: 3px; padding: 6px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); }
+.result-view-bar { display: flex; align-items: center; flex-wrap: wrap; max-width: 100%; gap: 3px; padding: 6px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); overflow: hidden; }
 .result-view-bar span { margin-right: 5px; color: var(--text-mute); font-size: 11px; }
-.result-explorer { width: 100%; max-width: 100%; min-width: 0; min-height: 0; display: flex; flex: 1; flex-direction: column; border-top: 1px solid var(--border); }
+.result-explorer { container: result-pane / inline-size; width: 100%; max-width: 100%; min-width: 0; min-height: 0; display: flex; flex: 1; flex-direction: column; border-top: 1px solid var(--border); }
 .result-explorer > .result-pane, .result-explorer > .result-chart { flex: 1; }
 .visualization-controls { display: flex; align-items: end; gap: 12px; padding: 8px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .visualization-control { display: grid; gap: 4px; min-width: 130px; color: var(--text-mute); font-size: 11px; }
@@ -557,4 +557,4 @@ table.results td:hover .json-cell-explorer-popover .popover-trigger,
 .hierarchy-level button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; color: var(--text-dim); background: transparent; cursor: pointer; }
 .hierarchy-level button:hover:not(:disabled) { background: var(--bg-3); color: var(--text); }
 .hierarchy-level button:disabled { opacity: .3; cursor: default; }
-@media (max-width: 900px) { .result-view-bar .view-label { display: none; } .result-view-bar button { padding-inline: 8px; } }
+@container result-pane (max-width: 760px) { .result-view-bar .view-label { display: none; } .result-view-bar button { padding-inline: 8px; } }

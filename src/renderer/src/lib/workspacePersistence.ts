@@ -136,10 +136,11 @@ function visualization(value: unknown): VisualizationConfiguration | null {
   const valueColumn = stringOrNull(value.valueColumn)
   const seriesColumn = stringOrNull(value.seriesColumn)
   const seriesColumns = value.seriesColumns === undefined ? [] : stringArray(value.seriesColumns)
+  const hierarchyDimensions = value.hierarchyDimensions === undefined ? [] : stringArray(value.hierarchyDimensions)
   const valueAxisScale = value.valueAxisScale === undefined ? 'linear' : isOneOf(value.valueAxisScale, VALUE_AXIS_SCALES) ? value.valueAxisScale : null
   const anomalyDetectionEnabled = value.anomalyDetectionEnabled === undefined ? false : typeof value.anomalyDetectionEnabled === 'boolean' ? value.anomalyDetectionEnabled : null
-  if (xColumn === undefined || valueColumn === undefined || seriesColumn === undefined || !seriesColumns || !valueAxisScale || anomalyDetectionEnabled === null) return null
-  return { view: value.view, xColumn, valueColumn, aggregation: value.aggregation, seriesColumn, seriesColumns, valueAxisScale, anomalyDetectionEnabled }
+  if (xColumn === undefined || valueColumn === undefined || seriesColumn === undefined || !seriesColumns || !hierarchyDimensions || !valueAxisScale || anomalyDetectionEnabled === null) return null
+  return { view: value.view, xColumn, valueColumn, aggregation: value.aggregation, seriesColumn, seriesColumns, hierarchyDimensions, valueAxisScale, anomalyDetectionEnabled }
 }
 
 function cloneTimeRange(value: BuilderTimeRange | undefined): BuilderTimeRange | undefined {
@@ -148,7 +149,7 @@ function cloneTimeRange(value: BuilderTimeRange | undefined): BuilderTimeRange |
   return { ...value, recurringWindows: (value.recurringWindows ?? []).map((window) => ({ ...window })) }
 }
 function cloneVisualization(value: VisualizationConfiguration): VisualizationConfiguration {
-  return { ...value, seriesColumns: [...(value.seriesColumns ?? [])] }
+  return { ...value, seriesColumns: [...(value.seriesColumns ?? [])], hierarchyDimensions: [...(value.hierarchyDimensions ?? [])] }
 }
 function builderQueryFilters(filters: ResultFilter[]): ResultFilter[] {
   return filters.filter((filter) => filter.execution === 'query').map((filter) => ({

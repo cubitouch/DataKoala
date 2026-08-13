@@ -49,6 +49,25 @@ async function waitForTable(win) {
   throw new Error('Result table did not render')
 }
 
+async function verifyResponsiveChartPicker(win) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const pane = document.querySelector('.result-explorer')
+    const picker = document.querySelector('.result-view-bar')
+    const labels = [...document.querySelectorAll('.result-view-bar .view-label')]
+    if (!pane || !picker || !labels.length) return null
+    return {
+      paneWidth: pane.getBoundingClientRect().width,
+      pickerClientWidth: picker.clientWidth,
+      pickerScrollWidth: picker.scrollWidth,
+      visibleLabels: labels.filter((label) => getComputedStyle(label).display !== 'none').length,
+      activeVisible: Boolean(picker.querySelector('button.active[aria-pressed="true"]'))
+    }
+  })()`)
+  if (!report || report.paneWidth > 760 || report.visibleLabels !== 0 || report.pickerScrollWidth > report.pickerClientWidth || !report.activeVisible) {
+    throw new Error(`Responsive chart picker failed in a narrow result pane: ${JSON.stringify(report)}`)
+  }
+}
+
 async function showChartTooltip(win, captureFilename) {
   const before = await win.webContents.executeJavaScript(`({
     documentWidth: document.documentElement.scrollWidth,
@@ -418,6 +437,7 @@ app.whenReady().then(async () => {
     await dragDivider(win, '.editor-resizer', 0, -1000)
     win.setSize(1000, 640)
     await sleep(350)
+    await verifyResponsiveChartPicker(win)
     await showChartTooltip(win, 'sql-narrow-short-tooltip.png')
 
     await configureMode(win, 'builder')

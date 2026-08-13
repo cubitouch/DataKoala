@@ -69,11 +69,11 @@ export interface ConnectionMetadataState {
 
 const defaultSqlVisualization = (): VisualizationConfiguration => ({
   view: 'table', xColumn: null, valueColumn: null, aggregation: 'sum', seriesColumn: null,
-  seriesColumns: [], valueAxisScale: 'linear', anomalyDetectionEnabled: false
+  seriesColumns: [], hierarchyDimensions: [], valueAxisScale: 'linear', anomalyDetectionEnabled: false
 })
 const defaultBuilderVisualization = (): VisualizationConfiguration => ({
   view: 'line', xColumn: 'time_bucket', valueColumn: 'count', aggregation: 'sum', seriesColumn: null,
-  seriesColumns: [], valueAxisScale: 'linear', anomalyDetectionEnabled: false
+  seriesColumns: [], hierarchyDimensions: [], valueAxisScale: 'linear', anomalyDetectionEnabled: false
 })
 
 let sessionSequence = 0
