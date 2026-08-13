@@ -24,9 +24,10 @@ const result: QueryResult = {
   ],
   rows: [
     { created_at: '2026-01-01', revenue: 10, duration_ms: 5, region: 'West', extra_0: 'mobile' },
-    { created_at: '2026-01-02', revenue: 0, duration_ms: 6, region: 'East', extra_0: 'desktop' }
+    { created_at: '2026-01-02', revenue: 0, duration_ms: 6, region: 'East', extra_0: 'desktop' },
+    { created_at: '2026-01-03', revenue: 2, duration_ms: 7, region: 'North', extra_0: 'mobile' }
   ],
-  rowCount: 2,
+  rowCount: 3,
   durationMs: 12
 }
 
@@ -97,5 +98,56 @@ describe('ResultExplorer chart combobox controls', () => {
     fireEvent.click(log)
     expect(activeTestSession().sqlVisualization.valueAxisScale).toBe('log')
     expect(screen.getByRole('status').textContent).toContain('Log scale: 1 zero or negative point is not plotted.')
+  })
+
+  it('preserves temporal X, Y, and Series when switching Line to Scatter', () => {
+    arrange({ sqlVisualization: { view: 'line', xColumn: 'created_at', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: 'region', seriesColumns: [], valueAxisScale: 'linear' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Scatter' }))
+    expect(activeTestSession().sqlVisualization).toMatchObject({ view: 'scatter', xColumn: 'created_at', valueColumn: 'revenue', seriesColumn: 'region', seriesColumns: [] })
+
+    fireEvent.click(screen.getByRole('combobox', { name: /Y axis: revenue/ }))
+    fireEvent.click(screen.getByRole('option', { name: /duration_ms, integer/ }))
+    expect(activeTestSession().sqlVisualization).toMatchObject({ view: 'scatter', xColumn: 'created_at', valueColumn: 'duration_ms', seriesColumn: 'region' })
+  })
+
+  it('preserves categorical X and supports numeric X without changing Scatter type', () => {
+    arrange({ sqlVisualization: { view: 'line', xColumn: 'region', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: null, seriesColumns: [], valueAxisScale: 'linear' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Scatter' }))
+    expect(activeTestSession().sqlVisualization).toMatchObject({ view: 'scatter', xColumn: 'region', valueColumn: 'revenue' })
+
+    fireEvent.click(screen.getByRole('combobox', { name: /X axis: region/ }))
+    fireEvent.click(screen.getByRole('option', { name: /duration_ms, integer/ }))
+    expect(activeTestSession().sqlVisualization).toMatchObject({ view: 'scatter', xColumn: 'duration_ms', valueColumn: 'revenue' })
+  })
+})
+
+describe('ResultExplorer hierarchy state', () => {
+  const arrangeBuilder = () => {
+    resetTestStore({ connected: true, connectionStatus: 'connected' })
+    patchActiveTestSession({
+      result, resultRevision: 1, queryMode: 'builder', builderHasRun: true,
+      builder: { table: { schema: 'public', name: 'sales' }, timeColumn: 'created_at', timeBucket: 'day', seriesColumns: ['region', 'extra_0'] },
+      builderVisualization: { view: 'line', xColumn: 'created_at', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: 'series', seriesColumns: ['region', 'extra_0'], hierarchyDimensions: [], valueAxisScale: 'linear' },
+      builderResultFilters: [], running: false, queryError: null, isResultStale: false
+    })
+    return render(<ResultExplorer mode="builder" />)
+  }
+
+  it('keeps Builder Series unchanged while hierarchy order changes and after returning to Line', () => {
+    arrangeBuilder()
+    const originalSeries = [...activeTestSession().builder.seriesColumns]
+    fireEvent.click(screen.getByRole('button', { name: 'Treemap' }))
+    expect(activeTestSession().builderVisualization.hierarchyDimensions).toEqual(['extra_0', 'region'])
+    fireEvent.click(screen.getByRole('button', { name: 'Move extra_0 outward' }))
+    expect(activeTestSession().builder.seriesColumns).toEqual(originalSeries)
+    expect(activeTestSession().builderVisualization.hierarchyDimensions).toEqual(['region', 'extra_0'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sunburst' }))
+    expect(activeTestSession().builderVisualization.hierarchyDimensions).toEqual(['region', 'extra_0'])
+    expect(activeTestSession().builder.seriesColumns).toEqual(originalSeries)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    expect(activeTestSession().builder.seriesColumns).toEqual(originalSeries)
+    expect(activeTestSession().builderVisualization.hierarchyDimensions).toEqual(['region', 'extra_0'])
   })
 })

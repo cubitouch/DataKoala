@@ -2,7 +2,7 @@ import { isNumericType, isTimeType, type QueryResult } from '../../../shared/typ
 import { orderChartSeries } from './chartSeries.ts'
 import { CHART_POINTS_HARD_LIMIT, CHART_POINTS_SOFT_LIMIT, CHART_SERIES_HARD_LIMIT, CHART_SERIES_SOFT_LIMIT } from '../../../shared/chartLimits.ts'
 
-export type ResultView = 'table' | 'line' | 'bar'
+export type ResultView = 'table' | 'bar' | 'line' | 'area' | 'scatter' | 'treemap' | 'sunburst'
 export type Aggregation = 'sum' | 'average' | 'minimum' | 'maximum' | 'count'
 export type ValueAxisScale = 'linear' | 'log'
 export interface VisualizationConfiguration {
@@ -13,6 +13,8 @@ export interface VisualizationConfiguration {
   seriesColumn: string | null
   /** Multiple result columns combined into a visual tuple without changing the SQL result shape. */
   seriesColumns?: string[]
+  /** Presentation-only hierarchy order. It never changes Builder grouping semantics. */
+  hierarchyDimensions?: string[]
   valueAxisScale?: ValueAxisScale
   anomalyDetectionEnabled?: boolean
 }
@@ -44,6 +46,7 @@ export function visualizationConfigurationsEqual(a: VisualizationConfiguration, 
   return a.view === b.view && a.xColumn === b.xColumn && a.valueColumn === b.valueColumn &&
     a.aggregation === b.aggregation && a.seriesColumn === b.seriesColumn &&
     sameStrings(a.seriesColumns, b.seriesColumns) &&
+    sameStrings(a.hierarchyDimensions, b.hierarchyDimensions) &&
     (a.valueAxisScale ?? 'linear') === (b.valueAxisScale ?? 'linear') &&
     Boolean(a.anomalyDetectionEnabled) === Boolean(b.anomalyDetectionEnabled)
 }
@@ -58,7 +61,8 @@ export function deriveEffectiveVisualization(result: QueryResult, persisted: Vis
       ?? null
     // Builder SQL has already performed the chosen aggregation. The chart only folds
     // duplicate result rows defensively; Sum is therefore the stable presentation aggregation.
-    return { ...effective, xColumn, valueColumn, aggregation: 'sum', seriesColumn: seriesColumns.length ? 'series' : null, seriesColumns }
+    return { ...effective, xColumn, valueColumn, aggregation: 'sum', seriesColumn: seriesColumns.length ? 'series' : null, seriesColumns,
+      hierarchyDimensions: effective.hierarchyDimensions?.length ? reconcileHierarchyDimensions(effective.hierarchyDimensions, seriesColumns) : [] }
   }
 
   const names = new Set(result.columns.map((column) => column.name))
@@ -67,8 +71,11 @@ export function deriveEffectiveVisualization(result: QueryResult, persisted: Vis
   // SQL mode charts describe already-returned columns. There is deliberately no
   // Aggregation control: Sum is a fixed presentation fold only when duplicate
   // X/Series rows exist, so stale persisted Average/Min/Max choices cannot act invisibly.
-  if (selectedMultiple.length > 1) return { ...effective, aggregation: 'sum', seriesColumn: null, seriesColumns: selectedMultiple }
-  return { ...effective, aggregation: 'sum', seriesColumn: single, seriesColumns: [] }
+  if (selectedMultiple.length > 1) return { ...effective, aggregation: 'sum', seriesColumn: null, seriesColumns: selectedMultiple,
+    hierarchyDimensions: effective.hierarchyDimensions?.length ? reconcileHierarchyDimensions(effective.hierarchyDimensions, selectedMultiple) : [] }
+  const singleSeries = single ? [single] : []
+  return { ...effective, aggregation: 'sum', seriesColumn: single, seriesColumns: [],
+    hierarchyDimensions: effective.hierarchyDimensions?.length ? reconcileHierarchyDimensions(effective.hierarchyDimensions, singleSeries) : [] }
 }
 
 export function toFiniteNumber(value: unknown): number | null {
@@ -96,9 +103,15 @@ export function inferVisualizationConfiguration(result: QueryResult, previous?: 
     aggregation: previous?.aggregation ?? 'sum',
     seriesColumn: previousSeries ?? (!hasPreviousSelections ? inferredSeries : null),
     seriesColumns: previous?.seriesColumns?.filter((name) => names.includes(name)),
+    hierarchyDimensions: previous?.hierarchyDimensions?.filter((name) => names.includes(name)),
     valueAxisScale: previous?.valueAxisScale ?? 'linear',
     anomalyDetectionEnabled: previous?.anomalyDetectionEnabled ?? false
   }
+}
+
+export function reconcileHierarchyDimensions(order: readonly string[] | undefined, series: readonly string[]): string[] {
+  const available = new Set(series)
+  return [...new Set([...(order ?? []).filter((column) => available.has(column)), ...series])]
 }
 
 function xKey(value: unknown): string { return value instanceof Date ? value.toISOString() : `${typeof value}:${String(value)}` }

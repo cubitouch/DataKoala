@@ -12,7 +12,7 @@ import { api } from '../lib/api'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'idle' | 'reconnecting' | 'error'
 export type MetadataStatus = 'idle' | 'loading' | 'loaded' | 'error'
 
-export type ChartType = 'bar' | 'line' | 'scatter' | 'area'
+export type ChartType = 'bar' | 'line' | 'scatter' | 'area' | 'treemap' | 'sunburst'
 export type QueryMode = 'sql' | 'builder'
 export type ExplainRequest = 'explain' | 'analyze' | null
 export type TimeBucket = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
@@ -69,11 +69,11 @@ export interface ConnectionMetadataState {
 
 const defaultSqlVisualization = (): VisualizationConfiguration => ({
   view: 'table', xColumn: null, valueColumn: null, aggregation: 'sum', seriesColumn: null,
-  seriesColumns: [], valueAxisScale: 'linear', anomalyDetectionEnabled: false
+  seriesColumns: [], hierarchyDimensions: [], valueAxisScale: 'linear', anomalyDetectionEnabled: false
 })
 const defaultBuilderVisualization = (): VisualizationConfiguration => ({
   view: 'line', xColumn: 'time_bucket', valueColumn: 'count', aggregation: 'sum', seriesColumn: null,
-  seriesColumns: [], valueAxisScale: 'linear', anomalyDetectionEnabled: false
+  seriesColumns: [], hierarchyDimensions: [], valueAxisScale: 'linear', anomalyDetectionEnabled: false
 })
 
 let sessionSequence = 0
