@@ -176,7 +176,7 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     },
     legend: { top: 4, left: 8, right: 150, type: 'scroll', selected: input.visibility, textStyle: { color: '#9aa0b0' } },
     grid: { left: 50, right: 24, top: 42, bottom: 45 },
-    xAxis: { type: input.view === 'scatter' ? 'value' : 'category', data: input.view === 'scatter' ? undefined : input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
+    xAxis: { type: 'category', data: input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
     yAxis: { type: input.valueAxisScale === 'log' ? 'log' : 'value', axisLabel: { color: '#9aa0b0', formatter: formatChartNumber } },
     ...(input.rangeSelectionEnabled ? {
       toolbox: { show: false },
@@ -185,7 +185,7 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     series: renderedSeries.map((series) => ({
       ...series, missing: undefined,
       type: input.view === 'area' ? 'line' : input.view,
-      data: input.view === 'scatter' ? series.data.map((value, index) => [Number(input.labels[index]), value]) : series.data,
+      data: series.data,
       stack: (input.view === 'bar' || input.view === 'area') && input.hasSeriesColumn ? 'total' : undefined,
       areaStyle: input.view === 'area' ? { opacity: 0.3 } : undefined,
       smooth: input.view === 'line' || input.view === 'area', connectNulls: false, showSymbol: input.view === 'line', symbolSize: input.view === 'scatter' ? 8 : 6,

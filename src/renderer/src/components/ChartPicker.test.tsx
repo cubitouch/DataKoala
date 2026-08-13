@@ -21,4 +21,11 @@ describe('ChartPicker', () => {
     expect(styles).toMatch(/\.result-view-bar\s*\{[^}]*flex-wrap:\s*wrap[^}]*overflow:\s*hidden/s)
     expect(styles).not.toMatch(/@media\s*\(max-width:\s*900px\).*result-view-bar/s)
   })
+
+  it('provides readable hover, active, and keyboard-focus states', () => {
+    expect(styles).toMatch(/\.result-view-bar button \{[^}]*color:\s*var\(--text\)/s)
+    expect(styles).toMatch(/\.result-view-bar button:hover \{[^}]*color:\s*#fff[^}]*background:/s)
+    expect(styles).toMatch(/\.result-view-bar button\.active[^}]*\{[^}]*color:\s*#fff[^}]*border-color:\s*var\(--accent\)/s)
+    expect(styles).toMatch(/\.result-view-bar button:focus-visible \{[^}]*outline:\s*2px solid var\(--accent\)/s)
+  })
 })

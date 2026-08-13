@@ -103,6 +103,19 @@ test('area presentation stacks Series and uses a filled line renderer', () => {
   assert.deepEqual(series.areaStyle, { opacity: 0.3 })
 })
 
+test('scatter uses the Line category axis semantics without connecting points', () => {
+  for (const labels of [['2026-01-01', '2026-01-02'], ['Alpha', 'Beta'], ['1', '2']]) {
+    const options = buildChartPresentationOptions({ labels, series: [{ name: 'A', data: [2, 4] }], view: 'scatter', hasSeriesColumn: false, mode: 'sql' })
+    const xAxis = options.xAxis as { type: string; data: string[] }
+    assert.equal(xAxis.type, 'category')
+    assert.deepEqual(xAxis.data, labels)
+    const series = (options.series as Array<Record<string, unknown>>)[0]
+    assert.equal(series.type, 'scatter')
+    assert.deepEqual(series.data, [2, 4])
+    assert.equal(series.connectNulls, false)
+  }
+})
+
 test('hierarchical presentation shares data and exposes path, value, and share tooltip', () => {
   const hierarchy = [{ name: 'France', value: 120, children: [{ name: 'Tech', value: 75 }] }]
   for (const view of ['treemap', 'sunburst'] as const) {

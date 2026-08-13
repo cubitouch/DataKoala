@@ -110,7 +110,7 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
 
   const filteredResult = useMemo(() => result ? filterQueryResult(result, activeFilters) : null, [result, activeFilters])
   const numeric = useMemo(() => filteredResult ? numericColumns(filteredResult) : [], [filteredResult])
-  const xAxisOptions = useMemo<ComboboxOption[]>(() => result ? result.columns.filter((column) => effectiveConfiguration.view !== 'scatter' || numeric.includes(column.name)).map(resultColumnToComboboxOption) : [], [result, numeric, effectiveConfiguration.view])
+  const xAxisOptions = useMemo<ComboboxOption[]>(() => result ? result.columns.map(resultColumnToComboboxOption) : [], [result])
   const yAxisOptions = useMemo<ComboboxOption[]>(() => result ? result.columns.filter((column) => numeric.includes(column.name)).map(resultColumnToComboboxOption) : [], [result, numeric])
   const seriesOptions = useMemo<ComboboxOption[]>(() => result ? result.columns.filter((column) => column.name !== effectiveConfiguration.xColumn && column.name !== effectiveConfiguration.valueColumn).map(resultColumnToComboboxOption) : [], [result, effectiveConfiguration.xColumn, effectiveConfiguration.valueColumn])
   const sqlSeriesValues = useMemo(() => effectiveConfiguration.seriesColumns?.length
@@ -137,7 +137,7 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
   const hierarchical = effectiveConfiguration.view === 'treemap' || effectiveConfiguration.view === 'sunburst'
   const chartReady = hierarchical
     ? Boolean(hierarchyDimensions.length && effectiveConfiguration.valueColumn)
-    : Boolean(effectiveConfiguration.xColumn && effectiveConfiguration.valueColumn && (effectiveConfiguration.view !== 'scatter' || numeric.includes(effectiveConfiguration.xColumn!)))
+    : Boolean(effectiveConfiguration.xColumn && effectiveConfiguration.valueColumn)
   const option = useMemo(() => (hierarchical || chart?.renderable) && chartReady ? buildChartPresentationOptions({
     labels: chart?.labels ?? [], series: chart?.series ?? [], view: effectiveConfiguration.view,
     hasSeriesColumn: Boolean(effectiveConfiguration.seriesColumn || effectiveConfiguration.seriesColumns?.length), mode,
@@ -153,10 +153,7 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     const enteringHierarchy = view === 'treemap' || view === 'sunburst'
     const savedHierarchy = reconcileHierarchyDimensions(configuration.hierarchyDimensions, availableHierarchyDimensions)
     const hierarchyOrder = configuration.hierarchyDimensions?.length ? savedHierarchy : suggestedHierarchyDimensions
-    const numericX = view === 'scatter' && effectiveConfiguration.xColumn && !numeric.includes(effectiveConfiguration.xColumn)
-      ? numeric.find((column) => column !== effectiveConfiguration.valueColumn) ?? null
-      : effectiveConfiguration.xColumn
-    update({ view, ...(enteringHierarchy ? { hierarchyDimensions: hierarchyOrder } : {}), ...(view === 'scatter' ? { xColumn: numericX } : {}) })
+    update({ view, ...(enteringHierarchy ? { hierarchyDimensions: hierarchyOrder } : {}) })
   }
   const moveHierarchyDimension = (index: number, offset: number) => {
     const next = [...hierarchyDimensions]

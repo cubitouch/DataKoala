@@ -99,6 +99,26 @@ describe('ResultExplorer chart combobox controls', () => {
     expect(activeTestSession().sqlVisualization.valueAxisScale).toBe('log')
     expect(screen.getByRole('status').textContent).toContain('Log scale: 1 zero or negative point is not plotted.')
   })
+
+  it('preserves temporal X, Y, and Series when switching Line to Scatter', () => {
+    arrange({ sqlVisualization: { view: 'line', xColumn: 'created_at', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: 'region', seriesColumns: [], valueAxisScale: 'linear' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Scatter' }))
+    expect(activeTestSession().sqlVisualization).toMatchObject({ view: 'scatter', xColumn: 'created_at', valueColumn: 'revenue', seriesColumn: 'region', seriesColumns: [] })
+
+    fireEvent.click(screen.getByRole('combobox', { name: /Y axis: revenue/ }))
+    fireEvent.click(screen.getByRole('option', { name: /duration_ms, integer/ }))
+    expect(activeTestSession().sqlVisualization).toMatchObject({ view: 'scatter', xColumn: 'created_at', valueColumn: 'duration_ms', seriesColumn: 'region' })
+  })
+
+  it('preserves categorical X and supports numeric X without changing Scatter type', () => {
+    arrange({ sqlVisualization: { view: 'line', xColumn: 'region', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: null, seriesColumns: [], valueAxisScale: 'linear' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Scatter' }))
+    expect(activeTestSession().sqlVisualization).toMatchObject({ view: 'scatter', xColumn: 'region', valueColumn: 'revenue' })
+
+    fireEvent.click(screen.getByRole('combobox', { name: /X axis: region/ }))
+    fireEvent.click(screen.getByRole('option', { name: /duration_ms, integer/ }))
+    expect(activeTestSession().sqlVisualization).toMatchObject({ view: 'scatter', xColumn: 'duration_ms', valueColumn: 'revenue' })
+  })
 })
 
 describe('ResultExplorer hierarchy state', () => {
