@@ -42,6 +42,8 @@ export class PrometheusAdapter implements DataSourceAdapter {
       formatQuery: (query) => transport.formatQuery(query),
       listNamespaces: async () => [{ name: 'Metrics' }],
       listRelations: async (namespace) => namespace && namespace.name !== 'Metrics' ? [] : relations,
+      labelsForMetric: (metricName) => transport.labelsForMetric(metricName),
+      labelValues: (metricName, labelName) => transport.labelValues(metricName, labelName),
       describeRelation: async () => [], close: async () => {}
     }
     return { result: { ok: true as const, generation: Date.now(), sourceInfo }, session }
