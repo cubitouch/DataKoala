@@ -55,10 +55,6 @@ export class SessionManager {
   }
 
   async disconnect(id: ConnectionId, generation?: number): Promise<void> {
-    // A generation-scoped disconnect belongs to an already-established session.
-    // It must never cancel a newer, still-pending reconnect for the same profile.
-    // Pending attempts do not have a generation until their adapter connects, so
-    // only an unscoped user disconnect may cancel them.
     if (generation === undefined) {
       const pending = [...this.pendingConnections.entries()]
         .filter(([, connection]) => connection.profileId === id)
@@ -162,6 +158,18 @@ export async function describeTable(id: ConnectionId, schema: string, table: str
     dataTypeName: column.nativeType,
     nullable: column.nullable ?? false
   }))
+}
+
+export function labelsForMetric(id: ConnectionId, metricName: string): Promise<string[]> {
+  const operation = session(id).labelsForMetric
+  if (!operation) throw new Error('Metric label discovery is not supported by this datasource.')
+  return operation(metricName)
+}
+
+export function labelValues(id: ConnectionId, metricName: string, labelName: string): Promise<string[]> {
+  const operation = session(id).labelValues
+  if (!operation) throw new Error('Metric label values are not supported by this datasource.')
+  return operation(metricName, labelName)
 }
 
 export async function explainQuery(id: ConnectionId, sql: string, analyze: boolean) {
