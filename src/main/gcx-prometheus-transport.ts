@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { PrometheusMetricMetadata, PrometheusQueryRequest } from '../shared/prometheus.ts'
+import type { PrometheusDatasourceOption, PrometheusMetricMetadata, PrometheusQueryRequest } from '../shared/prometheus.ts'
 import type { ColumnMeta, QueryResult } from '../shared/types.ts'
 import type { PrometheusTransport } from './prometheus-transport.ts'
 
@@ -58,11 +58,6 @@ function optionalString(record: Record<string, unknown>, key: string): string | 
   return value
 }
 
-/**
- * gcx emits the Prometheus metadata API envelope:
- * `{ status: "success", data: { metric_name: [{ type, help, unit }] } }`.
- * Keep this contract and all raw response handling on the main-process side of IPC.
- */
 export function normalizeGcxMetadata(raw: unknown): PrometheusMetricMetadata[] {
   if (!isRecord(raw) || raw.status !== 'success' || !isRecord(raw.data)) {
     throw new Error('gcx returned valid JSON, but the metrics metadata response must contain status "success" and a data object.')
@@ -70,22 +65,13 @@ export function normalizeGcxMetadata(raw: unknown): PrometheusMetricMetadata[] {
 
   const entries: PrometheusMetricMetadata[] = []
   for (const [name, values] of Object.entries(raw.data)) {
-    if (!name || !Array.isArray(values)) {
-      throw new Error(`gcx returned an unexpected metadata entry for metric "${name}".`)
-    }
+    if (!name || !Array.isArray(values)) throw new Error(`gcx returned an unexpected metadata entry for metric "${name}".`)
     for (const value of values) {
       if (!isRecord(value)) throw new Error(`gcx returned a non-object metadata value for metric "${name}".`)
-      entries.push({
-        name,
-        type: optionalString(value, 'type'),
-        help: optionalString(value, 'help'),
-        unit: optionalString(value, 'unit')
-      })
+      entries.push({ name, type: optionalString(value, 'type'), help: optionalString(value, 'help'), unit: optionalString(value, 'unit') })
     }
   }
 
-  // Traverse every raw entry before deduplication. Duplicate series metadata may
-  // fill fields omitted by another target, so retain the first available value.
   const unique = new Map<string, PrometheusMetricMetadata>()
   for (const entry of entries) {
     const previous = unique.get(entry.name)
@@ -107,6 +93,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
+export function normalizeGcxLabels(raw: unknown): string[] {
+  if (!isRecord(raw) || raw.status !== 'success' || !Array.isArray(raw.data) || raw.data.some((value) => typeof value !== 'string')) {
+    throw new Error('gcx returned valid JSON, but the labels response must contain status "success" and a string data array.')
+  }
+  return [...new Set(raw.data as string[])].sort((a, b) => a.localeCompare(b))
+}
+
+export function normalizeGcxDatasources(raw: unknown): PrometheusDatasourceOption[] {
+  if (!Array.isArray(raw)) throw new Error('gcx returned valid JSON, but the Grafana datasource response must be an array.')
+  const compatible: PrometheusDatasourceOption[] = []
+  for (const value of raw) {
+    if (!isRecord(value) || typeof value.uid !== 'string' || typeof value.name !== 'string' || typeof value.type !== 'string') {
+      throw new Error('gcx returned an invalid Grafana datasource entry.')
+    }
+    if (/prometheus|mimir/i.test(value.type)) compatible.push({ uid: value.uid, name: value.name, type: value.type })
+  }
+  return compatible.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 const column = (name: string, logicalType: ColumnMeta['logicalType'], nativeType: string, dataTypeID: number): ColumnMeta =>
   ({ name, logicalType, nativeType, dataTypeID, dataTypeName: nativeType })
 
@@ -117,7 +122,6 @@ function samplePair(value: unknown, context: string): [number, number] {
   return [value[0], numeric]
 }
 
-/** Normalize the Prometheus API envelope emitted by `gcx metrics query -o json`. */
 export function normalizeGcxQuery(raw: unknown, durationMs = 0): QueryResult {
   if (!isRecord(raw)) throw new Error('gcx returned valid JSON, but the Prometheus query response was not an object.')
   if (raw.status === 'error') {
@@ -153,7 +157,6 @@ export function normalizeGcxQuery(raw: unknown, durationMs = 0): QueryResult {
   }
 }
 
-/** Normalize the Prometheus `format_query` response without exposing its envelope over IPC. */
 export function normalizeGcxFormattedQuery(raw: unknown): string {
   if (!isRecord(raw)) throw new Error('gcx returned valid JSON, but the Prometheus format response was not an object.')
   if (raw.status === 'error') {
@@ -183,7 +186,14 @@ export class GcxPrometheusTransport implements PrometheusTransport {
   private readonly context: string | undefined
   private readonly datasourceUid: string | undefined
   private readonly run: GcxCommandRunner
+  private readonly labelCache = new Map<string, Promise<string[]>>()
   constructor(context: string | undefined, run: GcxCommandRunner = runGcxCommand, datasourceUid?: string) { this.context = context; this.run = run; this.datasourceUid = datasourceUid }
+  async datasources(): Promise<PrometheusDatasourceOption[]> {
+    try {
+      const contextArgs = this.context ? ['--context', this.context] : []
+      return normalizeGcxDatasources(parseJson((await this.run(['api', '/api/datasources', ...contextArgs, '-o', 'json'])).stdout, 'Grafana datasources'))
+    } catch (error) { throwNormalizedGcxError(error) }
+  }
   async version(): Promise<string> {
     try {
       return normalizeVersion(parseJson((await this.run(['version', '-o', 'json'])).stdout, 'version'))
@@ -192,14 +202,41 @@ export class GcxPrometheusTransport implements PrometheusTransport {
   async metadata(): Promise<PrometheusMetricMetadata[]> {
     try {
       const contextArgs = this.context ? ['--context', this.context] : []
-      return normalizeGcxMetadata(parseJson((await this.run(['metrics', 'metadata', ...contextArgs, '-o', 'json'])).stdout, 'metrics metadata'))
+      const datasourceArgs = this.datasourceUid ? ['--datasource', this.datasourceUid] : []
+      return normalizeGcxMetadata(parseJson((await this.run(['metrics', 'metadata', ...contextArgs, ...datasourceArgs, '-o', 'json'])).stdout, 'metrics metadata'))
+    } catch (error) { throwNormalizedGcxError(error) }
+  }
+  labelsForMetric(metricName: string): Promise<string[]> {
+    return this.cachedLabels(`metric:${metricName}`, ['--metric', metricName]).then((labels) => labels.filter((label) => label !== '__name__'))
+  }
+  labelValues(metricName: string, labelName: string): Promise<string[]> {
+    return this.cachedLabels(`values:${metricName}:${labelName}`, ['--metric', metricName, '--label', labelName])
+  }
+  private cachedLabels(key: string, scopeArgs: string[]): Promise<string[]> {
+    const cached = this.labelCache.get(key)
+    if (cached) return cached
+    const request = this.fetchLabels(scopeArgs).catch((error) => { this.labelCache.delete(key); throw error })
+    this.labelCache.set(key, request)
+    return request
+  }
+  private async fetchLabels(scopeArgs: string[]): Promise<string[]> {
+    try {
+      if (!this.datasourceUid) throw new Error('Select a Prometheus datasource before exploring labels.')
+      const contextArgs = this.context ? ['--context', this.context] : []
+      const metricName = scopeArgs[1]
+      const labelName = scopeArgs[3]
+      const base = `/api/datasources/proxy/uid/${encodeURIComponent(this.datasourceUid)}/api/v1/`
+      const endpoint = labelName ? `label/${encodeURIComponent(labelName)}/values` : 'labels'
+      const query = new URLSearchParams({ 'match[]': metricName }).toString()
+      return normalizeGcxLabels(parseJson((await this.run(['api', `${base}${endpoint}?${query}`, ...contextArgs, '-o', 'json'])).stdout, 'metrics labels'))
     } catch (error) { throwNormalizedGcxError(error) }
   }
   async query(request: PrometheusQueryRequest): Promise<QueryResult> {
     const started = Date.now()
     try {
       const contextArgs = this.context ? ['--context', this.context] : []
-      const args = ['metrics', 'query', request.expression, ...contextArgs, '--from', request.start, '--to', request.end, '--step', request.step, '-o', 'json']
+      const datasourceArgs = this.datasourceUid ? ['--datasource', this.datasourceUid] : []
+      const args = ['metrics', 'query', request.expression, ...contextArgs, ...datasourceArgs, '--from', request.start, '--to', request.end, '--step', request.step, '-o', 'json']
       return normalizeGcxQuery(parseJson((await this.run(args)).stdout, 'metrics query'), Date.now() - started)
     } catch (error) { throwNormalizedGcxError(error) }
   }
