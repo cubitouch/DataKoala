@@ -11,6 +11,7 @@ import { SqliteFileAdapter } from './adapters/sqlite-file-adapter.ts'
 import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
+import { formatPromql } from './promql-formatter.ts'
 
 const postgresAdapter = new PostgresAdapter()
 export const adapterRegistry = new AdapterRegistry().register(postgresAdapter).register(new LocalFilesAdapter()).register(new SqliteFileAdapter()).register(new BigQueryAdapter()).register(new PrometheusAdapter())
@@ -131,10 +132,8 @@ export function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = 
   return session(id).query({ sql, parameters, prometheus })
 }
 
-export function formatPrometheusQuery(id: ConnectionId, query: string): Promise<string> {
-  const active = session(id)
-  if (active.info.provider !== 'prometheus' || !active.formatQuery) throw new Error('This connection does not support PromQL formatting.')
-  return active.formatQuery(query)
+export function formatPrometheusQuery(_id: ConnectionId, query: string): Promise<string> {
+  return formatPromql(query)
 }
 
 export function queryDialect(id: ConnectionId) {
