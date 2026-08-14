@@ -19,9 +19,10 @@ export interface ConnectionStateEvent {
   activeOperationAffected?: boolean
 }
 
-export type DataSourceKind = 'postgres' | 'local-files' | 'sqlite-file' | 'bigquery'
+export type DataSourceKind = 'postgres' | 'local-files' | 'sqlite-file' | 'bigquery' | 'prometheus'
 export type QueryEngine = 'postgres' | 'duckdb' | 'bigquery'
 export type SqlDialect = 'postgres' | 'duckdb' | 'google-sql'
+type SqlDataSourceKind = Exclude<DataSourceKind, 'prometheus'>
 
 export interface DataSourceDescriptor {
   sourceKind: DataSourceKind
@@ -29,7 +30,7 @@ export interface DataSourceDescriptor {
   dialect: SqlDialect
 }
 
-export const DATA_SOURCE_DESCRIPTORS: Record<DataSourceKind, DataSourceDescriptor> = {
+export const DATA_SOURCE_DESCRIPTORS: Record<SqlDataSourceKind, DataSourceDescriptor> = {
   postgres: { sourceKind: 'postgres', engine: 'postgres', dialect: 'postgres' },
   'local-files': { sourceKind: 'local-files', engine: 'duckdb', dialect: 'duckdb' },
   'sqlite-file': { sourceKind: 'sqlite-file', engine: 'duckdb', dialect: 'duckdb' },
@@ -37,6 +38,7 @@ export const DATA_SOURCE_DESCRIPTORS: Record<DataSourceKind, DataSourceDescripto
 }
 
 export function sqlDialectForSourceKind(kind: DataSourceKind): SqlDialect {
+  if (kind === 'prometheus') throw new Error('Prometheus does not use a SQL dialect.')
   return DATA_SOURCE_DESCRIPTORS[kind].dialect
 }
 
@@ -81,7 +83,18 @@ export interface BigQueryProfile extends ProfileBase {
   readonly: true
 }
 
-export type DataSourceProfile = PostgresProfile | LocalFilesProfile | SqliteFileProfile | BigQueryProfile
+export interface PrometheusTransportConfig {
+  kind: 'gcx'
+  context?: string
+}
+
+export interface PrometheusProfile extends ProfileBase {
+  kind: 'prometheus'
+  readonly: true
+  transport: PrometheusTransportConfig
+}
+
+export type DataSourceProfile = PostgresProfile | LocalFilesProfile | SqliteFileProfile | BigQueryProfile | PrometheusProfile
 /** @deprecated Prefer the discriminated DataSourceProfile union. */
 export type ConnectionProfile = PostgresProfile
 
@@ -149,7 +162,15 @@ export interface ExplainResult {
 export interface TableInfo {
   schema: string
   name: string
-  kind: 'r' | 'v' | 'm'
+  kind: 'r' | 'v' | 'm' | 'metric'
+  details?: DataObjectDetails
+}
+
+export type DataObjectDetails = {
+  kind: 'metric'
+  type?: string
+  help?: string
+  unit?: string
 }
 
 export interface DatabaseColumnNode {

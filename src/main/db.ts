@@ -9,9 +9,10 @@ import { PostgresAdapter, DatabaseConnectionError, __testing } from './adapters/
 import { LocalFilesAdapter } from './adapters/local-files-adapter.ts'
 import { SqliteFileAdapter } from './adapters/sqlite-file-adapter.ts'
 import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
+import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
 
 const postgresAdapter = new PostgresAdapter()
-export const adapterRegistry = new AdapterRegistry().register(postgresAdapter).register(new LocalFilesAdapter()).register(new SqliteFileAdapter()).register(new BigQueryAdapter())
+export const adapterRegistry = new AdapterRegistry().register(postgresAdapter).register(new LocalFilesAdapter()).register(new SqliteFileAdapter()).register(new BigQueryAdapter()).register(new PrometheusAdapter())
 
 export class SessionManager {
   private readonly registry: AdapterRegistry
@@ -141,7 +142,8 @@ export async function listObjects(id: ConnectionId) {
   return (await session(id).listRelations()).map((relation) => ({
     schema: relation.namespace,
     name: relation.name,
-    kind: relation.kind === 'materialized-view' ? 'm' as const : relation.kind === 'view' ? 'v' as const : 'r' as const
+    kind: relation.kind === 'materialized-view' ? 'm' as const : relation.kind === 'view' ? 'v' as const : relation.kind === 'metric' ? 'metric' as const : 'r' as const,
+    details: relation.details
   }))
 }
 

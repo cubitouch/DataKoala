@@ -10,6 +10,8 @@ import type {
 } from '@shared/types'
 import type { SeriesCardinalityProbeRequest, SeriesCardinalityProbeResult, SeriesStatisticsRequest, SeriesStatisticsResult } from '@shared/chartLimits'
 import type { BigQueryDatasetOption, BigQueryDiscoveryDefaults, BigQueryProjectOption } from '@shared/bigqueryDiscovery'
+import type { PrometheusDiscoveryResult } from '@shared/prometheus'
+import type { PrometheusTransportConfig } from '@shared/types'
 
 const api = {
   /** True only when the app is launched by a test/repro harness. */
@@ -42,6 +44,9 @@ const api = {
       discoverProjects: (): Promise<BigQueryProjectOption[]> => ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_PROJECTS),
       listDatasets: (projectId: string): Promise<BigQueryDatasetOption[]> => ipcRenderer.invoke(IPC.BIGQUERY_LIST_DATASETS, projectId),
       discoverDefaults: (): Promise<BigQueryDiscoveryDefaults> => ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_DEFAULTS)
+    },
+    prometheus: {
+      discover: (transport: PrometheusTransportConfig): Promise<PrometheusDiscoveryResult> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER, transport)
     }
   },
   query: {

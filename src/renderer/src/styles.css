@@ -354,6 +354,26 @@ table.results td:hover .cell-filter-menu summary, .cell-filter-menu[open] summar
 }
 .conn-paste:focus { outline: none; border-color: var(--accent); }
 .conn-paste::placeholder { color: var(--text-mute); }
+
+.query-unavailable {
+  grid-row: 1 / -1;
+  display: flex;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 32px;
+  text-align: center;
+  color: var(--text-mute);
+}
+.query-unavailable-icon { font-size: 36px; color: var(--accent); }
+.query-unavailable h2 { margin: 0; color: var(--text); font-size: 18px; }
+.query-unavailable p { margin: 0; max-width: 460px; line-height: 1.5; }
+.metric-details { padding: 5px 10px 9px 38px; color: var(--text-dim); font-size: 11px; line-height: 1.4; }
+.metric-details > div { display: flex; gap: 8px; }
+.metric-details strong { min-width: 34px; color: var(--text-mute); font-weight: 500; }
+.metric-details p { margin: 4px 0 0; color: var(--text-mute); overflow-wrap: anywhere; }
 .paste-hint { font-size: 10.5px; color: var(--text-mute); margin-top: 5px; line-height: 1.5; }
 .paste-hint code {
   font-family: var(--mono); background: var(--bg-4); padding: 1px 4px;

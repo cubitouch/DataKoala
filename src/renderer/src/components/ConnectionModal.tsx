@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 void React
-import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, SqliteFileProfile } from '../../../shared/types'
+import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, PrometheusProfile, SqliteFileProfile } from '../../../shared/types'
 import { parseConnectionString, buildConnectionString, DEFAULT_PORT } from '../../../shared/connString'
 import { api } from '../lib/api'
 import { Combobox } from './ui/combobox'
@@ -26,7 +26,7 @@ export interface ConnectionSourceDescriptor {
   label: string
   description: string
   hint: string
-  icon: 'postgresql' | 'duckdb' | 'sqlite' | 'bigquery' | 'excel'
+  icon: 'postgresql' | 'duckdb' | 'sqlite' | 'bigquery' | 'prometheus' | 'excel'
   status: 'available' | 'coming-soon'
   supportsCreate: boolean
 }
@@ -36,6 +36,7 @@ export const CONNECTION_SOURCE_DESCRIPTORS: readonly ConnectionSourceDescriptor[
   { kind: 'local-files', label: 'Local files', description: 'Query CSV, Parquet and JSON files through DuckDB.', hint: 'One or more files', icon: 'duckdb', status: 'available', supportsCreate: true },
   { kind: 'sqlite-file', label: 'SQLite', description: 'Open a SQLite database file through DuckDB.', hint: '.sqlite or .db file', icon: 'sqlite', status: 'available', supportsCreate: true },
   { kind: 'bigquery', label: 'BigQuery', description: 'Use Google ADC credentials to browse and query datasets.', hint: 'Cloud data warehouse', icon: 'bigquery', status: 'available', supportsCreate: true },
+  { kind: 'prometheus', label: 'Prometheus', description: 'Discover Grafana Cloud metrics through your existing gcx login.', hint: 'Grafana Cloud via gcx', icon: 'prometheus', status: 'available', supportsCreate: true },
   { kind: 'excel', label: 'Excel', description: 'Explore workbook sheets as tables.', hint: 'Coming soon', icon: 'excel', status: 'coming-soon', supportsCreate: false }
 ]
 
@@ -46,6 +47,7 @@ function SourceIcon({ type }: { type: ConnectionSourceDescriptor['icon'] }) {
   if (type === 'duckdb') return <svg {...common}><circle cx="11.5" cy="12" r="7.5"/><circle cx="11.5" cy="12" r="3.8"/><path d="M15.3 10.8H20l2 1.5-2 1.5h-4.7"/><path d="M10.4 10.8h.1"/></svg>
   if (type === 'sqlite') return <svg {...common}><path d="M5 20c2.2-6.2 5.5-11.4 11.6-16.4 1.2-1 2.8-.3 2.6 1.3-.8 6.2-4.4 11.4-10 14.4"/><path d="M7.5 17.4c3.2-2.7 5.9-5.6 8.2-9M10.5 14.4l-1.3-3.1M13.2 11.2l2.9-.5"/></svg>
   if (type === 'bigquery') return <svg {...common}><circle cx="10.8" cy="10.8" r="7.2"/><path d="m16.1 16.1 4.3 4.3M7.6 13.8v-3M10.8 13.8V7.5M14 13.8V9.4"/></svg>
+  if (type === 'prometheus') return <svg {...common}><path d="M12 3v4M6.3 5.3l2.8 2.8M17.7 5.3l-2.8 2.8M4 11h4M16 11h4"/><path d="M7 13a5 5 0 0 0 10 0M9 18h6M10 21h4"/></svg>
   return <svg {...common}><path d="M8 4h11v16H8M8 8h11M8 12h11M8 16h11M13 8v12"/><path d="M3 7h7v10H3Z" fill="currentColor" stroke="none"/><path d="m5 10 3 4M8 10l-3 4" stroke="var(--bg-3)"/></svg>
 }
 
@@ -401,6 +403,37 @@ function BigQueryConnectionModal({ existing, onClose, onSaved, onBack, active = 
   </div></div>
 }
 
+function PrometheusConnectionModal({ existing, onClose, onSaved, onBack }: FormProps & { existing: PrometheusProfile | null }) {
+  const [name, setName] = useState(existing?.name ?? 'Prometheus')
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [gcxVersion, setGcxVersion] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const transport = () => ({ kind: 'gcx' as const, ...(existing?.transport.context ? { context: existing.transport.context } : {}) })
+  const profile = (): PrometheusProfile => ({ kind: 'prometheus', version: 1, id: existing?.id ?? '', name: name.trim(), readonly: true, transport: transport() })
+  const test = async () => {
+    setBusy(true); setMessage(null)
+    try {
+      const result = await api.connections.prometheus.discover(transport())
+      setGcxVersion(result.gcx?.version ?? null)
+      setMessage({ ok: true, text: `Connected — discovered ${result.metricNames.length} metrics${result.metadataAvailable ? ' with metadata' : ''}.` })
+    } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } finally { setBusy(false) }
+  }
+  const save = async () => {
+    if (!name.trim()) return setMessage({ ok: false, text: 'Connection name is required.' })
+    setBusy(true)
+    try { const saved = await api.connections.upsert(profile()); onSaved(saved); onClose() }
+    catch (error) { setMessage({ ok: false, text: failureMessage(error) }); setBusy(false) }
+  }
+  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="prometheus-connection-title" onClick={(e) => e.stopPropagation()}>
+    <ConnectionFormHeader kind="prometheus" editing={!!existing} onBack={onBack} />
+    <div className="field"><label htmlFor="prom-name">Connection name</label><input id="prom-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+    <div className="field"><label>Connection method</label><div className="conn-preview">Grafana Cloud via gcx</div></div>
+    <div className="test-msg info">Uses your existing authenticated gcx context. DataKoala never reads, copies, or stores gcx OAuth credentials.{gcxVersion && <> Detected <strong>gcx {gcxVersion}</strong>.</>}</div>
+    {message && <div className={`test-msg ${message.ok ? 'ok' : 'err'}`} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
+    <div className="actions"><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy}>{busy ? 'Working…' : 'Test & discover metrics'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy}>Save</button></div>
+  </div></div>
+}
+
 export function ConnectionModal(props: Props) {
   const [kind, setKind] = useState<DataSourceProfile['kind'] | null>(props.existing?.kind ?? null)
   const [visited, setVisited] = useState<DataSourceKind[]>([])
@@ -432,12 +465,14 @@ export function ConnectionModal(props: Props) {
         {item === 'postgres' ? <PostgresConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
           : item === 'local-files' ? <LocalFilesConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
             : item === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
-              : <BigQueryConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />}
+              : item === 'bigquery' ? <BigQueryConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
+                : <PrometheusConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />}
       </div>)}
     </>
   }
   return props.existing.kind === 'local-files' ? <LocalFilesConnectionModal {...props} existing={props.existing} />
     : props.existing.kind === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={props.existing} />
     : props.existing.kind === 'bigquery' ? <BigQueryConnectionModal {...props} existing={props.existing} />
+    : props.existing.kind === 'prometheus' ? <PrometheusConnectionModal {...props} existing={props.existing} />
     : <PostgresConnectionModal {...props} existing={props.existing as ConnectionProfile} />
 }

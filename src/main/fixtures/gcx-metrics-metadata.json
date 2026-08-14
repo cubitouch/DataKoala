@@ -1,0 +1,31 @@
+{
+  "status": "success",
+  "data": {
+    "go_gc_duration_seconds": [
+      {
+        "type": "histogram",
+        "help": "A summary of the pause duration of garbage collection cycles.",
+        "unit": "seconds"
+      }
+    ],
+    "http_requests_total": [
+      {
+        "type": "counter",
+        "help": "Total number of HTTP requests.",
+        "unit": ""
+      },
+      {
+        "type": "counter",
+        "help": "Total number of HTTP requests.",
+        "unit": "requests"
+      }
+    ],
+    "process_resident_memory_bytes": [
+      {
+        "type": "gauge",
+        "help": "Resident memory size in bytes.",
+        "unit": "bytes"
+      }
+    ]
+  }
+}
