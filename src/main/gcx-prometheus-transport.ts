@@ -32,9 +32,23 @@ function errorMessage(error: unknown): string {
 
 function sanitizeGcxError(value: string): string {
   return value
-    .replace(/(authorization|token|password|secret|cookie)\s*[:=]\s*\S+/gi, '$1=[redacted]')
+    .replace(/(authorization\s*[:=]\s*)(?:bearer\s+)?\S+/gi, '$1[redacted]')
+    .replace(/(cookie\s*[:=]\s*)[^\r\n]+/gi, '$1[redacted]')
+    .replace(/(token|password|secret)\s*[:=]\s*\S+/gi, '$1=[redacted]')
     .replace(/https?:\/\/[^\s@]+@/g, 'https://[redacted]@')
     .trim()
+}
+
+function throwNormalizedGcxApiError(error: unknown): never {
+  if (error instanceof Error && (error.name === 'PrometheusApiError' || error.message.startsWith('gcx returned') || error.message.startsWith('Select a Grafana'))) throw error
+  const value = error as NodeJS.ErrnoException & { stderr?: string }
+  const normalized = errorMessage(error)
+  if (/not installed|authentication has expired|no authenticated context|not permitted/.test(normalized)) throw new Error(normalized)
+  const exitCode = value?.code === undefined ? '' : ` (exit code ${String(value.code)})`
+  const stderr = sanitizeGcxError(value?.stderr ?? '')
+  const diagnostic = `gcx api failed${exitCode}${stderr ? `: ${stderr}` : `: ${normalized}`}`
+  if (process.env.NODE_ENV !== 'production') console.error(`[prometheus:gcx] ${diagnostic}`)
+  throw new Error(diagnostic)
 }
 
 function optionalString(record: Record<string, unknown>, key: string): string | undefined {
@@ -193,12 +207,12 @@ export class GcxPrometheusTransport implements PrometheusTransport {
     try {
       if (!this.datasourceUid?.trim()) throw new Error('Select a Grafana Prometheus datasource before formatting PromQL.')
       const uid = encodeURIComponent(this.datasourceUid.trim())
-      const path = `/api/datasources/proxy/uid/${uid}/api/v1/format_query`
+      const search = new URLSearchParams({ query }).toString()
+      const path = `/api/datasources/proxy/uid/${uid}/api/v1/format_query?${search}`
       const contextArgs = this.context ? ['--context', this.context] : []
-      const body = new URLSearchParams({ query }).toString()
-      const args = ['api', path, ...contextArgs, '-X', 'POST', '-H', 'Content-Type: application/x-www-form-urlencoded', '-d', body]
+      const args = ['api', path, ...contextArgs, '-o', 'json']
       return normalizeGcxFormattedQuery(parseJson((await this.run(args)).stdout, 'Prometheus format query'))
-    } catch (error) { throwNormalizedGcxError(error) }
+    } catch (error) { throwNormalizedGcxApiError(error) }
   }
 }
 
