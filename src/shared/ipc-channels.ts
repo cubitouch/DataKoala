@@ -14,6 +14,7 @@ export const IPC = {
   PROMETHEUS_DISCOVER_DATASOURCES: 'connections:prometheus:discover-datasources',
   PROMETHEUS_METRIC_LABELS: 'connections:prometheus:metric-labels',
   PROMETHEUS_LABEL_VALUES: 'connections:prometheus:label-values',
+  PROMETHEUS_FORMAT_QUERY: 'connections:prometheus:format-query',
   QUERY_RUN: 'query:run',
   QUERY_PROBE_SERIES_CARDINALITY: 'query:probe-series-cardinality',
   QUERY_SERIES_STATISTICS: 'query:series-statistics',

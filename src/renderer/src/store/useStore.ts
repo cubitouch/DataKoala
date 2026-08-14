@@ -38,6 +38,8 @@ export interface QuerySession {
   title: string
   connectionProfileId: string | null
   sql: string
+  prometheusTimeRange: BuilderTimeRange
+  prometheusStep: '15s' | '30s' | '1m' | '5m'
   running: boolean
   queryError: string | null
   result: QueryResult | null
@@ -88,6 +90,8 @@ export function createQuerySession(index = 1, options: Partial<Pick<QuerySession
     title: options.title ?? `Query ${index}`,
     connectionProfileId: options.connectionProfileId ?? null,
     sql: options.sql ?? 'select now();',
+    prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' },
+    prometheusStep: '30s',
     running: false,
     queryError: null,
     result: null,
@@ -153,6 +157,7 @@ export interface AppState {
   resetActiveQuery: () => void
 
   setSql: (sql: string, tabId?: string) => void
+  setPrometheusQueryOptions: (patch: Partial<Pick<QuerySession, 'prometheusTimeRange' | 'prometheusStep'>>, tabId?: string) => void
   setResult: (result: QueryResult | null, error?: string | null, tabId?: string) => void
   startQuery: (tabId?: string) => void
   completeQuery: (result: QueryResult | null, error?: string | null, tabId?: string) => void
@@ -463,6 +468,7 @@ export const useStore = create<AppState>((set, get) => ({
     sql,
     sqlResultFilters: session.sqlResultFilters.map((filter) => filter.execution === 'query' ? { ...filter, execution: 'client' as const } : filter)
   })),
+  setPrometheusQueryOptions: (patch, tabId) => set((state) => patchSession(state, tabId, (session) => ({ ...session, ...patch }))),
   setResult: (result, error, tabId) => set((state) => patchSession(state, tabId, (session) => result
     ? { ...session, ...deliverQueryResultState(session, result) }
     : { ...session, queryError: error ?? null })),

@@ -32,9 +32,23 @@ function errorMessage(error: unknown): string {
 
 function sanitizeGcxError(value: string): string {
   return value
-    .replace(/(authorization|token|password|secret|cookie)\s*[:=]\s*\S+/gi, '$1=[redacted]')
+    .replace(/(authorization\s*[:=]\s*)(?:bearer\s+)?\S+/gi, '$1[redacted]')
+    .replace(/(cookie\s*[:=]\s*)[^\r\n]+/gi, '$1[redacted]')
+    .replace(/(token|password|secret)\s*[:=]\s*\S+/gi, '$1=[redacted]')
     .replace(/https?:\/\/[^\s@]+@/g, 'https://[redacted]@')
     .trim()
+}
+
+function throwNormalizedGcxApiError(error: unknown): never {
+  if (error instanceof Error && (error.name === 'PrometheusApiError' || error.message.startsWith('gcx returned') || error.message.startsWith('Select a Grafana'))) throw error
+  const value = error as NodeJS.ErrnoException & { stderr?: string }
+  const normalized = errorMessage(error)
+  if (/not installed|authentication has expired|no authenticated context|not permitted/.test(normalized)) throw new Error(normalized)
+  const exitCode = value?.code === undefined ? '' : ` (exit code ${String(value.code)})`
+  const stderr = sanitizeGcxError(value?.stderr ?? '')
+  const diagnostic = `gcx api failed${exitCode}${stderr ? `: ${stderr}` : `: ${normalized}`}`
+  if (process.env.NODE_ENV !== 'production') console.error(`[prometheus:gcx] ${diagnostic}`)
+  throw new Error(diagnostic)
 }
 
 function optionalString(record: Record<string, unknown>, key: string): string | undefined {
@@ -44,11 +58,6 @@ function optionalString(record: Record<string, unknown>, key: string): string | 
   return value
 }
 
-/**
- * gcx emits the Prometheus metadata API envelope:
- * `{ status: "success", data: { metric_name: [{ type, help, unit }] } }`.
- * Keep this contract and all raw response handling on the main-process side of IPC.
- */
 export function normalizeGcxMetadata(raw: unknown): PrometheusMetricMetadata[] {
   if (!isRecord(raw) || raw.status !== 'success' || !isRecord(raw.data)) {
     throw new Error('gcx returned valid JSON, but the metrics metadata response must contain status "success" and a data object.')
@@ -56,22 +65,13 @@ export function normalizeGcxMetadata(raw: unknown): PrometheusMetricMetadata[] {
 
   const entries: PrometheusMetricMetadata[] = []
   for (const [name, values] of Object.entries(raw.data)) {
-    if (!name || !Array.isArray(values)) {
-      throw new Error(`gcx returned an unexpected metadata entry for metric "${name}".`)
-    }
+    if (!name || !Array.isArray(values)) throw new Error(`gcx returned an unexpected metadata entry for metric "${name}".`)
     for (const value of values) {
       if (!isRecord(value)) throw new Error(`gcx returned a non-object metadata value for metric "${name}".`)
-      entries.push({
-        name,
-        type: optionalString(value, 'type'),
-        help: optionalString(value, 'help'),
-        unit: optionalString(value, 'unit')
-      })
+      entries.push({ name, type: optionalString(value, 'type'), help: optionalString(value, 'help'), unit: optionalString(value, 'unit') })
     }
   }
 
-  // Traverse every raw entry before deduplication. Duplicate series metadata may
-  // fill fields omitted by another target, so retain the first available value.
   const unique = new Map<string, PrometheusMetricMetadata>()
   for (const entry of entries) {
     const previous = unique.get(entry.name)
@@ -93,7 +93,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
-/** Normalize the Prometheus label endpoint envelope emitted by `gcx metrics labels -o json`. */
 export function normalizeGcxLabels(raw: unknown): string[] {
   if (!isRecord(raw) || raw.status !== 'success' || !Array.isArray(raw.data) || raw.data.some((value) => typeof value !== 'string')) {
     throw new Error('gcx returned valid JSON, but the labels response must contain status "success" and a string data array.')
@@ -123,13 +122,14 @@ function samplePair(value: unknown, context: string): [number, number] {
   return [value[0], numeric]
 }
 
-/** Normalize the Prometheus API envelope emitted by `gcx metrics query -o json`. */
 export function normalizeGcxQuery(raw: unknown, durationMs = 0): QueryResult {
   if (!isRecord(raw)) throw new Error('gcx returned valid JSON, but the Prometheus query response was not an object.')
   if (raw.status === 'error') {
     const detail = typeof raw.error === 'string' ? raw.error : 'Prometheus rejected the query.'
     const kind = typeof raw.errorType === 'string' ? `${raw.errorType}: ` : ''
-    throw new Error(`${kind}${detail}`)
+    const error = new Error(sanitizeGcxError(`${kind}${detail}`))
+    error.name = 'PrometheusApiError'
+    throw error
   }
   if (raw.status !== 'success' || !isRecord(raw.data) || !Array.isArray(raw.data.result) || !['matrix', 'vector'].includes(String(raw.data.resultType))) {
     throw new Error('gcx returned valid JSON, but not a supported Prometheus matrix or vector response.')
@@ -155,6 +155,21 @@ export function normalizeGcxQuery(raw: unknown, durationMs = 0): QueryResult {
     rows, rowCount: rows.length, durationMs,
     execution: { provider: 'prometheus', durationMs, rowCount: rows.length }
   }
+}
+
+export function normalizeGcxFormattedQuery(raw: unknown): string {
+  if (!isRecord(raw)) throw new Error('gcx returned valid JSON, but the Prometheus format response was not an object.')
+  if (raw.status === 'error') {
+    const detail = typeof raw.error === 'string' ? raw.error : 'Prometheus rejected the query.'
+    const kind = typeof raw.errorType === 'string' ? `${raw.errorType}: ` : ''
+    const error = new Error(sanitizeGcxError(`${kind}${detail}`))
+    error.name = 'PrometheusApiError'
+    throw error
+  }
+  if (raw.status !== 'success' || typeof raw.data !== 'string') {
+    throw new Error('gcx returned valid JSON, but the Prometheus format response must contain status "success" and string data.')
+  }
+  return raw.data
 }
 
 function normalizeVersion(raw: unknown): string {
@@ -225,9 +240,20 @@ export class GcxPrometheusTransport implements PrometheusTransport {
       return normalizeGcxQuery(parseJson((await this.run(args)).stdout, 'metrics query'), Date.now() - started)
     } catch (error) { throwNormalizedGcxError(error) }
   }
+  async formatQuery(query: string): Promise<string> {
+    try {
+      if (!this.datasourceUid?.trim()) throw new Error('Select a Grafana Prometheus datasource before formatting PromQL.')
+      const uid = encodeURIComponent(this.datasourceUid.trim())
+      const search = new URLSearchParams({ query }).toString()
+      const path = `/api/datasources/proxy/uid/${uid}/api/v1/format_query?${search}`
+      const contextArgs = this.context ? ['--context', this.context] : []
+      const args = ['api', path, ...contextArgs, '-o', 'json']
+      return normalizeGcxFormattedQuery(parseJson((await this.run(args)).stdout, 'Prometheus format query'))
+    } catch (error) { throwNormalizedGcxApiError(error) }
+  }
 }
 
 function throwNormalizedGcxError(error: unknown): never {
-  if (error instanceof Error && (error.message.startsWith('gcx returned') || error.message.includes('metric metadata shape') || /^(bad_data|execution|timeout|canceled|Prometheus rejected)/.test(error.message))) throw error
+  if (error instanceof Error && (error.name === 'PrometheusApiError' || error.message.startsWith('gcx returned') || error.message.startsWith('Select a Grafana') || error.message.includes('metric metadata shape') || /^(bad_data|execution|timeout|canceled|Prometheus rejected)/.test(error.message))) throw error
   throw new Error(errorMessage(error))
 }

@@ -11,6 +11,7 @@ import { SqliteFileAdapter } from './adapters/sqlite-file-adapter.ts'
 import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
+import { formatPromql } from './promql-formatter.ts'
 
 const postgresAdapter = new PostgresAdapter()
 export const adapterRegistry = new AdapterRegistry().register(postgresAdapter).register(new LocalFilesAdapter()).register(new SqliteFileAdapter()).register(new BigQueryAdapter()).register(new PrometheusAdapter())
@@ -55,10 +56,6 @@ export class SessionManager {
   }
 
   async disconnect(id: ConnectionId, generation?: number): Promise<void> {
-    // A generation-scoped disconnect belongs to an already-established session.
-    // It must never cancel a newer, still-pending reconnect for the same profile.
-    // Pending attempts do not have a generation until their adapter connects, so
-    // only an unscoped user disconnect may cancel them.
     if (generation === undefined) {
       const pending = [...this.pendingConnections.entries()]
         .filter(([, connection]) => connection.profileId === id)
@@ -133,6 +130,10 @@ function session(id: ConnectionId): DataSourceSession {
 
 export function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = [], prometheus?: Omit<PrometheusQueryRequest, 'expression'>): Promise<QueryResult> {
   return session(id).query({ sql, parameters, prometheus })
+}
+
+export function formatPrometheusQuery(_id: ConnectionId, query: string): Promise<string> {
+  return formatPromql(query)
 }
 
 export function queryDialect(id: ConnectionId) {

@@ -22,6 +22,8 @@ export interface QuerySessionDraft {
   connectionProfileId: string | null
   queryMode: QueryMode
   sql: string
+  prometheusTimeRange: BuilderTimeRange
+  prometheusStep: QuerySession['prometheusStep']
   builder: BuilderQueryState
   sqlVisualization: VisualizationConfiguration
   builderVisualization: VisualizationConfiguration
@@ -199,6 +201,8 @@ function sessionDraft(session: QuerySession): QuerySessionDraft {
     connectionProfileId: session.connectionProfileId,
     queryMode: session.queryMode,
     sql: session.sql,
+    prometheusTimeRange: session.prometheusTimeRange,
+    prometheusStep: session.prometheusStep,
     builder: normalized.builder,
     sqlVisualization: cloneVisualization(session.sqlVisualization),
     builderVisualization: normalized.visualization,
@@ -234,6 +238,8 @@ function serializedSession(tab: QuerySessionDraft): Record<string, unknown> {
     connectionProfileId: tab.connectionProfileId,
     queryMode: tab.queryMode,
     sql: tab.sql,
+    prometheusTimeRange: tab.prometheusTimeRange,
+    prometheusStep: tab.prometheusStep,
     builder: persistedBuilder,
     sqlVisualization: tab.sqlVisualization,
     builderVisualization: tab.builderVisualization,
@@ -264,9 +270,11 @@ function parseSession(value: unknown): QuerySessionDraft | null {
   const sqlVisualization = visualization(value.sqlVisualization)
   const parsedBuilderVisualization = visualization(value.builderVisualization)
   const filters = parsedQueryFilters(value.builderQueryFilters)
-  if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null) return null
+  const prometheusTimeRange = value.prometheusTimeRange === undefined ? { kind: 'rolling', amount: 1, unit: 'hour' } as const : timeRange(value.prometheusTimeRange)
+  const prometheusStep = value.prometheusStep === undefined ? '30s' : isOneOf(value.prometheusStep, ['15s', '30s', '1m', '5m'] as const) ? value.prometheusStep : null
+  if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null || !prometheusTimeRange || !prometheusStep) return null
   const normalized = normalizeBuilderAxis(parsedBuilder, parsedBuilderVisualization)
-  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
+  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
 }
 
 export function parseWorkspaceDraft(raw: string | null): WorkspaceDraft | null {
@@ -298,7 +306,7 @@ function parseLegacyWorkspace(raw: string | null): WorkspaceDraft | null {
     const id = 'migrated-query-1'
     return {
       activeTabId: id,
-      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
+      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: '30s', builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
     }
   } catch {
     return null
@@ -333,6 +341,8 @@ function restoredSession(draft: QuerySessionDraft): QuerySession {
     title: draft.title,
     connectionProfileId: draft.connectionProfileId,
     sql: draft.sql,
+    prometheusTimeRange: draft.prometheusTimeRange,
+    prometheusStep: draft.prometheusStep,
     running: false,
     queryError: null,
     result: null,

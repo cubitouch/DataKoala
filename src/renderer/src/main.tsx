@@ -5,6 +5,7 @@ import { useStore } from './store/useStore'
 import { buildEChartsOption } from './lib/chartOption'
 import { restoreWorkspaceDraft, startWorkspacePersistence } from './lib/workspacePersistence'
 import './styles.css'
+import './prometheus-metadata.css'
 import './tabs.css'
 
 // Hydrate editable query sessions before React mounts. Persistence stores saved
