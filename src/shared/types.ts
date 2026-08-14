@@ -91,6 +91,7 @@ export interface BigQueryProfile extends ProfileBase {
 export interface PrometheusTransportConfig {
   kind: 'gcx'
   context?: string
+  datasourceUid?: string
 }
 
 export interface PrometheusProfile extends ProfileBase {

@@ -68,5 +68,6 @@ describe('Prometheus metric object tree', () => {
     fireEvent.change(filter, { target: { value: 'process_cpu' } })
     expect(screen.getByRole('button', { name: 'View details for process_cpu_seconds_total' })).toBeTruthy()
     expect(screen.queryByText('http_requests_total')).toBeNull()
+    expect(mocks.labelsForMetric).not.toHaveBeenCalled()
   })
 })

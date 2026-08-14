@@ -10,7 +10,7 @@ import type {
 } from '@shared/types'
 import type { SeriesCardinalityProbeRequest, SeriesCardinalityProbeResult, SeriesStatisticsRequest, SeriesStatisticsResult } from '@shared/chartLimits'
 import type { BigQueryDatasetOption, BigQueryDiscoveryDefaults, BigQueryProjectOption } from '@shared/bigqueryDiscovery'
-import type { PrometheusDiscoveryResult } from '@shared/prometheus'
+import type { PrometheusDatasourceOption, PrometheusDiscoveryResult } from '@shared/prometheus'
 import type { PrometheusTransportConfig } from '@shared/types'
 import type { PrometheusQueryRequest } from '@shared/prometheus'
 
@@ -48,6 +48,7 @@ const api = {
     },
     prometheus: {
       discover: (transport: PrometheusTransportConfig): Promise<PrometheusDiscoveryResult> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER, transport),
+      discoverDatasources: (transport: Pick<PrometheusTransportConfig, 'kind' | 'context'>): Promise<PrometheusDatasourceOption[]> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER_DATASOURCES, transport),
       labelsForMetric: (id: string, metricName: string): Promise<string[]> => ipcRenderer.invoke(IPC.PROMETHEUS_METRIC_LABELS, id, metricName),
       labelValues: (id: string, metricName: string, labelName: string): Promise<string[]> => ipcRenderer.invoke(IPC.PROMETHEUS_LABEL_VALUES, id, metricName, labelName)
     }

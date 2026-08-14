@@ -232,7 +232,7 @@ export function Sidebar() {
               <button className="tree-row schema-row" onClick={() => toggle(schemaId)} title={schema.name}><span className="chevron">{schemaOpen ? '▾' : '▸'}</span><span className="truncate">{schema.name}</span>{schema.isSystem && <span className="badge">system</span>}</button>
               {schemaOpen && <div role="group">{schema.relations.map((relation) => {
                 const relationId = `relation:${relation.qualifiedName}`
-                const relationOpen = filtering || expanded.has(relationId)
+                const relationOpen = relation.kind === 'metric' ? expanded.has(relationId) : filtering || expanded.has(relationId)
                 return <div key={relationId} role="treeitem" aria-expanded={relationOpen}>
                   <div className="tree-row relation-row">
                     <button className="chevron-button" aria-label={`${relationOpen ? 'Collapse' : 'Expand'} ${relation.name}`} onClick={() => void expandRelation(relation)}>{relationOpen ? '▾' : '▸'}</button>

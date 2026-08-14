@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { PrometheusMetricMetadata, PrometheusQueryRequest } from '../shared/prometheus.ts'
+import type { PrometheusDatasourceOption, PrometheusMetricMetadata, PrometheusQueryRequest } from '../shared/prometheus.ts'
 import type { ColumnMeta, QueryResult } from '../shared/types.ts'
 import type { PrometheusTransport } from './prometheus-transport.ts'
 
@@ -101,6 +101,18 @@ export function normalizeGcxLabels(raw: unknown): string[] {
   return [...new Set(raw.data as string[])].sort((a, b) => a.localeCompare(b))
 }
 
+export function normalizeGcxDatasources(raw: unknown): PrometheusDatasourceOption[] {
+  if (!Array.isArray(raw)) throw new Error('gcx returned valid JSON, but the Grafana datasource response must be an array.')
+  const compatible: PrometheusDatasourceOption[] = []
+  for (const value of raw) {
+    if (!isRecord(value) || typeof value.uid !== 'string' || typeof value.name !== 'string' || typeof value.type !== 'string') {
+      throw new Error('gcx returned an invalid Grafana datasource entry.')
+    }
+    if (/prometheus|mimir/i.test(value.type)) compatible.push({ uid: value.uid, name: value.name, type: value.type })
+  }
+  return compatible.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 const column = (name: string, logicalType: ColumnMeta['logicalType'], nativeType: string, dataTypeID: number): ColumnMeta =>
   ({ name, logicalType, nativeType, dataTypeID, dataTypeName: nativeType })
 
@@ -157,9 +169,16 @@ function normalizeVersion(raw: unknown): string {
 
 export class GcxPrometheusTransport implements PrometheusTransport {
   private readonly context: string | undefined
+  private readonly datasourceUid: string | undefined
   private readonly run: GcxCommandRunner
   private readonly labelCache = new Map<string, Promise<string[]>>()
-  constructor(context: string | undefined, run: GcxCommandRunner = runGcxCommand) { this.context = context; this.run = run }
+  constructor(context: string | undefined, run: GcxCommandRunner = runGcxCommand, datasourceUid?: string) { this.context = context; this.run = run; this.datasourceUid = datasourceUid }
+  async datasources(): Promise<PrometheusDatasourceOption[]> {
+    try {
+      const contextArgs = this.context ? ['--context', this.context] : []
+      return normalizeGcxDatasources(parseJson((await this.run(['api', '/api/datasources', ...contextArgs, '-o', 'json'])).stdout, 'Grafana datasources'))
+    } catch (error) { throwNormalizedGcxError(error) }
+  }
   async version(): Promise<string> {
     try {
       return normalizeVersion(parseJson((await this.run(['version', '-o', 'json'])).stdout, 'version'))
@@ -168,7 +187,8 @@ export class GcxPrometheusTransport implements PrometheusTransport {
   async metadata(): Promise<PrometheusMetricMetadata[]> {
     try {
       const contextArgs = this.context ? ['--context', this.context] : []
-      return normalizeGcxMetadata(parseJson((await this.run(['metrics', 'metadata', ...contextArgs, '-o', 'json'])).stdout, 'metrics metadata'))
+      const datasourceArgs = this.datasourceUid ? ['--datasource', this.datasourceUid] : []
+      return normalizeGcxMetadata(parseJson((await this.run(['metrics', 'metadata', ...contextArgs, ...datasourceArgs, '-o', 'json'])).stdout, 'metrics metadata'))
     } catch (error) { throwNormalizedGcxError(error) }
   }
   labelsForMetric(metricName: string): Promise<string[]> {
@@ -186,15 +206,22 @@ export class GcxPrometheusTransport implements PrometheusTransport {
   }
   private async fetchLabels(scopeArgs: string[]): Promise<string[]> {
     try {
+      if (!this.datasourceUid) throw new Error('Select a Prometheus datasource before exploring labels.')
       const contextArgs = this.context ? ['--context', this.context] : []
-      return normalizeGcxLabels(parseJson((await this.run(['metrics', 'labels', ...contextArgs, ...scopeArgs, '-o', 'json'])).stdout, 'metrics labels'))
+      const metricName = scopeArgs[1]
+      const labelName = scopeArgs[3]
+      const base = `/api/datasources/proxy/uid/${encodeURIComponent(this.datasourceUid)}/api/v1/`
+      const endpoint = labelName ? `label/${encodeURIComponent(labelName)}/values` : 'labels'
+      const query = new URLSearchParams({ 'match[]': metricName }).toString()
+      return normalizeGcxLabels(parseJson((await this.run(['api', `${base}${endpoint}?${query}`, ...contextArgs, '-o', 'json'])).stdout, 'metrics labels'))
     } catch (error) { throwNormalizedGcxError(error) }
   }
   async query(request: PrometheusQueryRequest): Promise<QueryResult> {
     const started = Date.now()
     try {
       const contextArgs = this.context ? ['--context', this.context] : []
-      const args = ['metrics', 'query', request.expression, ...contextArgs, '--from', request.start, '--to', request.end, '--step', request.step, '-o', 'json']
+      const datasourceArgs = this.datasourceUid ? ['--datasource', this.datasourceUid] : []
+      const args = ['metrics', 'query', request.expression, ...contextArgs, ...datasourceArgs, '--from', request.start, '--to', request.end, '--step', request.step, '-o', 'json']
       return normalizeGcxQuery(parseJson((await this.run(args)).stdout, 'metrics query'), Date.now() - started)
     } catch (error) { throwNormalizedGcxError(error) }
   }

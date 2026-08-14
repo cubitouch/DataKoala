@@ -13,8 +13,8 @@ const capabilities: DataSourceCapabilities = {
 export class PrometheusAdapter implements DataSourceAdapter {
   readonly kind = 'prometheus' as const
   private readonly discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult>
-  private readonly createTransport: (context?: string) => PrometheusTransport
-  constructor(discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult> = discoverPrometheus, createTransport: (context?: string) => PrometheusTransport = (context) => new GcxPrometheusTransport(context)) { this.discover = discover; this.createTransport = createTransport }
+  private readonly createTransport: (context?: string, datasourceUid?: string) => PrometheusTransport
+  constructor(discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult> = discoverPrometheus, createTransport: (context?: string, datasourceUid?: string) => PrometheusTransport = (context, datasourceUid) => new GcxPrometheusTransport(context, undefined, datasourceUid)) { this.discover = discover; this.createTransport = createTransport }
   async test(profile: PrometheusProfile) {
     try {
       const result = await this.discover(profile.transport)
@@ -32,7 +32,7 @@ export class PrometheusAdapter implements DataSourceAdapter {
         namespace: 'Metrics', name: metric.name, kind: 'metric' as const,
         details: { kind: 'metric' as const, type: metric.type, help: metric.help, unit: metric.unit }
       }))
-    const transport = this.createTransport(profile.transport.context)
+    const transport = this.createTransport(profile.transport.context, profile.transport.datasourceUid)
     const session: DataSourceSession = {
       info: { profileId: profile.id, provider: 'prometheus' }, capabilities,
       query: ({ sql, prometheus }) => {
