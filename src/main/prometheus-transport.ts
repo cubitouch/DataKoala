@@ -6,5 +6,4 @@ export interface PrometheusTransport {
   labelsForMetric(metricName: string): Promise<string[]>
   labelValues(metricName: string, labelName: string): Promise<string[]>
   query(request: PrometheusQueryRequest): Promise<QueryResult>
-  formatQuery(query: string): Promise<string>
 }
