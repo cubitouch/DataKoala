@@ -10,7 +10,7 @@ import type {
 } from '@shared/types'
 import type { SeriesCardinalityProbeRequest, SeriesCardinalityProbeResult, SeriesStatisticsRequest, SeriesStatisticsResult } from '@shared/chartLimits'
 import type { BigQueryDatasetOption, BigQueryDiscoveryDefaults, BigQueryProjectOption } from '@shared/bigqueryDiscovery'
-import type { GrafanaPrometheusDatasource, PrometheusDiscoveryResult } from '@shared/prometheus'
+import type { PrometheusDiscoveryResult } from '@shared/prometheus'
 import type { PrometheusTransportConfig } from '@shared/types'
 
 const api = {
@@ -46,8 +46,7 @@ const api = {
       discoverDefaults: (): Promise<BigQueryDiscoveryDefaults> => ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_DEFAULTS)
     },
     prometheus: {
-      discover: (transport: PrometheusTransportConfig): Promise<PrometheusDiscoveryResult> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER, transport),
-      listGrafanaDatasources: (url: string, token: string): Promise<GrafanaPrometheusDatasource[]> => ipcRenderer.invoke(IPC.PROMETHEUS_GRAFANA_DATASOURCES, url, token)
+      discover: (transport: PrometheusTransportConfig): Promise<PrometheusDiscoveryResult> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER, transport)
     }
   },
   query: {

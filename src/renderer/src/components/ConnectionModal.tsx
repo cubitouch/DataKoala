@@ -36,7 +36,7 @@ export const CONNECTION_SOURCE_DESCRIPTORS: readonly ConnectionSourceDescriptor[
   { kind: 'local-files', label: 'Local files', description: 'Query CSV, Parquet and JSON files through DuckDB.', hint: 'One or more files', icon: 'duckdb', status: 'available', supportsCreate: true },
   { kind: 'sqlite-file', label: 'SQLite', description: 'Open a SQLite database file through DuckDB.', hint: '.sqlite or .db file', icon: 'sqlite', status: 'available', supportsCreate: true },
   { kind: 'bigquery', label: 'BigQuery', description: 'Use Google ADC credentials to browse and query datasets.', hint: 'Cloud data warehouse', icon: 'bigquery', status: 'available', supportsCreate: true },
-  { kind: 'prometheus', label: 'Prometheus', description: 'Discover metrics directly or through a Grafana datasource proxy.', hint: 'Metrics datasource', icon: 'prometheus', status: 'available', supportsCreate: true },
+  { kind: 'prometheus', label: 'Prometheus', description: 'Discover Grafana Cloud metrics through gcx or connect directly.', hint: 'Metrics datasource', icon: 'prometheus', status: 'available', supportsCreate: true },
   { kind: 'excel', label: 'Excel', description: 'Explore workbook sheets as tables.', hint: 'Coming soon', icon: 'excel', status: 'coming-soon', supportsCreate: false }
 ]
 
@@ -406,49 +406,42 @@ function BigQueryConnectionModal({ existing, onClose, onSaved, onBack, active = 
 function PrometheusConnectionModal({ existing, onClose, onSaved, onBack }: FormProps & { existing: PrometheusProfile | null }) {
   const initial = existing?.transport
   const [name, setName] = useState(existing?.name ?? 'Prometheus')
-  const [mode, setMode] = useState<'direct' | 'grafana'>(initial?.kind ?? 'direct')
-  const [url, setUrl] = useState(initial?.url ?? 'http://localhost:9090')
+  const [mode, setMode] = useState<'gcx' | 'direct'>(initial?.kind === 'direct' ? 'direct' : 'gcx')
+  const [url, setUrl] = useState(initial?.kind === 'direct' ? initial.url : 'http://localhost:9090')
   const [authKind, setAuthKind] = useState<PrometheusAuth['kind']>(initial?.kind === 'direct' ? initial.auth.kind : 'none')
-  const [token, setToken] = useState(initial?.kind === 'grafana' ? initial.token : initial?.kind === 'direct' && initial.auth.kind === 'bearer' ? initial.auth.token : '')
+  const [token, setToken] = useState(initial?.kind === 'direct' && initial.auth.kind === 'bearer' ? initial.auth.token : '')
   const [username, setUsername] = useState(initial?.kind === 'direct' && initial.auth.kind === 'basic' ? initial.auth.username : '')
   const [password, setPassword] = useState(initial?.kind === 'direct' && initial.auth.kind === 'basic' ? initial.auth.password : '')
-  const [datasourceUid, setDatasourceUid] = useState(initial?.kind === 'grafana' ? initial.datasourceUid : '')
-  const [datasources, setDatasources] = useState<{ uid: string; name: string }[]>([])
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [gcxVersion, setGcxVersion] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const transport = () => mode === 'grafana'
-    ? { kind: 'grafana' as const, url: url.trim(), token, datasourceUid: datasourceUid.trim() }
+  const transport = () => mode === 'gcx'
+    ? { kind: 'gcx' as const }
     : { kind: 'direct' as const, url: url.trim(), auth: authKind === 'bearer' ? { kind: 'bearer' as const, token } : authKind === 'basic' ? { kind: 'basic' as const, username, password } : { kind: 'none' as const } }
   const profile = (): PrometheusProfile => ({ kind: 'prometheus', version: 1, id: existing?.id ?? '', name: name.trim(), readonly: true, transport: transport() })
-  const discoverGrafana = async () => {
-    setBusy(true); setMessage(null)
-    try {
-      const found = await api.connections.prometheus.listGrafanaDatasources(url.trim(), token)
-      setDatasources(found); if (found.length === 1) setDatasourceUid(found[0].uid)
-      setMessage({ ok: true, text: `Found ${found.length} Prometheus-compatible datasource${found.length === 1 ? '' : 's'}.` })
-    } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } finally { setBusy(false) }
-  }
   const test = async () => {
     setBusy(true); setMessage(null)
     try {
       const result = await api.connections.prometheus.discover(transport())
+      setGcxVersion(result.gcx?.version ?? null)
       setMessage({ ok: true, text: `Connected — discovered ${result.metricNames.length} metrics${result.metadataAvailable ? ' with metadata' : ''}.` })
     } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } finally { setBusy(false) }
   }
   const save = async () => {
-    if (!name.trim() || !url.trim() || (mode === 'grafana' && !datasourceUid.trim())) return setMessage({ ok: false, text: 'Connection name, URL, and datasource are required.' })
+    if (!name.trim() || (mode === 'direct' && !url.trim())) return setMessage({ ok: false, text: 'Connection name and URL are required.' })
     setBusy(true)
     try { const saved = await api.connections.upsert(profile()); onSaved(saved); onClose() }
     catch (error) { setMessage({ ok: false, text: failureMessage(error) }); setBusy(false) }
   }
   return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="prometheus-connection-title" onClick={(e) => e.stopPropagation()}>
     <ConnectionFormHeader kind="prometheus" editing={!!existing} onBack={onBack} />
-    <div className="test-msg info">Connection credentials stay in the main process; discovery results sent to this window contain only metric names and metadata.</div>
     <div className="field"><label htmlFor="prom-name">Connection name</label><input id="prom-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
-    <div className="field"><label htmlFor="prom-mode">Transport</label><select id="prom-mode" value={mode} onChange={(e) => { const next = e.target.value as 'direct' | 'grafana'; setMode(next); setUrl(next === 'direct' ? 'http://localhost:9090' : 'http://localhost:3000'); setMessage(null) }}><option value="direct">Direct Prometheus</option><option value="grafana">Via Grafana</option></select></div>
-    <div className="field"><label htmlFor="prom-url">{mode === 'direct' ? 'Prometheus URL' : 'Grafana URL'}</label><input id="prom-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder={mode === 'direct' ? 'https://prometheus.example.com' : 'https://grafana.example.com'} /></div>
-    {mode === 'direct' ? <><div className="field"><label htmlFor="prom-auth">Authentication</label><select id="prom-auth" value={authKind} onChange={(e) => setAuthKind(e.target.value as PrometheusAuth['kind'])}><option value="none">None</option><option value="bearer">Bearer token</option><option value="basic">Basic authentication</option></select></div>{authKind === 'bearer' && <div className="field"><label htmlFor="prom-token">Bearer token</label><input id="prom-token" type="password" value={token} onChange={(e) => setToken(e.target.value)} /></div>}{authKind === 'basic' && <div className="row"><div className="field"><label htmlFor="prom-user">Username</label><input id="prom-user" value={username} onChange={(e) => setUsername(e.target.value)} /></div><div className="field"><label htmlFor="prom-password">Password</label><input id="prom-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div></div>}</>
-      : <><div className="field"><label htmlFor="grafana-token">Service-account token</label><input id="grafana-token" type="password" value={token} onChange={(e) => setToken(e.target.value)} /></div><div className="field"><label htmlFor="grafana-datasource">Prometheus datasource</label>{datasources.length ? <select id="grafana-datasource" value={datasourceUid} onChange={(e) => setDatasourceUid(e.target.value)}><option value="">Select a datasource</option>{datasources.map((item) => <option key={item.uid} value={item.uid}>{item.name}</option>)}</select> : <input id="grafana-datasource" value={datasourceUid} onChange={(e) => setDatasourceUid(e.target.value)} placeholder="Datasource UID" />}<button type="button" className="btn ghost" onClick={() => void discoverGrafana()} disabled={busy}>Discover datasources</button></div></>}
+    <fieldset className="field"><legend>Connection method</legend>
+      <label className="checkbox"><input type="radio" name="prom-method" checked={mode === 'gcx'} onChange={() => { setMode('gcx'); setMessage(null) }} />Grafana Cloud via gcx <span className="source-kind-badge">Recommended</span></label>
+      <label className="checkbox"><input type="radio" name="prom-method" checked={mode === 'direct'} onChange={() => { setMode('direct'); setMessage(null) }} />Direct Prometheus</label>
+    </fieldset>
+    {mode === 'gcx' ? <div className="test-msg info">Uses your existing gcx SSO session. DataKoala never reads, copies, or stores gcx OAuth credentials.{gcxVersion && <> Detected <strong>gcx {gcxVersion}</strong>.</>}</div>
+      : <details open className="bq-advanced"><summary>Direct Prometheus settings</summary><div className="field"><label htmlFor="prom-url">Prometheus URL</label><input id="prom-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://prometheus.example.com" /></div><div className="field"><label htmlFor="prom-auth">Authentication</label><select id="prom-auth" value={authKind} onChange={(e) => setAuthKind(e.target.value as PrometheusAuth['kind'])}><option value="none">None</option><option value="bearer">Bearer token</option><option value="basic">Basic authentication</option></select></div>{authKind === 'bearer' && <div className="field"><label htmlFor="prom-token">Bearer token</label><input id="prom-token" type="password" value={token} onChange={(e) => setToken(e.target.value)} /></div>}{authKind === 'basic' && <div className="row"><div className="field"><label htmlFor="prom-user">Username</label><input id="prom-user" value={username} onChange={(e) => setUsername(e.target.value)} /></div><div className="field"><label htmlFor="prom-password">Password</label><input id="prom-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div></div>}</details>}
     {message && <div className={`test-msg ${message.ok ? 'ok' : 'err'}`} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
     <div className="actions"><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy}>{busy ? 'Working…' : 'Test & discover metrics'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy}>Save</button></div>
   </div></div>

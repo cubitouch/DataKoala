@@ -20,8 +20,9 @@ export interface ConnectionStateEvent {
 }
 
 export type DataSourceKind = 'postgres' | 'local-files' | 'sqlite-file' | 'bigquery' | 'prometheus'
-export type QueryEngine = 'postgres' | 'duckdb' | 'bigquery' | 'prometheus'
-export type SqlDialect = 'postgres' | 'duckdb' | 'google-sql' | 'promql'
+export type QueryEngine = 'postgres' | 'duckdb' | 'bigquery'
+export type SqlDialect = 'postgres' | 'duckdb' | 'google-sql'
+type SqlDataSourceKind = Exclude<DataSourceKind, 'prometheus'>
 
 export interface DataSourceDescriptor {
   sourceKind: DataSourceKind
@@ -29,15 +30,15 @@ export interface DataSourceDescriptor {
   dialect: SqlDialect
 }
 
-export const DATA_SOURCE_DESCRIPTORS: Record<DataSourceKind, DataSourceDescriptor> = {
+export const DATA_SOURCE_DESCRIPTORS: Record<SqlDataSourceKind, DataSourceDescriptor> = {
   postgres: { sourceKind: 'postgres', engine: 'postgres', dialect: 'postgres' },
   'local-files': { sourceKind: 'local-files', engine: 'duckdb', dialect: 'duckdb' },
   'sqlite-file': { sourceKind: 'sqlite-file', engine: 'duckdb', dialect: 'duckdb' },
-  bigquery: { sourceKind: 'bigquery', engine: 'bigquery', dialect: 'google-sql' },
-  prometheus: { sourceKind: 'prometheus', engine: 'prometheus', dialect: 'promql' }
+  bigquery: { sourceKind: 'bigquery', engine: 'bigquery', dialect: 'google-sql' }
 }
 
 export function sqlDialectForSourceKind(kind: DataSourceKind): SqlDialect {
+  if (kind === 'prometheus') throw new Error('Prometheus does not use a SQL dialect.')
   return DATA_SOURCE_DESCRIPTORS[kind].dialect
 }
 
@@ -88,8 +89,8 @@ export type PrometheusAuth =
   | { kind: 'basic'; username: string; password: string }
 
 export type PrometheusTransportConfig =
+  | { kind: 'gcx'; context?: string }
   | { kind: 'direct'; url: string; auth: PrometheusAuth }
-  | { kind: 'grafana'; url: string; token: string; datasourceUid: string }
 
 export interface PrometheusProfile extends ProfileBase {
   kind: 'prometheus'

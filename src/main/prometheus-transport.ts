@@ -1,4 +1,3 @@
-import type { GrafanaPrometheusDatasource } from '../shared/prometheus.ts'
 import type { PrometheusTransportConfig } from '../shared/types.ts'
 
 type Fetch = typeof globalThis.fetch
@@ -45,26 +44,6 @@ export class DirectPrometheusTransport extends HttpPrometheusTransport {
   }
 }
 
-export class GrafanaPrometheusTransport extends HttpPrometheusTransport {
-  private readonly base: string
-  private readonly config: Extract<PrometheusTransportConfig, { kind: 'grafana' }>
-  constructor(config: Extract<PrometheusTransportConfig, { kind: 'grafana' }>, fetchImpl: Fetch = fetch) {
-    super(fetchImpl); this.config = config; this.base = baseUrl(config.url)
-  }
-  protected url(path: string) { return `${this.base}/api/datasources/proxy/uid/${encodeURIComponent(this.config.datasourceUid)}${path}` }
-  protected headers(): Record<string, string> { return { Authorization: `Bearer ${this.config.token}` } }
-}
-
-export function createPrometheusTransport(config: PrometheusTransportConfig, fetchImpl: Fetch = fetch): PrometheusTransport {
-  return config.kind === 'direct' ? new DirectPrometheusTransport(config, fetchImpl) : new GrafanaPrometheusTransport(config, fetchImpl)
-}
-
-export async function listGrafanaPrometheusDatasources(url: string, token: string, fetchImpl: Fetch = fetch): Promise<GrafanaPrometheusDatasource[]> {
-  const response = await fetchImpl(`${baseUrl(url)}/api/datasources`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000) })
-  if (!response.ok) throw new Error(`Grafana request failed (${response.status} ${response.statusText}).`)
-  const values = await response.json() as Array<Record<string, unknown>>
-  if (!Array.isArray(values)) throw new Error('Grafana returned an invalid datasource list.')
-  return values.filter((item) => ['prometheus', 'grafana-pyroscope-datasource'].includes(String(item.type)))
-    .filter((item) => typeof item.uid === 'string' && typeof item.name === 'string')
-    .map((item) => ({ uid: String(item.uid), name: String(item.name), type: String(item.type) }))
+export function createPrometheusTransport(config: Extract<PrometheusTransportConfig, { kind: 'direct' }>, fetchImpl: Fetch = fetch): PrometheusTransport {
+  return new DirectPrometheusTransport(config, fetchImpl)
 }
