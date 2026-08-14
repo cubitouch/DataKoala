@@ -60,12 +60,12 @@ function MetricDetails({ connectionId, relation }: { connectionId: string | null
       const shown = filtered.slice(0, LABEL_VALUE_DISPLAY_LIMIT)
       return <div className="metric-label" key={label}>
         <button className="tree-row label-row" aria-expanded={open} onClick={() => void toggleLabel(label)}><span className="chevron">{open ? '▾' : '▸'}</span><span>{label}</span></button>
-        {open && <div className="label-values">
+        {open && <div className="label-values" role="group" aria-label={`${label} values`}>
           {loadingValues.has(label) && <div className="label-status" role="status">Loading values…</div>}
           {valueErrors[label] && <button className="label-status error" onClick={() => void toggleLabel(label)}>Could not load values — retry</button>}
           {allValues && allValues.length > LABEL_VALUE_DISPLAY_LIMIT && <input aria-label={`Filter values for ${label}`} placeholder="Filter values…" value={valueFilters[label] ?? ''} onChange={(event) => setValueFilters((old) => ({ ...old, [label]: event.target.value }))} />}
           {allValues?.length === 0 && <div className="label-status">No values</div>}
-          {shown.map((value) => <div className="label-value truncate" key={value} title={value}>{value}</div>)}
+          {shown.map((value) => <div className="label-value truncate" role="treeitem" key={value} title={value}>{value}</div>)}
           {allValues && filtered.length > shown.length && <div className="label-limit">Showing {shown.length} of {filtered.length} matching values. Refine the filter to see more.</div>}
         </div>}
       </div>

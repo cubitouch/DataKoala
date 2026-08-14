@@ -1,6 +1,6 @@
 import React from 'react'
 void React
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PrometheusProfile } from '@shared/types'
 import { normalizeDatabaseObjects } from '../lib/databaseObjects'
@@ -56,8 +56,9 @@ describe('Prometheus metric object tree', () => {
     const status = (await screen.findByText('status')).closest('button')!
     expect(mocks.labelValues).not.toHaveBeenCalled()
     fireEvent.click(status)
-    expect(await screen.findByText('success')).toBeTruthy()
-    expect(screen.getByText('failure')).toBeTruthy()
+    const children = await screen.findByRole('group', { name: 'status values' })
+    expect(within(children).getAllByRole('treeitem').map((item) => item.textContent)).toEqual(['success', 'failure'])
+    expect(status.parentElement?.contains(children)).toBe(true)
     expect(mocks.labelValues).toHaveBeenCalledTimes(1)
     expect(mocks.labelValues).toHaveBeenCalledWith('prom-1', 'http_requests_total', 'status')
   })
