@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { PrometheusDiscoveryResult, PrometheusMetricMetadata } from '../shared/prometheus.ts'
+import type { PrometheusMetricMetadata } from '../shared/prometheus.ts'
+import type { PrometheusTransport } from './prometheus-transport.ts'
 
 export interface GcxCommandResult { stdout: string; stderr: string }
 export type GcxCommandRunner = (args: string[]) => Promise<GcxCommandResult>
@@ -62,19 +63,24 @@ function normalizeVersion(raw: unknown): string {
   throw new Error('gcx returned valid JSON, but did not include a version.')
 }
 
-export class GcxPrometheusTransport {
+export class GcxPrometheusTransport implements PrometheusTransport {
   private readonly context: string | undefined
   private readonly run: GcxCommandRunner
   constructor(context: string | undefined, run: GcxCommandRunner = runGcxCommand) { this.context = context; this.run = run }
-  async discover(): Promise<PrometheusDiscoveryResult> {
+  async version(): Promise<string> {
     try {
-      const version = normalizeVersion(parseJson((await this.run(['version', '-o', 'json'])).stdout, 'version'))
-      const contextArgs = this.context ? ['--context', this.context] : []
-      const metadata = normalizeGcxMetadata(parseJson((await this.run(['metrics', 'metadata', ...contextArgs, '-o', 'json'])).stdout, 'metrics metadata'))
-      return { metricNames: metadata.map((item) => item.name), metadata, metadataAvailable: true, gcx: { installed: true, version, ...(this.context ? { context: this.context } : {}) } }
-    } catch (error) {
-      if (error instanceof Error && (error.message.startsWith('gcx returned') || error.message.includes('metric metadata shape'))) throw error
-      throw new Error(errorMessage(error))
-    }
+      return normalizeVersion(parseJson((await this.run(['version', '-o', 'json'])).stdout, 'version'))
+    } catch (error) { throwNormalizedGcxError(error) }
   }
+  async metadata(): Promise<PrometheusMetricMetadata[]> {
+    try {
+      const contextArgs = this.context ? ['--context', this.context] : []
+      return normalizeGcxMetadata(parseJson((await this.run(['metrics', 'metadata', ...contextArgs, '-o', 'json'])).stdout, 'metrics metadata'))
+    } catch (error) { throwNormalizedGcxError(error) }
+  }
+}
+
+function throwNormalizedGcxError(error: unknown): never {
+  if (error instanceof Error && (error.message.startsWith('gcx returned') || error.message.includes('metric metadata shape'))) throw error
+  throw new Error(errorMessage(error))
 }

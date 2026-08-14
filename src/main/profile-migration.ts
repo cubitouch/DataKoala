@@ -37,11 +37,7 @@ function isPrometheusV1(stored: Record<string, unknown>): boolean {
   if (stored.kind !== 'prometheus' || stored.version !== 1 || stored.readonly !== true ||
     typeof stored.id !== 'string' || typeof stored.name !== 'string' || !stored.transport || typeof stored.transport !== 'object') return false
   const transport = stored.transport as Record<string, unknown>
-  if (transport.kind === 'gcx') return transport.context === undefined || typeof transport.context === 'string'
-  if (transport.kind !== 'direct' || typeof transport.url !== 'string' || !transport.auth || typeof transport.auth !== 'object') return false
-  const auth = transport.auth as Record<string, unknown>
-  return auth.kind === 'none' || (auth.kind === 'bearer' && typeof auth.token === 'string') ||
-    (auth.kind === 'basic' && typeof auth.username === 'string' && typeof auth.password === 'string')
+  return transport.kind === 'gcx' && (transport.context === undefined || typeof transport.context === 'string')
 }
 
 /** Classify persisted profiles without ever rewriting formats this app does not understand. */

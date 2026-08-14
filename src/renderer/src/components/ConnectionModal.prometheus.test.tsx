@@ -16,9 +16,10 @@ describe('Prometheus gcx connection wizard', () => {
   afterEach(cleanup)
   beforeEach(() => { vi.clearAllMocks(); discover.mockResolvedValue({ metricNames: ['up'], metadata: [{ name: 'up', type: 'gauge' }], metadataAvailable: true, gcx: { installed: true, version: '1.2.3' } }); upsert.mockImplementation(async (profile) => ({ ...profile, id: 'p1' })) })
 
-  it('defaults to gcx without rendering credential inputs and shows detected version', async () => {
+  it('uses gcx without rendering alternative methods or credential inputs and shows detected version', async () => {
     renderPrometheus()
-    expect((screen.getByRole('radio', { name: /Grafana Cloud via gcx/ }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByText('Grafana Cloud via gcx')).toBeTruthy()
+    expect(screen.queryByText('Direct Prometheus')).toBeNull()
     expect(screen.queryByLabelText(/token|password/i)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Test & discover metrics' }))
     await screen.findByText(/discovered 1 metrics with metadata/i)

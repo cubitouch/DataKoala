@@ -83,14 +83,10 @@ export interface BigQueryProfile extends ProfileBase {
   readonly: true
 }
 
-export type PrometheusAuth =
-  | { kind: 'none' }
-  | { kind: 'bearer'; token: string }
-  | { kind: 'basic'; username: string; password: string }
-
-export type PrometheusTransportConfig =
-  | { kind: 'gcx'; context?: string }
-  | { kind: 'direct'; url: string; auth: PrometheusAuth }
+export interface PrometheusTransportConfig {
+  kind: 'gcx'
+  context?: string
+}
 
 export interface PrometheusProfile extends ProfileBase {
   kind: 'prometheus'
