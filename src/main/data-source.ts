@@ -24,6 +24,7 @@ export interface DataSourceSession {
   info: SessionInfo
   capabilities: DataSourceCapabilities
   query(request: QueryRequest): Promise<QueryResult>
+  formatQuery?(query: string): Promise<string>
   listNamespaces(): Promise<DataNamespace[]>
   listRelations(namespace?: DataNamespaceRef): Promise<DataRelation[]>
   describeRelation(ref: DataRelationRef): Promise<DataColumn[]>

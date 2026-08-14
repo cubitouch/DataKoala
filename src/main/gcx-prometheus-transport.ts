@@ -109,7 +109,9 @@ export function normalizeGcxQuery(raw: unknown, durationMs = 0): QueryResult {
   if (raw.status === 'error') {
     const detail = typeof raw.error === 'string' ? raw.error : 'Prometheus rejected the query.'
     const kind = typeof raw.errorType === 'string' ? `${raw.errorType}: ` : ''
-    throw new Error(`${kind}${detail}`)
+    const error = new Error(sanitizeGcxError(`${kind}${detail}`))
+    error.name = 'PrometheusApiError'
+    throw error
   }
   if (raw.status !== 'success' || !isRecord(raw.data) || !Array.isArray(raw.data.result) || !['matrix', 'vector'].includes(String(raw.data.resultType))) {
     throw new Error('gcx returned valid JSON, but not a supported Prometheus matrix or vector response.')
@@ -137,6 +139,22 @@ export function normalizeGcxQuery(raw: unknown, durationMs = 0): QueryResult {
   }
 }
 
+/** Normalize the Prometheus `format_query` response without exposing its envelope over IPC. */
+export function normalizeGcxFormattedQuery(raw: unknown): string {
+  if (!isRecord(raw)) throw new Error('gcx returned valid JSON, but the Prometheus format response was not an object.')
+  if (raw.status === 'error') {
+    const detail = typeof raw.error === 'string' ? raw.error : 'Prometheus rejected the query.'
+    const kind = typeof raw.errorType === 'string' ? `${raw.errorType}: ` : ''
+    const error = new Error(sanitizeGcxError(`${kind}${detail}`))
+    error.name = 'PrometheusApiError'
+    throw error
+  }
+  if (raw.status !== 'success' || typeof raw.data !== 'string') {
+    throw new Error('gcx returned valid JSON, but the Prometheus format response must contain status "success" and string data.')
+  }
+  return raw.data
+}
+
 function normalizeVersion(raw: unknown): string {
   if (typeof raw === 'string' && raw.trim()) return raw.trim()
   if (raw && typeof raw === 'object') {
@@ -149,8 +167,9 @@ function normalizeVersion(raw: unknown): string {
 
 export class GcxPrometheusTransport implements PrometheusTransport {
   private readonly context: string | undefined
+  private readonly datasourceUid: string | undefined
   private readonly run: GcxCommandRunner
-  constructor(context: string | undefined, run: GcxCommandRunner = runGcxCommand) { this.context = context; this.run = run }
+  constructor(context: string | undefined, run: GcxCommandRunner = runGcxCommand, datasourceUid?: string) { this.context = context; this.run = run; this.datasourceUid = datasourceUid }
   async version(): Promise<string> {
     try {
       return normalizeVersion(parseJson((await this.run(['version', '-o', 'json'])).stdout, 'version'))
@@ -170,9 +189,20 @@ export class GcxPrometheusTransport implements PrometheusTransport {
       return normalizeGcxQuery(parseJson((await this.run(args)).stdout, 'metrics query'), Date.now() - started)
     } catch (error) { throwNormalizedGcxError(error) }
   }
+  async formatQuery(query: string): Promise<string> {
+    try {
+      if (!this.datasourceUid?.trim()) throw new Error('Select a Grafana Prometheus datasource before formatting PromQL.')
+      const uid = encodeURIComponent(this.datasourceUid.trim())
+      const path = `/api/datasources/proxy/uid/${uid}/api/v1/format_query`
+      const contextArgs = this.context ? ['--context', this.context] : []
+      const body = new URLSearchParams({ query }).toString()
+      const args = ['api', path, ...contextArgs, '-X', 'POST', '-H', 'Content-Type: application/x-www-form-urlencoded', '-d', body]
+      return normalizeGcxFormattedQuery(parseJson((await this.run(args)).stdout, 'Prometheus format query'))
+    } catch (error) { throwNormalizedGcxError(error) }
+  }
 }
 
 function throwNormalizedGcxError(error: unknown): never {
-  if (error instanceof Error && (error.message.startsWith('gcx returned') || error.message.includes('metric metadata shape') || /^(bad_data|execution|timeout|canceled|Prometheus rejected)/.test(error.message))) throw error
+  if (error instanceof Error && (error.name === 'PrometheusApiError' || error.message.startsWith('gcx returned') || error.message.startsWith('Select a Grafana') || error.message.includes('metric metadata shape') || /^(bad_data|execution|timeout|canceled|Prometheus rejected)/.test(error.message))) throw error
   throw new Error(errorMessage(error))
 }

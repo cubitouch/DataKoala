@@ -91,6 +91,8 @@ export interface BigQueryProfile extends ProfileBase {
 export interface PrometheusTransportConfig {
   kind: 'gcx'
   context?: string
+  /** Grafana datasource selected for proxying Prometheus HTTP API calls. */
+  datasourceUid?: string
 }
 
 export interface PrometheusProfile extends ProfileBase {

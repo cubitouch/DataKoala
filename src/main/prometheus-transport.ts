@@ -4,4 +4,5 @@ import type { QueryResult } from '../shared/types.ts'
 export interface PrometheusTransport {
   metadata(): Promise<PrometheusMetricMetadata[]>
   query(request: PrometheusQueryRequest): Promise<QueryResult>
+  formatQuery(query: string): Promise<string>
 }

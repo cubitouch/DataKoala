@@ -3,7 +3,7 @@ import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { GcxPrometheusTransport, normalizeGcxMetadata, normalizeGcxQuery, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
+import { GcxPrometheusTransport, normalizeGcxFormattedQuery, normalizeGcxMetadata, normalizeGcxQuery, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
 import { migrateStoredProfile } from './profile-migration.ts'
 
 const metadataFixture = readFileSync(fileURLToPath(new URL('./fixtures/gcx-metrics-metadata.json', import.meta.url)), 'utf8')
@@ -110,4 +110,32 @@ test('preserves PromQL server errors and identifies malformed JSON', async () =>
 test('non-zero gcx query exits retain actionable stderr without secrets', async () => {
   const failure = Object.assign(new Error('exit 1'), { stderr: 'bad_data: parse error near token; token=supersecret' })
   await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => { throw failure }).query({ expression: 'bad(', start: 'a', end: 'b', step: '30s' }), (error: Error) => error.message.includes('parse error') && !error.message.includes('supersecret'))
+})
+
+test('format query POSTs encoded PromQL through the safely encoded Grafana datasource proxy path', async () => {
+  let args: string[] = []
+  const transport = new GcxPrometheusTransport('production', async (value) => {
+    args = value
+    return { stdout: JSON.stringify({ status: 'success', data: 'sum by (status) (\n  rate(requests_total[5m])\n)' }), stderr: '' }
+  }, 'prom uid/primary')
+  const formatted = await transport.formatQuery('sum by(status)(rate(requests_total{service="api & web"}[5m]))')
+  assert.equal(formatted, 'sum by (status) (\n  rate(requests_total[5m])\n)')
+  assert.deepEqual(args.slice(0, 3), ['api', '/api/datasources/proxy/uid/prom%20uid%2Fprimary/api/v1/format_query', '--context'])
+  assert.equal(args.includes('POST'), true)
+  assert.equal(args.includes('Content-Type: application/x-www-form-urlencoded'), true)
+  const body = args[args.indexOf('-d') + 1]
+  assert.equal(new URLSearchParams(body).get('query'), 'sum by(status)(rate(requests_total{service="api & web"}[5m]))')
+  assert.doesNotMatch(args[1], /sum|requests_total/)
+})
+
+test('format query handles Prometheus errors, malformed JSON, and non-zero gcx exits safely', async () => {
+  assert.throws(() => normalizeGcxFormattedQuery({ status: 'error', errorType: 'bad_data', error: 'parse error' }), /bad_data: parse error/)
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => ({ stdout: '{bad', stderr: '' }), 'uid').formatQuery('up'), /malformed JSON/)
+  const failure = Object.assign(new Error('exit 1'), { stderr: 'server error; token=supersecret' })
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => { throw failure }, 'uid').formatQuery('up'), (error: Error) => error.message.includes('server error') && !error.message.includes('supersecret'))
+})
+
+test('format query rejects invalid success responses and missing datasource selection', async () => {
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => ({ stdout: '{"status":"success","data":{}}', stderr: '' }), 'uid').formatQuery('up'), /string data/)
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => ({ stdout: '', stderr: '' })).formatQuery('up'), /Select a Grafana Prometheus datasource/)
 })

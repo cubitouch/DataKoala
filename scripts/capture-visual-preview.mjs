@@ -281,7 +281,7 @@ async function configurePrometheusToolbar(win) {
     const store = window.__datakoalaStore
     const state = store?.getState()
     if (!state) return { error: 'window.__datakoalaStore is unavailable' }
-    state.setProfiles([{ id: 'preview-prometheus', name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }])
+    state.setProfiles([{ id: 'preview-prometheus', name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx', datasourceUid: 'preview-prometheus' } }])
     const tab = state.tabs.find((item) => item.id === state.activeTabId)
     store.setState({ tabs: state.tabs.map((item) => item.id === tab.id ? {
       ...item, connectionProfileId: 'preview-prometheus', queryMode: 'sql',

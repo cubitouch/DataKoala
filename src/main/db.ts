@@ -135,6 +135,12 @@ export function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = 
   return session(id).query({ sql, parameters, prometheus })
 }
 
+export function formatPrometheusQuery(id: ConnectionId, query: string): Promise<string> {
+  const active = session(id)
+  if (active.info.provider !== 'prometheus' || !active.formatQuery) throw new Error('This connection does not support PromQL formatting.')
+  return active.formatQuery(query)
+}
+
 export function queryDialect(id: ConnectionId) {
   const provider = session(id).info.provider
   if (provider === 'prometheus') throw new Error('Prometheus uses PromQL, not a SQL dialect.')

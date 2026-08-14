@@ -52,6 +52,7 @@ test('Prometheus session delegates range execution to its gcx transport', async 
   const normalized: QueryResult = { columns: [], rows: [], rowCount: 0, durationMs: 2 }
   const adapter = new PrometheusAdapter(async () => discovery, () => ({
     metadata: async () => [],
+    formatQuery: async (query) => query,
     query: async (value) => { request = value; return normalized }
   }))
   const connected = await adapter.connect(profile)

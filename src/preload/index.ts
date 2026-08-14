@@ -47,7 +47,8 @@ const api = {
       discoverDefaults: (): Promise<BigQueryDiscoveryDefaults> => ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_DEFAULTS)
     },
     prometheus: {
-      discover: (transport: PrometheusTransportConfig): Promise<PrometheusDiscoveryResult> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER, transport)
+      discover: (transport: PrometheusTransportConfig): Promise<PrometheusDiscoveryResult> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER, transport),
+      formatQuery: (connectionId: string, query: string): Promise<string> => ipcRenderer.invoke(IPC.PROMETHEUS_FORMAT_QUERY, connectionId, query)
     }
   },
   query: {

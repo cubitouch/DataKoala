@@ -18,7 +18,6 @@ import { buildSqlCompletionSchema } from '../lib/sqlCompletionSchema'
 import { sqlAliasCompletionSource } from '../lib/sqlAliasCompletion'
 import { ensureRelationColumns } from '../lib/relationColumns'
 import { TimeRangeField } from './time-range/TimeRangeField'
-import { formatPromql } from '../lib/formatPromql'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 
 export function QueryEditor() {
@@ -30,11 +29,16 @@ export function QueryEditor() {
   const setPrometheusQueryOptions = useStore((s) => s.setPrometheusQueryOptions)
   const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const connectionKind = useStore((s) => s.profiles.find((profile) => profile.id === tabConnectionId)?.kind)
+  const prometheusDatasourceUid = useStore((s) => {
+    const profile = s.profiles.find((item) => item.id === tabConnectionId)
+    return profile?.kind === 'prometheus' ? profile.transport.datasourceUid : undefined
+  })
   const language = queryLanguageForSourceKind(connectionKind ?? 'postgres')
   const dialect = language.kind === 'sql' ? language.dialect : 'postgres'
   const metadata = useStore((s) => tabConnectionId ? s.metadataByProfileId[tabConnectionId] : undefined)
   const schemas = metadata?.schemas ?? []
   const connecting = useStore((s) => s.connecting)
+  const connected = useStore((s) => s.connected)
   const running = useStore((s) => selectActiveSession(s).running)
   const startQuery = useStore((s) => s.startQuery)
   const completeQuery = useStore((s) => s.completeQuery)
@@ -46,6 +50,7 @@ export function QueryEditor() {
   const activeExplainRequest = useStore((s) => selectActiveSession(s).activeExplainRequest)
   const setActiveExplainRequest = useStore((s) => s.setActiveExplainRequest)
   const [showToast, setShowToast] = useState<string | null>(null)
+  const [formatting, setFormatting] = useState(false)
   const editorRef = useRef<ReactCodeMirrorRef>(null)
   const filters = useStore((s) => selectActiveSession(s).sqlResultFilters)
   const filterRevision = useStore((s) => selectActiveSession(s).queryFilterRevision.sql)
@@ -58,7 +63,7 @@ export function QueryEditor() {
   }
 
   const extensions = useMemo(() => {
-    if (language.kind === 'promql') return [new PromQLExtension().activateCompletion(false).activateLinter(false).asExtension()]
+    if (language.kind === 'promql') return [new PromQLExtension().asExtension()]
     const editorDialect = codeMirrorDialect(dialect)
     const completion = buildSqlCompletionSchema(schemas, dialect)
     return [
@@ -142,25 +147,48 @@ export function QueryEditor() {
   const isAnalyzeLoading = activeExplainRequest === 'analyze'
   const isAnyExplainLoading = activeExplainRequest !== null
   const canUseDatabase = Boolean(tabConnectionId) && !connecting
+  const canFormatPromql = language.kind !== 'promql' || Boolean(tabConnectionId && connected && prometheusDatasourceUid?.trim())
   // Older persisted/test sessions may not have loaded their profile list yet;
   // preserve the historical PostgreSQL behavior until a non-Postgres kind is known.
   const canExplain = canUseDatabase && (connectionKind === undefined || connectionKind === 'postgres')
 
-  const doFormat = () => {
-    if (!sql.trim()) return
-    const r = language.kind === 'promql' ? formatPromql(sql) : formatSql(sql, formatterDialect(dialect))
-    if (r.ok) {
-      const formatted = 'query' in r ? r.query : r.sql
-      const view = editorRef.current?.view
-      if (view) {
-        const anchor = Math.min(view.state.selection.main.anchor, formatted.length)
-        const head = Math.min(view.state.selection.main.head, formatted.length)
-        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: formatted }, selection: { anchor, head }, userEvent: 'input.format' })
-        view.focus()
-      } else {
-        setSql(formatted, tabId)
-        requestAnimationFrame(() => document.querySelector<HTMLElement>(language.kind === 'promql' ? '[aria-label="PromQL editor"]' : '[aria-label="SQL editor"]')?.focus())
+  const applyFormattedQuery = (formatted: string, requestTabId: string) => {
+    const active = useStore.getState().activeTabId === requestTabId
+    const view = active ? editorRef.current?.view : undefined
+    if (view) {
+      const anchor = Math.min(view.state.selection.main.anchor, formatted.length)
+      const head = Math.min(view.state.selection.main.head, formatted.length)
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: formatted }, selection: { anchor, head }, userEvent: 'input.format' })
+      view.focus()
+    } else {
+      setSql(formatted, requestTabId)
+      if (active) requestAnimationFrame(() => document.querySelector<HTMLElement>(language.kind === 'promql' ? '[aria-label="PromQL editor"]' : '[aria-label="SQL editor"]')?.focus())
+    }
+  }
+
+  const doFormat = async () => {
+    if (!sql.trim() || formatting) return
+    const requestTabId = tabId
+    const originalQuery = sql
+    if (language.kind === 'promql') {
+      if (!canFormatPromql || !tabConnectionId) return
+      setFormatting(true)
+      try {
+        const formatted = await api.connections.prometheus.formatQuery(tabConnectionId, originalQuery)
+        if (selectSession(useStore.getState(), requestTabId)?.sql !== originalQuery) return
+        applyFormattedQuery(formatted, requestTabId)
+        flash('Formatted')
+      } catch (error) {
+        flash(error instanceof Error ? error.message : 'Could not format PromQL', 3200)
+      } finally {
+        setFormatting(false)
       }
+      return
+    }
+    const r = formatSql(originalQuery, formatterDialect(dialect))
+    if (r.ok) {
+      const formatted = r.sql
+      applyFormattedQuery(formatted, requestTabId)
       flash('Formatted')
     } else {
       flash(r.error ?? 'Could not format', 3200)
@@ -175,7 +203,7 @@ export function QueryEditor() {
     }
     if (e.shiftKey && e.altKey && e.key.toLowerCase() === 'f') {
       e.preventDefault()
-      doFormat()
+      void doFormat()
     }
   }
 
@@ -185,8 +213,8 @@ export function QueryEditor() {
         <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
         {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><label className="promql-step"><span>Step</span><select aria-label="PromQL query step" value={prometheusStep} onChange={(e) => setPrometheusQueryOptions({ prometheusStep: e.target.value as typeof prometheusStep }, tabId)}><option>15s</option><option>30s</option><option>1m</option><option>5m</option></select></label></div>}
         <div className="spacer" />
-        <div className="query-toolbar-group query-editor-actions"><button className="btn ghost" onClick={doFormat} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim()}>
-          Format
+        <div className="query-toolbar-group query-editor-actions"><button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
+          {formatting ? 'Formatting…' : 'Format'}
         </button>
         <CopySqlButton sql={sql} />
         {language.kind === 'sql' && <button className="btn ghost explain-action" onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>

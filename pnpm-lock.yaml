@@ -44,9 +44,6 @@ importers:
       pg:
         specifier: ^8.13.1
         version: 8.22.0
-      promql-ast:
-        specifier: 0.4.1
-        version: 0.4.1
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -2133,9 +2130,6 @@ packages:
   promise-retry@2.0.1:
     resolution: {integrity: sha512-y+WKFlBR8BGXnsNlIHFGPZmyDf3DFMoLhaflAnyZgV6rG6xu+JwesTo2Q9R6XwYmtmwAFCkAk3e35jEdoeh/3g==}
     engines: {node: '>=10'}
-
-  promql-ast@0.4.1:
-    resolution: {integrity: sha512-MOAmVbw2ujAVqDVyAWIvPL50dvuEFMTHr2faCHiigYLXyCCLVwU03Uro9kS4iZzlzlF4WDuNsz79IskagsvgVA==}
 
   pump@3.0.4:
     resolution: {integrity: sha512-VS7sjc6KR7e1ukRFhQSY5LM2uBWAUPiOPa/A3mkKmiMwSmRFUITt0xuj+/lesgnCv+dPIEYlkzrcyXgquIHMcA==}
@@ -4962,8 +4956,6 @@ snapshots:
     dependencies:
       err-code: 2.0.3
       retry: 0.12.0
-
-  promql-ast@0.4.1: {}
 
   pump@3.0.4:
     dependencies:

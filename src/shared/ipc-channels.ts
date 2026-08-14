@@ -11,6 +11,7 @@ export const IPC = {
   BIGQUERY_LIST_DATASETS: 'connections:bigquery:list-datasets',
   BIGQUERY_DISCOVER_DEFAULTS: 'connections:bigquery:discover-defaults',
   PROMETHEUS_DISCOVER: 'connections:prometheus:discover',
+  PROMETHEUS_FORMAT_QUERY: 'connections:prometheus:format-query',
   QUERY_RUN: 'query:run',
   QUERY_PROBE_SERIES_CARDINALITY: 'query:probe-series-cardinality',
   QUERY_SERIES_STATISTICS: 'query:series-statistics',

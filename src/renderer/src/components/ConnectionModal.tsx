@@ -408,7 +408,7 @@ function PrometheusConnectionModal({ existing, onClose, onSaved, onBack }: FormP
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [gcxVersion, setGcxVersion] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const transport = () => ({ kind: 'gcx' as const, ...(existing?.transport.context ? { context: existing.transport.context } : {}) })
+  const transport = () => ({ kind: 'gcx' as const, ...(existing?.transport.context ? { context: existing.transport.context } : {}), ...(existing?.transport.datasourceUid ? { datasourceUid: existing.transport.datasourceUid } : {}) })
   const profile = (): PrometheusProfile => ({ kind: 'prometheus', version: 1, id: existing?.id ?? '', name: name.trim(), readonly: true, transport: transport() })
   const test = async () => {
     setBusy(true); setMessage(null)
