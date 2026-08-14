@@ -3,7 +3,7 @@ import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { GcxPrometheusTransport, normalizeGcxMetadata, normalizeGcxQuery, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
+import { GcxPrometheusTransport, normalizeGcxDatasources, normalizeGcxLabels, normalizeGcxMetadata, normalizeGcxQuery, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
 import { migrateStoredProfile } from './profile-migration.ts'
 
 const metadataFixture = readFileSync(fileURLToPath(new URL('./fixtures/gcx-metrics-metadata.json', import.meta.url)), 'utf8')
@@ -37,6 +37,62 @@ test('gcx executable missing has an actionable error', async () => {
 test('gcx malformed JSON is rejected', async () => {
   const run: GcxCommandRunner = async () => ({ stdout: 'not-json', stderr: '' })
   await assert.rejects(() => new GcxPrometheusTransport(undefined, run).version(), /malformed JSON/)
+})
+
+test('metric-scoped label names and values use structured gcx labels operations', async () => {
+  const calls: string[][] = []
+  const run: GcxCommandRunner = async (args) => {
+    calls.push(args)
+    return { stdout: args[1].includes('/label/status/values') ? '{"status":"success","data":["success","failure","success"]}' : '{"status":"success","data":["status","service","method","__name__"]}', stderr: '' }
+  }
+  const transport = new GcxPrometheusTransport('production', run, 'prom uid/one')
+  assert.deepEqual(await transport.labelsForMetric('http_requests_total'), ['method', 'service', 'status'])
+  assert.deepEqual(await transport.labelValues('http_requests_total', 'status'), ['failure', 'success'])
+  assert.deepEqual(calls, [
+    ['api', '/api/datasources/proxy/uid/prom%20uid%2Fone/api/v1/labels?match%5B%5D=http_requests_total', '--context', 'production', '-o', 'json'],
+    ['api', '/api/datasources/proxy/uid/prom%20uid%2Fone/api/v1/label/status/values?match%5B%5D=http_requests_total', '--context', 'production', '-o', 'json']
+  ])
+})
+
+test('label discovery supports empty and high-cardinality responses', () => {
+  assert.deepEqual(normalizeGcxLabels({ status: 'success', data: [] }), [])
+  const values = Array.from({ length: 5_000 }, (_, index) => `value-${index}`)
+  assert.equal(normalizeGcxLabels({ status: 'success', data: values }).length, 5_000)
+})
+
+test('label discovery rejects malformed gcx JSON and gcx errors', async () => {
+  assert.throws(() => normalizeGcxLabels({ status: 'success', data: ['ok', 3] }), /string data array/)
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => ({ stdout: '{bad', stderr: '' }), 'uid').labelsForMetric('up'), /malformed JSON/)
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => { throw Object.assign(new Error('exit 1'), { stderr: 'status 403 forbidden' }) }, 'uid').labelValues('up', 'job'), /Metrics access is not permitted/)
+})
+
+test('label cache reuses identical requests without crossing metrics', async () => {
+  const calls: string[][] = []
+  const transport = new GcxPrometheusTransport(undefined, async (args) => { calls.push(args); return { stdout: `{"status":"success","data":["${args[1].includes('metric_a') ? 'metric_a' : 'metric_b'}-label"]}`, stderr: '' } }, 'uid')
+  assert.deepEqual(await Promise.all([transport.labelsForMetric('metric_a'), transport.labelsForMetric('metric_a')]), [['metric_a-label'], ['metric_a-label']])
+  assert.deepEqual(await transport.labelsForMetric('metric_b'), ['metric_b-label'])
+  assert.equal(calls.length, 2)
+})
+
+test('discovers only compatible Grafana datasources from structured JSON', async () => {
+  const raw = [{ uid: 'loki', name: 'Logs', type: 'loki' }, { uid: 'prom', name: 'Metrics', type: 'prometheus' }, { uid: 'mimir', name: 'Cloud Mimir', type: 'grafana-mimir-datasource' }]
+  assert.deepEqual(normalizeGcxDatasources(raw).map(({ uid }) => uid), ['mimir', 'prom'])
+  let args: string[] = []
+  const result = await new GcxPrometheusTransport('prod', async (value) => { args = value; return { stdout: JSON.stringify(raw), stderr: '' } }).datasources()
+  assert.equal(result.length, 2)
+  assert.deepEqual(args, ['api', '/api/datasources', '--context', 'prod', '-o', 'json'])
+})
+
+test('selected datasource UID scopes metadata and query commands', async () => {
+  const calls: string[][] = []
+  const transport = new GcxPrometheusTransport(undefined, async (args) => {
+    calls.push(args)
+    return args[1] === 'metadata' ? { stdout: '{"status":"success","data":{}}', stderr: '' } : { stdout: '{"status":"success","data":{"resultType":"vector","result":[]}}', stderr: '' }
+  }, 'selected-uid')
+  await transport.metadata()
+  await transport.query({ expression: 'up', start: 'a', end: 'b', step: '30s' })
+  assert.deepEqual(calls[0], ['metrics', 'metadata', '--datasource', 'selected-uid', '-o', 'json'])
+  assert.deepEqual(calls[1], ['metrics', 'query', 'up', '--datasource', 'selected-uid', '--from', 'a', '--to', 'b', '--step', '30s', '-o', 'json'])
 })
 
 test('gcx non-zero exits are normalized without exposing terminal output', async () => {

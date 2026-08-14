@@ -3,7 +3,7 @@ import type { PrometheusTransportConfig } from '../shared/types.ts'
 import { GcxPrometheusTransport } from './gcx-prometheus-transport.ts'
 
 export async function discoverPrometheus(config: PrometheusTransportConfig): Promise<PrometheusDiscoveryResult> {
-  const transport = new GcxPrometheusTransport(config.context)
+  const transport = new GcxPrometheusTransport(config.context, undefined, config.datasourceUid)
   const version = await transport.version()
   const metadata = await transport.metadata()
   return {
