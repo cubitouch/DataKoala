@@ -39,7 +39,6 @@ export class PrometheusAdapter implements DataSourceAdapter {
         if (!prometheus) throw new Error('Prometheus range queries require start, end, and step.')
         return transport.query({ expression: sql, ...prometheus })
       },
-      formatQuery: (query) => transport.formatQuery(query),
       listNamespaces: async () => [{ name: 'Metrics' }],
       listRelations: async (namespace) => namespace && namespace.name !== 'Metrics' ? [] : relations,
       labelsForMetric: (metricName) => transport.labelsForMetric(metricName),
