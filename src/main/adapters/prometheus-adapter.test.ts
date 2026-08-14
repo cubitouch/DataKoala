@@ -3,6 +3,7 @@ import test from 'node:test'
 import { PrometheusAdapter } from './prometheus-adapter.ts'
 import type { PrometheusProfile } from '../../shared/types.ts'
 import type { PrometheusDiscoveryResult } from '../../shared/prometheus.ts'
+import type { QueryResult } from '../../shared/types.ts'
 
 const profile: PrometheusProfile = {
   id: 'prom-1', name: 'Cloud metrics', version: 1, kind: 'prometheus', readonly: true,
@@ -44,4 +45,18 @@ test('Prometheus relation discovery is deterministic and rejects unrelated names
   assert.ok(connected.session)
   assert.deepEqual(await connected.session.listRelations({ name: 'Other' }), [])
   assert.deepEqual((await connected.session.listRelations({ name: 'Metrics' })).map((item) => item.name), ['http_requests_total', 'process_cpu_seconds_total'])
+})
+
+test('Prometheus session delegates range execution to its gcx transport', async () => {
+  let request: unknown
+  const normalized: QueryResult = { columns: [], rows: [], rowCount: 0, durationMs: 2 }
+  const adapter = new PrometheusAdapter(async () => discovery, () => ({
+    metadata: async () => [],
+    query: async (value) => { request = value; return normalized }
+  }))
+  const connected = await adapter.connect(profile)
+  assert.ok(connected.session)
+  const result = await connected.session.query({ sql: 'rate(http_requests_total[5m])', prometheus: { start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step: '30s' } })
+  assert.equal(result, normalized)
+  assert.deepEqual(request, { expression: 'rate(http_requests_total[5m])', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step: '30s' })
 })

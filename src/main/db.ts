@@ -10,6 +10,7 @@ import { LocalFilesAdapter } from './adapters/local-files-adapter.ts'
 import { SqliteFileAdapter } from './adapters/sqlite-file-adapter.ts'
 import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
+import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
 
 const postgresAdapter = new PostgresAdapter()
 export const adapterRegistry = new AdapterRegistry().register(postgresAdapter).register(new LocalFilesAdapter()).register(new SqliteFileAdapter()).register(new BigQueryAdapter()).register(new PrometheusAdapter())
@@ -130,12 +131,14 @@ function session(id: ConnectionId): DataSourceSession {
   return value
 }
 
-export function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = []): Promise<QueryResult> {
-  return session(id).query({ sql, parameters })
+export function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = [], prometheus?: Omit<PrometheusQueryRequest, 'expression'>): Promise<QueryResult> {
+  return session(id).query({ sql, parameters, prometheus })
 }
 
 export function queryDialect(id: ConnectionId) {
-  return sqlDialectForSourceKind(session(id).info.provider)
+  const provider = session(id).info.provider
+  if (provider === 'prometheus') throw new Error('Prometheus uses PromQL, not a SQL dialect.')
+  return sqlDialectForSourceKind(provider)
 }
 
 export async function listObjects(id: ConnectionId) {

@@ -13,7 +13,6 @@ import {
 import { api } from './lib/api'
 import type { ConnectionStateEvent } from '@shared/types'
 import { connectionKindLabel } from './lib/connectionKind'
-import { QueryUnavailable } from './components/QueryUnavailable'
 
 const SIDEBAR_STORAGE_KEY = 'datakoala.layout.v1.sidebarWidth'
 const EDITOR_STORAGE_KEY = 'datakoala.layout.v1.editorHeight'
@@ -56,11 +55,11 @@ export function App() {
 
   const activeProfile = profiles.find((p) => p.id === activeId)
   const tabProfile = profiles.find((profile) => profile.id === tabConnectionId)
+  const effectiveMode = tabProfile?.kind === 'prometheus' ? 'sql' : mode
   // A restored tab is available before saved profiles finish loading. Do not
   // guess PostgreSQL during that gap: the profile may be a non-SQL datasource.
   const queryProfileLoading = Boolean(tabConnectionId && !tabProfile)
-  const queryUnavailable = tabProfile?.kind === 'prometheus'
-  const querySurfaceBlocked = queryProfileLoading || queryUnavailable
+  const querySurfaceBlocked = queryProfileLoading
   const activeName = activeProfile?.name
 
   const currentSidebarBounds = () => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth)
@@ -172,13 +171,13 @@ export function App() {
           tabIndex={0} onPointerDown={beginResize('sidebar')} onKeyDown={resizeWithKeyboard('sidebar')} />
         <div className="main-shell">
           <QueryTabs />
-          <div key={activeTabId} className={`main ${mode === 'sql' && !querySurfaceBlocked ? 'sql-layout' : ''}`} ref={mainRef}
+          <div key={activeTabId} className={`main ${effectiveMode === 'sql' && !querySurfaceBlocked ? 'sql-layout' : ''}`} ref={mainRef}
             style={{ '--editor-height': `${editorHeight}px` } as React.CSSProperties}>
-            {queryProfileLoading ? <QueryUnavailable loading /> : queryUnavailable ? <QueryUnavailable /> : <>{mode === 'sql' ? <><QueryEditor /><div className="editor-resizer" role="separator" aria-label="Resize SQL editor"
+            {queryProfileLoading ? <div className="query-unavailable" role="status" aria-label="Loading connection…">Loading datasource…</div> : <>{effectiveMode === 'sql' ? <><QueryEditor /><div className="editor-resizer" role="separator" aria-label="Resize query editor"
               aria-orientation="horizontal" aria-valuemin={EDITOR_MIN} aria-valuemax={Math.max(EDITOR_MIN, currentEditorBounds().max)}
               aria-valuenow={Math.round(editorHeight)} tabIndex={0} onPointerDown={beginResize('editor')}
               onKeyDown={resizeWithKeyboard('editor')} /></> : <BuilderPanel />}
-            <ResultExplorer mode={mode} hasRun={mode === 'sql' || builderHasRun}/></>}
+            <ResultExplorer mode={effectiveMode} hasRun={effectiveMode === 'sql' || builderHasRun}/></>}
           </div>
         </div>
       </div>

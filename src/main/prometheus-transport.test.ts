@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { GcxPrometheusTransport, normalizeGcxMetadata, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
+import { GcxPrometheusTransport, normalizeGcxMetadata, normalizeGcxQuery, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
 import { migrateStoredProfile } from './profile-migration.ts'
 
 const metadataFixture = readFileSync(fileURLToPath(new URL('./fixtures/gcx-metrics-metadata.json', import.meta.url)), 'utf8')
@@ -40,7 +41,7 @@ test('gcx malformed JSON is rejected', async () => {
 
 test('gcx non-zero exits are normalized without exposing terminal output', async () => {
   const run: GcxCommandRunner = async () => { throw Object.assign(new Error('exit 1'), { stderr: 'unexpected internal detail' }) }
-  await assert.rejects(() => new GcxPrometheusTransport(undefined, run).version(), /^Error: gcx could not discover metrics/)
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, run).version(), /^Error: gcx could not complete the Prometheus operation/)
 })
 
 test('gcx expired and unauthenticated failures have specific recovery guidance', async () => {
@@ -77,4 +78,36 @@ test('persisted gcx profiles contain context configuration only', () => {
   if (result.profile.kind !== 'prometheus') assert.fail('wrong profile kind')
   assert.deepEqual(result.profile.transport, { kind: 'gcx', context: 'production' })
   assert.doesNotMatch(JSON.stringify(result), /token|password|oauth|credential|secret/i)
+})
+
+test('query maps datasource-neutral range bounds to gcx and normalizes a matrix', async () => {
+  let args: string[] = []
+  const raw = await readFile(new URL('./testdata/gcx-prometheus/multiple-series.json', import.meta.url), 'utf8')
+  const transport = new GcxPrometheusTransport('production', async (value) => { args = value; return { stdout: raw, stderr: '' } })
+  const result = await transport.query({ expression: 'up', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step: '30s' })
+  assert.deepEqual(args, ['metrics', 'query', 'up', '--context', 'production', '--from', '2026-08-14T10:00:00Z', '--to', '2026-08-14T10:15:00Z', '--step', '30s', '-o', 'json'])
+  assert.equal(result.rowCount, 2)
+  assert.deepEqual(result.rows.map((row) => row.series), ['{instance="a",service="api"}', '{instance="b",service="api"}'])
+  assert.deepEqual(result.columns.map((column) => column.name), ['timestamp', 'value', 'series', 'instance', 'service'])
+})
+
+test('normalizes range, vector, and empty gcx query fixtures', async () => {
+  for (const [name, count] of [['one-series.json', 2], ['vector.json', 1], ['empty.json', 0]] as const) {
+    const raw = JSON.parse(await readFile(new URL(`./testdata/gcx-prometheus/${name}`, import.meta.url), 'utf8'))
+    const result = normalizeGcxQuery(raw)
+    assert.equal(result.rowCount, count)
+    if (count) assert.equal(typeof result.rows[0].value, 'number')
+  }
+})
+
+test('preserves PromQL server errors and identifies malformed JSON', async () => {
+  const server = await readFile(new URL('./testdata/gcx-prometheus/error.json', import.meta.url), 'utf8')
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => ({ stdout: server, stderr: '' })).query({ expression: 'bad(', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step: '30s' }), /bad_data:.*parse error/)
+  const malformed = await readFile(new URL('./testdata/gcx-prometheus/malformed.json', import.meta.url), 'utf8')
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => ({ stdout: malformed, stderr: '' })).query({ expression: 'up', start: 'a', end: 'b', step: '30s' }), /malformed JSON/)
+})
+
+test('non-zero gcx query exits retain actionable stderr without secrets', async () => {
+  const failure = Object.assign(new Error('exit 1'), { stderr: 'bad_data: parse error near token; token=supersecret' })
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => { throw failure }).query({ expression: 'bad(', start: 'a', end: 'b', step: '30s' }), (error: Error) => error.message.includes('parse error') && !error.message.includes('supersecret'))
 })

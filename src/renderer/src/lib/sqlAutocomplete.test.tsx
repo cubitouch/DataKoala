@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import { sqlDialectForSourceKind, type DatabaseSchemaNode } from '../../../shared/types.ts'
+import { queryLanguageForSourceKind, sqlDialectForSourceKind, type DatabaseSchemaNode } from '../../../shared/types.ts'
 import { buildSqlCompletionSchema } from './sqlCompletionSchema.ts'
 import { codeMirrorDialect, DuckDBDialect, formatterDialect, GoogleSQLDialect } from './sqlDialect.ts'
 import { quoteSqlIdentifier, resolveQuerySources, sqlAliasCompletionSource } from './sqlAliasCompletion.ts'
@@ -20,6 +20,7 @@ test('source kinds share one dialect mapping', () => {
   assert.equal(sqlDialectForSourceKind('bigquery'), 'google-sql')
   assert.equal(sqlDialectForSourceKind('local-files'), 'duckdb')
   assert.equal(sqlDialectForSourceKind('sqlite-file'), 'duckdb')
+  assert.deepEqual(queryLanguageForSourceKind('prometheus'), { kind: 'promql' })
   assert.equal(codeMirrorDialect('postgres'), PostgreSQL)
   assert.equal(codeMirrorDialect('google-sql'), GoogleSQLDialect)
   assert.equal(GoogleSQLDialect.spec.identifierQuotes, '`')

@@ -593,7 +593,7 @@ function registerIpc(): void {
     IPC.CONNECTION_DESCRIBE_TABLE,
     (_e, id: string, schema: string, table: string) => db.describeTable(id, schema, table)
   )
-  ipcMain.handle(IPC.QUERY_RUN, (_e, id: string, sql: string, parameters: unknown[] = []) => db.runQuery(id, sql, parameters))
+  ipcMain.handle(IPC.QUERY_RUN, (_e, id: string, sql: string, parameters: unknown[] = [], prometheus?: { start: string; end: string; step: string }) => db.runQuery(id, sql, parameters, prometheus))
   ipcMain.handle(IPC.QUERY_PROBE_SERIES_CARDINALITY, async (_e, id: unknown, request: unknown) => {
     const validId = validateConnectionId(id)
     const probe = buildSeriesCardinalityProbe(validateSeriesCardinalityRequest(request), db.queryDialect(validId))
