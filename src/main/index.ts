@@ -550,6 +550,8 @@ function registerIpc(): void {
   ipcMain.handle(IPC.BIGQUERY_DISCOVER_PROJECTS, () => bigQueryDiscovery.discoverProjects())
   ipcMain.handle(IPC.BIGQUERY_DISCOVER_DEFAULTS, () => bigQueryDiscovery.discoverDefaults())
   ipcMain.handle(IPC.PROMETHEUS_DISCOVER, (_e, transport: PrometheusTransportConfig) => discoverPrometheus(transport))
+  ipcMain.handle(IPC.PROMETHEUS_METRIC_LABELS, (_e, id: string, metricName: string) => db.labelsForMetric(id, metricName))
+  ipcMain.handle(IPC.PROMETHEUS_LABEL_VALUES, (_e, id: string, metricName: string, labelName: string) => db.labelValues(id, metricName, labelName))
   ipcMain.handle(IPC.BIGQUERY_LIST_DATASETS, (_e, projectId: unknown) => {
     if (typeof projectId !== 'string' || !projectId.trim()) throw new Error('A BigQuery project ID is required.')
     return bigQueryDiscovery.listDatasets(projectId.trim())

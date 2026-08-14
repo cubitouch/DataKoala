@@ -158,6 +158,18 @@ export async function describeTable(id: ConnectionId, schema: string, table: str
   }))
 }
 
+export function labelsForMetric(id: ConnectionId, metricName: string): Promise<string[]> {
+  const operation = session(id).labelsForMetric
+  if (!operation) throw new Error('Metric label discovery is not supported by this datasource.')
+  return operation(metricName)
+}
+
+export function labelValues(id: ConnectionId, metricName: string, labelName: string): Promise<string[]> {
+  const operation = session(id).labelValues
+  if (!operation) throw new Error('Metric label values are not supported by this datasource.')
+  return operation(metricName, labelName)
+}
+
 export async function explainQuery(id: ConnectionId, sql: string, analyze: boolean) {
   const explain = session(id).explain
   if (!explain) throw new Error('Explain is not supported by this datasource.')

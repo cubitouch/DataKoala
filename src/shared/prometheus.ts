@@ -1,6 +1,8 @@
 import type { PrometheusProfile } from './types.ts'
 
 export interface PrometheusMetricMetadata { name: string; type?: string; help?: string; unit?: string }
+export interface PrometheusMetricLabels { metricName: string; labels: string[] }
+export interface PrometheusLabelValues { metricName: string; labelName: string; values: string[] }
 export interface PrometheusDiscoveryResult {
   metricNames: string[]
   metadata: PrometheusMetricMetadata[]

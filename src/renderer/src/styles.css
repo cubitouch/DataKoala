@@ -374,6 +374,14 @@ table.results td:hover .cell-filter-menu summary, .cell-filter-menu[open] summar
 .metric-details > div { display: flex; gap: 8px; }
 .metric-details strong { min-width: 34px; color: var(--text-mute); font-weight: 500; }
 .metric-details p { margin: 4px 0 0; color: var(--text-mute); overflow-wrap: anywhere; }
+.metric-label-heading { margin-top: 6px; }
+.metric-label { margin-left: 8px; }
+.label-row { width: 100%; border: 0; background: transparent; color: var(--text-dim); cursor: pointer; padding: 2px 0; }
+.label-values { margin-left: 17px; }
+.label-values input { width: calc(100% - 6px); margin: 3px 0; background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+.label-value { padding: 2px 4px; }
+.label-status, .label-limit { padding: 3px 4px; color: var(--text-mute); font-size: 10px; }
+.label-status.error { border: 0; background: transparent; color: var(--danger); cursor: pointer; text-align: left; }
 .paste-hint { font-size: 10.5px; color: var(--text-mute); margin-top: 5px; line-height: 1.5; }
 .paste-hint code {
   font-family: var(--mono); background: var(--bg-4); padding: 1px 4px;

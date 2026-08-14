@@ -11,6 +11,67 @@ import { ConnectionModal } from './ConnectionModal'
 import { connectionKindLabel } from '../lib/connectionKind'
 
 const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'metric' ? 'metric' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
+const LABEL_VALUE_DISPLAY_LIMIT = 200
+
+function MetricDetails({ connectionId, relation }: { connectionId: string | null; relation: DatabaseRelationNode }) {
+  const [labels, setLabels] = useState<string[] | null>(null)
+  const [labelsError, setLabelsError] = useState<string | null>(null)
+  const [values, setValues] = useState<Record<string, string[]>>({})
+  const [valueErrors, setValueErrors] = useState<Record<string, string>>({})
+  const [loadingValues, setLoadingValues] = useState<Set<string>>(new Set())
+  const [openLabels, setOpenLabels] = useState<Set<string>>(new Set())
+  const [valueFilters, setValueFilters] = useState<Record<string, string>>({})
+
+  const loadLabels = async () => {
+    if (!connectionId || labels) return
+    setLabelsError(null)
+    try { setLabels(await api.connections.prometheus.labelsForMetric(connectionId, relation.name)) }
+    catch (error) { setLabelsError(error instanceof Error ? error.message : String(error)) }
+  }
+  useEffect(() => { void loadLabels() }, [connectionId, relation.name])
+
+  const toggleLabel = async (label: string) => {
+    setOpenLabels((old) => { const next = new Set(old); next.has(label) ? next.delete(label) : next.add(label); return next })
+    if (values[label] || loadingValues.has(label)) return
+    setLoadingValues((old) => new Set(old).add(label))
+    setValueErrors((old) => { const next = { ...old }; delete next[label]; return next })
+    try {
+      const discovered = await api.connections.prometheus.labelValues(connectionId!, relation.name, label)
+      setValues((old) => ({ ...old, [label]: discovered }))
+    }
+    catch (error) { setValueErrors((old) => ({ ...old, [label]: error instanceof Error ? error.message : String(error) })) }
+    finally { setLoadingValues((old) => { const next = new Set(old); next.delete(label); return next }) }
+  }
+
+  return <div className="metric-details">
+    <div><strong>Name</strong><span>{relation.name}</span></div>
+    <div><strong>Type</strong><span>{relation.details?.kind === 'metric' ? relation.details.type || 'unknown' : 'unknown'}</span></div>
+    {relation.details?.kind === 'metric' && relation.details.unit && <div><strong>Unit</strong><span>{relation.details.unit}</span></div>}
+    {relation.details?.kind === 'metric' && relation.details.help && <div><strong>Help</strong><span>{relation.details.help}</span></div>}
+    <div className="metric-label-heading"><strong>Labels</strong></div>
+    {!labels && !labelsError && <div className="label-status" role="status">Loading labels…</div>}
+    {labelsError && <button className="label-status error" onClick={() => void loadLabels()}>Could not load labels — retry</button>}
+    {labels?.length === 0 && <div className="label-status">No labels</div>}
+    {labels?.map((label) => {
+      const open = openLabels.has(label)
+      const filter = valueFilters[label]?.toLocaleLowerCase() ?? ''
+      const allValues = values[label]
+      const filtered = allValues?.filter((value) => value.toLocaleLowerCase().includes(filter)) ?? []
+      const shown = filtered.slice(0, LABEL_VALUE_DISPLAY_LIMIT)
+      return <div className="metric-label" key={label}>
+        <button className="tree-row label-row" aria-expanded={open} onClick={() => void toggleLabel(label)}><span className="chevron">{open ? '▾' : '▸'}</span><span>{label}</span></button>
+        {open && <div className="label-values">
+          {loadingValues.has(label) && <div className="label-status" role="status">Loading values…</div>}
+          {valueErrors[label] && <button className="label-status error" onClick={() => void toggleLabel(label)}>Could not load values — retry</button>}
+          {allValues && allValues.length > LABEL_VALUE_DISPLAY_LIMIT && <input aria-label={`Filter values for ${label}`} placeholder="Filter values…" value={valueFilters[label] ?? ''} onChange={(event) => setValueFilters((old) => ({ ...old, [label]: event.target.value }))} />}
+          {allValues?.length === 0 && <div className="label-status">No values</div>}
+          {shown.map((value) => <div className="label-value truncate" key={value} title={value}>{value}</div>)}
+          {allValues && filtered.length > shown.length && <div className="label-limit">Showing {shown.length} of {filtered.length} matching values. Refine the filter to see more.</div>}
+        </div>}
+      </div>
+    })}
+  </div>
+}
 
 export function Sidebar() {
   const profiles = useStore((s) => s.profiles)
@@ -179,11 +240,7 @@ export function Sidebar() {
                     <span className="kind">{typeLabel(relation.kind)}</span>
                   </div>
                   {relationOpen && <div role="group" className="columns">
-                    {relation.details?.kind === 'metric' && <div className="metric-details">
-                      <div><strong>Type</strong><span>{relation.details.type || 'unknown'}</span></div>
-                      {relation.details.unit && <div><strong>Unit</strong><span>{relation.details.unit}</span></div>}
-                      {relation.details.help && <p>{relation.details.help}</p>}
-                    </div>}
+                    {relation.details?.kind === 'metric' && <MetricDetails connectionId={activeTabConnectionId} relation={relation} />}
                     {relation.columnsStatus === 'loading' && <div className="column-status" role="status">Loading columns…</div>}
                     {relation.columnsStatus === 'error' && <button className="column-status error" onClick={() => void loadRelationColumns({ ...relation, columnsStatus: 'idle' })}>Could not load columns — retry</button>}
                     {relation.columns?.map((column) => <div className="tree-row column-row" role="treeitem" key={column.name} title={`${relation.qualifiedName}.${column.name} — ${column.dataTypeName}`} aria-label={`${relation.qualifiedName}.${column.name}, ${column.dataTypeName}`}><span className="truncate">{column.name}</span><span className="column-type truncate">{column.dataTypeName}</span></div>)}

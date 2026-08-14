@@ -93,6 +93,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
+/** Normalize the Prometheus label endpoint envelope emitted by `gcx metrics labels -o json`. */
+export function normalizeGcxLabels(raw: unknown): string[] {
+  if (!isRecord(raw) || raw.status !== 'success' || !Array.isArray(raw.data) || raw.data.some((value) => typeof value !== 'string')) {
+    throw new Error('gcx returned valid JSON, but the labels response must contain status "success" and a string data array.')
+  }
+  return [...new Set(raw.data as string[])].sort((a, b) => a.localeCompare(b))
+}
+
 const column = (name: string, logicalType: ColumnMeta['logicalType'], nativeType: string, dataTypeID: number): ColumnMeta =>
   ({ name, logicalType, nativeType, dataTypeID, dataTypeName: nativeType })
 
@@ -150,6 +158,7 @@ function normalizeVersion(raw: unknown): string {
 export class GcxPrometheusTransport implements PrometheusTransport {
   private readonly context: string | undefined
   private readonly run: GcxCommandRunner
+  private readonly labelCache = new Map<string, Promise<string[]>>()
   constructor(context: string | undefined, run: GcxCommandRunner = runGcxCommand) { this.context = context; this.run = run }
   async version(): Promise<string> {
     try {
@@ -160,6 +169,25 @@ export class GcxPrometheusTransport implements PrometheusTransport {
     try {
       const contextArgs = this.context ? ['--context', this.context] : []
       return normalizeGcxMetadata(parseJson((await this.run(['metrics', 'metadata', ...contextArgs, '-o', 'json'])).stdout, 'metrics metadata'))
+    } catch (error) { throwNormalizedGcxError(error) }
+  }
+  labelsForMetric(metricName: string): Promise<string[]> {
+    return this.cachedLabels(`metric:${metricName}`, ['--metric', metricName]).then((labels) => labels.filter((label) => label !== '__name__'))
+  }
+  labelValues(metricName: string, labelName: string): Promise<string[]> {
+    return this.cachedLabels(`values:${metricName}:${labelName}`, ['--metric', metricName, '--label', labelName])
+  }
+  private cachedLabels(key: string, scopeArgs: string[]): Promise<string[]> {
+    const cached = this.labelCache.get(key)
+    if (cached) return cached
+    const request = this.fetchLabels(scopeArgs).catch((error) => { this.labelCache.delete(key); throw error })
+    this.labelCache.set(key, request)
+    return request
+  }
+  private async fetchLabels(scopeArgs: string[]): Promise<string[]> {
+    try {
+      const contextArgs = this.context ? ['--context', this.context] : []
+      return normalizeGcxLabels(parseJson((await this.run(['metrics', 'labels', ...contextArgs, ...scopeArgs, '-o', 'json'])).stdout, 'metrics labels'))
     } catch (error) { throwNormalizedGcxError(error) }
   }
   async query(request: PrometheusQueryRequest): Promise<QueryResult> {

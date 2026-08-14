@@ -47,7 +47,9 @@ const api = {
       discoverDefaults: (): Promise<BigQueryDiscoveryDefaults> => ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_DEFAULTS)
     },
     prometheus: {
-      discover: (transport: PrometheusTransportConfig): Promise<PrometheusDiscoveryResult> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER, transport)
+      discover: (transport: PrometheusTransportConfig): Promise<PrometheusDiscoveryResult> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER, transport),
+      labelsForMetric: (id: string, metricName: string): Promise<string[]> => ipcRenderer.invoke(IPC.PROMETHEUS_METRIC_LABELS, id, metricName),
+      labelValues: (id: string, metricName: string, labelName: string): Promise<string[]> => ipcRenderer.invoke(IPC.PROMETHEUS_LABEL_VALUES, id, metricName, labelName)
     }
   },
   query: {
