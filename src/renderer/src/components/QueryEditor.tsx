@@ -1,7 +1,7 @@
 import React from 'react'
 void React
 import { useEffect, useMemo, useRef, useState } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
+import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { sql as sqlExtension } from '@codemirror/lang-sql'
 import { PromQLExtension } from '@prometheus-io/codemirror-promql'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -17,11 +17,17 @@ import { codeMirrorDialect, formatterDialect } from '../lib/sqlDialect'
 import { buildSqlCompletionSchema } from '../lib/sqlCompletionSchema'
 import { sqlAliasCompletionSource } from '../lib/sqlAliasCompletion'
 import { ensureRelationColumns } from '../lib/relationColumns'
+import { TimeRangeField } from './time-range/TimeRangeField'
+import { formatPromql } from '../lib/formatPromql'
+import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 
 export function QueryEditor() {
   const tabId = useStore((s) => s.activeTabId)
   const sql = useStore((s) => selectActiveSession(s).sql)
   const setSql = useStore((s) => s.setSql)
+  const prometheusTimeRange = useStore((s) => selectActiveSession(s).prometheusTimeRange)
+  const prometheusStep = useStore((s) => selectActiveSession(s).prometheusStep)
+  const setPrometheusQueryOptions = useStore((s) => s.setPrometheusQueryOptions)
   const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const connectionKind = useStore((s) => s.profiles.find((profile) => profile.id === tabConnectionId)?.kind)
   const language = queryLanguageForSourceKind(connectionKind ?? 'postgres')
@@ -40,9 +46,7 @@ export function QueryEditor() {
   const activeExplainRequest = useStore((s) => selectActiveSession(s).activeExplainRequest)
   const setActiveExplainRequest = useStore((s) => s.setActiveExplainRequest)
   const [showToast, setShowToast] = useState<string | null>(null)
-  const [rangeEnd, setRangeEnd] = useState(() => new Date().toISOString().slice(0, 16))
-  const [rangeStart, setRangeStart] = useState(() => new Date(Date.now() - 15 * 60_000).toISOString().slice(0, 16))
-  const [step, setStep] = useState('30s')
+  const editorRef = useRef<ReactCodeMirrorRef>(null)
   const filters = useStore((s) => selectActiveSession(s).sqlResultFilters)
   const filterRevision = useStore((s) => selectActiveSession(s).queryFilterRevision.sql)
   const initialFilterRevision = useRef(new Map<string, number>())
@@ -95,7 +99,10 @@ export function QueryEditor() {
       const promoted = language.kind === 'sql' ? queryResultFilters(requestFilters) : []
       const execution = promoted.length ? wrapSqlWithResultFilters(requestSql, promoted, dialect) : { sql: requestSql, parameters: [] }
       if (!execution) throw new Error('This SQL cannot safely be wrapped; move query filters back to the client.')
-      const promRange = language.kind === 'promql' ? { start: new Date(rangeStart).toISOString(), end: new Date(rangeEnd).toISOString(), step } : undefined
+      const requestSession = selectSession(useStore.getState(), requestTabId)
+      const promRange = language.kind === 'promql' && requestSession
+        ? { ...prometheusRangeBounds(requestSession.prometheusTimeRange), step: requestSession.prometheusStep }
+        : undefined
       const res: QueryResult = await api.query.run(requestProfileId, execution.sql, execution.parameters, promRange)
       if (language.kind === 'promql') setVisualization('sql', { view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: 'series', seriesColumns: [], aggregation: 'sum' }, requestTabId)
       if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(res, null, requestTabId)
@@ -140,10 +147,20 @@ export function QueryEditor() {
   const canExplain = canUseDatabase && (connectionKind === undefined || connectionKind === 'postgres')
 
   const doFormat = () => {
-    if (language.kind === 'promql') { flash('PromQL formatting is not available.'); return }
-    const r = formatSql(sql, formatterDialect(dialect))
+    if (!sql.trim()) return
+    const r = language.kind === 'promql' ? formatPromql(sql) : formatSql(sql, formatterDialect(dialect))
     if (r.ok) {
-      setSql(r.sql, tabId)
+      const formatted = 'query' in r ? r.query : r.sql
+      const view = editorRef.current?.view
+      if (view) {
+        const anchor = Math.min(view.state.selection.main.anchor, formatted.length)
+        const head = Math.min(view.state.selection.main.head, formatted.length)
+        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: formatted }, selection: { anchor, head }, userEvent: 'input.format' })
+        view.focus()
+      } else {
+        setSql(formatted, tabId)
+        requestAnimationFrame(() => document.querySelector<HTMLElement>(language.kind === 'promql' ? '[aria-label="PromQL editor"]' : '[aria-label="SQL editor"]')?.focus())
+      }
       flash('Formatted')
     } else {
       flash(r.error ?? 'Could not format', 3200)
@@ -165,29 +182,29 @@ export function QueryEditor() {
   return (
     <div className="editor-pane" onKeyDown={onKey}>
       <div className="editor-head">
-        <ModeSwitch />
+        <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
+        {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><label className="promql-step"><span>Step</span><select aria-label="PromQL query step" value={prometheusStep} onChange={(e) => setPrometheusQueryOptions({ prometheusStep: e.target.value as typeof prometheusStep }, tabId)}><option>15s</option><option>30s</option><option>1m</option><option>5m</option></select></label></div>}
         <div className="spacer" />
-        {language.kind === 'promql' && <div className="promql-range" aria-label="Prometheus query range"><label>From<input aria-label="PromQL range start" type="datetime-local" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} /></label><label>To<input aria-label="PromQL range end" type="datetime-local" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} /></label><label>Step<select aria-label="PromQL query step" value={step} onChange={(e) => setStep(e.target.value)}><option>15s</option><option>30s</option><option>1m</option><option>5m</option></select></label></div>}
-        <span className="info">⌘↵ run{language.kind === 'sql' ? ' · ⇧⌥F format' : ''}</span>
-        <button className="btn ghost" onClick={doFormat} title="Format SQL (Shift+Alt+F)" hidden={language.kind === 'promql'}>
+        <div className="query-toolbar-group query-editor-actions"><button className="btn ghost" onClick={doFormat} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim()}>
           Format
         </button>
         <CopySqlButton sql={sql} />
-        <button className="btn ghost explain-action" hidden={language.kind === 'promql'} onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
+        {language.kind === 'sql' && <button className="btn ghost explain-action" onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
           {isExplainLoading && <span className="spinner" aria-hidden="true" />}
           {isExplainLoading ? 'Explaining…' : 'Explain'}
-        </button>
-        <button className="btn ghost explain-action analyze" hidden={language.kind === 'promql'} onClick={() => explain('analyze')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isAnalyzeLoading}>
+        </button>}
+        {language.kind === 'sql' && <button className="btn ghost explain-action analyze" onClick={() => explain('analyze')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isAnalyzeLoading}>
           {isAnalyzeLoading && <span className="spinner" aria-hidden="true" />}
           {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
-        </button>
-        <button className="btn primary" onClick={run} disabled={!canUseDatabase || running}>
+        </button>}</div>
+        <div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={!canUseDatabase || running} title="Run (Ctrl/Command+Enter)">
           {running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}
-        </button>
+        </button></div>
       </div>
 
       <div className="cm-wrap">
         <CodeMirror
+          ref={editorRef}
           value={sql}
           height="100%"
           theme={oneDark}

@@ -205,6 +205,9 @@ async function configureMode(win, mode) {
     store.getState().setQueryMode('${mode}')
 
     if ('${mode}' === 'sql') {
+      store.getState().setProfiles([{ id: 'preview-postgres', name: 'Preview database', kind: 'postgres', version: 1, readonly: false, config: { kind: 'postgres', host: 'localhost', port: 5432, database: 'preview', user: 'preview', password: '' } }])
+      const current = store.getState()
+      store.setState({ tabs: current.tabs.map((item) => item.id === current.activeTabId ? { ...item, connectionProfileId: 'preview-postgres' } : item) })
       store.getState().clearResultFilters('sql')
       store.getState().addResultFilter('sql', {
         id: 'preview-chart-series-france',
@@ -271,6 +274,41 @@ async function configureMode(win, mode) {
   }
   await waitForChart(win)
   await sleep(600)
+}
+
+async function configurePrometheusToolbar(win) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    const state = store?.getState()
+    if (!state) return { error: 'window.__datakoalaStore is unavailable' }
+    state.setProfiles([{ id: 'preview-prometheus', name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }])
+    const tab = state.tabs.find((item) => item.id === state.activeTabId)
+    store.setState({ tabs: state.tabs.map((item) => item.id === tab.id ? {
+      ...item, connectionProfileId: 'preview-prometheus', queryMode: 'sql',
+      sql: 'sum by(status)(rate(http_requests_total{service="api"}[5m]))',
+      prometheusTimeRange: { kind: 'rolling', amount: 6, unit: 'hour' }, prometheusStep: '30s'
+    } : item) })
+    return { ok: true }
+  })()`)
+  if (report?.error) throw new Error(report.error)
+  await sleep(250)
+}
+
+async function verifyQueryToolbar(win) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const toolbar = document.querySelector('.editor-head')
+    const pane = document.querySelector('.editor-pane')
+    return toolbar && pane ? {
+      toolbarScrollWidth: toolbar.scrollWidth, toolbarClientWidth: toolbar.clientWidth,
+      paneScrollWidth: pane.scrollWidth, paneClientWidth: pane.clientWidth,
+      hasRange: Boolean(toolbar.querySelector('.custom-range-field')),
+      hasStep: Boolean(toolbar.querySelector('[aria-label="PromQL query step"]')),
+      hasExplain: [...toolbar.querySelectorAll('button')].some((button) => button.textContent?.includes('Explain'))
+    } : null
+  })()`)
+  if (!report || !report.hasRange || !report.hasStep || report.hasExplain || report.toolbarScrollWidth > report.toolbarClientWidth || report.paneScrollWidth > report.paneClientWidth) {
+    throw new Error(`Prometheus query toolbar is clipped or missing controls: ${JSON.stringify(report)}`)
+  }
 }
 
 async function configureTablePreview(win) {
@@ -451,6 +489,16 @@ app.whenReady().then(async () => {
 
     await configureMode(win, 'sql')
     await capture(win, 'sql-default.png')
+
+    await configurePrometheusToolbar(win)
+    await verifyQueryToolbar(win)
+    await capture(win, 'prometheus-toolbar.png')
+    win.setSize(760, 760)
+    await sleep(350)
+    await verifyQueryToolbar(win)
+    await capture(win, 'prometheus-toolbar-narrow.png')
+    win.setSize(1440, 900)
+    await configureMode(win, 'sql')
 
     await dragDivider(win, '.sidebar-resizer', 170, 0)
     await dragDivider(win, '.editor-resizer', 0, 90)

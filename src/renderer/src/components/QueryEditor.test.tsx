@@ -39,6 +39,12 @@ beforeEach(() => {
 })
 
 describe('PromQL execution', () => {
+  function renderPromql(query = 'up') {
+    resetTestStore({ profiles: [{ id: 'prom-1', name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }], activeProfileId: 'prom-1', connected: true, connecting: false, connectionStatus: 'connected' })
+    patchActiveTestSession({ connectionProfileId: 'prom-1', queryMode: 'sql', sql: query })
+    render(<QueryEditor />)
+  }
+
   it('uses the PromQL editor and delivers normalized rows with timeseries defaults', async () => {
     const result = { columns: [
       { name: 'timestamp', dataTypeID: 1184, dataTypeName: 'timestamptz' },
@@ -60,10 +66,49 @@ describe('PromQL execution', () => {
     await waitFor(() => expect(useStore.getState().tabs[0].result?.rows).toEqual(result.rows))
     expect(useStore.getState().tabs[0].sqlVisualization).toMatchObject({ view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: 'series' })
   })
+
+  it('groups the shared date-range picker and Step while hiding SQL-only actions', () => {
+    renderPromql()
+    expect(screen.getByRole('button', { name: /Time range: Last hour/ })).toBeTruthy()
+    expect(screen.getByLabelText('PromQL query step')).toBeTruthy()
+    expect(screen.queryByLabelText('PromQL range start')).toBeNull()
+    expect(screen.queryByText('From')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Explain' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Explain Analyze' })).toBeNull()
+    expect(screen.queryByText('⌘↵ run')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Run' }).title).toContain('Ctrl/Command+Enter')
+  })
+
+  it('formats PromQL through the parser and preserves invalid editor contents', async () => {
+    renderPromql('sum by(status)(rate(http_requests_total{service="api"}[5m]))')
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    expect(useStore.getState().tabs[0].sql).toBe('sum by (status) (rate(http_requests_total{service="api"}[5m]))')
+    fireEvent.change(screen.getByLabelText('PromQL editor'), { target: { value: 'sum(' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    expect(useStore.getState().tabs[0].sql).toBe('sum(')
+    expect(await screen.findByText(/Could not format|Expected|Unexpected|expected|unexpected/)).toBeTruthy()
+  })
+
+  it('disables Format for whitespace and runs the selected range and Step from keyboard', async () => {
+    renderPromql('   ')
+    expect(screen.getByRole('button', { name: 'Format' }).hasAttribute('disabled')).toBe(true)
+    fireEvent.change(screen.getByLabelText('PromQL editor'), { target: { value: 'up' } })
+    useStore.getState().setPrometheusQueryOptions({ prometheusTimeRange: { kind: 'custom', startDate: '2026-08-10', startTime: '12:00', endDate: '2026-08-11', endTime: '13:30', recurringWindows: [] }, prometheusStep: '5m' })
+    runQuery.mockResolvedValue({ columns: [], rows: [], rowCount: 0, durationMs: 1 })
+    fireEvent.keyDown(screen.getByLabelText('PromQL editor'), { key: 'Enter', ctrlKey: true })
+    await waitFor(() => expect(runQuery).toHaveBeenCalled())
+    expect(runQuery.mock.calls[0][3]).toEqual({ start: '2026-08-10T12:00:00.000Z', end: '2026-08-11T13:30:00.000Z', step: '5m' })
+  })
 })
 afterEach(() => { cleanup(); resetTestStore() })
 
 describe('QueryEditor Explain loading states', () => {
+  it('keeps SQL Explain actions and does not expose Prometheus Step', () => {
+    renderExplainUi()
+    expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Explain Analyze' })).toBeTruthy()
+    expect(screen.queryByLabelText('PromQL query step')).toBeNull()
+  })
   it('shows Explaining, disables both buttons, preserves the previous plan, and ends after success', async () => {
     const request = deferred<{ text: string }>()
     explain.mockReturnValueOnce(request.promise)

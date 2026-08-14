@@ -43,6 +43,8 @@ const clientFilter = (): ResultFilter => ({ id: 'client-device', column: 'device
 const tab = (id: string, title: string, connectionProfileId: string | null, sql: string) => ({
   id, title, connectionProfileId,
   sql,
+  prometheusTimeRange: { kind: 'rolling' as const, amount: 1 as const, unit: 'hour' as const },
+  prometheusStep: '30s' as const,
   running: true,
   queryError: 'runtime-error-secret',
   result: { columns: [], rows: [{ token: 'result-secret' }], rowCount: 1, durationMs: 1 },
