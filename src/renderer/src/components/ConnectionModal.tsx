@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 void React
 import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, PrometheusProfile, SqliteFileProfile } from '../../../shared/types'
+import type { PrometheusDatasourceOption } from '../../../shared/prometheus'
 import { parseConnectionString, buildConnectionString, DEFAULT_PORT } from '../../../shared/connString'
 import { api } from '../lib/api'
 import { Combobox } from './ui/combobox'
@@ -407,10 +408,27 @@ function PrometheusConnectionModal({ existing, onClose, onSaved, onBack }: FormP
   const [name, setName] = useState(existing?.name ?? 'Prometheus')
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [gcxVersion, setGcxVersion] = useState<string | null>(null)
+  const [datasources, setDatasources] = useState<PrometheusDatasourceOption[]>([])
+  const [datasourceUid, setDatasourceUid] = useState(existing?.transport.datasourceUid ?? '')
+  const [datasourceError, setDatasourceError] = useState<string | null>(null)
+  const [loadingDatasources, setLoadingDatasources] = useState(true)
   const [busy, setBusy] = useState(false)
-  const transport = () => ({ kind: 'gcx' as const, ...(existing?.transport.context ? { context: existing.transport.context } : {}), ...(existing?.transport.datasourceUid ? { datasourceUid: existing.transport.datasourceUid } : {}) })
+  const baseTransport = () => ({ kind: 'gcx' as const, ...(existing?.transport.context ? { context: existing.transport.context } : {}) })
+  const transport = () => ({ ...baseTransport(), ...(datasourceUid ? { datasourceUid } : {}) })
   const profile = (): PrometheusProfile => ({ kind: 'prometheus', version: 1, id: existing?.id ?? '', name: name.trim(), readonly: true, transport: transport() })
+  useEffect(() => {
+    let active = true
+    setLoadingDatasources(true)
+    api.connections.prometheus.discoverDatasources(baseTransport()).then((found: PrometheusDatasourceOption[]) => {
+      if (!active) return
+      setDatasources(found)
+      setDatasourceUid((current) => current || (found.length === 1 ? found[0].uid : ''))
+      setDatasourceError(found.length ? null : 'No compatible Prometheus or Mimir datasources were found.')
+    }).catch((error: unknown) => { if (active) setDatasourceError(failureMessage(error)) }).finally(() => { if (active) setLoadingDatasources(false) })
+    return () => { active = false }
+  }, [])
   const test = async () => {
+    if (!datasourceUid) return setMessage({ ok: false, text: 'Select a Prometheus datasource first.' })
     setBusy(true); setMessage(null)
     try {
       const result = await api.connections.prometheus.discover(transport())
@@ -420,6 +438,7 @@ function PrometheusConnectionModal({ existing, onClose, onSaved, onBack }: FormP
   }
   const save = async () => {
     if (!name.trim()) return setMessage({ ok: false, text: 'Connection name is required.' })
+    if (!datasourceUid) return setMessage({ ok: false, text: 'Select a Prometheus datasource first.' })
     setBusy(true)
     try { const saved = await api.connections.upsert(profile()); onSaved(saved); onClose() }
     catch (error) { setMessage({ ok: false, text: failureMessage(error) }); setBusy(false) }
@@ -428,6 +447,7 @@ function PrometheusConnectionModal({ existing, onClose, onSaved, onBack }: FormP
     <ConnectionFormHeader kind="prometheus" editing={!!existing} onBack={onBack} />
     <div className="field"><label htmlFor="prom-name">Connection name</label><input id="prom-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
     <div className="field"><label>Connection method</label><div className="conn-preview">Grafana Cloud via gcx</div></div>
+    <div className="field"><label htmlFor="prom-datasource">Prometheus datasource</label><select id="prom-datasource" value={datasourceUid} onChange={(event) => setDatasourceUid(event.target.value)} disabled={loadingDatasources}><option value="">{loadingDatasources ? 'Discovering datasources…' : 'Select a datasource'}</option>{datasources.map((datasource) => <option key={datasource.uid} value={datasource.uid}>{datasource.name}</option>)}</select>{datasourceError && <div className="paste-hint" role="alert">{datasourceError}</div>}</div>
     <div className="test-msg info">Uses your existing authenticated gcx context. DataKoala never reads, copies, or stores gcx OAuth credentials.{gcxVersion && <> Detected <strong>gcx {gcxVersion}</strong>.</>}</div>
     {message && <div className={`test-msg ${message.ok ? 'ok' : 'err'}`} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
     <div className="actions"><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy}>{busy ? 'Working…' : 'Test & discover metrics'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy}>Save</button></div>
