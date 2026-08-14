@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { GcxPrometheusTransport, normalizeGcxMetadata, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
 import { migrateStoredProfile } from './profile-migration.ts'
+
+const metadataFixture = readFileSync(fileURLToPath(new URL('./fixtures/gcx-metrics-metadata.json', import.meta.url)), 'utf8')
 
 test('gcx succeeds with structured JSON and normalizes metadata without credentials', async () => {
   const calls: string[][] = []
@@ -9,13 +13,17 @@ test('gcx succeeds with structured JSON and normalizes metadata without credenti
     calls.push(args)
     return args[0] === 'version'
       ? { stdout: '{"version":"1.2.3"}', stderr: '' }
-      : { stdout: '{"http_requests_total":[{"type":"counter","help":"Requests","unit":"requests"}]}', stderr: '' }
+      : { stdout: metadataFixture, stderr: '' }
   }
   const transport = new GcxPrometheusTransport(undefined, run)
   const version = await transport.version()
   const metadata = await transport.metadata()
   assert.deepEqual(calls, [['version', '-o', 'json'], ['metrics', 'metadata', '-o', 'json']])
-  assert.deepEqual(metadata, [{ name: 'http_requests_total', type: 'counter', help: 'Requests', unit: 'requests' }])
+  assert.deepEqual(metadata, [
+    { name: 'go_gc_duration_seconds', type: 'histogram', help: 'A summary of the pause duration of garbage collection cycles.', unit: 'seconds' },
+    { name: 'http_requests_total', type: 'counter', help: 'Total number of HTTP requests.', unit: 'requests' },
+    { name: 'process_resident_memory_bytes', type: 'gauge', help: 'Resident memory size in bytes.', unit: 'bytes' }
+  ])
   assert.equal(version, '1.2.3')
   assert.doesNotMatch(JSON.stringify({ version, metadata }), /token|oauth|credential|secret/i)
 })
@@ -47,9 +55,17 @@ test('gcx permission failures explain that metrics access is required', async ()
   await assert.rejects(() => new GcxPrometheusTransport(undefined, forbidden).metadata(), /Metrics access is not permitted/)
 })
 
-test('metadata normalization accepts array envelopes and validates shape', () => {
-  assert.deepEqual(normalizeGcxMetadata({ data: [{ metric: 'up', type: 'gauge', description: 'Target health' }] }), [{ name: 'up', type: 'gauge', help: 'Target health', unit: undefined }])
-  assert.throws(() => normalizeGcxMetadata({ data: [{ invalid: true }] }), /shape was not recognized/)
+test('metadata wrappers cannot be mistaken for a single metric', () => {
+  const metadata = normalizeGcxMetadata(JSON.parse(metadataFixture))
+  assert.equal(metadata.length, 3)
+  assert.equal(metadata.some((entry) => ['data', 'metadata', 'metrics'].includes(entry.name)), false)
+})
+
+test('metadata rejects structurally unexpected wrappers and entries', () => {
+  assert.throws(() => normalizeGcxMetadata({ data: { up: [{ type: 'gauge' }] } }), /status "success" and a data object/)
+  assert.throws(() => normalizeGcxMetadata({ status: 'success', metadata: {} }), /status "success" and a data object/)
+  assert.throws(() => normalizeGcxMetadata({ status: 'success', data: { up: { type: 'gauge' } } }), /unexpected metadata entry/)
+  assert.throws(() => normalizeGcxMetadata({ status: 'success', data: { up: [{ type: 42 }] } }), /field "type" must be a string/)
 })
 
 test('persisted gcx profiles contain context configuration only', () => {

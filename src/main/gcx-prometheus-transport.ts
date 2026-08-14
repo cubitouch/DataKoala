@@ -27,37 +27,67 @@ function errorMessage(error: unknown): string {
   return 'gcx could not discover metrics. Check the selected context and run gcx login if needed.'
 }
 
-function optionalString(record: Record<string, unknown>, ...keys: string[]): string | undefined {
-  for (const key of keys) if (typeof record[key] === 'string' && record[key]) return record[key] as string
-  return undefined
+function optionalString(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key]
+  if (value === undefined || value === '') return undefined
+  if (typeof value !== 'string') throw new Error(`gcx metric metadata field "${key}" must be a string.`)
+  return value
 }
 
-/** Keeps all gcx response-shape handling on the main-process side of the IPC boundary. */
+/**
+ * gcx emits the Prometheus metadata API envelope:
+ * `{ status: "success", data: { metric_name: [{ type, help, unit }] } }`.
+ * Keep this contract and all raw response handling on the main-process side of IPC.
+ */
 export function normalizeGcxMetadata(raw: unknown): PrometheusMetricMetadata[] {
-  const root = raw && typeof raw === 'object' ? raw as Record<string, unknown> : undefined
-  const candidate = Array.isArray(raw) ? raw : root && (root.data ?? root.metadata ?? root.metrics)
-  const normalized: PrometheusMetricMetadata[] = []
-  if (Array.isArray(candidate)) {
-    for (const item of candidate) {
-      if (!item || typeof item !== 'object') continue
-      const record = item as Record<string, unknown>
-      const name = optionalString(record, 'name', 'metric', 'metricName', '__name__')
-      if (name) normalized.push({ name, type: optionalString(record, 'type'), help: optionalString(record, 'help', 'description'), unit: optionalString(record, 'unit') })
+  if (!isRecord(raw) || raw.status !== 'success' || !isRecord(raw.data)) {
+    throw new Error('gcx returned valid JSON, but the metrics metadata response must contain status "success" and a data object.')
+  }
+
+  const entries: PrometheusMetricMetadata[] = []
+  for (const [name, values] of Object.entries(raw.data)) {
+    if (!name || !Array.isArray(values)) {
+      throw new Error(`gcx returned an unexpected metadata entry for metric "${name}".`)
     }
-  } else if (root) {
-    for (const [name, entries] of Object.entries(root)) {
-      const record = (Array.isArray(entries) ? entries[0] : entries) as Record<string, unknown> | undefined
-      if (record && typeof record === 'object') normalized.push({ name, type: optionalString(record, 'type'), help: optionalString(record, 'help'), unit: optionalString(record, 'unit') })
+    for (const value of values) {
+      if (!isRecord(value)) throw new Error(`gcx returned a non-object metadata value for metric "${name}".`)
+      entries.push({
+        name,
+        type: optionalString(value, 'type'),
+        help: optionalString(value, 'help'),
+        unit: optionalString(value, 'unit')
+      })
     }
   }
-  if (!normalized.length) throw new Error('gcx returned valid JSON, but its metric metadata shape was not recognized.')
-  return normalized.sort((a, b) => a.name.localeCompare(b.name))
+
+  // Traverse every raw entry before deduplication. Duplicate series metadata may
+  // fill fields omitted by another target, so retain the first available value.
+  const unique = new Map<string, PrometheusMetricMetadata>()
+  for (const entry of entries) {
+    const previous = unique.get(entry.name)
+    unique.set(entry.name, previous ? {
+      name: entry.name,
+      type: previous.type ?? entry.type,
+      help: previous.help ?? entry.help,
+      unit: previous.unit ?? entry.unit
+    } : entry)
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug(`[prometheus:gcx] gcx returned ${entries.length} raw metadata entries`)
+    console.debug(`[prometheus:gcx] DataKoala normalized ${unique.size} unique metrics`)
+  }
+  return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
 function normalizeVersion(raw: unknown): string {
   if (typeof raw === 'string' && raw.trim()) return raw.trim()
   if (raw && typeof raw === 'object') {
-    const value = optionalString(raw as Record<string, unknown>, 'version', 'Version')
+    const record = raw as Record<string, unknown>
+    const value = optionalString(record, 'version') ?? optionalString(record, 'Version')
     if (value) return value
   }
   throw new Error('gcx returned valid JSON, but did not include a version.')
