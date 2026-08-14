@@ -142,7 +142,8 @@ export async function listObjects(id: ConnectionId) {
   return (await session(id).listRelations()).map((relation) => ({
     schema: relation.namespace,
     name: relation.name,
-    kind: relation.kind === 'materialized-view' ? 'm' as const : relation.kind === 'view' ? 'v' as const : 'r' as const
+    kind: relation.kind === 'materialized-view' ? 'm' as const : relation.kind === 'view' ? 'v' as const : relation.kind === 'metric' ? 'metric' as const : 'r' as const,
+    details: relation.details
   }))
 }
 

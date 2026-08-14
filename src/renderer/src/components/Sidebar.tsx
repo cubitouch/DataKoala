@@ -10,7 +10,7 @@ import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { ConnectionModal } from './ConnectionModal'
 import { connectionKindLabel } from '../lib/connectionKind'
 
-const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
+const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'metric' ? 'metric' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
 
 export function Sidebar() {
   const profiles = useStore((s) => s.profiles)
@@ -108,6 +108,7 @@ export function Sidebar() {
   const expandRelation = async (relation: DatabaseRelationNode) => {
     const treeId = `relation:${relation.qualifiedName}`
     toggle(treeId)
+    if (relation.kind === 'metric') return
     if (expanded.has(treeId) || relation.columnsStatus !== 'idle') return
     await loadRelationColumns(relation)
   }
@@ -122,6 +123,7 @@ export function Sidebar() {
   }, [filter, schemas])
   const filtering = Boolean(filter.trim())
   const selectForBuilder = (relation: DatabaseRelationNode) => {
+    if (relation.kind === 'metric') { toggle(`relation:${relation.qualifiedName}`); return }
     if (builderTable && relationIdentity(builderTable) === relationIdentity(relation)) {
       if (relation.columnsStatus !== 'loaded') void loadRelationColumns(relation)
       return
@@ -173,10 +175,15 @@ export function Sidebar() {
                 return <div key={relationId} role="treeitem" aria-expanded={relationOpen}>
                   <div className="tree-row relation-row">
                     <button className="chevron-button" aria-label={`${relationOpen ? 'Collapse' : 'Expand'} ${relation.name}`} onClick={() => void expandRelation(relation)}>{relationOpen ? '▾' : '▸'}</button>
-                    <button className="relation-name truncate" title={relation.qualifiedName} aria-label={`Select ${relation.qualifiedName} for Builder`} aria-current={builderTable?.schema === relation.schema && builderTable.name === relation.name ? 'true' : undefined} onClick={() => selectForBuilder(relation)}>{relation.name}</button>
+                    <button className="relation-name truncate" title={relation.qualifiedName} aria-label={relation.kind === 'metric' ? `View details for ${relation.name}` : `Select ${relation.qualifiedName} for Builder`} aria-current={builderTable?.schema === relation.schema && builderTable.name === relation.name ? 'true' : undefined} onClick={() => selectForBuilder(relation)}>{relation.name}</button>
                     <span className="kind">{typeLabel(relation.kind)}</span>
                   </div>
                   {relationOpen && <div role="group" className="columns">
+                    {relation.details?.kind === 'metric' && <div className="metric-details">
+                      <div><strong>Type</strong><span>{relation.details.type || 'unknown'}</span></div>
+                      {relation.details.unit && <div><strong>Unit</strong><span>{relation.details.unit}</span></div>}
+                      {relation.details.help && <p>{relation.details.help}</p>}
+                    </div>}
                     {relation.columnsStatus === 'loading' && <div className="column-status" role="status">Loading columns…</div>}
                     {relation.columnsStatus === 'error' && <button className="column-status error" onClick={() => void loadRelationColumns({ ...relation, columnsStatus: 'idle' })}>Could not load columns — retry</button>}
                     {relation.columns?.map((column) => <div className="tree-row column-row" role="treeitem" key={column.name} title={`${relation.qualifiedName}.${column.name} — ${column.dataTypeName}`} aria-label={`${relation.qualifiedName}.${column.name}, ${column.dataTypeName}`}><span className="truncate">{column.name}</span><span className="column-type truncate">{column.dataTypeName}</span></div>)}

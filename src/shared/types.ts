@@ -162,7 +162,15 @@ export interface ExplainResult {
 export interface TableInfo {
   schema: string
   name: string
-  kind: 'r' | 'v' | 'm'
+  kind: 'r' | 'v' | 'm' | 'metric'
+  details?: DataObjectDetails
+}
+
+export type DataObjectDetails = {
+  kind: 'metric'
+  type?: string
+  help?: string
+  unit?: string
 }
 
 export interface DatabaseColumnNode {

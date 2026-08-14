@@ -3,6 +3,7 @@ import type {
   DataSourceCapabilities,
   DataSourceKind,
   DataSourceProfile,
+  DataObjectDetails,
   ConnectResult,
   ExplainResult,
   QueryResult,
@@ -11,7 +12,7 @@ import type {
 
 export interface DataNamespace { name: string; isSystem?: boolean }
 export interface DataNamespaceRef { name: string }
-export interface DataRelation { namespace: string; name: string; kind: 'table' | 'view' | 'materialized-view' }
+export interface DataRelation { namespace: string; name: string; kind: 'table' | 'view' | 'materialized-view' | 'metric'; details?: DataObjectDetails }
 export interface DataRelationRef { namespace: string; name: string }
 export interface DataColumn { name: string; nativeType: string; nullable?: boolean }
 export interface QueryRequest { sql: string; parameters?: unknown[] }
