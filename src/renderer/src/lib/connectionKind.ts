@@ -6,5 +6,6 @@ export function connectionKindLabel(kind: DataSourceProfile['kind']): string {
     case 'bigquery': return 'BigQuery'
     case 'local-files': return 'Local files'
     case 'sqlite-file': return 'SQLite'
+    case 'prometheus': return 'Prometheus'
   }
 }

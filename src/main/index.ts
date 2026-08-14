@@ -15,6 +15,9 @@ import { createGracefulShutdown } from './gracefulShutdown'
 import { smokeDuckDB } from './adapters/local-files-adapter'
 import type { SqliteFileProfile } from '@shared/types'
 import { bigQueryDiscovery } from './bigquery-discovery'
+import { discoverPrometheus } from './prometheus-discovery'
+import { listGrafanaPrometheusDatasources } from './prometheus-transport'
+import type { PrometheusTransportConfig } from '@shared/types'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -547,6 +550,8 @@ function registerIpc(): void {
   ipcMain.handle(IPC.CONNECTION_TEST, (_e, profile: DataSourceProfile) => db.testConnection(profile))
   ipcMain.handle(IPC.BIGQUERY_DISCOVER_PROJECTS, () => bigQueryDiscovery.discoverProjects())
   ipcMain.handle(IPC.BIGQUERY_DISCOVER_DEFAULTS, () => bigQueryDiscovery.discoverDefaults())
+  ipcMain.handle(IPC.PROMETHEUS_DISCOVER, (_e, transport: PrometheusTransportConfig) => discoverPrometheus(transport))
+  ipcMain.handle(IPC.PROMETHEUS_GRAFANA_DATASOURCES, (_e, url: string, token: string) => listGrafanaPrometheusDatasources(url, token))
   ipcMain.handle(IPC.BIGQUERY_LIST_DATASETS, (_e, projectId: unknown) => {
     if (typeof projectId !== 'string' || !projectId.trim()) throw new Error('A BigQuery project ID is required.')
     return bigQueryDiscovery.listDatasets(projectId.trim())

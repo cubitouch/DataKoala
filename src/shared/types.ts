@@ -19,9 +19,9 @@ export interface ConnectionStateEvent {
   activeOperationAffected?: boolean
 }
 
-export type DataSourceKind = 'postgres' | 'local-files' | 'sqlite-file' | 'bigquery'
-export type QueryEngine = 'postgres' | 'duckdb' | 'bigquery'
-export type SqlDialect = 'postgres' | 'duckdb' | 'google-sql'
+export type DataSourceKind = 'postgres' | 'local-files' | 'sqlite-file' | 'bigquery' | 'prometheus'
+export type QueryEngine = 'postgres' | 'duckdb' | 'bigquery' | 'prometheus'
+export type SqlDialect = 'postgres' | 'duckdb' | 'google-sql' | 'promql'
 
 export interface DataSourceDescriptor {
   sourceKind: DataSourceKind
@@ -33,7 +33,8 @@ export const DATA_SOURCE_DESCRIPTORS: Record<DataSourceKind, DataSourceDescripto
   postgres: { sourceKind: 'postgres', engine: 'postgres', dialect: 'postgres' },
   'local-files': { sourceKind: 'local-files', engine: 'duckdb', dialect: 'duckdb' },
   'sqlite-file': { sourceKind: 'sqlite-file', engine: 'duckdb', dialect: 'duckdb' },
-  bigquery: { sourceKind: 'bigquery', engine: 'bigquery', dialect: 'google-sql' }
+  bigquery: { sourceKind: 'bigquery', engine: 'bigquery', dialect: 'google-sql' },
+  prometheus: { sourceKind: 'prometheus', engine: 'prometheus', dialect: 'promql' }
 }
 
 export function sqlDialectForSourceKind(kind: DataSourceKind): SqlDialect {
@@ -81,7 +82,22 @@ export interface BigQueryProfile extends ProfileBase {
   readonly: true
 }
 
-export type DataSourceProfile = PostgresProfile | LocalFilesProfile | SqliteFileProfile | BigQueryProfile
+export type PrometheusAuth =
+  | { kind: 'none' }
+  | { kind: 'bearer'; token: string }
+  | { kind: 'basic'; username: string; password: string }
+
+export type PrometheusTransportConfig =
+  | { kind: 'direct'; url: string; auth: PrometheusAuth }
+  | { kind: 'grafana'; url: string; token: string; datasourceUid: string }
+
+export interface PrometheusProfile extends ProfileBase {
+  kind: 'prometheus'
+  readonly: true
+  transport: PrometheusTransportConfig
+}
+
+export type DataSourceProfile = PostgresProfile | LocalFilesProfile | SqliteFileProfile | BigQueryProfile | PrometheusProfile
 /** @deprecated Prefer the discriminated DataSourceProfile union. */
 export type ConnectionProfile = PostgresProfile
 

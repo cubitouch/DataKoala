@@ -9,9 +9,10 @@ import { PostgresAdapter, DatabaseConnectionError, __testing } from './adapters/
 import { LocalFilesAdapter } from './adapters/local-files-adapter.ts'
 import { SqliteFileAdapter } from './adapters/sqlite-file-adapter.ts'
 import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
+import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
 
 const postgresAdapter = new PostgresAdapter()
-export const adapterRegistry = new AdapterRegistry().register(postgresAdapter).register(new LocalFilesAdapter()).register(new SqliteFileAdapter()).register(new BigQueryAdapter())
+export const adapterRegistry = new AdapterRegistry().register(postgresAdapter).register(new LocalFilesAdapter()).register(new SqliteFileAdapter()).register(new BigQueryAdapter()).register(new PrometheusAdapter())
 
 export class SessionManager {
   private readonly registry: AdapterRegistry
