@@ -39,14 +39,42 @@ src/shared    types + IPC channel names shared across the boundary
 
 ## Getting started
 
-Requires Node 22+ and pnpm.
+Requires Node 22+, pnpm, and Git.
+
+On macOS, install the optional Prometheus tooling used by the PromQL formatter and the Grafana `gcx` CLI used by Grafana/Prometheus connections:
 
 ```bash
-pnpm install
+brew install prometheus
+brew install grafana/grafana/gcx
+
+promtool --version
+gcx --version
+```
+
+The Homebrew `prometheus` formula installs `promtool`. To use a Grafana Cloud or Grafana connection, authenticate `gcx` before starting DataKoala, for example:
+
+```bash
+gcx login my-stack --server https://<your-stack>.grafana.net
+```
+
+Then clone and run DataKoala:
+
+```bash
+git clone https://github.com/cubitouch/DataKoala.git
+cd DataKoala
+
+corepack enable
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
 Then create a connection or local source from the left sidebar.
+
+If `promtool` is installed somewhere outside your `PATH`, set `DATAKOALA_PROMTOOL_PATH` before starting DataKoala:
+
+```bash
+DATAKOALA_PROMTOOL_PATH=/path/to/promtool pnpm dev
+```
 
 ## macOS releases
 
