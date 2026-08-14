@@ -28,6 +28,8 @@ export interface DataSourceSession {
   listNamespaces(): Promise<DataNamespace[]>
   listRelations(namespace?: DataNamespaceRef): Promise<DataRelation[]>
   describeRelation(ref: DataRelationRef): Promise<DataColumn[]>
+  labelsForMetric?(metricName: string): Promise<string[]>
+  labelValues?(metricName: string, labelName: string): Promise<string[]>
   explain?(sql: string, analyze?: boolean): Promise<ExplainResult>
   estimateQuery?(sql: string): Promise<QueryEstimate>
   cancel?(queryId: string): Promise<void>
