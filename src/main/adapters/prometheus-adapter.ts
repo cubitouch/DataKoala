@@ -1,7 +1,9 @@
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
-import type { DataSourceCapabilities, PrometheusProfile, QueryResult } from '../../shared/types.ts'
+import type { DataSourceCapabilities, PrometheusProfile } from '../../shared/types.ts'
 import { discoverPrometheus } from '../prometheus-discovery.ts'
 import type { PrometheusDiscoveryResult } from '../../shared/prometheus.ts'
+import { GcxPrometheusTransport } from '../gcx-prometheus-transport.ts'
+import type { PrometheusTransport } from '../prometheus-transport.ts'
 
 const capabilities: DataSourceCapabilities = {
   builder: false, explain: false, analyze: false, queryCancellation: false,
@@ -11,7 +13,8 @@ const capabilities: DataSourceCapabilities = {
 export class PrometheusAdapter implements DataSourceAdapter {
   readonly kind = 'prometheus' as const
   private readonly discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult>
-  constructor(discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult> = discoverPrometheus) { this.discover = discover }
+  private readonly createTransport: (context?: string) => PrometheusTransport
+  constructor(discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult> = discoverPrometheus, createTransport: (context?: string) => PrometheusTransport = (context) => new GcxPrometheusTransport(context)) { this.discover = discover; this.createTransport = createTransport }
   async test(profile: PrometheusProfile) {
     try {
       const result = await this.discover(profile.transport)
@@ -29,10 +32,13 @@ export class PrometheusAdapter implements DataSourceAdapter {
         namespace: 'Metrics', name: metric.name, kind: 'metric' as const,
         details: { kind: 'metric' as const, type: metric.type, help: metric.help, unit: metric.unit }
       }))
-    const unsupported = async (): Promise<QueryResult> => { throw new Error('PromQL execution is not available yet.') }
+    const transport = this.createTransport(profile.transport.context)
     const session: DataSourceSession = {
       info: { profileId: profile.id, provider: 'prometheus' }, capabilities,
-      query: unsupported,
+      query: ({ sql, prometheus }) => {
+        if (!prometheus) throw new Error('Prometheus range queries require start, end, and step.')
+        return transport.query({ expression: sql, ...prometheus })
+      },
       listNamespaces: async () => [{ name: 'Metrics' }],
       listRelations: async (namespace) => namespace && namespace.name !== 'Metrics' ? [] : relations,
       describeRelation: async () => [], close: async () => {}

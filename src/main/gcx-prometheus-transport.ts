@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { PrometheusMetricMetadata } from '../shared/prometheus.ts'
+import type { PrometheusMetricMetadata, PrometheusQueryRequest } from '../shared/prometheus.ts'
+import type { ColumnMeta, QueryResult } from '../shared/types.ts'
 import type { PrometheusTransport } from './prometheus-transport.ts'
 
 export interface GcxCommandResult { stdout: string; stderr: string }
@@ -24,7 +25,16 @@ function errorMessage(error: unknown): string {
   if (/expired|token.*expir|session.*expir/.test(detail)) return 'gcx authentication has expired. Run gcx login, then try again.'
   if (/not authenticated|not logged|no.*context|login required|unauthenticated/.test(detail)) return 'gcx is installed but no authenticated context is available. Run gcx login, then try again.'
   if (/forbidden|permission|not permitted|access denied|status.?403/.test(detail)) return 'Metrics access is not permitted for this account.'
-  return 'gcx could not discover metrics. Check the selected context and run gcx login if needed.'
+  const raw = `${value?.stderr ?? ''} ${value?.stdout ?? ''}`.trim()
+  if (raw && /parse|promql|query|bad_data|execution|timeout|server error/i.test(raw)) return sanitizeGcxError(raw)
+  return 'gcx could not complete the Prometheus operation. Check the selected context and run gcx login if needed.'
+}
+
+function sanitizeGcxError(value: string): string {
+  return value
+    .replace(/(authorization|token|password|secret|cookie)\s*[:=]\s*\S+/gi, '$1=[redacted]')
+    .replace(/https?:\/\/[^\s@]+@/g, 'https://[redacted]@')
+    .trim()
 }
 
 function optionalString(record: Record<string, unknown>, key: string): string | undefined {
@@ -83,6 +93,50 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
+const column = (name: string, logicalType: ColumnMeta['logicalType'], nativeType: string, dataTypeID: number): ColumnMeta =>
+  ({ name, logicalType, nativeType, dataTypeID, dataTypeName: nativeType })
+
+function samplePair(value: unknown, context: string): [number, number] {
+  if (!Array.isArray(value) || value.length !== 2 || typeof value[0] !== 'number') throw new Error(`gcx returned an invalid ${context} sample.`)
+  const numeric = typeof value[1] === 'number' ? value[1] : typeof value[1] === 'string' ? Number(value[1]) : NaN
+  if (Number.isNaN(numeric)) throw new Error(`gcx returned a non-numeric ${context} sample value.`)
+  return [value[0], numeric]
+}
+
+/** Normalize the Prometheus API envelope emitted by `gcx metrics query -o json`. */
+export function normalizeGcxQuery(raw: unknown, durationMs = 0): QueryResult {
+  if (!isRecord(raw)) throw new Error('gcx returned valid JSON, but the Prometheus query response was not an object.')
+  if (raw.status === 'error') {
+    const detail = typeof raw.error === 'string' ? raw.error : 'Prometheus rejected the query.'
+    const kind = typeof raw.errorType === 'string' ? `${raw.errorType}: ` : ''
+    throw new Error(`${kind}${detail}`)
+  }
+  if (raw.status !== 'success' || !isRecord(raw.data) || !Array.isArray(raw.data.result) || !['matrix', 'vector'].includes(String(raw.data.resultType))) {
+    throw new Error('gcx returned valid JSON, but not a supported Prometheus matrix or vector response.')
+  }
+  const labels = new Set<string>()
+  const pending: { metric: Record<string, string>; pair: [number, number] }[] = []
+  for (const item of raw.data.result) {
+    if (!isRecord(item) || !isRecord(item.metric) || Object.values(item.metric).some((v) => typeof v !== 'string')) throw new Error('gcx returned an invalid Prometheus series label set.')
+    const metric = item.metric as Record<string, string>
+    Object.keys(metric).forEach((name) => labels.add(name))
+    if (raw.data.resultType === 'matrix') {
+      if (!Array.isArray(item.values)) throw new Error('gcx returned a matrix series without values.')
+      item.values.forEach((value) => pending.push({ metric, pair: samplePair(value, 'range') }))
+    } else pending.push({ metric, pair: samplePair(item.value, 'instant') })
+  }
+  const labelNames = [...labels].sort()
+  const rows = pending.map(({ metric, pair }) => {
+    const identity = labelNames.filter((name) => metric[name] !== undefined).map((name) => `${name}=${JSON.stringify(metric[name])}`).join(',')
+    return { timestamp: new Date(pair[0] * 1000).toISOString(), value: pair[1], series: identity ? `{${identity}}` : '{}', ...metric }
+  })
+  return {
+    columns: [column('timestamp', 'timestamp', 'timestamptz', 1184), column('value', 'number', 'double precision', 701), column('series', 'string', 'text', 25), ...labelNames.map((name) => column(name, 'string', 'text', 25))],
+    rows, rowCount: rows.length, durationMs,
+    execution: { provider: 'prometheus', durationMs, rowCount: rows.length }
+  }
+}
+
 function normalizeVersion(raw: unknown): string {
   if (typeof raw === 'string' && raw.trim()) return raw.trim()
   if (raw && typeof raw === 'object') {
@@ -108,9 +162,17 @@ export class GcxPrometheusTransport implements PrometheusTransport {
       return normalizeGcxMetadata(parseJson((await this.run(['metrics', 'metadata', ...contextArgs, '-o', 'json'])).stdout, 'metrics metadata'))
     } catch (error) { throwNormalizedGcxError(error) }
   }
+  async query(request: PrometheusQueryRequest): Promise<QueryResult> {
+    const started = Date.now()
+    try {
+      const contextArgs = this.context ? ['--context', this.context] : []
+      const args = ['metrics', 'query', request.expression, ...contextArgs, '--from', request.start, '--to', request.end, '--step', request.step, '-o', 'json']
+      return normalizeGcxQuery(parseJson((await this.run(args)).stdout, 'metrics query'), Date.now() - started)
+    } catch (error) { throwNormalizedGcxError(error) }
+  }
 }
 
 function throwNormalizedGcxError(error: unknown): never {
-  if (error instanceof Error && (error.message.startsWith('gcx returned') || error.message.includes('metric metadata shape'))) throw error
+  if (error instanceof Error && (error.message.startsWith('gcx returned') || error.message.includes('metric metadata shape') || /^(bad_data|execution|timeout|canceled|Prometheus rejected)/.test(error.message))) throw error
   throw new Error(errorMessage(error))
 }

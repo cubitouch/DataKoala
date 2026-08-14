@@ -66,6 +66,7 @@
     "@codemirror/theme-one-dark": "^6.1.2",
     "@duckdb/node-api": "1.5.5-r.3",
     "@google-cloud/bigquery": "8.3.1",
+    "@prometheus-io/codemirror-promql": "0.313.2",
     "@uiw/react-codemirror": "^4.23.7",
     "echarts": "^5.5.1",
     "echarts-for-react": "^3.0.2",

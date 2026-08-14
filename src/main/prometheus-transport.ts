@@ -1,6 +1,7 @@
-import type { PrometheusMetricMetadata } from '../shared/prometheus.ts'
+import type { PrometheusMetricMetadata, PrometheusQueryRequest } from '../shared/prometheus.ts'
+import type { QueryResult } from '../shared/types.ts'
 
-/** Provider-neutral Prometheus operations. Query operations belong in a later increment. */
 export interface PrometheusTransport {
   metadata(): Promise<PrometheusMetricMetadata[]>
+  query(request: PrometheusQueryRequest): Promise<QueryResult>
 }

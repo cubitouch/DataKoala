@@ -61,21 +61,22 @@ describe('Prometheus workspace restoration', () => {
     const initialEditorRenders = mocks.queryEditorRenders
     expect(initialEditorRenders).toBe(0)
     resolveProfiles([prometheus])
-    await screen.findByRole('status', { name: 'Prometheus query support is coming' })
-    expect(mocks.queryEditorRenders).toBe(initialEditorRenders)
+    await screen.findByText('SQL editor mounted')
+    expect(mocks.queryEditorRenders).toBeGreaterThan(initialEditorRenders)
     expect(activeTestSession().connectionProfileId).toBe(prometheus.id)
     expect(useStore.getState().activeProfileId).toBeNull()
     expect(screen.getAllByText('Cloud metrics').length).toBeGreaterThan(0)
     expect(screen.getByText('Disconnected')).toBeTruthy()
   })
 
-  it('renders the safe unavailable state for an already-active Prometheus connection', () => {
+  it('renders the PromQL query surface for an already-active Prometheus connection', () => {
     resetTestStore({ profiles: [prometheus], activeProfileId: prometheus.id, connected: true, connectionStatus: 'connected' })
     patchActiveTestSession({ connectionProfileId: prometheus.id, queryMode: 'builder' })
     mocks.list.mockResolvedValue([prometheus])
     render(<App />)
 
-    expect(screen.getByRole('status', { name: 'Prometheus query support is coming' })).toBeTruthy()
+    expect(screen.getByText('SQL editor mounted')).toBeTruthy()
+    expect(screen.getByText('Results mounted')).toBeTruthy()
     expect(screen.queryByText('Builder mounted')).toBeNull()
     expect(screen.getByText(/Cloud metrics · Prometheus/)).toBeTruthy()
   })

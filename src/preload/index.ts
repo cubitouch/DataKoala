@@ -12,6 +12,7 @@ import type { SeriesCardinalityProbeRequest, SeriesCardinalityProbeResult, Serie
 import type { BigQueryDatasetOption, BigQueryDiscoveryDefaults, BigQueryProjectOption } from '@shared/bigqueryDiscovery'
 import type { PrometheusDiscoveryResult } from '@shared/prometheus'
 import type { PrometheusTransportConfig } from '@shared/types'
+import type { PrometheusQueryRequest } from '@shared/prometheus'
 
 const api = {
   /** True only when the app is launched by a test/repro harness. */
@@ -50,7 +51,7 @@ const api = {
     }
   },
   query: {
-    run: (id: string, sql: string, parameters: unknown[] = []): Promise<QueryResult> => ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters),
+    run: (id: string, sql: string, parameters: unknown[] = [], prometheus?: Omit<PrometheusQueryRequest, 'expression'>): Promise<QueryResult> => ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters, prometheus),
     probeSeriesCardinality: (id: string, request: SeriesCardinalityProbeRequest): Promise<SeriesCardinalityProbeResult> =>
       ipcRenderer.invoke(IPC.QUERY_PROBE_SERIES_CARDINALITY, id, request),
     seriesStatistics: (id: string, request: SeriesStatisticsRequest): Promise<SeriesStatisticsResult> =>

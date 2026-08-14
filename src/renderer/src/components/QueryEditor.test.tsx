@@ -4,9 +4,9 @@ void React
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-const { explain } = vi.hoisted(() => ({ explain: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: { query: { explain, run: vi.fn() }, export: { saveText: vi.fn() } } }))
-vi.mock('@uiw/react-codemirror', () => ({ default: ({ value, onChange, editable = true }: { value: string, onChange: (value: string) => void, editable?: boolean }) => <textarea aria-label="SQL editor" value={value} disabled={!editable} onChange={(event) => onChange(event.target.value)} /> }))
+const { explain, runQuery } = vi.hoisted(() => ({ explain: vi.fn(), runQuery: vi.fn() }))
+vi.mock('../lib/api', () => ({ api: { query: { explain, run: runQuery }, export: { saveText: vi.fn() } } }))
+vi.mock('@uiw/react-codemirror', () => ({ default: ({ value, onChange, editable = true, ...props }: { value: string, onChange: (value: string) => void, editable?: boolean, 'aria-label'?: string }) => <textarea aria-label={props['aria-label'] ?? 'SQL editor'} value={value} disabled={!editable} onChange={(event) => onChange(event.target.value)} /> }))
 vi.mock('@codemirror/lang-sql', () => {
   const dialect = { spec: {}, language: { data: { of: () => ({}) } } }
   return { sql: () => ({}), PostgreSQL: dialect, StandardSQL: dialect, SQLDialect: { define: () => dialect } }
@@ -17,6 +17,7 @@ vi.mock('./ModeSwitch', () => ({ ModeSwitch: () => <div aria-label="Query mode" 
 import { QueryEditor } from './QueryEditor'
 import { ExplainPane } from './ExplainPane'
 import { patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+import { useStore } from '../store/useStore'
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void
@@ -34,6 +35,31 @@ function renderExplainUi() {
 beforeEach(() => {
   explain.mockReset()
   explain.mockResolvedValue({ text: 'new plan' })
+  runQuery.mockReset()
+})
+
+describe('PromQL execution', () => {
+  it('uses the PromQL editor and delivers normalized rows with timeseries defaults', async () => {
+    const result = { columns: [
+      { name: 'timestamp', dataTypeID: 1184, dataTypeName: 'timestamptz' },
+      { name: 'value', dataTypeID: 701, dataTypeName: 'double precision' },
+      { name: 'series', dataTypeID: 25, dataTypeName: 'text' }
+    ], rows: [{ timestamp: '2026-08-14T10:00:00.000Z', value: 1, series: '{instance="a"}' }], rowCount: 1, durationMs: 10 }
+    runQuery.mockResolvedValue(result)
+    resetTestStore({ profiles: [{ id: 'prom-1', name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }], activeProfileId: 'prom-1', connected: true, connecting: false, connectionStatus: 'connected' })
+    patchActiveTestSession({ connectionProfileId: 'prom-1', queryMode: 'sql', sql: 'up' })
+    render(<QueryEditor />)
+
+    expect(screen.getByLabelText('PromQL editor')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(runQuery).toHaveBeenCalled())
+    const call = runQuery.mock.calls[0]
+    expect(call[0]).toBe('prom-1')
+    expect(call[1]).toBe('up')
+    expect(call[3]).toMatchObject({ step: '30s' })
+    await waitFor(() => expect(useStore.getState().tabs[0].result?.rows).toEqual(result.rows))
+    expect(useStore.getState().tabs[0].sqlVisualization).toMatchObject({ view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: 'series' })
+  })
 })
 afterEach(() => { cleanup(); resetTestStore() })
 
