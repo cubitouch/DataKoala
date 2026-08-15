@@ -10,10 +10,14 @@ async function installDocumentationStatusCompatibility(contents) {
 
     const sync = () => {
       const status = document.querySelector('.titlebar [role="status"]')
-      if (!status || status.classList.contains('conn-pill')) return
+      if (!status) return
+      const state = status.getAttribute('data-state')
+      // The pre-CSS-Modules component already owns the legacy classes and has no
+      // data-state attribute. Leave it untouched; only alias the merged module version.
+      if (state === null) return
       status.classList.add('conn-pill')
-      status.classList.toggle('on', status.getAttribute('data-state') === 'connected')
-      status.classList.toggle('err', status.getAttribute('data-state') === 'error')
+      status.classList.toggle('on', state === 'connected')
+      status.classList.toggle('err', state === 'error')
     }
 
     sync()
