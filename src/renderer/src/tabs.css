@@ -130,14 +130,21 @@
 }
 
 /* Titlebar integration overrides. Kept here so current main's Prometheus/metric styles stay intact. */
-.titlebar-drag-space { flex: 0 1 64px; min-width: 28px; height: 100%; }
+.titlebar-drag-space { flex: 1 1 28px; min-width: 28px; height: 100%; }
 .titlebar .logo { flex: 0 0 auto; font-weight: 600; letter-spacing: .3px; }
 .conn-pill {
   display: flex; align-items: center; gap: 6px; min-width: 0; max-width: min(260px, 28cqi);
   padding: 3px 10px; border-radius: 6px; background: var(--bg-3);
   border: 1px solid var(--border); font-size: 11px; color: var(--text-dim);
 }
-.titlebar > .query-tabs { -webkit-app-region: no-drag; flex: 1 1 auto; min-width: 0; height: 100%; }
+.titlebar > .query-tabs {
+  -webkit-app-region: no-drag;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 100%;
+  scrollbar-width: none;
+}
+.titlebar > .query-tabs::-webkit-scrollbar { display: none; }
 .titlebar > .conn-pill { -webkit-app-region: no-drag; flex: 0 1 auto; }
 .conn-pill .dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--text-mute); }
 .conn-pill.on .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
