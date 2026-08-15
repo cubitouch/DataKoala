@@ -142,7 +142,9 @@
   flex: 0 1 auto;
   min-width: 0;
   height: 100%;
+  scrollbar-width: none;
 }
+.titlebar > .query-tabs::-webkit-scrollbar { display: none; }
 .titlebar > .conn-pill { -webkit-app-region: no-drag; flex: 0 1 auto; }
 .conn-pill .dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--text-mute); }
 .conn-pill.on .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }

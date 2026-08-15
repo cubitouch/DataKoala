@@ -18,6 +18,11 @@ test('the titlebar tab strip sizes to its contents instead of consuming drag spa
   expect(titlebarTabs).not.toMatch(/(?:^|\n)\s*width\s*:/)
   expect(titlebarTabs).toMatch(/min-width:\s*0\s*;/)
   expect(titlebarTabs).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
+  expect(titlebarTabs).toMatch(/scrollbar-width:\s*none\s*;/)
+
+  const baseTabs = rule(tabsCss, '.query-tabs')
+  expect(baseTabs).toMatch(/overflow-x:\s*auto\s*;/)
+  expect(rule(tabsCss, '.titlebar > .query-tabs::-webkit-scrollbar')).toMatch(/display:\s*none\s*;/)
 
   const dragSpace = rule(tabsCss, '.titlebar-drag-space')
   expect(dragSpace).toMatch(/flex:\s*1\s+1\s+28px\s*;/)
