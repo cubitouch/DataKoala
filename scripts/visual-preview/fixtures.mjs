@@ -9,7 +9,7 @@ export const documentationScreenshots = [
 ]
 
 export const syntheticSources = [
-  { id: 'preview-postgres', name: 'Market analytics', kind: 'postgres', version: 1, host: 'localhost', port: 5432, database: 'analytics', user: 'demo', password: '', ssl: false, readonly: true },
+  { id: 'docs-postgres', name: 'Market analytics', kind: 'postgres', version: 1, host: 'localhost', port: 5432, database: 'analytics', user: 'demo', password: '', ssl: false, readonly: true },
   { id: 'docs-bigquery', name: 'Regional warehouse', kind: 'bigquery', version: 1, billingProject: 'sample-billing', defaultProject: 'sample-analytics', defaultDataset: 'analytics', maximumBytesBilled: '1000000000', readonly: true },
   { id: 'docs-sqlite', name: 'Campaign archive', kind: 'sqlite-file', version: 1, path: '/samples/campaigns.sqlite', readonly: true },
   { id: 'docs-files', name: 'Monthly exports', kind: 'local-files', version: 1, files: [{ path: '/samples/market_activity.csv', alias: 'market_activity' }], readonly: true },

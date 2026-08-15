@@ -234,6 +234,75 @@ async function seedDocumentationData(win) {
   if (report?.error) throw new Error(report.error)
 }
 
+async function configureDocumentationSql(win, mode, view) {
+  await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    const state = store.getState()
+    const profile = { id: 'docs-postgres', name: 'Market analytics', kind: 'postgres', version: 1, host: 'localhost', port: 5432, database: 'analytics', user: 'demo', password: '', ssl: false, readonly: true }
+    const schemas = [{ name: 'analytics', isSystem: false, relations: [
+      { schema: 'analytics', name: 'monthly_market_activity', qualifiedName: 'analytics.monthly_market_activity', kind: 'r', columnsStatus: 'loaded', columns: [
+        { name: 'time_bucket', dataTypeName: 'timestamptz' }, { name: 'series', dataTypeName: 'text' }, { name: 'count', dataTypeName: 'int8' }
+      ] },
+      { schema: 'analytics', name: 'market_summary', qualifiedName: 'analytics.market_summary', kind: 'v', columnsStatus: 'idle' },
+      { schema: 'analytics', name: 'customer_activity', qualifiedName: 'analytics.customer_activity', kind: 'r', columnsStatus: 'idle' }
+    ] }]
+    store.setState({
+      profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false,
+      connectionStatus: 'connected', connectionError: null, serverVersion: '17',
+      metadataByProfileId: { ...state.metadataByProfileId, [profile.id]: { schemas, status: 'loaded', error: null, isStale: false } },
+      tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
+        ...tab, connectionProfileId: profile.id, queryMode: '${mode}',
+        sql: 'select time_bucket, series, count\\nfrom analytics.monthly_market_activity\\norder by time_bucket, series;',
+        sqlResultFilters: [], builderResultFilters: [], builderFilterNotice: null,
+        builder: { ...tab.builder, table: { schema: 'analytics', name: 'monthly_market_activity' }, timeColumn: 'time_bucket', timeBucket: 'month', seriesColumns: ['series'] },
+        builderHasRun: true,
+        sqlVisualization: { ...tab.sqlVisualization, view: '${view}', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: 'series', seriesColumns: [], aggregation: 'sum' },
+        builderVisualization: { ...tab.builderVisualization, view: 'line', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: null, seriesColumns: ['series'], aggregation: 'sum' }
+      } : tab)
+    })
+  })()`)
+  await waitForRendererState(win, `'${mode}' === 'builder' ? document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' : document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'SQL'`, `visible ${mode} documentation mode`)
+}
+
+async function assertDocumentationChart(win, filename) {
+  await waitForRendererState(win, `document.querySelectorAll('.result-chart-canvas canvas').length === 1 && new Set(window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).result.rows.map((row) => row.series)).size === 5`, `${filename} five-series chart`)
+  const report = await win.webContents.executeJavaScript(`({
+    filters: document.querySelectorAll('.result-filter-chip').length,
+    seriesCount: new Set(window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).result.rows.map((row) => row.series)).size,
+    activeView: document.querySelector('.result-view-bar button.active')?.textContent?.trim()
+  })`)
+  if (report.filters || report.seriesCount !== 5 || !['Bar', 'Line'].includes(report.activeView)) throw new Error(`${filename} semantic assertion failed: ${JSON.stringify(report)}`)
+  await sleep(1200)
+}
+
+async function configureDocumentationPrometheus(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    const state = store.getState()
+    const profile = { id: 'docs-prometheus', name: 'Service metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx', datasourceUid: 'sample-metrics' } }
+    const schemas = [{ name: 'Prometheus', isSystem: false, relations: [
+      { schema: 'Prometheus', name: 'http_requests_total', qualifiedName: 'http_requests_total', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'counter', help: 'Total HTTP requests.' } },
+      { schema: 'Prometheus', name: 'http_request_duration_seconds_bucket', qualifiedName: 'http_request_duration_seconds_bucket', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'histogram', help: 'HTTP request duration buckets.' } },
+      { schema: 'Prometheus', name: 'process_memory_bytes', qualifiedName: 'process_memory_bytes', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'gauge', help: 'Resident process memory.' } }
+    ] }]
+    store.setState({
+      profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false,
+      connectionStatus: 'connected', connectionError: null, serverVersion: null,
+      metadataByProfileId: { ...state.metadataByProfileId, [profile.id]: { schemas, status: 'loaded', error: null, isStale: false } },
+      tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
+        ...tab, connectionProfileId: profile.id, queryMode: 'builder', result: null, pendingResult: null,
+        sqlResultFilters: [], builderResultFilters: [],
+        sql: 'histogram_quantile(\\n  0.95,\\n  sum by (service, le) (rate(http_request_duration_seconds_bucket{environment="production"}[5m]))\\n)',
+        prometheusTimeRange: { kind: 'rolling', amount: 6, unit: 'hour' }, prometheusStep: '30s',
+        promqlBuilder: { ...tab.promqlBuilder, metric: 'http_request_duration_seconds_bucket', filterBy: ['environment'], groupBy: ['service'], labelValues: { environment: ['production'], service: ['api', 'worker'] }, calculation: 'percentile', aggregation: 'sum', percentile: 0.95, window: '5m' }
+      } : tab)
+    })
+  })()`)
+  await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && document.querySelector('.promql-builder-form') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'visible configured Prometheus Builder')
+  const report = await win.webContents.executeJavaScript(`(() => { const state = window.__datakoalaStore.getState(); const tab = state.tabs.find((item) => item.id === state.activeTabId); return { mode: tab.queryMode, result: tab.result, metric: tab.promqlBuilder.metric, tables: document.querySelectorAll('table.results tbody tr').length } })()`)
+  if (report.mode !== 'builder' || report.result !== null || report.metric !== 'http_request_duration_seconds_bucket' || report.tables) throw new Error(`Prometheus documentation assertion failed: ${JSON.stringify(report)}`)
+}
+
 async function configureMode(win, mode) {
   const report = await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
@@ -426,6 +495,8 @@ async function configureBuilderControls(win, variant) {
 }
 
 async function capture(win, filename) {
+  await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+  await sleep(150)
   const image = await win.webContents.capturePage()
   const path = resolve(outputDir, filename)
   await writeFile(path, image.toPNG())
@@ -558,44 +629,35 @@ app.whenReady().then(async () => {
       await rm(outputDir, { recursive: true, force: true })
       await mkdir(outputDir, { recursive: true })
       await seedDocumentationData(win)
-      await configureMode(win, 'sql')
-      await sleep(500)
-      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().clearResultFilters('sql')`)
-      await waitForRendererState(win, `!document.body.innerText.includes('Series = “France”')`, 'unfiltered documentation overview')
+      await configureDocumentationSql(win, 'sql', 'bar')
+      await assertDocumentationChart(win, 'docs-overview.png')
       await capture(win, 'docs-overview.png')
 
-      await configureTablePreview(win)
+      await configureDocumentationSql(win, 'sql', 'table')
+      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().addResultFilter('sql', { id: 'docs-france', column: 'series', operator: 'equals', value: 'France' })`)
+      await waitForTable(win)
+      await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'SQL' && document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Table' && document.querySelectorAll('table.results tbody tr').length === 12`, 'filtered SQL documentation table')
       await capture(win, 'docs-sql.png')
 
-      await configureMode(win, 'builder')
-      await sleep(500)
-      await configureMode(win, 'builder')
-      await configureBuilderControls(win, 'temporal-series')
-      await sleep(350)
+      await configureDocumentationSql(win, 'builder', 'line')
+      await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).builder.table?.name === 'monthly_market_activity'`, 'configured SQL Builder')
+      await assertDocumentationChart(win, 'docs-builder.png')
       await capture(win, 'docs-builder.png')
 
-      await configurePrometheusToolbar(win)
-      await configurePrometheusBuilder(win)
-      await sleep(500)
-      await configurePrometheusToolbar(win)
-      await configurePrometheusBuilder(win)
-      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().clearActiveResults()`)
-      await waitForRendererState(win, `document.querySelector('.promql-builder-form')?.innerText.includes('http_request_duration_seconds_bucket')`, 'configured Prometheus Builder')
+      await configureDocumentationPrometheus(win)
       await capture(win, 'docs-prometheus.png')
 
       await seedDocumentationData(win)
-      await configureMode(win, 'sql')
-      await sleep(500)
-      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().clearResultFilters('sql')`)
-      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setVisualization('sql', { view: 'line', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: 'series', aggregation: 'sum' })`)
-      await waitForChart(win)
-      await sleep(400)
+      await configureDocumentationSql(win, 'sql', 'line')
+      await assertDocumentationChart(win, 'docs-visualization.png')
       await capture(win, 'docs-visualization.png')
 
-      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setProfiles(${JSON.stringify(syntheticSources)})`)
-      await waitForRendererState(win, `document.body.innerText.includes('Local files') && document.body.innerText.includes('SQLite') && document.body.innerText.includes('BigQuery')`, 'all documentation datasource labels')
+      await win.webContents.executeJavaScript(`window.__datakoalaStore.setState({ profiles: ${JSON.stringify(syntheticSources)} })`)
+      await waitForRendererState(win, `${syntheticSources.map((profile) => `document.body.innerText.includes(${JSON.stringify(profile.name)})`).join(' && ')}`, 'all documentation datasource names')
       await win.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('new connection'))?.click()`)
       await waitForRendererState(win, `document.querySelector('[role="dialog"]') && document.body.innerText.includes('Choose a connection type')`, 'datasource picker dialog')
+      const sourcesReport = await win.webContents.executeJavaScript(`({ names: ${JSON.stringify(syntheticSources.map((profile) => profile.name))}.filter((name) => document.body.innerText.includes(name)), dialog: Boolean(document.querySelector('[role="dialog"]')) })`)
+      if (sourcesReport.names.length !== syntheticSources.length || !sourcesReport.dialog) throw new Error(`Datasource documentation assertion failed: ${JSON.stringify(sourcesReport)}`)
       await capture(win, 'docs-data-sources.png')
 
       const actual = (await readdir(outputDir)).filter((name) => name.endsWith('.png')).sort()

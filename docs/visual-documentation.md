@@ -22,4 +22,6 @@ On a desktop with a display, `pnpm docs:screenshots` can run without `xvfb-run`.
 3. Add the filename to `documentationScreenshots`. Generation fails when a file is missing or an unexpected PNG remains.
 4. Add the image and meaningful alt text to `docs-site/src/main.ts`, then inspect the full-resolution image and responsive site.
 
+Every documentation scenario must assert its visible semantic state immediately before capture—not only that a canvas or filename exists. Check the active mode/view, selected controls, expected row or series count, absence of stale filters/results, and any dialog content that the screenshot is meant to demonstrate. Charts run without animation in the controlled smoke process so capture cannot sample an ECharts transition.
+
 The visual-preview workflow continues to publish PR-only review artifacts to `visual-previews`. The Pages workflow validates screenshots and the site on pull requests but deploys nothing. Only a push to `main` generates the canonical site artifact and deploys it with the official Pages actions. The repository owner may first need to select **Settings → Pages → Source → GitHub Actions**.

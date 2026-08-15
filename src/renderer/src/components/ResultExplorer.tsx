@@ -166,7 +166,12 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     () => `${resultRevision}:${createChartFingerprint(chart, effectiveConfiguration, seriesVisibility)}:${mode}:${activeBuilderTimeBucket ?? ''}:hierarchy=${hierarchical ? JSON.stringify(hierarchy) : ''}:anomalies=${anomalies.map((item) => `${item.seriesName}:${item.dataIndex}`).join(',')}`,
     [resultRevision, chart, effectiveConfiguration, seriesVisibility, mode, activeBuilderTimeBucket, hierarchy, hierarchical, anomalies]
   )
-  const renderedOption = useMemo(() => option ? { ...option, animation: animationPolicy.current.shouldAnimate(chartFingerprint) } : null, [chartFingerprint])
+  const renderedOption = useMemo(() => option ? {
+    ...option,
+    // Deterministic real-renderer captures should never sample ECharts mid-transition.
+    // smokeMode is exposed only by the controlled Electron preview/smoke process.
+    animation: window.datakoala?.smokeMode ? false : animationPolicy.current.shouldAnimate(chartFingerprint)
+  } : null, [chartFingerprint])
   const chartRevision = useMemo(createChartRevision, [chartFingerprint])
   useEffect(() => {
     if (!renderedOption) return
