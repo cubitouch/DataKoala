@@ -6,6 +6,7 @@ import { selectActiveSession, useStore } from './store/useStore'
 import { BuilderPanel } from './components/BuilderPanel'
 import { ResultExplorer } from './components/ResultExplorer'
 import { QueryTabs } from './components/QueryTabs'
+import { ConnectionStatus } from './components/ConnectionStatus'
 import {
   EDITOR_MIN, SIDEBAR_MIN, TITLEBAR_HEIGHT,
   clampDimension, editorBounds, keyboardDimension, parseStoredDimension, sidebarBounds
@@ -141,6 +142,7 @@ export function App() {
         <span className="logo">DataKoala</span>
         <QueryTabs />
         <div className="titlebar-drag-space" aria-hidden="true" />
+        <ConnectionStatus />
       </div>
 
       <div className="workspace" ref={workspaceRef} style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
