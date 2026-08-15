@@ -299,14 +299,18 @@ async function configurePrometheusBuilder(win) {
     const store = window.__datakoalaStore
     const state = store.getState()
     state.setMetadata([{ name: 'Prometheus', isSystem: false, relations: [{
-      schema: 'Prometheus', name: 'http_requests_total', qualifiedName: 'http_requests_total', kind: 'metric',
-      columnsStatus: 'idle', details: { kind: 'metric', type: 'counter', help: 'Total HTTP requests' }
+      schema: 'Prometheus', name: 'http_request_duration_seconds_bucket', qualifiedName: 'http_request_duration_seconds_bucket', kind: 'metric',
+      columnsStatus: 'idle', details: { kind: 'metric', type: 'histogram', help: 'HTTP request duration buckets' }
     }] }], 'loaded', null, 'preview-prometheus')
-    state.setPromqlBuilder({ metric: 'http_requests_total', filters: [{ id: 'preview-filter', label: 'status', operator: '=', value: 'failure' }], groupBy: ['status'], calculation: 'rate', window: '5m' })
-    state.setSql('sum by (status) (\\n  rate(http_requests_total{status="failure"}[5m])\\n)')
+    state.setPromqlBuilder({ metric: 'http_request_duration_seconds_bucket', filters: [{ label: 'environment', values: ['production'] }], groupBy: ['service'], calculation: 'percentile', percentile: 0.95, window: '5m' })
+    state.setSql('histogram_quantile(\\n  0.95,\\n  sum by (service, le) (\\n    rate(http_request_duration_seconds_bucket{environment="production"}[5m])\\n  )\\n)')
     state.setQueryMode('builder')
   })()`)
   await sleep(350)
+  await win.webContents.executeJavaScript(`document.querySelector('[aria-label^="environment values:"]')?.click()`)
+  await sleep(150)
+  await win.webContents.executeJavaScript(`document.querySelector('[aria-label^="environment values:"]')?.click()`)
+  await win.webContents.executeJavaScript(`document.querySelector('.generated-promql')?.setAttribute('open', '')`)
 }
 
 async function verifyQueryToolbar(win) {
@@ -317,7 +321,7 @@ async function verifyQueryToolbar(win) {
       toolbarScrollWidth: toolbar.scrollWidth, toolbarClientWidth: toolbar.clientWidth,
       paneScrollWidth: pane.scrollWidth, paneClientWidth: pane.clientWidth,
       hasRange: Boolean(toolbar.querySelector('.custom-range-field')),
-      hasStep: Boolean(toolbar.querySelector('[aria-label="PromQL query step"]')),
+      hasStep: Boolean(toolbar.querySelector('[aria-label="PromQL query resolution"]')),
       hasExplain: [...toolbar.querySelectorAll('button')].some((button) => button.textContent?.includes('Explain'))
     } : null
   })()`)
@@ -482,6 +486,8 @@ async function configureLongObjectTree(win) {
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
+  ipcMain.handle('connections:prometheus:metric-labels', async () => ['environment', 'service', 'le', '__name__'])
+  ipcMain.handle('connections:prometheus:label-values', async (_event, _id, _metric, label) => label === 'environment' ? ['production', 'staging'] : ['api', 'worker'])
 
   const win = new BrowserWindow({
     width: 1440,

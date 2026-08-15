@@ -76,10 +76,13 @@ describe('PromQL execution', () => {
     expect(formatQuery).not.toHaveBeenCalled()
   })
 
-  it('groups the shared date-range picker and Step while hiding SQL-only actions', () => {
+  it('groups the shared date-range picker and Resolution while hiding SQL-only actions', () => {
     renderPromql()
     expect(screen.getByRole('button', { name: /Time range: Last hour/ })).toBeTruthy()
-    expect(screen.getByLabelText('PromQL query step')).toBeTruthy()
+    expect(screen.getByLabelText('PromQL query resolution')).toBeTruthy()
+    const help = screen.getByRole('button', { name: 'Resolution help' })
+    expect(help.tabIndex).toBe(0)
+    expect(help.getAttribute('aria-describedby')).toBeTruthy()
     expect(screen.queryByLabelText('PromQL range start')).toBeNull()
     expect(screen.queryByText('From')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Explain' })).toBeNull()
@@ -110,7 +113,7 @@ describe('PromQL execution', () => {
     expect(runQuery).not.toHaveBeenCalled()
   })
 
-  it('disables Format for whitespace and runs the selected range and Step from keyboard', async () => {
+  it('disables Format for whitespace and runs the selected range and Resolution from keyboard', async () => {
     renderPromql('   ')
     expect(screen.getByRole('button', { name: 'Format' }).hasAttribute('disabled')).toBe(true)
     fireEvent.change(screen.getByLabelText('PromQL editor'), { target: { value: 'up' } })
@@ -131,11 +134,11 @@ describe('QueryEditor Explain loading states', () => {
     await waitFor(() => expect(useStore.getState().tabs[0].sql).toContain('SELECT'))
     expect(formatQuery).not.toHaveBeenCalled()
   })
-  it('keeps SQL Explain actions and does not expose Prometheus Step', () => {
+  it('keeps SQL Explain actions and does not expose Prometheus Resolution', () => {
     renderExplainUi()
     expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Explain Analyze' })).toBeTruthy()
-    expect(screen.queryByLabelText('PromQL query step')).toBeNull()
+    expect(screen.queryByLabelText('PromQL query resolution')).toBeNull()
   })
   it('shows Explaining, disables both buttons, preserves the previous plan, and ends after success', async () => {
     const request = deferred<{ text: string }>()

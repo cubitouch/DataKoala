@@ -106,16 +106,23 @@ function table(value: unknown): BuilderQueryState['table'] | undefined {
 
 function parsePromqlBuilder(value: unknown): PromqlBuilderState {
   if (!isRecord(value)) return { ...DEFAULT_PROMQL_BUILDER, filters: [], groupBy: [] }
-  const calculations = ['raw', 'rate', 'increase', 'sum', 'avg', 'min', 'max'] as const
+  const calculations = ['raw', 'rate', 'increase', 'sum', 'avg', 'min', 'max', 'percentile'] as const
   const windows = ['1m', '5m', '10m', '15m', '30m', '1h'] as const
-  const operators = ['=', '!=', '=~', '!~'] as const
-  const filters = Array.isArray(value.filters) ? value.filters.flatMap((filter) => isRecord(filter) && typeof filter.id === 'string' && typeof filter.label === 'string' && isOneOf(filter.operator, operators) && typeof filter.value === 'string'
-    ? [{ id: filter.id, label: filter.label, operator: filter.operator, value: filter.value }] : []) : []
+  const quantiles = [0.5, 0.75, 0.9, 0.95, 0.99, 0.999] as const
+  const filters = Array.isArray(value.filters) ? value.filters.flatMap((filter) => {
+    if (!isRecord(filter) || typeof filter.label !== 'string' || !filter.label) return []
+    if (Array.isArray(filter.values) && filter.values.every((item) => typeof item === 'string')) return [{ label: filter.label, values: [...new Set(filter.values as string[])] }]
+    // Defensive migration from the unreleased row-matcher shape. Only inclusive
+    // equality can be represented faithfully by the new Builder.
+    if (filter.operator === '=' && typeof filter.value === 'string' && filter.value) return [{ label: filter.label, values: [filter.value] }]
+    return []
+  }) : []
   return {
     metric: typeof value.metric === 'string' ? value.metric : '', filters,
     groupBy: stringArray(value.groupBy) ?? [],
     calculation: isOneOf(value.calculation, calculations) ? value.calculation : 'raw',
-    window: isOneOf(value.window, windows) ? value.window : '5m'
+    window: isOneOf(value.window, windows) ? value.window : '5m',
+    percentile: typeof value.percentile === 'number' && quantiles.includes(value.percentile as typeof quantiles[number]) ? value.percentile as typeof quantiles[number] : 0.95
   }
 }
 

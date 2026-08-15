@@ -1,30 +1,36 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildPromql, DEFAULT_PROMQL_BUILDER, escapePromqlString, type PromqlBuilderState } from './promqlBuilder.ts'
+import { buildPromql, DEFAULT_PROMQL_BUILDER, escapePromqlRegexLiteral, escapePromqlString, type PromqlBuilderState } from './promqlBuilder.ts'
 
 const build = (patch: Partial<PromqlBuilderState>) => buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'requests_total', ...patch })
-test('escapes PromQL strings', () => assert.equal(escapePromqlString('a"b\\c\nd'), 'a\\"b\\\\c\\nd'))
-test('builds raw selectors and every matcher', () => {
+const filter = (label: string, values: string[]) => ({ label, values })
+test('escapes strings and regex literals', () => {
+  assert.equal(escapePromqlString('a"b\\c\nd'), 'a\\"b\\\\c\\nd')
+  assert.equal(escapePromqlRegexLiteral('foo.bar+([x])\\'), 'foo\\.bar\\+\\(\\[x\\]\\)\\\\')
+})
+test('builds selectors with literal single values and escaped multi-value regexes', () => {
   assert.equal(build({}), 'requests_total')
-  for (const [operator, expected] of [['=', '='], ['!=', '!='], ['=~', '=~'], ['!~', '!~']] as const) {
-    assert.equal(build({ filters: [{ id: '1', label: 'status', operator, value: 'failure' }] }), `requests_total{status${expected}"failure"}`)
-  }
+  assert.equal(build({ filters: [filter('status', ['500'])] }), 'requests_total{status="500"}')
+  assert.equal(build({ filters: [filter('status', ['500', '502'])] }), 'requests_total{status=~"500|502"}')
+  assert.equal(build({ filters: [filter('environment', ['production', 'staging']), filter('status', ['foo.bar', 'foo+bar'])] }), 'requests_total{environment=~"production|staging",status=~"foo\\\\.bar|foo\\\\+bar"}')
 })
-test('builds range calculations', () => {
-  assert.equal(build({ calculation: 'rate', window: '5m' }), 'rate(requests_total[5m])')
+test('builds range calculations and grouping', () => {
+  assert.equal(build({ calculation: 'rate', window: '10m' }), 'rate(requests_total[10m])')
   assert.equal(build({ calculation: 'increase', window: '1h' }), 'increase(requests_total[1h])')
-})
-test('builds aggregations', () => {
-  for (const calculation of ['sum', 'avg', 'min', 'max'] as const) assert.equal(build({ calculation }), `${calculation}(requests_total)`)
-  assert.equal(build({ calculation: 'avg', groupBy: ['region'] }), 'avg by (region) (requests_total)')
-  assert.equal(build({ calculation: 'sum', groupBy: ['status', 'region'] }), 'sum by (status, region) (requests_total)')
   assert.equal(build({ calculation: 'rate', groupBy: ['status'] }), 'sum by (status) (\n  rate(requests_total[5m])\n)')
 })
-test('keeps filters and grouping deterministic', () => assert.equal(build({ calculation: 'sum', filters: [
-  { id: '1', label: 'status', operator: '=', value: 'failure' }, { id: '2', label: 'env', operator: '!=', value: 'dev' }
-], groupBy: ['status', 'status', 'env'] }), 'sum by (status, env) (requests_total{status="failure",env!="dev"})'))
-test('rejects incomplete state', () => {
+test('builds aggregations deterministically', () => {
+  for (const calculation of ['sum', 'avg', 'min', 'max'] as const) assert.equal(build({ calculation }), `${calculation}(requests_total)`)
+  assert.equal(build({ calculation: 'sum', groupBy: ['status', 'status', 'env'] }), 'sum by (status, env) (requests_total)')
+})
+test('builds classic histogram percentiles with automatic, deduplicated le', () => {
+  const metric = 'request_duration_seconds_bucket'
+  for (const percentile of [0.5, 0.95, 0.99] as const) assert.match(build({ metric, calculation: 'percentile', percentile }), new RegExp(`histogram_quantile\\(\\n  ${percentile}`))
+  assert.equal(build({ metric, calculation: 'percentile', percentile: 0.95, groupBy: ['service', 'region', 'le'], filters: [filter('environment', ['production'])], window: '10m' }),
+    'histogram_quantile(\n  0.95,\n  sum by (service, region, le) (\n    rate(request_duration_seconds_bucket{environment="production"}[10m])\n  )\n)')
+})
+test('rejects incomplete and semantically invalid state', () => {
   assert.equal(buildPromql(DEFAULT_PROMQL_BUILDER), '')
-  assert.equal(build({ filters: [{ id: '1', label: 'status', operator: '=', value: '' }] }), '')
-  assert.equal(build({ filters: [{ id: '1', label: '', operator: '=', value: 'failure' }] }), '')
+  assert.equal(build({ filters: [filter('status', [])] }), '')
+  assert.equal(build({ calculation: 'percentile' }), '')
 })

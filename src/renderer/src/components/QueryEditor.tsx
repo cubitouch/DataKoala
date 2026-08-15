@@ -21,6 +21,7 @@ import { TimeRangeField } from './time-range/TimeRangeField'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
 import { validatePromqlBuilder } from '../lib/promqlBuilder'
+import { InfoTooltip } from './ui/InfoTooltip'
 
 export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) {
   const tabId = useStore((s) => s.activeTabId)
@@ -204,7 +205,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
       run()
       return
     }
-    if (e.shiftKey && e.altKey && e.key.toLowerCase() === 'f') {
+    if (!builderMode && e.shiftKey && e.altKey && e.key.toLowerCase() === 'f') {
       e.preventDefault()
       void doFormat()
     }
@@ -214,11 +215,11 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
     <div className="editor-pane" onKeyDown={onKey}>
       <div className="editor-head">
         <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
-        {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><label className="promql-step"><span>Step</span><select aria-label="PromQL query step" value={prometheusStep} onChange={(e) => setPrometheusQueryOptions({ prometheusStep: e.target.value as typeof prometheusStep }, tabId)}><option>15s</option><option>30s</option><option>1m</option><option>5m</option></select></label></div>}
+        {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><label className="promql-step"><span>Resolution <InfoTooltip label="Resolution">How often Prometheus evaluates the query across the selected time range. Example: 30s produces one evaluation point every 30 seconds.</InfoTooltip></span><select aria-label="PromQL query resolution" value={prometheusStep} onChange={(e) => setPrometheusQueryOptions({ prometheusStep: e.target.value as typeof prometheusStep }, tabId)}><option>15s</option><option>30s</option><option>1m</option><option>5m</option></select></label></div>}
         <div className="spacer" />
-        <div className="query-toolbar-group query-editor-actions"><button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
+        <div className="query-toolbar-group query-editor-actions">{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
           {formatting ? 'Formatting…' : 'Format'}
-        </button>
+        </button>}
         <CopySqlButton sql={sql} />
         {language.kind === 'sql' && <button className="btn ghost explain-action" onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
           {isExplainLoading && <span className="spinner" aria-hidden="true" />}

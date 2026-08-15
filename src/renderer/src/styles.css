@@ -600,15 +600,20 @@ table.results td:hover .json-cell-explorer-popover .popover-trigger,
 .promql-builder-form { padding: 16px; overflow: auto; min-height: 0; }
 .promql-builder-grid { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)); gap: 12px; }
 .promql-builder-form .builder-control { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.promql-builder-form select, .promql-builder-form input { min-width: 0; height: 34px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel); color: inherit; padding: 0 9px; }
-.promql-filters { margin-top: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.builder-section-title { color: var(--muted); font-size: 12px; font-weight: 600; }
-.promql-filter-row { width: 100%; display: grid; grid-template-columns: minmax(150px, 1fr) 80px minmax(180px, 2fr) auto; gap: 8px; align-items: center; }
+.promql-builder-form select, .promql-builder-form input { min-width: 0; height: 34px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-2); color: inherit; padding: 0 9px; }
 .generated-promql { margin-top: 18px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
 .generated-promql pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0; }
-.generated-promql small { color: var(--muted); }
 @media (max-width: 800px) {
   .promql-builder-grid { grid-template-columns: 1fr 1fr; }
-  .promql-filter-row { grid-template-columns: minmax(120px, 1fr) 70px; }
-  .promql-filter-row input { grid-column: 1 / -1; }
 }
+.promql-builder-section { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.promql-value-control { min-width: 0; }
+.generated-promql { padding: 0; }
+.generated-promql summary { align-items: center; }
+.generated-promql summary > span { flex: 1; }
+.generated-promql pre { padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.info-tooltip { position: relative; display: inline-flex; vertical-align: middle; }
+.info-tooltip-trigger { width: 17px; height: 17px; padding: 0; border: 1px solid var(--border-hi); border-radius: 50%; background: transparent; color: var(--text-dim); font: 600 11px/15px var(--sans); cursor: help; }
+.info-tooltip-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.info-tooltip-content { position: absolute; z-index: 50; left: 22px; top: -8px; width: min(300px, 70vw); padding: 8px 10px; border: 1px solid var(--border-hi); border-radius: 5px; background: var(--bg-4); color: var(--text); box-shadow: 0 6px 20px rgba(0,0,0,.35); font-size: 11px; line-height: 1.4; }
+@media (max-width: 800px) { .promql-builder-section { grid-template-columns: 1fr; } }
