@@ -53,7 +53,7 @@ button { font-family: inherit; }
   border: 1px solid var(--border); font-size: 11px; color: var(--text-dim);
 }
 .titlebar > .query-tabs { -webkit-app-region: no-drag; flex: 1 1 auto; min-width: 0; height: 100%; }
-.titlebar > .conn-pill { -webkit-app-region: no-drag; flex: 0 1 260px; }
+.titlebar > .conn-pill { -webkit-app-region: no-drag; flex: 0 1 auto; }
 .conn-pill .dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--text-mute); }
 .conn-pill.on .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .conn-pill.err .dot { background: var(--red); }
