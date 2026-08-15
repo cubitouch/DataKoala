@@ -19,7 +19,7 @@ function arrange(metric = 'request_duration_seconds_bucket') {
   setActiveTestMetadata([{ name: 'Prometheus', isSystem: false, relations: [metric, 'other_total', 'other_bucket'].filter((name, index, all) => all.indexOf(name) === index).map((name) => ({ schema: 'Prometheus', name, qualifiedName: name, kind: 'metric' as const, columnsStatus: 'idle' as const })) }], 'loaded', null, id)
   return render(<PromqlBuilderPanel />)
 }
-beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); labelsForMetric.mockResolvedValue(['service', 'very_specific_label_name', 'environment', 'le', '__name__']); labelValues.mockResolvedValue(['staging', 'production']) })
+beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); labelsForMetric.mockReset().mockResolvedValue(['service', 'very_specific_label_name', 'environment', 'le', '__name__']); labelValues.mockReset().mockResolvedValue(['staging', 'production']) })
 afterEach(cleanup)
 
 describe('PromQL Builder controls', () => {
@@ -114,7 +114,7 @@ describe('PromQL Builder controls', () => {
     expect(activeTestSession().promqlBuilder.labelValues.service).toBeUndefined()
   })
 
-  it('preserves Rate and aggregation across metric changes and only falls back for an invalid Percentile metric', async () => {
+  it('preserves Rate, aggregation, and Percentile across metric changes', async () => {
     arrange('requests_total')
     patchActiveTestSession({ promqlBuilder: { ...activeTestSession().promqlBuilder, calculation: 'rate', aggregation: 'avg' } })
     cleanup(); render(<PromqlBuilderPanel />)
@@ -125,7 +125,21 @@ describe('PromQL Builder controls', () => {
     cleanup(); render(<PromqlBuilderPanel />)
     fireEvent.click(screen.getByRole('combobox', { name: /Metric: other_bucket/ }))
     fireEvent.click(await screen.findByRole('option', { name: 'other_total' }))
-    expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'raw', aggregation: 'sum' })
+    expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'percentile', aggregation: 'sum' })
+    expect(activeTestSession().sql).toContain('rate(other_total[5m])')
+    expect(activeTestSession().sql).not.toContain('sum by (le)')
+  })
+
+  it('keeps Percentile selectable for an unknown non-bucket metric and uses native syntax', async () => {
+    labelsForMetric.mockResolvedValueOnce(['service'])
+    arrange('requests_total')
+    await screen.findByText(/Histogram representation is unknown/)
+    fireEvent.click(screen.getByRole('combobox', { name: /Calculation: Percentile/ }))
+    expect(screen.getByRole('option', { name: 'Percentile' }).getAttribute('aria-disabled')).not.toBe('true')
+    fireEvent.click(screen.getByRole('option', { name: 'Percentile' }))
+    expect(activeTestSession().sql).toContain('sum(\n    rate(requests_total[5m])')
+    expect(activeTestSession().sql).not.toContain('sum by (le)')
+    expect(screen.getByText(/Histogram representation is unknown/)).toBeTruthy()
   })
 
   it('sorts labels and searches the full distinctive label in Group by and Filter by', async () => {
