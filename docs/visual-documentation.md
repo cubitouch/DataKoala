@@ -2,7 +2,7 @@
 
 DataKoala has one real-renderer capture harness with two outputs. The default **regression** run creates assertion-heavy PR images for layout review. `DATAKOALA_PREVIEW_KIND=documentation` creates the six curated, public **documentation** images consumed by the Vite site. Documentation images are not copied wholesale from regression output.
 
-Deterministic public fixture definitions and the expected documentation file list live in `scripts/visual-preview/fixtures.mjs`. Shared Electron launch, renderer waits, interactions, capture helpers, and scenarios live under `scripts/visual-preview/`; `scripts/capture-visual-preview.mjs` remains the stable workflow entry point. The harness enables the existing `DATAKOALA_SMOKE` seam only inside its controlled Electron process. It never needs a live database or metrics service.
+Deterministic public fixture definitions and the expected documentation file list live in `scripts/visual-preview/fixtures.mjs`. Shared Electron launch, renderer waits, interactions, capture helpers, and the two intentionally small scenario sequences live in `scripts/visual-preview/capture.mjs`; `scripts/capture-visual-preview.mjs` remains the stable workflow entry point. The harness enables the existing `DATAKOALA_SMOKE` seam only inside its controlled Electron process. It never needs a live database or metrics service.
 
 ## Local review
 

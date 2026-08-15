@@ -13,6 +13,14 @@ process.env.DATAKOALA_SMOKE = '1'
 
 const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 
+async function waitForRendererState(win, expression, description, attempts = 60) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (await win.webContents.executeJavaScript(`Boolean(${expression})`)) return
+    await sleep(100)
+  }
+  throw new Error(`Timed out waiting for ${description}`)
+}
+
 async function waitForRenderer(win) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const ready = await win.webContents.executeJavaScript(`Boolean(
@@ -199,6 +207,33 @@ async function seedPreviewData(win) {
   if (report?.error) throw new Error(report.error)
 }
 
+async function seedDocumentationData(win) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    if (!store) return { error: 'window.__datakoalaStore is unavailable' }
+    const markets = ['France', 'Germany', 'Spain', 'United Kingdom', 'Italy']
+    const rows = []
+    for (let month = 0; month < 12; month += 1) {
+      for (let index = 0; index < markets.length; index += 1) {
+        rows.push({
+          time_bucket: new Date(Date.UTC(2025, month, 1)),
+          series: markets[index],
+          count: String(920 + month * 135 + index * 260 + ((month + index) % 3) * 75)
+        })
+      }
+    }
+    store.getState().setResult({
+      columns: [
+        { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz' },
+        { name: 'series', dataTypeID: 25, dataTypeName: 'text' },
+        { name: 'count', dataTypeID: 20, dataTypeName: 'int8' }
+      ], rows, rowCount: rows.length, durationMs: 18
+    }, null)
+    return { ok: true }
+  })()`)
+  if (report?.error) throw new Error(report.error)
+}
+
 async function configureMode(win, mode) {
   const report = await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
@@ -207,7 +242,7 @@ async function configureMode(win, mode) {
     store.getState().setQueryMode('${mode}')
 
     if ('${mode}' === 'sql') {
-      store.getState().setProfiles([{ id: 'preview-postgres', name: 'Market analytics', kind: 'postgres', version: 1, readonly: false, config: { kind: 'postgres', host: 'localhost', port: 5432, database: 'analytics', user: 'demo', password: '' } }])
+      store.getState().setProfiles([{ id: 'preview-postgres', name: 'Preview database', kind: 'postgres', version: 1, readonly: false, host: 'localhost', port: 5432, database: 'preview', user: 'preview', password: '', ssl: false }])
       const current = store.getState()
       store.setState({ tabs: current.tabs.map((item) => item.id === current.activeTabId ? { ...item, connectionProfileId: 'preview-postgres' } : item) })
       store.getState().clearResultFilters('sql')
@@ -298,7 +333,12 @@ async function configurePrometheusToolbar(win) {
     return { ok: true }
   })()`)
   if (report?.error) throw new Error(report.error)
-  await sleep(250)
+  await waitForRendererState(win, `document.body.innerText.includes('http_requests_total') || Boolean([...document.querySelectorAll('[role="treeitem"]')].find((node) => node.textContent?.includes('Metrics')))`, 'Prometheus metric browser')
+  await win.webContents.executeJavaScript(`(() => {
+    const item = [...document.querySelectorAll('[role="treeitem"]')].find((node) => node.textContent?.includes('Metrics'))
+    if (item?.getAttribute('aria-expanded') === 'false') item.querySelector('button, .schema-row')?.click()
+  })()`)
+  await waitForRendererState(win, `document.body.innerText.includes('http_requests_total')`, 'expanded Prometheus metrics')
 }
 
 async function configurePrometheusBuilder(win) {
@@ -313,11 +353,10 @@ async function configurePrometheusBuilder(win) {
     state.setSql('histogram_quantile(\\n  0.95,\\n  sum by (continent, le) (\\n    rate(http_request_duration_seconds_bucket{continent="Europe",environment="production"}[5m])\\n  )\\n)')
     state.setQueryMode('builder')
   })()`)
-  await sleep(350)
-  await win.webContents.executeJavaScript(`document.querySelector('[aria-label^="environment values:"]')?.click()`)
-  await sleep(150)
-  await win.webContents.executeJavaScript(`document.querySelector('[aria-label^="environment values:"]')?.click()`)
   await win.webContents.executeJavaScript(`document.querySelector('.generated-promql')?.setAttribute('open', '')`)
+  win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'ESC' })
+  win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'ESC' })
+  await waitForRendererState(win, `document.querySelector('.promql-builder-form') && !document.querySelector('[role="listbox"]')`, 'closed Prometheus Builder controls')
 }
 
 async function verifyQueryToolbar(win) {
@@ -518,24 +557,35 @@ app.whenReady().then(async () => {
     if (captureKind === 'documentation') {
       await rm(outputDir, { recursive: true, force: true })
       await mkdir(outputDir, { recursive: true })
+      await seedDocumentationData(win)
       await configureMode(win, 'sql')
-      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().clearResultFilters('sql')`)
       await sleep(500)
+      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().clearResultFilters('sql')`)
+      await waitForRendererState(win, `!document.body.innerText.includes('Series = “France”')`, 'unfiltered documentation overview')
       await capture(win, 'docs-overview.png')
 
       await configureTablePreview(win)
       await capture(win, 'docs-sql.png')
 
       await configureMode(win, 'builder')
+      await sleep(500)
+      await configureMode(win, 'builder')
       await configureBuilderControls(win, 'temporal-series')
+      await sleep(350)
       await capture(win, 'docs-builder.png')
 
       await configurePrometheusToolbar(win)
       await configurePrometheusBuilder(win)
+      await sleep(500)
+      await configurePrometheusToolbar(win)
+      await configurePrometheusBuilder(win)
+      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().clearActiveResults()`)
+      await waitForRendererState(win, `document.querySelector('.promql-builder-form')?.innerText.includes('http_request_duration_seconds_bucket')`, 'configured Prometheus Builder')
       await capture(win, 'docs-prometheus.png')
 
-      await seedPreviewData(win)
+      await seedDocumentationData(win)
       await configureMode(win, 'sql')
+      await sleep(500)
       await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().clearResultFilters('sql')`)
       await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setVisualization('sql', { view: 'line', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: 'series', aggregation: 'sum' })`)
       await waitForChart(win)
@@ -543,7 +593,9 @@ app.whenReady().then(async () => {
       await capture(win, 'docs-visualization.png')
 
       await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setProfiles(${JSON.stringify(syntheticSources)})`)
-      await sleep(800)
+      await waitForRendererState(win, `document.body.innerText.includes('Local files') && document.body.innerText.includes('SQLite') && document.body.innerText.includes('BigQuery')`, 'all documentation datasource labels')
+      await win.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('new connection'))?.click()`)
+      await waitForRendererState(win, `document.querySelector('[role="dialog"]') && document.body.innerText.includes('Choose a connection type')`, 'datasource picker dialog')
       await capture(win, 'docs-data-sources.png')
 
       const actual = (await readdir(outputDir)).filter((name) => name.endsWith('.png')).sort()
@@ -579,7 +631,7 @@ app.whenReady().then(async () => {
 
     await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setSql(Array.from({ length: 80 }, (_, i) =>
       'select ' + (i + 1) + ' as deliberately_long_query_line_' + (i + 1) + ';').join('\\n'))`)
-    await sleep(200)
+    await waitForRendererState(win, `document.querySelector('.cm-content')?.textContent?.includes('deliberately_long_query_line_80')`, 'long SQL query rendering')
     await win.webContents.executeJavaScript(`(() => { const scroller = document.querySelector('.cm-scroller'); if (scroller) scroller.scrollTop = scroller.scrollHeight })()`)
     await capture(win, 'sql-long-query-scroll.png')
 

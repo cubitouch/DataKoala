@@ -59,7 +59,7 @@
     "db:down": "docker stop datakoala-test",
     "verify": "pnpm typecheck && pnpm test && pnpm build && pnpm smoke && pnpm smoke:db && pnpm smoke:flow",
     "package": "pnpm build && electron-builder",
-    "docs:screenshots": "pnpm build && DATAKOALA_PREVIEW_KIND=documentation DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron scripts/capture-visual-preview.mjs",
+    "docs:screenshots": "pnpm exec electron-vite build && DATAKOALA_PREVIEW_KIND=documentation DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-visual-preview.mjs",
     "docs:build": "vite build --config docs-site/vite.config.ts",
     "docs:dev": "vite --config docs-site/vite.config.ts",
     "docs:preview": "vite preview --config docs-site/vite.config.ts"
