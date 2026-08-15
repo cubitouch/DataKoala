@@ -302,7 +302,7 @@ async function configurePrometheusBuilder(win) {
       schema: 'Prometheus', name: 'http_request_duration_seconds_bucket', qualifiedName: 'http_request_duration_seconds_bucket', kind: 'metric',
       columnsStatus: 'idle', details: { kind: 'metric', type: 'histogram', help: 'HTTP request duration buckets' }
     }] }], 'loaded', null, 'preview-prometheus')
-    state.setPromqlBuilder({ metric: 'http_request_duration_seconds_bucket', filters: [{ label: 'environment', values: ['production'] }], groupBy: ['service'], calculation: 'percentile', percentile: 0.95, window: '5m' })
+    state.setPromqlBuilder({ metric: 'http_request_duration_seconds_bucket', filters: [{ label: 'environment', values: ['production'] }], groupBy: ['service'], calculation: 'percentile', aggregation: 'sum', percentile: 0.95, window: '5m' })
     state.setSql('histogram_quantile(\\n  0.95,\\n  sum by (service, le) (\\n    rate(http_request_duration_seconds_bucket{environment="production"}[5m])\\n  )\\n)')
     state.setQueryMode('builder')
   })()`)

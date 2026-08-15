@@ -45,7 +45,7 @@ const tab = (id: string, title: string, connectionProfileId: string | null, sql:
   sql,
   prometheusTimeRange: { kind: 'rolling' as const, amount: 1 as const, unit: 'hour' as const },
   prometheusStep: '30s' as const,
-  promqlBuilder: { metric: '', filters: [], groupBy: [], calculation: 'raw' as const, window: '5m' as const, percentile: 0.95 as const },
+  promqlBuilder: { metric: '', filters: [], groupBy: [], calculation: 'raw' as const, aggregation: 'none' as const, window: '5m' as const, percentile: 0.95 as const },
   running: true,
   queryError: 'runtime-error-secret',
   result: { columns: [], rows: [{ token: 'result-secret' }], rowCount: 1, durationMs: 1 },

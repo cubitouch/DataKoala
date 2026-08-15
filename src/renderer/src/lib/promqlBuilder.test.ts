@@ -17,11 +17,12 @@ test('builds selectors with literal single values and escaped multi-value regexe
 test('builds range calculations and grouping', () => {
   assert.equal(build({ calculation: 'rate', window: '10m' }), 'rate(requests_total[10m])')
   assert.equal(build({ calculation: 'increase', window: '1h' }), 'increase(requests_total[1h])')
-  assert.equal(build({ calculation: 'rate', groupBy: ['status'] }), 'sum by (status) (\n  rate(requests_total[5m])\n)')
+  assert.equal(build({ calculation: 'rate', aggregation: 'sum' }), 'sum(rate(requests_total[5m]))')
+  assert.equal(build({ calculation: 'rate', aggregation: 'sum', groupBy: ['status'] }), 'sum by (status) (\n  rate(requests_total[5m])\n)')
 })
 test('builds aggregations deterministically', () => {
-  for (const calculation of ['sum', 'avg', 'min', 'max'] as const) assert.equal(build({ calculation }), `${calculation}(requests_total)`)
-  assert.equal(build({ calculation: 'sum', groupBy: ['status', 'status', 'env'] }), 'sum by (status, env) (requests_total)')
+  for (const aggregation of ['sum', 'avg', 'min', 'max'] as const) assert.equal(build({ aggregation }), `${aggregation}(requests_total)`)
+  assert.equal(build({ aggregation: 'sum', groupBy: ['status', 'status', 'env'] }), 'sum by (status, env) (\n  requests_total\n)')
 })
 test('builds classic histogram percentiles with automatic, deduplicated le', () => {
   const metric = 'request_duration_seconds_bucket'
@@ -33,4 +34,5 @@ test('rejects incomplete and semantically invalid state', () => {
   assert.equal(buildPromql(DEFAULT_PROMQL_BUILDER), '')
   assert.equal(build({ filters: [filter('status', [])] }), '')
   assert.equal(build({ calculation: 'percentile' }), '')
+  assert.equal(build({ calculation: 'rate', aggregation: 'none', groupBy: ['status'] }), '')
 })

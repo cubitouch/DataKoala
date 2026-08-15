@@ -597,23 +597,26 @@ table.results td:hover .json-cell-explorer-popover .popover-trigger,
 .hierarchy-level button:disabled { opacity: .3; cursor: default; }
 @container result-pane (max-width: 760px) { .result-view-bar .view-label { display: none; } .result-view-bar button { padding-inline: 8px; } }
 /* Prometheus query builder */
-.promql-builder-form { padding: 16px; overflow: auto; min-height: 0; }
-.promql-builder-grid { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)); gap: 12px; }
+.promql-builder-form { width: 100%; padding: 16px; overflow: auto; min-height: 0; }
 .promql-builder-form .builder-control { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.promql-builder-form select, .promql-builder-form input { min-width: 0; height: 34px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-2); color: inherit; padding: 0 9px; }
-.generated-promql { margin-top: 18px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
-.generated-promql pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0; }
-@media (max-width: 800px) {
-  .promql-builder-grid { grid-template-columns: 1fr 1fr; }
-}
-.promql-builder-section { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.promql-core-row { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(120px, 1fr)); gap: 12px; align-items: end; }
+.promql-filter-group-row { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.promql-values-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .promql-value-control { min-width: 0; }
-.generated-promql { padding: 0; }
-.generated-promql summary { align-items: center; }
-.generated-promql summary > span { flex: 1; }
-.generated-promql pre { padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.info-tooltip { position: relative; display: inline-flex; vertical-align: middle; }
-.info-tooltip-trigger { width: 17px; height: 17px; padding: 0; border: 1px solid var(--border-hi); border-radius: 50%; background: transparent; color: var(--text-dim); font: 600 11px/15px var(--sans); cursor: help; }
+.generated-promql { width: 100%; margin: 18px 0 0; padding: 0; border: 1px solid var(--border); border-radius: 6px; }
+.generated-promql summary { min-height: 42px; display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; }
+.generated-promql summary::-webkit-details-marker { display: none; }
+.generated-promql summary::before { content: '▸'; flex: none; color: var(--text-dim); transition: transform .12s ease; }
+.generated-promql[open] summary::before { transform: rotate(90deg); }
+.generated-promql summary > span { flex: 1; min-width: 0; }
+.generated-promql .open-promql-action { margin-left: auto; flex: none; }
+.generated-promql pre { margin: 0; padding: 12px; border-top: 1px solid var(--border); white-space: pre-wrap; overflow-wrap: anywhere; }
+.generated-promql .inline-error { margin: 0; padding: 12px; border-top: 1px solid var(--border); }
+.info-tooltip { display: inline-flex; vertical-align: middle; }
+.info-tooltip-trigger { width: 18px; height: 18px; padding: 0; border: 1px solid #667085; border-radius: 50%; background: var(--bg-4); color: #eef2ff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04); font: 700 11px/16px var(--sans); cursor: help; }
+.info-tooltip-trigger:hover { border-color: var(--accent); background: #34405a; color: #fff; }
 .info-tooltip-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.info-tooltip-content { position: absolute; z-index: 50; left: 22px; top: -8px; width: min(300px, 70vw); padding: 8px 10px; border: 1px solid var(--border-hi); border-radius: 5px; background: var(--bg-4); color: var(--text); box-shadow: 0 6px 20px rgba(0,0,0,.35); font-size: 11px; line-height: 1.4; }
-@media (max-width: 800px) { .promql-builder-section { grid-template-columns: 1fr; } }
+.info-tooltip-content { position: fixed; z-index: 1000; width: max-content; padding: 9px 11px; border: 1px solid var(--border-hi); border-radius: 6px; background: var(--bg-4); color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.45); overflow-wrap: anywhere; white-space: normal; font-size: 11px; line-height: 1.45; pointer-events: none; }
+@media (max-width: 1050px) { .promql-core-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 800px) { .promql-filter-group-row, .promql-values-grid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .promql-core-row { grid-template-columns: 1fr; } }
