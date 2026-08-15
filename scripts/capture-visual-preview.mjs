@@ -282,6 +282,11 @@ async function configurePrometheusToolbar(win) {
     const state = store?.getState()
     if (!state) return { error: 'window.__datakoalaStore is unavailable' }
     state.setProfiles([{ id: 'preview-prometheus', name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx', datasourceUid: 'preview-prometheus' } }])
+    state.setMetadata([{ name: 'Metrics', isSystem: false, relations: [
+      { schema: 'Metrics', name: 'http_requests_total', qualifiedName: 'Metrics.http_requests_total', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'counter', help: 'Total number of HTTP requests processed.' } },
+      { schema: 'Metrics', name: 'process_memory_bytes', qualifiedName: 'Metrics.process_memory_bytes', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'gauge', help: 'Resident process memory in bytes.' } },
+      { schema: 'Metrics', name: 'request_duration_seconds', qualifiedName: 'Metrics.request_duration_seconds', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'histogram', help: 'Observed request duration in seconds.' } }
+    ] }], 'loaded', null, 'preview-prometheus')
     const tab = state.tabs.find((item) => item.id === state.activeTabId)
     store.setState({ tabs: state.tabs.map((item) => item.id === tab.id ? {
       ...item, connectionProfileId: 'preview-prometheus', queryMode: 'sql',
