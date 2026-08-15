@@ -3,6 +3,7 @@ import type { TimeWindow } from './customTimeRange.ts'
 import type { Aggregation, ResultView, ValueAxisScale, VisualizationConfiguration } from './resultVisualization.ts'
 import { deserializeResultFilters, type ResultFilter } from './resultFilters.ts'
 import type { AppState, BuilderQueryState, QueryMode, QuerySession, TimeBucket } from '../store/useStore.ts'
+import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from './promqlBuilder.ts'
 
 export const WORKSPACE_STORAGE_KEY = 'datakoala.workspace.v2'
 const LEGACY_DATAKOALA_WORKSPACE_STORAGE_KEY = 'datakoala.workspace.v2'
@@ -24,6 +25,7 @@ export interface QuerySessionDraft {
   sql: string
   prometheusTimeRange: BuilderTimeRange
   prometheusStep: QuerySession['prometheusStep']
+  promqlBuilder: PromqlBuilderState
   builder: BuilderQueryState
   sqlVisualization: VisualizationConfiguration
   builderVisualization: VisualizationConfiguration
@@ -100,6 +102,21 @@ function table(value: unknown): BuilderQueryState['table'] | undefined {
   if (value === null) return null
   if (!isRecord(value) || typeof value.schema !== 'string' || typeof value.name !== 'string') return undefined
   return { schema: value.schema, name: value.name }
+}
+
+function parsePromqlBuilder(value: unknown): PromqlBuilderState {
+  if (!isRecord(value)) return { ...DEFAULT_PROMQL_BUILDER, filters: [], groupBy: [] }
+  const calculations = ['raw', 'rate', 'increase', 'sum', 'avg', 'min', 'max'] as const
+  const windows = ['1m', '5m', '10m', '15m', '30m', '1h'] as const
+  const operators = ['=', '!=', '=~', '!~'] as const
+  const filters = Array.isArray(value.filters) ? value.filters.flatMap((filter) => isRecord(filter) && typeof filter.id === 'string' && typeof filter.label === 'string' && isOneOf(filter.operator, operators) && typeof filter.value === 'string'
+    ? [{ id: filter.id, label: filter.label, operator: filter.operator, value: filter.value }] : []) : []
+  return {
+    metric: typeof value.metric === 'string' ? value.metric : '', filters,
+    groupBy: stringArray(value.groupBy) ?? [],
+    calculation: isOneOf(value.calculation, calculations) ? value.calculation : 'raw',
+    window: isOneOf(value.window, windows) ? value.window : '5m'
+  }
 }
 
 /**
@@ -203,6 +220,7 @@ function sessionDraft(session: QuerySession): QuerySessionDraft {
     sql: session.sql,
     prometheusTimeRange: session.prometheusTimeRange,
     prometheusStep: session.prometheusStep,
+    promqlBuilder: session.promqlBuilder,
     builder: normalized.builder,
     sqlVisualization: cloneVisualization(session.sqlVisualization),
     builderVisualization: normalized.visualization,
@@ -240,6 +258,7 @@ function serializedSession(tab: QuerySessionDraft): Record<string, unknown> {
     sql: tab.sql,
     prometheusTimeRange: tab.prometheusTimeRange,
     prometheusStep: tab.prometheusStep,
+    promqlBuilder: tab.promqlBuilder,
     builder: persistedBuilder,
     sqlVisualization: tab.sqlVisualization,
     builderVisualization: tab.builderVisualization,
@@ -272,9 +291,10 @@ function parseSession(value: unknown): QuerySessionDraft | null {
   const filters = parsedQueryFilters(value.builderQueryFilters)
   const prometheusTimeRange = value.prometheusTimeRange === undefined ? { kind: 'rolling', amount: 1, unit: 'hour' } as const : timeRange(value.prometheusTimeRange)
   const prometheusStep = value.prometheusStep === undefined ? '30s' : isOneOf(value.prometheusStep, ['15s', '30s', '1m', '5m'] as const) ? value.prometheusStep : null
+  const promqlBuilder = parsePromqlBuilder(value.promqlBuilder)
   if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null || !prometheusTimeRange || !prometheusStep) return null
   const normalized = normalizeBuilderAxis(parsedBuilder, parsedBuilderVisualization)
-  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
+  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, promqlBuilder, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
 }
 
 export function parseWorkspaceDraft(raw: string | null): WorkspaceDraft | null {
@@ -306,7 +326,7 @@ function parseLegacyWorkspace(raw: string | null): WorkspaceDraft | null {
     const id = 'migrated-query-1'
     return {
       activeTabId: id,
-      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: '30s', builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
+      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: '30s', promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filters: [], groupBy: [] }, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
     }
   } catch {
     return null
@@ -343,6 +363,7 @@ function restoredSession(draft: QuerySessionDraft): QuerySession {
     sql: draft.sql,
     prometheusTimeRange: draft.prometheusTimeRange,
     prometheusStep: draft.prometheusStep,
+    promqlBuilder: draft.promqlBuilder,
     running: false,
     queryError: null,
     result: null,

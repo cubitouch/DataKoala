@@ -294,6 +294,21 @@ async function configurePrometheusToolbar(win) {
   await sleep(250)
 }
 
+async function configurePrometheusBuilder(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    const state = store.getState()
+    state.setMetadata([{ name: 'Prometheus', isSystem: false, relations: [{
+      schema: 'Prometheus', name: 'http_requests_total', qualifiedName: 'http_requests_total', kind: 'metric',
+      columnsStatus: 'idle', details: { kind: 'metric', type: 'counter', help: 'Total HTTP requests' }
+    }] }], 'loaded', null, 'preview-prometheus')
+    state.setPromqlBuilder({ metric: 'http_requests_total', filters: [{ id: 'preview-filter', label: 'status', operator: '=', value: 'failure' }], groupBy: ['status'], calculation: 'rate', window: '5m' })
+    state.setSql('sum by (status) (\\n  rate(http_requests_total{status="failure"}[5m])\\n)')
+    state.setQueryMode('builder')
+  })()`)
+  await sleep(350)
+}
+
 async function verifyQueryToolbar(win) {
   const report = await win.webContents.executeJavaScript(`(() => {
     const toolbar = document.querySelector('.editor-head')
@@ -497,6 +512,12 @@ app.whenReady().then(async () => {
     await sleep(350)
     await verifyQueryToolbar(win)
     await capture(win, 'prometheus-toolbar-narrow.png')
+    win.setSize(1440, 900)
+    await configurePrometheusBuilder(win)
+    await capture(win, 'prometheus-builder.png')
+    win.setSize(760, 760)
+    await sleep(350)
+    await capture(win, 'prometheus-builder-narrow.png')
     win.setSize(1440, 900)
     await configureMode(win, 'sql')
 

@@ -19,13 +19,16 @@ import { sqlAliasCompletionSource } from '../lib/sqlAliasCompletion'
 import { ensureRelationColumns } from '../lib/relationColumns'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
+import { PromqlBuilderPanel } from './PromqlBuilderPanel'
+import { validatePromqlBuilder } from '../lib/promqlBuilder'
 
-export function QueryEditor() {
+export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) {
   const tabId = useStore((s) => s.activeTabId)
   const sql = useStore((s) => selectActiveSession(s).sql)
   const setSql = useStore((s) => s.setSql)
   const prometheusTimeRange = useStore((s) => selectActiveSession(s).prometheusTimeRange)
   const prometheusStep = useStore((s) => selectActiveSession(s).prometheusStep)
+  const promqlBuilder = useStore((s) => selectActiveSession(s).promqlBuilder)
   const setPrometheusQueryOptions = useStore((s) => s.setPrometheusQueryOptions)
   const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const connectionKind = useStore((s) => s.profiles.find((profile) => profile.id === tabConnectionId)?.kind)
@@ -225,12 +228,12 @@ export function QueryEditor() {
           {isAnalyzeLoading && <span className="spinner" aria-hidden="true" />}
           {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
         </button>}</div>
-        <div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={!canUseDatabase || running} title="Run (Ctrl/Command+Enter)">
+        <div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={!canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder)))} title="Run (Ctrl/Command+Enter)">
           {running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}
         </button></div>
       </div>
 
-      <div className="cm-wrap">
+      {builderMode ? <PromqlBuilderPanel /> : <div className="cm-wrap">
         <CodeMirror
           ref={editorRef}
           value={sql}
@@ -242,7 +245,7 @@ export function QueryEditor() {
           aria-label={language.kind === 'promql' ? 'PromQL editor' : 'SQL editor'}
           basicSetup={{ lineNumbers: true, foldGutter: false }}
         />
-      </div>
+      </div>}
 
       {showToast && <div className="toast">{showToast}</div>}
     </div>

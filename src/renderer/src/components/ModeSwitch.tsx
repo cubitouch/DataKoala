@@ -10,8 +10,7 @@ export function ModeSwitch() {
   const disabled = useStore((s) => selectActiveSession(s).activeExplainRequest !== null)
   return <div className="segmented" aria-label="Query mode">
     {(['sql', 'builder'] as QueryMode[]).map((value) => {
-      const unavailable = prometheus && value === 'builder'
-      return <button key={value} className={(prometheus ? value === 'sql' : mode === value) ? 'active' : ''} onClick={() => setMode(value)} disabled={disabled || unavailable} aria-disabled={disabled || unavailable}>{value === 'sql' ? (prometheus ? 'PromQL' : 'SQL') : 'Builder'}</button>
+      return <button key={value} className={mode === value ? 'active' : ''} onClick={() => setMode(value)} disabled={disabled} aria-disabled={disabled}>{value === 'sql' ? (prometheus ? 'PromQL' : 'SQL') : 'Builder'}</button>
     })}
   </div>
 }

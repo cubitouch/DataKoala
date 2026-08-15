@@ -596,3 +596,19 @@ table.results td:hover .json-cell-explorer-popover .popover-trigger,
 .hierarchy-level button:hover:not(:disabled) { background: var(--bg-3); color: var(--text); }
 .hierarchy-level button:disabled { opacity: .3; cursor: default; }
 @container result-pane (max-width: 760px) { .result-view-bar .view-label { display: none; } .result-view-bar button { padding-inline: 8px; } }
+/* Prometheus query builder */
+.promql-builder-form { padding: 16px; overflow: auto; min-height: 0; }
+.promql-builder-grid { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)); gap: 12px; }
+.promql-builder-form .builder-control { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.promql-builder-form select, .promql-builder-form input { min-width: 0; height: 34px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel); color: inherit; padding: 0 9px; }
+.promql-filters { margin-top: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.builder-section-title { color: var(--muted); font-size: 12px; font-weight: 600; }
+.promql-filter-row { width: 100%; display: grid; grid-template-columns: minmax(150px, 1fr) 80px minmax(180px, 2fr) auto; gap: 8px; align-items: center; }
+.generated-promql { margin-top: 18px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+.generated-promql pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0; }
+.generated-promql small { color: var(--muted); }
+@media (max-width: 800px) {
+  .promql-builder-grid { grid-template-columns: 1fr 1fr; }
+  .promql-filter-row { grid-template-columns: minmax(120px, 1fr) 70px; }
+  .promql-filter-row input { grid-column: 1 / -1; }
+}
