@@ -3,6 +3,29 @@ import { app } from 'electron'
 const documentationCapture = process.env.DATAKOALA_PREVIEW_KIND === 'documentation'
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+async function installDocumentationStatusCompatibility(contents) {
+  await contents.executeJavaScript(`(() => {
+    if (window.__datakoalaDocumentationStatusCompatibility) return
+    window.__datakoalaDocumentationStatusCompatibility = true
+
+    const sync = () => {
+      const status = document.querySelector('.titlebar [role="status"]')
+      if (!status || status.classList.contains('conn-pill')) return
+      status.classList.add('conn-pill')
+      status.classList.toggle('on', status.getAttribute('data-state') === 'connected')
+      status.classList.toggle('err', status.getAttribute('data-state') === 'error')
+    }
+
+    sync()
+    new MutationObserver(sync).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-state']
+    })
+  })()`)
+}
+
 async function waitForTreemapFinished(contents) {
   const treemapActive = await contents.executeJavaScript(`document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Treemap'`)
   if (!treemapActive) return
@@ -34,6 +57,10 @@ async function waitForTreemapFinished(contents) {
 if (documentationCapture) {
   app.on('browser-window-created', (_event, window) => {
     const contents = window.webContents
+    contents.on('did-finish-load', () => {
+      installDocumentationStatusCompatibility(contents).catch((error) => console.error(error))
+    })
+
     const capturePage = contents.capturePage.bind(contents)
     Object.defineProperty(contents, 'capturePage', {
       configurable: true,
