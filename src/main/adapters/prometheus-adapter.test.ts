@@ -48,17 +48,19 @@ test('Prometheus relation discovery is deterministic and rejects unrelated names
 })
 
 test('Prometheus session delegates range execution to its gcx transport', async () => {
-  let request: unknown
+  const requests: unknown[] = []
   const normalized: QueryResult = { columns: [], rows: [], rowCount: 0, durationMs: 2 }
   const adapter = new PrometheusAdapter(async () => discovery, () => ({
     metadata: async () => [],
     labelsForMetric: async () => [],
     labelValues: async () => [],
-    query: async (value) => { request = value; return normalized }
+    query: async (value) => { requests.push(value); return normalized }
   }))
   const connected = await adapter.connect(profile)
   assert.ok(connected.session)
-  const result = await connected.session.query({ sql: 'rate(http_requests_total[5m])', prometheus: { start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step: '30s' } })
-  assert.equal(result, normalized)
-  assert.deepEqual(request, { expression: 'rate(http_requests_total[5m])', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step: '30s' })
+  for (const step of ['30s', '1m', '5m']) {
+    const result = await connected.session.query({ sql: 'rate(http_requests_total[5m])', prometheus: { start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step } })
+    assert.equal(result, normalized)
+  }
+  assert.deepEqual(requests, ['30s', '1m', '5m'].map((step) => ({ expression: 'rate(http_requests_total[5m])', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step })))
 })

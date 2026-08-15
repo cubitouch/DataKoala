@@ -18,7 +18,9 @@ import { Sidebar } from './Sidebar'
 const profile: PrometheusProfile = { id: 'prom-1', name: 'Cloud metrics', version: 1, kind: 'prometheus', readonly: true, transport: { kind: 'gcx' } }
 const objects = normalizeDatabaseObjects([
   { schema: 'Metrics', name: 'process_cpu_seconds_total', kind: 'metric', details: { kind: 'metric', type: 'counter', help: 'Total user and system CPU time spent in seconds.', unit: 'seconds' } },
-  { schema: 'Metrics', name: 'http_requests_total', kind: 'metric', details: { kind: 'metric', type: 'counter', help: 'Total HTTP requests.', unit: 'requests' } }
+  { schema: 'Metrics', name: 'http_requests_total', kind: 'metric', details: { kind: 'metric', type: 'counter', help: 'Total HTTP requests.', unit: 'requests' } },
+  { schema: 'Metrics', name: 'metric_without_metadata', kind: 'metric', details: { kind: 'metric' } },
+  { schema: 'Metrics', name: 'gauge_without_help', kind: 'metric', details: { kind: 'metric', type: 'gauge' } }
 ])
 
 beforeEach(() => {
@@ -36,18 +38,47 @@ beforeEach(() => {
 afterEach(() => { cleanup(); resetTestStore() })
 
 describe('Prometheus metric object tree', () => {
-  it('shows a Metrics namespace and expands normalized metric details without loading SQL columns', async () => {
+  it('shows type on the metric row and keeps help in an accessible tooltip', async () => {
     render(<Sidebar />)
     expect(await screen.findByText('Metrics')).toBeTruthy()
     const metric = await screen.findByRole('button', { name: 'View details for http_requests_total' })
+    const row = metric.closest<HTMLElement>('.relation-row')!
+    expect(within(row).getByText('counter')).toBeTruthy()
+    expect(within(row).queryByText('metric')).toBeNull()
+    const tooltip = screen.getByRole('tooltip', { name: 'Total HTTP requests.' })
+    expect(metric.getAttribute('aria-describedby')).toBe(tooltip.id)
     fireEvent.click(metric)
 
-    expect(screen.getByText('Total HTTP requests.')).toBeTruthy()
     expect(screen.getByText('requests')).toBeTruthy()
-    expect(screen.getAllByText('counter').length).toBeGreaterThan(0)
+    const details = document.querySelector<HTMLElement>('.metric-details')!
+    expect(within(details).queryByText('Name')).toBeNull()
+    expect(within(details).queryByText('Type')).toBeNull()
+    expect(within(details).queryByText('Help')).toBeNull()
+    expect(within(details).getByText('Labels')).toBeTruthy()
     expect(mocks.describeTable).not.toHaveBeenCalled()
     expect(mocks.labelsForMetric).toHaveBeenCalledWith('prom-1', 'http_requests_total')
     expect(mocks.labelValues).not.toHaveBeenCalled()
+  })
+
+  it('renders no generic fallback or empty tooltip when metric metadata is absent', async () => {
+    render(<Sidebar />)
+    const missing = await screen.findByRole('button', { name: 'View details for metric_without_metadata' })
+    expect(within(missing.closest<HTMLElement>('.relation-row')!).queryByText('metric')).toBeNull()
+    expect(missing.hasAttribute('aria-describedby')).toBe(false)
+    const withoutHelp = screen.getByRole('button', { name: 'View details for gauge_without_help' })
+    expect(within(withoutHelp.closest<HTMLElement>('.relation-row')!).getByText('gauge')).toBeTruthy()
+    expect(withoutHelp.hasAttribute('aria-describedby')).toBe(false)
+    expect(screen.getAllByRole('tooltip')).toHaveLength(2)
+    expect(mocks.labelsForMetric).not.toHaveBeenCalled()
+  })
+
+  it('leaves SQL relation type rendering unchanged', async () => {
+    const sqlObjects = normalizeDatabaseObjects([{ schema: 'public', name: 'orders', kind: 'r' }])
+    useStore.setState({ metadataByProfileId: { [profile.id]: { schemas: sqlObjects, status: 'loaded', error: null, isStale: false } } })
+    render(<Sidebar />)
+    const relation = await screen.findByRole('button', { name: 'Select public.orders for Builder' })
+    expect(within(relation.closest<HTMLElement>('.relation-row')!).getByText('table')).toBeTruthy()
+    expect(relation.getAttribute('title')).toBe('public.orders')
   })
 
   it('discovers label values only when a label is expanded', async () => {

@@ -48,7 +48,8 @@ export function App() {
   }), [])
 
   const tabProfile = profiles.find((profile) => profile.id === tabConnectionId)
-  const effectiveMode = tabProfile?.kind === 'prometheus' ? 'sql' : mode
+  const prometheusBuilder = tabProfile?.kind === 'prometheus' && mode === 'builder'
+  const effectiveMode = prometheusBuilder ? 'sql' : mode
   // A restored tab is available before saved profiles finish loading. Do not
   // guess PostgreSQL during that gap: the profile may be a non-SQL datasource.
   const queryProfileLoading = Boolean(tabConnectionId && !tabProfile)
@@ -153,7 +154,7 @@ export function App() {
         <div className="main-shell">
           <div key={activeTabId} className={`main ${effectiveMode === 'sql' && !querySurfaceBlocked ? 'sql-layout' : ''}`} ref={mainRef}
             style={{ '--editor-height': `${editorHeight}px` } as React.CSSProperties}>
-            {queryProfileLoading ? <div className="query-unavailable" role="status" aria-label="Loading connection…">Loading datasource…</div> : <>{effectiveMode === 'sql' ? <><QueryEditor /><div className="editor-resizer" role="separator" aria-label="Resize query editor"
+            {queryProfileLoading ? <div className="query-unavailable" role="status" aria-label="Loading connection…">Loading datasource…</div> : <>{effectiveMode === 'sql' ? <><QueryEditor builderMode={prometheusBuilder} /><div className="editor-resizer" role="separator" aria-label="Resize query editor"
               aria-orientation="horizontal" aria-valuemin={EDITOR_MIN} aria-valuemax={Math.max(EDITOR_MIN, currentEditorBounds().max)}
               aria-valuenow={Math.round(editorHeight)} tabIndex={0} onPointerDown={beginResize('editor')}
               onKeyDown={resizeWithKeyboard('editor')} /></> : <BuilderPanel />}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import type { DataSourceProfile, DatabaseColumnNode, DatabaseRelationNode } from '@shared/types'
 import { api } from '../lib/api'
 import { ensureRelationColumns } from '../lib/relationColumns'
@@ -44,10 +44,7 @@ function MetricDetails({ connectionId, relation }: { connectionId: string | null
   }
 
   return <div className="metric-details">
-    <div><strong>Name</strong><span>{relation.name}</span></div>
-    <div><strong>Type</strong><span>{relation.details?.kind === 'metric' ? relation.details.type || 'unknown' : 'unknown'}</span></div>
     {relation.details?.kind === 'metric' && relation.details.unit && <div><strong>Unit</strong><span>{relation.details.unit}</span></div>}
-    {relation.details?.kind === 'metric' && relation.details.help && <div><strong>Help</strong><span>{relation.details.help}</span></div>}
     <div className="metric-label-heading"><strong>Labels</strong></div>
     {!labels && !labelsError && <div className="label-status" role="status">Loading labels…</div>}
     {labelsError && <button className="label-status error" onClick={() => void loadLabels()}>Could not load labels — retry</button>}
@@ -71,6 +68,23 @@ function MetricDetails({ connectionId, relation }: { connectionId: string | null
       </div>
     })}
   </div>
+}
+
+function RelationName({ relation, current, onClick }: { relation: DatabaseRelationNode; current: boolean; onClick: () => void }) {
+  const tooltipId = useId()
+  const metricHelp = relation.details?.kind === 'metric' ? relation.details.help : undefined
+  const isMetric = relation.kind === 'metric'
+  return <>
+    <button
+      className={`relation-name truncate${metricHelp ? ' tooltip-trigger' : ''}`}
+      title={isMetric ? undefined : relation.qualifiedName}
+      aria-label={isMetric ? `View details for ${relation.name}` : `Select ${relation.qualifiedName} for Builder`}
+      aria-describedby={metricHelp ? tooltipId : undefined}
+      aria-current={current ? 'true' : undefined}
+      onClick={onClick}
+    >{relation.name}</button>
+    {metricHelp && <span className="info-tooltip metric-help-tooltip" id={tooltipId} role="tooltip">{metricHelp}</span>}
+  </>
 }
 
 export function Sidebar() {
@@ -236,8 +250,8 @@ export function Sidebar() {
                 return <div key={relationId} role="treeitem" aria-expanded={relationOpen}>
                   <div className="tree-row relation-row">
                     <button className="chevron-button" aria-label={`${relationOpen ? 'Collapse' : 'Expand'} ${relation.name}`} onClick={() => void expandRelation(relation)}>{relationOpen ? '▾' : '▸'}</button>
-                    <button className="relation-name truncate" title={relation.qualifiedName} aria-label={relation.kind === 'metric' ? `View details for ${relation.name}` : `Select ${relation.qualifiedName} for Builder`} aria-current={builderTable?.schema === relation.schema && builderTable.name === relation.name ? 'true' : undefined} onClick={() => selectForBuilder(relation)}>{relation.name}</button>
-                    <span className="kind">{typeLabel(relation.kind)}</span>
+                    <RelationName relation={relation} current={builderTable?.schema === relation.schema && builderTable.name === relation.name} onClick={() => selectForBuilder(relation)} />
+                    {(relation.details?.kind !== 'metric' || relation.details.type) && <span className="kind relation-kind">{relation.details?.kind === 'metric' ? relation.details.type : typeLabel(relation.kind)}</span>}
                   </div>
                   {relationOpen && <div role="group" className="columns">
                     {relation.details?.kind === 'metric' && <MetricDetails connectionId={activeTabConnectionId} relation={relation} />}

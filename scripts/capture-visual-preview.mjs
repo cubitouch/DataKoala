@@ -282,6 +282,11 @@ async function configurePrometheusToolbar(win) {
     const state = store?.getState()
     if (!state) return { error: 'window.__datakoalaStore is unavailable' }
     state.setProfiles([{ id: 'preview-prometheus', name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx', datasourceUid: 'preview-prometheus' } }])
+    state.setMetadata([{ name: 'Metrics', isSystem: false, relations: [
+      { schema: 'Metrics', name: 'http_requests_total', qualifiedName: 'Metrics.http_requests_total', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'counter', help: 'Total number of HTTP requests processed.' } },
+      { schema: 'Metrics', name: 'process_memory_bytes', qualifiedName: 'Metrics.process_memory_bytes', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'gauge', help: 'Resident process memory in bytes.' } },
+      { schema: 'Metrics', name: 'request_duration_seconds', qualifiedName: 'Metrics.request_duration_seconds', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'histogram', help: 'Observed request duration in seconds.' } }
+    ] }], 'loaded', null, 'preview-prometheus')
     const tab = state.tabs.find((item) => item.id === state.activeTabId)
     store.setState({ tabs: state.tabs.map((item) => item.id === tab.id ? {
       ...item, connectionProfileId: 'preview-prometheus', queryMode: 'sql',
@@ -294,6 +299,25 @@ async function configurePrometheusToolbar(win) {
   await sleep(250)
 }
 
+async function configurePrometheusBuilder(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    const state = store.getState()
+    state.setMetadata([{ name: 'Prometheus', isSystem: false, relations: [{
+      schema: 'Prometheus', name: 'http_request_duration_seconds_bucket', qualifiedName: 'http_request_duration_seconds_bucket', kind: 'metric',
+      columnsStatus: 'idle', details: { kind: 'metric', type: 'histogram', help: 'HTTP request duration buckets' }
+    }] }], 'loaded', null, 'preview-prometheus')
+    state.setPromqlBuilder({ metric: 'http_request_duration_seconds_bucket', filterBy: ['environment'], groupBy: ['continent'], labelValues: { continent: ['Europe'], environment: ['production'] }, calculation: 'percentile', aggregation: 'sum', percentile: 0.95, window: '5m' })
+    state.setSql('histogram_quantile(\\n  0.95,\\n  sum by (continent, le) (\\n    rate(http_request_duration_seconds_bucket{continent="Europe",environment="production"}[5m])\\n  )\\n)')
+    state.setQueryMode('builder')
+  })()`)
+  await sleep(350)
+  await win.webContents.executeJavaScript(`document.querySelector('[aria-label^="environment values:"]')?.click()`)
+  await sleep(150)
+  await win.webContents.executeJavaScript(`document.querySelector('[aria-label^="environment values:"]')?.click()`)
+  await win.webContents.executeJavaScript(`document.querySelector('.generated-promql')?.setAttribute('open', '')`)
+}
+
 async function verifyQueryToolbar(win) {
   const report = await win.webContents.executeJavaScript(`(() => {
     const toolbar = document.querySelector('.editor-head')
@@ -302,7 +326,7 @@ async function verifyQueryToolbar(win) {
       toolbarScrollWidth: toolbar.scrollWidth, toolbarClientWidth: toolbar.clientWidth,
       paneScrollWidth: pane.scrollWidth, paneClientWidth: pane.clientWidth,
       hasRange: Boolean(toolbar.querySelector('.custom-range-field')),
-      hasStep: Boolean(toolbar.querySelector('[aria-label="PromQL query step"]')),
+      hasStep: Boolean(toolbar.querySelector('[aria-label^="PromQL query resolution:"]')),
       hasExplain: [...toolbar.querySelectorAll('button')].some((button) => button.textContent?.includes('Explain'))
     } : null
   })()`)
@@ -467,6 +491,8 @@ async function configureLongObjectTree(win) {
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
+  ipcMain.handle('connections:prometheus:metric-labels', async () => ['continent', 'environment', 'service', 'le', '__name__'])
+  ipcMain.handle('connections:prometheus:label-values', async (_event, _id, _metric, label) => label === 'environment' ? ['production', 'staging'] : label === 'continent' ? ['Europe', 'Asia'] : ['api', 'worker'])
 
   const win = new BrowserWindow({
     width: 1440,
@@ -497,6 +523,12 @@ app.whenReady().then(async () => {
     await sleep(350)
     await verifyQueryToolbar(win)
     await capture(win, 'prometheus-toolbar-narrow.png')
+    win.setSize(1440, 900)
+    await configurePrometheusBuilder(win)
+    await capture(win, 'prometheus-builder.png')
+    win.setSize(760, 760)
+    await sleep(350)
+    await capture(win, 'prometheus-builder-narrow.png')
     win.setSize(1440, 900)
     await configureMode(win, 'sql')
 

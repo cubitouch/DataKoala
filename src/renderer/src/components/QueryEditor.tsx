@@ -20,13 +20,18 @@ import { ensureRelationColumns } from '../lib/relationColumns'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { QueryUtilityActions } from './QueryUtilityActions'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
+import { PromqlBuilderPanel } from './PromqlBuilderPanel'
+import { validatePromqlBuilder } from '../lib/promqlBuilder'
+import { InfoTooltip } from './ui/InfoTooltip'
+import { Combobox } from './ui/combobox'
 
-export function QueryEditor() {
+export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) {
   const tabId = useStore((s) => s.activeTabId)
   const sql = useStore((s) => selectActiveSession(s).sql)
   const setSql = useStore((s) => s.setSql)
   const prometheusTimeRange = useStore((s) => selectActiveSession(s).prometheusTimeRange)
   const prometheusStep = useStore((s) => selectActiveSession(s).prometheusStep)
+  const promqlBuilder = useStore((s) => selectActiveSession(s).promqlBuilder)
   const setPrometheusQueryOptions = useStore((s) => s.setPrometheusQueryOptions)
   const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const connectionKind = useStore((s) => s.profiles.find((profile) => profile.id === tabConnectionId)?.kind)
@@ -110,7 +115,10 @@ export function QueryEditor() {
         ? { ...prometheusRangeBounds(requestSession.prometheusTimeRange), step: requestSession.prometheusStep }
         : undefined
       const res: QueryResult = await api.query.run(requestProfileId, execution.sql, execution.parameters, promRange)
-      if (language.kind === 'promql') setVisualization('sql', { view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: 'series', seriesColumns: [], aggregation: 'sum' }, requestTabId)
+      if (language.kind === 'promql') {
+        const seriesColumns = builderMode ? (requestSession?.promqlBuilder.groupBy ?? []) : []
+        setVisualization('sql', { view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: seriesColumns.length === 1 ? seriesColumns[0] : null, seriesColumns: seriesColumns.length > 1 ? seriesColumns : [], aggregation: 'sum' }, requestTabId)
+      }
       if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(res, null, requestTabId)
     } catch (e) {
       if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(null, e instanceof Error ? e.message : String(e), requestTabId)
@@ -202,7 +210,7 @@ export function QueryEditor() {
       run()
       return
     }
-    if (e.shiftKey && e.altKey && e.key.toLowerCase() === 'f') {
+    if (!builderMode && e.shiftKey && e.altKey && e.key.toLowerCase() === 'f') {
       e.preventDefault()
       void doFormat()
     }
@@ -212,12 +220,12 @@ export function QueryEditor() {
     <div className="editor-pane" onKeyDown={onKey}>
       <div className="editor-head">
         <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
-        {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><label className="promql-step"><span>Step</span><select aria-label="PromQL query step" value={prometheusStep} onChange={(e) => setPrometheusQueryOptions({ prometheusStep: e.target.value as typeof prometheusStep }, tabId)}><option>15s</option><option>30s</option><option>1m</option><option>5m</option></select></label></div>}
+        {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><div className="promql-step"><span>Resolution <InfoTooltip label="Resolution">How often Prometheus evaluates the query across the selected time range. Example: 30s produces one evaluation point every 30 seconds.</InfoTooltip></span><Combobox label="PromQL query resolution" value={prometheusStep} options={['15s', '30s', '1m', '5m'].map((value) => ({ value, label: value }))} onChange={(value) => setPrometheusQueryOptions({ prometheusStep: value as typeof prometheusStep }, tabId)} /></div></div>}
         <div className="spacer" />
         <QueryUtilityActions />
-        <div className="query-toolbar-group query-editor-actions"><button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
+        <div className="query-toolbar-group query-editor-actions">{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
           {formatting ? 'Formatting…' : 'Format'}
-        </button>
+        </button>}
         <CopySqlButton sql={sql} />
         {language.kind === 'sql' && <button className="btn ghost explain-action" onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
           {isExplainLoading && <span className="spinner" aria-hidden="true" />}
@@ -227,12 +235,12 @@ export function QueryEditor() {
           {isAnalyzeLoading && <span className="spinner" aria-hidden="true" />}
           {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
         </button>}</div>
-        <div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={!canUseDatabase || running} title="Run (Ctrl/Command+Enter)">
+        <div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={!canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder)))} title="Run (Ctrl/Command+Enter)">
           {running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}
         </button></div>
       </div>
 
-      <div className="cm-wrap">
+      {builderMode ? <PromqlBuilderPanel /> : <div className="cm-wrap">
         <CodeMirror
           ref={editorRef}
           value={sql}
@@ -244,7 +252,7 @@ export function QueryEditor() {
           aria-label={language.kind === 'promql' ? 'PromQL editor' : 'SQL editor'}
           basicSetup={{ lineNumbers: true, foldGutter: false }}
         />
-      </div>
+      </div>}
 
       {showToast && <div className="toast">{showToast}</div>}
     </div>
