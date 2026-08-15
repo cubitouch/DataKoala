@@ -18,6 +18,7 @@ import { buildSqlCompletionSchema } from '../lib/sqlCompletionSchema'
 import { sqlAliasCompletionSource } from '../lib/sqlAliasCompletion'
 import { ensureRelationColumns } from '../lib/relationColumns'
 import { TimeRangeField } from './time-range/TimeRangeField'
+import { QueryUtilityActions } from './QueryUtilityActions'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
 import { validatePromqlBuilder } from '../lib/promqlBuilder'
@@ -221,6 +222,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
         <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
         {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><div className="promql-step"><span>Resolution <InfoTooltip label="Resolution">How often Prometheus evaluates the query across the selected time range. Example: 30s produces one evaluation point every 30 seconds.</InfoTooltip></span><Combobox label="PromQL query resolution" value={prometheusStep} options={['15s', '30s', '1m', '5m'].map((value) => ({ value, label: value }))} onChange={(value) => setPrometheusQueryOptions({ prometheusStep: value as typeof prometheusStep }, tabId)} /></div></div>}
         <div className="spacer" />
+        <QueryUtilityActions />
         <div className="query-toolbar-group query-editor-actions">{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
           {formatting ? 'Formatting…' : 'Format'}
         </button>}

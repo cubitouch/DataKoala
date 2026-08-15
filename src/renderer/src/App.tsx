@@ -6,13 +6,13 @@ import { selectActiveSession, useStore } from './store/useStore'
 import { BuilderPanel } from './components/BuilderPanel'
 import { ResultExplorer } from './components/ResultExplorer'
 import { QueryTabs } from './components/QueryTabs'
+import { ConnectionStatus } from './components/ConnectionStatus'
 import {
   EDITOR_MIN, SIDEBAR_MIN, TITLEBAR_HEIGHT,
   clampDimension, editorBounds, keyboardDimension, parseStoredDimension, sidebarBounds
 } from '@shared/layoutDimensions'
 import { api } from './lib/api'
 import type { ConnectionStateEvent } from '@shared/types'
-import { connectionKindLabel } from './lib/connectionKind'
 
 const SIDEBAR_STORAGE_KEY = 'datakoala.layout.v1.sidebarWidth'
 const EDITOR_STORAGE_KEY = 'datakoala.layout.v1.editorHeight'
@@ -32,13 +32,7 @@ interface ActiveResize {
 }
 
 export function App() {
-  const connected = useStore((s) => s.connected)
-  const serverVersion = useStore((s) => s.serverVersion)
-  const activeId = useStore((s) => s.activeProfileId)
   const profiles = useStore((s) => s.profiles)
-  const error = useStore((s) => s.connectionError)
-  const connecting = useStore((s) => s.connecting)
-  const connectionStatus = useStore((s) => s.connectionStatus)
   const activeTabId = useStore((s) => s.activeTabId)
   const mode = useStore((s) => selectActiveSession(s).queryMode)
   const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
@@ -53,7 +47,6 @@ export function App() {
     useStore.getState().applyConnectionEvent(event)
   }), [])
 
-  const activeProfile = profiles.find((p) => p.id === activeId)
   const tabProfile = profiles.find((profile) => profile.id === tabConnectionId)
   const prometheusBuilder = tabProfile?.kind === 'prometheus' && mode === 'builder'
   const effectiveMode = prometheusBuilder ? 'sql' : mode
@@ -61,7 +54,6 @@ export function App() {
   // guess PostgreSQL during that gap: the profile may be a non-SQL datasource.
   const queryProfileLoading = Boolean(tabConnectionId && !tabProfile)
   const querySurfaceBlocked = queryProfileLoading
-  const activeName = activeProfile?.name
 
   const currentSidebarBounds = () => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth)
   const currentEditorBounds = () => editorBounds(mainRef.current?.clientHeight ?? window.innerHeight - TITLEBAR_HEIGHT)
@@ -149,20 +141,9 @@ export function App() {
     <div className="app">
       <div className="titlebar">
         <span className="logo">DataKoala</span>
-        <span className="sub">— slice & dice your data</span>
-        <div className="spacer" />
-        <div className={`conn-pill ${connected ? 'on' : error ? 'err' : connectionStatus}`} role="status" aria-live="polite">
-          <span className="dot" />
-          {connectionStatus === 'reconnecting'
-            ? 'Reconnecting…'
-            : connecting
-            ? 'Connecting…'
-            : connected
-              ? `${activeName} · ${activeProfile ? connectionKindLabel(activeProfile.kind) : ''}${serverVersion ? ` ${serverVersion}` : ''}`.trim()
-              : error
-                ? error
-                : connectionStatus === 'idle' ? 'Idle' : activeName ? `${activeName} · disconnected` : 'Disconnected'}
-        </div>
+        <QueryTabs />
+        <div className="titlebar-drag-space" aria-hidden="true" />
+        <ConnectionStatus />
       </div>
 
       <div className="workspace" ref={workspaceRef} style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
@@ -171,7 +152,6 @@ export function App() {
           aria-valuemin={SIDEBAR_MIN} aria-valuemax={Math.max(SIDEBAR_MIN, currentSidebarBounds().max)} aria-valuenow={Math.round(sidebarWidth)}
           tabIndex={0} onPointerDown={beginResize('sidebar')} onKeyDown={resizeWithKeyboard('sidebar')} />
         <div className="main-shell">
-          <QueryTabs />
           <div key={activeTabId} className={`main ${effectiveMode === 'sql' && !querySurfaceBlocked ? 'sql-layout' : ''}`} ref={mainRef}
             style={{ '--editor-height': `${editorHeight}px` } as React.CSSProperties}>
             {queryProfileLoading ? <div className="query-unavailable" role="status" aria-label="Loading connection…">Loading datasource…</div> : <>{effectiveMode === 'sql' ? <><QueryEditor builderMode={prometheusBuilder} /><div className="editor-resizer" role="separator" aria-label="Resize query editor"

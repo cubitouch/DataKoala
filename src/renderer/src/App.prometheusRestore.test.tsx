@@ -55,9 +55,16 @@ describe('Prometheus workspace restoration', () => {
     expect(restoreWorkspaceDraft((patch) => useStore.setState(patch), storage)).toBeTruthy()
     let resolveProfiles!: (profiles: DataSourceProfile[]) => void
     mocks.list.mockReturnValue(new Promise<DataSourceProfile[]>((resolve) => { resolveProfiles = resolve }))
-    render(<App />)
+    const { container } = render(<App />)
 
     expect(screen.getByRole('status', { name: 'Loading connection…' })).toBeTruthy()
+    expect(container.querySelector('.titlebar > .query-tabs')).toBeTruthy()
+    expect(container.querySelector('.titlebar > .conn-pill')).toBeTruthy()
+    expect(container.querySelector('.titlebar-drag-space')).toBeTruthy()
+    expect(Array.from(container.querySelector('.titlebar')!.children).map((element) => element.className))
+      .toEqual(['logo', 'query-tabs', 'titlebar-drag-space', expect.stringContaining('conn-pill')])
+    expect(container.querySelector('.titlebar')?.textContent).not.toContain('slice & dice your data')
+    expect(container.querySelector('.main-shell > .query-tabs, .query-tabs-shell')).toBeNull()
     const initialEditorRenders = mocks.queryEditorRenders
     expect(initialEditorRenders).toBe(0)
     resolveProfiles([prometheus])
@@ -73,22 +80,23 @@ describe('Prometheus workspace restoration', () => {
     resetTestStore({ profiles: [prometheus], activeProfileId: prometheus.id, connected: true, connectionStatus: 'connected' })
     patchActiveTestSession({ connectionProfileId: prometheus.id, queryMode: 'builder' })
     mocks.list.mockResolvedValue([prometheus])
-    render(<App />)
+    const { container } = render(<App />)
 
     expect(screen.getByText('SQL editor mounted')).toBeTruthy()
     expect(screen.getByText('Results mounted')).toBeTruthy()
     expect(screen.queryByText('Builder mounted')).toBeNull()
-    expect(screen.getByText(/Cloud metrics · Prometheus/)).toBeTruthy()
+    expect(container.querySelector('.titlebar > .conn-pill')?.textContent).toContain('Cloud metrics · Prometheus')
+    expect(container.querySelector('.editor-head > .conn-pill')).toBeNull()
   })
 
   it('continues to initialize the SQL editor when another datasource is active', async () => {
     resetTestStore({ profiles: [prometheus, postgres], activeProfileId: postgres.id, connected: true, connectionStatus: 'connected' })
     patchActiveTestSession({ connectionProfileId: postgres.id, queryMode: 'sql' })
     mocks.list.mockResolvedValue([prometheus, postgres])
-    render(<App />)
+    const { container } = render(<App />)
 
     await waitFor(() => expect(screen.getByText('SQL editor mounted')).toBeTruthy())
     expect(screen.queryByText('Prometheus query support is coming')).toBeNull()
-    expect(screen.getByText(/Postgres · PostgreSQL/)).toBeTruthy()
+    expect(container.querySelector('.titlebar > .conn-pill')?.textContent).toContain('Postgres · PostgreSQL')
   })
 })

@@ -53,4 +53,18 @@ describe('QueryTabs lazy connection switching', () => {
     expect(disconnect).not.toHaveBeenCalled()
     expect(connect).not.toHaveBeenCalled()
   })
+
+  it('keeps new and close tab controls usable in the chrome tablist', () => {
+    const a = createQuerySession(1, { id: 'tab-a', title: 'A query' })
+    resetTestStore({ tabs: [a], activeTabId: a.id })
+    const { container } = render(<QueryTabs />)
+
+    expect(container.querySelector('.query-tabs-shell')).toBeNull()
+    expect(screen.getByRole('tablist', { name: 'Query tabs' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'New query tab' }))
+    expect(useStore.getState().tabs).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Close A query' }))
+    expect(useStore.getState().tabs).toHaveLength(1)
+    expect(useStore.getState().tabs[0].id).not.toBe('tab-a')
+  })
 })
