@@ -6,7 +6,7 @@ import { GcxPrometheusTransport } from '../gcx-prometheus-transport.ts'
 import type { PrometheusTransport } from '../prometheus-transport.ts'
 
 const capabilities: DataSourceCapabilities = {
-  builder: false, explain: false, analyze: false, queryCancellation: false,
+  builder: true, explain: false, analyze: false, queryCancellation: false,
   parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false
 }
 

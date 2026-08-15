@@ -43,10 +43,10 @@ test('metric-scoped label names and values use structured gcx labels operations'
   const calls: string[][] = []
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
-    return { stdout: args[1].includes('/label/status/values') ? '{"status":"success","data":["success","failure","success"]}' : '{"status":"success","data":["status","service","method","__name__"]}', stderr: '' }
+    return { stdout: args[1].includes('/label/status/values') ? '{"status":"success","data":["success","failure","success"]}' : '{"status":"success","data":["status","very_specific_label_name","service","method","__name__"]}', stderr: '' }
   }
   const transport = new GcxPrometheusTransport('production', run, 'prom uid/one')
-  assert.deepEqual(await transport.labelsForMetric('http_requests_total'), ['method', 'service', 'status'])
+  assert.deepEqual(await transport.labelsForMetric('http_requests_total'), ['method', 'service', 'status', 'very_specific_label_name'])
   assert.deepEqual(await transport.labelValues('http_requests_total', 'status'), ['failure', 'success'])
   assert.deepEqual(calls, [
     ['api', '/api/datasources/proxy/uid/prom%20uid%2Fone/api/v1/labels?match%5B%5D=http_requests_total', '--context', 'production', '-o', 'json'],
@@ -92,7 +92,7 @@ test('selected datasource UID scopes metadata and query commands', async () => {
   await transport.metadata()
   await transport.query({ expression: 'up', start: 'a', end: 'b', step: '30s' })
   assert.deepEqual(calls[0], ['metrics', 'metadata', '--datasource', 'selected-uid', '-o', 'json'])
-  assert.deepEqual(calls[1], ['metrics', 'query', 'up', '--datasource', 'selected-uid', '--from', 'a', '--to', 'b', '--step', '30s', '-o', 'json'])
+  assert.deepEqual(calls[1], ['api', '/api/datasources/proxy/uid/selected-uid/api/v1/query_range?query=up&start=a&end=b&step=30s', '-o', 'json'])
 })
 
 test('gcx non-zero exits are normalized without exposing terminal output', async () => {
@@ -143,8 +143,37 @@ test('query maps datasource-neutral range bounds to gcx and normalizes a matrix'
   const result = await transport.query({ expression: 'up', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step: '30s' })
   assert.deepEqual(args, ['metrics', 'query', 'up', '--context', 'production', '--from', '2026-08-14T10:00:00Z', '--to', '2026-08-14T10:15:00Z', '--step', '30s', '-o', 'json'])
   assert.equal(result.rowCount, 2)
-  assert.deepEqual(result.rows.map((row) => row.series), ['{instance="a",service="api"}', '{instance="b",service="api"}'])
-  assert.deepEqual(result.columns.map((column) => column.name), ['timestamp', 'value', 'series', 'instance', 'service'])
+  assert.deepEqual(result.rows, [
+    { timestamp: '2024-08-14T08:00:00.000Z', value: 1, instance: 'a', service: 'api' },
+    { timestamp: '2024-08-14T08:00:00.000Z', value: 2, instance: 'b', service: 'api' }
+  ])
+  assert.deepEqual(result.columns.map((column) => column.name), ['timestamp', 'value', 'instance', 'service'])
+})
+
+test('distinct requested resolutions reach gcx unchanged', async () => {
+  const calls: string[][] = []
+  const transport = new GcxPrometheusTransport(undefined, async (args) => { calls.push(args); return { stdout: '{"status":"success","data":{"resultType":"matrix","result":[]}}', stderr: '' } })
+  for (const step of ['30s', '1m', '5m']) await transport.query({ expression: 'up', start: 'a', end: 'b', step })
+  assert.deepEqual(calls.map((args) => args.slice(args.indexOf('--step'), args.indexOf('--step') + 2)), [['--step', '30s'], ['--step', '1m'], ['--step', '5m']])
+})
+
+test('selected datasource uses Prometheus query_range with its exact server-side step', async () => {
+  const calls: string[][] = []
+  const transport = new GcxPrometheusTransport(undefined, async (args) => { calls.push(args); return { stdout: '{"status":"success","data":{"resultType":"matrix","result":[]}}', stderr: '' } }, 'prom')
+  for (const step of ['30s', '1m', '5m']) await transport.query({ expression: 'sum(up)', start: '2026-01-01T00:00:00Z', end: '2026-01-01T01:00:00Z', step })
+  assert.deepEqual(calls.map((args) => new URL(`http://localhost${args[1]}`).searchParams.get('step')), ['30s', '1m', '5m'])
+})
+
+test('query_range preserves the server sample density produced for each resolution', async () => {
+  const counts: Record<string, number> = { '30s': 121, '1m': 61, '5m': 13 }
+  const transport = new GcxPrometheusTransport(undefined, async (args) => {
+    const step = new URL(`http://localhost${args[1]}`).searchParams.get('step') ?? ''
+    const values = Array.from({ length: counts[step] }, (_, index) => [1_700_000_000 + index, String(index)])
+    return { stdout: JSON.stringify({ status: 'success', data: { resultType: 'matrix', result: [{ metric: { job: 'stable' }, values }] } }), stderr: '' }
+  }, 'prom')
+  const rowCounts = []
+  for (const step of ['30s', '1m', '5m']) rowCounts.push((await transport.query({ expression: 'up', start: '2026-01-01T00:00:00Z', end: '2026-01-01T01:00:00Z', step })).rowCount)
+  assert.deepEqual(rowCounts, [121, 61, 13])
 })
 
 test('normalizes range, vector, and empty gcx query fixtures', async () => {

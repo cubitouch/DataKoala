@@ -1,0 +1,135 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { selectActiveSession, useStore } from '../store/useStore'
+import { buildPromql, detectPromqlHistogramKind, validatePromqlBuilder, type PromqlAggregation, type PromqlCalculation, type PromqlQuantile, type PromqlWindow } from '../lib/promqlBuilder'
+import { metricLabels, metricLabelValues } from '../lib/prometheusMetadata'
+import { Combobox, MultiCombobox } from './ui/combobox'
+import { InfoTooltip } from './ui/InfoTooltip'
+
+const ordinaryCalculations = ['raw', 'rate', 'increase'] as const
+const histogramCalculations = ['observation-rate', 'histogram-average', 'histogram-sum', 'percentile'] as const
+const aggregations = ['none', 'sum', 'avg', 'min', 'max'] as const
+const windows = ['1m', '5m', '10m', '15m', '30m', '1h'] as const
+const quantiles = [{ value: 0.5, label: 'P50' }, { value: 0.75, label: 'P75' }, { value: 0.9, label: 'P90' }, { value: 0.95, label: 'P95' }, { value: 0.99, label: 'P99' }, { value: 0.999, label: 'P99.9' }] as const
+const rangeCalculations = new Set<PromqlCalculation>(['rate', 'increase', ...histogramCalculations])
+const histogramCalculationSet = new Set<PromqlCalculation>(histogramCalculations)
+const calculationLabels: Record<PromqlCalculation, string> = { raw: 'Raw', rate: 'Rate', increase: 'Increase', 'observation-rate': 'Observation rate', 'histogram-average': 'Average', 'histogram-sum': 'Sum of observations', percentile: 'Percentile' }
+const titleCase = (value: string) => value === 'avg' ? 'Average' : value === 'min' ? 'Minimum' : value === 'max' ? 'Maximum' : value[0].toUpperCase() + value.slice(1)
+
+export function PromqlBuilderPanel() {
+  const tabId = useStore((state) => state.activeTabId)
+  const session = useStore(selectActiveSession)
+  const profileId = session.connectionProfileId
+  const metadata = useStore((state) => profileId ? state.metadataByProfileId[profileId] : undefined)
+  const setBuilder = useStore((state) => state.setPromqlBuilder)
+  const setSql = useStore((state) => state.setSql)
+  const setMode = useStore((state) => state.setQueryMode)
+  const [labels, setLabels] = useState<string[]>([])
+  const [loadingLabels, setLoadingLabels] = useState(false)
+  const [labelError, setLabelError] = useState(false)
+  const [values, setValues] = useState<Record<string, string[]>>({})
+  const [loadingValues, setLoadingValues] = useState<Record<string, boolean>>({})
+  const [valueErrors, setValueErrors] = useState<Record<string, boolean>>({})
+  const builder = session.promqlBuilder
+  const metrics = useMemo(() => (metadata?.schemas ?? []).flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'metric'), [metadata?.schemas])
+  const selectedMetric = metrics.find((metric) => metric.name === builder.metric)
+  const metadataType = selectedMetric?.details?.kind === 'metric' ? selectedMetric.details.type : undefined
+  const histogramKind = detectPromqlHistogramKind({ metric: builder.metric, labels, metadataType })
+  const previousHistogramKind = useRef(histogramKind)
+  const metricOptions = metrics.map((metric) => ({ value: metric.name, label: metric.name, subtitle: metric.details?.kind === 'metric' ? metric.details.type : undefined }))
+  const labelOptions = labels.filter((label) => label !== '__name__').sort((left, right) => left.localeCompare(right)).map((label) => ({ value: label, label }))
+  const activeLabels = [...new Set([...builder.groupBy, ...builder.filterBy])]
+
+  const apply = (patch: Partial<typeof builder>) => {
+    const next = { ...builder, ...patch }
+    setBuilder(patch, tabId)
+    const generated = buildPromql(next, histogramKind)
+    if (generated) setSql(generated, tabId)
+  }
+  const loadValues = useCallback((label: string) => {
+    if (!profileId || !builder.metric || !label || values[label] || loadingValues[label]) return
+    setLoadingValues((current) => ({ ...current, [label]: true }))
+    setValueErrors((current) => ({ ...current, [label]: false }))
+    void metricLabelValues(profileId, builder.metric, label)
+      .then((found) => setValues((current) => ({ ...current, [label]: found })))
+      .catch(() => setValueErrors((current) => ({ ...current, [label]: true })))
+      .finally(() => setLoadingValues((current) => ({ ...current, [label]: false })))
+  }, [profileId, builder.metric, values, loadingValues])
+  const selectMetric = (metric: string) => {
+    const target = metrics.find((candidate) => candidate.name === metric)
+    const targetType = target?.details?.kind === 'metric' ? target.details.type : undefined
+    const targetKind = detectPromqlHistogramKind({ metric, labels: [], metadataType: targetType })
+    const calculation = targetKind === 'classic' && histogramCalculationSet.has(builder.calculation) && builder.calculation !== 'percentile' ? 'raw' as const : builder.calculation
+    const next = { ...builder, metric, calculation, aggregation: histogramCalculationSet.has(calculation) ? 'sum' as const : builder.aggregation, filterBy: [], groupBy: [], labelValues: {} }
+    setBuilder(next, tabId)
+    const generated = buildPromql(next, targetKind)
+    if (generated) setSql(generated, tabId)
+    setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({})
+  }
+  useEffect(() => {
+    if (!profileId || !builder.metric) return
+    let active = true
+    setLoadingLabels(true); setLabelError(false)
+    metricLabels(profileId, builder.metric)
+      .then((found) => { if (active) setLabels(found.filter((label) => label !== '__name__')) })
+      .catch(() => { if (active) setLabelError(true) })
+      .finally(() => { if (active) setLoadingLabels(false) })
+    return () => { active = false }
+  }, [profileId, builder.metric])
+  const changeDimensions = (kind: 'groupBy' | 'filterBy', nextLabels: string[]) => {
+    const other = kind === 'groupBy' ? builder.filterBy : builder.groupBy
+    const nextActive = [...new Set([...nextLabels, ...other])]
+    const added = nextActive.filter((label) => !activeLabels.includes(label))
+    const labelValues = Object.fromEntries(Object.entries(builder.labelValues).filter(([label]) => nextActive.includes(label)))
+    const aggregation = kind === 'groupBy' && nextLabels.length && builder.aggregation === 'none' ? 'sum' as const : builder.aggregation
+    apply({ [kind]: nextLabels, labelValues, aggregation })
+    added.forEach(loadValues)
+  }
+  useEffect(() => { activeLabels.forEach(loadValues) }, [profileId, builder.metric, activeLabels.join('\0')])
+  useEffect(() => {
+    if (histogramKind === 'classic' && histogramCalculationSet.has(builder.calculation) && builder.calculation !== 'percentile') {
+      apply({ calculation: 'raw', aggregation: 'none' })
+      previousHistogramKind.current = histogramKind
+      return
+    }
+    if (previousHistogramKind.current !== histogramKind && builder.calculation === 'percentile') {
+      const generated = buildPromql(builder, histogramKind)
+      if (generated) setSql(generated, tabId)
+    }
+    previousHistogramKind.current = histogramKind
+    if (import.meta.env.DEV && builder.metric && !loadingLabels) console.debug(`[prometheus:builder] selectedMetric=${builder.metric} metadataType=${metadataType ?? 'unknown'} labels=${JSON.stringify(labels)} histogramKind=${histogramKind}`)
+  }, [histogramKind, builder.metric, loadingLabels])
+  const changeCalculation = (calculation: PromqlCalculation) => {
+    const aggregation: PromqlAggregation = histogramCalculationSet.has(calculation) ? 'sum' : calculation === 'rate' || calculation === 'increase' ? 'sum' : builder.aggregation
+    apply({ calculation, aggregation, groupBy: calculation === 'raw' && aggregation === 'none' ? [] : builder.groupBy })
+  }
+  const validation = validatePromqlBuilder(builder)
+  const generated = buildPromql(builder, histogramKind)
+  const availableCalculations: readonly PromqlCalculation[] = histogramKind === 'classic'
+    ? ['raw', 'percentile']
+    : histogramKind === 'native'
+      ? ['raw', ...histogramCalculations]
+      : [...ordinaryCalculations, ...histogramCalculations]
+  const calculationOptions = availableCalculations.map((value) => ({ value, label: calculationLabels[value] }))
+  const aggregationOptions = aggregations.map((value) => ({ value, label: titleCase(value) }))
+  const labelPlaceholder = loadingLabels ? 'Loading labels…' : labelError ? 'Could not load labels' : labels.length === 0 ? 'No labels available' : 'No filters'
+
+  return <div className="promql-builder-form">
+    <div className="promql-builder-grid promql-core-row" data-promql-row="core">
+      <div className="builder-control promql-metric-control"><span className="builder-field-label">Metric</span><Combobox label="Metric" value={builder.metric} options={metricOptions} onChange={selectMetric} searchable placeholder="Select a metric…" emptyMessage="No matching metrics" /></div>
+      <div className="builder-control"><span className="builder-field-label">Calculation</span><Combobox label="Calculation" value={builder.calculation} options={calculationOptions} onChange={(value) => changeCalculation(value as PromqlCalculation)} />{histogramKind === 'unknown' && histogramCalculationSet.has(builder.calculation) && !loadingLabels && <small className="builder-field-hint">Histogram representation could not be determined from metadata. DataKoala will use native histogram syntax.</small>}</div>
+      {builder.calculation === 'percentile' && <div className="builder-control"><span className="builder-field-label">Percentile</span><Combobox label="Percentile" value={String(builder.percentile)} options={quantiles.map(({ value, label }) => ({ value: String(value), label }))} onChange={(value) => apply({ percentile: Number(value) as PromqlQuantile })} /></div>}
+      {!histogramCalculationSet.has(builder.calculation) && <div className="builder-control"><span className="builder-field-label">Aggregation <InfoTooltip label="Aggregation">Combines the resulting time series after the calculation. Sum is common for counters split across instances; Average, Minimum and Maximum compare the calculated values across series.</InfoTooltip></span><Combobox label="Aggregation" value={builder.aggregation} options={aggregationOptions} onChange={(value) => apply({ aggregation: value as PromqlAggregation, ...(value === 'none' ? { groupBy: [] } : {}) })} /></div>}
+      {rangeCalculations.has(builder.calculation) && <div className="builder-control"><span className="builder-field-label">Rate window <InfoTooltip label="Rate window">How much history each calculation looks back over. Example: 5m means rate(...[5m]) uses the previous 5 minutes at each point.</InfoTooltip></span><Combobox label="Rate window" value={builder.window} options={windows.map((value) => ({ value, label: value }))} onChange={(value) => apply({ window: value as PromqlWindow })} /></div>}
+    </div>
+    <div className="promql-filter-group-row" data-promql-row="filters-and-grouping">
+      <div className="builder-control"><span className="builder-field-label">Group by</span><MultiCombobox label="Group by" values={builder.groupBy} options={labelOptions.filter((option) => builder.calculation !== 'percentile' || histogramKind !== 'classic' || option.value !== 'le')} onChange={(labels) => changeDimensions('groupBy', labels)} searchable showChips disabled={!builder.metric || loadingLabels} placeholder="No grouping" /></div>
+      <div className="builder-control"><span className="builder-field-label">Filter by</span><MultiCombobox label="Filter by" values={builder.filterBy} options={labelOptions} onChange={(labels) => changeDimensions('filterBy', labels)} searchable showChips disabled={!builder.metric || loadingLabels || labelError || labels.length === 0} placeholder={labelPlaceholder} /></div>
+    </div>
+    <div className="promql-values-grid" data-promql-row="filter-values">{activeLabels.map((label) => {
+      const loading = Boolean(loadingValues[label]); const error = Boolean(valueErrors[label]); const loaded = Object.hasOwn(values, label)
+      const placeholder = loading ? 'Loading values…' : error ? 'Could not load values' : loaded && values[label].length === 0 ? 'No values found' : 'Select values…'
+      return <div className="builder-control promql-value-control" key={label}><span className="builder-field-label">{label}</span><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={[...(values[label] ?? [])].sort((left, right) => left.localeCompare(right)).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={loading || error || loaded && values[label].length === 0} placeholder={placeholder} /></div>
+    })}</div>
+    <details className="generated-promql"><summary><span>Generated PromQL</span><button className="btn ghost open-promql-action" type="button" disabled={!generated} onClick={(event) => { event.preventDefault(); event.stopPropagation(); if (generated) setSql(generated, tabId); setMode('sql', tabId); requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="PromQL editor"]')?.focus()) }}>Open in PromQL</button></summary>{validation ? <p className="inline-error" role="status">{validation}</p> : <pre>{generated}</pre>}</details>
+  </div>
+}

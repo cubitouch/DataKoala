@@ -21,6 +21,8 @@ jobs:
         sql-default.png
         prometheus-toolbar.png
         prometheus-toolbar-narrow.png
+        prometheus-builder.png
+        prometheus-builder-narrow.png
         sql-resized-panes.png
         sql-long-query-scroll.png
         sql-wide-sidebar-long-names.png
@@ -117,6 +119,8 @@ jobs:
               'sql-default.png': 'SQL mode — default dimensions',
               'prometheus-toolbar.png': 'Prometheus — datasource-aware query toolbar',
               'prometheus-toolbar-narrow.png': 'Prometheus — narrow responsive toolbar',
+              'prometheus-builder.png': 'Prometheus Builder — metric, filters, grouping, and calculation',
+              'prometheus-builder-narrow.png': 'Prometheus Builder — narrow responsive layout',
               'sql-resized-panes.png': 'SQL mode — resized sidebar and editor',
               'sql-long-query-scroll.png': 'SQL mode — long query scrolling internally',
               'sql-wide-sidebar-long-names.png': 'SQL mode — widened sidebar with long object names',

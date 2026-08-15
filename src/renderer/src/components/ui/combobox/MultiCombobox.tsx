@@ -7,19 +7,19 @@ import { ComboboxSearch } from './ComboboxSearch'
 import { ComboboxTrigger } from './ComboboxTrigger'
 import type { ComboboxOption } from './types'
 
-interface Props { label: string; values: string[]; options: ComboboxOption[]; onChange: (values: string[]) => void; placeholder?: string; searchable?: boolean; showChips?: boolean; disabled?: boolean; emptyMessage?: string; invalidationKey?: unknown }
+interface Props { label: string; values: string[]; options: ComboboxOption[]; onChange: (values: string[]) => void; onOpen?: () => void; placeholder?: string; searchable?: boolean; showChips?: boolean; disabled?: boolean; emptyMessage?: string; invalidationKey?: unknown }
 const norm = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase()
 const optionText = (option: ComboboxOption) => norm([option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' '))
 const optionId = (prefix: string, value: string) => `${prefix}-option-${encodeURIComponent(value)}`
 
-export function MultiCombobox({ label, values, options, onChange, placeholder = 'Select options…', searchable = true, showChips = false, disabled = false, emptyMessage = 'No matching options', invalidationKey }: Props) {
+export function MultiCombobox({ label, values, options, onChange, onOpen, placeholder = 'Select options…', searchable = true, showChips = false, disabled = false, emptyMessage = 'No matching options', invalidationKey }: Props) {
   const reactId = useId(); const menuId = `${reactId}-listbox`; const [open, setOpen] = useState(false); const [query, setQuery] = useState(''); const [activeValue, setActiveValue] = useState<string | null>(null); const searchRef = useRef<HTMLInputElement>(null); const triggerRef = useRef<HTMLButtonElement>(null)
   const filtered = useMemo(() => { const q = norm(query); return q ? options.filter((option) => optionText(option).includes(q)) : options }, [options, query])
   const enabled = useMemo(() => filtered.filter((option) => !option.disabled), [filtered]); const active = filtered.find((option) => option.value === activeValue && !option.disabled) ?? enabled[0]
   const optionByValue = useMemo(() => new Map(options.map((option) => [option.value, option])), [options])
   const selectedOptions = values.map((value) => optionByValue.get(value)).filter((option): option is ComboboxOption => Boolean(option))
   useEffect(() => { if (!open) { setQuery(''); setActiveValue(null); return }; setActiveValue((current) => filtered.some((option) => option.value === current && !option.disabled) ? current : (enabled[0]?.value ?? null)) }, [open, filtered, enabled])
-  useEffect(() => { if (open && searchable) searchRef.current?.focus() }, [open, searchable])
+  useEffect(() => { if (open) onOpen?.(); if (open && searchable) searchRef.current?.focus() }, [open, searchable, onOpen])
   useEffect(() => { if (active) document.getElementById(optionId(reactId, active.value))?.scrollIntoView({ block: 'nearest' }) }, [active?.value, reactId])
   const toggle = (option = active) => { if (!option || option.disabled) return; onChange(values.includes(option.value) ? values.filter((value) => value !== option.value) : [...values, option.value]) }
   const remove = (value: string) => onChange(values.filter((existing) => existing !== value))
