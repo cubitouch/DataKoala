@@ -19,7 +19,9 @@ test('the titlebar owns tab-strip placement and leaves unused space draggable', 
   expect(titlebarTabs).toMatch(/min-width:\s*0\s*;/)
   expect(titlebarTabs).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
   expect(titlebarTabs).toMatch(/scrollbar-width:\s*none\s*;/)
-  expect(rule(tabsCss, '.root')).toMatch(/overflow-x:\s*auto\s*;/)
+  const componentRoot = rule(tabsCss, '.root')
+  expect(componentRoot).toMatch(/overflow-x:\s*auto\s*;/)
+  expect(componentRoot).not.toMatch(/(?:^|;)\s*flex(?:-grow|-shrink|-basis)?\s*:/)
   expect(rule(appCss, '.queryTabs::-webkit-scrollbar')).toMatch(/display:\s*none\s*;/)
   expect(rule(appCss, '.dragSpace')).toMatch(/flex:\s*1\s+1\s+28px\s*;/)
   expect(rule(appCss, '.dragSpace')).toMatch(/min-width:\s*28px\s*;/)
@@ -29,6 +31,12 @@ test('tab and add controls remain outside the draggable app region', () => {
   expect(rule(tabsCss, '.tab')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
   expect(rule(tabsCss, '.main')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
   expect(rule(tabsCss, '.close, .add')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
+})
+
+test('query utility actions retain their compact narrow-toolbar sizing', () => {
+  const utilities = rule(shellCss, '.query-utility-actions .btn')
+  expect(utilities).toMatch(/padding-inline:\s*6px\s*;/)
+  expect(utilities).toMatch(/font-size:\s*10px\s*;/)
 })
 
 test('the application shell is constrained to the root without becoming a document scroller', () => {

@@ -646,3 +646,6 @@ table.results td:hover .json-cell-explorer-popover .popover-trigger,
 @media (max-width: 520px) { .promql-core-row { grid-template-columns: 1fr; } }
 
 @media (max-width: 899px) { .titlebar { gap: 6px; } }
+@media (max-width: 899px) {
+  .query-utility-actions .btn { padding-inline: 6px; font-size: 10px; }
+}

@@ -25,8 +25,8 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
           ? error
           : connectionStatus === 'idle' ? 'Idle' : activeName ? `${activeName} · disconnected` : 'Disconnected'
 
-  const stateClass = connected ? styles.connected : error ? styles.error : styles[connectionStatus]
-  return <div className={`${styles.root} ${stateClass}${className ? ` ${className}` : ''}`}
+  const stateClass = connected ? styles.connected : error ? styles.error : ''
+  return <div className={[styles.root, stateClass, className].filter(Boolean).join(' ')}
     role="status" aria-live="polite" title={statusText} data-state={connected ? 'connected' : error ? 'error' : connectionStatus}>
     <span className={styles.dot} />
     <span className={styles.label}>{statusText}</span>
