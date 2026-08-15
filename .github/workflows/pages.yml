@@ -1,0 +1,65 @@
+name: Documentation site
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Electron display libraries
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
+      - name: Generate canonical documentation screenshots
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm docs:screenshots
+      - name: Build documentation
+        run: pnpm docs:build
+      - name: Upload documentation preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: datakoala-documentation-${{ github.sha }}
+          path: |
+            docs-site/public/screenshots/*.png
+            docs-site/dist/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Configure GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs-site/dist
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

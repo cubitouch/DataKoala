@@ -6,7 +6,9 @@ release/
 *.tsbuildinfo
 .DS_Store
 
-visual-preview/
+/visual-preview/
+docs-site/public/screenshots/
+docs-site/dist/
 
 # Official DuckDB extensions acquired for the current developer/build platform.
 resources/duckdb-extensions/*/*.duckdb_extension

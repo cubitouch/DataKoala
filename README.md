@@ -4,6 +4,8 @@
 
 A local-first desktop data explorer for PostgreSQL, BigQuery, SQLite, and local files. Connect a source, write SQL or use the visual Builder, then explore the result as a table or chart.
 
+**[View the DataKoala product tour and documentation →](https://cubitouch.github.io/DataKoala/)**
+
 > Status: early working prototype. The core loop (connect → query/build → table → chart → export) works and is covered by automated tests and smoke checks.
 
 ## Why
@@ -41,22 +43,6 @@ src/shared    types + IPC channel names shared across the boundary
 
 Requires Node 22+, pnpm, and Git.
 
-On macOS, install the optional Prometheus tooling used by the PromQL formatter and the Grafana `gcx` CLI used by Grafana/Prometheus connections:
-
-```bash
-brew install prometheus
-brew install grafana/grafana/gcx
-
-promtool --version
-gcx --version
-```
-
-The Homebrew `prometheus` formula installs `promtool`. To use a Grafana Cloud or Grafana connection, authenticate `gcx` before starting DataKoala, for example:
-
-```bash
-gcx login my-stack --server https://<your-stack>.grafana.net
-```
-
 Then clone and run DataKoala:
 
 ```bash
@@ -68,9 +54,27 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Then create a connection or local source from the left sidebar.
+Then create a connection or local source from the left sidebar. PostgreSQL, BigQuery, SQLite, and local-file use do not require Prometheus tooling.
 
-If `promtool` is installed somewhere outside your `PATH`, set `DATAKOALA_PROMTOOL_PATH` before starting DataKoala:
+### Optional: Using Prometheus / Grafana?
+
+On macOS, install the Prometheus tooling used by the PromQL formatter and Grafana-backed connections:
+
+```bash
+brew install prometheus
+brew install grafana/grafana/gcx
+
+promtool --version
+gcx --version
+```
+
+The Homebrew `prometheus` formula provides `promtool`, which DataKoala uses for PromQL formatting. DataKoala uses `gcx` for Grafana and Grafana Cloud-backed Prometheus connections. Authenticate before starting DataKoala, for example:
+
+```bash
+gcx login my-stack --server https://<your-stack>.grafana.net
+```
+
+If `promtool` is installed somewhere outside your `PATH`, set `DATAKOALA_PROMTOOL_PATH`:
 
 ```bash
 DATAKOALA_PROMTOOL_PATH=/path/to/promtool pnpm dev

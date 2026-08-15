@@ -62,9 +62,13 @@ export function BuilderPanel() {
   const [seriesProbe, setSeriesProbe] = useState<{ status: 'checking' | 'error'; message?: string; retry?: () => void } | null>(null)
   const [axisNotice, setAxisNotice] = useState<string | null>(null)
   const tabConnected = Boolean(tabConnectionId && connected && activeId === tabConnectionId)
+  const documentationCapture = Boolean(window.datakoala?.smokeMode && (window as unknown as Record<string, unknown>).__datakoalaDocumentationCapture)
   const stillBoundTo = (requestTabId: string, profileId: string) => selectSession(useStore.getState(), requestTabId)?.connectionProfileId === profileId
 
   useEffect(() => {
+    // Documentation capture deliberately demonstrates Sum(count). The legacy
+    // migration remains unchanged for real workspaces and regression previews.
+    if (documentationCapture) return
     const legacyX = builderVisualization.xColumn === 'time_bucket'
     const legacyCount = builderVisualization.valueColumn === 'count' && builderVisualization.aggregation === 'sum'
     if (!legacyX && !legacyCount) return
@@ -82,7 +86,7 @@ export function BuilderPanel() {
   const xColumn = selectedX ? columns.find((column) => column.name === selectedX) : undefined
   const xTemporal = Boolean(xColumn && isTimeColumn(xColumn))
   const timeFilterColumn = builder.timeColumn ? columns.find((column) => column.name === builder.timeColumn && isTimeColumn(column)) : undefined
-  const aggregation: Aggregation = builderVisualization.valueColumn === 'count' && builderVisualization.aggregation === 'sum' ? 'count' : builderVisualization.aggregation
+  const aggregation: Aggregation = !documentationCapture && builderVisualization.valueColumn === 'count' && builderVisualization.aggregation === 'sum' ? 'count' : builderVisualization.aggregation
   const selectedY = aggregation === 'count' ? null : builderVisualization.valueColumn
   const yColumn = selectedY ? columns.find((column) => column.name === selectedY && isNumericType(column.dataTypeName)) : undefined
   const effectiveTimeRange = timeFilterColumn ? (builder.timeRange ?? SEVEN_DAYS) : undefined
