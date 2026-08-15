@@ -2,6 +2,7 @@ import type { DataSourceProfile, TableInfo } from '@shared/types'
 import { api } from './api'
 import { normalizeDatabaseObjects } from './databaseObjects'
 import { selectSession, useStore } from '../store/useStore'
+import { defaultQueryModeForDatasource, defaultQueryTextForDatasource } from './queryDefaults'
 
 let switchSequence = 0
 let inFlight: { profileId: string; promise: Promise<string | null> } | null = null
@@ -136,8 +137,16 @@ export function bindTabConnection(tabId: string, profileId: string | null): void
   useStore.setState((state) => ({
     tabs: state.tabs.map((tab) => {
       if (tab.id !== tabId || tab.connectionProfileId === profileId) return tab
+      const profile = state.profiles.find((candidate) => candidate.id === profileId)
+      const previousProfile = state.profiles.find((candidate) => candidate.id === tab.connectionProfileId)
+      const hasUntouchedDefault = tab.manualQueryPristine && tab.sql === defaultQueryTextForDatasource(previousProfile?.kind)
+      const freshDefaults = hasUntouchedDefault ? {
+        sql: defaultQueryTextForDatasource(profile?.kind),
+        queryMode: defaultQueryModeForDatasource(profile?.kind)
+      } : {}
       return {
         ...tab,
+        ...freshDefaults,
         connectionProfileId: profileId,
         running: false,
         queryError: null,

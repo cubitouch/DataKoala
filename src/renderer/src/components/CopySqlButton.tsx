@@ -1,46 +1,28 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React from 'react'
 void React
 import { copyTextToClipboard } from '../lib/clipboardText'
-
-export type CopyState = 'idle' | 'copied' | 'error'
+import { notify } from './NotificationArea'
 
 interface CopySqlButtonProps {
   sql: string
   className?: string
-  resetMs?: number
 }
 
-export function CopySqlButton({ sql, className = 'btn ghost', resetMs = 2000 }: CopySqlButtonProps) {
-  const [copyState, setCopyState] = useState<CopyState>('idle')
-  const resetTimer = useRef<number | null>(null)
+export function CopySqlButton({ sql, className = 'btn ghost' }: CopySqlButtonProps) {
   const hasSql = sql.trim().length > 0
-
-  useEffect(() => () => {
-    if (resetTimer.current !== null) window.clearTimeout(resetTimer.current)
-  }, [])
-
-  const scheduleReset = () => {
-    if (resetTimer.current !== null) window.clearTimeout(resetTimer.current)
-    resetTimer.current = window.setTimeout(() => {
-      setCopyState('idle')
-      resetTimer.current = null
-    }, resetMs)
-  }
 
   const handleCopySql = async () => {
     if (!hasSql) return
 
     try {
       await copyTextToClipboard(sql)
-      setCopyState('copied')
-      scheduleReset()
-    } catch {
-      setCopyState('error')
+      notify({ message: 'Copied to clipboard' })
+    } catch (error) {
+      notify({ message: error instanceof Error && error.message ? `Could not copy: ${error.message}` : 'Could not copy to clipboard', tone: 'error' })
     }
   }
 
   return (
-    <>
       <button
         type="button"
         className={className}
@@ -48,14 +30,7 @@ export function CopySqlButton({ sql, className = 'btn ghost', resetMs = 2000 }: 
         disabled={!hasSql}
         aria-label="Copy SQL to clipboard"
       >
-        {copyState === 'copied' ? '✓ ' : ''}
-        {copyState === 'copied' ? 'Copied' : 'Copy'}
+        Copy
       </button>
-      <span aria-live="polite" className="sr-only">
-        {copyState === 'copied' && 'SQL copied to clipboard'}
-        {copyState === 'error' && 'Could not copy SQL'}
-      </span>
-      {copyState === 'error' && <span className="inline-error" role="status">Could not copy SQL</span>}
-    </>
   )
 }

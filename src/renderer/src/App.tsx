@@ -13,6 +13,7 @@ import {
 } from '@shared/layoutDimensions'
 import { api } from './lib/api'
 import type { ConnectionStateEvent } from '@shared/types'
+import { NotificationArea } from './components/NotificationArea'
 
 const SIDEBAR_STORAGE_KEY = 'datakoala.layout.v1.sidebarWidth'
 const EDITOR_STORAGE_KEY = 'datakoala.layout.v1.editorHeight'
@@ -164,6 +165,7 @@ export function App() {
       </div>
 
       <ExplainPane />
+      <NotificationArea />
     </div>
   )
 }

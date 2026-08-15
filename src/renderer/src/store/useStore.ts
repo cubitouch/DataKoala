@@ -9,6 +9,7 @@ import { completeQueryState, deliverQueryResultState, startQueryState, stopQuery
 import { normalizeDatabaseObjects } from '../lib/databaseObjects'
 import { api } from '../lib/api'
 import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from '../lib/promqlBuilder'
+import { defaultQueryModeForDatasource, defaultQueryTextForDatasource } from '../lib/queryDefaults'
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'idle' | 'reconnecting' | 'error'
 export type MetadataStatus = 'idle' | 'loading' | 'loaded' | 'error'
@@ -39,6 +40,8 @@ export interface QuerySession {
   title: string
   connectionProfileId: string | null
   sql: string
+  /** True only until the user first edits a newly-created manual query. */
+  manualQueryPristine?: boolean
   prometheusTimeRange: BuilderTimeRange
   prometheusStep: '15s' | '30s' | '1m' | '5m'
   promqlBuilder: PromqlBuilderState
@@ -91,7 +94,8 @@ export function createQuerySession(index = 1, options: Partial<Pick<QuerySession
     id: options.id ?? sessionId(),
     title: options.title ?? `Query ${index}`,
     connectionProfileId: options.connectionProfileId ?? null,
-    sql: options.sql ?? 'select now();',
+    sql: options.sql ?? defaultQueryTextForDatasource(),
+    manualQueryPristine: options.sql === undefined,
     prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' },
     prometheusStep: '30s',
     promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} },
@@ -102,7 +106,7 @@ export function createQuerySession(index = 1, options: Partial<Pick<QuerySession
     resultRevision: 0,
     lastSuccessfulResultRevision: 0,
     isResultStale: false,
-    queryMode: options.queryMode ?? 'builder',
+    queryMode: options.queryMode ?? defaultQueryModeForDatasource(),
     builder: { table: null, timeColumn: null, timeBucket: 'day', seriesColumns: [], timeRange: SEVEN_DAYS },
     builderHasRun: false,
     sqlVisualization: defaultSqlVisualization(),
@@ -470,6 +474,7 @@ export const useStore = create<AppState>((set, get) => ({
   setSql: (sql, tabId) => set((state) => patchSession(state, tabId, (session) => session.activeExplainRequest ? session : {
     ...session,
     sql,
+    manualQueryPristine: false,
     sqlResultFilters: session.sqlResultFilters.map((filter) => filter.execution === 'query' ? { ...filter, execution: 'client' as const } : filter)
   })),
   setPrometheusQueryOptions: (patch, tabId) => set((state) => patchSession(state, tabId, (session) => ({ ...session, ...patch }))),
