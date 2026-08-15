@@ -341,8 +341,8 @@ async function configureDocumentationPrometheus(win) {
   if (report.mode !== 'builder' || report.result !== null || report.metric !== 'http_request_duration_seconds_bucket' || report.tables) throw new Error(`Prometheus documentation assertion failed: ${JSON.stringify(report)}`)
 }
 
-async function configureDocumentationSunburst(win) {
-  await configureDocumentationSql(win, 'sql', 'sunburst')
+async function configureDocumentationTreemap(win) {
+  await configureDocumentationSql(win, 'sql', 'treemap')
   await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
     const rows = [
@@ -360,12 +360,12 @@ async function configureDocumentationSunburst(win) {
       { name: 'value', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
     ], rows, rowCount: rows.length, durationMs: 12 }, null)
     store.getState().setSql('select region, country, channel, value\\nfrom analytics.market_summary\\norder by region, country, channel;')
-    store.getState().setVisualization('sql', { view: 'sunburst', xColumn: 'record', valueColumn: 'value', seriesColumn: null, seriesColumns: ['region', 'country', 'channel'], hierarchyDimensions: ['region', 'country', 'channel'], aggregation: 'sum' })
+    store.getState().setVisualization('sql', { view: 'treemap', xColumn: 'record', valueColumn: 'value', seriesColumn: null, seriesColumns: ['region', 'country', 'channel'], hierarchyDimensions: ['region', 'country', 'channel'], aggregation: 'sum' })
   })()`)
-  await waitForRendererState(win, `document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Sunburst'`, 'selected documentation Sunburst')
+  await waitForRendererState(win, `document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Treemap'`, 'selected documentation Treemap')
   await sleep(200)
   const report = await win.webContents.executeJavaScript(`({ view: document.querySelector('.result-view-bar button.active')?.textContent?.trim(), hierarchy: document.querySelector('[aria-label="Hierarchy order"]')?.innerText, filters: document.querySelectorAll('.result-filter-chip').length, empty: Boolean(document.querySelector('.chart-empty')) })`)
-  if (report.view !== 'Sunburst' || report.filters || report.empty || !report.hierarchy?.includes('region') || !report.hierarchy.includes('country') || !report.hierarchy.includes('channel')) throw new Error(`Sunburst documentation assertion failed: ${JSON.stringify(report)}`)
+  if (report.view !== 'Treemap' || report.filters || report.empty || !report.hierarchy?.includes('region') || !report.hierarchy.includes('country') || !report.hierarchy.includes('channel')) throw new Error(`Treemap documentation assertion failed: ${JSON.stringify(report)}`)
 }
 
 async function configureMode(win, mode) {
@@ -724,7 +724,7 @@ app.whenReady().then(async () => {
       await capture(win, 'docs-prometheus.png')
       await dragDivider(win, '.sidebar-resizer', -110, 0)
 
-      await configureDocumentationSunburst(win)
+      await configureDocumentationTreemap(win)
       await capture(win, 'docs-visualization.png')
 
       await win.webContents.executeJavaScript(`window.__datakoalaStore.setState({ profiles: ${JSON.stringify(syntheticSources)} })`)
