@@ -7,7 +7,10 @@ export function metricLabels(profileId: string, metric: string): Promise<string[
   const key = `${profileId}\0${metric}`
   const existing = labelRequests.get(key)
   if (existing) return existing
-  const request = api.connections.prometheus.labelsForMetric(profileId, metric).catch((error: unknown) => { labelRequests.delete(key); throw error })
+  const request = api.connections.prometheus.labelsForMetric(profileId, metric).then((labels: string[]) => {
+    if (import.meta.env.DEV) console.debug(`[prometheus:builder] metric=${metric} labelCount=${labels.length} labels=${JSON.stringify(labels)}`)
+    return labels
+  }).catch((error: unknown) => { labelRequests.delete(key); throw error })
   labelRequests.set(key, request)
   return request
 }

@@ -29,7 +29,7 @@ export function PromqlBuilderPanel() {
   const builder = session.promqlBuilder
   const metrics = useMemo(() => (metadata?.schemas ?? []).flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'metric'), [metadata?.schemas])
   const metricOptions = metrics.map((metric) => ({ value: metric.name, label: metric.name, subtitle: metric.details?.kind === 'metric' ? metric.details.type : undefined }))
-  const labelOptions = labels.filter((label) => label !== '__name__').map((label) => ({ value: label, label }))
+  const labelOptions = labels.filter((label) => label !== '__name__').sort((left, right) => left.localeCompare(right)).map((label) => ({ value: label, label }))
   const activeLabels = [...new Set([...builder.groupBy, ...builder.filterBy])]
 
   const apply = (patch: Partial<typeof builder>) => {
@@ -98,7 +98,7 @@ export function PromqlBuilderPanel() {
     <div className="promql-values-grid" data-promql-row="filter-values">{activeLabels.map((label) => {
       const loading = Boolean(loadingValues[label]); const error = Boolean(valueErrors[label]); const loaded = Object.hasOwn(values, label)
       const placeholder = loading ? 'Loading values…' : error ? 'Could not load values' : loaded && values[label].length === 0 ? 'No values found' : 'Select values…'
-      return <div className="builder-control promql-value-control" key={label}><span className="builder-field-label">{label}</span><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={(values[label] ?? []).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={loading || error || loaded && values[label].length === 0} placeholder={placeholder} /></div>
+      return <div className="builder-control promql-value-control" key={label}><span className="builder-field-label">{label}</span><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={[...(values[label] ?? [])].sort((left, right) => left.localeCompare(right)).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={loading || error || loaded && values[label].length === 0} placeholder={placeholder} /></div>
     })}</div>
     <details className="generated-promql"><summary><span>Generated PromQL</span><button className="btn ghost open-promql-action" type="button" disabled={!generated} onClick={(event) => { event.preventDefault(); event.stopPropagation(); if (generated) setSql(generated, tabId); setMode('sql', tabId); requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="PromQL editor"]')?.focus()) }}>Open in PromQL</button></summary>{validation ? <p className="inline-error" role="status">{validation}</p> : <pre>{generated}</pre>}</details>
   </div>

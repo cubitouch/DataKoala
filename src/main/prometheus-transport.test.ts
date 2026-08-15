@@ -43,10 +43,10 @@ test('metric-scoped label names and values use structured gcx labels operations'
   const calls: string[][] = []
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
-    return { stdout: args[1].includes('/label/status/values') ? '{"status":"success","data":["success","failure","success"]}' : '{"status":"success","data":["status","service","method","__name__"]}', stderr: '' }
+    return { stdout: args[1].includes('/label/status/values') ? '{"status":"success","data":["success","failure","success"]}' : '{"status":"success","data":["status","very_specific_label_name","service","method","__name__"]}', stderr: '' }
   }
   const transport = new GcxPrometheusTransport('production', run, 'prom uid/one')
-  assert.deepEqual(await transport.labelsForMetric('http_requests_total'), ['method', 'service', 'status'])
+  assert.deepEqual(await transport.labelsForMetric('http_requests_total'), ['method', 'service', 'status', 'very_specific_label_name'])
   assert.deepEqual(await transport.labelValues('http_requests_total', 'status'), ['failure', 'success'])
   assert.deepEqual(calls, [
     ['api', '/api/datasources/proxy/uid/prom%20uid%2Fone/api/v1/labels?match%5B%5D=http_requests_total', '--context', 'production', '-o', 'json'],

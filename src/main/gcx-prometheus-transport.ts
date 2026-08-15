@@ -227,7 +227,13 @@ export class GcxPrometheusTransport implements PrometheusTransport {
       const base = `/api/datasources/proxy/uid/${encodeURIComponent(this.datasourceUid)}/api/v1/`
       const endpoint = labelName ? `label/${encodeURIComponent(labelName)}/values` : 'labels'
       const query = new URLSearchParams({ 'match[]': metricName }).toString()
-      return normalizeGcxLabels(parseJson((await this.run(['api', `${base}${endpoint}?${query}`, ...contextArgs, '-o', 'json'])).stdout, 'metrics labels'))
+      const raw = parseJson((await this.run(['api', `${base}${endpoint}?${query}`, ...contextArgs, '-o', 'json'])).stdout, 'metrics labels')
+      const normalized = normalizeGcxLabels(raw)
+      if (!labelName && process.env.NODE_ENV !== 'production') {
+        const rawCount = isRecord(raw) && Array.isArray(raw.data) ? raw.data.length : 0
+        console.debug(`[prometheus:gcx] metric=${metricName} rawLabelCount=${rawCount} normalizedLabelCount=${normalized.length} labels=${JSON.stringify(normalized)}`)
+      }
+      return normalized
     } catch (error) { throwNormalizedGcxError(error) }
   }
   async query(request: PrometheusQueryRequest): Promise<QueryResult> {
@@ -238,7 +244,10 @@ export class GcxPrometheusTransport implements PrometheusTransport {
         ? ['api', `/api/datasources/proxy/uid/${encodeURIComponent(this.datasourceUid)}/api/v1/query_range?${new URLSearchParams({ query: request.expression, start: request.start, end: request.end, step: request.step })}`, ...contextArgs, '-o', 'json']
         : ['metrics', 'query', request.expression, ...contextArgs, '--from', request.start, '--to', request.end, '--step', request.step, '-o', 'json']
       if (process.env.NODE_ENV !== 'production') console.debug(`[prometheus:gcx] range request start=${request.start} end=${request.end} step=${request.step} route=${this.datasourceUid ? 'query_range' : 'metrics-query'}`)
-      return normalizeGcxQuery(parseJson((await this.run(args)).stdout, 'metrics query'), Date.now() - started)
+      const raw = parseJson((await this.run(args)).stdout, 'metrics query')
+      const result = normalizeGcxQuery(raw, Date.now() - started)
+      if (process.env.NODE_ENV !== 'production') console.debug(`[prometheus:gcx] range response step=${request.step} rows=${result.rowCount}`)
+      return result
     } catch (error) { throwNormalizedGcxError(error) }
   }
   async formatQuery(query: string): Promise<string> {

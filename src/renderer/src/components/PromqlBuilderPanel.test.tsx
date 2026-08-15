@@ -19,7 +19,7 @@ function arrange(metric = 'request_duration_seconds_bucket') {
   setActiveTestMetadata([{ name: 'Prometheus', isSystem: false, relations: [metric, 'other_total', 'other_bucket'].filter((name, index, all) => all.indexOf(name) === index).map((name) => ({ schema: 'Prometheus', name, qualifiedName: name, kind: 'metric' as const, columnsStatus: 'idle' as const })) }], 'loaded', null, id)
   return render(<PromqlBuilderPanel />)
 }
-beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); labelsForMetric.mockResolvedValue(['environment', 'service', 'le', '__name__']); labelValues.mockResolvedValue(['production', 'staging']) })
+beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); labelsForMetric.mockResolvedValue(['service', 'very_specific_label_name', 'environment', 'le', '__name__']); labelValues.mockResolvedValue(['staging', 'production']) })
 afterEach(cleanup)
 
 describe('PromQL Builder controls', () => {
@@ -36,10 +36,11 @@ describe('PromQL Builder controls', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'environment' }))
     await waitFor(() => expect(labelValues).toHaveBeenCalledOnce())
     expect(screen.getByRole('combobox', { name: /environment values: Loading values/ })).toBeTruthy()
-    valuesRequest.resolve(['production', 'staging'])
+    valuesRequest.resolve(['staging', 'production'])
     const valuePicker = await screen.findByRole('combobox', { name: /environment values: Select values/ })
     fireEvent.click(valuePicker)
     expect(await screen.findByRole('option', { name: 'production' })).toBeTruthy()
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['production', 'staging'])
     fireEvent.click(valuePicker)
     fireEvent.click(valuePicker)
     expect(labelValues).toHaveBeenCalledOnce()
@@ -125,5 +126,19 @@ describe('PromQL Builder controls', () => {
     fireEvent.click(screen.getByRole('combobox', { name: /Metric: other_bucket/ }))
     fireEvent.click(await screen.findByRole('option', { name: 'other_total' }))
     expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'raw', aggregation: 'sum' })
+  })
+
+  it('sorts labels and searches the full distinctive label in Group by and Filter by', async () => {
+    arrange('requests_total')
+    const groupPicker = await screen.findByRole('combobox', { name: 'Group by: No grouping' })
+    fireEvent.click(groupPicker)
+    const groupOptions = screen.getAllByRole('option').map((option) => option.textContent)
+    expect(groupOptions).toEqual(['environment', 'service', 'very_specific_label_name'])
+    fireEvent.change(screen.getByLabelText('Search Group by'), { target: { value: 'specific_label' } })
+    expect(screen.getByRole('option', { name: 'very_specific_label_name' })).toBeTruthy()
+    fireEvent.keyDown(screen.getByLabelText('Search Group by'), { key: 'Escape' })
+    fireEvent.click(screen.getByRole('combobox', { name: 'Filter by: No filters' }))
+    fireEvent.change(screen.getByLabelText('Search Filter by'), { target: { value: 'very_specific' } })
+    expect(screen.getByRole('option', { name: 'very_specific_label_name' })).toBeTruthy()
   })
 })
