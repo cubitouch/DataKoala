@@ -105,7 +105,7 @@ function table(value: unknown): BuilderQueryState['table'] | undefined {
 }
 
 function parsePromqlBuilder(value: unknown): PromqlBuilderState {
-  if (!isRecord(value)) return { ...DEFAULT_PROMQL_BUILDER, filters: [], groupBy: [] }
+  if (!isRecord(value)) return { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} }
   const calculations = ['raw', 'rate', 'increase', 'percentile'] as const
   const aggregations = ['none', 'sum', 'avg', 'min', 'max'] as const
   const windows = ['1m', '5m', '10m', '15m', '30m', '1h'] as const
@@ -118,11 +118,15 @@ function parsePromqlBuilder(value: unknown): PromqlBuilderState {
     if (filter.operator === '=' && typeof filter.value === 'string' && filter.value) return [{ label: filter.label, values: [filter.value] }]
     return []
   }) : []
+  const restoredFilterBy = stringArray(value.filterBy) ?? filters.map((filter) => filter.label)
+  const restoredLabelValues = isRecord(value.labelValues)
+    ? Object.fromEntries(Object.entries(value.labelValues).flatMap(([label, values]) => Array.isArray(values) && values.every((item) => typeof item === 'string') ? [[label, [...new Set(values as string[])]]] : []))
+    : Object.fromEntries(filters.map((filter) => [filter.label, filter.values]))
   const legacyAggregation = isOneOf(value.calculation, ['sum', 'avg', 'min', 'max'] as const) ? value.calculation : undefined
   const calculation = isOneOf(value.calculation, calculations) ? value.calculation : 'raw'
   const aggregation = calculation === 'percentile' ? 'sum' : isOneOf(value.aggregation, aggregations) ? value.aggregation : legacyAggregation ?? ((calculation === 'rate' || calculation === 'increase') && (stringArray(value.groupBy)?.length ?? 0) > 0 ? 'sum' : 'none')
   return {
-    metric: typeof value.metric === 'string' ? value.metric : '', filters,
+    metric: typeof value.metric === 'string' ? value.metric : '', filterBy: restoredFilterBy, labelValues: restoredLabelValues,
     groupBy: stringArray(value.groupBy) ?? [],
     calculation,
     aggregation,
@@ -338,7 +342,7 @@ function parseLegacyWorkspace(raw: string | null): WorkspaceDraft | null {
     const id = 'migrated-query-1'
     return {
       activeTabId: id,
-      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: '30s', promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filters: [], groupBy: [] }, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
+      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: '30s', promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} }, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
     }
   } catch {
     return null

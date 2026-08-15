@@ -13,7 +13,7 @@ export interface PrometheusDiscoveryResult {
 
 export type PrometheusConnectionInput = Pick<PrometheusProfile, 'transport'>
 
-/** Datasource-neutral range semantics; only the gcx transport maps these to CLI flags. */
+/** Datasource-neutral range semantics; the gcx transport maps these to Prometheus query_range parameters. */
 export interface PrometheusQueryRequest {
   expression: string
   start: string

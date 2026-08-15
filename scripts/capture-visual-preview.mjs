@@ -302,8 +302,8 @@ async function configurePrometheusBuilder(win) {
       schema: 'Prometheus', name: 'http_request_duration_seconds_bucket', qualifiedName: 'http_request_duration_seconds_bucket', kind: 'metric',
       columnsStatus: 'idle', details: { kind: 'metric', type: 'histogram', help: 'HTTP request duration buckets' }
     }] }], 'loaded', null, 'preview-prometheus')
-    state.setPromqlBuilder({ metric: 'http_request_duration_seconds_bucket', filters: [{ label: 'environment', values: ['production'] }], groupBy: ['service'], calculation: 'percentile', aggregation: 'sum', percentile: 0.95, window: '5m' })
-    state.setSql('histogram_quantile(\\n  0.95,\\n  sum by (service, le) (\\n    rate(http_request_duration_seconds_bucket{environment="production"}[5m])\\n  )\\n)')
+    state.setPromqlBuilder({ metric: 'http_request_duration_seconds_bucket', filterBy: ['environment'], groupBy: ['continent'], labelValues: { continent: ['Europe'], environment: ['production'] }, calculation: 'percentile', aggregation: 'sum', percentile: 0.95, window: '5m' })
+    state.setSql('histogram_quantile(\\n  0.95,\\n  sum by (continent, le) (\\n    rate(http_request_duration_seconds_bucket{continent="Europe",environment="production"}[5m])\\n  )\\n)')
     state.setQueryMode('builder')
   })()`)
   await sleep(350)
@@ -321,7 +321,7 @@ async function verifyQueryToolbar(win) {
       toolbarScrollWidth: toolbar.scrollWidth, toolbarClientWidth: toolbar.clientWidth,
       paneScrollWidth: pane.scrollWidth, paneClientWidth: pane.clientWidth,
       hasRange: Boolean(toolbar.querySelector('.custom-range-field')),
-      hasStep: Boolean(toolbar.querySelector('[aria-label="PromQL query resolution"]')),
+      hasStep: Boolean(toolbar.querySelector('[aria-label^="PromQL query resolution:"]')),
       hasExplain: [...toolbar.querySelectorAll('button')].some((button) => button.textContent?.includes('Explain'))
     } : null
   })()`)
@@ -486,8 +486,8 @@ async function configureLongObjectTree(win) {
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
-  ipcMain.handle('connections:prometheus:metric-labels', async () => ['environment', 'service', 'le', '__name__'])
-  ipcMain.handle('connections:prometheus:label-values', async (_event, _id, _metric, label) => label === 'environment' ? ['production', 'staging'] : ['api', 'worker'])
+  ipcMain.handle('connections:prometheus:metric-labels', async () => ['continent', 'environment', 'service', 'le', '__name__'])
+  ipcMain.handle('connections:prometheus:label-values', async (_event, _id, _metric, label) => label === 'environment' ? ['production', 'staging'] : label === 'continent' ? ['Europe', 'Asia'] : ['api', 'worker'])
 
   const win = new BrowserWindow({
     width: 1440,

@@ -30,7 +30,7 @@ export function PromqlBuilderPanel() {
   const metrics = useMemo(() => (metadata?.schemas ?? []).flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'metric'), [metadata?.schemas])
   const metricOptions = metrics.map((metric) => ({ value: metric.name, label: metric.name, subtitle: metric.details?.kind === 'metric' ? metric.details.type : undefined }))
   const labelOptions = labels.filter((label) => label !== '__name__').map((label) => ({ value: label, label }))
-  const selectedLabels = builder.filters.map((filter) => filter.label)
+  const activeLabels = [...new Set([...builder.groupBy, ...builder.filterBy])]
 
   const apply = (patch: Partial<typeof builder>) => {
     const next = { ...builder, ...patch }
@@ -49,7 +49,8 @@ export function PromqlBuilderPanel() {
   }, [profileId, builder.metric, values, loadingValues])
   const selectMetric = (metric: string) => {
     const percentile = builder.calculation === 'percentile' && metric.endsWith('_bucket')
-    apply({ metric, calculation: percentile ? 'percentile' : 'raw', aggregation: percentile ? 'sum' : 'none', filters: [], groupBy: [] })
+    const calculation = builder.calculation === 'percentile' && !percentile ? 'raw' : builder.calculation
+    apply({ metric, calculation, aggregation: calculation === 'percentile' ? 'sum' : builder.aggregation, filterBy: [], groupBy: [], labelValues: {} })
     setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({})
   }
   useEffect(() => {
@@ -62,38 +63,42 @@ export function PromqlBuilderPanel() {
       .finally(() => { if (active) setLoadingLabels(false) })
     return () => { active = false }
   }, [profileId, builder.metric])
-  const changeFilterLabels = (nextLabels: string[]) => {
-    const added = nextLabels.filter((label) => !selectedLabels.includes(label))
-    apply({ filters: nextLabels.map((label) => builder.filters.find((filter) => filter.label === label) ?? { label, values: [] }) })
+  const changeDimensions = (kind: 'groupBy' | 'filterBy', nextLabels: string[]) => {
+    const other = kind === 'groupBy' ? builder.filterBy : builder.groupBy
+    const nextActive = [...new Set([...nextLabels, ...other])]
+    const added = nextActive.filter((label) => !activeLabels.includes(label))
+    const labelValues = Object.fromEntries(Object.entries(builder.labelValues).filter(([label]) => nextActive.includes(label)))
+    const aggregation = kind === 'groupBy' && nextLabels.length && builder.aggregation === 'none' ? 'sum' as const : builder.aggregation
+    apply({ [kind]: nextLabels, labelValues, aggregation })
     added.forEach(loadValues)
   }
+  useEffect(() => { activeLabels.forEach(loadValues) }, [profileId, builder.metric, activeLabels.join('\0')])
   const changeCalculation = (calculation: PromqlCalculation) => {
     const aggregation: PromqlAggregation = calculation === 'percentile' ? 'sum' : calculation === 'rate' || calculation === 'increase' ? 'sum' : builder.aggregation
     apply({ calculation, aggregation, groupBy: calculation === 'raw' && aggregation === 'none' ? [] : builder.groupBy })
   }
-  const changeGroupBy = (groupBy: string[]) => apply({ groupBy, ...(groupBy.length && builder.aggregation === 'none' ? { aggregation: 'sum' as const } : {}) })
   const validation = validatePromqlBuilder(builder)
   const generated = buildPromql(builder)
   const calculationOptions = calculations.map((value) => ({ value, label: titleCase(value), disabled: value === 'percentile' && !builder.metric.endsWith('_bucket') }))
-  const aggregationOptions = aggregations.map((value) => ({ value, label: titleCase(value), disabled: builder.calculation === 'percentile' ? value !== 'sum' : (builder.calculation === 'rate' || builder.calculation === 'increase') && value !== 'none' && value !== 'sum' }))
-  const labelPlaceholder = loadingLabels ? 'Loading labels…' : labelError ? 'Could not load labels' : labels.length === 0 ? 'No labels available' : 'No label filters'
+  const aggregationOptions = aggregations.map((value) => ({ value, label: titleCase(value) }))
+  const labelPlaceholder = loadingLabels ? 'Loading labels…' : labelError ? 'Could not load labels' : labels.length === 0 ? 'No labels available' : 'No filters'
 
   return <div className="promql-builder-form">
     <div className="promql-builder-grid promql-core-row" data-promql-row="core">
       <div className="builder-control promql-metric-control"><span className="builder-field-label">Metric</span><Combobox label="Metric" value={builder.metric} options={metricOptions} onChange={selectMetric} searchable placeholder="Select a metric…" emptyMessage="No matching metrics" /></div>
       <div className="builder-control"><span className="builder-field-label">Calculation</span><Combobox label="Calculation" value={builder.calculation} options={calculationOptions} onChange={(value) => changeCalculation(value as PromqlCalculation)} /></div>
       {builder.calculation === 'percentile' && <div className="builder-control"><span className="builder-field-label">Percentile</span><Combobox label="Percentile" value={String(builder.percentile)} options={quantiles.map(({ value, label }) => ({ value: String(value), label }))} onChange={(value) => apply({ percentile: Number(value) as PromqlQuantile })} /></div>}
-      <div className="builder-control"><span className="builder-field-label">Aggregation</span><Combobox label="Aggregation" value={builder.calculation === 'percentile' ? 'sum' : builder.aggregation} options={aggregationOptions} disabled={builder.calculation === 'percentile'} onChange={(value) => apply({ aggregation: value as PromqlAggregation, ...(value === 'none' ? { groupBy: [] } : {}) })} /></div>
+      {builder.calculation !== 'percentile' && <div className="builder-control"><span className="builder-field-label">Aggregation <InfoTooltip label="Aggregation">Combines the resulting time series after the calculation. Sum is common for counters split across instances; Average, Minimum and Maximum compare the calculated values across series.</InfoTooltip></span><Combobox label="Aggregation" value={builder.aggregation} options={aggregationOptions} onChange={(value) => apply({ aggregation: value as PromqlAggregation, ...(value === 'none' ? { groupBy: [] } : {}) })} /></div>}
       {rangeCalculations.has(builder.calculation) && <div className="builder-control"><span className="builder-field-label">Rate window <InfoTooltip label="Rate window">How much history each calculation looks back over. Example: 5m means rate(...[5m]) uses the previous 5 minutes at each point.</InfoTooltip></span><Combobox label="Rate window" value={builder.window} options={windows.map((value) => ({ value, label: value }))} onChange={(value) => apply({ window: value as PromqlWindow })} /></div>}
     </div>
     <div className="promql-filter-group-row" data-promql-row="filters-and-grouping">
-      <div className="builder-control"><span className="builder-field-label">Filter by labels</span><MultiCombobox label="Filter by labels" values={selectedLabels} options={labelOptions} onChange={changeFilterLabels} searchable showChips disabled={!builder.metric || loadingLabels || labelError || labels.length === 0} placeholder={labelPlaceholder} /></div>
-      <div className="builder-control"><span className="builder-field-label">Group by</span><MultiCombobox label="Group by labels" values={builder.groupBy} options={labelOptions.filter((option) => builder.calculation !== 'percentile' || option.value !== 'le')} onChange={changeGroupBy} searchable showChips disabled={!builder.metric || builder.calculation === 'raw' && builder.aggregation === 'none' || loadingLabels} placeholder="No grouping" /></div>
+      <div className="builder-control"><span className="builder-field-label">Group by</span><MultiCombobox label="Group by" values={builder.groupBy} options={labelOptions.filter((option) => builder.calculation !== 'percentile' || option.value !== 'le')} onChange={(labels) => changeDimensions('groupBy', labels)} searchable showChips disabled={!builder.metric || loadingLabels} placeholder="No grouping" /></div>
+      <div className="builder-control"><span className="builder-field-label">Filter by</span><MultiCombobox label="Filter by" values={builder.filterBy} options={labelOptions} onChange={(labels) => changeDimensions('filterBy', labels)} searchable showChips disabled={!builder.metric || loadingLabels || labelError || labels.length === 0} placeholder={labelPlaceholder} /></div>
     </div>
-    <div className="promql-values-grid" data-promql-row="filter-values">{builder.filters.map((filter) => {
-      const loading = Boolean(loadingValues[filter.label]); const error = Boolean(valueErrors[filter.label]); const loaded = Object.hasOwn(values, filter.label)
-      const placeholder = loading ? 'Loading values…' : error ? 'Could not load values' : loaded && values[filter.label].length === 0 ? 'No values found' : 'Select values…'
-      return <div className="builder-control promql-value-control" key={filter.label}><span className="builder-field-label">{filter.label}</span><MultiCombobox label={`${filter.label} values`} values={filter.values} options={(values[filter.label] ?? []).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ filters: builder.filters.map((item) => item.label === filter.label ? { ...item, values: selected } : item) })} onOpen={() => loadValues(filter.label)} searchable showChips disabled={loading || error || loaded && values[filter.label].length === 0} placeholder={placeholder} /></div>
+    <div className="promql-values-grid" data-promql-row="filter-values">{activeLabels.map((label) => {
+      const loading = Boolean(loadingValues[label]); const error = Boolean(valueErrors[label]); const loaded = Object.hasOwn(values, label)
+      const placeholder = loading ? 'Loading values…' : error ? 'Could not load values' : loaded && values[label].length === 0 ? 'No values found' : 'Select values…'
+      return <div className="builder-control promql-value-control" key={label}><span className="builder-field-label">{label}</span><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={(values[label] ?? []).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={loading || error || loaded && values[label].length === 0} placeholder={placeholder} /></div>
     })}</div>
     <details className="generated-promql"><summary><span>Generated PromQL</span><button className="btn ghost open-promql-action" type="button" disabled={!generated} onClick={(event) => { event.preventDefault(); event.stopPropagation(); if (generated) setSql(generated, tabId); setMode('sql', tabId); requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="PromQL editor"]')?.focus()) }}>Open in PromQL</button></summary>{validation ? <p className="inline-error" role="status">{validation}</p> : <pre>{generated}</pre>}</details>
   </div>

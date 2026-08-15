@@ -4,8 +4,8 @@ void React
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-const { explain, runQuery, formatQuery, promqlAsExtension } = vi.hoisted(() => ({ explain: vi.fn(), runQuery: vi.fn(), formatQuery: vi.fn(), promqlAsExtension: vi.fn(() => ({})) }))
-vi.mock('../lib/api', () => ({ api: { connections: { prometheus: { formatQuery } }, query: { explain, run: runQuery }, export: { saveText: vi.fn() } } }))
+const { explain, runQuery, formatQuery, labelsForMetric, labelValues, promqlAsExtension } = vi.hoisted(() => ({ explain: vi.fn(), runQuery: vi.fn(), formatQuery: vi.fn(), labelsForMetric: vi.fn(), labelValues: vi.fn(), promqlAsExtension: vi.fn(() => ({})) }))
+vi.mock('../lib/api', () => ({ api: { connections: { prometheus: { formatQuery, labelsForMetric, labelValues } }, query: { explain, run: runQuery }, export: { saveText: vi.fn() } } }))
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value, onChange, editable = true, ...props }: { value: string, onChange: (value: string) => void, editable?: boolean, 'aria-label'?: string }) => <textarea aria-label={props['aria-label'] ?? 'SQL editor'} value={value} disabled={!editable} onChange={(event) => onChange(event.target.value)} /> }))
 vi.mock('@codemirror/lang-sql', () => {
   const dialect = { spec: {}, language: { data: { of: () => ({}) } } }
@@ -38,6 +38,8 @@ beforeEach(() => {
   explain.mockResolvedValue({ text: 'new plan' })
   runQuery.mockReset()
   formatQuery.mockReset()
+  labelsForMetric.mockReset(); labelsForMetric.mockResolvedValue([])
+  labelValues.mockReset(); labelValues.mockResolvedValue([])
   promqlAsExtension.mockClear()
 })
 
@@ -52,8 +54,8 @@ describe('PromQL execution', () => {
     const result = { columns: [
       { name: 'timestamp', dataTypeID: 1184, dataTypeName: 'timestamptz' },
       { name: 'value', dataTypeID: 701, dataTypeName: 'double precision' },
-      { name: 'series', dataTypeID: 25, dataTypeName: 'text' }
-    ], rows: [{ timestamp: '2026-08-14T10:00:00.000Z', value: 1, series: '{instance="a"}' }], rowCount: 1, durationMs: 10 }
+      { name: 'instance', dataTypeID: 25, dataTypeName: 'text' }
+    ], rows: [{ timestamp: '2026-08-14T10:00:00.000Z', value: 1, instance: 'a' }], rowCount: 1, durationMs: 10 }
     runQuery.mockResolvedValue(result)
     resetTestStore({ profiles: [{ id: 'prom-1', name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }], activeProfileId: 'prom-1', connected: true, connecting: false, connectionStatus: 'connected' })
     patchActiveTestSession({ connectionProfileId: 'prom-1', queryMode: 'sql', sql: 'up' })
@@ -67,7 +69,7 @@ describe('PromQL execution', () => {
     expect(call[1]).toBe('up')
     expect(call[3]).toMatchObject({ step: '30s' })
     await waitFor(() => expect(useStore.getState().tabs[0].result?.rows).toEqual(result.rows))
-    expect(useStore.getState().tabs[0].sqlVisualization).toMatchObject({ view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: 'series' })
+    expect(useStore.getState().tabs[0].sqlVisualization).toMatchObject({ view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: null, seriesColumns: [] })
   })
 
   it('activates the local PromQL language extension independently of remote formatting', () => {
@@ -79,7 +81,7 @@ describe('PromQL execution', () => {
   it('groups the shared date-range picker and Resolution while hiding SQL-only actions', () => {
     renderPromql()
     expect(screen.getByRole('button', { name: /Time range: Last hour/ })).toBeTruthy()
-    expect(screen.getByLabelText('PromQL query resolution')).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /PromQL query resolution/ })).toBeTruthy()
     const help = screen.getByRole('button', { name: 'Resolution help' })
     expect(help.tabIndex).toBe(0)
     expect(help.getAttribute('aria-describedby')).toBeTruthy()
@@ -89,6 +91,26 @@ describe('PromQL execution', () => {
     expect(screen.queryByRole('button', { name: 'Explain Analyze' })).toBeNull()
     expect(screen.queryByText('⌘↵ run')).toBeNull()
     expect(screen.getByRole('button', { name: 'Run' }).title).toContain('Ctrl/Command+Enter')
+  })
+
+  it('persists each Resolution selection in the existing prometheusStep state', async () => {
+    renderPromql()
+    for (const step of ['30s', '1m', '5m'] as const) {
+      fireEvent.click(screen.getByRole('combobox', { name: /PromQL query resolution/ }))
+      fireEvent.click(await screen.findByRole('option', { name: step }))
+      expect(useStore.getState().tabs[0].prometheusStep).toBe(step)
+    }
+  })
+
+  it('defaults Prometheus Builder chart Series from all Group by labels', async () => {
+    labelsForMetric.mockResolvedValue(['continent', 'service'])
+    runQuery.mockResolvedValue({ columns: [], rows: [], rowCount: 0, durationMs: 1 })
+    resetTestStore({ profiles: [{ id: 'prom-1', name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }], activeProfileId: 'prom-1', connected: true, connecting: false, connectionStatus: 'connected' })
+    patchActiveTestSession({ connectionProfileId: 'prom-1', queryMode: 'builder', sql: 'sum by (continent, service) (up)', promqlBuilder: { metric: 'up', filterBy: [], groupBy: ['continent', 'service'], labelValues: {}, calculation: 'raw', aggregation: 'sum', window: '5m', percentile: 0.95 } })
+    render(<QueryEditor builderMode />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(runQuery).toHaveBeenCalled())
+    await waitFor(() => expect(useStore.getState().tabs[0].sqlVisualization).toMatchObject({ xColumn: 'timestamp', valueColumn: 'value', seriesColumn: null, seriesColumns: ['continent', 'service'] }))
   })
 
   it('formats PromQL through the Prometheus API without executing it', async () => {
@@ -138,7 +160,7 @@ describe('QueryEditor Explain loading states', () => {
     renderExplainUi()
     expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Explain Analyze' })).toBeTruthy()
-    expect(screen.queryByLabelText('PromQL query resolution')).toBeNull()
+    expect(screen.queryByRole('combobox', { name: /PromQL query resolution/ })).toBeNull()
   })
   it('shows Explaining, disables both buttons, preserves the previous plan, and ends after success', async () => {
     const request = deferred<{ text: string }>()

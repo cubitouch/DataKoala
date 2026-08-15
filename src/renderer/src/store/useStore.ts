@@ -94,7 +94,7 @@ export function createQuerySession(index = 1, options: Partial<Pick<QuerySession
     sql: options.sql ?? 'select now();',
     prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' },
     prometheusStep: '30s',
-    promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filters: [], groupBy: [] },
+    promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} },
     running: false,
     queryError: null,
     result: null,

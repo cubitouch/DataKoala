@@ -22,6 +22,7 @@ import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
 import { validatePromqlBuilder } from '../lib/promqlBuilder'
 import { InfoTooltip } from './ui/InfoTooltip'
+import { Combobox } from './ui/combobox'
 
 export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) {
   const tabId = useStore((s) => s.activeTabId)
@@ -113,7 +114,10 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
         ? { ...prometheusRangeBounds(requestSession.prometheusTimeRange), step: requestSession.prometheusStep }
         : undefined
       const res: QueryResult = await api.query.run(requestProfileId, execution.sql, execution.parameters, promRange)
-      if (language.kind === 'promql') setVisualization('sql', { view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: 'series', seriesColumns: [], aggregation: 'sum' }, requestTabId)
+      if (language.kind === 'promql') {
+        const seriesColumns = builderMode ? (requestSession?.promqlBuilder.groupBy ?? []) : []
+        setVisualization('sql', { view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: seriesColumns.length === 1 ? seriesColumns[0] : null, seriesColumns: seriesColumns.length > 1 ? seriesColumns : [], aggregation: 'sum' }, requestTabId)
+      }
       if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(res, null, requestTabId)
     } catch (e) {
       if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(null, e instanceof Error ? e.message : String(e), requestTabId)
@@ -215,7 +219,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
     <div className="editor-pane" onKeyDown={onKey}>
       <div className="editor-head">
         <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
-        {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><label className="promql-step"><span>Resolution <InfoTooltip label="Resolution">How often Prometheus evaluates the query across the selected time range. Example: 30s produces one evaluation point every 30 seconds.</InfoTooltip></span><select aria-label="PromQL query resolution" value={prometheusStep} onChange={(e) => setPrometheusQueryOptions({ prometheusStep: e.target.value as typeof prometheusStep }, tabId)}><option>15s</option><option>30s</option><option>1m</option><option>5m</option></select></label></div>}
+        {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><div className="promql-step"><span>Resolution <InfoTooltip label="Resolution">How often Prometheus evaluates the query across the selected time range. Example: 30s produces one evaluation point every 30 seconds.</InfoTooltip></span><Combobox label="PromQL query resolution" value={prometheusStep} options={['15s', '30s', '1m', '5m'].map((value) => ({ value, label: value }))} onChange={(value) => setPrometheusQueryOptions({ prometheusStep: value as typeof prometheusStep }, tabId)} /></div></div>}
         <div className="spacer" />
         <div className="query-toolbar-group query-editor-actions">{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
           {formatting ? 'Formatting…' : 'Format'}

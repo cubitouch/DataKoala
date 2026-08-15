@@ -147,11 +147,10 @@ export function normalizeGcxQuery(raw: unknown, durationMs = 0): QueryResult {
   }
   const labelNames = [...labels].sort()
   const rows = pending.map(({ metric, pair }) => {
-    const identity = labelNames.filter((name) => metric[name] !== undefined).map((name) => `${name}=${JSON.stringify(metric[name])}`).join(',')
-    return { timestamp: new Date(pair[0] * 1000).toISOString(), value: pair[1], series: identity ? `{${identity}}` : '{}', ...metric }
+    return { timestamp: new Date(pair[0] * 1000).toISOString(), value: pair[1], ...metric }
   })
   return {
-    columns: [column('timestamp', 'timestamp', 'timestamptz', 1184), column('value', 'number', 'double precision', 701), column('series', 'string', 'text', 25), ...labelNames.map((name) => column(name, 'string', 'text', 25))],
+    columns: [column('timestamp', 'timestamp', 'timestamptz', 1184), column('value', 'number', 'double precision', 701), ...labelNames.map((name) => column(name, 'string', 'text', 25))],
     rows, rowCount: rows.length, durationMs,
     execution: { provider: 'prometheus', durationMs, rowCount: rows.length }
   }
@@ -235,8 +234,10 @@ export class GcxPrometheusTransport implements PrometheusTransport {
     const started = Date.now()
     try {
       const contextArgs = this.context ? ['--context', this.context] : []
-      const datasourceArgs = this.datasourceUid ? ['--datasource', this.datasourceUid] : []
-      const args = ['metrics', 'query', request.expression, ...contextArgs, ...datasourceArgs, '--from', request.start, '--to', request.end, '--step', request.step, '-o', 'json']
+      const args = this.datasourceUid
+        ? ['api', `/api/datasources/proxy/uid/${encodeURIComponent(this.datasourceUid)}/api/v1/query_range?${new URLSearchParams({ query: request.expression, start: request.start, end: request.end, step: request.step })}`, ...contextArgs, '-o', 'json']
+        : ['metrics', 'query', request.expression, ...contextArgs, '--from', request.start, '--to', request.end, '--step', request.step, '-o', 'json']
+      if (process.env.NODE_ENV !== 'production') console.debug(`[prometheus:gcx] range request start=${request.start} end=${request.end} step=${request.step} route=${this.datasourceUid ? 'query_range' : 'metrics-query'}`)
       return normalizeGcxQuery(parseJson((await this.run(args)).stdout, 'metrics query'), Date.now() - started)
     } catch (error) { throwNormalizedGcxError(error) }
   }
