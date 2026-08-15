@@ -224,9 +224,9 @@ async function seedDocumentationData(win) {
     }
     store.getState().setResult({
       columns: [
-        { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz' },
-        { name: 'series', dataTypeID: 25, dataTypeName: 'text' },
-        { name: 'count', dataTypeID: 20, dataTypeName: 'int8' }
+        { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },
+        { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+        { name: 'count', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
       ], rows, rowCount: rows.length, durationMs: 18
     }, null)
     return { ok: true }
@@ -241,7 +241,9 @@ async function configureDocumentationSql(win, mode, view) {
     const profile = { id: 'docs-postgres', name: 'Market analytics', kind: 'postgres', version: 1, host: 'localhost', port: 5432, database: 'analytics', user: 'demo', password: '', ssl: false, readonly: true }
     const schemas = [{ name: 'analytics', isSystem: false, relations: [
       { schema: 'analytics', name: 'monthly_market_activity', qualifiedName: 'analytics.monthly_market_activity', kind: 'r', columnsStatus: 'loaded', columns: [
-        { name: 'time_bucket', dataTypeName: 'timestamptz' }, { name: 'series', dataTypeName: 'text' }, { name: 'count', dataTypeName: 'int8' }
+        { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },
+        { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+        { name: 'count', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
       ] },
       { schema: 'analytics', name: 'market_summary', qualifiedName: 'analytics.market_summary', kind: 'v', columnsStatus: 'idle' },
       { schema: 'analytics', name: 'customer_activity', qualifiedName: 'analytics.customer_activity', kind: 'r', columnsStatus: 'idle' }
@@ -257,11 +259,47 @@ async function configureDocumentationSql(win, mode, view) {
         builder: { ...tab.builder, table: { schema: 'analytics', name: 'monthly_market_activity' }, timeColumn: 'time_bucket', timeBucket: 'month', seriesColumns: ['series'] },
         builderHasRun: true,
         sqlVisualization: { ...tab.sqlVisualization, view: '${view}', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: 'series', seriesColumns: [], aggregation: 'sum' },
-        builderVisualization: { ...tab.builderVisualization, view: 'line', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: null, seriesColumns: ['series'], aggregation: 'sum' }
+        builderVisualization: { ...tab.builderVisualization, view: '${view}', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: null, seriesColumns: ['series'], aggregation: 'sum' }
       } : tab)
     })
   })()`)
   await waitForRendererState(win, `'${mode}' === 'builder' ? document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' : document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'SQL'`, `visible ${mode} documentation mode`)
+}
+
+async function expandDocumentationRelation(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const schema = document.querySelector('.schema-row')?.closest('[role="treeitem"]')
+    if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('.schema-row, button')?.click()
+  })()`)
+  await waitForRendererState(win, `document.body.innerText.includes('monthly_market_activity')`, 'analytics relation tree')
+  await win.webContents.executeJavaScript(`(() => {
+    const relation = [...document.querySelectorAll('.relation-row')].find((row) => row.textContent?.includes('monthly_market_activity'))?.closest('[role="treeitem"]')
+    if (relation?.getAttribute('aria-expanded') === 'false') relation.querySelector('.chevron-button')?.click()
+  })()`)
+  await waitForRendererState(win, `document.body.innerText.includes('time_bucket') && document.body.innerText.includes('series') && document.body.innerText.includes('count')`, 'monthly market activity columns')
+}
+
+async function assertDocumentationSourceTree(win, mode) {
+  const report = await win.webContents.executeJavaScript(`({
+    mode: document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim(),
+    profile: document.querySelector('.conn-item.active, .conn-item')?.textContent,
+    status: document.querySelector('.conn-pill')?.textContent,
+    tree: document.querySelector('[role="tree"]')?.innerText ?? document.querySelector('.sidebar')?.innerText,
+    filters: document.querySelectorAll('.result-filter-chip').length
+  })`)
+  const expectedMode = mode === 'builder' ? 'Builder' : 'SQL'
+  if (report.mode !== expectedMode || !report.profile?.includes('Market analytics') || !report.status?.includes('Market analytics') ||
+      !report.tree?.includes('monthly_market_activity') || !report.tree.includes('time_bucket') || !report.tree.includes('series') || !report.tree.includes('count')) {
+    throw new Error(`Documentation source tree assertion failed: ${JSON.stringify(report)}`)
+  }
+}
+
+async function finalizeDocumentationBuilder(win, view) {
+  await win.webContents.executeJavaScript(`(() => { const store = window.__datakoalaStore; const state = store.getState(); store.setState({ tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? { ...tab, builderVisualization: { ...tab.builderVisualization, view: '${view}', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: null, seriesColumns: ['series'], aggregation: 'sum' } } : tab) }) })()`)
+  await waitForRendererState(win, `document.querySelector('.builder-pane')`, 'visible SQL Builder')
+  await sleep(100)
+  const visible = await win.webContents.executeJavaScript(`document.querySelector('.builder-pane')?.innerText + ' ' + [...document.querySelectorAll('.builder-pane input')].map((input) => input.value).join(' ')`)
+  for (const value of ['analytics', 'monthly_market_activity', 'time_bucket', 'Month', 'count', 'Sum', 'series']) if (!visible.includes(value)) throw new Error(`Builder value ${value} is not visible: ${visible}`)
 }
 
 async function assertDocumentationChart(win, filename) {
@@ -301,6 +339,33 @@ async function configureDocumentationPrometheus(win) {
   await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && document.querySelector('.promql-builder-form') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'visible configured Prometheus Builder')
   const report = await win.webContents.executeJavaScript(`(() => { const state = window.__datakoalaStore.getState(); const tab = state.tabs.find((item) => item.id === state.activeTabId); return { mode: tab.queryMode, result: tab.result, metric: tab.promqlBuilder.metric, tables: document.querySelectorAll('table.results tbody tr').length } })()`)
   if (report.mode !== 'builder' || report.result !== null || report.metric !== 'http_request_duration_seconds_bucket' || report.tables) throw new Error(`Prometheus documentation assertion failed: ${JSON.stringify(report)}`)
+}
+
+async function configureDocumentationSunburst(win) {
+  await configureDocumentationSql(win, 'sql', 'sunburst')
+  await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    const rows = [
+      ['Europe', 'France', 'Web', 1480], ['Europe', 'France', 'Marketplace', 920],
+      ['Europe', 'Germany', 'Web', 1320], ['Europe', 'Germany', 'Marketplace', 810],
+      ['Europe', 'Spain', 'Web', 980], ['Europe', 'Spain', 'Marketplace', 640],
+      ['North America', 'United States', 'Web', 1760], ['North America', 'United States', 'Marketplace', 1210],
+      ['North America', 'Canada', 'Web', 890], ['North America', 'Canada', 'Marketplace', 570]
+    ].map(([region, country, channel, value], index) => ({ record: 'Segment ' + (index + 1), region, country, channel, value }))
+    store.getState().setResult({ columns: [
+      { name: 'record', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+      { name: 'region', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+      { name: 'country', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+      { name: 'channel', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+      { name: 'value', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
+    ], rows, rowCount: rows.length, durationMs: 12 }, null)
+    store.getState().setSql('select region, country, channel, value\\nfrom analytics.market_summary\\norder by region, country, channel;')
+    store.getState().setVisualization('sql', { view: 'sunburst', xColumn: 'record', valueColumn: 'value', seriesColumn: null, seriesColumns: ['region', 'country', 'channel'], hierarchyDimensions: ['region', 'country', 'channel'], aggregation: 'sum' })
+  })()`)
+  await waitForRendererState(win, `document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Sunburst'`, 'selected documentation Sunburst')
+  await sleep(200)
+  const report = await win.webContents.executeJavaScript(`({ view: document.querySelector('.result-view-bar button.active')?.textContent?.trim(), hierarchy: document.querySelector('[aria-label="Hierarchy order"]')?.innerText, filters: document.querySelectorAll('.result-filter-chip').length, empty: Boolean(document.querySelector('.chart-empty')) })`)
+  if (report.view !== 'Sunburst' || report.filters || report.empty || !report.hierarchy?.includes('region') || !report.hierarchy.includes('country') || !report.hierarchy.includes('channel')) throw new Error(`Sunburst documentation assertion failed: ${JSON.stringify(report)}`)
 }
 
 async function configureMode(win, mode) {
@@ -626,30 +691,40 @@ app.whenReady().then(async () => {
     await seedPreviewData(win)
 
     if (captureKind === 'documentation') {
+      await win.webContents.executeJavaScript(`window.__datakoalaDocumentationCapture = true`)
       await rm(outputDir, { recursive: true, force: true })
       await mkdir(outputDir, { recursive: true })
       await seedDocumentationData(win)
-      await configureDocumentationSql(win, 'sql', 'bar')
+      await configureDocumentationSql(win, 'builder', 'line')
+      await expandDocumentationRelation(win)
+      await finalizeDocumentationBuilder(win, 'line')
+      await assertDocumentationSourceTree(win, 'builder')
       await assertDocumentationChart(win, 'docs-overview.png')
       await capture(win, 'docs-overview.png')
 
       await configureDocumentationSql(win, 'sql', 'table')
+      await expandDocumentationRelation(win)
       await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().addResultFilter('sql', { id: 'docs-france', column: 'series', operator: 'equals', value: 'France' })`)
       await waitForTable(win)
       await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'SQL' && document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Table' && document.querySelectorAll('table.results tbody tr').length === 12`, 'filtered SQL documentation table')
+      await assertDocumentationSourceTree(win, 'sql')
       await capture(win, 'docs-sql.png')
 
-      await configureDocumentationSql(win, 'builder', 'line')
-      await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).builder.table?.name === 'monthly_market_activity'`, 'configured SQL Builder')
+      await configureDocumentationSql(win, 'builder', 'bar')
+      await expandDocumentationRelation(win)
+      await finalizeDocumentationBuilder(win, 'bar')
+      await assertDocumentationSourceTree(win, 'builder')
       await assertDocumentationChart(win, 'docs-builder.png')
       await capture(win, 'docs-builder.png')
 
       await configureDocumentationPrometheus(win)
+      await dragDivider(win, '.sidebar-resizer', 110, 0)
+      await win.webContents.executeJavaScript(`(() => { const schema = [...document.querySelectorAll('[role="treeitem"]')].find((item) => item.textContent?.includes('Prometheus')); if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('.schema-row, button')?.click() })()`)
+      await waitForRendererState(win, `document.querySelector('.conn-item.active')?.innerText.includes('Service metrics') && document.querySelector('.conn-pill.on')?.innerText.includes('Service metrics') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'connected Prometheus metric tree')
       await capture(win, 'docs-prometheus.png')
+      await dragDivider(win, '.sidebar-resizer', -110, 0)
 
-      await seedDocumentationData(win)
-      await configureDocumentationSql(win, 'sql', 'line')
-      await assertDocumentationChart(win, 'docs-visualization.png')
+      await configureDocumentationSunburst(win)
       await capture(win, 'docs-visualization.png')
 
       await win.webContents.executeJavaScript(`window.__datakoalaStore.setState({ profiles: ${JSON.stringify(syntheticSources)} })`)
