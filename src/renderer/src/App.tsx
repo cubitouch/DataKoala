@@ -147,9 +147,7 @@ export function App() {
   return (
     <div className="app">
       <div className="titlebar">
-        <span className="logo">DataKoala</span>
-        <span className="sub">— slice & dice your data</span>
-        <div className="spacer" />
+        <div className="titlebar-brand"><span className="logo">DataKoala</span><span className="sub">— slice & dice your data</span></div>
         <div className={`conn-pill ${connected ? 'on' : error ? 'err' : connectionStatus}`} role="status" aria-live="polite">
           <span className="dot" />
           {connectionStatus === 'reconnecting'
@@ -162,6 +160,8 @@ export function App() {
                 ? error
                 : connectionStatus === 'idle' ? 'Idle' : activeName ? `${activeName} · disconnected` : 'Disconnected'}
         </div>
+        <QueryTabs />
+        <div className="titlebar-drag-space" aria-hidden="true" />
       </div>
 
       <div className="workspace" ref={workspaceRef} style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
@@ -170,7 +170,6 @@ export function App() {
           aria-valuemin={SIDEBAR_MIN} aria-valuemax={Math.max(SIDEBAR_MIN, currentSidebarBounds().max)} aria-valuenow={Math.round(sidebarWidth)}
           tabIndex={0} onPointerDown={beginResize('sidebar')} onKeyDown={resizeWithKeyboard('sidebar')} />
         <div className="main-shell">
-          <QueryTabs />
           <div key={activeTabId} className={`main ${effectiveMode === 'sql' && !querySurfaceBlocked ? 'sql-layout' : ''}`} ref={mainRef}
             style={{ '--editor-height': `${editorHeight}px` } as React.CSSProperties}>
             {queryProfileLoading ? <div className="query-unavailable" role="status" aria-label="Loading connection…">Loading datasource…</div> : <>{effectiveMode === 'sql' ? <><QueryEditor /><div className="editor-resizer" role="separator" aria-label="Resize query editor"

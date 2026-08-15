@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { selectActiveSession, useStore } from '../store/useStore'
+import { useStore } from '../store/useStore'
 
 export function QueryTabs() {
   const tabs = useStore((state) => state.tabs)
@@ -8,9 +8,6 @@ export function QueryTabs() {
   const createTab = useStore((state) => state.createTab)
   const closeTab = useStore((state) => state.closeTab)
   const renameTab = useStore((state) => state.renameTab)
-  const clearResults = useStore((state) => state.clearActiveResults)
-  const resetQuery = useStore((state) => state.resetActiveQuery)
-  const active = useStore(selectActiveSession)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [draftTitle, setDraftTitle] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -55,8 +52,7 @@ export function QueryTabs() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [tabs, activeTabId])
 
-  return <div className="query-tabs-shell">
-    <div className="query-tabs" role="tablist" aria-label="Query tabs">
+  return <div className="query-tabs" role="tablist" aria-label="Query tabs">
       {tabs.map((tab) => {
         const selected = tab.id === activeTabId
         const connectionName = tab.connectionProfileId ? profileNames.get(tab.connectionProfileId) : null
@@ -75,12 +71,5 @@ export function QueryTabs() {
         </div>
       })}
       <button className="query-tab-add" aria-label="New query tab" title="New query tab (⌘/Ctrl+T)" onClick={() => createTab()}>+</button>
-    </div>
-    <div className="query-tab-actions">
-      <button className="btn ghost" onClick={clearResults} disabled={!active.result && !active.queryError && !active.explainText && active.sqlResultFilters.every((filter) => filter.execution === 'query') && active.builderResultFilters.every((filter) => filter.execution === 'query')}>Clear results</button>
-      <button className="btn ghost" onClick={() => {
-        if (window.confirm(`Reset ${active.title} to a fresh query?`)) resetQuery()
-      }}>Reset query</button>
-    </div>
   </div>
 }

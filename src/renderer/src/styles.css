@@ -45,6 +45,8 @@ button { font-family: inherit; }
   padding: 0 14px 0 84px; background: var(--bg-2);
   border-bottom: 1px solid var(--border); -webkit-app-region: drag;
 }
+.titlebar-brand { display: flex; align-items: baseline; gap: 6px; flex: 0 0 auto; white-space: nowrap; }
+.titlebar-drag-space { flex: 1 0 48px; height: 100%; }
 .titlebar .logo { font-weight: 600; letter-spacing: .3px; }
 .titlebar .sub { color: var(--text-mute); font-size: 11px; }
 .titlebar .spacer { flex: 1; }
@@ -53,6 +55,7 @@ button { font-family: inherit; }
   padding: 3px 10px; border-radius: 6px; background: var(--bg-3);
   border: 1px solid var(--border); font-size: 11px; color: var(--text-dim);
 }
+.titlebar > .query-tabs { -webkit-app-region: no-drag; flex: 0 1 52%; height: 100%; }
 .titlebar .conn-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-mute); }
 .titlebar .conn-pill.on .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .titlebar .conn-pill.err .dot { background: var(--red); }
@@ -149,6 +152,12 @@ button.tree-row, .tree-row button { background: none; border: 0; color: inherit;
   .query-editor-actions { margin-left: auto; }
   .query-time-group { order: 4; flex: 1 0 100%; padding: 8px 0 0 !important; border: 0 !important; border-top: 1px solid var(--border) !important; }
   .query-time-group .custom-range-field { width: min(260px, calc(100% - 78px)); }
+}
+@media (max-width: 899px) {
+  .titlebar { gap: 6px; }
+  .titlebar .sub { display: none; }
+  .titlebar > .query-tabs { flex-basis: 46%; }
+  .query-utility-actions .btn { padding-inline: 6px; font-size: 10px; }
 }
 .editor-head .tabs { display: flex; gap: 2px; }
 .editor-head .tab {

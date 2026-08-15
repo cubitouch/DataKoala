@@ -55,9 +55,11 @@ describe('Prometheus workspace restoration', () => {
     expect(restoreWorkspaceDraft((patch) => useStore.setState(patch), storage)).toBeTruthy()
     let resolveProfiles!: (profiles: DataSourceProfile[]) => void
     mocks.list.mockReturnValue(new Promise<DataSourceProfile[]>((resolve) => { resolveProfiles = resolve }))
-    render(<App />)
+    const { container } = render(<App />)
 
     expect(screen.getByRole('status', { name: 'Loading connection…' })).toBeTruthy()
+    expect(container.querySelector('.titlebar > .query-tabs')).toBeTruthy()
+    expect(container.querySelector('.main-shell > .query-tabs, .query-tabs-shell')).toBeNull()
     const initialEditorRenders = mocks.queryEditorRenders
     expect(initialEditorRenders).toBe(0)
     resolveProfiles([prometheus])

@@ -12,15 +12,6 @@
   min-height: 0;
 }
 
-.query-tabs-shell {
-  display: flex;
-  align-items: stretch;
-  min-width: 0;
-  min-height: 38px;
-  background: var(--bg-2);
-  border-bottom: 1px solid var(--border);
-}
-
 .query-tabs {
   display: flex;
   align-items: stretch;
@@ -29,7 +20,7 @@
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 4px 5px 0;
+  padding: 4px 2px 0;
   scrollbar-width: thin;
 }
 
@@ -43,6 +34,7 @@
   border-bottom: 0;
   border-radius: 6px 6px 0 0;
   color: var(--text-dim);
+  -webkit-app-region: no-drag;
 }
 
 .query-tab:hover { background: var(--bg-3); color: var(--text); }
@@ -64,6 +56,7 @@
   color: inherit;
   cursor: pointer;
   text-align: left;
+  -webkit-app-region: no-drag;
 }
 
 .query-tab-title {
@@ -99,6 +92,7 @@
   background: transparent;
   color: var(--text-mute);
   cursor: pointer;
+  -webkit-app-region: no-drag;
 }
 
 .query-tab-close {
@@ -130,19 +124,7 @@
   user-select: text;
 }
 
-.query-tab-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
-  padding: 4px 7px;
-  border-left: 1px solid var(--border);
-}
-
-.query-tab-actions .btn { white-space: nowrap; }
-
 @media (max-width: 760px) {
-  .query-tab-actions .btn { padding-inline: 6px; font-size: 10px; }
   .query-tab { min-width: 94px; max-width: 160px; }
   .query-tab-connection { display: none; }
 }

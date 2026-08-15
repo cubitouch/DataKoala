@@ -18,6 +18,7 @@ import { buildSqlCompletionSchema } from '../lib/sqlCompletionSchema'
 import { sqlAliasCompletionSource } from '../lib/sqlAliasCompletion'
 import { ensureRelationColumns } from '../lib/relationColumns'
 import { TimeRangeField } from './time-range/TimeRangeField'
+import { QueryUtilityActions } from './QueryUtilityActions'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 
 export function QueryEditor() {
@@ -213,6 +214,7 @@ export function QueryEditor() {
         <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
         {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><label className="promql-step"><span>Step</span><select aria-label="PromQL query step" value={prometheusStep} onChange={(e) => setPrometheusQueryOptions({ prometheusStep: e.target.value as typeof prometheusStep }, tabId)}><option>15s</option><option>30s</option><option>1m</option><option>5m</option></select></label></div>}
         <div className="spacer" />
+        <QueryUtilityActions />
         <div className="query-toolbar-group query-editor-actions"><button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
           {formatting ? 'Formatting…' : 'Format'}
         </button>
