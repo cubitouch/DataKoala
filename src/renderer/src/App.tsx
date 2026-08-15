@@ -12,7 +12,6 @@ import {
 } from '@shared/layoutDimensions'
 import { api } from './lib/api'
 import type { ConnectionStateEvent } from '@shared/types'
-import { connectionKindLabel } from './lib/connectionKind'
 
 const SIDEBAR_STORAGE_KEY = 'datakoala.layout.v1.sidebarWidth'
 const EDITOR_STORAGE_KEY = 'datakoala.layout.v1.editorHeight'
@@ -32,13 +31,7 @@ interface ActiveResize {
 }
 
 export function App() {
-  const connected = useStore((s) => s.connected)
-  const serverVersion = useStore((s) => s.serverVersion)
-  const activeId = useStore((s) => s.activeProfileId)
   const profiles = useStore((s) => s.profiles)
-  const error = useStore((s) => s.connectionError)
-  const connecting = useStore((s) => s.connecting)
-  const connectionStatus = useStore((s) => s.connectionStatus)
   const activeTabId = useStore((s) => s.activeTabId)
   const mode = useStore((s) => selectActiveSession(s).queryMode)
   const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
@@ -53,14 +46,12 @@ export function App() {
     useStore.getState().applyConnectionEvent(event)
   }), [])
 
-  const activeProfile = profiles.find((p) => p.id === activeId)
   const tabProfile = profiles.find((profile) => profile.id === tabConnectionId)
   const effectiveMode = tabProfile?.kind === 'prometheus' ? 'sql' : mode
   // A restored tab is available before saved profiles finish loading. Do not
   // guess PostgreSQL during that gap: the profile may be a non-SQL datasource.
   const queryProfileLoading = Boolean(tabConnectionId && !tabProfile)
   const querySurfaceBlocked = queryProfileLoading
-  const activeName = activeProfile?.name
 
   const currentSidebarBounds = () => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth)
   const currentEditorBounds = () => editorBounds(mainRef.current?.clientHeight ?? window.innerHeight - TITLEBAR_HEIGHT)
@@ -147,19 +138,7 @@ export function App() {
   return (
     <div className="app">
       <div className="titlebar">
-        <div className="titlebar-brand"><span className="logo">DataKoala</span><span className="sub">— slice & dice your data</span></div>
-        <div className={`conn-pill ${connected ? 'on' : error ? 'err' : connectionStatus}`} role="status" aria-live="polite">
-          <span className="dot" />
-          {connectionStatus === 'reconnecting'
-            ? 'Reconnecting…'
-            : connecting
-            ? 'Connecting…'
-            : connected
-              ? `${activeName} · ${activeProfile ? connectionKindLabel(activeProfile.kind) : ''}${serverVersion ? ` ${serverVersion}` : ''}`.trim()
-              : error
-                ? error
-                : connectionStatus === 'idle' ? 'Idle' : activeName ? `${activeName} · disconnected` : 'Disconnected'}
-        </div>
+        <span className="logo">DataKoala</span>
         <QueryTabs />
         <div className="titlebar-drag-space" aria-hidden="true" />
       </div>

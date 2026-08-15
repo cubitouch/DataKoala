@@ -59,6 +59,9 @@ describe('Prometheus workspace restoration', () => {
 
     expect(screen.getByRole('status', { name: 'Loading connection…' })).toBeTruthy()
     expect(container.querySelector('.titlebar > .query-tabs')).toBeTruthy()
+    expect(container.querySelector('.titlebar > .conn-pill')).toBeNull()
+    expect(container.querySelector('.titlebar-drag-space')).toBeTruthy()
+    expect(container.querySelector('.titlebar')?.textContent).not.toContain('slice & dice your data')
     expect(container.querySelector('.main-shell > .query-tabs, .query-tabs-shell')).toBeNull()
     const initialEditorRenders = mocks.queryEditorRenders
     expect(initialEditorRenders).toBe(0)
@@ -68,7 +71,6 @@ describe('Prometheus workspace restoration', () => {
     expect(activeTestSession().connectionProfileId).toBe(prometheus.id)
     expect(useStore.getState().activeProfileId).toBeNull()
     expect(screen.getAllByText('Cloud metrics').length).toBeGreaterThan(0)
-    expect(screen.getByText('Disconnected')).toBeTruthy()
   })
 
   it('renders the PromQL query surface for an already-active Prometheus connection', () => {
@@ -80,7 +82,6 @@ describe('Prometheus workspace restoration', () => {
     expect(screen.getByText('SQL editor mounted')).toBeTruthy()
     expect(screen.getByText('Results mounted')).toBeTruthy()
     expect(screen.queryByText('Builder mounted')).toBeNull()
-    expect(screen.getByText(/Cloud metrics · Prometheus/)).toBeTruthy()
   })
 
   it('continues to initialize the SQL editor when another datasource is active', async () => {
@@ -91,6 +92,5 @@ describe('Prometheus workspace restoration', () => {
 
     await waitFor(() => expect(screen.getByText('SQL editor mounted')).toBeTruthy())
     expect(screen.queryByText('Prometheus query support is coming')).toBeNull()
-    expect(screen.getByText(/Postgres · PostgreSQL/)).toBeTruthy()
   })
 })
