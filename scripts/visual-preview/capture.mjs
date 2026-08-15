@@ -362,8 +362,7 @@ async function configureDocumentationTreemap(win) {
     store.getState().setSql('select region, country, channel, value\\nfrom analytics.market_summary\\norder by region, country, channel;')
     store.getState().setVisualization('sql', { view: 'treemap', xColumn: 'record', valueColumn: 'value', seriesColumn: null, seriesColumns: ['region', 'country', 'channel'], hierarchyDimensions: ['region', 'country', 'channel'], aggregation: 'sum' })
   })()`)
-  await waitForRendererState(win, `document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Treemap'`, 'selected documentation Treemap')
-  await sleep(200)
+  await waitForRendererState(win, `document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Treemap' && Boolean(document.querySelector('.result-chart-canvas canvas'))`, 'rendered documentation Treemap')
   const report = await win.webContents.executeJavaScript(`({ view: document.querySelector('.result-view-bar button.active')?.textContent?.trim(), hierarchy: document.querySelector('[aria-label="Hierarchy order"]')?.innerText, filters: document.querySelectorAll('.result-filter-chip').length, empty: Boolean(document.querySelector('.chart-empty')) })`)
   if (report.view !== 'Treemap' || report.filters || report.empty || !report.hierarchy?.includes('region') || !report.hierarchy.includes('country') || !report.hierarchy.includes('channel')) throw new Error(`Treemap documentation assertion failed: ${JSON.stringify(report)}`)
 }
