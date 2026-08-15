@@ -140,7 +140,6 @@
 .titlebar > .query-tabs {
   -webkit-app-region: no-drag;
   flex: 0 1 auto;
-  width: max-content;
   min-width: 0;
   height: 100%;
 }
