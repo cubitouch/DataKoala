@@ -59,18 +59,9 @@ button { font-family: inherit; }
   padding: 0 14px 0 84px; background: var(--bg-2);
   border-bottom: 1px solid var(--border); -webkit-app-region: drag;
 }
-.titlebar .logo { font-weight: 600; letter-spacing: .3px; }
-.titlebar .sub { color: var(--text-mute); font-size: 11px; }
-.titlebar .spacer { flex: 1; }
-.titlebar .conn-pill {
-  -webkit-app-region: no-drag; display: flex; align-items: center; gap: 6px;
-  padding: 3px 10px; border-radius: 6px; background: var(--bg-3);
-  border: 1px solid var(--border); font-size: 11px; color: var(--text-dim);
-}
-.titlebar .conn-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-mute); }
-.titlebar .conn-pill.on .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
-.titlebar .conn-pill.err .dot { background: var(--red); }
 
+.main-shell { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.main-shell > .main { flex: 1; min-width: 0; min-height: 0; }
 .workspace { flex: 1; display: grid; grid-template-columns: var(--sidebar-width, 240px) 8px minmax(0, 1fr); min-height: 0; min-width: 0; }
 .sidebar {
   background: var(--bg-2); border-right: 1px solid var(--border);
@@ -653,3 +644,8 @@ table.results td:hover .json-cell-explorer-popover .popover-trigger,
 @media (max-width: 1050px) { .promql-core-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 800px) { .promql-filter-group-row, .promql-values-grid { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .promql-core-row { grid-template-columns: 1fr; } }
+
+@media (max-width: 899px) { .titlebar { gap: 6px; } }
+@media (max-width: 899px) {
+  .query-utility-actions .btn { padding-inline: 6px; font-size: 10px; }
+}

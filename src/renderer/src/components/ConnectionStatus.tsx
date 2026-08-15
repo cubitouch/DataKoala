@@ -1,8 +1,11 @@
 import { connectionKindLabel } from '../lib/connectionKind'
 import { useStore } from '../store/useStore'
+import styles from './ConnectionStatus.module.css'
 
 /** The single, shared connection indicator used by each query-mode toolbar. */
-export function ConnectionStatus() {
+type ConnectionStatusProps = { className?: string }
+
+export function ConnectionStatus({ className }: ConnectionStatusProps) {
   const connected = useStore((state) => state.connected)
   const serverVersion = useStore((state) => state.serverVersion)
   const activeId = useStore((state) => state.activeProfileId)
@@ -22,9 +25,10 @@ export function ConnectionStatus() {
           ? error
           : connectionStatus === 'idle' ? 'Idle' : activeName ? `${activeName} · disconnected` : 'Disconnected'
 
-  return <div className={`conn-pill ${connected ? 'on' : error ? 'err' : connectionStatus}`}
-    role="status" aria-live="polite" title={statusText}>
-    <span className="dot" />
-    <span className="conn-pill-label">{statusText}</span>
+  const stateClass = connected ? styles.connected : error ? styles.error : ''
+  return <div className={[styles.root, stateClass, className].filter(Boolean).join(' ')}
+    role="status" aria-live="polite" title={statusText} data-state={connected ? 'connected' : error ? 'error' : connectionStatus}>
+    <span className={styles.dot} />
+    <span className={styles.label}>{statusText}</span>
   </div>
 }

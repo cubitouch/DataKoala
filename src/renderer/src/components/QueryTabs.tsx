@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
+import styles from './QueryTabs.module.css'
 
-export function QueryTabs() {
+type QueryTabsProps = { className?: string }
+
+export function QueryTabs({ className }: QueryTabsProps) {
   const tabs = useStore((state) => state.tabs)
   const activeTabId = useStore((state) => state.activeTabId)
   const profiles = useStore((state) => state.profiles)
@@ -52,24 +55,24 @@ export function QueryTabs() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [tabs, activeTabId])
 
-  return <div className="query-tabs" role="tablist" aria-label="Query tabs">
+  return <div className={`${styles.root}${className ? ` ${className}` : ''}`} role="tablist" aria-label="Query tabs">
       {tabs.map((tab) => {
         const selected = tab.id === activeTabId
         const connectionName = tab.connectionProfileId ? profileNames.get(tab.connectionProfileId) : null
-        return <div key={tab.id} className={`query-tab ${selected ? 'active' : ''}`} role="tab" aria-selected={selected}>
-          <button className="query-tab-main" onClick={() => switchTo(tab.id)} onDoubleClick={() => beginRename(tab.id, tab.title)} title={`${tab.title}${connectionName ? ` — ${connectionName}` : ''}`}>
-            {tab.running && <span className="query-tab-running" aria-label="Query running" />}
-            {renamingId === tab.id ? <input ref={inputRef} className="query-tab-title-input" value={draftTitle}
+        return <div key={tab.id} className={`${styles.tab} ${selected ? styles.active : ''}`} role="tab" aria-selected={selected}>
+          <button className={styles.main} onClick={() => switchTo(tab.id)} onDoubleClick={() => beginRename(tab.id, tab.title)} title={`${tab.title}${connectionName ? ` — ${connectionName}` : ''}`}>
+            {tab.running && <span className={styles.running} aria-label="Query running" />}
+            {renamingId === tab.id ? <input ref={inputRef} className={styles.renameInput} value={draftTitle}
               onClick={(event) => event.stopPropagation()} onChange={(event) => setDraftTitle(event.target.value)}
               onBlur={finishRename} onKeyDown={(event) => {
                 if (event.key === 'Enter') { event.preventDefault(); finishRename() }
                 if (event.key === 'Escape') { event.preventDefault(); setRenamingId(null) }
-              }} /> : <span className="query-tab-title">{tab.title}</span>}
-            {connectionName && <span className="query-tab-connection">{connectionName}</span>}
+              }} /> : <span className={styles.title}>{tab.title}</span>}
+            {connectionName && <span className={styles.connection}>{connectionName}</span>}
           </button>
-          <button className="query-tab-close" aria-label={`Close ${tab.title}`} title="Close tab (⌘/Ctrl+W)" onClick={(event) => { event.stopPropagation(); close(tab.id) }}>×</button>
+          <button className={styles.close} aria-label={`Close ${tab.title}`} title="Close tab (⌘/Ctrl+W)" onClick={(event) => { event.stopPropagation(); close(tab.id) }}>×</button>
         </div>
       })}
-      <button className="query-tab-add" aria-label="New query tab" title="New query tab (⌘/Ctrl+T)" onClick={() => createTab()}>+</button>
+      <button className={styles.add} aria-label="New query tab" title="New query tab (⌘/Ctrl+T)" onClick={() => createTab()}>+</button>
   </div>
 }

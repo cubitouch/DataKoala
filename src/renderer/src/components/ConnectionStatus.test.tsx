@@ -16,7 +16,7 @@ describe('ConnectionStatus', () => {
     render(<ConnectionStatus />)
     const status = screen.getByRole('status')
     expect(status.textContent).toBe('A very long production database name · PostgreSQL 16.4')
-    expect(status.classList.contains('on')).toBe(true)
+    expect(status.dataset.state).toBe('connected')
     expect(status.getAttribute('aria-live')).toBe('polite')
     expect(status.title).toBe(status.textContent)
   })
@@ -25,11 +25,11 @@ describe('ConnectionStatus', () => {
     [{ connectionStatus: 'reconnecting' as const }, 'Reconnecting…', 'reconnecting'],
     [{ connectionStatus: 'idle' as const }, 'Idle', 'idle'],
     [{ connectionStatus: 'disconnected' as const, activeProfileId: postgres.id, profiles: [postgres] }, 'A very long production database name · disconnected', 'disconnected'],
-    [{ connectionStatus: 'error' as const, connectionError: 'Connection refused' }, 'Connection refused', 'err']
+    [{ connectionStatus: 'error' as const, connectionError: 'Connection refused' }, 'Connection refused', 'error']
   ])('renders the non-connected state %#', (patch, text, stateClass) => {
     resetTestStore(patch)
     render(<ConnectionStatus />)
     expect(screen.getByRole('status').textContent).toBe(text)
-    expect(screen.getByRole('status').classList.contains(stateClass)).toBe(true)
+    expect(screen.getByRole('status').dataset.state).toBe(stateClass)
   })
 })

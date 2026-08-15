@@ -57,14 +57,37 @@ describe('QueryTabs lazy connection switching', () => {
   it('keeps new and close tab controls usable in the chrome tablist', () => {
     const a = createQuerySession(1, { id: 'tab-a', title: 'A query' })
     resetTestStore({ tabs: [a], activeTabId: a.id })
-    const { container } = render(<QueryTabs />)
+    render(<QueryTabs />)
 
-    expect(container.querySelector('.query-tabs-shell')).toBeNull()
     expect(screen.getByRole('tablist', { name: 'Query tabs' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'New query tab' }))
     expect(useStore.getState().tabs).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: 'Close A query' }))
     expect(useStore.getState().tabs).toHaveLength(1)
     expect(useStore.getState().tabs[0].id).not.toBe('tab-a')
+  })
+
+  it('accepts a parent-owned placement class without replacing its component styling', () => {
+    const a = createQuerySession(1, { id: 'tab-a', title: 'A query' })
+    resetTestStore({ tabs: [a], activeTabId: a.id })
+    render(<QueryTabs className="titlebar-placement" />)
+    expect(screen.getByRole('tablist', { name: 'Query tabs' }).classList.contains('titlebar-placement')).toBe(true)
+  })
+
+  it('renders active, running, connection, and rename semantics', () => {
+    const a = { ...createQuerySession(1, { id: 'tab-a', title: 'Original', connectionProfileId: 'profile-a' }), running: true }
+    resetTestStore({
+      tabs: [a], activeTabId: a.id,
+      profiles: [{ kind: 'postgres', version: 1, id: 'profile-a', name: 'Database A', host: 'a', port: 5432, database: 'a', user: 'reader', password: '', ssl: false, readonly: true }]
+    })
+    render(<QueryTabs />)
+    expect(screen.getByRole('tab', { selected: true })).toBeTruthy()
+    expect(screen.getByLabelText('Query running')).toBeTruthy()
+    expect(screen.getByText('Database A')).toBeTruthy()
+    fireEvent.doubleClick(screen.getByTitle('Original — Database A'))
+    const input = screen.getByDisplayValue('Original')
+    fireEvent.change(input, { target: { value: 'Renamed' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(useStore.getState().tabs[0].title).toBe('Renamed')
   })
 })

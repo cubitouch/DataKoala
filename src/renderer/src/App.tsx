@@ -14,6 +14,7 @@ import {
 import { api } from './lib/api'
 import type { ConnectionStateEvent } from '@shared/types'
 import { NotificationArea } from './components/NotificationArea'
+import styles from './App.module.css'
 
 const SIDEBAR_STORAGE_KEY = 'datakoala.layout.v1.sidebarWidth'
 const EDITOR_STORAGE_KEY = 'datakoala.layout.v1.editorHeight'
@@ -141,10 +142,10 @@ export function App() {
   return (
     <div className="app">
       <div className="titlebar">
-        <span className="logo">DataKoala</span>
-        <QueryTabs />
-        <div className="titlebar-drag-space" aria-hidden="true" />
-        <ConnectionStatus />
+        <span className={styles.logo}>DataKoala</span>
+        <QueryTabs className={styles.queryTabs} />
+        <div className={styles.dragSpace} data-testid="titlebar-drag-space" aria-hidden="true" />
+        <ConnectionStatus className={styles.connectionStatus} />
       </div>
 
       <div className="workspace" ref={workspaceRef} style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
