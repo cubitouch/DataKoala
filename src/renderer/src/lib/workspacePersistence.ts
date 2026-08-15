@@ -106,7 +106,7 @@ function table(value: unknown): BuilderQueryState['table'] | undefined {
 
 function parsePromqlBuilder(value: unknown): PromqlBuilderState {
   if (!isRecord(value)) return { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} }
-  const calculations = ['raw', 'rate', 'increase', 'percentile'] as const
+  const calculations = ['raw', 'rate', 'increase', 'observation-rate', 'histogram-average', 'histogram-sum', 'percentile'] as const
   const aggregations = ['none', 'sum', 'avg', 'min', 'max'] as const
   const windows = ['1m', '5m', '10m', '15m', '30m', '1h'] as const
   const quantiles = [0.5, 0.75, 0.9, 0.95, 0.99, 0.999] as const
@@ -124,7 +124,8 @@ function parsePromqlBuilder(value: unknown): PromqlBuilderState {
     : Object.fromEntries(filters.map((filter) => [filter.label, filter.values]))
   const legacyAggregation = isOneOf(value.calculation, ['sum', 'avg', 'min', 'max'] as const) ? value.calculation : undefined
   const calculation = isOneOf(value.calculation, calculations) ? value.calculation : 'raw'
-  const aggregation = calculation === 'percentile' ? 'sum' : isOneOf(value.aggregation, aggregations) ? value.aggregation : legacyAggregation ?? ((calculation === 'rate' || calculation === 'increase') && (stringArray(value.groupBy)?.length ?? 0) > 0 ? 'sum' : 'none')
+  const histogramCalculation = calculation === 'percentile' || calculation === 'observation-rate' || calculation === 'histogram-average' || calculation === 'histogram-sum'
+  const aggregation = histogramCalculation ? 'sum' : isOneOf(value.aggregation, aggregations) ? value.aggregation : legacyAggregation ?? ((calculation === 'rate' || calculation === 'increase') && (stringArray(value.groupBy)?.length ?? 0) > 0 ? 'sum' : 'none')
   return {
     metric: typeof value.metric === 'string' ? value.metric : '', filterBy: restoredFilterBy, labelValues: restoredLabelValues,
     groupBy: stringArray(value.groupBy) ?? [],

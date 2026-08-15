@@ -44,6 +44,28 @@ test('builds native and unknown histogram percentiles without inventing bucket l
   assert.match(unknown, /rate\(my_completely_custom_metric_name\[5m\]\)/)
   assert.doesNotMatch(unknown, /_bucket|\ble\b/)
 })
+test('builds native histogram observation rates and sums with implicit grouped aggregation', () => {
+  assert.equal(buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'my_metric', calculation: 'observation-rate', window: '5m' }, 'native'),
+    'histogram_count(\n  rate(my_metric[5m])\n)')
+  assert.equal(buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'my_metric', calculation: 'observation-rate', aggregation: 'sum', groupBy: ['path', 'method'] }, 'native'),
+    'sum by (path, method) (\n  histogram_count(\n    rate(my_metric[5m])\n  )\n)')
+  assert.equal(buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'my_metric', calculation: 'histogram-sum' }, 'native'),
+    'histogram_sum(\n  rate(my_metric[5m])\n)')
+  assert.equal(buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'my_metric', calculation: 'histogram-sum', aggregation: 'sum', groupBy: ['path'] }, 'native'),
+    'sum by (path) (\n  histogram_sum(\n    rate(my_metric[5m])\n  )\n)')
+})
+test('builds native histogram averages with observation-weighted grouped semantics', () => {
+  assert.equal(buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'my_metric', calculation: 'histogram-average' }, 'native'),
+    'histogram_avg(\n  rate(my_metric[5m])\n)')
+  assert.equal(buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'my_metric', calculation: 'histogram-average', aggregation: 'sum', groupBy: ['service'] }, 'native'),
+    'sum by (service) (\n  histogram_sum(\n    rate(my_metric[5m])\n  )\n)\n/\nsum by (service) (\n  histogram_count(\n    rate(my_metric[5m])\n  )\n)')
+})
+test('uses native histogram calculations for unknown metrics but not classic bucket metrics', () => {
+  const unknown = buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'custom_metric', calculation: 'observation-rate' }, 'unknown')
+  assert.match(unknown, /histogram_count/)
+  assert.doesNotMatch(unknown, /_bucket|\ble\b/)
+  assert.equal(buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'classic_bucket', calculation: 'observation-rate' }, 'classic'), '')
+})
 test('detects histogram kind from labels and reliable metadata without classifying gauges or counters', () => {
   assert.equal(detectPromqlHistogramKind({ metric: 'custom', labels: ['job', 'le'], metadataType: 'counter' }), 'classic')
   assert.equal(detectPromqlHistogramKind({ metric: 'foo_bucket', labels: [], metadataType: 'histogram' }), 'classic')

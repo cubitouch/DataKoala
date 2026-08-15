@@ -5,11 +5,14 @@ import { metricLabels, metricLabelValues } from '../lib/prometheusMetadata'
 import { Combobox, MultiCombobox } from './ui/combobox'
 import { InfoTooltip } from './ui/InfoTooltip'
 
-const calculations = ['raw', 'rate', 'increase', 'percentile'] as const
+const ordinaryCalculations = ['raw', 'rate', 'increase'] as const
+const histogramCalculations = ['observation-rate', 'histogram-average', 'histogram-sum', 'percentile'] as const
 const aggregations = ['none', 'sum', 'avg', 'min', 'max'] as const
 const windows = ['1m', '5m', '10m', '15m', '30m', '1h'] as const
 const quantiles = [{ value: 0.5, label: 'P50' }, { value: 0.75, label: 'P75' }, { value: 0.9, label: 'P90' }, { value: 0.95, label: 'P95' }, { value: 0.99, label: 'P99' }, { value: 0.999, label: 'P99.9' }] as const
-const rangeCalculations = new Set<PromqlCalculation>(['rate', 'increase', 'percentile'])
+const rangeCalculations = new Set<PromqlCalculation>(['rate', 'increase', ...histogramCalculations])
+const histogramCalculationSet = new Set<PromqlCalculation>(histogramCalculations)
+const calculationLabels: Record<PromqlCalculation, string> = { raw: 'Raw', rate: 'Rate', increase: 'Increase', 'observation-rate': 'Observation rate', 'histogram-average': 'Average', 'histogram-sum': 'Sum of observations', percentile: 'Percentile' }
 const titleCase = (value: string) => value === 'avg' ? 'Average' : value === 'min' ? 'Minimum' : value === 'max' ? 'Maximum' : value[0].toUpperCase() + value.slice(1)
 
 export function PromqlBuilderPanel() {
@@ -55,7 +58,8 @@ export function PromqlBuilderPanel() {
     const target = metrics.find((candidate) => candidate.name === metric)
     const targetType = target?.details?.kind === 'metric' ? target.details.type : undefined
     const targetKind = detectPromqlHistogramKind({ metric, labels: [], metadataType: targetType })
-    const next = { ...builder, metric, aggregation: builder.calculation === 'percentile' ? 'sum' as const : builder.aggregation, filterBy: [], groupBy: [], labelValues: {} }
+    const calculation = targetKind === 'classic' && histogramCalculationSet.has(builder.calculation) && builder.calculation !== 'percentile' ? 'raw' as const : builder.calculation
+    const next = { ...builder, metric, calculation, aggregation: histogramCalculationSet.has(calculation) ? 'sum' as const : builder.aggregation, filterBy: [], groupBy: [], labelValues: {} }
     setBuilder(next, tabId)
     const generated = buildPromql(next, targetKind)
     if (generated) setSql(generated, tabId)
@@ -82,6 +86,11 @@ export function PromqlBuilderPanel() {
   }
   useEffect(() => { activeLabels.forEach(loadValues) }, [profileId, builder.metric, activeLabels.join('\0')])
   useEffect(() => {
+    if (histogramKind === 'classic' && histogramCalculationSet.has(builder.calculation) && builder.calculation !== 'percentile') {
+      apply({ calculation: 'raw', aggregation: 'none' })
+      previousHistogramKind.current = histogramKind
+      return
+    }
     if (previousHistogramKind.current !== histogramKind && builder.calculation === 'percentile') {
       const generated = buildPromql(builder, histogramKind)
       if (generated) setSql(generated, tabId)
@@ -90,21 +99,26 @@ export function PromqlBuilderPanel() {
     if (import.meta.env.DEV && builder.metric && !loadingLabels) console.debug(`[prometheus:builder] selectedMetric=${builder.metric} metadataType=${metadataType ?? 'unknown'} labels=${JSON.stringify(labels)} histogramKind=${histogramKind}`)
   }, [histogramKind, builder.metric, loadingLabels])
   const changeCalculation = (calculation: PromqlCalculation) => {
-    const aggregation: PromqlAggregation = calculation === 'percentile' ? 'sum' : calculation === 'rate' || calculation === 'increase' ? 'sum' : builder.aggregation
+    const aggregation: PromqlAggregation = histogramCalculationSet.has(calculation) ? 'sum' : calculation === 'rate' || calculation === 'increase' ? 'sum' : builder.aggregation
     apply({ calculation, aggregation, groupBy: calculation === 'raw' && aggregation === 'none' ? [] : builder.groupBy })
   }
   const validation = validatePromqlBuilder(builder)
   const generated = buildPromql(builder, histogramKind)
-  const calculationOptions = calculations.map((value) => ({ value, label: titleCase(value) }))
+  const availableCalculations: readonly PromqlCalculation[] = histogramKind === 'classic'
+    ? ['raw', 'percentile']
+    : histogramKind === 'native'
+      ? ['raw', ...histogramCalculations]
+      : [...ordinaryCalculations, ...histogramCalculations]
+  const calculationOptions = availableCalculations.map((value) => ({ value, label: calculationLabels[value] }))
   const aggregationOptions = aggregations.map((value) => ({ value, label: titleCase(value) }))
   const labelPlaceholder = loadingLabels ? 'Loading labels…' : labelError ? 'Could not load labels' : labels.length === 0 ? 'No labels available' : 'No filters'
 
   return <div className="promql-builder-form">
     <div className="promql-builder-grid promql-core-row" data-promql-row="core">
       <div className="builder-control promql-metric-control"><span className="builder-field-label">Metric</span><Combobox label="Metric" value={builder.metric} options={metricOptions} onChange={selectMetric} searchable placeholder="Select a metric…" emptyMessage="No matching metrics" /></div>
-      <div className="builder-control"><span className="builder-field-label">Calculation</span><Combobox label="Calculation" value={builder.calculation} options={calculationOptions} onChange={(value) => changeCalculation(value as PromqlCalculation)} /></div>
-      {builder.calculation === 'percentile' && <div className="builder-control"><span className="builder-field-label">Percentile</span><Combobox label="Percentile" value={String(builder.percentile)} options={quantiles.map(({ value, label }) => ({ value: String(value), label }))} onChange={(value) => apply({ percentile: Number(value) as PromqlQuantile })} />{histogramKind === 'unknown' && !loadingLabels && <small className="builder-field-hint">Histogram representation is unknown; native histogram syntax will be used.</small>}</div>}
-      {builder.calculation !== 'percentile' && <div className="builder-control"><span className="builder-field-label">Aggregation <InfoTooltip label="Aggregation">Combines the resulting time series after the calculation. Sum is common for counters split across instances; Average, Minimum and Maximum compare the calculated values across series.</InfoTooltip></span><Combobox label="Aggregation" value={builder.aggregation} options={aggregationOptions} onChange={(value) => apply({ aggregation: value as PromqlAggregation, ...(value === 'none' ? { groupBy: [] } : {}) })} /></div>}
+      <div className="builder-control"><span className="builder-field-label">Calculation</span><Combobox label="Calculation" value={builder.calculation} options={calculationOptions} onChange={(value) => changeCalculation(value as PromqlCalculation)} />{histogramKind === 'unknown' && histogramCalculationSet.has(builder.calculation) && !loadingLabels && <small className="builder-field-hint">Histogram representation could not be determined from metadata. DataKoala will use native histogram syntax.</small>}</div>
+      {builder.calculation === 'percentile' && <div className="builder-control"><span className="builder-field-label">Percentile</span><Combobox label="Percentile" value={String(builder.percentile)} options={quantiles.map(({ value, label }) => ({ value: String(value), label }))} onChange={(value) => apply({ percentile: Number(value) as PromqlQuantile })} /></div>}
+      {!histogramCalculationSet.has(builder.calculation) && <div className="builder-control"><span className="builder-field-label">Aggregation <InfoTooltip label="Aggregation">Combines the resulting time series after the calculation. Sum is common for counters split across instances; Average, Minimum and Maximum compare the calculated values across series.</InfoTooltip></span><Combobox label="Aggregation" value={builder.aggregation} options={aggregationOptions} onChange={(value) => apply({ aggregation: value as PromqlAggregation, ...(value === 'none' ? { groupBy: [] } : {}) })} /></div>}
       {rangeCalculations.has(builder.calculation) && <div className="builder-control"><span className="builder-field-label">Rate window <InfoTooltip label="Rate window">How much history each calculation looks back over. Example: 5m means rate(...[5m]) uses the previous 5 minutes at each point.</InfoTooltip></span><Combobox label="Rate window" value={builder.window} options={windows.map((value) => ({ value, label: value }))} onChange={(value) => apply({ window: value as PromqlWindow })} /></div>}
     </div>
     <div className="promql-filter-group-row" data-promql-row="filters-and-grouping">

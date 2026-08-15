@@ -12,11 +12,11 @@ import { activeTestSession, patchActiveTestSession, resetTestStore, setActiveTes
 const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done }); return { promise, resolve } }
 
 let sequence = 0
-function arrange(metric = 'request_duration_seconds_bucket') {
+function arrange(metric = 'request_duration_seconds_bucket', metricType?: string) {
   const id = `prom-builder-${++sequence}`
   resetTestStore({ profiles: [{ id, name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }] })
   patchActiveTestSession({ connectionProfileId: id, queryMode: 'builder', sql: '', promqlBuilder: { metric, filterBy: [], groupBy: [], labelValues: {}, calculation: 'percentile', aggregation: 'sum', window: '5m', percentile: 0.95 } })
-  setActiveTestMetadata([{ name: 'Prometheus', isSystem: false, relations: [metric, 'other_total', 'other_bucket'].filter((name, index, all) => all.indexOf(name) === index).map((name) => ({ schema: 'Prometheus', name, qualifiedName: name, kind: 'metric' as const, columnsStatus: 'idle' as const })) }], 'loaded', null, id)
+  setActiveTestMetadata([{ name: 'Prometheus', isSystem: false, relations: [metric, 'other_total', 'other_bucket'].filter((name, index, all) => all.indexOf(name) === index).map((name) => ({ schema: 'Prometheus', name, qualifiedName: name, kind: 'metric' as const, columnsStatus: 'idle' as const, ...(name === metric && metricType ? { details: { kind: 'metric' as const, type: metricType } } : {}) })) }], 'loaded', null, id)
   return render(<PromqlBuilderPanel />)
 }
 beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); labelsForMetric.mockReset().mockResolvedValue(['service', 'very_specific_label_name', 'environment', 'le', '__name__']); labelValues.mockReset().mockResolvedValue(['staging', 'production']) })
@@ -133,13 +133,29 @@ describe('PromQL Builder controls', () => {
   it('keeps Percentile selectable for an unknown non-bucket metric and uses native syntax', async () => {
     labelsForMetric.mockResolvedValueOnce(['service'])
     arrange('requests_total')
-    await screen.findByText(/Histogram representation is unknown/)
+    await screen.findByText(/Histogram representation could not be determined/)
     fireEvent.click(screen.getByRole('combobox', { name: /Calculation: Percentile/ }))
     expect(screen.getByRole('option', { name: 'Percentile' }).getAttribute('aria-disabled')).not.toBe('true')
     fireEvent.click(screen.getByRole('option', { name: 'Percentile' }))
     expect(activeTestSession().sql).toContain('sum(\n    rate(requests_total[5m])')
     expect(activeTestSession().sql).not.toContain('sum by (le)')
-    expect(screen.getByText(/Histogram representation is unknown/)).toBeTruthy()
+    expect(screen.getByText(/Histogram representation could not be determined/)).toBeTruthy()
+  })
+
+  it('offers intent-based native histogram calculations and hides ordinary aggregation', async () => {
+    labelsForMetric.mockResolvedValueOnce(['method', 'path', 'service'])
+    arrange('my_metric', 'histogram')
+    const calculation = screen.getByRole('combobox', { name: /Calculation: Percentile/ })
+    fireEvent.click(calculation)
+    for (const name of ['Raw', 'Observation rate', 'Average', 'Sum of observations', 'Percentile']) {
+      expect(screen.getByRole('option', { name })).toBeTruthy()
+    }
+    expect(screen.queryByRole('option', { name: 'Rate' })).toBeNull()
+    fireEvent.click(screen.getByRole('option', { name: 'Observation rate' }))
+    expect(screen.queryByRole('combobox', { name: /Aggregation/ })).toBeNull()
+    expect(screen.getByRole('combobox', { name: /Rate window: 5m/ })).toBeTruthy()
+    expect(activeTestSession().sql).toBe('histogram_count(\n  rate(my_metric[5m])\n)')
+    expect(activeTestSession().running).toBe(false)
   })
 
   it('sorts labels and searches the full distinctive label in Group by and Filter by', async () => {
