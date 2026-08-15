@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ConnectionProfile, QueryResult } from '@shared/types'
+import type { ConnectionProfile, DataSourceProfile, QueryResult } from '@shared/types'
 
 const { connect, disconnect, listObjects } = vi.hoisted(() => ({
   connect: vi.fn(),
@@ -19,13 +19,14 @@ vi.mock('./api', () => ({
 }))
 
 import { bindTabConnection, ensureConnectionForTab } from './tabConnection'
-import { selectActiveSession, useStore } from '../store/useStore'
+import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
 
 const profiles: ConnectionProfile[] = [
   { kind: 'postgres', version: 1, id: 'profile-a', name: 'A', host: 'a', port: 5432, database: 'a', user: 'reader', password: '', ssl: false, readonly: true },
   { kind: 'postgres', version: 1, id: 'profile-b', name: 'B', host: 'b', port: 5432, database: 'b', user: 'reader', password: '', ssl: false, readonly: true }
 ]
+const prometheusProfile: DataSourceProfile = { kind: 'prometheus', version: 1, id: 'prometheus', name: 'Metrics', readonly: true, transport: { kind: 'gcx' } }
 const result: QueryResult = {
   columns: [{ name: 'value', dataTypeID: 23, dataTypeName: 'int4' }], rows: [{ value: 1 }], rowCount: 1, durationMs: 1
 }
@@ -39,6 +40,17 @@ afterEach(() => {
 })
 
 describe('tab connection lifecycle', () => {
+  it('applies datasource-specific defaults only to a pristine new session', () => {
+    resetTestStore({ profiles: [prometheusProfile] })
+    const id = useStore.getState().activeTabId
+    bindTabConnection(id, prometheusProfile.id)
+    expect(selectSession(useStore.getState(), id)).toMatchObject({ queryMode: 'builder', sql: 'up' })
+
+    useStore.getState().setSql('rate(custom_total[5m])', id)
+    bindTabConnection(id, null)
+    bindTabConnection(id, prometheusProfile.id)
+    expect(selectSession(useStore.getState(), id)?.sql).toBe('rate(custom_total[5m])')
+  })
   it('rebinding a tab clears result-derived state but preserves editable work and promoted Builder predicates', () => {
     resetTestStore({ profiles, activeProfileId: 'profile-a', connected: true, connectionStatus: 'connected' })
     patchActiveTestSession({

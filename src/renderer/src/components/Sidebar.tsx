@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { DataSourceProfile, DatabaseColumnNode, DatabaseRelationNode } from '@shared/types'
 import { api } from '../lib/api'
 import { ensureRelationColumns } from '../lib/relationColumns'
@@ -9,6 +9,7 @@ import { bindTabConnection, ensureConnectionForTab } from '../lib/tabConnection'
 import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { ConnectionModal } from './ConnectionModal'
 import { connectionKindLabel } from '../lib/connectionKind'
+import { DeleteConnectionDialog } from './DeleteConnectionDialog'
 
 const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'metric' ? 'metric' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
 const LABEL_VALUE_DISPLAY_LIMIT = 200
@@ -106,6 +107,8 @@ export function Sidebar() {
   const selectBuilderRelation = useStore((s) => s.selectBuilderRelation)
   const [editing, setEditing] = useState<DataSourceProfile | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<DataSourceProfile | null>(null)
+  const deleteOrigin = useRef<HTMLButtonElement | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
   const tabConnected = Boolean(activeTabConnectionId && connected && activeId === activeTabConnectionId)
@@ -149,6 +152,16 @@ export function Sidebar() {
     await api.connections.remove(id)
     detachProfile(id)
     void loadProfiles()
+  }
+  const cancelDelete = useCallback(() => {
+    setPendingDelete(null)
+    requestAnimationFrame(() => deleteOrigin.current?.focus())
+  }, [])
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
+    const id = pendingDelete.id
+    setPendingDelete(null)
+    await remove(id)
   }
 
   const toggle = (id: string) => setExpanded((old) => {
@@ -221,7 +234,7 @@ export function Sidebar() {
         {isConnecting && <span className="connecting-label">Connecting…</span>}
         {isSelected && !isLive && !isConnecting && <span className="connecting-label">connect on run</span>}
         <button className="del" disabled={connecting} onClick={(event) => { event.stopPropagation(); setEditing(profile); setShowModal(true) }}>✎</button>
-        <button className="del" disabled={connecting} onClick={(event) => { event.stopPropagation(); void remove(profile.id) }}>✕</button>
+        <button className="del" aria-label={`Delete connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); deleteOrigin.current = event.currentTarget; setPendingDelete(profile) }}>✕</button>
       </div>
     })}
     <button className="btn-add" disabled={connecting} onClick={() => { setEditing(null); setShowModal(true) }}>+ new connection</button>
@@ -267,5 +280,6 @@ export function Sidebar() {
       </>}
     </section>}
     {showModal && <ConnectionModal existing={editing} onClose={() => setShowModal(false)} onSaved={() => void loadProfiles()} />}
+    {pendingDelete && <DeleteConnectionDialog profile={pendingDelete} onCancel={cancelDelete} onConfirm={() => void confirmDelete()} />}
   </div>
 }

@@ -416,7 +416,7 @@ export function BuilderPanel() {
   }
 
   return <div className="editor-pane builder-pane" onKeyDown={onKeyDown}>
-    <div className="editor-head"><ModeSwitch /><div className="spacer"/><QueryUtilityActions /><div className="query-toolbar-group builder-copy-action"><CopySqlButton sql={generatedSql} /></div><div className="query-toolbar-group execution-group"><span className="info">⌘↵ run</span><button className="btn primary" onClick={run} disabled={!generatedSql || !tabConnectionId || connecting || running || Boolean(rangeError)}>{running ? 'Running…' : connecting ? 'Connecting…' : 'Run query'}</button></div></div>
+    <div className="editor-head"><ModeSwitch /><div className="spacer"/><QueryUtilityActions /><div className="query-toolbar-group builder-copy-action"><CopySqlButton sql={generatedSql} /></div><div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={!generatedSql || !tabConnectionId || connecting || running || Boolean(rangeError)}>{running ? 'Running…' : connecting ? 'Connecting…' : 'Run query'}</button></div></div>
     <div className="builder-form axis-builder-form">
       <div className="builder-row builder-row-context">
         <div className="builder-control"><span className="builder-field-label">Schema</span><Combobox label="Schema" value={selectedSchema} options={schemaOptions} onChange={chooseSchema} placeholder="Select a schema…" loading={metadataStatus === 'loading'} error={metadataStatus === 'error' ? (storeMetadataError ?? 'Could not load schemas') : null} disabled={!tabConnectionId || metadataStatus === 'loading'} /></div>
