@@ -1,0 +1,12 @@
+.logo { flex: 0 0 auto; font-weight: 600; letter-spacing: .3px; }
+.queryTabs {
+  -webkit-app-region: no-drag;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 100%;
+  scrollbar-width: none;
+}
+.queryTabs::-webkit-scrollbar { display: none; }
+.dragSpace { flex: 1 1 28px; min-width: 28px; height: 100%; }
+.connectionStatus { -webkit-app-region: no-drag; flex: 0 1 auto; }
+@media (max-width: 899px) { .connectionStatus { flex-basis: 180px; } }

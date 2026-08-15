@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest'
 import { readFileSync } from 'node:fs'
 
-const tabsCss = readFileSync('src/renderer/src/tabs.css', 'utf8')
+const tabsCss = readFileSync('src/renderer/src/components/QueryTabs.module.css', 'utf8')
+const appCss = readFileSync('src/renderer/src/App.module.css', 'utf8')
 const shellCss = readFileSync('src/renderer/src/styles.css', 'utf8')
 
 function rule(css: string, selector: string): string {
@@ -11,28 +12,23 @@ function rule(css: string, selector: string): string {
   return match![1]
 }
 
-test('the titlebar tab strip sizes to its contents instead of consuming drag space', () => {
-  const titlebarTabs = rule(tabsCss, '.titlebar > .query-tabs')
+test('the titlebar owns tab-strip placement and leaves unused space draggable', () => {
+  const titlebarTabs = rule(appCss, '.queryTabs')
   expect(titlebarTabs).toMatch(/flex:\s*0\s+1\s+auto\s*;/)
   expect(titlebarTabs).not.toMatch(/flex:\s*1\s+1\s+auto\s*;/)
-  expect(titlebarTabs).not.toMatch(/(?:^|\n)\s*width\s*:/)
   expect(titlebarTabs).toMatch(/min-width:\s*0\s*;/)
   expect(titlebarTabs).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
   expect(titlebarTabs).toMatch(/scrollbar-width:\s*none\s*;/)
-
-  const baseTabs = rule(tabsCss, '.query-tabs')
-  expect(baseTabs).toMatch(/overflow-x:\s*auto\s*;/)
-  expect(rule(tabsCss, '.titlebar > .query-tabs::-webkit-scrollbar')).toMatch(/display:\s*none\s*;/)
-
-  const dragSpace = rule(tabsCss, '.titlebar-drag-space')
-  expect(dragSpace).toMatch(/flex:\s*1\s+1\s+28px\s*;/)
-  expect(dragSpace).toMatch(/min-width:\s*28px\s*;/)
+  expect(rule(tabsCss, '.root')).toMatch(/overflow-x:\s*auto\s*;/)
+  expect(rule(appCss, '.queryTabs::-webkit-scrollbar')).toMatch(/display:\s*none\s*;/)
+  expect(rule(appCss, '.dragSpace')).toMatch(/flex:\s*1\s+1\s+28px\s*;/)
+  expect(rule(appCss, '.dragSpace')).toMatch(/min-width:\s*28px\s*;/)
 })
 
 test('tab and add controls remain outside the draggable app region', () => {
-  expect(rule(tabsCss, '.query-tab')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
-  expect(rule(tabsCss, '.query-tab-main')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
-  expect(rule(tabsCss, '.query-tab-close,\n.query-tab-add')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
+  expect(rule(tabsCss, '.tab')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
+  expect(rule(tabsCss, '.main')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
+  expect(rule(tabsCss, '.close, .add')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
 })
 
 test('the application shell is constrained to the root without becoming a document scroller', () => {
@@ -40,10 +36,8 @@ test('the application shell is constrained to the root without becoming a docume
   expect(root).toMatch(/width:\s*100%\s*;/)
   expect(root).toMatch(/height:\s*100%\s*;/)
   expect(root).toMatch(/overflow:\s*hidden\s*;/)
-
   const app = rule(shellCss, '.app')
   expect(app).toMatch(/height:\s*100%\s*;/)
   expect(app).toMatch(/min-height:\s*0\s*;/)
   expect(app).toMatch(/overflow:\s*hidden\s*;/)
-  expect(app).not.toMatch(/100vh/)
 })

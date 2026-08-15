@@ -1,0 +1,86 @@
+.root {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 2px 0;
+  scrollbar-width: thin;
+}
+
+.tab {
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  min-width: 112px;
+  max-width: 220px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  color: var(--text-dim);
+  -webkit-app-region: no-drag;
+}
+
+.tab:hover { background: var(--bg-3); color: var(--text); }
+.active { background: var(--bg); color: var(--text); border-color: var(--border); }
+
+.main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+  flex: 1;
+  padding: 5px 4px 5px 9px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  -webkit-app-region: no-drag;
+}
+
+.title, .connection { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title { font-size: 12px; }
+.connection { flex: 0 1 auto; max-width: 84px; color: var(--text-mute); font-size: 9px; }
+
+.running {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 5px var(--accent);
+}
+
+.close, .add {
+  border: 0;
+  background: transparent;
+  color: var(--text-mute);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.close { width: 24px; padding: 0 5px; font-size: 15px; }
+.close:hover { color: var(--text); }
+.add { flex: 0 0 30px; margin: 1px 4px 3px 2px; border-radius: 5px; font-size: 18px; }
+.add:hover { background: var(--bg-3); color: var(--text); }
+
+.renameInput {
+  width: 118px;
+  min-width: 70px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  outline: none;
+  background: var(--bg-3);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+  user-select: text;
+}
+
+@media (max-width: 760px) {
+  .tab { min-width: 94px; max-width: 160px; }
+  .connection { display: none; }
+}

@@ -58,13 +58,14 @@ describe('Prometheus workspace restoration', () => {
     const { container } = render(<App />)
 
     expect(screen.getByRole('status', { name: 'Loading connection…' })).toBeTruthy()
-    expect(container.querySelector('.titlebar > .query-tabs')).toBeTruthy()
-    expect(container.querySelector('.titlebar > .conn-pill')).toBeTruthy()
-    expect(container.querySelector('.titlebar-drag-space')).toBeTruthy()
-    expect(Array.from(container.querySelector('.titlebar')!.children).map((element) => element.className))
-      .toEqual(['logo', 'query-tabs', 'titlebar-drag-space', expect.stringContaining('conn-pill')])
+    const titlebar = container.querySelector('.titlebar')!
+    const tablist = screen.getByRole('tablist', { name: 'Query tabs' })
+    const status = titlebar.querySelector('[role="status"]')!
+    const dragSpace = screen.getByTestId('titlebar-drag-space')
+    expect(Array.from(titlebar.children)).toEqual([titlebar.children[0], tablist, dragSpace, status])
+    expect(tablist.className.split(' ')).toHaveLength(2)
     expect(container.querySelector('.titlebar')?.textContent).not.toContain('slice & dice your data')
-    expect(container.querySelector('.main-shell > .query-tabs, .query-tabs-shell')).toBeNull()
+    expect(container.querySelector('.main-shell [role="tablist"]')).toBeNull()
     const initialEditorRenders = mocks.queryEditorRenders
     expect(initialEditorRenders).toBe(0)
     resolveProfiles([prometheus])
@@ -85,7 +86,7 @@ describe('Prometheus workspace restoration', () => {
     expect(screen.getByText('SQL editor mounted')).toBeTruthy()
     expect(screen.getByText('Results mounted')).toBeTruthy()
     expect(screen.queryByText('Builder mounted')).toBeNull()
-    expect(container.querySelector('.titlebar > .conn-pill')?.textContent).toContain('Cloud metrics · Prometheus')
+    expect(container.querySelector('.titlebar > [role="status"]')?.textContent).toContain('Cloud metrics · Prometheus')
     expect(container.querySelector('.editor-head > .conn-pill')).toBeNull()
   })
 
@@ -97,6 +98,6 @@ describe('Prometheus workspace restoration', () => {
 
     await waitFor(() => expect(screen.getByText('SQL editor mounted')).toBeTruthy())
     expect(screen.queryByText('Prometheus query support is coming')).toBeNull()
-    expect(container.querySelector('.titlebar > .conn-pill')?.textContent).toContain('Postgres · PostgreSQL')
+    expect(container.querySelector('.titlebar > [role="status"]')?.textContent).toContain('Postgres · PostgreSQL')
   })
 })

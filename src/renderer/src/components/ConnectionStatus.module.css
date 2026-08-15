@@ -1,0 +1,17 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: min(260px, 28cqi);
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-3);
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--text-mute); }
+.connected .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.error .dot { background: var(--red); }
+.label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

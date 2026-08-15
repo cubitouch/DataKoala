@@ -6,7 +6,6 @@ import { buildEChartsOption } from './lib/chartOption'
 import { restoreWorkspaceDraft, startWorkspacePersistence } from './lib/workspacePersistence'
 import './styles.css'
 import './prometheus-metadata.css'
-import './tabs.css'
 
 // Hydrate editable query sessions before React mounts. Persistence stores saved
 // profile IDs but never credentials, results or runtime execution state, so restore
