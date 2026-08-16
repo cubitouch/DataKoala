@@ -4,9 +4,9 @@
 .content { max-width: calc(100vw - 16px); padding: 0; overflow: hidden; background: var(--bg-2); border-color: var(--border); border-radius: 10px; box-shadow: 0 24px 60px rgba(0, 0, 0, .6); }
 .popover { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; max-height: inherit; min-height: 0; padding: 14px; color: var(--text); }
 .title { margin: 0 0 12px; font-size: 14px; font-weight: 650; }
-.body { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 12px; }
-.presetPane { min-width: 0; }
-.editorPane { min-width: 0; }
+.body { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px; min-height: 0; overflow: hidden; }
+.presetPane { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 12px; }
+.editorPane { min-width: 0; min-height: 0; overflow: hidden; scroll-padding-bottom: 12px; }
 .customLayout { display: grid; grid-template-columns: 140px minmax(280px, 1fr); grid-template-areas: "presets calendar" "presets windows"; gap: 14px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
 .customLayout > .quickList { grid-area: presets; }
 .customLayout > .calendar { grid-area: calendar; }
@@ -47,8 +47,14 @@
 .actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 12px; background: var(--bg-2); border-top: 1px solid var(--border); }
 .spacer { flex: 1; }
 
+@media (max-height: 720px) {
+  .editorPane { overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; scrollbar-color: var(--border) transparent; }
+}
+
 @media (max-width: 720px) {
   .body, .customLayout { grid-template-columns: minmax(0, 1fr); }
+  .presetPane { max-height: 180px; }
+  .editorPane { overflow-y: auto; }
   .customLayout { grid-template-areas: "presets" "calendar" "windows"; }
   .quickList { flex-direction: row; flex-wrap: wrap; }
   .quickPill { width: auto; }
