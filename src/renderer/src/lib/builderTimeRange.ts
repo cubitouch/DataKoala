@@ -16,7 +16,9 @@ export const EMPTY_BUILDER_CUSTOM_RANGE: BuilderTimeRange = { kind: 'custom', st
 export const MINUTE_BUCKET_UNAVAILABLE_REASON = 'Minute is available only for time ranges of 24 hours or less.'
 
 function normalizeRecurringWindows(value: unknown): TimeWindow[] {
-  return Array.isArray(value) ? value.map((window) => ({ ...window })) as TimeWindow[] : []
+  return Array.isArray(value)
+    ? (value as TimeWindow[]).filter((window) => window.from || window.to).map((window) => ({ ...window })).sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to))
+    : []
 }
 
 export function normalizeBuilderTimeRange(range: BuilderTimeRange | (Record<string, unknown> & { kind?: unknown })): BuilderTimeRange {
