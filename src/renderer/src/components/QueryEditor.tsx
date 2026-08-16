@@ -24,6 +24,7 @@ import { PromqlBuilderPanel } from './PromqlBuilderPanel'
 import { validatePromqlBuilder } from '../lib/promqlBuilder'
 import { InfoTooltip } from './ui/InfoTooltip'
 import { Combobox } from './ui/combobox'
+import { notify } from './NotificationArea'
 
 export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) {
   const tabId = useStore((s) => s.activeTabId)
@@ -55,18 +56,12 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const setShowExplain = useStore((s) => s.setShowExplain)
   const activeExplainRequest = useStore((s) => selectActiveSession(s).activeExplainRequest)
   const setActiveExplainRequest = useStore((s) => s.setActiveExplainRequest)
-  const [showToast, setShowToast] = useState<string | null>(null)
   const [formatting, setFormatting] = useState(false)
   const editorRef = useRef<ReactCodeMirrorRef>(null)
   const filters = useStore((s) => selectActiveSession(s).sqlResultFilters)
   const filterRevision = useStore((s) => selectActiveSession(s).queryFilterRevision.sql)
   const initialFilterRevision = useRef(new Map<string, number>())
   const runRevisions = useRef(new Map<string, number>())
-
-  const flash = (msg: string, ms = 2600) => {
-    setShowToast(msg)
-    setTimeout(() => setShowToast(null), ms)
-  }
 
   const extensions = useMemo(() => {
     if (language.kind === 'promql') return [new PromQLExtension().asExtension()]
@@ -186,9 +181,9 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
         const formatted = await api.connections.prometheus.formatQuery(tabConnectionId, originalQuery)
         if (selectSession(useStore.getState(), requestTabId)?.sql !== originalQuery) return
         applyFormattedQuery(formatted, requestTabId)
-        flash('Formatted')
+        notify({ message: 'Formatted', duration: 2600 })
       } catch (error) {
-        flash(error instanceof Error ? error.message : 'Could not format PromQL', 3200)
+        notify({ message: error instanceof Error ? error.message : 'Could not format PromQL', duration: 3200 })
       } finally {
         setFormatting(false)
       }
@@ -198,9 +193,9 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
     if (r.ok) {
       const formatted = r.sql
       applyFormattedQuery(formatted, requestTabId)
-      flash('Formatted')
+      notify({ message: 'Formatted', duration: 2600 })
     } else {
-      flash(r.error ?? 'Could not format', 3200)
+      notify({ message: r.error ?? 'Could not format', duration: 3200 })
     }
   }
 
@@ -254,7 +249,6 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
         />
       </div>}
 
-      {showToast && <div className="toast">{showToast}</div>}
     </div>
   )
 }

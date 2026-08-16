@@ -4,8 +4,9 @@ void React
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-const { explain, runQuery, formatQuery, labelsForMetric, labelValues, promqlAsExtension } = vi.hoisted(() => ({ explain: vi.fn(), runQuery: vi.fn(), formatQuery: vi.fn(), labelsForMetric: vi.fn(), labelValues: vi.fn(), promqlAsExtension: vi.fn(() => ({})) }))
+const { explain, runQuery, formatQuery, labelsForMetric, labelValues, promqlAsExtension, notify } = vi.hoisted(() => ({ explain: vi.fn(), runQuery: vi.fn(), formatQuery: vi.fn(), labelsForMetric: vi.fn(), labelValues: vi.fn(), promqlAsExtension: vi.fn(() => ({})), notify: vi.fn() }))
 vi.mock('../lib/api', () => ({ api: { connections: { prometheus: { formatQuery, labelsForMetric, labelValues } }, query: { explain, run: runQuery }, export: { saveText: vi.fn() } } }))
+vi.mock('./NotificationArea', () => ({ notify }))
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value, onChange, editable = true, ...props }: { value: string, onChange: (value: string) => void, editable?: boolean, 'aria-label'?: string }) => <textarea aria-label={props['aria-label'] ?? 'SQL editor'} value={value} disabled={!editable} onChange={(event) => onChange(event.target.value)} /> }))
 vi.mock('@codemirror/lang-sql', () => {
   const dialect = { spec: {}, language: { data: { of: () => ({}) } } }
@@ -41,6 +42,7 @@ beforeEach(() => {
   labelsForMetric.mockReset(); labelsForMetric.mockResolvedValue([])
   labelValues.mockReset(); labelValues.mockResolvedValue([])
   promqlAsExtension.mockClear()
+  notify.mockReset()
 })
 
 describe('PromQL execution', () => {
@@ -120,6 +122,7 @@ describe('PromQL execution', () => {
     await waitFor(() => expect(useStore.getState().tabs[0].sql).toBe('sum by (status) (rate(http_requests_total{service="api"}[5m]))'))
     expect(formatQuery).toHaveBeenCalledWith('prom-1', 'sum by(status)(rate(http_requests_total{service="api"}[5m]))')
     expect(runQuery).not.toHaveBeenCalled()
+    expect(notify).toHaveBeenCalledWith({ message: 'Formatted', duration: 2600 })
   })
 
   it('preserves PromQL when formatting fails and ignores duplicate clicks', async () => {
@@ -130,7 +133,7 @@ describe('PromQL execution', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Formatting…' }))
     expect(formatQuery).toHaveBeenCalledTimes(1)
     request.reject(new Error('bad_data: parse error'))
-    expect(await screen.findByText('bad_data: parse error')).toBeTruthy()
+    await waitFor(() => expect(notify).toHaveBeenCalledWith({ message: 'bad_data: parse error', duration: 3200 }))
     expect(useStore.getState().tabs[0].sql).toBe('sum(')
     expect(runQuery).not.toHaveBeenCalled()
   })
@@ -155,6 +158,7 @@ describe('QueryEditor Explain loading states', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Format' }))
     await waitFor(() => expect(useStore.getState().tabs[0].sql).toContain('SELECT'))
     expect(formatQuery).not.toHaveBeenCalled()
+    expect(notify).toHaveBeenCalledWith({ message: 'Formatted', duration: 2600 })
   })
   it('keeps SQL Explain actions and does not expose Prometheus Resolution', () => {
     renderExplainUi()

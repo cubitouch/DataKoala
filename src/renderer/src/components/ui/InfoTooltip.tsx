@@ -1,5 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import styles from './InfoTooltip.module.css'
 
 interface Position { left: number; top: number; maxWidth: number }
 
@@ -27,9 +28,9 @@ export function InfoTooltip({ label, children }: { label: string; children: stri
     window.addEventListener('scroll', place, true)
     return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true) }
   }, [open])
-  const tooltip = <span ref={tooltipRef} id={id} role="tooltip" className="info-tooltip-content" style={{ left: position.left, top: position.top, maxWidth: position.maxWidth }} hidden={!open}>{children}</span>
-  return <span className="info-tooltip">
-    <button ref={triggerRef} type="button" className="info-tooltip-trigger" aria-label={`${label} help`} aria-describedby={id} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>i</button>
+  const tooltip = <span ref={tooltipRef} id={id} role="tooltip" className={styles.content} style={{ left: position.left, top: position.top, maxWidth: position.maxWidth }} hidden={!open}>{children}</span>
+  return <span className={styles.root}>
+    <button ref={triggerRef} type="button" className={styles.trigger} aria-label={`${label} help`} aria-describedby={id} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>i</button>
     {typeof document === 'undefined' ? tooltip : createPortal(tooltip, document.body)}
   </span>
 }
