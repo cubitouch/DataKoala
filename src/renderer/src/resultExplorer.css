@@ -1,0 +1,4 @@
+/* ResultExplorer-owned rule retained globally until the visualization slice migrates. */
+.visualization-controls .visualization-control > span > span {
+  display: none;
+}
