@@ -35,7 +35,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 cd DataKoala
 corepack enable
 pnpm install --frozen-lockfile
-pnpm dev</code></pre><div class="optional-setup"><h3>Using Prometheus / Grafana?</h3><p>Optional on macOS: the Prometheus formula provides <code>promtool</code>, which DataKoala uses for PromQL formatting. <code>gcx</code> connects to Grafana and Grafana Cloud-backed Prometheus sources.</p><pre><code>brew install prometheus
+pnpm dev</code></pre><div class="optional-setup"><h3>Using BigQuery?</h3><p>BigQuery connections use Google Cloud Application Default Credentials. Install the Google Cloud CLI (<code>gcloud</code>), make sure it is available on your <code>PATH</code>, and authenticate before starting DataKoala.</p><pre><code>gcloud --version
+gcloud auth application-default login</code></pre><p>If you work with several Google Cloud projects, you can set the current CLI project explicitly:</p><pre><code>gcloud config set project YOUR_PROJECT_ID</code></pre><p>DataKoala uses credentials provided by the Google Cloud authentication flow and does not store Google Cloud credentials itself.</p></div><div class="optional-setup"><h3>Using Prometheus / Grafana?</h3><p>Optional on macOS: the Prometheus formula provides <code>promtool</code>, which DataKoala uses for PromQL formatting. <code>gcx</code> connects to Grafana and Grafana Cloud-backed Prometheus sources.</p><pre><code>brew install prometheus
 brew install grafana/grafana/gcx
 promtool --version
 gcx --version
