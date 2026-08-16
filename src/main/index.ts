@@ -111,7 +111,7 @@ function createWindow(): void {
           store.getState().setVisualization('sql', { view: 'line', xColumn: 'day', valueColumn: 'total', seriesColumn: 'region', aggregation: 'sum' })
           await new Promise((r) => setTimeout(r, 900))
           const canvas = document.querySelector('[data-result-chart-canvas] canvas')
-          const rowCells = document.querySelectorAll('table.results tbody tr').length
+          const rowCells = document.querySelectorAll('[data-result-table-pane] table tbody tr').length
           let png = null
           if (canvas) png = canvas.toDataURL('image/png')
           return JSON.stringify({
@@ -417,9 +417,9 @@ function attachRepro(conn: string): void {
           chart: s2.sqlVisualization,
           chartProbe,
           formatCheck,
-          domTableRows: document.querySelectorAll('table.results tbody tr').length,
+          domTableRows: document.querySelectorAll('[data-result-table-pane] table tbody tr').length,
           domToolbar: (document.querySelector('[data-result-toolbar]')?.innerText || '').replace(/\\n/g, ' | '),
-          domErrBanner: (document.querySelector('.err-banner')?.innerText || ''),
+          domErrBanner: (document.querySelector('[data-result-table-pane] [role="alert"]')?.innerText || ''),
           domResultPaneText: (document.querySelector('[data-result-table-pane]')?.innerText || '').slice(0, 160),
           hasChartCanvas: !!canvas
         }, null, 2)

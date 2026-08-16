@@ -38,7 +38,7 @@ async function waitForTreemapFinished(contents) {
     const report = await contents.executeJavaScript(`(() => {
       const canvas = document.querySelector('[data-result-chart-canvas] canvas')
       const bounds = canvas?.getBoundingClientRect()
-      const buttons = [...document.querySelectorAll('.result-chart-actions button')]
+      const buttons = [...document.querySelectorAll('[data-result-chart] button')]
       const copy = buttons.find((button) => button.textContent?.trim() === 'Copy chart')
       const exportPng = buttons.find((button) => button.textContent?.trim() === 'Export PNG')
       return {

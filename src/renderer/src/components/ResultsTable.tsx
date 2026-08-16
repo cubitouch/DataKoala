@@ -84,7 +84,7 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
   }
 
   if (running) return <div className={styles.pane} data-result-table-pane><div className={styles.empty}>Running query…</div></div>
-  if (error) return <div className={styles.pane} data-result-table-pane><div className={styles.error}>{error}</div></div>
+  if (error) return <div className={styles.pane} data-result-table-pane><div className={styles.error} role="alert">{error}</div></div>
   if (!result) return <div className={styles.pane} data-result-table-pane><div className={styles.empty}>Run a query to see results.</div></div>
 
   return (
