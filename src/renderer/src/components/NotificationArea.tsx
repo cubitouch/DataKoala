@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import styles from './NotificationArea.module.css'
 void React
 
 export type NotificationDetail = { message: string; tone?: 'status' | 'error'; duration?: number }
@@ -21,5 +22,5 @@ export function NotificationArea() {
     window.addEventListener(NOTIFICATION_EVENT, show)
     return () => { window.removeEventListener(NOTIFICATION_EVENT, show); if (timer.current !== null) window.clearTimeout(timer.current) }
   }, [])
-  return notification ? <div className={`toast${notification.tone === 'error' ? ' error' : ''}`} role={notification.tone === 'error' ? 'alert' : 'status'} aria-live={notification.tone === 'error' ? 'assertive' : 'polite'}>{notification.message}</div> : null
+  return notification ? <div className={`${styles.root}${notification.tone === 'error' ? ` ${styles.error}` : ''}`} role={notification.tone === 'error' ? 'alert' : 'status'} aria-live={notification.tone === 'error' ? 'assertive' : 'polite'}>{notification.message}</div> : null
 }

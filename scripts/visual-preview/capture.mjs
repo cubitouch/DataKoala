@@ -62,10 +62,10 @@ async function waitForTable(win) {
 async function verifyResponsiveChartPicker(win) {
   const report = await win.webContents.executeJavaScript(`(() => {
     const pane = document.querySelector('.result-explorer')
-    const picker = document.querySelector('.result-view-bar')
-    const labels = [...document.querySelectorAll('.result-view-bar .view-label')]
-    const active = picker?.querySelector('button.active[aria-pressed="true"]')
-    const inactive = picker?.querySelector('button:not(.active)')
+    const picker = document.querySelector('[role="toolbar"][aria-label="Result view"]')
+    const labels = [...(picker?.querySelectorAll('button span') ?? [])]
+    const active = picker?.querySelector('button[aria-pressed="true"]')
+    const inactive = picker?.querySelector('button[aria-pressed="false"]')
     if (!pane || !picker || !labels.length) return null
     return {
       paneWidth: pane.getBoundingClientRect().width,
@@ -307,7 +307,7 @@ async function assertDocumentationChart(win, filename) {
   const report = await win.webContents.executeJavaScript(`({
     filters: document.querySelectorAll('.result-filter-chip').length,
     seriesCount: new Set(window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).result.rows.map((row) => row.series)).size,
-    activeView: document.querySelector('.result-view-bar button.active')?.textContent?.trim()
+    activeView: document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim()
   })`)
   if (report.filters || report.seriesCount !== 5 || !['Bar', 'Line'].includes(report.activeView)) throw new Error(`${filename} semantic assertion failed: ${JSON.stringify(report)}`)
   await sleep(1200)
@@ -362,8 +362,8 @@ async function configureDocumentationTreemap(win) {
     store.getState().setSql('select region, country, channel, value\\nfrom analytics.market_summary\\norder by region, country, channel;')
     store.getState().setVisualization('sql', { view: 'treemap', xColumn: 'record', valueColumn: 'value', seriesColumn: null, seriesColumns: ['region', 'country', 'channel'], hierarchyDimensions: ['region', 'country', 'channel'], aggregation: 'sum' })
   })()`)
-  await waitForRendererState(win, `document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Treemap' && Boolean(document.querySelector('.result-chart-canvas canvas'))`, 'rendered documentation Treemap')
-  const report = await win.webContents.executeJavaScript(`({ view: document.querySelector('.result-view-bar button.active')?.textContent?.trim(), hierarchy: document.querySelector('[aria-label="Hierarchy order"]')?.innerText, filters: document.querySelectorAll('.result-filter-chip').length, empty: Boolean(document.querySelector('.chart-empty')) })`)
+  await waitForRendererState(win, `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Treemap' && Boolean(document.querySelector('.result-chart-canvas canvas'))`, 'rendered documentation Treemap')
+  const report = await win.webContents.executeJavaScript(`({ view: document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim(), hierarchy: document.querySelector('[aria-label="Hierarchy order"]')?.innerText, filters: document.querySelectorAll('.result-filter-chip').length, empty: Boolean(document.querySelector('.chart-empty')) })`)
   if (report.view !== 'Treemap' || report.filters || report.empty || !report.hierarchy?.includes('region') || !report.hierarchy.includes('country') || !report.hierarchy.includes('channel')) throw new Error(`Treemap documentation assertion failed: ${JSON.stringify(report)}`)
 }
 
@@ -705,7 +705,7 @@ app.whenReady().then(async () => {
       await expandDocumentationRelation(win)
       await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().addResultFilter('sql', { id: 'docs-france', column: 'series', operator: 'equals', value: 'France' })`)
       await waitForTable(win)
-      await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'SQL' && document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Table' && document.querySelectorAll('table.results tbody tr').length === 12`, 'filtered SQL documentation table')
+      await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'SQL' && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Table' && document.querySelectorAll('table.results tbody tr').length === 12`, 'filtered SQL documentation table')
       await assertDocumentationSourceTree(win, 'sql')
       await capture(win, 'docs-sql.png')
 
