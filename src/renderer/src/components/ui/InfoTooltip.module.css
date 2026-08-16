@@ -1,5 +1,7 @@
 .root { display: inline-flex; vertical-align: middle; }
 .trigger { width: 18px; height: 18px; padding: 0; border: 1px solid #667085; border-radius: 50%; background: var(--bg-4); color: #eef2ff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04); font: 700 11px/16px var(--sans); cursor: help; }
 .trigger:hover { border-color: var(--accent); background: #34405a; color: #fff; }
+.warning { border-color: #b7791f; color: #fbd38d; }
+.warning:hover { border-color: #d69e2e; background: #4a3722; color: #fff4d6; }
 .trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .content { position: fixed; z-index: 1000; width: max-content; padding: 9px 11px; border: 1px solid var(--border-hi); border-radius: 6px; background: var(--bg-4); color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.45); overflow-wrap: anywhere; white-space: normal; font-size: 11px; line-height: 1.45; pointer-events: none; }
