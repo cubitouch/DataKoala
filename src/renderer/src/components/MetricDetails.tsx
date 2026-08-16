@@ -48,13 +48,13 @@ export function MetricDetails({ connectionId, relation }: { connectionId: string
       const filtered = allValues?.filter((value) => value.toLocaleLowerCase().includes(filter)) ?? []
       const shown = filtered.slice(0, LABEL_VALUE_DISPLAY_LIMIT)
       return <div className={styles.label} key={label}>
-        <button className={`tree-row ${styles.labelRow}`} aria-expanded={open} onClick={() => void toggleLabel(label)}><span className="chevron">{open ? '▾' : '▸'}</span><span>{label}</span></button>
+        <button className={styles.labelRow} aria-expanded={open} onClick={() => void toggleLabel(label)}><span className={styles.chevron}>{open ? '▾' : '▸'}</span><span>{label}</span></button>
         {open && <div className={styles.labelValues} role="group" aria-label={`${label} values`}>
           {loadingValues.has(label) && <div className={styles.status} role="status">Loading values…</div>}
           {valueErrors[label] && <button className={`${styles.status} ${styles.error}`} onClick={() => void toggleLabel(label)}>Could not load values — retry</button>}
           {allValues && allValues.length > LABEL_VALUE_DISPLAY_LIMIT && <input aria-label={`Filter values for ${label}`} placeholder="Filter values…" value={valueFilters[label] ?? ''} onChange={(event) => setValueFilters((old) => ({ ...old, [label]: event.target.value }))} />}
           {allValues?.length === 0 && <div className={styles.status}>No values</div>}
-          {shown.map((value) => <div className={`${styles.labelValue} truncate`} role="treeitem" key={value} title={value}>{value}</div>)}
+          {shown.map((value) => <div className={`${styles.labelValue} ${styles.truncate}`} role="treeitem" key={value} title={value}>{value}</div>)}
           {allValues && filtered.length > shown.length && <div className={styles.limit}>Showing {shown.length} of {filtered.length} matching values. Refine the filter to see more.</div>}
         </div>}
       </div>
