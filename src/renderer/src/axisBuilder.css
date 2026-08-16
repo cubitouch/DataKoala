@@ -22,14 +22,8 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.builder-form.axis-builder-form .builder-control,
-.builder-form.axis-builder-form .custom-range-field {
+.builder-form.axis-builder-form .builder-control {
   min-width: 0;
-}
-
-.builder-form.axis-builder-form .builder-field-context {
-  color: var(--text-mute);
-  font-size: 10px;
 }
 
 .builder-form.axis-builder-form .builder-unavailable {

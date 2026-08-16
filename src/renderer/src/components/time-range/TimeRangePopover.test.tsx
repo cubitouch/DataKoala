@@ -11,15 +11,15 @@ afterEach(cleanup)
 const draft: BuilderTimeRange = { kind: 'rolling', amount: 7, unit: 'day' }
 
 describe('TimeRangePopover layout structure', () => {
-  it('wraps the preset list in its own scroll container and keeps actions outside the body', () => {
+  it('keeps presets and editor in one body region with actions outside it', () => {
     const { container } = render(<TimeRangePopover draft={draft} setDraft={vi.fn()} onCancel={vi.fn()} onConfirm={vi.fn()} />)
-    const body = container.querySelector('.custom-range-body')
-    const presetScroll = container.querySelector('.time-range-presets-scroll')
-    const editorScroll = container.querySelector('.time-range-editor-scroll')
-    const actions = container.querySelector('.picker-actions')
+    const body = container.querySelector('[data-time-range-region="body"]')
+    const presetPane = container.querySelector('[data-time-range-region="presets"]')
+    const editorPane = container.querySelector('[data-time-range-region="editor"]')
+    const actions = container.querySelector('[data-time-range-region="actions"]')
     expect(body).not.toBeNull()
-    expect(presetScroll?.contains(screen.getByRole('button', { name: 'Last hour' }))).toBe(true)
-    expect(editorScroll?.contains(screen.getByLabelText('Start time'))).toBe(true)
+    expect(presetPane?.contains(screen.getByRole('button', { name: 'Last hour' }))).toBe(true)
+    expect(editorPane?.contains(screen.getByLabelText('Start time'))).toBe(true)
     expect(body?.contains(actions)).toBe(false)
   })
 

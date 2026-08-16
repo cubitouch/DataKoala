@@ -1,5 +1,6 @@
 import React from 'react'
 void React
+import styles from './TimeRange.module.css'
 import { DateRangeCalendar } from './DateRangeCalendar'
 import { addDays } from '../../lib/customTimeRange'
 import { RecurringTimeWindowEditor } from './RecurringTimeWindowEditor'
@@ -13,5 +14,5 @@ export function CustomDateTimeRangeEditor({ draft, setDraft, error }: { draft: B
     const visualEnd = visualEndDate(custom.endDate, custom.endTime)
     change({ endTime, endDate: visualEnd && endTime === '00:00' ? addDays(visualEnd, 1) : visualEnd })
   }
-  return <div className="custom-datetime-editor"><h4>Start date + time → End date + time</h4><DateRangeCalendar value={{ startDate: custom.startDate, startTime: custom.startTime, endDate: custom.endDate, endTime: custom.endTime, recurringWindows: custom.recurringWindows ?? [] }} onChange={(value) => setDraft({ kind: 'custom', ...value })}/><div className="boundary-time-grid"><label>Start time<input className="custom-time-input" aria-label="Start time" type="time" value={custom.startTime} onChange={(e) => change({ startTime: e.target.value })}/></label><label>End time<input className="custom-time-input" aria-label="End time" type="time" value={custom.endTime} onChange={(e) => changeEndTime(e.target.value)}/></label></div><RecurringTimeWindowEditor windows={custom.recurringWindows ?? []} onChange={(recurringWindows) => change({ recurringWindows })} error={error}/></div>
+  return <div className={styles.dateTimeEditor}><h4 className={styles.editorTitle}>Start date + time → End date + time</h4><DateRangeCalendar value={{ startDate: custom.startDate, startTime: custom.startTime, endDate: custom.endDate, endTime: custom.endTime, recurringWindows: custom.recurringWindows ?? [] }} onChange={(value) => setDraft({ kind: 'custom', ...value })}/><div className={styles.boundaryGrid}><label>Start time<input className={styles.input} aria-label="Start time" type="time" value={custom.startTime} onChange={(e) => change({ startTime: e.target.value })}/></label><label>End time<input className={styles.input} aria-label="End time" type="time" value={custom.endTime} onChange={(e) => changeEndTime(e.target.value)}/></label></div><RecurringTimeWindowEditor windows={custom.recurringWindows ?? []} onChange={(recurringWindows) => change({ recurringWindows })} error={error}/></div>
 }

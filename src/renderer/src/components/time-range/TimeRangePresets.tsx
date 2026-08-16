@@ -1,5 +1,6 @@
 import React from 'react'
 void React
+import styles from './TimeRange.module.css'
 import { EMPTY_BUILDER_CUSTOM_RANGE, type BuilderTimeRange } from '../../lib/builderTimeRange'
 import { quickRanges } from '../../lib/customTimeRange'
 
@@ -21,5 +22,5 @@ export const PRESETS: { section: string; items: { id: string; label: string; ran
 
 function samePreset(a: BuilderTimeRange, b: BuilderTimeRange): boolean { return JSON.stringify(a) === JSON.stringify(b) }
 export function TimeRangePresets({ value, onSelect }: { value: BuilderTimeRange; onSelect: (range: BuilderTimeRange) => void }) {
-  return <div className="quick-range-list" aria-label="Time range presets">{PRESETS.map((group) => <div key={group.section} className="preset-section"><strong>{group.section}</strong>{group.items.map((item) => <button key={item.id} type="button" className="quick-range-pill" aria-pressed={samePreset(value, item.range)} onClick={() => onSelect(item.range)}>{item.label}</button>)}</div>)}</div>
+  return <div className={styles.quickList} aria-label="Time range presets">{PRESETS.map((group) => <div key={group.section} className={styles.presetSection}><strong className={styles.presetSectionTitle}>{group.section}</strong>{group.items.map((item) => <button key={item.id} type="button" className={styles.quickPill} aria-pressed={samePreset(value, item.range)} onClick={() => onSelect(item.range)}>{item.label}</button>)}</div>)}</div>
 }
