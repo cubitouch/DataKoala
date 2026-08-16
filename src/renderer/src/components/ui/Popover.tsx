@@ -19,6 +19,14 @@ interface PopoverContextValue { close: (reason?: CloseReason) => void }
 const PopoverContext = createContext<PopoverContextValue | null>(null)
 export const usePopover = () => useContext(PopoverContext)
 
+export function PopoverChevron() {
+  return <span className={styles.chevron} aria-hidden="true" />
+}
+
+export function PopoverSummaryTrigger({ children }: { children: ReactNode }) {
+  return <><span className={styles.summary}>{children}</span><PopoverChevron /></>
+}
+
 export interface PopoverProps {
   trigger: ReactNode
   children: ReactNode
@@ -196,7 +204,7 @@ export function MultiSelect({ label, options, values, onChange, disabled, invali
       if (found !== undefined) focus(found)
     }
   }
-  return <Popover className="multi-select" trigger={<><span className={styles.summary}>{summary}</span><span className={styles.chevron} aria-hidden="true"></span></>} ariaLabel={`${label}: ${summary}. Selected: ${values.join(', ') || 'none'}`} disabled={disabled} invalidationKey={invalidationKey} popupType="listbox" contentClassName="multi-select-menu">
+  return <Popover className="multi-select" trigger={<PopoverSummaryTrigger>{summary}</PopoverSummaryTrigger>} ariaLabel={`${label}: ${summary}. Selected: ${values.join(', ') || 'none'}`} disabled={disabled} invalidationKey={invalidationKey} popupType="listbox" contentClassName="multi-select-menu">
     <div role="listbox" aria-label={label} aria-multiselectable="true">
       {options.map((option, index) => {
         const selected = values.includes(option.value)

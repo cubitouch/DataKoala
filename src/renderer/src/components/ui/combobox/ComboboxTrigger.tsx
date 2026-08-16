@@ -1,6 +1,6 @@
 import React from 'react'
 void React
-import popoverStyles from '../Popover.module.css'
+import { PopoverChevron } from '../Popover'
 import styles from './Combobox.module.css'
 import type { ComboboxOption } from './types'
 
@@ -28,6 +28,6 @@ export function ComboboxTrigger({ selected, placeholder, loading, error, showSub
     </span>
     {loading && <span className="spinner" aria-hidden="true"></span>}
     {error && <span className={styles.errorDot} aria-hidden="true">!</span>}
-    <span className={popoverStyles.chevron} aria-hidden="true"></span>
+    <PopoverChevron />
   </>
 }
