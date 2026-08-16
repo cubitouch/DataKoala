@@ -273,7 +273,8 @@ async function expandDocumentationRelation(win) {
   })()`)
   await waitForRendererState(win, `document.body.innerText.includes('monthly_market_activity')`, 'analytics relation tree')
   await win.webContents.executeJavaScript(`(() => {
-    const relation = [...document.querySelectorAll('[role="tree"] [role="treeitem"]')].find((item) => item.textContent?.includes('monthly_market_activity'))
+    const relationButton = document.querySelector('[role="tree"] button[aria-label="Select analytics.monthly_market_activity for Builder"]')
+    const relation = relationButton?.closest('[role="treeitem"]')
     if (relation?.getAttribute('aria-expanded') === 'false') relation.querySelector('button[aria-label^="Expand"], button[aria-label^="Collapse"]')?.click()
   })()`)
   await waitForRendererState(win, `document.body.innerText.includes('time_bucket') && document.body.innerText.includes('series') && document.body.innerText.includes('count')`, 'monthly market activity columns')

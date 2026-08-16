@@ -85,10 +85,6 @@ body.resizing-row, body.resizing-row * { cursor: row-resize !important; user-sel
   white-space: normal; overflow-wrap: anywhere; pointer-events: none;
   opacity: 0; visibility: hidden; transform: translateY(-2px); transition: opacity .12s ease, transform .12s ease;
 }
-.tooltip-trigger:hover + .info-tooltip, .tooltip-trigger:focus-visible + .info-tooltip {
-  opacity: 1; visibility: visible; transform: translateY(0);
-}
-
 /* ---- Editor area ---- */
 .editor-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--bg-2); }
 .editor-pane { container-type: inline-size; }
@@ -266,9 +262,6 @@ table.results td:hover .cell-filter-menu summary, .cell-filter-menu[open] summar
   padding: 32px;
   text-align: center;
   color: var(--text-mute);
-}
-
-@media (max-width: 520px) {
 }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

@@ -331,28 +331,31 @@ function attachRepro(conn: string): void {
         }
         const steps = []
         const REPRO_NAME = ${JSON.stringify(reproProfileName)}
-        click(document.querySelector('.btn-add'))
+        const addButton = [...document.querySelectorAll('button')]
+          .find((button) => /new connection/i.test(button.textContent))
+        click(addButton)
         await sleep(300)
-        const box = document.querySelector('textarea.conn-paste')
-        if (!box) return JSON.stringify({ error: 'no paste box' })
+        const box = document.getElementById('connection-string')
+        if (!(box instanceof HTMLTextAreaElement)) return JSON.stringify({ error: 'no paste box' })
         setNative(box, ${JSON.stringify(conn)})
         await sleep(300)
-        const nameInput = [...document.querySelectorAll('.modal .field')]
-          .map((f) => ({ label: f.querySelector('label'), input: f.querySelector('input') }))
-          .find((x) => x.label && /profile name/i.test(x.label.textContent))
-        if (!nameInput || !nameInput.input) return JSON.stringify({ error: 'no profile name input' })
-        setNative(nameInput.input, REPRO_NAME)
+        const dialog = document.querySelector('[role="dialog"]')
+        const nameLabel = [...(dialog?.querySelectorAll('label') ?? [])]
+          .find((label) => /profile name/i.test(label.textContent))
+        const nameInput = nameLabel?.htmlFor ? document.getElementById(nameLabel.htmlFor) : null
+        if (!(nameInput instanceof HTMLInputElement)) return JSON.stringify({ error: 'no profile name input' })
+        setNative(nameInput, REPRO_NAME)
         await sleep(200)
         steps.push('filled connection form as ' + REPRO_NAME)
-        const saveBtn = [...document.querySelectorAll('.modal .actions .btn')]
+        const saveBtn = [...(dialog?.querySelectorAll('button') ?? [])]
           .find((b) => /save/i.test(b.textContent))
         click(saveBtn)
         await sleep(700)
         const mine = [...document.querySelectorAll('[data-connection-item]')]
-          .find((el) => el.querySelector('.name')?.textContent === REPRO_NAME)
+          .find((el) => el.querySelector('[data-connection-name]')?.textContent === REPRO_NAME)
         if (!mine) return JSON.stringify({ error: 'could not find the repro profile by name', steps })
         steps.push('selected own profile (of ' + document.querySelectorAll('[data-connection-item]').length + ' listed)')
-        click(mine.querySelector('.name'))
+        click(mine)
         const store = window.__datakoalaStore
         for (let i = 0; i < 60; i++) {
           const st = store.getState()

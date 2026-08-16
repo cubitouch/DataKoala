@@ -175,7 +175,7 @@ export function Sidebar() {
       return <div key={profile.id} className={cx(styles.connItem, isLive && styles.active, isConnecting && styles.connecting)} data-connection-item data-connection-live={isLive || undefined}
         onClick={() => { if (!connecting) void connect(profile) }} aria-busy={isConnecting} aria-current={isSelected ? 'true' : undefined}>
         <span className={isConnecting ? styles.spinner : styles.dot} aria-label={isConnecting ? 'Connecting' : undefined} />
-        <span className={styles.name}>{profile.name}</span>
+        <span className={styles.name} data-connection-name>{profile.name}</span>
         <span className={styles.kind}>{connectionKindLabel(profile.kind)}</span>
         {isConnecting && <span className={styles.connectingLabel}>Connecting…</span>}
         {isSelected && !isLive && !isConnecting && <span className={styles.connectingLabel}>connect on run</span>}

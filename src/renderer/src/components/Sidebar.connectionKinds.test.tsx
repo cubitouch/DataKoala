@@ -25,7 +25,7 @@ afterEach(() => { cleanup(); resetTestStore(); vi.clearAllMocks() })
 it('derives every connection badge from the saved profile kind', async () => {
   render(<Sidebar />)
   for (const [name, label] of [['Orders', 'PostgreSQL'], ['Analytics', 'BigQuery'], ['Exports', 'Local files'], ['Archive', 'SQLite']]) {
-    const item = (await screen.findByText(name)).closest('[data-connection-item]')!
+    const item = (await screen.findByText(name)).closest<HTMLElement>('[data-connection-item]')!
     expect(within(item).getByText(label)).toBeTruthy()
   }
   expect(screen.queryByText('pg')).toBeNull()
