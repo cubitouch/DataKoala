@@ -1,21 +1,33 @@
 import type { CardinalityProbePredicate } from '../../../shared/chartLimits.ts'
 import type { TimeBucket } from '../store/useStore'
-import { addDays, customRangeToQueryBounds, validateCustomRange, type TimeWindow } from './customTimeRange.ts'
+import { addDays, customRangeToQueryBounds, recurringWindowIntervals, timeToMinutes, validateCustomRange, type TimeWindow } from './customTimeRange.ts'
 
-export type BuilderTimeRange =
+type BuilderTimeRangeBase =
   | { kind: 'all' }
   | { kind: 'rolling'; amount: 1 | 6 | 12 | 24; unit: 'hour' }
   | { kind: 'rolling'; amount: 7 | 30; unit: 'day' }
   | { kind: 'rolling'; amount: 3 | 6 | 12; unit: 'month' }
-  | { kind: 'custom'; startDate: string | null; startTime: string; endDate: string | null; endTime: string; recurringWindows?: TimeWindow[] }
+  | { kind: 'custom'; startDate: string | null; startTime: string; endDate: string | null; endTime: string }
+
+export type BuilderTimeRange = BuilderTimeRangeBase & { recurringWindows?: TimeWindow[] }
 
 export const SEVEN_DAYS: BuilderTimeRange = { kind: 'rolling', amount: 7, unit: 'day' }
 export const EMPTY_BUILDER_CUSTOM_RANGE: BuilderTimeRange = { kind: 'custom', startDate: null, startTime: '00:00', endDate: null, endTime: '00:00', recurringWindows: [] }
 export const MINUTE_BUCKET_UNAVAILABLE_REASON = 'Minute is available only for time ranges of 24 hours or less.'
 
+function normalizeRecurringWindows(value: unknown): TimeWindow[] {
+  return Array.isArray(value)
+    ? (value as TimeWindow[]).filter((window) => window.from || window.to).map((window) => ({ ...window })).sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to))
+    : []
+}
+
 export function normalizeBuilderTimeRange(range: BuilderTimeRange | (Record<string, unknown> & { kind?: unknown })): BuilderTimeRange {
-  if (range.kind !== 'custom') return range as BuilderTimeRange
   const value = range as Record<string, unknown>
+  if (range.kind !== 'custom') {
+    const recurringWindows = normalizeRecurringWindows(value.recurringWindows)
+    const { recurringWindows: _recurringWindows, ...base } = range as BuilderTimeRange & { recurringWindows?: TimeWindow[] }
+    return recurringWindows.length ? { ...base, recurringWindows } as BuilderTimeRange : base as BuilderTimeRange
+  }
   if ('startDate' in value || 'endDate' in value || 'recurringWindows' in value) {
     return {
       kind: 'custom',
@@ -23,7 +35,7 @@ export function normalizeBuilderTimeRange(range: BuilderTimeRange | (Record<stri
       startTime: typeof value.startTime === 'string' ? value.startTime : '00:00',
       endDate: typeof value.endDate === 'string' ? value.endDate : null,
       endTime: typeof value.endTime === 'string' ? value.endTime : '00:00',
-      recurringWindows: Array.isArray(value.recurringWindows) ? value.recurringWindows as TimeWindow[] : []
+      recurringWindows: normalizeRecurringWindows(value.recurringWindows)
     }
   }
   const startInclusive = typeof value.startInclusive === 'string' ? value.startInclusive : null
@@ -31,13 +43,27 @@ export function normalizeBuilderTimeRange(range: BuilderTimeRange | (Record<stri
   return {
     kind: 'custom', startDate: startInclusive ? startInclusive.slice(0, 10) : null, startTime: '00:00',
     endDate: endInclusive ? addDays(endInclusive.slice(0, 10), 1) : null, endTime: '00:00',
-    recurringWindows: Array.isArray(value.timeWindows) ? value.timeWindows as TimeWindow[] : []
+    recurringWindows: normalizeRecurringWindows(value.timeWindows)
   }
 }
 
+function validateRecurringWindows(windows: TimeWindow[]): string | null {
+  const intervals: { start: number; end: number }[] = []
+  for (const window of windows.filter((candidate) => candidate.from || candidate.to)) {
+    const from = timeToMinutes(window.from), to = timeToMinutes(window.to)
+    if (from === null || to === null || from === to) return 'The recurring window end time must differ from the start time.'
+    intervals.push(...recurringWindowIntervals(window))
+  }
+  const sorted = intervals.sort((a, b) => a.start - b.start || a.end - b.end)
+  for (let index = 1; index < sorted.length; index++) if (sorted[index].start < sorted[index - 1].end) return 'This recurring window overlaps another window.'
+  return null
+}
+
 export function validateBuilderTimeRange(range: BuilderTimeRange): string | null {
-  if (range.kind !== 'custom') return null
-  return validateCustomRange({ startDate: range.startDate, startTime: range.startTime, endDate: range.endDate, endTime: range.endTime, recurringWindows: range.recurringWindows ?? [] })
+  if (range.kind === 'custom') {
+    return validateCustomRange({ startDate: range.startDate, startTime: range.startTime, endDate: range.endDate, endTime: range.endTime, recurringWindows: range.recurringWindows ?? [] })
+  }
+  return validateRecurringWindows(range.recurringWindows ?? [])
 }
 
 function customRangeDurationMilliseconds(range: Extract<BuilderTimeRange, { kind: 'custom' }>): number | null {
@@ -64,16 +90,21 @@ function formatDateTime(date: string, time: string): string {
   return `${formatted} ${time}`
 }
 
+function recurringWindowSuffix(range: BuilderTimeRange): string {
+  const windows = range.recurringWindows?.filter((window) => window.from || window.to).length ?? 0
+  return windows ? ` · ${windows} daily window${windows === 1 ? '' : 's'}` : ''
+}
+
 export function builderTimeRangeSummary(range: BuilderTimeRange): string {
-  if (range.kind === 'all') return 'All time'
+  const suffix = recurringWindowSuffix(range)
+  if (range.kind === 'all') return `All time${suffix}`
   if (range.kind === 'rolling') {
-    if (range.unit === 'hour' && range.amount === 1) return 'Last hour'
-    if (range.unit === 'hour' && range.amount === 24) return 'Last day'
-    return `Last ${range.amount} ${range.unit}${range.amount === 1 ? '' : 's'}`
+    if (range.unit === 'hour' && range.amount === 1) return `Last hour${suffix}`
+    if (range.unit === 'hour' && range.amount === 24) return `Last day${suffix}`
+    return `Last ${range.amount} ${range.unit}${range.amount === 1 ? '' : 's'}${suffix}`
   }
-  if (!range.startDate || !range.endDate) return 'Choose a custom range'
-  const windows = range.recurringWindows?.length ?? 0
-  return `${formatDateTime(range.startDate, range.startTime)} – ${formatDateTime(range.endDate, range.endTime)}${windows ? ` · ${windows} daily window${windows === 1 ? '' : 's'}` : ''}`
+  if (!range.startDate || !range.endDate) return `Choose a custom range${suffix}`
+  return `${formatDateTime(range.startDate, range.startTime)} – ${formatDateTime(range.endDate, range.endTime)}${suffix}`
 }
 
 export function timeRangeProbePredicates(range: BuilderTimeRange, timeColumn: string, dataType?: string): CardinalityProbePredicate[] {

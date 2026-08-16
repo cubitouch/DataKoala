@@ -20,7 +20,19 @@ export const PRESETS: { section: string; items: { id: string; label: string; ran
   { section: 'Other', items: [{ id: 'all', label: 'All time', range: { kind: 'all' } }, { id: 'custom', label: 'Custom', range: EMPTY_BUILDER_CUSTOM_RANGE }] }
 ]
 
-function samePreset(a: BuilderTimeRange, b: BuilderTimeRange): boolean { return JSON.stringify(a) === JSON.stringify(b) }
+function withoutRecurringWindows(range: BuilderTimeRange): BuilderTimeRange {
+  const { recurringWindows: _recurringWindows, ...base } = range
+  return base as BuilderTimeRange
+}
+
+function samePreset(a: BuilderTimeRange, b: BuilderTimeRange): boolean {
+  return JSON.stringify(withoutRecurringWindows(a)) === JSON.stringify(withoutRecurringWindows(b))
+}
+
+function applyPreset(range: BuilderTimeRange, recurringWindows: BuilderTimeRange['recurringWindows']): BuilderTimeRange {
+  return { ...range, recurringWindows: (recurringWindows ?? []).map((window) => ({ ...window })) } as BuilderTimeRange
+}
+
 export function TimeRangePresets({ value, onSelect }: { value: BuilderTimeRange; onSelect: (range: BuilderTimeRange) => void }) {
-  return <div className={styles.quickList} aria-label="Time range presets">{PRESETS.map((group) => <div key={group.section} className={styles.presetSection}><strong className={styles.presetSectionTitle}>{group.section}</strong>{group.items.map((item) => <button key={item.id} type="button" className={styles.quickPill} aria-pressed={samePreset(value, item.range)} onClick={() => onSelect(item.range)}>{item.label}</button>)}</div>)}</div>
+  return <div className={styles.quickList} aria-label="Time range presets">{PRESETS.map((group) => <div key={group.section} className={styles.presetSection}><strong className={styles.presetSectionTitle}>{group.section}</strong>{group.items.map((item) => <button key={item.id} type="button" className={styles.quickPill} aria-pressed={samePreset(value, item.range)} onClick={() => onSelect(applyPreset(item.range, value.recurringWindows))}>{item.label}</button>)}</div>)}</div>
 }

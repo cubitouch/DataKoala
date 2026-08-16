@@ -8,9 +8,11 @@ import type { BuilderTimeRange } from '../../lib/builderTimeRange'
 
 afterEach(cleanup)
 
-function EditorView({ initial }: { initial: BuilderTimeRange }) {
-  const [draft, setDraft] = useState(initial)
-  return <><CustomDateTimeRangeEditor draft={draft} setDraft={setDraft}/><output aria-label="value">{JSON.stringify(draft)}</output></>
+type CustomBuilderTimeRange = Extract<BuilderTimeRange, { kind: 'custom' }>
+
+function EditorView({ initial }: { initial: CustomBuilderTimeRange }) {
+  const [draft, setDraft] = useState<BuilderTimeRange>(initial)
+  return <>{draft.kind === 'custom' && <CustomDateTimeRangeEditor draft={draft} setDraft={setDraft}/>}<output aria-label="value">{JSON.stringify(draft)}</output></>
 }
 
 const readDraft = () => JSON.parse(screen.getByLabelText('value').textContent ?? '{}') as BuilderTimeRange

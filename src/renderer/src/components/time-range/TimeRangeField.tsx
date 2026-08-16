@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import styles from './TimeRange.module.css'
 import { Popover, PopoverSummaryTrigger } from '../ui/Popover'
-import { builderTimeRangeSummary, validateBuilderTimeRange, type BuilderTimeRange } from '../../lib/builderTimeRange'
+import { builderTimeRangeSummary, normalizeBuilderTimeRange, validateBuilderTimeRange, type BuilderTimeRange } from '../../lib/builderTimeRange'
 import { TimeRangePopover } from './TimeRangePopover'
 import { normalizeCustomRange } from '../../lib/customTimeRange'
 
-const cloneRange = (range: BuilderTimeRange): BuilderTimeRange => range.kind === 'custom' ? { ...range, recurringWindows: (range.recurringWindows ?? []).map((w) => ({ ...w })) } : { ...range }
-const normalizeRange = (range: BuilderTimeRange): BuilderTimeRange => range.kind === 'custom' ? { kind: 'custom', ...normalizeCustomRange({ startDate: range.startDate, startTime: range.startTime, endDate: range.endDate, endTime: range.endTime, recurringWindows: range.recurringWindows ?? [] }) } : range
+const cloneRange = (range: BuilderTimeRange): BuilderTimeRange => ({ ...range, recurringWindows: (range.recurringWindows ?? []).map((window) => ({ ...window })) } as BuilderTimeRange)
+const normalizeRange = (range: BuilderTimeRange): BuilderTimeRange => range.kind === 'custom'
+  ? { kind: 'custom', ...normalizeCustomRange({ startDate: range.startDate, startTime: range.startTime, endDate: range.endDate, endTime: range.endTime, recurringWindows: range.recurringWindows ?? [] }) }
+  : normalizeBuilderTimeRange(range)
 
 export function TimeRangeField({ value, onChange, error, columnName }: { value: BuilderTimeRange; onChange: (value: BuilderTimeRange) => void; error?: string | null; columnName?: string }) {
   const [isOpen, setIsOpen] = useState(false)
