@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { copyTextToClipboard } from '../../lib/clipboardText'
 import { normalizeJsonCellValue } from '../../lib/jsonCell'
 import { Popover, usePopover } from '../ui/Popover'
+import styles from './JsonCellExplorer.module.css'
 
 function JsonCellExplorerContent({ columnLabel, value, onClose }: { columnLabel: string; value: unknown; onClose: () => void }) {
   const titleId = useId()
@@ -15,16 +16,16 @@ function JsonCellExplorerContent({ columnLabel, value, onClose }: { columnLabel:
     setCopyState('idle')
     try { await copyTextToClipboard(display); setCopyState('copied') } catch { setCopyState('error') }
   }
-  return <section className="json-cell-explorer" aria-labelledby={titleId}>
-    <div className="json-cell-explorer-header">
+  return <section className={styles.explorer} aria-labelledby={titleId}>
+    <div className={styles.header}>
       <h2 id={titleId}>JSON · {columnLabel}</h2>
       <button type="button" className="btn ghost" onClick={copy}>{copyState === 'copied' ? 'Copied' : 'Copy JSON'}</button>
-      <button type="button" className="json-cell-explorer-close" aria-label="Close JSON explorer" onClick={onClose}>×</button>
+      <button type="button" className={styles.close} aria-label="Close JSON explorer" onClick={onClose}>×</button>
     </div>
-    {normalized.status === 'invalid' && <p className="json-cell-explorer-message" role="alert">{normalized.message}</p>}
-    <pre ref={contentRef} tabIndex={0} className="json-cell-explorer-content"><code>{display}</code></pre>
+    {normalized.status === 'invalid' && <p className={styles.message} role="alert">{normalized.message}</p>}
+    <pre ref={contentRef} tabIndex={0} className={styles.content}><code>{display}</code></pre>
     <span className="sr-only" role="status">{copyState === 'copied' ? 'JSON copied to clipboard' : copyState === 'error' ? 'Could not copy JSON' : ''}</span>
-    {copyState === 'error' && <small className="json-cell-explorer-error" role="alert">Could not copy JSON</small>}
+    {copyState === 'error' && <small className={styles.error} role="alert">Could not copy JSON</small>}
   </section>
 }
 
@@ -35,8 +36,8 @@ function ContentWithClose({ columnLabel, value }: { columnLabel: string; value: 
 
 export function JsonCellExplorer({ columnLabel, rowNumber, value, open, onOpenChange, invalidationKey }: { columnLabel: string; rowNumber: number; value: unknown; open: boolean; onOpenChange: (open: boolean) => void; invalidationKey: unknown }) {
   return <Popover
-    className="json-cell-explorer-popover"
-    contentClassName="json-cell-explorer-popover-content"
+    className={styles.popover}
+    contentClassName={styles.popoverContent}
     contentRole="dialog"
     popupType="dialog"
     ariaLabel={`Explore JSON in ${columnLabel}, row ${rowNumber}`}

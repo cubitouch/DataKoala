@@ -1,0 +1,7 @@
+.menu { position: relative; z-index: 2; }
+.summary { display: block; width: 22px; height: 22px; border-radius: 4px; color: var(--text-mute); cursor: pointer; text-align: center; line-height: 20px; opacity: 0; }
+.summary::-webkit-details-marker { display: none; }
+:global([data-result-cell]:hover) .summary, .menu[open] .summary, .summary:focus-visible { opacity: 1; background: var(--bg-4); }
+.items { position: absolute; top: 24px; right: 0; min-width: 160px; padding: 4px; background: var(--bg-4); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.items button { display: block; width: 100%; padding: 6px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--text); text-align: left; cursor: pointer; white-space: nowrap; }
+.items button:hover, .items button:focus-visible { background: rgba(255,255,255,.08); }

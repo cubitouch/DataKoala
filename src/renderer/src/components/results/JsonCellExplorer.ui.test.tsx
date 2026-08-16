@@ -50,7 +50,7 @@ describe('JSON cell explorer', () => {
     const button = screen.getByRole('button', { name: 'Explore JSON in payload, row 1' })
     fireEvent.click(button)
     const dialog = await screen.findByRole('dialog', { name: 'Explore JSON in payload, row 1' })
-    expect(dialog.querySelector('.json-cell-explorer-content')).toBeTruthy()
+    expect(dialog.querySelector('pre')).toBeTruthy()
     expect(screen.getByText(/"id": 42/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Copy JSON' }))
     await waitFor(() => expect(copyTextToClipboard).toHaveBeenCalledWith(expect.stringContaining('  "user": {')))
