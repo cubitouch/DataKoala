@@ -51,7 +51,7 @@ export function buildSeriesCardinalityProbe(request: SeriesCardinalityProbeReque
     throw new Error('Unsupported cardinality probe predicate.')
   })
   return {
-    sql: `SELECT count(*) AS ${quote('count')}\nFROM (\n  SELECT ${dimension}\n  FROM ${dialect === 'google-sql' ? `\`${[...request.schema.split('.'), request.table].map((part) => part.replaceAll('`', '``')).join('.')}\`` : `${quote(request.schema)}.${quote(request.table)}`}${predicates.length ? `\n  WHERE ${predicates.join(' AND ')}` : ''}\n  GROUP BY ${dimension}\n  LIMIT ${CHART_SERIES_HARD_LIMIT + 1}\n) AS ${quote('cardinality_probe')};`,
+    sql: `SELECT count(*) AS ${quote('count')}\nFROM (\n  SELECT ${dimension}\n  FROM ${dialect === 'google-sql' ? `\`${[...request.schema.split('.'), request.table].map((part) => part.replaceAll('`', '``')).join('.')}\`` : `${quote(request.schema)}.${quote(request.table)}`}${predicates.length ? `\n  WHERE ${predicates.join(' AND ')}` : ''}\n  GROUP BY ${columns.join(', ')}\n  LIMIT ${CHART_SERIES_HARD_LIMIT + 1}\n) AS ${quote('cardinality_probe')};`,
     parameters
   }
 }
