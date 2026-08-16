@@ -55,7 +55,7 @@ test('estimates from inline dry-run metadata without fetching persisted job meta
   const fake = client(); const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
   assert.deepEqual(await connected.session!.estimateQuery?.('SELECT 1'), { bytesProcessed: 12 })
   assert.equal(fake.dryRunGetMetadataCalls(), 0)
-  assert.deepEqual(fake.calls.at(-1), { query: 'SELECT 1', dryRun: true, useLegacySql: false, location: 'US', maximumBytesBilled: '1073741824' })
+  assert.deepEqual(fake.calls.at(-1), { query: 'SELECT 1', params: [], dryRun: true, useLegacySql: false, location: 'US', defaultDataset: { projectId: 'data', datasetId: 'analytics' }, maximumBytesBilled: '1073741824' })
 })
 
 test('omits location from query jobs without an explicit override', async () => {

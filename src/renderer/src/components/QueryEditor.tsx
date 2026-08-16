@@ -9,7 +9,7 @@ import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { api } from '../lib/api'
 import { ensureConnectionForTab } from '../lib/tabConnection'
 import { CopySqlButton } from './CopySqlButton'
-import { queryLanguageForSourceKind, type QueryResult } from '@shared/types'
+import { DATA_SOURCE_CAPABILITIES, queryLanguageForSourceKind, type QueryResult } from '@shared/types'
 import { formatSql } from '../lib/formatSql'
 import { ModeSwitch } from './ModeSwitch'
 import { queryResultFilters, wrapSqlWithResultFilters } from '../lib/resultFilters'
@@ -152,9 +152,9 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const isAnyExplainLoading = activeExplainRequest !== null
   const canUseDatabase = Boolean(tabConnectionId) && !connecting
   const canFormatPromql = language.kind !== 'promql' || Boolean(tabConnectionId && connected && prometheusDatasourceUid?.trim())
-  // Older persisted/test sessions may not have loaded their profile list yet;
-  // preserve the historical PostgreSQL behavior until a non-Postgres kind is known.
-  const canExplain = canUseDatabase && (connectionKind === undefined || connectionKind === 'postgres')
+  const capabilities = DATA_SOURCE_CAPABILITIES[connectionKind ?? 'postgres']
+  const canExplain = canUseDatabase && capabilities.explain
+  const canAnalyze = canUseDatabase && capabilities.analyze
 
   const applyFormattedQuery = (formatted: string, requestTabId: string) => {
     const active = useStore.getState().activeTabId === requestTabId
@@ -222,11 +222,11 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
           {formatting ? 'Formatting…' : 'Format'}
         </button>}
         <CopySqlButton sql={sql} />
-        {language.kind === 'sql' && <button className="btn ghost explain-action" onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
+        {language.kind === 'sql' && capabilities.explain && <button className="btn ghost explain-action" onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
           {isExplainLoading && <span className="spinner" aria-hidden="true" />}
           {isExplainLoading ? 'Explaining…' : 'Explain'}
         </button>}
-        {language.kind === 'sql' && <button className="btn ghost explain-action analyze" onClick={() => explain('analyze')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isAnalyzeLoading}>
+        {language.kind === 'sql' && capabilities.analyze && <button className="btn ghost explain-action analyze" onClick={() => explain('analyze')} disabled={isAnyExplainLoading || !canAnalyze} aria-busy={isAnalyzeLoading}>
           {isAnalyzeLoading && <span className="spinner" aria-hidden="true" />}
           {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
         </button>}</div>

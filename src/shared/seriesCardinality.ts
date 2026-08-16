@@ -14,6 +14,12 @@ export function buildSeriesCardinalityProbe(request: SeriesCardinalityProbeReque
   // way Builder's human-readable display separator could.
   const dimension = columns.length === 1 ? columns[0] : dialect === 'google-sql' ? `STRUCT(${columns.join(', ')})` : `(${columns.join(', ')})`
   const parameters: unknown[] = []
+  const googleTemporalValue = (value: string, temporalType: 'date' | 'datetime' | 'timestamp' | undefined) => {
+    if (dialect !== 'google-sql') return value
+    if (temporalType === 'date') return value.slice(0, 10)
+    if (temporalType === 'timestamp' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return `${value}:00Z`
+    return value
+  }
   const predicates = request.predicates.map((predicate) => {
     const column = quote(predicate.column)
     const temporalType = 'temporalType' in predicate ? predicate.temporalType : undefined
@@ -21,11 +27,11 @@ export function buildSeriesCardinalityProbe(request: SeriesCardinalityProbeReque
     if (predicate.operator === 'isNull') return `${column} IS NULL`
     if (predicate.operator === 'isNotNull') return `${column} IS NOT NULL`
     if (predicate.operator === 'range') {
-      parameters.push(temporalType === 'date' ? predicate.startInclusive.slice(0, 10) : predicate.startInclusive, temporalType === 'date' ? predicate.endExclusive.slice(0, 10) : predicate.endExclusive)
+      parameters.push(googleTemporalValue(predicate.startInclusive, temporalType), googleTemporalValue(predicate.endExclusive, temporalType))
       return `${column} >= ${dialect === 'google-sql' ? googleParameter() : `$${parameters.length - 1}`} AND ${column} < ${dialect === 'google-sql' ? googleParameter() : `$${parameters.length}`}`
     }
     if (predicate.operator === 'gte' || predicate.operator === 'lt') {
-      parameters.push(temporalType === 'date' ? predicate.value.slice(0, 10) : predicate.value)
+      parameters.push(googleTemporalValue(predicate.value, temporalType))
       return `${column} ${predicate.operator === 'gte' ? '>=' : '<'} ${dialect === 'google-sql' ? googleParameter() : `$${parameters.length}`}`
     }
     if (predicate.operator === 'rolling') {
@@ -51,7 +57,7 @@ export function buildSeriesCardinalityProbe(request: SeriesCardinalityProbeReque
     throw new Error('Unsupported cardinality probe predicate.')
   })
   return {
-    sql: `SELECT count(*) AS ${quote('count')}\nFROM (\n  SELECT ${dimension}\n  FROM ${dialect === 'google-sql' ? `\`${[...request.schema.split('.'), request.table].map((part) => part.replaceAll('`', '``')).join('.')}\`` : `${quote(request.schema)}.${quote(request.table)}`}${predicates.length ? `\n  WHERE ${predicates.join(' AND ')}` : ''}\n  GROUP BY ${dimension}\n  LIMIT ${CHART_SERIES_HARD_LIMIT + 1}\n) AS ${quote('cardinality_probe')};`,
+    sql: `SELECT count(*) AS ${quote('count')}\nFROM (\n  SELECT ${dimension}\n  FROM ${dialect === 'google-sql' ? `\`${[...request.schema.split('.'), request.table].map((part) => part.replaceAll('`', '``')).join('.')}\`` : `${quote(request.schema)}.${quote(request.table)}`}${predicates.length ? `\n  WHERE ${predicates.join(' AND ')}` : ''}\n  GROUP BY ${columns.join(', ')}\n  LIMIT ${CHART_SERIES_HARD_LIMIT + 1}\n) AS ${quote('cardinality_probe')};`,
     parameters
   }
 }

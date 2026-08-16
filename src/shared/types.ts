@@ -147,6 +147,15 @@ export interface DataSourceCapabilities {
   schemaAutocomplete: boolean
 }
 
+/** The product capability matrix used by adapters and renderer controls alike. */
+export const DATA_SOURCE_CAPABILITIES: Record<DataSourceKind, DataSourceCapabilities> = {
+  postgres: { builder: true, explain: true, analyze: true, queryCancellation: false, parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true },
+  'local-files': { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true },
+  'sqlite-file': { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true },
+  bigquery: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: true },
+  prometheus: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false }
+}
+
 export interface SourceInfo { label?: string; version?: string }
 export type TestResult = { ok: true; sourceInfo?: SourceInfo; serverVersion?: string } | { ok: false; error: string }
 export type ConnectResult = { ok: true; generation: number; sourceInfo?: SourceInfo; serverVersion?: string } | { ok: false; error: string }

@@ -2,10 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildSeriesCardinalityProbe } from './seriesCardinality.ts'
 
-test('GoogleSQL cardinality uses STRUCT for multiple Series dimensions', () => {
-  const probe = buildSeriesCardinalityProbe({ schema: 'my-project.analytics', table: 'events', seriesColumns: ['region', 'channel'], predicates: [] }, 'google-sql')
-  assert.match(probe.sql, /SELECT STRUCT\(`region`, `channel`\)/)
-  assert.match(probe.sql, /GROUP BY STRUCT\(`region`, `channel`\)/)
+test('GoogleSQL cardinality groups each Series column while selecting a STRUCT tuple', () => {
+  const probe = buildSeriesCardinalityProbe({ schema: 'my-project.analytics', table: 'events', seriesColumns: ['region', 'currency'], predicates: [] }, 'google-sql')
+  assert.match(probe.sql, /SELECT STRUCT\(`region`, `currency`\)/)
+  assert.match(probe.sql, /GROUP BY `region`, `currency`/)
+  assert.doesNotMatch(probe.sql, /GROUP BY STRUCT/)
   assert.match(probe.sql, /FROM `my-project\.analytics\.events`/)
 })
 
@@ -29,4 +30,16 @@ test('GoogleSQL cardinality casts temporal string parameters and strips DATE tim
   assert.match(probe.sql, /`d` >= CAST\(\? AS DATE\) AND `d` < CAST\(\? AS DATE\)/)
   assert.match(probe.sql, /`dt` >= CAST\(\? AS DATETIME\)/)
   assert.deepEqual(probe.parameters, ['2026-01-02', '2026-02-03', '2026-01-02T03:04'])
+})
+
+test('GoogleSQL cardinality normalizes minute-precision TIMESTAMP bounds without changing DATETIME', () => {
+  const probe = buildSeriesCardinalityProbe({ schema: 'p.d', table: 't', seriesColumns: ['currency'], predicates: [
+    { column: 'date_creation', operator: 'gte', value: '2026-08-13T01:00', temporalType: 'timestamp' },
+    { column: 'date_creation', operator: 'lt', value: '2026-08-14T02:30', temporalType: 'timestamp' },
+    { column: 'local_time', operator: 'gte', value: '2026-08-13T01:00', temporalType: 'datetime' }
+  ] }, 'google-sql')
+  assert.match(probe.sql, /`date_creation` >= CAST\(\? AS TIMESTAMP\)/)
+  assert.match(probe.sql, /`date_creation` < CAST\(\? AS TIMESTAMP\)/)
+  assert.match(probe.sql, /`local_time` >= CAST\(\? AS DATETIME\)/)
+  assert.deepEqual(probe.parameters, ['2026-08-13T01:00:00Z', '2026-08-14T02:30:00Z', '2026-08-13T01:00'])
 })
