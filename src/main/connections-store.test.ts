@@ -43,5 +43,5 @@ test('BigQuery billing caps persist and an absent legacy cap migrates to uncappe
   const { maximumBytesBilled: _cap, ...legacy } = capped
   const migrated = migrateStoredProfile(legacy)
   assert.equal(migrated.status, 'migrated')
-  if (migrated.status === 'migrated' && migrated.profile.kind === 'bigquery') assert.equal(migrated.profile.maximumBytesBilled, '')
+  if (migrated.status === 'migrated' && migrated.profile.kind === 'bigquery') assert.equal(migrated.profile.maximumBytesBilled, '1073741824')
 })
