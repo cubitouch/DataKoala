@@ -33,6 +33,26 @@ it('allows a blank billing cap when saving', async () => {
   expect(mocks.upsert).toHaveBeenCalledWith(expect.objectContaining({ maximumBytesBilled: '' }))
 })
 
+it('explicitly switches capped to uncapped and restores the prior cap', async () => {
+  renderBigQuery({ kind: 'bigquery', version: 1, id: 'bq', name: 'Saved', billingProject: 'billing', maximumBytesBilled: '1073741824', readonly: true })
+  fireEvent.click(screen.getByText('Advanced'))
+  const toggle = screen.getByRole('checkbox', { name: /Limit bytes billed/ }) as HTMLInputElement
+  const input = screen.getByLabelText('Maximum bytes billed') as HTMLInputElement
+  expect(toggle.checked).toBe(true); expect(input.value).toBe('1073741824')
+  fireEvent.click(toggle); expect(input.disabled).toBe(true)
+  fireEvent.click(toggle); expect(input.value).toBe('1073741824')
+  fireEvent.click(toggle); fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() => expect(mocks.upsert).toHaveBeenCalledWith(expect.objectContaining({ maximumBytesBilled: '' })))
+})
+
+it('requires a positive integer only when the explicit cap is enabled', async () => {
+  renderBigQuery({ kind: 'bigquery', version: 1, id: 'bq', name: 'Saved', billingProject: 'billing', maximumBytesBilled: '', readonly: true })
+  fireEvent.click(screen.getByText('Advanced'))
+  fireEvent.click(screen.getByRole('checkbox', { name: /Limit bytes billed/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  expect(await screen.findByText('Maximum bytes billed must be a positive decimal integer.')).toBeTruthy()
+})
+
 it('surfaces discovered project, dataset friendly name, and location', async () => {
   mocks.discoverProjects.mockResolvedValue([{ projectId: 'analytics-prod', friendlyName: 'My analytics project' }])
   mocks.listDatasets.mockResolvedValue([{ projectId: 'analytics-prod', datasetId: 'events', friendlyName: 'Analytics events', location: 'EU' }])

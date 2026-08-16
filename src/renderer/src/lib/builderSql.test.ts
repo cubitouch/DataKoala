@@ -233,3 +233,9 @@ test('casts custom DATE and DATETIME bounds and recurring windows from ordinary 
   assert.match(datetime.sql, /`dt` >= CAST\(\? AS DATETIME\).*TIME\(`dt`\) >= CAST\(\? AS TIME\).*TIME\(`dt`\) < CAST\(\? AS TIME\)/s)
   assert.deepEqual(datetime.parameters, ['2026-01-02T03:04', '2026-02-03T04:05', '09:00', '17:00'])
 })
+
+test('normalizes minute-precision BigQuery TIMESTAMP bounds as UTC instants without shifting civil types', () => {
+  const timestamp = generateBuilderQuery({ dialect: 'google-sql', table: { schema: 'p.d', name: 't' }, xColumn: 'ts', xColumnDataType: 'TIMESTAMP', timeColumn: 'ts', timeColumnDataType: 'TIMESTAMP', timeBucket: 'hour', timeRange: { kind: 'custom', startDate: '2026-08-03', startTime: '00:00', endDate: '2026-08-04', endTime: '01:02' } })
+  assert.match(timestamp.sql, /`ts` >= CAST\(\? AS TIMESTAMP\).*`ts` < CAST\(\? AS TIMESTAMP\)/s)
+  assert.deepEqual(timestamp.parameters, ['2026-08-03T00:00:00Z', '2026-08-04T01:02:00Z'])
+})

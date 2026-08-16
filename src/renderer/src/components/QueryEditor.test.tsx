@@ -152,6 +152,21 @@ describe('PromQL execution', () => {
 afterEach(() => { cleanup(); resetTestStore() })
 
 describe('QueryEditor Explain loading states', () => {
+  it('follows datasource capabilities when the active tab changes', () => {
+    resetTestStore({ profiles: [
+      { kind: 'postgres', version: 1, id: 'pg', name: 'PG', host: 'localhost', port: 5432, database: 'db', user: 'user', password: '', ssl: false, readonly: true },
+      { kind: 'bigquery', version: 1, id: 'bq', name: 'BQ', billingProject: 'billing', maximumBytesBilled: '', readonly: true }
+    ], activeProfileId: 'bq', connected: true, connecting: false, connectionStatus: 'connected' })
+    patchActiveTestSession({ connectionProfileId: 'bq', sql: 'select 1' })
+    const view = render(<QueryEditor />)
+    expect(screen.queryByRole('button', { name: 'Explain' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Explain Analyze' })).toBeNull()
+    useStore.setState((state) => ({ tabs: state.tabs.map((tab) => ({ ...tab, connectionProfileId: 'pg' })), activeProfileId: 'pg' }))
+    view.rerender(<QueryEditor />)
+    expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Explain Analyze' })).toBeTruthy()
+    expect(explain).not.toHaveBeenCalled()
+  })
   it('keeps SQL formatting local', async () => {
     renderExplainUi()
     fireEvent.change(screen.getByLabelText('SQL editor'), { target: { value: 'select 1 from users' } })

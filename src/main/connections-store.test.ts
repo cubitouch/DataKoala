@@ -33,3 +33,15 @@ test('a valid PostgreSQL v1 profile is preserved without migration', () => {
   assert.equal(result.status, 'current')
   assert.equal(result.stored, stored)
 })
+
+test('BigQuery billing caps persist and an absent legacy cap migrates to uncapped', () => {
+  const capped = { id: 'bq', name: 'BQ', kind: 'bigquery', version: 1, billingProject: 'billing', maximumBytesBilled: '1000', readonly: true }
+  const current = migrateStoredProfile(capped)
+  assert.equal(current.status, 'current')
+  if (current.status === 'current' && current.profile.kind === 'bigquery') assert.equal(current.profile.maximumBytesBilled, '1000')
+
+  const { maximumBytesBilled: _cap, ...legacy } = capped
+  const migrated = migrateStoredProfile(legacy)
+  assert.equal(migrated.status, 'migrated')
+  if (migrated.status === 'migrated' && migrated.profile.kind === 'bigquery') assert.equal(migrated.profile.maximumBytesBilled, '')
+})

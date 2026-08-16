@@ -64,7 +64,14 @@ export function buildBuilderPredicates(time: string, range: BuilderTimeRange, ti
     const bounds = customRangeToQueryBounds({ startDate: range.startDate, startTime: range.startTime, endDate: range.endDate, endTime: range.endTime, recurringWindows: range.recurringWindows ?? [] })
     const googleParameterType = temporalType === 'date' ? 'DATE' : temporalType === 'datetime' ? 'DATETIME' : 'TIMESTAMP'
     const parameter = () => dialect === 'google-sql' ? `CAST(? AS ${googleParameterType})` : `$${parameters.length}`
-    const boundValue = (value: string) => dialect === 'google-sql' && googleParameterType === 'DATE' ? value.slice(0, 10) : value
+    const boundValue = (value: string) => {
+      if (dialect !== 'google-sql') return value
+      if (googleParameterType === 'DATE') return value.slice(0, 10)
+      // Custom SQL ranges are UTC instants for TIMESTAMP, while DATETIME is a
+      // timezone-free civil value. Normalize text without locale/Date parsing.
+      if (googleParameterType === 'TIMESTAMP' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return `${value}:00Z`
+      return value
+    }
     if (bounds.startInclusive) { parameters.push(boundValue(bounds.startInclusive)); sql.push(`${time} >= ${parameter()}`) }
     if (bounds.endExclusive) { parameters.push(boundValue(bounds.endExclusive)); sql.push(`${time} < ${parameter()}`) }
   }

@@ -54,7 +54,7 @@ export function migrateStoredProfile(stored: Record<string, unknown>): StoredPro
   if (isLocalFilesV1(stored)) return { status: 'current', profile: stored as unknown as DataSourceProfile, stored }
   if (isSqliteFileV1(stored)) return { status: 'current', profile: stored as unknown as DataSourceProfile, stored }
   if (stored.kind === 'bigquery' && stored.version === 1 && stored.maximumBytesBilled === undefined) {
-    const migrated = { ...stored, maximumBytesBilled: '1073741824' }
+    const migrated = { ...stored, maximumBytesBilled: '' }
     if (isBigQueryV1(migrated)) return { status: 'migrated', profile: migrated as unknown as DataSourceProfile, stored: migrated }
   }
   if (isBigQueryV1(stored)) return { status: 'current', profile: stored as unknown as DataSourceProfile, stored }
