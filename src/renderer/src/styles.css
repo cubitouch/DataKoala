@@ -384,10 +384,6 @@ table.results td:hover .cell-filter-menu summary, .cell-filter-menu[open] summar
   text-align: center;
   color: var(--text-mute);
 }
-.metric-details { padding: 5px 10px 9px 38px; color: var(--text-dim); font-size: 11px; line-height: 1.4; }
-.metric-details > div { display: flex; gap: 8px; }
-.metric-details strong { min-width: 34px; color: var(--text-mute); font-weight: 500; }
-.metric-details p { margin: 4px 0 0; color: var(--text-mute); overflow-wrap: anywhere; }
 .paste-hint { font-size: 10.5px; color: var(--text-mute); margin-top: 5px; line-height: 1.5; }
 .paste-hint code {
   font-family: var(--mono); background: var(--bg-4); padding: 1px 4px;
