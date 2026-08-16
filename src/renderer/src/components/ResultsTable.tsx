@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { selectActiveSession, useStore, type QueryMode } from '../store/useStore'
 import { isTimeType, type QueryResult } from '@shared/types'
 import { resultToCsv } from '../lib/data'
@@ -12,6 +12,9 @@ import { JsonCellExplorer } from './results/JsonCellExplorer'
 import styles from './ResultsTable.module.css'
 
 type SortDir = 'asc' | 'desc' | null
+
+const ROW_HEIGHT = 28
+const ROW_OVERSCAN = 8
 
 function renderCell(v: unknown): { text: string; cls: string } {
   if (v === null || v === undefined) return { text: '␀', cls: styles.null }
@@ -40,9 +43,38 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
   const [sortCol, setSortCol] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
   const [filter, setFilter] = useState('')
-  const [jsonTarget, setJsonTarget] = useState<{ resultRevision: number; rowIndex: number; columnKey: string } | null>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState(600)
+  const [jsonTarget, setJsonTarget] = useState<{ resultRevision: number; rowId: number; columnKey: string } | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const rowIds = useRef(new WeakMap<object, number>())
+  const nextRowId = useRef(1)
 
-  useEffect(() => { setJsonTarget(null) }, [mode, resultRevision, result])
+  const getRowId = (row: QueryResult['rows'][number]) => {
+    const key = row as object
+    const existing = rowIds.current.get(key)
+    if (existing !== undefined) return existing
+    const id = nextRowId.current++
+    rowIds.current.set(key, id)
+    return id
+  }
+
+  useEffect(() => {
+    setJsonTarget(null)
+    setScrollTop(0)
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [mode, resultRevision, result])
+
+  useLayoutEffect(() => {
+    const element = scrollRef.current
+    if (!element) return
+    const updateHeight = () => setViewportHeight(Math.max(element.clientHeight, ROW_HEIGHT))
+    updateHeight()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [result])
 
   const rows = useMemo(() => {
     if (!filteredResult || !result) return []
@@ -65,6 +97,19 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
     }
     return r
   }, [result, filteredResult, filter, sortCol, sortDir])
+
+  const visibleStart = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - ROW_OVERSCAN)
+  const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + ROW_OVERSCAN * 2
+  const visibleEnd = Math.min(rows.length, visibleStart + visibleCount)
+  const visibleRows = rows.slice(visibleStart, visibleEnd)
+  const topSpacerHeight = visibleStart * ROW_HEIGHT
+  const bottomSpacerHeight = Math.max(0, (rows.length - visibleEnd) * ROW_HEIGHT)
+
+  useEffect(() => {
+    setJsonTarget(null)
+    setScrollTop(0)
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [filter, sortCol, sortDir])
 
   const toggleSort = (col: string) => {
     if (sortCol !== col) {
@@ -108,7 +153,7 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
         canPromote={mode === 'builder' ? (target) => isBuilderFilterPromotable(target, builder) : undefined}
         canDemote={mode === 'builder' ? (target) => resultFilterDemotion(target, result.columns.map((column) => column.name)) : undefined}
       />
-      <div className={styles.scroll}>
+      <div className={styles.scroll} ref={scrollRef} data-result-scroll onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
         {result.rows.length === 0 ? <div className={styles.empty}>Query returned no rows.</div> : rows.length === 0 ? <div className={styles.empty}>
           {activeFilters.length ? 'No rows match the active filters.' : 'No rows match the row search.'}
         </div> : <table className={styles.table}>
@@ -125,8 +170,11 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
             </tr>
           </thead>
           <tbody>
-            {rows.slice(0, 1000).map((row, i) => (
-              <tr key={i}>
+            {topSpacerHeight > 0 && <tr aria-hidden="true"><td className={styles.virtualSpacer} colSpan={result.columns.length} style={{ height: topSpacerHeight }} /></tr>}
+            {visibleRows.map((row, visibleIndex) => {
+              const rowIndex = visibleStart + visibleIndex
+              const rowId = getRowId(row)
+              return <tr key={rowId} className={styles.dataRow} data-result-row-index={rowIndex}>
                 {result.columns.map((c) => {
                   const cell = renderCell(row[c.name])
                   return (
@@ -136,25 +184,21 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
                         <CellFilterMenu column={c.name} value={row[c.name]} nativeType={c.nativeType ?? c.dataTypeName} onAdd={(newFilter) => addResultFilter(mode, newFilter, tabId)} />
                         {mode === 'sql' && row[c.name] != null && (isJsonColumnType(c) || mayContainJsonDocument(row[c.name])) && <JsonCellExplorer
                           columnLabel={c.name}
-                          rowNumber={i + 1}
+                          rowNumber={rowIndex + 1}
                           value={row[c.name]}
-                          open={jsonTarget?.resultRevision === resultRevision && jsonTarget.rowIndex === i && jsonTarget.columnKey === c.name}
-                          onOpenChange={(open) => setJsonTarget(open ? { resultRevision, rowIndex: i, columnKey: c.name } : null)}
-                          invalidationKey={`${mode}:${resultRevision}:${i}:${c.name}`}
+                          open={jsonTarget?.resultRevision === resultRevision && jsonTarget.rowId === rowId && jsonTarget.columnKey === c.name}
+                          onOpenChange={(open) => setJsonTarget(open ? { resultRevision, rowId, columnKey: c.name } : null)}
+                          invalidationKey={`${mode}:${resultRevision}:${rowId}:${c.name}`}
                         />}
                       </div>
                     </td>
                   )
                 })}
               </tr>
-            ))}
+            })}
+            {bottomSpacerHeight > 0 && <tr aria-hidden="true"><td className={styles.virtualSpacer} colSpan={result.columns.length} style={{ height: bottomSpacerHeight }} /></tr>}
           </tbody>
         </table>}
-        {rows.length > 1000 && (
-          <div className={styles.capNotice}>
-            Showing first 1000 of {rows.length} rows. Refine the query or use Export CSV for all.
-          </div>
-        )}
       </div>
     </div>
   )
