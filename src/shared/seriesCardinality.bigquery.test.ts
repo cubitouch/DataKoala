@@ -31,3 +31,15 @@ test('GoogleSQL cardinality casts temporal string parameters and strips DATE tim
   assert.match(probe.sql, /`dt` >= CAST\(\? AS DATETIME\)/)
   assert.deepEqual(probe.parameters, ['2026-01-02', '2026-02-03', '2026-01-02T03:04'])
 })
+
+test('GoogleSQL cardinality normalizes minute-precision TIMESTAMP bounds without changing DATETIME', () => {
+  const probe = buildSeriesCardinalityProbe({ schema: 'p.d', table: 't', seriesColumns: ['currency'], predicates: [
+    { column: 'date_creation', operator: 'gte', value: '2026-08-13T01:00', temporalType: 'timestamp' },
+    { column: 'date_creation', operator: 'lt', value: '2026-08-14T02:30', temporalType: 'timestamp' },
+    { column: 'local_time', operator: 'gte', value: '2026-08-13T01:00', temporalType: 'datetime' }
+  ] }, 'google-sql')
+  assert.match(probe.sql, /`date_creation` >= CAST\(\? AS TIMESTAMP\)/)
+  assert.match(probe.sql, /`date_creation` < CAST\(\? AS TIMESTAMP\)/)
+  assert.match(probe.sql, /`local_time` >= CAST\(\? AS DATETIME\)/)
+  assert.deepEqual(probe.parameters, ['2026-08-13T01:00:00Z', '2026-08-14T02:30:00Z', '2026-08-13T01:00'])
+})
