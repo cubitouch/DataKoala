@@ -1,0 +1,71 @@
+.root {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  max-width: 100%;
+  gap: 3px;
+  padding: 6px 12px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.label,
+.viewLabel {
+  margin-right: 5px;
+  color: var(--text-mute);
+  font-size: 11px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.button:hover {
+  color: #fff;
+  background: var(--bg-4);
+  border-color: var(--border-hi);
+}
+
+.button.active,
+.button[aria-pressed="true"] {
+  color: #fff;
+  background: var(--bg-4);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  font-weight: 600;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.fill {
+  fill: currentColor;
+  opacity: .2;
+}
+
+@container result-pane (max-width: 760px) {
+  .viewLabel { display: none; }
+  .button { padding-inline: 8px; }
+}

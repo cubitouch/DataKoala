@@ -31,7 +31,7 @@ async function installDocumentationStatusCompatibility(contents) {
 }
 
 async function waitForTreemapFinished(contents) {
-  const treemapActive = await contents.executeJavaScript(`document.querySelector('.result-view-bar button.active')?.textContent?.trim() === 'Treemap'`)
+  const treemapActive = await contents.executeJavaScript(`document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Treemap'`)
   if (!treemapActive) return
 
   for (let attempt = 0; attempt < 80; attempt += 1) {
