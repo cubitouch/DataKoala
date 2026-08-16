@@ -1,0 +1,107 @@
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--bg-2);
+  container-type: inline-size;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.toolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.toolbarGroup + .toolbarGroup {
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+
+.timeGroup [data-time-range-field] {
+  width: clamp(150px, 22cqi, 230px);
+}
+
+.timeGroup [data-time-range-label] {
+  display: none;
+}
+
+.timeGroup [data-popover-root] {
+  margin-top: 0;
+}
+
+.promqlStep {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-mute);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.promqlStep [role="combobox"] {
+  width: 72px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.explainAction {
+  min-width: 96px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.analyzeAction {
+  min-width: 132px;
+}
+
+.editor {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  overflow: auto;
+}
+
+.editor :global(.cm-editor) {
+  height: 100%;
+}
+
+.editor :global(.cm-scroller) {
+  font-family: var(--mono);
+}
+
+@container (max-width: 690px) {
+  .head .spacer {
+    display: none;
+  }
+
+  .editorActions {
+    margin-left: auto;
+  }
+
+  .timeGroup {
+    order: 4;
+    flex: 1 0 100%;
+    padding: 8px 0 0 !important;
+    border: 0 !important;
+    border-top: 1px solid var(--border) !important;
+  }
+
+  .timeGroup [data-time-range-field] {
+    width: min(260px, calc(100% - 78px));
+  }
+}
