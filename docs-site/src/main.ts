@@ -24,7 +24,6 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         </a>
       </div>
       ${shot('docs-overview', 'DataKoala visual Builder configured for monthly market activity with a connected PostgreSQL source and five-series chart')}
-      <p class="hero-credit">Background photo: eucalyptus foliage</p>
     </section>
     <section class="feature"><div><p class="eyebrow">SQL WORKSPACE</p><h2>Explore with SQL</h2><p>Write highlighted SQL beside searchable metadata, then inspect, filter, and visualize the result in the same workspace.</p></div>${shot('docs-sql', 'SQL query and filtered market activity results table')}</section>
     <section class="feature reverse"><div><p class="eyebrow">VISUAL BUILDER</p><h2>Build queries visually</h2><p>Select relations, time buckets, dimensions, aggregations, and filters while DataKoala creates transparent, reusable queries.</p></div>${shot('docs-builder', 'Visual query Builder configured for monthly market activity')}</section>
