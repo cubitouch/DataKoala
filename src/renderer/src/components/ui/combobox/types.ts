@@ -11,9 +11,3 @@ export interface ComboboxOption {
   disabled?: boolean
   keywords?: string[]
 }
-
-export interface ComboboxStateMessages {
-  loading?: string
-  empty?: string
-  error?: string
-}
