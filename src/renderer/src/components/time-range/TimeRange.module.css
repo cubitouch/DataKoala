@@ -1,0 +1,63 @@
+.field { min-width: 0; }
+.label { color: var(--text-mute); font-family: var(--sans); font-size: 11px; font-weight: 400; line-height: normal; letter-spacing: normal; }
+.context { color: var(--text-mute); font-size: 10px; }
+.content { max-width: calc(100vw - 16px); padding: 0; overflow: hidden; background: var(--bg-2); border-color: var(--border); border-radius: 10px; box-shadow: 0 24px 60px rgba(0, 0, 0, .6); }
+.popover { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; max-height: inherit; min-height: 0; padding: 14px; color: var(--text); }
+.title { margin: 0 0 12px; font-size: 14px; font-weight: 650; }
+.body { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px; min-height: 0; overflow: hidden; }
+.presetPane { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 12px; }
+.editorPane { min-width: 0; min-height: 0; overflow: hidden; scroll-padding-bottom: 12px; }
+.customLayout { display: grid; grid-template-columns: 140px minmax(280px, 1fr); grid-template-areas: "presets calendar" "presets windows"; gap: 14px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.customLayout > .quickList { grid-area: presets; }
+.customLayout > .calendar { grid-area: calendar; }
+.customLayout > .windowEditor { grid-area: windows; }
+.quickList { display: flex; flex-direction: column; gap: 8px; }
+.presetSection { display: flex; flex-direction: column; gap: 4px; }
+.presetSectionTitle { color: var(--text-mute); font-size: 11px; }
+.quickPill { width: 100%; min-height: 30px; padding: 4px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-3); color: var(--text-dim); cursor: pointer; font: inherit; font-size: 12px; }
+.quickPill:hover, .quickPill:focus-visible { border-color: var(--accent); color: var(--text); outline: none; }
+.quickPill[aria-pressed="true"] { color: #0a0d12; border-color: var(--accent); background: var(--accent); font-weight: 600; }
+.dateTimeEditor { min-width: 0; }
+.editorTitle { margin: 0 0 8px; font-size: 12px; color: var(--text-dim); }
+.calendar { min-width: 0; }
+.calendarHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.iconButton { width: 30px; height: 30px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text); cursor: pointer; font-size: 20px; }
+.iconButton:hover, .iconButton:focus-visible { background: var(--bg-3); border-color: var(--border); outline: none; }
+.monthYearPicker { display: flex; gap: 8px; margin-bottom: 10px; }
+.monthYearPicker label { flex: 1; color: var(--text-mute); font-size: 11px; }
+.input { width: 100%; margin-top: 4px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-3); color: var(--text); color-scheme: dark; }
+.calendarGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.dayOfWeek { padding: 6px 0; color: var(--text-mute); text-align: center; font-size: 11px; }
+.day { position: relative; min-width: 32px; height: 30px; padding: 0 4px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--text); cursor: pointer; }
+.outside { color: var(--text-mute); opacity: .65; }
+.inRange { background: var(--bg-4); border-color: var(--border); }
+.marker { background: var(--accent); border-color: var(--accent); color: #0a0d12; font-weight: 700; }
+.today { border-color: color-mix(in srgb, var(--accent) 70%, white); }
+.day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.recurringSection { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.recurringSection summary { cursor: pointer; color: var(--text-dim); font-size: 12px; }
+.windowEditor { padding-top: 8px; }
+.boundaryGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.boundaryGrid label, .windowRow label { color: var(--text-mute); font-size: 11px; }
+.windowHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; color: var(--text-dim); }
+.windowEmpty { margin: 0; color: var(--text-mute); font-size: 12px; }
+.windowRow { display: grid; grid-template-columns: minmax(90px, 1fr) auto minmax(90px, 1fr) auto; align-items: end; gap: 8px; margin-top: 8px; }
+.error { color: var(--red); padding: 8px 0 0; font-size: 11px; }
+.fieldError { display: block; color: var(--red); padding-top: 4px; font-size: 11px; }
+.actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 12px; background: var(--bg-2); border-top: 1px solid var(--border); }
+.spacer { flex: 1; }
+
+@media (max-height: 720px) {
+  .editorPane { overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; scrollbar-color: var(--border) transparent; }
+}
+
+@media (max-width: 720px) {
+  .body, .customLayout { grid-template-columns: minmax(0, 1fr); }
+  .presetPane { max-height: 180px; }
+  .editorPane { overflow-y: auto; }
+  .customLayout { grid-template-areas: "presets" "calendar" "windows"; }
+  .quickList { flex-direction: row; flex-wrap: wrap; }
+  .quickPill { width: auto; }
+  .windowRow { grid-template-columns: minmax(80px, 1fr) auto minmax(80px, 1fr); }
+  .windowRow > :last-child { grid-column: 1 / -1; justify-self: end; }
+}

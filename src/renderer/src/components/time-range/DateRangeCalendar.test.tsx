@@ -53,14 +53,14 @@ describe('DateRangeCalendar visual exclusive end dates', () => {
 
   it('visually ends midnight-exclusive ranges on the prior date', () => {
     render(<CalendarView initial={{ startDate: '2026-07-01', startTime: '00:00', endDate: '2026-08-01', endTime: '00:00', recurringWindows: [] }} />)
-    expect(screen.getByRole('gridcell', { name: '2026-07-31' }).classList.contains('marker')).toBe(true)
-    expect(screen.getByRole('gridcell', { name: '2026-08-01' }).classList.contains('marker')).toBe(false)
+    expect(screen.getByRole('gridcell', { name: '2026-07-31' }).hasAttribute('data-range-boundary')).toBe(true)
+    expect(screen.getByRole('gridcell', { name: '2026-08-01' }).hasAttribute('data-range-boundary')).toBe(false)
   })
 
   it('visually ends explicit non-midnight ranges on the selected end date', () => {
     render(<CalendarView initial={{ startDate: '2026-07-01', startTime: '00:00', endDate: '2026-07-31', endTime: '14:00', recurringWindows: [] }} />)
     expect(screen.getByRole('gridcell', { name: '2026-07-31' }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('gridcell', { name: '2026-07-31' }).classList.contains('marker')).toBe(true)
+    expect(screen.getByRole('gridcell', { name: '2026-07-31' }).hasAttribute('data-range-boundary')).toBe(true)
   })
 
   it('converts selected visual midnight end dates back to exclusive boundaries', () => {
