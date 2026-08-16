@@ -499,7 +499,7 @@ async function verifyQueryToolbar(win) {
     return toolbar && pane ? {
       toolbarScrollWidth: toolbar.scrollWidth, toolbarClientWidth: toolbar.clientWidth,
       paneScrollWidth: pane.scrollWidth, paneClientWidth: pane.clientWidth,
-      hasRange: Boolean(toolbar.querySelector('.custom-range-field')),
+      hasRange: Boolean(toolbar.querySelector('[data-time-range-field]')),
       hasStep: Boolean(toolbar.querySelector('[aria-label^="PromQL query resolution:"]')),
       hasExplain: [...toolbar.querySelectorAll('button')].some((button) => button.textContent?.includes('Explain'))
     } : null
