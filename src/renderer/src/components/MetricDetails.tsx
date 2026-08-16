@@ -35,7 +35,7 @@ export function MetricDetails({ connectionId, relation }: { connectionId: string
     finally { setLoadingValues((old) => { const next = new Set(old); next.delete(label); return next }) }
   }
 
-  return <div className={`metric-details ${styles.root}`} role="group" aria-label={`${relation.name} metric metadata`}>
+  return <div className={styles.root} role="group" aria-label={`${relation.name} metric metadata`}>
     {relation.details?.kind === 'metric' && relation.details.unit && <div><strong>Unit</strong><span>{relation.details.unit}</span></div>}
     <div className={styles.labelHeading}><strong>Labels</strong></div>
     {!labels && !labelsError && <div className={styles.status} role="status">Loading labels…</div>}
