@@ -8,7 +8,24 @@ const shot = (name: string, alt: string) => `<a class="shot" href="./screenshots
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header><nav><a class="brand" href="./"><img src="${appIcon}" alt="" aria-hidden="true"><span>DataKoala</span></a><div class="nav-actions"><a class="button button-primary" href="#start">Get started</a><a class="button icon-button" href="${repo}" aria-label="View DataKoala on GitHub" title="View source on GitHub">${githubIcon}</a></div></nav></header>
   <main>
-    <section class="hero"><p class="eyebrow">LOCAL-FIRST DATA EXPLORATION</p><h1>Move from data to insight,<br><em>without leaving your desktop.</em></h1><p class="lede">Explore connected data visually, move into SQL when you need it, and turn results into clear charts.</p><div class="hero-actions"><a class="button button-primary hero-button" href="#start">Get started</a><a class="button button-secondary hero-button" href="${repo}">${githubIcon}<span>View source</span></a></div>${shot('docs-overview', 'DataKoala visual Builder configured for monthly market activity with a connected PostgreSQL source and five-series chart')}</section>
+    <section class="hero">
+      <p class="eyebrow">LOCAL-FIRST DATA EXPLORATION</p>
+      <h1>Move from data to insight,<br><em>without leaving your desktop.</em></h1>
+      <p class="lede">Explore connected data visually, move into SQL when you need it, and turn results into clear charts.</p>
+      <div class="hero-actions">
+        <a class="button button-primary button-large" href="#start">Get started</a>
+        <a class="button button-secondary button-large" href="${repo}">
+          <span class="github-mark" aria-hidden="true">
+            <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.5 7.5 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+            </svg>
+          </span>
+          <span>View source</span>
+        </a>
+      </div>
+      ${shot('docs-overview', 'DataKoala visual Builder configured for monthly market activity with a connected PostgreSQL source and five-series chart')}
+      <p class="hero-credit">Background photo: eucalyptus foliage</p>
+    </section>
     <section class="feature"><div><p class="eyebrow">SQL WORKSPACE</p><h2>Explore with SQL</h2><p>Write highlighted SQL beside searchable metadata, then inspect, filter, and visualize the result in the same workspace.</p></div>${shot('docs-sql', 'SQL query and filtered market activity results table')}</section>
     <section class="feature reverse"><div><p class="eyebrow">VISUAL BUILDER</p><h2>Build queries visually</h2><p>Select relations, time buckets, dimensions, aggregations, and filters while DataKoala creates transparent, reusable queries.</p></div>${shot('docs-builder', 'Visual query Builder configured for monthly market activity')}</section>
     <section class="feature"><div><p class="eyebrow">DATA SOURCES</p><h2>One workspace, varied sources</h2><p>Connect PostgreSQL, BigQuery, read-only SQLite, local CSV/TSV/Parquet/JSON files, and Prometheus. Your data remains on your machine and source services.</p></div>${shot('docs-data-sources', 'DataKoala workspace populated with synthetic data-source profiles')}</section>
