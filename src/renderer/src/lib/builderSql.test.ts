@@ -195,7 +195,7 @@ test('compiles fully-qualified GoogleSQL Builder queries with temporal X, indepe
   assert.match(query.sql, /FROM `billing-data\.analytics\.sales events`/)
   assert.match(query.sql, /`ingested_at` >= CAST\(\? AS TIMESTAMP\) AND `ingested_at` < CAST\(\? AS TIMESTAMP\)/)
   assert.match(query.sql, /GROUP BY 1, 2, 3/)
-  assert.deepEqual(query.parameters, ['2026-01-01T00:00', '2026-02-01T00:00'])
+  assert.deepEqual(query.parameters, ['2026-01-01T00:00:00Z', '2026-02-01T00:00:00Z'])
   assert.doesNotMatch(query.sql, /\$\d+|NULLS LAST|date_trunc/i)
 })
 
