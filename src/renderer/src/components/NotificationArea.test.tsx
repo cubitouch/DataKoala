@@ -4,6 +4,7 @@ void React
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NotificationArea, notify } from './NotificationArea'
+import { selectActiveSession, useStore } from '../store/useStore'
 import { patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
 
 describe('NotificationArea', () => {
@@ -51,11 +52,6 @@ describe('NotificationArea', () => {
     render(<NotificationArea />)
     act(() => patchActiveTestSession({ builderFilterNotice: { id: 7, message: 'Removed filter because it was removed from the Series.' } }))
     expect(screen.getByRole('status').textContent).toBe('Removed filter because it was removed from the Series.')
-    expect(useBuilderNotice()).toBeNull()
+    expect(selectActiveSession(useStore.getState()).builderFilterNotice).toBeNull()
   })
 })
-
-function useBuilderNotice() {
-  const state = require('../store/useStore') as typeof import('../store/useStore')
-  return state.selectActiveSession(state.useStore.getState()).builderFilterNotice
-}
