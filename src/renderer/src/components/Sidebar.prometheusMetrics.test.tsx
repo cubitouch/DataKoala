@@ -50,7 +50,7 @@ describe('Prometheus metric object tree', () => {
     fireEvent.click(metric)
 
     expect(screen.getByText('requests')).toBeTruthy()
-    const details = document.querySelector<HTMLElement>('.metric-details')!
+    const details = screen.getByRole('group', { name: 'http_requests_total metric metadata' })
     expect(within(details).queryByText('Name')).toBeNull()
     expect(within(details).queryByText('Type')).toBeNull()
     expect(within(details).queryByText('Help')).toBeNull()
