@@ -54,7 +54,24 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Then create a connection or local source from the left sidebar. PostgreSQL, BigQuery, SQLite, and local-file use do not require Prometheus tooling.
+Then create a connection or local source from the left sidebar. PostgreSQL, SQLite, and local-file use do not require additional command-line authentication tooling.
+
+### Using BigQuery?
+
+BigQuery connections use Google Cloud Application Default Credentials. Install the Google Cloud CLI (`gcloud`), make sure it is available on your `PATH`, and authenticate Application Default Credentials before starting DataKoala:
+
+```bash
+gcloud --version
+gcloud auth application-default login
+```
+
+If you work with several Google Cloud projects, you can also set your current CLI project explicitly:
+
+```bash
+gcloud config set project YOUR_PROJECT_ID
+```
+
+DataKoala does not store Google Cloud credentials itself; it uses the credentials exposed by the Google Cloud authentication flow.
 
 ### Optional: Using Prometheus / Grafana?
 

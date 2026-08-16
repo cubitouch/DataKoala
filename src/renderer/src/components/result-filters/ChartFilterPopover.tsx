@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ChartPointContext } from '../../lib/chartPointFilters'
+import styles from './ChartFilterPopover.module.css'
 
 export type ChartFilterAction = 'includeSeries' | 'excludeSeries' | 'includeX' | 'excludeX' | 'includeSeriesAndX'
 
@@ -29,7 +30,7 @@ export function ChartFilterPopover({ context, position, onAction, onDismiss }: {
 
   return <div
     ref={ref}
-    className="chart-filter-popover"
+    className={styles.popover}
     role="menu"
     aria-label="Filter from chart point"
     style={{ left: Math.max(8, Math.min(position.x, window.innerWidth - 280)), top: Math.max(8, Math.min(position.y, window.innerHeight - 220)) }}

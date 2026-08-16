@@ -1,0 +1,31 @@
+.explorer { container: result-pane / inline-size; width: 100%; max-width: 100%; min-width: 0; min-height: 0; display: flex; flex: 1; flex-direction: column; border-top: 1px solid var(--border); }
+.explorer > .pane, .explorer > .chart { flex: 1; }
+.explorer > [data-result-table-pane] { flex: 1; min-height: 0; }
+.pane { overflow: auto; min-height: 0; display: flex; flex-direction: column; }
+.visualizationControls { display: flex; align-items: end; gap: 12px; padding: 8px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.visualizationControl { display: grid; gap: 4px; min-width: 130px; color: var(--text-mute); font-size: 11px; }
+.visualizationControl [data-popover-root] { margin-top: 0; }
+.visualizationControl:last-child > span > span { display: none; }
+.chart { width: 100%; max-width: 100%; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg-2); }
+.chartActions { min-height: 38px; flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.chartCanvas { position: relative; contain: layout paint; width: 100%; max-width: 100%; min-width: 0; flex: 1; min-height: 0; padding: 6px 10px 10px; }
+.chartCanvas > div { width: 100% !important; max-width: 100%; min-width: 0; }
+.chartCanvas > .runningOverlay { position: absolute; inset: 6px 10px 10px; width: auto !important; display: grid; place-items: center; background: rgb(15 23 42 / 42%); color: var(--text); font-size: 12px; font-weight: 600; pointer-events: none; }
+.stats { font-size: 11px; color: var(--text-mute); font-family: var(--mono); }
+.spacer { flex: 1; }
+.axisScale { display: inline-flex; align-items: center; gap: 5px; color: var(--text-mute); font-size: 11px; }
+.axisScale [data-popover-root] { width: 96px; margin-top: 0; }
+.chartActions [aria-pressed="true"] { color: #fbbf24; border-color: #f59e0b; }
+.anomalyStatus { flex: none; padding: 5px 12px; border-bottom: 1px solid var(--border); color: var(--text-mute); font-size: 11px; }
+.empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-mute); font-size: 13px; }
+.warning { flex: none; padding: 6px 12px; border-top: 1px solid var(--border); color: #fbbf24; font-size: 11px; }
+.error { margin: 12px; padding: 10px 12px; background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.3); border-radius: 8px; color: var(--red); font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
+.staleBanner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, var(--bg-2)); border-bottom: 1px solid color-mix(in srgb, var(--amber) 35%, var(--border)); font-size: 12px; }
+.hierarchyOrder { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--bg-2); color: var(--text-dim); font-size: 12px; }
+.hierarchyOrder small { color: var(--text-mute); }
+.hierarchyLevels { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.hierarchyLevel { display: inline-flex; align-items: center; gap: 5px; padding: 3px 5px 3px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-1); }
+.hierarchyLevel b { color: var(--accent); }
+.hierarchyLevel button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; color: var(--text-dim); background: transparent; cursor: pointer; }
+.hierarchyLevel button:hover:not(:disabled) { background: var(--bg-3); color: var(--text); }
+.hierarchyLevel button:disabled { opacity: .3; cursor: default; }

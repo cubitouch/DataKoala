@@ -110,8 +110,8 @@ function createWindow(): void {
           }, null)
           store.getState().setVisualization('sql', { view: 'line', xColumn: 'day', valueColumn: 'total', seriesColumn: 'region', aggregation: 'sum' })
           await new Promise((r) => setTimeout(r, 900))
-          const canvas = document.querySelector('.result-chart-canvas canvas')
-          const rowCells = document.querySelectorAll('table.results tbody tr').length
+          const canvas = document.querySelector('[data-result-chart-canvas] canvas')
+          const rowCells = document.querySelectorAll('[data-result-table-pane] table tbody tr').length
           let png = null
           if (canvas) png = canvas.toDataURL('image/png')
           return JSON.stringify({
@@ -121,8 +121,8 @@ function createWindow(): void {
             canvasH: canvas ? canvas.height : 0,
             pngPrefix: png ? png.slice(0, 22) : null,
             pngBytes: png ? Math.floor((png.length - png.indexOf(',') - 1) * 3 / 4) : 0,
-            legendText: (document.querySelector('.result-chart')?.innerText || '').slice(0, 80),
-            toolbarText: (document.querySelector('.result-toolbar')?.innerText || '').slice(0, 80)
+            legendText: (document.querySelector('[data-result-chart]')?.innerText || '').slice(0, 80),
+            toolbarText: (document.querySelector('[data-result-toolbar]')?.innerText || '').slice(0, 80)
           })
         })()`)
         const c = JSON.parse(chartReport)
@@ -393,7 +393,7 @@ function attachRepro(conn: string): void {
           await sleep(200)
         }
         let chartProbe = null
-        const canvas = document.querySelector('.result-chart-canvas canvas')
+        const canvas = document.querySelector('[data-result-chart-canvas] canvas')
         if (window.__datakoalaBuildOption && s2.result) {
           const built = null
           if (built) {
@@ -420,10 +420,10 @@ function attachRepro(conn: string): void {
           chart: s2.sqlVisualization,
           chartProbe,
           formatCheck,
-          domTableRows: document.querySelectorAll('table.results tbody tr').length,
-          domToolbar: (document.querySelector('.result-toolbar')?.innerText || '').replace(/\\n/g, ' | '),
-          domErrBanner: (document.querySelector('.err-banner')?.innerText || ''),
-          domResultPaneText: (document.querySelector('.result-pane')?.innerText || '').slice(0, 160),
+          domTableRows: document.querySelectorAll('[data-result-table-pane] table tbody tr').length,
+          domToolbar: (document.querySelector('[data-result-toolbar]')?.innerText || '').replace(/\\n/g, ' | '),
+          domErrBanner: (document.querySelector('[data-result-table-pane] [role="alert"]')?.innerText || ''),
+          domResultPaneText: (document.querySelector('[data-result-table-pane]')?.innerText || '').slice(0, 160),
           hasChartCanvas: !!canvas
         }, null, 2)
       })()`
