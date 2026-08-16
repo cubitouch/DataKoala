@@ -39,15 +39,16 @@ export interface BuilderSqlInput {
 export function buildBuilderPredicates(time: string, range: BuilderTimeRange, timeColumnDataType?: string, dialect: SqlDialect = 'postgres'): { sql: string[]; parameters: unknown[] } {
   const validation = validateBuilderTimeRange(range)
   if (validation) throw new Error(validation)
-  if (range.kind === 'all') return { sql: [], parameters: [] }
+  const sql: string[] = []; const parameters: unknown[] = []
+  const temporalType = timeColumnDataType?.toLowerCase()
+
   if (range.kind === 'rolling') {
     const interval = range.unit === 'hour' && range.amount === 24
       ? '1 day'
       : `${range.amount} ${range.amount === 1 ? range.unit : `${range.unit}s`}`
     if (dialect === 'google-sql') {
       const unit = range.unit.toUpperCase()
-      const current = timeColumnDataType?.toLowerCase() === 'date' ? 'CURRENT_DATE()' : timeColumnDataType?.toLowerCase() === 'datetime' ? 'CURRENT_DATETIME()' : 'CURRENT_TIMESTAMP()'
-      const temporalType = timeColumnDataType?.toLowerCase()
+      const current = temporalType === 'date' ? 'CURRENT_DATE()' : temporalType === 'datetime' ? 'CURRENT_DATETIME()' : 'CURRENT_TIMESTAMP()'
       const expression = temporalType === 'date'
         ? range.unit === 'hour' ? `DATE(TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ${range.amount} HOUR))` : `DATE_SUB(${current}, INTERVAL ${range.amount} ${unit})`
         : temporalType === 'datetime'
@@ -55,20 +56,23 @@ export function buildBuilderPredicates(time: string, range: BuilderTimeRange, ti
           : range.unit === 'month'
             ? `TIMESTAMP(DATETIME_SUB(DATETIME(${current}), INTERVAL ${range.amount} MONTH))`
             : `TIMESTAMP_SUB(${current}, INTERVAL ${range.amount} ${unit})`
-      return { sql: [`${time} >= ${expression}`], parameters: [] }
+      sql.push(`${time} >= ${expression}`)
+    } else {
+      sql.push(`${time} >= CURRENT_TIMESTAMP - INTERVAL '${interval}'`)
     }
-    return { sql: [`${time} >= CURRENT_TIMESTAMP - INTERVAL '${interval}'`], parameters: [] }
+  } else if (range.kind === 'custom') {
+    const bounds = customRangeToQueryBounds({ startDate: range.startDate, startTime: range.startTime, endDate: range.endDate, endTime: range.endTime, recurringWindows: range.recurringWindows ?? [] })
+    const googleParameterType = temporalType === 'date' ? 'DATE' : temporalType === 'datetime' ? 'DATETIME' : 'TIMESTAMP'
+    const parameter = () => dialect === 'google-sql' ? `CAST(? AS ${googleParameterType})` : `$${parameters.length}`
+    const boundValue = (value: string) => dialect === 'google-sql' && googleParameterType === 'DATE' ? value.slice(0, 10) : value
+    if (bounds.startInclusive) { parameters.push(boundValue(bounds.startInclusive)); sql.push(`${time} >= ${parameter()}`) }
+    if (bounds.endExclusive) { parameters.push(boundValue(bounds.endExclusive)); sql.push(`${time} < ${parameter()}`) }
   }
-  const sql: string[] = []; const parameters: unknown[] = []
-  const bounds = customRangeToQueryBounds({ startDate: range.startDate, startTime: range.startTime, endDate: range.endDate, endTime: range.endTime, recurringWindows: range.recurringWindows ?? [] })
-  const googleParameterType = timeColumnDataType?.toLowerCase() === 'date' ? 'DATE' : timeColumnDataType?.toLowerCase() === 'datetime' ? 'DATETIME' : 'TIMESTAMP'
-  const parameter = () => dialect === 'google-sql' ? `CAST(? AS ${googleParameterType})` : `$${parameters.length}`
-  const boundValue = (value: string) => dialect === 'google-sql' && googleParameterType === 'DATE' ? value.slice(0, 10) : value
-  if (bounds.startInclusive) { parameters.push(boundValue(bounds.startInclusive)); sql.push(`${time} >= ${parameter()}`) }
-  if (bounds.endExclusive) { parameters.push(boundValue(bounds.endExclusive)); sql.push(`${time} < ${parameter()}`) }
+
   const windows = range.recurringWindows ?? []
   if (windows.length) {
-    const localTime = dialect === 'google-sql' ? `TIME(${time})` : (timeColumnDataType?.toLowerCase() === 'timestamptz' || timeColumnDataType?.toLowerCase() === 'timestamp with time zone') ? `(${time} AT TIME ZONE current_setting('TimeZone'))::time` : `${time}::time`
+    if (temporalType === 'date') throw new Error('Recurring daily windows require a timestamp or datetime time column.')
+    const localTime = dialect === 'google-sql' ? `TIME(${time})` : (temporalType === 'timestamptz' || temporalType === 'timestamp with time zone') ? `(${time} AT TIME ZONE current_setting('TimeZone'))::time` : `${time}::time`
     const parts = windows.map((window) => {
       parameters.push(window.from); const from = dialect === 'google-sql' ? 'CAST(? AS TIME)' : `$${parameters.length}::time`
       parameters.push(window.to); const to = dialect === 'google-sql' ? 'CAST(? AS TIME)' : `$${parameters.length}::time`
