@@ -4,7 +4,7 @@ import styles from './InfoTooltip.module.css'
 
 interface Position { left: number; top: number; maxWidth: number }
 
-export function InfoTooltip({ label, children }: { label: string; children: string }) {
+export function InfoTooltip({ label, children, tone = 'info' }: { label: string; children: string; tone?: 'info' | 'warning' }) {
   const id = useId()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const tooltipRef = useRef<HTMLSpanElement>(null)
@@ -29,8 +29,9 @@ export function InfoTooltip({ label, children }: { label: string; children: stri
     return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true) }
   }, [open])
   const tooltip = <span ref={tooltipRef} id={id} role="tooltip" className={styles.content} style={{ left: position.left, top: position.top, maxWidth: position.maxWidth }} hidden={!open}>{children}</span>
+  const warning = tone === 'warning'
   return <span className={styles.root}>
-    <button ref={triggerRef} type="button" className={styles.trigger} aria-label={`${label} help`} aria-describedby={id} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>i</button>
+    <button ref={triggerRef} type="button" className={`${styles.trigger} ${warning ? styles.warning : ''}`} aria-label={`${label} ${warning ? 'warning' : 'help'}`} aria-describedby={id} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>{warning ? '!' : 'i'}</button>
     {typeof document === 'undefined' ? tooltip : createPortal(tooltip, document.body)}
   </span>
 }
