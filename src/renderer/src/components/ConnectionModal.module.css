@@ -42,4 +42,6 @@
 .fileConnectionRow { align-items: end; } .fileConnectionRow > .field { min-width: 0; }
 .connPreview { font-family: var(--mono); font-size: 11px; color: var(--text-dim); background: var(--bg-3); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; word-break: break-all; user-select: text; }
 .bqAdvanced { margin-top: 10px; }
+.bqAdvanced .field label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 7px; margin: 8px 0 10px; color: var(--text-dim); font-size: 12px; cursor: pointer; }
+.bqAdvanced .field label:has(> input[type="checkbox"]) > input[type="checkbox"] { width: auto; flex: 0 0 auto; margin: 0; padding: 0; accent-color: var(--accent); }
 @media (max-width: 520px) { .connectionSourceGrid { grid-template-columns: 1fr; } .connectionPicker { width: calc(100vw - 20px); } .connectionFormHeader { flex-wrap: wrap; } }
