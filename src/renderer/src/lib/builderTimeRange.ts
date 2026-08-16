@@ -23,7 +23,11 @@ function normalizeRecurringWindows(value: unknown): TimeWindow[] {
 
 export function normalizeBuilderTimeRange(range: BuilderTimeRange | (Record<string, unknown> & { kind?: unknown })): BuilderTimeRange {
   const value = range as Record<string, unknown>
-  if (range.kind !== 'custom') return { ...(range as BuilderTimeRange), recurringWindows: normalizeRecurringWindows(value.recurringWindows) }
+  if (range.kind !== 'custom') {
+    const recurringWindows = normalizeRecurringWindows(value.recurringWindows)
+    const { recurringWindows: _recurringWindows, ...base } = range as BuilderTimeRange & { recurringWindows?: TimeWindow[] }
+    return recurringWindows.length ? { ...base, recurringWindows } as BuilderTimeRange : base as BuilderTimeRange
+  }
   if ('startDate' in value || 'endDate' in value || 'recurringWindows' in value) {
     return {
       kind: 'custom',

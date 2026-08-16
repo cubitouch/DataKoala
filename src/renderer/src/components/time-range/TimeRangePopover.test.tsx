@@ -18,7 +18,7 @@ function Harness({ initial = draft }: { initial?: BuilderTimeRange }) {
 const readDraft = () => JSON.parse(screen.getByLabelText('draft value').textContent ?? '{}') as BuilderTimeRange
 
 describe('TimeRangePopover layout structure', () => {
-  it('keeps presets and recurring-window editor in one body region with actions outside it', () => {
+  it('keeps presets, calendar editor, and recurring-window editor in one body region with actions outside it', () => {
     const { container } = render(<TimeRangePopover draft={draft} setDraft={vi.fn()} onCancel={vi.fn()} onConfirm={vi.fn()} />)
     const body = container.querySelector('[data-time-range-region="body"]')
     const presetPane = container.querySelector('[data-time-range-region="presets"]')
@@ -26,8 +26,9 @@ describe('TimeRangePopover layout structure', () => {
     const actions = container.querySelector('[data-time-range-region="actions"]')
     expect(body).not.toBeNull()
     expect(presetPane?.contains(screen.getByRole('button', { name: 'Last hour' }))).toBe(true)
+    expect(editorPane?.contains(screen.getByRole('grid', { name: 'Date range calendar' }))).toBe(true)
+    expect(editorPane?.contains(screen.getByLabelText('Start time'))).toBe(true)
     expect(editorPane?.contains(screen.getByText('Advanced: recurring daily windows'))).toBe(true)
-    expect(screen.queryByLabelText('Start time')).toBeNull()
     expect(body?.contains(actions)).toBe(false)
   })
 
@@ -49,5 +50,12 @@ describe('TimeRangePopover layout structure', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Last day' }))
     expect(readDraft()).toMatchObject({ kind: 'rolling', amount: 24, unit: 'hour', recurringWindows: [{ from: '09:00', to: '17:00' }] })
     expect(screen.getByRole('button', { name: 'Last day' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('preserves recurring windows when editing the visible calendar/date-time controls from a rolling range', () => {
+    const recurringWindows = [{ id: 'business', from: '09:00', to: '17:00' }]
+    render(<Harness initial={{ kind: 'rolling', amount: 24, unit: 'hour', recurringWindows }} />)
+    fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '08:30' } })
+    expect(readDraft()).toMatchObject({ kind: 'custom', startTime: '08:30', recurringWindows })
   })
 })
