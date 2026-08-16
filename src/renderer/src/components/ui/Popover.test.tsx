@@ -16,6 +16,13 @@ const openWithPointer = (name: string | RegExp) => {
 }
 
 describe('Popover', () => {
+  it('preserves consumer extension classes on the root and portalled content', () => {
+    const view = render(<Popover ariaLabel="Open" trigger="Open" className="consumer-root" contentClassName="consumer-content"><span>Content</span></Popover>)
+    expect(view.container.querySelector('.consumer-root')).toBeTruthy()
+    openWithPointer('Open')
+    expect(document.body.querySelector('.consumer-content')?.textContent).toBe('Content')
+  })
+
   it('dismisses on outside pointer interaction but not inside interaction', () => {
     render(<><Popover ariaLabel="Open filters" trigger="Filters"><button>Inside</button></Popover><button>Outside</button></>)
     openWithPointer('Open filters')
@@ -79,7 +86,7 @@ describe('MultiSelect', () => {
     render(<StatefulMultiSelect />)
     fireEvent.click(screen.getByRole('button', { name: /Series columns/ }))
     const option = screen.getByRole('option', { name: /Alpha/ })
-    expect(option.querySelector('.multi-select-option-name')?.tagName).toBe('SPAN')
+    expect(option.querySelector('[data-multi-select-option-name]')?.tagName).toBe('SPAN')
     expect(option.querySelector('strong')).toBeNull()
     expect(option.querySelector('small')?.textContent).toBe('text')
   })

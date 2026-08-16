@@ -107,10 +107,10 @@ describe('PromQL Builder controls', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'service' }))
     expect(screen.getAllByRole('combobox', { name: /service values/ })).toHaveLength(1)
     expect(labelValues).toHaveBeenCalledOnce()
-    fireEvent.click(groupPicker.querySelector('.combobox-chip')!)
+    fireEvent.click(groupPicker.querySelector('[data-combobox-chip]')!)
     expect(activeTestSession().promqlBuilder.filterBy).toEqual(['service'])
     expect(activeTestSession().promqlBuilder.labelValues.service).toEqual(['production'])
-    fireEvent.click(screen.getByRole('combobox', { name: /Filter by: service/ }).querySelector('.combobox-chip')!)
+    fireEvent.click(screen.getByRole('combobox', { name: /Filter by: service/ }).querySelector('[data-combobox-chip]')!)
     expect(activeTestSession().promqlBuilder.labelValues.service).toBeUndefined()
   })
 

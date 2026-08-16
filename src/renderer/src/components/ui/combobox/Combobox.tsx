@@ -5,6 +5,7 @@ import { Popover } from '../Popover'
 import { ComboboxOption as OptionRow } from './ComboboxOption'
 import { ComboboxSearch } from './ComboboxSearch'
 import { ComboboxTrigger } from './ComboboxTrigger'
+import styles from './Combobox.module.css'
 import type { ComboboxOption } from './types'
 
 interface Props {
@@ -93,14 +94,14 @@ export function Combobox({ label, value, options, onChange, placeholder = 'Selec
     if (searchable && isTypingKey(event)) { event.preventDefault(); setOpen(true); setQuery(event.key) }
   }
 
-  return <Popover triggerRef={triggerRef} className={`combobox ${error ? 'has-error' : ''}`} contentClassName="combobox-menu" maxHeight={360} open={open} onOpenChange={setOpen} disabled={disabled} invalidationKey={invalidationKey} ariaLabel={`${label}: ${selected?.label ?? placeholder}`} popupType="listbox" focusOptionsOnKeyboardOpen={false} triggerButtonProps={{ role: 'combobox', 'aria-controls': menuId, 'aria-activedescendant': active ? optionId(reactId, active.value) : undefined, onKeyDown: onTriggerKeyDown }} trigger={<ComboboxTrigger selected={selected} placeholder={placeholder} loading={loading} error={error} />}>
+  return <Popover triggerRef={triggerRef} contentClassName={styles.menu} triggerClassName={error ? styles.errorTrigger : undefined} maxHeight={360} open={open} onOpenChange={setOpen} disabled={disabled} invalidationKey={invalidationKey} ariaLabel={`${label}: ${selected?.label ?? placeholder}`} popupType="listbox" focusOptionsOnKeyboardOpen={false} triggerButtonProps={{ role: 'combobox', 'aria-controls': menuId, 'aria-activedescendant': active ? optionId(reactId, active.value) : undefined, onKeyDown: onTriggerKeyDown }} trigger={<ComboboxTrigger selected={selected} placeholder={placeholder} loading={loading} error={error} />}>
     <div ref={menuRef} id={menuId} role="listbox" aria-label={label} aria-busy={loading || undefined} aria-activedescendant={active ? optionId(reactId, active.value) : undefined} onKeyDown={onMenuKeyDown} tabIndex={searchable ? -1 : 0}>
       {searchable && <ComboboxSearch inputRef={searchRef} value={query} onChange={setQuery} onKeyDown={onMenuKeyDown} label={label} />}
-      {loading && <div className="combobox-state" role="status">{loadingMessage}</div>}
-      {error && <div className="combobox-state error" role="alert">{error}</div>}
-      {allowCustomValue && query.trim() && !options.some((option) => option.value === query.trim()) && <button type="button" className="combobox-custom" onClick={commitCustom}>Use “{query.trim()}”</button>}
+      {loading && <div className={styles.state} role="status">{loadingMessage}</div>}
+      {error && <div className={`${styles.state} ${styles.errorState}`} role="alert">{error}</div>}
+      {allowCustomValue && query.trim() && !options.some((option) => option.value === query.trim()) && <button type="button" className={styles.custom} onClick={commitCustom}>Use “{query.trim()}”</button>}
       {!loading && !error && filtered.map((option) => <OptionRow key={option.value} id={optionId(reactId, option.value)} option={option} selected={option.value === value} active={option.value === active?.value} onMouseEnter={() => { if (!option.disabled) setActiveValue(option.value) }} onSelect={() => commit(option)} />)}
-      {!loading && !error && filtered.length === 0 && <div className="combobox-state" role="status">{emptyMessage}</div>}
+      {!loading && !error && filtered.length === 0 && <div className={styles.state} role="status">{emptyMessage}</div>}
     </div>
   </Popover>
 }

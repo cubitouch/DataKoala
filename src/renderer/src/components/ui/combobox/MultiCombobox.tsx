@@ -5,6 +5,7 @@ import { Popover } from '../Popover'
 import { ComboboxOption as OptionRow } from './ComboboxOption'
 import { ComboboxSearch } from './ComboboxSearch'
 import { ComboboxTrigger } from './ComboboxTrigger'
+import styles from './Combobox.module.css'
 import type { ComboboxOption } from './types'
 
 interface Props { label: string; values: string[]; options: ComboboxOption[]; onChange: (values: string[]) => void; onOpen?: () => void; placeholder?: string; searchable?: boolean; showChips?: boolean; disabled?: boolean; emptyMessage?: string; invalidationKey?: unknown }
@@ -27,12 +28,12 @@ export function MultiCombobox({ label, values, options, onChange, onOpen, placeh
   const onKeyDown = (event: React.KeyboardEvent) => { if (event.key === 'ArrowDown') { event.preventDefault(); move(1) } else if (event.key === 'ArrowUp') { event.preventDefault(); move(-1) } else if (event.key === 'Home') { event.preventDefault(); setActiveValue(enabled[0]?.value ?? null) } else if (event.key === 'End') { event.preventDefault(); setActiveValue(enabled.at(-1)?.value ?? null) } else if (event.key === 'Enter' || (!searchable && event.key === ' ')) { event.preventDefault(); toggle() } else if (event.key === 'Escape' || event.key === 'Tab') setOpen(false); else if (event.key === 'Backspace' && searchable && query === '' && values.length) remove(values.at(-1)!) }
   const clearAll = () => onChange([])
   const triggerSummary = selectedOptions.length ? { value: 'summary', label: `${selectedOptions.length} selected` } : undefined
-  return <Popover triggerRef={triggerRef} className="combobox multi-combobox" contentClassName="combobox-menu" maxHeight={360} open={open} onOpenChange={setOpen} disabled={disabled} invalidationKey={invalidationKey} ariaLabel={`${label}: ${selectedOptions.map((o) => o.label).join(', ') || placeholder}`} popupType="listbox" focusOptionsOnKeyboardOpen={false} triggerButtonProps={{ role: 'combobox', 'aria-controls': menuId, 'aria-activedescendant': active ? optionId(reactId, active.value) : undefined, onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(true); return } if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true); setActiveValue((event.key === 'ArrowDown' ? enabled[0] : enabled.at(-1))?.value ?? null) } } }} trigger={<ComboboxTrigger selected={triggerSummary} chips={showChips ? selectedOptions : undefined} onRemoveChip={remove} placeholder={placeholder} />}>
+  return <Popover triggerRef={triggerRef} contentClassName={styles.menu} maxHeight={360} open={open} onOpenChange={setOpen} disabled={disabled} invalidationKey={invalidationKey} ariaLabel={`${label}: ${selectedOptions.map((o) => o.label).join(', ') || placeholder}`} popupType="listbox" focusOptionsOnKeyboardOpen={false} triggerButtonProps={{ role: 'combobox', 'aria-controls': menuId, 'aria-activedescendant': active ? optionId(reactId, active.value) : undefined, onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(true); return } if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true); setActiveValue((event.key === 'ArrowDown' ? enabled[0] : enabled.at(-1))?.value ?? null) } } }} trigger={<ComboboxTrigger selected={triggerSummary} chips={showChips ? selectedOptions : undefined} onRemoveChip={remove} placeholder={placeholder} />}>
     <div id={menuId} role="listbox" aria-label={label} aria-multiselectable="true" aria-activedescendant={active ? optionId(reactId, active.value) : undefined} onKeyDown={onKeyDown} tabIndex={searchable ? -1 : 0}>
       {searchable && <ComboboxSearch inputRef={searchRef} value={query} onChange={setQuery} onKeyDown={onKeyDown} label={label} />}
-      {values.length > 0 && <button type="button" className="combobox-clear" onClick={clearAll}>Clear all</button>}
+      {values.length > 0 && <button type="button" className={styles.clear} onClick={clearAll}>Clear all</button>}
       {filtered.map((option) => <OptionRow key={option.value} id={optionId(reactId, option.value)} option={option} selected={values.includes(option.value)} active={option.value === active?.value} onMouseEnter={() => { if (!option.disabled) setActiveValue(option.value) }} onSelect={() => toggle(option)} />)}
-      {filtered.length === 0 && <div className="combobox-state" role="status">{emptyMessage}</div>}
+      {filtered.length === 0 && <div className={styles.state} role="status">{emptyMessage}</div>}
     </div>
   </Popover>
 }
