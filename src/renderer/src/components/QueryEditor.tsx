@@ -25,6 +25,7 @@ import { validatePromqlBuilder } from '../lib/promqlBuilder'
 import { InfoTooltip } from './ui/InfoTooltip'
 import { Combobox } from './ui/combobox'
 import { notify } from './NotificationArea'
+import styles from './QueryEditor.module.css'
 
 export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) {
   const tabId = useStore((s) => s.activeTabId)
@@ -212,30 +213,30 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   }
 
   return (
-    <div className="editor-pane" onKeyDown={onKey}>
-      <div className="editor-head">
-        <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
-        {language.kind === 'promql' && <div className="query-toolbar-group query-time-group" aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><div className="promql-step"><span>Resolution <InfoTooltip label="Resolution">How often Prometheus evaluates the query across the selected time range. Example: 30s produces one evaluation point every 30 seconds.</InfoTooltip></span><Combobox label="PromQL query resolution" value={prometheusStep} options={['15s', '30s', '1m', '5m'].map((value) => ({ value, label: value }))} onChange={(value) => setPrometheusQueryOptions({ prometheusStep: value as typeof prometheusStep }, tabId)} /></div></div>}
-        <div className="spacer" />
-        <QueryUtilityActions />
-        <div className="query-toolbar-group query-editor-actions">{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
+    <div className={`editor-pane ${styles.pane}`} data-query-editor onKeyDown={onKey}>
+      <div className={`editor-head ${styles.head}`} data-query-toolbar>
+        <div className={`query-toolbar-group query-mode-group ${styles.toolbarGroup}`}><ModeSwitch /></div>
+        {language.kind === 'promql' && <div className={`query-toolbar-group query-time-group ${styles.toolbarGroup} ${styles.timeGroup}`} aria-label="Prometheus time controls"><TimeRangeField value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><div className={`promql-step ${styles.promqlStep}`}><span>Resolution <InfoTooltip label="Resolution">How often Prometheus evaluates the query across the selected time range. Example: 30s produces one evaluation point every 30 seconds.</InfoTooltip></span><Combobox label="PromQL query resolution" value={prometheusStep} options={['15s', '30s', '1m', '5m'].map((value) => ({ value, label: value }))} onChange={(value) => setPrometheusQueryOptions({ prometheusStep: value as typeof prometheusStep }, tabId)} /></div></div>}
+        <div className={`spacer ${styles.spacer}`} />
+        <div className={styles.toolbarGroup}><QueryUtilityActions /></div>
+        <div className={`query-toolbar-group query-editor-actions ${styles.toolbarGroup} ${styles.editorActions}`}>{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
           {formatting ? 'Formatting…' : 'Format'}
         </button>}
         <CopySqlButton sql={sql} />
-        {language.kind === 'sql' && capabilities.explain && <button className="btn ghost explain-action" onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
+        {language.kind === 'sql' && capabilities.explain && <button className={`btn ghost explain-action ${styles.explainAction}`} onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
           {isExplainLoading && <span className="spinner" aria-hidden="true" />}
           {isExplainLoading ? 'Explaining…' : 'Explain'}
         </button>}
-        {language.kind === 'sql' && capabilities.analyze && <button className="btn ghost explain-action analyze" onClick={() => explain('analyze')} disabled={isAnyExplainLoading || !canAnalyze} aria-busy={isAnalyzeLoading}>
+        {language.kind === 'sql' && capabilities.analyze && <button className={`btn ghost explain-action analyze ${styles.explainAction} ${styles.analyzeAction}`} onClick={() => explain('analyze')} disabled={isAnyExplainLoading || !canAnalyze} aria-busy={isAnalyzeLoading}>
           {isAnalyzeLoading && <span className="spinner" aria-hidden="true" />}
           {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
         </button>}</div>
-        <div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={!canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder)))} title="Run (Ctrl/Command+Enter)">
+        <div className={`query-toolbar-group execution-group ${styles.toolbarGroup}`}><button className="btn primary" onClick={run} disabled={!canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder)))} title="Run (Ctrl/Command+Enter)">
           {running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}
         </button></div>
       </div>
 
-      {builderMode ? <PromqlBuilderPanel /> : <div className="cm-wrap">
+      {builderMode ? <PromqlBuilderPanel /> : <div className={`cm-wrap ${styles.editor}`}>
         <CodeMirror
           ref={editorRef}
           value={sql}
