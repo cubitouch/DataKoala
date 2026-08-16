@@ -1,4 +1,5 @@
 .form {
+  composes: builder-form axis-builder-form from global;
   container-type: inline-size;
   display: flex;
   flex-direction: column;
@@ -23,6 +24,7 @@
 }
 
 .control {
+  composes: builder-control from global;
   min-width: 0;
 }
 
@@ -31,6 +33,7 @@
 }
 
 .fieldLabel {
+  composes: builder-field-label from global;
   color: var(--text-mute);
   font-family: var(--sans);
   font-size: 11px;
@@ -62,6 +65,7 @@
 }
 
 .generatedSql {
+  composes: generated-sql from global;
   margin: 0 12px 12px;
   border: 1px solid var(--border);
   border-radius: 7px;
