@@ -2,10 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildSeriesCardinalityProbe } from './seriesCardinality.ts'
 
-test('GoogleSQL cardinality uses STRUCT for multiple Series dimensions', () => {
-  const probe = buildSeriesCardinalityProbe({ schema: 'my-project.analytics', table: 'events', seriesColumns: ['region', 'channel'], predicates: [] }, 'google-sql')
-  assert.match(probe.sql, /SELECT STRUCT\(`region`, `channel`\)/)
-  assert.match(probe.sql, /GROUP BY STRUCT\(`region`, `channel`\)/)
+test('GoogleSQL cardinality groups each Series column while selecting a STRUCT tuple', () => {
+  const probe = buildSeriesCardinalityProbe({ schema: 'my-project.analytics', table: 'events', seriesColumns: ['region', 'currency'], predicates: [] }, 'google-sql')
+  assert.match(probe.sql, /SELECT STRUCT\(`region`, `currency`\)/)
+  assert.match(probe.sql, /GROUP BY `region`, `currency`/)
+  assert.doesNotMatch(probe.sql, /GROUP BY STRUCT/)
   assert.match(probe.sql, /FROM `my-project\.analytics\.events`/)
 })
 
