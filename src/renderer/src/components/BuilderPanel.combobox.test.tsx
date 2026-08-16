@@ -73,6 +73,9 @@ const chooseXAxis = (name: RegExp) => {
   fireEvent.click(screen.getByRole('option', { name }))
 }
 
+const comboboxLabels = (container: Element) => Array.from(container.querySelectorAll('[role="combobox"]'))
+  .map((control) => control.getAttribute('aria-label')?.split(':')[0])
+
 describe('BuilderPanel axis-first controls', () => {
   it('groups dimensions before their aligned transformations', () => {
     const view = arrange()
@@ -80,8 +83,8 @@ describe('BuilderPanel axis-first controls', () => {
     chooseXAxis(/created_at/)
     const dimensions = view.container.querySelector('[data-builder-control-row="dimensions"]')!
     const transformations = view.container.querySelector('[data-builder-control-row="transformations"]')!
-    expect(Array.from(dimensions.querySelectorAll('.builder-field-label')).map((label) => label.textContent)).toEqual(['X axis', 'Y axis (optional for Count)', 'Series'])
-    expect(Array.from(transformations.querySelectorAll('.builder-field-label')).map((label) => label.textContent)).toEqual(['Time bucket', 'Aggregation'])
+    expect(comboboxLabels(dimensions)).toEqual(['X axis', 'Y axis', 'Series columns'])
+    expect(comboboxLabels(transformations)).toEqual(['Time bucket', 'Aggregation'])
   })
 
   it('omits only Time bucket for a categorical X and retains Count without Y', () => {
@@ -90,7 +93,7 @@ describe('BuilderPanel axis-first controls', () => {
     chooseXAxis(/region, text/)
     const transformations = view.container.querySelector('[data-builder-control-row="transformations"]')!
     expect(screen.queryByRole('combobox', { name: /Time bucket/ })).toBeNull()
-    expect(transformations.querySelector('.builder-field-label')?.textContent).toBe('Aggregation')
+    expect(comboboxLabels(transformations)).toEqual(['Aggregation'])
     expect(screen.getByRole('combobox', { name: /Y axis: Count rows \(no Y axis\)/ })).toBeTruthy()
     expect(activeTestSession().builderVisualization.aggregation).toBe('count')
   })

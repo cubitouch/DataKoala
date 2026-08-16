@@ -36,9 +36,9 @@ describe('Builder generated SQL header', () => {
       builderVisualization: { ...activeTestSession().builderVisualization, xColumn: 'created_at', valueColumn: null, aggregation: 'count', seriesColumn: null, seriesColumns: [] }
     })
 
-    const view = render(<BuilderPanel />)
-    const details = view.container.querySelector('details.generated-sql') as HTMLDetailsElement
+    render(<BuilderPanel />)
     const title = screen.getByText('Generated SQL') as HTMLElement
+    const details = title.closest('details') as HTMLDetailsElement
     const openButton = screen.getByRole('button', { name: 'Open in SQL mode' }) as HTMLButtonElement
 
     expect(details.open).toBe(false)

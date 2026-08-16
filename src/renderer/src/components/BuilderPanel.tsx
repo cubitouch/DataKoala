@@ -16,7 +16,7 @@ import { isMinuteBucketAvailable, SEVEN_DAYS, timeRangeProbePredicates, validate
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { formatSqlOrOriginal } from '../lib/formatSql'
 import type { Aggregation } from '../lib/resultVisualization'
-import '../axisBuilder.css'
+import styles from './BuilderPanel.module.css'
 import { formatterDialect as formatterDialectForSql } from '../lib/sqlDialect'
 import { ensureRelationColumns } from '../lib/relationColumns'
 import { QueryUtilityActions } from './QueryUtilityActions'
@@ -419,28 +419,28 @@ export function BuilderPanel() {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); run() }
   }
 
-  return <div className="editor-pane builder-pane" onKeyDown={onKeyDown}>
+  return <div className="editor-pane builder-pane" data-builder-panel="" onKeyDown={onKeyDown}>
     <div className="editor-head"><ModeSwitch /><div className="spacer"/><QueryUtilityActions /><div className="query-toolbar-group builder-copy-action"><CopySqlButton sql={generatedSql} /></div><div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={!generatedSql || !tabConnectionId || connecting || running || Boolean(rangeError)}>{running ? 'Running…' : connecting ? 'Connecting…' : 'Run query'}</button></div></div>
-    <div className="builder-form axis-builder-form">
-      <div className="builder-row builder-row-context">
-        <div className="builder-control"><span className="builder-field-label">Schema</span><Combobox label="Schema" value={selectedSchema} options={schemaOptions} onChange={chooseSchema} placeholder="Select a schema…" loading={metadataStatus === 'loading'} error={metadataStatus === 'error' ? (storeMetadataError ?? 'Could not load schemas') : null} disabled={!tabConnectionId || metadataStatus === 'loading'} /></div>
-        <div className="builder-control"><span className="builder-field-label">Table/view</span><Combobox label="Table or view" value={selectedRelation ? relationIdentity(selectedRelation) : ''} options={relationOptions} onChange={chooseTable} placeholder="Select a table or view…" searchable disabled={!selectedSchema} emptyMessage="No matching tables or views" invalidationKey={selectedSchema} /></div>
-        <div className="builder-control"><span className="builder-field-label">Time column</span><Combobox label="Time column" value={builder.timeColumn ?? ''} options={timeColumnOptions} onChange={chooseTimeColumn} placeholder={temporalColumns.length ? 'Select a time column…' : 'No date/time columns'} searchable disabled={!builder.table || temporalColumns.length === 0} emptyMessage="No matching date/time columns" invalidationKey={relationInvalidationKey} /></div>
-        {effectiveTimeRange && timeFilterColumn ? <TimeRangeField value={effectiveTimeRange} onChange={(timeRange) => setBuilder({ timeRange }, tabId)} error={rangeError} columnName={timeFilterColumn.name}/> : <div className="builder-control"><span className="builder-field-label">Time range</span><div className="builder-unavailable" aria-disabled="true">{!builder.table ? 'Select a table' : temporalColumns.length ? 'Select a time column' : 'No date/time columns'}</div></div>}
+    <div className={styles.form} data-builder-form="">
+      <div className={`${styles.row} ${styles.contextRow}`}>
+        <div className={styles.control}><span className={styles.fieldLabel}>Schema</span><Combobox label="Schema" value={selectedSchema} options={schemaOptions} onChange={chooseSchema} placeholder="Select a schema…" loading={metadataStatus === 'loading'} error={metadataStatus === 'error' ? (storeMetadataError ?? 'Could not load schemas') : null} disabled={!tabConnectionId || metadataStatus === 'loading'} /></div>
+        <div className={styles.control}><span className={styles.fieldLabel}>Table/view</span><Combobox label="Table or view" value={selectedRelation ? relationIdentity(selectedRelation) : ''} options={relationOptions} onChange={chooseTable} placeholder="Select a table or view…" searchable disabled={!selectedSchema} emptyMessage="No matching tables or views" invalidationKey={selectedSchema} /></div>
+        <div className={styles.control}><span className={styles.fieldLabel}>Time column</span><Combobox label="Time column" value={builder.timeColumn ?? ''} options={timeColumnOptions} onChange={chooseTimeColumn} placeholder={temporalColumns.length ? 'Select a time column…' : 'No date/time columns'} searchable disabled={!builder.table || temporalColumns.length === 0} emptyMessage="No matching date/time columns" invalidationKey={relationInvalidationKey} /></div>
+        {effectiveTimeRange && timeFilterColumn ? <TimeRangeField value={effectiveTimeRange} onChange={(timeRange) => setBuilder({ timeRange }, tabId)} error={rangeError} columnName={timeFilterColumn.name}/> : <div className={styles.control}><span className={styles.fieldLabel}>Time range</span><div className={styles.unavailable} aria-disabled="true">{!builder.table ? 'Select a table' : temporalColumns.length ? 'Select a time column' : 'No date/time columns'}</div></div>}
       </div>
-      <div className="builder-row builder-row-dimensions" data-builder-control-row="dimensions">
-        <div className="builder-control"><span className="builder-field-label">X axis</span><Combobox label="X axis" value={selectedX ?? ''} options={xAxisOptions} onChange={chooseXAxis} placeholder="Select an X axis…" searchable disabled={!builder.table} emptyMessage="No matching columns" invalidationKey={relationInvalidationKey} /></div>
-        <div className="builder-control"><span className="builder-field-label">Y axis <span>(optional for Count)</span></span><Combobox label="Y axis" value={selectedY ?? ''} options={yAxisOptions} onChange={chooseY} placeholder={aggregation === 'count' ? 'Count rows (no Y axis)' : 'Select a numeric Y axis…'} searchable disabled={!builder.table} emptyMessage="No matching numeric columns" invalidationKey={`${relationInvalidationKey}\0${selectedX ?? ''}\0${builder.seriesColumns.join('\0')}`} />{yRequired && !selectedY && <small className="inline-error" role="status">{aggregationLabel(aggregation)} requires a numeric Y axis column.</small>}</div>
-        <div className="builder-control"><span className="builder-field-label">Series</span><MultiCombobox label="Series columns" values={builder.seriesColumns} options={seriesColumnOptions} onChange={(nextSeriesColumns) => void selectSeries(nextSeriesColumns)} placeholder="No breakdown" searchable showChips disabled={!builder.table || seriesProbe?.status === 'checking'} invalidationKey={`${relationInvalidationKey}\0${selectedX ?? ''}\0${selectedY ?? ''}`} />{seriesProbe?.status === 'checking' && <small role="status">Checking cardinality…</small>}{seriesProbe?.status === 'error' && <small className="inline-error" role="alert">{seriesProbe.message} <button className="btn ghost" onClick={seriesProbe.retry}>Retry</button></small>}</div>
+      <div className={styles.row} data-builder-control-row="dimensions">
+        <div className={styles.control}><span className={styles.fieldLabel}>X axis</span><Combobox label="X axis" value={selectedX ?? ''} options={xAxisOptions} onChange={chooseXAxis} placeholder="Select an X axis…" searchable disabled={!builder.table} emptyMessage="No matching columns" invalidationKey={relationInvalidationKey} /></div>
+        <div className={styles.control}><span className={styles.fieldLabel}>Y axis <span>(optional for Count)</span></span><Combobox label="Y axis" value={selectedY ?? ''} options={yAxisOptions} onChange={chooseY} placeholder={aggregation === 'count' ? 'Count rows (no Y axis)' : 'Select a numeric Y axis…'} searchable disabled={!builder.table} emptyMessage="No matching numeric columns" invalidationKey={`${relationInvalidationKey}\0${selectedX ?? ''}\0${builder.seriesColumns.join('\0')}`} />{yRequired && !selectedY && <small className="inline-error" role="status">{aggregationLabel(aggregation)} requires a numeric Y axis column.</small>}</div>
+        <div className={styles.control}><span className={styles.fieldLabel}>Series</span><MultiCombobox label="Series columns" values={builder.seriesColumns} options={seriesColumnOptions} onChange={(nextSeriesColumns) => void selectSeries(nextSeriesColumns)} placeholder="No breakdown" searchable showChips disabled={!builder.table || seriesProbe?.status === 'checking'} invalidationKey={`${relationInvalidationKey}\0${selectedX ?? ''}\0${selectedY ?? ''}`} />{seriesProbe?.status === 'checking' && <small role="status">Checking cardinality…</small>}{seriesProbe?.status === 'error' && <small className="inline-error" role="alert">{seriesProbe.message} <button className="btn ghost" onClick={seriesProbe.retry}>Retry</button></small>}</div>
       </div>
-      <div className="builder-row builder-row-transformations" data-builder-control-row="transformations">
-        {xTemporal ? <div className="builder-control"><span className="builder-field-label">Time bucket</span><Combobox label="Time bucket" value={builder.timeBucket} options={timeBucketOptions} onChange={(value) => { probeGuard.current.invalidate(); setSeriesProbe(null); setBuilder({ timeBucket: value as TimeBucket }, tabId) }} /></div> : <div className="builder-slot-empty" aria-hidden="true"/>}
-        <div className="builder-control"><span className="builder-field-label">Aggregation</span><Combobox label="Aggregation" value={aggregation} options={aggregationOptions} onChange={chooseAggregation} disabled={!builder.table} /></div>
+      <div className={`${styles.row} ${styles.transformationsRow}`} data-builder-control-row="transformations">
+        {xTemporal ? <div className={styles.control}><span className={styles.fieldLabel}>Time bucket</span><Combobox label="Time bucket" value={builder.timeBucket} options={timeBucketOptions} onChange={(value) => { probeGuard.current.invalidate(); setSeriesProbe(null); setBuilder({ timeBucket: value as TimeBucket }, tabId) }} /></div> : <div className={styles.slotEmpty} aria-hidden="true"/>}
+        <div className={styles.control}><span className={styles.fieldLabel}>Aggregation</span><Combobox label="Aggregation" value={aggregation} options={aggregationOptions} onChange={chooseAggregation} disabled={!builder.table} /></div>
       </div>
     </div>
     {selectedRelation?.columnsStatus === 'error' && <div className="inline-error" role="alert">Could not load columns. {metadataError || selectedRelation.columnsError}<button className="btn ghost" type="button" onClick={() => void loadColumns(selectedRelation, true)}>Retry column metadata</button></div>}
     {(axisNotice || filterNotice) && <div className="toast" role="status">{[axisNotice, filterNotice?.message].filter(Boolean).join(' ')}</div>}
-    <details className="generated-sql">
+    <details className={styles.generatedSql}>
       <summary>
         <span style={{ marginLeft: 4 }}>Generated SQL</span>
         <button className="btn ghost" type="button" disabled={!generatedQuery} style={{ float: 'right', marginTop: -4, marginBottom: -4 }} onClick={(event) => {
@@ -449,8 +449,8 @@ export function BuilderPanel() {
       </summary>
       {generatedQuery ? <>
         <CodeMirror value={formattedGeneratedSql} height="150px" theme={oneDark} editable={false} basicSetup={{ lineNumbers: true, foldGutter: false }} />
-        {generatedQuery.parameters.length > 0 && <div className="generated-parameters"><strong>Parameters:</strong> <code>{JSON.stringify(generatedQuery.parameters)}</code></div>}
-        <div className="generated-actions"><CopySqlButton sql={formattedGeneratedSql} /></div>
+        {generatedQuery.parameters.length > 0 && <div className={styles.generatedParameters}><strong>Parameters:</strong> <code>{JSON.stringify(generatedQuery.parameters)}</code></div>}
+        <div className={styles.generatedActions}><CopySqlButton sql={formattedGeneratedSql} /></div>
       </> : <p>{builder.table && selectedX && yRequired && !selectedY ? `Select a numeric Y axis for ${aggregationLabel(aggregation)}.` : 'Select a table and X axis to preview SQL.'}</p>}
     </details>
   </div>

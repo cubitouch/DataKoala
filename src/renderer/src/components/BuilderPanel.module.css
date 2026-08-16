@@ -1,0 +1,132 @@
+.form {
+  composes: builder-form axis-builder-form from global;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 12px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.contextRow {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.transformationsRow {
+  /* Keep transformations directly beneath the dimension they modify. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.control {
+  composes: builder-control from global;
+  min-width: 0;
+}
+
+.control > span {
+  display: block;
+}
+
+.fieldLabel {
+  composes: builder-field-label from global;
+  color: var(--text-mute);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: normal;
+}
+
+.fieldLabel span {
+  color: var(--text-mute);
+}
+
+.unavailable {
+  height: 31px;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-3);
+  color: var(--text-mute);
+  font-size: 12px;
+  opacity: .65;
+}
+
+.slotEmpty {
+  min-width: 0;
+}
+
+.generatedSql {
+  composes: generated-sql from global;
+  margin: 0 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-3);
+}
+
+.generatedSql summary {
+  cursor: pointer;
+  padding: 8px 10px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.generatedSql p {
+  color: var(--text-mute);
+  padding: 0 10px;
+}
+
+.generatedParameters {
+  padding: 7px 10px;
+  color: var(--text-mute);
+  font-size: 11px;
+  border-top: 1px solid var(--border);
+}
+
+.generatedParameters code {
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+.generatedActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px;
+}
+
+@media (max-width: 1200px) {
+  .contextRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .row,
+  .contextRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .slotEmpty {
+    display: none;
+  }
+}
+
+@container (max-width: 700px) {
+  .row,
+  .contextRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .slotEmpty {
+    display: none;
+  }
+}
