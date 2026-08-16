@@ -15,11 +15,11 @@ let sequence = 0
 function arrange(metric = 'request_duration_seconds_bucket', metricType?: string) {
   const id = `prom-builder-${++sequence}`
   resetTestStore({ profiles: [{ id, name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }] })
-  patchActiveTestSession({ connectionProfileId: id, queryMode: 'builder', sql: '', promqlBuilder: { metric, filterBy: [], groupBy: [], labelValues: {}, calculation: 'percentile', aggregation: 'sum', window: '5m', percentile: 0.95 } })
+  patchActiveTestSession({ connectionProfileId: id, queryMode: 'builder', sql: '', promqlBuilder: { metric, filterBy: [], groupBy: [], labelValues: {}, calculation: 'percentile', aggregation: 'sum', window: '5m', percentile: 0.95, histogramKindOverride: 'auto' } })
   setActiveTestMetadata([{ name: 'Prometheus', isSystem: false, relations: [metric, 'other_total', 'other_bucket'].filter((name, index, all) => all.indexOf(name) === index).map((name) => ({ schema: 'Prometheus', name, qualifiedName: name, kind: 'metric' as const, columnsStatus: 'idle' as const, ...(name === metric && metricType ? { details: { kind: 'metric' as const, type: metricType } } : {}) })) }], 'loaded', null, id)
   return render(<PromqlBuilderPanel />)
 }
-beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); labelsForMetric.mockReset().mockResolvedValue(['service', 'very_specific_label_name', 'environment', 'le', '__name__']); labelValues.mockReset().mockResolvedValue(['staging', 'production']) })
+beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); labelsForMetric.mockReset().mockResolvedValue(['service', 'very_specific_label_name', 'environment', '__name__']); labelValues.mockReset().mockResolvedValue(['staging', 'production']) })
 afterEach(cleanup)
 
 describe('PromQL Builder controls', () => {
@@ -114,32 +114,55 @@ describe('PromQL Builder controls', () => {
     expect(activeTestSession().promqlBuilder.labelValues.service).toBeUndefined()
   })
 
-  it('preserves Rate, aggregation, and Percentile across metric changes', async () => {
+  it('preserves compatible calculation state across metric changes and resets representation to Auto', async () => {
     arrange('requests_total')
-    patchActiveTestSession({ promqlBuilder: { ...activeTestSession().promqlBuilder, calculation: 'rate', aggregation: 'avg' } })
+    patchActiveTestSession({ promqlBuilder: { ...activeTestSession().promqlBuilder, calculation: 'rate', aggregation: 'avg', histogramKindOverride: 'native' } })
     cleanup(); render(<PromqlBuilderPanel />)
     fireEvent.click(screen.getByRole('combobox', { name: /Metric: requests_total/ }))
     fireEvent.click(await screen.findByRole('option', { name: 'other_total' }))
-    expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'rate', aggregation: 'avg' })
+    expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'rate', aggregation: 'avg', histogramKindOverride: 'auto' })
     patchActiveTestSession({ promqlBuilder: { ...activeTestSession().promqlBuilder, metric: 'other_bucket', calculation: 'percentile', aggregation: 'sum' } })
     cleanup(); render(<PromqlBuilderPanel />)
     fireEvent.click(screen.getByRole('combobox', { name: /Metric: other_bucket/ }))
     fireEvent.click(await screen.findByRole('option', { name: 'other_total' }))
-    expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'percentile', aggregation: 'sum' })
-    expect(activeTestSession().sql).toContain('rate(other_total[5m])')
-    expect(activeTestSession().sql).not.toContain('sum by (le)')
+    expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'percentile', aggregation: 'sum', histogramKindOverride: 'auto' })
+    expect(await screen.findByRole('combobox', { name: 'Histogram representation: Auto' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open in PromQL' }).hasAttribute('disabled')).toBe(true)
   })
 
-  it('keeps Percentile selectable for an unknown non-bucket metric and uses native syntax', async () => {
+  it('fails closed for an ambiguous histogram calculation until the user chooses a representation', async () => {
     labelsForMetric.mockResolvedValueOnce(['service'])
-    arrange('requests_total')
-    await screen.findByText(/Histogram representation could not be determined/)
-    fireEvent.click(screen.getByRole('combobox', { name: /Calculation: Percentile/ }))
-    expect(screen.getByRole('option', { name: 'Percentile' }).getAttribute('aria-disabled')).not.toBe('true')
-    fireEvent.click(screen.getByRole('option', { name: 'Percentile' }))
-    expect(activeTestSession().sql).toContain('sum(\n    rate(requests_total[5m])')
+    arrange('mystery_metric')
+    const representation = await screen.findByRole('combobox', { name: 'Histogram representation: Auto' })
+    const warning = screen.getByRole('button', { name: 'Histogram representation warning' })
+    expect(warning.getAttribute('aria-describedby')).toBeTruthy()
+    const tooltip = screen.getByText(/Histogram calculations are not generated until you choose a representation/)
+    expect(tooltip.hasAttribute('hidden')).toBe(true)
+    fireEvent.focus(warning)
+    expect(tooltip.hasAttribute('hidden')).toBe(false)
+    expect(screen.getByRole('button', { name: 'Open in PromQL' }).hasAttribute('disabled')).toBe(true)
+    fireEvent.click(screen.getByText('Generated PromQL'))
+    expect(screen.getByRole('status').textContent).toMatch(/Choose Classic histogram or Native histogram/)
+
+    fireEvent.click(representation)
+    fireEvent.click(await screen.findByRole('option', { name: 'Native histogram' }))
+    await waitFor(() => expect(activeTestSession().sql).toContain('sum(\n    rate(mystery_metric[5m])'))
     expect(activeTestSession().sql).not.toContain('sum by (le)')
-    expect(screen.getByText(/Histogram representation could not be determined/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Histogram representation: Native histogram' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Classic histogram' }))
+    await waitFor(() => expect(activeTestSession().sql).toContain('sum by (le)'))
+  })
+
+  it('hides histogram-only calculations for metadata-known non-histograms', async () => {
+    labelsForMetric.mockResolvedValueOnce(['method', 'service'])
+    arrange('requests_total', 'counter')
+    await waitFor(() => expect(activeTestSession().promqlBuilder.calculation).toBe('raw'))
+    const calculation = screen.getByRole('combobox', { name: /Calculation: Raw/ })
+    fireEvent.click(calculation)
+    for (const name of ['Raw', 'Rate', 'Increase']) expect(screen.getByRole('option', { name })).toBeTruthy()
+    for (const name of ['Observation rate', 'Average', 'Sum of observations', 'Percentile']) expect(screen.queryByRole('option', { name })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: /Histogram representation/ })).toBeNull()
   })
 
   it('offers intent-based native histogram calculations and hides ordinary aggregation', async () => {
