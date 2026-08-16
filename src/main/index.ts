@@ -69,7 +69,7 @@ function createWindow(): void {
           return JSON.stringify({
             mounted: !!root && root.children.length > 0,
             hasTitlebar: !!document.querySelector('.titlebar'),
-            hasSidebar: !!document.querySelector('.sidebar'),
+            hasSidebar: !!document.querySelector('aside[aria-label="Connections and database objects"]'),
             hasBuilder: !!document.querySelector('.builder-pane'),
             bridge: typeof window.datakoala === 'object' && window.datakoala !== null,
             text: (document.body.innerText || '').slice(0, 300)
@@ -348,10 +348,10 @@ function attachRepro(conn: string): void {
           .find((b) => /save/i.test(b.textContent))
         click(saveBtn)
         await sleep(700)
-        const mine = [...document.querySelectorAll('.conn-item')]
+        const mine = [...document.querySelectorAll('[data-connection-item]')]
           .find((el) => el.querySelector('.name')?.textContent === REPRO_NAME)
         if (!mine) return JSON.stringify({ error: 'could not find the repro profile by name', steps })
-        steps.push('selected own profile (of ' + document.querySelectorAll('.conn-item').length + ' listed)')
+        steps.push('selected own profile (of ' + document.querySelectorAll('[data-connection-item]').length + ' listed)')
         click(mine.querySelector('.name'))
         const store = window.__datakoalaStore
         for (let i = 0; i < 60; i++) {

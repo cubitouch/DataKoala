@@ -5,6 +5,7 @@ import type { PrometheusDatasourceOption } from '../../../shared/prometheus'
 import { parseConnectionString, buildConnectionString, DEFAULT_PORT } from '../../../shared/connString'
 import { api } from '../lib/api'
 import { Combobox } from './ui/combobox'
+import styles from './ConnectionModal.module.css'
 import { parseBigQueryReference, type BigQueryDatasetOption, type BigQueryProjectOption } from '../../../shared/bigqueryDiscovery'
 import {
   buildConnectionProfileDraft,
@@ -54,11 +55,11 @@ function SourceIcon({ type }: { type: ConnectionSourceDescriptor['icon'] }) {
 
 function ConnectionFormHeader({ kind, editing, onBack }: { kind: DataSourceKind; editing: boolean; onBack?: () => void }) {
   const descriptor = CONNECTION_SOURCE_DESCRIPTORS.find((item) => item.kind === kind)!
-  return <header className="connection-form-header">
-    {onBack && <button type="button" className="btn ghost connection-back" onClick={onBack} aria-label="Back to connection types">← Back</button>}
-    <span className="source-icon"><SourceIcon type={descriptor.icon} /></span>
-    <div><div className="wizard-steps">{editing ? 'Connection type' : 'Step 2 of 2 · Details'}</div><h2 id={`${kind}-connection-title`}>{editing ? `Edit ${descriptor.label} connection` : descriptor.label}</h2></div>
-    {editing && <span className="source-kind-badge">Fixed type</span>}
+  return <header className={[styles.connectionFormHeader].join(' ')}>
+    {onBack && <button type="button" className={['btn', 'ghost', styles.connectionBack].join(' ')} onClick={onBack} aria-label="Back to connection types">← Back</button>}
+    <span className={[styles.sourceIcon].join(' ')}><SourceIcon type={descriptor.icon} /></span>
+    <div><div className={[styles.wizardSteps].join(' ')}>{editing ? 'Connection type' : 'Step 2 of 2 · Details'}</div><h2 id={`${kind}-connection-title`}>{editing ? `Edit ${descriptor.label} connection` : descriptor.label}</h2></div>
+    {editing && <span className={[styles.sourceKindBadge].join(' ')}>Fixed type</span>}
   </header>
 }
 
@@ -209,53 +210,53 @@ function PostgresConnectionModal({ existing, onClose, onSaved, onBack, active = 
     'aria-describedby': errors[field] ? `${field}-error` : undefined
   })
   const errorFor = (field: ConnectionDraftField) => errors[field]
-    ? <div id={`${field}-error`} className="field-error" role="alert">{errors[field]}</div> : null
+    ? <div id={`${field}-error`} className={[styles.fieldError].join(' ')} role="alert">{errors[field]}</div> : null
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="postgres-connection-title" onClick={(e) => e.stopPropagation()}>
+    <div className={[styles.modalOverlay].join(' ')} onClick={onClose}>
+      <div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="postgres-connection-title" onClick={(e) => e.stopPropagation()}>
         <ConnectionFormHeader kind="postgres" editing={!!existing} onBack={onBack} />
-        <div className="field">
+        <div className={[styles.field].join(' ')}>
           <label htmlFor="connection-string">Paste a connection string</label>
-          <textarea id="connection-string" className="conn-paste" value={pasted} spellCheck={false} autoComplete="off"
+          <textarea id="connection-string" className={[styles.connPaste].join(' ')} value={pasted} spellCheck={false} autoComplete="off"
             placeholder={EXAMPLE} onChange={(e) => applyConnectionString(e.target.value)} rows={2}
             aria-invalid={parseError ? true : undefined} aria-describedby={parseError ? 'connection-string-error' : 'connection-string-hint'} />
-          <div id="connection-string-hint" className="paste-hint">Accepts <code>postgres://…</code>, <code>postgresql://…</code>, a <code>jdbc:</code> prefix, or libpq <code>host=… dbname=…</code> form. Fills in the fields below.</div>
-          {parseError && <div id="connection-string-error" className="test-msg err" role="alert">{parseError}</div>}
-          {parsedOk && <div className="test-msg ok">Parsed{parseWarnings.length ? ' with notes' : ''} — check the fields below.</div>}
-          {parseWarnings.map((w) => <div key={w} className="test-msg warn">{w}</div>)}
+          <div id="connection-string-hint" className={[styles.pasteHint].join(' ')}>Accepts <code>postgres://…</code>, <code>postgresql://…</code>, a <code>jdbc:</code> prefix, or libpq <code>host=… dbname=…</code> form. Fills in the fields below.</div>
+          {parseError && <div id="connection-string-error" className={[styles.testMsg, styles.err].join(' ')} role="alert">{parseError}</div>}
+          {parsedOk && <div className={[styles.testMsg, styles.ok].join(' ')}>Parsed{parseWarnings.length ? ' with notes' : ''} — check the fields below.</div>}
+          {parseWarnings.map((w) => <div key={w} className={[styles.testMsg, styles.warn].join(' ')}>{w}</div>)}
         </div>
-        <div className="modal-divider"><span>or enter details manually</span></div>
-        <div className="field"><label htmlFor="profile-name">Profile name</label><input id="profile-name" {...inputProps('name')} value={draft.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. staging analytics" />{errorFor('name')}</div>
-        <div className="row">
-          <div className="field"><label htmlFor="connection-host">Host</label><input id="connection-host" {...inputProps('host')} value={draft.host} onChange={(e) => set({ host: e.target.value })} />{errorFor('host')}</div>
-          <div className="field"><label htmlFor="connection-port">Port</label><input id="connection-port" {...inputProps('port')} inputMode="numeric" value={draft.port} onChange={(e) => set({ port: e.target.value })} />{errorFor('port')}</div>
+        <div className={[styles.modalDivider].join(' ')}><span>or enter details manually</span></div>
+        <div className={[styles.field].join(' ')}><label htmlFor="profile-name">Profile name</label><input id="profile-name" {...inputProps('name')} value={draft.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. staging analytics" />{errorFor('name')}</div>
+        <div className={[styles.row].join(' ')}>
+          <div className={[styles.field].join(' ')}><label htmlFor="connection-host">Host</label><input id="connection-host" {...inputProps('host')} value={draft.host} onChange={(e) => set({ host: e.target.value })} />{errorFor('host')}</div>
+          <div className={[styles.field].join(' ')}><label htmlFor="connection-port">Port</label><input id="connection-port" {...inputProps('port')} inputMode="numeric" value={draft.port} onChange={(e) => set({ port: e.target.value })} />{errorFor('port')}</div>
         </div>
-        <div className="row">
-          <div className="field"><label htmlFor="connection-database">Database</label><input id="connection-database" {...inputProps('database')} value={draft.database} onChange={(e) => set({ database: e.target.value })} />{errorFor('database')}</div>
-          <div className="field"><label htmlFor="connection-user">User</label><input id="connection-user" {...inputProps('user')} value={draft.user} onChange={(e) => set({ user: e.target.value })} />{errorFor('user')}</div>
+        <div className={[styles.row].join(' ')}>
+          <div className={[styles.field].join(' ')}><label htmlFor="connection-database">Database</label><input id="connection-database" {...inputProps('database')} value={draft.database} onChange={(e) => set({ database: e.target.value })} />{errorFor('database')}</div>
+          <div className={[styles.field].join(' ')}><label htmlFor="connection-user">User</label><input id="connection-user" {...inputProps('user')} value={draft.user} onChange={(e) => set({ user: e.target.value })} />{errorFor('user')}</div>
         </div>
-        <div className="field"><label htmlFor="connection-password">Password <span className="opt">— leave empty for proxy / IAM / .pgpass auth</span></label><input id="connection-password" type="password" value={draft.password} onChange={(e) => set({ password: e.target.value })} /></div>
-        <div className="row">
-          <label className="checkbox"><input type="checkbox" checked={draft.ssl} onChange={(e) => set({ ssl: e.target.checked })} />Use SSL</label>
-          <label className="checkbox"><input type="checkbox" checked={draft.readonly} onChange={(e) => set({ readonly: e.target.checked })} />Read-only (blocks writes)</label>
+        <div className={[styles.field].join(' ')}><label htmlFor="connection-password">Password <span className={[styles.opt].join(' ')}>— leave empty for proxy / IAM / .pgpass auth</span></label><input id="connection-password" type="password" value={draft.password} onChange={(e) => set({ password: e.target.value })} /></div>
+        <div className={[styles.row].join(' ')}>
+          <label className={[styles.checkbox].join(' ')}><input type="checkbox" checked={draft.ssl} onChange={(e) => set({ ssl: e.target.checked })} />Use SSL</label>
+          <label className={[styles.checkbox].join(' ')}><input type="checkbox" checked={draft.readonly} onChange={(e) => set({ readonly: e.target.checked })} />Read-only (blocks writes)</label>
         </div>
-        {preview && <div className="field"><label>Will connect as</label><div className="conn-preview">{preview}</div></div>}
+        {preview && <div className={[styles.field].join(' ')}><label>Will connect as</label><div className={[styles.connPreview].join(' ')}>{preview}</div></div>}
         <div aria-live="polite" aria-atomic="true">
-          {testState.status === 'testing' && <div className="test-msg testing-status" role="status"><span className="loading-spinner" aria-hidden="true" />Testing connection…</div>}
+          {testState.status === 'testing' && <div className={[styles.testMsg, styles.testingStatus].join(' ')} role="status"><span className={[styles.loadingSpinner].join(' ')} aria-hidden="true" />Testing connection…</div>}
           {testState.status !== 'idle' && testState.status !== 'testing' && (
-            <div className={`test-msg connection-test-result ${testState.status === 'success' ? 'ok' : testState.status === 'error' ? 'err' : 'info'}`} role={testState.status === 'error' ? 'alert' : 'status'}>
+            <div className={[styles.testMsg, styles.connectionTestResult, testState.status === 'success' ? styles.ok : testState.status === 'error' ? styles.err : styles.info].join(' ')} role={testState.status === 'error' ? 'alert' : 'status'}>
               {testState.message}
             </div>
           )}
         </div>
-        <div className="actions">
-          <button type="button" className="btn ghost test-button" onClick={test} disabled={testState.status === 'testing'} aria-busy={testState.status === 'testing'}>
-            {testState.status === 'testing' && <span className="loading-spinner" aria-hidden="true" />}{testState.status === 'testing' ? 'Testing…' : 'Test'}
+        <div className={[styles.actions].join(' ')}>
+          <button type="button" className={['btn', 'ghost', styles.testButton].join(' ')} onClick={test} disabled={testState.status === 'testing'} aria-busy={testState.status === 'testing'}>
+            {testState.status === 'testing' && <span className={[styles.loadingSpinner].join(' ')} aria-hidden="true" />}{testState.status === 'testing' ? 'Testing…' : 'Test'}
           </button>
-          {testState.status === 'testing' && <button type="button" className="btn ghost" onClick={cancelTest}>Cancel test</button>}
-          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          {testState.status === 'testing' && <button type="button" className={['btn', 'ghost'].join(' ')} onClick={cancelTest}>Cancel test</button>}
+          <button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button>
+          <button type="button" className={['btn', 'primary'].join(' ')} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
         </div>
       </div>
     </div>
@@ -305,16 +306,16 @@ function LocalFilesConnectionModal({ existing, onClose, onSaved, onBack }: FormP
     catch (error) { setMessage({ ok: false, text: error instanceof Error ? error.message : String(error) }) }
     finally { setBusy(false) }
   }
-  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="local-files-connection-title" onClick={(event) => event.stopPropagation()}>
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="local-files-connection-title" onClick={(event) => event.stopPropagation()}>
     <ConnectionFormHeader kind="local-files" editing={!!existing} onBack={onBack} />
-    <div className="field"><label htmlFor="local-profile-name">Connection name</label><input id="local-profile-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
-    <div className="field"><label>Data files</label><button type="button" className="btn ghost" onClick={() => void choose()}>Choose files…</button><div className="paste-hint">CSV, TSV, Parquet, JSON, JSONL, and NDJSON. Each file is exposed as a read-only SQL view.</div></div>
-    {files.map((file, index) => <div className="row file-connection-row" key={file.path}>
-      <div className="field"><label title={file.path}>{file.path.split(/[\\/]/).pop()}</label><input aria-label={`Table alias for ${file.path}`} value={file.alias} onChange={(event) => setFiles((current) => current.map((item, i) => i === index ? { ...item, alias: event.target.value } : item))} /></div>
-      <button type="button" className="btn ghost" aria-label={`Remove ${file.path}`} onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}>Remove</button>
+    <div className={[styles.field].join(' ')}><label htmlFor="local-profile-name">Connection name</label><input id="local-profile-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
+    <div className={[styles.field].join(' ')}><label>Data files</label><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void choose()}>Choose files…</button><div className={[styles.pasteHint].join(' ')}>CSV, TSV, Parquet, JSON, JSONL, and NDJSON. Each file is exposed as a read-only SQL view.</div></div>
+    {files.map((file, index) => <div className={[styles.row, styles.fileConnectionRow].join(' ')} key={file.path}>
+      <div className={[styles.field].join(' ')}><label title={file.path}>{file.path.split(/[\\/]/).pop()}</label><input aria-label={`Table alias for ${file.path}`} value={file.alias} onChange={(event) => setFiles((current) => current.map((item, i) => i === index ? { ...item, alias: event.target.value } : item))} /></div>
+      <button type="button" className={['btn', 'ghost'].join(' ')} aria-label={`Remove ${file.path}`} onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}>Remove</button>
     </div>)}
-    {message && <div className={`test-msg ${message.ok ? 'ok' : 'err'}`} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
-    <div className="actions"><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy}>Test</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div>
+    {message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
+    <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>Test</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div>
   </div></div>
 }
 
@@ -341,12 +342,12 @@ function SqliteFileConnectionModal({ existing, onClose, onSaved, onBack }: FormP
     try { onSaved(await api.connections.upsert(profile())); onClose() }
     catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }) } finally { setBusy(false) }
   }
-  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="sqlite-file-connection-title" onClick={(event) => event.stopPropagation()}>
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="sqlite-file-connection-title" onClick={(event) => event.stopPropagation()}>
     <ConnectionFormHeader kind="sqlite-file" editing={!!existing} onBack={onBack} />
-    <div className="field"><label htmlFor="sqlite-profile-name">Connection name</label><input id="sqlite-profile-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
-    <div className="field"><label>Database file</label><button type="button" className="btn ghost" onClick={() => void choose()}>Choose database…</button>{path && <div className="conn-preview" title={path}>{path}</div>}<div className="paste-hint">Select exactly one database file. Its SQLite contents are validated, so the filename extension does not matter. The database is attached directly in read-only mode.</div></div>
-    {message && <div className={`test-msg ${message.ok ? 'ok' : 'err'}`} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
-    <div className="actions"><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy}>Test</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div>
+    <div className={[styles.field].join(' ')}><label htmlFor="sqlite-profile-name">Connection name</label><input id="sqlite-profile-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
+    <div className={[styles.field].join(' ')}><label>Database file</label><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void choose()}>Choose database…</button>{path && <div className={[styles.connPreview].join(' ')} title={path}>{path}</div>}<div className={[styles.pasteHint].join(' ')}>Select exactly one database file. Its SQLite contents are validated, so the filename extension does not matter. The database is attached directly in read-only mode.</div></div>
+    {message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
+    <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>Test</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div>
   </div></div>
 }
 
@@ -391,16 +392,16 @@ function BigQueryConnectionModal({ existing, onClose, onSaved, onBack, active = 
     ...datasets.map((dataset) => ({ value: dataset.datasetId, label: dataset.datasetId, subtitle: [dataset.friendlyName, dataset.location].filter(Boolean).join(' · ') || undefined }))
   ], [datasets])
   const selectedDataset = datasets.find((dataset) => dataset.datasetId === draft.defaultDataset)
-  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="bigquery-connection-title" onClick={(event) => event.stopPropagation()}>
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="bigquery-connection-title" onClick={(event) => event.stopPropagation()}>
     <ConnectionFormHeader kind="bigquery" editing={!!existing} onBack={onBack} />
-    <div className="test-msg info">Authentication uses Google Application Default Credentials (ADC). DataKoala does not import or store service-account JSON, tokens, or credentials.</div>
-    <div className="field"><label htmlFor="bq-name">Connection name</label><input id="bq-name" value={draft.name} onChange={(e) => set('name', e.target.value)} /></div>
-    <div className="field"><label htmlFor="bq-reference">Paste BigQuery reference <span className="opt">— optional</span></label><input id="bq-reference" placeholder="project.dataset or projects/project/datasets/dataset" value={reference} onChange={(event) => applyReference(event.target.value)} aria-invalid={!!referenceError} />{referenceError && <div className="field-error" role="alert">{referenceError}</div>}</div>
-    <div className="row"><div className="field"><label>Billing project</label><Combobox label="Billing project" value={draft.billingProject} options={projectOptions} onChange={(value) => set('billingProject', value)} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div><div className="field"><label>Data project <span className="opt">— defaults to billing project</span></label><Combobox label="Data project" value={draft.defaultProject} options={projectOptions} onChange={setDataProject} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div></div>
-    <div className="field"><label>Dataset <span className="opt">— optional default</span></label><Combobox label="Dataset" value={draft.defaultDataset} options={datasetOptions} onChange={(value) => set('defaultDataset', value)} searchable allowCustomValue disabled={!draft.defaultProject.trim()} loading={datasetLoading} error={datasetError} placeholder="All datasets" emptyMessage="No datasets found. Enter a dataset ID manually." invalidationKey={draft.defaultProject} />{selectedDataset?.location && <div className="paste-hint" role="status">Dataset location: <strong>{selectedDataset.location}</strong></div>}<div className="paste-hint">All accessible datasets remain visible in the object tree. A selection only provides the default SQL context.</div></div>
-    <details className="bq-advanced"><summary>Advanced</summary><div className="field"><label htmlFor="bq-location">Location override (optional)</label><input id="bq-location" placeholder="e.g. US or europe-west1" value={draft.location} onChange={(e) => set('location', e.target.value)} /><div className="paste-hint">Normally leave blank so BigQuery infers the query location from referenced datasets.</div></div><div className="field"><label htmlFor="bq-max">Maximum bytes billed (optional)</label><input id="bq-max" inputMode="numeric" placeholder="No explicit billing cap" value={draft.maximumBytesBilled} onChange={(e) => set('maximumBytesBilled', e.target.value)} /><div className="paste-hint">Leave blank to omit the maximumBytesBilled job option.</div></div></details>
-    {message && <div className={`test-msg ${message.ok ? 'ok' : 'err'}`} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
-    <div className="actions"><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy}>{busy ? 'Testing…' : 'Test'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy}>Save</button></div>
+    <div className={[styles.testMsg, styles.info].join(' ')}>Authentication uses Google Application Default Credentials (ADC). DataKoala does not import or store service-account JSON, tokens, or credentials.</div>
+    <div className={[styles.field].join(' ')}><label htmlFor="bq-name">Connection name</label><input id="bq-name" value={draft.name} onChange={(e) => set('name', e.target.value)} /></div>
+    <div className={[styles.field].join(' ')}><label htmlFor="bq-reference">Paste BigQuery reference <span className={[styles.opt].join(' ')}>— optional</span></label><input id="bq-reference" placeholder="project.dataset or projects/project/datasets/dataset" value={reference} onChange={(event) => applyReference(event.target.value)} aria-invalid={!!referenceError} />{referenceError && <div className={[styles.fieldError].join(' ')} role="alert">{referenceError}</div>}</div>
+    <div className={[styles.row].join(' ')}><div className={[styles.field].join(' ')}><label>Billing project</label><Combobox label="Billing project" value={draft.billingProject} options={projectOptions} onChange={(value) => set('billingProject', value)} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div><div className={[styles.field].join(' ')}><label>Data project <span className={[styles.opt].join(' ')}>— defaults to billing project</span></label><Combobox label="Data project" value={draft.defaultProject} options={projectOptions} onChange={setDataProject} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div></div>
+    <div className={[styles.field].join(' ')}><label>Dataset <span className={[styles.opt].join(' ')}>— optional default</span></label><Combobox label="Dataset" value={draft.defaultDataset} options={datasetOptions} onChange={(value) => set('defaultDataset', value)} searchable allowCustomValue disabled={!draft.defaultProject.trim()} loading={datasetLoading} error={datasetError} placeholder="All datasets" emptyMessage="No datasets found. Enter a dataset ID manually." invalidationKey={draft.defaultProject} />{selectedDataset?.location && <div className={[styles.pasteHint].join(' ')} role="status">Dataset location: <strong>{selectedDataset.location}</strong></div>}<div className={[styles.pasteHint].join(' ')}>All accessible datasets remain visible in the object tree. A selection only provides the default SQL context.</div></div>
+    <details className={[styles.bqAdvanced].join(' ')}><summary>Advanced</summary><div className={[styles.field].join(' ')}><label htmlFor="bq-location">Location override (optional)</label><input id="bq-location" placeholder="e.g. US or europe-west1" value={draft.location} onChange={(e) => set('location', e.target.value)} /><div className={[styles.pasteHint].join(' ')}>Normally leave blank so BigQuery infers the query location from referenced datasets.</div></div><div className={[styles.field].join(' ')}><label htmlFor="bq-max">Maximum bytes billed (optional)</label><input id="bq-max" inputMode="numeric" placeholder="No explicit billing cap" value={draft.maximumBytesBilled} onChange={(e) => set('maximumBytesBilled', e.target.value)} /><div className={[styles.pasteHint].join(' ')}>Leave blank to omit the maximumBytesBilled job option.</div></div></details>
+    {message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
+    <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>{busy ? 'Testing…' : 'Test'}</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>Save</button></div>
   </div></div>
 }
 
@@ -443,14 +444,14 @@ function PrometheusConnectionModal({ existing, onClose, onSaved, onBack }: FormP
     try { const saved = await api.connections.upsert(profile()); onSaved(saved); onClose() }
     catch (error) { setMessage({ ok: false, text: failureMessage(error) }); setBusy(false) }
   }
-  return <div className="modal-overlay" onClick={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="prometheus-connection-title" onClick={(e) => e.stopPropagation()}>
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="prometheus-connection-title" onClick={(e) => e.stopPropagation()}>
     <ConnectionFormHeader kind="prometheus" editing={!!existing} onBack={onBack} />
-    <div className="field"><label htmlFor="prom-name">Connection name</label><input id="prom-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
-    <div className="field"><label>Connection method</label><div className="conn-preview">Grafana Cloud via gcx</div></div>
-    <div className="field"><label htmlFor="prom-datasource">Prometheus datasource</label><select id="prom-datasource" value={datasourceUid} onChange={(event) => setDatasourceUid(event.target.value)} disabled={loadingDatasources}><option value="">{loadingDatasources ? 'Discovering datasources…' : 'Select a datasource'}</option>{datasources.map((datasource) => <option key={datasource.uid} value={datasource.uid}>{datasource.name}</option>)}</select>{datasourceError && <div className="paste-hint" role="alert">{datasourceError}</div>}</div>
-    <div className="test-msg info">Uses your existing authenticated gcx context. DataKoala never reads, copies, or stores gcx OAuth credentials.{gcxVersion && <> Detected <strong>gcx {gcxVersion}</strong>.</>}</div>
-    {message && <div className={`test-msg ${message.ok ? 'ok' : 'err'}`} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
-    <div className="actions"><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy}>{busy ? 'Working…' : 'Test & discover metrics'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy}>Save</button></div>
+    <div className={[styles.field].join(' ')}><label htmlFor="prom-name">Connection name</label><input id="prom-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+    <div className={[styles.field].join(' ')}><label>Connection method</label><div className={[styles.connPreview].join(' ')}>Grafana Cloud via gcx</div></div>
+    <div className={[styles.field].join(' ')}><label htmlFor="prom-datasource">Prometheus datasource</label><select id="prom-datasource" value={datasourceUid} onChange={(event) => setDatasourceUid(event.target.value)} disabled={loadingDatasources}><option value="">{loadingDatasources ? 'Discovering datasources…' : 'Select a datasource'}</option>{datasources.map((datasource) => <option key={datasource.uid} value={datasource.uid}>{datasource.name}</option>)}</select>{datasourceError && <div className={[styles.pasteHint].join(' ')} role="alert">{datasourceError}</div>}</div>
+    <div className={[styles.testMsg, styles.info].join(' ')}>Uses your existing authenticated gcx context. DataKoala never reads, copies, or stores gcx OAuth credentials.{gcxVersion && <> Detected <strong>gcx {gcxVersion}</strong>.</>}</div>
+    {message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
+    <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>{busy ? 'Working…' : 'Test & discover metrics'}</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>Save</button></div>
   </div></div>
 }
 
@@ -467,21 +468,21 @@ export function ConnectionModal(props: Props) {
       cards[(index + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : cards.length - 1)) % cards.length]?.focus()
     }
     return <>
-      {!kind && <div className="modal-overlay" onClick={props.onClose}><div className="modal connection-picker" role="dialog" aria-modal="true" aria-labelledby="connection-picker-title" onClick={(event) => event.stopPropagation()}>
-        <div className="wizard-steps">Step 1 of 2 · Source</div>
+      {!kind && <div className={[styles.modalOverlay].join(' ')} onClick={props.onClose}><div className={[styles.modal, styles.connectionPicker].join(' ')} role="dialog" aria-modal="true" aria-labelledby="connection-picker-title" onClick={(event) => event.stopPropagation()}>
+        <div className={[styles.wizardSteps].join(' ')}>Step 1 of 2 · Source</div>
         <h2 id="connection-picker-title">Choose a connection type</h2>
-        <p className="connection-picker-intro">Select where your data lives. You can return here before saving.</p>
-        <div className="connection-source-grid" role="radiogroup" aria-label="Connection types" onKeyDown={onPickerKeyDown}>
+        <p className={[styles.connectionPickerIntro].join(' ')}>Select where your data lives. You can return here before saving.</p>
+        <div className={[styles.connectionSourceGrid].join(' ')} role="radiogroup" aria-label="Connection types" onKeyDown={onPickerKeyDown}>
           {CONNECTION_SOURCE_DESCRIPTORS.map((source, index) => {
             const disabled = !source.supportsCreate
-            return <button key={source.kind} type="button" role="radio" aria-checked="false" aria-disabled={disabled} disabled={disabled} tabIndex={disabled ? -1 : index === 0 ? 0 : -1} className="connection-source-card" onClick={() => !disabled && select(source.kind as DataSourceKind)}>
-              <span className="source-icon"><SourceIcon type={source.icon} /></span><span className="source-card-copy"><strong>{source.label}</strong><span>{source.description}</span><small>{source.hint}</small></span>
+            return <button key={source.kind} type="button" role="radio" aria-checked="false" aria-disabled={disabled} disabled={disabled} tabIndex={disabled ? -1 : index === 0 ? 0 : -1} className={[styles.connectionSourceCard].join(' ')} onClick={() => !disabled && select(source.kind as DataSourceKind)}>
+              <span className={[styles.sourceIcon].join(' ')}><SourceIcon type={source.icon} /></span><span className={[styles.sourceCardCopy].join(' ')}><strong>{source.label}</strong><span>{source.description}</span><small>{source.hint}</small></span>
             </button>
           })}
         </div>
-        <div className="actions"><button type="button" className="btn ghost" onClick={props.onClose}>Cancel</button></div>
+        <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={props.onClose}>Cancel</button></div>
       </div></div>}
-      {visited.map((item) => <div key={item} className={kind === item ? '' : 'wizard-form-hidden'} aria-hidden={kind !== item}>
+      {visited.map((item) => <div key={item} className={kind === item ? undefined : styles.wizardFormHidden} aria-hidden={kind !== item}>
         {item === 'postgres' ? <PostgresConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
           : item === 'local-files' ? <LocalFilesConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
             : item === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />

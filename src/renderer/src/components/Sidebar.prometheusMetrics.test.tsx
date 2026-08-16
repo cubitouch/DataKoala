@@ -42,7 +42,7 @@ describe('Prometheus metric object tree', () => {
     render(<Sidebar />)
     expect(await screen.findByText('Metrics')).toBeTruthy()
     const metric = await screen.findByRole('button', { name: 'View details for http_requests_total' })
-    const row = metric.closest<HTMLElement>('.relation-row')!
+    const row = metric.closest<HTMLElement>('[role=treeitem]')!
     expect(within(row).getByText('counter')).toBeTruthy()
     expect(within(row).queryByText('metric')).toBeNull()
     const tooltip = screen.getByRole('tooltip', { name: 'Total HTTP requests.' })
@@ -63,10 +63,10 @@ describe('Prometheus metric object tree', () => {
   it('renders no generic fallback or empty tooltip when metric metadata is absent', async () => {
     render(<Sidebar />)
     const missing = await screen.findByRole('button', { name: 'View details for metric_without_metadata' })
-    expect(within(missing.closest<HTMLElement>('.relation-row')!).queryByText('metric')).toBeNull()
+    expect(within(missing.closest<HTMLElement>('[role=treeitem]')!).queryByText('metric')).toBeNull()
     expect(missing.hasAttribute('aria-describedby')).toBe(false)
     const withoutHelp = screen.getByRole('button', { name: 'View details for gauge_without_help' })
-    expect(within(withoutHelp.closest<HTMLElement>('.relation-row')!).getByText('gauge')).toBeTruthy()
+    expect(within(withoutHelp.closest<HTMLElement>('[role=treeitem]')!).getByText('gauge')).toBeTruthy()
     expect(withoutHelp.hasAttribute('aria-describedby')).toBe(false)
     expect(screen.getAllByRole('tooltip')).toHaveLength(2)
     expect(mocks.labelsForMetric).not.toHaveBeenCalled()
@@ -77,7 +77,7 @@ describe('Prometheus metric object tree', () => {
     useStore.setState({ metadataByProfileId: { [profile.id]: { schemas: sqlObjects, status: 'loaded', error: null, isStale: false } } })
     render(<Sidebar />)
     const relation = await screen.findByRole('button', { name: 'Select public.orders for Builder' })
-    expect(within(relation.closest<HTMLElement>('.relation-row')!).getByText('table')).toBeTruthy()
+    expect(within(relation.closest<HTMLElement>('[role=treeitem]')!).getByText('table')).toBeTruthy()
     expect(relation.getAttribute('title')).toBe('public.orders')
   })
 

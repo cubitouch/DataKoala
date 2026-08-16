@@ -268,13 +268,13 @@ async function configureDocumentationSql(win, mode, view) {
 
 async function expandDocumentationRelation(win) {
   await win.webContents.executeJavaScript(`(() => {
-    const schema = document.querySelector('.schema-row')?.closest('[role="treeitem"]')
-    if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('.schema-row, button')?.click()
+    const schema = document.querySelector('[role="tree"] > [role="treeitem"]')
+    if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('button')?.click()
   })()`)
   await waitForRendererState(win, `document.body.innerText.includes('monthly_market_activity')`, 'analytics relation tree')
   await win.webContents.executeJavaScript(`(() => {
-    const relation = [...document.querySelectorAll('.relation-row')].find((row) => row.textContent?.includes('monthly_market_activity'))?.closest('[role="treeitem"]')
-    if (relation?.getAttribute('aria-expanded') === 'false') relation.querySelector('.chevron-button')?.click()
+    const relation = [...document.querySelectorAll('[role="tree"] [role="treeitem"]')].find((item) => item.textContent?.includes('monthly_market_activity'))
+    if (relation?.getAttribute('aria-expanded') === 'false') relation.querySelector('button[aria-label^="Expand"], button[aria-label^="Collapse"]')?.click()
   })()`)
   await waitForRendererState(win, `document.body.innerText.includes('time_bucket') && document.body.innerText.includes('series') && document.body.innerText.includes('count')`, 'monthly market activity columns')
 }
@@ -282,9 +282,9 @@ async function expandDocumentationRelation(win) {
 async function assertDocumentationSourceTree(win, mode) {
   const report = await win.webContents.executeJavaScript(`({
     mode: document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim(),
-    profile: document.querySelector('.conn-item.active, .conn-item')?.textContent,
+    profile: document.querySelector('[data-connection-live="true"], [data-connection-item]')?.textContent,
     status: document.querySelector('.conn-pill')?.textContent,
-    tree: document.querySelector('[role="tree"]')?.innerText ?? document.querySelector('.sidebar')?.innerText,
+    tree: document.querySelector('[role="tree"]')?.innerText ?? document.querySelector('aside[aria-label="Connections and database objects"]')?.innerText,
     filters: document.querySelectorAll('.result-filter-chip').length
   })`)
   const expectedMode = mode === 'builder' ? 'Builder' : 'SQL'
@@ -469,7 +469,7 @@ async function configurePrometheusToolbar(win) {
   await waitForRendererState(win, `document.body.innerText.includes('http_requests_total') || Boolean([...document.querySelectorAll('[role="treeitem"]')].find((node) => node.textContent?.includes('Metrics')))`, 'Prometheus metric browser')
   await win.webContents.executeJavaScript(`(() => {
     const item = [...document.querySelectorAll('[role="treeitem"]')].find((node) => node.textContent?.includes('Metrics'))
-    if (item?.getAttribute('aria-expanded') === 'false') item.querySelector('button, .schema-row')?.click()
+    if (item?.getAttribute('aria-expanded') === 'false') item.querySelector('button')?.click()
   })()`)
   await waitForRendererState(win, `document.body.innerText.includes('http_requests_total')`, 'expanded Prometheus metrics')
 }
@@ -659,9 +659,9 @@ async function configureLongObjectTree(win) {
     }] }], 'loaded')
   })()`)
   await sleep(250)
-  await win.webContents.executeJavaScript(`(() => { const row = document.querySelector('.schema-row'); if (row?.parentElement?.getAttribute('aria-expanded') === 'false') row.click() })()`)
+  await win.webContents.executeJavaScript(`(() => { const row = document.querySelector('[role="tree"] > [role="treeitem"] > button'); if (row?.parentElement?.getAttribute('aria-expanded') === 'false') row.click() })()`)
   await sleep(400)
-  await win.webContents.executeJavaScript(`(() => { const row = document.querySelector('.chevron-button'); if (row?.closest('[role="treeitem"]')?.getAttribute('aria-expanded') === 'false') row.click() })()`)
+  await win.webContents.executeJavaScript(`(() => { const row = document.querySelector('[role="tree"] button[aria-label^="Expand"], [role="tree"] button[aria-label^="Collapse"]'); if (row?.closest('[role="treeitem"]')?.getAttribute('aria-expanded') === 'false') row.click() })()`)
   await sleep(400)
 }
 
@@ -718,8 +718,8 @@ app.whenReady().then(async () => {
 
       await configureDocumentationPrometheus(win)
       await dragDivider(win, '.sidebar-resizer', 110, 0)
-      await win.webContents.executeJavaScript(`(() => { const schema = [...document.querySelectorAll('[role="treeitem"]')].find((item) => item.textContent?.includes('Prometheus')); if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('.schema-row, button')?.click() })()`)
-      await waitForRendererState(win, `document.querySelector('.conn-item.active')?.innerText.includes('Service metrics') && document.querySelector('.conn-pill.on')?.innerText.includes('Service metrics') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'connected Prometheus metric tree')
+      await win.webContents.executeJavaScript(`(() => { const schema = [...document.querySelectorAll('[role="treeitem"]')].find((item) => item.textContent?.includes('Prometheus')); if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('button')?.click() })()`)
+      await waitForRendererState(win, `document.querySelector('[data-connection-live="true"]')?.innerText.includes('Service metrics') && document.querySelector('.conn-pill.on')?.innerText.includes('Service metrics') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'connected Prometheus metric tree')
       await capture(win, 'docs-prometheus.png')
       await dragDivider(win, '.sidebar-resizer', -110, 0)
 
