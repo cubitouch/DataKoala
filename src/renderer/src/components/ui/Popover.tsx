@@ -1,5 +1,6 @@
-import React, { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type AriaAttributes, type AriaRole, type KeyboardEvent, type ReactNode, type ButtonHTMLAttributes, type RefObject } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type AriaAttributes, type AriaRole, type ReactNode, type ButtonHTMLAttributes, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import styles from './Popover.module.css'
 
 export type CloseReason = 'outside' | 'escape' | 'toggle' | 'coordination' | 'invalidated' | 'disabled'
 type OverlaySubscriber = (id: string) => void
@@ -18,6 +19,14 @@ interface PopoverContextValue { close: (reason?: CloseReason) => void }
 const PopoverContext = createContext<PopoverContextValue | null>(null)
 export const usePopover = () => useContext(PopoverContext)
 
+export function PopoverChevron() {
+  return <span className={styles.chevron} aria-hidden="true" />
+}
+
+export function PopoverSummaryTrigger({ children }: { children: ReactNode }) {
+  return <><span className={styles.summary}>{children}</span><PopoverChevron /></>
+}
+
 export interface PopoverProps {
   trigger: ReactNode
   children: ReactNode
@@ -29,6 +38,8 @@ export interface PopoverProps {
   invalidationKey?: unknown
   className?: string
   contentClassName?: string
+  triggerClassName?: string
+  preferredWidth?: number
   maxHeight?: number
   focusOptionsOnKeyboardOpen?: boolean
   popupType?: AriaAttributes['aria-haspopup']
@@ -37,7 +48,7 @@ export interface PopoverProps {
   triggerRef?: RefObject<HTMLButtonElement>
 }
 
-export function Popover({ trigger, children, ariaLabel, open: controlledOpen, defaultOpen = false, onOpenChange, disabled = false, invalidationKey, className = '', contentClassName = '', maxHeight = 280, focusOptionsOnKeyboardOpen = true, popupType, contentRole, triggerButtonProps, triggerRef: externalTriggerRef }: PopoverProps) {
+export function Popover({ trigger, children, ariaLabel, open: controlledOpen, defaultOpen = false, onOpenChange, disabled = false, invalidationKey, className = '', contentClassName = '', triggerClassName = '', preferredWidth, maxHeight = 280, focusOptionsOnKeyboardOpen = true, popupType, contentRole, triggerButtonProps, triggerRef: externalTriggerRef }: PopoverProps) {
   const id = useId()
   const internalTriggerRef = useRef<HTMLButtonElement>(null)
   const triggerRef = externalTriggerRef ?? internalTriggerRef
@@ -78,11 +89,11 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
     const placeAbove = availableBelow < Math.min(maxHeight, 180) && availableAbove > availableBelow
     const available = Math.max(80, placeAbove ? availableAbove : availableBelow)
     const height = Math.min(maxHeight, available)
-    const preferredWidth = contentClassName.includes('custom-time-range-content') ? 760 : Math.max(rect.width, 220)
-    const width = Math.min(preferredWidth, window.innerWidth - margin * 2)
+    const targetWidth = preferredWidth ?? Math.max(rect.width, 220)
+    const width = Math.min(targetWidth, window.innerWidth - margin * 2)
     const left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin))
     setStyle({ position: 'fixed', left, top: placeAbove ? undefined : rect.bottom + gap, bottom: placeAbove ? window.innerHeight - rect.top + gap : undefined, width, maxHeight: height, visibility: 'visible' })
-  }, [maxHeight])
+  }, [maxHeight, preferredWidth])
 
   useLayoutEffect(() => { if (isOpen) position() }, [isOpen, position, children])
   useEffect(() => {
@@ -135,76 +146,11 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
     overlayCoordinator.open(id)
     changeOpen(true)
   }
-  return <div className={`popover ${className}`}>
-    <button ref={triggerRef} type="button" className="popover-trigger" aria-label={ariaLabel} aria-haspopup={popupType} aria-expanded={isOpen} aria-controls={isOpen ? `${id}-content` : undefined} disabled={disabled} {...triggerButtonProps}
+  return <div className={[styles.root, className].filter(Boolean).join(' ')} data-popover-root="">
+    <button ref={triggerRef} type="button" className={[styles.trigger, triggerClassName].filter(Boolean).join(' ')} data-popover-trigger="" aria-label={ariaLabel} aria-haspopup={popupType} aria-expanded={isOpen} aria-controls={isOpen ? `${id}-content` : undefined} disabled={disabled} {...triggerButtonProps}
       onPointerDown={() => { keyboardOpen.current = false }} onClick={(event) => toggle(event.detail === 0)}>
       {trigger}
     </button>
-    {isOpen && createPortal(<PopoverContext.Provider value={{ close }}><div ref={contentRef} id={`${id}-content`} role={contentRole} aria-label={contentRole ? ariaLabel : undefined} className={`popover-content ${contentClassName}`} style={style}>{children}</div></PopoverContext.Provider>, document.body)}
+    {isOpen && createPortal(<PopoverContext.Provider value={{ close }}><div ref={contentRef} id={`${id}-content`} role={contentRole} aria-label={contentRole ? ariaLabel : undefined} className={[styles.content, contentClassName].filter(Boolean).join(' ')} style={style}>{children}</div></PopoverContext.Provider>, document.body)}
   </div>
-}
-
-export interface MultiSelectOption { value: string; label: string; detail?: string; disabled?: boolean }
-interface MultiSelectProps {
-  label: string
-  options: MultiSelectOption[]
-  values: string[]
-  onChange: (values: string[]) => void
-  disabled?: boolean
-  invalidationKey?: unknown
-  emptySummary?: string
-}
-
-export function MultiSelect({ label, options, values, onChange, disabled, invalidationKey, emptySummary = 'No series' }: MultiSelectProps) {
-  const optionRefs = useRef<Array<HTMLDivElement | null>>([])
-  const enabledIndexes = useMemo(() => options.map((option, index) => option.disabled ? -1 : index).filter((index) => index >= 0), [options])
-  const preferredIndex = options.findIndex((option) => !option.disabled && values.includes(option.value))
-  const [activeIndex, setActiveIndex] = useState(() => preferredIndex >= 0 ? preferredIndex : (enabledIndexes[0] ?? -1))
-  const typeahead = useRef('')
-  const typeaheadTime = useRef(0)
-  const summary = values.length ? `${values.length} selected` : emptySummary
-  useEffect(() => {
-    if (activeIndex >= 0 && options[activeIndex] && !options[activeIndex].disabled) return
-    setActiveIndex(preferredIndex >= 0 ? preferredIndex : (enabledIndexes[0] ?? -1))
-  }, [activeIndex, options, preferredIndex, enabledIndexes])
-  const focus = (index: number) => {
-    if (index < 0 || options[index]?.disabled) return
-    setActiveIndex(index)
-    optionRefs.current[index]?.focus()
-  }
-  const move = (current: number, direction: number) => {
-    if (!enabledIndexes.length) return
-    const position = enabledIndexes.indexOf(current)
-    const nextPosition = position < 0 ? (direction > 0 ? 0 : enabledIndexes.length - 1) : (position + direction + enabledIndexes.length) % enabledIndexes.length
-    const next = enabledIndexes[nextPosition]
-    setActiveIndex(next)
-    optionRefs.current[next]?.focus()
-  }
-  const onOptionKeyDown = (event: KeyboardEvent<HTMLDivElement>, index: number) => {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); move(index, event.key === 'ArrowDown' ? 1 : -1); return }
-    if (event.key === 'Home' || event.key === 'End') { event.preventDefault(); focus(event.key === 'Home' ? (enabledIndexes[0] ?? -1) : (enabledIndexes.at(-1) ?? -1)); return }
-    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); optionRefs.current[index]?.click(); return }
-    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
-      const now = Date.now(); typeahead.current = now - typeaheadTime.current > 600 ? event.key : typeahead.current + event.key; typeaheadTime.current = now
-      if (!enabledIndexes.length) return
-      const start = enabledIndexes.indexOf(activeIndex)
-      const ordered = [...enabledIndexes.slice(start + 1), ...enabledIndexes.slice(0, start + 1)]
-      const found = ordered.find((optionIndex) => options[optionIndex].label.toLowerCase().startsWith(typeahead.current.toLowerCase()))
-      if (found !== undefined) focus(found)
-    }
-  }
-  return <Popover className="multi-select" trigger={<><span className="multi-select-summary">{summary}</span><span className="select-chevron" aria-hidden="true"></span></>} ariaLabel={`${label}: ${summary}. Selected: ${values.join(', ') || 'none'}`} disabled={disabled} invalidationKey={invalidationKey} popupType="listbox" contentClassName="multi-select-menu">
-    <div role="listbox" aria-label={label} aria-multiselectable="true">
-      {options.map((option, index) => {
-        const selected = values.includes(option.value)
-        return <div key={option.value} ref={(node) => { optionRefs.current[index] = node }} role="option" aria-selected={selected} aria-disabled={option.disabled || undefined} tabIndex={!option.disabled && activeIndex === index ? 0 : -1} className="multi-select-option"
-          onFocus={() => { if (!option.disabled) setActiveIndex(index) }}
-          onKeyDown={(event) => onOptionKeyDown(event, index)} onClick={() => { if (!option.disabled) onChange(selected ? values.filter((value) => value !== option.value) : [...values, option.value]) }}>
-          <input type="checkbox" tabIndex={-1} aria-hidden="true" checked={selected} readOnly />
-          <span className="multi-select-option-text"><span className="multi-select-option-name">{option.label}</span>{option.detail && <small>{option.detail}</small>}</span>
-        </div>
-      })}
-      {!options.length && <div className="popover-empty">No available columns</div>}
-    </div>
-  </Popover>
 }

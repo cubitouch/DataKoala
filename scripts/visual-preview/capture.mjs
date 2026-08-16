@@ -572,8 +572,8 @@ async function verifySeriesTriggerAlignment(win) {
     const controls = Array.from(document.querySelectorAll('.builder-control'))
     const schemaControl = controls.find((control) => control.textContent?.includes('Schema'))
     const seriesControl = controls.find((control) => control.textContent?.includes('Series'))
-    const schemaTrigger = schemaControl?.querySelector('.popover-trigger')
-    const seriesTrigger = seriesControl?.querySelector('.popover-trigger')
+    const schemaTrigger = schemaControl?.querySelector('[data-popover-trigger]')
+    const seriesTrigger = seriesControl?.querySelector('[data-popover-trigger]')
     const schemaLabel = schemaControl?.querySelector('.builder-field-label')
     const seriesLabel = seriesControl?.querySelector('.builder-field-label')
     if (!schemaTrigger || !seriesTrigger || !seriesLabel || !schemaLabel) return null

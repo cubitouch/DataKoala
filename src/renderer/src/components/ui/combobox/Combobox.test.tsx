@@ -4,6 +4,7 @@ void React
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Combobox, MultiCombobox } from '.'
+import styles from './Combobox.module.css'
 
 Element.prototype.scrollIntoView = vi.fn()
 afterEach(cleanup)
@@ -20,6 +21,13 @@ function Single({ searchable = false }: { searchable?: boolean }) {
 }
 
 describe('Combobox', () => {
+  it('applies its locally owned error border state to the trigger', () => {
+    render(<Combobox label="State" value="" options={[]} onChange={() => {}} error="Broken" />)
+    expect(screen.getByRole('combobox').classList.contains(styles.errorTrigger)).toBe(true)
+    fireEvent.click(screen.getByRole('combobox'))
+    expect(screen.getByRole('alert').textContent).toContain('Broken')
+  })
+
   it('opens by mouse and selects with mouse, then returns focus to the trigger', async () => {
     render(<Single />)
     const trigger = screen.getByRole('combobox', { name: /Select a table/ })
@@ -130,7 +138,7 @@ describe('MultiCombobox', () => {
   it('keeps selected chips in value order and ArrowUp opens on the last enabled option', () => {
     function View() { const [values, setValues] = useState<string[]>(['analytics', 'public']); return <MultiCombobox label="Columns" values={values} onChange={setValues} options={options} showChips /> }
     const view = render(<View />)
-    expect(Array.from(view.container.querySelectorAll('.combobox-chip')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['monthly_sales', 'public'])
+    expect(Array.from(view.container.querySelectorAll('[data-combobox-chip]')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['monthly_sales', 'public'])
     fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowUp' })
     expect(screen.getByRole('option', { name: /monthly_sales/ }).getAttribute('data-active')).toBe('true')
   })
@@ -149,8 +157,8 @@ it('removes exactly one chip on click without toggling the menu', () => {
   function View() { const [values, setValues] = useState<string[]>(['public', 'orders', 'analytics']); return <MultiCombobox label="Columns" values={values} onChange={setValues} options={options} showChips /> }
   const view = render(<View />)
   const trigger = screen.getByRole('combobox')
-  fireEvent.click(view.container.querySelectorAll('.combobox-chip')[1])
-  expect(Array.from(view.container.querySelectorAll('.combobox-chip')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['public', 'monthly_sales'])
+  fireEvent.click(view.container.querySelectorAll('[data-combobox-chip]')[1])
+  expect(Array.from(view.container.querySelectorAll('[data-combobox-chip]')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['public', 'monthly_sales'])
   expect(screen.queryByRole('listbox')).toBeNull()
   expect(trigger.getAttribute('aria-expanded')).toBe('false')
 })

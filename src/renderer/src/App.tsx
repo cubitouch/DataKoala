@@ -18,11 +18,9 @@ import styles from './App.module.css'
 
 const SIDEBAR_STORAGE_KEY = 'datakoala.layout.v1.sidebarWidth'
 const EDITOR_STORAGE_KEY = 'datakoala.layout.v1.editorHeight'
-const LEGACY_SIDEBAR_STORAGE_KEY = 'datakoala.layout.v1.sidebarWidth'
-const LEGACY_EDITOR_STORAGE_KEY = 'datakoala.layout.v1.editorHeight'
 
-function storedDimension(primary: string, legacy: string): string | null {
-  return localStorage.getItem(primary) ?? localStorage.getItem(legacy)
+function storedDimension(primary: string): string | null {
+  return localStorage.getItem(primary)
 }
 
 interface ActiveResize {
@@ -42,8 +40,8 @@ export function App() {
   const workspaceRef = useRef<HTMLDivElement>(null)
   const mainRef = useRef<HTMLDivElement>(null)
   const activeResize = useRef<ActiveResize | null>(null)
-  const [sidebarWidth, setSidebarWidth] = useState(() => clampDimension(parseStoredDimension(storedDimension(SIDEBAR_STORAGE_KEY, LEGACY_SIDEBAR_STORAGE_KEY), 240), sidebarBounds(window.innerWidth)))
-  const [editorHeight, setEditorHeight] = useState(() => clampDimension(parseStoredDimension(storedDimension(EDITOR_STORAGE_KEY, LEGACY_EDITOR_STORAGE_KEY), 300), editorBounds(window.innerHeight - TITLEBAR_HEIGHT)))
+  const [sidebarWidth, setSidebarWidth] = useState(() => clampDimension(parseStoredDimension(storedDimension(SIDEBAR_STORAGE_KEY), 240), sidebarBounds(window.innerWidth)))
+  const [editorHeight, setEditorHeight] = useState(() => clampDimension(parseStoredDimension(storedDimension(EDITOR_STORAGE_KEY), 300), editorBounds(window.innerHeight - TITLEBAR_HEIGHT)))
 
   useEffect(() => api.connections.onStateChanged((event: ConnectionStateEvent) => {
     useStore.getState().applyConnectionEvent(event)
