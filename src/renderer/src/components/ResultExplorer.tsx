@@ -13,6 +13,7 @@ import { ResultsTable } from './ResultsTable'
 import { ChartFilterPopover, type ChartFilterAction } from './result-filters/ChartFilterPopover'
 import { ResultFilterBar } from './result-filters/ResultFilterBar'
 import { captureChartPng, chartCapturePixelRatio, copyChartPng, exportChartPng, isChartActionDisabled } from '../lib/chartImage'
+import { notifyChartCopyResult } from '../lib/chartCopyNotification'
 import { ChartReadinessController, createChartRevision, type ChartRevision } from '../lib/chartReadiness'
 import { isolateSeries, reconcileSeriesVisibility, showAllSeries } from '../lib/chartVisibility'
 import { prepareLogScaleSeries } from '../lib/chartAxisScale'
@@ -234,11 +235,11 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     setCapturing('copy')
     try {
       const ok = await copyChartPng(await image(revision), api.clipboardImage)
-      feedback(ok ? 'Chart copied' : 'Could not copy chart')
+      notifyChartCopyResult(ok)
       if (!ok) console.error('[chart] Clipboard image write was rejected')
     } catch (error) {
       console.error('[chart] Could not copy chart', error)
-      feedback('Could not copy chart')
+      notifyChartCopyResult(false)
     } finally { setCapturing(null) }
   }
   const exportPng = async () => {
