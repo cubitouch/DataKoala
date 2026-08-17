@@ -4,7 +4,14 @@ import type { QueryResult } from '../shared/types.ts'
 import { toIpcSafeQueryResult, toIpcSafeValue } from './ipc-serialization.ts'
 
 class IntervalLike {
-  constructor(public days: number, public hours: number) {}
+  days: number
+  hours: number
+
+  constructor(days: number, hours: number) {
+    this.days = days
+    this.hours = hours
+  }
+
   format(): string { return `${this.days} days ${this.hours} hours` }
 }
 
