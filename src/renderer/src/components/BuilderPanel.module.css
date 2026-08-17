@@ -7,6 +7,45 @@
   padding: 14px 12px;
 }
 
+/* BuilderPanel still exposes stable shell hook classes used by smoke/preview tooling.
+   Keep their presentation owned here rather than restoring global stylesheet rules. */
+[data-builder-panel] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--bg-2);
+  container-type: inline-size;
+}
+
+[data-builder-panel] > :global(.editor-head) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+[data-builder-panel] > :global(.editor-head) > :global(.spacer) {
+  flex: 1;
+}
+
+[data-builder-panel] > :global(.editor-head) > [aria-label="Query utilities"],
+[data-builder-panel] > :global(.editor-head) > :global(.query-toolbar-group) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+[data-builder-panel] > :global(.editor-head) > [aria-label="Query utilities"],
+[data-builder-panel] > :global(.editor-head) > [aria-label="Query utilities"] + :global(.query-toolbar-group),
+[data-builder-panel] > :global(.editor-head) > :global(.query-toolbar-group) + :global(.query-toolbar-group) {
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+
 .row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
