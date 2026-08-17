@@ -166,8 +166,13 @@ export class BigQueryAdapter implements DataSourceAdapter {
   constructor(createClient: BigQueryClientFactory = (options) => new BigQuery(options)) { this.createClient = createClient }
   private client(p: BigQueryProfile) { return this.createClient({ projectId: p.billingProject }) }
   async test(value: DataSourceProfile): Promise<TestResult> {
-    try { const p = profile(value); await this.client(p).getDatasets({ projectId: effectiveDataProject(p), maxResults: 1 }); return { ok: true, sourceInfo: { label: 'Google BigQuery' } }
-    catch (error) { return { ok: false, error: friendlyError(error) } }
+    try {
+      const p = profile(value)
+      await this.client(p).getDatasets({ projectId: effectiveDataProject(p), maxResults: 1 })
+      return { ok: true, sourceInfo: { label: 'Google BigQuery' } }
+    } catch (error) {
+      return { ok: false, error: friendlyError(error) }
+    }
   }
   async connect(value: DataSourceProfile): Promise<{ result: ConnectResult; session?: DataSourceSession }> {
     const p = profile(value); const tested = await this.test(p)
