@@ -116,12 +116,13 @@ describe('PromQL Builder controls', () => {
 
   it('preserves compatible calculation state across metric changes and resets representation to Auto', async () => {
     arrange('requests_total')
-    patchActiveTestSession({ promqlBuilder: { ...activeTestSession().promqlBuilder, calculation: 'rate', aggregation: 'avg', histogramKindOverride: 'native' } })
+    patchActiveTestSession({ promqlBuilder: { ...activeTestSession().promqlBuilder, calculation: 'rate', aggregation: 'avg', histogramKindOverride: 'auto' } })
     cleanup(); render(<PromqlBuilderPanel />)
     fireEvent.click(screen.getByRole('combobox', { name: /Metric: requests_total/ }))
     fireEvent.click(await screen.findByRole('option', { name: 'other_total' }))
     expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'rate', aggregation: 'avg', histogramKindOverride: 'auto' })
-    patchActiveTestSession({ promqlBuilder: { ...activeTestSession().promqlBuilder, metric: 'other_bucket', calculation: 'percentile', aggregation: 'sum' } })
+
+    patchActiveTestSession({ promqlBuilder: { ...activeTestSession().promqlBuilder, metric: 'other_bucket', calculation: 'percentile', aggregation: 'sum', histogramKindOverride: 'classic' } })
     cleanup(); render(<PromqlBuilderPanel />)
     fireEvent.click(screen.getByRole('combobox', { name: /Metric: other_bucket/ }))
     fireEvent.click(await screen.findByRole('option', { name: 'other_total' }))
