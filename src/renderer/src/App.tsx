@@ -138,23 +138,23 @@ export function App() {
   }
 
   return (
-    <div className="app">
-      <div className="titlebar">
+    <div className={`app ${styles.app}`}>
+      <div className={`titlebar ${styles.titlebar}`}>
         <span className={styles.logo}>DataKoala</span>
         <QueryTabs className={styles.queryTabs} />
         <div className={styles.dragSpace} data-testid="titlebar-drag-space" aria-hidden="true" />
         <ConnectionStatus className={styles.connectionStatus} />
       </div>
 
-      <div className="workspace" ref={workspaceRef} style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+      <div className={`workspace ${styles.workspace}`} ref={workspaceRef} style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
         <Sidebar />
-        <div className="sidebar-resizer" role="separator" aria-label="Resize sidebar" aria-orientation="vertical"
+        <div className={`sidebar-resizer ${styles.resizer} ${styles.sidebarResizer}`} role="separator" aria-label="Resize sidebar" aria-orientation="vertical"
           aria-valuemin={SIDEBAR_MIN} aria-valuemax={Math.max(SIDEBAR_MIN, currentSidebarBounds().max)} aria-valuenow={Math.round(sidebarWidth)}
           tabIndex={0} onPointerDown={beginResize('sidebar')} onKeyDown={resizeWithKeyboard('sidebar')} />
-        <div className="main-shell">
-          <div key={activeTabId} className={`main ${effectiveMode === 'sql' && !querySurfaceBlocked ? 'sql-layout' : ''}`} ref={mainRef}
+        <div className={`main-shell ${styles.mainShell}`}>
+          <div key={activeTabId} className={`main ${styles.main} ${effectiveMode === 'sql' && !querySurfaceBlocked ? `sql-layout ${styles.sqlLayout}` : ''}`} ref={mainRef}
             style={{ '--editor-height': `${editorHeight}px` } as React.CSSProperties}>
-            {queryProfileLoading ? <div className="query-unavailable" role="status" aria-label="Loading connection…">Loading datasource…</div> : <>{effectiveMode === 'sql' ? <><QueryEditor builderMode={prometheusBuilder} /><div className="editor-resizer" role="separator" aria-label="Resize query editor"
+            {queryProfileLoading ? <div className={`query-unavailable ${styles.queryUnavailable}`} role="status" aria-label="Loading connection…">Loading datasource…</div> : <>{effectiveMode === 'sql' ? <><QueryEditor builderMode={prometheusBuilder} /><div className={`editor-resizer ${styles.resizer} ${styles.editorResizer}`} role="separator" aria-label="Resize query editor"
               aria-orientation="horizontal" aria-valuemin={EDITOR_MIN} aria-valuemax={Math.max(EDITOR_MIN, currentEditorBounds().max)}
               aria-valuenow={Math.round(editorHeight)} tabIndex={0} onPointerDown={beginResize('editor')}
               onKeyDown={resizeWithKeyboard('editor')} /></> : <BuilderPanel />}

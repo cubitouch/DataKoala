@@ -1,4 +1,5 @@
 import { selectActiveSession, useStore } from '../store/useStore'
+import styles from './QueryUtilityActions.module.css'
 
 /** Secondary, tab-scoped actions shared by editor and Builder toolbars. */
 export function QueryUtilityActions() {
@@ -9,7 +10,7 @@ export function QueryUtilityActions() {
     || active.sqlResultFilters.some((filter) => filter.execution !== 'query')
     || active.builderResultFilters.some((filter) => filter.execution !== 'query'))
 
-  return <div className="query-toolbar-group query-utility-actions" aria-label="Query utilities">
+  return <div className={`query-utility-actions ${styles.root}`} aria-label="Query utilities">
     <button className="btn ghost" onClick={() => {
       if (window.confirm(`Reset ${active.title} to a fresh query?`)) resetQuery()
     }} title="Reset the current tab's query and Builder state.">Reset query</button>

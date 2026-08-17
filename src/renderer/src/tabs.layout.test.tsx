@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 
 const tabsCss = readFileSync('src/renderer/src/components/QueryTabs.module.css', 'utf8')
 const appCss = readFileSync('src/renderer/src/App.module.css', 'utf8')
+const utilityCss = readFileSync('src/renderer/src/components/QueryUtilityActions.module.css', 'utf8')
 const shellCss = readFileSync('src/renderer/src/styles.css', 'utf8')
 
 function rule(css: string, selector: string): string {
@@ -34,7 +35,7 @@ test('tab and add controls remain outside the draggable app region', () => {
 })
 
 test('query utility actions retain their compact narrow-toolbar sizing', () => {
-  const utilities = rule(shellCss, '.query-utility-actions .btn')
+  const utilities = rule(utilityCss, '.root :global(.btn)')
   expect(utilities).toMatch(/padding-inline:\s*6px\s*;/)
   expect(utilities).toMatch(/font-size:\s*10px\s*;/)
 })
@@ -44,7 +45,7 @@ test('the application shell is constrained to the root without becoming a docume
   expect(root).toMatch(/width:\s*100%\s*;/)
   expect(root).toMatch(/height:\s*100%\s*;/)
   expect(root).toMatch(/overflow:\s*hidden\s*;/)
-  const app = rule(shellCss, '.app')
+  const app = rule(appCss, '.app')
   expect(app).toMatch(/height:\s*100%\s*;/)
   expect(app).toMatch(/min-height:\s*0\s*;/)
   expect(app).toMatch(/overflow:\s*hidden\s*;/)
