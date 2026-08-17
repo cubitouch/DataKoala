@@ -12,6 +12,7 @@ import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
 import { formatPromql } from './promql-formatter.ts'
+import { toIpcSafeQueryResult } from './ipc-serialization.ts'
 
 const postgresAdapter = new PostgresAdapter()
 export const adapterRegistry = new AdapterRegistry().register(postgresAdapter).register(new LocalFilesAdapter()).register(new SqliteFileAdapter()).register(new BigQueryAdapter()).register(new PrometheusAdapter())
@@ -128,8 +129,8 @@ function session(id: ConnectionId): DataSourceSession {
   return value
 }
 
-export function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = [], prometheus?: Omit<PrometheusQueryRequest, 'expression'>): Promise<QueryResult> {
-  return session(id).query({ sql, parameters, prometheus })
+export async function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = [], prometheus?: Omit<PrometheusQueryRequest, 'expression'>): Promise<QueryResult> {
+  return toIpcSafeQueryResult(await session(id).query({ sql, parameters, prometheus }))
 }
 
 export function formatPrometheusQuery(_id: ConnectionId, query: string): Promise<string> {
@@ -167,7 +168,7 @@ export function labelsForMetric(id: ConnectionId, metricName: string): Promise<s
 
 export function labelValues(id: ConnectionId, metricName: string, labelName: string): Promise<string[]> {
   const operation = session(id).labelValues
-  if (!operation) throw new Error('Metric label values are not supported by this datasource.')
+  if (!operation) throw new Error('Metric label discovery is not supported by this datasource.')
   return operation(metricName, labelName)
 }
 
