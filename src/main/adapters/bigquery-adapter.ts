@@ -5,6 +5,7 @@ import type { DataColumn, DataRelation, DataSourceAdapter, DataSourceSession, Qu
 const ROW_LIMIT = 10_000
 const DATASET_RELATION_CONCURRENCY = 5
 const capabilities = DATA_SOURCE_CAPABILITIES.bigquery
+const EXACT_DECIMAL_TYPES = new Set(['NUMERIC', 'BIGNUMERIC', 'DECIMAL', 'BIGDECIMAL'])
 
 export interface BigQueryClientLike {
   getDatasets(options?: Record<string, unknown>): Promise<unknown[]>
@@ -82,6 +83,24 @@ export function normalizeBigQueryValue(value: any): unknown {
   return value
 }
 
+function normalizeExactDecimal(value: any): unknown {
+  if (value == null) return null
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'bigint') return String(value)
+  if (typeof value === 'object' && 'value' in value && ['string', 'number', 'bigint'].includes(typeof value.value)) return String(value.value)
+  const rendered = typeof value?.toString === 'function' ? value.toString() : ''
+  if (rendered && rendered !== '[object Object]') return rendered
+  return normalizeBigQueryValue(value)
+}
+
+export function normalizeBigQueryRow(row: Record<string, any>, schema: any[]): Record<string, unknown> {
+  const fields = new Map(schema.map((field: any) => [String(field.name), String(field.type || '').toUpperCase()]))
+  return Object.fromEntries(Object.entries(row).map(([name, value]) => [
+    name,
+    EXACT_DECIMAL_TYPES.has(fields.get(name) || '') ? normalizeExactDecimal(value) : normalizeBigQueryValue(value)
+  ]))
+}
+
 class BigQuerySession implements DataSourceSession {
   readonly info
   readonly capabilities = capabilities
@@ -97,8 +116,6 @@ class BigQuerySession implements DataSourceSession {
     return { query, params: parameters, useLegacySql: false, ...(this.p.location ? { location: this.p.location } : {}), ...(this.p.defaultDataset ? { defaultDataset: { projectId: this.project(), datasetId: this.p.defaultDataset } } : {}), ...(this.p.maximumBytesBilled ? { maximumBytesBilled: this.p.maximumBytesBilled } : {}) }
   }
   async listNamespaces(): Promise<Array<{ name: string }>> {
-    // BigQuery's `all` flag includes hidden anonymous query-result datasets. Those
-    // are not normal browsing targets and can represent another user's job.
     const [datasets] = await this.client.getDatasets({ projectId: this.project() }) as [any[]]
     return datasets.map((d: any) => ({ name: `${this.project()}.${d.id}` }))
   }
@@ -133,7 +150,7 @@ class BigQuerySession implements DataSourceSession {
     const [metadata] = await job.getMetadata()
     const query = metadata.statistics?.query || {}; const schema = apiResponse?.schema?.fields || []
     const truncated = rows.length > ROW_LIMIT || Boolean(nextQuery || apiResponse?.pageToken)
-    const safeRows = rows.slice(0, ROW_LIMIT).map((row: any) => normalizeBigQueryValue(row) as Record<string, unknown>)
+    const safeRows = rows.slice(0, ROW_LIMIT).map((row: any) => normalizeBigQueryRow(row, schema))
     const columns: ColumnMeta[] = schema.map((field: any) => ({ name: field.name, nativeType: field.type, logicalType: field.mode === 'REPEATED' ? 'list' : logical(field.type), nativeTypeId: field.type, dataTypeID: 0, dataTypeName: field.type }))
     const durationMs = Date.now() - started
     const bytes = Number(query.totalBytesProcessed)
@@ -149,7 +166,7 @@ export class BigQueryAdapter implements DataSourceAdapter {
   constructor(createClient: BigQueryClientFactory = (options) => new BigQuery(options)) { this.createClient = createClient }
   private client(p: BigQueryProfile) { return this.createClient({ projectId: p.billingProject }) }
   async test(value: DataSourceProfile): Promise<TestResult> {
-    try { const p = profile(value); await this.client(p).getDatasets({ projectId: effectiveDataProject(p), maxResults: 1 }); return { ok: true, sourceInfo: { label: 'Google BigQuery' } } }
+    try { const p = profile(value); await this.client(p).getDatasets({ projectId: effectiveDataProject(p), maxResults: 1 }); return { ok: true, sourceInfo: { label: 'Google BigQuery' } }
     catch (error) { return { ok: false, error: friendlyError(error) } }
   }
   async connect(value: DataSourceProfile): Promise<{ result: ConnectResult; session?: DataSourceSession }> {
