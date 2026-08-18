@@ -64,7 +64,7 @@ it('keeps loaded labels when the selected metric is selected again', async () =>
 
   const metricPicker = screen.getByRole('combobox', { name: /Metric: requests_total/ })
   fireEvent.click(metricPicker)
-  fireEvent.click(await screen.findByRole('option', { name: 'requests_total' }))
+  fireEvent.click(await screen.findByRole('option', { name: 'requests_total, counter' }))
 
   expect(labelsForMetric).toHaveBeenCalledOnce()
   groupPicker = screen.getByRole('combobox', { name: 'Group by: No grouping' })
