@@ -115,11 +115,21 @@ export function normalizeGcxDatasources(raw: unknown): PrometheusDatasourceOptio
 const column = (name: string, logicalType: ColumnMeta['logicalType'], nativeType: string, dataTypeID: number): ColumnMeta =>
   ({ name, logicalType, nativeType, dataTypeID, dataTypeName: nativeType })
 
+function sampleValue(value: unknown, context: string): number {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    if (value === 'NaN') return Number.NaN
+    if (value === '+Inf' || value === 'Inf') return Number.POSITIVE_INFINITY
+    if (value === '-Inf') return Number.NEGATIVE_INFINITY
+    const numeric = Number(value)
+    if (!Number.isNaN(numeric)) return numeric
+  }
+  throw new Error(`gcx returned a non-numeric ${context} sample value.`)
+}
+
 function samplePair(value: unknown, context: string): [number, number] {
   if (!Array.isArray(value) || value.length !== 2 || typeof value[0] !== 'number') throw new Error(`gcx returned an invalid ${context} sample.`)
-  const numeric = typeof value[1] === 'number' ? value[1] : typeof value[1] === 'string' ? Number(value[1]) : NaN
-  if (Number.isNaN(numeric)) throw new Error(`gcx returned a non-numeric ${context} sample value.`)
-  return [value[0], numeric]
+  return [value[0], sampleValue(value[1], context)]
 }
 
 export function normalizeGcxQuery(raw: unknown, durationMs = 0): QueryResult {

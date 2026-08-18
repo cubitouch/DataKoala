@@ -21,7 +21,7 @@ import { TimeRangeField } from './time-range/TimeRangeField'
 import { QueryUtilityActions } from './QueryUtilityActions'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
-import { validatePromqlBuilder } from '../lib/promqlBuilder'
+import { detectPromqlHistogramKind, resolvePromqlHistogramKind, validatePromqlBuilder } from '../lib/promqlBuilder'
 import { InfoTooltip } from './ui/InfoTooltip'
 import { Combobox } from './ui/combobox'
 import { notify } from './NotificationArea'
@@ -45,6 +45,12 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const dialect = language.kind === 'sql' ? language.dialect : 'postgres'
   const metadata = useStore((s) => tabConnectionId ? s.metadataByProfileId[tabConnectionId] : undefined)
   const schemas = metadata?.schemas ?? []
+  const selectedBuilderMetric = schemas.flatMap((schema) => schema.relations).find((relation) => relation.kind === 'metric' && relation.name === promqlBuilder.metric)
+  const selectedBuilderMetricType = selectedBuilderMetric?.details?.kind === 'metric' ? selectedBuilderMetric.details.type : undefined
+  const builderHistogramKind = resolvePromqlHistogramKind(
+    detectPromqlHistogramKind({ metric: promqlBuilder.metric, labels: [], metadataType: selectedBuilderMetricType }),
+    promqlBuilder.histogramKindOverride ?? 'auto'
+  )
   const connecting = useStore((s) => s.connecting)
   const connected = useStore((s) => s.connected)
   const running = useStore((s) => selectActiveSession(s).running)
@@ -231,7 +237,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
           {isAnalyzeLoading && <span className="spinner" aria-hidden="true" />}
           {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
         </button>}</div>
-        <div className={`query-toolbar-group execution-group ${styles.toolbarGroup}`}><button className="btn primary" onClick={run} disabled={!canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder)))} title="Run (Ctrl/Command+Enter)">
+        <div className={`query-toolbar-group execution-group ${styles.toolbarGroup}`}><button className="btn primary" onClick={run} disabled={!canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder, builderHistogramKind)))} title="Run (Ctrl/Command+Enter)">
           {running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}
         </button></div>
       </div>
