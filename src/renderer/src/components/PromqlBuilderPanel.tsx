@@ -28,6 +28,7 @@ export function PromqlBuilderPanel() {
   const tabId = useStore((state) => state.activeTabId)
   const session = useStore(selectActiveSession)
   const profileId = session.connectionProfileId
+  const connectionGeneration = useStore((state) => state.connectionGeneration)
   const metadata = useStore((state) => profileId ? state.metadataByProfileId[profileId] : undefined)
   const setBuilder = useStore((state) => state.setPromqlBuilder)
   const setSql = useStore((state) => state.setSql)
@@ -81,13 +82,14 @@ export function PromqlBuilderPanel() {
   useEffect(() => {
     if (!profileId || !builder.metric) return
     let active = true
+    setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({})
     setLoadingLabels(true); setLabelError(false)
     metricLabels(profileId, builder.metric)
       .then((found) => { if (active) setLabels(found.filter((label) => label !== '__name__')) })
       .catch(() => { if (active) setLabelError(true) })
       .finally(() => { if (active) setLoadingLabels(false) })
     return () => { active = false }
-  }, [profileId, builder.metric])
+  }, [profileId, builder.metric, connectionGeneration])
   const changeDimensions = (kind: 'groupBy' | 'filterBy', nextLabels: string[]) => {
     const other = kind === 'groupBy' ? builder.filterBy : builder.groupBy
     const nextActive = [...new Set([...nextLabels, ...other])]
@@ -97,7 +99,8 @@ export function PromqlBuilderPanel() {
     apply({ [kind]: nextLabels, labelValues, aggregation })
     added.forEach(loadValues)
   }
-  useEffect(() => { activeLabels.forEach(loadValues) }, [profileId, builder.metric, activeLabels.join('\0')])
+  const loadedValueLabels = Object.keys(values).sort().join('\0')
+  useEffect(() => { activeLabels.forEach(loadValues) }, [profileId, builder.metric, connectionGeneration, activeLabels.join('\0'), loadedValueLabels])
   useEffect(() => {
     if (!calculationsForHistogramKind(histogramKind).includes(builder.calculation)) {
       apply({ calculation: 'raw', aggregation: 'none' })
