@@ -137,7 +137,7 @@ export function Sidebar() {
     const sourceX = session.builderVisualization.xColumn === 'time_bucket' ? session.builder.timeColumn : session.builderVisualization.xColumn
     const nextX = sourceX && columns.some((column) => column.name === sourceX) ? sourceX : null
     const sourceY = session.builderVisualization.aggregation === 'count' ? null : session.builderVisualization.valueColumn
-    const nextY = sourceY && columns.some((column) => column.name === sourceY ? sourceY : null)
+    const nextY = sourceY && columns.some((column) => column.name === sourceY) ? sourceY : null
     if (nextX !== sourceX || nextY !== sourceY) state.setVisualization('builder', { xColumn: nextX, valueColumn: nextY }, activeTabId)
   }
 
