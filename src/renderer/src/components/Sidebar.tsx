@@ -5,6 +5,7 @@ import { ensureRelationColumns } from '../lib/relationColumns'
 import { normalizeDatabaseObjects } from '../lib/databaseObjects'
 import { relationIdentity, selectionPatchForColumns } from '../lib/builderRelations'
 import { isBuilderTemporalDataType } from '../lib/builderSql'
+import { buildPromql, detectPromqlHistogramKind, resolvePromqlHistogramKind, type PromqlCalculation, type PromqlHistogramKind } from '../lib/promqlBuilder'
 import { bindTabConnection, ensureConnectionForTab } from '../lib/tabConnection'
 import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { ConnectionModal } from './ConnectionModal'
@@ -16,6 +17,16 @@ import styles from './Sidebar.module.css'
 const cx = (...classes: Array<string | false | undefined>) => classes.filter(Boolean).join(' ')
 
 const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'metric' ? 'metric' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
+const ordinaryPromqlCalculations = ['raw', 'rate', 'increase'] as const
+const histogramPromqlCalculations = ['observation-rate', 'histogram-average', 'histogram-sum', 'percentile'] as const
+const histogramPromqlCalculationSet = new Set<PromqlCalculation>(histogramPromqlCalculations)
+
+function calculationsForHistogramKind(kind: PromqlHistogramKind): readonly PromqlCalculation[] {
+  if (kind === 'classic') return ['raw', 'percentile']
+  if (kind === 'native') return ['raw', ...histogramPromqlCalculations]
+  if (kind === 'not-histogram') return ordinaryPromqlCalculations
+  return [...ordinaryPromqlCalculations, ...histogramPromqlCalculations]
+}
 
 function RelationName({ relation, current, onClick }: { relation: DatabaseRelationNode; current: boolean; onClick: () => void }) {
   const tooltipId = useId()
@@ -25,7 +36,7 @@ function RelationName({ relation, current, onClick }: { relation: DatabaseRelati
     <button
       className={cx(styles.relationName, styles.truncate, metricHelp && styles.tooltipTrigger)}
       title={isMetric ? undefined : relation.qualifiedName}
-      aria-label={isMetric ? `View details for ${relation.name}` : `Select ${relation.qualifiedName} for Builder`}
+      aria-label={isMetric ? `Select ${relation.name} for Builder` : `Select ${relation.qualifiedName} for Builder`}
       aria-describedby={metricHelp ? tooltipId : undefined}
       aria-current={current ? 'true' : undefined}
       onClick={onClick}
@@ -50,7 +61,10 @@ export function Sidebar() {
   const metadataError = metadata?.error ?? null
   const setMetadata = useStore((s) => s.setMetadata)
   const builderTable = useStore((s) => selectActiveSession(s).builder.table)
+  const promqlBuilder = useStore((s) => selectActiveSession(s).promqlBuilder)
   const selectBuilderRelation = useStore((s) => s.selectBuilderRelation)
+  const setPromqlBuilder = useStore((s) => s.setPromqlBuilder)
+  const setSql = useStore((s) => s.setSql)
   const [editing, setEditing] = useState<DataSourceProfile | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<DataSourceProfile | null>(null)
@@ -157,7 +171,27 @@ export function Sidebar() {
   }, [filter, schemas])
   const filtering = Boolean(filter.trim())
   const selectForBuilder = (relation: DatabaseRelationNode) => {
-    if (relation.kind === 'metric') { toggle(`relation:${relation.qualifiedName}`); return }
+    if (relation.kind === 'metric') {
+      if (promqlBuilder.metric === relation.name) return
+      const metadataType = relation.details?.kind === 'metric' ? relation.details.type : undefined
+      const detectedKind = detectPromqlHistogramKind({ metric: relation.name, labels: [], metadataType })
+      const histogramKind = resolvePromqlHistogramKind(detectedKind, 'auto')
+      const calculation = calculationsForHistogramKind(histogramKind).includes(promqlBuilder.calculation) ? promqlBuilder.calculation : 'raw' as const
+      const next = {
+        ...promqlBuilder,
+        metric: relation.name,
+        calculation,
+        histogramKindOverride: 'auto' as const,
+        aggregation: histogramPromqlCalculationSet.has(calculation) ? 'sum' as const : calculation === 'raw' ? 'none' as const : promqlBuilder.aggregation,
+        filterBy: [],
+        groupBy: [],
+        labelValues: {}
+      }
+      setPromqlBuilder(next, activeTabId)
+      const generated = buildPromql(next, histogramKind)
+      if (generated) setSql(generated, activeTabId)
+      return
+    }
     if (builderTable && relationIdentity(builderTable) === relationIdentity(relation)) {
       if (relation.columnsStatus !== 'loaded') void loadRelationColumns(relation)
       return
@@ -206,10 +240,13 @@ export function Sidebar() {
               {schemaOpen && <div role="group">{schema.relations.map((relation) => {
                 const relationId = `relation:${relation.qualifiedName}`
                 const relationOpen = relation.kind === 'metric' ? expanded.has(relationId) : filtering || expanded.has(relationId)
+                const current = relation.kind === 'metric'
+                  ? promqlBuilder.metric === relation.name
+                  : builderTable?.schema === relation.schema && builderTable.name === relation.name
                 return <div key={relationId} role="treeitem" aria-expanded={relationOpen}>
                   <div className={cx(styles.treeRow, styles.relationRow)}>
                     <button className={styles.chevronButton} aria-label={`${relationOpen ? 'Collapse' : 'Expand'} ${relation.name}`} onClick={() => void expandRelation(relation)}>{relationOpen ? '▾' : '▸'}</button>
-                    <RelationName relation={relation} current={builderTable?.schema === relation.schema && builderTable.name === relation.name} onClick={() => selectForBuilder(relation)} />
+                    <RelationName relation={relation} current={current} onClick={() => selectForBuilder(relation)} />
                     {(relation.details?.kind !== 'metric' || relation.details.type) && <span className={cx(styles.kind, styles.relationKind)}>{relation.details?.kind === 'metric' ? relation.details.type : typeLabel(relation.kind)}</span>}
                   </div>
                   {relationOpen && <div role="group" className={styles.columns}>
