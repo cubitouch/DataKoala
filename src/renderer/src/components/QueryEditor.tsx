@@ -119,7 +119,14 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
       const res: QueryResult = await api.query.run(requestProfileId, execution.sql, execution.parameters, promRange)
       if (language.kind === 'promql') {
         const seriesColumns = builderMode ? (requestSession?.promqlBuilder.groupBy ?? []) : []
-        setVisualization('sql', { view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: seriesColumns.length === 1 ? seriesColumns[0] : null, seriesColumns: seriesColumns.length > 1 ? seriesColumns : [], aggregation: 'sum' }, requestTabId)
+        setVisualization('sql', {
+          ...(requestSession?.lastSuccessfulResultRevision === 0 ? { view: 'line' as const } : {}),
+          xColumn: 'timestamp',
+          valueColumn: 'value',
+          seriesColumn: seriesColumns.length === 1 ? seriesColumns[0] : null,
+          seriesColumns: seriesColumns.length > 1 ? seriesColumns : [],
+          aggregation: 'sum'
+        }, requestTabId)
       }
       if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(res, null, requestTabId)
     } catch (e) {
