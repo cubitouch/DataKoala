@@ -3,6 +3,11 @@ import { api } from './api'
 const labelRequests = new Map<string, Promise<string[]>>()
 const valueRequests = new Map<string, Promise<string[]>>()
 
+export function resetPrometheusMetadataCache() {
+  labelRequests.clear()
+  valueRequests.clear()
+}
+
 export function metricLabels(profileId: string, metric: string, connectionGeneration = 0): Promise<string[]> {
   const key = `${profileId}\0${metric}\0${connectionGeneration}`
   const existing = labelRequests.get(key)
