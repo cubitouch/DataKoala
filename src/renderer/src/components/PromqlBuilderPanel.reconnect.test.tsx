@@ -12,6 +12,7 @@ import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '.
 import { useStore } from '../store/useStore'
 
 const profileId = 'prom-reconnect'
+const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done }); return { promise, resolve } }
 
 beforeEach(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn()
@@ -74,4 +75,36 @@ it('reloads Group by options when a reconnect creates a new connection generatio
   fireEvent.click(groupPicker)
   expect(await screen.findByRole('option', { name: 'new_label' })).toBeTruthy()
   expect(screen.queryByRole('option', { name: 'old_label' })).toBeNull()
+})
+
+it('shows loading states while reconnect label metadata is being fetched', async () => {
+  const reconnectLabels = deferred<string[]>()
+  labelsForMetric.mockReset()
+    .mockResolvedValueOnce(['service', 'old_label', '__name__'])
+    .mockReturnValueOnce(reconnectLabels.promise)
+
+  render(<PromqlBuilderPanel />)
+  await screen.findByRole('combobox', { name: 'Group by: No grouping' })
+
+  useStore.setState({ connectionGeneration: 2 })
+
+  expect(await screen.findByRole('combobox', { name: 'Group by: Loading labels…' })).toBeTruthy()
+  expect(screen.getByRole('combobox', { name: 'Filter by: Loading labels…' })).toBeTruthy()
+
+  reconnectLabels.resolve(['service', 'new_label', '__name__'])
+  await screen.findByRole('combobox', { name: 'Group by: No grouping' })
+})
+
+it('shows a loading state while metric metadata is being fetched', () => {
+  useStore.setState((state) => ({
+    metadataByProfileId: {
+      ...state.metadataByProfileId,
+      [profileId]: { ...state.metadataByProfileId[profileId], status: 'loading' }
+    }
+  }))
+
+  patchActiveTestSession({ promqlBuilder: { ...useStore.getState().tabs[0].promqlBuilder, metric: '' } })
+  render(<PromqlBuilderPanel />)
+
+  expect(screen.getByRole('combobox', { name: 'Metric: Loading metrics…' })).toBeTruthy()
 })
