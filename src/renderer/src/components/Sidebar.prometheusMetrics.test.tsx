@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PrometheusProfile } from '@shared/types'
 import { normalizeDatabaseObjects } from '../lib/databaseObjects'
 import { resetTestStore } from '../test/sessionTestUtils'
-import { useStore } from '../store/useStore'
+import { selectActiveSession, useStore } from '../store/useStore'
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), describeTable: vi.fn(), labelsForMetric: vi.fn(), labelValues: vi.fn() }))
 vi.mock('../lib/api', () => ({ api: { connections: {
@@ -38,17 +38,25 @@ beforeEach(() => {
 afterEach(() => { cleanup(); resetTestStore() })
 
 describe('Prometheus metric object tree', () => {
-  it('shows type on the metric row and keeps help in an accessible tooltip', async () => {
+  it('selects a metric for Builder without taking over metadata expansion', async () => {
     render(<Sidebar />)
     expect(await screen.findByText('Metrics')).toBeTruthy()
-    const metric = await screen.findByRole('button', { name: 'View details for http_requests_total' })
+    const metric = await screen.findByRole('button', { name: 'Select http_requests_total for Builder' })
     const row = metric.closest<HTMLElement>('[role=treeitem]')!
     expect(within(row).getByText('counter')).toBeTruthy()
     expect(within(row).queryByText('metric')).toBeNull()
     const tooltip = screen.getByRole('tooltip', { name: 'Total HTTP requests.' })
     expect(metric.getAttribute('aria-describedby')).toBe(tooltip.id)
+
     fireEvent.click(metric)
 
+    const session = selectActiveSession(useStore.getState())
+    expect(session.promqlBuilder.metric).toBe('http_requests_total')
+    expect(session.sql).toBe('http_requests_total')
+    expect(metric.getAttribute('aria-current')).toBe('true')
+    expect(mocks.labelsForMetric).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand http_requests_total' }))
     expect(screen.getByText('requests')).toBeTruthy()
     const details = screen.getByRole('group', { name: 'http_requests_total metric metadata' })
     expect(within(details).queryByText('Name')).toBeNull()
@@ -60,12 +68,38 @@ describe('Prometheus metric object tree', () => {
     expect(mocks.labelValues).not.toHaveBeenCalled()
   })
 
+  it('uses the same metric-selection reset behavior as the PromQL Builder picker', async () => {
+    useStore.getState().setPromqlBuilder({
+      metric: 'process_cpu_seconds_total',
+      calculation: 'rate',
+      aggregation: 'sum',
+      filterBy: ['service'],
+      groupBy: ['status'],
+      labelValues: { service: ['api'], status: ['500'] }
+    })
+    render(<Sidebar />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Select http_requests_total for Builder' }))
+
+    const session = selectActiveSession(useStore.getState())
+    expect(session.promqlBuilder).toMatchObject({
+      metric: 'http_requests_total',
+      calculation: 'rate',
+      aggregation: 'sum',
+      histogramKindOverride: 'auto',
+      filterBy: [],
+      groupBy: [],
+      labelValues: {}
+    })
+    expect(session.sql).toBe('sum(rate(http_requests_total[5m]))')
+  })
+
   it('renders no generic fallback or empty tooltip when metric metadata is absent', async () => {
     render(<Sidebar />)
-    const missing = await screen.findByRole('button', { name: 'View details for metric_without_metadata' })
+    const missing = await screen.findByRole('button', { name: 'Select metric_without_metadata for Builder' })
     expect(within(missing.closest<HTMLElement>('[role=treeitem]')!).queryByText('metric')).toBeNull()
     expect(missing.hasAttribute('aria-describedby')).toBe(false)
-    const withoutHelp = screen.getByRole('button', { name: 'View details for gauge_without_help' })
+    const withoutHelp = screen.getByRole('button', { name: 'Select gauge_without_help for Builder' })
     expect(within(withoutHelp.closest<HTMLElement>('[role=treeitem]')!).getByText('gauge')).toBeTruthy()
     expect(withoutHelp.hasAttribute('aria-describedby')).toBe(false)
     expect(screen.getAllByRole('tooltip')).toHaveLength(2)
@@ -83,7 +117,7 @@ describe('Prometheus metric object tree', () => {
 
   it('discovers label values only when a label is expanded', async () => {
     render(<Sidebar />)
-    fireEvent.click(await screen.findByRole('button', { name: 'View details for http_requests_total' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand http_requests_total' }))
     const status = (await screen.findByText('status')).closest('button')!
     expect(mocks.labelValues).not.toHaveBeenCalled()
     fireEvent.click(status)
@@ -98,7 +132,7 @@ describe('Prometheus metric object tree', () => {
     render(<Sidebar />)
     const filter = await screen.findByLabelText('Filter database objects')
     fireEvent.change(filter, { target: { value: 'process_cpu' } })
-    expect(screen.getByRole('button', { name: 'View details for process_cpu_seconds_total' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Select process_cpu_seconds_total for Builder' })).toBeTruthy()
     expect(screen.queryByText('http_requests_total')).toBeNull()
     expect(mocks.labelsForMetric).not.toHaveBeenCalled()
   })
