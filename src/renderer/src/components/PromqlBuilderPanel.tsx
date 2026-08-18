@@ -63,11 +63,11 @@ export function PromqlBuilderPanel() {
     if (!profileId || !builder.metric || !label || values[label] || loadingValues[label]) return
     setLoadingValues((current) => ({ ...current, [label]: true }))
     setValueErrors((current) => ({ ...current, [label]: false }))
-    void metricLabelValues(profileId, builder.metric, label)
+    void metricLabelValues(profileId, builder.metric, label, connectionGeneration)
       .then((found) => setValues((current) => ({ ...current, [label]: found })))
       .catch(() => setValueErrors((current) => ({ ...current, [label]: true })))
       .finally(() => setLoadingValues((current) => ({ ...current, [label]: false })))
-  }, [profileId, builder.metric, values, loadingValues])
+  }, [profileId, builder.metric, connectionGeneration, values, loadingValues])
   const selectMetric = (metric: string) => {
     if (metric === builder.metric) return
     const target = metrics.find((candidate) => candidate.name === metric)
@@ -86,7 +86,7 @@ export function PromqlBuilderPanel() {
     let active = true
     setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({})
     setLoadingLabels(true); setLabelError(false)
-    metricLabels(profileId, builder.metric)
+    metricLabels(profileId, builder.metric, connectionGeneration)
       .then((found) => { if (active) setLabels(found.filter((label) => label !== '__name__')) })
       .catch(() => { if (active) setLabelError(true) })
       .finally(() => { if (active) setLoadingLabels(false) })
