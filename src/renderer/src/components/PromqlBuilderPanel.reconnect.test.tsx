@@ -8,6 +8,7 @@ const { labelsForMetric, labelValues } = vi.hoisted(() => ({ labelsForMetric: vi
 vi.mock('../lib/api', () => ({ api: { connections: { prometheus: { labelsForMetric, labelValues } } } }))
 
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
+import { resetPrometheusMetadataCache } from '../lib/prometheusMetadata'
 import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '../test/sessionTestUtils'
 import { useStore } from '../store/useStore'
 
@@ -16,6 +17,7 @@ const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = n
 
 beforeEach(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn()
+  resetPrometheusMetadataCache()
   labelsForMetric.mockReset()
     .mockResolvedValueOnce(['service', 'old_label', '__name__'])
     .mockResolvedValueOnce(['service', 'new_label', '__name__'])
