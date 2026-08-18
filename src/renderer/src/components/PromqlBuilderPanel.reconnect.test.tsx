@@ -2,7 +2,7 @@ import React from 'react'
 void React
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const { labelsForMetric, labelValues } = vi.hoisted(() => ({ labelsForMetric: vi.fn(), labelValues: vi.fn() }))
 vi.mock('../lib/api', () => ({ api: { connections: { prometheus: { labelsForMetric, labelValues } } } }))
@@ -67,7 +67,9 @@ it('reloads Group by options when a reconnect creates a new connection generatio
   expect(screen.queryByRole('option', { name: 'new_label' })).toBeNull()
   fireEvent.keyDown(screen.getByLabelText('Search Group by'), { key: 'Escape' })
 
-  useStore.setState({ connectionGeneration: 2 })
+  act(() => {
+    useStore.setState({ connectionGeneration: 2 })
+  })
   await waitFor(() => expect(labelsForMetric).toHaveBeenCalledTimes(2))
   await waitFor(() => expect(screen.getByRole('combobox', { name: 'Group by: No grouping' }).hasAttribute('disabled')).toBe(false))
 
@@ -86,12 +88,17 @@ it('shows loading states while reconnect label metadata is being fetched', async
   render(<PromqlBuilderPanel />)
   await screen.findByRole('combobox', { name: 'Group by: No grouping' })
 
-  useStore.setState({ connectionGeneration: 2 })
+  act(() => {
+    useStore.setState({ connectionGeneration: 2 })
+  })
 
   expect(await screen.findByRole('combobox', { name: 'Group by: Loading labels…' })).toBeTruthy()
   expect(screen.getByRole('combobox', { name: 'Filter by: Loading labels…' })).toBeTruthy()
 
-  reconnectLabels.resolve(['service', 'new_label', '__name__'])
+  await act(async () => {
+    reconnectLabels.resolve(['service', 'new_label', '__name__'])
+    await reconnectLabels.promise
+  })
   await screen.findByRole('combobox', { name: 'Group by: No grouping' })
 })
 
