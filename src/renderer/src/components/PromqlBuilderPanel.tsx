@@ -69,6 +69,7 @@ export function PromqlBuilderPanel() {
       .finally(() => setLoadingValues((current) => ({ ...current, [label]: false })))
   }, [profileId, builder.metric, values, loadingValues])
   const selectMetric = (metric: string) => {
+    if (metric === builder.metric) return
     const target = metrics.find((candidate) => candidate.name === metric)
     const targetType = target?.details?.kind === 'metric' ? target.details.type : undefined
     const targetDetectedKind = detectPromqlHistogramKind({ metric, labels: [], metadataType: targetType })
