@@ -12,6 +12,7 @@ import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
 import { TempoAdapter } from './adapters/tempo-adapter.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
+import type { TempoQueryRequest } from '../shared/tempo.ts'
 import { formatPromql } from './promql-formatter.ts'
 import { toIpcSafeQueryResult } from './ipc-serialization.ts'
 
@@ -136,8 +137,14 @@ function session(id: ConnectionId): DataSourceSession {
   return value
 }
 
-export async function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = [], prometheus?: Omit<PrometheusQueryRequest, 'expression'>): Promise<QueryResult> {
-  return toIpcSafeQueryResult(await session(id).query({ sql, parameters, prometheus }))
+export async function runQuery(
+  id: ConnectionId,
+  sql: string,
+  parameters: unknown[] = [],
+  prometheus?: Omit<PrometheusQueryRequest, 'expression'>,
+  tempo?: TempoQueryRequest
+): Promise<QueryResult> {
+  return toIpcSafeQueryResult(await session(id).query({ sql, parameters, prometheus, tempo }))
 }
 
 export function formatPrometheusQuery(_id: ConnectionId, query: string): Promise<string> {
