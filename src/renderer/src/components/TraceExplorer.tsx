@@ -24,6 +24,7 @@ interface TraceExplorerProps {
 
 type TraceStatus = 'any' | 'error' | 'ok'
 type ResultView = 'list' | 'scatter'
+type TraceSampleSize = '100' | '250' | '500' | 'all'
 interface TraceBuilderState {
   serviceNamespace: string
   service: string
@@ -35,6 +36,7 @@ interface TraceBuilderState {
 const MAX_RENDERED_SPANS = 500
 const EMPTY_BUILDER: TraceBuilderState = { serviceNamespace: '', service: '', spanName: '', status: 'any', minDurationMs: '' }
 const DEFAULT_TRACE_RANGE: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
+const DEFAULT_TRACE_SAMPLE_SIZE: TraceSampleSize = '250'
 
 function text(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
@@ -229,6 +231,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [error, setError] = useState('')
   const [cohortHint, setCohortHint] = useState('')
   const [searchRange, setSearchRange] = useState<BuilderTimeRange>(DEFAULT_TRACE_RANGE)
+  const [sampleSize, setSampleSize] = useState<TraceSampleSize>(DEFAULT_TRACE_SAMPLE_SIZE)
   const [resultView, setResultView] = useState<ResultView>('list')
 
   useEffect(() => {
@@ -245,6 +248,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setError('')
     setCohortHint('')
     setSearchRange(DEFAULT_TRACE_RANGE)
+    setSampleSize(DEFAULT_TRACE_SAMPLE_SIZE)
     setResultView('list')
     setSearchProgress(null)
   }, [connectionId])
@@ -264,7 +268,12 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
       return
     }
 
-    const tempoSearchRequest = { start: range.start, end: range.end }
+    const sampled = sampleSize !== 'all'
+    const tempoSearchRequest = {
+      start: range.start,
+      end: range.end,
+      ...(sampled ? { sampleSize: Number(sampleSize) } : {})
+    }
 
     setLoading('search')
     setError('')
@@ -274,7 +283,9 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setSelectedSpanId('')
     setCollapsed(new Set())
     setSearchProgress(null)
-    setSearchNotice('Fetching the complete selected period…')
+    setSearchNotice(sampled
+      ? `Fetching a quick sample of up to ${sampleSize} traces across the selected period…`
+      : 'Fetching the complete selected period…')
     try {
       const result = await api.query.run(connectionId, request, [], tempoSearchRequest, (progress) => {
         setSearchProgress(progress)
@@ -285,7 +296,9 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
       setSearchNotice(result.notice ?? '')
       setSearchProgress(null)
     } catch (reason) {
-      setSearchNotice('Search stopped before the selected period was fully covered; partial results found so far are shown.')
+      setSearchNotice(sampled
+        ? 'Sample search stopped before Tempo returned its bounded result set.'
+        : 'Search stopped before the selected period was fully covered; partial results found so far are shown.')
       setSearchProgress(null)
       setError(reason instanceof Error ? reason.message : String(reason))
     } finally { setLoading(null) }
@@ -339,6 +352,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const rootSpan = sortedSpans.find((row) => !text(row.parentSpanId)) ?? sortedSpans[0]
   const selectedSpanCandidate = sortedSpans.find((row) => text(row.spanId) === selectedSpanId)
   const selectedSpan = selectedSpanCandidate && !hiddenSpanKinds.has(traceSpanKind(selectedSpanCandidate)) ? selectedSpanCandidate : undefined
+  const sampledSearch = sampleSize !== 'all'
   const progressPercent = searchProgress?.totalMs
     ? Math.min(100, Math.round((searchProgress.coveredMs / searchProgress.totalMs) * 100))
     : 0
@@ -478,7 +492,21 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           </div> : <label className={styles.traceqlField} htmlFor="traceql-query"><span>TraceQL</span><textarea id="traceql-query" value={traceql} onChange={(event) => setSql(event.target.value)} spellCheck={false} rows={3} placeholder="{ resource.service.name = &quot;checkout-api&quot; && duration &gt; 300ms }" /></label>}
           <div className={styles.searchControls}>
             <TimeRangeField value={searchRange} onChange={setSearchRange} />
-            <div className={styles.searchActions}><button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? searchProgress ? `Fetching ${progressPercent}%…` : 'Starting…' : 'Search traces'}</button><span>Tempo via gcx · streams trace summaries while it exhausts the complete selected period.</span></div>
+            <label style={{ display: 'grid', gap: 5, flex: '0 0 auto' }}>
+              <span style={{ color: 'var(--text-mute)', fontSize: 11, fontWeight: 600 }}>Sample size</span>
+              <select value={sampleSize} onChange={(event) => setSampleSize(event.target.value as TraceSampleSize)} disabled={loading !== null} style={{ height: 32, minWidth: 112, padding: '0 8px', border: '1px solid var(--border)', borderRadius: 5, background: 'var(--bg)', color: 'var(--text)' }} aria-label="Tempo trace sample size">
+                <option value="100">100 traces</option>
+                <option value="250">250 traces</option>
+                <option value="500">500 traces</option>
+                <option value="all">All traces</option>
+              </select>
+            </label>
+            <div className={styles.searchActions}>
+              <button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? sampledSearch ? 'Fetching sample…' : searchProgress ? `Fetching ${progressPercent}%…` : 'Starting…' : sampledSearch ? 'Search sample' : 'Search all traces'}</button>
+              <span>{sampledSearch
+                ? `Tempo via gcx · returns up to ${sampleSize} matches from one whole-period search; choose All for exhaustive coverage.`
+                : 'Tempo via gcx · streams trace summaries while it exhausts the complete selected period.'}</span>
+            </div>
           </div>
         </form>
       </div>
@@ -486,7 +514,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
       {cohortHint && <div className={styles.cohortHint} role="status">{cohortHint}</div>}
       {error && <div className={styles.error} role="alert">{error}</div>}
       {loading === 'search' && <div className={styles.warning} role="status" aria-live="polite">
-        {searchProgress ? <>
+        {sampledSearch ? <strong>Fetching up to {sampleSize} Tempo traces across the selected period…</strong> : searchProgress ? <>
           <div><strong>Fetching Tempo…</strong> {periodLabel(searchProgress.coveredMs)} / {periodLabel(searchProgress.totalMs)} covered ({progressPercent}%) · {searchProgress.completedChunks}/{currentChunkCount || 1} current chunks · {searchProgress.tracesFound} traces found · {searchProgress.queriesCompleted} {searchProgress.queriesCompleted === 1 ? 'query' : 'queries'}</div>
           <progress value={searchProgress.coveredMs} max={Math.max(1, searchProgress.totalMs)} aria-label={`Tempo search ${progressPercent}% complete`} style={{ width: '100%', marginTop: 6 }} />
         </> : <strong>Starting exhaustive Tempo search…</strong>}
