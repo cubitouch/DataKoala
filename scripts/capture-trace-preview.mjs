@@ -47,7 +47,12 @@ async function seedTraceWorkspace(win) {
       { name: 'commerce', isSystem: false, relations: [
         { schema: 'commerce', name: 'checkout-api', qualifiedName: 'commerce.checkout-api', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } },
         { schema: 'commerce', name: 'inventory-service', qualifiedName: 'commerce.inventory-service', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } },
-        { schema: 'commerce', name: 'payment-service', qualifiedName: 'commerce.payment-service', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } }
+        { schema: 'commerce', name: 'payment-service', qualifiedName: 'commerce.payment-service', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } },
+        { schema: 'commerce', name: 'redis', qualifiedName: 'commerce.redis', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } },
+        { schema: 'commerce', name: 'postgres', qualifiedName: 'commerce.postgres', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } }
+      ] },
+      { name: 'platform', isSystem: false, relations: [
+        { schema: 'platform', name: 'kafka', qualifiedName: 'platform.kafka', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'platform' } }
       ] },
       { name: 'fulfilment', isSystem: false, relations: [
         { schema: 'fulfilment', name: 'fulfilment-worker', qualifiedName: 'fulfilment.fulfilment-worker', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'fulfilment' } },
@@ -79,13 +84,32 @@ async function seedTraceWorkspace(win) {
 }
 
 async function searchTraces(win) {
-  await waitFor(win, `document.querySelector('[aria-label="Trace query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' && document.body.innerText.includes('300')`, 'configured trace Builder')
+  await waitFor(win, `document.querySelector('[aria-label="Trace query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' && document.body.innerText.includes('300') && document.body.innerText.includes('Last hour')`, 'configured trace Builder and time range')
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
     const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Search traces')
     button?.click()
   })()`)
-  await waitFor(win, `document.body.innerText.includes('5 traces') && document.body.innerText.includes('POST /checkout') && document.body.innerText.includes('1.48s') && document.body.innerText.includes('16 matched spans')`, 'realistic Tempo search results')
+  await waitFor(win, `document.body.innerText.includes('5 traces') && document.body.innerText.includes('POST /checkout') && document.body.innerText.includes('1.48s') && document.body.innerText.includes('16 matched spans') && document.querySelector('[aria-label="Successful trace"]') && document.querySelector('[aria-label="Error trace"]')`, 'realistic Tempo list results with statuses')
+}
+
+async function showScatter(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Scatter')
+    button?.click()
+  })()`)
+  await waitFor(win, `document.querySelector('[data-trace-scatter] canvas') && document.querySelector('[aria-label="Trace search result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Scatter'`, 'Tempo scatter results')
+  await sleep(400)
+}
+
+async function showList(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'List')
+    button?.click()
+  })()`)
+  await waitFor(win, `document.querySelector('[aria-label="Trace search result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'List' && document.body.innerText.includes('16 matched spans')`, 'Tempo list results restored')
 }
 
 async function openPreviewTrace(win) {
@@ -103,7 +127,7 @@ async function selectPaymentSpan(win) {
     const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('payment-service') && candidate.textContent?.includes('charge card'))
     button?.click()
   })()`)
-  await waitFor(win, `document.querySelector('aside[aria-label="Selected span details"]') && document.body.innerText.includes('TimeoutError') && document.body.innerText.includes('Resource') && document.body.innerText.includes('Error')`, 'structured payment span inspector')
+  await waitFor(win, `document.querySelector('aside[aria-label="Selected span details"]') && document.querySelector('button[aria-label="Close span details"]') && document.body.innerText.includes('TimeoutError') && document.body.innerText.includes('Resource') && document.body.innerText.includes('Error')`, 'structured closable payment span inspector')
 }
 
 app.whenReady().then(async () => {
@@ -132,6 +156,9 @@ app.whenReady().then(async () => {
     await seedTraceWorkspace(win)
     await searchTraces(win)
     await capture(win, 'tempo-trace-search.png')
+    await showScatter(win)
+    await capture(win, 'tempo-trace-scatter.png')
+    await showList(win)
     await openPreviewTrace(win)
     await selectPaymentSpan(win)
     await capture(win, 'tempo-waterfall.png')
