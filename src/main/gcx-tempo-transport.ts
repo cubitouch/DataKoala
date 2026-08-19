@@ -1,10 +1,11 @@
 import type { ColumnMeta, QueryResult } from '../shared/types.ts'
+import type { TempoQueryRequest } from '../shared/tempo.ts'
 import { runGcxCommand, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
 
 export interface TempoService { name: string; namespace?: string }
 export interface TempoTransport {
-  query(value: string): Promise<QueryResult>
-  search(expression: string): Promise<QueryResult>
+  query(value: string, request?: TempoQueryRequest): Promise<QueryResult>
+  search(expression: string, request?: TempoQueryRequest): Promise<QueryResult>
   get(traceId: string): Promise<QueryResult>
   probe(): Promise<void>
   services(): Promise<TempoService[]>
@@ -12,8 +13,9 @@ export interface TempoTransport {
 
 const TRACE_ID = /^[0-9a-f]{32}$/i
 const SEARCH_LIMIT = 20
-const SERVICE_DISCOVERY_LIMIT = 100
-const SEARCH_SINCE = '1h'
+const DEFAULT_SEARCH_SINCE = '1h'
+const STATUS_CONCURRENCY = 4
+const SERVICE_DISCOVERY_CONCURRENCY = 4
 
 const column = (name: string, dataTypeName: string, logicalType: ColumnMeta['logicalType']): ColumnMeta => ({
   name,
@@ -29,7 +31,8 @@ const searchColumns: ColumnMeta[] = [
   column('rootOperation', 'text', 'string'),
   column('startTimeMs', 'float8', 'number'),
   column('durationMs', 'float8', 'number'),
-  column('matchedSpans', 'int4', 'number')
+  column('matchedSpans', 'int4', 'number'),
+  column('status', 'text', 'string')
 ]
 
 const spanColumns: ColumnMeta[] = [
@@ -152,16 +155,31 @@ function tempoSearchTraces(raw: unknown): Record<string, unknown>[] {
   return traces.filter(isRecord)
 }
 
-export function normalizeTempoSearch(raw: unknown, durationMs = 0): QueryResult {
+function normalizedSearchStatus(trace: Record<string, unknown>): string {
+  const direct = asString(trace.status ?? trace.rootStatus ?? trace.traceStatus).toLowerCase()
+  if (direct.includes('error')) return 'error'
+  if (direct.includes('ok') || direct.includes('success')) return 'ok'
+  return 'unknown'
+}
+
+export function normalizeTempoSearch(raw: unknown, durationMs = 0, rangeLabel = `last ${DEFAULT_SEARCH_SINCE}`): QueryResult {
   const rows = tempoSearchTraces(raw).map((trace) => ({
     traceId: asString(trace.traceID ?? trace.traceId ?? trace.trace_id),
     rootService: asString(trace.rootServiceName ?? trace.rootService ?? trace.serviceName),
     rootOperation: asString(trace.rootTraceName ?? trace.rootOperation ?? trace.name),
     startTimeMs: trace.startTimeUnixNano !== undefined ? nanosToMs(trace.startTimeUnixNano) : asNumber(trace.startTimeMs),
     durationMs: trace.durationNanos !== undefined ? nanosToMs(trace.durationNanos) : asNumber(trace.durationMs ?? trace.duration),
-    matchedSpans: matchedSpanCount(trace)
+    matchedSpans: matchedSpanCount(trace),
+    status: normalizedSearchStatus(trace)
   })).filter((row) => row.traceId)
-  return { columns: searchColumns, rows, rowCount: rows.length, durationMs, notice: `Tempo search · last ${SEARCH_SINCE} · max ${SEARCH_LIMIT} traces`, execution: { provider: 'tempo', durationMs, rowCount: rows.length } }
+  return {
+    columns: searchColumns,
+    rows,
+    rowCount: rows.length,
+    durationMs,
+    notice: `Tempo search · ${rangeLabel} · max ${SEARCH_LIMIT} traces`,
+    execution: { provider: 'tempo', durationMs, rowCount: rows.length }
+  }
 }
 
 function normalizeEvents(value: unknown): unknown[] {
@@ -332,6 +350,47 @@ export function normalizeTempoServices(raw: unknown): TempoService[] {
   return [...services.values()].sort((left, right) => `${left.namespace ?? ''}/${left.name}`.localeCompare(`${right.namespace ?? ''}/${right.name}`))
 }
 
+export function normalizeTempoLabelValues(raw: unknown): string[] {
+  let payload = isRecord(raw) && isRecord(raw.data) ? raw.data : raw
+  if (isRecord(payload) && 'tagValues' in payload) payload = payload.tagValues
+  const values: unknown[] = []
+  if (Array.isArray(payload)) {
+    for (const item of payload) values.push(isRecord(item) && 'value' in item ? item.value : item)
+  } else if (isRecord(payload)) {
+    for (const group of Object.values(payload)) {
+      if (Array.isArray(group)) values.push(...group.map((item) => isRecord(item) && 'value' in item ? item.value : item))
+    }
+  }
+  return [...new Set(values.map(asString).map((value) => value.trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right))
+}
+
+function searchRangeArgs(request?: TempoQueryRequest): string[] {
+  return request ? ['--from', request.start, '--to', request.end] : ['--since', DEFAULT_SEARCH_SINCE]
+}
+
+function searchRangeLabel(request?: TempoQueryRequest): string {
+  if (!request) return `last ${DEFAULT_SEARCH_SINCE}`
+  const format = (value: string) => {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? value : date.toISOString().replace('.000Z', 'Z')
+  }
+  return `${format(request.start)} → ${format(request.end)}`
+}
+
+async function mapConcurrent<T, R>(values: T[], concurrency: number, mapper: (value: T) => Promise<R>): Promise<R[]> {
+  const output = new Array<R>(values.length)
+  let nextIndex = 0
+  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+    while (true) {
+      const index = nextIndex++
+      if (index >= values.length) return
+      output[index] = await mapper(values[index])
+    }
+  })
+  await Promise.all(workers)
+  return output
+}
+
 export class GcxTempoTransport implements TempoTransport {
   private readonly context?: string
   private readonly datasourceUid?: string
@@ -350,10 +409,10 @@ export class GcxTempoTransport implements TempoTransport {
     ]
   }
 
-  async query(value: string): Promise<QueryResult> {
+  async query(value: string, request?: TempoQueryRequest): Promise<QueryResult> {
     const query = value.trim()
     if (!query) throw new Error('Enter a TraceQL query or trace ID.')
-    return TRACE_ID.test(query) ? this.get(query) : this.search(query)
+    return TRACE_ID.test(query) ? this.get(query) : this.search(query, request)
   }
 
   async probe(): Promise<void> {
@@ -365,21 +424,61 @@ export class GcxTempoTransport implements TempoTransport {
     }
   }
 
+  private async labelValues(label: string, query?: string): Promise<string[]> {
+    const args = [
+      'traces', 'labels', ...this.commonArgs(), '--label', label,
+      ...(query ? ['--query', query] : []),
+      '-o', 'json'
+    ]
+    return normalizeTempoLabelValues(parseJson((await this.run(args)).stdout, `traces labels ${label}`))
+  }
+
   async services(): Promise<TempoService[]> {
     try {
-      const args = ['traces', 'query', '{}', ...this.commonArgs(), '--since', SEARCH_SINCE, '--limit', String(SERVICE_DISCOVERY_LIMIT), '-o', 'json']
-      return normalizeTempoServices(parseJson((await this.run(args)).stdout, 'traces service discovery'))
+      const names = await this.labelValues('resource.service.name')
+      if (!names.length) return []
+      const namespaces = await this.labelValues('resource.service.namespace')
+      const mapped = new Map<string, TempoService>()
+      await mapConcurrent(namespaces, SERVICE_DISCOVERY_CONCURRENCY, async (namespace) => {
+        const scopedNames = await this.labelValues('resource.service.name', `{ resource.service.namespace = ${JSON.stringify(namespace)} }`)
+        for (const name of scopedNames) collectService(mapped, name, namespace)
+      })
+      const assigned = new Set([...mapped.values()].map((service) => service.name))
+      for (const name of names) if (!assigned.has(name)) collectService(mapped, name)
+      return [...mapped.values()].sort((left, right) => `${left.namespace ?? ''}/${left.name}`.localeCompare(`${right.namespace ?? ''}/${right.name}`))
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
-      throw tempoError(error)
+      try {
+        const args = ['traces', 'query', '{}', ...this.commonArgs(), '--since', '24h', '--limit', '100', '-o', 'json']
+        return normalizeTempoServices(parseJson((await this.run(args)).stdout, 'traces service discovery fallback'))
+      } catch {
+        if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
+        throw tempoError(error)
+      }
     }
   }
 
-  async search(expression: string): Promise<QueryResult> {
+  private async enrichSearchStatuses(result: QueryResult): Promise<QueryResult> {
+    const rows = await mapConcurrent(result.rows, STATUS_CONCURRENCY, async (row) => {
+      if (asString(row.status) !== 'unknown') return row
+      const traceId = asString(row.traceId)
+      if (!TRACE_ID.test(traceId)) return row
+      try {
+        const trace = await this.get(traceId)
+        const hasError = trace.rows.some((span) => asString(span.status).toUpperCase().includes('ERROR'))
+        return { ...row, status: hasError ? 'error' : 'ok' }
+      } catch {
+        return row
+      }
+    })
+    return { ...result, rows }
+  }
+
+  async search(expression: string, request?: TempoQueryRequest): Promise<QueryResult> {
     const started = Date.now()
     try {
-      const args = ['traces', 'query', expression, ...this.commonArgs(), '--since', SEARCH_SINCE, '--limit', String(SEARCH_LIMIT), '-o', 'json']
-      return normalizeTempoSearch(parseJson((await this.run(args)).stdout, 'traces query'), Date.now() - started)
+      const args = ['traces', 'query', expression, ...this.commonArgs(), ...searchRangeArgs(request), '--limit', String(SEARCH_LIMIT), '-o', 'json']
+      const normalized = normalizeTempoSearch(parseJson((await this.run(args)).stdout, 'traces query'), Date.now() - started, searchRangeLabel(request))
+      return request?.includeStatus ? this.enrichSearchStatuses(normalized) : normalized
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
       throw tempoError(error)
