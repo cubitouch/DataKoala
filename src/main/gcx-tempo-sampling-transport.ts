@@ -136,7 +136,7 @@ export class SamplingGcxTempoTransport implements TempoTransport {
   async search(expression: string, request?: TempoQueryRequest): Promise<QueryResult> {
     const query = expression.trim()
     if (!query) throw new Error('Enter a TraceQL query.')
-    if (!request?.sampleSize) return this.exhaustive.search(query, request)
+    if (request?.sampleSize === undefined) return this.exhaustive.search(query, request)
 
     const limit = sampleSize(request.sampleSize)
     const started = Date.now()
