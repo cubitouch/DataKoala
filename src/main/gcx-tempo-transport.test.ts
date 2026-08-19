@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { GcxTempoTransport, normalizeTempoSearch, normalizeTempoServices, normalizeTempoTrace, type TempoTransport } from './gcx-tempo-transport.ts'
+import { GcxTempoTransport, normalizeTempoLabelValues, normalizeTempoSearch, normalizeTempoServices, normalizeTempoTrace, type TempoTransport } from './gcx-tempo-transport.ts'
 import type { GcxCommandRunner } from './gcx-prometheus-transport.ts'
 
 const traceId = '0123456789abcdef0123456789abcdef'
@@ -32,10 +32,45 @@ test('Tempo search uses TraceQL through gcx and normalizes trace summaries', asy
     rootOperation: 'POST /checkout',
     startTimeMs: 1723629600000,
     durationMs: 1480,
-    matchedSpans: 2
+    matchedSpans: 2,
+    status: 'unknown'
   })
   assert.equal(result.execution?.provider, 'tempo')
   assert.match(result.notice ?? '', /last 1h/)
+})
+
+test('Tempo ranged search uses from/to and enriches trace success/error status', async () => {
+  const calls: string[][] = []
+  const run: GcxCommandRunner = async (args) => {
+    calls.push(args)
+    if (args[1] === 'query') {
+      return { stdout: JSON.stringify({ traces: [{ traceID: traceId, rootServiceName: 'checkout', rootTraceName: 'POST /checkout', durationMs: 700 }] }), stderr: '' }
+    }
+    return {
+      stdout: JSON.stringify({ spans: [{
+        traceId,
+        spanId: 'aaaaaaaaaaaaaaaa',
+        serviceName: 'checkout',
+        name: 'POST /checkout',
+        startTimeMs: 1000,
+        durationMs: 700,
+        status: { code: 2 }
+      }] }),
+      stderr: ''
+    }
+  }
+  const result = await new GcxTempoTransport('production', run).search('{ duration > 500ms }', {
+    start: '2026-08-18T00:00:00.000Z',
+    end: '2026-08-19T00:00:00.000Z',
+    includeStatus: true
+  })
+  assert.deepEqual(calls[0], [
+    'traces', 'query', '{ duration > 500ms }', '--context', 'production',
+    '--from', '2026-08-18T00:00:00.000Z', '--to', '2026-08-19T00:00:00.000Z', '--limit', '20', '-o', 'json'
+  ])
+  assert.deepEqual(calls[1], ['traces', 'get', traceId, '--context', 'production', '-o', 'json'])
+  assert.equal(result.rows[0].status, 'error')
+  assert.match(result.notice ?? '', /2026-08-18T00:00:00Z/)
 })
 
 test('Tempo trace IDs use gcx traces get and preserve OpenTelemetry inspection data', async () => {
@@ -98,6 +133,7 @@ test('Tempo trace IDs use gcx traces get and preserve OpenTelemetry inspection d
 test('Tempo normalizers accept wrapped search and Jaeger-style trace responses', () => {
   const search = normalizeTempoSearch({ data: { traces: [{ traceId, rootService: 'worker', rootOperation: 'consume', durationNanos: '500000000' }] } })
   assert.equal(search.rows[0].durationMs, 500)
+  assert.equal(search.rows[0].status, 'unknown')
 
   const trace = normalizeTempoTrace({ data: [{
     traceID: traceId,
@@ -132,19 +168,39 @@ test('Tempo service discovery groups service names by OpenTelemetry namespace', 
   ])
 })
 
-test('Tempo probe and service discovery keep gcx context and datasource selection', async () => {
+test('Tempo label-value normalizer accepts standard and LLM-friendly gcx JSON', () => {
+  assert.deepEqual(normalizeTempoLabelValues({ tagValues: [{ type: 'string', value: 'checkout' }, { type: 'string', value: 'worker' }] }), ['checkout', 'worker'])
+  assert.deepEqual(normalizeTempoLabelValues({ tagValues: { string: ['worker', 'checkout'] } }), ['checkout', 'worker'])
+})
+
+test('Tempo service discovery uses label values and keeps gcx context and datasource selection', async () => {
   const calls: string[][] = []
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
-    if (args[1] === 'labels') return { stdout: JSON.stringify({ labels: ['service.name'] }), stderr: '' }
-    return { stdout: JSON.stringify({ traces: [{ rootServiceName: 'checkout-api' }] }), stderr: '' }
+    const labelIndex = args.indexOf('--label')
+    if (labelIndex < 0) return { stdout: JSON.stringify({ scopes: [] }), stderr: '' }
+    const label = args[labelIndex + 1]
+    const queryIndex = args.indexOf('--query')
+    const query = queryIndex >= 0 ? args[queryIndex + 1] : ''
+    if (label === 'resource.service.namespace') {
+      return { stdout: JSON.stringify({ tagValues: [{ type: 'string', value: 'commerce' }] }), stderr: '' }
+    }
+    if (query.includes('commerce')) {
+      return { stdout: JSON.stringify({ tagValues: [{ type: 'string', value: 'checkout-api' }] }), stderr: '' }
+    }
+    return { stdout: JSON.stringify({ tagValues: [{ type: 'string', value: 'checkout-api' }, { type: 'string', value: 'legacy-worker' }] }), stderr: '' }
   }
   const transport = new GcxTempoTransport('production', run, 'tempo-uid')
   await transport.probe()
-  assert.deepEqual(await transport.services(), [{ name: 'checkout-api' }])
+  assert.deepEqual(await transport.services(), [
+    { name: 'legacy-worker' },
+    { name: 'checkout-api', namespace: 'commerce' }
+  ])
   assert.deepEqual(calls, [
     ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '-o', 'json'],
-    ['traces', 'query', '{}', '--context', 'production', '--datasource', 'tempo-uid', '--since', '1h', '--limit', '100', '-o', 'json']
+    ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.name', '-o', 'json'],
+    ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.namespace', '-o', 'json'],
+    ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.name', '--query', '{ resource.service.namespace = "commerce" }', '-o', 'json']
   ])
 })
 
