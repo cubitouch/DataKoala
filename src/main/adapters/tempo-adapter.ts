@@ -36,7 +36,11 @@ export class TempoAdapter implements DataSourceAdapter {
       await transport.probe()
       const services = await transport.services()
       const namespaceNames = [...new Set(services.map((service) => service.namespace || DEFAULT_SERVICE_NAMESPACE))]
-        .sort((left, right) => left.localeCompare(right))
+        .sort((left, right) => {
+          if (left === DEFAULT_SERVICE_NAMESPACE) return -1
+          if (right === DEFAULT_SERVICE_NAMESPACE) return 1
+          return left.localeCompare(right)
+        })
       const relations = services.map((service) => ({
         namespace: service.namespace || DEFAULT_SERVICE_NAMESPACE,
         name: service.name,
