@@ -19,11 +19,11 @@ export interface ConnectionStateEvent {
   activeOperationAffected?: boolean
 }
 
-export type DataSourceKind = 'postgres' | 'local-files' | 'sqlite-file' | 'bigquery' | 'prometheus'
-export type QueryEngine = 'postgres' | 'duckdb' | 'bigquery' | 'prometheus'
+export type DataSourceKind = 'postgres' | 'local-files' | 'sqlite-file' | 'bigquery' | 'prometheus' | 'tempo'
+export type QueryEngine = 'postgres' | 'duckdb' | 'bigquery' | 'prometheus' | 'tempo'
 export type SqlDialect = 'postgres' | 'duckdb' | 'google-sql'
-export type QueryLanguage = { kind: 'sql'; dialect: SqlDialect } | { kind: 'promql' }
-type SqlDataSourceKind = Exclude<DataSourceKind, 'prometheus'>
+export type QueryLanguage = { kind: 'sql'; dialect: SqlDialect } | { kind: 'promql' } | { kind: 'traceql' }
+type SqlDataSourceKind = Exclude<DataSourceKind, 'prometheus' | 'tempo'>
 
 export interface DataSourceDescriptor {
   sourceKind: DataSourceKind
@@ -40,11 +40,14 @@ export const DATA_SOURCE_DESCRIPTORS: Record<SqlDataSourceKind, DataSourceDescri
 
 export function sqlDialectForSourceKind(kind: DataSourceKind): SqlDialect {
   if (kind === 'prometheus') throw new Error('Prometheus does not use a SQL dialect.')
+  if (kind === 'tempo') throw new Error('Tempo does not use a SQL dialect.')
   return DATA_SOURCE_DESCRIPTORS[kind].dialect
 }
 
 export function queryLanguageForSourceKind(kind: DataSourceKind): QueryLanguage {
-  return kind === 'prometheus' ? { kind: 'promql' } : { kind: 'sql', dialect: DATA_SOURCE_DESCRIPTORS[kind].dialect }
+  if (kind === 'prometheus') return { kind: 'promql' }
+  if (kind === 'tempo') return { kind: 'traceql' }
+  return { kind: 'sql', dialect: DATA_SOURCE_DESCRIPTORS[kind].dialect }
 }
 
 interface ProfileBase {
@@ -88,11 +91,14 @@ export interface BigQueryProfile extends ProfileBase {
   readonly: true
 }
 
-export interface PrometheusTransportConfig {
+export interface GcxSignalTransportConfig {
   kind: 'gcx'
   context?: string
   datasourceUid?: string
 }
+
+export type PrometheusTransportConfig = GcxSignalTransportConfig
+export type TempoTransportConfig = GcxSignalTransportConfig
 
 export interface PrometheusProfile extends ProfileBase {
   kind: 'prometheus'
@@ -100,7 +106,13 @@ export interface PrometheusProfile extends ProfileBase {
   transport: PrometheusTransportConfig
 }
 
-export type DataSourceProfile = PostgresProfile | LocalFilesProfile | SqliteFileProfile | BigQueryProfile | PrometheusProfile
+export interface TempoProfile extends ProfileBase {
+  kind: 'tempo'
+  readonly: true
+  transport: TempoTransportConfig
+}
+
+export type DataSourceProfile = PostgresProfile | LocalFilesProfile | SqliteFileProfile | BigQueryProfile | PrometheusProfile | TempoProfile
 /** @deprecated Prefer the discriminated DataSourceProfile union. */
 export type ConnectionProfile = PostgresProfile
 
@@ -153,7 +165,8 @@ export const DATA_SOURCE_CAPABILITIES: Record<DataSourceKind, DataSourceCapabili
   'local-files': { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true },
   'sqlite-file': { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true },
   bigquery: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: true },
-  prometheus: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false }
+  prometheus: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false },
+  tempo: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false }
 }
 
 export interface SourceInfo { label?: string; version?: string }
@@ -177,7 +190,7 @@ export interface ExplainResult {
 export interface TableInfo {
   schema: string
   name: string
-  kind: 'r' | 'v' | 'm' | 'metric'
+  kind: 'r' | 'v' | 'm' | 'metric' | 'service'
   details?: DataObjectDetails
 }
 
@@ -186,6 +199,9 @@ export type DataObjectDetails = {
   type?: string
   help?: string
   unit?: string
+} | {
+  kind: 'service'
+  serviceNamespace?: string
 }
 
 export interface DatabaseColumnNode {
