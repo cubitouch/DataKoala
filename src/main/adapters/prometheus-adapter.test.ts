@@ -47,9 +47,8 @@ test('Prometheus relation discovery is deterministic and rejects unrelated names
   assert.deepEqual((await connected.session.listRelations({ name: 'Metrics' })).map((item) => item.name), ['http_requests_total', 'process_cpu_seconds_total'])
 })
 
-test('Grafana session routes PromQL ranges to Prometheus and TraceQL to Tempo', async () => {
-  const prometheusRequests: unknown[] = []
-  const tempoRequests: string[] = []
+test('Prometheus sessions always execute PromQL through the metrics transport', async () => {
+  const requests: unknown[] = []
   const normalized: QueryResult = { columns: [], rows: [], rowCount: 0, durationMs: 2 }
   const adapter = new PrometheusAdapter(
     async () => discovery,
@@ -57,17 +56,18 @@ test('Grafana session routes PromQL ranges to Prometheus and TraceQL to Tempo', 
       metadata: async () => [],
       labelsForMetric: async () => [],
       labelValues: async () => [],
-      query: async (value) => { prometheusRequests.push(value); return normalized }
-    }),
-    () => ({ query: async (value) => { tempoRequests.push(value); return normalized } })
+      query: async (value) => { requests.push(value); return normalized }
+    })
   )
   const connected = await adapter.connect(profile)
   assert.ok(connected.session)
-  for (const step of ['30s', '1m', '5m']) {
+  for (const step of ['30s', '1m', '5m'] as const) {
     const result = await connected.session.query({ sql: 'rate(http_requests_total[5m])', prometheus: { start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step } })
     assert.equal(result, normalized)
   }
-  assert.equal(await connected.session.query({ sql: '{ duration > 1s }' }), normalized)
-  assert.deepEqual(prometheusRequests, ['30s', '1m', '5m'].map((step) => ({ expression: 'rate(http_requests_total[5m])', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step })))
-  assert.deepEqual(tempoRequests, ['{ duration > 1s }'])
+  assert.equal(await connected.session.query({ sql: 'up' }), normalized)
+  assert.deepEqual(requests, [
+    ...(['30s', '1m', '5m'] as const).map((step) => ({ expression: 'rate(http_requests_total[5m])', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step })),
+    { expression: 'up' }
+  ])
 })
