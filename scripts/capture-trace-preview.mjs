@@ -83,6 +83,26 @@ async function seedTraceWorkspace(win) {
   await waitFor(win, `document.querySelector('section[aria-label="Trace explorer"]') && document.body.innerText.includes('Production traces') && document.body.innerText.includes('checkout-api')`, 'seeded Tempo workspace and service tree')
 }
 
+async function validateBuilderIndependence(win) {
+  const report = JSON.parse(await win.webContents.executeJavaScript(`(() => {
+    const labels = [...document.querySelectorAll('section[aria-label="Trace explorer"] label')]
+    const inputFor = (name) => labels.find((label) => label.querySelector('span')?.textContent?.trim() === name)?.querySelector('input')
+    const service = inputFor('Service')
+    const span = inputFor('Span / operation')
+    if (!service || !span) return JSON.stringify({ error: 'missing builder inputs' })
+    const before = { service: service.value, span: span.value }
+    const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(span), 'value')
+    descriptor.set.call(span, 'POST /checkout')
+    span.dispatchEvent(new Event('input', { bubbles: true }))
+    return JSON.stringify({ before })
+  })()`))
+  if (report.error) throw new Error(report.error)
+  if (report.before.service !== 'checkout-api' || report.before.span !== '') {
+    throw new Error(`Builder parser cross-wired service/span fields: ${JSON.stringify(report.before)}`)
+  }
+  await waitFor(win, `(() => { const labels=[...document.querySelectorAll('section[aria-label="Trace explorer"] label')]; const input=(name)=>labels.find((label)=>label.querySelector('span')?.textContent?.trim()===name)?.querySelector('input'); return input('Service')?.value === 'checkout-api' && input('Span / operation')?.value === 'POST /checkout' })()`, 'independent Service and Span / operation values')
+}
+
 async function searchTraces(win) {
   await waitFor(win, `document.querySelector('[aria-label="Trace query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' && document.body.innerText.includes('300') && document.body.innerText.includes('Last hour')`, 'configured trace Builder and time range')
   await win.webContents.executeJavaScript(`(() => {
@@ -130,6 +150,27 @@ async function selectPaymentSpan(win) {
   await waitFor(win, `document.querySelector('aside[aria-label="Selected span details"]') && document.querySelector('button[aria-label="Close span details"]') && document.body.innerText.includes('TimeoutError') && document.body.innerText.includes('Resource') && document.body.innerText.includes('Error')`, 'structured closable payment span inspector')
 }
 
+async function validateCloseAndSelectedSpanCohort(win) {
+  await win.webContents.executeJavaScript(`document.querySelector('button[aria-label="Close span details"]')?.click()`)
+  await waitFor(win, `!document.querySelector('aside[aria-label="Selected span details"]')`, 'closed span detail panel')
+  await selectPaymentSpan(win)
+  await win.webContents.executeJavaScript(`(() => {
+    const section = document.querySelector('section[aria-label="Trace explorer"]')
+    const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Explore similar traces')
+    button?.click()
+  })()`)
+  await waitFor(win, `(() => {
+    const section=document.querySelector('section[aria-label="Trace explorer"]');
+    const labels=[...(section?.querySelectorAll('label') ?? [])];
+    const field=(name)=>labels.find((label)=>label.querySelector('span')?.textContent?.trim()===name);
+    return field('Namespace')?.querySelector('input')?.value === 'commerce' &&
+      field('Service')?.querySelector('input')?.value === 'payment-service' &&
+      field('Span / operation')?.querySelector('input')?.value === 'charge card' &&
+      field('Status')?.querySelector('select')?.value === 'error' &&
+      document.body.innerText.includes('selected span');
+  })()`, 'selected-span cohort seed')
+}
+
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
   ipcMain.handle('connections:prometheus:metric-labels', async () => [])
@@ -154,6 +195,7 @@ app.whenReady().then(async () => {
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
     await waitFor(win, `document.getElementById('root')?.children.length && window.__datakoalaStore`, 'renderer and store')
     await seedTraceWorkspace(win)
+    await validateBuilderIndependence(win)
     await searchTraces(win)
     await capture(win, 'tempo-trace-search.png')
     await showScatter(win)
@@ -162,6 +204,7 @@ app.whenReady().then(async () => {
     await openPreviewTrace(win)
     await selectPaymentSpan(win)
     await capture(win, 'tempo-waterfall.png')
+    await validateCloseAndSelectedSpanCohort(win)
     app.exit(0)
   } catch (error) {
     console.error(error)
