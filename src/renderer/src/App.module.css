@@ -48,36 +48,6 @@
   overflow: hidden;
 }
 
-.signalBar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 36px;
-  padding: 4px 10px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-2);
-}
-.signalBar > span {
-  margin-right: 4px;
-  color: var(--text-mute);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-.signalBar button {
-  min-height: 26px;
-  padding: 0 9px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--text-mute);
-  cursor: pointer;
-}
-.signalBar button:hover, .signalBar button:focus-visible { background: var(--bg); color: var(--text); }
-.signalBar .signalActive { border-color: var(--border); background: var(--bg); color: var(--text); }
-
 .mainShell > .main {
   flex: 1;
   min-width: 0;
