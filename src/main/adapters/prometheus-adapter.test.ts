@@ -65,6 +65,6 @@ test('Prometheus sessions execute range PromQL only through the metrics transpor
     const result = await connected.session.query({ sql: 'rate(http_requests_total[5m])', prometheus: { start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step } })
     assert.equal(result, normalized)
   }
-  await assert.rejects(connected.session.query({ sql: 'up' }), /time range and resolution/)
+  await assert.rejects(() => connected.session!.query({ sql: 'up' }), /time range and resolution/)
   assert.deepEqual(requests, (['30s', '1m', '5m'] as const).map((step) => ({ expression: 'rate(http_requests_total[5m])', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step })))
 })
