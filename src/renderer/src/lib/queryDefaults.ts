@@ -7,5 +7,7 @@ export function defaultQueryModeForDatasource(kind?: DataSourceKind, builderSupp
 }
 
 export function defaultQueryTextForDatasource(kind?: DataSourceKind): string {
-  return kind === 'prometheus' ? 'up' : 'select now();'
+  if (kind === 'prometheus') return 'up'
+  if (kind === 'tempo') return '{ duration > 100ms }'
+  return 'select now();'
 }
