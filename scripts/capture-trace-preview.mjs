@@ -88,7 +88,7 @@ async function searchTraces(win) {
     const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('Search traces'))
     button?.click()
   })()`)
-  await waitFor(win, `document.body.innerText.includes('${previewTraceId}') && document.body.innerText.includes('1.48s')`, 'realistic Tempo search results')
+  await waitFor(win, `document.body.innerText.includes('5 traces') && document.body.innerText.includes('POST /checkout') && document.body.innerText.includes('1.48s') && document.body.innerText.includes('16 matched spans')`, 'realistic Tempo search results')
 }
 
 async function openPreviewTrace(win) {
