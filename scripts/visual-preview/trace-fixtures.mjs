@@ -6,7 +6,8 @@ const searchColumns = [
   { name: 'rootOperation', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' },
   { name: 'startTimeMs', dataTypeID: 0, dataTypeName: 'float8', logicalType: 'number' },
   { name: 'durationMs', dataTypeID: 0, dataTypeName: 'float8', logicalType: 'number' },
-  { name: 'matchedSpans', dataTypeID: 0, dataTypeName: 'int4', logicalType: 'number' }
+  { name: 'matchedSpans', dataTypeID: 0, dataTypeName: 'int4', logicalType: 'number' },
+  { name: 'status', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' }
 ]
 
 const spanColumns = [
@@ -40,15 +41,15 @@ const resource = (service, namespace) => ({
 export const previewTraceSearchResult = {
   columns: searchColumns,
   rows: [
-    { traceId: previewTraceId, rootService: 'checkout-api', rootOperation: 'POST /checkout', startTimeMs: baseTime, durationMs: 1480, matchedSpans: 16 },
-    { traceId: '93b7a6c1d35f4b97b6425f7801dc1c90', rootService: 'checkout-api', rootOperation: 'POST /checkout', startTimeMs: baseTime - 86_000, durationMs: 418, matchedSpans: 13 },
-    { traceId: '27af7654cde84e37a1d799b7fca23a5d', rootService: 'checkout-api', rootOperation: 'POST /checkout', startTimeMs: baseTime - 147_000, durationMs: 392, matchedSpans: 12 },
-    { traceId: 'c177a85ca1db4312a74eb42e155bb87e', rootService: 'checkout-api', rootOperation: 'POST /checkout', startTimeMs: baseTime - 238_000, durationMs: 906, matchedSpans: 15 },
-    { traceId: '7f02e9dbf34c4cf6a02c4cf7064b4213', rootService: 'checkout-api', rootOperation: 'POST /checkout', startTimeMs: baseTime - 319_000, durationMs: 447, matchedSpans: 13 }
+    { traceId: previewTraceId, rootService: 'checkout-api', rootOperation: 'POST /checkout', startTimeMs: baseTime, durationMs: 1480, matchedSpans: 16, status: 'error' },
+    { traceId: '93b7a6c1d35f4b97b6425f7801dc1c90', rootService: 'checkout-api', rootOperation: 'POST /checkout', startTimeMs: baseTime - 86_000, durationMs: 418, matchedSpans: 13, status: 'ok' },
+    { traceId: '27af7654cde84e37a1d799b7fca23a5d', rootService: 'checkout-api', rootOperation: 'POST /checkout', startTimeMs: baseTime - 147_000, durationMs: 392, matchedSpans: 12, status: 'ok' },
+    { traceId: 'c177a85ca1db4312a74eb42e155bb87e', rootService: 'checkout-api', rootOperation: 'POST /checkout', startTimeMs: baseTime - 238_000, durationMs: 906, matchedSpans: 15, status: 'error' },
+    { traceId: '7f02e9dbf34c4cf6a02c4cf7064b4213', rootService: 'checkout-api', rootOperation: 'POST /checkout', startTimeMs: baseTime - 319_000, durationMs: 447, matchedSpans: 13, status: 'ok' }
   ],
   rowCount: 5,
   durationMs: 74,
-  notice: 'Tempo search · last 1h · max 20 traces',
+  notice: 'Tempo search · 19 Aug 2026 16:00 → 19 Aug 2026 17:00 · max 20 traces',
   execution: { provider: 'tempo', durationMs: 74, rowCount: 5 }
 }
 
