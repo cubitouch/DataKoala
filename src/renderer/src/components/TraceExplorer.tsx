@@ -1,7 +1,11 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import ReactECharts from 'echarts-for-react'
 import type { QueryResult } from '@shared/types'
 import { api } from '../lib/api'
 import { selectActiveSession, useStore } from '../store/useStore'
+import { TimeRangeField } from './time-range/TimeRangeField'
+import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
+import type { BuilderTimeRange } from '../lib/builderTimeRange'
 import styles from './TraceExplorer.module.css'
 
 interface TraceExplorerProps {
@@ -10,6 +14,7 @@ interface TraceExplorerProps {
 
 type TraceRow = Record<string, unknown>
 type TraceStatus = 'any' | 'error' | 'ok'
+type ResultView = 'list' | 'scatter'
 interface TraceBuilderState {
   serviceNamespace: string
   service: string
@@ -21,6 +26,7 @@ interface TraceBuilderState {
 const MAX_RENDERED_SPANS = 500
 const TRACE_ID = /^[0-9a-f]{32}$/i
 const EMPTY_BUILDER: TraceBuilderState = { serviceNamespace: '', service: '', spanName: '', status: 'any', minDurationMs: '' }
+const DEFAULT_TRACE_RANGE: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
 
 function text(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
@@ -35,6 +41,11 @@ function durationLabel(milliseconds: number): string {
   if (milliseconds >= 1_000) return `${(milliseconds / 1_000).toFixed(milliseconds >= 10_000 ? 1 : 2)}s`
   if (milliseconds >= 1) return `${milliseconds.toFixed(milliseconds >= 100 ? 0 : 1)}ms`
   return `${Math.max(0, milliseconds * 1_000).toFixed(0)}µs`
+}
+
+function dateTimeLabel(milliseconds: number): string {
+  if (!Number.isFinite(milliseconds) || milliseconds <= 0) return 'Unknown time'
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(milliseconds))
 }
 
 function isSpanResult(result: QueryResult): boolean {
@@ -64,16 +75,20 @@ function valueLabel(value: unknown): string {
   return String(value)
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character)
+}
+
 function extractQuoted(query: string, key: string): string {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const match = query.match(new RegExp(`${escaped}\\s*=\\s*"((?:\\\\.|[^"\\\\])*)"`))
+  const match = query.match(new RegExp(`(?:^|[\\s{(&|])${escaped}\\s*=\\s*"((?:\\\\.|[^"\\\\])*)"`))
   if (!match) return ''
   try { return JSON.parse(`"${match[1]}"`) } catch { return match[1] }
 }
 
 function builderFromTraceql(query: string): TraceBuilderState {
-  const duration = query.match(/duration\s*>\s*([0-9.]+)ms/i)?.[1] ?? ''
-  const status = /status\s*=\s*error/i.test(query) ? 'error' : /status\s*=\s*ok/i.test(query) ? 'ok' : 'any'
+  const duration = query.match(/(?:^|[\s{(&|])duration\s*>\s*([0-9.]+)ms/i)?.[1] ?? ''
+  const status = /(?:^|[\s{(&|])status\s*=\s*error/i.test(query) ? 'error' : /(?:^|[\s{(&|])status\s*=\s*ok/i.test(query) ? 'ok' : 'any'
   return {
     serviceNamespace: extractQuoted(query, 'resource.service.namespace'),
     service: extractQuoted(query, 'resource.service.name'),
@@ -164,7 +179,7 @@ function semanticGroups(attributes: Record<string, unknown>) {
   return groups
 }
 
-function SpanInspector({ span, traceStart }: { span: TraceRow; traceStart: number }) {
+function SpanInspector({ span, traceStart, onClose }: { span: TraceRow; traceStart: number; onClose: () => void }) {
   const attributes = jsonRecord(span.attributes)
   const resource = jsonRecord(span.resourceAttributes)
   const events = jsonArray(span.events).filter((event) => event && typeof event === 'object') as Record<string, unknown>[]
@@ -174,7 +189,10 @@ function SpanInspector({ span, traceStart }: { span: TraceRow; traceStart: numbe
   return <aside className={styles.details} aria-label="Selected span details">
     <header className={styles.detailsHeader}>
       <div><strong>{text(span.service) || 'unknown service'}</strong><span>{text(span.name) || text(span.spanId)}</span></div>
-      <span className={`${styles.statusBadge} ${status.toUpperCase().includes('ERROR') ? styles.statusError : ''}`}>{status}</span>
+      <div className={styles.detailsActions}>
+        <span className={`${styles.statusBadge} ${status.toUpperCase().includes('ERROR') ? styles.statusError : ''}`}>{status}</span>
+        <button type="button" className={styles.detailsClose} aria-label="Close span details" title="Close span details" onClick={onClose}>×</button>
+      </div>
     </header>
     <div className={styles.detailSummary}>
       <div><span>Duration</span><strong>{durationLabel(number(span.durationMs))}</strong></div>
@@ -192,6 +210,13 @@ function SpanInspector({ span, traceStart }: { span: TraceRow; traceStart: numbe
   </aside>
 }
 
+function resultStatus(row: TraceRow): 'ok' | 'error' | 'unknown' {
+  const value = text(row.status).toLowerCase()
+  if (value.includes('error')) return 'error'
+  if (value === 'ok' || value.includes('success')) return 'ok'
+  return 'unknown'
+}
+
 export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const mode = useStore((state) => selectActiveSession(state).queryMode)
   const traceql = useStore((state) => selectActiveSession(state).sql)
@@ -207,6 +232,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [loading, setLoading] = useState<'search' | 'trace' | null>(null)
   const [error, setError] = useState('')
   const [cohortHint, setCohortHint] = useState('')
+  const [searchRange, setSearchRange] = useState<BuilderTimeRange>(DEFAULT_TRACE_RANGE)
+  const [resultView, setResultView] = useState<ResultView>('list')
 
   useEffect(() => {
     setBuilder(builderFromTraceql(traceql))
@@ -220,16 +247,29 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setCollapsed(new Set())
     setError('')
     setCohortHint('')
+    setSearchRange(DEFAULT_TRACE_RANGE)
+    setResultView('list')
   }, [connectionId])
 
   const runSearch = async () => {
     const request = traceql.trim()
     if (!request) return
+    if (searchRange.recurringWindows?.some((window) => window.from || window.to)) {
+      setError('Recurring daily windows are not supported for Tempo trace searches yet. Choose a continuous range.')
+      return
+    }
+    let range: { start: string; end: string }
+    try {
+      range = prometheusRangeBounds(searchRange)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+      return
+    }
     setLoading('search')
     setError('')
     setCohortHint('')
     try {
-      const result = await api.query.run(connectionId, request)
+      const result = await api.query.run(connectionId, request, [], { start: range.start, end: range.end, step: '1s' })
       if (isSpanResult(result)) throw new Error('TraceQL search returned a trace instead of search results.')
       setSearchRows(result.rows)
       setSearchNotice(result.notice ?? '')
@@ -284,20 +324,93 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const rootSpan = sortedSpans.find((row) => !text(row.parentSpanId)) ?? sortedSpans[0]
   const selectedSpan = sortedSpans.find((row) => text(row.spanId) === selectedSpanId)
 
+  const scatterOption = useMemo(() => {
+    const groups = [
+      { key: 'ok', name: 'Success', color: '#3fb950' },
+      { key: 'error', name: 'Error', color: '#f85149' },
+      { key: 'unknown', name: 'Unknown', color: '#8b949e' }
+    ] as const
+    return {
+      animation: false,
+      backgroundColor: 'transparent',
+      grid: { left: 72, right: 26, top: 42, bottom: 58 },
+      legend: { top: 8, textStyle: { color: '#9aa4b2' } },
+      tooltip: {
+        trigger: 'item',
+        formatter: (value: unknown) => {
+          const data = (value as { data?: Record<string, unknown> })?.data ?? {}
+          return [
+            `<strong>${escapeHtml(text(data.rootService) || 'unknown service')}</strong>`,
+            escapeHtml(text(data.rootOperation) || text(data.traceId)),
+            `${escapeHtml(dateTimeLabel(number(data.startTimeMs)))} · ${escapeHtml(durationLabel(number(data.durationMs)))}`,
+            `${number(data.matchedSpans) || 0} matched spans`
+          ].join('<br/>')
+        }
+      },
+      xAxis: {
+        type: 'time',
+        name: 'Trace start',
+        nameLocation: 'middle',
+        nameGap: 38,
+        axisLabel: { color: '#9aa4b2' },
+        axisLine: { lineStyle: { color: '#3b424d' } },
+        splitLine: { lineStyle: { color: '#262c35' } }
+      },
+      yAxis: {
+        type: 'value',
+        min: 0,
+        name: 'Duration (ms)',
+        nameLocation: 'middle',
+        nameGap: 50,
+        axisLabel: { color: '#9aa4b2' },
+        axisLine: { lineStyle: { color: '#3b424d' } },
+        splitLine: { lineStyle: { color: '#262c35' } }
+      },
+      series: groups.map((group) => ({
+        name: group.name,
+        type: 'scatter',
+        symbolSize: 11,
+        itemStyle: { color: group.color },
+        emphasis: { scale: 1.45 },
+        data: searchRows.filter((row) => resultStatus(row) === group.key).map((row) => ({
+          value: [number(row.startTimeMs), number(row.durationMs)],
+          traceId: text(row.traceId),
+          rootService: text(row.rootService),
+          rootOperation: text(row.rootOperation),
+          startTimeMs: number(row.startTimeMs),
+          durationMs: number(row.durationMs),
+          matchedSpans: number(row.matchedSpans)
+        }))
+      }))
+    }
+  }, [searchRows])
+
+  const scatterEvents = useMemo(() => ({
+    click: (value: unknown) => {
+      const trace = text((value as { data?: { traceId?: unknown } })?.data?.traceId)
+      if (trace) void openTrace(trace)
+    }
+  }), [connectionId, searchRows])
+
   const exploreSimilar = () => {
-    if (!rootSpan) return
+    const source = selectedSpan ?? rootSpan
+    if (!source) return
+    const rawStatus = text(source.status).toUpperCase()
     const next: TraceBuilderState = {
       ...EMPTY_BUILDER,
-      serviceNamespace: text(rootSpan.serviceNamespace),
-      service: text(rootSpan.service),
-      spanName: text(rootSpan.name)
+      serviceNamespace: text(source.serviceNamespace),
+      service: text(source.service),
+      spanName: text(source.name),
+      status: rawStatus.includes('ERROR') ? 'error' : rawStatus.includes('OK') ? 'ok' : 'any'
     }
     setBuilder(next)
     setSql(buildTraceql(next))
     setQueryMode('builder')
     setSpans([])
     setSelectedSpanId('')
-    setCohortHint('Builder seeded from the trace root. Adjust the cohort definition, then search similar traces.')
+    setCohortHint(selectedSpan
+      ? 'Builder seeded from the selected span: namespace, service, operation and status. Adjust the cohort definition, then search similar traces.'
+      : 'Builder seeded from the trace root. Adjust the cohort definition, then search similar traces.')
   }
 
   const toggleCollapse = (spanId: string) => setCollapsed((current) => {
@@ -320,7 +433,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
             <button type="button" className={mode === 'builder' ? styles.modeActive : ''} aria-pressed={mode === 'builder'} onClick={() => setQueryMode('builder')}>Builder</button>
             <button type="button" className={mode === 'sql' ? styles.modeActive : ''} aria-pressed={mode === 'sql'} onClick={() => setQueryMode('sql')}>TraceQL</button>
           </div>
-          <span>Find traces first; open one to inspect it, then use it to seed a cohort.</span>
+          <span>Find traces first; open one to inspect it, then use the selected span to seed a cohort.</span>
         </div>
 
         <form className={styles.searchForm} onSubmit={submitSearch}>
@@ -332,7 +445,10 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
             <label><span>Min duration (ms)</span><input type="number" min="0" step="1" value={builder.minDurationMs} onChange={(event) => updateBuilder({ minDurationMs: event.target.value })} placeholder="300" /></label>
             <div className={styles.generatedQuery}><span>Generated TraceQL</span><code>{traceql}</code></div>
           </div> : <label className={styles.traceqlField} htmlFor="traceql-query"><span>TraceQL</span><textarea id="traceql-query" value={traceql} onChange={(event) => setSql(event.target.value)} spellCheck={false} rows={3} placeholder="{ resource.service.name = &quot;checkout-api&quot; && duration &gt; 300ms }" /></label>}
-          <div className={styles.searchActions}><button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Searching…' : 'Search traces'}</button><span>Tempo via gcx · last hour · up to 20 traces in this MVP.</span></div>
+          <div className={styles.searchControls}>
+            <TimeRangeField value={searchRange} onChange={setSearchRange} />
+            <div className={styles.searchActions}><button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Searching…' : 'Search traces'}</button><span>Tempo via gcx · up to 20 traces. Status is resolved so list/scatter can distinguish success from errors.</span></div>
+          </div>
         </form>
       </div>
 
@@ -356,7 +472,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
 
         {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans. Virtualised rendering remains follow-up work in #88.</div>}
 
-        <div className={styles.inspectionArea}>
+        <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
           <div className={styles.waterfall}>
             <div className={styles.waterfallHeader}><span>Span tree</span><span>Timeline · {durationLabel(traceDuration)}</span></div>
             {renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
@@ -377,11 +493,28 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
               </div>
             })}
           </div>
-          {selectedSpan ? <SpanInspector span={selectedSpan} traceStart={traceStart} /> : <aside className={styles.detailsEmpty} aria-label="Selected span details"><strong>Select a span</strong><span>Inspect timing, OpenTelemetry resource data, semantic attributes, events and links here.</span></aside>}
+          {selectedSpan && <SpanInspector span={selectedSpan} traceStart={traceStart} onClose={() => setSelectedSpanId('')} />}
         </div>
       </div> : <div className={styles.searchResults}>
-        <header className={styles.resultsHeader}><div><h2>Trace search</h2><p>{searchNotice || 'Use the Builder or TraceQL to find candidate traces.'}</p></div>{searchRows.length > 0 && <strong>{searchRows.length} traces</strong>}</header>
-        {searchRows.length === 0 ? <div className={styles.empty}>{loading === 'search' ? 'Searching Tempo…' : 'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.'}</div> : <div className={styles.traceList}>{searchRows.map((row) => <button key={text(row.traceId)} type="button" className={styles.traceResult} onClick={() => void openTrace(text(row.traceId))} disabled={loading !== null}><span><strong>{text(row.rootService) || 'unknown service'}</strong><span>{text(row.rootOperation) || text(row.traceId)}</span></span><span className={styles.resultMeta}><strong>{durationLabel(number(row.durationMs))}</strong><span>{number(row.matchedSpans) ? `${number(row.matchedSpans)} matched spans` : text(row.traceId)}</span></span></button>)}</div>}
+        <header className={styles.resultsHeader}>
+          <div><h2>Trace search</h2><p>{searchNotice || 'Use the Builder or TraceQL to find candidate traces.'}</p></div>
+          <div className={styles.resultsHeaderActions}>
+            {searchRows.length > 0 && <div className={styles.resultViewSwitch} role="group" aria-label="Trace search result view">
+              <button type="button" className={resultView === 'list' ? styles.modeActive : ''} aria-pressed={resultView === 'list'} onClick={() => setResultView('list')}>List</button>
+              <button type="button" className={resultView === 'scatter' ? styles.modeActive : ''} aria-pressed={resultView === 'scatter'} onClick={() => setResultView('scatter')}>Scatter</button>
+            </div>}
+            {searchRows.length > 0 && <strong>{searchRows.length} traces</strong>}
+          </div>
+        </header>
+        {searchRows.length === 0 ? <div className={styles.empty}>{loading === 'search' ? 'Searching Tempo…' : 'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.'}</div>
+          : resultView === 'scatter' ? <div className={styles.scatter} data-trace-scatter=""><ReactECharts option={scatterOption} onEvents={scatterEvents} notMerge lazyUpdate style={{ width: '100%', height: '100%' }} /></div>
+            : <div className={styles.traceList}>{searchRows.map((row) => {
+              const status = resultStatus(row)
+              return <button key={text(row.traceId)} type="button" className={styles.traceResult} onClick={() => void openTrace(text(row.traceId))} disabled={loading !== null}>
+                <span className={styles.resultIdentity}><span className={`${styles.resultStatus} ${status === 'error' ? styles.resultStatusError : status === 'ok' ? styles.resultStatusOk : styles.resultStatusUnknown}`} aria-label={status === 'error' ? 'Error trace' : status === 'ok' ? 'Successful trace' : 'Trace status unknown'} /><span><strong>{text(row.rootService) || 'unknown service'}</strong><span>{text(row.rootOperation) || text(row.traceId)}</span></span></span>
+                <span className={styles.resultMeta}><strong>{durationLabel(number(row.durationMs))}</strong><span>{dateTimeLabel(number(row.startTimeMs))}</span><span>{number(row.matchedSpans) ? `${number(row.matchedSpans)} matched spans` : text(row.traceId)}</span></span>
+              </button>
+            })}</div>}
       </div>}
     </section>
   )
