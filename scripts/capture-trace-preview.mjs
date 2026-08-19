@@ -104,10 +104,10 @@ async function validateBuilderIndependence(win) {
 }
 
 async function searchTraces(win) {
-  await waitFor(win, `document.querySelector('[aria-label="Trace query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' && document.body.innerText.includes('300') && document.body.innerText.includes('Last hour')`, 'configured trace Builder and time range')
+  await waitFor(win, `document.querySelector('[aria-label="Trace query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' && document.body.innerText.includes('300') && document.body.innerText.includes('Last hour') && document.body.innerText.includes('Sample size')`, 'configured trace Builder, time range and sample size')
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
-    const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Search traces')
+    const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Search sample')
     button?.click()
   })()`)
   await waitFor(win, `document.body.innerText.includes('5 traces') && document.body.innerText.includes('POST /checkout') && document.body.innerText.includes('1.48s') && document.body.innerText.includes('16 matched spans') && document.querySelector('[aria-label="Successful trace"]') && document.querySelector('[aria-label="Error trace"]')`, 'realistic Tempo list results with statuses')
