@@ -7,13 +7,21 @@ import { selectActiveSession, useStore } from '../store/useStore'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
+import {
+  buildVisibleTraceTree,
+  canonicalTraceId,
+  traceSpanKind,
+  traceSpanKindLabel,
+  traceSpanKinds,
+  visibleSpanCount,
+  type TraceRow
+} from '../lib/traceViewer'
 import styles from './TraceExplorer.module.css'
 
 interface TraceExplorerProps {
   connectionId: string
 }
 
-type TraceRow = Record<string, unknown>
 type TraceStatus = 'any' | 'error' | 'ok'
 type ResultView = 'list' | 'scatter'
 interface TraceBuilderState {
@@ -25,7 +33,6 @@ interface TraceBuilderState {
 }
 
 const MAX_RENDERED_SPANS = 500
-const TRACE_ID = /^[0-9a-f]{32}$/i
 const EMPTY_BUILDER: TraceBuilderState = { serviceNamespace: '', service: '', spanName: '', status: 'any', minDurationMs: '' }
 const DEFAULT_TRACE_RANGE: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
 
@@ -116,45 +123,6 @@ function buildTraceql(builder: TraceBuilderState): string {
   const duration = Number(builder.minDurationMs)
   if (builder.minDurationMs.trim() && Number.isFinite(duration) && duration >= 0) conditions.push(`duration > ${duration}ms`)
   return `{ ${conditions.join(' && ')} }`
-}
-
-interface TreeSpan {
-  row: TraceRow
-  id: string
-  depth: number
-  hasChildren: boolean
-}
-
-function buildVisibleTree(rows: TraceRow[], collapsed: Set<string>): TreeSpan[] {
-  const sorted = [...rows].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs))
-  const byId = new Map<string, TraceRow>()
-  for (const row of sorted) {
-    const id = text(row.spanId)
-    if (id) byId.set(id, row)
-  }
-  const children = new Map<string, TraceRow[]>()
-  for (const row of sorted) {
-    const parent = text(row.parentSpanId)
-    if (!parent || !byId.has(parent)) continue
-    const list = children.get(parent) ?? []
-    list.push(row)
-    children.set(parent, list)
-  }
-  for (const list of children.values()) list.sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs))
-  const roots = sorted.filter((row) => !text(row.parentSpanId) || !byId.has(text(row.parentSpanId)))
-  const output: TreeSpan[] = []
-  const visited = new Set<string>()
-  const visit = (row: TraceRow, depth: number) => {
-    const id = text(row.spanId)
-    if (!id || visited.has(id)) return
-    visited.add(id)
-    const childRows = children.get(id) ?? []
-    output.push({ row, id, depth: Math.min(depth, 16), hasChildren: childRows.length > 0 })
-    if (!collapsed.has(id)) childRows.forEach((child) => visit(child, depth + 1))
-  }
-  roots.forEach((root) => visit(root, 0))
-  sorted.forEach((row) => visit(row, 0))
-  return output
 }
 
 function AttributeList({ values, empty = 'No attributes' }: { values: Record<string, unknown>; empty?: string }) {
@@ -256,6 +224,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [searchProgress, setSearchProgress] = useState<TempoSearchProgress | null>(null)
   const [selectedSpanId, setSelectedSpanId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [hiddenSpanKinds, setHiddenSpanKinds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState<'search' | 'trace' | null>(null)
   const [error, setError] = useState('')
   const [cohortHint, setCohortHint] = useState('')
@@ -272,6 +241,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setTraceId('')
     setSelectedSpanId('')
     setCollapsed(new Set())
+    setHiddenSpanKinds(new Set())
     setError('')
     setCohortHint('')
     setSearchRange(DEFAULT_TRACE_RANGE)
@@ -322,9 +292,9 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   }
 
   const openTrace = async (candidate = traceId) => {
-    const request = candidate.trim()
-    if (!TRACE_ID.test(request)) {
-      setError('Trace ID must be a 32-character hexadecimal identifier.')
+    const request = canonicalTraceId(candidate)
+    if (!request) {
+      setError('Trace ID must be a hexadecimal identifier up to 32 characters.')
       return
     }
     setTraceId(request)
@@ -357,7 +327,9 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const submitSearch = (event: FormEvent) => { event.preventDefault(); void runSearch() }
 
   const sortedSpans = useMemo(() => [...spans].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs)), [spans])
-  const visibleTree = useMemo(() => buildVisibleTree(sortedSpans, collapsed), [sortedSpans, collapsed])
+  const spanKinds = useMemo(() => traceSpanKinds(sortedSpans), [sortedSpans])
+  const filteredSpanCount = useMemo(() => visibleSpanCount(sortedSpans, hiddenSpanKinds), [sortedSpans, hiddenSpanKinds])
+  const visibleTree = useMemo(() => buildVisibleTraceTree(sortedSpans, collapsed, hiddenSpanKinds), [sortedSpans, collapsed, hiddenSpanKinds])
   const renderedTree = visibleTree.slice(0, MAX_RENDERED_SPANS)
   const traceStart = sortedSpans.length ? Math.min(...sortedSpans.map((row) => number(row.startTimeMs))) : 0
   const traceEnd = sortedSpans.length ? Math.max(...sortedSpans.map((row) => number(row.startTimeMs) + number(row.durationMs))) : 0
@@ -365,7 +337,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const services = useMemo(() => new Set(sortedSpans.map((row) => text(row.service)).filter(Boolean)), [sortedSpans])
   const errorCount = useMemo(() => sortedSpans.filter((row) => text(row.status).toUpperCase().includes('ERROR')).length, [sortedSpans])
   const rootSpan = sortedSpans.find((row) => !text(row.parentSpanId)) ?? sortedSpans[0]
-  const selectedSpan = sortedSpans.find((row) => text(row.spanId) === selectedSpanId)
+  const selectedSpanCandidate = sortedSpans.find((row) => text(row.spanId) === selectedSpanId)
+  const selectedSpan = selectedSpanCandidate && !hiddenSpanKinds.has(traceSpanKind(selectedSpanCandidate)) ? selectedSpanCandidate : undefined
   const progressPercent = searchProgress?.totalMs
     ? Math.min(100, Math.round((searchProgress.coveredMs / searchProgress.totalMs) * 100))
     : 0
@@ -468,6 +441,12 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     return next
   })
 
+  const toggleSpanKind = (kind: string) => setHiddenSpanKinds((current) => {
+    const next = new Set(current)
+    next.has(kind) ? next.delete(kind) : next.add(kind)
+    return next
+  })
+
   return (
     <section className={styles.root} aria-label="Trace explorer">
       <div className={styles.discoveryPanel}>
@@ -519,18 +498,31 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           </div>
           <dl className={styles.summary}>
             <div><dt>Duration</dt><dd>{durationLabel(traceDuration)}</dd></div>
-            <div><dt>Spans</dt><dd>{spans.length}</dd></div>
+            <div><dt>Spans</dt><dd>{filteredSpanCount === spans.length ? spans.length : `${filteredSpanCount}/${spans.length}`}</dd></div>
             <div><dt>Services</dt><dd>{services.size}</dd></div>
             <div><dt>Errors</dt><dd>{errorCount}</dd></div>
           </dl>
         </header>
 
+        {spanKinds.length > 0 && <div className={styles.queryModeRow} style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
+          <span>Span kind</span>
+          <div className={styles.modeSwitch} role="group" aria-label="Visible span kinds">
+            {spanKinds.map((kind) => {
+              const visible = !hiddenSpanKinds.has(kind)
+              const count = sortedSpans.filter((row) => traceSpanKind(row) === kind).length
+              return <button key={kind} type="button" className={visible ? styles.modeActive : ''} aria-pressed={visible} onClick={() => toggleSpanKind(kind)} title={kind === 'INTERNAL' ? 'In-process/code spans; turn this off to reduce application-code noise.' : `Show or hide ${kind} spans`}>{traceSpanKindLabel(kind)} · {count}</button>
+            })}
+          </div>
+          <span>{filteredSpanCount}/{spans.length} shown · HTTP and DB work is commonly represented by Server/Client spans; Internal / code is in-process work.</span>
+          {hiddenSpanKinds.size > 0 && <button type="button" className="btn ghost" onClick={() => setHiddenSpanKinds(new Set())}>Show all</button>}
+        </div>}
+
         {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans. Virtualised rendering remains follow-up work in #88.</div>}
 
         <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
           <div className={styles.waterfall}>
-            <div className={styles.waterfallHeader}><span>Span tree</span><span>Timeline · {durationLabel(traceDuration)}</span></div>
-            {renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
+            <div className={styles.waterfallHeader}><span>Span tree · {filteredSpanCount}/{spans.length} visible</span><span>Timeline · {durationLabel(traceDuration)}</span></div>
+            {renderedTree.length === 0 ? <div className={styles.warning}>No spans match the current span-kind filter.</div> : renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
               const offset = traceDuration > 0 ? ((number(span.startTimeMs) - traceStart) / traceDuration) * 100 : 0
               const width = traceDuration > 0 ? Math.max(.35, (number(span.durationMs) / traceDuration) * 100) : 100
               const isError = text(span.status).toUpperCase().includes('ERROR')
