@@ -104,7 +104,11 @@ interface TreeSpan {
 
 function buildVisibleTree(rows: TraceRow[], collapsed: Set<string>): TreeSpan[] {
   const sorted = [...rows].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs))
-  const byId = new Map(sorted.map((row) => [text(row.spanId), row]).filter(([id]) => id))
+  const byId = new Map<string, TraceRow>()
+  for (const row of sorted) {
+    const id = text(row.spanId)
+    if (id) byId.set(id, row)
+  }
   const children = new Map<string, TraceRow[]>()
   for (const row of sorted) {
     const parent = text(row.parentSpanId)
