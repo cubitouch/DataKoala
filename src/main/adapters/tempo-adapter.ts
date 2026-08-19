@@ -51,7 +51,7 @@ export class TempoAdapter implements DataSourceAdapter {
       const session: DataSourceSession = {
         info: { profileId: profile.id, provider: 'tempo' },
         capabilities,
-        query: ({ sql }) => transport.query(sql),
+        query: ({ sql, tempo }) => transport.query(sql, tempo),
         listNamespaces: async () => namespaceNames.map((name) => ({ name })),
         listRelations: async (namespace) => namespace ? relations.filter((relation) => relation.namespace === namespace.name) : relations,
         describeRelation: async () => [],
