@@ -47,20 +47,27 @@ test('Prometheus relation discovery is deterministic and rejects unrelated names
   assert.deepEqual((await connected.session.listRelations({ name: 'Metrics' })).map((item) => item.name), ['http_requests_total', 'process_cpu_seconds_total'])
 })
 
-test('Prometheus session delegates range execution to its gcx transport', async () => {
-  const requests: unknown[] = []
+test('Grafana session routes PromQL ranges to Prometheus and TraceQL to Tempo', async () => {
+  const prometheusRequests: unknown[] = []
+  const tempoRequests: string[] = []
   const normalized: QueryResult = { columns: [], rows: [], rowCount: 0, durationMs: 2 }
-  const adapter = new PrometheusAdapter(async () => discovery, () => ({
-    metadata: async () => [],
-    labelsForMetric: async () => [],
-    labelValues: async () => [],
-    query: async (value) => { requests.push(value); return normalized }
-  }))
+  const adapter = new PrometheusAdapter(
+    async () => discovery,
+    () => ({
+      metadata: async () => [],
+      labelsForMetric: async () => [],
+      labelValues: async () => [],
+      query: async (value) => { prometheusRequests.push(value); return normalized }
+    }),
+    () => ({ query: async (value) => { tempoRequests.push(value); return normalized } })
+  )
   const connected = await adapter.connect(profile)
   assert.ok(connected.session)
   for (const step of ['30s', '1m', '5m']) {
     const result = await connected.session.query({ sql: 'rate(http_requests_total[5m])', prometheus: { start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step } })
     assert.equal(result, normalized)
   }
-  assert.deepEqual(requests, ['30s', '1m', '5m'].map((step) => ({ expression: 'rate(http_requests_total[5m])', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step })))
+  assert.equal(await connected.session.query({ sql: '{ duration > 1s }' }), normalized)
+  assert.deepEqual(prometheusRequests, ['30s', '1m', '5m'].map((step) => ({ expression: 'rate(http_requests_total[5m])', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step })))
+  assert.deepEqual(tempoRequests, ['{ duration > 1s }'])
 })
