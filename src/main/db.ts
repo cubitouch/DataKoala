@@ -146,17 +146,10 @@ export async function runQuery(
 ): Promise<QueryResult> {
   const activeSession = session(id)
   // QUERY_RUN predates Tempo and currently exposes the Prometheus range slot through
-  // preload. Preserve that bridge until query IPC becomes a discriminated provider request,
-  // including Tempo's progressive-search hints carried as extra runtime properties.
-  const tempoCompat = prometheus as (Omit<PrometheusQueryRequest, 'expression'> & Pick<TempoQueryRequest, 'limit' | 'skipStatusTraceIds'>) | undefined
-  const tempoRange = activeSession.info.provider === 'tempo' && !tempo && tempoCompat
-    ? {
-        start: tempoCompat.start,
-        end: tempoCompat.end,
-        includeStatus: true,
-        limit: tempoCompat.limit,
-        skipStatusTraceIds: tempoCompat.skipStatusTraceIds
-      }
+  // preload. Preserve only the shared start/end bounds until query IPC becomes a
+  // discriminated provider request; exhaustive Tempo paging belongs to the transport.
+  const tempoRange = activeSession.info.provider === 'tempo' && !tempo && prometheus
+    ? { start: prometheus.start, end: prometheus.end }
     : tempo
   return toIpcSafeQueryResult(await activeSession.query({
     sql,
