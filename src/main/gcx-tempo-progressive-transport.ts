@@ -10,7 +10,8 @@ import { runGcxCommand, type GcxCommandRunner } from './gcx-prometheus-transport
 
 const TRACE_ID = /^[0-9a-f]{32}$/i
 const DEFAULT_SEARCH_LIMIT = 100
-const DEFAULT_MIN_SLICE_MS = 1_000
+const PROVIDER_TIME_PRECISION_MS = 1_000
+const DEFAULT_MIN_SLICE_MS = PROVIDER_TIME_PRECISION_MS
 const DEFAULT_MAX_DENSE_LIMIT = 10_000
 const STATUS_CONCURRENCY = 4
 
@@ -63,6 +64,26 @@ function rangeBounds(request: TempoQueryRequest): { startMs: number; endMs: numb
   return { startMs, endMs }
 }
 
+/**
+ * Tempo's search API ultimately consumes Unix epoch seconds. gcx accepts RFC3339 input,
+ * but sub-second endpoints can therefore collapse to the same second and be rejected as
+ * start >= end. Expand the provider query to whole-second boundaries, then filter the
+ * merged summaries back to the user's exact requested range.
+ */
+function providerRangeBounds(startMs: number, endMs: number): { startMs: number; endMs: number } {
+  const providerStartMs = Math.floor(startMs / PROVIDER_TIME_PRECISION_MS) * PROVIDER_TIME_PRECISION_MS
+  let providerEndMs = Math.ceil(endMs / PROVIDER_TIME_PRECISION_MS) * PROVIDER_TIME_PRECISION_MS
+  if (providerEndMs <= providerStartMs) providerEndMs = providerStartMs + PROVIDER_TIME_PRECISION_MS
+  return { startMs: providerStartMs, endMs: providerEndMs }
+}
+
+function providerMidpoint(window: SearchWindow): number {
+  const midpoint = Math.floor(
+    ((window.startMs + window.endMs) / 2) / PROVIDER_TIME_PRECISION_MS
+  ) * PROVIDER_TIME_PRECISION_MS
+  return midpoint
+}
+
 function iso(milliseconds: number): string {
   return new Date(milliseconds).toISOString()
 }
@@ -99,10 +120,10 @@ async function mapConcurrent<T, R>(values: T[], concurrency: number, mapper: (va
 
 /**
  * Exhausts a ranged Tempo search despite gcx/Tempo exposing a result limit rather than
- * a cursor. A saturated time window is bisected until each slice is below the limit.
- * If a one-second slice is still saturated, the slice limit grows geometrically. This
- * lets DataKoala prove that the selected period has been covered instead of presenting
- * an arbitrary top-N as though it were complete.
+ * a cursor. A saturated time window is bisected on whole-second boundaries until each
+ * slice is below the limit. If a one-second slice is still saturated, the slice limit
+ * grows geometrically. This lets DataKoala prove that the selected period has been
+ * covered instead of presenting an arbitrary top-N as though it were complete.
  */
 export class ProgressiveGcxTempoTransport implements TempoTransport {
   private readonly base: GcxTempoTransport
@@ -124,7 +145,10 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
     this.run = run
     this.base = new GcxTempoTransport(context, run, datasourceUid)
     this.pageLimit = positiveInteger(options.pageLimit, DEFAULT_SEARCH_LIMIT, 'Tempo search page limit')
-    this.minSliceMs = positiveInteger(options.minSliceMs, DEFAULT_MIN_SLICE_MS, 'Tempo minimum search slice')
+    this.minSliceMs = Math.max(
+      PROVIDER_TIME_PRECISION_MS,
+      positiveInteger(options.minSliceMs, DEFAULT_MIN_SLICE_MS, 'Tempo minimum search slice')
+    )
     this.maxDenseLimit = positiveInteger(options.maxDenseLimit, DEFAULT_MAX_DENSE_LIMIT, 'Tempo dense-window search limit')
     if (this.maxDenseLimit < this.pageLimit) throw new Error('Tempo dense-window search limit must be at least the page limit.')
   }
@@ -143,6 +167,9 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
   }
 
   private async searchWindow(expression: string, window: SearchWindow): Promise<QueryResult> {
+    if (window.endMs - window.startMs < PROVIDER_TIME_PRECISION_MS) {
+      throw new Error('Tempo search pagination produced a range smaller than the provider time precision.')
+    }
     const args = [
       'traces', 'query', expression,
       ...this.commonArgs(),
@@ -176,8 +203,9 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
     if (!request) return this.base.search(query)
 
     const started = Date.now()
-    const { startMs, endMs } = rangeBounds(request)
-    const pending: SearchWindow[] = [{ startMs, endMs, limit: this.pageLimit }]
+    const exactBounds = rangeBounds(request)
+    const providerBounds = providerRangeBounds(exactBounds.startMs, exactBounds.endMs)
+    const pending: SearchWindow[] = [{ ...providerBounds, limit: this.pageLimit }]
     const rowsByTraceId = new Map<string, Record<string, unknown>>()
     let columns: QueryResult['columns'] = []
     let queryCount = 0
@@ -192,7 +220,7 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
       if (page.rows.length < window.limit) continue
 
       const durationMs = window.endMs - window.startMs
-      const midpoint = Math.floor(window.startMs + durationMs / 2)
+      const midpoint = providerMidpoint(window)
       if (durationMs > this.minSliceMs && midpoint > window.startMs && midpoint < window.endMs) {
         // Tempo range endpoints may be inclusive. Deliberately overlap at the midpoint
         // and de-duplicate by trace ID so there can be no boundary gap.
@@ -217,10 +245,15 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
       )
     }
 
-    const rows = [...rowsByTraceId.values()].sort((left, right) => {
-      const byTime = number(right.startTimeMs) - number(left.startTimeMs)
-      return byTime || text(left.traceId).localeCompare(text(right.traceId))
-    })
+    const rows = [...rowsByTraceId.values()]
+      .filter((row) => {
+        const startTimeMs = number(row.startTimeMs)
+        return startTimeMs >= exactBounds.startMs && startTimeMs <= exactBounds.endMs
+      })
+      .sort((left, right) => {
+        const byTime = number(right.startTimeMs) - number(left.startTimeMs)
+        return byTime || text(left.traceId).localeCompare(text(right.traceId))
+      })
     const durationMs = Date.now() - started
     let result: QueryResult = {
       columns,
