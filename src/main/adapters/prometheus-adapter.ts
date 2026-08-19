@@ -4,6 +4,7 @@ import { discoverPrometheus } from '../prometheus-discovery.ts'
 import type { PrometheusDiscoveryResult } from '../../shared/prometheus.ts'
 import { GcxPrometheusTransport } from '../gcx-prometheus-transport.ts'
 import type { PrometheusTransport } from '../prometheus-transport.ts'
+import { GcxTempoTransport, type TempoTransport } from '../gcx-tempo-transport.ts'
 
 const capabilities: DataSourceCapabilities = {
   builder: true, explain: false, analyze: false, queryCancellation: false,
@@ -14,7 +15,12 @@ export class PrometheusAdapter implements DataSourceAdapter {
   readonly kind = 'prometheus' as const
   private readonly discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult>
   private readonly createTransport: (context?: string, datasourceUid?: string) => PrometheusTransport
-  constructor(discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult> = discoverPrometheus, createTransport: (context?: string, datasourceUid?: string) => PrometheusTransport = (context, datasourceUid) => new GcxPrometheusTransport(context, undefined, datasourceUid)) { this.discover = discover; this.createTransport = createTransport }
+  private readonly createTempoTransport: (context?: string) => TempoTransport
+  constructor(
+    discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult> = discoverPrometheus,
+    createTransport: (context?: string, datasourceUid?: string) => PrometheusTransport = (context, datasourceUid) => new GcxPrometheusTransport(context, undefined, datasourceUid),
+    createTempoTransport: (context?: string) => TempoTransport = (context) => new GcxTempoTransport(context)
+  ) { this.discover = discover; this.createTransport = createTransport; this.createTempoTransport = createTempoTransport }
   async test(profile: PrometheusProfile) {
     try {
       const result = await this.discover(profile.transport)
@@ -33,12 +39,12 @@ export class PrometheusAdapter implements DataSourceAdapter {
         details: { kind: 'metric' as const, type: metric.type, help: metric.help, unit: metric.unit }
       }))
     const transport = this.createTransport(profile.transport.context, profile.transport.datasourceUid)
+    const tempoTransport = this.createTempoTransport(profile.transport.context)
     const session: DataSourceSession = {
       info: { profileId: profile.id, provider: 'prometheus' }, capabilities,
-      query: ({ sql, prometheus }) => {
-        if (!prometheus) throw new Error('Prometheus range queries require start, end, and step.')
-        return transport.query({ expression: sql, ...prometheus })
-      },
+      query: ({ sql, prometheus }) => prometheus
+        ? transport.query({ expression: sql, ...prometheus })
+        : tempoTransport.query(sql),
       listNamespaces: async () => [{ name: 'Metrics' }],
       listRelations: async (namespace) => namespace && namespace.name !== 'Metrics' ? [] : relations,
       labelsForMetric: (metricName) => transport.labelsForMetric(metricName),
