@@ -6,12 +6,6 @@ import { selectActiveSession, useStore } from '../store/useStore'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
-import {
-  mergeTraceSearchRows,
-  nextTraceSearchLimit,
-  TRACE_SEARCH_PAGE_SIZE,
-  traceSearchHasMore
-} from '../lib/traceSearchPagination'
 import styles from './TraceExplorer.module.css'
 
 interface TraceExplorerProps {
@@ -235,14 +229,11 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [searchNotice, setSearchNotice] = useState('')
   const [selectedSpanId, setSelectedSpanId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState<'search' | 'more' | 'trace' | null>(null)
+  const [loading, setLoading] = useState<'search' | 'trace' | null>(null)
   const [error, setError] = useState('')
   const [cohortHint, setCohortHint] = useState('')
   const [searchRange, setSearchRange] = useState<BuilderTimeRange>(DEFAULT_TRACE_RANGE)
   const [resultView, setResultView] = useState<ResultView>('list')
-  const [searchLimit, setSearchLimit] = useState(TRACE_SEARCH_PAGE_SIZE)
-  const [hasMoreResults, setHasMoreResults] = useState(false)
-  const [lastSearchDefinition, setLastSearchDefinition] = useState('')
 
   useEffect(() => {
     setBuilder(builderFromTraceql(traceql))
@@ -258,15 +249,9 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setCohortHint('')
     setSearchRange(DEFAULT_TRACE_RANGE)
     setResultView('list')
-    setSearchLimit(TRACE_SEARCH_PAGE_SIZE)
-    setHasMoreResults(false)
-    setLastSearchDefinition('')
   }, [connectionId])
 
-  const currentSearchDefinition = JSON.stringify({ traceql: traceql.trim(), searchRange })
-  const canLoadMore = searchRows.length > 0 && hasMoreResults && currentSearchDefinition === lastSearchDefinition
-
-  const runSearch = async (append = false) => {
+  const runSearch = async () => {
     const request = traceql.trim()
     if (!request) return
     if (searchRange.recurringWindows?.some((window) => window.from || window.to)) {
@@ -281,35 +266,25 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
       return
     }
 
-    const definition = JSON.stringify({ traceql: request, searchRange })
-    const shouldAppend = append && searchRows.length > 0 && definition === lastSearchDefinition
-    const requestedLimit = shouldAppend ? nextTraceSearchLimit(searchLimit) : TRACE_SEARCH_PAGE_SIZE
-    const skipStatusTraceIds = shouldAppend ? searchRows.map((row) => text(row.traceId)).filter(Boolean) : []
     const tempoSearchRequest = {
       start: range.start,
       end: range.end,
-      step: '1s',
-      limit: requestedLimit,
-      skipStatusTraceIds
+      step: '1s'
     }
 
-    setLoading(shouldAppend ? 'more' : 'search')
+    setLoading('search')
     setError('')
     setCohortHint('')
+    setSearchRows([])
+    setSearchNotice('Fetching the complete selected period…')
     try {
       const result = await api.query.run(connectionId, request, [], tempoSearchRequest)
       if (isSpanResult(result)) throw new Error('TraceQL search returned a trace instead of search results.')
-      const nextRows = shouldAppend ? mergeTraceSearchRows(searchRows, result.rows) : result.rows
-      setSearchRows(nextRows)
+      setSearchRows(result.rows)
       setSearchNotice(result.notice ?? '')
-      setSearchLimit(requestedLimit)
-      setHasMoreResults(traceSearchHasMore(result.rows.length, requestedLimit))
-      setLastSearchDefinition(definition)
-      if (!shouldAppend) {
-        setSpans([])
-        setSelectedSpanId('')
-        setCollapsed(new Set())
-      }
+      setSpans([])
+      setSelectedSpanId('')
+      setCollapsed(new Set())
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
     } finally { setLoading(null) }
@@ -345,7 +320,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   }
 
   const submitTraceId = (event: FormEvent) => { event.preventDefault(); void openTrace() }
-  const submitSearch = (event: FormEvent) => { event.preventDefault(); void runSearch(false) }
+  const submitSearch = (event: FormEvent) => { event.preventDefault(); void runSearch() }
 
   const sortedSpans = useMemo(() => [...spans].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs)), [spans])
   const visibleTree = useMemo(() => buildVisibleTree(sortedSpans, collapsed), [sortedSpans, collapsed])
@@ -481,7 +456,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           </div> : <label className={styles.traceqlField} htmlFor="traceql-query"><span>TraceQL</span><textarea id="traceql-query" value={traceql} onChange={(event) => setSql(event.target.value)} spellCheck={false} rows={3} placeholder="{ resource.service.name = &quot;checkout-api&quot; && duration &gt; 300ms }" /></label>}
           <div className={styles.searchControls}>
             <TimeRangeField value={searchRange} onChange={setSearchRange} />
-            <div className={styles.searchActions}><button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Searching…' : 'Search traces'}</button><span>Tempo via gcx · {TRACE_SEARCH_PAGE_SIZE} traces per page. Load more progressively; status enrichment is limited to newly exposed traces.</span></div>
+            <div className={styles.searchActions}><button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Fetching period…' : 'Search traces'}</button><span>Tempo via gcx · fetches the complete selected period automatically. Saturated windows are split until the range is exhausted.</span></div>
           </div>
         </form>
       </div>
@@ -540,7 +515,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
             {searchRows.length > 0 && <strong>{searchRows.length} traces</strong>}
           </div>
         </header>
-        {searchRows.length === 0 ? <div className={styles.empty}>{loading === 'search' ? 'Searching Tempo…' : 'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.'}</div>
+        {searchRows.length === 0 ? <div className={styles.empty}>{loading === 'search' ? 'Fetching the complete Tempo period…' : 'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.'}</div>
           : <>
               {resultView === 'scatter' ? <div className={styles.scatter} data-trace-scatter=""><ReactECharts option={scatterOption} onEvents={scatterEvents} notMerge lazyUpdate style={{ width: '100%', height: '100%' }} /></div>
                 : <div className={styles.traceList}>{searchRows.map((row) => {
@@ -550,10 +525,6 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
                     <span className={styles.resultMeta}><strong>{durationLabel(number(row.durationMs))}</strong><span>{dateTimeLabel(number(row.startTimeMs))}</span><span>{number(row.matchedSpans) ? `${number(row.matchedSpans)} matched spans` : text(row.traceId)}</span></span>
                   </button>
                 })}</div>}
-              {canLoadMore && <div className={styles.resultsHeaderActions}>
-                <button type="button" className="btn ghost" onClick={() => void runSearch(true)} disabled={loading !== null}>{loading === 'more' ? `Loading ${TRACE_SEARCH_PAGE_SIZE} more…` : `Load ${TRACE_SEARCH_PAGE_SIZE} more`}</button>
-                <span>{searchRows.length} loaded · next window {nextTraceSearchLimit(searchLimit)}</span>
-              </div>}
             </>}
       </div>}
     </section>
