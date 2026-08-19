@@ -1,6 +1,7 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import type { QueryResult } from '@shared/types'
 import { api } from '../lib/api'
+import { selectActiveSession, useStore } from '../store/useStore'
 import styles from './TraceExplorer.module.css'
 
 interface TraceExplorerProps {
@@ -8,9 +9,18 @@ interface TraceExplorerProps {
 }
 
 type TraceRow = Record<string, unknown>
+type TraceStatus = 'any' | 'error' | 'ok'
+interface TraceBuilderState {
+  serviceNamespace: string
+  service: string
+  spanName: string
+  status: TraceStatus
+  minDurationMs: string
+}
 
-const DEFAULT_TRACEQL = '{ duration > 100ms }'
 const MAX_RENDERED_SPANS = 500
+const TRACE_ID = /^[0-9a-f]{32}$/i
+const EMPTY_BUILDER: TraceBuilderState = { serviceNamespace: '', service: '', spanName: '', status: 'any', minDurationMs: '' }
 
 function text(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
@@ -31,74 +41,237 @@ function isSpanResult(result: QueryResult): boolean {
   return result.columns.some((column) => column.name === 'spanId')
 }
 
-function traceDepths(rows: TraceRow[]): Map<string, number> {
-  const byId = new Map(rows.map((row) => [text(row.spanId), row]))
-  const depths = new Map<string, number>()
-  const visit = (id: string, seen = new Set<string>()): number => {
-    if (!id) return 0
-    const cached = depths.get(id)
-    if (cached !== undefined) return cached
-    if (seen.has(id)) return 0
-    const row = byId.get(id)
-    if (!row) return 0
-    const parentId = text(row.parentSpanId)
-    if (!parentId || !byId.has(parentId)) { depths.set(id, 0); return 0 }
-    seen.add(id)
-    const depth = Math.min(12, visit(parentId, seen) + 1)
-    depths.set(id, depth)
-    return depth
+function jsonRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>
+  if (typeof value !== 'string' || !value.trim()) return {}
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}
+  } catch { return {} }
+}
+
+function jsonArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value
+  if (typeof value !== 'string' || !value.trim()) return []
+  try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
+}
+
+function valueLabel(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (value === null) return 'null'
+  if (value === undefined) return ''
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
+
+function extractQuoted(query: string, key: string): string {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = query.match(new RegExp(`${escaped}\\s*=\\s*"((?:\\\\.|[^"\\\\])*)"`))
+  if (!match) return ''
+  try { return JSON.parse(`"${match[1]}"`) } catch { return match[1] }
+}
+
+function builderFromTraceql(query: string): TraceBuilderState {
+  const duration = query.match(/duration\s*>\s*([0-9.]+)ms/i)?.[1] ?? ''
+  const status = /status\s*=\s*error/i.test(query) ? 'error' : /status\s*=\s*ok/i.test(query) ? 'ok' : 'any'
+  return {
+    serviceNamespace: extractQuoted(query, 'resource.service.namespace'),
+    service: extractQuoted(query, 'resource.service.name'),
+    spanName: extractQuoted(query, 'name'),
+    status,
+    minDurationMs: duration
   }
-  for (const id of byId.keys()) visit(id)
-  return depths
+}
+
+function buildTraceql(builder: TraceBuilderState): string {
+  const conditions: string[] = []
+  if (builder.serviceNamespace.trim()) conditions.push(`resource.service.namespace = ${JSON.stringify(builder.serviceNamespace.trim())}`)
+  if (builder.service.trim()) conditions.push(`resource.service.name = ${JSON.stringify(builder.service.trim())}`)
+  if (builder.spanName.trim()) conditions.push(`name = ${JSON.stringify(builder.spanName.trim())}`)
+  if (builder.status === 'error') conditions.push('status = error')
+  if (builder.status === 'ok') conditions.push('status = ok')
+  const duration = Number(builder.minDurationMs)
+  if (builder.minDurationMs.trim() && Number.isFinite(duration) && duration >= 0) conditions.push(`duration > ${duration}ms`)
+  return `{ ${conditions.join(' && ')} }`
+}
+
+interface TreeSpan {
+  row: TraceRow
+  id: string
+  depth: number
+  hasChildren: boolean
+}
+
+function buildVisibleTree(rows: TraceRow[], collapsed: Set<string>): TreeSpan[] {
+  const sorted = [...rows].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs))
+  const byId = new Map(sorted.map((row) => [text(row.spanId), row]).filter(([id]) => id))
+  const children = new Map<string, TraceRow[]>()
+  for (const row of sorted) {
+    const parent = text(row.parentSpanId)
+    if (!parent || !byId.has(parent)) continue
+    const list = children.get(parent) ?? []
+    list.push(row)
+    children.set(parent, list)
+  }
+  for (const list of children.values()) list.sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs))
+  const roots = sorted.filter((row) => !text(row.parentSpanId) || !byId.has(text(row.parentSpanId)))
+  const output: TreeSpan[] = []
+  const visited = new Set<string>()
+  const visit = (row: TraceRow, depth: number) => {
+    const id = text(row.spanId)
+    if (!id || visited.has(id)) return
+    visited.add(id)
+    const childRows = children.get(id) ?? []
+    output.push({ row, id, depth: Math.min(depth, 16), hasChildren: childRows.length > 0 })
+    if (!collapsed.has(id)) childRows.forEach((child) => visit(child, depth + 1))
+  }
+  roots.forEach((root) => visit(root, 0))
+  sorted.forEach((row) => visit(row, 0))
+  return output
+}
+
+function AttributeList({ values, empty = 'No attributes' }: { values: Record<string, unknown>; empty?: string }) {
+  const entries = Object.entries(values).sort(([left], [right]) => left.localeCompare(right))
+  if (!entries.length) return <div className={styles.attributeEmpty}>{empty}</div>
+  return <dl className={styles.attributeList}>{entries.map(([key, value]) => <div key={key}><dt>{key}</dt><dd title={valueLabel(value)}>{valueLabel(value)}</dd></div>)}</dl>
+}
+
+function semanticGroups(attributes: Record<string, unknown>) {
+  const definitions = [
+    ['HTTP & network', ['http.', 'url.', 'server.', 'client.', 'network.']],
+    ['Database', ['db.']],
+    ['RPC', ['rpc.']],
+    ['Messaging', ['messaging.']],
+    ['Error', ['error.', 'exception.']]
+  ] as const
+  const remaining = { ...attributes }
+  const groups: Array<{ title: string; values: Record<string, unknown> }> = []
+  for (const [title, prefixes] of definitions) {
+    const values: Record<string, unknown> = {}
+    for (const key of Object.keys(remaining)) {
+      if (prefixes.some((prefix) => key.startsWith(prefix))) {
+        values[key] = remaining[key]
+        delete remaining[key]
+      }
+    }
+    if (Object.keys(values).length) groups.push({ title, values })
+  }
+  if (Object.keys(remaining).length) groups.push({ title: 'Attributes', values: remaining })
+  return groups
+}
+
+function SpanInspector({ span, traceStart }: { span: TraceRow; traceStart: number }) {
+  const attributes = jsonRecord(span.attributes)
+  const resource = jsonRecord(span.resourceAttributes)
+  const events = jsonArray(span.events).filter((event) => event && typeof event === 'object') as Record<string, unknown>[]
+  const links = jsonArray(span.links).filter((link) => link && typeof link === 'object') as Record<string, unknown>[]
+  const groups = semanticGroups(attributes)
+  const status = text(span.status) || 'UNSET'
+  return <aside className={styles.details} aria-label="Selected span details">
+    <header className={styles.detailsHeader}>
+      <div><strong>{text(span.service) || 'unknown service'}</strong><span>{text(span.name) || text(span.spanId)}</span></div>
+      <span className={`${styles.statusBadge} ${status.toUpperCase().includes('ERROR') ? styles.statusError : ''}`}>{status}</span>
+    </header>
+    <div className={styles.detailSummary}>
+      <div><span>Duration</span><strong>{durationLabel(number(span.durationMs))}</strong></div>
+      <div><span>Start</span><strong>+{durationLabel(Math.max(0, number(span.startTimeMs) - traceStart))}</strong></div>
+      <div><span>Kind</span><strong>{text(span.kind) || 'UNSPECIFIED'}</strong></div>
+      <div><span>Scope</span><strong>{text(span.scopeName) || '—'}</strong></div>
+    </div>
+    {text(span.statusMessage) && <div className={styles.statusMessage}>{text(span.statusMessage)}</div>}
+    <details open><summary>Identity</summary><AttributeList values={{ 'trace.id': text(span.traceId), 'span.id': text(span.spanId), 'parent.span.id': text(span.parentSpanId) || '—' }} /></details>
+    {Object.keys(resource).length > 0 && <details open><summary>Resource</summary><AttributeList values={resource} /></details>}
+    {groups.map((group) => <details key={group.title} open={group.title === 'HTTP & network' || group.title === 'Database' || group.title === 'Messaging' || group.title === 'Error'}><summary>{group.title}</summary><AttributeList values={group.values} /></details>)}
+    {events.length > 0 && <details open><summary>Events <span>{events.length}</span></summary><div className={styles.eventList}>{events.map((event, index) => <div key={`${text(event.name)}-${index}`}><strong>{text(event.name) || `Event ${index + 1}`}</strong><AttributeList values={jsonRecord(event.attributes)} empty="No event attributes" /></div>)}</div></details>}
+    {links.length > 0 && <details open><summary>Links <span>{links.length}</span></summary><div className={styles.linkList}>{links.map((link, index) => <div key={`${text(link.traceId)}-${text(link.spanId)}-${index}`}><code>{text(link.traceId) || 'same trace'} / {text(link.spanId) || 'unknown span'}</code><AttributeList values={jsonRecord(link.attributes)} empty="No link attributes" /></div>)}</div></details>}
+    <details><summary>Raw span data</summary><pre>{JSON.stringify(span, null, 2)}</pre></details>
+  </aside>
 }
 
 export function TraceExplorer({ connectionId }: TraceExplorerProps) {
-  const [query, setQuery] = useState(DEFAULT_TRACEQL)
+  const mode = useStore((state) => selectActiveSession(state).queryMode)
+  const traceql = useStore((state) => selectActiveSession(state).sql)
+  const setSql = useStore((state) => state.setSql)
+  const setQueryMode = useStore((state) => state.setQueryMode)
+  const [builder, setBuilder] = useState<TraceBuilderState>(() => builderFromTraceql(traceql))
+  const [traceId, setTraceId] = useState('')
   const [searchRows, setSearchRows] = useState<TraceRow[]>([])
   const [spans, setSpans] = useState<TraceRow[]>([])
   const [searchNotice, setSearchNotice] = useState('')
   const [selectedSpanId, setSelectedSpanId] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState<'search' | 'trace' | null>(null)
   const [error, setError] = useState('')
+  const [cohortHint, setCohortHint] = useState('')
+
+  useEffect(() => {
+    setBuilder(builderFromTraceql(traceql))
+  }, [traceql])
 
   useEffect(() => {
     setSearchRows([])
     setSpans([])
+    setTraceId('')
     setSelectedSpanId('')
+    setCollapsed(new Set())
     setError('')
+    setCohortHint('')
   }, [connectionId])
 
-  const execute = async (value: string) => {
-    const request = value.trim()
+  const runSearch = async () => {
+    const request = traceql.trim()
     if (!request) return
-    setLoading(true)
+    setLoading('search')
     setError('')
+    setCohortHint('')
     try {
       const result = await api.query.run(connectionId, request)
-      if (isSpanResult(result)) {
-        setSpans(result.rows)
-        setSelectedSpanId('')
-      } else {
-        setSearchRows(result.rows)
-        setSearchNotice(result.notice ?? '')
-        setSpans([])
-        setSelectedSpanId('')
-      }
+      if (isSpanResult(result)) throw new Error('TraceQL search returned a trace instead of search results.')
+      setSearchRows(result.rows)
+      setSearchNotice(result.notice ?? '')
+      setSpans([])
+      setSelectedSpanId('')
+      setCollapsed(new Set())
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(null) }
   }
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    void execute(query)
+  const openTrace = async (candidate = traceId) => {
+    const request = candidate.trim()
+    if (!TRACE_ID.test(request)) {
+      setError('Trace ID must be a 32-character hexadecimal identifier.')
+      return
+    }
+    setTraceId(request)
+    setLoading('trace')
+    setError('')
+    setCohortHint('')
+    try {
+      const result = await api.query.run(connectionId, request)
+      if (!isSpanResult(result)) throw new Error('Tempo returned search results instead of the requested trace.')
+      setSpans(result.rows)
+      setSelectedSpanId('')
+      setCollapsed(new Set())
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally { setLoading(null) }
   }
+
+  const updateBuilder = (patch: Partial<TraceBuilderState>) => {
+    setBuilder((current) => {
+      const next = { ...current, ...patch }
+      setSql(buildTraceql(next))
+      return next
+    })
+  }
+
+  const submitTraceId = (event: FormEvent) => { event.preventDefault(); void openTrace() }
+  const submitSearch = (event: FormEvent) => { event.preventDefault(); void runSearch() }
 
   const sortedSpans = useMemo(() => [...spans].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs)), [spans])
-  const renderedSpans = sortedSpans.slice(0, MAX_RENDERED_SPANS)
-  const depths = useMemo(() => traceDepths(sortedSpans), [sortedSpans])
+  const visibleTree = useMemo(() => buildVisibleTree(sortedSpans, collapsed), [sortedSpans, collapsed])
+  const renderedTree = visibleTree.slice(0, MAX_RENDERED_SPANS)
   const traceStart = sortedSpans.length ? Math.min(...sortedSpans.map((row) => number(row.startTimeMs))) : 0
   const traceEnd = sortedSpans.length ? Math.max(...sortedSpans.map((row) => number(row.startTimeMs) + number(row.durationMs))) : 0
   const traceDuration = Math.max(0, traceEnd - traceStart)
@@ -107,90 +280,105 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const rootSpan = sortedSpans.find((row) => !text(row.parentSpanId)) ?? sortedSpans[0]
   const selectedSpan = sortedSpans.find((row) => text(row.spanId) === selectedSpanId)
 
+  const exploreSimilar = () => {
+    if (!rootSpan) return
+    const next: TraceBuilderState = {
+      ...EMPTY_BUILDER,
+      serviceNamespace: text(rootSpan.serviceNamespace),
+      service: text(rootSpan.service),
+      spanName: text(rootSpan.name)
+    }
+    setBuilder(next)
+    setSql(buildTraceql(next))
+    setQueryMode('builder')
+    setSpans([])
+    setSelectedSpanId('')
+    setCohortHint('Builder seeded from the trace root. Adjust the cohort definition, then search similar traces.')
+  }
+
+  const toggleCollapse = (spanId: string) => setCollapsed((current) => {
+    const next = new Set(current)
+    next.has(spanId) ? next.delete(spanId) : next.add(spanId)
+    return next
+  })
+
   return (
     <section className={styles.root} aria-label="Trace explorer">
-      <form className={styles.queryBar} onSubmit={submit}>
-        <label className={styles.queryLabel} htmlFor="traceql-query">TraceQL or trace ID</label>
-        <input id="traceql-query" className={styles.queryInput} value={query} onChange={(event) => setQuery(event.target.value)}
-          spellCheck={false} placeholder="{ duration > 100ms }" />
-        <button className="btn primary" type="submit" disabled={loading || !query.trim()}>{loading ? 'Running…' : 'Search traces'}</button>
-      </form>
+      <div className={styles.discoveryPanel}>
+        <form className={styles.traceIdBar} onSubmit={submitTraceId}>
+          <label htmlFor="trace-id">Trace ID</label>
+          <input id="trace-id" value={traceId} onChange={(event) => setTraceId(event.target.value)} spellCheck={false} placeholder="4bf92f3577b34da6a3ce929d0e0e4736" />
+          <button className="btn ghost" type="submit" disabled={loading !== null || !traceId.trim()}>{loading === 'trace' ? 'Opening…' : 'Open trace'}</button>
+        </form>
 
-      <div className={styles.hint}>Tempo via gcx · searches use the last hour and return up to 20 traces in this MVP.</div>
+        <div className={styles.queryModeRow}>
+          <div className={styles.modeSwitch} role="group" aria-label="Trace query mode">
+            <button type="button" className={mode === 'builder' ? styles.modeActive : ''} aria-pressed={mode === 'builder'} onClick={() => setQueryMode('builder')}>Builder</button>
+            <button type="button" className={mode === 'sql' ? styles.modeActive : ''} aria-pressed={mode === 'sql'} onClick={() => setQueryMode('sql')}>TraceQL</button>
+          </div>
+          <span>Find traces first; open one to inspect it, then use it to seed a cohort.</span>
+        </div>
+
+        <form className={styles.searchForm} onSubmit={submitSearch}>
+          {mode === 'builder' ? <div className={styles.builderGrid}>
+            <label><span>Namespace</span><input value={builder.serviceNamespace} onChange={(event) => updateBuilder({ serviceNamespace: event.target.value })} placeholder="commerce" /></label>
+            <label><span>Service</span><input value={builder.service} onChange={(event) => updateBuilder({ service: event.target.value })} placeholder="checkout-api" /></label>
+            <label><span>Span / operation</span><input value={builder.spanName} onChange={(event) => updateBuilder({ spanName: event.target.value })} placeholder="POST /checkout" /></label>
+            <label><span>Status</span><select value={builder.status} onChange={(event) => updateBuilder({ status: event.target.value as TraceStatus })}><option value="any">Any</option><option value="error">Error</option><option value="ok">OK</option></select></label>
+            <label><span>Min duration (ms)</span><input type="number" min="0" step="1" value={builder.minDurationMs} onChange={(event) => updateBuilder({ minDurationMs: event.target.value })} placeholder="300" /></label>
+            <div className={styles.generatedQuery}><span>Generated TraceQL</span><code>{traceql}</code></div>
+          </div> : <label className={styles.traceqlField} htmlFor="traceql-query"><span>TraceQL</span><textarea id="traceql-query" value={traceql} onChange={(event) => setSql(event.target.value)} spellCheck={false} rows={3} placeholder="{ resource.service.name = &quot;checkout-api&quot; && duration &gt; 300ms }" /></label>}
+          <div className={styles.searchActions}><button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Searching…' : 'Search traces'}</button><span>Tempo via gcx · last hour · up to 20 traces in this MVP.</span></div>
+        </form>
+      </div>
+
+      {cohortHint && <div className={styles.cohortHint} role="status">{cohortHint}</div>}
       {error && <div className={styles.error} role="alert">{error}</div>}
 
-      {spans.length > 0 ? (
-        <div className={styles.traceView}>
-          <header className={styles.traceHeader}>
-            <div>
-              {searchRows.length > 0 && <button type="button" className="btn ghost" onClick={() => { setSpans([]); setSelectedSpanId('') }}>← Search results</button>}
-              <h2>{text(rootSpan?.service) || 'Trace'} · {text(rootSpan?.name) || text(rootSpan?.traceId)}</h2>
-            </div>
-            <dl className={styles.summary}>
-              <div><dt>Duration</dt><dd>{durationLabel(traceDuration)}</dd></div>
-              <div><dt>Spans</dt><dd>{spans.length}</dd></div>
-              <div><dt>Services</dt><dd>{services.size}</dd></div>
-              <div><dt>Errors</dt><dd>{errorCount}</dd></div>
-            </dl>
-          </header>
+      {spans.length > 0 ? <div className={styles.traceView}>
+        <header className={styles.traceHeader}>
+          <div className={styles.traceTitle}>
+            {searchRows.length > 0 && <button type="button" className="btn ghost" onClick={() => { setSpans([]); setSelectedSpanId('') }}>← Search results</button>}
+            <div><h2>{text(rootSpan?.service) || 'Trace'} · {text(rootSpan?.name) || text(rootSpan?.traceId)}</h2><code>{text(rootSpan?.traceId)}</code></div>
+            <button type="button" className="btn ghost" onClick={exploreSimilar}>Explore similar traces</button>
+          </div>
+          <dl className={styles.summary}>
+            <div><dt>Duration</dt><dd>{durationLabel(traceDuration)}</dd></div>
+            <div><dt>Spans</dt><dd>{spans.length}</dd></div>
+            <div><dt>Services</dt><dd>{services.size}</dd></div>
+            <div><dt>Errors</dt><dd>{errorCount}</dd></div>
+          </dl>
+        </header>
 
-          {spans.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} of {spans.length} spans. Virtualised rendering is tracked as follow-up work in #88.</div>}
+        {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans. Virtualised rendering remains follow-up work in #88.</div>}
 
+        <div className={styles.inspectionArea}>
           <div className={styles.waterfall}>
-            <div className={styles.waterfallHeader}><span>Span</span><span>Timeline · {durationLabel(traceDuration)}</span></div>
-            {renderedSpans.map((span) => {
-              const spanId = text(span.spanId)
+            <div className={styles.waterfallHeader}><span>Span tree</span><span>Timeline · {durationLabel(traceDuration)}</span></div>
+            {renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
               const offset = traceDuration > 0 ? ((number(span.startTimeMs) - traceStart) / traceDuration) * 100 : 0
               const width = traceDuration > 0 ? Math.max(.35, (number(span.durationMs) / traceDuration) * 100) : 100
-              const depth = depths.get(spanId) ?? 0
               const isError = text(span.status).toUpperCase().includes('ERROR')
-              return (
-                <button key={spanId || `${text(span.name)}-${number(span.startTimeMs)}`} type="button"
-                  className={`${styles.spanRow} ${selectedSpanId === spanId ? styles.selected : ''}`}
-                  onClick={() => setSelectedSpanId(spanId)} aria-pressed={selectedSpanId === spanId}>
-                  <span className={styles.spanLabel} style={{ paddingLeft: `${10 + depth * 14}px` }}>
-                    <strong>{text(span.service) || 'unknown'}</strong>
-                    <span>{text(span.name) || spanId}</span>
-                  </span>
-                  <span className={styles.timeline}>
-                    <span className={`${styles.bar} ${isError ? styles.errorBar : ''}`} style={{ left: `${offset}%`, width: `${Math.min(width, 100 - offset)}%` }}>
-                      <span>{durationLabel(number(span.durationMs))}</span>
-                    </span>
-                  </span>
+              return <div key={spanId} className={`${styles.spanRow} ${selectedSpanId === spanId ? styles.selected : ''}`} data-span-id={spanId}>
+                <div className={styles.spanLabel}>
+                  <span className={styles.treeGuides} aria-hidden="true">{Array.from({ length: depth }, (_, index) => <span key={index} />)}</span>
+                  {hasChildren ? <button type="button" className={styles.caret} aria-label={`${collapsed.has(spanId) ? 'Expand' : 'Collapse'} ${text(span.name) || spanId}`} aria-expanded={!collapsed.has(spanId)} onClick={() => toggleCollapse(spanId)}>{collapsed.has(spanId) ? '▸' : '▾'}</button> : <span className={styles.leafDot} aria-hidden="true">•</span>}
+                  <button type="button" className={styles.spanIdentity} onClick={() => setSelectedSpanId(spanId)} aria-pressed={selectedSpanId === spanId}>
+                    <strong>{text(span.service) || 'unknown'}</strong><span>{text(span.name) || spanId}</span>
+                  </button>
+                </div>
+                <button type="button" className={styles.timeline} onClick={() => setSelectedSpanId(spanId)} aria-label={`Select ${text(span.service)} ${text(span.name)}, ${durationLabel(number(span.durationMs))}`}>
+                  <span className={`${styles.bar} ${isError ? styles.errorBar : ''}`} style={{ left: `${offset}%`, width: `${Math.min(width, 100 - offset)}%` }}><span>{durationLabel(number(span.durationMs))}</span></span>
                 </button>
-              )
+              </div>
             })}
           </div>
-
-          {selectedSpan && (
-            <aside className={styles.details} aria-label="Selected span details">
-              <div><strong>{text(selectedSpan.service)}</strong> · {text(selectedSpan.name)}</div>
-              <div>{durationLabel(number(selectedSpan.durationMs))} · {text(selectedSpan.kind) || 'unknown kind'} · {text(selectedSpan.status) || 'no status'}</div>
-              <code>span {text(selectedSpan.spanId)}{text(selectedSpan.parentSpanId) ? ` · parent ${text(selectedSpan.parentSpanId)}` : ''}</code>
-              {text(selectedSpan.attributes) && <pre>{text(selectedSpan.attributes)}</pre>}
-            </aside>
-          )}
+          {selectedSpan ? <SpanInspector span={selectedSpan} traceStart={traceStart} /> : <aside className={styles.detailsEmpty} aria-label="Selected span details"><strong>Select a span</strong><span>Inspect timing, OpenTelemetry resource data, semantic attributes, events and links here.</span></aside>}
         </div>
-      ) : (
-        <div className={styles.searchResults}>
-          <header className={styles.resultsHeader}>
-            <div><h2>Trace search</h2><p>{searchNotice || 'Run TraceQL to find Tempo traces.'}</p></div>
-            {searchRows.length > 0 && <strong>{searchRows.length} traces</strong>}
-          </header>
-          {searchRows.length === 0 ? (
-            <div className={styles.empty}>{loading ? 'Searching Tempo…' : 'Search by TraceQL, or paste a 32-character trace ID to open it directly.'}</div>
-          ) : (
-            <div className={styles.traceList}>
-              {searchRows.map((row) => (
-                <button key={text(row.traceId)} type="button" className={styles.traceResult} onClick={() => void execute(text(row.traceId))} disabled={loading}>
-                  <span><strong>{text(row.rootService) || 'unknown service'}</strong><span>{text(row.rootOperation) || text(row.traceId)}</span></span>
-                  <span className={styles.resultMeta}><strong>{durationLabel(number(row.durationMs))}</strong><span>{number(row.matchedSpans) ? `${number(row.matchedSpans)} matched spans` : text(row.traceId)}</span></span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      </div> : <div className={styles.searchResults}>
+        <header className={styles.resultsHeader}><div><h2>Trace search</h2><p>{searchNotice || 'Use the Builder or TraceQL to find candidate traces.'}</p></div>{searchRows.length > 0 && <strong>{searchRows.length} traces</strong>}</header>
+        {searchRows.length === 0 ? <div className={styles.empty}>{loading === 'search' ? 'Searching Tempo…' : 'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.'}</div> : <div className={styles.traceList}>{searchRows.map((row) => <button key={text(row.traceId)} type="button" className={styles.traceResult} onClick={() => void openTrace(text(row.traceId))} disabled={loading !== null}><span><strong>{text(row.rootService) || 'unknown service'}</strong><span>{text(row.rootOperation) || text(row.traceId)}</span></span><span className={styles.resultMeta}><strong>{durationLabel(number(row.durationMs))}</strong><span>{number(row.matchedSpans) ? `${number(row.matchedSpans)} matched spans` : text(row.traceId)}</span></span></button>)}</div>}
+      </div>}
     </section>
   )
 }
