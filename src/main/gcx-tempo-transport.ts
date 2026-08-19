@@ -236,18 +236,22 @@ export function normalizeTempoTrace(raw: unknown, durationMs = 0): QueryResult {
   if (isRecord(payload) && isRecord(payload.trace)) payload = payload.trace
   if (isRecord(payload) && isRecord(payload.data) && !Array.isArray(payload.data)) payload = payload.data
   if (!isRecord(payload)) throw new Error('gcx returned valid JSON, but the Tempo trace response is not an object.')
-  const rows = normalizeOtelSpans(payload).length > 0
-    ? normalizeOtelSpans(payload)
-    : normalizeJaegerSpans(payload).length > 0
-      ? normalizeJaegerSpans(payload)
-      : normalizeDirectSpans(payload)
+  const otelRows = normalizeOtelSpans(payload)
+  const jaegerRows = otelRows.length === 0 ? normalizeJaegerSpans(payload) : []
+  const rows = otelRows.length > 0 ? otelRows : jaegerRows.length > 0 ? jaegerRows : normalizeDirectSpans(payload)
   if (rows.length === 0) throw new Error('gcx returned a Tempo trace, but DataKoala could not find any spans in the response.')
   rows.sort((left, right) => asNumber(left.startTimeMs) - asNumber(right.startTimeMs))
   return { columns: spanColumns, rows, rowCount: rows.length, durationMs }
 }
 
 export class GcxTempoTransport implements TempoTransport {
-  constructor(private readonly context?: string, private readonly run: GcxCommandRunner = runGcxCommand) {}
+  private readonly context?: string
+  private readonly run: GcxCommandRunner
+
+  constructor(context?: string, run: GcxCommandRunner = runGcxCommand) {
+    this.context = context
+    this.run = run
+  }
 
   async query(value: string): Promise<QueryResult> {
     const query = value.trim()
