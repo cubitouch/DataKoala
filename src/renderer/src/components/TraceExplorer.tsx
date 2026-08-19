@@ -380,11 +380,14 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
       },
       yAxis: {
         type: 'value',
-        min: 0,
-        name: 'Duration (ms)',
+        scale: true,
+        name: 'Duration',
         nameLocation: 'middle',
         nameGap: 50,
-        axisLabel: { color: '#9aa4b2' },
+        axisLabel: {
+          color: '#9aa4b2',
+          formatter: (value: number) => durationLabel(number(value))
+        },
         axisLine: { lineStyle: { color: '#3b424d' } },
         splitLine: { lineStyle: { color: '#262c35' } }
       },
