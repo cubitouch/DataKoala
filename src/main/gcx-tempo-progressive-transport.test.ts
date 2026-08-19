@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { ProgressiveGcxTempoTransport } from './gcx-tempo-progressive-transport.ts'
 import type { GcxCommandRunner } from './gcx-prometheus-transport.ts'
+import type { TempoQueryContext, TempoSearchProgress } from '../shared/tempo.ts'
 
 const traceId = (value: number) => value.toString(16).padStart(32, '0')
 const start = '2026-08-18T00:00:00.000Z'
@@ -35,6 +36,7 @@ function searchResponse(rows: Array<{ id: number; startTimeMs: number; status?: 
 
 test('exhaustive Tempo search bisects saturated windows until the whole selected period is covered', async () => {
   const calls: string[][] = []
+  const progress: TempoSearchProgress[] = []
   const pages = new Map<string, ReturnType<typeof searchResponse>>([
     [`${start}|${end}|2`, searchResponse([{ id: 1, startTimeMs: startMs + 1_000 }, { id: 4, startTimeMs: startMs + 7_000 }])],
     [`${start}|2026-08-18T00:00:04.000Z|2`, searchResponse([{ id: 1, startTimeMs: startMs + 1_000 }, { id: 2, startTimeMs: startMs + 3_000 }])],
@@ -51,18 +53,44 @@ test('exhaustive Tempo search bisects saturated windows until the whole selected
     if (!page) throw new Error(`Unexpected Tempo page ${JSON.stringify(bounds)}`)
     return page
   }
+  const request: TempoQueryContext = { start, end, onProgress: (update) => progress.push(update) }
 
   const result = await new ProgressiveGcxTempoTransport('production', run, undefined, {
     pageLimit: 2,
     minSliceMs: 1_000,
     maxDenseLimit: 8
-  }).search('{ true }', { start, end })
+  }).search('{ true }', request)
 
   assert.equal(calls.length, 7)
   assert.ok(calls.every((args) => args.includes('--context') && args.includes('production')))
   assert.deepEqual(result.rows.map((row) => row.traceId), [traceId(4), traceId(3), traceId(2), traceId(1)])
   assert.equal(result.rowCount, 4)
   assert.match(result.notice ?? '', /complete period · 4 traces · 7 queries/)
+  assert.equal(progress.length, 7)
+  assert.equal(progress[0].coveredMs, 0)
+  assert.equal(progress[0].totalMs, 8_000)
+  assert.equal(progress[0].tracesFound, 2)
+  assert.equal(progress[0].completedChunks, 0)
+  assert.equal(progress[0].pendingChunks, 2)
+  assert.ok(progress.some((update) => update.rows.length > 0))
+  assert.deepEqual(progress.at(-1), {
+    provider: 'tempo',
+    coveredMs: 8_000,
+    totalMs: 8_000,
+    completedChunks: 4,
+    pendingChunks: 0,
+    queriesCompleted: 7,
+    tracesFound: 4,
+    rows: [{
+      traceId: traceId(4),
+      rootService: 'checkout',
+      rootOperation: 'POST /checkout',
+      startTimeMs: startMs + 7_000,
+      durationMs: 400,
+      matchedSpans: 0,
+      status: 'unknown'
+    }]
+  })
 })
 
 test('a saturated minimum time slice grows its limit until the dense interval is exhausted', async () => {
@@ -91,6 +119,7 @@ test('a saturated minimum time slice grows its limit until the dense interval is
 
 test('sub-second selected ranges never collapse to equal Tempo start/end seconds', async () => {
   const calls: string[][] = []
+  const progress: TempoSearchProgress[] = []
   const exactStart = '2026-08-18T00:00:00.250Z'
   const exactEnd = '2026-08-18T00:00:00.750Z'
   const base = Date.parse('2026-08-18T00:00:00.000Z')
@@ -111,16 +140,24 @@ test('sub-second selected ranges never collapse to equal Tempo start/end seconds
           { id: 3, startTimeMs: base + 900 }
         ])
   }
+  const request: TempoQueryContext = {
+    start: exactStart,
+    end: exactEnd,
+    onProgress: (update) => progress.push(update)
+  }
 
   const result = await new ProgressiveGcxTempoTransport(undefined, run, undefined, {
     pageLimit: 2,
     minSliceMs: 1_000,
     maxDenseLimit: 4
-  }).search('{ true }', { start: exactStart, end: exactEnd })
+  }).search('{ true }', request)
 
   assert.deepEqual(calls.map((args) => queryBounds(args).limit), [2, 4])
   assert.deepEqual(result.rows.map((row) => row.traceId), [traceId(2)])
   assert.match(result.notice ?? '', /complete period · 1 traces · 2 queries/)
+  assert.equal(progress.at(-1)?.totalMs, 500)
+  assert.equal(progress.at(-1)?.coveredMs, 500)
+  assert.equal(progress.at(-1)?.tracesFound, 1)
 })
 
 test('explicit status enrichment runs once per final unknown trace after exhaustive pagination', async () => {

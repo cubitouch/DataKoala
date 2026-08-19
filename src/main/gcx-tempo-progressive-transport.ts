@@ -1,5 +1,10 @@
 import type { QueryResult } from '../shared/types.ts'
-import type { TempoQueryRequest } from '../shared/tempo.ts'
+import type {
+  TempoQueryContext,
+  TempoQueryRequest,
+  TempoSearchProgress,
+  TempoSearchProgressListener
+} from '../shared/tempo.ts'
 import {
   GcxTempoTransport,
   normalizeTempoSearch,
@@ -93,15 +98,37 @@ function statusResolved(row: Record<string, unknown>): boolean {
   return status !== '' && status !== 'unknown'
 }
 
-function mergeRows(target: Map<string, Record<string, unknown>>, incoming: Record<string, unknown>[]) {
+function mergeRows(target: Map<string, Record<string, unknown>>, incoming: Record<string, unknown>[]): Record<string, unknown>[] {
+  const changed: Record<string, unknown>[] = []
   for (const row of incoming) {
     const traceId = text(row.traceId)
     if (!traceId) continue
     const previous = target.get(traceId)
-    target.set(traceId, previous && statusResolved(previous) && !statusResolved(row)
+    const next = previous && statusResolved(previous) && !statusResolved(row)
       ? { ...row, status: previous.status }
-      : row)
+      : row
+    target.set(traceId, next)
+    changed.push(next)
   }
+  return changed
+}
+
+function exactWindowDuration(window: SearchWindow, exactBounds: { startMs: number; endMs: number }): number {
+  const startMs = Math.max(window.startMs, exactBounds.startMs)
+  const endMs = Math.min(window.endMs, exactBounds.endMs)
+  return Math.max(0, endMs - startMs)
+}
+
+function rowsInsideExactRange(rows: Record<string, unknown>[], exactBounds: { startMs: number; endMs: number }): Record<string, unknown>[] {
+  return rows.filter((row) => {
+    const startTimeMs = number(row.startTimeMs)
+    return startTimeMs >= exactBounds.startMs && startTimeMs <= exactBounds.endMs
+  })
+}
+
+function emitProgress(listener: TempoSearchProgressListener | undefined, progress: TempoSearchProgress): void {
+  if (!listener) return
+  try { listener(progress) } catch { /* progress reporting must never fail the query */ }
 }
 
 async function mapConcurrent<T, R>(values: T[], concurrency: number, mapper: (value: T) => Promise<R>): Promise<R[]> {
@@ -124,6 +151,10 @@ async function mapConcurrent<T, R>(values: T[], concurrency: number, mapper: (va
  * slice is below the limit. If a one-second slice is still saturated, the slice limit
  * grows geometrically. This lets DataKoala prove that the selected period has been
  * covered instead of presenting an arbitrary top-N as though it were complete.
+ *
+ * Every provider response also publishes genuine trace summaries immediately. Coverage
+ * only advances for unsaturated chunks, so the renderer can distinguish “traces found”
+ * from “period proven complete” while the adaptive chunk tree is still growing.
  */
 export class ProgressiveGcxTempoTransport implements TempoTransport {
   private readonly base: GcxTempoTransport
@@ -202,11 +233,15 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
     if (!query) throw new Error('Enter a TraceQL query.')
     if (!request) return this.base.search(query)
 
+    const context = request as TempoQueryContext
     const started = Date.now()
     const exactBounds = rangeBounds(request)
     const providerBounds = providerRangeBounds(exactBounds.startMs, exactBounds.endMs)
     const pending: SearchWindow[] = [{ ...providerBounds, limit: this.pageLimit }]
     const rowsByTraceId = new Map<string, Record<string, unknown>>()
+    const totalMs = exactBounds.endMs - exactBounds.startMs
+    let coveredMs = 0
+    let completedChunks = 0
     let columns: QueryResult['columns'] = []
     let queryCount = 0
 
@@ -215,45 +250,53 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
       const page = await this.searchWindow(query, window)
       queryCount += 1
       if (columns.length === 0) columns = page.columns
-      mergeRows(rowsByTraceId, page.rows)
+      const changedRows = mergeRows(rowsByTraceId, rowsInsideExactRange(page.rows, exactBounds))
+      let fatalError: Error | undefined
 
-      if (page.rows.length < window.limit) continue
-
-      const durationMs = window.endMs - window.startMs
-      const midpoint = providerMidpoint(window)
-      if (durationMs > this.minSliceMs && midpoint > window.startMs && midpoint < window.endMs) {
-        // Tempo range endpoints may be inclusive. Deliberately overlap at the midpoint
-        // and de-duplicate by trace ID so there can be no boundary gap.
-        pending.push(
-          { startMs: midpoint, endMs: window.endMs, limit: this.pageLimit },
-          { startMs: window.startMs, endMs: midpoint, limit: this.pageLimit }
-        )
-        continue
+      if (page.rows.length < window.limit) {
+        completedChunks += 1
+        coveredMs += exactWindowDuration(window, exactBounds)
+      } else {
+        const durationMs = window.endMs - window.startMs
+        const midpoint = providerMidpoint(window)
+        if (durationMs > this.minSliceMs && midpoint > window.startMs && midpoint < window.endMs) {
+          // Tempo range endpoints may be inclusive. Deliberately overlap at the midpoint
+          // and de-duplicate by trace ID so there can be no boundary gap.
+          pending.push(
+            { startMs: midpoint, endMs: window.endMs, limit: this.pageLimit },
+            { startMs: window.startMs, endMs: midpoint, limit: this.pageLimit }
+          )
+        } else if (window.limit < this.maxDenseLimit) {
+          pending.push({
+            ...window,
+            limit: Math.min(window.limit * 2, this.maxDenseLimit)
+          })
+        } else {
+          fatalError = new Error(
+            `Tempo returned at least ${window.limit} matching traces inside a ${Math.max(1, Math.ceil(durationMs))}ms window. ` +
+            'DataKoala cannot guarantee complete-period results at the provider limit; narrow the TraceQL query or time range.'
+          )
+        }
       }
 
-      if (window.limit < this.maxDenseLimit) {
-        pending.push({
-          ...window,
-          limit: Math.min(window.limit * 2, this.maxDenseLimit)
-        })
-        continue
-      }
+      emitProgress(context.onProgress, {
+        provider: 'tempo',
+        coveredMs: Math.min(totalMs, coveredMs),
+        totalMs,
+        completedChunks,
+        pendingChunks: pending.length,
+        queriesCompleted: queryCount,
+        tracesFound: rowsByTraceId.size,
+        rows: changedRows
+      })
 
-      throw new Error(
-        `Tempo returned at least ${window.limit} matching traces inside a ${Math.max(1, Math.ceil(durationMs))}ms window. ` +
-        'DataKoala cannot guarantee complete-period results at the provider limit; narrow the TraceQL query or time range.'
-      )
+      if (fatalError) throw fatalError
     }
 
-    const rows = [...rowsByTraceId.values()]
-      .filter((row) => {
-        const startTimeMs = number(row.startTimeMs)
-        return startTimeMs >= exactBounds.startMs && startTimeMs <= exactBounds.endMs
-      })
-      .sort((left, right) => {
-        const byTime = number(right.startTimeMs) - number(left.startTimeMs)
-        return byTime || text(left.traceId).localeCompare(text(right.traceId))
-      })
+    const rows = [...rowsByTraceId.values()].sort((left, right) => {
+      const byTime = number(right.startTimeMs) - number(left.startTimeMs)
+      return byTime || text(left.traceId).localeCompare(text(right.traceId))
+    })
     const durationMs = Date.now() - started
     let result: QueryResult = {
       columns,

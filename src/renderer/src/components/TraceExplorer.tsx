@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { QueryResult } from '@shared/types'
+import type { TempoSearchProgress } from '@shared/tempo'
 import { api } from '../lib/api'
 import { selectActiveSession, useStore } from '../store/useStore'
 import { TimeRangeField } from './time-range/TimeRangeField'
@@ -41,6 +42,13 @@ function durationLabel(milliseconds: number): string {
   if (milliseconds >= 1_000) return `${(milliseconds / 1_000).toFixed(milliseconds >= 10_000 ? 1 : 2)}s`
   if (milliseconds >= 1) return `${milliseconds.toFixed(milliseconds >= 100 ? 0 : 1)}ms`
   return `${Math.max(0, milliseconds * 1_000).toFixed(0)}µs`
+}
+
+function periodLabel(milliseconds: number): string {
+  if (milliseconds >= 3_600_000) return `${(milliseconds / 3_600_000).toFixed(milliseconds % 3_600_000 === 0 ? 0 : 1)}h`
+  if (milliseconds >= 60_000) return `${(milliseconds / 60_000).toFixed(milliseconds % 60_000 === 0 ? 0 : 1)}m`
+  if (milliseconds >= 1_000) return `${(milliseconds / 1_000).toFixed(milliseconds % 1_000 === 0 ? 0 : 1)}s`
+  return `${Math.max(0, Math.round(milliseconds))}ms`
 }
 
 function dateTimeLabel(milliseconds: number): string {
@@ -217,6 +225,24 @@ function resultStatus(row: TraceRow): 'ok' | 'error' | 'unknown' {
   return 'unknown'
 }
 
+function mergeSearchRows(existing: TraceRow[], incoming: TraceRow[]): TraceRow[] {
+  const merged = new Map(existing.map((row) => [text(row.traceId), row]))
+  for (const row of incoming) {
+    const traceId = text(row.traceId)
+    if (!traceId) continue
+    const previous = merged.get(traceId)
+    const previousStatus = previous ? resultStatus(previous) : 'unknown'
+    const nextStatus = resultStatus(row)
+    merged.set(traceId, previous && previousStatus !== 'unknown' && nextStatus === 'unknown'
+      ? { ...row, status: previous.status }
+      : row)
+  }
+  return [...merged.values()].sort((left, right) => {
+    const byTime = number(right.startTimeMs) - number(left.startTimeMs)
+    return byTime || text(left.traceId).localeCompare(text(right.traceId))
+  })
+}
+
 export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const mode = useStore((state) => selectActiveSession(state).queryMode)
   const traceql = useStore((state) => selectActiveSession(state).sql)
@@ -227,6 +253,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [searchRows, setSearchRows] = useState<TraceRow[]>([])
   const [spans, setSpans] = useState<TraceRow[]>([])
   const [searchNotice, setSearchNotice] = useState('')
+  const [searchProgress, setSearchProgress] = useState<TempoSearchProgress | null>(null)
   const [selectedSpanId, setSelectedSpanId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState<'search' | 'trace' | null>(null)
@@ -249,6 +276,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setCohortHint('')
     setSearchRange(DEFAULT_TRACE_RANGE)
     setResultView('list')
+    setSearchProgress(null)
   }, [connectionId])
 
   const runSearch = async () => {
@@ -266,26 +294,29 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
       return
     }
 
-    const tempoSearchRequest = {
-      start: range.start,
-      end: range.end,
-      step: '1s'
-    }
+    const tempoSearchRequest = { start: range.start, end: range.end }
 
     setLoading('search')
     setError('')
     setCohortHint('')
     setSearchRows([])
+    setSpans([])
+    setSelectedSpanId('')
+    setCollapsed(new Set())
+    setSearchProgress(null)
     setSearchNotice('Fetching the complete selected period…')
     try {
-      const result = await api.query.run(connectionId, request, [], tempoSearchRequest)
+      const result = await api.query.run(connectionId, request, [], tempoSearchRequest, (progress) => {
+        setSearchProgress(progress)
+        setSearchRows((current) => mergeSearchRows(current, progress.rows))
+      })
       if (isSpanResult(result)) throw new Error('TraceQL search returned a trace instead of search results.')
       setSearchRows(result.rows)
       setSearchNotice(result.notice ?? '')
-      setSpans([])
-      setSelectedSpanId('')
-      setCollapsed(new Set())
+      setSearchProgress(null)
     } catch (reason) {
+      setSearchNotice('Search stopped before the selected period was fully covered; partial results found so far are shown.')
+      setSearchProgress(null)
       setError(reason instanceof Error ? reason.message : String(reason))
     } finally { setLoading(null) }
   }
@@ -302,10 +333,13 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setCohortHint('')
     try {
       const result = await api.query.run(connectionId, request)
-      if (!isSpanResult(result)) throw new Error('Tempo returned search results instead of the requested trace.')
-      setSpans(result.rows)
-      setSelectedSpanId('')
-      setCollapsed(new Set())
+      if (isSpanResult(result)) {
+        setSpans(result.rows)
+        setSelectedSpanId('')
+        setCollapsed(new Set())
+      } else {
+        throw new Error('Tempo returned search results instead of the requested trace.')
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
     } finally { setLoading(null) }
@@ -332,6 +366,12 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const errorCount = useMemo(() => sortedSpans.filter((row) => text(row.status).toUpperCase().includes('ERROR')).length, [sortedSpans])
   const rootSpan = sortedSpans.find((row) => !text(row.parentSpanId)) ?? sortedSpans[0]
   const selectedSpan = sortedSpans.find((row) => text(row.spanId) === selectedSpanId)
+  const progressPercent = searchProgress?.totalMs
+    ? Math.min(100, Math.round((searchProgress.coveredMs / searchProgress.totalMs) * 100))
+    : 0
+  const currentChunkCount = searchProgress
+    ? searchProgress.completedChunks + searchProgress.pendingChunks
+    : 0
 
   const scatterOption = useMemo(() => {
     const groups = [
@@ -456,13 +496,19 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           </div> : <label className={styles.traceqlField} htmlFor="traceql-query"><span>TraceQL</span><textarea id="traceql-query" value={traceql} onChange={(event) => setSql(event.target.value)} spellCheck={false} rows={3} placeholder="{ resource.service.name = &quot;checkout-api&quot; && duration &gt; 300ms }" /></label>}
           <div className={styles.searchControls}>
             <TimeRangeField value={searchRange} onChange={setSearchRange} />
-            <div className={styles.searchActions}><button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Fetching period…' : 'Search traces'}</button><span>Tempo via gcx · fetches the complete selected period automatically. Saturated windows are split until the range is exhausted.</span></div>
+            <div className={styles.searchActions}><button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? searchProgress ? `Fetching ${progressPercent}%…` : 'Starting…' : 'Search traces'}</button><span>Tempo via gcx · streams trace summaries while it exhausts the complete selected period.</span></div>
           </div>
         </form>
       </div>
 
       {cohortHint && <div className={styles.cohortHint} role="status">{cohortHint}</div>}
       {error && <div className={styles.error} role="alert">{error}</div>}
+      {loading === 'search' && <div className={styles.warning} role="status" aria-live="polite">
+        {searchProgress ? <>
+          <div><strong>Fetching Tempo…</strong> {periodLabel(searchProgress.coveredMs)} / {periodLabel(searchProgress.totalMs)} covered ({progressPercent}%) · {searchProgress.completedChunks}/{currentChunkCount || 1} current chunks · {searchProgress.tracesFound} traces found · {searchProgress.queriesCompleted} {searchProgress.queriesCompleted === 1 ? 'query' : 'queries'}</div>
+          <progress value={searchProgress.coveredMs} max={Math.max(1, searchProgress.totalMs)} aria-label={`Tempo search ${progressPercent}% complete`} style={{ width: '100%', marginTop: 6 }} />
+        </> : <strong>Starting exhaustive Tempo search…</strong>}
+      </div>}
 
       {spans.length > 0 ? <div className={styles.traceView}>
         <header className={styles.traceHeader}>
@@ -504,7 +550,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           </div>
           {selectedSpan && <SpanInspector span={selectedSpan} traceStart={traceStart} onClose={() => setSelectedSpanId('')} />}
         </div>
-      </div> : <div className={styles.searchResults}>
+      </div> : <div className={styles.searchResults} aria-busy={loading === 'search'}>
         <header className={styles.resultsHeader}>
           <div><h2>Trace search</h2><p>{searchNotice || 'Use the Builder or TraceQL to find candidate traces.'}</p></div>
           <div className={styles.resultsHeaderActions}>
@@ -512,10 +558,10 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
               <button type="button" className={resultView === 'list' ? styles.modeActive : ''} aria-pressed={resultView === 'list'} onClick={() => setResultView('list')}>List</button>
               <button type="button" className={resultView === 'scatter' ? styles.modeActive : ''} aria-pressed={resultView === 'scatter'} onClick={() => setResultView('scatter')}>Scatter</button>
             </div>}
-            {searchRows.length > 0 && <strong>{searchRows.length} traces</strong>}
+            {searchRows.length > 0 && <strong>{searchRows.length} traces{loading === 'search' ? ' so far' : ''}</strong>}
           </div>
         </header>
-        {searchRows.length === 0 ? <div className={styles.empty}>{loading === 'search' ? 'Fetching the complete Tempo period…' : 'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.'}</div>
+        {searchRows.length === 0 ? <div className={styles.empty}>{loading === 'search' ? 'Waiting for the first Tempo trace summaries…' : 'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.'}</div>
           : <>
               {resultView === 'scatter' ? <div className={styles.scatter} data-trace-scatter=""><ReactECharts option={scatterOption} onEvents={scatterEvents} notMerge lazyUpdate style={{ width: '100%', height: '100%' }} /></div>
                 : <div className={styles.traceList}>{searchRows.map((row) => {

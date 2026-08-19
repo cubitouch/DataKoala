@@ -12,9 +12,10 @@ import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
 import { TempoAdapter } from './adapters/tempo-adapter.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
-import type { TempoQueryRequest } from '../shared/tempo.ts'
+import type { TempoQueryContext, TempoQueryRequest, TempoSearchProgressListener } from '../shared/tempo.ts'
 import { formatPromql } from './promql-formatter.ts'
 import { toIpcSafeQueryResult } from './ipc-serialization.ts'
+import { publishTempoSearchProgress } from './query-progress.ts'
 
 const postgresAdapter = new PostgresAdapter()
 export const adapterRegistry = new AdapterRegistry()
@@ -137,6 +138,10 @@ function session(id: ConnectionId): DataSourceSession {
   return value
 }
 
+type QueryIpcCompatibilityRange = Omit<PrometheusQueryRequest, 'expression'> & {
+  progressRequestId?: string
+}
+
 export async function runQuery(
   id: ConnectionId,
   sql: string,
@@ -146,11 +151,21 @@ export async function runQuery(
 ): Promise<QueryResult> {
   const activeSession = session(id)
   // QUERY_RUN predates Tempo and currently exposes the Prometheus range slot through
-  // preload. Preserve only the shared start/end bounds until query IPC becomes a
-  // discriminated provider request; exhaustive Tempo paging belongs to the transport.
-  const tempoRange = activeSession.info.provider === 'tempo' && !tempo && prometheus
-    ? { start: prometheus.start, end: prometheus.end }
+  // preload. Preserve the shared start/end bounds and an opaque progress request ID
+  // until query IPC becomes a discriminated provider request; exhaustive Tempo paging
+  // and its progress semantics remain owned by the Tempo transport.
+  const compat = prometheus as QueryIpcCompatibilityRange | undefined
+  const progressRequestId = activeSession.info.provider === 'tempo' && typeof compat?.progressRequestId === 'string'
+    ? compat.progressRequestId.trim()
+    : ''
+  const onProgress: TempoSearchProgressListener | undefined = progressRequestId
+    ? (progress) => publishTempoSearchProgress(progressRequestId, progress)
+    : undefined
+  const tempoRange: TempoQueryContext | undefined = activeSession.info.provider === 'tempo' && !tempo && compat
+    ? { start: compat.start, end: compat.end, ...(onProgress ? { onProgress } : {}) }
     : tempo
+      ? { ...tempo, ...(onProgress ? { onProgress } : {}) }
+      : undefined
   return toIpcSafeQueryResult(await activeSession.query({
     sql,
     parameters,
