@@ -144,7 +144,16 @@ export async function runQuery(
   prometheus?: Omit<PrometheusQueryRequest, 'expression'>,
   tempo?: TempoQueryRequest
 ): Promise<QueryResult> {
-  return toIpcSafeQueryResult(await session(id).query({ sql, parameters, prometheus, tempo }))
+  const activeSession = session(id)
+  const tempoRange = activeSession.info.provider === 'tempo' && !tempo && prometheus
+    ? { start: prometheus.start, end: prometheus.end, includeStatus: true }
+    : tempo
+  return toIpcSafeQueryResult(await activeSession.query({
+    sql,
+    parameters,
+    prometheus: activeSession.info.provider === 'prometheus' ? prometheus : undefined,
+    tempo: tempoRange
+  }))
 }
 
 export function formatPrometheusQuery(_id: ConnectionId, query: string): Promise<string> {
