@@ -14,16 +14,28 @@ const spanColumns = [
   { name: 'spanId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' },
   { name: 'parentSpanId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' },
   { name: 'service', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' },
+  { name: 'serviceNamespace', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' },
   { name: 'name', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' },
   { name: 'startTimeMs', dataTypeID: 0, dataTypeName: 'float8', logicalType: 'number' },
   { name: 'durationMs', dataTypeID: 0, dataTypeName: 'float8', logicalType: 'number' },
   { name: 'status', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' },
+  { name: 'statusMessage', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' },
   { name: 'kind', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' },
-  { name: 'attributes', dataTypeID: 0, dataTypeName: 'json', logicalType: 'json' }
+  { name: 'scopeName', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' },
+  { name: 'resourceAttributes', dataTypeID: 0, dataTypeName: 'json', logicalType: 'json' },
+  { name: 'attributes', dataTypeID: 0, dataTypeName: 'json', logicalType: 'json' },
+  { name: 'events', dataTypeID: 0, dataTypeName: 'json', logicalType: 'json' },
+  { name: 'links', dataTypeID: 0, dataTypeName: 'json', logicalType: 'json' }
 ]
 
 const baseTime = 1787133600000
-const attributes = (value) => JSON.stringify(value)
+const json = (value) => JSON.stringify(value)
+const resource = (service, namespace) => ({
+  'service.name': service,
+  ...(namespace ? { 'service.namespace': namespace } : {}),
+  'deployment.environment.name': 'production',
+  'cloud.region': 'europe-west1'
+})
 
 export const previewTraceSearchResult = {
   columns: searchColumns,
@@ -36,26 +48,27 @@ export const previewTraceSearchResult = {
   ],
   rowCount: 5,
   durationMs: 74,
-  notice: 'Tempo search · last 1h · max 20 traces'
+  notice: 'Tempo search · last 1h · max 20 traces',
+  execution: { provider: 'tempo', durationMs: 74, rowCount: 5 }
 }
 
 const spans = [
-  { spanId: '0000000000000001', parentSpanId: '', service: 'checkout-api', name: 'POST /checkout', start: 0, duration: 1480, status: 'OK', kind: 'SERVER', attrs: { 'http.request.method': 'POST', 'http.route': '/checkout', 'http.response.status_code': 200, 'service.namespace': 'commerce', 'deployment.environment.name': 'production' } },
-  { spanId: '0000000000000002', parentSpanId: '0000000000000001', service: 'checkout-api', name: 'validate session', start: 24, duration: 96, status: 'OK', kind: 'INTERNAL', attrs: { 'app.operation': 'validate-session' } },
-  { spanId: '0000000000000003', parentSpanId: '0000000000000002', service: 'redis', name: 'GET session:8fa31', start: 41, duration: 18, status: 'OK', kind: 'CLIENT', attrs: { 'db.system': 'redis', 'db.operation.name': 'GET', 'server.address': 'checkout-cache' } },
-  { spanId: '0000000000000004', parentSpanId: '0000000000000001', service: 'inventory-service', name: 'POST /reservations', start: 148, duration: 274, status: 'OK', kind: 'CLIENT', attrs: { 'http.request.method': 'POST', 'server.address': 'inventory.internal', 'service.namespace': 'commerce' } },
-  { spanId: '0000000000000005', parentSpanId: '0000000000000004', service: 'inventory-service', name: 'reserve items', start: 172, duration: 214, status: 'OK', kind: 'SERVER', attrs: { 'app.cart.items': 4, 'service.namespace': 'commerce' } },
-  { spanId: '0000000000000006', parentSpanId: '0000000000000005', service: 'postgres', name: 'SELECT inventory', start: 204, duration: 43, status: 'OK', kind: 'CLIENT', attrs: { 'db.system': 'postgresql', 'db.operation.name': 'SELECT', 'db.namespace': 'inventory', 'server.address': 'inventory-db' } },
-  { spanId: '0000000000000007', parentSpanId: '0000000000000005', service: 'postgres', name: 'UPDATE reservations', start: 268, duration: 71, status: 'OK', kind: 'CLIENT', attrs: { 'db.system': 'postgresql', 'db.operation.name': 'UPDATE', 'db.namespace': 'inventory', 'server.address': 'inventory-db' } },
-  { spanId: '0000000000000008', parentSpanId: '0000000000000001', service: 'payment-service', name: 'charge card', start: 438, duration: 826, status: 'ERROR', kind: 'CLIENT', attrs: { 'service.namespace': 'commerce', 'payment.provider': 'stripe', 'retry.count': 2, 'error.type': 'TimeoutError' } },
-  { spanId: '0000000000000009', parentSpanId: '0000000000000008', service: 'payment-service', name: 'POST /charges', start: 474, duration: 701, status: 'ERROR', kind: 'CLIENT', attrs: { 'http.request.method': 'POST', 'server.address': 'api.stripe.com', 'http.response.status_code': 504, 'error.type': 'TimeoutError' } },
-  { spanId: '000000000000000a', parentSpanId: '0000000000000008', service: 'payment-service', name: 'retry backoff', start: 1184, duration: 62, status: 'OK', kind: 'INTERNAL', attrs: { 'retry.attempt': 2, 'retry.delay_ms': 60 } },
-  { spanId: '000000000000000b', parentSpanId: '0000000000000001', service: 'checkout-api', name: 'publish order.confirmed', start: 1280, duration: 27, status: 'OK', kind: 'PRODUCER', attrs: { 'messaging.system': 'kafka', 'messaging.destination.name': 'orders.confirmed', 'messaging.operation.name': 'send' } },
-  { spanId: '000000000000000c', parentSpanId: '000000000000000b', service: 'kafka', name: 'orders.confirmed', start: 1288, duration: 11, status: 'OK', kind: 'PRODUCER', attrs: { 'messaging.system': 'kafka', 'messaging.destination.name': 'orders.confirmed' } },
-  { spanId: '000000000000000d', parentSpanId: '000000000000000b', service: 'fulfilment-worker', name: 'process order.confirmed', start: 1322, duration: 118, status: 'OK', kind: 'CONSUMER', attrs: { 'service.namespace': 'fulfilment', 'messaging.system': 'kafka', 'messaging.destination.name': 'orders.confirmed', 'messaging.operation.name': 'process', 'messaging.consumer.group.name': 'fulfilment-v2' } },
-  { spanId: '000000000000000e', parentSpanId: '000000000000000d', service: 'warehouse-service', name: 'allocate shipment', start: 1341, duration: 72, status: 'OK', kind: 'CLIENT', attrs: { 'service.namespace': 'fulfilment', 'rpc.system': 'grpc', 'rpc.method': 'AllocateShipment' } },
-  { spanId: '000000000000000f', parentSpanId: '0000000000000001', service: 'checkout-api', name: 'render response', start: 1448, duration: 21, status: 'OK', kind: 'INTERNAL', attrs: { 'app.operation': 'render-response' } },
-  { spanId: '0000000000000010', parentSpanId: '0000000000000001', service: 'checkout-api', name: 'record checkout outcome', start: 1469, duration: 8, status: 'OK', kind: 'INTERNAL', attrs: { 'checkout.outcome': 'accepted-with-payment-retry' } }
+  { spanId: '0000000000000001', parentSpanId: '', service: 'checkout-api', namespace: 'commerce', name: 'POST /checkout', start: 0, duration: 1480, status: 'OK', kind: 'SERVER', scope: 'checkout.http', attrs: { 'http.request.method': 'POST', 'http.route': '/checkout', 'http.response.status_code': 200 }, events: [{ name: 'cart.validated', attributes: { 'cart.items.count': 4 } }] },
+  { spanId: '0000000000000002', parentSpanId: '0000000000000001', service: 'checkout-api', namespace: 'commerce', name: 'validate session', start: 24, duration: 96, status: 'OK', kind: 'INTERNAL', scope: 'checkout.session', attrs: { 'app.operation': 'validate-session' } },
+  { spanId: '0000000000000003', parentSpanId: '0000000000000002', service: 'redis', namespace: 'commerce', name: 'GET session:8fa31', start: 41, duration: 18, status: 'OK', kind: 'CLIENT', scope: 'redis.client', attrs: { 'db.system': 'redis', 'db.operation.name': 'GET', 'server.address': 'checkout-cache' } },
+  { spanId: '0000000000000004', parentSpanId: '0000000000000001', service: 'inventory-service', namespace: 'commerce', name: 'POST /reservations', start: 148, duration: 274, status: 'OK', kind: 'CLIENT', scope: 'http.client', attrs: { 'http.request.method': 'POST', 'server.address': 'inventory.internal' } },
+  { spanId: '0000000000000005', parentSpanId: '0000000000000004', service: 'inventory-service', namespace: 'commerce', name: 'reserve items', start: 172, duration: 214, status: 'OK', kind: 'SERVER', scope: 'inventory.api', attrs: { 'app.cart.items': 4 } },
+  { spanId: '0000000000000006', parentSpanId: '0000000000000005', service: 'postgres', namespace: 'commerce', name: 'SELECT inventory', start: 204, duration: 43, status: 'OK', kind: 'CLIENT', scope: 'pg', attrs: { 'db.system': 'postgresql', 'db.operation.name': 'SELECT', 'db.namespace': 'inventory', 'server.address': 'inventory-db' } },
+  { spanId: '0000000000000007', parentSpanId: '0000000000000005', service: 'postgres', namespace: 'commerce', name: 'UPDATE reservations', start: 268, duration: 71, status: 'OK', kind: 'CLIENT', scope: 'pg', attrs: { 'db.system': 'postgresql', 'db.operation.name': 'UPDATE', 'db.namespace': 'inventory', 'server.address': 'inventory-db' } },
+  { spanId: '0000000000000008', parentSpanId: '0000000000000001', service: 'payment-service', namespace: 'commerce', name: 'charge card', start: 438, duration: 826, status: 'ERROR', statusMessage: 'Payment provider timed out after retries', kind: 'CLIENT', scope: 'payments.checkout', attrs: { 'payment.provider': 'stripe', 'retry.count': 2, 'error.type': 'TimeoutError' }, events: [{ name: 'exception', attributes: { 'exception.type': 'TimeoutError', 'exception.message': 'Stripe request exceeded 700ms timeout', 'exception.escaped': false } }] },
+  { spanId: '0000000000000009', parentSpanId: '0000000000000008', service: 'payment-service', namespace: 'commerce', name: 'POST /charges', start: 474, duration: 701, status: 'ERROR', statusMessage: 'Gateway timeout', kind: 'CLIENT', scope: 'http.client', attrs: { 'http.request.method': 'POST', 'server.address': 'api.stripe.com', 'http.response.status_code': 504, 'error.type': 'TimeoutError' } },
+  { spanId: '000000000000000a', parentSpanId: '0000000000000008', service: 'payment-service', namespace: 'commerce', name: 'retry backoff', start: 1184, duration: 62, status: 'OK', kind: 'INTERNAL', scope: 'payments.retry', attrs: { 'retry.attempt': 2, 'retry.delay_ms': 60 } },
+  { spanId: '000000000000000b', parentSpanId: '0000000000000001', service: 'checkout-api', namespace: 'commerce', name: 'publish order.confirmed', start: 1280, duration: 27, status: 'OK', kind: 'PRODUCER', scope: 'kafka.producer', attrs: { 'messaging.system': 'kafka', 'messaging.destination.name': 'orders.confirmed', 'messaging.operation.name': 'send', 'messaging.message.id': 'order-784392' } },
+  { spanId: '000000000000000c', parentSpanId: '000000000000000b', service: 'kafka', namespace: 'platform', name: 'orders.confirmed', start: 1288, duration: 11, status: 'OK', kind: 'PRODUCER', scope: 'kafka', attrs: { 'messaging.system': 'kafka', 'messaging.destination.name': 'orders.confirmed' } },
+  { spanId: '000000000000000d', parentSpanId: '000000000000000b', service: 'fulfilment-worker', namespace: 'fulfilment', name: 'process order.confirmed', start: 1322, duration: 118, status: 'OK', kind: 'CONSUMER', scope: 'kafka.consumer', attrs: { 'messaging.system': 'kafka', 'messaging.destination.name': 'orders.confirmed', 'messaging.operation.name': 'process', 'messaging.consumer.group.name': 'fulfilment-v2' }, links: [{ traceId: previewTraceId, spanId: '000000000000000b', attributes: { 'messaging.message.id': 'order-784392' } }] },
+  { spanId: '000000000000000e', parentSpanId: '000000000000000d', service: 'warehouse-service', namespace: 'fulfilment', name: 'allocate shipment', start: 1341, duration: 72, status: 'OK', kind: 'CLIENT', scope: 'grpc.client', attrs: { 'rpc.system': 'grpc', 'rpc.method': 'AllocateShipment' } },
+  { spanId: '000000000000000f', parentSpanId: '0000000000000001', service: 'checkout-api', namespace: 'commerce', name: 'render response', start: 1448, duration: 21, status: 'OK', kind: 'INTERNAL', scope: 'checkout.response', attrs: { 'app.operation': 'render-response' } },
+  { spanId: '0000000000000010', parentSpanId: '0000000000000001', service: 'checkout-api', namespace: 'commerce', name: 'record checkout outcome', start: 1469, duration: 8, status: 'OK', kind: 'INTERNAL', scope: 'checkout.telemetry', attrs: { 'checkout.outcome': 'accepted-with-payment-retry' } }
 ]
 
 export const previewTraceResult = {
@@ -65,13 +78,20 @@ export const previewTraceResult = {
     spanId: span.spanId,
     parentSpanId: span.parentSpanId,
     service: span.service,
+    serviceNamespace: span.namespace,
     name: span.name,
     startTimeMs: baseTime + span.start,
     durationMs: span.duration,
     status: span.status,
+    statusMessage: span.statusMessage ?? '',
     kind: span.kind,
-    attributes: attributes(span.attrs)
+    scopeName: span.scope,
+    resourceAttributes: json(resource(span.service, span.namespace)),
+    attributes: json(span.attrs),
+    events: json(span.events ?? []),
+    links: json(span.links ?? [])
   })),
   rowCount: spans.length,
-  durationMs: 51
+  durationMs: 51,
+  execution: { provider: 'tempo', durationMs: 51, rowCount: spans.length }
 }
