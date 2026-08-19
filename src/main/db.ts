@@ -10,12 +10,19 @@ import { LocalFilesAdapter } from './adapters/local-files-adapter.ts'
 import { SqliteFileAdapter } from './adapters/sqlite-file-adapter.ts'
 import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
+import { TempoAdapter } from './adapters/tempo-adapter.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
 import { formatPromql } from './promql-formatter.ts'
 import { toIpcSafeQueryResult } from './ipc-serialization.ts'
 
 const postgresAdapter = new PostgresAdapter()
-export const adapterRegistry = new AdapterRegistry().register(postgresAdapter).register(new LocalFilesAdapter()).register(new SqliteFileAdapter()).register(new BigQueryAdapter()).register(new PrometheusAdapter())
+export const adapterRegistry = new AdapterRegistry()
+  .register(postgresAdapter)
+  .register(new LocalFilesAdapter())
+  .register(new SqliteFileAdapter())
+  .register(new BigQueryAdapter())
+  .register(new PrometheusAdapter())
+  .register(new TempoAdapter())
 
 export class SessionManager {
   private readonly registry: AdapterRegistry
@@ -140,6 +147,7 @@ export function formatPrometheusQuery(_id: ConnectionId, query: string): Promise
 export function queryDialect(id: ConnectionId) {
   const provider = session(id).info.provider
   if (provider === 'prometheus') throw new Error('Prometheus uses PromQL, not a SQL dialect.')
+  if (provider === 'tempo') throw new Error('Tempo uses TraceQL, not a SQL dialect.')
   return sqlDialectForSourceKind(provider)
 }
 
@@ -147,7 +155,11 @@ export async function listObjects(id: ConnectionId) {
   return (await session(id).listRelations()).map((relation) => ({
     schema: relation.namespace,
     name: relation.name,
-    kind: relation.kind === 'materialized-view' ? 'm' as const : relation.kind === 'view' ? 'v' as const : relation.kind === 'metric' ? 'metric' as const : 'r' as const,
+    kind: relation.kind === 'materialized-view' ? 'm' as const
+      : relation.kind === 'view' ? 'v' as const
+        : relation.kind === 'metric' ? 'metric' as const
+          : relation.kind === 'service' ? 'service' as const
+            : 'r' as const,
     details: relation.details
   }))
 }
