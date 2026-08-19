@@ -140,6 +140,8 @@ function session(id: ConnectionId): DataSourceSession {
 
 type QueryIpcCompatibilityRange = Omit<PrometheusQueryRequest, 'expression'> & {
   progressRequestId?: string
+  sampleSize?: number
+  includeStatus?: boolean
 }
 
 export async function runQuery(
@@ -151,9 +153,8 @@ export async function runQuery(
 ): Promise<QueryResult> {
   const activeSession = session(id)
   // QUERY_RUN predates Tempo and currently exposes the Prometheus range slot through
-  // preload. Preserve the shared start/end bounds and an opaque progress request ID
-  // until query IPC becomes a discriminated provider request; exhaustive Tempo paging
-  // and its progress semantics remain owned by the Tempo transport.
+  // preload. Preserve the shared start/end bounds plus Tempo-only search controls and
+  // an opaque progress request ID until query IPC becomes a discriminated provider request.
   const compat = prometheus as QueryIpcCompatibilityRange | undefined
   const progressRequestId = activeSession.info.provider === 'tempo' && typeof compat?.progressRequestId === 'string'
     ? compat.progressRequestId.trim()
@@ -162,7 +163,13 @@ export async function runQuery(
     ? (progress) => publishTempoSearchProgress(progressRequestId, progress)
     : undefined
   const tempoRange: TempoQueryContext | undefined = activeSession.info.provider === 'tempo' && !tempo && compat
-    ? { start: compat.start, end: compat.end, ...(onProgress ? { onProgress } : {}) }
+    ? {
+        start: compat.start,
+        end: compat.end,
+        ...(typeof compat.sampleSize === 'number' ? { sampleSize: compat.sampleSize } : {}),
+        ...(typeof compat.includeStatus === 'boolean' ? { includeStatus: compat.includeStatus } : {}),
+        ...(onProgress ? { onProgress } : {})
+      }
     : tempo
       ? { ...tempo, ...(onProgress ? { onProgress } : {}) }
       : undefined
