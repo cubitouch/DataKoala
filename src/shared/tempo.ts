@@ -3,6 +3,8 @@ export interface TempoQueryRequest {
   end: string
   /** Optional explicit status enrichment. Exhaustive UI searches leave this off to avoid one trace-body fetch per result. */
   includeStatus?: boolean
+  /** Optional quick-search result budget. When set, Tempo returns up to this many traces without exhaustive pagination. */
+  sampleSize?: number
 }
 
 export interface TempoSearchProgress {
