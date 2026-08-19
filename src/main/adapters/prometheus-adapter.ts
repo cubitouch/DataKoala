@@ -38,7 +38,10 @@ export class PrometheusAdapter implements DataSourceAdapter {
     const transport = this.createTransport(profile.transport.context, profile.transport.datasourceUid)
     const session: DataSourceSession = {
       info: { profileId: profile.id, provider: 'prometheus' }, capabilities,
-      query: ({ sql, prometheus }) => transport.query({ expression: sql, ...(prometheus ?? {}) }),
+      query: ({ sql, prometheus }) => {
+        if (!prometheus) throw new Error('Prometheus queries require a time range and resolution.')
+        return transport.query({ expression: sql, ...prometheus })
+      },
       listNamespaces: async () => [{ name: 'Metrics' }],
       listRelations: async (namespace) => namespace && namespace.name !== 'Metrics' ? [] : relations,
       labelsForMetric: (metricName) => transport.labelsForMetric(metricName),
