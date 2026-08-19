@@ -13,7 +13,7 @@ import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
 
 export interface DataNamespace { name: string; isSystem?: boolean }
 export interface DataNamespaceRef { name: string }
-export interface DataRelation { namespace: string; name: string; kind: 'table' | 'view' | 'materialized-view' | 'metric'; details?: DataObjectDetails }
+export interface DataRelation { namespace: string; name: string; kind: 'table' | 'view' | 'materialized-view' | 'metric' | 'service'; details?: DataObjectDetails }
 export interface DataRelationRef { namespace: string; name: string }
 export interface DataColumn { name: string; nativeType: string; nullable?: boolean }
 export interface QueryRequest { sql: string; parameters?: unknown[]; prometheus?: Omit<PrometheusQueryRequest, 'expression'> }
