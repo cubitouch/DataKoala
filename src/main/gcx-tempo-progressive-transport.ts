@@ -12,6 +12,7 @@ import {
   type TempoTransport
 } from './gcx-tempo-transport.ts'
 import { runGcxCommand, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
+import { applyTempoSearchStatuses, ensureTempoSearchStatusSelection } from './tempo-search-status.ts'
 
 const TRACE_ID = /^[0-9a-f]{32}$/i
 const DEFAULT_SEARCH_LIMIT = 100
@@ -201,8 +202,9 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
     if (window.endMs - window.startMs < PROVIDER_TIME_PRECISION_MS) {
       throw new Error('Tempo search pagination produced a range smaller than the provider time precision.')
     }
+    const providerExpression = ensureTempoSearchStatusSelection(expression)
     const args = [
-      'traces', 'query', expression,
+      'traces', 'query', providerExpression,
       ...this.commonArgs(),
       '--from', iso(window.startMs),
       '--to', iso(window.endMs),
@@ -210,7 +212,11 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
       '-o', 'json'
     ]
     const response = await this.run(args)
-    return normalizeTempoSearch(parseJson(response.stdout), 0, `${iso(window.startMs)} → ${iso(window.endMs)}`)
+    const raw = parseJson(response.stdout)
+    return applyTempoSearchStatuses(
+      normalizeTempoSearch(raw, 0, `${iso(window.startMs)} → ${iso(window.endMs)}`),
+      raw
+    )
   }
 
   private async enrichSearchStatuses(result: QueryResult): Promise<QueryResult> {
