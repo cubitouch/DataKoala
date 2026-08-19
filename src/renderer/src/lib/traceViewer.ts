@@ -95,6 +95,14 @@ export function buildVisibleTraceTree(
 
   const output: VisibleTraceSpan[] = []
   const visited = new Set<string>()
+  const markDescendantsVisited = (id: string) => {
+    for (const child of children.get(id) ?? []) {
+      const childId = text(child.spanId)
+      if (!childId || visited.has(childId)) continue
+      visited.add(childId)
+      markDescendantsVisited(childId)
+    }
+  }
   const visit = (row: TraceRow, depth: number) => {
     const id = text(row.spanId)
     if (!id || visited.has(id)) return
@@ -104,7 +112,10 @@ export function buildVisibleTraceTree(
 
     if (!hidden) {
       output.push({ row, id, depth: Math.min(depth, 16), hasChildren: hasVisibleDescendant(id) })
-      if (collapsed.has(id)) return
+      if (collapsed.has(id)) {
+        markDescendantsVisited(id)
+        return
+      }
     }
 
     const childDepth = hidden ? depth : depth + 1
