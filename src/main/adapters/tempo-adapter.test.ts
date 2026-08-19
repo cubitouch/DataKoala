@@ -3,6 +3,7 @@ import test from 'node:test'
 import { TempoAdapter } from './tempo-adapter.ts'
 import type { TempoProfile } from '../../shared/types.ts'
 import type { QueryResult } from '../../shared/types.ts'
+import type { TempoQueryRequest } from '../../shared/tempo.ts'
 import type { TempoTransport } from '../gcx-tempo-transport.ts'
 
 const profile: TempoProfile = {
@@ -50,14 +51,18 @@ test('Tempo exposes service namespaces and services through datasource-neutral o
   ])
 })
 
-test('Tempo sessions delegate TraceQL and trace-id requests without involving Prometheus', async () => {
-  const requests: string[] = []
-  const adapter = new TempoAdapter(() => transport({ query: async (value) => { requests.push(value); return result } }))
+test('Tempo sessions delegate TraceQL, ranges and trace-id requests without involving Prometheus', async () => {
+  const requests: Array<{ value: string; range?: TempoQueryRequest }> = []
+  const adapter = new TempoAdapter(() => transport({ query: async (value, range) => { requests.push({ value, range }); return result } }))
   const connected = await adapter.connect(profile)
   assert.ok(connected.session)
-  assert.equal(await connected.session.query({ sql: '{ resource.service.name = "checkout-api" }' }), result)
+  const range: TempoQueryRequest = { start: '2026-08-18T00:00:00.000Z', end: '2026-08-19T00:00:00.000Z', includeStatus: true }
+  assert.equal(await connected.session.query({ sql: '{ resource.service.name = "checkout-api" }', tempo: range }), result)
   assert.equal(await connected.session.query({ sql: '0123456789abcdef0123456789abcdef' }), result)
-  assert.deepEqual(requests, ['{ resource.service.name = "checkout-api" }', '0123456789abcdef0123456789abcdef'])
+  assert.deepEqual(requests, [
+    { value: '{ resource.service.name = "checkout-api" }', range },
+    { value: '0123456789abcdef0123456789abcdef', range: undefined }
+  ])
 })
 
 test('Tempo connection test probes trace access without requiring service discovery', async () => {
