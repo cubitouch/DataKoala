@@ -1,7 +1,7 @@
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
 import type { DataSourceCapabilities, TempoProfile } from '../../shared/types.ts'
 import type { TempoTransport } from '../gcx-tempo-transport.ts'
-import { ProgressiveGcxTempoTransport } from '../gcx-tempo-progressive-transport.ts'
+import { SamplingGcxTempoTransport } from '../gcx-tempo-sampling-transport.ts'
 
 const capabilities: DataSourceCapabilities = {
   builder: true, explain: false, analyze: false, queryCancellation: false,
@@ -16,7 +16,7 @@ export class TempoAdapter implements DataSourceAdapter {
 
   constructor(
     createTransport: (context?: string, datasourceUid?: string) => TempoTransport =
-      (context, datasourceUid) => new ProgressiveGcxTempoTransport(context, undefined, datasourceUid)
+      (context, datasourceUid) => new SamplingGcxTempoTransport(context, undefined, datasourceUid)
   ) {
     this.createTransport = createTransport
   }
