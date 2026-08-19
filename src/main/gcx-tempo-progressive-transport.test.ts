@@ -6,6 +6,7 @@ import type { GcxCommandRunner } from './gcx-prometheus-transport.ts'
 const traceId = (value: number) => value.toString(16).padStart(32, '0')
 const start = '2026-08-18T00:00:00.000Z'
 const end = '2026-08-18T00:00:08.000Z'
+const startMs = Date.parse(start)
 
 function queryBounds(args: string[]): { from: string; to: string; limit: number } {
   const fromIndex = args.indexOf('--from')
@@ -35,13 +36,13 @@ function searchResponse(rows: Array<{ id: number; startTimeMs: number; status?: 
 test('exhaustive Tempo search bisects saturated windows until the whole selected period is covered', async () => {
   const calls: string[][] = []
   const pages = new Map<string, ReturnType<typeof searchResponse>>([
-    [`${start}|${end}|2`, searchResponse([{ id: 1, startTimeMs: 1_000 }, { id: 4, startTimeMs: 7_000 }])],
-    [`${start}|2026-08-18T00:00:04.000Z|2`, searchResponse([{ id: 1, startTimeMs: 1_000 }, { id: 2, startTimeMs: 3_000 }])],
-    [`${start}|2026-08-18T00:00:02.000Z|2`, searchResponse([{ id: 1, startTimeMs: 1_000 }])],
-    [`2026-08-18T00:00:02.000Z|2026-08-18T00:00:04.000Z|2`, searchResponse([{ id: 2, startTimeMs: 3_000 }])],
-    [`2026-08-18T00:00:04.000Z|${end}|2`, searchResponse([{ id: 3, startTimeMs: 5_000 }, { id: 4, startTimeMs: 7_000 }])],
-    [`2026-08-18T00:00:04.000Z|2026-08-18T00:00:06.000Z|2`, searchResponse([{ id: 3, startTimeMs: 5_000 }])],
-    [`2026-08-18T00:00:06.000Z|${end}|2`, searchResponse([{ id: 4, startTimeMs: 7_000 }])]
+    [`${start}|${end}|2`, searchResponse([{ id: 1, startTimeMs: startMs + 1_000 }, { id: 4, startTimeMs: startMs + 7_000 }])],
+    [`${start}|2026-08-18T00:00:04.000Z|2`, searchResponse([{ id: 1, startTimeMs: startMs + 1_000 }, { id: 2, startTimeMs: startMs + 3_000 }])],
+    [`${start}|2026-08-18T00:00:02.000Z|2`, searchResponse([{ id: 1, startTimeMs: startMs + 1_000 }])],
+    [`2026-08-18T00:00:02.000Z|2026-08-18T00:00:04.000Z|2`, searchResponse([{ id: 2, startTimeMs: startMs + 3_000 }])],
+    [`2026-08-18T00:00:04.000Z|${end}|2`, searchResponse([{ id: 3, startTimeMs: startMs + 5_000 }, { id: 4, startTimeMs: startMs + 7_000 }])],
+    [`2026-08-18T00:00:04.000Z|2026-08-18T00:00:06.000Z|2`, searchResponse([{ id: 3, startTimeMs: startMs + 5_000 }])],
+    [`2026-08-18T00:00:06.000Z|${end}|2`, searchResponse([{ id: 4, startTimeMs: startMs + 7_000 }])]
   ])
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
@@ -70,8 +71,8 @@ test('a saturated minimum time slice grows its limit until the dense interval is
     const { limit } = queryBounds(args)
     limits.push(limit)
     return limit === 2
-      ? searchResponse([{ id: 1, startTimeMs: 100 }, { id: 2, startTimeMs: 200 }])
-      : searchResponse([{ id: 1, startTimeMs: 100 }, { id: 2, startTimeMs: 200 }, { id: 3, startTimeMs: 300 }])
+      ? searchResponse([{ id: 1, startTimeMs: startMs + 100 }, { id: 2, startTimeMs: startMs + 200 }])
+      : searchResponse([{ id: 1, startTimeMs: startMs + 100 }, { id: 2, startTimeMs: startMs + 200 }, { id: 3, startTimeMs: startMs + 300 }])
   }
 
   const result = await new ProgressiveGcxTempoTransport(undefined, run, undefined, {
@@ -88,19 +89,53 @@ test('a saturated minimum time slice grows its limit until the dense interval is
   assert.match(result.notice ?? '', /complete period · 3 traces · 2 queries/)
 })
 
+test('sub-second selected ranges never collapse to equal Tempo start/end seconds', async () => {
+  const calls: string[][] = []
+  const exactStart = '2026-08-18T00:00:00.250Z'
+  const exactEnd = '2026-08-18T00:00:00.750Z'
+  const base = Date.parse('2026-08-18T00:00:00.000Z')
+  const run: GcxCommandRunner = async (args) => {
+    calls.push(args)
+    const { from, to, limit } = queryBounds(args)
+    assert.equal(from, '2026-08-18T00:00:00.000Z')
+    assert.equal(to, '2026-08-18T00:00:01.000Z')
+    assert.ok(Date.parse(to) - Date.parse(from) >= 1_000)
+    return limit === 2
+      ? searchResponse([
+          { id: 1, startTimeMs: base + 100 },
+          { id: 2, startTimeMs: base + 300 }
+        ])
+      : searchResponse([
+          { id: 1, startTimeMs: base + 100 },
+          { id: 2, startTimeMs: base + 300 },
+          { id: 3, startTimeMs: base + 900 }
+        ])
+  }
+
+  const result = await new ProgressiveGcxTempoTransport(undefined, run, undefined, {
+    pageLimit: 2,
+    minSliceMs: 1_000,
+    maxDenseLimit: 4
+  }).search('{ true }', { start: exactStart, end: exactEnd })
+
+  assert.deepEqual(calls.map((args) => queryBounds(args).limit), [2, 4])
+  assert.deepEqual(result.rows.map((row) => row.traceId), [traceId(2)])
+  assert.match(result.notice ?? '', /complete period · 1 traces · 2 queries/)
+})
+
 test('explicit status enrichment runs once per final unknown trace after exhaustive pagination', async () => {
   const calls: string[][] = []
   const id = traceId(9)
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
-    if (args[1] === 'query') return searchResponse([{ id: 9, startTimeMs: 100 }])
+    if (args[1] === 'query') return searchResponse([{ id: 9, startTimeMs: startMs + 100 }])
     return {
       stdout: JSON.stringify({ spans: [{
         traceId: id,
         spanId: 'aaaaaaaaaaaaaaaa',
         serviceName: 'checkout',
         name: 'POST /checkout',
-        startTimeMs: 100,
+        startTimeMs: startMs + 100,
         durationMs: 400,
         status: { code: 2 }
       }] }),
@@ -120,7 +155,7 @@ test('explicit status enrichment runs once per final unknown trace after exhaust
 test('dense windows fail explicitly rather than silently claiming an incomplete period is complete', async () => {
   const run: GcxCommandRunner = async (args) => {
     const { limit } = queryBounds(args)
-    return searchResponse(Array.from({ length: limit }, (_, index) => ({ id: index + 1, startTimeMs: index })))
+    return searchResponse(Array.from({ length: limit }, (_, index) => ({ id: index + 1, startTimeMs: startMs + index })))
   }
 
   await assert.rejects(
