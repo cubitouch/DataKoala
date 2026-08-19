@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { TempoQueryContext } from '../shared/tempo.ts'
+import type { TempoQueryContext, TempoSearchProgress } from '../shared/tempo.ts'
 import type { GcxCommandRunner } from './gcx-prometheus-transport.ts'
 import { SamplingGcxTempoTransport } from './gcx-tempo-sampling-transport.ts'
 
@@ -24,7 +24,7 @@ function searchPayload() {
 
 test('sampled Tempo search performs one whole-period query with the requested result budget', async () => {
   const calls: string[][] = []
-  const progress: Array<{ coveredMs: number; tracesFound: number; queriesCompleted: number }> = []
+  const progress: TempoSearchProgress[] = []
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
     return searchPayload()
@@ -52,7 +52,14 @@ test('sampled Tempo search performs one whole-period query with the requested re
   assert.equal(result.rowCount, 1)
   assert.equal(result.rows[0].status, 'error')
   assert.match(result.notice ?? '', /sample up to 250 traces · 1 returned · 1 query/)
-  assert.deepEqual(progress, [{ coveredMs: 0, tracesFound: 1, queriesCompleted: 1 }])
+  assert.equal(progress.length, 1)
+  assert.equal(progress[0].coveredMs, 0)
+  assert.equal(progress[0].totalMs, 3_600_000)
+  assert.equal(progress[0].completedChunks, 1)
+  assert.equal(progress[0].pendingChunks, 0)
+  assert.equal(progress[0].tracesFound, 1)
+  assert.equal(progress[0].queriesCompleted, 1)
+  assert.equal(progress[0].rows.length, 1)
 })
 
 test('omitting a sample size preserves exhaustive complete-period pagination', async () => {
