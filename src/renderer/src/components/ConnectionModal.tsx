@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 void React
-import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, PrometheusProfile, SqliteFileProfile } from '../../../shared/types'
+import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, PrometheusProfile, SqliteFileProfile, TempoProfile } from '../../../shared/types'
 import type { PrometheusDatasourceOption } from '../../../shared/prometheus'
 import { parseConnectionString, buildConnectionString, DEFAULT_PORT } from '../../../shared/connString'
 import { api } from '../lib/api'
@@ -28,7 +28,7 @@ export interface ConnectionSourceDescriptor {
   label: string
   description: string
   hint: string
-  icon: 'postgresql' | 'duckdb' | 'sqlite' | 'bigquery' | 'prometheus' | 'excel'
+  icon: 'postgresql' | 'duckdb' | 'sqlite' | 'bigquery' | 'prometheus' | 'tempo' | 'excel'
   status: 'available' | 'coming-soon'
   supportsCreate: boolean
 }
@@ -38,7 +38,8 @@ export const CONNECTION_SOURCE_DESCRIPTORS: readonly ConnectionSourceDescriptor[
   { kind: 'local-files', label: 'Local files', description: 'Query CSV, Parquet and JSON files through DuckDB.', hint: 'One or more files', icon: 'duckdb', status: 'available', supportsCreate: true },
   { kind: 'sqlite-file', label: 'SQLite', description: 'Open a SQLite database file through DuckDB.', hint: '.sqlite or .db file', icon: 'sqlite', status: 'available', supportsCreate: true },
   { kind: 'bigquery', label: 'BigQuery', description: 'Use Google ADC credentials to browse and query datasets.', hint: 'Cloud data warehouse', icon: 'bigquery', status: 'available', supportsCreate: true },
-  { kind: 'prometheus', label: 'Prometheus', description: 'Discover Grafana Cloud metrics through your existing gcx login.', hint: 'Grafana Cloud via gcx', icon: 'prometheus', status: 'available', supportsCreate: true },
+  { kind: 'prometheus', label: 'Prometheus', description: 'Discover Grafana Cloud metrics through your existing gcx login.', hint: 'Metrics via gcx', icon: 'prometheus', status: 'available', supportsCreate: true },
+  { kind: 'tempo', label: 'Tempo', description: 'Search and inspect distributed traces through your existing gcx login.', hint: 'Traces via gcx', icon: 'tempo', status: 'available', supportsCreate: true },
   { kind: 'excel', label: 'Excel', description: 'Explore workbook sheets as tables.', hint: 'Coming soon', icon: 'excel', status: 'coming-soon', supportsCreate: false }
 ]
 
@@ -50,6 +51,7 @@ function SourceIcon({ type }: { type: ConnectionSourceDescriptor['icon'] }) {
   if (type === 'sqlite') return <svg {...common}><path d="M5 20c2.2-6.2 5.5-11.4 11.6-16.4 1.2-1 2.8-.3 2.6 1.3-.8 6.2-4.4 11.4-10 14.4"/><path d="M7.5 17.4c3.2-2.7 5.9-5.6 8.2-9M10.5 14.4l-1.3-3.1M13.2 11.2l2.9-.5"/></svg>
   if (type === 'bigquery') return <svg {...common}><circle cx="10.8" cy="10.8" r="7.2"/><path d="m16.1 16.1 4.3 4.3M7.6 13.8v-3M10.8 13.8V7.5M14 13.8V9.4"/></svg>
   if (type === 'prometheus') return <svg {...common}><path d="M12 3v4M6.3 5.3l2.8 2.8M17.7 5.3l-2.8 2.8M4 11h4M16 11h4"/><path d="M7 13a5 5 0 0 0 10 0M9 18h6M10 21h4"/></svg>
+  if (type === 'tempo') return <svg {...common}><path d="M4 6h5M4 12h8M4 18h4"/><circle cx="12" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="11" cy="18" r="2"/><path d="m13.5 7.5 1 2.5M14 13.7l-2 2.6"/></svg>
   return <svg {...common}><path d="M8 4h11v16H8M8 8h11M8 12h11M8 16h11M13 8v12"/><path d="M3 7h7v10H3Z" fill="currentColor" stroke="none"/><path d="m5 10 3 4M8 10l-3 4" stroke="var(--bg-3)"/></svg>
 }
 
@@ -142,7 +144,6 @@ function PostgresConnectionModal({ existing, onClose, onSaved, onBack, active = 
     const v = res.value
     updateDraft({
       host: v.host, port: String(v.port), database: v.database, user: v.user,
-      // Import semantics are replacement semantics: an omitted password deliberately clears it.
       password: v.password, ssl: v.ssl,
       name: draft.name || (v.database ? `${v.database} @ ${v.host}` : v.host)
     }, true)
@@ -166,22 +167,15 @@ function PostgresConnectionModal({ existing, onClose, onSaved, onBack, active = 
     try {
       const res = await api.connections.test(built.profile)
       if (revision !== requestRevision.current) return
-      if (res?.ok === true) {
-        setTestState({ status: 'success', message: `Connected — server ${res.serverVersion || 'unknown'}` })
-      } else {
-        setTestState({ status: 'error', message: failureMessage(res) })
-      }
+      if (res?.ok === true) setTestState({ status: 'success', message: `Connected — server ${res.serverVersion || 'unknown'}` })
+      else setTestState({ status: 'error', message: failureMessage(res) })
     } catch (error) {
-      if (revision === requestRevision.current) {
-        setTestState({ status: 'error', message: failureMessage(error) })
-      }
+      if (revision === requestRevision.current) setTestState({ status: 'error', message: failureMessage(error) })
     }
   }
 
   const cancelTest = () => {
     if (testState.status !== 'testing') return
-    // The IPC bridge cannot abort an in-flight backend call. Invalidating its revision
-    // guarantees that its eventual response cannot change this modal's state.
     requestRevision.current += 1
     setTestState({ status: 'cancelled', message: 'Connection test cancelled.' })
   }
@@ -191,15 +185,9 @@ function PostgresConnectionModal({ existing, onClose, onSaved, onBack, active = 
     if (!built.ok) return showValidation(built.errors)
     setErrors({})
     setSaving(true)
-    try {
-      const saved = await api.connections.upsert(built.profile)
-      onSaved(saved)
-      onClose()
-    } catch (error) {
-      setTestState({ status: 'error', message: failureMessage(error) })
-    } finally {
-      setSaving(false)
-    }
+    try { const saved = await api.connections.upsert(built.profile); onSaved(saved); onClose() }
+    catch (error) { setTestState({ status: 'error', message: failureMessage(error) }) }
+    finally { setSaving(false) }
   }
 
   const normalized = useMemo(() => buildConnectionProfileDraft(draft), [draft])
@@ -212,55 +200,19 @@ function PostgresConnectionModal({ existing, onClose, onSaved, onBack, active = 
   const errorFor = (field: ConnectionDraftField) => errors[field]
     ? <div id={`${field}-error`} className={[styles.fieldError].join(' ')} role="alert">{errors[field]}</div> : null
 
-  return (
-    <div className={[styles.modalOverlay].join(' ')} onClick={onClose}>
-      <div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="postgres-connection-title" onClick={(e) => e.stopPropagation()}>
-        <ConnectionFormHeader kind="postgres" editing={!!existing} onBack={onBack} />
-        <div className={[styles.field].join(' ')}>
-          <label htmlFor="connection-string">Paste a connection string</label>
-          <textarea id="connection-string" className={[styles.connPaste].join(' ')} value={pasted} spellCheck={false} autoComplete="off"
-            placeholder={EXAMPLE} onChange={(e) => applyConnectionString(e.target.value)} rows={2}
-            aria-invalid={parseError ? true : undefined} aria-describedby={parseError ? 'connection-string-error' : 'connection-string-hint'} />
-          <div id="connection-string-hint" className={[styles.pasteHint].join(' ')}>Accepts <code>postgres://…</code>, <code>postgresql://…</code>, a <code>jdbc:</code> prefix, or libpq <code>host=… dbname=…</code> form. Fills in the fields below.</div>
-          {parseError && <div id="connection-string-error" className={[styles.testMsg, styles.err].join(' ')} role="alert">{parseError}</div>}
-          {parsedOk && <div className={[styles.testMsg, styles.ok].join(' ')}>Parsed{parseWarnings.length ? ' with notes' : ''} — check the fields below.</div>}
-          {parseWarnings.map((w) => <div key={w} className={[styles.testMsg, styles.warn].join(' ')}>{w}</div>)}
-        </div>
-        <div className={[styles.modalDivider].join(' ')}><span>or enter details manually</span></div>
-        <div className={[styles.field].join(' ')}><label htmlFor="profile-name">Profile name</label><input id="profile-name" {...inputProps('name')} value={draft.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. staging analytics" />{errorFor('name')}</div>
-        <div className={[styles.row].join(' ')}>
-          <div className={[styles.field].join(' ')}><label htmlFor="connection-host">Host</label><input id="connection-host" {...inputProps('host')} value={draft.host} onChange={(e) => set({ host: e.target.value })} />{errorFor('host')}</div>
-          <div className={[styles.field].join(' ')}><label htmlFor="connection-port">Port</label><input id="connection-port" {...inputProps('port')} inputMode="numeric" value={draft.port} onChange={(e) => set({ port: e.target.value })} />{errorFor('port')}</div>
-        </div>
-        <div className={[styles.row].join(' ')}>
-          <div className={[styles.field].join(' ')}><label htmlFor="connection-database">Database</label><input id="connection-database" {...inputProps('database')} value={draft.database} onChange={(e) => set({ database: e.target.value })} />{errorFor('database')}</div>
-          <div className={[styles.field].join(' ')}><label htmlFor="connection-user">User</label><input id="connection-user" {...inputProps('user')} value={draft.user} onChange={(e) => set({ user: e.target.value })} />{errorFor('user')}</div>
-        </div>
-        <div className={[styles.field].join(' ')}><label htmlFor="connection-password">Password <span className={[styles.opt].join(' ')}>— leave empty for proxy / IAM / .pgpass auth</span></label><input id="connection-password" type="password" value={draft.password} onChange={(e) => set({ password: e.target.value })} /></div>
-        <div className={[styles.row].join(' ')}>
-          <label className={[styles.checkbox].join(' ')}><input type="checkbox" checked={draft.ssl} onChange={(e) => set({ ssl: e.target.checked })} />Use SSL</label>
-          <label className={[styles.checkbox].join(' ')}><input type="checkbox" checked={draft.readonly} onChange={(e) => set({ readonly: e.target.checked })} />Read-only (blocks writes)</label>
-        </div>
-        {preview && <div className={[styles.field].join(' ')}><label>Will connect as</label><div className={[styles.connPreview].join(' ')}>{preview}</div></div>}
-        <div aria-live="polite" aria-atomic="true">
-          {testState.status === 'testing' && <div className={[styles.testMsg, styles.testingStatus].join(' ')} role="status"><span className={[styles.loadingSpinner].join(' ')} aria-hidden="true" />Testing connection…</div>}
-          {testState.status !== 'idle' && testState.status !== 'testing' && (
-            <div className={[styles.testMsg, styles.connectionTestResult, testState.status === 'success' ? styles.ok : testState.status === 'error' ? styles.err : styles.info].join(' ')} role={testState.status === 'error' ? 'alert' : 'status'}>
-              {testState.message}
-            </div>
-          )}
-        </div>
-        <div className={[styles.actions].join(' ')}>
-          <button type="button" className={['btn', 'ghost', styles.testButton].join(' ')} onClick={test} disabled={testState.status === 'testing'} aria-busy={testState.status === 'testing'}>
-            {testState.status === 'testing' && <span className={[styles.loadingSpinner].join(' ')} aria-hidden="true" />}{testState.status === 'testing' ? 'Testing…' : 'Test'}
-          </button>
-          {testState.status === 'testing' && <button type="button" className={['btn', 'ghost'].join(' ')} onClick={cancelTest}>Cancel test</button>}
-          <button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button>
-          <button type="button" className={['btn', 'primary'].join(' ')} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-        </div>
-      </div>
-    </div>
-  )
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="postgres-connection-title" onClick={(e) => e.stopPropagation()}>
+    <ConnectionFormHeader kind="postgres" editing={!!existing} onBack={onBack} />
+    <div className={[styles.field].join(' ')}><label htmlFor="connection-string">Paste a connection string</label><textarea id="connection-string" className={[styles.connPaste].join(' ')} value={pasted} spellCheck={false} autoComplete="off" placeholder={EXAMPLE} onChange={(e) => applyConnectionString(e.target.value)} rows={2} aria-invalid={parseError ? true : undefined} aria-describedby={parseError ? 'connection-string-error' : 'connection-string-hint'} /><div id="connection-string-hint" className={[styles.pasteHint].join(' ')}>Accepts <code>postgres://…</code>, <code>postgresql://…</code>, a <code>jdbc:</code> prefix, or libpq <code>host=… dbname=…</code> form. Fills in the fields below.</div>{parseError && <div id="connection-string-error" className={[styles.testMsg, styles.err].join(' ')} role="alert">{parseError}</div>}{parsedOk && <div className={[styles.testMsg, styles.ok].join(' ')}>Parsed{parseWarnings.length ? ' with notes' : ''} — check the fields below.</div>}{parseWarnings.map((w) => <div key={w} className={[styles.testMsg, styles.warn].join(' ')}>{w}</div>)}</div>
+    <div className={[styles.modalDivider].join(' ')}><span>or enter details manually</span></div>
+    <div className={[styles.field].join(' ')}><label htmlFor="profile-name">Profile name</label><input id="profile-name" {...inputProps('name')} value={draft.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. staging analytics" />{errorFor('name')}</div>
+    <div className={[styles.row].join(' ')}><div className={[styles.field].join(' ')}><label htmlFor="connection-host">Host</label><input id="connection-host" {...inputProps('host')} value={draft.host} onChange={(e) => set({ host: e.target.value })} />{errorFor('host')}</div><div className={[styles.field].join(' ')}><label htmlFor="connection-port">Port</label><input id="connection-port" {...inputProps('port')} inputMode="numeric" value={draft.port} onChange={(e) => set({ port: e.target.value })} />{errorFor('port')}</div></div>
+    <div className={[styles.row].join(' ')}><div className={[styles.field].join(' ')}><label htmlFor="connection-database">Database</label><input id="connection-database" {...inputProps('database')} value={draft.database} onChange={(e) => set({ database: e.target.value })} />{errorFor('database')}</div><div className={[styles.field].join(' ')}><label htmlFor="connection-user">User</label><input id="connection-user" {...inputProps('user')} value={draft.user} onChange={(e) => set({ user: e.target.value })} />{errorFor('user')}</div></div>
+    <div className={[styles.field].join(' ')}><label htmlFor="connection-password">Password <span className={[styles.opt].join(' ')}>— leave empty for proxy / IAM / .pgpass auth</span></label><input id="connection-password" type="password" value={draft.password} onChange={(e) => set({ password: e.target.value })} /></div>
+    <div className={[styles.row].join(' ')}><label className={[styles.checkbox].join(' ')}><input type="checkbox" checked={draft.ssl} onChange={(e) => set({ ssl: e.target.checked })} />Use SSL</label><label className={[styles.checkbox].join(' ')}><input type="checkbox" checked={draft.readonly} onChange={(e) => set({ readonly: e.target.checked })} />Read-only (blocks writes)</label></div>
+    {preview && <div className={[styles.field].join(' ')}><label>Will connect as</label><div className={[styles.connPreview].join(' ')}>{preview}</div></div>}
+    <div aria-live="polite" aria-atomic="true">{testState.status === 'testing' && <div className={[styles.testMsg, styles.testingStatus].join(' ')} role="status"><span className={[styles.loadingSpinner].join(' ')} aria-hidden="true" />Testing connection…</div>}{testState.status !== 'idle' && testState.status !== 'testing' && <div className={[styles.testMsg, styles.connectionTestResult, testState.status === 'success' ? styles.ok : testState.status === 'error' ? styles.err : styles.info].join(' ')} role={testState.status === 'error' ? 'alert' : 'status'}>{testState.message}</div>}</div>
+    <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost', styles.testButton].join(' ')} onClick={test} disabled={testState.status === 'testing'} aria-busy={testState.status === 'testing'}>{testState.status === 'testing' && <span className={[styles.loadingSpinner].join(' ')} aria-hidden="true" />}{testState.status === 'testing' ? 'Testing…' : 'Test'}</button>{testState.status === 'testing' && <button type="button" className={['btn', 'ghost'].join(' ')} onClick={cancelTest}>Cancel test</button>}<button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button></div>
+  </div></div>
 }
 
 function LocalFilesConnectionModal({ existing, onClose, onSaved, onBack }: FormProps & { existing: LocalFilesProfile | null }) {
@@ -269,203 +221,54 @@ function LocalFilesConnectionModal({ existing, onClose, onSaved, onBack }: FormP
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const profile = (): LocalFilesProfile => ({ kind: 'local-files', version: 1, id: existing?.id ?? '', name: name.trim(), files, readonly: true })
-  const choose = async () => {
-    try {
-      const paths = await api.connections.chooseFiles()
-      setFiles((current) => {
-        const known = new Set(current.map((file) => file.path))
-        const aliases = new Set(current.map((file) => file.alias.toLocaleLowerCase()))
-        const additions = paths.filter((path: string) => !known.has(path)).map((path: string) => {
-          const base = defaultFileAlias(path); let alias = base; let suffix = 2
-          while (aliases.has(alias.toLocaleLowerCase())) alias = `${base}_${suffix++}`
-          aliases.add(alias.toLocaleLowerCase()); return { path, alias }
-        })
-        return [...current, ...additions]
-      })
-      setMessage(null)
-    } catch (error) {
-      setMessage({ ok: false, text: failureMessage(error) })
-    }
-  }
-  const test = async () => {
-    if (!name.trim() || !files.length) return setMessage({ ok: false, text: 'Enter a name and choose at least one file.' })
-    setBusy(true)
-    try {
-      const result = await api.connections.test(profile())
-      setMessage(result.ok ? { ok: true, text: 'Files loaded successfully with DuckDB.' } : { ok: false, text: result.error })
-    } catch (error) {
-      setMessage({ ok: false, text: failureMessage(error) })
-    } finally {
-      setBusy(false)
-    }
-  }
-  const save = async () => {
-    if (!name.trim() || !files.length) return setMessage({ ok: false, text: 'Enter a name and choose at least one file.' })
-    setBusy(true)
-    try { onSaved(await api.connections.upsert(profile())); onClose() }
-    catch (error) { setMessage({ ok: false, text: error instanceof Error ? error.message : String(error) }) }
-    finally { setBusy(false) }
-  }
-  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="local-files-connection-title" onClick={(event) => event.stopPropagation()}>
-    <ConnectionFormHeader kind="local-files" editing={!!existing} onBack={onBack} />
-    <div className={[styles.field].join(' ')}><label htmlFor="local-profile-name">Connection name</label><input id="local-profile-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
-    <div className={[styles.field].join(' ')}><label>Data files</label><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void choose()}>Choose files…</button><div className={[styles.pasteHint].join(' ')}>CSV, TSV, Parquet, JSON, JSONL, and NDJSON. Each file is exposed as a read-only SQL view.</div></div>
-    {files.map((file, index) => <div className={[styles.row, styles.fileConnectionRow].join(' ')} key={file.path}>
-      <div className={[styles.field].join(' ')}><label title={file.path}>{file.path.split(/[\\/]/).pop()}</label><input aria-label={`Table alias for ${file.path}`} value={file.alias} onChange={(event) => setFiles((current) => current.map((item, i) => i === index ? { ...item, alias: event.target.value } : item))} /></div>
-      <button type="button" className={['btn', 'ghost'].join(' ')} aria-label={`Remove ${file.path}`} onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}>Remove</button>
-    </div>)}
-    {message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
-    <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>Test</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div>
-  </div></div>
+  const choose = async () => { try { const paths = await api.connections.chooseFiles(); setFiles((current) => { const known = new Set(current.map((file) => file.path)); const aliases = new Set(current.map((file) => file.alias.toLocaleLowerCase())); const additions = paths.filter((path: string) => !known.has(path)).map((path: string) => { const base = defaultFileAlias(path); let alias = base; let suffix = 2; while (aliases.has(alias.toLocaleLowerCase())) alias = `${base}_${suffix++}`; aliases.add(alias.toLocaleLowerCase()); return { path, alias } }); return [...current, ...additions] }); setMessage(null) } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } }
+  const test = async () => { if (!name.trim() || !files.length) return setMessage({ ok: false, text: 'Enter a name and choose at least one file.' }); setBusy(true); try { const result = await api.connections.test(profile()); setMessage(result.ok ? { ok: true, text: 'Files loaded successfully with DuckDB.' } : { ok: false, text: result.error }) } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } finally { setBusy(false) } }
+  const save = async () => { if (!name.trim() || !files.length) return setMessage({ ok: false, text: 'Enter a name and choose at least one file.' }); setBusy(true); try { onSaved(await api.connections.upsert(profile())); onClose() } catch (error) { setMessage({ ok: false, text: error instanceof Error ? error.message : String(error) }) } finally { setBusy(false) } }
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="local-files-connection-title" onClick={(event) => event.stopPropagation()}><ConnectionFormHeader kind="local-files" editing={!!existing} onBack={onBack} /><div className={[styles.field].join(' ')}><label htmlFor="local-profile-name">Connection name</label><input id="local-profile-name" value={name} onChange={(event) => setName(event.target.value)} /></div><div className={[styles.field].join(' ')}><label>Data files</label><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void choose()}>Choose files…</button><div className={[styles.pasteHint].join(' ')}>CSV, TSV, Parquet, JSON, JSONL, and NDJSON. Each file is exposed as a read-only SQL view.</div></div>{files.map((file, index) => <div className={[styles.row, styles.fileConnectionRow].join(' ')} key={file.path}><div className={[styles.field].join(' ')}><label title={file.path}>{file.path.split(/[\\/]/).pop()}</label><input aria-label={`Table alias for ${file.path}`} value={file.alias} onChange={(event) => setFiles((current) => current.map((item, i) => i === index ? { ...item, alias: event.target.value } : item))} /></div><button type="button" className={['btn', 'ghost'].join(' ')} aria-label={`Remove ${file.path}`} onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}>Remove</button></div>)}{message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}<div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>Test</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div></div></div>
 }
 
 function SqliteFileConnectionModal({ existing, onClose, onSaved, onBack }: FormProps & { existing: SqliteFileProfile | null }) {
-  const [name, setName] = useState(existing?.name ?? 'SQLite database')
-  const [path, setPath] = useState(existing?.path ?? '')
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [name, setName] = useState(existing?.name ?? 'SQLite database'); const [path, setPath] = useState(existing?.path ?? ''); const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null); const [busy, setBusy] = useState(false)
   const profile = (): SqliteFileProfile => ({ kind: 'sqlite-file', version: 1, id: existing?.id ?? '', name: name.trim(), path, readonly: true })
-  const choose = async () => {
-    try { const selected = await api.connections.chooseSqliteFile(); if (selected) { setPath(selected); setMessage(null) } }
-    catch (error) { setMessage({ ok: false, text: failureMessage(error) }) }
-  }
+  const choose = async () => { try { const selected = await api.connections.chooseSqliteFile(); if (selected) { setPath(selected); setMessage(null) } } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } }
   const validate = () => name.trim() && path ? null : 'Enter a connection name and choose one SQLite database file.'
-  const test = async () => {
-    const error = validate(); if (error) return setMessage({ ok: false, text: error })
-    setBusy(true)
-    try { const result = await api.connections.test(profile()); setMessage(result.ok ? { ok: true, text: 'SQLite database opened directly in read-only mode.' } : { ok: false, text: result.error }) }
-    catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }) } finally { setBusy(false) }
-  }
-  const save = async () => {
-    const error = validate(); if (error) return setMessage({ ok: false, text: error })
-    setBusy(true)
-    try { onSaved(await api.connections.upsert(profile())); onClose() }
-    catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }) } finally { setBusy(false) }
-  }
-  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="sqlite-file-connection-title" onClick={(event) => event.stopPropagation()}>
-    <ConnectionFormHeader kind="sqlite-file" editing={!!existing} onBack={onBack} />
-    <div className={[styles.field].join(' ')}><label htmlFor="sqlite-profile-name">Connection name</label><input id="sqlite-profile-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
-    <div className={[styles.field].join(' ')}><label>Database file</label><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void choose()}>Choose database…</button>{path && <div className={[styles.connPreview].join(' ')} title={path}>{path}</div>}<div className={[styles.pasteHint].join(' ')}>Select exactly one database file. Its SQLite contents are validated, so the filename extension does not matter. The database is attached directly in read-only mode.</div></div>
-    {message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
-    <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>Test</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div>
-  </div></div>
+  const test = async () => { const error = validate(); if (error) return setMessage({ ok: false, text: error }); setBusy(true); try { const result = await api.connections.test(profile()); setMessage(result.ok ? { ok: true, text: 'SQLite database opened directly in read-only mode.' } : { ok: false, text: result.error }) } catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }) } finally { setBusy(false) } }
+  const save = async () => { const error = validate(); if (error) return setMessage({ ok: false, text: error }); setBusy(true); try { onSaved(await api.connections.upsert(profile())); onClose() } catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }) } finally { setBusy(false) } }
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="sqlite-file-connection-title" onClick={(event) => event.stopPropagation()}><ConnectionFormHeader kind="sqlite-file" editing={!!existing} onBack={onBack} /><div className={[styles.field].join(' ')}><label htmlFor="sqlite-profile-name">Connection name</label><input id="sqlite-profile-name" value={name} onChange={(event) => setName(event.target.value)} /></div><div className={[styles.field].join(' ')}><label>Database file</label><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void choose()}>Choose database…</button>{path && <div className={[styles.connPreview].join(' ')} title={path}>{path}</div>}<div className={[styles.pasteHint].join(' ')}>Select exactly one database file. Its SQLite contents are validated, so the filename extension does not matter. The database is attached directly in read-only mode.</div></div>{message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}<div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>Test</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div></div></div>
 }
 
 function BigQueryConnectionModal({ existing, onClose, onSaved, onBack, active = true }: FormProps & { existing: BigQueryProfile | null }) {
-  const [draft, setDraft] = useState(() => ({ name: existing?.name ?? '', billingProject: existing?.billingProject ?? '', defaultProject: existing?.defaultProject ?? '', defaultDataset: existing?.defaultDataset ?? '', location: existing?.location ?? '', maximumBytesBilled: existing?.maximumBytesBilled ?? '' }))
-  const [limitBytesBilled, setLimitBytesBilled] = useState(Boolean(existing?.maximumBytesBilled?.trim()))
-  const previousMaximumBytesBilled = useRef(existing?.maximumBytesBilled?.trim() || '')
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null); const [busy, setBusy] = useState(false); const revision = useRef(0)
-  const [projects, setProjects] = useState<BigQueryProjectOption[]>([])
-  const [projectLoading, setProjectLoading] = useState(true); const [projectError, setProjectError] = useState<string | null>(null)
-  const [datasets, setDatasets] = useState<BigQueryDatasetOption[]>([])
-  const [datasetLoading, setDatasetLoading] = useState(false); const [datasetError, setDatasetError] = useState<string | null>(null)
-  const [reference, setReference] = useState(''); const [referenceError, setReferenceError] = useState<string | null>(null)
-  const datasetRevision = useRef(0); const untouched = useRef(!existing)
-  useEffect(() => {
-    let active = true
-    void api.connections.bigquery.discoverProjects().then((values: BigQueryProjectOption[]) => { if (active) setProjects(values) }).catch(() => { if (active) setProjectError('Could not discover projects. You can still enter a project ID manually.') }).finally(() => { if (active) setProjectLoading(false) })
-    if (!existing) void api.connections.bigquery.discoverDefaults().then(({ projectId }: { projectId?: string }) => { if (active && untouched.current && projectId) { setDraft((current) => ({ ...current, billingProject: projectId, defaultProject: projectId })); loadDatasets(projectId) } }).catch(() => undefined)
-    return () => { active = false; revision.current++; datasetRevision.current++ }
-  }, [existing])
-  useEffect(() => { if (!active) { revision.current++; datasetRevision.current++ } }, [active])
-  const loadDatasets = (projectId: string) => {
-    const current = ++datasetRevision.current; setDatasets([]); setDatasetError(null)
-    if (!projectId.trim()) { setDatasetLoading(false); return }
-    setDatasetLoading(true)
-    void api.connections.bigquery.listDatasets(projectId.trim()).then((values: BigQueryDatasetOption[]) => { if (current === datasetRevision.current) setDatasets(values) }).catch(() => { if (current === datasetRevision.current) setDatasetError('Could not discover datasets. You can still enter a dataset ID manually.') }).finally(() => { if (current === datasetRevision.current) setDatasetLoading(false) })
-  }
-  useEffect(() => { const projectId = existing?.defaultProject || existing?.billingProject; if (projectId) loadDatasets(projectId) }, [existing])
+  const [draft, setDraft] = useState(() => ({ name: existing?.name ?? '', billingProject: existing?.billingProject ?? '', defaultProject: existing?.defaultProject ?? '', defaultDataset: existing?.defaultDataset ?? '', location: existing?.location ?? '', maximumBytesBilled: existing?.maximumBytesBilled ?? '' })); const [limitBytesBilled, setLimitBytesBilled] = useState(Boolean(existing?.maximumBytesBilled?.trim())); const previousMaximumBytesBilled = useRef(existing?.maximumBytesBilled?.trim() || ''); const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null); const [busy, setBusy] = useState(false); const revision = useRef(0); const [projects, setProjects] = useState<BigQueryProjectOption[]>([]); const [projectLoading, setProjectLoading] = useState(true); const [projectError, setProjectError] = useState<string | null>(null); const [datasets, setDatasets] = useState<BigQueryDatasetOption[]>([]); const [datasetLoading, setDatasetLoading] = useState(false); const [datasetError, setDatasetError] = useState<string | null>(null); const [reference, setReference] = useState(''); const [referenceError, setReferenceError] = useState<string | null>(null); const datasetRevision = useRef(0); const untouched = useRef(!existing)
+  const loadDatasets = (projectId: string) => { const current = ++datasetRevision.current; setDatasets([]); setDatasetError(null); if (!projectId.trim()) { setDatasetLoading(false); return } setDatasetLoading(true); void api.connections.bigquery.listDatasets(projectId.trim()).then((values: BigQueryDatasetOption[]) => { if (current === datasetRevision.current) setDatasets(values) }).catch(() => { if (current === datasetRevision.current) setDatasetError('Could not discover datasets. You can still enter a dataset ID manually.') }).finally(() => { if (current === datasetRevision.current) setDatasetLoading(false) }) }
+  useEffect(() => { let activeNow = true; void api.connections.bigquery.discoverProjects().then((values: BigQueryProjectOption[]) => { if (activeNow) setProjects(values) }).catch(() => { if (activeNow) setProjectError('Could not discover projects. You can still enter a project ID manually.') }).finally(() => { if (activeNow) setProjectLoading(false) }); if (!existing) void api.connections.bigquery.discoverDefaults().then(({ projectId }: { projectId?: string }) => { if (activeNow && untouched.current && projectId) { setDraft((current) => ({ ...current, billingProject: projectId, defaultProject: projectId })); loadDatasets(projectId) } }).catch(() => undefined); return () => { activeNow = false; revision.current++; datasetRevision.current++ } }, [existing])
+  useEffect(() => { if (!active) { revision.current++; datasetRevision.current++ } }, [active]); useEffect(() => { const projectId = existing?.defaultProject || existing?.billingProject; if (projectId) loadDatasets(projectId) }, [existing])
   const makeProfile = (): BigQueryProfile => ({ kind: 'bigquery', version: 1, id: existing?.id ?? '', name: draft.name.trim(), billingProject: draft.billingProject.trim(), defaultProject: draft.defaultProject.trim() || draft.billingProject.trim(), defaultDataset: draft.defaultDataset.trim() || undefined, location: draft.location.trim() || undefined, maximumBytesBilled: limitBytesBilled ? draft.maximumBytesBilled.trim() : '', readonly: true })
   const validate = () => !draft.name.trim() ? 'Enter a connection name.' : !draft.billingProject.trim() ? 'Enter a billing project.' : limitBytesBilled && (!/^\d+$/.test(draft.maximumBytesBilled.trim()) || BigInt(draft.maximumBytesBilled.trim() || '0') <= 0n) ? 'Maximum bytes billed must be a positive decimal integer.' : null
   const test = async () => { const error = validate(); if (error) return setMessage({ ok: false, text: error }); const current = ++revision.current; setBusy(true); setMessage(null); try { const result = await api.connections.test(makeProfile()); if (current === revision.current) setMessage(result.ok ? { ok: true, text: 'Credentials and metadata access verified.' } : { ok: false, text: result.error }) } catch (caught) { if (current === revision.current) setMessage({ ok: false, text: failureMessage(caught) }) } finally { if (current === revision.current) setBusy(false) } }
   const save = async () => { const error = validate(); if (error) return setMessage({ ok: false, text: error }); setBusy(true); try { onSaved(await api.connections.upsert(makeProfile())); onClose() } catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }) } finally { setBusy(false) } }
   const set = (field: keyof typeof draft, value: string) => { untouched.current = false; revision.current++; setBusy(false); setMessage(null); setDraft((valueNow) => ({ ...valueNow, [field]: value })) }
-  const toggleLimit = (enabled: boolean) => {
-    revision.current++; setBusy(false); setMessage(null)
-    setLimitBytesBilled(enabled)
-    setDraft((current) => {
-      if (!enabled) {
-        if (current.maximumBytesBilled.trim()) previousMaximumBytesBilled.current = current.maximumBytesBilled
-        return { ...current, maximumBytesBilled: '' }
-      }
-      return { ...current, maximumBytesBilled: previousMaximumBytesBilled.current }
-    })
-  }
+  const toggleLimit = (enabled: boolean) => { revision.current++; setBusy(false); setMessage(null); setLimitBytesBilled(enabled); setDraft((current) => { if (!enabled) { if (current.maximumBytesBilled.trim()) previousMaximumBytesBilled.current = current.maximumBytesBilled; return { ...current, maximumBytesBilled: '' } } return { ...current, maximumBytesBilled: previousMaximumBytesBilled.current } }) }
   const setDataProject = (value: string, dataset = '') => { untouched.current = false; revision.current++; setBusy(false); setMessage(null); setDraft((current) => ({ ...current, defaultProject: value, defaultDataset: dataset })); loadDatasets(value) }
-  const applyReference = (value: string) => {
-    setReference(value); if (!value.trim()) return setReferenceError(null)
-    const parsed = parseBigQueryReference(value)
-    if (!parsed) return setReferenceError('Enter a valid BigQuery project and dataset reference.')
-    setReferenceError(null); setDataProject(parsed.projectId, parsed.datasetId ?? '')
-  }
-  const projectOptions = useMemo(() => projects.map((project) => ({ value: project.projectId, label: project.friendlyName || project.projectId, subtitle: project.friendlyName ? project.projectId : undefined })), [projects])
-  const datasetOptions = useMemo(() => [
-    { value: '', label: 'All datasets', subtitle: 'No default dataset' },
-    ...datasets.map((dataset) => ({ value: dataset.datasetId, label: dataset.datasetId, subtitle: [dataset.friendlyName, dataset.location].filter(Boolean).join(' · ') || undefined }))
-  ], [datasets])
-  const selectedDataset = datasets.find((dataset) => dataset.datasetId === draft.defaultDataset)
-  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="bigquery-connection-title" onClick={(event) => event.stopPropagation()}>
-    <ConnectionFormHeader kind="bigquery" editing={!!existing} onBack={onBack} />
-    <div className={[styles.testMsg, styles.info].join(' ')}>Authentication uses Google Application Default Credentials (ADC). DataKoala does not import or store service-account JSON, tokens, or credentials.</div>
-    <div className={[styles.field].join(' ')}><label htmlFor="bq-name">Connection name</label><input id="bq-name" value={draft.name} onChange={(e) => set('name', e.target.value)} /></div>
-    <div className={[styles.field].join(' ')}><label htmlFor="bq-reference">Paste BigQuery reference <span className={[styles.opt].join(' ')}>— optional</span></label><input id="bq-reference" placeholder="project.dataset or projects/project/datasets/dataset" value={reference} onChange={(event) => applyReference(event.target.value)} aria-invalid={!!referenceError} />{referenceError && <div className={[styles.fieldError].join(' ')} role="alert">{referenceError}</div>}</div>
-    <div className={[styles.row].join(' ')}><div className={[styles.field].join(' ')}><label>Billing project</label><Combobox label="Billing project" value={draft.billingProject} options={projectOptions} onChange={(value) => set('billingProject', value)} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div><div className={[styles.field].join(' ')}><label>Data project <span className={[styles.opt].join(' ')}>— defaults to billing project</span></label><Combobox label="Data project" value={draft.defaultProject} options={projectOptions} onChange={setDataProject} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div></div>
-    <div className={[styles.field].join(' ')}><label>Dataset <span className={[styles.opt].join(' ')}>— optional default</span></label><Combobox label="Dataset" value={draft.defaultDataset} options={datasetOptions} onChange={(value) => set('defaultDataset', value)} searchable allowCustomValue disabled={!draft.defaultProject.trim()} loading={datasetLoading} error={datasetError} placeholder="All datasets" emptyMessage="No datasets found. Enter a dataset ID manually." invalidationKey={draft.defaultProject} />{selectedDataset?.location && <div className={[styles.pasteHint].join(' ')} role="status">Dataset location: <strong>{selectedDataset.location}</strong></div>}<div className={[styles.pasteHint].join(' ')}>All accessible datasets remain visible in the object tree. A selection only provides the default SQL context.</div></div>
-    <details className={[styles.bqAdvanced].join(' ')}><summary>Advanced</summary><div className={[styles.field].join(' ')}><label htmlFor="bq-location">Location override (optional)</label><input id="bq-location" placeholder="e.g. US or europe-west1" value={draft.location} onChange={(e) => set('location', e.target.value)} /><div className={[styles.pasteHint].join(' ')}>Normally leave blank so BigQuery infers the query location from referenced datasets.</div></div><div className={[styles.field].join(' ')}><label><input type="checkbox" checked={limitBytesBilled} onChange={(event) => toggleLimit(event.target.checked)} /> Limit bytes billed per query</label><label htmlFor="bq-max">Maximum bytes billed</label><input id="bq-max" inputMode="numeric" placeholder="Positive decimal bytes" value={draft.maximumBytesBilled} onChange={(e) => set('maximumBytesBilled', e.target.value)} disabled={!limitBytesBilled} /><div className={[styles.pasteHint].join(' ')}>{limitBytesBilled ? 'BigQuery rejects jobs whose billed bytes exceed this value.' : 'No maximumBytesBilled job option will be supplied.'}</div></div></details>
-    {message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
-    <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>{busy ? 'Testing…' : 'Test'}</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>Save</button></div>
-  </div></div>
+  const applyReference = (value: string) => { setReference(value); if (!value.trim()) return setReferenceError(null); const parsed = parseBigQueryReference(value); if (!parsed) return setReferenceError('Enter a valid BigQuery project and dataset reference.'); setReferenceError(null); setDataProject(parsed.projectId, parsed.datasetId ?? '') }
+  const projectOptions = useMemo(() => projects.map((project) => ({ value: project.projectId, label: project.friendlyName || project.projectId, subtitle: project.friendlyName ? project.projectId : undefined })), [projects]); const datasetOptions = useMemo(() => [{ value: '', label: 'All datasets', subtitle: 'No default dataset' }, ...datasets.map((dataset) => ({ value: dataset.datasetId, label: dataset.datasetId, subtitle: [dataset.friendlyName, dataset.location].filter(Boolean).join(' · ') || undefined }))], [datasets]); const selectedDataset = datasets.find((dataset) => dataset.datasetId === draft.defaultDataset)
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="bigquery-connection-title" onClick={(event) => event.stopPropagation()}><ConnectionFormHeader kind="bigquery" editing={!!existing} onBack={onBack} /><div className={[styles.testMsg, styles.info].join(' ')}>Authentication uses Google Application Default Credentials (ADC). DataKoala does not import or store service-account JSON, tokens, or credentials.</div><div className={[styles.field].join(' ')}><label htmlFor="bq-name">Connection name</label><input id="bq-name" value={draft.name} onChange={(e) => set('name', e.target.value)} /></div><div className={[styles.field].join(' ')}><label htmlFor="bq-reference">Paste BigQuery reference <span className={[styles.opt].join(' ')}>— optional</span></label><input id="bq-reference" placeholder="project.dataset or projects/project/datasets/dataset" value={reference} onChange={(event) => applyReference(event.target.value)} aria-invalid={!!referenceError} />{referenceError && <div className={[styles.fieldError].join(' ')} role="alert">{referenceError}</div>}</div><div className={[styles.row].join(' ')}><div className={[styles.field].join(' ')}><label>Billing project</label><Combobox label="Billing project" value={draft.billingProject} options={projectOptions} onChange={(value) => set('billingProject', value)} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div><div className={[styles.field].join(' ')}><label>Data project <span className={[styles.opt].join(' ')}>— defaults to billing project</span></label><Combobox label="Data project" value={draft.defaultProject} options={projectOptions} onChange={setDataProject} searchable allowCustomValue loading={projectLoading} error={projectError} emptyMessage="No accessible projects. Enter a project ID manually." /></div></div><div className={[styles.field].join(' ')}><label>Dataset <span className={[styles.opt].join(' ')}>— optional default</span></label><Combobox label="Dataset" value={draft.defaultDataset} options={datasetOptions} onChange={(value) => set('defaultDataset', value)} searchable allowCustomValue disabled={!draft.defaultProject.trim()} loading={datasetLoading} error={datasetError} placeholder="All datasets" emptyMessage="No datasets found. Enter a dataset ID manually." invalidationKey={draft.defaultProject} />{selectedDataset?.location && <div className={[styles.pasteHint].join(' ')} role="status">Dataset location: <strong>{selectedDataset.location}</strong></div>}<div className={[styles.pasteHint].join(' ')}>All accessible datasets remain visible in the object tree. A selection only provides the default SQL context.</div></div><details className={[styles.bqAdvanced].join(' ')}><summary>Advanced</summary><div className={[styles.field].join(' ')}><label htmlFor="bq-location">Location override (optional)</label><input id="bq-location" placeholder="e.g. US or europe-west1" value={draft.location} onChange={(e) => set('location', e.target.value)} /><div className={[styles.pasteHint].join(' ')}>Normally leave blank so BigQuery infers the query location from referenced datasets.</div></div><div className={[styles.field].join(' ')}><label><input type="checkbox" checked={limitBytesBilled} onChange={(event) => toggleLimit(event.target.checked)} /> Limit bytes billed per query</label><label htmlFor="bq-max">Maximum bytes billed</label><input id="bq-max" inputMode="numeric" placeholder="Positive decimal bytes" value={draft.maximumBytesBilled} onChange={(e) => set('maximumBytesBilled', e.target.value)} disabled={!limitBytesBilled} /><div className={[styles.pasteHint].join(' ')}>{limitBytesBilled ? 'BigQuery rejects jobs whose billed bytes exceed this value.' : 'No maximumBytesBilled job option will be supplied.'}</div></div></details>{message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}<div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>{busy ? 'Testing…' : 'Test'}</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>Save</button></div></div></div>
 }
 
 function PrometheusConnectionModal({ existing, onClose, onSaved, onBack }: FormProps & { existing: PrometheusProfile | null }) {
-  const [name, setName] = useState(existing?.name ?? 'Prometheus')
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
-  const [gcxVersion, setGcxVersion] = useState<string | null>(null)
-  const [datasources, setDatasources] = useState<PrometheusDatasourceOption[]>([])
-  const [datasourceUid, setDatasourceUid] = useState(existing?.transport.datasourceUid ?? '')
-  const [datasourceError, setDatasourceError] = useState<string | null>(null)
-  const [loadingDatasources, setLoadingDatasources] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const baseTransport = () => ({ kind: 'gcx' as const, ...(existing?.transport.context ? { context: existing.transport.context } : {}) })
-  const transport = () => ({ ...baseTransport(), ...(datasourceUid ? { datasourceUid } : {}) })
-  const profile = (): PrometheusProfile => ({ kind: 'prometheus', version: 1, id: existing?.id ?? '', name: name.trim(), readonly: true, transport: transport() })
-  useEffect(() => {
-    let active = true
-    setLoadingDatasources(true)
-    api.connections.prometheus.discoverDatasources(baseTransport()).then((found: PrometheusDatasourceOption[]) => {
-      if (!active) return
-      setDatasources(found)
-      setDatasourceUid((current) => current || (found.length === 1 ? found[0].uid : ''))
-      setDatasourceError(found.length ? null : 'No compatible Prometheus or Mimir datasources were found.')
-    }).catch((error: unknown) => { if (active) setDatasourceError(failureMessage(error)) }).finally(() => { if (active) setLoadingDatasources(false) })
-    return () => { active = false }
-  }, [])
-  const test = async () => {
-    if (!datasourceUid) return setMessage({ ok: false, text: 'Select a Prometheus datasource first.' })
-    setBusy(true); setMessage(null)
-    try {
-      const result = await api.connections.prometheus.discover(transport())
-      setGcxVersion(result.gcx?.version ?? null)
-      setMessage({ ok: true, text: `Connected — discovered ${result.metricNames.length} metrics${result.metadataAvailable ? ' with metadata' : ''}.` })
-    } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } finally { setBusy(false) }
-  }
-  const save = async () => {
-    if (!name.trim()) return setMessage({ ok: false, text: 'Connection name is required.' })
-    if (!datasourceUid) return setMessage({ ok: false, text: 'Select a Prometheus datasource first.' })
-    setBusy(true)
-    try { const saved = await api.connections.upsert(profile()); onSaved(saved); onClose() }
-    catch (error) { setMessage({ ok: false, text: failureMessage(error) }); setBusy(false) }
-  }
-  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="prometheus-connection-title" onClick={(e) => e.stopPropagation()}>
-    <ConnectionFormHeader kind="prometheus" editing={!!existing} onBack={onBack} />
-    <div className={[styles.field].join(' ')}><label htmlFor="prom-name">Connection name</label><input id="prom-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
-    <div className={[styles.field].join(' ')}><label>Connection method</label><div className={[styles.connPreview].join(' ')}>Grafana Cloud via gcx</div></div>
-    <div className={[styles.field].join(' ')}><label htmlFor="prom-datasource">Prometheus datasource</label><select id="prom-datasource" value={datasourceUid} onChange={(event) => setDatasourceUid(event.target.value)} disabled={loadingDatasources}><option value="">{loadingDatasources ? 'Discovering datasources…' : 'Select a datasource'}</option>{datasources.map((datasource) => <option key={datasource.uid} value={datasource.uid}>{datasource.name}</option>)}</select>{datasourceError && <div className={[styles.pasteHint].join(' ')} role="alert">{datasourceError}</div>}</div>
-    <div className={[styles.testMsg, styles.info].join(' ')}>Uses your existing authenticated gcx context. DataKoala never reads, copies, or stores gcx OAuth credentials.{gcxVersion && <> Detected <strong>gcx {gcxVersion}</strong>.</>}</div>
-    {message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
-    <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>{busy ? 'Working…' : 'Test & discover metrics'}</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>Save</button></div>
-  </div></div>
+  const [name, setName] = useState(existing?.name ?? 'Prometheus'); const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null); const [gcxVersion, setGcxVersion] = useState<string | null>(null); const [datasources, setDatasources] = useState<PrometheusDatasourceOption[]>([]); const [datasourceUid, setDatasourceUid] = useState(existing?.transport.datasourceUid ?? ''); const [datasourceError, setDatasourceError] = useState<string | null>(null); const [loadingDatasources, setLoadingDatasources] = useState(true); const [busy, setBusy] = useState(false)
+  const baseTransport = () => ({ kind: 'gcx' as const, ...(existing?.transport.context ? { context: existing.transport.context } : {}) }); const transport = () => ({ ...baseTransport(), ...(datasourceUid ? { datasourceUid } : {}) }); const profile = (): PrometheusProfile => ({ kind: 'prometheus', version: 1, id: existing?.id ?? '', name: name.trim(), readonly: true, transport: transport() })
+  useEffect(() => { let active = true; setLoadingDatasources(true); api.connections.prometheus.discoverDatasources(baseTransport()).then((found: PrometheusDatasourceOption[]) => { if (!active) return; setDatasources(found); setDatasourceUid((current) => current || (found.length === 1 ? found[0].uid : '')); setDatasourceError(found.length ? null : 'No compatible Prometheus or Mimir datasources were found.') }).catch((error: unknown) => { if (active) setDatasourceError(failureMessage(error)) }).finally(() => { if (active) setLoadingDatasources(false) }); return () => { active = false } }, [])
+  const test = async () => { if (!datasourceUid) return setMessage({ ok: false, text: 'Select a Prometheus datasource first.' }); setBusy(true); setMessage(null); try { const result = await api.connections.prometheus.discover(transport()); setGcxVersion(result.gcx?.version ?? null); setMessage({ ok: true, text: `Connected — discovered ${result.metricNames.length} metrics${result.metadataAvailable ? ' with metadata' : ''}.` }) } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } finally { setBusy(false) } }
+  const save = async () => { if (!name.trim()) return setMessage({ ok: false, text: 'Connection name is required.' }); if (!datasourceUid) return setMessage({ ok: false, text: 'Select a Prometheus datasource first.' }); setBusy(true); try { const saved = await api.connections.upsert(profile()); onSaved(saved); onClose() } catch (error) { setMessage({ ok: false, text: failureMessage(error) }); setBusy(false) } }
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="prometheus-connection-title" onClick={(e) => e.stopPropagation()}><ConnectionFormHeader kind="prometheus" editing={!!existing} onBack={onBack} /><div className={[styles.field].join(' ')}><label htmlFor="prom-name">Connection name</label><input id="prom-name" value={name} onChange={(e) => setName(e.target.value)} /></div><div className={[styles.field].join(' ')}><label>Connection method</label><div className={[styles.connPreview].join(' ')}>Grafana Cloud via gcx</div></div><div className={[styles.field].join(' ')}><label htmlFor="prom-datasource">Prometheus datasource</label><select id="prom-datasource" value={datasourceUid} onChange={(event) => setDatasourceUid(event.target.value)} disabled={loadingDatasources}><option value="">{loadingDatasources ? 'Discovering datasources…' : 'Select a datasource'}</option>{datasources.map((datasource) => <option key={datasource.uid} value={datasource.uid}>{datasource.name}</option>)}</select>{datasourceError && <div className={[styles.pasteHint].join(' ')} role="alert">{datasourceError}</div>}</div><div className={[styles.testMsg, styles.info].join(' ')}>Uses your existing authenticated gcx context. DataKoala never reads, copies, or stores gcx OAuth credentials.{gcxVersion && <> Detected <strong>gcx {gcxVersion}</strong>.</>}</div>{message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}<div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>{busy ? 'Working…' : 'Test & discover metrics'}</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>Save</button></div></div></div>
+}
+
+function TempoConnectionModal({ existing, onClose, onSaved, onBack }: FormProps & { existing: TempoProfile | null }) {
+  const [name, setName] = useState(existing?.name ?? 'Tempo'); const [context, setContext] = useState(existing?.transport.context ?? ''); const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null); const [busy, setBusy] = useState(false)
+  const profile = (): TempoProfile => ({ kind: 'tempo', version: 1, id: existing?.id ?? '', name: name.trim(), readonly: true, transport: { kind: 'gcx', ...(context.trim() ? { context: context.trim() } : {}) } })
+  const test = async () => { if (!name.trim()) return setMessage({ ok: false, text: 'Connection name is required.' }); setBusy(true); setMessage(null); try { const result = await api.connections.test(profile()); setMessage(result.ok ? { ok: true, text: 'Connected — Tempo trace access verified through gcx.' } : { ok: false, text: result.error }) } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } finally { setBusy(false) } }
+  const save = async () => { if (!name.trim()) return setMessage({ ok: false, text: 'Connection name is required.' }); setBusy(true); try { onSaved(await api.connections.upsert(profile())); onClose() } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } finally { setBusy(false) } }
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="tempo-connection-title" onClick={(event) => event.stopPropagation()}><ConnectionFormHeader kind="tempo" editing={!!existing} onBack={onBack} /><div className={[styles.field].join(' ')}><label htmlFor="tempo-name">Connection name</label><input id="tempo-name" value={name} onChange={(event) => setName(event.target.value)} /></div><div className={[styles.field].join(' ')}><label>Connection method</label><div className={[styles.connPreview].join(' ')}>Grafana Tempo via gcx</div></div><div className={[styles.field].join(' ')}><label htmlFor="tempo-context">gcx context <span className={[styles.opt].join(' ')}>— optional</span></label><input id="tempo-context" value={context} onChange={(event) => setContext(event.target.value)} placeholder="Current gcx context" /><div className={[styles.pasteHint].join(' ')}>Leave blank to use the current authenticated gcx context. Set a context when you keep multiple Grafana stacks configured.</div></div><div className={[styles.testMsg, styles.info].join(' ')}>Tempo remains a separate DataKoala datasource from Prometheus even when both reuse the same gcx authentication. This lets tabs stay independently attached to metrics or traces.</div>{message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}<div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>{busy ? 'Testing…' : 'Test trace access'}</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div></div></div>
 }
 
 export function ConnectionModal(props: Props) {
@@ -473,40 +276,8 @@ export function ConnectionModal(props: Props) {
   const [visited, setVisited] = useState<DataSourceKind[]>([])
   if (!props.existing) {
     const select = (next: DataSourceKind) => { setVisited((current) => current.includes(next) ? current : [...current, next]); setKind(next) }
-    const onPickerKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) return
-      event.preventDefault()
-      const cards = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
-      const index = Math.max(0, cards.indexOf(document.activeElement as HTMLButtonElement))
-      cards[(index + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : cards.length - 1)) % cards.length]?.focus()
-    }
-    return <>
-      {!kind && <div className={[styles.modalOverlay].join(' ')} onClick={props.onClose}><div className={[styles.modal, styles.connectionPicker].join(' ')} role="dialog" aria-modal="true" aria-labelledby="connection-picker-title" onClick={(event) => event.stopPropagation()}>
-        <div className={[styles.wizardSteps].join(' ')}>Step 1 of 2 · Source</div>
-        <h2 id="connection-picker-title">Choose a connection type</h2>
-        <p className={[styles.connectionPickerIntro].join(' ')}>Select where your data lives. You can return here before saving.</p>
-        <div className={[styles.connectionSourceGrid].join(' ')} role="radiogroup" aria-label="Connection types" onKeyDown={onPickerKeyDown}>
-          {CONNECTION_SOURCE_DESCRIPTORS.map((source, index) => {
-            const disabled = !source.supportsCreate
-            return <button key={source.kind} type="button" role="radio" aria-checked="false" aria-disabled={disabled} disabled={disabled} tabIndex={disabled ? -1 : index === 0 ? 0 : -1} className={[styles.connectionSourceCard].join(' ')} onClick={() => !disabled && select(source.kind as DataSourceKind)}>
-              <span className={[styles.sourceIcon].join(' ')}><SourceIcon type={source.icon} /></span><span className={[styles.sourceCardCopy].join(' ')}><strong>{source.label}</strong><span>{source.description}</span><small>{source.hint}</small></span>
-            </button>
-          })}
-        </div>
-        <div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={props.onClose}>Cancel</button></div>
-      </div></div>}
-      {visited.map((item) => <div key={item} className={kind === item ? undefined : styles.wizardFormHidden} aria-hidden={kind !== item}>
-        {item === 'postgres' ? <PostgresConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
-          : item === 'local-files' ? <LocalFilesConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
-            : item === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
-              : item === 'bigquery' ? <BigQueryConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />
-                : <PrometheusConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />}
-      </div>)}
-    </>
+    const onPickerKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => { if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) return; event.preventDefault(); const cards = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')); const index = Math.max(0, cards.indexOf(document.activeElement as HTMLButtonElement)); cards[(index + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : cards.length - 1)) % cards.length]?.focus() }
+    return <>{!kind && <div className={[styles.modalOverlay].join(' ')} onClick={props.onClose}><div className={[styles.modal, styles.connectionPicker].join(' ')} role="dialog" aria-modal="true" aria-labelledby="connection-picker-title" onClick={(event) => event.stopPropagation()}><div className={[styles.wizardSteps].join(' ')}>Step 1 of 2 · Source</div><h2 id="connection-picker-title">Choose a connection type</h2><p className={[styles.connectionPickerIntro].join(' ')}>Select where your data lives. You can return here before saving.</p><div className={[styles.connectionSourceGrid].join(' ')} role="radiogroup" aria-label="Connection types" onKeyDown={onPickerKeyDown}>{CONNECTION_SOURCE_DESCRIPTORS.map((source, index) => { const disabled = !source.supportsCreate; return <button key={source.kind} type="button" role="radio" aria-checked="false" aria-disabled={disabled} disabled={disabled} tabIndex={disabled ? -1 : index === 0 ? 0 : -1} className={[styles.connectionSourceCard].join(' ')} onClick={() => !disabled && select(source.kind as DataSourceKind)}><span className={[styles.sourceIcon].join(' ')}><SourceIcon type={source.icon} /></span><span className={[styles.sourceCardCopy].join(' ')}><strong>{source.label}</strong><span>{source.description}</span><small>{source.hint}</small></span></button> })}</div><div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={props.onClose}>Cancel</button></div></div></div>}{visited.map((item) => <div key={item} className={kind === item ? undefined : styles.wizardFormHidden} aria-hidden={kind !== item}>{item === 'postgres' ? <PostgresConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'local-files' ? <LocalFilesConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'bigquery' ? <BigQueryConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'tempo' ? <TempoConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : <PrometheusConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />}</div>)}</>
   }
-  return props.existing.kind === 'local-files' ? <LocalFilesConnectionModal {...props} existing={props.existing} />
-    : props.existing.kind === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={props.existing} />
-    : props.existing.kind === 'bigquery' ? <BigQueryConnectionModal {...props} existing={props.existing} />
-    : props.existing.kind === 'prometheus' ? <PrometheusConnectionModal {...props} existing={props.existing} />
-    : <PostgresConnectionModal {...props} existing={props.existing as ConnectionProfile} />
+  return props.existing.kind === 'local-files' ? <LocalFilesConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'bigquery' ? <BigQueryConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'prometheus' ? <PrometheusConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'tempo' ? <TempoConnectionModal {...props} existing={props.existing} /> : <PostgresConnectionModal {...props} existing={props.existing as ConnectionProfile} />
 }
