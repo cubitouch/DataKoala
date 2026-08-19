@@ -168,10 +168,10 @@ export function Sidebar() {
   }
 
   const expandRelation = async (relation: DatabaseRelationNode) => {
-    if (relation.kind === 'metric' || relation.kind === 'service') return
+    if (relation.kind === 'service') return
     const treeId = `relation:${relation.qualifiedName}`
     toggle(treeId)
-    if (expanded.has(treeId) || relation.columnsStatus !== 'idle') return
+    if (relation.kind === 'metric' || expanded.has(treeId) || relation.columnsStatus !== 'idle') return
     await loadRelationColumns(relation)
   }
 
@@ -260,8 +260,8 @@ export function Sidebar() {
               <button className={cx(styles.treeRow, styles.schemaRow)} onClick={() => toggle(schemaId)} title={schema.name}><span className={styles.chevron}>{schemaOpen ? '▾' : '▸'}</span><span className={styles.truncate}>{schema.name}</span>{schema.isSystem && <span className={styles.badge}>system</span>}</button>
               {schemaOpen && <div role="group">{schema.relations.map((relation) => {
                 const relationId = `relation:${relation.qualifiedName}`
-                const leaf = relation.kind === 'metric' || relation.kind === 'service'
-                const relationOpen = leaf ? relation.kind === 'metric' && expanded.has(relationId) : filtering || expanded.has(relationId)
+                const leaf = relation.kind === 'service'
+                const relationOpen = relation.kind === 'metric' ? expanded.has(relationId) : leaf ? false : filtering || expanded.has(relationId)
                 const current = relation.kind === 'metric'
                   ? promqlBuilder.metric === relation.name
                   : relation.kind === 'service'
