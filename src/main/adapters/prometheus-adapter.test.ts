@@ -47,7 +47,7 @@ test('Prometheus relation discovery is deterministic and rejects unrelated names
   assert.deepEqual((await connected.session.listRelations({ name: 'Metrics' })).map((item) => item.name), ['http_requests_total', 'process_cpu_seconds_total'])
 })
 
-test('Prometheus sessions always execute PromQL through the metrics transport', async () => {
+test('Prometheus sessions execute range PromQL only through the metrics transport', async () => {
   const requests: unknown[] = []
   const normalized: QueryResult = { columns: [], rows: [], rowCount: 0, durationMs: 2 }
   const adapter = new PrometheusAdapter(
@@ -65,9 +65,6 @@ test('Prometheus sessions always execute PromQL through the metrics transport', 
     const result = await connected.session.query({ sql: 'rate(http_requests_total[5m])', prometheus: { start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step } })
     assert.equal(result, normalized)
   }
-  assert.equal(await connected.session.query({ sql: 'up' }), normalized)
-  assert.deepEqual(requests, [
-    ...(['30s', '1m', '5m'] as const).map((step) => ({ expression: 'rate(http_requests_total[5m])', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step })),
-    { expression: 'up' }
-  ])
+  await assert.rejects(() => connected.session!.query({ sql: 'up' }), /time range and resolution/)
+  assert.deepEqual(requests, (['30s', '1m', '5m'] as const).map((step) => ({ expression: 'rate(http_requests_total[5m])', start: '2026-08-14T10:00:00Z', end: '2026-08-14T10:15:00Z', step })))
 })
