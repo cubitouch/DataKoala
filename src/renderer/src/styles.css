@@ -72,6 +72,30 @@ body.resizing-row, body.resizing-row * { cursor: row-resize !important; user-sel
 .btn.danger { color: #fff; border-color: color-mix(in srgb, var(--red) 75%, var(--border)); background: color-mix(in srgb, var(--red) 78%, var(--bg-3)); }
 .btn.danger:hover, .btn.danger:focus-visible { border-color: var(--red); background: var(--red); }
 
+/* Tempo search keeps results stable while surfacing activity on the search button.
+   Trace-open loading still uses the dedicated result-area backdrop. */
+section[aria-label='Trace explorer'] > [role='status']:not(:has(code)):has(+ [aria-busy='true']) {
+  display: none;
+}
+section[aria-label='Trace explorer']:has(> [role='status']:not(:has(code)):has(+ [aria-busy='true']))
+  form:has(select[aria-label='Tempo trace sample size']) .btn.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+section[aria-label='Trace explorer']:has(> [role='status']:not(:has(code)):has(+ [aria-busy='true']))
+  form:has(select[aria-label='Tempo trace sample size']) .btn.primary::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: tempo-search-spin .7s linear infinite;
+}
+@keyframes tempo-search-spin { to { transform: rotate(360deg); } }
+
 /* Shared native select fallback. */
 select {
   background: var(--bg-4); color: var(--text); border: 1px solid var(--border);
