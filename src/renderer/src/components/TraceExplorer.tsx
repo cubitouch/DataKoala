@@ -8,6 +8,7 @@ import { TimeRangeField } from './time-range/TimeRangeField'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
 import {
+  buildTraceTimelineScale,
   buildVisibleTraceTree,
   canonicalTraceId,
   openedTraceStatus,
@@ -223,7 +224,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [selectedSpanId, setSelectedSpanId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [hiddenSpanKinds, setHiddenSpanKinds] = useState<Set<string>>(new Set())
-  const [hideAsyncBranches, setHideAsyncBranches] = useState(false)
+  const [hideAsyncBranches, setHideAsyncBranches] = useState(true)
+  const [compressIdleGaps, setCompressIdleGaps] = useState(true)
   const [loading, setLoading] = useState<'search' | 'trace' | null>(null)
   const [error, setError] = useState('')
   const [cohortHint, setCohortHint] = useState('')
@@ -242,7 +244,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setSelectedSpanId('')
     setCollapsed(new Set())
     setHiddenSpanKinds(new Set())
-    setHideAsyncBranches(false)
+    setHideAsyncBranches(true)
+    setCompressIdleGaps(true)
     setError('')
     setCohortHint('')
     setSearchRange(DEFAULT_TRACE_RANGE)
@@ -349,12 +352,10 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const visibleTree = useMemo(() => buildVisibleTraceTree(viewerSpans, collapsed, hiddenSpanKinds), [viewerSpans, collapsed, hiddenSpanKinds])
   const renderedTree = visibleTree.slice(0, MAX_RENDERED_SPANS)
   const timelineSpans = useMemo(() => viewerSpans.filter((row) => !hiddenSpanKinds.has(traceSpanKind(row))), [viewerSpans, hiddenSpanKinds])
+  const timelineScale = useMemo(() => buildTraceTimelineScale(timelineSpans, compressIdleGaps), [timelineSpans, compressIdleGaps])
   const traceStart = sortedSpans.length ? Math.min(...sortedSpans.map((row) => number(row.startTimeMs))) : 0
   const traceEnd = sortedSpans.length ? Math.max(...sortedSpans.map((row) => number(row.startTimeMs) + number(row.durationMs))) : 0
   const traceDuration = Math.max(0, traceEnd - traceStart)
-  const timelineStart = timelineSpans.length ? Math.min(...timelineSpans.map((row) => number(row.startTimeMs))) : traceStart
-  const timelineEnd = timelineSpans.length ? Math.max(...timelineSpans.map((row) => number(row.startTimeMs) + number(row.durationMs))) : traceEnd
-  const timelineDuration = Math.max(0, timelineEnd - timelineStart)
   const services = useMemo(() => new Set(sortedSpans.map((row) => text(row.service)).filter(Boolean)), [sortedSpans])
   const errorCount = useMemo(() => sortedSpans.filter((row) => text(row.status).toUpperCase().includes('ERROR')).length, [sortedSpans])
   const rootSpan = sortedSpans.find((row) => !text(row.parentSpanId)) ?? sortedSpans[0]
@@ -480,6 +481,12 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     if (shouldRerun && traceql.trim()) void runSearch(next)
   }
 
+  const timelineLabel = timelineScale.gaps.length > 0
+    ? `Idle gaps compressed · ${durationLabel(timelineScale.wallDurationMs)} visible wall time → ${durationLabel(timelineScale.displayDurationMs)} visual scale${Math.abs(timelineScale.wallDurationMs - traceDuration) > .5 ? ` · full trace ${durationLabel(traceDuration)}` : ''}`
+    : Math.abs(timelineScale.wallDurationMs - traceDuration) > .5
+      ? `Visible timeline · ${durationLabel(timelineScale.wallDurationMs)} · full trace ${durationLabel(traceDuration)}`
+      : `Timeline · ${durationLabel(traceDuration)}`
+
   return (
     <section className={styles.root} aria-label="Trace explorer">
       <div className={styles.discoveryPanel}>
@@ -563,6 +570,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           </div>
           <span>{filteredSpanCount}/{spans.length} shown{hideAsyncBranches && asyncPrunedCount > 0 ? ` · ${asyncPrunedCount} async-branch spans hidden` : ''}.</span>
           {hasAsyncKinds && <button type="button" className="btn ghost" aria-pressed={hideAsyncBranches} onClick={() => setHideAsyncBranches((current) => !current)} title="Hide non-root Producer/Consumer branches and their descendants so delayed messaging work does not dominate the waterfall.">{hideAsyncBranches ? 'Show async branches' : 'Hide async branches'}</button>}
+          <button type="button" className="btn ghost" aria-pressed={compressIdleGaps} onClick={() => setCompressIdleGaps((current) => !current)} title="Compress long periods with no visible leaf-span activity. Span ordering and real duration labels remain unchanged; shaded breaks mark transformed idle time.">{compressIdleGaps ? 'Use wall-clock scale' : 'Compress idle gaps'}</button>
           {hiddenSpanKinds.size > 0 && <button type="button" className="btn ghost" onClick={() => setHiddenSpanKinds(new Set())}>Show all kinds</button>}
         </div>}
 
@@ -570,12 +578,10 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
 
         <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
           <div className={styles.waterfall}>
-            <div className={styles.waterfallHeader}><span>Span tree · {filteredSpanCount}/{spans.length} visible</span><span>{Math.abs(timelineDuration - traceDuration) > .5 ? `Visible timeline · ${durationLabel(timelineDuration)} · full trace ${durationLabel(traceDuration)}` : `Timeline · ${durationLabel(traceDuration)}`}</span></div>
+            <div className={styles.waterfallHeader}><span>Span tree · {filteredSpanCount}/{spans.length} visible</span><span>{timelineLabel}</span></div>
             {renderedTree.length === 0 ? <div className={styles.warning}>No spans match the current trace filters.</div> : renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
-              const rawOffset = timelineDuration > 0 ? ((number(span.startTimeMs) - timelineStart) / timelineDuration) * 100 : 0
-              const offset = Math.max(0, Math.min(100, rawOffset))
-              const rawWidth = timelineDuration > 0 ? (number(span.durationMs) / timelineDuration) * 100 : 100
-              const width = Math.max(0, Math.min(rawWidth, 100 - offset))
+              const offset = timelineScale.offsetPercent(number(span.startTimeMs))
+              const width = Math.max(0, Math.min(timelineScale.widthPercent(number(span.startTimeMs), number(span.durationMs)), 100 - offset))
               const isError = text(span.status).toUpperCase().includes('ERROR')
               return <div key={spanId} className={`${styles.spanRow} ${selectedSpanId === spanId ? styles.selected : ''}`} data-span-id={spanId}>
                 <div className={styles.spanLabel}>
@@ -586,6 +592,11 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
                   </button>
                 </div>
                 <button type="button" className={styles.timeline} onClick={() => setSelectedSpanId(spanId)} aria-label={`Select ${text(span.service)} ${text(span.name)}, ${durationLabel(number(span.durationMs))}`}>
+                  {timelineScale.gaps.map((gap, index) => {
+                    const left = timelineScale.offsetPercent(gap.startMs)
+                    const right = timelineScale.offsetPercent(gap.endMs)
+                    return <span key={`${gap.startMs}-${gap.endMs}-${index}`} className={styles.timelineGap} style={{ left: `${left}%`, width: `${Math.max(.45, right - left)}%` }} aria-hidden="true" />
+                  })}
                   <span className={`${styles.bar} ${isError ? styles.errorBar : ''}`} style={{ left: `${offset}%`, width: `${width}%`, minWidth: '1px' }}><span>{durationLabel(number(span.durationMs))}</span></span>
                 </button>
               </div>
