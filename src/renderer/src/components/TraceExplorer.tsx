@@ -10,10 +10,13 @@ import type { BuilderTimeRange } from '../lib/builderTimeRange'
 import {
   buildVisibleTraceTree,
   canonicalTraceId,
+  openedTraceStatus,
+  traceResultStatus,
   traceSpanKind,
   traceSpanKindLabel,
   traceSpanKinds,
   visibleSpanCount,
+  withoutAsyncTraceBranches,
   type TraceRow
 } from '../lib/traceViewer'
 import styles from './TraceExplorer.module.css'
@@ -188,21 +191,14 @@ function SpanInspector({ span, traceStart, onClose }: { span: TraceRow; traceSta
   </aside>
 }
 
-function resultStatus(row: TraceRow): 'ok' | 'error' | 'unknown' {
-  const value = text(row.status).toLowerCase()
-  if (value.includes('error')) return 'error'
-  if (value === 'ok' || value.includes('success')) return 'ok'
-  return 'unknown'
-}
-
 function mergeSearchRows(existing: TraceRow[], incoming: TraceRow[]): TraceRow[] {
   const merged = new Map(existing.map((row) => [text(row.traceId), row]))
   for (const row of incoming) {
     const traceId = text(row.traceId)
     if (!traceId) continue
     const previous = merged.get(traceId)
-    const previousStatus = previous ? resultStatus(previous) : 'unknown'
-    const nextStatus = resultStatus(row)
+    const previousStatus = previous ? traceResultStatus(previous) : 'unknown'
+    const nextStatus = traceResultStatus(row)
     merged.set(traceId, previous && previousStatus !== 'unknown' && nextStatus === 'unknown'
       ? { ...row, status: previous.status }
       : row)
@@ -227,6 +223,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [selectedSpanId, setSelectedSpanId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [hiddenSpanKinds, setHiddenSpanKinds] = useState<Set<string>>(new Set())
+  const [hideAsyncBranches, setHideAsyncBranches] = useState(false)
   const [loading, setLoading] = useState<'search' | 'trace' | null>(null)
   const [error, setError] = useState('')
   const [cohortHint, setCohortHint] = useState('')
@@ -245,6 +242,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setSelectedSpanId('')
     setCollapsed(new Set())
     setHiddenSpanKinds(new Set())
+    setHideAsyncBranches(false)
     setError('')
     setCohortHint('')
     setSearchRange(DEFAULT_TRACE_RANGE)
@@ -253,7 +251,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setSearchProgress(null)
   }, [connectionId])
 
-  const runSearch = async () => {
+  const runSearch = async (sampleOverride: TraceSampleSize = sampleSize) => {
     const request = traceql.trim()
     if (!request) return
     if (searchRange.recurringWindows?.some((window) => window.from || window.to)) {
@@ -268,11 +266,11 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
       return
     }
 
-    const sampled = sampleSize !== 'all'
+    const sampled = sampleOverride !== 'all'
     const tempoSearchRequest = {
       start: range.start,
       end: range.end,
-      ...(sampled ? { sampleSize: Number(sampleSize) } : {})
+      ...(sampled ? { sampleSize: Number(sampleOverride) } : {})
     }
 
     setLoading('search')
@@ -284,7 +282,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setCollapsed(new Set())
     setSearchProgress(null)
     setSearchNotice(sampled
-      ? `Fetching a quick sample of up to ${sampleSize} traces across the selected period…`
+      ? `Fetching a quick sample of up to ${sampleOverride} traces across the selected period…`
       : 'Fetching the complete selected period…')
     try {
       const result = await api.query.run(connectionId, request, [], tempoSearchRequest, (progress) => {
@@ -320,6 +318,10 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
         setSpans(result.rows)
         setSelectedSpanId('')
         setCollapsed(new Set())
+        const status = openedTraceStatus(result.rows)
+        if (status !== 'unknown') {
+          setSearchRows((current) => current.map((row) => canonicalTraceId(row.traceId) === request ? { ...row, status } : row))
+        }
       } else {
         throw new Error('Tempo returned search results instead of the requested trace.')
       }
@@ -341,18 +343,26 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
 
   const sortedSpans = useMemo(() => [...spans].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs)), [spans])
   const spanKinds = useMemo(() => traceSpanKinds(sortedSpans), [sortedSpans])
-  const filteredSpanCount = useMemo(() => visibleSpanCount(sortedSpans, hiddenSpanKinds), [sortedSpans, hiddenSpanKinds])
-  const visibleTree = useMemo(() => buildVisibleTraceTree(sortedSpans, collapsed, hiddenSpanKinds), [sortedSpans, collapsed, hiddenSpanKinds])
+  const viewerSpans = useMemo(() => hideAsyncBranches ? withoutAsyncTraceBranches(sortedSpans) : sortedSpans, [sortedSpans, hideAsyncBranches])
+  const asyncPrunedCount = sortedSpans.length - viewerSpans.length
+  const filteredSpanCount = useMemo(() => visibleSpanCount(viewerSpans, hiddenSpanKinds), [viewerSpans, hiddenSpanKinds])
+  const visibleTree = useMemo(() => buildVisibleTraceTree(viewerSpans, collapsed, hiddenSpanKinds), [viewerSpans, collapsed, hiddenSpanKinds])
   const renderedTree = visibleTree.slice(0, MAX_RENDERED_SPANS)
+  const timelineSpans = useMemo(() => viewerSpans.filter((row) => !hiddenSpanKinds.has(traceSpanKind(row))), [viewerSpans, hiddenSpanKinds])
   const traceStart = sortedSpans.length ? Math.min(...sortedSpans.map((row) => number(row.startTimeMs))) : 0
   const traceEnd = sortedSpans.length ? Math.max(...sortedSpans.map((row) => number(row.startTimeMs) + number(row.durationMs))) : 0
   const traceDuration = Math.max(0, traceEnd - traceStart)
+  const timelineStart = timelineSpans.length ? Math.min(...timelineSpans.map((row) => number(row.startTimeMs))) : traceStart
+  const timelineEnd = timelineSpans.length ? Math.max(...timelineSpans.map((row) => number(row.startTimeMs) + number(row.durationMs))) : traceEnd
+  const timelineDuration = Math.max(0, timelineEnd - timelineStart)
   const services = useMemo(() => new Set(sortedSpans.map((row) => text(row.service)).filter(Boolean)), [sortedSpans])
   const errorCount = useMemo(() => sortedSpans.filter((row) => text(row.status).toUpperCase().includes('ERROR')).length, [sortedSpans])
   const rootSpan = sortedSpans.find((row) => !text(row.parentSpanId)) ?? sortedSpans[0]
   const selectedSpanCandidate = sortedSpans.find((row) => text(row.spanId) === selectedSpanId)
-  const selectedSpan = selectedSpanCandidate && !hiddenSpanKinds.has(traceSpanKind(selectedSpanCandidate)) ? selectedSpanCandidate : undefined
+  const selectedSpanVisible = selectedSpanCandidate && viewerSpans.some((row) => text(row.spanId) === selectedSpanId)
+  const selectedSpan = selectedSpanVisible && !hiddenSpanKinds.has(traceSpanKind(selectedSpanCandidate)) ? selectedSpanCandidate : undefined
   const sampledSearch = sampleSize !== 'all'
+  const hasAsyncKinds = spanKinds.some((kind) => kind === 'PRODUCER' || kind === 'CONSUMER')
   const progressPercent = searchProgress?.totalMs
     ? Math.min(100, Math.round((searchProgress.coveredMs / searchProgress.totalMs) * 100))
     : 0
@@ -411,7 +421,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
         symbolSize: 11,
         itemStyle: { color: group.color },
         emphasis: { scale: 1.45 },
-        data: searchRows.filter((row) => resultStatus(row) === group.key).map((row) => ({
+        data: searchRows.filter((row) => traceResultStatus(row) === group.key).map((row) => ({
           value: [number(row.startTimeMs), number(row.durationMs)],
           traceId: text(row.traceId),
           rootService: text(row.rootService),
@@ -464,6 +474,12 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     return next
   })
 
+  const changeSampleSize = (next: TraceSampleSize) => {
+    const shouldRerun = searchRows.length > 0 || !!searchNotice
+    setSampleSize(next)
+    if (shouldRerun && traceql.trim()) void runSearch(next)
+  }
+
   return (
     <section className={styles.root} aria-label="Trace explorer">
       <div className={styles.discoveryPanel}>
@@ -494,7 +510,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
             <TimeRangeField value={searchRange} onChange={setSearchRange} />
             <label style={{ display: 'grid', gap: 5, flex: '0 0 auto' }}>
               <span style={{ color: 'var(--text-mute)', fontSize: 11, fontWeight: 600 }}>Sample size</span>
-              <select value={sampleSize} onChange={(event) => setSampleSize(event.target.value as TraceSampleSize)} disabled={loading !== null} style={{ height: 32, minWidth: 112, padding: '0 8px', border: '1px solid var(--border)', borderRadius: 5, background: 'var(--bg)', color: 'var(--text)' }} aria-label="Tempo trace sample size">
+              <select value={sampleSize} onChange={(event) => changeSampleSize(event.target.value as TraceSampleSize)} disabled={loading !== null} style={{ height: 32, minWidth: 112, padding: '0 8px', border: '1px solid var(--border)', borderRadius: 5, background: 'var(--bg)', color: 'var(--text)' }} aria-label="Tempo trace sample size">
                 <option value="100">100 traces</option>
                 <option value="250">250 traces</option>
                 <option value="500">500 traces</option>
@@ -513,6 +529,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
 
       {cohortHint && <div className={styles.cohortHint} role="status">{cohortHint}</div>}
       {error && <div className={styles.error} role="alert">{error}</div>}
+      {loading === 'trace' && <div className={styles.warning} role="status" aria-live="polite"><strong>Opening trace…</strong> Fetching the full span tree from Tempo via gcx for <code>{traceId}</code>.</div>}
       {loading === 'search' && <div className={styles.warning} role="status" aria-live="polite">
         {sampledSearch ? <strong>Fetching up to {sampleSize} Tempo traces across the selected period…</strong> : searchProgress ? <>
           <div><strong>Fetching Tempo…</strong> {periodLabel(searchProgress.coveredMs)} / {periodLabel(searchProgress.totalMs)} covered ({progressPercent}%) · {searchProgress.completedChunks}/{currentChunkCount || 1} current chunks · {searchProgress.tracesFound} traces found · {searchProgress.queriesCompleted} {searchProgress.queriesCompleted === 1 ? 'query' : 'queries'}</div>
@@ -520,7 +537,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
         </> : <strong>Starting exhaustive Tempo search…</strong>}
       </div>}
 
-      {spans.length > 0 ? <div className={styles.traceView}>
+      {spans.length > 0 ? <div className={styles.traceView} aria-busy={loading === 'trace'}>
         <header className={styles.traceHeader}>
           <div className={styles.traceTitle}>
             {searchRows.length > 0 && <button type="button" className="btn ghost" onClick={() => { setSpans([]); setSelectedSpanId('') }}>← Search results</button>}
@@ -541,21 +558,24 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
             {spanKinds.map((kind) => {
               const visible = !hiddenSpanKinds.has(kind)
               const count = sortedSpans.filter((row) => traceSpanKind(row) === kind).length
-              return <button key={kind} type="button" className={visible ? styles.modeActive : ''} aria-pressed={visible} onClick={() => toggleSpanKind(kind)} title={kind === 'INTERNAL' ? 'In-process/code spans; turn this off to reduce application-code noise.' : `Show or hide ${kind} spans`}>{traceSpanKindLabel(kind)} · {count}</button>
+              return <button key={kind} type="button" className={visible ? styles.modeActive : ''} aria-pressed={visible} onClick={() => toggleSpanKind(kind)} title={kind === 'INTERNAL' ? 'In-process/code spans; turn this off to reduce application-code noise.' : `Show or hide ${kind} spans`} style={{ display: 'grid', justifyItems: 'center', minWidth: 82, height: 'auto', padding: '5px 10px', lineHeight: 1.15 }}><span>{traceSpanKindLabel(kind)}</span><strong style={{ marginTop: 3, fontSize: 11, fontWeight: 500 }}>{count}</strong></button>
             })}
           </div>
-          <span>{filteredSpanCount}/{spans.length} shown · HTTP and DB work is commonly represented by Server/Client spans; Internal / code is in-process work.</span>
-          {hiddenSpanKinds.size > 0 && <button type="button" className="btn ghost" onClick={() => setHiddenSpanKinds(new Set())}>Show all</button>}
+          <span>{filteredSpanCount}/{spans.length} shown{hideAsyncBranches && asyncPrunedCount > 0 ? ` · ${asyncPrunedCount} async-branch spans hidden` : ''}.</span>
+          {hasAsyncKinds && <button type="button" className="btn ghost" aria-pressed={hideAsyncBranches} onClick={() => setHideAsyncBranches((current) => !current)} title="Hide non-root Producer/Consumer branches and their descendants so delayed messaging work does not dominate the waterfall.">{hideAsyncBranches ? 'Show async branches' : 'Hide async branches'}</button>}
+          {hiddenSpanKinds.size > 0 && <button type="button" className="btn ghost" onClick={() => setHiddenSpanKinds(new Set())}>Show all kinds</button>}
         </div>}
 
         {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans. Virtualised rendering remains follow-up work in #88.</div>}
 
         <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
           <div className={styles.waterfall}>
-            <div className={styles.waterfallHeader}><span>Span tree · {filteredSpanCount}/{spans.length} visible</span><span>Timeline · {durationLabel(traceDuration)}</span></div>
-            {renderedTree.length === 0 ? <div className={styles.warning}>No spans match the current span-kind filter.</div> : renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
-              const offset = traceDuration > 0 ? ((number(span.startTimeMs) - traceStart) / traceDuration) * 100 : 0
-              const width = traceDuration > 0 ? Math.max(.35, (number(span.durationMs) / traceDuration) * 100) : 100
+            <div className={styles.waterfallHeader}><span>Span tree · {filteredSpanCount}/{spans.length} visible</span><span>{Math.abs(timelineDuration - traceDuration) > .5 ? `Visible timeline · ${durationLabel(timelineDuration)} · full trace ${durationLabel(traceDuration)}` : `Timeline · ${durationLabel(traceDuration)}`}</span></div>
+            {renderedTree.length === 0 ? <div className={styles.warning}>No spans match the current trace filters.</div> : renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
+              const rawOffset = timelineDuration > 0 ? ((number(span.startTimeMs) - timelineStart) / timelineDuration) * 100 : 0
+              const offset = Math.max(0, Math.min(100, rawOffset))
+              const rawWidth = timelineDuration > 0 ? (number(span.durationMs) / timelineDuration) * 100 : 100
+              const width = Math.max(0, Math.min(rawWidth, 100 - offset))
               const isError = text(span.status).toUpperCase().includes('ERROR')
               return <div key={spanId} className={`${styles.spanRow} ${selectedSpanId === spanId ? styles.selected : ''}`} data-span-id={spanId}>
                 <div className={styles.spanLabel}>
@@ -566,14 +586,14 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
                   </button>
                 </div>
                 <button type="button" className={styles.timeline} onClick={() => setSelectedSpanId(spanId)} aria-label={`Select ${text(span.service)} ${text(span.name)}, ${durationLabel(number(span.durationMs))}`}>
-                  <span className={`${styles.bar} ${isError ? styles.errorBar : ''}`} style={{ left: `${offset}%`, width: `${Math.min(width, 100 - offset)}%` }}><span>{durationLabel(number(span.durationMs))}</span></span>
+                  <span className={`${styles.bar} ${isError ? styles.errorBar : ''}`} style={{ left: `${offset}%`, width: `${width}%`, minWidth: '1px' }}><span>{durationLabel(number(span.durationMs))}</span></span>
                 </button>
               </div>
             })}
           </div>
           {selectedSpan && <SpanInspector span={selectedSpan} traceStart={traceStart} onClose={() => setSelectedSpanId('')} />}
         </div>
-      </div> : <div className={styles.searchResults} aria-busy={loading === 'search'}>
+      </div> : <div className={styles.searchResults} aria-busy={loading !== null}>
         <header className={styles.resultsHeader}>
           <div><h2>Trace search</h2><p>{searchNotice || 'Use the Builder or TraceQL to find candidate traces.'}</p></div>
           <div className={styles.resultsHeaderActions}>
@@ -588,7 +608,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           : <>
               {resultView === 'scatter' ? <div className={styles.scatter} data-trace-scatter=""><ReactECharts option={scatterOption} onEvents={scatterEvents} notMerge lazyUpdate style={{ width: '100%', height: '100%' }} /></div>
                 : <div className={styles.traceList}>{searchRows.map((row) => {
-                  const status = resultStatus(row)
+                  const status = traceResultStatus(row)
                   return <button key={text(row.traceId)} type="button" className={styles.traceResult} onClick={() => void openTrace(text(row.traceId))} disabled={loading !== null}>
                     <span className={styles.resultIdentity}><span className={`${styles.resultStatus} ${status === 'error' ? styles.resultStatusError : status === 'ok' ? styles.resultStatusOk : styles.resultStatusUnknown}`} aria-label={status === 'error' ? 'Error trace' : status === 'ok' ? 'Successful trace' : 'Trace status unknown'} /><span><strong>{text(row.rootService) || 'unknown service'}</strong><span>{text(row.rootOperation) || text(row.traceId)}</span></span></span>
                     <span className={styles.resultMeta}><strong>{durationLabel(number(row.durationMs))}</strong><span>{dateTimeLabel(number(row.startTimeMs))}</span><span>{number(row.matchedSpans) ? `${number(row.matchedSpans)} matched spans` : text(row.traceId)}</span></span>
