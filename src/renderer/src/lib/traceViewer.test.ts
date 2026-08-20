@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  buildTraceTimelineScale,
   buildVisibleTraceTree,
   canonicalTraceId,
   openedTraceStatus,
@@ -11,12 +12,13 @@ import {
   withoutAsyncTraceBranches
 } from './traceViewer.ts'
 
-const row = (spanId: string, parentSpanId: string, kind: string, startTimeMs: number, status = '') => ({
+const row = (spanId: string, parentSpanId: string, kind: string, startTimeMs: number, status = '', durationMs = 1) => ({
   spanId,
   parentSpanId,
   kind,
   startTimeMs,
-  status
+  status,
+  durationMs
 })
 
 test('trace IDs accept Tempo search IDs without leading zero padding', () => {
@@ -75,6 +77,29 @@ test('async branch filtering removes producer/consumer descendants without delet
     row('work', 'consumer-root', 'CLIENT', 10)
   ]
   assert.deepEqual(withoutAsyncTraceBranches(consumerRoot).map((item) => item.spanId), ['consumer-root', 'work'])
+})
+
+test('trace timeline compression preserves order while shrinking long idle gaps', () => {
+  const rows = [
+    row('root', '', 'SERVER', 0, 'OK', 300_100),
+    row('http', 'root', 'CLIENT', 10, 'OK', 400),
+    row('db', 'root', 'CLIENT', 420, 'OK', 300),
+    row('consumer', 'root', 'CONSUMER', 300_000, 'OK', 100)
+  ]
+  const scale = buildTraceTimelineScale(rows, true)
+
+  assert.equal(scale.wallDurationMs, 300_100)
+  assert.equal(scale.gaps.length, 1)
+  assert.ok(scale.gaps[0].durationMs > 299_000)
+  assert.ok(scale.displayDurationMs < 10_000)
+  assert.ok(scale.offsetPercent(10) < scale.offsetPercent(420))
+  assert.ok(scale.offsetPercent(420) < scale.offsetPercent(300_000))
+  assert.ok(scale.widthPercent(10, 400) > 0)
+
+  const wallClock = buildTraceTimelineScale(rows, false)
+  assert.equal(wallClock.gaps.length, 0)
+  assert.equal(wallClock.displayDurationMs, wallClock.wallDurationMs)
+  assert.ok(wallClock.offsetPercent(420) < 1)
 })
 
 test('hiding a span kind promotes visible descendants to the nearest visible ancestor', () => {
