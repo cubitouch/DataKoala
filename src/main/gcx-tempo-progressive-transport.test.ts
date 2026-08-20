@@ -44,7 +44,7 @@ function rootStatusResponse(id: number, status: 'ok' | 'error') {
       durationMs: 400,
       spanSets: [{ spans: [{
         spanID: 'aaaaaaaaaaaaaaaa',
-        startTimeUnixNano: String(BigInt(startMs + 100) * 1_000_000n),
+        startTimeMs: startMs + 100,
         attributes: { 'span:status': status }
       }] }]
     }] }),
@@ -188,10 +188,11 @@ test('root status enrichment is automatic, batched, and does not fetch full trac
     if (args[2]?.includes('!>>')) return rootStatusResponse(9, 'ok')
     return searchResponse([{ id: 9, startTimeMs: startMs + 100, status: 'error' }])
   }
+  const request: TempoQueryContext = { start, end, onProgress: (update) => progress.push(update) }
 
   const result = await new ProgressiveGcxTempoTransport(undefined, run, undefined, {
     pageLimit: 2
-  }).search('{ true }', { start, end, onProgress: (update) => progress.push(update) })
+  }).search('{ true }', request)
 
   assert.equal(calls.filter((args) => args[1] === 'query').length, 2)
   assert.equal(calls.filter((args) => args[1] === 'get').length, 0)
