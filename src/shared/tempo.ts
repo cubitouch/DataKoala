@@ -1,7 +1,7 @@
 export interface TempoQueryRequest {
   start: string
   end: string
-  /** Optional explicit status enrichment. Exhaustive UI searches leave this off to avoid one trace-body fetch per result. */
+  /** Root-span status is enriched by default in batched TraceQL lookups; set false for summary-only callers. */
   includeStatus?: boolean
   /** Optional quick-search result budget. When set, Tempo returns up to this many traces without exhaustive pagination. */
   sampleSize?: number
@@ -18,7 +18,7 @@ export interface TempoSearchProgress {
   pendingChunks: number
   queriesCompleted: number
   tracesFound: number
-  /** New or refreshed trace summaries discovered by the latest provider query. */
+  /** New or refreshed trace summaries discovered by search or root-status enrichment. */
   rows: Record<string, unknown>[]
 }
 
