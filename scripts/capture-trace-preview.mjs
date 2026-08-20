@@ -138,7 +138,7 @@ async function openPreviewTrace(win) {
     const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('checkout-api') && candidate.textContent?.includes('POST /checkout') && candidate.textContent?.includes('1.48s'))
     button?.click()
   })()`)
-  await waitFor(win, `document.body.innerText.includes('Span tree') && document.body.innerText.includes('payment-service') && document.body.innerText.includes('fulfilment-worker') && document.body.innerText.includes('warehouse-service') && document.body.innerText.includes('Explore similar traces')`, 'opened checkout trace waterfall')
+  await waitFor(win, `document.body.innerText.includes('Span tree') && document.body.innerText.includes('payment-service') && document.body.innerText.includes('Show async branches') && !document.body.innerText.includes('fulfilment-worker') && document.body.innerText.includes('Explore similar traces')`, 'opened focused checkout trace waterfall')
 }
 
 async function selectPaymentSpan(win) {
