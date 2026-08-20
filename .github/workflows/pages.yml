@@ -43,8 +43,6 @@ jobs:
           fi
       - name: Generate canonical documentation screenshots
         run: xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm docs:screenshots
-      - name: Generate Tempo showcase screenshots
-        run: DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-trace-preview.mjs
       - name: Build documentation
         run: pnpm docs:build
       - name: Upload documentation preview
