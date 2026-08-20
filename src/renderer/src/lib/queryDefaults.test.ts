@@ -14,7 +14,7 @@ test('datasource defaults keep manual languages separate and prefer Builder when
 
 test('datasource query languages distinguish SQL, PromQL and TraceQL', () => {
   assert.equal(queryLanguageForDatasource('postgres'), 'sql')
-  assert.equal(queryLanguageForDatasource('sqlite'), 'sql')
+  assert.equal(queryLanguageForDatasource('sqlite-file'), 'sql')
   assert.equal(queryLanguageForDatasource('bigquery'), 'sql')
   assert.equal(queryLanguageForDatasource('prometheus'), 'promql')
   assert.equal(queryLanguageForDatasource('tempo'), 'traceql')

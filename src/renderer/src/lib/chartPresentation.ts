@@ -3,8 +3,6 @@ import { summarizeTooltipRows } from './chartTooltip.ts'
 import { prepareLogScaleSeries, type ValueAxisScale } from './chartAxisScale.ts'
 import type { ChartAnomaly } from './chartAnomalies.ts'
 import type { HierarchyNode } from './chartHierarchy.ts'
-import { prometheusRangeBounds } from './prometheusTimeRange.ts'
-import { selectActiveSession, useStore } from '../store/useStore.ts'
 
 export type TimeDisplayPrecision = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
 
@@ -110,30 +108,13 @@ interface PresentationInput {
   hasSeriesColumn: boolean
   mode: 'sql' | 'builder'
   timeBucket?: string
+  timeDomain?: { min: number; max: number }
   valueAxisScale?: ValueAxisScale
   visibility?: Readonly<Record<string, boolean>>
   anomalies?: readonly ChartAnomaly[]
   hoveredSeriesIdentity?: string | (() => string | undefined)
   rangeSelectionEnabled?: boolean
   hierarchy?: HierarchyNode[]
-}
-
-function selectedTimeDomain(input: PresentationInput): { min: number; max: number } | null {
-  const state = useStore.getState()
-  const session = selectActiveSession(state)
-  const profile = state.profiles.find((candidate) => candidate.id === session.connectionProfileId)
-  const range = profile?.kind === 'prometheus'
-    ? session.prometheusTimeRange
-    : input.mode === 'builder' && input.timeBucket ? session.builder.timeRange : undefined
-  if (!range || range.kind === 'all') return null
-  try {
-    const bounds = prometheusRangeBounds(range)
-    const min = Date.parse(bounds.start)
-    const max = Date.parse(bounds.end)
-    return Number.isFinite(min) && Number.isFinite(max) && max > min ? { min, max } : null
-  } catch {
-    return null
-  }
 }
 
 export function buildChartPresentationOptions(input: PresentationInput): Record<string, unknown> {
@@ -163,7 +144,7 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
   }
   const precision = input.mode === 'builder' ? input.timeBucket as TimeDisplayPrecision : inferTimeDisplayPrecision(input.labels)
   const temporal = Boolean(precision && input.labels.length && input.labels.every((label) => dateValue(label)))
-  const domain = temporal ? selectedTimeDomain(input) : null
+  const domain = temporal ? input.timeDomain : undefined
   const formatLabel = precision ? (value: unknown) => formatTimeBucketLabel(value, precision) : (value: unknown) => String(value)
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
   return {

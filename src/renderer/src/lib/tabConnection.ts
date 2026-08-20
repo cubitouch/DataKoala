@@ -139,7 +139,7 @@ export function bindTabConnection(tabId: string, profileId: string | null): void
       if (tab.id !== tabId || tab.connectionProfileId === profileId) return tab
       const profile = state.profiles.find((candidate) => candidate.id === profileId)
       const previousProfile = state.profiles.find((candidate) => candidate.id === tab.connectionProfileId)
-      const languageChanged = queryLanguageForDatasource(previousProfile?.kind) !== queryLanguageForDatasource(profile?.kind)
+      const languageChanged = Boolean(previousProfile && profile && queryLanguageForDatasource(previousProfile.kind) !== queryLanguageForDatasource(profile.kind))
       const hasUntouchedDefault = tab.manualQueryPristine && tab.sql === defaultQueryTextForDatasource(previousProfile?.kind)
       const resetPlainQuery = languageChanged || hasUntouchedDefault
       const freshDefaults = resetPlainQuery ? {

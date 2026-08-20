@@ -27,6 +27,7 @@ const profiles: ConnectionProfile[] = [
   { kind: 'postgres', version: 1, id: 'profile-b', name: 'B', host: 'b', port: 5432, database: 'b', user: 'reader', password: '', ssl: false, readonly: true }
 ]
 const prometheusProfile: DataSourceProfile = { kind: 'prometheus', version: 1, id: 'prometheus', name: 'Metrics', readonly: true, transport: { kind: 'gcx' } }
+const tempoProfile: DataSourceProfile = { kind: 'tempo', version: 1, id: 'tempo', name: 'Traces', readonly: true, transport: { kind: 'gcx' } }
 const result: QueryResult = {
   columns: [{ name: 'value', dataTypeID: 23, dataTypeName: 'int4' }], rows: [{ value: 1 }], rowCount: 1, durationMs: 1
 }
@@ -51,6 +52,27 @@ describe('tab connection lifecycle', () => {
     bindTabConnection(id, prometheusProfile.id)
     expect(selectSession(useStore.getState(), id)?.sql).toBe('rate(custom_total[5m])')
   })
+
+  it('resets edited plain queries only when the datasource query language changes', () => {
+    resetTestStore({ profiles: [prometheusProfile, tempoProfile, ...profiles] })
+    const id = useStore.getState().activeTabId
+
+    bindTabConnection(id, prometheusProfile.id)
+    useStore.getState().setSql('rate(custom_total[5m])', id)
+    bindTabConnection(id, profiles[0].id)
+    expect(selectSession(useStore.getState(), id)).toMatchObject({ queryMode: 'builder', sql: 'select now();' })
+
+    useStore.getState().setSql('select keep_me;', id)
+    bindTabConnection(id, profiles[1].id)
+    expect(selectSession(useStore.getState(), id)?.sql).toBe('select keep_me;')
+
+    bindTabConnection(id, prometheusProfile.id)
+    expect(selectSession(useStore.getState(), id)?.sql).toBe('up')
+    useStore.getState().setSql('sum(rate(requests_total[5m]))', id)
+    bindTabConnection(id, tempoProfile.id)
+    expect(selectSession(useStore.getState(), id)?.sql).toBe('{ duration > 100ms }')
+  })
+
   it('rebinding a tab clears result-derived state but preserves editable work and promoted Builder predicates', () => {
     resetTestStore({ profiles, activeProfileId: 'profile-a', connected: true, connectionStatus: 'connected' })
     patchActiveTestSession({

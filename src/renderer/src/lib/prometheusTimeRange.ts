@@ -13,3 +13,16 @@ export function prometheusRangeBounds(range: BuilderTimeRange, now = new Date())
     end: new Date(`${range.endDate}T${range.endTime}:00Z`).toISOString()
   }
 }
+
+/** Resolve an explicit chart domain for bounded time ranges; all-time and incomplete ranges fall back to data-derived bounds. */
+export function timeRangeChartDomain(range: BuilderTimeRange, now = new Date()): { min: number; max: number } | null {
+  if (range.kind === 'all') return null
+  try {
+    const bounds = prometheusRangeBounds(range, now)
+    const min = Date.parse(bounds.start)
+    const max = Date.parse(bounds.end)
+    return Number.isFinite(min) && Number.isFinite(max) && max > min ? { min, max } : null
+  } catch {
+    return null
+  }
+}
