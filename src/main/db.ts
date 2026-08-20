@@ -10,12 +10,21 @@ import { LocalFilesAdapter } from './adapters/local-files-adapter.ts'
 import { SqliteFileAdapter } from './adapters/sqlite-file-adapter.ts'
 import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
+import { TempoAdapter } from './adapters/tempo-adapter.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
+import type { TempoQueryContext, TempoQueryRequest, TempoSearchProgressListener } from '../shared/tempo.ts'
 import { formatPromql } from './promql-formatter.ts'
 import { toIpcSafeQueryResult } from './ipc-serialization.ts'
+import { publishTempoSearchProgress } from './query-progress.ts'
 
 const postgresAdapter = new PostgresAdapter()
-export const adapterRegistry = new AdapterRegistry().register(postgresAdapter).register(new LocalFilesAdapter()).register(new SqliteFileAdapter()).register(new BigQueryAdapter()).register(new PrometheusAdapter())
+export const adapterRegistry = new AdapterRegistry()
+  .register(postgresAdapter)
+  .register(new LocalFilesAdapter())
+  .register(new SqliteFileAdapter())
+  .register(new BigQueryAdapter())
+  .register(new PrometheusAdapter())
+  .register(new TempoAdapter())
 
 export class SessionManager {
   private readonly registry: AdapterRegistry
@@ -129,8 +138,47 @@ function session(id: ConnectionId): DataSourceSession {
   return value
 }
 
-export async function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = [], prometheus?: Omit<PrometheusQueryRequest, 'expression'>): Promise<QueryResult> {
-  return toIpcSafeQueryResult(await session(id).query({ sql, parameters, prometheus }))
+type QueryIpcCompatibilityRange = Omit<PrometheusQueryRequest, 'expression'> & {
+  progressRequestId?: string
+  sampleSize?: number
+  includeStatus?: boolean
+}
+
+export async function runQuery(
+  id: ConnectionId,
+  sql: string,
+  parameters: unknown[] = [],
+  prometheus?: Omit<PrometheusQueryRequest, 'expression'>,
+  tempo?: TempoQueryRequest
+): Promise<QueryResult> {
+  const activeSession = session(id)
+  // QUERY_RUN predates Tempo and currently exposes the Prometheus range slot through
+  // preload. Preserve the shared start/end bounds plus Tempo-only search controls and
+  // an opaque progress request ID until query IPC becomes a discriminated provider request.
+  const compat = prometheus as QueryIpcCompatibilityRange | undefined
+  const progressRequestId = activeSession.info.provider === 'tempo' && typeof compat?.progressRequestId === 'string'
+    ? compat.progressRequestId.trim()
+    : ''
+  const onProgress: TempoSearchProgressListener | undefined = progressRequestId
+    ? (progress) => publishTempoSearchProgress(progressRequestId, progress)
+    : undefined
+  const tempoRange: TempoQueryContext | undefined = activeSession.info.provider === 'tempo' && !tempo && compat
+    ? {
+        start: compat.start,
+        end: compat.end,
+        ...(typeof compat.sampleSize === 'number' ? { sampleSize: compat.sampleSize } : {}),
+        ...(typeof compat.includeStatus === 'boolean' ? { includeStatus: compat.includeStatus } : {}),
+        ...(onProgress ? { onProgress } : {})
+      }
+    : tempo
+      ? { ...tempo, ...(onProgress ? { onProgress } : {}) }
+      : undefined
+  return toIpcSafeQueryResult(await activeSession.query({
+    sql,
+    parameters,
+    prometheus: activeSession.info.provider === 'prometheus' ? prometheus : undefined,
+    tempo: tempoRange
+  }))
 }
 
 export function formatPrometheusQuery(_id: ConnectionId, query: string): Promise<string> {
@@ -140,6 +188,7 @@ export function formatPrometheusQuery(_id: ConnectionId, query: string): Promise
 export function queryDialect(id: ConnectionId) {
   const provider = session(id).info.provider
   if (provider === 'prometheus') throw new Error('Prometheus uses PromQL, not a SQL dialect.')
+  if (provider === 'tempo') throw new Error('Tempo uses TraceQL, not a SQL dialect.')
   return sqlDialectForSourceKind(provider)
 }
 
@@ -147,7 +196,11 @@ export async function listObjects(id: ConnectionId) {
   return (await session(id).listRelations()).map((relation) => ({
     schema: relation.namespace,
     name: relation.name,
-    kind: relation.kind === 'materialized-view' ? 'm' as const : relation.kind === 'view' ? 'v' as const : relation.kind === 'metric' ? 'metric' as const : 'r' as const,
+    kind: relation.kind === 'materialized-view' ? 'm' as const
+      : relation.kind === 'view' ? 'v' as const
+        : relation.kind === 'metric' ? 'metric' as const
+          : relation.kind === 'service' ? 'service' as const
+            : 'r' as const,
     details: relation.details
   }))
 }

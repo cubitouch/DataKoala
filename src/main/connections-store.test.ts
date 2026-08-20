@@ -45,3 +45,12 @@ test('BigQuery billing caps persist and an absent legacy cap migrates to uncappe
   assert.equal(migrated.status, 'migrated')
   if (migrated.status === 'migrated' && migrated.profile.kind === 'bigquery') assert.equal(migrated.profile.maximumBytesBilled, '1073741824')
 })
+
+test('Tempo gcx profiles persist independently from Prometheus profiles', () => {
+  const stored = { id: 'traces', name: 'Production traces', kind: 'tempo', version: 1, readonly: true, transport: { kind: 'gcx', context: 'production' } }
+  const result = migrateStoredProfile(stored)
+  assert.equal(result.status, 'current')
+  if (result.status !== 'current') return
+  assert.equal(result.profile.kind, 'tempo')
+  assert.deepEqual(result.profile.transport, { kind: 'gcx', context: 'production' })
+})

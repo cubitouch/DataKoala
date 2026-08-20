@@ -5,6 +5,7 @@ import { ExplainPane } from './components/ExplainPane'
 import { selectActiveSession, useStore } from './store/useStore'
 import { BuilderPanel } from './components/BuilderPanel'
 import { ResultExplorer } from './components/ResultExplorer'
+import { TraceExplorer } from './components/TraceExplorer'
 import { QueryTabs } from './components/QueryTabs'
 import { ConnectionStatus } from './components/ConnectionStatus'
 import {
@@ -54,6 +55,7 @@ export function App() {
   // guess PostgreSQL during that gap: the profile may be a non-SQL datasource.
   const queryProfileLoading = Boolean(tabConnectionId && !tabProfile)
   const querySurfaceBlocked = queryProfileLoading
+  const tempoWorkspace = tabProfile?.kind === 'tempo' && !querySurfaceBlocked
 
   const currentSidebarBounds = () => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth)
   const currentEditorBounds = () => editorBounds(mainRef.current?.clientHeight ?? window.innerHeight - TITLEBAR_HEIGHT)
@@ -152,13 +154,15 @@ export function App() {
           aria-valuemin={SIDEBAR_MIN} aria-valuemax={Math.max(SIDEBAR_MIN, currentSidebarBounds().max)} aria-valuenow={Math.round(sidebarWidth)}
           tabIndex={0} onPointerDown={beginResize('sidebar')} onKeyDown={resizeWithKeyboard('sidebar')} />
         <div className={`main-shell ${styles.mainShell}`}>
-          <div key={activeTabId} className={`main ${styles.main} ${effectiveMode === 'sql' && !querySurfaceBlocked ? `sql-layout ${styles.sqlLayout}` : ''}`} ref={mainRef}
+          <div key={activeTabId} className={`main ${styles.main} ${effectiveMode === 'sql' && !querySurfaceBlocked && !tempoWorkspace ? `sql-layout ${styles.sqlLayout}` : ''}`} ref={mainRef}
             style={{ '--editor-height': `${editorHeight}px` } as React.CSSProperties}>
-            {queryProfileLoading ? <div className={`query-unavailable ${styles.queryUnavailable}`} role="status" aria-label="Loading connection…">Loading datasource…</div> : <>{effectiveMode === 'sql' ? <><QueryEditor builderMode={prometheusBuilder} /><div className={`editor-resizer ${styles.resizer} ${styles.editorResizer}`} role="separator" aria-label="Resize query editor"
-              aria-orientation="horizontal" aria-valuemin={EDITOR_MIN} aria-valuemax={Math.max(EDITOR_MIN, currentEditorBounds().max)}
-              aria-valuenow={Math.round(editorHeight)} tabIndex={0} onPointerDown={beginResize('editor')}
-              onKeyDown={resizeWithKeyboard('editor')} /></> : <BuilderPanel />}
-            <ResultExplorer mode={effectiveMode} hasRun={effectiveMode === 'sql' || builderHasRun}/></>}
+            {queryProfileLoading ? <div className={`query-unavailable ${styles.queryUnavailable}`} role="status" aria-label="Loading connection…">Loading datasource…</div>
+              : tempoWorkspace ? <TraceExplorer connectionId={tabConnectionId!} />
+                : <>{effectiveMode === 'sql' ? <><QueryEditor builderMode={prometheusBuilder} /><div className={`editor-resizer ${styles.resizer} ${styles.editorResizer}`} role="separator" aria-label="Resize query editor"
+                  aria-orientation="horizontal" aria-valuemin={EDITOR_MIN} aria-valuemax={Math.max(EDITOR_MIN, currentEditorBounds().max)}
+                  aria-valuenow={Math.round(editorHeight)} tabIndex={0} onPointerDown={beginResize('editor')}
+                  onKeyDown={resizeWithKeyboard('editor')} /></> : <BuilderPanel />}
+                <ResultExplorer mode={effectiveMode} hasRun={effectiveMode === 'sql' || builderHasRun}/></>}
           </div>
         </div>
       </div>

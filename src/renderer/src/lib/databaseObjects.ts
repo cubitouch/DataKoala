@@ -9,7 +9,7 @@ export function isSystemSchema(schemaName: string): boolean {
 }
 
 function kindRank(kind: TableInfo['kind']): number {
-  return kind === 'metric' ? 0 : kind === 'r' ? 1 : kind === 'v' ? 2 : 3
+  return kind === 'service' ? 0 : kind === 'metric' ? 1 : kind === 'r' ? 2 : kind === 'v' ? 3 : 4
 }
 
 /** User/system, relation type, then case-insensitive qualified name. */

@@ -28,10 +28,23 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Install Electron display libraries
-        run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
+      - name: Ensure Electron display libraries
+        shell: bash
+        run: |
+          if command -v Xvfb >/dev/null && \
+             ldconfig -p | grep -q 'libgtk-3.so.0' && \
+             ldconfig -p | grep -q 'libgbm.so.1' && \
+             ldconfig -p | grep -q 'libnss3.so' && \
+             ldconfig -p | grep -q 'libasound.so.2'; then
+            echo 'Electron display libraries are already available on the runner.'
+          else
+            sudo apt-get update
+            sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
+          fi
       - name: Generate canonical documentation screenshots
         run: xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm docs:screenshots
+      - name: Generate Tempo showcase screenshots
+        run: DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-trace-preview.mjs
       - name: Build documentation
         run: pnpm docs:build
       - name: Upload documentation preview

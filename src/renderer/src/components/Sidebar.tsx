@@ -16,7 +16,7 @@ import styles from './Sidebar.module.css'
 
 const cx = (...classes: Array<string | false | undefined>) => classes.filter(Boolean).join(' ')
 
-const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'metric' ? 'metric' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
+const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'metric' ? 'metric' : kind === 'service' ? 'service' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
 const ordinaryPromqlCalculations = ['raw', 'rate', 'increase'] as const
 const histogramPromqlCalculations = ['observation-rate', 'histogram-average', 'histogram-sum', 'percentile'] as const
 const histogramPromqlCalculationSet = new Set<PromqlCalculation>(histogramPromqlCalculations)
@@ -28,15 +28,27 @@ function calculationsForHistogramKind(kind: PromqlHistogramKind): readonly Promq
   return [...ordinaryPromqlCalculations, ...histogramPromqlCalculations]
 }
 
+function traceqlForService(relation: DatabaseRelationNode): string {
+  const namespace = relation.details?.kind === 'service' ? relation.details.serviceNamespace : undefined
+  const service = `resource.service.name = ${JSON.stringify(relation.name)}`
+  return namespace
+    ? `{ resource.service.namespace = ${JSON.stringify(namespace)} && ${service} }`
+    : `{ ${service} }`
+}
+
 function RelationName({ relation, current, onClick }: { relation: DatabaseRelationNode; current: boolean; onClick: () => void }) {
   const tooltipId = useId()
   const metricHelp = relation.details?.kind === 'metric' ? relation.details.help : undefined
   const isMetric = relation.kind === 'metric'
+  const isService = relation.kind === 'service'
+  const ariaLabel = isMetric
+    ? `Select ${relation.name} for Builder`
+    : isService ? `Explore traces for ${relation.name}` : `Select ${relation.qualifiedName} for Builder`
   return <>
     <button
       className={cx(styles.relationName, styles.truncate, metricHelp && styles.tooltipTrigger)}
-      title={isMetric ? undefined : relation.qualifiedName}
-      aria-label={isMetric ? `Select ${relation.name} for Builder` : `Select ${relation.qualifiedName} for Builder`}
+      title={isMetric ? undefined : isService ? relation.name : relation.qualifiedName}
+      aria-label={ariaLabel}
       aria-describedby={metricHelp ? tooltipId : undefined}
       aria-current={current ? 'true' : undefined}
       onClick={onClick}
@@ -55,6 +67,7 @@ export function Sidebar() {
   const connected = useStore((s) => s.connected)
   const activeTabId = useStore((s) => s.activeTabId)
   const activeTabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
+  const currentSql = useStore((s) => selectActiveSession(s).sql)
   const metadata = useStore((s) => activeTabConnectionId ? s.metadataByProfileId[activeTabConnectionId] : undefined)
   const schemas = metadata?.schemas ?? []
   const metadataStatus = metadata?.status ?? 'idle'
@@ -64,6 +77,7 @@ export function Sidebar() {
   const promqlBuilder = useStore((s) => selectActiveSession(s).promqlBuilder)
   const selectBuilderRelation = useStore((s) => s.selectBuilderRelation)
   const setPromqlBuilder = useStore((s) => s.setPromqlBuilder)
+  const setQueryMode = useStore((s) => s.setQueryMode)
   const setSql = useStore((s) => s.setSql)
   const [editing, setEditing] = useState<DataSourceProfile | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -154,10 +168,10 @@ export function Sidebar() {
   }
 
   const expandRelation = async (relation: DatabaseRelationNode) => {
+    if (relation.kind === 'service') return
     const treeId = `relation:${relation.qualifiedName}`
     toggle(treeId)
-    if (relation.kind === 'metric') return
-    if (expanded.has(treeId) || relation.columnsStatus !== 'idle') return
+    if (relation.kind === 'metric' || expanded.has(treeId) || relation.columnsStatus !== 'idle') return
     await loadRelationColumns(relation)
   }
 
@@ -170,7 +184,14 @@ export function Sidebar() {
     })).filter((schema) => schema.relations.length || schema.name.toLocaleLowerCase().includes(needle))
   }, [filter, schemas])
   const filtering = Boolean(filter.trim())
+
   const selectForBuilder = (relation: DatabaseRelationNode) => {
+    if (relation.kind === 'service') {
+      const generated = traceqlForService(relation)
+      setQueryMode('builder', activeTabId)
+      setSql(generated, activeTabId)
+      return
+    }
     if (relation.kind === 'metric') {
       if (promqlBuilder.metric === relation.name) return
       const metadataType = relation.details?.kind === 'metric' ? relation.details.type : undefined
@@ -239,13 +260,18 @@ export function Sidebar() {
               <button className={cx(styles.treeRow, styles.schemaRow)} onClick={() => toggle(schemaId)} title={schema.name}><span className={styles.chevron}>{schemaOpen ? '▾' : '▸'}</span><span className={styles.truncate}>{schema.name}</span>{schema.isSystem && <span className={styles.badge}>system</span>}</button>
               {schemaOpen && <div role="group">{schema.relations.map((relation) => {
                 const relationId = `relation:${relation.qualifiedName}`
-                const relationOpen = relation.kind === 'metric' ? expanded.has(relationId) : filtering || expanded.has(relationId)
+                const leaf = relation.kind === 'service'
+                const relationOpen = relation.kind === 'metric' ? expanded.has(relationId) : leaf ? false : filtering || expanded.has(relationId)
                 const current = relation.kind === 'metric'
                   ? promqlBuilder.metric === relation.name
-                  : builderTable?.schema === relation.schema && builderTable.name === relation.name
-                return <div key={relationId} role="treeitem" aria-expanded={relationOpen}>
+                  : relation.kind === 'service'
+                    ? currentSql === traceqlForService(relation)
+                    : builderTable?.schema === relation.schema && builderTable.name === relation.name
+                return <div key={relationId} role="treeitem" aria-expanded={leaf ? undefined : relationOpen}>
                   <div className={cx(styles.treeRow, styles.relationRow)}>
-                    <button className={styles.chevronButton} aria-label={`${relationOpen ? 'Collapse' : 'Expand'} ${relation.name}`} onClick={() => void expandRelation(relation)}>{relationOpen ? '▾' : '▸'}</button>
+                    {relation.kind === 'service'
+                      ? <span className={styles.chevronButton} aria-hidden="true" />
+                      : <button className={styles.chevronButton} aria-label={`${relationOpen ? 'Collapse' : 'Expand'} ${relation.name}`} onClick={() => void expandRelation(relation)}>{relationOpen ? '▾' : '▸'}</button>}
                     <RelationName relation={relation} current={current} onClick={() => selectForBuilder(relation)} />
                     {(relation.details?.kind !== 'metric' || relation.details.type) && <span className={cx(styles.kind, styles.relationKind)}>{relation.details?.kind === 'metric' ? relation.details.type : typeLabel(relation.kind)}</span>}
                   </div>

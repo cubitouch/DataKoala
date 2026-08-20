@@ -23,6 +23,9 @@ jobs:
         prometheus-toolbar-narrow.png
         prometheus-builder.png
         prometheus-builder-narrow.png
+        tempo-trace-search.png
+        tempo-trace-scatter.png
+        tempo-waterfall.png
         sql-resized-panes.png
         sql-long-query-scroll.png
         sql-wide-sidebar-long-names.png
@@ -50,14 +53,28 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Electron display libraries
-        run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
+      - name: Ensure Electron display libraries
+        shell: bash
+        run: |
+          if command -v Xvfb >/dev/null && \
+             ldconfig -p | grep -q 'libgtk-3.so.0' && \
+             ldconfig -p | grep -q 'libgbm.so.1' && \
+             ldconfig -p | grep -q 'libnss3.so' && \
+             ldconfig -p | grep -q 'libasound.so.2'; then
+            echo 'Electron display libraries are already available on the runner.'
+          else
+            sudo apt-get update
+            sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
+          fi
 
       - name: Build application
         run: pnpm build
 
       - name: Capture application previews
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+
+      - name: Capture realistic Tempo previews
+        run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-trace-preview.mjs
 
       - name: Validate preview image set
         shell: bash
@@ -121,6 +138,9 @@ jobs:
               'prometheus-toolbar-narrow.png': 'Prometheus — narrow responsive toolbar',
               'prometheus-builder.png': 'Prometheus Builder — metric, filters, grouping, and calculation',
               'prometheus-builder-narrow.png': 'Prometheus Builder — narrow responsive layout',
+              'tempo-trace-search.png': 'Tempo — realistic checkout trace search',
+              'tempo-trace-scatter.png': 'Tempo — checkout traces by time, duration, and status',
+              'tempo-waterfall.png': 'Tempo — checkout waterfall with selected failing payment span',
               'sql-resized-panes.png': 'SQL mode — resized sidebar and editor',
               'sql-long-query-scroll.png': 'SQL mode — long query scrolling internally',
               'sql-wide-sidebar-long-names.png': 'SQL mode — widened sidebar with long object names',

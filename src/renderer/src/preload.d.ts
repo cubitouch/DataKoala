@@ -1,4 +1,4 @@
-import type { DataKoalaApi } from '../preload/index'
+import type { DataKoalaApi } from '../../preload/index'
 
 declare global {
   interface Window {

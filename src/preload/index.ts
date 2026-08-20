@@ -11,7 +11,15 @@ import type {
 import type { SeriesCardinalityProbeRequest, SeriesCardinalityProbeResult, SeriesStatisticsRequest, SeriesStatisticsResult } from '@shared/chartLimits'
 import type { BigQueryDatasetOption, BigQueryDiscoveryDefaults, BigQueryProjectOption } from '@shared/bigqueryDiscovery'
 import type { PrometheusDatasourceOption, PrometheusDiscoveryResult, PrometheusQueryRequest } from '@shared/prometheus'
+import type { TempoQueryRequest, TempoSearchProgress, TempoSearchProgressEnvelope } from '@shared/tempo'
 import type { PrometheusTransportConfig } from '@shared/types'
+
+let queryProgressSequence = 0
+
+function nextQueryProgressRequestId(): string {
+  queryProgressSequence += 1
+  return `${process.pid}-${Date.now()}-${queryProgressSequence}-${Math.random().toString(36).slice(2)}`
+}
 
 const api = {
   /** True only when the app is launched by a test/repro harness. */
@@ -54,7 +62,30 @@ const api = {
     }
   },
   query: {
-    run: (id: string, sql: string, parameters: unknown[] = [], prometheus?: Omit<PrometheusQueryRequest, 'expression'>): Promise<QueryResult> => ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters, prometheus),
+    run: async (
+      id: string,
+      sql: string,
+      parameters: unknown[] = [],
+      request?: Omit<PrometheusQueryRequest, 'expression'> | TempoQueryRequest,
+      onProgress?: (progress: TempoSearchProgress) => void
+    ): Promise<QueryResult> => {
+      if (!onProgress) return ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters, request)
+
+      const requestId = nextQueryProgressRequestId()
+      const handler = (_event: Electron.IpcRendererEvent, value: unknown) => {
+        if (!isTempoSearchProgressEnvelope(value) || value.requestId !== requestId) return
+        onProgress(value.progress)
+      }
+      ipcRenderer.on(IPC.QUERY_PROGRESS, handler)
+      try {
+        return await ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters, {
+          ...(request ?? {}),
+          progressRequestId: requestId
+        })
+      } finally {
+        ipcRenderer.removeListener(IPC.QUERY_PROGRESS, handler)
+      }
+    },
     probeSeriesCardinality: (id: string, request: SeriesCardinalityProbeRequest): Promise<SeriesCardinalityProbeResult> =>
       ipcRenderer.invoke(IPC.QUERY_PROBE_SERIES_CARDINALITY, id, request),
     seriesStatistics: (id: string, request: SeriesStatisticsRequest): Promise<SeriesStatisticsResult> =>
@@ -89,6 +120,18 @@ function isConnectionStateEvent(value: unknown): value is ConnectionStateEvent {
     (event.recoverability === undefined || ['transient', 'authentication', 'configuration', 'server-unavailable', 'unknown'].includes(String(event.recoverability))) &&
     (event.source === undefined || ['pool:idle-client-error', 'pool:client-acquired', 'pool:connect-failed', 'client:active-query-error', 'client:end', 'socket:close'].includes(String(event.source))) &&
     (event.activeOperationAffected === undefined || typeof event.activeOperationAffected === 'boolean')
+}
+
+function isTempoSearchProgressEnvelope(value: unknown): value is TempoSearchProgressEnvelope {
+  if (!value || typeof value !== 'object') return false
+  const envelope = value as Record<string, unknown>
+  if (typeof envelope.requestId !== 'string' || !envelope.progress || typeof envelope.progress !== 'object') return false
+  const progress = envelope.progress as Record<string, unknown>
+  return progress.provider === 'tempo' &&
+    typeof progress.coveredMs === 'number' && typeof progress.totalMs === 'number' &&
+    typeof progress.completedChunks === 'number' && typeof progress.pendingChunks === 'number' &&
+    typeof progress.queriesCompleted === 'number' && typeof progress.tracesFound === 'number' &&
+    Array.isArray(progress.rows)
 }
 
 contextBridge.exposeInMainWorld('datakoala', api)

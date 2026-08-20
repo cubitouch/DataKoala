@@ -14,7 +14,10 @@ export class PrometheusAdapter implements DataSourceAdapter {
   readonly kind = 'prometheus' as const
   private readonly discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult>
   private readonly createTransport: (context?: string, datasourceUid?: string) => PrometheusTransport
-  constructor(discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult> = discoverPrometheus, createTransport: (context?: string, datasourceUid?: string) => PrometheusTransport = (context, datasourceUid) => new GcxPrometheusTransport(context, undefined, datasourceUid)) { this.discover = discover; this.createTransport = createTransport }
+  constructor(
+    discover: (profile: PrometheusProfile['transport']) => Promise<PrometheusDiscoveryResult> = discoverPrometheus,
+    createTransport: (context?: string, datasourceUid?: string) => PrometheusTransport = (context, datasourceUid) => new GcxPrometheusTransport(context, undefined, datasourceUid)
+  ) { this.discover = discover; this.createTransport = createTransport }
   async test(profile: PrometheusProfile) {
     try {
       const result = await this.discover(profile.transport)
@@ -36,7 +39,7 @@ export class PrometheusAdapter implements DataSourceAdapter {
     const session: DataSourceSession = {
       info: { profileId: profile.id, provider: 'prometheus' }, capabilities,
       query: ({ sql, prometheus }) => {
-        if (!prometheus) throw new Error('Prometheus range queries require start, end, and step.')
+        if (!prometheus) throw new Error('Prometheus queries require a time range and resolution.')
         return transport.query({ expression: sql, ...prometheus })
       },
       listNamespaces: async () => [{ name: 'Metrics' }],

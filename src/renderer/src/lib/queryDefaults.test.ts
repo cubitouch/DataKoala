@@ -5,7 +5,9 @@ import { defaultQueryModeForDatasource, defaultQueryTextForDatasource } from './
 test('datasource defaults keep manual languages separate and prefer Builder when supported', () => {
   assert.equal(defaultQueryModeForDatasource('postgres'), 'builder')
   assert.equal(defaultQueryModeForDatasource('prometheus'), 'builder')
+  assert.equal(defaultQueryModeForDatasource('tempo'), 'builder')
   assert.equal(defaultQueryModeForDatasource(undefined, false), 'sql')
   assert.equal(defaultQueryTextForDatasource('postgres'), 'select now();')
   assert.equal(defaultQueryTextForDatasource('prometheus'), 'up')
+  assert.equal(defaultQueryTextForDatasource('tempo'), '{ duration > 100ms }')
 })
