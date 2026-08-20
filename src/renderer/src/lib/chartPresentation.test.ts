@@ -103,8 +103,13 @@ test('area presentation stacks Series and uses a filled line renderer', () => {
   assert.deepEqual(series.areaStyle, { opacity: 0.3 })
 })
 
-test('scatter uses the Line category axis semantics without connecting points', () => {
-  for (const labels of [['2026-01-01', '2026-01-02'], ['Alpha', 'Beta'], ['1', '2']]) {
+test('temporal scatter uses real time coordinates while categories retain category semantics', () => {
+  const temporalLabels = ['2026-01-01', '2026-01-02']
+  const temporal = buildChartPresentationOptions({ labels: temporalLabels, series: [{ name: 'A', data: [2, 4] }], view: 'scatter', hasSeriesColumn: false, mode: 'sql' })
+  assert.equal((temporal.xAxis as { type: string }).type, 'time')
+  assert.deepEqual((temporal.series as Array<{ data: unknown[] }>)[0].data, [[temporalLabels[0], 2], [temporalLabels[1], 4]])
+
+  for (const labels of [['Alpha', 'Beta'], ['1', '2']]) {
     const options = buildChartPresentationOptions({ labels, series: [{ name: 'A', data: [2, 4] }], view: 'scatter', hasSeriesColumn: false, mode: 'sql' })
     const xAxis = options.xAxis as { type: string; data: string[] }
     assert.equal(xAxis.type, 'category')
