@@ -34,6 +34,24 @@ function searchResponse(rows: Array<{ id: number; startTimeMs: number; status?: 
   }
 }
 
+function rootStatusResponse(id: number, status: 'ok' | 'error') {
+  return {
+    stdout: JSON.stringify({ traces: [{
+      traceID: traceId(id),
+      rootServiceName: 'checkout',
+      rootTraceName: 'POST /checkout',
+      startTimeMs: startMs + 100,
+      durationMs: 400,
+      spanSets: [{ spans: [{
+        spanID: 'aaaaaaaaaaaaaaaa',
+        startTimeUnixNano: String(BigInt(startMs + 100) * 1_000_000n),
+        attributes: { 'span:status': status }
+      }] }]
+    }] }),
+    stderr: ''
+  }
+}
+
 test('exhaustive Tempo search bisects saturated windows until the whole selected period is covered', async () => {
   const calls: string[][] = []
   const progress: TempoSearchProgress[] = []
@@ -53,7 +71,7 @@ test('exhaustive Tempo search bisects saturated windows until the whole selected
     if (!page) throw new Error(`Unexpected Tempo page ${JSON.stringify(bounds)}`)
     return page
   }
-  const request: TempoQueryContext = { start, end, onProgress: (update) => progress.push(update) }
+  const request: TempoQueryContext = { start, end, includeStatus: false, onProgress: (update) => progress.push(update) }
 
   const result = await new ProgressiveGcxTempoTransport('production', run, undefined, {
     pageLimit: 2,
@@ -65,7 +83,7 @@ test('exhaustive Tempo search bisects saturated windows until the whole selected
   assert.ok(calls.every((args) => args.includes('--context') && args.includes('production')))
   assert.deepEqual(result.rows.map((row) => row.traceId), [traceId(4), traceId(3), traceId(2), traceId(1)])
   assert.equal(result.rowCount, 4)
-  assert.match(result.notice ?? '', /complete period · 4 traces · 7 queries/)
+  assert.match(result.notice ?? '', /complete period · 4 traces · 7 search queries/)
   assert.equal(progress.length, 7)
   assert.equal(progress[0].coveredMs, 0)
   assert.equal(progress[0].totalMs, 8_000)
@@ -109,12 +127,13 @@ test('a saturated minimum time slice grows its limit until the dense interval is
     maxDenseLimit: 8
   }).search('{ true }', {
     start,
-    end: '2026-08-18T00:00:01.000Z'
+    end: '2026-08-18T00:00:01.000Z',
+    includeStatus: false
   })
 
   assert.deepEqual(limits, [2, 4])
   assert.equal(result.rowCount, 3)
-  assert.match(result.notice ?? '', /complete period · 3 traces · 2 queries/)
+  assert.match(result.notice ?? '', /complete period · 3 traces · 2 search queries/)
 })
 
 test('sub-second selected ranges never collapse to equal Tempo start/end seconds', async () => {
@@ -143,6 +162,7 @@ test('sub-second selected ranges never collapse to equal Tempo start/end seconds
   const request: TempoQueryContext = {
     start: exactStart,
     end: exactEnd,
+    includeStatus: false,
     onProgress: (update) => progress.push(update)
   }
 
@@ -154,39 +174,34 @@ test('sub-second selected ranges never collapse to equal Tempo start/end seconds
 
   assert.deepEqual(calls.map((args) => queryBounds(args).limit), [2, 4])
   assert.deepEqual(result.rows.map((row) => row.traceId), [traceId(2)])
-  assert.match(result.notice ?? '', /complete period · 1 traces · 2 queries/)
+  assert.match(result.notice ?? '', /complete period · 1 traces · 2 search queries/)
   assert.equal(progress.at(-1)?.totalMs, 500)
   assert.equal(progress.at(-1)?.coveredMs, 500)
   assert.equal(progress.at(-1)?.tracesFound, 1)
 })
 
-test('explicit status enrichment runs once per final unknown trace after exhaustive pagination', async () => {
+test('root status enrichment is automatic, batched, and does not fetch full traces', async () => {
   const calls: string[][] = []
-  const id = traceId(9)
+  const progress: TempoSearchProgress[] = []
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
-    if (args[1] === 'query') return searchResponse([{ id: 9, startTimeMs: startMs + 100 }])
-    return {
-      stdout: JSON.stringify({ spans: [{
-        traceId: id,
-        spanId: 'aaaaaaaaaaaaaaaa',
-        serviceName: 'checkout',
-        name: 'POST /checkout',
-        startTimeMs: startMs + 100,
-        durationMs: 400,
-        status: { code: 2 }
-      }] }),
-      stderr: ''
-    }
+    if (args[2]?.includes('!>>')) return rootStatusResponse(9, 'ok')
+    return searchResponse([{ id: 9, startTimeMs: startMs + 100, status: 'error' }])
   }
 
   const result = await new ProgressiveGcxTempoTransport(undefined, run, undefined, {
     pageLimit: 2
-  }).search('{ true }', { start, end, includeStatus: true })
+  }).search('{ true }', { start, end, onProgress: (update) => progress.push(update) })
 
-  assert.equal(calls.filter((args) => args[1] === 'query').length, 1)
-  assert.equal(calls.filter((args) => args[1] === 'get').length, 1)
-  assert.equal(result.rows[0].status, 'error')
+  assert.equal(calls.filter((args) => args[1] === 'query').length, 2)
+  assert.equal(calls.filter((args) => args[1] === 'get').length, 0)
+  assert.match(calls[1][2], /trace:id =~/)
+  assert.match(calls[1][2], /!>>/)
+  assert.equal(result.rows[0].status, 'ok')
+  assert.match(result.notice ?? '', /1 search query · 1 root-status query/)
+  assert.equal(progress.length, 2)
+  assert.equal(progress.at(-1)?.queriesCompleted, 2)
+  assert.equal(progress.at(-1)?.rows[0].status, 'ok')
 })
 
 test('dense windows fail explicitly rather than silently claiming an incomplete period is complete', async () => {
@@ -200,7 +215,7 @@ test('dense windows fail explicitly rather than silently claiming an incomplete 
       pageLimit: 2,
       minSliceMs: 1_000,
       maxDenseLimit: 4
-    }).search('{ true }', { start, end: '2026-08-18T00:00:01.000Z' }),
+    }).search('{ true }', { start, end: '2026-08-18T00:00:01.000Z', includeStatus: false }),
     /cannot guarantee complete-period results/
   )
 })
