@@ -8,11 +8,11 @@ import {
 } from './gcx-tempo-transport.ts'
 import { runGcxCommand, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
 import { applyTempoSearchStatuses, ensureTempoSearchStatusSelection } from './tempo-search-status.ts'
+import { enrichTempoRootStatuses } from './tempo-root-status.ts'
 
 const TRACE_ID = /^[0-9a-f]{32}$/i
 const PROVIDER_TIME_PRECISION_MS = 1_000
 const MAX_SAMPLE_SIZE = 10_000
-const STATUS_CONCURRENCY = 4
 
 function text(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
@@ -61,31 +61,15 @@ function sampleSize(value: number): number {
   return value
 }
 
-function canonicalTraceId(value: unknown): string | null {
-  const traceId = text(value).trim().toLowerCase()
-  if (!/^[0-9a-f]{1,32}$/.test(traceId)) return null
-  return traceId.padStart(32, '0')
-}
-
-async function mapConcurrent<T, R>(values: T[], concurrency: number, mapper: (value: T) => Promise<R>): Promise<R[]> {
-  const output = new Array<R>(values.length)
-  let nextIndex = 0
-  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
-    while (true) {
-      const index = nextIndex++
-      if (index >= values.length) return
-      output[index] = await mapper(values[index])
-    }
-  })
-  await Promise.all(workers)
-  return output
-}
-
 /**
  * Adds an intentionally bounded trace-search mode in front of the exhaustive Tempo
  * transport. Tempo selection searches do not support the sampling hints available to
  * TraceQL metrics queries, so a sample is a single whole-range search with a finite
  * result budget. Choosing no sampleSize preserves the exhaustive adaptive paginator.
+ *
+ * Root-span status is resolved by default in batched TraceQL queries after summaries
+ * arrive. This avoids one full `traces get` per point while still giving the scatter an
+ * actual success/error classification before the user opens a trace.
  */
 export class SamplingGcxTempoTransport implements TempoTransport {
   private readonly exhaustive: ProgressiveGcxTempoTransport
@@ -115,22 +99,6 @@ export class SamplingGcxTempoTransport implements TempoTransport {
     const query = value.trim()
     if (!query) throw new Error('Enter a TraceQL query or trace ID.')
     return TRACE_ID.test(query) ? this.get(query) : this.search(query, request)
-  }
-
-  private async enrichStatuses(result: QueryResult): Promise<QueryResult> {
-    const rows = await mapConcurrent(result.rows, STATUS_CONCURRENCY, async (row) => {
-      if (text(row.status).toLowerCase() !== 'unknown') return row
-      const traceId = canonicalTraceId(row.traceId)
-      if (!traceId) return row
-      try {
-        const trace = await this.get(traceId)
-        const hasError = trace.rows.some((span) => text(span.status).toUpperCase().includes('ERROR'))
-        return { ...row, status: hasError ? 'error' : 'ok' }
-      } catch {
-        return row
-      }
-    })
-    return { ...result, rows }
   }
 
   async search(expression: string, request?: TempoQueryRequest): Promise<QueryResult> {
@@ -169,7 +137,7 @@ export class SamplingGcxTempoTransport implements TempoTransport {
       rows,
       rowCount: rows.length,
       durationMs,
-      notice: `Tempo search · ${rangeLabel(request)} · sample up to ${limit} traces · ${rows.length} returned · 1 query`,
+      notice: `Tempo search · ${rangeLabel(request)} · sample up to ${limit} traces · ${rows.length} returned · 1 search query`,
       execution: { provider: 'tempo', durationMs, rowCount: rows.length }
     }
 
@@ -189,12 +157,34 @@ export class SamplingGcxTempoTransport implements TempoTransport {
       } catch { /* progress reporting must never fail the query */ }
     }
 
-    if (request.includeStatus) {
-      result = await this.enrichStatuses(result)
+    // Resolve the actual root-span outcome by default. `includeStatus: false` remains an
+    // escape hatch for callers that explicitly want summary-only behavior.
+    if (request.includeStatus !== false && rows.length > 0) {
+      const enrichment = await enrichTempoRootStatuses(result, request, this.run, {
+        context: this.context,
+        datasourceUid: this.datasourceUid,
+        onProgress: (progress) => {
+          if (!context.onProgress) return
+          try {
+            context.onProgress({
+              provider: 'tempo',
+              coveredMs: 0,
+              totalMs: exactBounds.endMs - exactBounds.startMs,
+              completedChunks: 1,
+              pendingChunks: 0,
+              queriesCompleted: 1 + progress.queriesCompleted,
+              tracesFound: rows.length,
+              rows: progress.rows
+            })
+          } catch { /* progress reporting must never fail the query */ }
+        }
+      })
+      result = enrichment.result
       const enrichedDurationMs = Date.now() - started
       result = {
         ...result,
         durationMs: enrichedDurationMs,
+        notice: `${result.notice} · ${enrichment.queriesCompleted} root-status ${enrichment.queriesCompleted === 1 ? 'query' : 'queries'}`,
         execution: { provider: 'tempo', durationMs: enrichedDurationMs, rowCount: result.rows.length }
       }
     }
