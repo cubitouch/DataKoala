@@ -73,25 +73,27 @@ gcloud config set project YOUR_PROJECT_ID
 
 DataKoala does not store Google Cloud credentials itself; it uses the credentials exposed by the Google Cloud authentication flow.
 
-### Using Prometheus / Tempo / Grafana?
+### Using Tempo or Grafana-backed Prometheus?
 
-`gcx` is required for Tempo trace connections and is also used for Grafana and Grafana Cloud-backed Prometheus connections. On macOS, the Prometheus formula additionally provides `promtool`, which DataKoala can use for PromQL formatting:
+Tempo connections require Grafana's `gcx` CLI. Grafana and Grafana Cloud-backed Prometheus connections also use `gcx`.
+
+On macOS:
 
 ```bash
-brew install prometheus
 brew install grafana/grafana/gcx
 
-promtool --version
 gcx --version
-```
-
-Authenticate `gcx` before starting DataKoala, for example:
-
-```bash
 gcx login my-stack --server https://<your-stack>.grafana.net
 ```
 
-Tempo needs `gcx`, but does not need `promtool`. If `promtool` is installed somewhere outside your `PATH`, set `DATAKOALA_PROMTOOL_PATH`:
+If you also use Prometheus, `promtool` is optional and only used by DataKoala for PromQL formatting. On macOS it is provided by the Prometheus Homebrew formula:
+
+```bash
+brew install prometheus
+promtool --version
+```
+
+If `promtool` is installed somewhere outside your `PATH`, set `DATAKOALA_PROMTOOL_PATH`:
 
 ```bash
 DATAKOALA_PROMTOOL_PATH=/path/to/promtool pnpm dev
