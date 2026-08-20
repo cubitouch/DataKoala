@@ -288,8 +288,34 @@
   color: var(--text-mute);
   font-weight: 600;
 }
-.waterfallHeader span { padding: 7px 10px; }
-.waterfallHeader span + span { border-left: 1px solid var(--border); }
+.waterfallHeader > span,
+.waterfallHeader > div { padding: 7px 10px; }
+.waterfallHeader > * + * { border-left: 1px solid var(--border); }
+.timelineHeader {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.timelineDescription {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.timelineTicks {
+  position: relative;
+  height: 13px;
+  font-weight: 400;
+}
+.timelineTicks > span {
+  position: absolute;
+  bottom: 0;
+  padding: 0;
+  color: var(--text-mute);
+  font-size: 9px;
+  white-space: nowrap;
+}
 .spanRow {
   width: 100%;
   min-height: 32px;
