@@ -18,6 +18,11 @@ export interface TempoRootStatusOptions {
   onProgress?: (progress: TempoRootStatusProgress) => void
 }
 
+interface RootStatusTarget {
+  canonicalTraceId: string
+  providerTraceId: string
+}
+
 const DEFAULT_BATCH_SIZE = 100
 const PROVIDER_TIME_PRECISION_MS = 1_000
 
@@ -154,9 +159,11 @@ function commonArgs(options: TempoRootStatusOptions): string[] {
 }
 
 function rootQuery(traceIds: string[]): string {
-  // TraceQL structural operators return matches from the right-hand side. With the same
-  // trace-id set on both sides, "not descendant" selects the root span(s) of those exact
-  // traces. Hex IDs are regex-safe, and TraceQL regexes are fully anchored.
+  // Structural operators return matches from the right-hand side. With the same
+  // trace-id set on both sides, "not descendant" selects the root span(s) of those
+  // exact traces. Use the IDs exactly as Tempo returned them: Tempo search summaries
+  // may omit leading zero padding, while direct trace retrieval needs the canonical
+  // 32-character form. Querying only the padded form can therefore miss every root.
   const traceIdRegex = traceIds.join('|')
   const selector = `{ trace:id =~ ${JSON.stringify(traceIdRegex)} }`
   return `${selector} !>> ${selector} | select(span:status)`
@@ -169,29 +176,30 @@ export async function enrichTempoRootStatuses(
   options: TempoRootStatusOptions = {}
 ): Promise<{ result: QueryResult; queriesCompleted: number; checked: number }> {
   const rowsById = new Map<string, Record<string, unknown>>()
-  const order: string[] = []
+  const targets: RootStatusTarget[] = []
   for (const row of result.rows) {
-    const traceId = canonicalTraceId(row.traceId)
-    if (!traceId) continue
-    rowsById.set(traceId, row)
-    order.push(traceId)
+    const providerTraceId = text(row.traceId).trim().toLowerCase()
+    const canonical = canonicalTraceId(providerTraceId)
+    if (!canonical) continue
+    rowsById.set(canonical, row)
+    targets.push({ canonicalTraceId: canonical, providerTraceId })
   }
-  if (!order.length) return { result, queriesCompleted: 0, checked: 0 }
+  if (!targets.length) return { result, queriesCompleted: 0, checked: 0 }
 
   const batchSize = Math.max(1, Math.min(500, Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE)))
   const range = providerRange(request)
   let checked = 0
   let queriesCompleted = 0
 
-  for (const traceIds of batches(order, batchSize)) {
+  for (const targetBatch of batches(targets, batchSize)) {
     let statuses = new Map<string, TempoRootStatus>()
     try {
       const args = [
-        'traces', 'query', rootQuery(traceIds),
+        'traces', 'query', rootQuery(targetBatch.map((target) => target.providerTraceId)),
         ...commonArgs(options),
         '--from', range.start,
         '--to', range.end,
-        '--limit', String(traceIds.length),
+        '--limit', String(targetBatch.length),
         '-o', 'json'
       ]
       const response = await run(args)
@@ -201,23 +209,25 @@ export async function enrichTempoRootStatuses(
       // trace search results. Leave those points Unknown and let direct trace open retry.
     }
     queriesCompleted += 1
-    checked += traceIds.length
+    checked += targetBatch.length
 
     const changed: Record<string, unknown>[] = []
-    for (const traceId of traceIds) {
-      const row = rowsById.get(traceId)
+    for (const target of targetBatch) {
+      const row = rowsById.get(target.canonicalTraceId)
       if (!row) continue
-      const rootStatus = statuses.get(traceId) ?? 'unknown'
+      const rootStatus = statuses.get(target.canonicalTraceId) ?? 'unknown'
       const next = rootStatus === 'unknown' ? row : { ...row, status: rootStatus }
-      rowsById.set(traceId, next)
+      rowsById.set(target.canonicalTraceId, next)
       changed.push(next)
     }
     try {
-      options.onProgress?.({ rows: changed, checked, total: order.length, queriesCompleted })
+      options.onProgress?.({ rows: changed, checked, total: targets.length, queriesCompleted })
     } catch { /* progress reporting must never fail the query */ }
   }
 
-  const rows = order.map((traceId) => rowsById.get(traceId)).filter((row): row is Record<string, unknown> => !!row)
+  const rows = targets
+    .map((target) => rowsById.get(target.canonicalTraceId))
+    .filter((row): row is Record<string, unknown> => !!row)
   return {
     result: { ...result, rows, rowCount: rows.length },
     queriesCompleted,
