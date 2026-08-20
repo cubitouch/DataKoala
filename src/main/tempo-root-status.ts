@@ -102,11 +102,12 @@ function matchingSpans(trace: Record<string, unknown>): Record<string, unknown>[
     spans.push(...set.spans.filter(isRecord))
   }
   return spans.sort((left, right) => {
-    const leftStart = text(left.startTimeUnixNano ?? left.startTimeUnixNanos)
-    const rightStart = text(right.startTimeUnixNano ?? right.startTimeUnixNanos)
-    if (leftStart && rightStart) {
-      try { return Number(BigInt(leftStart) - BigInt(rightStart)) } catch { /* fall through */ }
-    }
+    // Epoch nanoseconds exceed JavaScript's safe-integer precision, but Number still
+    // preserves their ordering at the scale needed here. Root queries should normally
+    // return a single span; this is only a deterministic fallback for provider variants.
+    const leftNano = number(left.startTimeUnixNano ?? left.startTimeUnixNanos)
+    const rightNano = number(right.startTimeUnixNano ?? right.startTimeUnixNanos)
+    if (leftNano || rightNano) return leftNano - rightNano
     return number(left.startTimeMs) - number(right.startTimeMs)
   })
 }
