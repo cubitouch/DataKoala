@@ -3,6 +3,8 @@ import { summarizeTooltipRows } from './chartTooltip.ts'
 import { prepareLogScaleSeries, type ValueAxisScale } from './chartAxisScale.ts'
 import type { ChartAnomaly } from './chartAnomalies.ts'
 import type { HierarchyNode } from './chartHierarchy.ts'
+import { prometheusRangeBounds } from './prometheusTimeRange.ts'
+import { selectActiveSession, useStore } from '../store/useStore.ts'
 
 export type TimeDisplayPrecision = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
 
@@ -116,6 +118,24 @@ interface PresentationInput {
   hierarchy?: HierarchyNode[]
 }
 
+function selectedTimeDomain(input: PresentationInput): { min: number; max: number } | null {
+  const state = useStore.getState()
+  const session = selectActiveSession(state)
+  const profile = state.profiles.find((candidate) => candidate.id === session.connectionProfileId)
+  const range = profile?.kind === 'prometheus'
+    ? session.prometheusTimeRange
+    : input.mode === 'builder' && input.timeBucket ? session.builder.timeRange : undefined
+  if (!range || range.kind === 'all') return null
+  try {
+    const bounds = prometheusRangeBounds(range)
+    const min = Date.parse(bounds.start)
+    const max = Date.parse(bounds.end)
+    return Number.isFinite(min) && Number.isFinite(max) && max > min ? { min, max } : null
+  } catch {
+    return null
+  }
+}
+
 export function buildChartPresentationOptions(input: PresentationInput): Record<string, unknown> {
   if (input.view === 'treemap' || input.view === 'sunburst') {
     const total = (input.hierarchy ?? []).reduce((sum, node) => sum + node.value, 0)
@@ -142,6 +162,8 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     }
   }
   const precision = input.mode === 'builder' ? input.timeBucket as TimeDisplayPrecision : inferTimeDisplayPrecision(input.labels)
+  const temporal = Boolean(precision && input.labels.length && input.labels.every((label) => dateValue(label)))
+  const domain = temporal ? selectedTimeDomain(input) : null
   const formatLabel = precision ? (value: unknown) => formatTimeBucketLabel(value, precision) : (value: unknown) => String(value)
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
   return {
@@ -176,7 +198,9 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     },
     legend: { top: 4, left: 8, right: 150, type: 'scroll', selected: input.visibility, textStyle: { color: '#9aa0b0' } },
     grid: { left: 50, right: 24, top: 42, bottom: 45 },
-    xAxis: { type: 'category', data: input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
+    xAxis: temporal
+      ? { type: 'time', ...(domain ?? {}), axisLabel: { color: '#9aa0b0', formatter: formatLabel } }
+      : { type: 'category', data: input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
     yAxis: { type: input.valueAxisScale === 'log' ? 'log' : 'value', axisLabel: { color: '#9aa0b0', formatter: formatChartNumber } },
     ...(input.rangeSelectionEnabled ? {
       toolbox: { show: false },
@@ -185,14 +209,14 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     series: renderedSeries.map((series) => ({
       ...series, missing: undefined,
       type: input.view === 'area' ? 'line' : input.view,
-      data: series.data,
+      data: temporal ? series.data.map((value, index) => [input.labels[index], value]) : series.data,
       stack: (input.view === 'bar' || input.view === 'area') && input.hasSeriesColumn ? 'total' : undefined,
       areaStyle: input.view === 'area' ? { opacity: 0.3 } : undefined,
       smooth: input.view === 'line' || input.view === 'area', connectNulls: false, showSymbol: input.view === 'line', symbolSize: input.view === 'scatter' ? 8 : 6,
       markPoint: input.view === 'line' ? {
         silent: true, symbol: 'circle', symbolSize: 13,
         label: { show: false }, itemStyle: { color: 'transparent', borderColor: '#f59e0b', borderWidth: 3 },
-        data: (input.anomalies ?? []).filter((anomaly) => anomaly.seriesName === series.name && (input.valueAxisScale !== 'log' || anomaly.value > 0)).map((anomaly) => ({ coord: [anomaly.dataIndex, anomaly.value], name: 'Anomaly' }))
+        data: (input.anomalies ?? []).filter((anomaly) => anomaly.seriesName === series.name && (input.valueAxisScale !== 'log' || anomaly.value > 0)).map((anomaly) => ({ coord: [temporal ? input.labels[anomaly.dataIndex] : anomaly.dataIndex, anomaly.value], name: 'Anomaly' }))
       } : undefined
     }))
   }
