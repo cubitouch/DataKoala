@@ -7,7 +7,10 @@ export interface VisibleTraceSpan {
   hasChildren: boolean
 }
 
+export type TraceResultStatus = 'ok' | 'error' | 'unknown'
+
 const SPAN_KIND_ORDER = ['SERVER', 'CLIENT', 'PRODUCER', 'CONSUMER', 'INTERNAL', 'UNSPECIFIED']
+const ASYNC_SPAN_KINDS = new Set(['PRODUCER', 'CONSUMER'])
 
 function text(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
@@ -22,6 +25,22 @@ export function canonicalTraceId(value: unknown): string | null {
   const traceId = text(value).trim().toLowerCase()
   if (!/^[0-9a-f]{1,32}$/.test(traceId)) return null
   return traceId.padStart(32, '0')
+}
+
+export function traceResultStatus(row: TraceRow): TraceResultStatus {
+  const value = text(row.status).trim().toLowerCase()
+  if (value.includes('error') || value === 'failed' || value === 'failure') return 'error'
+  if (value === 'ok' || value.includes('success')) return 'ok'
+  return 'unknown'
+}
+
+export function openedTraceStatus(rows: TraceRow[]): TraceResultStatus {
+  if (!rows.length) return 'unknown'
+  const sorted = [...rows].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs))
+  const root = sorted.find((row) => !text(row.parentSpanId)) ?? sorted[0]
+  const rootStatus = traceResultStatus(root)
+  if (rootStatus !== 'unknown') return rootStatus
+  return sorted.some((row) => traceResultStatus(row) === 'error') ? 'error' : 'unknown'
 }
 
 export function traceSpanKind(row: TraceRow): string {
@@ -48,6 +67,36 @@ export function traceSpanKinds(rows: TraceRow[]): string[] {
     }
     return left.localeCompare(right)
   })
+}
+
+export function withoutAsyncTraceBranches(rows: TraceRow[]): TraceRow[] {
+  const byId = new Map<string, TraceRow>()
+  const children = new Map<string, TraceRow[]>()
+  for (const row of rows) {
+    const id = text(row.spanId)
+    if (id) byId.set(id, row)
+  }
+  for (const row of rows) {
+    const parent = text(row.parentSpanId)
+    if (!parent || !byId.has(parent)) continue
+    const list = children.get(parent) ?? []
+    list.push(row)
+    children.set(parent, list)
+  }
+
+  const hidden = new Set<string>()
+  const hideBranch = (row: TraceRow) => {
+    const id = text(row.spanId)
+    if (!id || hidden.has(id)) return
+    hidden.add(id)
+    for (const child of children.get(id) ?? []) hideBranch(child)
+  }
+
+  for (const row of rows) {
+    if (!text(row.parentSpanId)) continue
+    if (ASYNC_SPAN_KINDS.has(traceSpanKind(row))) hideBranch(row)
+  }
+  return rows.filter((row) => !hidden.has(text(row.spanId)))
 }
 
 export function visibleSpanCount(rows: TraceRow[], hiddenKinds: Set<string>): number {
