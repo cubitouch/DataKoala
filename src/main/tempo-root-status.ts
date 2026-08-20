@@ -30,11 +30,6 @@ function text(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
 }
 
-function number(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
@@ -50,55 +45,17 @@ function traceIdHint(value: string): string {
   return `${value.length}:${value.slice(0, 6)}…${value.slice(-6)}`
 }
 
+function statusValue(value: unknown): TempoRootStatus {
+  const normalized = text(value).trim().toLowerCase()
+  if (normalized === 'error' || normalized === 'failed' || normalized === 'failure' || normalized === '2') return 'error'
+  if (normalized === 'ok' || normalized === 'success' || normalized === '1') return 'ok'
+  return 'unknown'
+}
+
 function statusCounts(statuses: Iterable<TempoRootStatus>): { ok: number; error: number; unknown: number } {
   const counts = { ok: 0, error: 0, unknown: 0 }
   for (const status of statuses) counts[status] += 1
   return counts
-}
-
-function statusValue(value: unknown): TempoRootStatus {
-  if (isRecord(value) && 'code' in value) return statusValue(value.code)
-  if (typeof value === 'number') {
-    if (value === 2) return 'error'
-    if (value === 1) return 'ok'
-    return 'unknown'
-  }
-  const normalized = text(value).trim().toLowerCase()
-  if (!normalized) return 'unknown'
-  if (normalized === '2' || normalized.includes('error') || normalized === 'failed' || normalized === 'failure') return 'error'
-  if (normalized === '1' || normalized.includes('status_code_ok') || normalized === 'ok' || normalized === 'success') return 'ok'
-  return 'unknown'
-}
-
-function decodeValue(value: unknown): unknown {
-  if (!isRecord(value)) return value
-  for (const key of ['stringValue', 'boolValue', 'intValue', 'doubleValue']) {
-    if (key in value) return value[key]
-  }
-  if ('value' in value) return decodeValue(value.value)
-  return value
-}
-
-function attributes(value: unknown): Record<string, unknown> {
-  if (isRecord(value)) return value
-  if (!Array.isArray(value)) return {}
-  const result: Record<string, unknown> = {}
-  for (const item of value) {
-    if (!isRecord(item) || typeof item.key !== 'string') continue
-    result[item.key] = decodeValue(item.value)
-  }
-  return result
-}
-
-function spanStatus(span: Record<string, unknown>): TempoRootStatus {
-  const direct = statusValue(span.status ?? span.statusCode ?? span.status_code)
-  if (direct !== 'unknown') return direct
-  const values = attributes(span.attributes ?? span.tags)
-  for (const key of ['span:status', 'status', 'span.status']) {
-    const status = statusValue(values[key])
-    if (status !== 'unknown') return status
-  }
-  return 'unknown'
 }
 
 function traceRows(raw: unknown): Record<string, unknown>[] {
@@ -109,34 +66,13 @@ function traceRows(raw: unknown): Record<string, unknown>[] {
   return traces.filter(isRecord)
 }
 
-function matchingSpans(trace: Record<string, unknown>): Record<string, unknown>[] {
-  const spanSets = trace.spanSets ?? trace.spanSet
-  const sets = Array.isArray(spanSets) ? spanSets : spanSets ? [spanSets] : []
-  const spans: Record<string, unknown>[] = []
-  for (const set of sets) {
-    if (!isRecord(set) || !Array.isArray(set.spans)) continue
-    spans.push(...set.spans.filter(isRecord))
-  }
-  return spans.sort((left, right) => {
-    // Epoch nanoseconds exceed JavaScript's safe-integer precision, but Number still
-    // preserves their ordering at the scale needed here. Root queries should normally
-    // return a single span; this is only a deterministic fallback for provider variants.
-    const leftNano = number(left.startTimeUnixNano ?? left.startTimeUnixNanos)
-    const rightNano = number(right.startTimeUnixNano ?? right.startTimeUnixNanos)
-    if (leftNano || rightNano) return leftNano - rightNano
-    return number(left.startTimeMs) - number(right.startTimeMs)
-  })
-}
-
-export function parseTempoRootStatuses(raw: unknown): Map<string, TempoRootStatus> {
-  const statuses = new Map<string, TempoRootStatus>()
+function traceIdsFromSearch(raw: unknown): Set<string> {
+  const traceIds = new Set<string>()
   for (const trace of traceRows(raw)) {
     const traceId = canonicalTraceId(trace.traceID ?? trace.traceId ?? trace.trace_id)
-    if (!traceId) continue
-    const root = matchingSpans(trace)[0]
-    statuses.set(traceId, root ? spanStatus(root) : 'unknown')
+    if (traceId) traceIds.add(traceId)
   }
-  return statuses
+  return traceIds
 }
 
 function parseJson(value: string): unknown {
@@ -169,15 +105,15 @@ function commonArgs(options: TempoRootStatusOptions): string[] {
   ]
 }
 
-function rootQuery(traceIds: string[]): string {
-  // Structural operators return matches from the right-hand side. With the same
-  // trace-id set on both sides, "not descendant" selects the root span(s) of those
-  // exact traces. Use the IDs exactly as Tempo returned them: Tempo search summaries
-  // may omit leading zero padding, while direct trace retrieval needs the canonical
-  // 32-character form. Querying only the padded form can therefore miss every root.
+function rootStatusQuery(traceIds: string[], status: 'error' | 'ok'): string {
+  // Tempo can return the correct root span for `select(span:status)` while omitting
+  // the selected intrinsic from search metadata. Classify by membership instead:
+  // the RHS is restricted to a status and !>> removes every matching descendant,
+  // leaving only roots whose own status has that value.
   const traceIdRegex = traceIds.join('|')
-  const selector = `{ trace:id =~ ${JSON.stringify(traceIdRegex)} }`
-  return `${selector} !>> ${selector} | select(span:status)`
+  const allSpans = `{ trace:id =~ ${JSON.stringify(traceIdRegex)} }`
+  const statusSpans = `{ trace:id =~ ${JSON.stringify(traceIdRegex)} && span:status = ${status} }`
+  return `${allSpans} !>> ${statusSpans}`
 }
 
 export async function enrichTempoRootStatuses(
@@ -214,47 +150,59 @@ export async function enrichTempoRootStatuses(
   })
 
   for (const targetBatch of batches(targets, batchSize)) {
-    const batchNumber = queriesCompleted + 1
-    let statuses = new Map<string, TempoRootStatus>()
-    try {
-      const args = [
-        'traces', 'query', rootQuery(targetBatch.map((target) => target.providerTraceId)),
-        ...commonArgs(options),
-        '--from', range.start,
-        '--to', range.end,
-        '--limit', String(targetBatch.length),
-        '-o', 'json'
-      ]
-      console.info('[tempo-status] root batch query', {
-        batch: batchNumber,
-        targets: targetBatch.length,
-        providerIdLengths: [...new Set(targetBatch.map((target) => target.providerTraceId.length))].sort((left, right) => left - right),
-        sampleIds: targetBatch.slice(0, 3).map((target) => traceIdHint(target.providerTraceId))
-      })
-      const response = await run(args)
-      const parsed = parseJson(response.stdout)
-      const providerTraces = traceRows(parsed)
-      statuses = parseTempoRootStatuses(parsed)
-      const unmatched = targetBatch.filter((target) => !statuses.has(target.canonicalTraceId))
-      console.info('[tempo-status] root batch response', {
-        batch: batchNumber,
-        stdoutBytes: response.stdout.length,
-        providerTraces: providerTraces.length,
-        parsedStatuses: statuses.size,
-        statuses: statusCounts(statuses.values()),
-        unmatched: unmatched.length,
-        unmatchedSample: unmatched.slice(0, 5).map((target) => traceIdHint(target.providerTraceId))
-      })
-    } catch (reason) {
-      console.warn('[tempo-status] root batch failed', {
-        batch: batchNumber,
-        targets: targetBatch.length,
-        error: reason instanceof Error ? reason.message : String(reason)
-      })
-      // Status enrichment is supplementary: a root-status failure must not discard valid
-      // trace search results. Leave those points Unknown and let direct trace open retry.
+    const batchNumber = Math.floor(checked / batchSize) + 1
+    const statuses = new Map<string, TempoRootStatus>()
+
+    const resolveStatus = async (status: 'error' | 'ok', candidates: RootStatusTarget[]) => {
+      if (!candidates.length) return
+      const queryNumber = queriesCompleted + 1
+      try {
+        const args = [
+          'traces', 'query', rootStatusQuery(candidates.map((target) => target.providerTraceId), status),
+          ...commonArgs(options),
+          '--from', range.start,
+          '--to', range.end,
+          '--limit', String(candidates.length),
+          '-o', 'json'
+        ]
+        console.info('[tempo-status] root predicate query', {
+          batch: batchNumber,
+          query: queryNumber,
+          status,
+          targets: candidates.length,
+          providerIdLengths: [...new Set(candidates.map((target) => target.providerTraceId.length))].sort((left, right) => left - right),
+          sampleIds: candidates.slice(0, 3).map((target) => traceIdHint(target.providerTraceId))
+        })
+        const response = await run(args)
+        const parsed = parseJson(response.stdout)
+        const matchedIds = traceIdsFromSearch(parsed)
+        for (const traceId of matchedIds) statuses.set(traceId, status)
+        const unexpected = [...matchedIds].filter((traceId) => !candidates.some((target) => target.canonicalTraceId === traceId))
+        console.info('[tempo-status] root predicate response', {
+          batch: batchNumber,
+          query: queryNumber,
+          status,
+          stdoutBytes: response.stdout.length,
+          providerTraces: traceRows(parsed).length,
+          matched: matchedIds.size,
+          unexpected: unexpected.length
+        })
+      } catch (reason) {
+        console.warn('[tempo-status] root predicate failed', {
+          batch: batchNumber,
+          query: queryNumber,
+          status,
+          targets: candidates.length,
+          error: reason instanceof Error ? reason.message : String(reason)
+        })
+      } finally {
+        queriesCompleted += 1
+      }
     }
-    queriesCompleted += 1
+
+    await resolveStatus('error', targetBatch)
+    const unresolved = targetBatch.filter((target) => !statuses.has(target.canonicalTraceId))
+    await resolveStatus('ok', unresolved)
     checked += targetBatch.length
 
     const changed: Record<string, unknown>[] = []
@@ -266,14 +214,15 @@ export async function enrichTempoRootStatuses(
       const next = rootStatus === 'unknown' ? row : { ...row, status: rootStatus }
       rowsById.set(target.canonicalTraceId, next)
       changed.push(next)
-      changedStatuses.push(rootStatus)
+      changedStatuses.push(rootStatus === 'unknown' ? statusValue(next.status) : rootStatus)
     }
     console.info('[tempo-status] root batch merged', {
       batch: batchNumber,
       checked,
       total: targets.length,
       rows: changed.length,
-      statuses: statusCounts(changedStatuses)
+      rootStatuses: statusCounts(targetBatch.map((target) => statuses.get(target.canonicalTraceId) ?? 'unknown')),
+      resultStatuses: statusCounts(changedStatuses)
     })
     try {
       options.onProgress?.({ rows: changed, checked, total: targets.length, queriesCompleted })
@@ -288,12 +237,11 @@ export async function enrichTempoRootStatuses(
   const rows = targets
     .map((target) => rowsById.get(target.canonicalTraceId))
     .filter((row): row is Record<string, unknown> => !!row)
-  const finalStatuses = rows.map((row) => statusValue(row.status))
   console.info('[tempo-status] enrichment complete', {
     rows: rows.length,
     checked,
     queriesCompleted,
-    statuses: statusCounts(finalStatuses)
+    statuses: statusCounts(rows.map((row) => statusValue(row.status)))
   })
   return {
     result: { ...result, rows, rowCount: rows.length },
