@@ -95,11 +95,16 @@ test('trace timeline compression preserves order while shrinking long idle gaps'
   assert.ok(scale.offsetPercent(10) < scale.offsetPercent(420))
   assert.ok(scale.offsetPercent(420) < scale.offsetPercent(300_000))
   assert.ok(scale.widthPercent(10, 400) > 0)
+  assert.ok(Math.abs(scale.offsetPercent(scale.timeAtPercent(25)) - 25) < .001)
+  assert.ok(Math.abs(scale.offsetPercent(scale.timeAtPercent(75)) - 75) < .001)
+  assert.ok(scale.timeAtPercent(25) < scale.timeAtPercent(75))
 
   const wallClock = buildTraceTimelineScale(rows, false)
   assert.equal(wallClock.gaps.length, 0)
   assert.equal(wallClock.displayDurationMs, wallClock.wallDurationMs)
   assert.ok(wallClock.offsetPercent(420) < 1)
+  assert.equal(wallClock.timeAtPercent(0), 0)
+  assert.equal(wallClock.timeAtPercent(100), 300_100)
 })
 
 test('hiding a span kind promotes visible descendants to the nearest visible ancestor', () => {
