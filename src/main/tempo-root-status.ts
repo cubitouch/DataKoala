@@ -45,6 +45,17 @@ function canonicalTraceId(value: unknown): string | null {
   return traceId.padStart(32, '0')
 }
 
+function traceIdHint(value: string): string {
+  if (value.length <= 12) return `${value.length}:${value}`
+  return `${value.length}:${value.slice(0, 6)}…${value.slice(-6)}`
+}
+
+function statusCounts(statuses: Iterable<TempoRootStatus>): { ok: number; error: number; unknown: number } {
+  const counts = { ok: 0, error: 0, unknown: 0 }
+  for (const status of statuses) counts[status] += 1
+  return counts
+}
+
 function statusValue(value: unknown): TempoRootStatus {
   if (isRecord(value) && 'code' in value) return statusValue(value.code)
   if (typeof value === 'number') {
@@ -184,14 +195,26 @@ export async function enrichTempoRootStatuses(
     rowsById.set(canonical, row)
     targets.push({ canonicalTraceId: canonical, providerTraceId })
   }
-  if (!targets.length) return { result, queriesCompleted: 0, checked: 0 }
+  if (!targets.length) {
+    console.info('[tempo-status] no valid trace IDs available for root enrichment', { resultRows: result.rows.length })
+    return { result, queriesCompleted: 0, checked: 0 }
+  }
 
   const batchSize = Math.max(1, Math.min(500, Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE)))
   const range = providerRange(request)
   let checked = 0
   let queriesCompleted = 0
 
+  console.info('[tempo-status] enrichment start', {
+    targets: targets.length,
+    batchSize,
+    range,
+    providerIdLengths: [...new Set(targets.map((target) => target.providerTraceId.length))].sort((left, right) => left - right),
+    sampleIds: targets.slice(0, 3).map((target) => traceIdHint(target.providerTraceId))
+  })
+
   for (const targetBatch of batches(targets, batchSize)) {
+    const batchNumber = queriesCompleted + 1
     let statuses = new Map<string, TempoRootStatus>()
     try {
       const args = [
@@ -202,9 +225,32 @@ export async function enrichTempoRootStatuses(
         '--limit', String(targetBatch.length),
         '-o', 'json'
       ]
+      console.info('[tempo-status] root batch query', {
+        batch: batchNumber,
+        targets: targetBatch.length,
+        providerIdLengths: [...new Set(targetBatch.map((target) => target.providerTraceId.length))].sort((left, right) => left - right),
+        sampleIds: targetBatch.slice(0, 3).map((target) => traceIdHint(target.providerTraceId))
+      })
       const response = await run(args)
-      statuses = parseTempoRootStatuses(parseJson(response.stdout))
-    } catch {
+      const parsed = parseJson(response.stdout)
+      const providerTraces = traceRows(parsed)
+      statuses = parseTempoRootStatuses(parsed)
+      const unmatched = targetBatch.filter((target) => !statuses.has(target.canonicalTraceId))
+      console.info('[tempo-status] root batch response', {
+        batch: batchNumber,
+        stdoutBytes: response.stdout.length,
+        providerTraces: providerTraces.length,
+        parsedStatuses: statuses.size,
+        statuses: statusCounts(statuses.values()),
+        unmatched: unmatched.length,
+        unmatchedSample: unmatched.slice(0, 5).map((target) => traceIdHint(target.providerTraceId))
+      })
+    } catch (reason) {
+      console.warn('[tempo-status] root batch failed', {
+        batch: batchNumber,
+        targets: targetBatch.length,
+        error: reason instanceof Error ? reason.message : String(reason)
+      })
       // Status enrichment is supplementary: a root-status failure must not discard valid
       // trace search results. Leave those points Unknown and let direct trace open retry.
     }
@@ -212,6 +258,7 @@ export async function enrichTempoRootStatuses(
     checked += targetBatch.length
 
     const changed: Record<string, unknown>[] = []
+    const changedStatuses: TempoRootStatus[] = []
     for (const target of targetBatch) {
       const row = rowsById.get(target.canonicalTraceId)
       if (!row) continue
@@ -219,15 +266,35 @@ export async function enrichTempoRootStatuses(
       const next = rootStatus === 'unknown' ? row : { ...row, status: rootStatus }
       rowsById.set(target.canonicalTraceId, next)
       changed.push(next)
+      changedStatuses.push(rootStatus)
     }
+    console.info('[tempo-status] root batch merged', {
+      batch: batchNumber,
+      checked,
+      total: targets.length,
+      rows: changed.length,
+      statuses: statusCounts(changedStatuses)
+    })
     try {
       options.onProgress?.({ rows: changed, checked, total: targets.length, queriesCompleted })
-    } catch { /* progress reporting must never fail the query */ }
+    } catch (reason) {
+      console.warn('[tempo-status] progress callback failed', {
+        batch: batchNumber,
+        error: reason instanceof Error ? reason.message : String(reason)
+      })
+    }
   }
 
   const rows = targets
     .map((target) => rowsById.get(target.canonicalTraceId))
     .filter((row): row is Record<string, unknown> => !!row)
+  const finalStatuses = rows.map((row) => statusValue(row.status))
+  console.info('[tempo-status] enrichment complete', {
+    rows: rows.length,
+    checked,
+    queriesCompleted,
+    statuses: statusCounts(finalStatuses)
+  })
   return {
     result: { ...result, rows, rowCount: rows.length },
     queriesCompleted,
