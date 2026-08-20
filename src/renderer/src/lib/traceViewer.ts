@@ -23,6 +23,7 @@ export interface TraceTimelineScale {
   displayDurationMs: number
   gaps: TraceTimelineGap[]
   offsetPercent: (timeMs: number) => number
+  timeAtPercent: (percent: number) => number
   widthPercent: (startMs: number, durationMs: number) => number
 }
 
@@ -144,6 +145,7 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
       displayDurationMs: 0,
       gaps: [],
       offsetPercent: () => 0,
+      timeAtPercent: () => 0,
       widthPercent: () => 0
     }
   }
@@ -158,6 +160,7 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
     const percent = (timeMs: number) => wallDurationMs > 0
       ? Math.max(0, Math.min(100, ((timeMs - startMs) / wallDurationMs) * 100))
       : 0
+    const timeAtPercent = (value: number) => startMs + (Math.max(0, Math.min(100, value)) / 100) * wallDurationMs
     return {
       startMs,
       endMs,
@@ -165,6 +168,7 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
       displayDurationMs: wallDurationMs,
       gaps: [],
       offsetPercent: percent,
+      timeAtPercent,
       widthPercent: (spanStartMs, durationMs) => Math.max(0, percent(spanStartMs + Math.max(0, durationMs)) - percent(spanStartMs))
     }
   }
@@ -230,6 +234,21 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
   const offsetPercent = (timeMs: number) => displayDurationMs > 0
     ? Math.max(0, Math.min(100, (project(timeMs) / displayDurationMs) * 100))
     : 0
+  const timeAtPercent = (value: number) => {
+    if (displayDurationMs <= 0) return startMs
+    const target = (Math.max(0, Math.min(100, value)) / 100) * displayDurationMs
+    let low = startMs
+    let high = endMs
+    // Invert the monotonic piecewise projection. Thirty-two iterations are more
+    // precise than sub-millisecond over any practical trace duration while keeping
+    // the rendering helper independent of the gap representation details.
+    for (let iteration = 0; iteration < 32; iteration += 1) {
+      const middle = (low + high) / 2
+      if (project(middle) < target) low = middle
+      else high = middle
+    }
+    return (low + high) / 2
+  }
 
   return {
     startMs,
@@ -238,6 +257,7 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
     displayDurationMs,
     gaps,
     offsetPercent,
+    timeAtPercent,
     widthPercent: (spanStartMs, durationMs) => Math.max(
       0,
       offsetPercent(spanStartMs + Math.max(0, durationMs)) - offsetPercent(spanStartMs)
