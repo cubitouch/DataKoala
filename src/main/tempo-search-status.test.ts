@@ -38,7 +38,7 @@ test('Tempo search span sets mark known failed traces without claiming partial O
   assert.equal(annotated.rows[1].status, 'unknown')
 })
 
-test('progressive Tempo search annotates matched errors from one search request without trace get calls', async () => {
+test('progressive Tempo summary search annotates matched errors from one request without trace get calls', async () => {
   const calls: string[][] = []
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
@@ -62,9 +62,13 @@ test('progressive Tempo search annotates matched errors from one search request 
     }
   }
 
+  // This test isolates the immediate search-summary evidence path. The normal viewer
+  // now performs an additional batched root-status query by default; that behavior is
+  // covered separately by the progressive/sampling transport tests.
   const result = await new ProgressiveGcxTempoTransport(undefined, run).search('{ resource.service.name = "checkout" }', {
     start: '2026-08-18T00:00:00.000Z',
-    end: '2026-08-18T00:00:01.000Z'
+    end: '2026-08-18T00:00:01.000Z',
+    includeStatus: false
   })
 
   assert.equal(calls.length, 1)
