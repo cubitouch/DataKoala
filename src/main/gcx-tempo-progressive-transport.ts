@@ -13,13 +13,13 @@ import {
 } from './gcx-tempo-transport.ts'
 import { runGcxCommand, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
 import { applyTempoSearchStatuses, ensureTempoSearchStatusSelection } from './tempo-search-status.ts'
+import { enrichTempoRootStatuses } from './tempo-root-status.ts'
 
 const TRACE_ID = /^[0-9a-f]{32}$/i
 const DEFAULT_SEARCH_LIMIT = 100
 const PROVIDER_TIME_PRECISION_MS = 1_000
 const DEFAULT_MIN_SLICE_MS = PROVIDER_TIME_PRECISION_MS
 const DEFAULT_MAX_DENSE_LIMIT = 10_000
-const STATUS_CONCURRENCY = 4
 
 export interface ProgressiveTempoSearchOptions {
   pageLimit?: number
@@ -132,20 +132,6 @@ function emitProgress(listener: TempoSearchProgressListener | undefined, progres
   try { listener(progress) } catch { /* progress reporting must never fail the query */ }
 }
 
-async function mapConcurrent<T, R>(values: T[], concurrency: number, mapper: (value: T) => Promise<R>): Promise<R[]> {
-  const output = new Array<R>(values.length)
-  let nextIndex = 0
-  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
-    while (true) {
-      const index = nextIndex++
-      if (index >= values.length) return
-      output[index] = await mapper(values[index])
-    }
-  })
-  await Promise.all(workers)
-  return output
-}
-
 /**
  * Exhausts a ranged Tempo search despite gcx/Tempo exposing a result limit rather than
  * a cursor. A saturated time window is bisected on whole-second boundaries until each
@@ -217,21 +203,6 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
       normalizeTempoSearch(raw, 0, `${iso(window.startMs)} → ${iso(window.endMs)}`),
       raw
     )
-  }
-
-  private async enrichSearchStatuses(result: QueryResult): Promise<QueryResult> {
-    const rows = await mapConcurrent(result.rows, STATUS_CONCURRENCY, async (row) => {
-      const traceId = text(row.traceId)
-      if (text(row.status) !== 'unknown' || !TRACE_ID.test(traceId)) return row
-      try {
-        const trace = await this.get(traceId)
-        const hasError = trace.rows.some((span) => text(span.status).toUpperCase().includes('ERROR'))
-        return { ...row, status: hasError ? 'error' : 'ok' }
-      } catch {
-        return row
-      }
-    })
-    return { ...result, rows }
   }
 
   async search(expression: string, request?: TempoQueryRequest): Promise<QueryResult> {
@@ -309,16 +280,35 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
       rows,
       rowCount: rows.length,
       durationMs,
-      notice: `Tempo search · ${rangeLabel(request)} · complete period · ${rows.length} traces · ${queryCount} ${queryCount === 1 ? 'query' : 'queries'}`,
+      notice: `Tempo search · ${rangeLabel(request)} · complete period · ${rows.length} traces · ${queryCount} search ${queryCount === 1 ? 'query' : 'queries'}`,
       execution: { provider: 'tempo', durationMs, rowCount: rows.length }
     }
 
-    if (request.includeStatus) {
-      result = await this.enrichSearchStatuses(result)
+    // Root-span status is part of the normal viewer result now. Batched TraceQL root
+    // queries keep this practical even for All mode; callers can explicitly opt out.
+    if (request.includeStatus !== false && rows.length > 0) {
+      const enrichment = await enrichTempoRootStatuses(result, request, this.run, {
+        context: this.context,
+        datasourceUid: this.datasourceUid,
+        onProgress: (progress) => {
+          emitProgress(context.onProgress, {
+            provider: 'tempo',
+            coveredMs: totalMs,
+            totalMs,
+            completedChunks,
+            pendingChunks: 0,
+            queriesCompleted: queryCount + progress.queriesCompleted,
+            tracesFound: rows.length,
+            rows: progress.rows
+          })
+        }
+      })
+      result = enrichment.result
       const enrichedDurationMs = Date.now() - started
       result = {
         ...result,
         durationMs: enrichedDurationMs,
+        notice: `${result.notice} · ${enrichment.queriesCompleted} root-status ${enrichment.queriesCompleted === 1 ? 'query' : 'queries'}`,
         execution: { provider: 'tempo', durationMs: enrichedDurationMs, rowCount: result.rows.length }
       }
     }
