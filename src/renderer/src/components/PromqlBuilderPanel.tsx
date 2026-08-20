@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { selectActiveSession, useStore } from '../store/useStore'
 import { buildPromql, detectPromqlHistogramKind, resolvePromqlHistogramKind, validatePromqlBuilder, type PromqlAggregation, type PromqlCalculation, type PromqlHistogramKind, type PromqlHistogramKindOverride, type PromqlQuantile, type PromqlWindow } from '../lib/promqlBuilder'
-import { metricLabels, metricLabelValues } from '../lib/prometheusMetadata'
+import { metricLabels, metricLabelValues, prometheusMetadataError } from '../lib/prometheusMetadata'
 import { Combobox, MultiCombobox } from './ui/combobox'
 import { InfoTooltip } from './ui/InfoTooltip'
 import styles from './PromqlBuilderPanel.module.css'
@@ -35,10 +35,10 @@ export function PromqlBuilderPanel() {
   const setMode = useStore((state) => state.setQueryMode)
   const [labels, setLabels] = useState<string[]>([])
   const [loadingLabels, setLoadingLabels] = useState(false)
-  const [labelError, setLabelError] = useState(false)
+  const [labelError, setLabelError] = useState<string | null>(null)
   const [values, setValues] = useState<Record<string, string[]>>({})
   const [loadingValues, setLoadingValues] = useState<Record<string, boolean>>({})
-  const [valueErrors, setValueErrors] = useState<Record<string, boolean>>({})
+  const [valueErrors, setValueErrors] = useState<Record<string, string>>({})
   const builder = session.promqlBuilder
   const metrics = useMemo(() => (metadata?.schemas ?? []).flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'metric'), [metadata?.schemas])
   const selectedMetric = metrics.find((metric) => metric.name === builder.metric)
@@ -47,6 +47,7 @@ export function PromqlBuilderPanel() {
   const histogramKindOverride = builder.histogramKindOverride ?? 'auto'
   const histogramKind = resolvePromqlHistogramKind(detectedHistogramKind, histogramKindOverride)
   const previousHistogramKind = useRef(histogramKind)
+  const labelRequest = useRef(0)
   const metricOptions = metrics.map((metric) => ({ value: metric.name, label: metric.name, subtitle: metric.details?.kind === 'metric' ? metric.details.type : undefined }))
   const labelOptions = labels.filter((label) => label !== '__name__').sort((left, right) => left.localeCompare(right)).map((label) => ({ value: label, label }))
   const activeLabels = [...new Set([...builder.groupBy, ...builder.filterBy])]
@@ -62,12 +63,22 @@ export function PromqlBuilderPanel() {
   const loadValues = useCallback((label: string) => {
     if (!profileId || !builder.metric || !label || values[label] || loadingValues[label]) return
     setLoadingValues((current) => ({ ...current, [label]: true }))
-    setValueErrors((current) => ({ ...current, [label]: false }))
+    setValueErrors((current) => { const next = { ...current }; delete next[label]; return next })
     void metricLabelValues(profileId, builder.metric, label, connectionGeneration)
       .then((found) => setValues((current) => ({ ...current, [label]: found })))
-      .catch(() => setValueErrors((current) => ({ ...current, [label]: true })))
+      .catch((error) => setValueErrors((current) => ({ ...current, [label]: prometheusMetadataError(error).message })))
       .finally(() => setLoadingValues((current) => ({ ...current, [label]: false })))
   }, [profileId, builder.metric, connectionGeneration, values, loadingValues])
+  const loadLabels = useCallback(() => {
+    if (!profileId || !builder.metric) return
+    const request = ++labelRequest.current
+    setLoadingLabels(true)
+    setLabelError(null)
+    void metricLabels(profileId, builder.metric, connectionGeneration)
+      .then((found) => { if (request === labelRequest.current) setLabels(found.filter((label) => label !== '__name__')) })
+      .catch((error) => { if (request === labelRequest.current) setLabelError(prometheusMetadataError(error).message) })
+      .finally(() => { if (request === labelRequest.current) setLoadingLabels(false) })
+  }, [profileId, builder.metric, connectionGeneration])
   const selectMetric = (metric: string) => {
     if (metric === builder.metric) return
     const target = metrics.find((candidate) => candidate.name === metric)
@@ -79,18 +90,13 @@ export function PromqlBuilderPanel() {
     setBuilder(next, tabId)
     const generated = buildPromql(next, targetKind)
     if (generated) setSql(generated, tabId)
-    setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({})
+    setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({}); setLabelError(null)
   }
   useEffect(() => {
-    if (!profileId || !builder.metric) return
-    let active = true
-    setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({})
-    setLoadingLabels(true); setLabelError(false)
-    metricLabels(profileId, builder.metric, connectionGeneration)
-      .then((found) => { if (active) setLabels(found.filter((label) => label !== '__name__')) })
-      .catch(() => { if (active) setLabelError(true) })
-      .finally(() => { if (active) setLoadingLabels(false) })
-    return () => { active = false }
+    labelRequest.current++
+    setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({}); setLabelError(null)
+    loadLabels()
+    return () => { labelRequest.current++ }
   }, [profileId, builder.metric, connectionGeneration])
   const changeDimensions = (kind: 'groupBy' | 'filterBy', nextLabels: string[]) => {
     const other = kind === 'groupBy' ? builder.filterBy : builder.groupBy
@@ -145,13 +151,14 @@ export function PromqlBuilderPanel() {
       {rangeCalculations.has(builder.calculation) && <div className={styles.control}><span className={styles.fieldLabel}>Rate window <InfoTooltip label="Rate window">How much history each calculation looks back over. Example: 5m means rate(...[5m]) uses the previous 5 minutes at each point.</InfoTooltip></span><Combobox label="Rate window" value={builder.window} options={windows.map((value) => ({ value, label: value }))} onChange={(value) => apply({ window: value as PromqlWindow })} /></div>}
     </div>
     <div className={styles.filterGroupRow} data-promql-row="filters-and-grouping">
-      <div className={styles.control}><span className={styles.fieldLabel}>Group by</span><MultiCombobox label="Group by" values={builder.groupBy} options={labelOptions.filter((option) => builder.calculation !== 'percentile' || histogramKind !== 'classic' || option.value !== 'le')} onChange={(labels) => changeDimensions('groupBy', labels)} searchable showChips disabled={!builder.metric || loadingLabels || labelError || labels.length === 0} placeholder={groupByPlaceholder} /></div>
-      <div className={styles.control}><span className={styles.fieldLabel}>Filter by</span><MultiCombobox label="Filter by" values={builder.filterBy} options={labelOptions} onChange={(labels) => changeDimensions('filterBy', labels)} searchable showChips disabled={!builder.metric || loadingLabels || labelError || labels.length === 0} placeholder={labelPlaceholder} /></div>
+      <div className={styles.control}><span className={styles.fieldLabel}>Group by</span><MultiCombobox label="Group by" values={builder.groupBy} options={labelOptions.filter((option) => builder.calculation !== 'percentile' || histogramKind !== 'classic' || option.value !== 'le')} onChange={(labels) => changeDimensions('groupBy', labels)} searchable showChips disabled={!builder.metric || loadingLabels || Boolean(labelError) || labels.length === 0} placeholder={groupByPlaceholder} /></div>
+      <div className={styles.control}><span className={styles.fieldLabel}>Filter by</span><MultiCombobox label="Filter by" values={builder.filterBy} options={labelOptions} onChange={(labels) => changeDimensions('filterBy', labels)} searchable showChips disabled={!builder.metric || loadingLabels || Boolean(labelError) || labels.length === 0} placeholder={labelPlaceholder} /></div>
     </div>
+    {labelError && <div className="inline-error" role="alert">Could not load metric labels. {labelError} <button type="button" className="btn ghost" onClick={loadLabels} disabled={loadingLabels}>{loadingLabels ? 'Retrying…' : 'Retry'}</button></div>}
     <div className={styles.valuesGrid} data-promql-row="filter-values">{activeLabels.map((label) => {
-      const loading = Boolean(loadingValues[label]); const error = Boolean(valueErrors[label]); const loaded = Object.hasOwn(values, label)
+      const loading = Boolean(loadingValues[label]); const error = valueErrors[label]; const loaded = Object.hasOwn(values, label)
       const placeholder = loading ? 'Loading values…' : error ? 'Could not load values' : loaded && values[label].length === 0 ? 'No values found' : 'Select values…'
-      return <div className={`${styles.control} ${styles.valueControl}`} key={label}><span className={styles.fieldLabel}>{label}</span><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={[...(values[label] ?? [])].sort((left, right) => left.localeCompare(right)).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={loading || error || loaded && values[label].length === 0} placeholder={placeholder} /></div>
+      return <div className={`${styles.control} ${styles.valueControl}`} key={label}><span className={styles.fieldLabel}>{label}</span><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={[...(values[label] ?? [])].sort((left, right) => left.localeCompare(right)).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={loading || Boolean(error) || loaded && values[label].length === 0} placeholder={placeholder} />{error && <small className="inline-error" role="alert">{error} <button type="button" className="btn ghost" onClick={() => { setValues((current) => { const next = { ...current }; delete next[label]; return next }); loadValues(label) }}>Retry</button></small>}</div>
     })}</div>
     <details className={styles.generated}><summary><span>Generated PromQL</span><button className={`btn ghost ${styles.openAction} open-promql-action`} type="button" disabled={!generated} onClick={(event) => { event.preventDefault(); event.stopPropagation(); if (generated) setSql(generated, tabId); setMode('sql', tabId); requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="PromQL editor"]')?.focus()) }}>Open in PromQL</button></summary>{validation ? <p className={`${styles.generatedError} inline-error`} role="status">{validation}</p> : <pre>{generated}</pre>}</details>
   </div>
