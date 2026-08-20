@@ -486,6 +486,10 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     : Math.abs(timelineScale.wallDurationMs - traceDuration) > .5
       ? `Visible timeline · ${durationLabel(timelineScale.wallDurationMs)} · full trace ${durationLabel(traceDuration)}`
       : `Timeline · ${durationLabel(traceDuration)}`
+  const timelineTicks = [0, 25, 50, 75, 100].map((position) => ({
+    position,
+    label: `+${periodLabel(Math.max(0, timelineScale.timeAtPercent(position) - traceStart))}`
+  }))
 
   return (
     <section className={styles.root} aria-label="Trace explorer">
@@ -578,7 +582,15 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
 
         <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
           <div className={styles.waterfall}>
-            <div className={styles.waterfallHeader}><span>Span tree · {filteredSpanCount}/{spans.length} visible</span><span>{timelineLabel}</span></div>
+            <div className={styles.waterfallHeader}>
+              <span>Span tree · {filteredSpanCount}/{spans.length} visible</span>
+              <div className={styles.timelineHeader}>
+                <span className={styles.timelineDescription}>{timelineLabel}</span>
+                <div className={styles.timelineTicks} aria-label="Time relative to trace start">
+                  {timelineTicks.map((tick) => <span key={tick.position} style={{ left: `${tick.position}%`, transform: tick.position === 0 ? 'none' : tick.position === 100 ? 'translateX(-100%)' : 'translateX(-50%)' }}>{tick.label}</span>)}
+                </div>
+              </div>
+            </div>
             {renderedTree.length === 0 ? <div className={styles.warning}>No spans match the current trace filters.</div> : renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
               const offset = timelineScale.offsetPercent(number(span.startTimeMs))
               const width = Math.max(0, Math.min(timelineScale.widthPercent(number(span.startTimeMs), number(span.durationMs)), 100 - offset))
@@ -591,11 +603,11 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
                     <strong>{text(span.service) || 'unknown'}</strong><span>{text(span.name) || spanId}</span>
                   </button>
                 </div>
-                <button type="button" className={styles.timeline} onClick={() => setSelectedSpanId(spanId)} aria-label={`Select ${text(span.service)} ${text(span.name)}, ${durationLabel(number(span.durationMs))}`}>
+                <button type="button" className={styles.timeline} onClick={() => setSelectedSpanId(spanId)} aria-label={`Select ${text(span.service)} ${text(span.name)}, starts +${periodLabel(Math.max(0, number(span.startTimeMs) - traceStart))}, lasts ${durationLabel(number(span.durationMs))}`}>
                   {timelineScale.gaps.map((gap, index) => {
                     const left = timelineScale.offsetPercent(gap.startMs)
                     const right = timelineScale.offsetPercent(gap.endMs)
-                    return <span key={`${gap.startMs}-${gap.endMs}-${index}`} className={styles.timelineGap} style={{ left: `${left}%`, width: `${Math.max(.45, right - left)}%` }} aria-hidden="true" />
+                    return <span key={`${gap.startMs}-${gap.endMs}-${index}`} className={styles.timelineGap} style={{ left: `${left}%`, width: `${Math.max(.45, right - left)}%` }} title={`Compressed idle gap · ${periodLabel(gap.durationMs)}`} aria-hidden="true" />
                   })}
                   <span className={`${styles.bar} ${isError ? styles.errorBar : ''}`} style={{ left: `${offset}%`, width: `${width}%`, minWidth: '1px' }}><span>{durationLabel(number(span.durationMs))}</span></span>
                 </button>
