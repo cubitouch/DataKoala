@@ -219,10 +219,10 @@ export function buildTraceql(builder: TraceBuilderState): string {
     if (builder.httpMethod.trim()) conditions.push(either(['span.http.request.method', 'span.http.method'], builder.httpMethod))
     if (builder.endpoint.trim()) {
       const endpointKeys = builder.spanKind === 'server'
-        ? ['span.http.route', 'span.http.target']
+        ? ['span.http.route']
         : builder.spanKind === 'client'
-          ? ['span.url.template', 'span.url.path', 'span.http.target']
-          : ['span.http.route', 'span.url.template', 'span.url.path', 'span.http.target']
+          ? ['span.url.template', 'span.url.path']
+          : ['span.http.route', 'span.url.template', 'span.url.path']
       conditions.push(either(endpointKeys, builder.endpoint))
     }
     if (!builder.httpMethod.trim() && !builder.endpoint.trim()) conditions.push(existsAny(['span.http.request.method', 'span.http.method', 'span.http.route', 'span.url.template']))
