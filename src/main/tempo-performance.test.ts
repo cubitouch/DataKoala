@@ -6,9 +6,9 @@ test('collector totals invocations, parsing, normalization, bytes and optional m
   let now = 0
   const collector = new TempoPerformanceCollector('request-1', 'search.sample', () => now)
   now = 10
-  collector.recordGcx('traces.query', 2, 'é', { metrics: { inspectedBytes: '12', inspectedTraces: 3 } })
+  collector.recordGcx({ phase: 'traces.query', gcxWallMs: 8, stdout: 'é', raw: { metrics: { inspectedBytes: '12', inspectedTraces: 3 } } })
   now = 20
-  collector.recordGcx('root-status.error', 15, '{}', {})
+  collector.recordGcx({ phase: 'root-status.error', gcxWallMs: 5, stdout: '{}', raw: {} })
   collector.recordParse(1.5)
   collector.recordParse(0.5)
   collector.recordNormalize(4)

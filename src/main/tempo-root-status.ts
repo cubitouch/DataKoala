@@ -143,10 +143,11 @@ export async function enrichTempoRootStatuses(
         ]
         const gcxStarted = options.performance?.now() ?? 0
         const response = await run(args)
+        const gcxWallMs = options.performance ? options.performance.now() - gcxStarted : 0
         const parseStarted = options.performance?.now()
         const parsed = parseJson(response.stdout)
         if (parseStarted !== undefined) options.performance?.recordParse(options.performance.now() - parseStarted)
-        options.performance?.recordGcx(`root-status.${status}`, gcxStarted, response.stdout, parsed)
+        options.performance?.recordGcx({ phase: `root-status.${status}`, gcxWallMs, stdout: response.stdout, raw: parsed })
         const normalizeStarted = options.performance?.now()
         const matchedIds = traceIdsFromSearch(parsed)
         for (const traceId of matchedIds) statuses.set(traceId, status)

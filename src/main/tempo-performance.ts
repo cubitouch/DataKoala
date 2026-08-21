@@ -18,6 +18,13 @@ export interface TempoGcxInvocationTiming {
   providerMetrics?: TempoProviderMetrics
 }
 
+export interface TempoGcxInvocationMeasurement {
+  phase: string
+  gcxWallMs: number
+  stdout: string
+  raw?: unknown
+}
+
 export interface TempoPerformanceSummary {
   requestId: string
   operation: TempoPerformanceOperation
@@ -80,10 +87,10 @@ export class TempoPerformanceCollector {
   }
 
   now(): number { return this.clock() }
-  recordGcx(phase: string, started: number, stdout: string, raw?: unknown): void {
+  recordGcx({ phase, gcxWallMs, stdout, raw }: TempoGcxInvocationMeasurement): void {
     const providerMetrics = extractTempoProviderMetrics(raw)
     const timing: TempoGcxInvocationTiming = {
-      phase, gcxWallMs: this.clock() - started, stdoutBytes: Buffer.byteLength(stdout, 'utf8'),
+      phase, gcxWallMs, stdoutBytes: Buffer.byteLength(stdout, 'utf8'),
       ...(providerMetrics ? { providerMetrics } : {})
     }
     this.gcx.push(timing)

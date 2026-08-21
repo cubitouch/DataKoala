@@ -493,10 +493,11 @@ export class GcxTempoTransport implements TempoTransport {
       const args = ['traces', 'get', traceId, ...this.commonArgs(), '-o', 'json']
       const gcxStarted = perf?.now() ?? 0
       const response = await this.run(args)
+      const gcxWallMs = perf ? perf.now() - gcxStarted : 0
       const parseStarted = perf?.now()
       const raw = parseJson(response.stdout, 'traces get')
       if (parseStarted !== undefined) perf?.recordParse(perf.now() - parseStarted)
-      perf?.recordGcx('traces.get', gcxStarted, response.stdout, raw)
+      perf?.recordGcx({ phase: 'traces.get', gcxWallMs, stdout: response.stdout, raw })
       const normalizeStarted = perf?.now()
       let result = normalizeTempoTrace(raw, Date.now() - started)
       if (normalizeStarted !== undefined) perf?.recordNormalize(perf.now() - normalizeStarted)

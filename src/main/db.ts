@@ -162,8 +162,13 @@ export async function runQuery(
     ? compat.progressRequestId.trim()
     : ''
   const progressStarted = performance.now()
+  let firstUsefulMainRecorded = false
   const onProgress: TempoSearchProgressListener | undefined = progressRequestId
-    ? (progress) => publishTempoSearchProgress(progressRequestId, progress, performance.now() - progressStarted)
+    ? (progress) => {
+        const firstUseful = !firstUsefulMainRecorded && progress.rows.length > 0
+        if (firstUseful) firstUsefulMainRecorded = true
+        publishTempoSearchProgress(progressRequestId, progress, performance.now() - progressStarted, firstUseful)
+      }
     : undefined
   const tempoRange: TempoQueryContext | undefined = activeSession.info.provider === 'tempo' && !tempo && compat
     ? {

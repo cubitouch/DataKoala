@@ -200,10 +200,11 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
     ]
     const gcxStarted = perf?.now() ?? 0
     const response = await this.run(args)
+    const gcxWallMs = perf ? perf.now() - gcxStarted : 0
     const parseStarted = perf?.now()
     const raw = parseJson(response.stdout)
     if (parseStarted !== undefined) perf?.recordParse(perf.now() - parseStarted)
-    perf?.recordGcx('traces.query', gcxStarted, response.stdout, raw)
+    perf?.recordGcx({ phase: 'traces.query', gcxWallMs, stdout: response.stdout, raw })
     const normalizeStarted = perf?.now()
     const result = applyTempoSearchStatuses(
       normalizeTempoSearch(raw, 0, `${iso(window.startMs)} → ${iso(window.endMs)}`),
