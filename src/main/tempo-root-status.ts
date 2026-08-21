@@ -1,6 +1,7 @@
 import type { QueryResult } from '../shared/types.ts'
 import type { TempoQueryRequest } from '../shared/tempo.ts'
 import type { GcxCommandRunner } from './gcx-prometheus-transport.ts'
+import type { TempoPerformanceCollector } from './tempo-performance.ts'
 
 export type TempoRootStatus = 'ok' | 'error' | 'unknown'
 
@@ -16,6 +17,7 @@ export interface TempoRootStatusOptions {
   datasourceUid?: string
   batchSize?: number
   onProgress?: (progress: TempoRootStatusProgress) => void
+  performance?: TempoPerformanceCollector
 }
 
 interface RootStatusTarget {
@@ -23,7 +25,7 @@ interface RootStatusTarget {
   providerTraceId: string
 }
 
-const DEFAULT_BATCH_SIZE = 100
+const DEFAULT_BATCH_SIZE = 1000
 const PROVIDER_TIME_PRECISION_MS = 1_000
 
 function text(value: unknown): string {
@@ -38,24 +40,6 @@ function canonicalTraceId(value: unknown): string | null {
   const traceId = text(value).trim().toLowerCase()
   if (!/^[0-9a-f]{1,32}$/.test(traceId)) return null
   return traceId.padStart(32, '0')
-}
-
-function traceIdHint(value: string): string {
-  if (value.length <= 12) return `${value.length}:${value}`
-  return `${value.length}:${value.slice(0, 6)}…${value.slice(-6)}`
-}
-
-function statusValue(value: unknown): TempoRootStatus {
-  const normalized = text(value).trim().toLowerCase()
-  if (normalized === 'error' || normalized === 'failed' || normalized === 'failure' || normalized === '2') return 'error'
-  if (normalized === 'ok' || normalized === 'success' || normalized === '1') return 'ok'
-  return 'unknown'
-}
-
-function statusCounts(statuses: Iterable<TempoRootStatus>): { ok: number; error: number; unknown: number } {
-  const counts = { ok: 0, error: 0, unknown: 0 }
-  for (const status of statuses) counts[status] += 1
-  return counts
 }
 
 function traceRows(raw: unknown): Record<string, unknown>[] {
@@ -132,22 +116,14 @@ export async function enrichTempoRootStatuses(
     targets.push({ canonicalTraceId: canonical, providerTraceId })
   }
   if (!targets.length) {
-    console.info('[tempo-status] no valid trace IDs available for root enrichment', { resultRows: result.rows.length })
     return { result, queriesCompleted: 0, checked: 0 }
   }
 
-  const batchSize = Math.max(1, Math.min(500, Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE)))
+  const batchSize = Math.max(1, Math.min(10_000, Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE)))
   const range = providerRange(request)
   let checked = 0
   let queriesCompleted = 0
 
-  console.info('[tempo-status] enrichment start', {
-    targets: targets.length,
-    batchSize,
-    range,
-    providerIdLengths: [...new Set(targets.map((target) => target.providerTraceId.length))].sort((left, right) => left - right),
-    sampleIds: targets.slice(0, 3).map((target) => traceIdHint(target.providerTraceId))
-  })
 
   for (const targetBatch of batches(targets, batchSize)) {
     const batchNumber = Math.floor(checked / batchSize) + 1
@@ -165,28 +141,17 @@ export async function enrichTempoRootStatuses(
           '--limit', String(candidates.length),
           '-o', 'json'
         ]
-        console.info('[tempo-status] root predicate query', {
-          batch: batchNumber,
-          query: queryNumber,
-          status,
-          targets: candidates.length,
-          providerIdLengths: [...new Set(candidates.map((target) => target.providerTraceId.length))].sort((left, right) => left - right),
-          sampleIds: candidates.slice(0, 3).map((target) => traceIdHint(target.providerTraceId))
-        })
+        const gcxStarted = options.performance?.now() ?? 0
         const response = await run(args)
+        const gcxWallMs = options.performance ? options.performance.now() - gcxStarted : 0
+        const parseStarted = options.performance?.now()
         const parsed = parseJson(response.stdout)
+        if (parseStarted !== undefined) options.performance?.recordParse(options.performance.now() - parseStarted)
+        options.performance?.recordGcx({ phase: `root-status.${status}`, gcxWallMs, stdout: response.stdout, raw: parsed })
+        const normalizeStarted = options.performance?.now()
         const matchedIds = traceIdsFromSearch(parsed)
         for (const traceId of matchedIds) statuses.set(traceId, status)
-        const unexpected = [...matchedIds].filter((traceId) => !candidates.some((target) => target.canonicalTraceId === traceId))
-        console.info('[tempo-status] root predicate response', {
-          batch: batchNumber,
-          query: queryNumber,
-          status,
-          stdoutBytes: response.stdout.length,
-          providerTraces: traceRows(parsed).length,
-          matched: matchedIds.size,
-          unexpected: unexpected.length
-        })
+        if (normalizeStarted !== undefined) options.performance?.recordNormalize(options.performance.now() - normalizeStarted)
       } catch (reason) {
         console.warn('[tempo-status] root predicate failed', {
           batch: batchNumber,
@@ -206,7 +171,6 @@ export async function enrichTempoRootStatuses(
     checked += targetBatch.length
 
     const changed: Record<string, unknown>[] = []
-    const changedStatuses: TempoRootStatus[] = []
     for (const target of targetBatch) {
       const row = rowsById.get(target.canonicalTraceId)
       if (!row) continue
@@ -214,16 +178,7 @@ export async function enrichTempoRootStatuses(
       const next = rootStatus === 'unknown' ? row : { ...row, status: rootStatus }
       rowsById.set(target.canonicalTraceId, next)
       changed.push(next)
-      changedStatuses.push(rootStatus === 'unknown' ? statusValue(next.status) : rootStatus)
     }
-    console.info('[tempo-status] root batch merged', {
-      batch: batchNumber,
-      checked,
-      total: targets.length,
-      rows: changed.length,
-      rootStatuses: statusCounts(targetBatch.map((target) => statuses.get(target.canonicalTraceId) ?? 'unknown')),
-      resultStatuses: statusCounts(changedStatuses)
-    })
     try {
       options.onProgress?.({ rows: changed, checked, total: targets.length, queriesCompleted })
     } catch (reason) {
@@ -237,12 +192,6 @@ export async function enrichTempoRootStatuses(
   const rows = targets
     .map((target) => rowsById.get(target.canonicalTraceId))
     .filter((row): row is Record<string, unknown> => !!row)
-  console.info('[tempo-status] enrichment complete', {
-    rows: rows.length,
-    checked,
-    queriesCompleted,
-    statuses: statusCounts(rows.map((row) => statusValue(row.status)))
-  })
   return {
     result: { ...result, rows, rowCount: rows.length },
     queriesCompleted,

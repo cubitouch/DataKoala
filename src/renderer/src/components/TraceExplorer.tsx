@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { QueryResult } from '@shared/types'
 import type { TempoSearchProgress } from '@shared/tempo'
 import { api } from '../lib/api'
@@ -48,6 +48,10 @@ function text(value: unknown): string {
 function number(value: unknown): number {
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function tempoPerf(event: string, fields: Record<string, unknown>): void {
+  if (api.tempoPerformanceEnabled) console.info(`[tempo-perf] ${JSON.stringify({ event, ...fields })}`)
 }
 
 function durationLabel(milliseconds: number): string {
@@ -201,6 +205,17 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [searchRange, setSearchRange] = useState<BuilderTimeRange>(DEFAULT_TRACE_RANGE)
   const [sampleSize, setSampleSize] = useState<TraceSampleSize>(DEFAULT_TRACE_SAMPLE_SIZE)
   const [resultView, setResultView] = useState<ResultView>('list')
+  const traceRenderTiming = useRef<{ started: number; requestId?: string; spanCount: number } | null>(null)
+
+  useEffect(() => {
+    const timing = traceRenderTiming.current
+    if (!timing || spans.length !== timing.spanCount) return
+    const frame = requestAnimationFrame(() => {
+      tempoPerf('trace.rendered', { requestId: timing.requestId, elapsedMs: performance.now() - timing.started, spanCount: timing.spanCount, milestone: 'animation-frame-after-commit' })
+      traceRenderTiming.current = null
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [spans])
 
   useEffect(() => {
     setBuilder(traceBuilderFromTraceql(traceql))
@@ -239,6 +254,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     }
 
     const sampled = sampleOverride !== 'all'
+    const perfStarted = performance.now()
+    let firstUsefulResult = false
     const tempoSearchRequest = {
       start: range.start,
       end: range.end,
@@ -257,7 +274,11 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
       ? `Fetching a quick sample of up to ${sampleOverride} traces across the selected period…`
       : 'Fetching the complete selected period…')
     try {
-      const result = await api.query.run(connectionId, request, [], tempoSearchRequest, (progress) => {
+      const result = await api.query.run(connectionId, request, [], tempoSearchRequest, (progress, requestId) => {
+        if (!firstUsefulResult && progress.rows.length > 0) {
+          firstUsefulResult = true
+          tempoPerf('search.first-result-renderer', { requestId, elapsedMs: performance.now() - perfStarted, rowsInBatch: progress.rows.length, tracesFound: progress.tracesFound, sampleSize: sampleOverride })
+        }
         setSearchProgress(progress)
         setSearchRows((current) => mergeSearchRows(current, progress.rows))
       })
@@ -265,6 +286,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
       setSearchRows(result.rows)
       setSearchNotice(result.notice ?? '')
       setSearchProgress(null)
+      tempoPerf('search.final-renderer', { requestId: result.execution?.requestId, elapsedMs: performance.now() - perfStarted, rowCount: result.rows.length, sampleSize: sampleOverride })
     } catch (reason) {
       setSearchNotice(sampled
         ? 'Sample search stopped before Tempo returned its bounded result set.'
@@ -284,9 +306,13 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setLoading('trace')
     setError('')
     setCohortHint('')
+    const perfStarted = performance.now()
+    const openSource = searchRows.some((row) => canonicalTraceId(row.traceId) === request) ? 'search-result' : 'direct-id'
     try {
-      const result = await api.query.run(connectionId, request)
+      const result = await api.query.run(connectionId, request, [], undefined, undefined, true)
+      tempoPerf('trace.result-renderer', { requestId: result.execution?.requestId, elapsedMs: performance.now() - perfStarted, spanCount: result.rows.length, openSource })
       if (isSpanResult(result)) {
+        traceRenderTiming.current = { started: perfStarted, requestId: result.execution?.requestId, spanCount: result.rows.length }
         setSpans(result.rows)
         setSelectedSpanId('')
         setCollapsed(new Set())

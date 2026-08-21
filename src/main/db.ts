@@ -13,6 +13,7 @@ import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
 import { TempoAdapter } from './adapters/tempo-adapter.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
 import type { TempoQueryContext, TempoQueryRequest, TempoSearchProgressListener } from '../shared/tempo.ts'
+import { performance } from 'node:perf_hooks'
 import { formatPromql } from './promql-formatter.ts'
 import { toIpcSafeQueryResult } from './ipc-serialization.ts'
 import { publishTempoSearchProgress } from './query-progress.ts'
@@ -142,6 +143,7 @@ type QueryIpcCompatibilityRange = Omit<PrometheusQueryRequest, 'expression'> & {
   progressRequestId?: string
   sampleSize?: number
   includeStatus?: boolean
+  diagnosticRequestId?: string
 }
 
 export async function runQuery(
@@ -159,8 +161,14 @@ export async function runQuery(
   const progressRequestId = activeSession.info.provider === 'tempo' && typeof compat?.progressRequestId === 'string'
     ? compat.progressRequestId.trim()
     : ''
+  const progressStarted = performance.now()
+  let firstUsefulMainRecorded = false
   const onProgress: TempoSearchProgressListener | undefined = progressRequestId
-    ? (progress) => publishTempoSearchProgress(progressRequestId, progress)
+    ? (progress) => {
+        const firstUseful = !firstUsefulMainRecorded && progress.rows.length > 0
+        if (firstUseful) firstUsefulMainRecorded = true
+        publishTempoSearchProgress(progressRequestId, progress, performance.now() - progressStarted, firstUseful)
+      }
     : undefined
   const tempoRange: TempoQueryContext | undefined = activeSession.info.provider === 'tempo' && !tempo && compat
     ? {
@@ -168,6 +176,7 @@ export async function runQuery(
         end: compat.end,
         ...(typeof compat.sampleSize === 'number' ? { sampleSize: compat.sampleSize } : {}),
         ...(typeof compat.includeStatus === 'boolean' ? { includeStatus: compat.includeStatus } : {}),
+        ...(typeof compat.diagnosticRequestId === 'string' ? { diagnosticRequestId: compat.diagnosticRequestId } : {}),
         ...(onProgress ? { onProgress } : {})
       }
     : tempo
