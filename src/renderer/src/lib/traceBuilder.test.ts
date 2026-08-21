@@ -18,11 +18,11 @@ test('builds service, kind, status and duration filters with scoped intrinsics',
 test('HTTP controls separate method from route and tolerate old method attributes', () => {
   assert.equal(
     buildTraceql(builder({ spanKind: 'server', protocol: 'http', httpMethod: 'POST', endpoint: '/checkout' })),
-    '{ span:kind = server && (span.http.request.method = "POST" || span.http.method = "POST") && (span.http.route = "/checkout" || span.http.target = "/checkout") }'
+    '{ span:kind = server && (span.http.request.method = "POST" || span.http.method = "POST") && span.http.route = "/checkout" }'
   )
   assert.equal(
     buildTraceql(builder({ spanKind: 'client', protocol: 'http', endpoint: '/payments/{id}' })),
-    '{ span:kind = client && (span.url.template = "/payments/{id}" || span.url.path = "/payments/{id}" || span.http.target = "/payments/{id}") }'
+    '{ span:kind = client && (span.url.template = "/payments/{id}" || span.url.path = "/payments/{id}") }'
   )
 })
 
