@@ -279,6 +279,24 @@
   display: grid;
   grid-template-columns: minmax(270px, 38%) minmax(440px, 1fr);
 }
+.waterfallBody {
+  position: relative;
+  min-width: 720px;
+}
+.timelineGapOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(270px, 38%) minmax(440px, 1fr);
+  pointer-events: none;
+}
+.timelineGapLayer {
+  position: relative;
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+}
 .waterfallHeader {
   position: sticky;
   top: 0;
@@ -325,6 +343,8 @@
 }
 .spanRow:hover, .selected { background: var(--bg-2); }
 .spanLabel {
+  position: relative;
+  z-index: 2;
   min-width: 0;
   display: flex;
   align-items: stretch;
@@ -371,6 +391,7 @@
 .spanIdentity span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-mute); }
 .timeline {
   position: relative;
+  z-index: 2;
   min-height: 31px;
   border: 0;
   background: transparent;

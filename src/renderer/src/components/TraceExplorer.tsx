@@ -41,6 +41,27 @@ const TRACE_SAMPLE_SIZE_OPTIONS = [
   { value: 'all', label: 'All traces' }
 ]
 
+interface RenderedTimelineGap {
+  key: string
+  left: number
+  width: number
+  durationMs: number
+}
+
+export function TimelineGapOverlay({ gaps }: { gaps: RenderedTimelineGap[] }) {
+  return <div className={styles.timelineGapOverlay} aria-hidden="true">
+    <div className={styles.timelineGapLayer}>
+      {gaps.map((gap) => <span
+        key={gap.key}
+        className={styles.timelineGap}
+        data-trace-idle-gap=""
+        style={{ left: `${gap.left}%`, width: `${gap.width}%` }}
+        title={`Compressed idle gap · ${periodLabel(gap.durationMs)}`}
+      />)}
+    </div>
+  </div>
+}
+
 function text(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
 }
@@ -348,6 +369,16 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const renderedTree = visibleTree.slice(0, MAX_RENDERED_SPANS)
   const timelineSpans = useMemo(() => viewerSpans.filter((row) => !hiddenSpanKinds.has(traceSpanKind(row))), [viewerSpans, hiddenSpanKinds])
   const timelineScale = useMemo(() => buildTraceTimelineScale(timelineSpans, compressIdleGaps), [timelineSpans, compressIdleGaps])
+  const renderedTimelineGaps = useMemo(() => timelineScale.gaps.map((gap, index) => {
+    const left = timelineScale.offsetPercent(gap.startMs)
+    const right = timelineScale.offsetPercent(gap.endMs)
+    return {
+      key: `${gap.startMs}-${gap.endMs}-${index}`,
+      left,
+      width: Math.max(.45, right - left),
+      durationMs: gap.durationMs
+    }
+  }), [timelineScale])
   const traceStart = sortedSpans.length ? Math.min(...sortedSpans.map((row) => number(row.startTimeMs))) : 0
   const traceEnd = sortedSpans.length ? Math.max(...sortedSpans.map((row) => number(row.startTimeMs) + number(row.durationMs))) : 0
   const traceDuration = Math.max(0, traceEnd - traceStart)
@@ -569,7 +600,9 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
                 </div>
               </div>
             </div>
-            {renderedTree.length === 0 ? <div className={styles.warning}>No spans match the current trace filters.</div> : renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
+            {renderedTree.length === 0 ? <div className={styles.warning}>No spans match the current trace filters.</div> : <div className={styles.waterfallBody}>
+              <TimelineGapOverlay gaps={renderedTimelineGaps} />
+              {renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
               const offset = timelineScale.offsetPercent(number(span.startTimeMs))
               const width = Math.max(0, Math.min(timelineScale.widthPercent(number(span.startTimeMs), number(span.durationMs)), 100 - offset))
               const isError = text(span.status).toUpperCase().includes('ERROR')
@@ -582,15 +615,11 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
                   </button>
                 </div>
                 <button type="button" className={styles.timeline} onClick={() => setSelectedSpanId(spanId)} aria-label={`Select ${text(span.service)} ${text(span.name)}, starts +${periodLabel(Math.max(0, number(span.startTimeMs) - traceStart))}, lasts ${durationLabel(number(span.durationMs))}`}>
-                  {timelineScale.gaps.map((gap, index) => {
-                    const left = timelineScale.offsetPercent(gap.startMs)
-                    const right = timelineScale.offsetPercent(gap.endMs)
-                    return <span key={`${gap.startMs}-${gap.endMs}-${index}`} className={styles.timelineGap} style={{ left: `${left}%`, width: `${Math.max(.45, right - left)}%` }} title={`Compressed idle gap · ${periodLabel(gap.durationMs)}`} aria-hidden="true" />
-                  })}
                   <span className={`${styles.bar} ${isError ? styles.errorBar : ''}`} style={{ left: `${offset}%`, width: `${width}%`, minWidth: '1px' }}><span>{durationLabel(number(span.durationMs))}</span></span>
                 </button>
               </div>
-            })}
+              })}
+            </div>}
           </div>
           {selectedSpan && <SpanInspector span={selectedSpan} traceStart={traceStart} onClose={() => setSelectedSpanId('')} />}
         </div>
