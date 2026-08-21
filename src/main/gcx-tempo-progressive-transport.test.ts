@@ -182,7 +182,6 @@ test('root status enrichment is automatic, batched, and does not fetch full trac
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
     if (args[2]?.includes('!>>') && args[2].includes('span:status = error')) return rootMembershipResponse()
-    if (args[2]?.includes('!>>') && args[2].includes('span:status = ok')) return rootMembershipResponse(9)
     return searchResponse([{ id: 9, startTimeMs: startMs + 100, status: 'error' }])
   }
   const request: TempoQueryContext = { start, end, onProgress: (update) => progress.push(update) }
@@ -191,16 +190,16 @@ test('root status enrichment is automatic, batched, and does not fetch full trac
     pageLimit: 2
   }).search('{ true }', request)
 
-  assert.equal(calls.filter((args) => args[1] === 'query').length, 3)
+  assert.equal(calls.filter((args) => args[1] === 'query').length, 2)
   assert.equal(calls.filter((args) => args[1] === 'get').length, 0)
   assert.match(calls[1][2], /trace:id =~/)
   assert.match(calls[1][2], /!>>/)
   assert.match(calls[1][2], /span:status = error/)
-  assert.match(calls[2][2], /span:status = ok/)
+  assert.equal(calls.some((args) => args[2]?.includes('span:status = ok')), false)
   assert.equal(result.rows[0].status, 'ok')
-  assert.match(result.notice ?? '', /1 search query · 2 root-status queries/)
+  assert.match(result.notice ?? '', /1 search query · 1 root-status query/)
   assert.equal(progress.length, 2)
-  assert.equal(progress.at(-1)?.queriesCompleted, 3)
+  assert.equal(progress.at(-1)?.queriesCompleted, 2)
   assert.equal(progress.at(-1)?.rows[0].status, 'ok')
 })
 
