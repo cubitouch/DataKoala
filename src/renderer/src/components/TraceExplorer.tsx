@@ -9,7 +9,7 @@ import { TraceBuilderPanel } from './TraceBuilderPanel'
 import { Combobox } from './ui/combobox'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
-import { buildTraceql, EMPTY_TRACE_BUILDER, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '../lib/traceBuilder'
+import { buildTraceql, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '../lib/traceBuilder'
 import {
   buildTraceTimelineScale,
   buildVisibleTraceTree,
@@ -414,24 +414,15 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const exploreSimilar = () => {
     const source = selectedSpan ?? rootSpan
     if (!source) return
-    const rawStatus = text(source.status).toUpperCase()
-    const sourceKind = traceSpanKind(source).toLowerCase()
-    const next: TraceBuilderState = {
-      ...EMPTY_TRACE_BUILDER,
-      serviceNamespace: text(source.serviceNamespace),
-      service: text(source.service),
-      spanKind: ['server', 'client', 'producer', 'consumer', 'internal', 'unspecified'].includes(sourceKind) ? sourceKind as TraceBuilderState['spanKind'] : 'any',
-      spanName: text(source.name),
-      status: rawStatus.includes('ERROR') ? 'error' : rawStatus.includes('OK') ? 'ok' : rawStatus.includes('UNSET') ? 'unset' : 'any'
-    }
+    const next = traceBuilderFromSpan(source)
     setBuilder(next)
     setSql(buildTraceql(next))
     setQueryMode('builder')
     setSpans([])
     setSelectedSpanId('')
     setCohortHint(selectedSpan
-      ? 'Builder seeded from the selected span: namespace, service, span kind, operation and status. Adjust the cohort definition, then search similar traces.'
-      : 'Builder seeded from the trace root. Adjust the cohort definition, then search similar traces.')
+      ? 'Builder seeded from the selected span semantic attributes: service, span kind, protocol/operation and status when available. Adjust the cohort definition, then search similar traces.'
+      : 'Builder seeded from the trace root semantic attributes. Adjust the cohort definition, then search similar traces.')
   }
 
   const toggleCollapse = (spanId: string) => setCollapsed((current) => {
