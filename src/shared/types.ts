@@ -137,6 +137,8 @@ export interface QueryExecutionInfo {
   bytesProcessed?: number
   cacheHit?: boolean
   notice?: string
+  /** Opaque Tempo performance correlation ID, when diagnostics are enabled. */
+  requestId?: string
 }
 
 export interface QueryResult {

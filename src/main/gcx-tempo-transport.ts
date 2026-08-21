@@ -1,12 +1,13 @@
 import type { ColumnMeta, QueryResult } from '../shared/types.ts'
-import type { TempoQueryRequest } from '../shared/tempo.ts'
+import type { TempoQueryContext, TempoQueryRequest } from '../shared/tempo.ts'
 import { runGcxCommand, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
+import { createTempoPerformance } from './tempo-performance.ts'
 
 export interface TempoService { name: string; namespace?: string }
 export interface TempoTransport {
   query(value: string, request?: TempoQueryRequest): Promise<QueryResult>
   search(expression: string, request?: TempoQueryRequest): Promise<QueryResult>
-  get(traceId: string): Promise<QueryResult>
+  get(traceId: string, request?: TempoQueryRequest): Promise<QueryResult>
   probe(): Promise<void>
   services(): Promise<TempoService[]>
 }
@@ -412,7 +413,7 @@ export class GcxTempoTransport implements TempoTransport {
   async query(value: string, request?: TempoQueryRequest): Promise<QueryResult> {
     const query = value.trim()
     if (!query) throw new Error('Enter a TraceQL query or trace ID.')
-    return TRACE_ID.test(query) ? this.get(query) : this.search(query, request)
+    return TRACE_ID.test(query) ? this.get(query, request) : this.search(query, request)
   }
 
   async probe(): Promise<void> {
@@ -485,11 +486,24 @@ export class GcxTempoTransport implements TempoTransport {
     }
   }
 
-  async get(traceId: string): Promise<QueryResult> {
+  async get(traceId: string, request?: TempoQueryRequest): Promise<QueryResult> {
     const started = Date.now()
+    const perf = (request as TempoQueryContext | undefined)?.performance ?? createTempoPerformance(request?.diagnosticRequestId, 'trace.get')
     try {
       const args = ['traces', 'get', traceId, ...this.commonArgs(), '-o', 'json']
-      return normalizeTempoTrace(parseJson((await this.run(args)).stdout, 'traces get'), Date.now() - started)
+      const gcxStarted = perf?.now() ?? 0
+      const response = await this.run(args)
+      const parseStarted = perf?.now()
+      const raw = parseJson(response.stdout, 'traces get')
+      if (parseStarted !== undefined) perf?.recordParse(perf.now() - parseStarted)
+      perf?.recordGcx('traces.get', gcxStarted, response.stdout, raw)
+      const normalizeStarted = perf?.now()
+      let result = normalizeTempoTrace(raw, Date.now() - started)
+      if (normalizeStarted !== undefined) perf?.recordNormalize(perf.now() - normalizeStarted)
+      if (perf) result = { ...result, execution: { ...result.execution!, requestId: perf.requestId } }
+      const boundedTraceLookup = args.includes('--from') && args.includes('--to')
+      perf?.complete({ spanCount: result.rows.length, boundedTraceLookup })
+      return result
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
       throw tempoError(error)

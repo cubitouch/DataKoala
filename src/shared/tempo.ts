@@ -5,6 +5,8 @@ export interface TempoQueryRequest {
   includeStatus?: boolean
   /** Optional quick-search result budget. When set, Tempo returns up to this many traces without exhaustive pagination. */
   sampleSize?: number
+  /** Opaque diagnostics correlation only; never derived from query or trace data. */
+  diagnosticRequestId?: string
 }
 
 export interface TempoSearchProgress {
@@ -27,6 +29,8 @@ export type TempoSearchProgressListener = (progress: TempoSearchProgress) => voi
 /** Main-process-only context. Do not send the callback across Electron IPC. */
 export interface TempoQueryContext extends TempoQueryRequest {
   onProgress?: TempoSearchProgressListener
+  /** Main-process instrumentation collector (intentionally excluded from IPC types). */
+  performance?: import('../main/tempo-performance.ts').TempoPerformanceCollector
 }
 
 export interface TempoSearchProgressEnvelope {

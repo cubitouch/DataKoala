@@ -24,6 +24,8 @@ function nextQueryProgressRequestId(): string {
 const api = {
   /** True only when the app is launched by a test/repro harness. */
   smokeMode: process.env.DATAKOALA_SMOKE === '1' || !!process.env.DATAKOALA_REPRO,
+  /** Narrow opt-in flag; no arbitrary environment values cross the context bridge. */
+  tempoPerformanceEnabled: process.env.DATAKOALA_TEMPO_PERF === '1',
   connections: {
     list: (): Promise<DataSourceProfile[]> => ipcRenderer.invoke('connections:list'),
     upsert: (p: DataSourceProfile): Promise<DataSourceProfile> =>
@@ -67,19 +69,22 @@ const api = {
       sql: string,
       parameters: unknown[] = [],
       request?: Omit<PrometheusQueryRequest, 'expression'> | TempoQueryRequest,
-      onProgress?: (progress: TempoSearchProgress) => void
+      onProgress?: (progress: TempoSearchProgress, requestId?: string) => void,
+      tempoDiagnostic = false
     ): Promise<QueryResult> => {
-      if (!onProgress) return ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters, request)
-
-      const requestId = nextQueryProgressRequestId()
+      const requestId = (onProgress || (tempoDiagnostic && api.tempoPerformanceEnabled)) ? nextQueryProgressRequestId() : ''
+      const diagnosticRequest = api.tempoPerformanceEnabled && (onProgress || tempoDiagnostic)
+        ? { ...(request ?? {}), diagnosticRequestId: requestId }
+        : request
+      if (!onProgress) return ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters, diagnosticRequest)
       const handler = (_event: Electron.IpcRendererEvent, value: unknown) => {
         if (!isTempoSearchProgressEnvelope(value) || value.requestId !== requestId) return
-        onProgress(value.progress)
+        onProgress(value.progress, requestId)
       }
       ipcRenderer.on(IPC.QUERY_PROGRESS, handler)
       try {
         return await ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters, {
-          ...(request ?? {}),
+          ...(diagnosticRequest ?? {}),
           progressRequestId: requestId
         })
       } finally {
