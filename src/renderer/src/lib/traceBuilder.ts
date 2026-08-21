@@ -23,6 +23,16 @@ export interface TraceBuilderState {
   minDurationMs: string
 }
 
+export interface TraceBuilderSpanSeed {
+  serviceNamespace?: unknown
+  service?: unknown
+  name?: unknown
+  status?: unknown
+  kind?: unknown
+  attributes?: unknown
+  resourceAttributes?: unknown
+}
+
 export const EMPTY_TRACE_BUILDER: TraceBuilderState = {
   serviceNamespace: '',
   service: '',
@@ -41,6 +51,56 @@ export const EMPTY_TRACE_BUILDER: TraceBuilderState = {
   spanName: '',
   status: 'any',
   minDurationMs: ''
+}
+
+const HTTP_METHOD = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)(?:\s+(.+))?$/i
+
+function text(value: unknown): string {
+  return value === undefined || value === null ? '' : String(value)
+}
+
+function record(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>
+  if (typeof value !== 'string' || !value.trim()) return {}
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}
+  } catch { return {} }
+}
+
+function firstAttribute(attributes: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = text(attributes[key]).trim()
+    if (value) return value
+  }
+  return ''
+}
+
+function hasAttribute(attributes: Record<string, unknown>, keys: string[]): boolean {
+  return keys.some((key) => Object.hasOwn(attributes, key) && attributes[key] !== undefined && attributes[key] !== null)
+}
+
+function normalizedSpanKind(value: unknown): TraceSpanKind {
+  const kind = text(value).trim().toLowerCase().replace(/^span_kind_/, '')
+  return ['server', 'client', 'producer', 'consumer', 'internal', 'unspecified'].includes(kind)
+    ? kind as TraceSpanKind
+    : 'any'
+}
+
+function normalizedStatus(value: unknown): TraceStatus {
+  const status = text(value).trim().toLowerCase().replace(/^status_code_/, '')
+  if (status.includes('error')) return 'error'
+  if (status === 'ok' || status.includes('success')) return 'ok'
+  if (status.includes('unset')) return 'unset'
+  return 'any'
+}
+
+function protocolFromAttributes(attributes: Record<string, unknown>): TraceProtocol {
+  if (hasAttribute(attributes, ['http.request.method', 'http.method', 'http.route', 'url.template', 'url.path', 'http.target'])) return 'http'
+  if (hasAttribute(attributes, ['rpc.system', 'rpc.service', 'rpc.method'])) return 'rpc'
+  if (hasAttribute(attributes, ['messaging.system', 'messaging.destination.name', 'messaging.destination', 'messaging.operation.type', 'messaging.operation'])) return 'messaging'
+  if (hasAttribute(attributes, ['db.system.name', 'db.system', 'db.operation.name', 'db.operation'])) return 'database'
+  return 'any'
 }
 
 function extractQuoted(query: string, key: string): string {
@@ -74,7 +134,7 @@ function enumValue<T extends string>(query: string, keys: string[], values: read
 }
 
 function detectedProtocol(query: string): TraceProtocol {
-  if (['span.http.request.method', 'span.http.method', 'span.http.route', 'span.url.template', 'span.url.path'].some((key) => hasKey(query, key))) return 'http'
+  if (['span.http.request.method', 'span.http.method', 'span.http.route', 'span.url.template', 'span.url.path', 'span.http.target'].some((key) => hasKey(query, key))) return 'http'
   if (['span.rpc.system', 'span.rpc.service', 'span.rpc.method'].some((key) => hasKey(query, key))) return 'rpc'
   if (['span.messaging.system', 'span.messaging.destination.name', 'span.messaging.destination', 'span.messaging.operation.type', 'span.messaging.operation'].some((key) => hasKey(query, key))) return 'messaging'
   if (['span.db.system.name', 'span.db.system', 'span.db.operation.name', 'span.db.operation'].some((key) => hasKey(query, key))) return 'database'
@@ -90,7 +150,7 @@ export function traceBuilderFromTraceql(query: string): TraceBuilderState {
     spanKind: enumValue(query, ['span:kind', 'kind'], ['server', 'client', 'producer', 'consumer', 'internal', 'unspecified'] as const, 'any'),
     protocol: detectedProtocol(query),
     httpMethod: firstQuoted(query, 'span.http.request.method', 'span.http.method'),
-    endpoint: firstQuoted(query, 'span.http.route', 'span.url.template', 'span.url.path'),
+    endpoint: firstQuoted(query, 'span.http.route', 'span.url.template', 'span.url.path', 'span.http.target'),
     rpcSystem: extractQuoted(query, 'span.rpc.system'),
     rpcService: extractQuoted(query, 'span.rpc.service'),
     rpcMethod: extractQuoted(query, 'span.rpc.method'),
@@ -102,6 +162,43 @@ export function traceBuilderFromTraceql(query: string): TraceBuilderState {
     spanName: firstQuoted(query, 'span:name', 'name'),
     status: enumValue(query, ['span:status', 'status'], ['unset', 'error', 'ok'] as const, 'any'),
     minDurationMs: duration
+  }
+}
+
+export function traceBuilderFromSpan(span: TraceBuilderSpanSeed): TraceBuilderState {
+  const attributes = record(span.attributes)
+  const resource = record(span.resourceAttributes)
+  const name = text(span.name).trim()
+  const spanKind = normalizedSpanKind(span.kind)
+  let protocol = protocolFromAttributes(attributes)
+
+  let httpMethod = firstAttribute(attributes, 'http.request.method', 'http.method')
+  let endpoint = firstAttribute(attributes, 'http.route', 'url.template', 'url.path', 'http.target')
+  const nameHttp = name.match(HTTP_METHOD)
+  if (protocol === 'any' && nameHttp && (spanKind === 'server' || spanKind === 'client')) protocol = 'http'
+  if (protocol === 'http' && nameHttp) {
+    if (!httpMethod) httpMethod = nameHttp[1].toUpperCase()
+    if (!endpoint && nameHttp[2]?.trim().startsWith('/')) endpoint = nameHttp[2].trim()
+  }
+
+  return {
+    ...EMPTY_TRACE_BUILDER,
+    serviceNamespace: text(span.serviceNamespace).trim() || firstAttribute(resource, 'service.namespace'),
+    service: text(span.service).trim() || firstAttribute(resource, 'service.name'),
+    spanKind,
+    protocol,
+    httpMethod,
+    endpoint,
+    rpcSystem: firstAttribute(attributes, 'rpc.system'),
+    rpcService: firstAttribute(attributes, 'rpc.service'),
+    rpcMethod: firstAttribute(attributes, 'rpc.method'),
+    messagingSystem: firstAttribute(attributes, 'messaging.system'),
+    messagingDestination: firstAttribute(attributes, 'messaging.destination.name', 'messaging.destination'),
+    messagingOperation: firstAttribute(attributes, 'messaging.operation.type', 'messaging.operation'),
+    dbSystem: firstAttribute(attributes, 'db.system.name', 'db.system'),
+    dbOperation: firstAttribute(attributes, 'db.operation.name', 'db.operation'),
+    spanName: protocol === 'any' ? name : '',
+    status: normalizedStatus(span.status)
   }
 }
 
@@ -122,10 +219,10 @@ export function buildTraceql(builder: TraceBuilderState): string {
     if (builder.httpMethod.trim()) conditions.push(either(['span.http.request.method', 'span.http.method'], builder.httpMethod))
     if (builder.endpoint.trim()) {
       const endpointKeys = builder.spanKind === 'server'
-        ? ['span.http.route']
+        ? ['span.http.route', 'span.http.target']
         : builder.spanKind === 'client'
-          ? ['span.url.template', 'span.url.path']
-          : ['span.http.route', 'span.url.template', 'span.url.path']
+          ? ['span.url.template', 'span.url.path', 'span.http.target']
+          : ['span.http.route', 'span.url.template', 'span.url.path', 'span.http.target']
       conditions.push(either(endpointKeys, builder.endpoint))
     }
     if (!builder.httpMethod.trim() && !builder.endpoint.trim()) conditions.push(existsAny(['span.http.request.method', 'span.http.method', 'span.http.route', 'span.url.template']))
