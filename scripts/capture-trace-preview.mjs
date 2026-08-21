@@ -85,22 +85,34 @@ async function seedTraceWorkspace(win) {
 
 async function validateBuilderIndependence(win) {
   const report = JSON.parse(await win.webContents.executeJavaScript(`(() => {
-    const labels = [...document.querySelectorAll('section[aria-label="Trace explorer"] label')]
-    const inputFor = (name) => labels.find((label) => label.querySelector('span')?.textContent?.trim() === name)?.querySelector('input')
-    const service = inputFor('Service')
-    const span = inputFor('Span / operation')
-    if (!service || !span) return JSON.stringify({ error: 'missing builder inputs' })
-    const before = { service: service.value, span: span.value }
-    const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(span), 'value')
-    descriptor.set.call(span, 'POST /checkout')
-    span.dispatchEvent(new Event('input', { bubbles: true }))
+    const builder = document.querySelector('[data-tempo-builder]')
+    const control = (name) => [...(builder?.querySelectorAll('div') ?? [])].find((candidate) => [...candidate.children].some((child) => child.tagName === 'SPAN' && child.textContent?.trim() === name))
+    const buttonLabel = (name) => control(name)?.querySelector('button')?.getAttribute('aria-label') ?? ''
+    const inputFor = (name) => control(name)?.querySelector('input')
+    const exactSpan = inputFor('Exact span / operation name')
+    const duration = inputFor('Min duration (ms)')
+    if (!builder || !exactSpan || !duration) return JSON.stringify({ error: 'missing structured builder controls' })
+    const before = {
+      namespace: buttonLabel('Namespace'),
+      service: buttonLabel('Service'),
+      protocol: buttonLabel('Protocol / subsystem'),
+      exactSpan: exactSpan.value,
+      duration: duration.value
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(exactSpan), 'value')
+    descriptor.set.call(exactSpan, 'POST /checkout')
+    exactSpan.dispatchEvent(new Event('input', { bubbles: true }))
     return JSON.stringify({ before })
   })()`))
   if (report.error) throw new Error(report.error)
-  if (report.before.service !== 'checkout-api' || report.before.span !== '') {
-    throw new Error(`Builder parser cross-wired service/span fields: ${JSON.stringify(report.before)}`)
+  if (report.before.namespace !== 'Namespace: commerce' || report.before.service !== 'Service: checkout-api' || report.before.protocol !== 'Protocol or subsystem: Any protocol' || report.before.exactSpan !== '' || report.before.duration !== '300') {
+    throw new Error(`Builder parser cross-wired structured fields: ${JSON.stringify(report.before)}`)
   }
-  await waitFor(win, `(() => { const labels=[...document.querySelectorAll('section[aria-label="Trace explorer"] label')]; const input=(name)=>labels.find((label)=>label.querySelector('span')?.textContent?.trim()===name)?.querySelector('input'); return input('Service')?.value === 'checkout-api' && input('Span / operation')?.value === 'POST /checkout' })()`, 'independent Service and Span / operation values')
+  await waitFor(win, `(() => {
+    const builder=document.querySelector('[data-tempo-builder]');
+    const control=(name)=>[...(builder?.querySelectorAll('div') ?? [])].find((candidate)=>[...candidate.children].some((child)=>child.tagName==='SPAN' && child.textContent?.trim()===name));
+    return control('Service')?.querySelector('button')?.getAttribute('aria-label') === 'Service: checkout-api' && control('Exact span / operation name')?.querySelector('input')?.value === 'POST /checkout';
+  })()`, 'independent Service and advanced operation values')
 }
 
 async function searchTraces(win) {
@@ -144,10 +156,10 @@ async function openPreviewTrace(win) {
 async function selectPaymentSpan(win) {
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
-    const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('payment-service') && candidate.textContent?.includes('charge card'))
+    const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('payment-service') && candidate.textContent?.includes('POST /charges'))
     button?.click()
   })()`)
-  await waitFor(win, `document.querySelector('aside[aria-label="Selected span details"]') && document.querySelector('button[aria-label="Close span details"]') && document.body.innerText.includes('TimeoutError') && document.body.innerText.includes('Resource') && document.body.innerText.includes('Error')`, 'structured closable payment span inspector')
+  await waitFor(win, `document.querySelector('aside[aria-label="Selected span details"]') && document.querySelector('button[aria-label="Close span details"]') && document.body.innerText.includes('TimeoutError') && document.body.innerText.includes('HTTP & network') && document.body.innerText.includes('Error')`, 'structured closable payment HTTP span inspector')
 }
 
 async function validateCloseAndSelectedSpanCohort(win) {
@@ -160,15 +172,20 @@ async function validateCloseAndSelectedSpanCohort(win) {
     button?.click()
   })()`)
   await waitFor(win, `(() => {
-    const section=document.querySelector('section[aria-label="Trace explorer"]');
-    const labels=[...(section?.querySelectorAll('label') ?? [])];
-    const field=(name)=>labels.find((label)=>label.querySelector('span')?.textContent?.trim()===name);
-    return field('Namespace')?.querySelector('input')?.value === 'commerce' &&
-      field('Service')?.querySelector('input')?.value === 'payment-service' &&
-      field('Span / operation')?.querySelector('input')?.value === 'charge card' &&
-      field('Status')?.querySelector('select')?.value === 'error' &&
+    const builder=document.querySelector('[data-tempo-builder]');
+    const control=(name)=>[...(builder?.querySelectorAll('div') ?? [])].find((candidate)=>[...candidate.children].some((child)=>child.tagName==='SPAN' && child.textContent?.trim()===name));
+    const aria=(name)=>control(name)?.querySelector('button')?.getAttribute('aria-label');
+    const input=(name)=>control(name)?.querySelector('input')?.value;
+    return aria('Namespace') === 'Namespace: commerce' &&
+      aria('Service') === 'Service: payment-service' &&
+      aria('Span kind') === 'Span kind: Client' &&
+      aria('Protocol / subsystem') === 'Protocol or subsystem: HTTP / network' &&
+      aria('HTTP method') === 'HTTP method: POST' &&
+      input('Route / endpoint') === '/charges' &&
+      aria('Status') === 'Status: Error' &&
+      input('Exact span / operation name') === '' &&
       document.body.innerText.includes('selected span');
-  })()`, 'selected-span cohort seed')
+  })()`, 'selected HTTP span structured cohort seed')
 }
 
 app.whenReady().then(async () => {

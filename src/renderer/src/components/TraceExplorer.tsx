@@ -5,8 +5,11 @@ import { api } from '../lib/api'
 import { selectActiveSession, useStore } from '../store/useStore'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { TraceScatterChart } from './TraceScatterChart'
+import { TraceBuilderPanel } from './TraceBuilderPanel'
+import { Combobox } from './ui/combobox'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
+import { buildTraceql, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '../lib/traceBuilder'
 import {
   buildTraceTimelineScale,
   buildVisibleTraceTree,
@@ -26,21 +29,17 @@ interface TraceExplorerProps {
   connectionId: string
 }
 
-type TraceStatus = 'any' | 'error' | 'ok'
 type ResultView = 'list' | 'scatter'
-type TraceSampleSize = '100' | '250' | '500' | 'all'
-interface TraceBuilderState {
-  serviceNamespace: string
-  service: string
-  spanName: string
-  status: TraceStatus
-  minDurationMs: string
-}
 
 const MAX_RENDERED_SPANS = 500
-const EMPTY_BUILDER: TraceBuilderState = { serviceNamespace: '', service: '', spanName: '', status: 'any', minDurationMs: '' }
 const DEFAULT_TRACE_RANGE: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
 const DEFAULT_TRACE_SAMPLE_SIZE: TraceSampleSize = '250'
+const TRACE_SAMPLE_SIZE_OPTIONS = [
+  { value: '100', label: '100 traces' },
+  { value: '250', label: '250 traces' },
+  { value: '500', label: '500 traces' },
+  { value: 'all', label: 'All traces' }
+]
 
 function text(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
@@ -98,37 +97,6 @@ function valueLabel(value: unknown): string {
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character)
-}
-
-function extractQuoted(query: string, key: string): string {
-  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const match = query.match(new RegExp(`(?:^|[\\s{(&|])${escaped}\\s*=\\s*"((?:\\\\.|[^"\\\\])*)"`))
-  if (!match) return ''
-  try { return JSON.parse(`"${match[1]}"`) } catch { return match[1] }
-}
-
-function builderFromTraceql(query: string): TraceBuilderState {
-  const duration = query.match(/(?:^|[\s{(&|])duration\s*>\s*([0-9.]+)ms/i)?.[1] ?? ''
-  const status = /(?:^|[\s{(&|])status\s*=\s*error/i.test(query) ? 'error' : /(?:^|[\s{(&|])status\s*=\s*ok/i.test(query) ? 'ok' : 'any'
-  return {
-    serviceNamespace: extractQuoted(query, 'resource.service.namespace'),
-    service: extractQuoted(query, 'resource.service.name'),
-    spanName: extractQuoted(query, 'name'),
-    status,
-    minDurationMs: duration
-  }
-}
-
-function buildTraceql(builder: TraceBuilderState): string {
-  const conditions: string[] = []
-  if (builder.serviceNamespace.trim()) conditions.push(`resource.service.namespace = ${JSON.stringify(builder.serviceNamespace.trim())}`)
-  if (builder.service.trim()) conditions.push(`resource.service.name = ${JSON.stringify(builder.service.trim())}`)
-  if (builder.spanName.trim()) conditions.push(`name = ${JSON.stringify(builder.spanName.trim())}`)
-  if (builder.status === 'error') conditions.push('status = error')
-  if (builder.status === 'ok') conditions.push('status = ok')
-  const duration = Number(builder.minDurationMs)
-  if (builder.minDurationMs.trim() && Number.isFinite(duration) && duration >= 0) conditions.push(`duration > ${duration}ms`)
-  return `{ ${conditions.join(' && ')} }`
 }
 
 function AttributeList({ values, empty = 'No attributes' }: { values: Record<string, unknown>; empty?: string }) {
@@ -213,9 +181,10 @@ function mergeSearchRows(existing: TraceRow[], incoming: TraceRow[]): TraceRow[]
 export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const mode = useStore((state) => selectActiveSession(state).queryMode)
   const traceql = useStore((state) => selectActiveSession(state).sql)
+  const metadata = useStore((state) => state.metadataByProfileId[connectionId])
   const setSql = useStore((state) => state.setSql)
   const setQueryMode = useStore((state) => state.setQueryMode)
-  const [builder, setBuilder] = useState<TraceBuilderState>(() => builderFromTraceql(traceql))
+  const [builder, setBuilder] = useState<TraceBuilderState>(() => traceBuilderFromTraceql(traceql))
   const [traceId, setTraceId] = useState('')
   const [searchRows, setSearchRows] = useState<TraceRow[]>([])
   const [spans, setSpans] = useState<TraceRow[]>([])
@@ -234,7 +203,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [resultView, setResultView] = useState<ResultView>('list')
 
   useEffect(() => {
-    setBuilder(builderFromTraceql(traceql))
+    setBuilder(traceBuilderFromTraceql(traceql))
   }, [traceql])
 
   useEffect(() => {
@@ -445,22 +414,15 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const exploreSimilar = () => {
     const source = selectedSpan ?? rootSpan
     if (!source) return
-    const rawStatus = text(source.status).toUpperCase()
-    const next: TraceBuilderState = {
-      ...EMPTY_BUILDER,
-      serviceNamespace: text(source.serviceNamespace),
-      service: text(source.service),
-      spanName: text(source.name),
-      status: rawStatus.includes('ERROR') ? 'error' : rawStatus.includes('OK') ? 'ok' : 'any'
-    }
+    const next = traceBuilderFromSpan(source)
     setBuilder(next)
     setSql(buildTraceql(next))
     setQueryMode('builder')
     setSpans([])
     setSelectedSpanId('')
     setCohortHint(selectedSpan
-      ? 'Builder seeded from the selected span: namespace, service, operation and status. Adjust the cohort definition, then search similar traces.'
-      : 'Builder seeded from the trace root. Adjust the cohort definition, then search similar traces.')
+      ? 'Builder seeded from the selected span semantic attributes: service, span kind, protocol/operation and status when available. Adjust the cohort definition, then search similar traces.'
+      : 'Builder seeded from the trace root semantic attributes. Adjust the cohort definition, then search similar traces.')
   }
 
   const toggleCollapse = (spanId: string) => setCollapsed((current) => {
@@ -509,25 +471,15 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
         </div>
 
         <form className={styles.searchForm} onSubmit={submitSearch}>
-          {mode === 'builder' ? <div className={styles.builderGrid}>
-            <label><span>Namespace</span><input value={builder.serviceNamespace} onChange={(event) => updateBuilder({ serviceNamespace: event.target.value })} placeholder="commerce" /></label>
-            <label><span>Service</span><input value={builder.service} onChange={(event) => updateBuilder({ service: event.target.value })} placeholder="checkout-api" /></label>
-            <label><span>Span / operation</span><input value={builder.spanName} onChange={(event) => updateBuilder({ spanName: event.target.value })} placeholder="POST /checkout" /></label>
-            <label><span>Status</span><select value={builder.status} onChange={(event) => updateBuilder({ status: event.target.value as TraceStatus })}><option value="any">Any</option><option value="error">Error</option><option value="ok">OK</option></select></label>
-            <label><span>Min duration (ms)</span><input type="number" min="0" step="1" value={builder.minDurationMs} onChange={(event) => updateBuilder({ minDurationMs: event.target.value })} placeholder="300" /></label>
-            <div className={styles.generatedQuery}><span>Generated TraceQL</span><code>{traceql}</code></div>
-          </div> : <label className={styles.traceqlField} htmlFor="traceql-query"><span>TraceQL</span><textarea id="traceql-query" value={traceql} onChange={(event) => setSql(event.target.value)} spellCheck={false} rows={3} placeholder="{ resource.service.name = &quot;checkout-api&quot; && duration &gt; 300ms }" /></label>}
+          {mode === 'builder'
+            ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} onChange={updateBuilder} />
+            : <label className={styles.traceqlField} htmlFor="traceql-query"><span>TraceQL</span><textarea id="traceql-query" value={traceql} onChange={(event) => setSql(event.target.value)} spellCheck={false} rows={3} placeholder="{ resource.service.name = &quot;checkout-api&quot; && duration &gt; 300ms }" /></label>}
           <div className={styles.searchControls}>
             <TimeRangeField value={searchRange} onChange={setSearchRange} />
-            <label style={{ display: 'grid', gap: 5, flex: '0 0 auto' }}>
+            <div style={{ display: 'grid', gap: 5, flex: '0 0 124px' }}>
               <span style={{ color: 'var(--text-mute)', fontSize: 11, fontWeight: 600 }}>Sample size</span>
-              <select value={sampleSize} onChange={(event) => changeSampleSize(event.target.value as TraceSampleSize)} disabled={loading !== null} style={{ height: 32, minWidth: 112, padding: '0 8px', border: '1px solid var(--border)', borderRadius: 5, background: 'var(--bg)', color: 'var(--text)' }} aria-label="Tempo trace sample size">
-                <option value="100">100 traces</option>
-                <option value="250">250 traces</option>
-                <option value="500">500 traces</option>
-                <option value="all">All traces</option>
-              </select>
-            </label>
+              <Combobox label="Tempo trace sample size" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} />
+            </div>
             <div className={styles.searchActions}>
               <button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? sampledSearch ? 'Fetching sample…' : searchProgress ? `Fetching ${progressPercent}%…` : 'Starting…' : sampledSearch ? 'Search sample' : 'Search all traces'}</button>
               <span>{sampledSearch
