@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { buildTraceql, EMPTY_TRACE_BUILDER, traceBuilderFromTraceql, type TraceBuilderState } from './traceBuilder.ts'
+import { buildTraceql, EMPTY_TRACE_BUILDER, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState } from './traceBuilder.ts'
 
 const builder = (patch: Partial<TraceBuilderState>): TraceBuilderState => ({ ...EMPTY_TRACE_BUILDER, ...patch })
 
@@ -18,11 +18,11 @@ test('builds service, kind, status and duration filters with scoped intrinsics',
 test('HTTP controls separate method from route and tolerate old method attributes', () => {
   assert.equal(
     buildTraceql(builder({ spanKind: 'server', protocol: 'http', httpMethod: 'POST', endpoint: '/checkout' })),
-    '{ span:kind = server && (span.http.request.method = "POST" || span.http.method = "POST") && span.http.route = "/checkout" }'
+    '{ span:kind = server && (span.http.request.method = "POST" || span.http.method = "POST") && (span.http.route = "/checkout" || span.http.target = "/checkout") }'
   )
   assert.equal(
     buildTraceql(builder({ spanKind: 'client', protocol: 'http', endpoint: '/payments/{id}' })),
-    '{ span:kind = client && (span.url.template = "/payments/{id}" || span.url.path = "/payments/{id}") }'
+    '{ span:kind = client && (span.url.template = "/payments/{id}" || span.url.path = "/payments/{id}" || span.http.target = "/payments/{id}") }'
   )
 })
 
@@ -60,4 +60,52 @@ test('parses existing unscoped builder queries and new structured fields', () =>
   assert.equal(parsed.httpMethod, 'GET')
   assert.equal(parsed.endpoint, '/orders/{id}')
   assert.equal(parsed.status, 'ok')
+})
+
+test('seeds Explore similar from HTTP span semantic attributes instead of the advanced operation field', () => {
+  const seeded = traceBuilderFromSpan({
+    serviceNamespace: 'commerce',
+    service: 'checkout-api',
+    kind: 'SERVER',
+    name: 'POST',
+    status: 'OK',
+    attributes: JSON.stringify({ 'http.request.method': 'POST', 'http.route': '/checkout' })
+  })
+
+  assert.deepEqual(seeded, builder({
+    serviceNamespace: 'commerce',
+    service: 'checkout-api',
+    spanKind: 'server',
+    protocol: 'http',
+    httpMethod: 'POST',
+    endpoint: '/checkout',
+    status: 'ok'
+  }))
+  assert.equal(seeded.spanName, '')
+})
+
+test('seeds Explore similar from RPC, messaging and database semantic attributes', () => {
+  assert.deepEqual(
+    traceBuilderFromSpan({ kind: 'CLIENT', name: 'CartService/Checkout', attributes: { 'rpc.system': 'grpc', 'rpc.service': 'CartService', 'rpc.method': 'Checkout' } }),
+    builder({ spanKind: 'client', protocol: 'rpc', rpcSystem: 'grpc', rpcService: 'CartService', rpcMethod: 'Checkout' })
+  )
+  assert.deepEqual(
+    traceBuilderFromSpan({ kind: 'PRODUCER', name: 'orders publish', attributes: { 'messaging.system': 'kafka', 'messaging.destination.name': 'orders', 'messaging.operation.type': 'publish' } }),
+    builder({ spanKind: 'producer', protocol: 'messaging', messagingSystem: 'kafka', messagingDestination: 'orders', messagingOperation: 'publish' })
+  )
+  assert.deepEqual(
+    traceBuilderFromSpan({ kind: 'CLIENT', name: 'SELECT inventory', attributes: { 'db.system.name': 'postgresql', 'db.operation.name': 'SELECT' } }),
+    builder({ spanKind: 'client', protocol: 'database', dbSystem: 'postgresql', dbOperation: 'SELECT' })
+  )
+})
+
+test('uses an HTTP-looking span name as a structured fallback and preserves genuinely custom names as advanced', () => {
+  assert.deepEqual(
+    traceBuilderFromSpan({ kind: 'SERVER', name: 'POST /checkout', status: 'UNSET' }),
+    builder({ spanKind: 'server', protocol: 'http', httpMethod: 'POST', endpoint: '/checkout', status: 'unset' })
+  )
+  assert.deepEqual(
+    traceBuilderFromSpan({ kind: 'INTERNAL', name: 'refresh inventory cache' }),
+    builder({ spanKind: 'internal', spanName: 'refresh inventory cache' })
+  )
 })
