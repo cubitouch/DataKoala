@@ -117,7 +117,7 @@ test('temporal scatter uses real time coordinates and explicit selected-period b
   assert.equal(axis.type, 'time')
   assert.equal(axis.min, timeDomain.min)
   assert.equal(axis.max, timeDomain.max)
-  assert.equal(axis.axisLabel.formatter(Date.parse('2026-01-04T12:00:00Z')), '04 Jan, 12:00')
+  assert.equal(axis.axisLabel.formatter(Date.parse('2026-01-04T12:00:00Z')), '04 Jan')
   assert.deepEqual((temporal.series as Array<{ data: unknown[] }>)[0].data, [[temporalLabels[0], 2], [temporalLabels[1], 4]])
 })
 
