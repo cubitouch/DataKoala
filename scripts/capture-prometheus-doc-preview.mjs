@@ -50,14 +50,16 @@ async function seedPrometheusWorkspace(win) {
     ] }]
 
     const rows = []
-    const start = Date.UTC(2026, 7, 20, 9, 0, 0)
+    const stepMs = 14 * 60 * 1000
+    const end = Date.now() - 15 * 60 * 1000
+    const start = end - 24 * stepMs
     const services = ['api', 'worker']
     for (let point = 0; point < 25; point += 1) {
       for (let serviceIndex = 0; serviceIndex < services.length; serviceIndex += 1) {
         const wave = Math.sin((point + serviceIndex * 2) / 3) * 0.035
         const trend = point * (serviceIndex === 0 ? 0.0018 : 0.0011)
         rows.push({
-          timestamp: new Date(start + point * 15 * 60 * 1000),
+          timestamp: new Date(start + point * stepMs),
           service: services[serviceIndex],
           value: Number((0.19 + serviceIndex * 0.075 + wave + trend).toFixed(3))
         })
@@ -127,17 +129,25 @@ async function seedPrometheusWorkspace(win) {
       durationMs: 42
     }, null)
 
-    return { rows: rows.length }
+    return {
+      rows: rows.length,
+      firstTimestamp: rows[0].timestamp.getTime(),
+      lastTimestamp: rows[rows.length - 1].timestamp.getTime()
+    }
   })()`)
 
   if (report?.error) throw new Error(report.error)
   if (report?.rows !== 50) throw new Error(`Unexpected Prometheus preview row count: ${JSON.stringify(report)}`)
+  const now = Date.now()
+  if (report.firstTimestamp < now - 6 * 60 * 60 * 1000 || report.lastTimestamp > now) {
+    throw new Error(`Prometheus documentation fixture escaped its selected six-hour range: ${JSON.stringify(report)}`)
+  }
 
   await waitFor(win,
     `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && document.querySelector('.promql-builder-form') && document.body.innerText.includes('http_request_duration_seconds_bucket')`,
     'configured Prometheus Builder')
   await waitFor(win,
-    `document.querySelector('[data-result-chart-canvas] canvas') && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Line'`,
+    `document.querySelector('[data-result-chart-canvas] canvas') && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Line' && document.body.innerText.includes('Last 6 hours')`,
     'rendered Prometheus line result')
 
   await win.webContents.executeJavaScript(`(() => {
