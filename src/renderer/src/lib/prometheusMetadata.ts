@@ -3,6 +3,31 @@ import { api } from './api'
 const labelRequests = new Map<string, Promise<string[]>>()
 const valueRequests = new Map<string, Promise<string[]>>()
 
+export type PrometheusGcxErrorKind = 'auth_required' | 'invalid_context' | 'gcx_unavailable' | 'upstream' | 'unknown_gcx'
+
+export interface PrometheusGcxError {
+  kind: PrometheusGcxErrorKind
+  message: string
+}
+
+export function prometheusMetadataError(error: unknown): PrometheusGcxError {
+  const raw = error instanceof Error ? error.message : String(error)
+  const lower = raw.toLowerCase()
+  if (lower.includes('login') || lower.includes('auth') || lower.includes('credential') || lower.includes('unauthenticated')) {
+    return { kind: 'auth_required', message: lower.includes('gcx login') ? raw : `${raw} Run gcx login, then retry.` }
+  }
+  if (lower.includes('context')) {
+    return { kind: 'invalid_context', message: `${raw} Check the selected gcx context, then retry.` }
+  }
+  if (lower.includes('enoent') || lower.includes('not found') && lower.includes('gcx') || lower.includes('spawn gcx')) {
+    return { kind: 'gcx_unavailable', message: `${raw} Make sure gcx is installed and available on PATH.` }
+  }
+  if (lower.includes('network') || lower.includes('timeout') || lower.includes('upstream') || lower.includes('temporar')) {
+    return { kind: 'upstream', message: `${raw} Retry the metadata request.` }
+  }
+  return { kind: 'unknown_gcx', message: raw }
+}
+
 export function resetPrometheusMetadataCache() {
   labelRequests.clear()
   valueRequests.clear()

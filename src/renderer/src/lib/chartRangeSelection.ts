@@ -7,6 +7,7 @@ export interface ChartTimeSelectionRange {
 }
 
 function timestamp(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
   const date = value instanceof Date ? value : new Date(String(value))
   const valueMs = date.getTime()
   return Number.isFinite(valueMs) ? valueMs : null
@@ -26,8 +27,8 @@ function selectedIndex(value: unknown, values: readonly unknown[]): number | nul
 
 /**
  * Converts an ECharts lineX brush range into the half-open time range used by
- * result filters. Category brush coordinates are normally indexes; timestamp
- * coordinates are accepted as a defensive fallback.
+ * result filters. Category brush coordinates are normally indexes; a real time
+ * axis returns millisecond timestamps and may start/end between actual points.
  */
 export function chartTimeSelectionRange(
   coordRange: readonly unknown[],
@@ -35,9 +36,18 @@ export function chartTimeSelectionRange(
   bucket?: TimeBucket
 ): ChartTimeSelectionRange | null {
   if (coordRange.length < 2 || !isTemporalChartValues(xValues)) return null
+
   const firstIndex = selectedIndex(coordRange[0], xValues)
   const lastIndex = selectedIndex(coordRange[1], xValues)
-  if (firstIndex === null || lastIndex === null) return null
+  const categoryCoordinates = firstIndex !== null && lastIndex !== null
+  if (!categoryCoordinates) {
+    const firstMs = timestamp(coordRange[0])
+    const lastMs = timestamp(coordRange[1])
+    if (firstMs === null || lastMs === null || firstMs === lastMs) return null
+    const startMs = Math.min(firstMs, lastMs)
+    const endMs = Math.max(firstMs, lastMs)
+    return { startInclusive: new Date(startMs).toISOString(), endExclusive: new Date(endMs).toISOString() }
+  }
 
   const startIndex = Math.min(firstIndex, lastIndex)
   const endIndex = Math.max(firstIndex, lastIndex)

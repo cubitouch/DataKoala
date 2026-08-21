@@ -1,10 +1,10 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import ReactECharts from 'echarts-for-react'
 import type { QueryResult } from '@shared/types'
 import type { TempoSearchProgress } from '@shared/tempo'
 import { api } from '../lib/api'
 import { selectActiveSession, useStore } from '../store/useStore'
 import { TimeRangeField } from './time-range/TimeRangeField'
+import { TraceScatterChart } from './TraceScatterChart'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
 import {
@@ -254,16 +254,16 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setSearchProgress(null)
   }, [connectionId])
 
-  const runSearch = async (sampleOverride: TraceSampleSize = sampleSize) => {
+  const runSearch = async (sampleOverride: TraceSampleSize = sampleSize, rangeOverride: BuilderTimeRange = searchRange) => {
     const request = traceql.trim()
     if (!request) return
-    if (searchRange.recurringWindows?.some((window) => window.from || window.to)) {
+    if (rangeOverride.recurringWindows?.some((window) => window.from || window.to)) {
       setError('Recurring daily windows are not supported for Tempo trace searches yet. Choose a continuous range.')
       return
     }
     let range: { start: string; end: string }
     try {
-      range = prometheusRangeBounds(searchRange)
+      range = prometheusRangeBounds(rangeOverride)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
       return
@@ -629,7 +629,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
         </header>
         {searchRows.length === 0 ? <div className={styles.empty}>{loading === 'search' ? 'Waiting for the first Tempo trace summaries…' : 'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.'}</div>
           : <>
-              {resultView === 'scatter' ? <div className={styles.scatter} data-trace-scatter=""><ReactECharts option={scatterOption} onEvents={scatterEvents} notMerge lazyUpdate style={{ width: '100%', height: '100%' }} /></div>
+              {resultView === 'scatter' ? <div className={styles.scatter} data-trace-scatter=""><TraceScatterChart option={scatterOption} searchRange={searchRange} onEvents={scatterEvents} onSelectRange={(next) => { setSearchRange(next); void runSearch(sampleSize, next) }} /></div>
                 : <div className={styles.traceList}>{searchRows.map((row) => {
                   const status = traceResultStatus(row)
                   return <button key={text(row.traceId)} type="button" className={styles.traceResult} onClick={() => void openTrace(text(row.traceId))} disabled={loading !== null}>

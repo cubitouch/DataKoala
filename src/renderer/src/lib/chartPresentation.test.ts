@@ -20,6 +20,12 @@ test('formats every builder time bucket deterministically in UTC', () => {
   assert.equal(formatTimeBucketLabel(value, 'year'), '2026')
 })
 
+test('formats numeric ECharts time-axis values as dates', () => {
+  const value = Date.parse('2026-08-21T06:43:00Z')
+  assert.equal(formatTimeBucketLabel(value, 'minute'), '21 Aug, 06:43')
+  assert.equal(formatTimeBucketLabel(value, 'hour'), '21 Aug, 06:00')
+})
+
 test('invalid dates retain their original display value', () => {
   assert.equal(formatTimeBucketLabel('not-a-date', 'day'), 'not-a-date')
   assert.equal(formatTimeBucketLabel('north', 'month'), 'north')
@@ -103,8 +109,20 @@ test('area presentation stacks Series and uses a filled line renderer', () => {
   assert.deepEqual(series.areaStyle, { opacity: 0.3 })
 })
 
-test('scatter uses the Line category axis semantics without connecting points', () => {
-  for (const labels of [['2026-01-01', '2026-01-02'], ['Alpha', 'Beta'], ['1', '2']]) {
+test('temporal scatter uses real time coordinates and explicit selected-period bounds', () => {
+  const temporalLabels = ['2026-01-03', '2026-01-06']
+  const timeDomain = { min: Date.parse('2026-01-01T00:00:00Z'), max: Date.parse('2026-01-08T00:00:00Z') }
+  const temporal = buildChartPresentationOptions({ labels: temporalLabels, series: [{ name: 'A', data: [2, 4] }], view: 'scatter', hasSeriesColumn: false, mode: 'sql', timeDomain })
+  const axis = temporal.xAxis as { type: string; min?: number; max?: number; axisLabel: { formatter: (value: unknown) => string } }
+  assert.equal(axis.type, 'time')
+  assert.equal(axis.min, timeDomain.min)
+  assert.equal(axis.max, timeDomain.max)
+  assert.equal(axis.axisLabel.formatter(Date.parse('2026-01-04T12:00:00Z')), '04 Jan')
+  assert.deepEqual((temporal.series as Array<{ data: unknown[] }>)[0].data, [[temporalLabels[0], 2], [temporalLabels[1], 4]])
+})
+
+test('categorical scatter retains category semantics', () => {
+  for (const labels of [['Alpha', 'Beta'], ['1', '2']]) {
     const options = buildChartPresentationOptions({ labels, series: [{ name: 'A', data: [2, 4] }], view: 'scatter', hasSeriesColumn: false, mode: 'sql' })
     const xAxis = options.xAxis as { type: string; data: string[] }
     assert.equal(xAxis.type, 'category')

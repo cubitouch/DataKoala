@@ -16,6 +16,16 @@ test('converts a SQL category brush to a half-open range ending at the next poin
   })
 })
 
+test('converts real time-axis coordinates even when selection boundaries fall between points', () => {
+  const values = ['2026-08-01T00:00:00Z', '2026-08-02T00:00:00Z']
+  const start = Date.parse('2026-08-01T06:00:00Z')
+  const end = Date.parse('2026-08-01T18:00:00Z')
+  assert.deepEqual(chartTimeSelectionRange([end, start], values), {
+    startInclusive: '2026-08-01T06:00:00.000Z',
+    endExclusive: '2026-08-01T18:00:00.000Z'
+  })
+})
+
 test('includes the final SQL point without inventing a large time window', () => {
   const values = ['2026-08-01T10:00:00Z', '2026-08-01T11:00:00Z']
   assert.deepEqual(chartTimeSelectionRange([1, 1], values), {

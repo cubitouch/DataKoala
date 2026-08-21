@@ -11,6 +11,10 @@ const two = (value: number) => String(value).padStart(2, '0')
 
 function dateValue(value: unknown): Date | null {
   if (value instanceof Date) return Number.isFinite(value.getTime()) ? value : null
+  if (typeof value === 'number') {
+    const parsed = new Date(value)
+    return Number.isFinite(parsed.getTime()) ? parsed : null
+  }
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-]+Z?)?$/.test(value.trim())) return null
   const parsed = new Date(value)
   return Number.isFinite(parsed.getTime()) ? parsed : null
@@ -108,6 +112,7 @@ interface PresentationInput {
   hasSeriesColumn: boolean
   mode: 'sql' | 'builder'
   timeBucket?: string
+  timeDomain?: { min: number; max: number }
   valueAxisScale?: ValueAxisScale
   visibility?: Readonly<Record<string, boolean>>
   anomalies?: readonly ChartAnomaly[]
@@ -142,6 +147,8 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     }
   }
   const precision = input.mode === 'builder' ? input.timeBucket as TimeDisplayPrecision : inferTimeDisplayPrecision(input.labels)
+  const temporal = Boolean(precision && input.labels.length && input.labels.every((label) => dateValue(label)))
+  const domain = temporal ? input.timeDomain : undefined
   const formatLabel = precision ? (value: unknown) => formatTimeBucketLabel(value, precision) : (value: unknown) => String(value)
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
   return {
@@ -176,7 +183,9 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     },
     legend: { top: 4, left: 8, right: 150, type: 'scroll', selected: input.visibility, textStyle: { color: '#9aa0b0' } },
     grid: { left: 50, right: 24, top: 42, bottom: 45 },
-    xAxis: { type: 'category', data: input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
+    xAxis: temporal
+      ? { type: 'time', ...(domain ?? {}), axisLabel: { color: '#9aa0b0', formatter: formatLabel } }
+      : { type: 'category', data: input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
     yAxis: { type: input.valueAxisScale === 'log' ? 'log' : 'value', axisLabel: { color: '#9aa0b0', formatter: formatChartNumber } },
     ...(input.rangeSelectionEnabled ? {
       toolbox: { show: false },
@@ -185,14 +194,14 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     series: renderedSeries.map((series) => ({
       ...series, missing: undefined,
       type: input.view === 'area' ? 'line' : input.view,
-      data: series.data,
+      data: temporal ? series.data.map((value, index) => [input.labels[index], value]) : series.data,
       stack: (input.view === 'bar' || input.view === 'area') && input.hasSeriesColumn ? 'total' : undefined,
       areaStyle: input.view === 'area' ? { opacity: 0.3 } : undefined,
       smooth: input.view === 'line' || input.view === 'area', connectNulls: false, showSymbol: input.view === 'line', symbolSize: input.view === 'scatter' ? 8 : 6,
       markPoint: input.view === 'line' ? {
         silent: true, symbol: 'circle', symbolSize: 13,
         label: { show: false }, itemStyle: { color: 'transparent', borderColor: '#f59e0b', borderWidth: 3 },
-        data: (input.anomalies ?? []).filter((anomaly) => anomaly.seriesName === series.name && (input.valueAxisScale !== 'log' || anomaly.value > 0)).map((anomaly) => ({ coord: [anomaly.dataIndex, anomaly.value], name: 'Anomaly' }))
+        data: (input.anomalies ?? []).filter((anomaly) => anomaly.seriesName === series.name && (input.valueAxisScale !== 'log' || anomaly.value > 0)).map((anomaly) => ({ coord: [temporal ? input.labels[anomaly.dataIndex] : anomaly.dataIndex, anomaly.value], name: 'Anomaly' }))
       } : undefined
     }))
   }

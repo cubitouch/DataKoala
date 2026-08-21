@@ -9,6 +9,7 @@ import { createResultFilter, createResultRangeFilter, filterQueryResult, resultF
 import { isBuilderFilterPromotable } from '../lib/builderSql'
 import { decodeBuilderSeriesTuple, deriveEffectiveVisualization, numericColumns, pivotRowsForChart, reconcileHierarchyDimensions, visualizationConfigurationsEqual, type ValueAxisScale } from '../lib/resultVisualization'
 import { selectActiveSession, selectSession, useStore, type QueryMode } from '../store/useStore'
+import { timeRangeChartDomain } from '../lib/prometheusTimeRange'
 import { ResultsTable } from './ResultsTable'
 import { ChartFilterPopover, type ChartFilterAction } from './result-filters/ChartFilterPopover'
 import { ResultFilterBar } from './result-filters/ResultFilterBar'
@@ -55,6 +56,11 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
   const setVisualization = useStore((state) => state.setVisualization)
   const builderSeries = useStore((state) => selectActiveSession(state).builder.seriesColumns)
   const builder = useStore((state) => selectActiveSession(state).builder)
+  const prometheusTimeRange = useStore((state) => selectActiveSession(state).prometheusTimeRange)
+  const datasourceKind = useStore((state) => {
+    const session = selectActiveSession(state)
+    return state.profiles.find((profile) => profile.id === session.connectionProfileId)?.kind
+  })
   const activeFilters = useStore((state) => {
     const session = selectActiveSession(state)
     return mode === 'sql' ? session.sqlResultFilters : session.builderResultFilters
@@ -129,6 +135,8 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     ? detectChartAnomalies(chart.series, DEFAULT_ANOMALY_OPTIONS) : [], [chart, effectiveConfiguration.anomalyDetectionEnabled, anomalyEligibility.available])
   const temporalRangeSelectionEnabled = Boolean(chart?.renderable && effectiveConfiguration.xColumn && isTemporalChartValues(chart.xValues))
   const activeBuilderTimeBucket = mode === 'builder' && effectiveConfiguration.xColumn === 'time_bucket' ? builder.timeBucket : undefined
+  const activeChartTimeRange = datasourceKind === 'prometheus' ? prometheusTimeRange : activeBuilderTimeBucket ? builder.timeRange : undefined
+  const chartTimeDomain = useMemo(() => activeChartTimeRange ? timeRangeChartDomain(activeChartTimeRange) : null, [activeChartTimeRange])
   const seriesIdentities = chart?.series.map((series) => series.name) ?? []
   useEffect(() => updateSeriesVisibility((previous) => reconcileSeriesVisibility(previous, seriesIdentities)), [seriesIdentities.join('\0'), updateSeriesVisibility])
   const logPresentation = useMemo(() => effectiveConfiguration.valueAxisScale === 'log' ? prepareLogScaleSeries(chart?.series ?? [], seriesVisibility) : null, [chart, seriesVisibility, effectiveConfiguration.valueAxisScale])
@@ -144,12 +152,13 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     labels: chart?.labels ?? [], series: chart?.series ?? [], view: effectiveConfiguration.view,
     hasSeriesColumn: Boolean(effectiveConfiguration.seriesColumn || effectiveConfiguration.seriesColumns?.length), mode,
     timeBucket: activeBuilderTimeBucket,
+    timeDomain: chartTimeDomain ?? undefined,
     valueAxisScale: effectiveConfiguration.valueAxisScale, visibility: seriesVisibility,
     hoveredSeriesIdentity: () => hoveredSeriesIdentity.current,
     anomalies,
     rangeSelectionEnabled: temporalRangeSelectionEnabled && !hierarchical,
     hierarchy
-  }) : null, [chart, chartReady, effectiveConfiguration, seriesVisibility, mode, activeBuilderTimeBucket, temporalRangeSelectionEnabled, anomalies, hierarchy, hierarchical])
+  }) : null, [chart, chartReady, effectiveConfiguration, seriesVisibility, mode, activeBuilderTimeBucket, chartTimeDomain, temporalRangeSelectionEnabled, anomalies, hierarchy, hierarchical])
   const setHierarchyDimensions = (dimensions: string[]) => update({ hierarchyDimensions: dimensions })
   const chooseView = (view: typeof effectiveConfiguration.view) => {
     const enteringHierarchy = view === 'treemap' || view === 'sunburst'
@@ -165,8 +174,8 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     setHierarchyDimensions(next)
   }
   const chartFingerprint = useMemo(
-    () => `${resultRevision}:${createChartFingerprint(chart, effectiveConfiguration, seriesVisibility)}:${mode}:${activeBuilderTimeBucket ?? ''}:hierarchy=${hierarchical ? JSON.stringify(hierarchy) : ''}:anomalies=${anomalies.map((item) => `${item.seriesName}:${item.dataIndex}`).join(',')}`,
-    [resultRevision, chart, effectiveConfiguration, seriesVisibility, mode, activeBuilderTimeBucket, hierarchy, hierarchical, anomalies]
+    () => `${resultRevision}:${createChartFingerprint(chart, effectiveConfiguration, seriesVisibility)}:${mode}:${activeBuilderTimeBucket ?? ''}:domain=${chartTimeDomain ? `${chartTimeDomain.min}-${chartTimeDomain.max}` : ''}:hierarchy=${hierarchical ? JSON.stringify(hierarchy) : ''}:anomalies=${anomalies.map((item) => `${item.seriesName}:${item.dataIndex}`).join(',')}`,
+    [resultRevision, chart, effectiveConfiguration, seriesVisibility, mode, activeBuilderTimeBucket, chartTimeDomain, hierarchy, hierarchical, anomalies]
   )
   const renderedOption = useMemo(() => option ? {
     ...option,
