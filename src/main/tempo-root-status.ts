@@ -25,7 +25,7 @@ interface RootStatusTarget {
   providerTraceId: string
 }
 
-const DEFAULT_BATCH_SIZE = 100
+const DEFAULT_BATCH_SIZE = 1000
 const PROVIDER_TIME_PRECISION_MS = 1_000
 
 function text(value: unknown): string {
@@ -119,7 +119,7 @@ export async function enrichTempoRootStatuses(
     return { result, queriesCompleted: 0, checked: 0 }
   }
 
-  const batchSize = Math.max(1, Math.min(500, Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE)))
+  const batchSize = Math.max(1, Math.min(10_000, Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE)))
   const range = providerRange(request)
   let checked = 0
   let queriesCompleted = 0
