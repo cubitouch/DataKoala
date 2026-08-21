@@ -25,7 +25,8 @@ interface RootStatusTarget {
   providerTraceId: string
 }
 
-const DEFAULT_BATCH_SIZE = 1000
+const DEFAULT_BATCH_SIZE = 1_000
+const MAX_BATCH_SIZE = 1_000
 const PROVIDER_TIME_PRECISION_MS = 1_000
 
 function text(value: unknown): string {
@@ -89,16 +90,20 @@ function commonArgs(options: TempoRootStatusOptions): string[] {
   ]
 }
 
-function rootStatusQuery(traceIds: string[], status: 'error' | 'ok'): string {
+function rootErrorQuery(traceIds: string[]): string {
   // Tempo can return the correct root span for `select(span:status)` while omitting
   // the selected intrinsic from search metadata. Classify by membership instead:
   // the RHS is restricted to a status and !>> removes every matching descendant,
   // leaving only roots whose own status has that value.
   const traceIdRegex = traceIds.join('|')
   const allSpans = `{ trace:id =~ ${JSON.stringify(traceIdRegex)} }`
-  const statusSpans = `{ trace:id =~ ${JSON.stringify(traceIdRegex)} && span:status = ${status} }`
-  return `${allSpans} !>> ${statusSpans}`
+  const errorSpans = `{ trace:id =~ ${JSON.stringify(traceIdRegex)} && span:status = error }`
+  return `${allSpans} !>> ${errorSpans}`
 }
+
+type RootErrorLookupResult =
+  | { ok: true; errorTraceIds: Set<string> }
+  | { ok: false }
 
 export async function enrichTempoRootStatuses(
   result: QueryResult,
@@ -119,7 +124,7 @@ export async function enrichTempoRootStatuses(
     return { result, queriesCompleted: 0, checked: 0 }
   }
 
-  const batchSize = Math.max(1, Math.min(10_000, Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE)))
+  const batchSize = Math.max(1, Math.min(MAX_BATCH_SIZE, Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE)))
   const range = providerRange(request)
   let checked = 0
   let queriesCompleted = 0
@@ -127,14 +132,11 @@ export async function enrichTempoRootStatuses(
 
   for (const targetBatch of batches(targets, batchSize)) {
     const batchNumber = Math.floor(checked / batchSize) + 1
-    const statuses = new Map<string, TempoRootStatus>()
-
-    const resolveStatus = async (status: 'error' | 'ok', candidates: RootStatusTarget[]) => {
-      if (!candidates.length) return
+    const resolveRootErrors = async (candidates: RootStatusTarget[]): Promise<RootErrorLookupResult> => {
       const queryNumber = queriesCompleted + 1
       try {
         const args = [
-          'traces', 'query', rootStatusQuery(candidates.map((target) => target.providerTraceId), status),
+          'traces', 'query', rootErrorQuery(candidates.map((target) => target.providerTraceId)),
           ...commonArgs(options),
           '--from', range.start,
           '--to', range.end,
@@ -147,35 +149,39 @@ export async function enrichTempoRootStatuses(
         const parseStarted = options.performance?.now()
         const parsed = parseJson(response.stdout)
         if (parseStarted !== undefined) options.performance?.recordParse(options.performance.now() - parseStarted)
-        options.performance?.recordGcx({ phase: `root-status.${status}`, gcxWallMs, stdout: response.stdout, raw: parsed })
+        options.performance?.recordGcx({ phase: 'root-status.error', gcxWallMs, stdout: response.stdout, raw: parsed })
         const normalizeStarted = options.performance?.now()
         const matchedIds = traceIdsFromSearch(parsed)
-        for (const traceId of matchedIds) statuses.set(traceId, status)
         if (normalizeStarted !== undefined) options.performance?.recordNormalize(options.performance.now() - normalizeStarted)
+        return { ok: true, errorTraceIds: matchedIds }
       } catch (reason) {
         console.warn('[tempo-status] root predicate failed', {
           batch: batchNumber,
           query: queryNumber,
-          status,
+          status: 'error',
           targets: candidates.length,
           error: reason instanceof Error ? reason.message : String(reason)
         })
+        return { ok: false }
       } finally {
         queriesCompleted += 1
       }
     }
 
-    await resolveStatus('error', targetBatch)
-    const unresolved = targetBatch.filter((target) => !statuses.has(target.canonicalTraceId))
-    await resolveStatus('ok', unresolved)
+    const errorLookup = await resolveRootErrors(targetBatch)
     checked += targetBatch.length
 
     const changed: Record<string, unknown>[] = []
     for (const target of targetBatch) {
       const row = rowsById.get(target.canonicalTraceId)
       if (!row) continue
-      const rootStatus = statuses.get(target.canonicalTraceId) ?? 'unknown'
-      const next = rootStatus === 'unknown' ? row : { ...row, status: rootStatus }
+      // DataKoala's `ok` bucket means "root is not ERROR". It includes both
+      // explicit OpenTelemetry OK and UNSET root statuses. A failed lookup must
+      // preserve the previous status rather than manufacturing false successes.
+      const rootStatus: TempoRootStatus | undefined = errorLookup.ok
+        ? (errorLookup.errorTraceIds.has(target.canonicalTraceId) ? 'error' : 'ok')
+        : undefined
+      const next = rootStatus === undefined ? row : { ...row, status: rootStatus }
       rowsById.set(target.canonicalTraceId, next)
       changed.push(next)
     }

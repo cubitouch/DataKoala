@@ -46,7 +46,6 @@ test('sampled Tempo search resolves root status by default without full trace ge
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
     if (args[2]?.includes('!>>') && args[2].includes('span:status = error')) return rootMembershipPayload(false)
-    if (args[2]?.includes('!>>') && args[2].includes('span:status = ok')) return rootMembershipPayload(true)
     return searchPayload('error')
   }
   const request: TempoQueryContext = {
@@ -58,7 +57,7 @@ test('sampled Tempo search resolves root status by default without full trace ge
 
   const result = await new SamplingGcxTempoTransport('production', run, 'tempo-uid').search('{ true }', request)
 
-  assert.equal(calls.length, 3)
+  assert.equal(calls.length, 2)
   assert.equal(calls[0][0], 'traces')
   assert.equal(calls[0][1], 'query')
   assert.match(calls[0][2], /select\(span:status\)/)
@@ -75,13 +74,12 @@ test('sampled Tempo search resolves root status by default without full trace ge
   assert.match(calls[1][2], /span:status = error/)
   assert.doesNotMatch(calls[1][2], /select\(/)
   assert.equal(calls[1][calls[1].indexOf('--limit') + 1], '1')
-  assert.match(calls[2][2], /span:status = ok/)
-  assert.equal(calls[2][calls[2].indexOf('--limit') + 1], '1')
+  assert.equal(calls.some((args) => args[2]?.includes('span:status = ok')), false)
   assert.equal(calls.filter((args) => args[1] === 'get').length, 0)
 
   assert.equal(result.rowCount, 1)
   assert.equal(result.rows[0].status, 'ok')
-  assert.match(result.notice ?? '', /sample up to 250 traces · 1 returned · 1 search query · 2 root-status queries/)
+  assert.match(result.notice ?? '', /sample up to 250 traces · 1 returned · 1 search query · 1 root-status query/)
   assert.equal(progress.length, 2)
   assert.equal(progress[0].coveredMs, 0)
   assert.equal(progress[0].totalMs, 3_600_000)
@@ -90,7 +88,7 @@ test('sampled Tempo search resolves root status by default without full trace ge
   assert.equal(progress[0].tracesFound, 1)
   assert.equal(progress[0].queriesCompleted, 1)
   assert.equal(progress[0].rows[0].status, 'error')
-  assert.equal(progress[1].queriesCompleted, 3)
+  assert.equal(progress[1].queriesCompleted, 2)
   assert.equal(progress[1].rows[0].status, 'ok')
 })
 
