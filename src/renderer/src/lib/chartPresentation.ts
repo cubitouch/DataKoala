@@ -11,6 +11,10 @@ const two = (value: number) => String(value).padStart(2, '0')
 
 function dateValue(value: unknown): Date | null {
   if (value instanceof Date) return Number.isFinite(value.getTime()) ? value : null
+  if (typeof value === 'number') {
+    const parsed = new Date(value)
+    return Number.isFinite(parsed.getTime()) ? parsed : null
+  }
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+-]+Z?)?$/.test(value.trim())) return null
   const parsed = new Date(value)
   return Number.isFinite(parsed.getTime()) ? parsed : null
