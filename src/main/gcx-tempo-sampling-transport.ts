@@ -208,4 +208,5 @@ export class SamplingGcxTempoTransport implements TempoTransport {
   get(traceId: string, request?: TempoQueryRequest): Promise<QueryResult> { return this.exhaustive.get(traceId, request) }
   probe(): Promise<void> { return this.exhaustive.probe() }
   services(): Promise<TempoService[]> { return this.exhaustive.services() }
+  attributeValues(attribute: string, query?: string): Promise<string[]> { return this.exhaustive.attributeValues(attribute, query) }
 }

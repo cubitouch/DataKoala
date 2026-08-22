@@ -8,6 +8,7 @@ import { TraceScatterChart } from './TraceScatterChart'
 import { TraceBuilderPanel } from './TraceBuilderPanel'
 import { Combobox } from './ui/combobox'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
+import { tempoAttributeValues } from '../lib/tempoMetadata'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
 import { buildTraceql, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '../lib/traceBuilder'
 import {
@@ -207,6 +208,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const mode = useStore((state) => selectActiveSession(state).queryMode)
   const traceql = useStore((state) => selectActiveSession(state).sql)
   const metadata = useStore((state) => state.metadataByProfileId[connectionId])
+  const connected = useStore((state) => state.connected)
+  const connectionGeneration = useStore((state) => state.connectionGeneration)
   const setSql = useStore((state) => state.setSql)
   const setQueryMode = useStore((state) => state.setQueryMode)
   const [builder, setBuilder] = useState<TraceBuilderState>(() => traceBuilderFromTraceql(traceql))
@@ -226,6 +229,9 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [searchRange, setSearchRange] = useState<BuilderTimeRange>(DEFAULT_TRACE_RANGE)
   const [sampleSize, setSampleSize] = useState<TraceSampleSize>(DEFAULT_TRACE_SAMPLE_SIZE)
   const [resultView, setResultView] = useState<ResultView>('list')
+  const [messagingSystems, setMessagingSystems] = useState<string[]>([])
+  const [messagingSystemsLoading, setMessagingSystemsLoading] = useState(false)
+  const [messagingSystemsError, setMessagingSystemsError] = useState<string | null>(null)
   const traceRenderTiming = useRef<{ started: number; requestId?: string; spanCount: number } | null>(null)
 
   useEffect(() => {
@@ -258,6 +264,24 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setResultView('list')
     setSearchProgress(null)
   }, [connectionId])
+
+  useEffect(() => {
+    if (!connected || mode !== 'builder' || builder.protocol !== 'messaging') {
+      setMessagingSystems([])
+      setMessagingSystemsLoading(false)
+      setMessagingSystemsError(null)
+      return
+    }
+    let current = true
+    setMessagingSystems([])
+    setMessagingSystemsLoading(true)
+    setMessagingSystemsError(null)
+    void tempoAttributeValues(connectionId, connectionGeneration, 'span.messaging.system').then(
+      (values) => { if (current) setMessagingSystems(values) },
+      (metadataError: unknown) => { if (current) setMessagingSystemsError(metadataError instanceof Error ? metadataError.message : String(metadataError)) }
+    ).finally(() => { if (current) setMessagingSystemsLoading(false) })
+    return () => { current = false }
+  }, [builder.protocol, connected, connectionGeneration, connectionId, mode])
 
   const runSearch = async (sampleOverride: TraceSampleSize = sampleSize, rangeOverride: BuilderTimeRange = searchRange) => {
     const request = traceql.trim()
@@ -529,7 +553,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
 
         <form className={styles.searchForm} onSubmit={submitSearch}>
           {mode === 'builder'
-            ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} onChange={updateBuilder} />
+            ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} onChange={updateBuilder} />
             : <label className={styles.traceqlField} htmlFor="traceql-query"><span>TraceQL</span><textarea id="traceql-query" value={traceql} onChange={(event) => setSql(event.target.value)} spellCheck={false} rows={3} placeholder="{ resource.service.name = &quot;checkout-api&quot; && duration &gt; 300ms }" /></label>}
           <div className={styles.searchControls}>
             <TimeRangeField value={searchRange} onChange={setSearchRange} />
