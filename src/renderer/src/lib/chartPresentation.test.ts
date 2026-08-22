@@ -70,12 +70,24 @@ test('presentation keeps line series unstacked and only stacks broken-down bars'
   assert.equal((stackedBar.series as { stack?: string }[])[0].stack, 'total')
   const axis = stackedBar.xAxis as { containShape?: boolean; axisLabel: { formatter: (value: unknown) => string } }
   const tooltip = stackedBar.tooltip as { backgroundColor: string; confine: boolean; extraCssText: string; formatter: (value: unknown) => string }
-  assert.equal(axis.containShape, false)
+  assert.equal(axis.containShape, undefined)
   assert.equal(axis.axisLabel.formatter(base.labels[0]), '02 Aug')
   assert.equal(tooltip.backgroundColor, '#161922')
   assert.equal(tooltip.confine, true)
   assert.match(tooltip.extraCssText, /width.*max-height.*overflow:hidden/)
   assert.match(tooltip.formatter([{ axisValue: base.labels[0], seriesName: 'Orders', value: 1 }]), /02 Aug/)
+})
+
+test('temporal bar disables ECharts containShape only when all data lies outside a bounded domain', () => {
+  const labels = ['2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z']
+  const series = [{ name: 'Orders', data: [1, 2] }]
+  const staleDomain = { min: Date.parse('2026-08-22T04:00:00Z'), max: Date.parse('2026-08-22T10:00:00Z') }
+  const stale = buildChartPresentationOptions({ labels, series, view: 'bar', hasSeriesColumn: false, mode: 'sql', timeDomain: staleDomain })
+  assert.equal((stale.xAxis as { containShape?: boolean }).containShape, false)
+
+  const liveDomain = { min: Date.parse('2024-12-01T00:00:00Z'), max: Date.parse('2025-03-01T00:00:00Z') }
+  const live = buildChartPresentationOptions({ labels, series, view: 'bar', hasSeriesColumn: false, mode: 'sql', timeDomain: liveDomain })
+  assert.equal((live.xAxis as { containShape?: boolean }).containShape, undefined)
 })
 
 test('tooltip marks and retains the hovered series without becoming scrollable', () => {
