@@ -63,6 +63,7 @@ test('tooltip positioning stays inside a small chart viewport', () => {
 test('presentation keeps line series unstacked and only stacks broken-down bars', () => {
   const base = { labels: ['2026-08-02T00:00:00Z'], series: [{ name: 'Orders', data: [1] }], mode: 'builder' as const, timeBucket: 'day' }
   const line = buildChartPresentationOptions({ ...base, view: 'line', hasSeriesColumn: true })
+  assert.equal((line.grid as { outerBoundsMode?: string }).outerBoundsMode, 'none')
   assert.equal((line.series as { stack?: string }[])[0].stack, undefined)
   const plainBar = buildChartPresentationOptions({ ...base, view: 'bar', hasSeriesColumn: false })
   assert.equal((plainBar.series as { stack?: string }[])[0].stack, undefined)
