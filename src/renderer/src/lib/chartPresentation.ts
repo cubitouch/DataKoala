@@ -149,6 +149,10 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
   const precision = input.mode === 'builder' ? input.timeBucket as TimeDisplayPrecision : inferTimeDisplayPrecision(input.labels)
   const temporal = Boolean(precision && input.labels.length && input.labels.every((label) => dateValue(label)))
   const domain = temporal ? input.timeDomain : undefined
+  const temporalBarOutsideDomain = Boolean(temporal && input.view === 'bar' && domain && !input.labels.some((label) => {
+    const time = dateValue(label)?.getTime()
+    return time !== undefined && time !== null && time >= domain.min && time <= domain.max
+  }))
   const formatLabel = precision ? (value: unknown) => formatTimeBucketLabel(value, precision) : (value: unknown) => String(value)
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
   return {
@@ -184,7 +188,15 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     legend: { top: 4, left: 8, right: 150, type: 'scroll', selected: input.visibility, textStyle: { color: '#9aa0b0' } },
     grid: { left: 50, right: 24, top: 42, bottom: 45 },
     xAxis: temporal
-      ? { type: 'time', ...(domain ?? {}), axisLabel: { color: '#9aa0b0', formatter: formatLabel } }
+      ? {
+          type: 'time',
+          ...(domain ?? {}),
+          // ECharts 6.1 enables containShape for bar series on time/value axes by
+          // default. When every bar lies outside a bounded domain (for example while
+          // a previous result is stale), its inferred band can collapse visible ticks.
+          ...(temporalBarOutsideDomain ? { containShape: false } : {}),
+          axisLabel: { color: '#9aa0b0', formatter: formatLabel }
+        }
       : { type: 'category', data: input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
     yAxis: { type: input.valueAxisScale === 'log' ? 'log' : 'value', axisLabel: { color: '#9aa0b0', formatter: formatChartNumber } },
     ...(input.rangeSelectionEnabled ? {
