@@ -47,6 +47,12 @@ export function TraceScatterChart({ option, searchRange, onSelectRange, onEvents
   }, [searchRange])
   const renderedOption = useMemo(() => ({
     ...option,
+    // ECharts 6 automatically shrinks grids to contain labels. DataKoala already
+    // reserves explicit margins, and the extra shrinking can collapse long time axes.
+    grid: {
+      ...((option.grid as Record<string, unknown> | undefined) ?? {}),
+      outerBoundsMode: 'none'
+    },
     xAxis: {
       ...((option.xAxis as Record<string, unknown> | undefined) ?? {}),
       ...(domain && Number.isFinite(domain.start) && Number.isFinite(domain.end) ? { min: domain.start, max: domain.end } : {})
