@@ -99,7 +99,7 @@
 .queryOptions { flex-wrap: wrap; }
 .queryOptions [data-time-range-field] { width: clamp(150px, 18vw, 220px); }
 .queryOptions [data-time-range-label] { display: none; }
-.sampleSize { display: flex; align-items: center; gap: 6px; color: var(--text-mute); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.sampleSize { display: flex; align-items: center; gap: 5px; color: var(--text-mute); font-size: 11px; white-space: nowrap; }
 .sampleSize [role="combobox"] { width: 124px; }
 .editorActions { white-space: nowrap; }
 .searchHelper { padding: 7px 14px 9px; color: var(--text-mute); font-size: 11px; border-top: 1px solid var(--border); }

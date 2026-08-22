@@ -614,7 +614,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
               {mode === 'sql' && <button type="button" className="btn ghost" onClick={formatCurrentTraceql} title="Format TraceQL (Shift+Alt+F)" disabled={!traceql.trim()}>Format</button>}
               <CopySqlButton sql={traceql} language="TraceQL" />
             </div>
-            <div className="query-toolbar-group execution-group"><button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? sampledSearch ? 'Fetching sample…' : searchProgress ? `Fetching ${progressPercent}%…` : 'Starting…' : sampledSearch ? 'Search sample' : 'Search all traces'}</button></div>
+            <div className="query-toolbar-group execution-group"><button className="btn primary" type="submit" data-tempo-run-query disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button></div>
           </div>
           {mode === 'builder'
             ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} onChange={updateBuilder} onOpenTraceql={() => { setSql(traceql); setQueryMode('sql') }} />

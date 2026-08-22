@@ -34,6 +34,7 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(formatTraceql('{duration>300ms}')).toEqual({ ok: true, query: '{ duration > 300ms }' })
     render(<TraceExplorer connectionId="tempo-1" />)
     expect(screen.getAllByLabelText('Query mode')[0].textContent).toBe('TraceQLBuilder')
+    expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('data-tempo-run-query')).toBe(true)
     const editor = screen.getByLabelText('TraceQL editor')
     expect(editor.tagName).toBe('TEXTAREA') // CodeMirror is represented by the focused test double.
     expect((editor as HTMLTextAreaElement).value).toBe('{resource.service.name="checkout"}')
@@ -51,6 +52,13 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(screen.getByTestId('trace-builder')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Format' })).toBeNull()
     expect(screen.queryByLabelText('TraceQL editor')).toBeNull()
+  })
+
+  it('keeps the primary action named Run for exhaustive searches', () => {
+    render(<TraceExplorer connectionId="tempo-1" />)
+    fireEvent.click(screen.getByRole('combobox', { name: /Tempo trace sample size/ }))
+    fireEvent.click(screen.getByRole('option', { name: 'All traces' }))
+    expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('data-tempo-run-query')).toBe(true)
   })
 
   it('opens the generated query in TraceQL mode without changing it', async () => {
