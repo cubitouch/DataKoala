@@ -99,6 +99,7 @@
 .queryOptions { flex-wrap: wrap; }
 .queryOptions [data-time-range-field] { width: clamp(150px, 18vw, 220px); }
 .queryOptions [data-time-range-label] { display: none; }
+.queryOptions [data-popover-root] { margin-top: 0; }
 .sampleSize { display: flex; align-items: center; gap: 5px; color: var(--text-mute); font-size: 11px; white-space: nowrap; }
 .sampleSize [role="combobox"] { width: 124px; }
 .editorActions { white-space: nowrap; }
