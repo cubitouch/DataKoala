@@ -63,14 +63,14 @@ test('tooltip positioning stays inside a small chart viewport', () => {
 test('presentation keeps line series unstacked and only stacks broken-down bars', () => {
   const base = { labels: ['2026-08-02T00:00:00Z'], series: [{ name: 'Orders', data: [1] }], mode: 'builder' as const, timeBucket: 'day' }
   const line = buildChartPresentationOptions({ ...base, view: 'line', hasSeriesColumn: true })
-  assert.equal((line.grid as { outerBoundsMode?: string }).outerBoundsMode, 'none')
   assert.equal((line.series as { stack?: string }[])[0].stack, undefined)
   const plainBar = buildChartPresentationOptions({ ...base, view: 'bar', hasSeriesColumn: false })
   assert.equal((plainBar.series as { stack?: string }[])[0].stack, undefined)
   const stackedBar = buildChartPresentationOptions({ ...base, view: 'bar', hasSeriesColumn: true })
   assert.equal((stackedBar.series as { stack?: string }[])[0].stack, 'total')
-  const axis = stackedBar.xAxis as { axisLabel: { formatter: (value: unknown) => string } }
+  const axis = stackedBar.xAxis as { containShape?: boolean; axisLabel: { formatter: (value: unknown) => string } }
   const tooltip = stackedBar.tooltip as { backgroundColor: string; confine: boolean; extraCssText: string; formatter: (value: unknown) => string }
+  assert.equal(axis.containShape, false)
   assert.equal(axis.axisLabel.formatter(base.labels[0]), '02 Aug')
   assert.equal(tooltip.backgroundColor, '#161922')
   assert.equal(tooltip.confine, true)
@@ -114,10 +114,11 @@ test('temporal scatter uses real time coordinates and explicit selected-period b
   const temporalLabels = ['2026-01-03', '2026-01-06']
   const timeDomain = { min: Date.parse('2026-01-01T00:00:00Z'), max: Date.parse('2026-01-08T00:00:00Z') }
   const temporal = buildChartPresentationOptions({ labels: temporalLabels, series: [{ name: 'A', data: [2, 4] }], view: 'scatter', hasSeriesColumn: false, mode: 'sql', timeDomain })
-  const axis = temporal.xAxis as { type: string; min?: number; max?: number; axisLabel: { formatter: (value: unknown) => string } }
+  const axis = temporal.xAxis as { type: string; min?: number; max?: number; containShape?: boolean; axisLabel: { formatter: (value: unknown) => string } }
   assert.equal(axis.type, 'time')
   assert.equal(axis.min, timeDomain.min)
   assert.equal(axis.max, timeDomain.max)
+  assert.equal(axis.containShape, undefined)
   assert.equal(axis.axisLabel.formatter(Date.parse('2026-01-04T12:00:00Z')), '04 Jan')
   assert.deepEqual((temporal.series as Array<{ data: unknown[] }>)[0].data, [[temporalLabels[0], 2], [temporalLabels[1], 4]])
 })
