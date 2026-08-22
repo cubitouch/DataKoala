@@ -149,6 +149,10 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
   const precision = input.mode === 'builder' ? input.timeBucket as TimeDisplayPrecision : inferTimeDisplayPrecision(input.labels)
   const temporal = Boolean(precision && input.labels.length && input.labels.every((label) => dateValue(label)))
   const domain = temporal ? input.timeDomain : undefined
+  const temporalBarOutsideDomain = Boolean(temporal && input.view === 'bar' && domain && !input.labels.some((label) => {
+    const time = dateValue(label)?.getTime()
+    return time !== undefined && time !== null && time >= domain.min && time <= domain.max
+  }))
   const formatLabel = precision ? (value: unknown) => formatTimeBucketLabel(value, precision) : (value: unknown) => String(value)
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
   return {
@@ -188,9 +192,9 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
           type: 'time',
           ...(domain ?? {}),
           // ECharts 6.1 enables containShape for bar series on time/value axes by
-          // default. With a bounded domain and stale/off-domain points, its inferred
-          // bar band can dwarf the visible domain and collapse the tick positions.
-          ...(input.view === 'bar' ? { containShape: false } : {}),
+          // default. When every bar lies outside a bounded domain (for example while
+          // a previous result is stale), its inferred band can collapse visible ticks.
+          ...(temporalBarOutsideDomain ? { containShape: false } : {}),
           axisLabel: { color: '#9aa0b0', formatter: formatLabel }
         }
       : { type: 'category', data: input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
