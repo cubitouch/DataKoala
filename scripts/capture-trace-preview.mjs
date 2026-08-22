@@ -116,7 +116,15 @@ async function validateBuilderIndependence(win) {
 }
 
 async function searchTraces(win) {
-  await waitFor(win, `document.querySelector('[aria-label="Query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' && document.body.innerText.includes('300') && document.body.innerText.includes('Last hour') && document.body.innerText.includes('Sample size') && document.body.innerText.includes('Generated TraceQL')`, 'configured trace Builder, time range and sample size')
+  await waitFor(win, `(() => {
+    const builder = document.querySelector('[data-tempo-builder]')
+    const durationControl = [...(builder?.querySelectorAll('div') ?? [])].find((candidate) =>
+      [...candidate.children].some((child) => child.tagName === 'SPAN' && child.textContent?.trim() === 'Min duration (ms)'))
+    return document.querySelector('[aria-label="Query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' &&
+      durationControl?.querySelector('input')?.value === '300' &&
+      document.body.innerText.includes('Last hour') && document.body.innerText.includes('Sample size') &&
+      document.body.innerText.includes('Generated TraceQL')
+  })()`, 'configured trace Builder, time range and sample size')
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
     const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Search sample')
