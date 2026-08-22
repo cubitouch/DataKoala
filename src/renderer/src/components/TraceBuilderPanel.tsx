@@ -9,6 +9,10 @@ import {
 } from '../lib/traceBuilder'
 import { Combobox, type ComboboxOption } from './ui/combobox'
 import styles from './TraceBuilderPanel.module.css'
+import CodeMirror from '@uiw/react-codemirror'
+import { oneDark } from '@codemirror/theme-one-dark'
+import { traceql as traceqlSupport } from '../lib/traceqlLanguage'
+import { CopySqlButton } from './CopySqlButton'
 
 interface TraceBuilderPanelProps {
   value: TraceBuilderState
@@ -20,6 +24,7 @@ interface TraceBuilderPanelProps {
   messagingSystemsLoading: boolean
   messagingSystemsError: string | null
   onChange: (patch: Partial<TraceBuilderState>) => void
+  onOpenTraceql: () => void
 }
 
 const spanKindOptions: ComboboxOption[] = [
@@ -75,7 +80,7 @@ function Control({ label, children, hint }: { label: string; children: React.Rea
   return <div className={styles.control}><span className={styles.fieldLabel}>{label}</span>{children}{hint && <small className={styles.fieldHint}>{hint}</small>}</div>
 }
 
-export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, onChange }: TraceBuilderPanelProps) {
+export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, onChange, onOpenTraceql }: TraceBuilderPanelProps) {
   const serviceRelations = useMemo(() => schemas.flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'service'), [schemas])
   const namespaceOptions = useMemo<ComboboxOption[]>(() => {
     const namespaces = [...new Set(serviceRelations.flatMap((relation) => relation.details?.kind === 'service' && relation.details.serviceNamespace ? [relation.details.serviceNamespace] : []))].sort((left, right) => left.localeCompare(right))
@@ -139,6 +144,10 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
       <Control label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter."><input value={value.spanName} onChange={(event) => onChange({ spanName: event.target.value })} placeholder="POST /checkout" /></Control>
     </details>
 
-    <div className={styles.generated}><span>Generated TraceQL</span><code title={traceql}>{traceql}</code></div>
+    <details className={styles.generated}>
+      <summary><span>Generated TraceQL</span><button className="btn ghost" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onOpenTraceql() }}>Open in TraceQL mode</button></summary>
+      <CodeMirror value={traceql} height="150px" theme={oneDark} extensions={[traceqlSupport()]} editable={false} aria-label="Generated TraceQL query" basicSetup={{ lineNumbers: true, foldGutter: false }} />
+      <div className={styles.generatedActions}><CopySqlButton sql={traceql} language="TraceQL" /></div>
+    </details>
   </div>
 }

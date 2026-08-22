@@ -6,9 +6,10 @@ import { notify } from './NotificationArea'
 interface CopySqlButtonProps {
   sql: string
   className?: string
+  language?: string
 }
 
-export function CopySqlButton({ sql, className = 'btn ghost' }: CopySqlButtonProps) {
+export function CopySqlButton({ sql, className = 'btn ghost', language = 'SQL' }: CopySqlButtonProps) {
   const hasSql = sql.trim().length > 0
 
   const handleCopySql = async () => {
@@ -28,7 +29,7 @@ export function CopySqlButton({ sql, className = 'btn ghost' }: CopySqlButtonPro
         className={className}
         onClick={handleCopySql}
         disabled={!hasSql}
-        aria-label="Copy SQL to clipboard"
+        aria-label={`Copy ${language} to clipboard`}
       >
         Copy
       </button>

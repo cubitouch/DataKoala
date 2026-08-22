@@ -23,6 +23,7 @@ jobs:
         prometheus-toolbar-narrow.png
         prometheus-builder.png
         prometheus-builder-narrow.png
+        tempo-trace-builder.png
         tempo-trace-search.png
         tempo-trace-scatter.png
         tempo-waterfall.png
@@ -138,6 +139,7 @@ jobs:
               'prometheus-toolbar-narrow.png': 'Prometheus — narrow responsive toolbar',
               'prometheus-builder.png': 'Prometheus Builder — metric, filters, grouping, and calculation',
               'prometheus-builder-narrow.png': 'Prometheus Builder — narrow responsive layout',
+              'tempo-trace-builder.png': 'Tempo Builder — TraceQL query shell and generated query',
               'tempo-trace-search.png': 'Tempo — realistic checkout trace search',
               'tempo-trace-scatter.png': 'Tempo — checkout traces by time, duration, and status',
               'tempo-waterfall.png': 'Tempo — checkout waterfall with selected failing payment span',

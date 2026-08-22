@@ -13,17 +13,19 @@ vi.mock('@uiw/react-codemirror', () => ({
     return <textarea aria-label={props['aria-label']} value={value} onChange={(event) => onChange(event.target.value)} />
   })
 }))
-vi.mock('./TraceBuilderPanel', () => ({ TraceBuilderPanel: () => <div data-testid="trace-builder">Builder remains available</div> }))
+vi.mock('./TraceBuilderPanel', () => ({ TraceBuilderPanel: ({ traceql, onOpenTraceql }: { traceql: string; onOpenTraceql: () => void }) => <div data-testid="trace-builder">Builder remains available<output>{traceql}</output><button type="button" onClick={onOpenTraceql}>Open in TraceQL mode</button></div> }))
 vi.mock('./TraceScatterChart', () => ({ TraceScatterChart: () => null }))
 
 import { TraceExplorer } from './TraceExplorer'
 import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+import { useStore } from '../store/useStore'
 import { formatTraceql } from '../lib/formatTraceql'
 
 describe('TraceExplorer TraceQL editor', () => {
   beforeEach(() => {
     resetTestStore()
     patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'sql', sql: '{resource.service.name="checkout"}' })
+    useStore.setState({ profiles: [{ id: 'tempo-1', name: 'Tempo', kind: 'tempo', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test' } }] })
     notify.mockReset()
   })
   afterEach(cleanup)
@@ -31,6 +33,8 @@ describe('TraceExplorer TraceQL editor', () => {
   it('edits and locally formats Plain mode through CodeMirror', async () => {
     expect(formatTraceql('{duration>300ms}')).toEqual({ ok: true, query: '{ duration > 300ms }' })
     render(<TraceExplorer connectionId="tempo-1" />)
+    expect(screen.getAllByLabelText('Query mode')[0].textContent).toBe('TraceQLBuilder')
+    expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('data-tempo-run-query')).toBe(true)
     const editor = screen.getByLabelText('TraceQL editor')
     expect(editor.tagName).toBe('TEXTAREA') // CodeMirror is represented by the focused test double.
     expect((editor as HTMLTextAreaElement).value).toBe('{resource.service.name="checkout"}')
@@ -48,5 +52,22 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(screen.getByTestId('trace-builder')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Format' })).toBeNull()
     expect(screen.queryByLabelText('TraceQL editor')).toBeNull()
+  })
+
+  it('keeps the primary action named Run for exhaustive searches', () => {
+    render(<TraceExplorer connectionId="tempo-1" />)
+    fireEvent.click(screen.getByRole('combobox', { name: /Tempo trace sample size/ }))
+    fireEvent.click(screen.getByRole('option', { name: 'All traces' }))
+    expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('data-tempo-run-query')).toBe(true)
+  })
+
+  it('opens the generated query in TraceQL mode without changing it', async () => {
+    const generated = '{ resource.service.name = "checkout" && duration > 300ms }'
+    patchActiveTestSession({ queryMode: 'builder', sql: generated })
+    render(<TraceExplorer connectionId="tempo-1" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
+    await waitFor(() => expect(activeTestSession().queryMode).toBe('sql'))
+    expect(activeTestSession().sql).toBe(generated)
+    expect(screen.getByRole('button', { name: 'TraceQL' }).getAttribute('aria-pressed')).toBe('true')
   })
 })
