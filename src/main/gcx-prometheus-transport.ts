@@ -9,7 +9,7 @@ export type GcxCommandRunner = (args: string[]) => Promise<GcxCommandResult>
 
 const execute = promisify(execFile)
 export const runGcxCommand: GcxCommandRunner = async (args) => {
-  const result = await execute('gcx', args, { encoding: 'utf8', timeout: 30_000, maxBuffer: 10 * 1024 * 1024, windowsHide: true })
+  const result = await execute('gcx', args, { encoding: 'utf8', timeout: 30_000, maxBuffer: 100 * 1024 * 1024, windowsHide: true })
   return { stdout: result.stdout, stderr: result.stderr }
 }
 

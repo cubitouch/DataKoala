@@ -1,4 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror'
+import { oneDark } from '@codemirror/theme-one-dark'
 import type { QueryResult } from '@shared/types'
 import type { TempoSearchProgress } from '@shared/tempo'
 import { api } from '../lib/api'
@@ -25,6 +27,9 @@ import {
   type TraceRow
 } from '../lib/traceViewer'
 import styles from './TraceExplorer.module.css'
+import { traceql as traceqlSupport } from '../lib/traceqlLanguage'
+import { formatTraceql } from '../lib/formatTraceql'
+import { notify } from './NotificationArea'
 
 interface TraceExplorerProps {
   connectionId: string
@@ -233,6 +238,32 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [messagingSystemsLoading, setMessagingSystemsLoading] = useState(false)
   const [messagingSystemsError, setMessagingSystemsError] = useState<string | null>(null)
   const traceRenderTiming = useRef<{ started: number; requestId?: string; spanCount: number } | null>(null)
+  const traceqlEditorRef = useRef<ReactCodeMirrorRef>(null)
+  const traceqlExtensions = useMemo(() => [traceqlSupport()], [])
+
+  const formatCurrentTraceql = () => {
+    if (mode !== 'sql' || !traceql.trim()) return
+    const result = formatTraceql(traceql)
+    if (!result.ok) {
+      notify({ message: result.error, duration: 3200 })
+      return
+    }
+    const view = traceqlEditorRef.current?.view
+    if (view) {
+      const anchor = Math.min(view.state.selection.main.anchor, result.query.length)
+      const head = Math.min(view.state.selection.main.head, result.query.length)
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: result.query }, selection: { anchor, head }, userEvent: 'input.format' })
+      view.focus()
+    } else setSql(result.query)
+    notify({ message: 'Formatted', duration: 2600 })
+  }
+
+  const onTraceqlKeyDown = (event: React.KeyboardEvent) => {
+    if (mode === 'sql' && event.shiftKey && event.altKey && event.key.toLowerCase() === 'f') {
+      event.preventDefault()
+      formatCurrentTraceql()
+    }
+  }
 
   useEffect(() => {
     const timing = traceRenderTiming.current
@@ -551,10 +582,13 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           <span>Find traces first; open one to inspect it, then use the selected span to seed a cohort.</span>
         </div>
 
-        <form className={styles.searchForm} onSubmit={submitSearch}>
+        <form className={styles.searchForm} onSubmit={submitSearch} onKeyDown={onTraceqlKeyDown}>
           {mode === 'builder'
             ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} onChange={updateBuilder} />
-            : <label className={styles.traceqlField} htmlFor="traceql-query"><span>TraceQL</span><textarea id="traceql-query" value={traceql} onChange={(event) => setSql(event.target.value)} spellCheck={false} rows={3} placeholder="{ resource.service.name = &quot;checkout-api&quot; && duration &gt; 300ms }" /></label>}
+            : <div className={styles.traceqlField}>
+              <div className={styles.traceqlHeader}><span>TraceQL</span><button type="button" className="btn ghost" onClick={formatCurrentTraceql} title="Format TraceQL (Shift+Alt+F)" disabled={!traceql.trim()}>Format</button></div>
+              <CodeMirror ref={traceqlEditorRef} value={traceql} minHeight="66px" maxHeight="160px" theme={oneDark} extensions={traceqlExtensions} onChange={(value) => setSql(value)} aria-label="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} basicSetup={{ lineNumbers: true, foldGutter: false }} />
+            </div>}
           <div className={styles.searchControls}>
             <TimeRangeField value={searchRange} onChange={setSearchRange} />
             <div style={{ display: 'grid', gap: 5, flex: '0 0 124px' }}>
