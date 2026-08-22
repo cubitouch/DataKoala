@@ -41,28 +41,32 @@ function tokens(query: string, tree: Tree): Token[] {
 
 const operators = new Set(['And', 'Or', 'FieldOp', 'ScalarOp', 'ComparisonOp', 'Pipe', 'Desc', 'Anc', 'Gt', 'Lt', 'ExperimentalOp', 'UnionStructuralOp'])
 
+function trimHorizontalEnd(value: string): string {
+  return value.replace(/[\t ]+$/, '')
+}
+
 function compact(source: Token[]): string {
   let output = ''
   let previous: Token | undefined
   for (const token of source) {
     if (token.name === 'LineComment') {
-      output = output.trimEnd() + (output ? ' ' : '') + token.text.trimEnd() + '\n'
+      output = trimHorizontalEnd(output) + (output ? ' ' : '') + token.text.trimEnd() + '\n'
       previous = undefined
       continue
     }
     if (token.name === 'BlockComment') {
-      output = output.trimEnd() + (output ? ' ' : '') + token.text + ' '
+      output = trimHorizontalEnd(output) + (output ? ' ' : '') + token.text + ' '
       previous = token
       continue
     }
     const text = token.text
-    if (text === '}') output = output.trimEnd() + (output.endsWith('{') ? '' : ' ') + '}'
+    if (text === '}') output = trimHorizontalEnd(output) + (output.endsWith('{') ? '' : ' ') + '}'
     else if (text === '{') output += (output && !output.endsWith(' ') && previous?.text !== '(' ? ' ' : '') + '{ '
-    else if (text === ',') output = output.trimEnd() + ', '
-    else if (text === ')') output = output.trimEnd() + ')'
-    else if (text === '(') output = output.trimEnd() + '('
-    else if (text === '.') output = output.trimEnd() + '.'
-    else if (operators.has(token.name)) output = output.trimEnd() + ` ${text} `
+    else if (text === ',') output = trimHorizontalEnd(output) + ', '
+    else if (text === ')') output = trimHorizontalEnd(output) + ')'
+    else if (text === '(') output = trimHorizontalEnd(output) + '('
+    else if (text === '.') output = trimHorizontalEnd(output) + '.'
+    else if (operators.has(token.name)) output = trimHorizontalEnd(output) + ` ${text} `
     else {
       const needsSpace = output.length > 0 && !/[\s({.]$/.test(output) && previous?.text !== ','
       output += (needsSpace ? ' ' : '') + text
@@ -76,24 +80,28 @@ function expanded(query: string): string {
   const source = tokens(query, parser.parse(query))
   let indent = 0
   let output = ''
-  const line = () => { output = output.trimEnd() + '\n' + '  '.repeat(indent) }
+  const line = () => {
+    output = trimHorizontalEnd(output)
+    if (!output.endsWith('\n')) output += '\n'
+    output += '  '.repeat(indent)
+  }
   for (let index = 0; index < source.length; index++) {
     const token = source[index]
     if (token.text === '{') { output += (output && !output.endsWith('\n') ? ' ' : '') + '{'; indent++; line(); continue }
     if (token.text === '}') { indent--; line(); output += '}'; continue }
     if (token.name === 'LineComment') { output += (output.endsWith(' ') ? '' : ' ') + token.text.trimEnd(); line(); continue }
     if (token.name === 'BlockComment') { output += (output.endsWith(' ') ? '' : ' ') + token.text; line(); continue }
-    if (token.name === 'And' || token.name === 'Or') { output = output.trimEnd() + ` ${token.text}`; line(); continue }
+    if (token.name === 'And' || token.name === 'Or') { output = trimHorizontalEnd(output) + `${output.endsWith('\n') ? '' : ' '}${token.text}`; line(); continue }
     if (token.name === 'Pipe' || ['Desc', 'Anc', 'Gt', 'Lt', 'ExperimentalOp', 'UnionStructuralOp'].includes(token.name)) {
       line(); output += token.text; line(); continue
     }
     const fragment = compact([token])
     const previous = source[index - 1]
-    if (operators.has(token.name)) output = output.trimEnd() + ` ${fragment} `
-    else if (token.text === ',') output = output.trimEnd() + ', '
-    else if (token.text === ')') output = output.trimEnd() + ')'
-    else if (token.text === '(') output = output.trimEnd() + '('
-    else if (token.text === '.') output = output.trimEnd() + '.'
+    if (operators.has(token.name)) output = trimHorizontalEnd(output) + `${output.endsWith('\n') ? '' : ' '}${fragment} `
+    else if (token.text === ',') output = trimHorizontalEnd(output) + ', '
+    else if (token.text === ')') output = trimHorizontalEnd(output) + ')'
+    else if (token.text === '(') output = trimHorizontalEnd(output) + '('
+    else if (token.text === '.') output = trimHorizontalEnd(output) + '.'
     else output += output && !/[\s({.]$/.test(output) && previous?.text !== ',' ? ` ${fragment}` : fragment
   }
   return output.split('\n').map((value) => value.trimEnd()).join('\n').trim()
@@ -106,6 +114,7 @@ export function formatTraceql(query: string): FormatTraceqlResult {
   const source = tokens(query, tree)
   const oneLine = compact(source)
   const formatted = query.includes('\n') || oneLine.length > 100 ? expanded(query) : oneLine
-  if (traceqlHasErrors(parser.parse(formatted))) return { ok: false, error: 'Could not format TraceQL without changing its syntax.' }
+  const formattedTree = parser.parse(formatted)
+  if (traceqlHasErrors(formattedTree) || formattedTree.toString() !== tree.toString()) return { ok: false, error: 'Could not format TraceQL without changing its syntax.' }
   return { ok: true, query: formatted }
 }

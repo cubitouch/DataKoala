@@ -51,3 +51,22 @@ test('rejects invalid TraceQL without returning replacement text', () => {
   assert.equal(result.ok, false)
   if (!result.ok) assert.match(result.error, /invalid syntax/)
 })
+
+test('keeps operators outside adjacent line comments and remains idempotent', () => {
+  const queries = [
+    '{\n  resource.service.name = "api" // service filter\n  && duration > 300ms\n}',
+    '{\n  resource.service.name = "api" &&\n  // latency filter\n  duration > 300ms\n}'
+  ]
+  for (const query of queries) {
+    const result = formatTraceql(query)
+    assert.equal(result.ok, true, query)
+    if (!result.ok) continue
+    const lines = result.query.split('\n')
+    const commentLine = lines.find((line) => line.includes('//'))
+    assert.ok(commentLine)
+    assert.equal(commentLine.includes('duration'), false, result.query)
+    assert.equal(commentLine.includes('&&'), false, result.query)
+    assert.ok(lines.some((line) => !line.includes('//') && line.includes('&&')), result.query)
+    assert.deepEqual(formatTraceql(result.query), result)
+  }
+})

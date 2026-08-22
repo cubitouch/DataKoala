@@ -4,10 +4,10 @@ import { highlightTree, classHighlighter } from '@lezer/highlight'
 import { traceqlLanguage } from './traceqlLanguage.ts'
 
 test('TraceQL language provides syntax-tree highlighting', () => {
-  const query = '{ resource.service.name = "checkout" && duration > 300ms } | by(resource.service.name)'
+  const query = '{ resource.service.name = "checkout" && duration > 300ms } | by(resource.service.name) // service query'
   const ranges: Array<{ text: string; classes: string }> = []
   highlightTree(traceqlLanguage.parser.parse(query), classHighlighter, (from, to, classes) => ranges.push({ text: query.slice(from, to), classes }))
-  for (const text of ['resource', '"checkout"', 'duration', '300ms', '=', '&&', 'by(']) {
+  for (const text of ['resource', '"checkout"', 'duration', '300ms', '=', '&&', 'by(', '// service query']) {
     assert.ok(ranges.some((range) => range.text.includes(text)), `expected highlighted range for ${text}: ${JSON.stringify(ranges)}`)
   }
   assert.ok(new Set(ranges.map((range) => range.classes)).size >= 4)
