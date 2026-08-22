@@ -28,6 +28,7 @@ function transport(overrides: Partial<TempoTransport> = {}): TempoTransport {
     query: async () => result,
     search: async () => result,
     get: async () => result,
+    attributeValues: async () => [],
     ...overrides
   }
 }
@@ -65,10 +66,100 @@ test('Tempo sessions delegate TraceQL, ranges and trace-id requests without invo
   ])
 })
 
+test('Tempo sessions preserve optional TraceQL scopes for generic attribute discovery', async () => {
+  const requests: Array<{ attribute: string; query?: string }> = []
+  const adapter = new TempoAdapter(() => transport({
+    attributeValues: async (attribute, query) => { requests.push({ attribute, query }); return ['kafka'] }
+  }))
+  const connected = await adapter.connect(profile)
+  assert.ok(connected.session?.attributeValues)
+  assert.deepEqual(await connected.session.attributeValues('span.messaging.system', '{ resource.service.name = "worker" }'), ['kafka'])
+  assert.deepEqual(requests, [{ attribute: 'span.messaging.system', query: '{ resource.service.name = "worker" }' }])
+})
+
 test('Tempo connection test probes trace access without requiring service discovery', async () => {
   let serviceCalls = 0
   const adapter = new TempoAdapter(() => transport({ services: async () => { serviceCalls += 1; return [] } }))
   const tested = await adapter.test(profile)
   assert.equal(tested.ok, true)
+  assert.equal(serviceCalls, 0)
+})
+
+test('Tempo connect becomes ready after probe without starting slow service discovery', async () => {
+  let serviceCalls = 0
+  const adapter = new TempoAdapter(() => transport({
+    services: () => {
+      serviceCalls += 1
+      return new Promise(() => {})
+    }
+  }))
+
+  const connected = await adapter.connect(profile)
+
+  assert.equal(connected.result.ok, true)
+  assert.ok(connected.session)
+  assert.equal(serviceCalls, 0)
+  assert.deepEqual(connected.result.sourceInfo, { label: 'Grafana Tempo via gcx' })
+})
+
+test('Tempo lazily coalesces and caches service metadata reads', async () => {
+  let serviceCalls = 0
+  let resolveServices!: (services: Array<{ namespace?: string; name: string }>) => void
+  const adapter = new TempoAdapter(() => transport({
+    services: () => {
+      serviceCalls += 1
+      return new Promise((resolve) => { resolveServices = resolve })
+    }
+  }))
+  const connected = await adapter.connect(profile)
+  assert.ok(connected.session)
+
+  const namespaces = connected.session.listNamespaces()
+  const relations = connected.session.listRelations({ name: 'commerce' })
+  assert.equal(serviceCalls, 1)
+  resolveServices([
+    { namespace: 'commerce', name: 'checkout-api' },
+    { name: 'legacy-worker' }
+  ])
+
+  assert.deepEqual(await namespaces, [{ name: 'Services' }, { name: 'commerce' }])
+  assert.deepEqual(await relations, [{
+    namespace: 'commerce', name: 'checkout-api', kind: 'service',
+    details: { kind: 'service', serviceNamespace: 'commerce' }
+  }])
+  assert.equal((await connected.session.listRelations()).length, 2)
+  assert.equal(serviceCalls, 1)
+})
+
+test('Tempo retries service discovery after metadata failure without invalidating the session', async () => {
+  let serviceCalls = 0
+  const adapter = new TempoAdapter(() => transport({
+    services: async () => {
+      serviceCalls += 1
+      if (serviceCalls === 1) throw new Error('metadata temporarily unavailable')
+      return [{ namespace: 'commerce', name: 'checkout-api' }]
+    }
+  }))
+  const connected = await adapter.connect(profile)
+  assert.equal(connected.result.ok, true)
+  assert.ok(connected.session)
+
+  await assert.rejects(connected.session.listNamespaces(), /metadata temporarily unavailable/)
+  assert.equal(connected.result.ok, true)
+  assert.deepEqual(await connected.session.listNamespaces(), [{ name: 'commerce' }])
+  assert.equal(serviceCalls, 2)
+})
+
+test('Tempo probe failure still prevents connection', async () => {
+  let serviceCalls = 0
+  const adapter = new TempoAdapter(() => transport({
+    probe: async () => { throw new Error('probe denied') },
+    services: async () => { serviceCalls += 1; return [] }
+  }))
+
+  const connected = await adapter.connect(profile)
+
+  assert.deepEqual(connected.result, { ok: false, error: 'probe denied' })
+  assert.equal(connected.session, undefined)
   assert.equal(serviceCalls, 0)
 })

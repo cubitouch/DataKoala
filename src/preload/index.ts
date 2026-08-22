@@ -61,6 +61,9 @@ const api = {
       labelsForMetric: (id: string, metricName: string): Promise<string[]> => ipcRenderer.invoke(IPC.PROMETHEUS_METRIC_LABELS, id, metricName),
       labelValues: (id: string, metricName: string, labelName: string): Promise<string[]> => ipcRenderer.invoke(IPC.PROMETHEUS_LABEL_VALUES, id, metricName, labelName),
       formatQuery: (connectionId: string, query: string): Promise<string> => ipcRenderer.invoke(IPC.PROMETHEUS_FORMAT_QUERY, connectionId, query)
+    },
+    tempo: {
+      attributeValues: (id: string, attribute: string, query?: string): Promise<string[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTE_VALUES, id, attribute, query)
     }
   },
   query: {

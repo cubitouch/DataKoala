@@ -234,6 +234,12 @@ export function labelValues(id: ConnectionId, metricName: string, labelName: str
   return operation(metricName, labelName)
 }
 
+export function tempoAttributeValues(id: ConnectionId, attribute: string, query?: string): Promise<string[]> {
+  const operation = session(id).attributeValues
+  if (!operation) throw new Error('Tempo attribute discovery is not supported by this datasource.')
+  return operation(attribute, query)
+}
+
 export async function explainQuery(id: ConnectionId, sql: string, analyze: boolean) {
   const explain = session(id).explain
   if (!explain) throw new Error('Explain is not supported by this datasource.')
