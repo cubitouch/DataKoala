@@ -10,6 +10,7 @@ export interface TempoTransport {
   get(traceId: string, request?: TempoQueryRequest): Promise<QueryResult>
   probe(): Promise<void>
   services(): Promise<TempoService[]>
+  attributeValues(attribute: string): Promise<string[]>
 }
 
 const TRACE_ID = /^[0-9a-f]{32}$/i
@@ -425,23 +426,28 @@ export class GcxTempoTransport implements TempoTransport {
     }
   }
 
-  private async labelValues(label: string, query?: string): Promise<string[]> {
+  async attributeValues(attribute: string, query?: string): Promise<string[]> {
     const args = [
-      'traces', 'labels', ...this.commonArgs(), '--label', label,
+      'traces', 'labels', ...this.commonArgs(), '--label', attribute,
       ...(query ? ['--query', query] : []),
       '-o', 'json'
     ]
-    return normalizeTempoLabelValues(parseJson((await this.run(args)).stdout, `traces labels ${label}`))
+    try {
+      return normalizeTempoLabelValues(parseJson((await this.run(args)).stdout, `traces labels ${attribute}`))
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
+      throw tempoError(error)
+    }
   }
 
   async services(): Promise<TempoService[]> {
     try {
-      const names = await this.labelValues('resource.service.name')
+      const names = await this.attributeValues('resource.service.name')
       if (!names.length) return []
-      const namespaces = await this.labelValues('resource.service.namespace')
+      const namespaces = await this.attributeValues('resource.service.namespace')
       const mapped = new Map<string, TempoService>()
       await mapConcurrent(namespaces, SERVICE_DISCOVERY_CONCURRENCY, async (namespace) => {
-        const scopedNames = await this.labelValues('resource.service.name', `{ resource.service.namespace = ${JSON.stringify(namespace)} }`)
+        const scopedNames = await this.attributeValues('resource.service.name', `{ resource.service.namespace = ${JSON.stringify(namespace)} }`)
         for (const name of scopedNames) collectService(mapped, name, namespace)
       })
       const assigned = new Set([...mapped.values()].map((service) => service.name))

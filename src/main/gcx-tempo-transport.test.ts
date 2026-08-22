@@ -211,3 +211,21 @@ test('Tempo transport rejects empty queries and malformed responses', async () =
   await assert.rejects(() => transport.probe(), /malformed JSON/)
   assert.throws(() => normalizeTempoTrace({ batches: [] }), /could not find any spans/)
 })
+
+test('Tempo attribute discovery requests the generic span attribute and normalizes values', async () => {
+  const calls: string[][] = []
+  const transport = new GcxTempoTransport('production', async (args) => {
+    calls.push(args)
+    return { stdout: JSON.stringify({ tagValues: [{ type: 'string', value: 'rabbitmq' }, { type: 'string', value: 'kafka' }, { type: 'string', value: 'kafka' }] }), stderr: '' }
+  }, 'tempo-uid')
+  assert.deepEqual(await transport.attributeValues('span.messaging.system'), ['kafka', 'rabbitmq'])
+  assert.deepEqual(calls, [[
+    'traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid',
+    '--label', 'span.messaging.system', '-o', 'json'
+  ]])
+})
+
+test('Tempo attribute discovery reports useful gcx errors', async () => {
+  const transport = new GcxTempoTransport(undefined, async () => { throw Object.assign(new Error('exit 1'), { stderr: 'status 403 forbidden' }) })
+  await assert.rejects(() => transport.attributeValues('span.messaging.system'), /Trace access is not permitted/)
+})

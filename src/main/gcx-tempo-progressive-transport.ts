@@ -333,4 +333,5 @@ export class ProgressiveGcxTempoTransport implements TempoTransport {
   get(traceId: string, request?: TempoQueryRequest): Promise<QueryResult> { return this.base.get(traceId, request) }
   probe(): Promise<void> { return this.base.probe() }
   services(): Promise<TempoService[]> { return this.base.services() }
+  attributeValues(attribute: string): Promise<string[]> { return this.base.attributeValues(attribute) }
 }

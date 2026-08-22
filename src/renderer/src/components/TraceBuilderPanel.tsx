@@ -16,6 +16,9 @@ interface TraceBuilderPanelProps {
   schemas: DatabaseSchemaNode[]
   metadataStatus: MetadataStatus
   metadataError: string | null
+  messagingSystems: string[]
+  messagingSystemsLoading: boolean
+  messagingSystemsError: string | null
   onChange: (patch: Partial<TraceBuilderState>) => void
 }
 
@@ -72,7 +75,7 @@ function Control({ label, children, hint }: { label: string; children: React.Rea
   return <div className={styles.control}><span className={styles.fieldLabel}>{label}</span>{children}{hint && <small className={styles.fieldHint}>{hint}</small>}</div>
 }
 
-export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, onChange }: TraceBuilderPanelProps) {
+export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, onChange }: TraceBuilderPanelProps) {
   const serviceRelations = useMemo(() => schemas.flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'service'), [schemas])
   const namespaceOptions = useMemo<ComboboxOption[]>(() => {
     const namespaces = [...new Set(serviceRelations.flatMap((relation) => relation.details?.kind === 'service' && relation.details.serviceNamespace ? [relation.details.serviceNamespace] : []))].sort((left, right) => left.localeCompare(right))
@@ -86,6 +89,11 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
   }, [serviceRelations, value.serviceNamespace])
   const metadataLoading = metadataStatus === 'loading'
   const metadataMessage = metadataError || null
+  const messagingSystemOptions = useMemo<ComboboxOption[]>(() => {
+    const systems = new Set(messagingSystems)
+    if (value.messagingSystem) systems.add(value.messagingSystem)
+    return [{ value: '', label: 'Any messaging system' }, ...[...systems].sort((left, right) => left.localeCompare(right)).map((system) => ({ value: system, label: system }))]
+  }, [messagingSystems, value.messagingSystem])
 
   const changeNamespace = (serviceNamespace: string) => {
     const allowedServices = new Set(serviceRelations
@@ -116,7 +124,7 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
     </div>}
 
     {value.protocol === 'messaging' && <div className={styles.detailRow}>
-      <Control label="Messaging system"><Combobox label="Messaging system" value={value.messagingSystem} options={value.messagingSystem ? [{ value: value.messagingSystem, label: value.messagingSystem }] : []} onChange={(messagingSystem) => onChange({ messagingSystem })} searchable allowCustomValue placeholder="kafka, rabbitmq…" /></Control>
+      <Control label="Messaging system"><Combobox label="Messaging system" value={value.messagingSystem} options={messagingSystemOptions} onChange={(messagingSystem) => onChange({ messagingSystem })} searchable allowCustomValue loading={messagingSystemsLoading} error={messagingSystemsError} loadingMessage="Loading messaging systems…" emptyMessage="No messaging systems found. Type a custom value." placeholder="Any messaging system" /></Control>
       <Control label="Destination / topic"><input value={value.messagingDestination} onChange={(event) => onChange({ messagingDestination: event.target.value })} placeholder="orders" /></Control>
       <Control label="Operation"><Combobox label="Messaging operation" value={value.messagingOperation} options={messagingOperationOptions} onChange={(messagingOperation) => onChange({ messagingOperation })} searchable allowCustomValue /></Control>
     </div>}

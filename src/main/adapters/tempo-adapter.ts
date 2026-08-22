@@ -56,6 +56,7 @@ export class TempoAdapter implements DataSourceAdapter {
         listNamespaces: async () => namespaceNames.map((name) => ({ name })),
         listRelations: async (namespace) => namespace ? relations.filter((relation) => relation.namespace === namespace.name) : relations,
         describeRelation: async () => [],
+        attributeValues: (attribute) => transport.attributeValues(attribute),
         close: async () => {}
       }
       return { result: { ok: true as const, generation: Date.now(), sourceInfo }, session }
