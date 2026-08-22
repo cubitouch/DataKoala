@@ -10,7 +10,7 @@ export interface TempoTransport {
   get(traceId: string, request?: TempoQueryRequest): Promise<QueryResult>
   probe(): Promise<void>
   services(): Promise<TempoService[]>
-  attributeValues(attribute: string): Promise<string[]>
+  attributeValues(attribute: string, query?: string): Promise<string[]>
 }
 
 const TRACE_ID = /^[0-9a-f]{32}$/i

@@ -66,6 +66,17 @@ test('Tempo sessions delegate TraceQL, ranges and trace-id requests without invo
   ])
 })
 
+test('Tempo sessions preserve optional TraceQL scopes for generic attribute discovery', async () => {
+  const requests: Array<{ attribute: string; query?: string }> = []
+  const adapter = new TempoAdapter(() => transport({
+    attributeValues: async (attribute, query) => { requests.push({ attribute, query }); return ['kafka'] }
+  }))
+  const connected = await adapter.connect(profile)
+  assert.ok(connected.session?.attributeValues)
+  assert.deepEqual(await connected.session.attributeValues('span.messaging.system', '{ resource.service.name = "worker" }'), ['kafka'])
+  assert.deepEqual(requests, [{ attribute: 'span.messaging.system', query: '{ resource.service.name = "worker" }' }])
+})
+
 test('Tempo connection test probes trace access without requiring service discovery', async () => {
   let serviceCalls = 0
   const adapter = new TempoAdapter(() => transport({ services: async () => { serviceCalls += 1; return [] } }))

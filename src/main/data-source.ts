@@ -35,7 +35,7 @@ export interface DataSourceSession {
   describeRelation(ref: DataRelationRef): Promise<DataColumn[]>
   labelsForMetric?(metricName: string): Promise<string[]>
   labelValues?(metricName: string, labelName: string): Promise<string[]>
-  attributeValues?(attribute: string): Promise<string[]>
+  attributeValues?(attribute: string, query?: string): Promise<string[]>
   explain?(sql: string, analyze?: boolean): Promise<ExplainResult>
   estimateQuery?(sql: string): Promise<QueryEstimate>
   cancel?(queryId: string): Promise<void>

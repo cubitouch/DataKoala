@@ -18,6 +18,14 @@ describe('Tempo metadata cache', () => {
     expect(attributeValues).toHaveBeenCalledTimes(3)
   })
 
+  it('includes an optional TraceQL scope in the request and cache identity', async () => {
+    attributeValues.mockResolvedValue(['kafka'])
+    await tempoAttributeValues('tempo-a', 1, 'span.messaging.system', '{ resource.service.name = "worker" }')
+    await tempoAttributeValues('tempo-a', 1, 'span.messaging.system', '{ resource.service.name = "api" }')
+    expect(attributeValues).toHaveBeenNthCalledWith(1, 'tempo-a', 'span.messaging.system', '{ resource.service.name = "worker" }')
+    expect(attributeValues).toHaveBeenNthCalledWith(2, 'tempo-a', 'span.messaging.system', '{ resource.service.name = "api" }')
+  })
+
   it('evicts rejected requests so retry can recover', async () => {
     attributeValues.mockRejectedValueOnce(new Error('temporarily unavailable')).mockResolvedValueOnce(['kafka'])
     await expect(tempoAttributeValues('tempo-a', 1, 'span.messaging.system')).rejects.toThrow('temporarily unavailable')

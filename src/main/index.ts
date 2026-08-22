@@ -557,7 +557,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.PROMETHEUS_DISCOVER_DATASOURCES, (_e, transport: PrometheusTransportConfig) => new GcxPrometheusTransport(transport.context).datasources())
   ipcMain.handle(IPC.PROMETHEUS_METRIC_LABELS, (_e, id: string, metricName: string) => db.labelsForMetric(id, metricName))
   ipcMain.handle(IPC.PROMETHEUS_LABEL_VALUES, (_e, id: string, metricName: string, labelName: string) => db.labelValues(id, metricName, labelName))
-  ipcMain.handle(IPC.TEMPO_ATTRIBUTE_VALUES, (_e, id: string, attribute: string) => db.tempoAttributeValues(id, attribute))
+  ipcMain.handle(IPC.TEMPO_ATTRIBUTE_VALUES, (_e, id: string, attribute: string, query?: string) => db.tempoAttributeValues(id, attribute, query))
   ipcMain.handle(IPC.PROMETHEUS_FORMAT_QUERY, (_e, id: unknown, query: unknown) => {
     if (typeof id !== 'string' || !id.trim()) throw new Error('A connection ID is required to format PromQL.')
     if (typeof query !== 'string' || !query.trim()) throw new Error('A PromQL query is required to format PromQL.')

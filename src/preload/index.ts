@@ -63,7 +63,7 @@ const api = {
       formatQuery: (connectionId: string, query: string): Promise<string> => ipcRenderer.invoke(IPC.PROMETHEUS_FORMAT_QUERY, connectionId, query)
     },
     tempo: {
-      attributeValues: (id: string, attribute: string): Promise<string[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTE_VALUES, id, attribute)
+      attributeValues: (id: string, attribute: string, query?: string): Promise<string[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTE_VALUES, id, attribute, query)
     }
   },
   query: {

@@ -218,10 +218,10 @@ test('Tempo attribute discovery requests the generic span attribute and normaliz
     calls.push(args)
     return { stdout: JSON.stringify({ tagValues: [{ type: 'string', value: 'rabbitmq' }, { type: 'string', value: 'kafka' }, { type: 'string', value: 'kafka' }] }), stderr: '' }
   }, 'tempo-uid')
-  assert.deepEqual(await transport.attributeValues('span.messaging.system'), ['kafka', 'rabbitmq'])
+  assert.deepEqual(await transport.attributeValues('span.messaging.system', '{ resource.service.name = "worker" }'), ['kafka', 'rabbitmq'])
   assert.deepEqual(calls, [[
     'traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid',
-    '--label', 'span.messaging.system', '-o', 'json'
+    '--label', 'span.messaging.system', '--query', '{ resource.service.name = "worker" }', '-o', 'json'
   ]])
 })
 
