@@ -84,7 +84,7 @@
 .modeSwitch .modeActive,
 .resultViewSwitch .modeActive { background: var(--bg-3); color: var(--text); }
 
-.searchForm { padding: 10px 14px 12px; }
+.searchForm { min-width: 0; padding: 10px 14px 12px; }
 .builderGrid {
   display: grid;
   grid-template-columns: minmax(110px, .8fr) minmax(150px, 1fr) minmax(180px, 1.2fr) minmax(90px, .65fr) minmax(110px, .7fr);
@@ -109,16 +109,43 @@
   color: var(--text-mute);
   font-size: 11px;
 }
-.traceqlField { display: grid; gap: 5px; }
-.traceqlHeader { display: flex; align-items: center; justify-content: space-between; }
-.traceqlHeader button { min-height: 26px; padding: 0 10px; }
-.traceqlField :global(.cm-editor) {
+.traceqlField {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
   width: 100%;
+  max-width: 100%;
+}
+.traceqlHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.traceqlHeader button { min-height: 26px; padding: 0 10px; }
+.traceqlField :global(.cm-theme) {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+.traceqlField :global(.cm-editor) {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   min-height: 66px;
   max-height: 160px;
   font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
-.traceqlField :global(.cm-scroller) { min-height: 66px; font-family: var(--mono); }
+.traceqlField :global(.cm-scroller) {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 66px;
+  overflow: auto;
+  font-family: var(--mono);
+}
 .searchControls {
   display: flex;
   align-items: flex-end;
