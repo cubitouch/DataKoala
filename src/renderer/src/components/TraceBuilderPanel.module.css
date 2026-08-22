@@ -70,12 +70,13 @@
 }
 
 .advanced[open] {
-  width: min(520px, 100%);
+  width: min(900px, 100%);
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-2);
 }
+.advancedRow { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(100px, .7fr) minmax(220px, 2fr); gap: 12px; margin-bottom: 12px; }
 
 .advanced[open] summary {
   margin-bottom: 8px;
@@ -92,5 +93,5 @@
 }
 
 @media (max-width: 700px) {
-  .coreRow, .detailRow { grid-template-columns: minmax(0, 1fr); }
+  .coreRow, .detailRow, .advancedRow { grid-template-columns: minmax(0, 1fr); }
 }

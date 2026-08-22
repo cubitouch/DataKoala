@@ -10,7 +10,7 @@ import type {
   TestResult
 } from '../shared/types.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
-import type { TempoQueryRequest } from '../shared/tempo.ts'
+import type { TempoAttribute, TempoQueryRequest } from '../shared/tempo.ts'
 
 export interface DataNamespace { name: string; isSystem?: boolean }
 export interface DataNamespaceRef { name: string }
@@ -36,6 +36,7 @@ export interface DataSourceSession {
   labelsForMetric?(metricName: string): Promise<string[]>
   labelValues?(metricName: string, labelName: string): Promise<string[]>
   attributeValues?(attribute: string, query?: string): Promise<string[]>
+  attributes?(query?: string): Promise<TempoAttribute[]>
   explain?(sql: string, analyze?: boolean): Promise<ExplainResult>
   estimateQuery?(sql: string): Promise<QueryEstimate>
   cancel?(queryId: string): Promise<void>

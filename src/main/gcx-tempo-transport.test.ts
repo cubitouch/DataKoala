@@ -225,6 +225,20 @@ test('Tempo attribute discovery requests the generic span attribute and normaliz
   ]])
 })
 
+test('Tempo attribute-name discovery normalizes supported scopes without a label argument', async () => {
+  const calls: string[][] = []
+  const transport = new GcxTempoTransport('production', async (args) => {
+    calls.push(args)
+    return { stdout: JSON.stringify({ scopes: { resource: { tags: ['cloud.region', 'cloud.region'] }, span: { tags: [{ name: 'http.route' }] }, event: { tags: ['ignored'] } } }), stderr: '' }
+  }, 'tempo-uid')
+  assert.deepEqual(await transport.attributeNames('{ true }'), [
+    { scope: 'resource', name: 'cloud.region', traceql: 'resource.cloud.region' },
+    { scope: 'span', name: 'http.route', traceql: 'span.http.route' }
+  ])
+  assert.deepEqual(calls[0], ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '--query', '{ true }', '-o', 'json'])
+  assert.equal(calls[0].includes('--label'), false)
+})
+
 test('Tempo attribute discovery reports useful gcx errors', async () => {
   const transport = new GcxTempoTransport(undefined, async () => { throw Object.assign(new Error('exit 1'), { stderr: 'status 403 forbidden' }) })
   await assert.rejects(() => transport.attributeValues('span.messaging.system'), /Trace access is not permitted/)

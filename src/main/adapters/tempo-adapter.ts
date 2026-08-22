@@ -96,6 +96,7 @@ export class TempoAdapter implements DataSourceAdapter {
         },
         describeRelation: async () => [],
         attributeValues: (attribute, query) => transport.attributeValues(attribute, query),
+        attributes: (query) => transport.attributeNames(query),
         close: async () => {}
       }
       tempoPerformanceLog('init.session.created', { profileId: profile.id, durationMs: performance.now() - sessionStarted })

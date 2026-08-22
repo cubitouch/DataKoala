@@ -2,7 +2,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { oneDark } from '@codemirror/theme-one-dark'
 import type { QueryResult } from '@shared/types'
-import type { TempoSearchProgress } from '@shared/tempo'
+import type { TempoAttribute, TempoSearchProgress } from '@shared/tempo'
 import { api } from '../lib/api'
 import { selectActiveSession, useStore } from '../store/useStore'
 import { TimeRangeField } from './time-range/TimeRangeField'
@@ -10,7 +10,7 @@ import { TraceScatterChart } from './TraceScatterChart'
 import { TraceBuilderPanel } from './TraceBuilderPanel'
 import { Combobox } from './ui/combobox'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
-import { tempoAttributeValues } from '../lib/tempoMetadata'
+import { tempoAttributes, tempoAttributeValues } from '../lib/tempoMetadata'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
 import { buildTraceql, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '../lib/traceBuilder'
 import {
@@ -241,6 +241,12 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [messagingSystems, setMessagingSystems] = useState<string[]>([])
   const [messagingSystemsLoading, setMessagingSystemsLoading] = useState(false)
   const [messagingSystemsError, setMessagingSystemsError] = useState<string | null>(null)
+  const [attributes, setAttributes] = useState<TempoAttribute[]>([])
+  const [attributesLoading, setAttributesLoading] = useState(false)
+  const [attributesError, setAttributesError] = useState<string | null>(null)
+  const [advancedValues, setAdvancedValues] = useState<string[]>([])
+  const [advancedValuesLoading, setAdvancedValuesLoading] = useState(false)
+  const [advancedValuesError, setAdvancedValuesError] = useState<string | null>(null)
   const traceRenderTiming = useRef<{ started: number; requestId?: string; spanCount: number } | null>(null)
   const traceqlEditorRef = useRef<ReactCodeMirrorRef>(null)
   const traceqlExtensions = useMemo(() => [traceqlSupport()], [])
@@ -317,6 +323,32 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     ).finally(() => { if (current) setMessagingSystemsLoading(false) })
     return () => { current = false }
   }, [builder.protocol, connected, connectionGeneration, connectionId, mode])
+
+  useEffect(() => {
+    if (!connected || mode !== 'builder') { setAttributes([]); setAttributesLoading(false); setAttributesError(null); return }
+    let current = true
+    setAttributes([]); setAttributesLoading(true); setAttributesError(null)
+    void tempoAttributes(connectionId, connectionGeneration).then(
+      (items) => { if (current) setAttributes(items) },
+      (reason: unknown) => { if (current) setAttributesError(reason instanceof Error ? reason.message : String(reason)) }
+    ).finally(() => { if (current) setAttributesLoading(false) })
+    return () => { current = false }
+  }, [connected, connectionGeneration, connectionId, mode])
+
+  useEffect(() => {
+    const attribute = builder.advancedAttribute
+    if (!connected || mode !== 'builder' || !attribute) { setAdvancedValues([]); setAdvancedValuesLoading(false); setAdvancedValuesError(null); return }
+    let current = true
+    setAdvancedValues([]); setAdvancedValuesLoading(true); setAdvancedValuesError(null)
+    const contextBuilder = { ...builder, advancedAttribute: '', advancedValue: '' }
+    const context = buildTraceql(contextBuilder)
+    const query = context === '{ }' ? undefined : context
+    void tempoAttributeValues(connectionId, connectionGeneration, attribute, query).then(
+      (items) => { if (current) setAdvancedValues(items) },
+      (reason: unknown) => { if (current) setAdvancedValuesError(reason instanceof Error ? reason.message : String(reason)) }
+    ).finally(() => { if (current) setAdvancedValuesLoading(false) })
+    return () => { current = false }
+  }, [builder.advancedAttribute, connected, connectionGeneration, connectionId, mode])
 
   const runSearch = async (sampleOverride: TraceSampleSize = sampleSize, rangeOverride: BuilderTimeRange = searchRange) => {
     const request = traceql.trim()
@@ -617,7 +649,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
             <div className="query-toolbar-group execution-group"><button className="btn primary" type="submit" data-tempo-run-query disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button></div>
           </div>
           {mode === 'builder'
-            ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} onChange={updateBuilder} onOpenTraceql={() => { setSql(traceql); setQueryMode('sql') }} />
+            ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} attributes={attributes} attributesLoading={attributesLoading} attributesError={attributesError} attributeValues={advancedValues} attributeValuesLoading={advancedValuesLoading} attributeValuesError={advancedValuesError} onChange={updateBuilder} onOpenTraceql={() => { setSql(traceql); setQueryMode('sql') }} />
             : <div className={styles.traceqlField}>
               <CodeMirror ref={traceqlEditorRef} value={traceql} minHeight="66px" maxHeight="160px" theme={oneDark} extensions={traceqlExtensions} onChange={(value) => setSql(value)} aria-label="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} basicSetup={{ lineNumbers: true, foldGutter: false }} />
             </div>}

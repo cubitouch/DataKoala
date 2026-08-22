@@ -2,6 +2,7 @@ export type TraceStatus = 'any' | 'unset' | 'error' | 'ok'
 export type TraceSpanKind = 'any' | 'server' | 'client' | 'producer' | 'consumer' | 'internal' | 'unspecified'
 export type TraceProtocol = 'any' | 'http' | 'rpc' | 'messaging' | 'database'
 export type TraceSampleSize = '100' | '250' | '500' | 'all'
+export type TraceAttributeOperator = '=' | '!=' | '=~' | '!~' | '>' | '>=' | '<' | '<='
 
 export interface TraceBuilderState {
   serviceNamespace: string
@@ -19,6 +20,9 @@ export interface TraceBuilderState {
   dbSystem: string
   dbOperation: string
   spanName: string
+  advancedAttribute: string
+  advancedOperator: TraceAttributeOperator
+  advancedValue: string
   status: TraceStatus
   minDurationMs: string
 }
@@ -49,6 +53,9 @@ export const EMPTY_TRACE_BUILDER: TraceBuilderState = {
   dbSystem: '',
   dbOperation: '',
   spanName: '',
+  advancedAttribute: '',
+  advancedOperator: '=',
+  advancedValue: '',
   status: 'any',
   minDurationMs: ''
 }
@@ -141,10 +148,29 @@ function detectedProtocol(query: string): TraceProtocol {
   return 'any'
 }
 
+const SEMANTIC_KEYS = new Set([
+  'resource.service.namespace', 'resource.service.name', 'span:kind', 'kind', 'span:name', 'name', 'span:status', 'status', 'span:duration', 'duration',
+  'span.http.request.method', 'span.http.method', 'span.http.route', 'span.url.template', 'span.url.path', 'span.http.target',
+  'span.rpc.system', 'span.rpc.service', 'span.rpc.method', 'span.messaging.system', 'span.messaging.destination.name', 'span.messaging.destination',
+  'span.messaging.operation.type', 'span.messaging.operation', 'span.db.system.name', 'span.db.system', 'span.db.operation.name', 'span.db.operation'
+])
+
+function genericPredicate(query: string): Pick<TraceBuilderState, 'advancedAttribute' | 'advancedOperator' | 'advancedValue'> {
+  const pattern = /(?:^|[\s{(&|])((?:resource|span)\.[A-Za-z_][\w.-]*)\s*(=~|!~|>=|<=|!=|=|>|<)\s*("(?:\\.|[^"\\])*"|-?(?:\d+(?:\.\d+)?|\.\d+))/g
+  for (const match of query.matchAll(pattern)) {
+    if (SEMANTIC_KEYS.has(match[1])) continue
+    let value = match[3]
+    if (value.startsWith('"')) try { value = JSON.parse(value) } catch { continue }
+    return { advancedAttribute: match[1], advancedOperator: match[2] as TraceAttributeOperator, advancedValue: value }
+  }
+  return { advancedAttribute: '', advancedOperator: '=', advancedValue: '' }
+}
+
 export function traceBuilderFromTraceql(query: string): TraceBuilderState {
   const duration = query.match(/(?:^|[\s{(&|])(?:span:)?duration\s*>\s*([0-9.]+)ms/i)?.[1] ?? ''
   return {
     ...EMPTY_TRACE_BUILDER,
+    ...genericPredicate(query),
     serviceNamespace: extractQuoted(query, 'resource.service.namespace'),
     service: extractQuoted(query, 'resource.service.name'),
     spanKind: enumValue(query, ['span:kind', 'kind'], ['server', 'client', 'producer', 'consumer', 'internal', 'unspecified'] as const, 'any'),
@@ -249,6 +275,14 @@ export function buildTraceql(builder: TraceBuilderState): string {
   }
 
   if (builder.spanName.trim()) conditions.push(equal('span:name', builder.spanName))
+  const attribute = builder.advancedAttribute.trim()
+  const advancedValue = builder.advancedValue.trim()
+  if (/^(?:resource|span)\.[A-Za-z_][\w.-]*$/.test(attribute) && advancedValue) {
+    const numeric = ['>', '>=', '<', '<='].includes(builder.advancedOperator) && /^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(advancedValue)
+    if (!['>', '>=', '<', '<='].includes(builder.advancedOperator) || numeric) {
+      conditions.push(`${attribute} ${builder.advancedOperator} ${numeric ? advancedValue : quoted(advancedValue)}`)
+    }
+  }
   if (builder.status !== 'any') conditions.push(`span:status = ${builder.status}`)
   const duration = Number(builder.minDurationMs)
   if (builder.minDurationMs.trim() && Number.isFinite(duration) && duration >= 0) conditions.push(`span:duration > ${duration}ms`)

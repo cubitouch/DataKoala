@@ -1,8 +1,10 @@
 import { useMemo } from 'react'
 import type { DatabaseSchemaNode } from '@shared/types'
+import type { TempoAttribute } from '@shared/tempo'
 import type { MetadataStatus } from '../store/useStore'
 import {
   type TraceBuilderState,
+  type TraceAttributeOperator,
   type TraceProtocol,
   type TraceSpanKind,
   type TraceStatus
@@ -23,6 +25,12 @@ interface TraceBuilderPanelProps {
   messagingSystems: string[]
   messagingSystemsLoading: boolean
   messagingSystemsError: string | null
+  attributes?: TempoAttribute[]
+  attributesLoading?: boolean
+  attributesError?: string | null
+  attributeValues?: string[]
+  attributeValuesLoading?: boolean
+  attributeValuesError?: string | null
   onChange: (patch: Partial<TraceBuilderState>) => void
   onOpenTraceql: () => void
 }
@@ -75,12 +83,14 @@ const dbSystemOptions: ComboboxOption[] = [
   { value: '', label: 'Any database' },
   ...['postgresql', 'mysql', 'sqlite', 'mongodb', 'redis', 'elasticsearch'].map((system) => ({ value: system, label: system }))
 ]
+const operatorOptions: ComboboxOption[] = ['=', '!=', '=~', '!~'].map((operator) => ({ value: operator, label: operator }))
+const MAX_ATTRIBUTE_VALUES = 250
 
 function Control({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return <div className={styles.control}><span className={styles.fieldLabel}>{label}</span>{children}{hint && <small className={styles.fieldHint}>{hint}</small>}</div>
 }
 
-export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, onChange, onOpenTraceql }: TraceBuilderPanelProps) {
+export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, attributes = [], attributesLoading = false, attributesError = null, attributeValues = [], attributeValuesLoading = false, attributeValuesError = null, onChange, onOpenTraceql }: TraceBuilderPanelProps) {
   const serviceRelations = useMemo(() => schemas.flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'service'), [schemas])
   const namespaceOptions = useMemo<ComboboxOption[]>(() => {
     const namespaces = [...new Set(serviceRelations.flatMap((relation) => relation.details?.kind === 'service' && relation.details.serviceNamespace ? [relation.details.serviceNamespace] : []))].sort((left, right) => left.localeCompare(right))
@@ -99,6 +109,9 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
     if (value.messagingSystem) systems.add(value.messagingSystem)
     return [{ value: '', label: 'Any messaging system' }, ...[...systems].sort((left, right) => left.localeCompare(right)).map((system) => ({ value: system, label: system }))]
   }, [messagingSystems, value.messagingSystem])
+  const attributeOptions = useMemo<ComboboxOption[]>(() => attributes.map((attribute) => ({ value: attribute.traceql, label: attribute.traceql, subtitle: `${attribute.scope === 'resource' ? 'Resource' : 'Span'} attribute`, keywords: [attribute.name, attribute.scope] })), [attributes])
+  const displayedValues = attributeValues.slice(0, MAX_ATTRIBUTE_VALUES)
+  const valueOptions = useMemo<ComboboxOption[]>(() => displayedValues.map((item) => ({ value: item, label: item })), [displayedValues])
 
   const changeNamespace = (serviceNamespace: string) => {
     const allowedServices = new Set(serviceRelations
@@ -140,7 +153,12 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
     </div>}
 
     <details className={styles.advanced}>
-      <summary>Advanced operation filter</summary>
+      <summary>Advanced filters</summary>
+      <div className={styles.advancedRow}>
+        <Control label="Attribute"><Combobox label="Attribute" value={value.advancedAttribute} options={attributeOptions} onChange={(advancedAttribute) => onChange({ advancedAttribute, advancedValue: '' })} searchable loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Choose an attribute" /></Control>
+        <Control label="Operator"><Combobox label="Operator" value={value.advancedOperator} options={operatorOptions} onChange={(advancedOperator) => onChange({ advancedOperator: advancedOperator as TraceAttributeOperator })} /></Control>
+        <Control label="Value" hint={attributeValues.length > MAX_ATTRIBUTE_VALUES ? `Showing the first ${MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.` : undefined}><Combobox label="Value" value={value.advancedValue} options={valueOptions} onChange={(advancedValue) => onChange({ advancedValue })} searchable allowCustomValue disabled={!value.advancedAttribute} loading={attributeValuesLoading} error={attributeValuesError} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." placeholder="Choose or type a value" invalidationKey={value.advancedAttribute} /></Control>
+      </div>
       <Control label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter."><input value={value.spanName} onChange={(event) => onChange({ spanName: event.target.value })} placeholder="POST /checkout" /></Control>
     </details>
 
