@@ -16,6 +16,7 @@ export const IPC = {
   PROMETHEUS_LABEL_VALUES: 'connections:prometheus:label-values',
   PROMETHEUS_FORMAT_QUERY: 'connections:prometheus:format-query',
   TEMPO_ATTRIBUTE_VALUES: 'connections:tempo:attribute-values',
+  TEMPO_ATTRIBUTES: 'connections:tempo:attributes',
   QUERY_RUN: 'query:run',
   QUERY_PROGRESS: 'query:progress',
   QUERY_PROBE_SERIES_CARDINALITY: 'query:probe-series-cardinality',

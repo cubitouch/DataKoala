@@ -29,6 +29,7 @@ function transport(overrides: Partial<TempoTransport> = {}): TempoTransport {
     search: async () => result,
     get: async () => result,
     attributeValues: async () => [],
+    attributeNames: async () => [],
     ...overrides
   }
 }

@@ -11,7 +11,8 @@ vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value, ...props }: { value: string; 'aria-label'?: string }) => <textarea aria-label={props['aria-label']} value={value} readOnly />
 }))
 vi.mock('./ui/combobox', () => ({
-  Combobox: ({ label, value }: { label: string; value: string }) => <button type="button" aria-label={`${label}: ${value}`}>{value}</button>
+  Combobox: ({ label, value }: { label: string; value: string }) => <button type="button" aria-label={`${label}: ${value}`}>{value}</button>,
+  MultiCombobox: ({ label, values }: { label: string; values: string[] }) => <button type="button" aria-label={`${label}: ${values.join(', ')}`}>{values.join(', ')}</button>
 }))
 
 import { EMPTY_TRACE_BUILDER } from '../lib/traceBuilder'
@@ -53,5 +54,16 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
     expect(onOpenTraceql).toHaveBeenCalledOnce()
     expect(disclosure.open).toBe(true)
+  })
+
+  it('renders one facet for each selected attribute without raw operators', () => {
+    render(<TraceBuilderPanel value={{ ...EMPTY_TRACE_BUILDER, advancedFilters: [
+      { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] },
+      { attribute: 'span.http.route', scope: 'span', mode: 'exclude', values: ['/health'] }
+    ] }} traceql="{}" schemas={[]} metadataStatus="loaded" metadataError={null} messagingSystems={[]} messagingSystemsLoading={false} messagingSystemsError={null} attributes={[]} attributeValues={{}} onChange={vi.fn()} onOpenTraceql={vi.fn()} />)
+    expect(screen.getByText('cloud.region')).toBeTruthy()
+    expect(screen.getByText('http.route')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'resource.cloud.region values: eu-west-1, eu-west-3' })).toBeTruthy()
+    expect(screen.queryByText('Operator')).toBeNull()
   })
 })

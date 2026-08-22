@@ -9,6 +9,12 @@ export interface TempoQueryRequest {
   diagnosticRequestId?: string
 }
 
+export interface TempoAttribute {
+  scope: 'resource' | 'span'
+  name: string
+  traceql: string
+}
+
 export interface TempoSearchProgress {
   provider: 'tempo'
   /** Exact selected-period duration already proven complete by unsaturated search chunks. */
