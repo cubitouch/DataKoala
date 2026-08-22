@@ -18,12 +18,14 @@ vi.mock('./TraceScatterChart', () => ({ TraceScatterChart: () => null }))
 
 import { TraceExplorer } from './TraceExplorer'
 import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+import { useStore } from '../store/useStore'
 import { formatTraceql } from '../lib/formatTraceql'
 
 describe('TraceExplorer TraceQL editor', () => {
   beforeEach(() => {
     resetTestStore()
     patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'sql', sql: '{resource.service.name="checkout"}' })
+    useStore.setState({ profiles: [{ id: 'tempo-1', name: 'Tempo', kind: 'tempo', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test' } }] })
     notify.mockReset()
   })
   afterEach(cleanup)
@@ -31,6 +33,7 @@ describe('TraceExplorer TraceQL editor', () => {
   it('edits and locally formats Plain mode through CodeMirror', async () => {
     expect(formatTraceql('{duration>300ms}')).toEqual({ ok: true, query: '{ duration > 300ms }' })
     render(<TraceExplorer connectionId="tempo-1" />)
+    expect(screen.getAllByLabelText('Query mode')[0].textContent).toBe('TraceQLBuilder')
     const editor = screen.getByLabelText('TraceQL editor')
     expect(editor.tagName).toBe('TEXTAREA') // CodeMirror is represented by the focused test double.
     expect((editor as HTMLTextAreaElement).value).toBe('{resource.service.name="checkout"}')

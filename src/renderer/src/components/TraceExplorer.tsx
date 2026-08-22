@@ -30,6 +30,10 @@ import styles from './TraceExplorer.module.css'
 import { traceql as traceqlSupport } from '../lib/traceqlLanguage'
 import { formatTraceql } from '../lib/formatTraceql'
 import { notify } from './NotificationArea'
+import { ModeSwitch } from './ModeSwitch'
+import { QueryUtilityActions } from './QueryUtilityActions'
+import { CopySqlButton } from './CopySqlButton'
+import { defaultQueryTextForDatasource } from '../lib/queryDefaults'
 
 interface TraceExplorerProps {
   connectionId: string
@@ -555,6 +559,29 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     if (shouldRerun && traceql.trim()) void runSearch(next)
   }
 
+  const clearTempoResults = () => {
+    setSearchRows([])
+    setSpans([])
+    setTraceId('')
+    setSelectedSpanId('')
+    setCollapsed(new Set())
+    setSearchProgress(null)
+    setSearchNotice('')
+    setError('')
+    setCohortHint('')
+    setResultView('list')
+  }
+
+  const resetTempoQuery = () => {
+    const freshTraceql = defaultQueryTextForDatasource('tempo')
+    setSql(freshTraceql)
+    setBuilder(traceBuilderFromTraceql(freshTraceql))
+    setSearchRange(DEFAULT_TRACE_RANGE)
+    setSampleSize(DEFAULT_TRACE_SAMPLE_SIZE)
+    setQueryMode('builder')
+    clearTempoResults()
+  }
+
   const timelineLabel = timelineScale.gaps.length > 0
     ? `Idle gaps compressed · ${durationLabel(timelineScale.wallDurationMs)} visible wall time → ${durationLabel(timelineScale.displayDurationMs)} visual scale${Math.abs(timelineScale.wallDurationMs - traceDuration) > .5 ? ` · full trace ${durationLabel(traceDuration)}` : ''}`
     : Math.abs(timelineScale.wallDurationMs - traceDuration) > .5
@@ -574,34 +601,29 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           <button className="btn ghost" type="submit" disabled={loading !== null || !traceId.trim()}>{loading === 'trace' ? 'Opening…' : 'Open trace'}</button>
         </form>
 
-        <div className={styles.queryModeRow}>
-          <div className={styles.modeSwitch} role="group" aria-label="Trace query mode">
-            <button type="button" className={mode === 'builder' ? styles.modeActive : ''} aria-pressed={mode === 'builder'} onClick={() => setQueryMode('builder')}>Builder</button>
-            <button type="button" className={mode === 'sql' ? styles.modeActive : ''} aria-pressed={mode === 'sql'} onClick={() => setQueryMode('sql')}>TraceQL</button>
-          </div>
-          <span>Find traces first; open one to inspect it, then use the selected span to seed a cohort.</span>
-        </div>
-
         <form className={styles.searchForm} onSubmit={submitSearch} onKeyDown={onTraceqlKeyDown}>
+          <div className={`editor-head data-query-toolbar ${styles.queryToolbar}`} data-query-toolbar>
+            <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
+            <div className={`query-toolbar-group query-time-group ${styles.queryOptions}`} aria-label="Tempo query options">
+              <TimeRangeField value={searchRange} onChange={setSearchRange} />
+              <div className={styles.sampleSize}><span>Sample size</span><Combobox label="Tempo trace sample size" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div>
+            </div>
+            <div className="spacer" />
+            <div className="query-toolbar-group"><QueryUtilityActions hasResults={Boolean(searchRows.length || spans.length || searchNotice || searchProgress || error || cohortHint)} onClearResults={clearTempoResults} onResetQuery={resetTempoQuery} /></div>
+            <div className={`query-toolbar-group query-editor-actions ${styles.editorActions}`}>
+              {mode === 'sql' && <button type="button" className="btn ghost" onClick={formatCurrentTraceql} title="Format TraceQL (Shift+Alt+F)" disabled={!traceql.trim()}>Format</button>}
+              <CopySqlButton sql={traceql} language="TraceQL" />
+            </div>
+            <div className="query-toolbar-group execution-group"><button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? sampledSearch ? 'Fetching sample…' : searchProgress ? `Fetching ${progressPercent}%…` : 'Starting…' : sampledSearch ? 'Search sample' : 'Search all traces'}</button></div>
+          </div>
           {mode === 'builder'
-            ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} onChange={updateBuilder} />
+            ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} onChange={updateBuilder} onOpenTraceql={() => { setSql(traceql); setQueryMode('sql') }} />
             : <div className={styles.traceqlField}>
-              <div className={styles.traceqlHeader}><span>TraceQL</span><button type="button" className="btn ghost" onClick={formatCurrentTraceql} title="Format TraceQL (Shift+Alt+F)" disabled={!traceql.trim()}>Format</button></div>
               <CodeMirror ref={traceqlEditorRef} value={traceql} minHeight="66px" maxHeight="160px" theme={oneDark} extensions={traceqlExtensions} onChange={(value) => setSql(value)} aria-label="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} basicSetup={{ lineNumbers: true, foldGutter: false }} />
             </div>}
-          <div className={styles.searchControls}>
-            <TimeRangeField value={searchRange} onChange={setSearchRange} />
-            <div style={{ display: 'grid', gap: 5, flex: '0 0 124px' }}>
-              <span style={{ color: 'var(--text-mute)', fontSize: 11, fontWeight: 600 }}>Sample size</span>
-              <Combobox label="Tempo trace sample size" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} />
-            </div>
-            <div className={styles.searchActions}>
-              <button className="btn primary" type="submit" disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? sampledSearch ? 'Fetching sample…' : searchProgress ? `Fetching ${progressPercent}%…` : 'Starting…' : sampledSearch ? 'Search sample' : 'Search all traces'}</button>
-              <span>{sampledSearch
-                ? `Tempo via gcx · returns up to ${sampleSize} matches from one whole-period search; choose All for exhaustive coverage.`
-                : 'Tempo via gcx · streams trace summaries while it exhausts the complete selected period.'}</span>
-            </div>
-          </div>
+          <div className={styles.searchHelper}>{sampledSearch
+            ? `Tempo via gcx · returns up to ${sampleSize} matches from one whole-period search; choose All for exhaustive coverage.`
+            : 'Tempo via gcx · streams trace summaries while it exhausts the complete selected period.'}</div>
         </form>
       </div>
 

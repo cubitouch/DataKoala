@@ -40,6 +40,13 @@ describe('CopySqlButton', () => {
     expect(copyTextToClipboard).not.toHaveBeenCalled()
   })
 
+  it('uses a query-language-neutral accessible label when requested', async () => {
+    copyTextToClipboard.mockResolvedValue(undefined)
+    render(<CopySqlButton sql="{ duration > 100ms }" language="TraceQL" />)
+    fireEvent.click(within(document.body).getByRole('button', { name: 'Copy TraceQL to clipboard' }))
+    await waitFor(() => expect(copyTextToClipboard).toHaveBeenCalledWith('{ duration > 100ms }'))
+  })
+
   it('keeps the button usable and shows an error when clipboard writing fails', async () => {
     copyTextToClipboard.mockRejectedValue(new Error('denied'))
     const { container } = render(<><CopySqlButton sql="select 1;" /><NotificationArea /></>)

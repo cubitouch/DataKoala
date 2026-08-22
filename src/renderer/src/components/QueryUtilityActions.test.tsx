@@ -29,4 +29,17 @@ describe('QueryUtilityActions', () => {
     expect(window.confirm).toHaveBeenCalledWith('Reset Metrics to a fresh query?')
     expect(activeTestSession().sql).toBe('select now();')
   })
+
+  it('supports result lifecycle overrides without changing the default session query', () => {
+    const clear = vi.fn()
+    const reset = vi.fn()
+    patchActiveTestSession({ title: 'Traces', sql: '{ duration > 300ms }' })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    render(<QueryUtilityActions hasResults onClearResults={clear} onResetQuery={reset} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Clear results' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reset query' }))
+    expect(clear).toHaveBeenCalledOnce()
+    expect(reset).toHaveBeenCalledOnce()
+    expect(activeTestSession().sql).toBe('{ duration > 300ms }')
+  })
 })

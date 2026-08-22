@@ -116,7 +116,7 @@ async function validateBuilderIndependence(win) {
 }
 
 async function searchTraces(win) {
-  await waitFor(win, `document.querySelector('[aria-label="Trace query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' && document.body.innerText.includes('300') && document.body.innerText.includes('Last hour') && document.body.innerText.includes('Sample size')`, 'configured trace Builder, time range and sample size')
+  await waitFor(win, `document.querySelector('[aria-label="Query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' && document.body.innerText.includes('300') && document.body.innerText.includes('Last hour') && document.body.innerText.includes('Sample size') && document.body.innerText.includes('Generated TraceQL')`, 'configured trace Builder, time range and sample size')
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
     const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Search sample')
@@ -213,6 +213,7 @@ app.whenReady().then(async () => {
     await waitFor(win, `document.getElementById('root')?.children.length && window.__datakoalaStore`, 'renderer and store')
     await seedTraceWorkspace(win)
     await validateBuilderIndependence(win)
+    await capture(win, 'tempo-trace-builder.png')
     await searchTraces(win)
     await capture(win, 'tempo-trace-search.png')
     await showScatter(win)
