@@ -2,7 +2,13 @@ export type TraceStatus = 'any' | 'unset' | 'error' | 'ok'
 export type TraceSpanKind = 'any' | 'server' | 'client' | 'producer' | 'consumer' | 'internal' | 'unspecified'
 export type TraceProtocol = 'any' | 'http' | 'rpc' | 'messaging' | 'database'
 export type TraceSampleSize = '100' | '250' | '500' | 'all'
-export type TraceAttributeOperator = '=' | '!=' | '=~' | '!~' | '>' | '>=' | '<' | '<='
+export type TraceAttributeFilterMode = 'any' | 'include' | 'exclude'
+export interface TraceAttributeFilter {
+  attribute: string
+  scope: 'resource' | 'span'
+  mode: TraceAttributeFilterMode
+  values: string[]
+}
 
 export interface TraceBuilderState {
   serviceNamespace: string
@@ -20,9 +26,7 @@ export interface TraceBuilderState {
   dbSystem: string
   dbOperation: string
   spanName: string
-  advancedAttribute: string
-  advancedOperator: TraceAttributeOperator
-  advancedValue: string
+  advancedFilters: TraceAttributeFilter[]
   status: TraceStatus
   minDurationMs: string
 }
@@ -53,9 +57,7 @@ export const EMPTY_TRACE_BUILDER: TraceBuilderState = {
   dbSystem: '',
   dbOperation: '',
   spanName: '',
-  advancedAttribute: '',
-  advancedOperator: '=',
-  advancedValue: '',
+  advancedFilters: [],
   status: 'any',
   minDurationMs: ''
 }
@@ -155,22 +157,26 @@ const SEMANTIC_KEYS = new Set([
   'span.messaging.operation.type', 'span.messaging.operation', 'span.db.system.name', 'span.db.system', 'span.db.operation.name', 'span.db.operation'
 ])
 
-function genericPredicate(query: string): Pick<TraceBuilderState, 'advancedAttribute' | 'advancedOperator' | 'advancedValue'> {
-  const pattern = /(?:^|[\s{(&|])((?:resource|span)\.[A-Za-z_][\w.-]*)\s*(=~|!~|>=|<=|!=|=|>|<)\s*("(?:\\.|[^"\\])*"|-?(?:\d+(?:\.\d+)?|\.\d+))/g
+function genericPredicates(query: string): TraceAttributeFilter[] {
+  const pattern = /(?:^|[\s{(&|])((resource|span)\.[A-Za-z_][\w.-]*)\s*(=|!=)\s*("(?:\\.|[^"\\])*")/g
+  const filters = new Map<string, TraceAttributeFilter>()
   for (const match of query.matchAll(pattern)) {
     if (SEMANTIC_KEYS.has(match[1])) continue
-    let value = match[3]
-    if (value.startsWith('"')) try { value = JSON.parse(value) } catch { continue }
-    return { advancedAttribute: match[1], advancedOperator: match[2] as TraceAttributeOperator, advancedValue: value }
+    let value: string
+    try { value = JSON.parse(match[4]) } catch { continue }
+    const mode = match[3] === '=' ? 'include' : 'exclude'
+    const existing = filters.get(match[1])
+    if (existing && existing.mode === mode) existing.values.push(value)
+    else if (!existing) filters.set(match[1], { attribute: match[1], scope: match[2] as 'resource' | 'span', mode, values: [value] })
   }
-  return { advancedAttribute: '', advancedOperator: '=', advancedValue: '' }
+  return [...filters.values()]
 }
 
 export function traceBuilderFromTraceql(query: string): TraceBuilderState {
   const duration = query.match(/(?:^|[\s{(&|])(?:span:)?duration\s*>\s*([0-9.]+)ms/i)?.[1] ?? ''
   return {
     ...EMPTY_TRACE_BUILDER,
-    ...genericPredicate(query),
+    advancedFilters: genericPredicates(query),
     serviceNamespace: extractQuoted(query, 'resource.service.namespace'),
     service: extractQuoted(query, 'resource.service.name'),
     spanKind: enumValue(query, ['span:kind', 'kind'], ['server', 'client', 'producer', 'consumer', 'internal', 'unspecified'] as const, 'any'),
@@ -275,13 +281,12 @@ export function buildTraceql(builder: TraceBuilderState): string {
   }
 
   if (builder.spanName.trim()) conditions.push(equal('span:name', builder.spanName))
-  const attribute = builder.advancedAttribute.trim()
-  const advancedValue = builder.advancedValue.trim()
-  if (/^(?:resource|span)\.[A-Za-z_][\w.-]*$/.test(attribute) && advancedValue) {
-    const numeric = ['>', '>=', '<', '<='].includes(builder.advancedOperator) && /^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(advancedValue)
-    if (!['>', '>=', '<', '<='].includes(builder.advancedOperator) || numeric) {
-      conditions.push(`${attribute} ${builder.advancedOperator} ${numeric ? advancedValue : quoted(advancedValue)}`)
-    }
+  for (const filter of builder.advancedFilters) {
+    const attribute = filter.attribute.trim()
+    const values = [...new Set(filter.values.map((value) => value.trim()).filter(Boolean))]
+    if (!/^(?:resource|span)\.[A-Za-z_][\w.-]*$/.test(attribute) || filter.mode === 'any' || !values.length) continue
+    const predicates = values.map((value) => `${attribute} ${filter.mode === 'include' ? '=' : '!='} ${quoted(value)}`)
+    conditions.push(filter.mode === 'include' && predicates.length > 1 ? `(${predicates.join(' || ')})` : predicates.join(' && '))
   }
   if (builder.status !== 'any') conditions.push(`span:status = ${builder.status}`)
   const duration = Number(builder.minDurationMs)

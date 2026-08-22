@@ -8,17 +8,15 @@ test('empty trace builder keeps the broad TraceQL selector', () => {
   assert.equal(buildTraceql(EMPTY_TRACE_BUILDER), '{ }')
 })
 
-test('builds and parses safe generic attribute predicates', () => {
-  assert.equal(buildTraceql(builder({ advancedAttribute: 'resource.cloud.region', advancedOperator: '=', advancedValue: 'eu-west-1' })), '{ resource.cloud.region = "eu-west-1" }')
-  assert.equal(buildTraceql(builder({ advancedAttribute: 'resource.deployment.environment.name', advancedOperator: '!=', advancedValue: 'staging' })), '{ resource.deployment.environment.name != "staging" }')
-  assert.equal(buildTraceql(builder({ advancedAttribute: 'span.http.route.template', advancedOperator: '=~', advancedValue: 'prod.*"x' })), '{ span.http.route.template =~ "prod.*\\\"x" }')
-  assert.equal(buildTraceql(builder({ advancedAttribute: 'span.http.response.status_code', advancedOperator: '>=', advancedValue: '500' })), '{ span.http.response.status_code >= 500 }')
-  assert.equal(buildTraceql(builder({ advancedAttribute: 'resource.cloud.region', advancedValue: '' })), '{ }')
-  assert.equal(buildTraceql(builder({ advancedAttribute: 'invalid; true', advancedValue: 'x' })), '{ }')
-  const parsed = traceBuilderFromTraceql('{ resource.service.name = "checkout" && resource.cloud.region = "eu-west-1" }')
+test('builds and parses faceted attribute predicates', () => {
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })), '{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'exclude', values: ['staging', 'test'] }] })), '{ resource.deployment.environment.name != "staging" && resource.deployment.environment.name != "test" }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'span.custom', scope: 'span', mode: 'include', values: ['a"b'] }] })), '{ span.custom = "a\\\"b" }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'any', values: ['ignored'] }] })), '{ }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'invalid; true', scope: 'span', mode: 'include', values: ['x'] }] })), '{ }')
+  const parsed = traceBuilderFromTraceql('{ resource.service.name = "checkout" && (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')
   assert.equal(parsed.service, 'checkout')
-  assert.equal(parsed.advancedAttribute, 'resource.cloud.region')
-  assert.equal(parsed.advancedValue, 'eu-west-1')
+  assert.deepEqual(parsed.advancedFilters, [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }])
 })
 
 test('builds service, kind, status and duration filters with scoped intrinsics', () => {

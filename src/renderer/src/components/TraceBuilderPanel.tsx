@@ -4,12 +4,12 @@ import type { TempoAttribute } from '@shared/tempo'
 import type { MetadataStatus } from '../store/useStore'
 import {
   type TraceBuilderState,
-  type TraceAttributeOperator,
+  type TraceAttributeFilterMode,
   type TraceProtocol,
   type TraceSpanKind,
   type TraceStatus
 } from '../lib/traceBuilder'
-import { Combobox, type ComboboxOption } from './ui/combobox'
+import { Combobox, MultiCombobox, type ComboboxOption } from './ui/combobox'
 import styles from './TraceBuilderPanel.module.css'
 import CodeMirror from '@uiw/react-codemirror'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -28,9 +28,9 @@ interface TraceBuilderPanelProps {
   attributes?: TempoAttribute[]
   attributesLoading?: boolean
   attributesError?: string | null
-  attributeValues?: string[]
-  attributeValuesLoading?: boolean
-  attributeValuesError?: string | null
+  attributeValues?: Record<string, string[]>
+  attributeValuesLoading?: Record<string, boolean>
+  attributeValuesError?: Record<string, string | null>
   onChange: (patch: Partial<TraceBuilderState>) => void
   onOpenTraceql: () => void
 }
@@ -83,14 +83,16 @@ const dbSystemOptions: ComboboxOption[] = [
   { value: '', label: 'Any database' },
   ...['postgresql', 'mysql', 'sqlite', 'mongodb', 'redis', 'elasticsearch'].map((system) => ({ value: system, label: system }))
 ]
-const operatorOptions: ComboboxOption[] = ['=', '!=', '=~', '!~'].map((operator) => ({ value: operator, label: operator }))
+const filterModeOptions: ComboboxOption[] = [
+  { value: 'any', label: 'Any' }, { value: 'include', label: 'Include' }, { value: 'exclude', label: 'Exclude' }
+]
 const MAX_ATTRIBUTE_VALUES = 250
 
 function Control({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return <div className={styles.control}><span className={styles.fieldLabel}>{label}</span>{children}{hint && <small className={styles.fieldHint}>{hint}</small>}</div>
 }
 
-export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, attributes = [], attributesLoading = false, attributesError = null, attributeValues = [], attributeValuesLoading = false, attributeValuesError = null, onChange, onOpenTraceql }: TraceBuilderPanelProps) {
+export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, attributes = [], attributesLoading = false, attributesError = null, attributeValues = {}, attributeValuesLoading = {}, attributeValuesError = {}, onChange, onOpenTraceql }: TraceBuilderPanelProps) {
   const serviceRelations = useMemo(() => schemas.flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'service'), [schemas])
   const namespaceOptions = useMemo<ComboboxOption[]>(() => {
     const namespaces = [...new Set(serviceRelations.flatMap((relation) => relation.details?.kind === 'service' && relation.details.serviceNamespace ? [relation.details.serviceNamespace] : []))].sort((left, right) => left.localeCompare(right))
@@ -110,8 +112,9 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
     return [{ value: '', label: 'Any messaging system' }, ...[...systems].sort((left, right) => left.localeCompare(right)).map((system) => ({ value: system, label: system }))]
   }, [messagingSystems, value.messagingSystem])
   const attributeOptions = useMemo<ComboboxOption[]>(() => attributes.map((attribute) => ({ value: attribute.traceql, label: attribute.traceql, subtitle: `${attribute.scope === 'resource' ? 'Resource' : 'Span'} attribute`, keywords: [attribute.name, attribute.scope] })), [attributes])
-  const displayedValues = attributeValues.slice(0, MAX_ATTRIBUTE_VALUES)
-  const valueOptions = useMemo<ComboboxOption[]>(() => displayedValues.map((item) => ({ value: item, label: item })), [displayedValues])
+  const selectedAttributes = value.advancedFilters.map((filter) => filter.attribute)
+  const changeAttributes = (selected: string[]) => onChange({ advancedFilters: selected.map((attribute) => value.advancedFilters.find((filter) => filter.attribute === attribute) ?? { attribute, scope: attributes.find((item) => item.traceql === attribute)?.scope ?? (attribute.startsWith('resource.') ? 'resource' : 'span'), mode: 'any', values: [] }) })
+  const updateFilter = (attribute: string, patch: Partial<(typeof value.advancedFilters)[number]>) => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === attribute ? { ...filter, ...patch } : filter) })
 
   const changeNamespace = (serviceNamespace: string) => {
     const allowedServices = new Set(serviceRelations
@@ -154,11 +157,16 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
 
     <details className={styles.advanced}>
       <summary>Advanced filters</summary>
-      <div className={styles.advancedRow}>
-        <Control label="Attribute"><Combobox label="Attribute" value={value.advancedAttribute} options={attributeOptions} onChange={(advancedAttribute) => onChange({ advancedAttribute, advancedValue: '' })} searchable loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Choose an attribute" /></Control>
-        <Control label="Operator"><Combobox label="Operator" value={value.advancedOperator} options={operatorOptions} onChange={(advancedOperator) => onChange({ advancedOperator: advancedOperator as TraceAttributeOperator })} /></Control>
-        <Control label="Value" hint={attributeValues.length > MAX_ATTRIBUTE_VALUES ? `Showing the first ${MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.` : undefined}><Combobox label="Value" value={value.advancedValue} options={valueOptions} onChange={(advancedValue) => onChange({ advancedValue })} searchable allowCustomValue disabled={!value.advancedAttribute} loading={attributeValuesLoading} error={attributeValuesError} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." placeholder="Choose or type a value" invalidationKey={value.advancedAttribute} /></Control>
-      </div>
+      <Control label="Attributes"><MultiCombobox label="Attributes" values={selectedAttributes} options={attributeOptions} onChange={changeAttributes} searchable showChips loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Select attributes" /></Control>
+      <div className={styles.facets}>{value.advancedFilters.map((filter) => {
+        const discovered = attributeValues[filter.attribute] ?? []
+        const displayed = discovered.slice(0, MAX_ATTRIBUTE_VALUES)
+        return <div className={styles.facet} key={filter.attribute}>
+          <strong title={filter.attribute}>{filter.attribute.replace(/^(?:resource|span)\./, '')}</strong>
+          <Combobox label={`${filter.attribute} filter mode`} value={filter.mode} options={filterModeOptions} onChange={(mode) => updateFilter(filter.attribute, { mode: mode as TraceAttributeFilterMode })} />
+          <Control label="Values" hint={discovered.length > MAX_ATTRIBUTE_VALUES ? `Showing the first ${MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.` : undefined}><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => updateFilter(filter.attribute, { values })} searchable showChips allowCustomValue disabled={filter.mode === 'any'} loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} /></Control>
+        </div>
+      })}</div>
       <Control label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter."><input value={value.spanName} onChange={(event) => onChange({ spanName: event.target.value })} placeholder="POST /checkout" /></Control>
     </details>
 

@@ -244,9 +244,9 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const [attributes, setAttributes] = useState<TempoAttribute[]>([])
   const [attributesLoading, setAttributesLoading] = useState(false)
   const [attributesError, setAttributesError] = useState<string | null>(null)
-  const [advancedValues, setAdvancedValues] = useState<string[]>([])
-  const [advancedValuesLoading, setAdvancedValuesLoading] = useState(false)
-  const [advancedValuesError, setAdvancedValuesError] = useState<string | null>(null)
+  const [advancedValues, setAdvancedValues] = useState<Record<string, string[]>>({})
+  const [advancedValuesLoading, setAdvancedValuesLoading] = useState<Record<string, boolean>>({})
+  const [advancedValuesError, setAdvancedValuesError] = useState<Record<string, string | null>>({})
   const traceRenderTiming = useRef<{ started: number; requestId?: string; spanCount: number } | null>(null)
   const traceqlEditorRef = useRef<ReactCodeMirrorRef>(null)
   const traceqlExtensions = useMemo(() => [traceqlSupport()], [])
@@ -336,19 +336,22 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   }, [connected, connectionGeneration, connectionId, mode])
 
   useEffect(() => {
-    const attribute = builder.advancedAttribute
-    if (!connected || mode !== 'builder' || !attribute) { setAdvancedValues([]); setAdvancedValuesLoading(false); setAdvancedValuesError(null); return }
+    const filters = builder.advancedFilters
+    if (!connected || mode !== 'builder' || !filters.length) { setAdvancedValues({}); setAdvancedValuesLoading({}); setAdvancedValuesError({}); return }
     let current = true
-    setAdvancedValues([]); setAdvancedValuesLoading(true); setAdvancedValuesError(null)
-    const contextBuilder = { ...builder, advancedAttribute: '', advancedValue: '' }
-    const context = buildTraceql(contextBuilder)
-    const query = context === '{ }' ? undefined : context
-    void tempoAttributeValues(connectionId, connectionGeneration, attribute, query).then(
-      (items) => { if (current) setAdvancedValues(items) },
-      (reason: unknown) => { if (current) setAdvancedValuesError(reason instanceof Error ? reason.message : String(reason)) }
-    ).finally(() => { if (current) setAdvancedValuesLoading(false) })
+    const selected = new Set(filters.map((filter) => filter.attribute))
+    setAdvancedValues((values) => Object.fromEntries(Object.entries(values).filter(([attribute]) => selected.has(attribute))))
+    setAdvancedValuesError({})
+    setAdvancedValuesLoading(Object.fromEntries(filters.map((filter) => [filter.attribute, true])))
+    for (const filter of filters) {
+      const context = buildTraceql({ ...builder, advancedFilters: filters.filter((candidate) => candidate.attribute !== filter.attribute) })
+      void tempoAttributeValues(connectionId, connectionGeneration, filter.attribute, context === '{ }' ? undefined : context).then(
+        (items) => { if (current) setAdvancedValues((values) => ({ ...values, [filter.attribute]: items })) },
+        (reason: unknown) => { if (current) setAdvancedValuesError((errors) => ({ ...errors, [filter.attribute]: reason instanceof Error ? reason.message : String(reason) })) }
+      ).finally(() => { if (current) setAdvancedValuesLoading((loading) => ({ ...loading, [filter.attribute]: false })) })
+    }
     return () => { current = false }
-  }, [builder.advancedAttribute, connected, connectionGeneration, connectionId, mode])
+  }, [builder.advancedFilters, connected, connectionGeneration, connectionId, mode])
 
   const runSearch = async (sampleOverride: TraceSampleSize = sampleSize, rangeOverride: BuilderTimeRange = searchRange) => {
     const request = traceql.trim()
