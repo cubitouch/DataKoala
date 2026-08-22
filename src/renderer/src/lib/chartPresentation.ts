@@ -182,7 +182,9 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
       extraCssText: 'box-sizing:border-box;max-width:min(300px,calc(100% - 16px));max-height:calc(100% - 16px);padding:8px 10px;overflow:hidden;overflow-wrap:anywhere;white-space:normal;box-shadow:0 5px 14px rgba(0,0,0,.3);border-radius:6px;'
     },
     legend: { top: 4, left: 8, right: 150, type: 'scroll', selected: input.visibility, textStyle: { color: '#9aa0b0' } },
-    grid: { left: 50, right: 24, top: 42, bottom: 45 },
+    // ECharts 6 automatically shrinks grids to contain labels. DataKoala already
+    // reserves explicit margins, and the extra shrinking can collapse long time axes.
+    grid: { left: 50, right: 24, top: 42, bottom: 45, outerBoundsMode: 'none' },
     xAxis: temporal
       ? { type: 'time', ...(domain ?? {}), axisLabel: { color: '#9aa0b0', formatter: formatLabel } }
       : { type: 'category', data: input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
