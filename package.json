@@ -89,7 +89,7 @@
   },
   "devDependencies": {
     "@codemirror/state": "^6.7.1",
-    "@testing-library/react": "16.1.0",
+    "@testing-library/react": "16.3.2",
     "@types/node": "^22.9.0",
     "@types/pg": "^8.11.10",
     "@types/react": "^18.3.12",
