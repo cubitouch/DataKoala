@@ -46,9 +46,9 @@ const tab = (id: string, title: string, connectionProfileId: string | null, sql:
   prometheusTimeRange: { kind: 'rolling' as const, amount: 1 as const, unit: 'hour' as const },
   prometheusStep: '30s' as const,
   promqlBuilder: { metric: '', filterBy: [], groupBy: [], labelValues: {}, calculation: 'raw' as const, aggregation: 'none' as const, window: '5m' as const, percentile: 0.95 as const },
-  lokiTimeRange: { kind: 'rolling' as const, amount: 1 as const, unit: 'hour' as const },
-  lokiBuilder: { labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] },
-  lokiResultLimit: 1000, lokiDisplayDirection: 'backward' as const, lokiBreakdown: null, lokiRangeHistory: [],
+  lokiTimeRange: id === 'tab-b' ? { kind: 'rolling' as const, amount: 15 as const, unit: 'minute' as const } : { kind: 'rolling' as const, amount: 3 as const, unit: 'hour' as const },
+  lokiBuilder: { labelMatchers: [{ label: 'service_name', operator: '=' as const, value: id }], lineFilters: [{ operator: '|=' as const, value: 'error' }], parsers: [{ kind: 'json' as const }], fieldFilters: [] },
+  lokiResultLimit: id === 'tab-b' ? 250 : 1000, lokiDisplayDirection: 'backward' as const, lokiBreakdown: 'service_name', lokiRangeHistory: [],
   running: true,
   queryError: 'runtime-error-secret',
   result: { columns: [], rows: [{ token: 'result-secret' }], rowCount: 1, durationMs: 1 },
@@ -111,6 +111,10 @@ test('workspace v2 round-trips ordered tabs, names, connection references and ax
   assert.deepEqual(restored.tabs[0].builderVisualization.hierarchyDimensions, ['device', 'country'])
   assert.equal(restored.tabs[0].builderQueryFilters.length, 1)
   assert.equal(restored.tabs[0].builderQueryFilters[0].execution, 'query')
+  assert.deepEqual(restored.tabs[0].lokiTimeRange, { kind: 'rolling', amount: 3, unit: 'hour' })
+  assert.equal(restored.tabs[1].lokiResultLimit, 250)
+  assert.equal(restored.tabs[1].lokiBuilder.labelMatchers[0].value, 'tab-b')
+  assert.equal(restored.tabs[1].lokiBreakdown, 'service_name')
 })
 
 test('categorical X persists its independent time filter but no hidden Time bucket', () => {

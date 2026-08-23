@@ -30,6 +30,18 @@ export function assertValidLogql(query: string): void {
   const cursor = tree.cursor()
   do { if (cursor.type.isError) throw new Error('Generated LogQL is not parser-valid.') } while (cursor.next())
 }
+export function logqlResultKind(query: string): 'logs' | 'metrics' {
+  const tree = parser.parse(query)
+  let kind: 'logs' | 'metrics' | undefined
+  const cursor = tree.cursor()
+  do {
+    if (cursor.type.isError) throw new Error('Invalid LogQL expression.')
+    if (cursor.name === 'MetricExpr') kind = 'metrics'
+    else if (cursor.name === 'LogExpr' && !kind) kind = 'logs'
+  } while (cursor.next())
+  if (!kind) throw new Error('LogQL expression must produce logs or metrics.')
+  return kind
+}
 export function selectorWithoutMatcher(matchers: LokiLabelMatcher[], excludedLabel: string): string | undefined {
   const remaining = matchers.filter(({ label }) => label !== excludedLabel)
   if (!remaining.length) return undefined
@@ -38,4 +50,3 @@ export function selectorWithoutMatcher(matchers: LokiLabelMatcher[], excludedLab
     return `${label}${operator}${escapeLogqlString(value)}`
   }).join(', ')}}`
 }
-

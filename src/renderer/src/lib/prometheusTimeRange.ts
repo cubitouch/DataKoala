@@ -1,6 +1,6 @@
 import type { BuilderTimeRange } from './builderTimeRange'
 
-const UNIT_MS = { hour: 60 * 60_000, day: 24 * 60 * 60_000, month: 30 * 24 * 60 * 60_000 } as const
+const UNIT_MS = { minute: 60_000, hour: 60 * 60_000, day: 24 * 60 * 60_000, month: 30 * 24 * 60 * 60_000 } as const
 
 /** Resolve the shared picker value at execution time. Custom picker values are UTC. */
 export function prometheusRangeBounds(range: BuilderTimeRange, now = new Date()): { start: string; end: string } {

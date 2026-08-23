@@ -4,7 +4,7 @@ import type { Aggregation, ResultView, ValueAxisScale, VisualizationConfiguratio
 import { deserializeResultFilters, type ResultFilter } from './resultFilters.ts'
 import type { AppState, BuilderQueryState, QueryMode, QuerySession, TimeBucket } from '../store/useStore.ts'
 import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from './promqlBuilder.ts'
-import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '@shared/loki'
+import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '../../../shared/loki.ts'
 
 export const WORKSPACE_STORAGE_KEY = 'datakoala.workspace.v2'
 const LEGACY_DATAKOALA_WORKSPACE_STORAGE_KEY = 'datakoala.workspace.v2'
@@ -91,7 +91,8 @@ function timeRange(value: unknown): BuilderTimeRange | null {
   if (!isRecord(value)) return null
   if (value.kind === 'all') return { kind: 'all' }
   if (value.kind === 'rolling') {
-    if (value.unit === 'hour' && typeof value.amount === 'number' && [1, 6, 12, 24].includes(value.amount)) return { kind: 'rolling', amount: value.amount as 1 | 6 | 12 | 24, unit: 'hour' }
+    if (value.unit === 'minute' && typeof value.amount === 'number' && [15, 30].includes(value.amount)) return { kind: 'rolling', amount: value.amount as 15 | 30, unit: 'minute' }
+    if (value.unit === 'hour' && typeof value.amount === 'number' && [1, 3, 6, 12, 24].includes(value.amount)) return { kind: 'rolling', amount: value.amount as 1 | 3 | 6 | 12 | 24, unit: 'hour' }
     if (value.unit === 'day' && typeof value.amount === 'number' && [7, 30].includes(value.amount)) return { kind: 'rolling', amount: value.amount as 7 | 30, unit: 'day' }
     if (value.unit === 'month' && typeof value.amount === 'number' && [3, 6, 12].includes(value.amount)) return { kind: 'rolling', amount: value.amount as 3 | 6 | 12, unit: 'month' }
     return null
@@ -141,6 +142,18 @@ function parsePromqlBuilder(value: unknown): PromqlBuilderState {
     window: isOneOf(value.window, windows) ? value.window : '5m',
     percentile: typeof value.percentile === 'number' && quantiles.includes(value.percentile as typeof quantiles[number]) ? value.percentile as typeof quantiles[number] : 0.95
   }
+}
+
+function parseLokiBuilder(value: unknown): LokiBuilderState {
+  if (!isRecord(value)) return { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }
+  const labelOperators = ['=', '!=', '=~', '!~'] as const
+  const lineOperators = ['|=', '!=', '|~', '!~'] as const
+  const parserKinds = ['json', 'logfmt', 'pattern', 'regexp'] as const
+  const labelMatchers = Array.isArray(value.labelMatchers) ? value.labelMatchers.flatMap((matcher) => isRecord(matcher) && typeof matcher.label === 'string' && isOneOf(matcher.operator, labelOperators) && typeof matcher.value === 'string' ? [{ label: matcher.label, operator: matcher.operator, value: matcher.value }] : []) : []
+  const lineFilters = Array.isArray(value.lineFilters) ? value.lineFilters.flatMap((filter) => isRecord(filter) && isOneOf(filter.operator, lineOperators) && typeof filter.value === 'string' ? [{ operator: filter.operator, value: filter.value }] : []) : []
+  const parsers = Array.isArray(value.parsers) ? value.parsers.flatMap((stage) => isRecord(stage) && isOneOf(stage.kind, parserKinds) && (stage.expression === undefined || typeof stage.expression === 'string') ? [{ kind: stage.kind, ...(typeof stage.expression === 'string' ? { expression: stage.expression } : {}) }] : []) : []
+  const fieldFilters = Array.isArray(value.fieldFilters) ? value.fieldFilters.flatMap((filter) => isRecord(filter) && typeof filter.field === 'string' && isOneOf(filter.operator, labelOperators) && typeof filter.value === 'string' ? [{ field: filter.field, operator: filter.operator, value: filter.value }] : []) : []
+  return { labelMatchers, lineFilters, parsers, fieldFilters }
 }
 
 /**
@@ -329,7 +342,7 @@ function parseSession(value: unknown): QuerySessionDraft | null {
   const prometheusStep = value.prometheusStep === undefined ? '30s' : isOneOf(value.prometheusStep, ['15s', '30s', '1m', '5m'] as const) ? value.prometheusStep : null
   const promqlBuilder = parsePromqlBuilder(value.promqlBuilder)
   const lokiTimeRange = value.lokiTimeRange === undefined ? { kind: 'rolling', amount: 1, unit: 'hour' } as const : timeRange(value.lokiTimeRange)
-  const lokiBuilder = isRecord(value.lokiBuilder) ? value.lokiBuilder as unknown as LokiBuilderState : { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }
+  const lokiBuilder = parseLokiBuilder(value.lokiBuilder)
   const lokiResultLimit = typeof value.lokiResultLimit === 'number' && value.lokiResultLimit > 0 && value.lokiResultLimit <= 5000 ? value.lokiResultLimit : 1000
   const lokiDisplayDirection = isOneOf(value.lokiDisplayDirection, ['backward', 'forward'] as const) ? value.lokiDisplayDirection : 'backward'
   const lokiBreakdown = stringOrNull(value.lokiBreakdown) ?? null

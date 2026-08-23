@@ -11,3 +11,6 @@
 .logSummary { display:grid; grid-template-columns:210px 80px 1fr; width:100%; gap:8px; padding:9px; text-align:left; background:none; color:inherit; border:0; }
 .logSummary span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.logDetails { padding:8px 16px 14px; background:var(--bg-2); }
 .logDetails dl { margin:0; }.logDetails dl div { display:grid; grid-template-columns:180px 1fr; }.logDetails dt { font-weight:600; }.logDetails dd { margin:0; }
+.trend { border:1px solid var(--border); padding:8px; }
+.trend header { display:flex; justify-content:space-between; gap:12px; }
+.trend header span { opacity:.7; }

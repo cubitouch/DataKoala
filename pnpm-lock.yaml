@@ -27,8 +27,8 @@ importers:
         specifier: 8.3.1
         version: 8.3.1
       '@grafana/lezer-logql':
-        specifier: ^0.4.0
-        version: 0.4.0(@lezer/lr@1.4.10)
+        specifier: ^0.3.0
+        version: 0.3.0(@lezer/lr@1.4.10)
       '@grafana/lezer-traceql':
         specifier: ^1.0.0
         version: 1.0.0(@lezer/lr@1.4.10)
@@ -692,11 +692,10 @@ packages:
     resolution: {integrity: sha512-/j9zzWDxsgKg0hMuFBmLGI8ES9xj4DjXvQnDCKl0w5ed7WE3CGsgHmUoC35rvfBXshSW+5StQGnCUD+RBqITKA==}
     engines: {node: '>=18'}
 
-  '@grafana/lezer-logql@0.4.0':
-    resolution: {integrity: sha512-gAUQv5AVqVy3D+nGDf6ZaDf1oBWWCjhbvPg9u8g1PqI1htEy/6TRt5r7nYxbnzsyYlkU6gKFGpImyrSIXEWQrg==}
-    engines: {node: '>=24', npm: '>=11.12.1'}
+  '@grafana/lezer-logql@0.3.0':
+    resolution: {integrity: sha512-375VvHfjm/JgBg+VP/V2M/PElaUzvmIcv+K6nJ1q+aWBSFqilELRobKGrBzS4T6jDHRFuXTYADOstDU3GcedRQ==}
     peerDependencies:
-      '@lezer/lr': 1.4.10
+      '@lezer/lr': ^1.0.0
 
   '@grafana/lezer-traceql@1.0.0':
     resolution: {integrity: sha512-J1TGQxB/DoSbdD/8s90TKh22YobEwLVEBo83d2zqijPghM715USJar0THN3yE1KCtFqP6fePBuzKaCXUjW2OSw==}
@@ -3211,7 +3210,7 @@ snapshots:
 
   '@google-cloud/promisify@5.1.0': {}
 
-  '@grafana/lezer-logql@0.4.0(@lezer/lr@1.4.10)':
+  '@grafana/lezer-logql@0.3.0(@lezer/lr@1.4.10)':
     dependencies:
       '@lezer/lr': 1.4.10
 

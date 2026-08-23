@@ -4,7 +4,8 @@ import { addDays, customRangeToQueryBounds, recurringWindowIntervals, timeToMinu
 
 type BuilderTimeRangeBase =
   | { kind: 'all' }
-  | { kind: 'rolling'; amount: 1 | 6 | 12 | 24; unit: 'hour' }
+  | { kind: 'rolling'; amount: 15 | 30; unit: 'minute' }
+  | { kind: 'rolling'; amount: 1 | 3 | 6 | 12 | 24; unit: 'hour' }
   | { kind: 'rolling'; amount: 7 | 30; unit: 'day' }
   | { kind: 'rolling'; amount: 3 | 6 | 12; unit: 'month' }
   | { kind: 'custom'; startDate: string | null; startTime: string; endDate: string | null; endTime: string }
@@ -75,7 +76,7 @@ function customRangeDurationMilliseconds(range: Extract<BuilderTimeRange, { kind
 }
 
 export function isMinuteBucketAvailable(range: BuilderTimeRange): boolean {
-  if (range.kind === 'rolling') return range.unit === 'hour' && range.amount <= 24
+  if (range.kind === 'rolling') return range.unit === 'minute' || (range.unit === 'hour' && range.amount <= 24)
   if (range.kind !== 'custom') return false
   const duration = customRangeDurationMilliseconds(range)
   return duration !== null && duration > 0 && duration <= 24 * 60 * 60 * 1000
@@ -99,6 +100,7 @@ export function builderTimeRangeSummary(range: BuilderTimeRange): string {
   const suffix = recurringWindowSuffix(range)
   if (range.kind === 'all') return `All time${suffix}`
   if (range.kind === 'rolling') {
+    if (range.unit === 'minute') return `Last ${range.amount} minutes${suffix}`
     if (range.unit === 'hour' && range.amount === 1) return `Last hour${suffix}`
     if (range.unit === 'hour' && range.amount === 24) return `Last day${suffix}`
     return `Last ${range.amount} ${range.unit}${range.amount === 1 ? '' : 's'}${suffix}`

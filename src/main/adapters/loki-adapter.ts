@@ -5,14 +5,16 @@ import { GcxLokiTransport, type LokiTransport } from '../gcx-loki-transport.ts'
 
 export class LokiAdapter implements DataSourceAdapter {
   readonly kind = 'loki' as const
-  constructor(private readonly createTransport: (context?: string, uid?: string) => LokiTransport = (context, uid) => new GcxLokiTransport(context, undefined, uid)) {}
+  private readonly createTransport: (context?: string, uid?: string) => LokiTransport
+  constructor(createTransport: (context?: string, uid?: string) => LokiTransport = (context, uid) => new GcxLokiTransport(context, undefined, uid)) {
+    this.createTransport = createTransport
+  }
   async test(profile: LokiProfile) {
     try { await this.createTransport(profile.transport.context, profile.transport.datasourceUid).probe(); return { ok: true as const, sourceInfo: { label: 'Loki' } } }
     catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : String(error) } }
   }
   async connect(profile: LokiProfile) {
     const transport = this.createTransport(profile.transport.context, profile.transport.datasourceUid)
-    try { await transport.probe() } catch (error) { return { result: { ok: false as const, error: error instanceof Error ? error.message : String(error) } } }
     const session: DataSourceSession = {
       info: { profileId: profile.id, provider: 'loki' },
       capabilities: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false },
