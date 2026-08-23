@@ -1,5 +1,5 @@
 import type { ColumnMeta, QueryResult } from '../shared/types.ts'
-import type { TempoQueryContext, TempoQueryRequest } from '../shared/tempo.ts'
+import type { TempoAttribute, TempoQueryContext, TempoQueryRequest } from '../shared/tempo.ts'
 import { runGcxCommand, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
 import { createTempoPerformance } from './tempo-performance.ts'
 
@@ -11,6 +11,7 @@ export interface TempoTransport {
   probe(): Promise<void>
   services(): Promise<TempoService[]>
   attributeValues(attribute: string, query?: string): Promise<string[]>
+  attributeNames(query?: string): Promise<TempoAttribute[]>
 }
 
 const TRACE_ID = /^[0-9a-f]{32}$/i
@@ -366,6 +367,26 @@ export function normalizeTempoLabelValues(raw: unknown): string[] {
   return [...new Set(values.map(asString).map((value) => value.trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right))
 }
 
+export function normalizeTempoAttributes(raw: unknown): TempoAttribute[] {
+  const payload = isRecord(raw) && isRecord(raw.data) ? raw.data : raw
+  const scopes = isRecord(payload) && 'scopes' in payload ? payload.scopes : payload
+  const found = new Map<string, TempoAttribute>()
+  for (const scope of ['resource', 'span'] as const) {
+    const group = isRecord(scopes) ? scopes[scope] : Array.isArray(scopes)
+      ? scopes.find((item) => isRecord(item) && asString(item.scope ?? item.name).toLowerCase() === scope) : undefined
+    const values = Array.isArray(group) ? group : isRecord(group)
+      ? (Array.isArray(group.tags) ? group.tags : Array.isArray(group.names) ? group.names : []) : []
+    for (const item of values) {
+      const rawName = asString(isRecord(item) ? item.name ?? item.tag ?? item.value : item).trim()
+      const name = rawName.replace(new RegExp(`^${scope}[.:]`), '')
+      if (!name) continue
+      const traceql = `${scope}.${name}`
+      found.set(traceql, { scope, name, traceql })
+    }
+  }
+  return [...found.values()].sort((left, right) => left.traceql.localeCompare(right.traceql))
+}
+
 function searchRangeArgs(request?: TempoQueryRequest): string[] {
   return request ? ['--from', request.start, '--to', request.end] : ['--since', DEFAULT_SEARCH_SINCE]
 }
@@ -428,12 +449,22 @@ export class GcxTempoTransport implements TempoTransport {
 
   async attributeValues(attribute: string, query?: string): Promise<string[]> {
     const args = [
-      'traces', 'labels', ...this.commonArgs(), '--label', attribute,
+      'traces', 'tags', ...this.commonArgs(), '--label', attribute,
       ...(query ? ['--query', query] : []),
       '-o', 'json'
     ]
     try {
-      return normalizeTempoLabelValues(parseJson((await this.run(args)).stdout, `traces labels ${attribute}`))
+      return normalizeTempoLabelValues(parseJson((await this.run(args)).stdout, `traces tags ${attribute}`))
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
+      throw tempoError(error)
+    }
+  }
+
+  async attributeNames(query?: string): Promise<TempoAttribute[]> {
+    const args = ['traces', 'labels', ...this.commonArgs(), ...(query ? ['--query', query] : []), '-o', 'json']
+    try {
+      return normalizeTempoAttributes(parseJson((await this.run(args)).stdout, 'traces labels'))
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
       throw tempoError(error)

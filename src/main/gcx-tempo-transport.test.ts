@@ -171,9 +171,10 @@ test('Tempo service discovery groups service names by OpenTelemetry namespace', 
 test('Tempo label-value normalizer accepts standard and LLM-friendly gcx JSON', () => {
   assert.deepEqual(normalizeTempoLabelValues({ tagValues: [{ type: 'string', value: 'checkout' }, { type: 'string', value: 'worker' }] }), ['checkout', 'worker'])
   assert.deepEqual(normalizeTempoLabelValues({ tagValues: { string: ['worker', 'checkout'] } }), ['checkout', 'worker'])
+  assert.deepEqual(normalizeTempoLabelValues({ data: { values: [{ type: 'string', value: 'production' }, { type: 'string', value: 'staging' }] } }), ['production', 'staging'])
 })
 
-test('Tempo service discovery uses label values and keeps gcx context and datasource selection', async () => {
+test('Tempo service discovery uses tag values and keeps gcx context and datasource selection', async () => {
   const calls: string[][] = []
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
@@ -198,9 +199,9 @@ test('Tempo service discovery uses label values and keeps gcx context and dataso
   ])
   assert.deepEqual(calls, [
     ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '-o', 'json'],
-    ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.name', '-o', 'json'],
-    ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.namespace', '-o', 'json'],
-    ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.name', '--query', '{ resource.service.namespace = "commerce" }', '-o', 'json']
+    ['traces', 'tags', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.name', '-o', 'json'],
+    ['traces', 'tags', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.namespace', '-o', 'json'],
+    ['traces', 'tags', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.name', '--query', '{ resource.service.namespace = "commerce" }', '-o', 'json']
   ])
 })
 
@@ -212,17 +213,33 @@ test('Tempo transport rejects empty queries and malformed responses', async () =
   assert.throws(() => normalizeTempoTrace({ batches: [] }), /could not find any spans/)
 })
 
-test('Tempo attribute discovery requests the generic span attribute and normalizes values', async () => {
+test('Tempo attribute-value discovery uses traces tags for resource and span attributes', async () => {
   const calls: string[][] = []
   const transport = new GcxTempoTransport('production', async (args) => {
     calls.push(args)
     return { stdout: JSON.stringify({ tagValues: [{ type: 'string', value: 'rabbitmq' }, { type: 'string', value: 'kafka' }, { type: 'string', value: 'kafka' }] }), stderr: '' }
   }, 'tempo-uid')
-  assert.deepEqual(await transport.attributeValues('span.messaging.system', '{ resource.service.name = "worker" }'), ['kafka', 'rabbitmq'])
-  assert.deepEqual(calls, [[
-    'traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid',
-    '--label', 'span.messaging.system', '--query', '{ resource.service.name = "worker" }', '-o', 'json'
-  ]])
+  for (const attribute of ['resource.env', 'resource.service.name', 'span.messaging.system']) {
+    assert.deepEqual(await transport.attributeValues(attribute, '{ resource.service.name = "worker" }'), ['kafka', 'rabbitmq'])
+  }
+  assert.deepEqual(calls, ['resource.env', 'resource.service.name', 'span.messaging.system'].map((attribute) => [
+    'traces', 'tags', '--context', 'production', '--datasource', 'tempo-uid',
+    '--label', attribute, '--query', '{ resource.service.name = "worker" }', '-o', 'json'
+  ]))
+})
+
+test('Tempo attribute-name discovery normalizes supported scopes without a label argument', async () => {
+  const calls: string[][] = []
+  const transport = new GcxTempoTransport('production', async (args) => {
+    calls.push(args)
+    return { stdout: JSON.stringify({ scopes: { resource: { tags: ['cloud.region', 'cloud.region'] }, span: { tags: [{ name: 'http.route' }] }, event: { tags: ['ignored'] } } }), stderr: '' }
+  }, 'tempo-uid')
+  assert.deepEqual(await transport.attributeNames('{ true }'), [
+    { scope: 'resource', name: 'cloud.region', traceql: 'resource.cloud.region' },
+    { scope: 'span', name: 'http.route', traceql: 'span.http.route' }
+  ])
+  assert.deepEqual(calls[0], ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '--query', '{ true }', '-o', 'json'])
+  assert.equal(calls[0].includes('--label'), false)
 })
 
 test('Tempo attribute discovery reports useful gcx errors', async () => {

@@ -1,12 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { attributeValues } = vi.hoisted(() => ({ attributeValues: vi.fn() }))
-vi.mock('./api', () => ({ api: { connections: { tempo: { attributeValues } } } }))
+const { attributeValues, attributes } = vi.hoisted(() => ({ attributeValues: vi.fn(), attributes: vi.fn() }))
+vi.mock('./api', () => ({ api: { connections: { tempo: { attributeValues, attributes } } } }))
 
-import { resetTempoMetadataCache, tempoAttributeValues } from './tempoMetadata'
+import { resetTempoMetadataCache, tempoAttributes, tempoAttributeValues } from './tempoMetadata'
 
 describe('Tempo metadata cache', () => {
-  beforeEach(() => { resetTempoMetadataCache(); attributeValues.mockReset() })
+  beforeEach(() => { resetTempoMetadataCache(); attributeValues.mockReset(); attributes.mockReset() })
+
+  it('coalesces attribute names and separates generations and contexts', async () => {
+    attributes.mockResolvedValue([{ scope: 'resource', name: 'cloud.region', traceql: 'resource.cloud.region' }])
+    const first = tempoAttributes('tempo-a', 1, '{}')
+    expect(tempoAttributes('tempo-a', 1, '{}')).toBe(first)
+    await first
+    await tempoAttributes('tempo-a', 2, '{}')
+    await tempoAttributes('tempo-a', 1, '{ true }')
+    expect(attributes).toHaveBeenCalledTimes(3)
+  })
+
+  it('evicts rejected attribute-name requests', async () => {
+    attributes.mockRejectedValueOnce(new Error('no metadata')).mockResolvedValueOnce([])
+    await expect(tempoAttributes('tempo-a', 1)).rejects.toThrow('no metadata')
+    await expect(tempoAttributes('tempo-a', 1)).resolves.toEqual([])
+  })
 
   it('deduplicates requests and scopes values by profile, generation, and attribute', async () => {
     attributeValues.mockResolvedValueOnce(['rabbitmq', 'kafka', 'kafka']).mockResolvedValue(['nats'])

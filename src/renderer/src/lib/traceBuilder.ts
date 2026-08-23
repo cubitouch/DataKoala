@@ -2,6 +2,13 @@ export type TraceStatus = 'any' | 'unset' | 'error' | 'ok'
 export type TraceSpanKind = 'any' | 'server' | 'client' | 'producer' | 'consumer' | 'internal' | 'unspecified'
 export type TraceProtocol = 'any' | 'http' | 'rpc' | 'messaging' | 'database'
 export type TraceSampleSize = '100' | '250' | '500' | 'all'
+export type TraceAttributeFilterMode = 'include' | 'exclude'
+export interface TraceAttributeFilter {
+  attribute: string
+  scope: 'resource' | 'span'
+  mode: TraceAttributeFilterMode
+  values: string[]
+}
 
 export interface TraceBuilderState {
   serviceNamespace: string
@@ -19,6 +26,7 @@ export interface TraceBuilderState {
   dbSystem: string
   dbOperation: string
   spanName: string
+  advancedFilters: TraceAttributeFilter[]
   status: TraceStatus
   minDurationMs: string
 }
@@ -49,6 +57,7 @@ export const EMPTY_TRACE_BUILDER: TraceBuilderState = {
   dbSystem: '',
   dbOperation: '',
   spanName: '',
+  advancedFilters: [],
   status: 'any',
   minDurationMs: ''
 }
@@ -141,10 +150,100 @@ function detectedProtocol(query: string): TraceProtocol {
   return 'any'
 }
 
+const SEMANTIC_KEYS = new Set([
+  'resource.service.namespace', 'resource.service.name', 'span:kind', 'kind', 'span:name', 'name', 'span:status', 'status', 'span:duration', 'duration',
+  'span.http.request.method', 'span.http.method', 'span.http.route', 'span.url.template', 'span.url.path', 'span.http.target',
+  'span.rpc.system', 'span.rpc.service', 'span.rpc.method', 'span.messaging.system', 'span.messaging.destination.name', 'span.messaging.destination',
+  'span.messaging.operation.type', 'span.messaging.operation', 'span.db.system.name', 'span.db.system', 'span.db.operation.name', 'span.db.operation'
+])
+
+function genericPredicates(query: string): TraceAttributeFilter[] {
+  const pattern = /(?:^|[\s{(&|])((resource|span)\.[A-Za-z_][\w.-]*)\s*(=|!=)\s*("(?:\\.|[^"\\])*")/g
+  const predicates = new Map<string, Array<{ attribute: string; scope: 'resource' | 'span'; operator: '=' | '!='; value: string; start: number; end: number }>>()
+  for (const match of query.matchAll(pattern)) {
+    if (SEMANTIC_KEYS.has(match[1])) continue
+    let value: string
+    try { value = JSON.parse(match[4]) } catch { continue }
+    const start = (match.index ?? 0) + match[0].indexOf(match[1])
+    const items = predicates.get(match[1]) ?? []
+    items.push({ attribute: match[1], scope: match[2] as 'resource' | 'span', operator: match[3] as '=' | '!=', value, start, end: (match.index ?? 0) + match[0].length })
+    predicates.set(match[1], items)
+  }
+  const allItems = [...predicates.values()].flat().sort((left, right) => left.start - right.start)
+  // Builder joins independent fields/facets with AND. Only the parenthesized,
+  // same-attribute include group emitted by buildTraceql may safely contain OR.
+  const stack: number[] = []
+  const pairs = new Map<number, number>()
+  let quotedString = false
+  let escaped = false
+  for (let index = 0; index < query.length; index += 1) {
+    const character = query[index]
+    if (quotedString) {
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === '"') quotedString = false
+      continue
+    }
+    if (character === '"') { quotedString = true; continue }
+    if (character === '(') stack.push(index)
+    else if (character === ')') {
+      const open = stack.pop()
+      if (open !== undefined) pairs.set(open, index)
+    }
+  }
+  const openStack: number[] = []
+  quotedString = false
+  escaped = false
+  for (let index = 0; index < query.length - 1; index += 1) {
+    const character = query[index]
+    if (quotedString) {
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === '"') quotedString = false
+      continue
+    }
+    if (character === '"') { quotedString = true; continue }
+    if (character === '(') { openStack.push(index); continue }
+    if (character === ')') { openStack.pop(); continue }
+    if (character !== '|' || query[index + 1] !== '|') continue
+    const open = openStack.at(-1)
+    if (open === undefined) {
+      if (allItems.length) return []
+      continue
+    }
+    const close = pairs.get(open)
+    const involved = close === undefined ? [] : allItems.filter((item) => item.start > open && item.end <= close)
+    if (!involved.length) continue
+    const sameGeneratedInclude = involved.every((item) => item.operator === '=' && item.attribute === involved[0].attribute) &&
+      /^\s*$/.test(query.slice(open + 1, involved[0].start)) && /^\s*$/.test(query.slice(involved.at(-1)!.end, close)) &&
+      involved.slice(1).every((item, itemIndex) => /^\s*\|\|\s*$/.test(query.slice(involved[itemIndex].end, item.start)))
+    if (!sameGeneratedInclude) return []
+  }
+  const filters: TraceAttributeFilter[] = []
+  for (const [attribute, items] of predicates) {
+    if (items.length === 1) {
+      const item = items[0]
+      filters.push({ attribute, scope: item.scope, mode: item.operator === '=' ? 'include' : 'exclude', values: [item.value] })
+      continue
+    }
+    if (!items.every((item) => item.operator === items[0].operator)) continue
+    const expectedJoin = items[0].operator === '=' ? /^\s*\|\|\s*$/ : /^\s*&&\s*$/
+    if (!items.slice(1).every((item, index) => expectedJoin.test(query.slice(items[index].end, item.start)))) continue
+    if (items[0].operator === '=') {
+      const before = query.slice(0, items[0].start).trimEnd()
+      const after = query.slice(items.at(-1)!.end).trimStart()
+      if (!before.endsWith('(') || !after.startsWith(')')) continue
+    }
+    filters.push({ attribute, scope: items[0].scope, mode: items[0].operator === '=' ? 'include' : 'exclude', values: items.map((item) => item.value) })
+  }
+  return filters
+}
+
 export function traceBuilderFromTraceql(query: string): TraceBuilderState {
   const duration = query.match(/(?:^|[\s{(&|])(?:span:)?duration\s*>\s*([0-9.]+)ms/i)?.[1] ?? ''
   return {
     ...EMPTY_TRACE_BUILDER,
+    advancedFilters: genericPredicates(query),
     serviceNamespace: extractQuoted(query, 'resource.service.namespace'),
     service: extractQuoted(query, 'resource.service.name'),
     spanKind: enumValue(query, ['span:kind', 'kind'], ['server', 'client', 'producer', 'consumer', 'internal', 'unspecified'] as const, 'any'),
@@ -249,6 +348,13 @@ export function buildTraceql(builder: TraceBuilderState): string {
   }
 
   if (builder.spanName.trim()) conditions.push(equal('span:name', builder.spanName))
+  for (const filter of builder.advancedFilters) {
+    const attribute = filter.attribute.trim()
+    const values = [...new Set(filter.values.map((value) => value.trim()).filter(Boolean))]
+    if (!/^(?:resource|span)\.[A-Za-z_][\w.-]*$/.test(attribute) || !values.length) continue
+    const predicates = values.map((value) => `${attribute} ${filter.mode === 'include' ? '=' : '!='} ${quoted(value)}`)
+    conditions.push(filter.mode === 'include' && predicates.length > 1 ? `(${predicates.join(' || ')})` : predicates.join(' && '))
+  }
   if (builder.status !== 'any') conditions.push(`span:status = ${builder.status}`)
   const duration = Number(builder.minDurationMs)
   if (builder.minDurationMs.trim() && Number.isFinite(duration) && duration >= 0) conditions.push(`span:duration > ${duration}ms`)

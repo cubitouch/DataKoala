@@ -11,7 +11,8 @@ vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value, ...props }: { value: string; 'aria-label'?: string }) => <textarea aria-label={props['aria-label']} value={value} readOnly />
 }))
 vi.mock('./ui/combobox', () => ({
-  Combobox: ({ label, value }: { label: string; value: string }) => <button type="button" aria-label={`${label}: ${value}`}>{value}</button>
+  Combobox: ({ label, value }: { label: string; value: string }) => <button type="button" aria-label={`${label}: ${value}`}>{value}</button>,
+  MultiCombobox: ({ label, values, options, onChange }: { label: string; values: string[]; options: Array<{ value: string }>; onChange: (values: string[]) => void }) => <button type="button" aria-label={`${label}: ${values.join(', ')}`} onClick={() => onChange(values.length ? [] : options.slice(0, 1).map((option) => option.value))}>{values.join(', ')}</button>
 }))
 
 import { EMPTY_TRACE_BUILDER } from '../lib/traceBuilder'
@@ -53,5 +54,36 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
     expect(onOpenTraceql).toHaveBeenCalledOnce()
     expect(disclosure.open).toBe(true)
+  })
+
+  it('renders one facet for each selected attribute without raw operators', () => {
+    render(<TraceBuilderPanel value={{ ...EMPTY_TRACE_BUILDER, advancedFilters: [
+      { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] },
+      { attribute: 'span.http.route', scope: 'span', mode: 'exclude', values: ['/health'] }
+    ] }} traceql="{}" schemas={[]} metadataStatus="loaded" metadataError={null} messagingSystems={[]} messagingSystemsLoading={false} messagingSystemsError={null} attributes={[]} attributeValues={{}} onChange={vi.fn()} onOpenTraceql={vi.fn()} />)
+    expect(screen.getByText('cloud.region')).toBeTruthy()
+    expect(screen.getByText('http.route')).toBeTruthy()
+    expect(screen.queryByText('Attribute')).toBeNull()
+    expect(screen.queryByText('Match')).toBeNull()
+    expect(screen.queryByText('Values')).toBeNull()
+    expect(screen.getByRole('button', { name: 'resource.cloud.region values: eu-west-1, eu-west-3' })).toBeTruthy()
+    expect(screen.getAllByRole('group', { name: /match mode/ })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: 'Include' })[0].getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getAllByRole('button', { name: 'Exclude' })[1].getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('button', { name: 'Any' })).toBeNull()
+    expect(screen.queryByText('Operator')).toBeNull()
+    expect(screen.getByText('2 active')).toBeTruthy()
+    expect(document.querySelectorAll('[class*="facet"]').length).toBeGreaterThan(0)
+    const advanced = screen.getByText('Advanced filters').closest('details')!
+    const generated = screen.getByText('Generated TraceQL').closest('details')!
+    expect(advanced.className.split(' ').some((name) => generated.classList.contains(name))).toBe(true)
+  })
+
+  it('defaults a newly selected attribute to Include and removes it to express no filter', () => {
+    const onChange = vi.fn()
+    render(<TraceBuilderPanel value={EMPTY_TRACE_BUILDER} traceql="{}" schemas={[]} metadataStatus="loaded" metadataError={null} messagingSystems={[]} messagingSystemsLoading={false} messagingSystemsError={null} attributes={[{ scope: 'resource', name: 'env', traceql: 'resource.env' }]} onChange={onChange} onOpenTraceql={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Attributes:' }))
+    expect(onChange).toHaveBeenCalledWith({ advancedFilters: [{ attribute: 'resource.env', scope: 'resource', mode: 'include', values: [] }] })
+    expect(screen.queryByText(/active$/)).toBeNull()
   })
 })

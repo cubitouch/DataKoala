@@ -1,13 +1,15 @@
 import { useMemo } from 'react'
 import type { DatabaseSchemaNode } from '@shared/types'
+import type { TempoAttribute } from '@shared/tempo'
 import type { MetadataStatus } from '../store/useStore'
 import {
   type TraceBuilderState,
+  type TraceAttributeFilterMode,
   type TraceProtocol,
   type TraceSpanKind,
   type TraceStatus
 } from '../lib/traceBuilder'
-import { Combobox, type ComboboxOption } from './ui/combobox'
+import { Combobox, MultiCombobox, type ComboboxOption } from './ui/combobox'
 import styles from './TraceBuilderPanel.module.css'
 import CodeMirror from '@uiw/react-codemirror'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -23,6 +25,12 @@ interface TraceBuilderPanelProps {
   messagingSystems: string[]
   messagingSystemsLoading: boolean
   messagingSystemsError: string | null
+  attributes?: TempoAttribute[]
+  attributesLoading?: boolean
+  attributesError?: string | null
+  attributeValues?: Record<string, string[]>
+  attributeValuesLoading?: Record<string, boolean>
+  attributeValuesError?: Record<string, string | null>
   onChange: (patch: Partial<TraceBuilderState>) => void
   onOpenTraceql: () => void
 }
@@ -75,12 +83,16 @@ const dbSystemOptions: ComboboxOption[] = [
   { value: '', label: 'Any database' },
   ...['postgresql', 'mysql', 'sqlite', 'mongodb', 'redis', 'elasticsearch'].map((system) => ({ value: system, label: system }))
 ]
+const filterModes: Array<{ value: TraceAttributeFilterMode; label: string }> = [
+  { value: 'include', label: 'Include' }, { value: 'exclude', label: 'Exclude' }
+]
+const MAX_ATTRIBUTE_VALUES = 250
 
 function Control({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return <div className={styles.control}><span className={styles.fieldLabel}>{label}</span>{children}{hint && <small className={styles.fieldHint}>{hint}</small>}</div>
 }
 
-export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, onChange, onOpenTraceql }: TraceBuilderPanelProps) {
+export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, attributes = [], attributesLoading = false, attributesError = null, attributeValues = {}, attributeValuesLoading = {}, attributeValuesError = {}, onChange, onOpenTraceql }: TraceBuilderPanelProps) {
   const serviceRelations = useMemo(() => schemas.flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'service'), [schemas])
   const namespaceOptions = useMemo<ComboboxOption[]>(() => {
     const namespaces = [...new Set(serviceRelations.flatMap((relation) => relation.details?.kind === 'service' && relation.details.serviceNamespace ? [relation.details.serviceNamespace] : []))].sort((left, right) => left.localeCompare(right))
@@ -99,6 +111,11 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
     if (value.messagingSystem) systems.add(value.messagingSystem)
     return [{ value: '', label: 'Any messaging system' }, ...[...systems].sort((left, right) => left.localeCompare(right)).map((system) => ({ value: system, label: system }))]
   }, [messagingSystems, value.messagingSystem])
+  const attributeOptions = useMemo<ComboboxOption[]>(() => attributes.map((attribute) => ({ value: attribute.traceql, label: attribute.traceql, subtitle: `${attribute.scope === 'resource' ? 'Resource' : 'Span'} attribute`, keywords: [attribute.name, attribute.scope] })), [attributes])
+  const selectedAttributes = value.advancedFilters.map((filter) => filter.attribute)
+  const activeAdvancedFilterCount = value.advancedFilters.filter((filter) => filter.values.some((item) => item.trim())).length + (value.spanName.trim() ? 1 : 0)
+  const changeAttributes = (selected: string[]) => onChange({ advancedFilters: selected.map((attribute) => value.advancedFilters.find((filter) => filter.attribute === attribute) ?? { attribute, scope: attributes.find((item) => item.traceql === attribute)?.scope ?? (attribute.startsWith('resource.') ? 'resource' : 'span'), mode: 'include', values: [] }) })
+  const updateFilter = (attribute: string, patch: Partial<(typeof value.advancedFilters)[number]>) => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === attribute ? { ...filter, ...patch } : filter) })
 
   const changeNamespace = (serviceNamespace: string) => {
     const allowedServices = new Set(serviceRelations
@@ -139,12 +156,25 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
       <Control label="DB operation"><input value={value.dbOperation} onChange={(event) => onChange({ dbOperation: event.target.value })} placeholder="SELECT" /></Control>
     </div>}
 
-    <details className={styles.advanced}>
-      <summary>Advanced operation filter</summary>
+    <details className={`${styles.disclosure} ${styles.advanced}`}>
+      <summary><span>Advanced filters</span>{activeAdvancedFilterCount > 0 && <span className={styles.activeCount}>{activeAdvancedFilterCount} active</span>}</summary>
+      <div className={styles.advancedContent}>
+      <Control label="Attributes"><MultiCombobox label="Attributes" values={selectedAttributes} options={attributeOptions} onChange={changeAttributes} searchable showChips loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Select attributes" /></Control>
+      {value.advancedFilters.length > 0 && <div className={styles.facetTable}>
+        <div className={styles.facets}>{value.advancedFilters.map((filter) => {
+        const discovered = attributeValues[filter.attribute] ?? []
+        const displayed = discovered.slice(0, MAX_ATTRIBUTE_VALUES)
+        return <div className={styles.facet} key={filter.attribute}>
+          <div className={styles.facetAttribute} title={filter.attribute}><strong>{filter.attribute.replace(/^(?:resource|span)\./, '')}</strong><small>{filter.scope} attribute</small></div>
+          <div className={styles.facetMode} role="group" aria-label={`${filter.attribute} match mode`}>{filterModes.map((mode) => <button type="button" key={mode.value} aria-pressed={filter.mode === mode.value} onClick={() => updateFilter(filter.attribute, { mode: mode.value })}>{mode.label}</button>)}</div>
+          <div className={styles.facetValues}><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => updateFilter(filter.attribute, { values })} searchable showChips allowCustomValue loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} />{discovered.length > MAX_ATTRIBUTE_VALUES && <small className={styles.fieldHint}>Showing the first {MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.</small>}</div>
+        </div>
+      })}</div></div>}
       <Control label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter."><input value={value.spanName} onChange={(event) => onChange({ spanName: event.target.value })} placeholder="POST /checkout" /></Control>
+      </div>
     </details>
 
-    <details className={styles.generated}>
+    <details className={`${styles.disclosure} ${styles.generated}`}>
       <summary><span>Generated TraceQL</span><button className="btn ghost" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onOpenTraceql() }}>Open in TraceQL mode</button></summary>
       <CodeMirror value={traceql} height="150px" theme={oneDark} extensions={[traceqlSupport()]} editable={false} aria-label="Generated TraceQL query" basicSetup={{ lineNumbers: true, foldGutter: false }} />
       <div className={styles.generatedActions}><CopySqlButton sql={traceql} language="TraceQL" /></div>
