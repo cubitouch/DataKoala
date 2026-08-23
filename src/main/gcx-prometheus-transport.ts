@@ -1,17 +1,10 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { runGcxCommand, sanitizeGcxError, type GcxCommandResult, type GcxCommandRunner } from './gcx-command.ts'
 import type { PrometheusDatasourceOption, PrometheusMetricMetadata, PrometheusQueryRequest } from '../shared/prometheus.ts'
 import type { ColumnMeta, QueryResult } from '../shared/types.ts'
 import type { PrometheusTransport } from './prometheus-transport.ts'
 
-export interface GcxCommandResult { stdout: string; stderr: string }
-export type GcxCommandRunner = (args: string[]) => Promise<GcxCommandResult>
-
-const execute = promisify(execFile)
-export const runGcxCommand: GcxCommandRunner = async (args) => {
-  const result = await execute('gcx', args, { encoding: 'utf8', timeout: 30_000, maxBuffer: 100 * 1024 * 1024, windowsHide: true })
-  return { stdout: result.stdout, stderr: result.stderr }
-}
+export { runGcxCommand, sanitizeGcxError }
+export type { GcxCommandResult, GcxCommandRunner }
 
 function parseJson(value: string, command: string): unknown {
   try { return JSON.parse(value) }
@@ -30,14 +23,6 @@ function errorMessage(error: unknown): string {
   return 'gcx could not complete the Prometheus operation. Check the selected context and run gcx login if needed.'
 }
 
-function sanitizeGcxError(value: string): string {
-  return value
-    .replace(/(authorization\s*[:=]\s*)(?:bearer\s+)?\S+/gi, '$1[redacted]')
-    .replace(/(cookie\s*[:=]\s*)[^\r\n]+/gi, '$1[redacted]')
-    .replace(/(token|password|secret)\s*[:=]\s*\S+/gi, '$1=[redacted]')
-    .replace(/https?:\/\/[^\s@]+@/g, 'https://[redacted]@')
-    .trim()
-}
 
 function throwNormalizedGcxApiError(error: unknown): never {
   if (error instanceof Error && (error.name === 'PrometheusApiError' || error.message.startsWith('gcx returned') || error.message.startsWith('Select a Grafana'))) throw error

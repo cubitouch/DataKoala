@@ -11,6 +11,8 @@ import { SqliteFileAdapter } from './adapters/sqlite-file-adapter.ts'
 import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
 import { TempoAdapter } from './adapters/tempo-adapter.ts'
+import { LokiAdapter } from './adapters/loki-adapter.ts'
+import type { LokiMetadataRequest, LokiQueryRequest, LokiQueryResult } from '../shared/loki.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
 import type { TempoQueryContext, TempoQueryRequest, TempoSearchProgressListener } from '../shared/tempo.ts'
 import { performance } from 'node:perf_hooks'
@@ -26,6 +28,7 @@ export const adapterRegistry = new AdapterRegistry()
   .register(new BigQueryAdapter())
   .register(new PrometheusAdapter())
   .register(new TempoAdapter())
+  .register(new LokiAdapter())
 
 export class SessionManager {
   private readonly registry: AdapterRegistry
@@ -194,10 +197,32 @@ export function formatPrometheusQuery(_id: ConnectionId, query: string): Promise
   return formatPromql(query)
 }
 
+export async function runLokiQuery(id: ConnectionId, request: LokiQueryRequest): Promise<LokiQueryResult> {
+  const active = session(id)
+  if (active.info.provider !== 'loki') throw new Error('The selected connection is not a Loki datasource.')
+  return toIpcSafeQueryResult(await active.query({ sql: request.expression, loki: request })) as LokiQueryResult
+}
+export function lokiLabels(id: ConnectionId, request: LokiMetadataRequest): Promise<string[]> {
+  const operation = session(id).lokiLabels
+  if (!operation) throw new Error('Loki label discovery is not supported by this datasource.')
+  return operation(request)
+}
+export function lokiLabelValues(id: ConnectionId, label: string, request: LokiMetadataRequest): Promise<string[]> {
+  const operation = session(id).lokiLabelValues
+  if (!operation) throw new Error('Loki label value discovery is not supported by this datasource.')
+  return operation(label, request)
+}
+export function formatLokiQuery(id: ConnectionId, query: string): Promise<string> {
+  const operation = session(id).formatLokiQuery
+  if (!operation) throw new Error('LogQL formatting is not supported by this datasource.')
+  return operation(query)
+}
+
 export function queryDialect(id: ConnectionId) {
   const provider = session(id).info.provider
   if (provider === 'prometheus') throw new Error('Prometheus uses PromQL, not a SQL dialect.')
   if (provider === 'tempo') throw new Error('Tempo uses TraceQL, not a SQL dialect.')
+  if (provider === 'loki') throw new Error('Loki uses LogQL, not a SQL dialect.')
   return sqlDialectForSourceKind(provider)
 }
 

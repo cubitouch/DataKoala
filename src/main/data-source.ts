@@ -11,6 +11,7 @@ import type {
 } from '../shared/types.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
 import type { TempoAttribute, TempoQueryRequest } from '../shared/tempo.ts'
+import type { LokiMetadataRequest, LokiQueryRequest } from '../shared/loki.ts'
 
 export interface DataNamespace { name: string; isSystem?: boolean }
 export interface DataNamespaceRef { name: string }
@@ -22,6 +23,7 @@ export interface QueryRequest {
   parameters?: unknown[]
   prometheus?: Omit<PrometheusQueryRequest, 'expression'>
   tempo?: TempoQueryRequest
+  loki?: Omit<LokiQueryRequest, 'expression'>
 }
 export interface QueryEstimate { bytesProcessed?: number; notice?: string }
 export interface SessionInfo { profileId: string; provider: DataSourceKind; serverVersion?: string }
@@ -37,6 +39,9 @@ export interface DataSourceSession {
   labelValues?(metricName: string, labelName: string): Promise<string[]>
   attributeValues?(attribute: string, query?: string): Promise<string[]>
   attributes?(query?: string): Promise<TempoAttribute[]>
+  lokiLabels?(request: LokiMetadataRequest): Promise<string[]>
+  lokiLabelValues?(label: string, request: LokiMetadataRequest): Promise<string[]>
+  formatLokiQuery?(query: string): Promise<string>
   explain?(sql: string, analyze?: boolean): Promise<ExplainResult>
   estimateQuery?(sql: string): Promise<QueryEstimate>
   cancel?(queryId: string): Promise<void>

@@ -13,6 +13,8 @@ import type { BigQueryDatasetOption, BigQueryDiscoveryDefaults, BigQueryProjectO
 import type { PrometheusDatasourceOption, PrometheusDiscoveryResult, PrometheusQueryRequest } from '@shared/prometheus'
 import type { TempoAttribute, TempoQueryRequest, TempoSearchProgress, TempoSearchProgressEnvelope } from '@shared/tempo'
 import type { PrometheusTransportConfig } from '@shared/types'
+import type { LokiTransportConfig } from '@shared/types'
+import type { LokiDatasourceOption, LokiMetadataRequest, LokiQueryRequest, LokiQueryResult } from '@shared/loki'
 
 let queryProgressSequence = 0
 
@@ -65,9 +67,16 @@ const api = {
     tempo: {
       attributeValues: (id: string, attribute: string, query?: string): Promise<string[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTE_VALUES, id, attribute, query),
       attributes: (id: string, query?: string): Promise<TempoAttribute[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTES, id, query)
+    },
+    loki: {
+      discover: (transport: LokiTransportConfig): Promise<LokiDatasourceOption[]> => ipcRenderer.invoke(IPC.LOKI_DISCOVER, transport),
+      labels: (id: string, request: LokiMetadataRequest): Promise<string[]> => ipcRenderer.invoke(IPC.LOKI_LABELS, id, request),
+      labelValues: (id: string, label: string, request: LokiMetadataRequest): Promise<string[]> => ipcRenderer.invoke(IPC.LOKI_LABEL_VALUES, id, label, request),
+      formatQuery: (id: string, query: string): Promise<string> => ipcRenderer.invoke(IPC.LOKI_FORMAT_QUERY, id, query)
     }
   },
   query: {
+    runLoki: (id: string, request: LokiQueryRequest): Promise<LokiQueryResult> => ipcRenderer.invoke(IPC.QUERY_RUN_LOKI, id, request),
     run: async (
       id: string,
       sql: string,

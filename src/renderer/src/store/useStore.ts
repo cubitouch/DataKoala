@@ -10,6 +10,7 @@ import { normalizeDatabaseObjects } from '../lib/databaseObjects'
 import { api } from '../lib/api'
 import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from '../lib/promqlBuilder'
 import { defaultQueryModeForDatasource, defaultQueryTextForDatasource } from '../lib/queryDefaults'
+import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '@shared/loki'
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'idle' | 'reconnecting' | 'error'
 export type MetadataStatus = 'idle' | 'loading' | 'loaded' | 'error'
@@ -45,6 +46,12 @@ export interface QuerySession {
   prometheusTimeRange: BuilderTimeRange
   prometheusStep: '15s' | '30s' | '1m' | '5m'
   promqlBuilder: PromqlBuilderState
+  lokiTimeRange: BuilderTimeRange
+  lokiBuilder: LokiBuilderState
+  lokiResultLimit: number
+  lokiDisplayDirection: 'backward' | 'forward'
+  lokiBreakdown: string | null
+  lokiRangeHistory: BuilderTimeRange[]
   running: boolean
   queryError: string | null
   result: QueryResult | null
@@ -99,6 +106,12 @@ export function createQuerySession(index = 1, options: Partial<Pick<QuerySession
     prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' },
     prometheusStep: '30s',
     promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} },
+    lokiTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' },
+    lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] },
+    lokiResultLimit: 1000,
+    lokiDisplayDirection: 'backward',
+    lokiBreakdown: null,
+    lokiRangeHistory: [],
     running: false,
     queryError: null,
     result: null,
@@ -166,6 +179,7 @@ export interface AppState {
   setSql: (sql: string, tabId?: string) => void
   setPrometheusQueryOptions: (patch: Partial<Pick<QuerySession, 'prometheusTimeRange' | 'prometheusStep'>>, tabId?: string) => void
   setPromqlBuilder: (patch: Partial<PromqlBuilderState>, tabId?: string) => void
+  setLokiState: (patch: Partial<Pick<QuerySession, 'lokiTimeRange' | 'lokiBuilder' | 'lokiResultLimit' | 'lokiDisplayDirection' | 'lokiBreakdown' | 'lokiRangeHistory'>>, tabId?: string) => void
   setResult: (result: QueryResult | null, error?: string | null, tabId?: string) => void
   startQuery: (tabId?: string) => void
   completeQuery: (result: QueryResult | null, error?: string | null, tabId?: string) => void
@@ -478,6 +492,7 @@ export const useStore = create<AppState>((set, get) => ({
     sqlResultFilters: session.sqlResultFilters.map((filter) => filter.execution === 'query' ? { ...filter, execution: 'client' as const } : filter)
   })),
   setPrometheusQueryOptions: (patch, tabId) => set((state) => patchSession(state, tabId, (session) => ({ ...session, ...patch }))),
+  setLokiState: (patch, tabId) => set((state) => patchSession(state, tabId, (session) => ({ ...session, ...patch }))),
   setPromqlBuilder: (patch, tabId) => set((state) => patchSession(state, tabId, (session) => ({
     ...session, promqlBuilder: { ...session.promqlBuilder, ...patch }
   }))),

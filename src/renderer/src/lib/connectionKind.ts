@@ -8,5 +8,6 @@ export function connectionKindLabel(kind: DataSourceProfile['kind']): string {
     case 'sqlite-file': return 'SQLite'
     case 'prometheus': return 'Prometheus'
     case 'tempo': return 'Tempo'
+    case 'loki': return 'Loki'
   }
 }

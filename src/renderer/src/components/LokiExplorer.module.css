@@ -1,0 +1,13 @@
+.workspace { display:flex; flex-direction:column; min-height:0; height:100%; padding:12px; gap:10px; overflow:hidden; }
+.toolbar,.resultToolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.editor { min-height:120px; border:1px solid var(--border); }
+.builder { display:grid; gap:8px; padding:10px; border:1px solid var(--border); }
+.builderRow { display:flex; gap:6px; align-items:center; }
+.preview { white-space:pre-wrap; padding:8px; background:var(--bg-2); }
+.status { padding:8px; }.error { color:#ff8d8d; }.empty { padding:28px; text-align:center; opacity:.7; }
+.logs { display:flex; flex-direction:column; min-height:0; flex:1; }.resultToolbar { justify-content:space-between; }
+.logScroller { overflow:auto; min-height:160px; flex:1; border:1px solid var(--border); }
+.logRow { position:absolute; left:0; right:0; border-bottom:1px solid var(--border); background:var(--bg-1); }
+.logSummary { display:grid; grid-template-columns:210px 80px 1fr; width:100%; gap:8px; padding:9px; text-align:left; background:none; color:inherit; border:0; }
+.logSummary span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.logDetails { padding:8px 16px 14px; background:var(--bg-2); }
+.logDetails dl { margin:0; }.logDetails dl div { display:grid; grid-template-columns:180px 1fr; }.logDetails dt { font-weight:600; }.logDetails dd { margin:0; }
