@@ -25,6 +25,9 @@ test('does not import boolean structures whose facet semantics cannot be preserv
   assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region = "eu-west-1" }').advancedFilters, [
     { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1'] }
   ])
+  assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region = "eu-west-1" || span.custom = "foo" }').advancedFilters, [])
+  assert.deepEqual(traceBuilderFromTraceql('{ resource.service.name = "checkout" || resource.cloud.region = "eu-west-1" }').advancedFilters, [])
+  assert.deepEqual(traceBuilderFromTraceql('{ (resource.service.name = "checkout" || resource.cloud.region = "eu-west-1") && span:status = error }').advancedFilters, [])
 })
 
 test('builds service, kind, status and duration filters with scoped intrinsics', () => {

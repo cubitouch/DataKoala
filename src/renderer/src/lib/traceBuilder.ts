@@ -159,15 +159,65 @@ const SEMANTIC_KEYS = new Set([
 
 function genericPredicates(query: string): TraceAttributeFilter[] {
   const pattern = /(?:^|[\s{(&|])((resource|span)\.[A-Za-z_][\w.-]*)\s*(=|!=)\s*("(?:\\.|[^"\\])*")/g
-  const predicates = new Map<string, Array<{ scope: 'resource' | 'span'; operator: '=' | '!='; value: string; start: number; end: number }>>()
+  const predicates = new Map<string, Array<{ attribute: string; scope: 'resource' | 'span'; operator: '=' | '!='; value: string; start: number; end: number }>>()
   for (const match of query.matchAll(pattern)) {
     if (SEMANTIC_KEYS.has(match[1])) continue
     let value: string
     try { value = JSON.parse(match[4]) } catch { continue }
     const start = (match.index ?? 0) + match[0].indexOf(match[1])
     const items = predicates.get(match[1]) ?? []
-    items.push({ scope: match[2] as 'resource' | 'span', operator: match[3] as '=' | '!=', value, start, end: start + match[1].length + match[0].slice(match[0].indexOf(match[1]) + match[1].length).length })
+    items.push({ attribute: match[1], scope: match[2] as 'resource' | 'span', operator: match[3] as '=' | '!=', value, start, end: (match.index ?? 0) + match[0].length })
     predicates.set(match[1], items)
+  }
+  const allItems = [...predicates.values()].flat().sort((left, right) => left.start - right.start)
+  // Builder joins independent fields/facets with AND. Only the parenthesized,
+  // same-attribute include group emitted by buildTraceql may safely contain OR.
+  const stack: number[] = []
+  const pairs = new Map<number, number>()
+  let quotedString = false
+  let escaped = false
+  for (let index = 0; index < query.length; index += 1) {
+    const character = query[index]
+    if (quotedString) {
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === '"') quotedString = false
+      continue
+    }
+    if (character === '"') { quotedString = true; continue }
+    if (character === '(') stack.push(index)
+    else if (character === ')') {
+      const open = stack.pop()
+      if (open !== undefined) pairs.set(open, index)
+    }
+  }
+  const openStack: number[] = []
+  quotedString = false
+  escaped = false
+  for (let index = 0; index < query.length - 1; index += 1) {
+    const character = query[index]
+    if (quotedString) {
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === '"') quotedString = false
+      continue
+    }
+    if (character === '"') { quotedString = true; continue }
+    if (character === '(') { openStack.push(index); continue }
+    if (character === ')') { openStack.pop(); continue }
+    if (character !== '|' || query[index + 1] !== '|') continue
+    const open = openStack.at(-1)
+    if (open === undefined) {
+      if (allItems.length) return []
+      continue
+    }
+    const close = pairs.get(open)
+    const involved = close === undefined ? [] : allItems.filter((item) => item.start > open && item.end <= close)
+    if (!involved.length) continue
+    const sameGeneratedInclude = involved.every((item) => item.operator === '=' && item.attribute === involved[0].attribute) &&
+      /^\s*$/.test(query.slice(open + 1, involved[0].start)) && /^\s*$/.test(query.slice(involved.at(-1)!.end, close)) &&
+      involved.slice(1).every((item, itemIndex) => /^\s*\|\|\s*$/.test(query.slice(involved[itemIndex].end, item.start)))
+    if (!sameGeneratedInclude) return []
   }
   const filters: TraceAttributeFilter[] = []
   for (const [attribute, items] of predicates) {
