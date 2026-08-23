@@ -9,8 +9,9 @@
 .logScroller { overflow:auto; min-height:160px; flex:1; border:1px solid var(--border); }
 .logRow { position:absolute; left:0; right:0; border-bottom:1px solid var(--border); background:var(--bg-1); }
 .logSummary { display:grid; grid-template-columns:210px 80px 1fr; width:100%; gap:8px; padding:9px; text-align:left; background:none; color:inherit; border:0; }
-.logSummary span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.logDetails { padding:8px 16px 14px; background:var(--bg-2); }
-.logDetails dl { margin:0; }.logDetails dl div { display:grid; grid-template-columns:180px 1fr; }.logDetails dt { font-weight:600; }.logDetails dd { margin:0; }
+.logSummary span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.logDetails { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px 18px; padding:8px 16px 14px; background:var(--bg-2); }
+.logActions { grid-column:1/-1; }.logDetails h4 { margin:0 0 5px; }.logDetails dl { margin:0; }.logDetails dl div { display:grid; grid-template-columns:minmax(90px,140px) 1fr; gap:6px; }.logDetails dt { font-weight:600; overflow-wrap:anywhere; }.logDetails dd { margin:0; overflow-wrap:anywhere; }
+@media (max-width: 900px) { .logDetails { grid-template-columns:1fr; }.logActions { grid-column:auto; } }
 .trend { border:1px solid var(--border); padding:8px; }
 .trend header { display:flex; justify-content:space-between; gap:12px; }
 .trend header span { opacity:.7; }
