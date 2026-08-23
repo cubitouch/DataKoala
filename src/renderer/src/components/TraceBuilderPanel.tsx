@@ -83,7 +83,7 @@ const dbSystemOptions: ComboboxOption[] = [
   { value: '', label: 'Any database' },
   ...['postgresql', 'mysql', 'sqlite', 'mongodb', 'redis', 'elasticsearch'].map((system) => ({ value: system, label: system }))
 ]
-const filterModeOptions: ComboboxOption[] = [
+const filterModes: Array<{ value: TraceAttributeFilterMode; label: string }> = [
   { value: 'any', label: 'Any' }, { value: 'include', label: 'Include' }, { value: 'exclude', label: 'Exclude' }
 ]
 const MAX_ATTRIBUTE_VALUES = 250
@@ -158,15 +158,17 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
     <details className={styles.advanced}>
       <summary>Advanced filters</summary>
       <Control label="Attributes"><MultiCombobox label="Attributes" values={selectedAttributes} options={attributeOptions} onChange={changeAttributes} searchable showChips loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Select attributes" /></Control>
-      <div className={styles.facets}>{value.advancedFilters.map((filter) => {
+      {value.advancedFilters.length > 0 && <div className={styles.facetTable}>
+        <div className={styles.facetHead} aria-hidden="true"><span>Attribute</span><span>Match</span><span>Values</span></div>
+        <div className={styles.facets}>{value.advancedFilters.map((filter) => {
         const discovered = attributeValues[filter.attribute] ?? []
         const displayed = discovered.slice(0, MAX_ATTRIBUTE_VALUES)
         return <div className={styles.facet} key={filter.attribute}>
-          <strong title={filter.attribute}>{filter.attribute.replace(/^(?:resource|span)\./, '')}</strong>
-          <Combobox label={`${filter.attribute} filter mode`} value={filter.mode} options={filterModeOptions} onChange={(mode) => updateFilter(filter.attribute, { mode: mode as TraceAttributeFilterMode })} />
-          <Control label="Values" hint={discovered.length > MAX_ATTRIBUTE_VALUES ? `Showing the first ${MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.` : undefined}><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => updateFilter(filter.attribute, { values })} searchable showChips allowCustomValue disabled={filter.mode === 'any'} loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} /></Control>
+          <div className={styles.facetAttribute} title={filter.attribute}><strong>{filter.attribute.replace(/^(?:resource|span)\./, '')}</strong><small>{filter.scope} attribute</small></div>
+          <div className={styles.facetMode} role="group" aria-label={`${filter.attribute} match mode`}>{filterModes.map((mode) => <button type="button" key={mode.value} aria-pressed={filter.mode === mode.value} onClick={() => updateFilter(filter.attribute, { mode: mode.value })}>{mode.label}</button>)}</div>
+          <div className={styles.facetValues}><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => updateFilter(filter.attribute, { values })} searchable showChips allowCustomValue disabled={filter.mode === 'any'} loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} />{discovered.length > MAX_ATTRIBUTE_VALUES && <small className={styles.fieldHint}>Showing the first {MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.</small>}</div>
         </div>
-      })}</div>
+      })}</div></div>}
       <Control label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter."><input value={value.spanName} onChange={(event) => onChange({ spanName: event.target.value })} placeholder="POST /checkout" /></Control>
     </details>
 

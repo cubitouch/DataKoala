@@ -449,12 +449,12 @@ export class GcxTempoTransport implements TempoTransport {
 
   async attributeValues(attribute: string, query?: string): Promise<string[]> {
     const args = [
-      'traces', 'labels', ...this.commonArgs(), '--label', attribute,
+      'traces', 'tags', ...this.commonArgs(), '--label', attribute,
       ...(query ? ['--query', query] : []),
       '-o', 'json'
     ]
     try {
-      return normalizeTempoLabelValues(parseJson((await this.run(args)).stdout, `traces labels ${attribute}`))
+      return normalizeTempoLabelValues(parseJson((await this.run(args)).stdout, `traces tags ${attribute}`))
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
       throw tempoError(error)

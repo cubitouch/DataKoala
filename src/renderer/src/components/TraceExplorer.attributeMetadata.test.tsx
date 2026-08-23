@@ -50,4 +50,16 @@ describe('Trace Explorer attribute facet metadata', () => {
     expect(await screen.findByText('eu-central-1')).toBeTruthy()
     expect(screen.queryByText('stale-region')).toBeNull()
   })
+
+  it('shows the custom-value empty state only after tag discovery returns no values', async () => {
+    const values = deferred<string[]>()
+    attributeValues.mockReturnValueOnce(values.promise)
+    render(<TraceExplorer connectionId="tempo-1" />)
+    await waitFor(() => expect(attributeValues).toHaveBeenCalledOnce())
+    fireEvent.click(screen.getByText('Advanced filters'))
+    fireEvent.click(screen.getByRole('combobox', { name: /resource.cloud.region values/ }))
+    expect(screen.getByText('Loading values…')).toBeTruthy()
+    values.resolve([])
+    expect(await screen.findByText('No discovered values. Type a custom value.')).toBeTruthy()
+  })
 })
