@@ -5,7 +5,7 @@ interface Props {
   value: string
   onChange: (value: string) => void
   onKeyDown: React.KeyboardEventHandler<HTMLInputElement>
-  inputRef: React.RefObject<HTMLInputElement>
+  inputRef: React.RefObject<HTMLInputElement | null>
   label: string
 }
 
