@@ -159,17 +159,34 @@ const SEMANTIC_KEYS = new Set([
 
 function genericPredicates(query: string): TraceAttributeFilter[] {
   const pattern = /(?:^|[\s{(&|])((resource|span)\.[A-Za-z_][\w.-]*)\s*(=|!=)\s*("(?:\\.|[^"\\])*")/g
-  const filters = new Map<string, TraceAttributeFilter>()
+  const predicates = new Map<string, Array<{ scope: 'resource' | 'span'; operator: '=' | '!='; value: string; start: number; end: number }>>()
   for (const match of query.matchAll(pattern)) {
     if (SEMANTIC_KEYS.has(match[1])) continue
     let value: string
     try { value = JSON.parse(match[4]) } catch { continue }
-    const mode = match[3] === '=' ? 'include' : 'exclude'
-    const existing = filters.get(match[1])
-    if (existing && existing.mode === mode) existing.values.push(value)
-    else if (!existing) filters.set(match[1], { attribute: match[1], scope: match[2] as 'resource' | 'span', mode, values: [value] })
+    const start = (match.index ?? 0) + match[0].indexOf(match[1])
+    const items = predicates.get(match[1]) ?? []
+    items.push({ scope: match[2] as 'resource' | 'span', operator: match[3] as '=' | '!=', value, start, end: start + match[1].length + match[0].slice(match[0].indexOf(match[1]) + match[1].length).length })
+    predicates.set(match[1], items)
   }
-  return [...filters.values()]
+  const filters: TraceAttributeFilter[] = []
+  for (const [attribute, items] of predicates) {
+    if (items.length === 1) {
+      const item = items[0]
+      filters.push({ attribute, scope: item.scope, mode: item.operator === '=' ? 'include' : 'exclude', values: [item.value] })
+      continue
+    }
+    if (!items.every((item) => item.operator === items[0].operator)) continue
+    const expectedJoin = items[0].operator === '=' ? /^\s*\|\|\s*$/ : /^\s*&&\s*$/
+    if (!items.slice(1).every((item, index) => expectedJoin.test(query.slice(items[index].end, item.start)))) continue
+    if (items[0].operator === '=') {
+      const before = query.slice(0, items[0].start).trimEnd()
+      const after = query.slice(items.at(-1)!.end).trimStart()
+      if (!before.endsWith('(') || !after.startsWith(')')) continue
+    }
+    filters.push({ attribute, scope: items[0].scope, mode: items[0].operator === '=' ? 'include' : 'exclude', values: items.map((item) => item.value) })
+  }
+  return filters
 }
 
 export function traceBuilderFromTraceql(query: string): TraceBuilderState {

@@ -4,10 +4,10 @@ void React
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { attributeValues } = vi.hoisted(() => ({ attributeValues: vi.fn() }))
+const { attributeValues, attributes } = vi.hoisted(() => ({ attributeValues: vi.fn(), attributes: vi.fn() }))
 vi.mock('../lib/api', () => ({ api: {
   tempoPerformanceEnabled: false,
-  connections: { tempo: { attributeValues } },
+  connections: { tempo: { attributeValues, attributes } },
   query: { run: vi.fn() }
 } }))
 
@@ -27,6 +27,7 @@ describe('Trace Explorer messaging metadata', () => {
     HTMLElement.prototype.scrollIntoView = vi.fn()
     resetTempoMetadataCache()
     attributeValues.mockReset().mockResolvedValue(['rabbitmq', 'kafka'])
+    attributes.mockReset().mockResolvedValue([])
     resetTestStore({ connected: true, connectionGeneration: 7 })
     patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'builder', sql: '{ span.messaging.system != nil }' })
     setActiveTestMetadata([], 'loaded', null, 'tempo-1')

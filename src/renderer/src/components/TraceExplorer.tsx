@@ -335,6 +335,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     return () => { current = false }
   }, [connected, connectionGeneration, connectionId, mode])
 
+  const advancedDiscoveryBaseContext = buildTraceql({ ...builder, advancedFilters: [] })
   useEffect(() => {
     const filters = builder.advancedFilters
     if (!connected || mode !== 'builder' || !filters.length) { setAdvancedValues({}); setAdvancedValuesLoading({}); setAdvancedValuesError({}); return }
@@ -343,15 +344,17 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setAdvancedValues((values) => Object.fromEntries(Object.entries(values).filter(([attribute]) => selected.has(attribute))))
     setAdvancedValuesError({})
     setAdvancedValuesLoading(Object.fromEntries(filters.map((filter) => [filter.attribute, true])))
-    for (const filter of filters) {
-      const context = buildTraceql({ ...builder, advancedFilters: filters.filter((candidate) => candidate.attribute !== filter.attribute) })
-      void tempoAttributeValues(connectionId, connectionGeneration, filter.attribute, context === '{ }' ? undefined : context).then(
-        (items) => { if (current) setAdvancedValues((values) => ({ ...values, [filter.attribute]: items })) },
-        (reason: unknown) => { if (current) setAdvancedValuesError((errors) => ({ ...errors, [filter.attribute]: reason instanceof Error ? reason.message : String(reason) })) }
-      ).finally(() => { if (current) setAdvancedValuesLoading((loading) => ({ ...loading, [filter.attribute]: false })) })
-    }
-    return () => { current = false }
-  }, [builder.advancedFilters, connected, connectionGeneration, connectionId, mode])
+    const timer = window.setTimeout(() => {
+      for (const filter of filters) {
+        const context = buildTraceql({ ...builder, advancedFilters: filters.filter((candidate) => candidate.attribute !== filter.attribute) })
+        void tempoAttributeValues(connectionId, connectionGeneration, filter.attribute, context === '{ }' ? undefined : context).then(
+          (items) => { if (current) setAdvancedValues((values) => ({ ...values, [filter.attribute]: items })) },
+          (reason: unknown) => { if (current) setAdvancedValuesError((errors) => ({ ...errors, [filter.attribute]: reason instanceof Error ? reason.message : String(reason) })) }
+        ).finally(() => { if (current) setAdvancedValuesLoading((loading) => ({ ...loading, [filter.attribute]: false })) })
+      }
+    }, 200)
+    return () => { current = false; window.clearTimeout(timer) }
+  }, [advancedDiscoveryBaseContext, builder.advancedFilters, connected, connectionGeneration, connectionId, mode])
 
   const runSearch = async (sampleOverride: TraceSampleSize = sampleSize, rangeOverride: BuilderTimeRange = searchRange) => {
     const request = traceql.trim()

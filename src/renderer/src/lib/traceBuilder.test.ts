@@ -19,6 +19,14 @@ test('builds and parses faceted attribute predicates', () => {
   assert.deepEqual(parsed.advancedFilters, [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }])
 })
 
+test('does not import boolean structures whose facet semantics cannot be preserved', () => {
+  assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region = "eu-west-1" && resource.cloud.region = "eu-west-3" }').advancedFilters, [])
+  assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region != "eu-west-1" || resource.cloud.region != "eu-west-3" }').advancedFilters, [])
+  assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region = "eu-west-1" }').advancedFilters, [
+    { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1'] }
+  ])
+})
+
 test('builds service, kind, status and duration filters with scoped intrinsics', () => {
   assert.equal(
     buildTraceql(builder({ serviceNamespace: 'commerce', service: 'checkout-api', spanKind: 'server', status: 'error', minDurationMs: '300' })),
