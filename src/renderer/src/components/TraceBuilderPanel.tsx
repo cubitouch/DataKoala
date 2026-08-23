@@ -113,6 +113,7 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
   }, [messagingSystems, value.messagingSystem])
   const attributeOptions = useMemo<ComboboxOption[]>(() => attributes.map((attribute) => ({ value: attribute.traceql, label: attribute.traceql, subtitle: `${attribute.scope === 'resource' ? 'Resource' : 'Span'} attribute`, keywords: [attribute.name, attribute.scope] })), [attributes])
   const selectedAttributes = value.advancedFilters.map((filter) => filter.attribute)
+  const activeAdvancedFilterCount = value.advancedFilters.filter((filter) => filter.values.some((item) => item.trim())).length + (value.spanName.trim() ? 1 : 0)
   const changeAttributes = (selected: string[]) => onChange({ advancedFilters: selected.map((attribute) => value.advancedFilters.find((filter) => filter.attribute === attribute) ?? { attribute, scope: attributes.find((item) => item.traceql === attribute)?.scope ?? (attribute.startsWith('resource.') ? 'resource' : 'span'), mode: 'include', values: [] }) })
   const updateFilter = (attribute: string, patch: Partial<(typeof value.advancedFilters)[number]>) => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === attribute ? { ...filter, ...patch } : filter) })
 
@@ -156,11 +157,10 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
     </div>}
 
     <details className={`${styles.disclosure} ${styles.advanced}`}>
-      <summary>Advanced filters</summary>
+      <summary><span>Advanced filters</span>{activeAdvancedFilterCount > 0 && <span className={styles.activeCount}>{activeAdvancedFilterCount} active</span>}</summary>
       <div className={styles.advancedContent}>
       <Control label="Attributes"><MultiCombobox label="Attributes" values={selectedAttributes} options={attributeOptions} onChange={changeAttributes} searchable showChips loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Select attributes" /></Control>
       {value.advancedFilters.length > 0 && <div className={styles.facetTable}>
-        <div className={styles.facetHead} aria-hidden="true"><span>Attribute</span><span>Match</span><span>Values</span></div>
         <div className={styles.facets}>{value.advancedFilters.map((filter) => {
         const discovered = attributeValues[filter.attribute] ?? []
         const displayed = discovered.slice(0, MAX_ATTRIBUTE_VALUES)

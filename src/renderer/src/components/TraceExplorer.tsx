@@ -286,8 +286,12 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   }, [spans])
 
   useEffect(() => {
+    if (mode === 'sql') setBuilder(traceBuilderFromTraceql(traceql))
+  }, [mode, traceql])
+
+  useEffect(() => {
     setBuilder(traceBuilderFromTraceql(traceql))
-  }, [traceql])
+  }, [connectionId])
 
   useEffect(() => {
     setSearchRows([])
