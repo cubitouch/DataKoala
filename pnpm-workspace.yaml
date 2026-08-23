@@ -1,7 +1,16 @@
 packages:
   - .
 
+# pnpm 10.26+ / pnpm 11+
 allowBuilds:
   electron: true
   electron-winstaller: false
   esbuild: true
+
+# Compatibility for pnpm 10 releases before allowBuilds was introduced.
+# pnpm 11 ignores these legacy settings in favor of allowBuilds.
+onlyBuiltDependencies:
+  - electron
+  - esbuild
+ignoredBuiltDependencies:
+  - electron-winstaller

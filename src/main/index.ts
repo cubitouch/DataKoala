@@ -267,7 +267,7 @@ app.whenReady().then(async () => {
     const iconPath = resolve(process.env.APP_ROOT!, 'build/icon.png')
     const dockIcon = nativeImage.createFromPath(iconPath)
     if (!dockIcon.isEmpty()) {
-      app.dock.setIcon(dockIcon)
+      app.dock?.setIcon(dockIcon)
     } else {
       console.warn(`[app] Could not load Dock icon from ${iconPath}`)
     }
