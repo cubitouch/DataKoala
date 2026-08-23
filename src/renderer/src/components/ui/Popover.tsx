@@ -45,7 +45,7 @@ export interface PopoverProps {
   popupType?: AriaAttributes['aria-haspopup']
   contentRole?: AriaRole
   triggerButtonProps?: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'className' | 'disabled' | 'onClick' | 'onPointerDown'>
-  triggerRef?: RefObject<HTMLButtonElement>
+  triggerRef?: RefObject<HTMLButtonElement | null>
 }
 
 export function Popover({ trigger, children, ariaLabel, open: controlledOpen, defaultOpen = false, onOpenChange, disabled = false, invalidationKey, className = '', contentClassName = '', triggerClassName = '', preferredWidth, maxHeight = 280, focusOptionsOnKeyboardOpen = true, popupType, contentRole, triggerButtonProps, triggerRef: externalTriggerRef }: PopoverProps) {

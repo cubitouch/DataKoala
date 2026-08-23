@@ -76,7 +76,7 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     setSessionSeriesVisibility(typeof next === 'function' ? next(current) : next, tabId)
   }, [tabId, setSessionSeriesVisibility])
   const [showRunning, setShowRunning] = useState(false)
-  const hoveredSeriesIdentity = useRef<string | undefined>()
+  const hoveredSeriesIdentity = useRef<string | undefined>(undefined)
   const legendModifiers = useRef(new LegendModifierBridge())
   const chartEvents = useRef<ChartEventBridgeLifecycle | null>(null)
   if (!chartEvents.current) chartEvents.current = new ChartEventBridgeLifecycle(legendModifiers.current, () => { hoveredSeriesIdentity.current = undefined })
