@@ -50,7 +50,7 @@ export function buildBuilderPredicates(time: string, range: BuilderTimeRange, ti
       const unit = range.unit.toUpperCase()
       const current = temporalType === 'date' ? 'CURRENT_DATE()' : temporalType === 'datetime' ? 'CURRENT_DATETIME()' : 'CURRENT_TIMESTAMP()'
       const expression = temporalType === 'date'
-        ? range.unit === 'hour' ? `DATE(TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ${range.amount} HOUR))` : `DATE_SUB(${current}, INTERVAL ${range.amount} ${unit})`
+        ? range.unit === 'minute' || range.unit === 'hour' ? `DATE(TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ${range.amount} ${unit}))` : `DATE_SUB(${current}, INTERVAL ${range.amount} ${unit})`
         : temporalType === 'datetime'
           ? `DATETIME_SUB(${current}, INTERVAL ${range.amount} ${unit})`
           : range.unit === 'month'

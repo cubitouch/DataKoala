@@ -40,7 +40,7 @@ export function buildSeriesCardinalityProbe(request: SeriesCardinalityProbeReque
         : `${predicate.amount} ${predicate.amount === 1 ? predicate.unit : `${predicate.unit}s`}`
       if (dialect === 'google-sql') {
         const current = predicate.temporalType === 'date' ? 'CURRENT_DATE()' : predicate.temporalType === 'datetime' ? 'CURRENT_DATETIME()' : 'CURRENT_TIMESTAMP()'
-        const boundary = predicate.temporalType === 'date' ? predicate.unit === 'hour' ? `DATE(TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ${predicate.amount} HOUR))` : `DATE_SUB(${current}, INTERVAL ${predicate.amount} ${predicate.unit.toUpperCase()})`
+        const boundary = predicate.temporalType === 'date' ? predicate.unit === 'minute' || predicate.unit === 'hour' ? `DATE(TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL ${predicate.amount} ${predicate.unit.toUpperCase()}))` : `DATE_SUB(${current}, INTERVAL ${predicate.amount} ${predicate.unit.toUpperCase()})`
           : predicate.temporalType === 'datetime' ? `DATETIME_SUB(${current}, INTERVAL ${predicate.amount} ${predicate.unit.toUpperCase()})`
             : predicate.unit === 'month' ? `TIMESTAMP(DATETIME_SUB(DATETIME(${current}), INTERVAL ${predicate.amount} MONTH))`
               : `TIMESTAMP_SUB(${current}, INTERVAL ${predicate.amount} ${predicate.unit.toUpperCase()})`

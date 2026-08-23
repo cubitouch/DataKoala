@@ -48,11 +48,21 @@ test('rejects malformed Builder boundary and rolling predicates', () => {
 })
 
 test('all supported hourly rolling presets validate and reach equivalent probe SQL', () => {
-  const expected = new Map([[1, '1 hour'], [6, '6 hours'], [12, '12 hours'], [24, '1 day']])
+  const expected = new Map([[1, '1 hour'], [3, '3 hours'], [6, '6 hours'], [12, '12 hours'], [24, '1 day']])
   for (const [amount, interval] of expected) {
     const checked = validateSeriesCardinalityRequest({ ...valid, predicates: [{ column: 'created_at', operator: 'rolling', amount, unit: 'hour' }] })
     assert.deepEqual(checked.predicates[0], { column: 'created_at', operator: 'rolling', amount, unit: 'hour' })
     assert.match(buildSeriesCardinalityProbe(checked).sql, new RegExp(`INTERVAL '${interval}'`))
+  }
+})
+
+test('supported short rolling presets validate while nearby combinations fail closed', () => {
+  for (const [amount, unit] of [[15, 'minute'], [30, 'minute'], [3, 'hour']] as const) {
+    const checked = validateSeriesCardinalityRequest({ ...valid, predicates: [{ column: 'created_at', operator: 'rolling', amount, unit }] })
+    assert.deepEqual(checked.predicates[0], { column: 'created_at', operator: 'rolling', amount, unit })
+  }
+  for (const [amount, unit] of [[14, 'minute'], [31, 'minute'], [2, 'hour']] as const) {
+    assert.throws(() => validateSeriesCardinalityRequest({ ...valid, predicates: [{ column: 'created_at', operator: 'rolling', amount, unit }] }))
   }
 })
 

@@ -22,6 +22,14 @@ test('GoogleSQL cardinality rolling ranges are type-aware, including TIMESTAMP m
   }
 })
 
+test('GoogleSQL DATE cardinality uses timestamp subtraction for minute ranges', () => {
+  for (const amount of [15, 30] as const) {
+    const probe = buildSeriesCardinalityProbe({ schema: 'p.d', table: 't', seriesColumns: ['series'], predicates: [{ column: 'at', operator: 'rolling', amount, unit: 'minute', temporalType: 'date' }] }, 'google-sql')
+    assert.match(probe.sql, new RegExp(`DATE\\(TIMESTAMP_SUB\\(CURRENT_TIMESTAMP\\(\\), INTERVAL ${amount} MINUTE\\)\\)`))
+    assert.doesNotMatch(probe.sql, /DATE_SUB\(CURRENT_DATE\(\), INTERVAL \d+ MINUTE\)/)
+  }
+})
+
 test('GoogleSQL cardinality casts temporal string parameters and strips DATE times', () => {
   const probe = buildSeriesCardinalityProbe({ schema: 'p.d', table: 't', seriesColumns: ['series'], predicates: [
     { column: 'd', operator: 'range', startInclusive: '2026-01-02T03:04', endExclusive: '2026-02-03T04:05', temporalType: 'date' },

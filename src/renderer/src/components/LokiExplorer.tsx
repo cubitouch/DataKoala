@@ -57,7 +57,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     revision.current++; metadataRevision.current++; hasRun.current = false; previousRangeKey.current = rangeKey
     setResult(null); setTrend(null); setTrendError(null); setError(null); setWarning(null); setLoading(false); setLabels([])
   }, [session.id])
-  useEffect(() => { void loadLabels() }, [connectionId, rangeKey])
+  useEffect(() => { void loadLabels() }, [connectionId, rangeKey, session.id])
 
   const run = async () => {
     const tabId = session.id
