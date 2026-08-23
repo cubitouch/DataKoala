@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ labelValues: vi.fn() }))
-vi.mock('./api', () => ({ api: { connections: { loki: { labels: vi.fn(), labelValues: mocks.labelValues } } } }))
-import { clearLokiMetadataCache, lokiLabelValues } from './lokiMetadata'
+vi.mock('./api.ts', () => ({ api: { connections: { loki: { labels: vi.fn(), labelValues: mocks.labelValues } } } }))
+import { clearLokiMetadataCache, lokiLabelValues } from './lokiMetadata.ts'
 
 afterEach(() => mocks.labelValues.mockReset())
 describe('Loki dependent metadata', () => {

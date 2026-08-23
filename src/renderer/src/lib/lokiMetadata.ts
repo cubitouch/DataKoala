@@ -1,6 +1,6 @@
-import type { LokiLabelMatcher, LokiMetadataRequest } from '@shared/loki'
-import { selectorWithoutMatcher } from '@shared/loki-builder'
-import { api } from './api'
+import type { LokiLabelMatcher, LokiMetadataRequest } from '../../../shared/loki.ts'
+import { selectorWithoutMatcher } from '../../../shared/loki-builder.ts'
+import { api } from './api.ts'
 
 const cache = new Map<string, Promise<string[]>>()
 const key = (...values: unknown[]) => JSON.stringify(values)

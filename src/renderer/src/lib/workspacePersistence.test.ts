@@ -254,6 +254,10 @@ test('invalid, duplicate or incompatible persisted state fails closed and stale 
   envelope.tabs[1].id = envelope.tabs[0].id
   assert.equal(parseWorkspaceDraft(JSON.stringify(envelope)), null)
 
+  const malformedLokiRange = JSON.parse(serializeWorkspaceDraft(state())) as { tabs: any[] }
+  malformedLokiRange.tabs[0].lokiTimeRange = { kind: 'rolling', amount: 17, unit: 'minutes' }
+  assert.equal(parseWorkspaceDraft(JSON.stringify(malformedLokiRange)), null)
+
   const minute = JSON.parse(serializeWorkspaceDraft(state())) as { activeTabId: string; tabs: any[]; version: number }
   minute.tabs[0].builder.timeRange = { kind: 'rolling', amount: 7, unit: 'day' }
   minute.tabs[0].builder.timeBucket = 'minute'

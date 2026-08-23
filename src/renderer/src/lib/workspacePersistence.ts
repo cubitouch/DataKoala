@@ -347,9 +347,9 @@ function parseSession(value: unknown): QuerySessionDraft | null {
   const lokiDisplayDirection = isOneOf(value.lokiDisplayDirection, ['backward', 'forward'] as const) ? value.lokiDisplayDirection : 'backward'
   const lokiBreakdown = stringOrNull(value.lokiBreakdown) ?? null
   const lokiRangeHistory = Array.isArray(value.lokiRangeHistory) ? value.lokiRangeHistory.map(timeRange).filter((item): item is BuilderTimeRange => item !== null) : []
-  if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null || !prometheusTimeRange || !prometheusStep) return null
+  if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null || !prometheusTimeRange || !prometheusStep || !lokiTimeRange) return null
   const normalized = normalizeBuilderAxis(parsedBuilder, parsedBuilderVisualization)
-  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, promqlBuilder, lokiTimeRange: lokiTimeRange!, lokiBuilder, lokiResultLimit, lokiDisplayDirection, lokiBreakdown, lokiRangeHistory, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
+  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, promqlBuilder, lokiTimeRange, lokiBuilder, lokiResultLimit, lokiDisplayDirection, lokiBreakdown, lokiRangeHistory, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
 }
 
 export function parseWorkspaceDraft(raw: string | null): WorkspaceDraft | null {

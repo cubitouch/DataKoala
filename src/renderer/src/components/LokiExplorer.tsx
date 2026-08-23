@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { oneDark } from '@codemirror/theme-one-dark'
 import type { LokiLabelMatcher, LokiLogResult, LokiQueryResult } from '@shared/loki'
@@ -13,7 +13,8 @@ import { api } from '../lib/api'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { LogResultExplorer } from './LogResultExplorer'
 import { ResultExplorer } from './ResultExplorer'
-import { LokiTrendChart, type LokiTrendRange } from './LokiTrendChart'
+import { LokiTrendChart } from './LokiTrendChart'
+import type { LokiTrendRange } from '../lib/lokiTrendRange'
 import { selectActiveSession, useStore } from '../store/useStore'
 import styles from './LokiExplorer.module.css'
 
@@ -32,11 +33,12 @@ function LabelMatcherRow({ matcher, index, labels, matchers, connectionId, range
   const [values, setValues] = useState<string[]>([]); const [valueError, setValueError] = useState<string | null>(null)
   useEffect(() => {
     if (!matcher.label) return
+    let active = true
     const timer = window.setTimeout(() => {
       const bounds = prometheusRangeBounds(range)
-      lokiLabelValues(connectionId, matcher.label, bounds, matchers).then(setValues).catch((error) => setValueError(error instanceof Error ? error.message : String(error)))
+      lokiLabelValues(connectionId, matcher.label, bounds, matchers).then((next) => { if (active) setValues(next) }).catch((error) => { if (active) setValueError(error instanceof Error ? error.message : String(error)) })
     }, 250)
-    return () => window.clearTimeout(timer)
+    return () => { active = false; window.clearTimeout(timer) }
   }, [connectionId, matcher.label, matchers, range])
   return <div className={styles.builderRow}><input list="loki-labels" aria-label={`Label name ${index + 1}`} value={matcher.label} onChange={(event) => onChange({ label: event.target.value })} /><select aria-label={`Label operator ${index + 1}`} value={matcher.operator} onChange={(event) => onChange({ operator: event.target.value as LokiLabelMatcher['operator'] })}>{['=', '!=', '=~', '!~'].map((operator) => <option key={operator}>{operator}</option>)}</select><input list={`loki-values-${index}`} aria-label={`Label value ${index + 1}`} value={matcher.value} onChange={(event) => onChange({ value: event.target.value })} /><datalist id={`loki-values-${index}`}>{values.map((value) => <option key={value}>{value}</option>)}</datalist><button aria-label="Remove label filter" onClick={onRemove}>×</button>{valueError && <small title={valueError}>Values unavailable</small>}<datalist id="loki-labels">{labels.map((label) => <option key={label}>{label}</option>)}</datalist></div>
 }
@@ -45,13 +47,20 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const session = useStore(selectActiveSession); const setSql = useStore((state) => state.setSql); const setMode = useStore((state) => state.setQueryMode); const setLokiState = useStore((state) => state.setLokiState)
   const mode = session.queryMode === 'builder' ? 'builder' : 'logql'; const query = session.sql; const builder = session.lokiBuilder; const range = session.lokiTimeRange; const limit = session.lokiResultLimit; const breakdown = session.lokiBreakdown
   const [labels, setLabels] = useState<string[]>([]); const [result, setResult] = useState<LokiQueryResult | null>(null); const [trend, setTrend] = useState<LokiQueryResult | null>(null); const [trendError, setTrendError] = useState<string | null>(null); const [error, setError] = useState<string | null>(null); const [warning, setWarning] = useState<string | null>(null); const [loading, setLoading] = useState(false)
-  const revision = useRef(0); const hasRun = useRef(false); const rangeKey = JSON.stringify(range); const previousRangeKey = useRef(rangeKey)
+  const revision = useRef(0); const metadataRevision = useRef(0); const hasRun = useRef(false); const mounted = useRef(true); const rangeKey = JSON.stringify(range); const previousRangeKey = useRef(rangeKey)
   const generated = useMemo(() => { try { return builder.labelMatchers.length ? buildLokiQuery(builder) : '' } catch { return '' } }, [builder]); const expression = mode === 'builder' ? generated : query
   const patchBuilder = (patch: Partial<typeof builder>) => setLokiState({ lokiBuilder: { ...builder, ...patch } })
-  const loadLabels = async () => { const bounds = prometheusRangeBounds(range); try { setLabels(await lokiLabels(connectionId, bounds)) } catch (caught) { setWarning(`Metadata unavailable: ${caught instanceof Error ? caught.message : String(caught)}. Raw LogQL remains available.`) } }
+  const isCurrentTab = (tabId: string) => mounted.current && useStore.getState().activeTabId === tabId
+  const loadLabels = async () => { const tabId = session.id; const current = ++metadataRevision.current; const bounds = prometheusRangeBounds(range); try { const next = await lokiLabels(connectionId, bounds); if (current === metadataRevision.current && isCurrentTab(tabId)) setLabels(next) } catch (caught) { if (current === metadataRevision.current && isCurrentTab(tabId)) setWarning(`Metadata unavailable: ${caught instanceof Error ? caught.message : String(caught)}. Raw LogQL remains available.`) } }
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; revision.current++; metadataRevision.current++ } }, [])
+  useLayoutEffect(() => {
+    revision.current++; metadataRevision.current++; hasRun.current = false; previousRangeKey.current = rangeKey
+    setResult(null); setTrend(null); setTrendError(null); setError(null); setWarning(null); setLoading(false); setLabels([])
+  }, [session.id])
   useEffect(() => { void loadLabels() }, [connectionId, rangeKey])
 
   const run = async () => {
+    const tabId = session.id
     if (!expression.trim()) return setError(mode === 'builder' ? 'Add at least one indexed label matcher.' : 'Enter a LogQL query.')
     let kind: 'logs' | 'metrics'; try { kind = logqlResultKind(expression) } catch (caught) { return setError(caught instanceof Error ? caught.message : String(caught)) }
     const current = ++revision.current; hasRun.current = true; setLoading(true); setError(null); setTrendError(null); setWarning(null)
@@ -66,17 +75,17 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
             const probe = await api.query.runLoki(connectionId, { expression: trendPlan.cardinalityProbe, ...bounds, step, limit: 1 })
             const count = Math.max(0, ...probe.rows.map((row) => Number(row.value) || 0))
             if (count > CHART_SERIES_HARD_LIMIT) throw new Error(`Breakdown by ${breakdown} was rejected before fetching: ${count} series exceeds the hard limit of ${CHART_SERIES_HARD_LIMIT}.`)
-            if (count > CHART_SERIES_SOFT_LIMIT) setWarning(`Breakdown by ${breakdown} contains ${count} series; charts may be dense.`)
+            if (count > CHART_SERIES_SOFT_LIMIT && isCurrentTab(tabId)) setWarning(`Breakdown by ${breakdown} contains ${count} series; charts may be dense.`)
           }
           return api.query.runLoki(connectionId, { expression: trendPlan.trend, ...bounds, step, limit: CHART_SERIES_HARD_LIMIT })
-        })().catch((caught) => { if (current === revision.current) setTrendError(caught instanceof Error ? caught.message : String(caught)); return null })
+        })().catch((caught) => { if (current === revision.current && isCurrentTab(tabId)) setTrendError(caught instanceof Error ? caught.message : String(caught)); return null })
       }
       const [main, volumeResult] = await Promise.all([primary, volume])
-      if (current !== revision.current) return
+      if (current !== revision.current || !isCurrentTab(tabId)) return
       setResult(main); setTrend(volumeResult)
-      useStore.getState().completeQuery(main)
-    } catch (caught) { if (current === revision.current) setError(caught instanceof Error ? caught.message : String(caught)) }
-    finally { if (current === revision.current) setLoading(false) }
+      useStore.getState().completeQuery(main, null, tabId)
+    } catch (caught) { if (current === revision.current && isCurrentTab(tabId)) setError(caught instanceof Error ? caught.message : String(caught)) }
+    finally { if (current === revision.current && isCurrentTab(tabId)) setLoading(false) }
   }
   useEffect(() => {
     if (previousRangeKey.current === rangeKey) return

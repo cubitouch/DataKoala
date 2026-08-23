@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { selectedLokiTrendRange } from './LokiTrendChart'
+import { selectedLokiTrendRange } from '../lib/lokiTrendRange.ts'
 
 describe('Loki trend brushing', () => {
   it('extracts a bounded horizontal brush range', () => {

@@ -1,5 +1,5 @@
 import React from 'react'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LokiExplorer } from './LokiExplorer'
 const mocks = vi.hoisted(() => ({ labels: vi.fn(), labelValues: vi.fn(), formatQuery: vi.fn(), runLoki: vi.fn() }))
@@ -39,5 +39,23 @@ describe('LokiExplorer execution', () => {
     await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
     expect(screen.getByLabelText('Log volume trend')).toBeTruthy()
     expect(screen.getByTestId('loki-echarts')).toBeTruthy()
+  })
+
+  it('does not deliver a deferred tab A query into tab B', async () => {
+    let resolveQuery!: (value: typeof metric) => void
+    const deferred = new Promise<typeof metric>((resolve) => { resolveQuery = resolve })
+    const tabA = createQuerySession(1, { id: 'tab-a', connectionProfileId: 'loki', queryMode: 'sql', sql: 'sum(count_over_time({app="a"}[1m]))' })
+    const tabB = createQuerySession(2, { id: 'tab-b', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="b"}' })
+    const sentinel = { columns: [], rows: [{ tab: 'b' }], rowCount: 1, durationMs: 0 }
+    tabB.result = sentinel
+    useStore.setState({ tabs: [tabA, tabB], activeTabId: tabA.id })
+    mocks.runLoki.mockReturnValue(deferred)
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+    act(() => useStore.setState({ activeTabId: tabB.id }))
+    await act(async () => { resolveQuery(metric); await deferred })
+    expect(useStore.getState().tabs.find(({ id }) => id === tabB.id)?.result).toBe(sentinel)
+    expect(screen.queryByLabelText('Log volume trend')).toBeNull()
   })
 })

@@ -1,15 +1,7 @@
 import ReactECharts from 'echarts-for-react'
 import type { QueryResult } from '@shared/types'
 import styles from './LokiExplorer.module.css'
-
-export interface LokiTrendRange { startMs: number; endMs: number }
-export function selectedLokiTrendRange(payload: unknown): LokiTrendRange | null {
-  const event = payload as { batch?: { areas?: { coordRange?: unknown[] }[] }[]; areas?: { coordRange?: unknown[] }[] }
-  const range = event.batch?.[0]?.areas?.[0]?.coordRange ?? event.areas?.[0]?.coordRange
-  if (!Array.isArray(range) || range.length !== 2) return null
-  const startMs = Number(range[0]), endMs = Number(range[1])
-  return Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs ? { startMs, endMs } : null
-}
+import { selectedLokiTrendRange, type LokiTrendRange } from '../lib/lokiTrendRange.ts'
 
 export function LokiTrendChart({ result, onRangeSelected }: { result: QueryResult; onRangeSelected: (range: LokiTrendRange) => void }) {
   const labelColumns = result.columns.map(({ name }) => name).filter((name) => !['timestamp', 'value'].includes(name))
