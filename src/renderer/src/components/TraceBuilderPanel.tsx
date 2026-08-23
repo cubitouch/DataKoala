@@ -84,7 +84,7 @@ const dbSystemOptions: ComboboxOption[] = [
   ...['postgresql', 'mysql', 'sqlite', 'mongodb', 'redis', 'elasticsearch'].map((system) => ({ value: system, label: system }))
 ]
 const filterModes: Array<{ value: TraceAttributeFilterMode; label: string }> = [
-  { value: 'any', label: 'Any' }, { value: 'include', label: 'Include' }, { value: 'exclude', label: 'Exclude' }
+  { value: 'include', label: 'Include' }, { value: 'exclude', label: 'Exclude' }
 ]
 const MAX_ATTRIBUTE_VALUES = 250
 
@@ -113,7 +113,7 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
   }, [messagingSystems, value.messagingSystem])
   const attributeOptions = useMemo<ComboboxOption[]>(() => attributes.map((attribute) => ({ value: attribute.traceql, label: attribute.traceql, subtitle: `${attribute.scope === 'resource' ? 'Resource' : 'Span'} attribute`, keywords: [attribute.name, attribute.scope] })), [attributes])
   const selectedAttributes = value.advancedFilters.map((filter) => filter.attribute)
-  const changeAttributes = (selected: string[]) => onChange({ advancedFilters: selected.map((attribute) => value.advancedFilters.find((filter) => filter.attribute === attribute) ?? { attribute, scope: attributes.find((item) => item.traceql === attribute)?.scope ?? (attribute.startsWith('resource.') ? 'resource' : 'span'), mode: 'any', values: [] }) })
+  const changeAttributes = (selected: string[]) => onChange({ advancedFilters: selected.map((attribute) => value.advancedFilters.find((filter) => filter.attribute === attribute) ?? { attribute, scope: attributes.find((item) => item.traceql === attribute)?.scope ?? (attribute.startsWith('resource.') ? 'resource' : 'span'), mode: 'include', values: [] }) })
   const updateFilter = (attribute: string, patch: Partial<(typeof value.advancedFilters)[number]>) => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === attribute ? { ...filter, ...patch } : filter) })
 
   const changeNamespace = (serviceNamespace: string) => {
@@ -155,8 +155,9 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
       <Control label="DB operation"><input value={value.dbOperation} onChange={(event) => onChange({ dbOperation: event.target.value })} placeholder="SELECT" /></Control>
     </div>}
 
-    <details className={styles.advanced}>
+    <details className={`${styles.disclosure} ${styles.advanced}`}>
       <summary>Advanced filters</summary>
+      <div className={styles.advancedContent}>
       <Control label="Attributes"><MultiCombobox label="Attributes" values={selectedAttributes} options={attributeOptions} onChange={changeAttributes} searchable showChips loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Select attributes" /></Control>
       {value.advancedFilters.length > 0 && <div className={styles.facetTable}>
         <div className={styles.facetHead} aria-hidden="true"><span>Attribute</span><span>Match</span><span>Values</span></div>
@@ -166,13 +167,14 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
         return <div className={styles.facet} key={filter.attribute}>
           <div className={styles.facetAttribute} title={filter.attribute}><strong>{filter.attribute.replace(/^(?:resource|span)\./, '')}</strong><small>{filter.scope} attribute</small></div>
           <div className={styles.facetMode} role="group" aria-label={`${filter.attribute} match mode`}>{filterModes.map((mode) => <button type="button" key={mode.value} aria-pressed={filter.mode === mode.value} onClick={() => updateFilter(filter.attribute, { mode: mode.value })}>{mode.label}</button>)}</div>
-          <div className={styles.facetValues}><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => updateFilter(filter.attribute, { values })} searchable showChips allowCustomValue disabled={filter.mode === 'any'} loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} />{discovered.length > MAX_ATTRIBUTE_VALUES && <small className={styles.fieldHint}>Showing the first {MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.</small>}</div>
+          <div className={styles.facetValues}><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => updateFilter(filter.attribute, { values })} searchable showChips allowCustomValue loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} />{discovered.length > MAX_ATTRIBUTE_VALUES && <small className={styles.fieldHint}>Showing the first {MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.</small>}</div>
         </div>
       })}</div></div>}
       <Control label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter."><input value={value.spanName} onChange={(event) => onChange({ spanName: event.target.value })} placeholder="POST /checkout" /></Control>
+      </div>
     </details>
 
-    <details className={styles.generated}>
+    <details className={`${styles.disclosure} ${styles.generated}`}>
       <summary><span>Generated TraceQL</span><button className="btn ghost" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onOpenTraceql() }}>Open in TraceQL mode</button></summary>
       <CodeMirror value={traceql} height="150px" theme={oneDark} extensions={[traceqlSupport()]} editable={false} aria-label="Generated TraceQL query" basicSetup={{ lineNumbers: true, foldGutter: false }} />
       <div className={styles.generatedActions}><CopySqlButton sql={traceql} language="TraceQL" /></div>

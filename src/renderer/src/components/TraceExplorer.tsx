@@ -447,11 +447,11 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   }
 
   const updateBuilder = (patch: Partial<TraceBuilderState>) => {
-    setBuilder((current) => {
-      const next = { ...current, ...patch }
-      setSql(buildTraceql(next))
-      return next
-    })
+    const next = { ...builder, ...patch }
+    const raw = buildTraceql(next)
+    const formatted = formatTraceql(raw)
+    setBuilder(next)
+    setSql(formatted.ok ? formatted.query : raw)
   }
 
   const submitTraceId = (event: FormEvent) => { event.preventDefault(); void openTrace() }

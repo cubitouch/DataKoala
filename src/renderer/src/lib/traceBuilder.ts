@@ -2,7 +2,7 @@ export type TraceStatus = 'any' | 'unset' | 'error' | 'ok'
 export type TraceSpanKind = 'any' | 'server' | 'client' | 'producer' | 'consumer' | 'internal' | 'unspecified'
 export type TraceProtocol = 'any' | 'http' | 'rpc' | 'messaging' | 'database'
 export type TraceSampleSize = '100' | '250' | '500' | 'all'
-export type TraceAttributeFilterMode = 'any' | 'include' | 'exclude'
+export type TraceAttributeFilterMode = 'include' | 'exclude'
 export interface TraceAttributeFilter {
   attribute: string
   scope: 'resource' | 'span'
@@ -351,7 +351,7 @@ export function buildTraceql(builder: TraceBuilderState): string {
   for (const filter of builder.advancedFilters) {
     const attribute = filter.attribute.trim()
     const values = [...new Set(filter.values.map((value) => value.trim()).filter(Boolean))]
-    if (!/^(?:resource|span)\.[A-Za-z_][\w.-]*$/.test(attribute) || filter.mode === 'any' || !values.length) continue
+    if (!/^(?:resource|span)\.[A-Za-z_][\w.-]*$/.test(attribute) || !values.length) continue
     const predicates = values.map((value) => `${attribute} ${filter.mode === 'include' ? '=' : '!='} ${quoted(value)}`)
     conditions.push(filter.mode === 'include' && predicates.length > 1 ? `(${predicates.join(' || ')})` : predicates.join(' && '))
   }

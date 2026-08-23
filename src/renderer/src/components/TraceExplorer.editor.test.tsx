@@ -13,7 +13,7 @@ vi.mock('@uiw/react-codemirror', () => ({
     return <textarea aria-label={props['aria-label']} value={value} onChange={(event) => onChange(event.target.value)} />
   })
 }))
-vi.mock('./TraceBuilderPanel', () => ({ TraceBuilderPanel: ({ traceql, onOpenTraceql }: { traceql: string; onOpenTraceql: () => void }) => <div data-testid="trace-builder">Builder remains available<output>{traceql}</output><button type="button" onClick={onOpenTraceql}>Open in TraceQL mode</button></div> }))
+vi.mock('./TraceBuilderPanel', () => ({ TraceBuilderPanel: ({ traceql, onOpenTraceql, onChange }: { traceql: string; onOpenTraceql: () => void; onChange: (patch: { advancedFilters: unknown[] }) => void }) => <div data-testid="trace-builder">Builder remains available<output>{traceql}</output><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })}>Add facet</button><button type="button" onClick={onOpenTraceql}>Open in TraceQL mode</button></div> }))
 vi.mock('./TraceScatterChart', () => ({ TraceScatterChart: () => null }))
 
 import { TraceExplorer } from './TraceExplorer'
@@ -52,6 +52,17 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(screen.getByTestId('trace-builder')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Format' })).toBeNull()
     expect(screen.queryByLabelText('TraceQL editor')).toBeNull()
+  })
+
+  it('stores automatically formatted TraceQL after Builder edits', async () => {
+    patchActiveTestSession({ queryMode: 'builder', sql: '{ }' })
+    render(<TraceExplorer connectionId="tempo-1" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add facet' }))
+    const expected = formatTraceql('{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')
+    expect(expected.ok).toBe(true)
+    await waitFor(() => expect(activeTestSession().sql).toBe(expected.ok ? expected.query : ''))
+    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe(expected.ok ? expected.query : '')
+    expect(notify).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'Formatted' }))
   })
 
   it('keeps the primary action named Run for exhaustive searches', () => {

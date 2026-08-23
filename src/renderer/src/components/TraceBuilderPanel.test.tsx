@@ -12,7 +12,7 @@ vi.mock('@uiw/react-codemirror', () => ({
 }))
 vi.mock('./ui/combobox', () => ({
   Combobox: ({ label, value }: { label: string; value: string }) => <button type="button" aria-label={`${label}: ${value}`}>{value}</button>,
-  MultiCombobox: ({ label, values }: { label: string; values: string[] }) => <button type="button" aria-label={`${label}: ${values.join(', ')}`}>{values.join(', ')}</button>
+  MultiCombobox: ({ label, values, options, onChange }: { label: string; values: string[]; options: Array<{ value: string }>; onChange: (values: string[]) => void }) => <button type="button" aria-label={`${label}: ${values.join(', ')}`} onClick={() => onChange(values.length ? [] : options.slice(0, 1).map((option) => option.value))}>{values.join(', ')}</button>
 }))
 
 import { EMPTY_TRACE_BUILDER } from '../lib/traceBuilder'
@@ -70,6 +70,17 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     expect(screen.getAllByRole('group', { name: /match mode/ })).toHaveLength(2)
     expect(screen.getAllByRole('button', { name: 'Include' })[0].getAttribute('aria-pressed')).toBe('true')
     expect(screen.getAllByRole('button', { name: 'Exclude' })[1].getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('button', { name: 'Any' })).toBeNull()
     expect(screen.queryByText('Operator')).toBeNull()
+    const advanced = screen.getByText('Advanced filters').closest('details')!
+    const generated = screen.getByText('Generated TraceQL').closest('details')!
+    expect(advanced.className.split(' ').some((name) => generated.classList.contains(name))).toBe(true)
+  })
+
+  it('defaults a newly selected attribute to Include and removes it to express no filter', () => {
+    const onChange = vi.fn()
+    render(<TraceBuilderPanel value={EMPTY_TRACE_BUILDER} traceql="{}" schemas={[]} metadataStatus="loaded" metadataError={null} messagingSystems={[]} messagingSystemsLoading={false} messagingSystemsError={null} attributes={[{ scope: 'resource', name: 'env', traceql: 'resource.env' }]} onChange={onChange} onOpenTraceql={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Attributes:' }))
+    expect(onChange).toHaveBeenCalledWith({ advancedFilters: [{ attribute: 'resource.env', scope: 'resource', mode: 'include', values: [] }] })
   })
 })

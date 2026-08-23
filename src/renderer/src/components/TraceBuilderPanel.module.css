@@ -57,25 +57,10 @@
   outline-offset: -1px;
 }
 
-.advanced {
-  width: fit-content;
-  max-width: 100%;
-  color: var(--text-mute);
-  font-size: 11px;
-}
-
-.advanced summary {
-  cursor: pointer;
-  user-select: none;
-}
-
-.advanced[open] {
-  width: min(900px, 100%);
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-2);
-}
+.disclosure { width: 100%; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-3); }
+.disclosure summary { min-height: 40px; padding: 9px 14px; cursor: pointer; user-select: none; color: var(--text-dim); font-size: 12px; line-height: 20px; }
+.disclosure summary:hover { color: var(--text); background: color-mix(in srgb, var(--bg-2) 55%, transparent); }
+.advancedContent { padding: 0 12px 12px; }
 .facetTable { margin: 12px 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .facets { display: grid; }
 .facetHead, .facet { display: grid; grid-template-columns: minmax(180px, 1.4fr) minmax(210px, 1fr) minmax(240px, 2fr); gap: 12px; align-items: start; padding: 8px; }
@@ -89,12 +74,7 @@
 .facetMode button[aria-pressed="true"] { background: var(--accent); color: #0a0d12; font-weight: 600; }
 .facetValues { min-width: 0; display: grid; gap: 4px; }
 
-.advanced[open] summary {
-  margin-bottom: 8px;
-}
-
-.generated { border: 1px solid var(--border); border-radius: 7px; background: var(--bg-3); }
-.generated summary { position: relative; min-height: 40px; padding: 9px 180px 9px 14px; cursor: pointer; color: var(--text-dim); font-size: 12px; line-height: 20px; }
+.generated summary { position: relative; padding-right: 180px; }
 .generated summary > button { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); }
 .generatedActions { display: flex; justify-content: flex-end; padding: 6px; }
 .generated :global(.cm-scroller) { font-family: var(--mono); }
