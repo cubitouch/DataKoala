@@ -2,7 +2,7 @@ import React from 'react'
 void React
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value }: { value: string }) => <pre>{value}</pre> }))
 
@@ -229,15 +229,20 @@ describe('BuilderPanel axis-first controls', () => {
     const region = screen.getByRole('option', { name: /region, text/ })
     expect(region.querySelector('[data-combobox-option-subtitle]')?.textContent).toBe('text')
     fireEvent.click(region)
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    await waitFor(() => {
+      expect(activeTestSession().builder.seriesColumns).toEqual(['region'])
+      expect((screen.getByRole('combobox', { name: /Series columns/ }) as HTMLButtonElement).disabled).toBe(false)
+    })
     fireEvent.click(screen.getByRole('combobox', { name: /Series columns/ }))
-    fireEvent.click(screen.getByRole('option', { name: /customer_id, text/ }))
-    await new Promise((resolve) => setTimeout(resolve, 100))
-    expect(activeTestSession().builder.seriesColumns).toEqual(['region', 'customer_id'])
+    fireEvent.click(await screen.findByRole('option', { name: /customer_id, text/ }))
+    await waitFor(() => {
+      expect(activeTestSession().builder.seriesColumns).toEqual(['region', 'customer_id'])
+      expect((screen.getByRole('combobox', { name: /Series columns/ }) as HTMLButtonElement).disabled).toBe(false)
+    })
     expect(Array.from(view.container.querySelectorAll('[data-combobox-chip]')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['region', 'customer_id'])
     fireEvent.click(screen.getByRole('combobox', { name: /Series columns/ }))
-    fireEvent.click(screen.getByRole('option', { name: /region, text/ }))
-    expect(activeTestSession().builder.seriesColumns).toEqual(['customer_id'])
+    fireEvent.click(await screen.findByRole('option', { name: /region, text/ }))
+    await waitFor(() => expect(activeTestSession().builder.seriesColumns).toEqual(['customer_id']))
   })
 
   it('clears Series through the existing transition path', () => {
