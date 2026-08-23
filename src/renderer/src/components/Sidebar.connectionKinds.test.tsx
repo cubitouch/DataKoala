@@ -9,7 +9,8 @@ const profiles: DataSourceProfile[] = [
   { kind: 'postgres', version: 1, id: 'pg', name: 'Orders', host: 'db.internal', port: 5432, database: 'orders', user: 'reader', password: '', ssl: false, readonly: true },
   { kind: 'bigquery', version: 1, id: 'bq', name: 'Analytics', billingProject: 'billing', defaultProject: 'data', maximumBytesBilled: '1000', readonly: true },
   { kind: 'local-files', version: 1, id: 'files', name: 'Exports', files: [{ path: '/tmp/export.csv', alias: 'export' }], readonly: true },
-  { kind: 'sqlite-file', version: 1, id: 'sqlite', name: 'Archive', path: '/tmp/archive.sqlite', readonly: true }
+  { kind: 'sqlite-file', version: 1, id: 'sqlite', name: 'Archive', path: '/tmp/archive.sqlite', readonly: true },
+  { kind: 'loki', version: 1, id: 'loki', name: 'Production logs', transport: { kind: 'gcx', context: 'production' }, readonly: true }
 ]
 
 vi.mock('../lib/api', () => ({ api: { connections: {
@@ -19,6 +20,7 @@ vi.mock('../lib/api', () => ({ api: { connections: {
 
 import { Sidebar } from './Sidebar'
 import { resetTestStore } from '../test/sessionTestUtils'
+import { createQuerySession, useStore } from '../store/useStore'
 
 afterEach(() => { cleanup(); resetTestStore(); vi.clearAllMocks() })
 
@@ -31,4 +33,12 @@ it('derives every connection badge from the saved profile kind', async () => {
   expect(screen.queryByText('pg')).toBeNull()
   expect(document.body.textContent).not.toContain('db.internal')
   expect(document.body.textContent).not.toContain('orders @')
+})
+
+it('does not show an empty Objects explorer for Loki', async () => {
+  const tab = createQuerySession(1, { id: 'loki-tab', connectionProfileId: 'loki' })
+  useStore.setState({ profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true })
+  render(<Sidebar />)
+  await screen.findByText('Production logs')
+  expect(screen.queryByRole('heading', { name: 'Objects' })).toBeNull()
 })

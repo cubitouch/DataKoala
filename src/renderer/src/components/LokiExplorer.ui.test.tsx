@@ -16,13 +16,33 @@ const logs = { resultKind: 'logs' as const, logRows: [], columns: [], rows: [], 
 afterEach(cleanup)
 beforeEach(() => {
   const tab = createQuerySession(1, { id: 'loki-tab', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
-  useStore.setState({ tabs: [tab], activeTabId: tab.id })
+  useStore.setState({ tabs: [tab], activeTabId: tab.id, profiles: [{ id: 'loki', name: 'Production logs', kind: 'loki', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test' } }] })
   mocks.labels.mockReset().mockResolvedValue(['app', 'service'])
   mocks.labelValues.mockReset().mockResolvedValue(['x'])
   mocks.runLoki.mockReset()
 })
 
 describe('LokiExplorer execution', () => {
+  it('uses the standard toolbar and a collapsed themed Builder query disclosure', async () => {
+    const tab = createQuerySession(1, { id: 'builder-tab', connectionProfileId: 'loki', queryMode: 'builder' })
+    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: [] }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    const { container } = render(<LokiExplorer connectionId="loki" />)
+    await waitFor(() => expect(mocks.labels).toHaveBeenCalled())
+    expect(container.querySelector('[data-query-toolbar]')).toBeTruthy()
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toContain('LogQL')
+    expect(screen.getByRole('button', { name: 'Run' }).closest('.execution-group')).toBeTruthy()
+    expect(screen.getByText('Generated LogQL').closest('details')?.hasAttribute('open')).toBe(false)
+    const labelPicker = screen.getByRole('combobox', { name: /Indexed label 1/ })
+    expect(labelPicker).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /Label value 1/ })).toBeTruthy()
+    fireEvent.click(labelPicker)
+    fireEvent.click(await screen.findByRole('option', { name: 'service' }))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('combobox', { name: /Indexed label 1: service/ })))
+    fireEvent.click(screen.getByText('Generated LogQL'))
+    expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toContain('{service="x"}')
+  })
+
   it('does not request or render a synthetic trend for metric LogQL', async () => {
     useStore.getState().setSql('sum(count_over_time({app="x"}[1m]))')
     const run = mocks.runLoki.mockResolvedValue(metric)

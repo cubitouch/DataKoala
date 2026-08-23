@@ -67,6 +67,7 @@ export function Sidebar() {
   const connected = useStore((s) => s.connected)
   const activeTabId = useStore((s) => s.activeTabId)
   const activeTabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
+  const activeTabSourceKind = useStore((s) => s.profiles.find((profile) => profile.id === selectActiveSession(s).connectionProfileId)?.kind)
   const currentSql = useStore((s) => selectActiveSession(s).sql)
   const metadata = useStore((s) => activeTabConnectionId ? s.metadataByProfileId[activeTabConnectionId] : undefined)
   const schemas = metadata?.schemas ?? []
@@ -244,7 +245,7 @@ export function Sidebar() {
       <button onClick={() => void ensureConnectionForTab(activeTabId)} disabled={connecting}>{connecting ? 'Reconnecting…' : 'Reconnect'}</button>
     </div>}
 
-    {(tabConnected || schemas.length > 0) && <section className={styles.objectsSection}>
+    {activeTabSourceKind !== 'loki' && (tabConnected || schemas.length > 0) && <section className={styles.objectsSection}>
       <h3>Objects</h3>
       {!tabConnected && schemas.length > 0 && <div className={styles.objectStatus} role="status">Cached metadata — reconnects when needed.</div>}
       {metadataStatus === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-label="Loading database objects" /> Loading database objects…</div>}

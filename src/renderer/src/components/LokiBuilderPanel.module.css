@@ -1,0 +1,9 @@
+.root { display:grid; gap:10px; padding:10px 14px; border-bottom:1px solid var(--border); background:var(--bg-2); }
+.root > header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.root > header > div { display:grid; gap:2px; }.root > header strong { font-size:12px; }.root > header span,.control > span { color:var(--text-mute); font-size:11px; }
+.matchers { display:grid; gap:7px; }.matcher { display:grid; grid-template-columns:minmax(150px,1fr) minmax(145px,.7fr) minmax(180px,1.3fr) auto; align-items:end; gap:8px; }
+.control { display:grid; min-width:0; gap:5px; }.control input { width:100%; min-width:0; height:32px; padding:0 9px; border:1px solid var(--border); border-radius:5px; background:var(--bg); color:var(--text); }
+.control input:focus { outline:2px solid var(--accent); outline-offset:-1px; }.secondary { display:grid; grid-template-columns:auto minmax(180px,1fr) minmax(170px,.65fr); align-items:end; gap:10px; }
+.generated { border:1px solid var(--border); border-radius:7px; background:var(--bg-3); overflow:hidden; }.generated summary { position:relative; min-height:38px; padding:8px 175px 8px 12px; color:var(--text-dim); cursor:pointer; font-size:12px; }
+.generated summary button { position:absolute; right:7px; top:5px; }.generatedActions { display:flex; justify-content:flex-end; padding:5px 8px; }.generated :global(.cm-scroller) { font-family:var(--mono); }
+@media(max-width:900px){.matcher,.secondary{grid-template-columns:1fr 1fr}.matcher>button{justify-self:start}}

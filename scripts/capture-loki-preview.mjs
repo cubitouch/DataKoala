@@ -76,7 +76,7 @@ app.whenReady().then(async () => {
     if (!logFinished || !trendFinished) throw new Error('Loki log and trend fixtures did not finish')
     await waitFor(win, `document.querySelector('section[aria-label="Log volume trend"] canvas') && document.querySelector('section[aria-label="Log results"] article') && document.body.innerText.includes('48 loaded') && !document.body.innerText.includes('Running…')`, 'rendered trend and virtual log rows')
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('section[aria-label="Log results"] article button')].find((button) => button.textContent?.includes('circuit breaker opened'))?.click()`)
-    await waitFor(win, `document.body.innerText.includes('Indexed labels') && document.body.innerText.includes('Structured metadata') && document.body.innerText.includes('Parsed fields') && document.body.innerText.includes('8f4a02ce4d7b41a2bd63688cf774913e')`, 'expanded error event details')
+    await waitFor(win, `(() => { const row = document.querySelector('section[aria-label="Log results"] article[data-expanded="true"]'); const text = row?.textContent ?? ''; return text.includes('Indexed labels') && text.includes('Structured metadata') && text.includes('Parsed fields') && text.includes('8f4a02ce4d7b41a2bd63688cf774913e') })()`, 'expanded error event details')
     await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
     await sleep(400)
     const path = resolve(outputDir, 'loki-log-explorer.png')

@@ -13,10 +13,11 @@ describe('ModeSwitch Explain lock', () => {
   it.each([
     ['postgres', 'SQL'],
     ['prometheus', 'PromQL'],
-    ['tempo', 'TraceQL']
+    ['tempo', 'TraceQL'],
+    ['loki', 'LogQL']
   ] as const)('labels %s plain-query mode as %s before Builder', (kind, label) => {
     patchActiveTestSession({ connectionProfileId: 'profile-1', queryMode: 'sql' })
-    useStore.setState({ profiles: [{ id: 'profile-1', name: 'Test', kind, version: 1, readonly: true, transport: kind === 'tempo' ? { kind: 'gcx', context: 'test' } : kind === 'prometheus' ? { kind: 'grafana', baseUrl: '', datasourceUid: '' } : { kind: 'tcp', host: '', port: 5432, database: '', user: '' } } as never] })
+    useStore.setState({ profiles: [{ id: 'profile-1', name: 'Test', kind, version: 1, readonly: true, transport: kind === 'tempo' || kind === 'loki' ? { kind: 'gcx', context: 'test' } : kind === 'prometheus' ? { kind: 'grafana', baseUrl: '', datasourceUid: '' } : { kind: 'tcp', host: '', port: 5432, database: '', user: '' } } as never] })
     render(<ModeSwitch />)
     const buttons = screen.getAllByRole('button')
     expect(buttons.map((button) => button.textContent)).toEqual([label, 'Builder'])
