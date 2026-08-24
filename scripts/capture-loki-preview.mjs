@@ -40,7 +40,7 @@ async function seedWorkspace(win) {
           ],
           lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: []
         },
-        lokiResultLimit: 48, lokiBreakdown: null, lokiRangeHistory: []
+        lokiResultLimit: 48, lokiBreakdown: null, lokiRangeHistory: [], lokiResultView: 'list'
       } : tab)
     })
   })()`)
@@ -72,16 +72,25 @@ app.whenReady().then(async () => {
     for (let attempt = 0; attempt < 80 && (!labelsReady || valueRequests.size < 3); attempt += 1) await sleep(100)
     if (!labelsReady || valueRequests.size < 3) throw new Error('Loki metadata fixtures did not finish loading')
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('main button')].find((button) => button.textContent?.trim() === 'Run')?.click()`)
-    for (let attempt = 0; attempt < 80 && (!logFinished || !trendFinished); attempt += 1) await sleep(100)
-    if (!logFinished || !trendFinished) throw new Error('Loki log and trend fixtures did not finish')
-    await waitFor(win, `document.querySelector('section[aria-label="Log volume trend"] canvas') && document.querySelector('section[aria-label="Log results"] article') && document.body.innerText.includes('48 loaded') && !document.body.innerText.includes('Running…')`, 'rendered trend and virtual log rows')
+    for (let attempt = 0; attempt < 80 && !logFinished; attempt += 1) await sleep(100)
+    if (!logFinished) throw new Error('Loki log fixture did not finish')
+    await waitFor(win, `document.querySelector('section[aria-label="Log results"] article') && document.body.innerText.includes('48 loaded') && !document.body.innerText.includes('Running…')`, 'rendered virtual log rows')
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('section[aria-label="Log results"] article button')].find((button) => button.textContent?.includes('circuit breaker opened'))?.click()`)
-    await waitFor(win, `(() => { const row = document.querySelector('section[aria-label="Log results"] article[data-expanded="true"]'); const text = row?.textContent ?? ''; return text.includes('Indexed labels') && text.includes('Structured metadata') && text.includes('Parsed fields') && text.includes('8f4a02ce4d7b41a2bd63688cf774913e') })()`, 'expanded error event details')
+    await waitFor(win, `(() => { const row = document.querySelector('aside[aria-label="Selected log details"]'); const text = row?.textContent ?? ''; return text.includes('Indexed labels') && text.includes('Structured metadata') && text.includes('Parsed fields') && text.includes('8f4a02ce4d7b41a2bd63688cf774913e') })()`, 'selected error event details')
     await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
     await sleep(400)
-    const path = resolve(outputDir, 'loki-log-explorer.png')
-    await writeFile(path, (await win.webContents.capturePage()).toPNG())
-    console.log(`Loki visual preview written to ${path}`)
+    const listPath = resolve(outputDir, 'loki-log-list.png')
+    await win.webContents.capturePage()
+    await sleep(200)
+    await writeFile(listPath, (await win.webContents.capturePage()).toPNG())
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Chart')?.click()`)
+    for (let attempt = 0; attempt < 80 && !trendFinished; attempt += 1) await sleep(100)
+    if (!trendFinished) throw new Error('Loki trend fixture did not finish')
+    await waitFor(win, `document.querySelector('section[aria-label="Log volume trend"] canvas')`, 'rendered Loki trend')
+    await sleep(400)
+    const chartPath = resolve(outputDir, 'loki-log-chart.png')
+    await writeFile(chartPath, (await win.webContents.capturePage()).toPNG())
+    console.log(`Loki visual previews written to ${listPath} and ${chartPath}`)
     app.exit(0)
   } catch (error) { console.error(error); app.exit(1) }
 })

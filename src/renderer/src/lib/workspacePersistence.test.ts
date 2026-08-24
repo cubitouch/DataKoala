@@ -48,7 +48,7 @@ const tab = (id: string, title: string, connectionProfileId: string | null, sql:
   promqlBuilder: { metric: '', filterBy: [], groupBy: [], labelValues: {}, calculation: 'raw' as const, aggregation: 'none' as const, window: '5m' as const, percentile: 0.95 as const },
   lokiTimeRange: id === 'tab-b' ? { kind: 'rolling' as const, amount: 15 as const, unit: 'minute' as const } : { kind: 'rolling' as const, amount: 3 as const, unit: 'hour' as const },
   lokiBuilder: { labelMatchers: [{ label: 'service_name', operator: '=' as const, value: id }], lineFilters: [{ operator: '|=' as const, value: 'error' }], parsers: [{ kind: 'json' as const }], fieldFilters: [] },
-  lokiResultLimit: id === 'tab-b' ? 250 : 1000, lokiDisplayDirection: 'backward' as const, lokiBreakdown: 'service_name', lokiRangeHistory: [],
+  lokiResultLimit: id === 'tab-b' ? 250 : 1000, lokiResultView: id === 'tab-b' ? 'chart' as const : 'list' as const, lokiDisplayDirection: 'backward' as const, lokiBreakdown: 'service_name', lokiRangeHistory: [],
   running: true,
   queryError: 'runtime-error-secret',
   result: { columns: [], rows: [{ token: 'result-secret' }], rowCount: 1, durationMs: 1 },

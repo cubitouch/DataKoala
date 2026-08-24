@@ -7,8 +7,9 @@ export function escapeLogqlString(value: string): string {
   return JSON.stringify(value).replace(/\u2028|\u2029/g, (character) => character === '\u2028' ? '\\u2028' : '\\u2029')
 }
 export function buildLokiQuery(state: LokiBuilderState): string {
-  if (!state.labelMatchers.length) throw new Error('Add at least one indexed label matcher.')
-  const matchers = state.labelMatchers.map(({ label, operator, value }) => {
+  const complete = state.labelMatchers.filter(({ label, value }) => label.trim() && value !== '')
+  if (!complete.length) throw new Error('Choose a value for at least one indexed label.')
+  const matchers = complete.map(({ label, operator, value }) => {
     if (!isValidLokiLabelName(label)) throw new Error(`Invalid Loki label name: ${label}`)
     return `${label}${operator}${escapeLogqlString(value)}`
   })
@@ -43,7 +44,7 @@ export function logqlResultKind(query: string): 'logs' | 'metrics' {
   return kind
 }
 export function selectorWithoutMatcher(matchers: LokiLabelMatcher[], excludedLabel: string): string | undefined {
-  const remaining = matchers.filter(({ label }) => label !== excludedLabel)
+  const remaining = matchers.filter(({ label, value }) => label !== excludedLabel && label.trim() && value !== '')
   if (!remaining.length) return undefined
   return `{${remaining.map(({ label, operator, value }) => {
     if (!isValidLokiLabelName(label)) throw new Error(`Invalid Loki label name: ${label}`)

@@ -21,5 +21,6 @@ export function LokiTrendChart({ result, onRangeSelected }: { result: QueryResul
     toolbox: { show: false }, brush: { toolbox: ['lineX', 'clear'], xAxisIndex: 0, brushMode: 'single', throttleType: 'debounce', throttleDelay: 250, brushStyle: { color: '#70a5ff26', borderColor: '#70a5ff' } },
     series: [...groups].map(([name, data]) => ({ name, type: 'line', showSymbol: false, smooth: 0.18, lineStyle: { width: 1.7 }, areaStyle: { opacity: 0.12 }, data }))
   }
-  return <section className={styles.trend} aria-label="Log volume trend"><header><strong>Log volume</strong><span>Drag across the chart to investigate a narrower range.</span></header><ReactECharts option={option} style={{ height: 122 }} onEvents={{ brushEnd: (event: unknown) => { const range = selectedLokiTrendRange(event); if (range) onRangeSelected(range) } }} /></section>
+  const activateBrush = (chart: { dispatchAction: (action: unknown) => void }) => chart.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' } })
+  return <section className={styles.trend} aria-label="Log volume trend"><header><strong>Log volume</strong><span>Drag across the chart to investigate a narrower range.</span></header><ReactECharts option={option} style={{ height: 'calc(100% - 20px)', minHeight: 200 }} onChartReady={activateBrush} onEvents={{ brushEnd: (event: unknown) => { const range = selectedLokiTrendRange(event); if (range && range.endMs - range.startMs >= 1000) onRangeSelected(range) } }} /></section>
 }

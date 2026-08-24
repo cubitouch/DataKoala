@@ -33,14 +33,14 @@ describe('LokiExplorer execution', () => {
     expect(screen.getAllByRole('button').map((button) => button.textContent)).toContain('LogQL')
     expect(screen.getByRole('button', { name: 'Run' }).closest('.execution-group')).toBeTruthy()
     expect(screen.getByText('Generated LogQL').closest('details')?.hasAttribute('open')).toBe(false)
-    const labelPicker = screen.getByRole('combobox', { name: /Indexed label 1/ })
+    const labelPicker = screen.getByRole('combobox', { name: /Filter by/ })
     expect(labelPicker).toBeTruthy()
-    expect(screen.getByRole('combobox', { name: /Label value 1/ })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /app value/ })).toBeTruthy()
     fireEvent.click(labelPicker)
     fireEvent.click(await screen.findByRole('option', { name: 'service' }))
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('combobox', { name: /Indexed label 1: service/ })))
+    expect(screen.getByRole('combobox', { name: /service value/ })).toBeTruthy()
     fireEvent.click(screen.getByText('Generated LogQL'))
-    expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toContain('{service="x"}')
+    expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toContain('app="x"')
   })
 
   it('does not request or render a synthetic trend for metric LogQL', async () => {
@@ -52,10 +52,12 @@ describe('LokiExplorer execution', () => {
     expect(screen.queryByLabelText('Log volume trend')).toBeNull()
   })
 
-  it('renders the returned log-volume metric chart for log expressions', async () => {
+  it('loads and renders log volume only when Chart is selected', async () => {
     const run = mocks.runLoki.mockResolvedValueOnce(logs).mockResolvedValueOnce(metric)
     render(<LokiExplorer connectionId="loki" />)
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Chart' }))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
     expect(screen.getByLabelText('Log volume trend')).toBeTruthy()
     expect(screen.getByTestId('loki-echarts')).toBeTruthy()

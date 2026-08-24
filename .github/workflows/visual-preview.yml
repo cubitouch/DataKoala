@@ -27,7 +27,8 @@ jobs:
         tempo-trace-search.png
         tempo-trace-scatter.png
         tempo-waterfall.png
-        loki-log-explorer.png
+        loki-log-list.png
+        loki-log-chart.png
         sql-resized-panes.png
         sql-long-query-scroll.png
         sql-wide-sidebar-long-names.png
@@ -147,7 +148,8 @@ jobs:
               'tempo-trace-search.png': 'Tempo — realistic checkout trace search',
               'tempo-trace-scatter.png': 'Tempo — checkout traces by time, duration, and status',
               'tempo-waterfall.png': 'Tempo — checkout waterfall with selected failing payment span',
-              'loki-log-explorer.png': 'Loki — production checkout logs, error spike, and expanded event',
+              'loki-log-list.png': 'Loki — production checkout logs and selected event inspector',
+              'loki-log-chart.png': 'Loki — production incident log-volume trend',
               'sql-resized-panes.png': 'SQL mode — resized sidebar and editor',
               'sql-long-query-scroll.png': 'SQL mode — long query scrolling internally',
               'sql-wide-sidebar-long-names.png': 'SQL mode — widened sidebar with long object names',

@@ -2,7 +2,7 @@ import React from 'react'
 void React
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { DataSourceProfile } from '@shared/types'
 
 const profiles: DataSourceProfile[] = [
@@ -15,7 +15,10 @@ const profiles: DataSourceProfile[] = [
 
 vi.mock('../lib/api', () => ({ api: { connections: {
   list: vi.fn(async () => profiles), listObjects: vi.fn(async () => []), describeTable: vi.fn(async () => []),
-  connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn()
+  connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), loki: {
+    labels: vi.fn(async () => ['service_name', 'namespace', '__stream_shard__']),
+    labelValues: vi.fn(async () => ['checkout-api', 'checkout-api'])
+  }
 } } }))
 
 import { Sidebar } from './Sidebar'
@@ -35,10 +38,15 @@ it('derives every connection badge from the saved profile kind', async () => {
   expect(document.body.textContent).not.toContain('orders @')
 })
 
-it('does not show an empty Objects explorer for Loki', async () => {
+it('shows useful Loki labels, hides internal labels, and lazily seeds a value filter', async () => {
   const tab = createQuerySession(1, { id: 'loki-tab', connectionProfileId: 'loki' })
   useStore.setState({ profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true })
   render(<Sidebar />)
   await screen.findByText('Production logs')
   expect(screen.queryByRole('heading', { name: 'Objects' })).toBeNull()
+  expect(await screen.findByRole('tree', { name: 'Loki labels' })).toBeTruthy()
+  expect(screen.queryByText('__stream_shard__')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Expand service_name' }))
+  fireEvent.click(await screen.findByRole('treeitem', { name: 'checkout-api' }))
+  await waitFor(() => expect(useStore.getState().tabs[0].lokiBuilder.labelMatchers).toEqual([{ label: 'service_name', operator: '=', value: 'checkout-api' }]))
 })

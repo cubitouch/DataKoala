@@ -51,6 +51,7 @@ export interface QuerySession {
   lokiResultLimit: number
   lokiDisplayDirection: 'backward' | 'forward'
   lokiBreakdown: string | null
+  lokiResultView: 'list' | 'chart'
   lokiRangeHistory: BuilderTimeRange[]
   running: boolean
   queryError: string | null
@@ -111,6 +112,7 @@ export function createQuerySession(index = 1, options: Partial<Pick<QuerySession
     lokiResultLimit: 1000,
     lokiDisplayDirection: 'backward',
     lokiBreakdown: null,
+    lokiResultView: 'list',
     lokiRangeHistory: [],
     running: false,
     queryError: null,
@@ -179,7 +181,7 @@ export interface AppState {
   setSql: (sql: string, tabId?: string) => void
   setPrometheusQueryOptions: (patch: Partial<Pick<QuerySession, 'prometheusTimeRange' | 'prometheusStep'>>, tabId?: string) => void
   setPromqlBuilder: (patch: Partial<PromqlBuilderState>, tabId?: string) => void
-  setLokiState: (patch: Partial<Pick<QuerySession, 'lokiTimeRange' | 'lokiBuilder' | 'lokiResultLimit' | 'lokiDisplayDirection' | 'lokiBreakdown' | 'lokiRangeHistory'>>, tabId?: string) => void
+  setLokiState: (patch: Partial<Pick<QuerySession, 'lokiTimeRange' | 'lokiBuilder' | 'lokiResultLimit' | 'lokiDisplayDirection' | 'lokiBreakdown' | 'lokiResultView' | 'lokiRangeHistory'>>, tabId?: string) => void
   setResult: (result: QueryResult | null, error?: string | null, tabId?: string) => void
   startQuery: (tabId?: string) => void
   completeQuery: (result: QueryResult | null, error?: string | null, tabId?: string) => void
