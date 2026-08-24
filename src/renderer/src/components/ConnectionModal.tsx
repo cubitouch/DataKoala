@@ -286,10 +286,13 @@ export function LokiConnectionModal({ existing, onClose, onSaved, onBack, active
   const [datasources, setDatasources] = useState<LokiDatasourceOption[]>([])
   const [discoveryState, setDiscoveryState] = useState<DiscoveryState>('idle')
   const [discoveryError, setDiscoveryError] = useState<string | null>(null)
+  const [savedDatasourceMissing, setSavedDatasourceMissing] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const discoveryRevision = useRef(0)
   const discoveredContext = useRef<string | null>(null)
+  const manualUidRef = useRef('')
+  const savedFallbackRef = useRef(false)
   const effectiveUid = selectedUid.trim() || manualUid.trim()
   const selectedDatasource = datasources.find((source) => source.uid === selectedUid)
   const contextLabel = context.trim() || 'Current gcx context'
@@ -298,26 +301,41 @@ export function LokiConnectionModal({ existing, onClose, onSaved, onBack, active
 
   const discover = async (nextContext = context.trim(), preserveSaved = false) => {
     const revision = ++discoveryRevision.current
+    const previousContext = discoveredContext.current
+    const contextChanged = previousContext !== null && previousContext !== nextContext
+    const manualForRequest = contextChanged ? '' : manualUidRef.current.trim()
+    const protectSaved = !contextChanged && Boolean(savedUid) && (preserveSaved || savedFallbackRef.current)
     discoveredContext.current = nextContext
-    setDiscoveryState('discovering'); setDiscoveryError(null); setDatasources([]); setSelectedUid(''); setMessage(null)
+    setDiscoveryState('discovering'); setDiscoveryError(null); setSavedDatasourceMissing(false); setDatasources([]); setSelectedUid(''); setMessage(null)
+    if (contextChanged) { manualUidRef.current = ''; savedFallbackRef.current = false; setManualUid(''); setManualOpen(false) }
     try {
       const found = await api.connections.loki.discover({ kind: 'gcx', ...(nextContext ? { context: nextContext } : {}) })
       if (revision !== discoveryRevision.current) return
       setDatasources(found)
-      const retained = preserveSaved && savedUid && found.some((source) => source.uid === savedUid) ? savedUid : ''
-      setSelectedUid(retained || (found.length === 1 ? found[0].uid : ''))
-      if (preserveSaved && savedUid && !found.some((source) => source.uid === savedUid)) { setManualUid(savedUid); setManualOpen(true) }
+      const savedFound = protectSaved && found.some((source) => source.uid === savedUid)
+      if (savedFound) {
+        setSelectedUid(savedUid); setManualUid(''); manualUidRef.current = ''; savedFallbackRef.current = false; setManualOpen(false)
+      } else if (protectSaved) {
+        setManualUid(savedUid); manualUidRef.current = savedUid; savedFallbackRef.current = true; setSavedDatasourceMissing(true); setManualOpen(true)
+      } else if (manualForRequest) {
+        setManualUid(manualForRequest); manualUidRef.current = manualForRequest; setManualOpen(true)
+      } else {
+        setSelectedUid(found.length === 1 ? found[0].uid : '')
+        if (found.length > 0) setManualOpen(false)
+      }
       if (found.length === 0) { setDiscoveryState('empty'); setManualOpen(true) } else setDiscoveryState('ready')
     } catch (caught) {
       if (revision !== discoveryRevision.current) return
+      if (protectSaved) { setManualUid(savedUid); manualUidRef.current = savedUid; savedFallbackRef.current = true; setSavedDatasourceMissing(true) }
+      else if (manualForRequest) { setManualUid(manualForRequest); manualUidRef.current = manualForRequest }
       setDiscoveryState('error'); setDiscoveryError(failureMessage(caught)); setManualOpen(true)
     }
   }
 
   useEffect(() => { if (active) void discover(context.trim(), true); return () => { discoveryRevision.current += 1 } }, [active])
   const refreshForContext = () => { if (active && discoveredContext.current !== context.trim()) void discover(context.trim()) }
-  const chooseDatasource = (uid: string) => { setSelectedUid(uid); if (uid) setManualUid(''); setMessage(null) }
-  const enterManualUid = (uid: string) => { setManualUid(uid); if (uid.trim()) setSelectedUid(''); setMessage(null) }
+  const chooseDatasource = (uid: string) => { setSelectedUid(uid); if (uid) { setManualUid(''); manualUidRef.current = ''; savedFallbackRef.current = false; setSavedDatasourceMissing(false); setManualOpen(false) } setMessage(null) }
+  const enterManualUid = (uid: string) => { setManualUid(uid); manualUidRef.current = uid; savedFallbackRef.current = uid.trim() === savedUid && Boolean(savedUid); if (uid.trim()) setSelectedUid(''); setMessage(null) }
   const missingDatasourceMessage = datasources.length > 1 ? 'Choose one of the discovered Loki datasources before continuing.' : 'Choose a Loki datasource before continuing.'
   const test = async () => {
     if (!effectiveUid) return setMessage({ ok: false, text: missingDatasourceMessage })
@@ -349,9 +367,10 @@ export function LokiConnectionModal({ existing, onClose, onSaved, onBack, active
     <div className={styles.field}><div className={styles.discoveryHeading}><label>Loki datasource</label><button type="button" className="btn ghost" onClick={() => void discover(context.trim())} disabled={discoveryState === 'discovering'}>{discoveryState === 'idle' ? 'Discover' : 'Discover again'}</button></div><Combobox label="Loki datasource" value={selectedUid} options={datasourceOptions} onChange={chooseDatasource} searchable disabled={discoveryState === 'discovering' || datasources.length === 0} loading={discoveryState === 'discovering'} placeholder={datasources.length > 1 ? 'Choose a Loki datasource' : 'No datasource selected'} emptyMessage="No Loki datasources discovered" />
       {discoveryMessage && <div className={styles.discoveryStatus} role="status">{discoveryMessage}</div>}
       {discoveryState === 'error' && <div className={[styles.testMsg, styles.err].join(' ')} role="alert"><strong>Datasource discovery failed.</strong> {discoveryError}<br />Check that gcx is installed. Run <code>gcx login</code>, or re-authenticate {context.trim() ? `the ${context.trim()} context` : 'your current gcx context'}.</div>}
-      {datasources.length > 1 && !selectedUid && <div className={styles.fieldError}>Selection required: choose one of the discovered Loki datasources.</div>}
+      {savedDatasourceMissing && <div className={styles.fieldError} role="status">The saved Loki datasource was not found in {contextLabel}. Its saved ID remains available under Advanced, or choose a different discovered datasource deliberately.</div>}
+      {datasources.length > 1 && !selectedUid && !manualUid.trim() && <div className={styles.fieldError}>Selection required: choose one of the discovered Loki datasources.</div>}
     </div>
-    <details className={styles.bqAdvanced} open={manualOpen} onToggle={(event) => setManualOpen(event.currentTarget.open)}><summary>Advanced — enter a datasource UID manually</summary><div className={styles.field}><label htmlFor="loki-uid">Datasource UID</label><input id="loki-uid" value={manualUid} onChange={(event) => enterManualUid(event.target.value)} placeholder="Enter a datasource UID" /><div className={styles.pasteHint}>Use this only when authenticated discovery cannot list the datasource.</div></div></details>
+    <details className={styles.bqAdvanced} open={manualOpen}><summary onClick={(event) => { event.preventDefault(); setManualOpen((current) => !current) }}>Advanced — enter a datasource UID manually</summary><div className={styles.field}><label htmlFor="loki-uid">Datasource UID</label><input id="loki-uid" value={manualUid} onChange={(event) => enterManualUid(event.target.value)} placeholder="Enter a datasource UID" /><div className={styles.pasteHint}>Use this only when authenticated discovery cannot list the datasource.</div></div></details>
     <div className={[styles.testMsg, styles.info].join(' ')}>Uses your existing gcx authentication. DataKoala never reads, copies, or stores Grafana credentials.</div>
     {message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
     <div className={styles.actions}><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy || !canUseDatasource}>{busy ? 'Testing…' : 'Test datasource'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !canUseDatasource}>{busy ? 'Working…' : 'Save'}</button></div>

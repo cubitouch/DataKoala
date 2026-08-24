@@ -66,7 +66,11 @@ describe('Loki authenticated datasource discovery', () => {
     expect(alert.textContent).toContain('Datasource discovery failed')
     expect(alert.textContent).toContain('gcx login')
     expect(alert.textContent).toContain('re-authenticate')
-    expect(screen.getByText(/Advanced — enter a datasource UID manually/).closest('details')?.hasAttribute('open')).toBe(true)
+    const disclosure = screen.getByText(/Advanced — enter a datasource UID manually/).closest('details')!
+    expect(disclosure.hasAttribute('open')).toBe(true)
+    mocks.discover.mockResolvedValue([alpha])
+    fireEvent.click(screen.getByRole('button', { name: 'Discover again' }))
+    await waitFor(() => expect(disclosure.hasAttribute('open')).toBe(false))
   })
 
   it('preserves an existing saved datasource when it remains discoverable', async () => {
@@ -75,6 +79,56 @@ describe('Loki authenticated datasource discovery', () => {
     await waitFor(() => expect(screen.getByRole('combobox', { name: /Loki datasource: Audit logs/ })).toBeTruthy())
     expect(screen.queryByText(/Selection required/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false)
+  })
+
+  it('keeps a missing saved datasource instead of silently selecting one alternative', async () => {
+    mocks.discover.mockResolvedValue([alpha])
+    renderModal(existing)
+    expect(await screen.findByText(/saved Loki datasource was not found/)).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /Loki datasource: No datasource selected/ })).toBeTruthy()
+    expect((screen.getByLabelText('Datasource UID') as HTMLInputElement).value).toBe(beta.uid)
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false)
+  })
+
+  it('keeps a missing saved datasource when several alternatives are discovered', async () => {
+    mocks.discover.mockResolvedValue([alpha, { uid: 'loki-third', name: 'Platform logs', type: 'loki' }])
+    renderModal(existing)
+    expect(await screen.findByText(/saved Loki datasource was not found/)).toBeTruthy()
+    expect((screen.getByLabelText('Datasource UID') as HTMLInputElement).value).toBe(beta.uid)
+    expect(screen.queryByText(/Selection required/)).toBeNull()
+  })
+
+  it('preserves the saved datasource fallback when discovery fails while editing', async () => {
+    mocks.discover.mockRejectedValue(new Error('authentication expired'))
+    renderModal(existing)
+    await screen.findByText(/Datasource discovery failed/)
+    expect((screen.getByLabelText('Datasource UID') as HTMLInputElement).value).toBe(beta.uid)
+    expect(screen.getByText(/saved Loki datasource was not found/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false)
+  })
+
+  it.each([
+    ['multiple datasources', [alpha, beta], false, false],
+    ['one datasource', [alpha], true, false],
+    ['no datasources', [], false, true]
+  ] as const)('clears context A manual state when context B returns %s', async (_label, contextBResults, saveEnabled, manualOpen) => {
+    mocks.discover.mockResolvedValueOnce([]).mockResolvedValueOnce([...contextBResults])
+    renderModal()
+    await screen.findByText(/No Loki datasource found/)
+    fireEvent.change(screen.getByLabelText('Datasource UID'), { target: { value: 'context-a-manual' } })
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false)
+    const context = screen.getByLabelText(/gcx context/)
+    fireEvent.change(context, { target: { value: 'context-b' } })
+    fireEvent.blur(context)
+    await waitFor(() => expect(mocks.discover).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect((screen.getByLabelText('Datasource UID') as HTMLInputElement).value).toBe(''))
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(!saveEnabled)
+    expect(screen.getByText(/Advanced — enter a datasource UID manually/).closest('details')?.hasAttribute('open')).toBe(manualOpen)
+    if (contextBResults.length > 1) expect(screen.getByText(/Selection required/)).toBeTruthy()
+    if (contextBResults.length === 0) {
+      fireEvent.change(screen.getByLabelText('Datasource UID'), { target: { value: 'context-b-manual' } })
+      expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false)
+    }
   })
 
   it('does not discover on context keystrokes and ignores stale context results', async () => {
