@@ -37,7 +37,7 @@ export const previewLokiRows = Array.from({ length: 48 }, (_, index) => {
   }
 })
 
-const columns = (names) => names.map((name) => ({ name, dataTypeID: 0, dataTypeName: name === 'value' ? 'float8' : 'text', logicalType: name === 'value' ? 'number' : 'string' }))
+const columns = (names) => names.map((name) => ({ name, dataTypeID: 0, dataTypeName: name === 'value' ? 'float8' : name === 'timestamp' ? 'timestamp' : 'text', logicalType: name === 'value' ? 'number' : name === 'timestamp' ? 'timestamp' : 'string' }))
 
 export const previewLokiLogResult = {
   resultKind: 'logs',

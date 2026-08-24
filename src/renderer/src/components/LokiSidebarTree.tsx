@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
-import { lokiLabels, lokiLabelValues } from '../lib/lokiMetadata'
+import { useEffect, useRef, useState } from 'react'
+import { lokiLabelValues } from '../lib/lokiMetadata'
+import { useLokiLabelsResource } from '../lib/useLokiLabelsResource'
 import { selectActiveSession, useStore } from '../store/useStore'
 import styles from './Sidebar.module.css'
 
@@ -10,22 +10,15 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
   const session = useStore(selectActiveSession)
   const setLokiState = useStore((state) => state.setLokiState)
   const setMode = useStore((state) => state.setQueryMode)
-  const [labels, setLabels] = useState<string[]>([])
-  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading')
   const [filter, setFilter] = useState('')
-  const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [values, setValues] = useState<Record<string, string[]>>({})
   const [valueStatus, setValueStatus] = useState<Record<string, 'loading' | 'error'>>({})
   const revision = useRef(0)
-  const rangeKey = JSON.stringify(session.lokiTimeRange)
-  const bounds = useMemo(() => prometheusRangeBounds(session.lokiTimeRange), [rangeKey])
-  const load = async () => {
-    const request = ++revision.current; setStatus('loading'); setError(null); setLabels([]); setValues({}); setExpanded(new Set())
-    try { const next = visibleMetadata(await lokiLabels(connectionId, bounds)); if (request === revision.current) { setLabels(next); setStatus('loaded') } }
-    catch (caught) { if (request === revision.current) { setStatus('error'); setError(caught instanceof Error ? caught.message : String(caught)) } }
-  }
-  useEffect(() => { void load(); return () => { revision.current++ } }, [connectionId, rangeKey, session.id])
+  const connectionGeneration = useStore((state) => state.connectionGeneration)
+  const resource = useLokiLabelsResource(connectionId, connectionGeneration, session.id, session.lokiTimeRange)
+  const { labels, status, error, bounds } = resource
+  useEffect(() => { revision.current++; setValues({}); setExpanded(new Set()) }, [connectionId, connectionGeneration, session.id, JSON.stringify(session.lokiTimeRange)])
   const addLabel = (label: string, value?: string) => {
     const current = session.lokiBuilder.labelMatchers.filter((matcher, index, all) => all.findIndex((item) => item.label === matcher.label) === index)
     const existing = current.find((matcher) => matcher.label === label)
@@ -44,7 +37,7 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
   const filteredLabels = labels.filter((label) => !needle || label.toLowerCase().includes(needle) || values[label]?.some((value) => value.toLowerCase().includes(needle)))
   return <section className={styles.objectsSection} aria-label="Loki indexed labels"><h3>Objects</h3>
     {status === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} /> Loading indexed labels…</div>}
-    {status === 'error' && <div className={styles.objectError} role="alert">Could not load indexed labels.<small>{error}</small><button onClick={() => void load()}>Retry</button></div>}
+    {status === 'error' && <div className={styles.objectError} role="alert">Could not load indexed labels.<small>{error}</small><button onClick={() => void resource.retry()}>Retry</button></div>}
     {status === 'loaded' && <input className={styles.objectFilter} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter objects…" aria-label="Filter Loki objects" />}
     {status === 'loaded' && labels.length === 0 && <div className={styles.objectStatus}>No indexed labels in this range</div>}
     {status === 'loaded' && labels.length > 0 && filteredLabels.length === 0 && <div className={styles.objectStatus}>No objects match this filter</div>}

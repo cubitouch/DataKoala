@@ -9,7 +9,7 @@ import { buildLokiTrendExpressions } from '@shared/loki-trend'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import { logql } from '../lib/logqlLanguage'
-import { lokiLabels } from '../lib/lokiMetadata'
+import { useLokiLabelsResource } from '../lib/useLokiLabelsResource'
 import { api } from '../lib/api'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { LogResultExplorer } from './LogResultExplorer'
@@ -43,14 +43,16 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const clearActiveResults = useStore((state) => state.clearActiveResults)
   const mode = session.queryMode === 'builder' ? 'builder' : 'logql'
   const { sql: query, lokiBuilder: builder, lokiTimeRange: range, lokiResultLimit: limit, lokiBreakdown: breakdown, lokiResultView: resultView } = session
-  const [labels, setLabels] = useState<string[]>([])
+  const connectionGeneration = useStore((state) => state.connectionGeneration)
+  const labelResource = useLokiLabelsResource(connectionId, connectionGeneration, session.id, range)
+  const labels = [...new Set([...labelResource.labels, ...builder.labelMatchers.map(({ label }) => label).filter((label) => !label.startsWith('__')), ...(breakdown ? [breakdown] : [])])].sort()
   const [result, setResult] = useState<LokiQueryResult | null>(null)
   const [trend, setTrend] = useState<LokiQueryResult | null>(null)
   const [trendError, setTrendError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const revision = useRef(0), metadataRevision = useRef(0), trendRevision = useRef(0), hasRun = useRef(false), mounted = useRef(true)
+  const revision = useRef(0), trendRevision = useRef(0), hasRun = useRef(false), mounted = useRef(true)
   const trendCacheKey = useRef<string | null>(null)
   const rangeKey = JSON.stringify(range), previousRangeKey = useRef(rangeKey)
   const generated = useMemo(() => { try { return builder.labelMatchers.length ? buildLokiQuery(builder) : '' } catch { return '' } }, [builder])
@@ -58,14 +60,8 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const isCurrentTab = (tabId: string) => mounted.current && useStore.getState().activeTabId === tabId
   const clearResults = () => { revision.current++; trendRevision.current++; hasRun.current = false; trendCacheKey.current = null; setResult(null); setTrend(null); setError(null); setWarning(null); setTrendError(null); setLoading(false); clearActiveResults() }
   const resetQuery = () => { clearResults(); setSql(''); setLokiState({ lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }, lokiTimeRange: defaultRange, lokiResultLimit: 1000, lokiBreakdown: null, lokiRangeHistory: [], lokiResultView: 'list' }) }
-  const loadLabels = async () => {
-    const tabId = session.id, current = ++metadataRevision.current
-    try { const next = await lokiLabels(connectionId, prometheusRangeBounds(range)); if (current === metadataRevision.current && isCurrentTab(tabId)) setLabels(next) }
-    catch (caught) { if (current === metadataRevision.current && isCurrentTab(tabId)) setWarning(`Metadata unavailable: ${caught instanceof Error ? caught.message : String(caught)}. Raw LogQL remains available.`) }
-  }
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; revision.current++; metadataRevision.current++ } }, [])
-  useLayoutEffect(() => { revision.current++; trendRevision.current++; metadataRevision.current++; hasRun.current = false; previousRangeKey.current = rangeKey; setResult(null); setTrend(null); setTrendError(null); setError(null); setWarning(null); setLoading(false); setLabels([]) }, [session.id])
-  useEffect(() => { void loadLabels() }, [connectionId, rangeKey, session.id])
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; revision.current++; trendRevision.current++ } }, [])
+  useLayoutEffect(() => { revision.current++; trendRevision.current++; hasRun.current = false; previousRangeKey.current = rangeKey; setResult(null); setTrend(null); setTrendError(null); setError(null); setWarning(null); setLoading(false) }, [session.id])
 
   const loadTrend = async (tabId: string, queryExpression: string, queryRange: BuilderTimeRange, queryBreakdown: string | null) => {
     let kind: 'logs' | 'metrics'
@@ -129,9 +125,16 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
         <div className={`query-toolbar-group query-editor-actions ${styles.editorActions}`}>{mode === 'logql' && <button type="button" className="btn ghost" onClick={() => void format()} disabled={!query.trim()}>Format</button>}<CopySqlButton sql={expression} language="LogQL" /></div>
         <div className="query-toolbar-group execution-group"><button className="btn primary" type="button" onClick={() => void run()} disabled={loading || !expression.trim()} title="Run (Ctrl/Command+Enter)">{loading ? 'Running…' : 'Run'}</button></div>
       </div>
-      {mode === 'logql' ? <div className={styles.editor}><CodeMirror value={query} minHeight="66px" maxHeight="150px" theme={oneDark} extensions={[logql()]} onChange={(value) => setSql(value)} aria-label="LogQL editor" onKeyDown={(event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void run() } }} basicSetup={{ lineNumbers: true, foldGutter: false }} /></div> : <LokiBuilderPanel value={builder} generated={generated} labels={labels} connectionId={connectionId} range={range} breakdown={breakdown} onChange={(lokiBuilder) => setLokiState({ lokiBuilder })} onBreakdownChange={(lokiBreakdown) => setLokiState({ lokiBreakdown })} onOpenLogql={() => { setSql(generated); setMode('sql') }} />}
+      {mode === 'logql' ? <div className={styles.editor}><CodeMirror value={query} minHeight="66px" maxHeight="150px" theme={oneDark} extensions={[logql()]} onChange={(value) => setSql(value)} aria-label="LogQL editor" onKeyDown={(event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void run() } }} basicSetup={{ lineNumbers: true, foldGutter: false }} /></div> : <LokiBuilderPanel value={builder} generated={generated} labels={labels} connectionId={connectionId} bounds={labelResource.bounds} breakdown={breakdown} metadataStatus={labelResource.status} metadataError={labelResource.error} onChange={(lokiBuilder) => setLokiState({ lokiBuilder })} onBreakdownChange={(lokiBreakdown) => setLokiState({ lokiBreakdown })} onOpenLogql={() => { setSql(generated); setMode('sql') }} />}
     </section>
-    {error && <div className={`${styles.status} ${styles.error}`} role="alert">{error}</div>}{warning && <div className={styles.status}>{warning}</div>}
-    <section className={styles.results} aria-label="Loki query results">{result?.resultKind === 'logs' ? resultView === 'list' ? <LogResultExplorer selectionKey={`${session.id}:${revision.current}`} rows={(result as LokiLogResult).logRows} truncated={result.execution?.truncated} limit={limit} onFilter={resultFilter} toolbarLeading={<ChartPicker value={resultView} availableViews={['list', 'line', 'area', 'bar']} onChange={(view: ChartPickerView) => setLokiState({ lokiResultView: view as typeof resultView })} />} /> : <><div className={styles.chartToolbar}><ChartPicker value={resultView} availableViews={['list', 'line', 'area', 'bar']} onChange={(view: ChartPickerView) => setLokiState({ lokiResultView: view as typeof resultView })} />{session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>{trendError ? <div className={styles.empty}>Log volume unavailable: {trendError}</div> : trend?.resultKind === 'metrics' ? <LokiTrendChart result={trend} view={resultView} onRangeSelected={selectRange} /> : <div className={styles.empty}>Loading log volume…</div>}</> : result?.resultKind === 'metrics' ? <ResultExplorer mode="sql" hasRun /> : !loading && <div className={styles.empty}>Run a LogQL investigation to see results.</div>}</section>
+    {error && <div className={`${styles.status} ${styles.error}`} role="alert">{error}</div>}{labelResource.status === 'error' && <div className={styles.status}>Metadata unavailable: {labelResource.error}. Raw LogQL remains available.</div>}{warning && <div className={styles.status}>{warning}</div>}
+    <section className={styles.results} aria-label="Loki query results">{result?.resultKind === 'logs' ? <>
+      <div className={styles.resultViewBar}><ChartPicker value={resultView} availableViews={['list', 'line', 'area', 'bar']} onChange={(view: ChartPickerView) => setLokiState({ lokiResultView: view as typeof resultView })} />{resultView !== 'list' && session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>
+      <div className={styles.selectedView}>{resultView === 'list'
+        ? <LogResultExplorer selectionKey={`${session.id}:${revision.current}`} rows={(result as LokiLogResult).logRows} truncated={result.execution?.truncated} limit={limit} onFilter={resultFilter} />
+        : trendError ? <div className={styles.empty}>Log volume unavailable: {trendError}</div>
+          : trend?.resultKind === 'metrics' ? <LokiTrendChart result={trend} view={resultView} onRangeSelected={selectRange} />
+            : <div className={styles.empty}>Loading log volume…</div>}</div>
+    </> : result?.resultKind === 'metrics' ? <ResultExplorer mode="sql" hasRun /> : !loading && <div className={styles.empty}>Run a LogQL investigation to see results.</div>}</section>
   </main>
 }
