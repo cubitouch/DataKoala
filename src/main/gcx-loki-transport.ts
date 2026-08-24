@@ -26,10 +26,13 @@ function severityOf(...records: Record<string, unknown>[]): string {
   }
   return 'unknown'
 }
-function traceIdOf(...records: Record<string, unknown>[]): string | undefined {
+function identifierOf(kind: 'trace' | 'span', ...records: Record<string, unknown>[]): string | undefined {
   for (const record of records) for (const [key, value] of Object.entries(record)) {
-    if (['trace_id', 'traceid'].includes(key.toLowerCase()) && value != null && String(value)) return String(value)
+    if (key.toLowerCase().replace(/[._]/g, '') === `${kind}id` && value != null && String(value)) return String(value)
   }
+}
+function jsonObject(line: string): Record<string, unknown> {
+  try { const parsed: unknown = JSON.parse(line); return isRecord(parsed) ? parsed : {} } catch { return {} }
 }
 
 export function normalizeLokiQuery(raw: unknown, request: Pick<LokiQueryRequest, 'limit'>, durationMs = 0, expectedKind?: LokiResultKind): LokiQueryResult {
@@ -65,7 +68,8 @@ export function normalizeLokiQuery(raw: unknown, request: Pick<LokiQueryRequest,
       const timestampNs = timestamp
       let timestampMs: number
       try { timestampMs = Number(BigInt(timestampNs) / 1_000_000n) } catch { throw new Error('Loki returned an invalid nanosecond timestamp.') }
-      rows.push({ id: `${timestampNs}:${rows.length}`, timestampNs, timestampMs, line, labels, structuredMetadata, parsedFields, severity: severityOf(parsedFields, structuredMetadata, labels), traceId: traceIdOf(parsedFields, structuredMetadata, labels) })
+      const payload = jsonObject(line)
+      rows.push({ id: `${timestampNs}:${rows.length}`, timestampNs, timestampMs, line, labels, structuredMetadata, parsedFields, severity: severityOf(parsedFields, structuredMetadata, payload, labels), traceId: identifierOf('trace', parsedFields, structuredMetadata, payload, labels), spanId: identifierOf('span', parsedFields, structuredMetadata, payload, labels) })
     }
   }
   const truncated = rows.length > request.limit

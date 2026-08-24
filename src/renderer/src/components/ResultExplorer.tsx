@@ -7,7 +7,7 @@ import { chartSeriesResultFilters, timeBucketRange, type ChartPointContext } fro
 import { chartTimeSelectionRange, isTemporalChartValues } from '../lib/chartRangeSelection'
 import { createResultFilter, createResultRangeFilter, filterQueryResult, resultFilterDemotion } from '../lib/resultFilters'
 import { isBuilderFilterPromotable } from '../lib/builderSql'
-import { decodeBuilderSeriesTuple, deriveEffectiveVisualization, numericColumns, pivotRowsForChart, reconcileHierarchyDimensions, visualizationConfigurationsEqual, type ValueAxisScale } from '../lib/resultVisualization'
+import { decodeBuilderSeriesTuple, deriveEffectiveVisualization, numericColumns, pivotRowsForChart, reconcileHierarchyDimensions, visualizationConfigurationsEqual, type ResultView, type ValueAxisScale, type VisualizationConfiguration } from '../lib/resultVisualization'
 import { selectActiveSession, selectSession, useStore, type QueryMode } from '../store/useStore'
 import { timeRangeChartDomain } from '../lib/prometheusTimeRange'
 import { ResultsTable } from './ResultsTable'
@@ -25,7 +25,7 @@ import { ChartApplicationController, type AppliedChart, type ChartRevisionOrigin
 import { QUERY_LOADING_DELAY_MS } from '../lib/loadingIndicator'
 import { chartActionsReady, shouldKeepChartMounted } from '../lib/chartQueryLifecycle'
 import { Combobox, MultiCombobox, type ComboboxOption } from './ui/combobox'
-import type { ColumnMeta } from '@shared/types'
+import type { ColumnMeta, QueryResult } from '@shared/types'
 import { chartAnomalyEligibility, DEFAULT_ANOMALY_OPTIONS, detectChartAnomalies } from '../lib/chartAnomalies'
 import { buildHierarchy, hierarchyCardinalities, suggestHierarchyDimensions } from '../lib/chartHierarchy'
 import { ChartPicker } from './ChartPicker'
@@ -40,19 +40,31 @@ function resultColumnToComboboxOption(column: ColumnMeta): ComboboxOption {
   return { value: column.name, label: column.name, subtitle: column.dataTypeName, keywords: [column.name, column.dataTypeName] }
 }
 
-export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRun?: boolean }) {
+interface ResultExplorerProps {
+  mode: QueryMode
+  hasRun?: boolean
+  resultOverride?: QueryResult | null
+  configurationOverride?: VisualizationConfiguration
+  onConfigurationChange?: (configuration: VisualizationConfiguration) => void
+  hidePicker?: boolean
+  availableViews?: readonly ResultView[]
+  onTemporalRangeSelected?: (range: { startMs: number; endMs: number }) => void
+}
+export function ResultExplorer({ mode, hasRun = true, resultOverride, configurationOverride, onConfigurationChange, hidePicker = false, availableViews, onTemporalRangeSelected }: ResultExplorerProps) {
   const tabId = useStore((state) => state.activeTabId)
   const isResultStale = useStore((state) => selectActiveSession(state).isResultStale)
   const connectionStatus = useStore((state) => state.connectionStatus)
   const reconnect = useStore((state) => state.reconnectActiveProfile)
-  const result = useStore((state) => selectActiveSession(state).result)
+  const storedResult = useStore((state) => selectActiveSession(state).result)
+  const result = resultOverride === undefined ? storedResult : resultOverride
   const resultRevision = useStore((state) => selectActiveSession(state).resultRevision)
   const running = useStore((state) => selectActiveSession(state).running)
   const error = useStore((state) => selectActiveSession(state).queryError)
-  const configuration = useStore((state) => {
+  const storedConfiguration = useStore((state) => {
     const session = selectActiveSession(state)
     return mode === 'sql' ? session.sqlVisualization : session.builderVisualization
   })
+  const configuration = configurationOverride ?? storedConfiguration
   const setVisualization = useStore((state) => state.setVisualization)
   const builderSeries = useStore((state) => selectActiveSession(state).builder.seriesColumns)
   const builder = useStore((state) => selectActiveSession(state).builder)
@@ -113,8 +125,11 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     [result, configuration, mode, builderSeries]
   )
   useEffect(() => {
-    if (mode === 'sql' && result && !visualizationConfigurationsEqual(effectiveConfiguration, configuration)) setVisualization(mode, effectiveConfiguration, tabId)
-  }, [result, effectiveConfiguration, configuration, mode, setVisualization, tabId])
+    if (mode === 'sql' && result && !visualizationConfigurationsEqual(effectiveConfiguration, configuration)) {
+      if (onConfigurationChange) onConfigurationChange(effectiveConfiguration)
+      else setVisualization(mode, effectiveConfiguration, tabId)
+    }
+  }, [result, effectiveConfiguration, configuration, mode, setVisualization, tabId, onConfigurationChange])
 
   const filteredResult = useMemo(() => result ? filterQueryResult(result, activeFilters) : null, [result, activeFilters])
   const numeric = useMemo(() => filteredResult ? numericColumns(filteredResult) : [], [filteredResult])
@@ -140,7 +155,10 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
   const seriesIdentities = chart?.series.map((series) => series.name) ?? []
   useEffect(() => updateSeriesVisibility((previous) => reconcileSeriesVisibility(previous, seriesIdentities)), [seriesIdentities.join('\0'), updateSeriesVisibility])
   const logPresentation = useMemo(() => effectiveConfiguration.valueAxisScale === 'log' ? prepareLogScaleSeries(chart?.series ?? [], seriesVisibility) : null, [chart, seriesVisibility, effectiveConfiguration.valueAxisScale])
-  const update = (patch: Parameters<typeof setVisualization>[1]) => setVisualization(mode, patch, tabId)
+  const update = (patch: Parameters<typeof setVisualization>[1]) => {
+    if (onConfigurationChange) onConfigurationChange({ ...configuration, ...patch })
+    else setVisualization(mode, patch, tabId)
+  }
   const updateSqlSeries = (values: string[]) => update(values.length > 1
     ? { seriesColumn: null, seriesColumns: values }
     : { seriesColumn: values[0] ?? null, seriesColumns: [] })
@@ -268,7 +286,8 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
     if (!temporalRangeSelectionEnabled || !chart?.renderable || !effectiveConfiguration.xColumn) return
     const range = chartTimeSelectionRange(params.areas?.[0]?.coordRange ?? [], chart.xValues, activeBuilderTimeBucket)
     if (!range) return
-    addResultFilter(mode, createResultRangeFilter(effectiveConfiguration.xColumn, range.startInclusive, range.endExclusive), tabId)
+    if (onTemporalRangeSelected) onTemporalRangeSelected({ startMs: Date.parse(String(range.startInclusive)), endMs: Date.parse(String(range.endExclusive)) })
+    else addResultFilter(mode, createResultRangeFilter(effectiveConfiguration.xColumn, range.startInclusive, range.endExclusive), tabId)
     const instance = ref.current?.getEchartsInstance()
     instance?.dispatchAction({ type: 'brush', areas: [] })
     instance?.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' } })
@@ -347,7 +366,7 @@ export function ResultExplorer({ mode, hasRun = true }: { mode: QueryMode; hasRu
         {connectionStatus === 'reconnecting' ? 'Reconnecting…' : 'Reconnect'}
       </button>
     </div>}
-    {result && <ChartPicker value={effectiveConfiguration.view} onChange={chooseView}/>}
+    {result && !hidePicker && <ChartPicker value={effectiveConfiguration.view} availableViews={availableViews} onChange={chooseView}/>}
     {effectiveConfiguration.view !== 'table' && result && mode === 'sql' && <div className={styles.visualizationControls}>
       <div className={styles.visualizationControl}><span>X axis</span><Combobox label="X axis" value={effectiveConfiguration.xColumn ?? ''} options={xAxisOptions} onChange={(value) => update({ xColumn: value || null })} placeholder="Choose…" searchable emptyMessage="No matching columns" /></div>
       <div className={styles.visualizationControl}><span>Y axis</span><Combobox label="Y axis" value={effectiveConfiguration.valueColumn ?? ''} options={yAxisOptions} onChange={(value) => update({ valueColumn: value || null })} placeholder={numeric.length ? 'Choose…' : 'No numeric column'} searchable emptyMessage="No matching numeric columns" /></div>

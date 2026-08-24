@@ -16,7 +16,7 @@ test('uses exact gcx argv without shell interpolation or unsupported direction',
 test('normalizes primary gcx object entries without mixing field namespaces', () => {
   const result = normalizeLokiQuery({ status: 'success', data: { resultType: 'streams', result: [{
     stream: { service: 'checkout', environment: 'prod' },
-    values: [{ timestamp: '1750000000000000000', line: 'failed', structuredMetadata: { trace_id: 'abc', level: 'WARN' }, parsed: { order_id: 42 } }]
+    values: [{ timestamp: '1750000000000000000', line: '{"message":"failed","span.id":"span-1"}', structuredMetadata: { trace_id: 'abc', level: 'WARN' }, parsed: { order_id: 42 } }]
   }] } }, { limit: 10 })
   assert.equal(result.resultKind, 'logs')
   if (result.resultKind !== 'logs') return
@@ -27,6 +27,7 @@ test('normalizes primary gcx object entries without mixing field namespaces', ()
   assert.equal(result.logRows[0].timestampMs, 1_750_000_000_000)
   assert.equal(result.logRows[0].severity, 'warn')
   assert.equal(result.logRows[0].traceId, 'abc')
+  assert.equal(result.logRows[0].spanId, 'span-1')
 })
 
 test('requests limit plus one and reports truncation', async () => {

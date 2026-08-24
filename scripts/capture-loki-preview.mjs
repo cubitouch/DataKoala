@@ -40,7 +40,7 @@ async function seedWorkspace(win) {
           ],
           lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: []
         },
-        lokiResultLimit: 48, lokiBreakdown: null, lokiRangeHistory: [], lokiResultView: 'list'
+        lokiResultLimit: 48, lokiGroupBy: ['service_name', 'severity'], lokiRangeHistory: [], lokiResultView: 'list'
       } : tab)
     })
   })()`)
@@ -58,6 +58,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('connections:loki:format-query', async (_event, _id, query) => query)
   ipcMain.handle('query:run-loki', async (_event, _id, request) => {
     await sleep(120)
+    if (String(request.expression).startsWith('count(sum by')) return { ...previewLokiTrendResult, rows: [{ timestamp: '2026-08-19T16:00:00.000Z', value: 6 }], rowCount: 1 }
     if (String(request.expression).includes('count_over_time')) { trendFinished = true; return previewLokiTrendResult }
     logFinished = true
     return previewLokiLogResult
@@ -86,7 +87,7 @@ app.whenReady().then(async () => {
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Line')?.click()`)
     for (let attempt = 0; attempt < 80 && !trendFinished; attempt += 1) await sleep(100)
     if (!trendFinished) throw new Error('Loki trend fixture did not finish')
-    await waitFor(win, `document.querySelector('[aria-label="Log volume trend"] canvas')`, 'rendered Loki trend')
+    await waitFor(win, `document.querySelector('[data-result-chart-canvas] canvas')`, 'rendered Loki trend')
     await sleep(400)
     const chartPath = resolve(outputDir, 'loki-log-chart.png')
     await win.webContents.capturePage()

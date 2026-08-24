@@ -29,3 +29,15 @@ it('keeps a large result set virtualized', () => {
   render(<LogResultExplorer rows={rows} limit={1000} onFilter={vi.fn()} />)
   expect(document.querySelectorAll('article').length).toBeLessThan(1000)
 })
+
+it('extracts a JSON message and presents trace and span identifiers above metadata', () => {
+  const jsonRow = { ...row, line: JSON.stringify({ message: 'Readable checkout failure', trace_id: 'trace-json', span_id: 'span-json' }), traceId: 'trace-json', spanId: 'span-json' }
+  render(<LogResultExplorer rows={[jsonRow]} limit={100} onFilter={vi.fn()} />)
+  fireEvent.click(screen.getByRole('button', { name: /message.*Readable checkout failure/ }))
+  expect(screen.getByText('Readable checkout failure')).toBeTruthy()
+  expect(screen.queryByText(jsonRow.line, { selector: 'p' })).toBeNull()
+  expect(screen.getByText('Trace ID').compareDocumentPosition(screen.getByRole('heading', { name: 'Indexed labels' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(screen.getByText('trace-json')).toBeTruthy()
+  expect(screen.getByText('span-json')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Copy raw log' })).toBeTruthy()
+})

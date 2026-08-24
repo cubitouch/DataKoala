@@ -50,8 +50,8 @@ export interface QuerySession {
   lokiBuilder: LokiBuilderState
   lokiResultLimit: number
   lokiDisplayDirection: 'backward' | 'forward'
-  lokiBreakdown: string | null
-  lokiResultView: 'list' | 'line' | 'area' | 'bar'
+  lokiGroupBy: string[]
+  lokiResultView: 'list' | 'table' | 'line' | 'area' | 'bar' | 'scatter' | 'treemap' | 'sunburst'
   lokiRangeHistory: BuilderTimeRange[]
   running: boolean
   queryError: string | null
@@ -111,7 +111,7 @@ export function createQuerySession(index = 1, options: Partial<Pick<QuerySession
     lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] },
     lokiResultLimit: 1000,
     lokiDisplayDirection: 'backward',
-    lokiBreakdown: null,
+    lokiGroupBy: [],
     lokiResultView: 'list',
     lokiRangeHistory: [],
     running: false,
@@ -181,7 +181,7 @@ export interface AppState {
   setSql: (sql: string, tabId?: string) => void
   setPrometheusQueryOptions: (patch: Partial<Pick<QuerySession, 'prometheusTimeRange' | 'prometheusStep'>>, tabId?: string) => void
   setPromqlBuilder: (patch: Partial<PromqlBuilderState>, tabId?: string) => void
-  setLokiState: (patch: Partial<Pick<QuerySession, 'lokiTimeRange' | 'lokiBuilder' | 'lokiResultLimit' | 'lokiDisplayDirection' | 'lokiBreakdown' | 'lokiResultView' | 'lokiRangeHistory'>>, tabId?: string) => void
+  setLokiState: (patch: Partial<Pick<QuerySession, 'lokiTimeRange' | 'lokiBuilder' | 'lokiResultLimit' | 'lokiDisplayDirection' | 'lokiGroupBy' | 'lokiResultView' | 'lokiRangeHistory'>>, tabId?: string) => void
   setResult: (result: QueryResult | null, error?: string | null, tabId?: string) => void
   startQuery: (tabId?: string) => void
   completeQuery: (result: QueryResult | null, error?: string | null, tabId?: string) => void

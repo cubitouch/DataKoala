@@ -28,12 +28,12 @@ export const previewLokiRows = Array.from({ length: 48 }, (_, index) => {
     id: `preview-log-${String(index + 1).padStart(3, '0')}`,
     timestampNs: `${BigInt(timestampMs) * 1_000_000n}`,
     timestampMs,
-    line: `${line}; checkout_id=demo-${String(4821 - index).padStart(4, '0')}`,
+    line: index === 0 ? JSON.stringify({ message: line, level: severity, trace_id: traceId, span_id: 'c92f5b76d841a903', checkout_id: 'demo-4821' }) : `${line}; checkout_id=demo-${String(4821 - index).padStart(4, '0')}`,
     labels: { environment: 'production', cluster: 'eu-west-1', namespace: 'payments', service_name: 'checkout-api' },
     structuredMetadata: { severity, pod: `checkout-api-7d9f${index % 3}`, trace_id: traceId ?? `synthetic-${String(index).padStart(4, '0')}` },
     parsedFields: { attempt: index % 3 + 1, timeout_ms: index % 4 === 0 ? 800 : 650, downstream_service: index % 3 === 1 ? 'payment-worker' : 'inventory-service', outcome: severity === 'INFO' ? 'recovered' : 'retrying' },
     severity,
-    ...(traceId ? { traceId } : {})
+    ...(traceId ? { traceId, spanId: 'c92f5b76d841a903' } : {})
   }
 })
 
@@ -53,9 +53,13 @@ const trendStart = Date.parse('2026-08-19T16:00:00.000Z')
 const volumes = [8, 9, 7, 11, 10, 12, 14, 18, 24, 47, 93, 168, 224, 181, 126, 72, 39, 25, 18, 14, 12, 10, 9, 8]
 export const previewLokiTrendResult = {
   resultKind: 'metrics',
-  columns: columns(['timestamp', 'value']),
-  rows: volumes.map((value, index) => ({ timestamp: new Date(trendStart + index * 150_000).toISOString(), value })),
-  rowCount: volumes.length,
+  columns: columns(['timestamp', 'value', 'service_name', 'severity']),
+  rows: volumes.flatMap((value, index) => [
+    { timestamp: new Date(trendStart + index * 150_000).toISOString(), value: Math.round(value * .64), service_name: 'checkout-api', severity: 'ERROR' },
+    { timestamp: new Date(trendStart + index * 150_000).toISOString(), value: Math.round(value * .24), service_name: 'checkout-api', severity: 'WARN' },
+    { timestamp: new Date(trendStart + index * 150_000).toISOString(), value: Math.round(value * .12), service_name: 'payment-worker', severity: 'INFO' }
+  ]),
+  rowCount: volumes.length * 3,
   durationMs: 49,
   execution: { provider: 'loki', durationMs: 49, rowCount: volumes.length }
 }

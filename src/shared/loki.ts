@@ -21,6 +21,7 @@ export interface LokiLogRow {
   parsedFields: Record<string, unknown>
   severity: string
   traceId?: string
+  spanId?: string
 }
 export interface LokiLogResult extends QueryResult {
   resultKind: 'logs'
