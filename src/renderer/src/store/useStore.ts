@@ -51,7 +51,7 @@ export interface QuerySession {
   lokiResultLimit: number
   lokiDisplayDirection: 'backward' | 'forward'
   lokiBreakdown: string | null
-  lokiResultView: 'list' | 'chart'
+  lokiResultView: 'list' | 'line' | 'area' | 'bar'
   lokiRangeHistory: BuilderTimeRange[]
   running: boolean
   queryError: string | null

@@ -83,7 +83,7 @@ app.whenReady().then(async () => {
     await win.webContents.capturePage()
     await sleep(200)
     await writeFile(listPath, (await win.webContents.capturePage()).toPNG())
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Chart')?.click()`)
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Line')?.click()`)
     for (let attempt = 0; attempt < 80 && !trendFinished; attempt += 1) await sleep(100)
     if (!trendFinished) throw new Error('Loki trend fixture did not finish')
     await waitFor(win, `document.querySelector('section[aria-label="Log volume trend"] canvas')`, 'rendered Loki trend')

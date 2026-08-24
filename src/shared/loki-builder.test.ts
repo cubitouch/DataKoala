@@ -26,3 +26,11 @@ test('dependent metadata selector excludes its own matcher only', () => {
     { label: 'environment', operator: '=', value: 'prod' }, { label: 'service', operator: '=~', value: 'check.*' }
   ], 'service'), '{environment="prod"}')
 })
+
+test('value selections generate exact and anchored escaped regex matchers', () => {
+  const base = { lineFilters: [], parsers: [], fieldFilters: [] }
+  assert.equal(buildLokiQuery({ ...base, labelMatchers: [{ label: 'environment', operator: '=', value: 'production', values: ['production'] }] }), '{environment="production"}')
+  assert.equal(buildLokiQuery({ ...base, labelMatchers: [{ label: 'environment', operator: '=', value: 'production', values: ['production', 'staging', 'production'] }] }), '{environment=~"^(?:production|staging)$"}')
+  assert.equal(buildLokiQuery({ ...base, labelMatchers: [{ label: 'service', operator: '=', value: '', values: ['api.v2', 'a"b', String.raw`c\\d`] }] }), String.raw`{service=~"^(?:api\\.v2|a\"b|c\\\\\\\\d)$"}`)
+  assert.throws(() => buildLokiQuery({ ...base, labelMatchers: [{ label: 'environment', operator: '=', value: '', values: [] }] }), /at least one/)
+})

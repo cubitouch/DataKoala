@@ -56,3 +56,24 @@ test('probe uses datasource discovery and never sends millisecond metadata times
   await transport.probe()
   assert.deepEqual(calls, [['api', '/api/datasources', '-o', 'json']])
 })
+
+test('metric queries use the authenticated canonical Loki range proxy when a datasource UID is selected', async () => {
+  let argv: string[] = []
+  const transport = new GcxLokiTransport('prod', async (args) => { argv = args; return { stdout: JSON.stringify({ status: 'success', data: { resultType: 'matrix', result: [{ metric: { level: 'error' }, values: [[10, '2']] }] } }), stderr: '' } }, 'loki/uid')
+  const result = await transport.query({ expression: 'sum by (level) (count_over_time(({service_name="checkout"})[30s]))', start: '2026-01-01T00:00:00Z', end: '2026-01-01T01:00:00Z', step: '30s', limit: 100 })
+  assert.equal(argv[0], 'api')
+  const url = new URL(argv[1], 'https://grafana.invalid')
+  assert.equal(url.pathname, '/api/datasources/proxy/uid/loki%2Fuid/loki/api/v1/query_range')
+  assert.equal(url.searchParams.get('query'), 'sum by (level) (count_over_time(({service_name="checkout"})[30s]))')
+  assert.equal(url.searchParams.get('start'), '2026-01-01T00:00:00Z')
+  assert.equal(url.searchParams.get('end'), '2026-01-01T01:00:00Z')
+  assert.equal(url.searchParams.get('step'), '30s')
+  assert.deepEqual(argv.slice(2), ['--context', 'prod', '-o', 'json'])
+  assert.equal(result.rows[0].level, 'error')
+})
+
+test('explicit single-value matrix samples are normalized without weakening malformed-series validation', () => {
+  const result = normalizeLokiQuery({ status: 'success', data: { resultType: 'matrix', result: [{ metric: { level: 'warn' }, value: [10, '3'] }] } }, { limit: 10 }, 0, 'metrics')
+  assert.equal(result.rows[0].value, 3)
+  assert.throws(() => normalizeLokiQuery({ status: 'success', data: { resultType: 'matrix', result: [{ metric: { level: 'warn' } }] } }, { limit: 10 }, 0, 'metrics'), /without values/)
+})

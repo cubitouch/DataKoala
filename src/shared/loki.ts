@@ -33,7 +33,7 @@ export interface LokiMetadataRequest { start: string; end: string; selector?: st
 
 export type LokiLabelOperator = '=' | '!=' | '=~' | '!~'
 export type LokiLineOperator = '|=' | '!=' | '|~' | '!~'
-export interface LokiLabelMatcher { label: string; operator: LokiLabelOperator; value: string }
+export interface LokiLabelMatcher { label: string; operator: LokiLabelOperator; value: string; values?: string[] }
 export interface LokiLineFilter { operator: LokiLineOperator; value: string }
 export interface LokiFieldFilter { field: string; operator: LokiLabelOperator; value: string }
 export interface LokiParserStage { kind: 'json' | 'logfmt' | 'pattern' | 'regexp'; expression?: string }

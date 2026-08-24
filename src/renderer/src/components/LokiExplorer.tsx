@@ -19,6 +19,7 @@ import { LokiBuilderPanel } from './LokiBuilderPanel'
 import { ModeSwitch } from './ModeSwitch'
 import { QueryUtilityActions } from './QueryUtilityActions'
 import { CopySqlButton } from './CopySqlButton'
+import { ChartPicker, type ChartPickerView } from './ChartPicker'
 import type { LokiTrendRange } from '../lib/lokiTrendRange'
 import { selectActiveSession, useStore } from '../store/useStore'
 import styles from './LokiExplorer.module.css'
@@ -32,10 +33,6 @@ function interval(start: string, end: string): string {
 function customRange({ startMs, endMs }: LokiTrendRange): BuilderTimeRange {
   const start = new Date(startMs), end = new Date(endMs)
   return { kind: 'custom', startDate: start.toISOString().slice(0, 10), startTime: start.toISOString().slice(11, 16), endDate: end.toISOString().slice(0, 10), endTime: end.toISOString().slice(11, 16), recurringWindows: [] }
-}
-
-function ResultViewSwitch({ value, onChange }: { value: 'list' | 'chart'; onChange: (value: 'list' | 'chart') => void }) {
-  return <div className={styles.viewSwitch} aria-label="Log result view"><button type="button" aria-pressed={value === 'list'} onClick={() => onChange('list')}>List</button><button type="button" aria-pressed={value === 'chart'} onClick={() => onChange('chart')}>Chart</button></div>
 }
 
 export function LokiExplorer({ connectionId }: { connectionId: string }) {
@@ -82,13 +79,13 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     try {
       const plan = buildLokiTrendExpressions(queryExpression, step, queryBreakdown, kind)!
       if (plan.cardinalityProbe && queryBreakdown) {
-        const probe = await api.query.runLoki(connectionId, { expression: plan.cardinalityProbe, ...bounds, step, limit: 1 })
+        const probe = await api.query.runLoki(connectionId, { expression: plan.cardinalityProbe, ...bounds, step, limit: 1 }).catch((error) => { throw new Error(`Cardinality probe failed: ${error instanceof Error ? error.message : String(error)}`) })
         if (current !== trendRevision.current || !isCurrentTab(tabId)) return
         const count = Math.max(0, ...probe.rows.map((row) => Number(row.value) || 0))
         if (count > CHART_SERIES_HARD_LIMIT) throw new Error(`Breakdown by ${queryBreakdown} was rejected before fetching: ${count} series exceeds the hard limit of ${CHART_SERIES_HARD_LIMIT}.`)
         if (count > CHART_SERIES_SOFT_LIMIT) setWarning(`Breakdown by ${queryBreakdown} contains ${count} series; charts may be dense.`)
       }
-      const volume = await api.query.runLoki(connectionId, { expression: plan.trend, ...bounds, step, limit: CHART_SERIES_HARD_LIMIT })
+      const volume = await api.query.runLoki(connectionId, { expression: plan.trend, ...bounds, step, limit: CHART_SERIES_HARD_LIMIT }).catch((error) => { throw new Error(`Log volume query failed: ${error instanceof Error ? error.message : String(error)}`) })
       if (current !== trendRevision.current || !isCurrentTab(tabId)) return
       trendCacheKey.current = key; setTrend(volume)
     } catch (caught) { if (current === trendRevision.current && isCurrentTab(tabId)) setTrendError(caught instanceof Error ? caught.message : String(caught)) }
@@ -103,7 +100,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     hasRun.current = true; setLoading(true); setError(null); setTrendError(null); setWarning(null)
     const bounds = prometheusRangeBounds(range), step = interval(bounds.start, bounds.end)
     try {
-      const chartRequest = kind === 'logs' && resultView === 'chart' ? loadTrend(tabId, expression, range, breakdown) : Promise.resolve()
+      const chartRequest = kind === 'logs' && resultView !== 'list' ? loadTrend(tabId, expression, range, breakdown) : Promise.resolve()
       const main = await api.query.runLoki(connectionId, { expression, ...bounds, step, limit })
       await chartRequest
       if (current !== revision.current || !isCurrentTab(tabId)) return
@@ -112,7 +109,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     finally { if (current === revision.current && isCurrentTab(tabId)) setLoading(false) }
   }
   useEffect(() => { if (previousRangeKey.current === rangeKey) return; previousRangeKey.current = rangeKey; if (hasRun.current) void run() }, [rangeKey])
-  useEffect(() => { if (hasRun.current && resultView === 'chart' && result?.resultKind === 'logs' && expression.trim()) void loadTrend(session.id, expression, range, breakdown) }, [resultView, breakdown, rangeKey])
+  useEffect(() => { if (hasRun.current && resultView !== 'list' && result?.resultKind === 'logs' && expression.trim()) void loadTrend(session.id, expression, range, breakdown) }, [resultView, breakdown, rangeKey])
   const selectRange = (selected: LokiTrendRange) => setLokiState({ lokiRangeHistory: [...session.lokiRangeHistory, range], lokiTimeRange: customRange(selected) })
   const restoreRange = (reset = false) => { const history = session.lokiRangeHistory; const prior = reset ? history[0] : history.at(-1); if (prior) setLokiState({ lokiTimeRange: prior, lokiRangeHistory: reset ? [] : history.slice(0, -1) }) }
   const resultFilter = (kind: 'label' | 'field', key: string, value: string, exclude: boolean) => {
@@ -132,9 +129,9 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
         <div className={`query-toolbar-group query-editor-actions ${styles.editorActions}`}>{mode === 'logql' && <button type="button" className="btn ghost" onClick={() => void format()} disabled={!query.trim()}>Format</button>}<CopySqlButton sql={expression} language="LogQL" /></div>
         <div className="query-toolbar-group execution-group"><button className="btn primary" type="button" onClick={() => void run()} disabled={loading || !expression.trim()} title="Run (Ctrl/Command+Enter)">{loading ? 'Running…' : 'Run'}</button></div>
       </div>
-      {mode === 'logql' ? <div className={styles.editor}><CodeMirror value={query} minHeight="66px" maxHeight="150px" theme={oneDark} extensions={[logql()]} onChange={(value) => setSql(value)} aria-label="LogQL editor" onKeyDown={(event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void run() } }} basicSetup={{ lineNumbers: true, foldGutter: false }} /></div> : <LokiBuilderPanel value={builder} generated={generated} labels={labels} connectionId={connectionId} range={range} breakdown={breakdown} onChange={(lokiBuilder) => setLokiState({ lokiBuilder })} onBreakdownChange={(lokiBreakdown) => setLokiState({ lokiBreakdown })} onRefresh={() => void loadLabels()} onOpenLogql={() => { setSql(generated); setMode('sql') }} />}
+      {mode === 'logql' ? <div className={styles.editor}><CodeMirror value={query} minHeight="66px" maxHeight="150px" theme={oneDark} extensions={[logql()]} onChange={(value) => setSql(value)} aria-label="LogQL editor" onKeyDown={(event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void run() } }} basicSetup={{ lineNumbers: true, foldGutter: false }} /></div> : <LokiBuilderPanel value={builder} generated={generated} labels={labels} connectionId={connectionId} range={range} breakdown={breakdown} onChange={(lokiBuilder) => setLokiState({ lokiBuilder })} onBreakdownChange={(lokiBreakdown) => setLokiState({ lokiBreakdown })} onOpenLogql={() => { setSql(generated); setMode('sql') }} />}
     </section>
     {error && <div className={`${styles.status} ${styles.error}`} role="alert">{error}</div>}{warning && <div className={styles.status}>{warning}</div>}
-    <section className={styles.results} aria-label="Loki query results">{result?.resultKind === 'logs' ? resultView === 'list' ? <LogResultExplorer selectionKey={`${session.id}:${revision.current}`} rows={(result as LokiLogResult).logRows} truncated={result.execution?.truncated} limit={limit} onFilter={resultFilter} toolbarLeading={<ResultViewSwitch value={resultView} onChange={(lokiResultView) => setLokiState({ lokiResultView })} />} /> : <><div className={styles.chartToolbar}><ResultViewSwitch value={resultView} onChange={(lokiResultView) => setLokiState({ lokiResultView })} />{session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>{trendError ? <div className={styles.empty}>Log volume unavailable: {trendError}</div> : trend?.resultKind === 'metrics' ? <LokiTrendChart result={trend} onRangeSelected={selectRange} /> : <div className={styles.empty}>Loading log volume…</div>}</> : result?.resultKind === 'metrics' ? <ResultExplorer mode="sql" hasRun /> : !loading && <div className={styles.empty}>Run a LogQL investigation to see results.</div>}</section>
+    <section className={styles.results} aria-label="Loki query results">{result?.resultKind === 'logs' ? resultView === 'list' ? <LogResultExplorer selectionKey={`${session.id}:${revision.current}`} rows={(result as LokiLogResult).logRows} truncated={result.execution?.truncated} limit={limit} onFilter={resultFilter} toolbarLeading={<ChartPicker value={resultView} availableViews={['list', 'line', 'area', 'bar']} onChange={(view: ChartPickerView) => setLokiState({ lokiResultView: view as typeof resultView })} />} /> : <><div className={styles.chartToolbar}><ChartPicker value={resultView} availableViews={['list', 'line', 'area', 'bar']} onChange={(view: ChartPickerView) => setLokiState({ lokiResultView: view as typeof resultView })} />{session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>{trendError ? <div className={styles.empty}>Log volume unavailable: {trendError}</div> : trend?.resultKind === 'metrics' ? <LokiTrendChart result={trend} view={resultView} onRangeSelected={selectRange} /> : <div className={styles.empty}>Loading log volume…</div>}</> : result?.resultKind === 'metrics' ? <ResultExplorer mode="sql" hasRun /> : !loading && <div className={styles.empty}>Run a LogQL investigation to see results.</div>}</section>
   </main>
 }

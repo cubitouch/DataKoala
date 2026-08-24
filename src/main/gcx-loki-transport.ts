@@ -39,7 +39,11 @@ export function normalizeLokiQuery(raw: unknown, request: Pick<LokiQueryRequest,
   if (!isRecord(data) || typeof data.resultType !== 'string' || !Array.isArray(data.result)) throw new Error('gcx returned an unsupported Loki response shape.')
   if (data.resultType === 'matrix' || data.resultType === 'vector') {
     if (expectedKind === 'logs') throw new Error('Loki returned metrics for a log expression.')
-    const metric = normalizeGcxQuery(isRecord(raw.data) ? raw : { status: 'success', data }, durationMs)
+    const normalizedData = data.resultType === 'matrix' ? { ...data, result: data.result.map((series) => {
+      if (!isRecord(series) || Array.isArray(series.values)) return series
+      return Array.isArray(series.value) ? { ...series, values: [series.value] } : series
+    }) } : data
+    const metric = normalizeGcxQuery({ status: 'success', data: normalizedData }, durationMs)
     return { ...metric, resultKind: 'metrics', execution: { ...metric.execution!, provider: 'loki' } }
   }
   if (data.resultType !== 'streams') throw new Error(`Loki returned unexpected result kind "${data.resultType}".`)
@@ -110,8 +114,15 @@ export class GcxLokiTransport implements LokiTransport {
   async query(request: LokiQueryRequest): Promise<LokiQueryResult> {
     const kind = classifyLogql(request.expression)
     const started = Date.now()
-    const args = ['logs', kind === 'logs' ? 'query' : 'metrics', request.expression, ...this.contextArgs(), ...(this.datasourceUid ? ['--datasource', this.datasourceUid] : []), '--from', request.start, '--to', request.end, '--step', request.step, ...(kind === 'logs' ? ['--limit', String(request.limit + 1)] : []), '-o', 'json']
-    return normalizeLokiQuery(await this.json(args, `logs ${kind === 'logs' ? 'query' : 'metrics'}`), request, Date.now() - started, kind)
+    const args = kind === 'metrics' && this.datasourceUid
+      ? ['api', this.metricProxyPath(request), ...this.contextArgs(), '-o', 'json']
+      : ['logs', kind === 'logs' ? 'query' : 'metrics', request.expression, ...this.contextArgs(), ...(this.datasourceUid ? ['--datasource', this.datasourceUid] : []), '--from', request.start, '--to', request.end, '--step', request.step, ...(kind === 'logs' ? ['--limit', String(request.limit + 1)] : []), '-o', 'json']
+    return normalizeLokiQuery(await this.json(args, kind === 'metrics' ? 'Loki metric range query' : 'logs query'), request, Date.now() - started, kind)
+  }
+  private metricProxyPath(request: LokiQueryRequest): string {
+    if (!this.datasourceUid) throw new Error('Select a Loki datasource before querying metrics.')
+    const params = new URLSearchParams({ query: request.expression, start: request.start, end: request.end, step: request.step })
+    return `/api/datasources/proxy/uid/${encodeURIComponent(this.datasourceUid)}/loki/api/v1/query_range?${params}`
   }
   private proxyPath(endpoint: string, request: LokiMetadataRequest): string {
     if (!this.datasourceUid) throw new Error('Select a Loki datasource before exploring metadata.')

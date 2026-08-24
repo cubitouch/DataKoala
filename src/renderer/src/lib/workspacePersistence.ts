@@ -32,7 +32,7 @@ export interface QuerySessionDraft {
   lokiResultLimit: number
   lokiDisplayDirection: 'backward' | 'forward'
   lokiBreakdown: string | null
-  lokiResultView: 'list' | 'chart'
+  lokiResultView: 'list' | 'line' | 'area' | 'bar'
   lokiRangeHistory: BuilderTimeRange[]
   builder: BuilderQueryState
   sqlVisualization: VisualizationConfiguration
@@ -150,7 +150,12 @@ function parseLokiBuilder(value: unknown): LokiBuilderState {
   const labelOperators = ['=', '!=', '=~', '!~'] as const
   const lineOperators = ['|=', '!=', '|~', '!~'] as const
   const parserKinds = ['json', 'logfmt', 'pattern', 'regexp'] as const
-  const labelMatchers = Array.isArray(value.labelMatchers) ? value.labelMatchers.flatMap((matcher) => isRecord(matcher) && typeof matcher.label === 'string' && isOneOf(matcher.operator, labelOperators) && typeof matcher.value === 'string' ? [{ label: matcher.label, operator: matcher.operator, value: matcher.value }] : []) : []
+  const labelMatchers = Array.isArray(value.labelMatchers) ? value.labelMatchers.flatMap((matcher) => {
+    if (!isRecord(matcher) || typeof matcher.label !== 'string' || !isOneOf(matcher.operator, labelOperators) || typeof matcher.value !== 'string') return []
+    const values = matcher.values === undefined ? undefined : stringArray(matcher.values)
+    if (matcher.values !== undefined && !values) return []
+    return [{ label: matcher.label, operator: matcher.operator, value: matcher.value, ...(values ? { values: [...new Set(values)] } : {}) }]
+  }) : []
   const lineFilters = Array.isArray(value.lineFilters) ? value.lineFilters.flatMap((filter) => isRecord(filter) && isOneOf(filter.operator, lineOperators) && typeof filter.value === 'string' ? [{ operator: filter.operator, value: filter.value }] : []) : []
   const parsers = Array.isArray(value.parsers) ? value.parsers.flatMap((stage) => isRecord(stage) && isOneOf(stage.kind, parserKinds) && (stage.expression === undefined || typeof stage.expression === 'string') ? [{ kind: stage.kind, ...(typeof stage.expression === 'string' ? { expression: stage.expression } : {}) }] : []) : []
   const fieldFilters = Array.isArray(value.fieldFilters) ? value.fieldFilters.flatMap((filter) => isRecord(filter) && typeof filter.field === 'string' && isOneOf(filter.operator, labelOperators) && typeof filter.value === 'string' ? [{ field: filter.field, operator: filter.operator, value: filter.value }] : []) : []
@@ -349,7 +354,7 @@ function parseSession(value: unknown): QuerySessionDraft | null {
   const lokiResultLimit = typeof value.lokiResultLimit === 'number' && value.lokiResultLimit > 0 && value.lokiResultLimit <= 5000 ? value.lokiResultLimit : 1000
   const lokiDisplayDirection = isOneOf(value.lokiDisplayDirection, ['backward', 'forward'] as const) ? value.lokiDisplayDirection : 'backward'
   const lokiBreakdown = stringOrNull(value.lokiBreakdown) ?? null
-  const lokiResultView = isOneOf(value.lokiResultView, ['list', 'chart'] as const) ? value.lokiResultView : 'list'
+  const lokiResultView = value.lokiResultView === 'chart' ? 'line' : isOneOf(value.lokiResultView, ['list', 'line', 'area', 'bar'] as const) ? value.lokiResultView : 'list'
   const lokiRangeHistory = Array.isArray(value.lokiRangeHistory) ? value.lokiRangeHistory.map(timeRange).filter((item): item is BuilderTimeRange => item !== null) : []
   if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null || !prometheusTimeRange || !prometheusStep || !lokiTimeRange) return null
   const normalized = normalizeBuilderAxis(parsedBuilder, parsedBuilderVisualization)

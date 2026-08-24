@@ -18,7 +18,7 @@ describe('Loki trend brushing', () => {
   })
   it('activates line-X brushing and delivers a real chart brush event', () => {
     const selected = vi.fn()
-    render(<LokiTrendChart result={result} onRangeSelected={selected} />)
+    render(<LokiTrendChart result={result} view="line" onRangeSelected={selected} />)
     expect(mocks.dispatchAction).toHaveBeenCalledWith(expect.objectContaining({ type: 'takeGlobalCursor', brushOption: expect.objectContaining({ brushType: 'lineX' }) }))
     fireEvent.click(screen.getByRole('button', { name: 'Drag chart' }))
     expect(selected).toHaveBeenCalledWith({ startMs: 100, endMs: 2100 })

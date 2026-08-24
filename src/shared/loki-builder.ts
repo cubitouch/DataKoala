@@ -6,14 +6,19 @@ export function isValidLokiLabelName(value: string): boolean { return LABEL_NAME
 export function escapeLogqlString(value: string): string {
   return JSON.stringify(value).replace(/\u2028|\u2029/g, (character) => character === '\u2028' ? '\\u2028' : '\\u2029')
 }
+export function escapeLogqlRegexValue(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
+function matcherExpression({ label, operator, value, values }: LokiLabelMatcher): string | null {
+  const unique = [...new Set((values ?? [value]).filter((item) => item !== ''))]
+  if (!label.trim() || !unique.length) return null
+  if (!isValidLokiLabelName(label)) throw new Error(`Invalid Loki label name: ${label}`)
+  if (values && unique.length > 1) return `${label}=~${escapeLogqlString(`^(?:${unique.map(escapeLogqlRegexValue).join('|')})$`)}`
+  if (values) return `${label}=${escapeLogqlString(unique[0])}`
+  return `${label}${operator}${escapeLogqlString(value)}`
+}
 export function buildLokiQuery(state: LokiBuilderState): string {
-  const complete = state.labelMatchers.filter(({ label, value }) => label.trim() && value !== '')
+  const complete = state.labelMatchers.map(matcherExpression).filter((value): value is string => Boolean(value))
   if (!complete.length) throw new Error('Choose a value for at least one indexed label.')
-  const matchers = complete.map(({ label, operator, value }) => {
-    if (!isValidLokiLabelName(label)) throw new Error(`Invalid Loki label name: ${label}`)
-    return `${label}${operator}${escapeLogqlString(value)}`
-  })
-  let query = `{${matchers.join(', ')}}`
+  let query = `{${complete.join(', ')}}`
   for (const filter of state.lineFilters) query += ` ${filter.operator} ${escapeLogqlString(filter.value)}`
   for (const stage of state.parsers) {
     query += ` | ${stage.kind}`
@@ -44,10 +49,7 @@ export function logqlResultKind(query: string): 'logs' | 'metrics' {
   return kind
 }
 export function selectorWithoutMatcher(matchers: LokiLabelMatcher[], excludedLabel: string): string | undefined {
-  const remaining = matchers.filter(({ label, value }) => label !== excludedLabel && label.trim() && value !== '')
+  const remaining = matchers.filter(({ label }) => label !== excludedLabel).map(matcherExpression).filter((value): value is string => Boolean(value))
   if (!remaining.length) return undefined
-  return `{${remaining.map(({ label, operator, value }) => {
-    if (!isValidLokiLabelName(label)) throw new Error(`Invalid Loki label name: ${label}`)
-    return `${label}${operator}${escapeLogqlString(value)}`
-  }).join(', ')}}`
+  return `{${remaining.join(', ')}}`
 }
