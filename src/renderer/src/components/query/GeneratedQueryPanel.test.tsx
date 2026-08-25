@@ -23,7 +23,7 @@ describe('GeneratedQueryPanel', () => {
   beforeEach(() => { copyTextToClipboard.mockReset(); codeMirrorProps.mockReset() })
   afterEach(cleanup)
 
-  it('owns disclosure, preview, copy, supplementary content and open-in-editor behavior', async () => {
+  it('owns disclosure, preview, collapsed actions, supplementary content and open-in-editor behavior', async () => {
     copyTextToClipboard.mockResolvedValue(undefined)
     const onOpenInEditor = vi.fn()
     const query = '{ resource.service.name = "checkout" }'
@@ -38,24 +38,26 @@ describe('GeneratedQueryPanel', () => {
     const details = screen.getByText('Generated TraceQL').closest('details') as HTMLDetailsElement
     expect(details.open).toBe(false)
 
+    fireEvent.click(screen.getByRole('button', { name: 'Copy TraceQL to clipboard' }))
+    await waitFor(() => expect(copyTextToClipboard).toHaveBeenCalledWith(query))
+    expect(details.open).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
+    expect(onOpenInEditor).toHaveBeenCalledOnce()
+    expect(details.open).toBe(false)
+
     fireEvent.click(details.querySelector('summary') as HTMLElement)
     expect(details.open).toBe(true)
     expect((screen.getByLabelText('Generated TraceQL query') as HTMLTextAreaElement).value).toBe(query)
     expect(screen.getByText('Additional generated-query context')).toBeTruthy()
     expect(codeMirrorProps).toHaveBeenCalledWith(expect.objectContaining({ height: '150px', basicSetup: expect.objectContaining({ lineNumbers: true }) }))
-
-    fireEvent.click(screen.getByRole('button', { name: 'Copy TraceQL to clipboard' }))
-    await waitFor(() => expect(copyTextToClipboard).toHaveBeenCalledWith(query))
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
-    expect(onOpenInEditor).toHaveBeenCalledOnce()
-    expect(details.open).toBe(true)
   })
 
   it('renders validation and empty states and disables open without a query', () => {
     const { rerender } = render(<GeneratedQueryPanel language="PromQL" value="" validation="Choose a histogram representation." onOpenInEditor={vi.fn()} />)
     expect(screen.getByRole('status').textContent).toContain('Choose a histogram representation.')
     expect(screen.getByRole('button', { name: 'Open in PromQL mode' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: 'Copy PromQL to clipboard' }).hasAttribute('disabled')).toBe(true)
 
     rerender(<GeneratedQueryPanel language="SQL" value="" emptyState="Select a table and X axis to preview SQL." />)
     expect(screen.getByText('Select a table and X axis to preview SQL.')).toBeTruthy()
