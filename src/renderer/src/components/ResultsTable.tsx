@@ -64,6 +64,7 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
     setScrollTop(0)
     if (scrollRef.current) scrollRef.current.scrollTop = 0
   }, [mode, resultRevision, result])
+  useEffect(() => { setJsonTarget(null) }, [sortCol, sortDir, filter, activeFilters])
 
   useLayoutEffect(() => {
     const element = scrollRef.current

@@ -6,7 +6,10 @@ import { quickRanges } from '../../lib/customTimeRange'
 
 export const PRESETS: { section: string; items: { id: string; label: string; range: BuilderTimeRange }[] }[] = [
   { section: 'Rolling', items: [
+    { id: '15-minute', label: 'Last 15 minutes', range: { kind: 'rolling', amount: 15, unit: 'minute' } },
+    { id: '30-minute', label: 'Last 30 minutes', range: { kind: 'rolling', amount: 30, unit: 'minute' } },
     { id: '1-hour', label: 'Last hour', range: { kind: 'rolling', amount: 1, unit: 'hour' } },
+    { id: '3-hour', label: 'Last 3 hours', range: { kind: 'rolling', amount: 3, unit: 'hour' } },
     { id: '6-hour', label: 'Last 6 hours', range: { kind: 'rolling', amount: 6, unit: 'hour' } },
     { id: '12-hour', label: 'Last 12 hours', range: { kind: 'rolling', amount: 12, unit: 'hour' } },
     { id: '24-hour', label: 'Last day', range: { kind: 'rolling', amount: 24, unit: 'hour' } },

@@ -13,7 +13,7 @@ export type CardinalityProbePredicate =
   | { column: string; operator: 'isNull' | 'isNotNull' }
   | { column: string; operator: 'range'; startInclusive: string; endExclusive: string; temporalType?: 'date' | 'datetime' | 'timestamp' }
   | { column: string; operator: 'gte' | 'lt'; value: string; temporalType?: 'date' | 'datetime' | 'timestamp' }
-  | { column: string; operator: 'rolling'; amount: 1 | 3 | 6 | 7 | 12 | 24 | 30; unit: 'hour' | 'day' | 'month'; temporalType?: 'date' | 'datetime' | 'timestamp' }
+  | { column: string; operator: 'rolling'; amount: 1 | 3 | 6 | 7 | 12 | 15 | 24 | 30; unit: 'minute' | 'hour' | 'day' | 'month'; temporalType?: 'date' | 'datetime' | 'timestamp' }
 
 export interface SeriesCardinalityProbeRequest {
   schema: string

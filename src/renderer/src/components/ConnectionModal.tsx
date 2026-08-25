@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 void React
-import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, PrometheusProfile, SqliteFileProfile, TempoProfile } from '../../../shared/types'
+import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, LokiProfile, PrometheusProfile, SqliteFileProfile, TempoProfile } from '../../../shared/types'
+import type { LokiDatasourceOption } from '../../../shared/loki'
 import type { PrometheusDatasourceOption } from '../../../shared/prometheus'
 import { parseConnectionString, buildConnectionString, DEFAULT_PORT } from '../../../shared/connString'
 import { api } from '../lib/api'
@@ -28,7 +29,7 @@ export interface ConnectionSourceDescriptor {
   label: string
   description: string
   hint: string
-  icon: 'postgresql' | 'duckdb' | 'sqlite' | 'bigquery' | 'prometheus' | 'tempo' | 'excel'
+  icon: 'postgresql' | 'duckdb' | 'sqlite' | 'bigquery' | 'prometheus' | 'tempo' | 'loki' | 'excel'
   status: 'available' | 'coming-soon'
   supportsCreate: boolean
 }
@@ -40,6 +41,7 @@ export const CONNECTION_SOURCE_DESCRIPTORS: readonly ConnectionSourceDescriptor[
   { kind: 'bigquery', label: 'BigQuery', description: 'Use Google ADC credentials to browse and query datasets.', hint: 'Cloud data warehouse', icon: 'bigquery', status: 'available', supportsCreate: true },
   { kind: 'prometheus', label: 'Prometheus', description: 'Discover Grafana Cloud metrics through your existing gcx login.', hint: 'Metrics via gcx', icon: 'prometheus', status: 'available', supportsCreate: true },
   { kind: 'tempo', label: 'Tempo', description: 'Search and inspect distributed traces through your existing gcx login.', hint: 'Traces via gcx', icon: 'tempo', status: 'available', supportsCreate: true },
+  { kind: 'loki', label: 'Loki', description: 'Explore Grafana Loki logs through your existing gcx login.', hint: 'Logs via gcx', icon: 'loki', status: 'available', supportsCreate: true },
   { kind: 'excel', label: 'Excel', description: 'Explore workbook sheets as tables.', hint: 'Coming soon', icon: 'excel', status: 'coming-soon', supportsCreate: false }
 ]
 
@@ -52,6 +54,7 @@ function SourceIcon({ type }: { type: ConnectionSourceDescriptor['icon'] }) {
   if (type === 'bigquery') return <svg {...common}><circle cx="10.8" cy="10.8" r="7.2"/><path d="m16.1 16.1 4.3 4.3M7.6 13.8v-3M10.8 13.8V7.5M14 13.8V9.4"/></svg>
   if (type === 'prometheus') return <svg {...common}><path d="M12 3v4M6.3 5.3l2.8 2.8M17.7 5.3l-2.8 2.8M4 11h4M16 11h4"/><path d="M7 13a5 5 0 0 0 10 0M9 18h6M10 21h4"/></svg>
   if (type === 'tempo') return <svg {...common}><path d="M4 6h5M4 12h8M4 18h4"/><circle cx="12" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="11" cy="18" r="2"/><path d="m13.5 7.5 1 2.5M14 13.7l-2 2.6"/></svg>
+  if (type === 'loki') return <svg {...common}><path d="M5 5h14M5 10h14M5 15h14M5 20h9"/><circle cx="8" cy="5" r="1"/><circle cx="16" cy="10" r="1"/></svg>
   return <svg {...common}><path d="M8 4h11v16H8M8 8h11M8 12h11M8 16h11M13 8v12"/><path d="M3 7h7v10H3Z" fill="currentColor" stroke="none"/><path d="m5 10 3 4M8 10l-3 4" stroke="var(--bg-3)"/></svg>
 }
 
@@ -271,13 +274,116 @@ function TempoConnectionModal({ existing, onClose, onSaved, onBack }: FormProps 
   return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="tempo-connection-title" onClick={(event) => event.stopPropagation()}><ConnectionFormHeader kind="tempo" editing={!!existing} onBack={onBack} /><div className={[styles.field].join(' ')}><label htmlFor="tempo-name">Connection name</label><input id="tempo-name" value={name} onChange={(event) => setName(event.target.value)} /></div><div className={[styles.field].join(' ')}><label>Connection method</label><div className={[styles.connPreview].join(' ')}>Grafana Tempo via gcx</div></div><div className={[styles.field].join(' ')}><label htmlFor="tempo-context">gcx context <span className={[styles.opt].join(' ')}>— optional</span></label><input id="tempo-context" value={context} onChange={(event) => setContext(event.target.value)} placeholder="Current gcx context" /><div className={[styles.pasteHint].join(' ')}>Leave blank to use the current authenticated gcx context. Set a context when you keep multiple Grafana stacks configured.</div></div><div className={[styles.testMsg, styles.info].join(' ')}>Tempo remains a separate DataKoala datasource from Prometheus even when both reuse the same gcx authentication. This lets tabs stay independently attached to metrics or traces.</div>{message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}<div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>{busy ? 'Testing…' : 'Test trace access'}</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div></div></div>
 }
 
+
+export function LokiConnectionModal({ existing, onClose, onSaved, onBack, active = true }: FormProps & { existing: LokiProfile | null }) {
+  type DiscoveryState = 'idle' | 'discovering' | 'ready' | 'empty' | 'error'
+  const savedUid = existing?.transport.datasourceUid ?? ''
+  const [name, setName] = useState(existing?.name ?? 'Loki')
+  const [context, setContext] = useState(existing?.transport.context ?? '')
+  const [selectedUid, setSelectedUid] = useState(savedUid)
+  const [manualUid, setManualUid] = useState('')
+  const [manualOpen, setManualOpen] = useState(false)
+  const [datasources, setDatasources] = useState<LokiDatasourceOption[]>([])
+  const [discoveryState, setDiscoveryState] = useState<DiscoveryState>('idle')
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null)
+  const [savedDatasourceMissing, setSavedDatasourceMissing] = useState(false)
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const discoveryRevision = useRef(0)
+  const discoveredContext = useRef<string | null>(null)
+  const manualUidRef = useRef('')
+  const savedFallbackRef = useRef(false)
+  const effectiveUid = selectedUid.trim() || manualUid.trim()
+  const selectedDatasource = datasources.find((source) => source.uid === selectedUid)
+  const contextLabel = context.trim() || 'Current gcx context'
+  const transport = () => ({ kind: 'gcx' as const, ...(context.trim() ? { context: context.trim() } : {}), ...(effectiveUid ? { datasourceUid: effectiveUid } : {}) })
+  const profile = (): LokiProfile => ({ kind: 'loki', version: 1, id: existing?.id ?? '', name: name.trim(), readonly: true, transport: transport() })
+
+  const discover = async (nextContext = context.trim(), preserveSaved = false) => {
+    const revision = ++discoveryRevision.current
+    const previousContext = discoveredContext.current
+    const contextChanged = previousContext !== null && previousContext !== nextContext
+    const manualForRequest = contextChanged ? '' : manualUidRef.current.trim()
+    const protectSaved = !contextChanged && Boolean(savedUid) && (preserveSaved || savedFallbackRef.current)
+    discoveredContext.current = nextContext
+    setDiscoveryState('discovering'); setDiscoveryError(null); setSavedDatasourceMissing(false); setDatasources([]); setSelectedUid(''); setMessage(null)
+    if (contextChanged) { manualUidRef.current = ''; savedFallbackRef.current = false; setManualUid(''); setManualOpen(false) }
+    try {
+      const found = await api.connections.loki.discover({ kind: 'gcx', ...(nextContext ? { context: nextContext } : {}) })
+      if (revision !== discoveryRevision.current) return
+      setDatasources(found)
+      const savedFound = protectSaved && found.some((source) => source.uid === savedUid)
+      if (savedFound) {
+        setSelectedUid(savedUid); setManualUid(''); manualUidRef.current = ''; savedFallbackRef.current = false; setManualOpen(false)
+      } else if (protectSaved) {
+        setManualUid(savedUid); manualUidRef.current = savedUid; savedFallbackRef.current = true; setSavedDatasourceMissing(true); setManualOpen(true)
+      } else if (manualForRequest) {
+        setManualUid(manualForRequest); manualUidRef.current = manualForRequest; setManualOpen(true)
+      } else {
+        setSelectedUid(found.length === 1 ? found[0].uid : '')
+        if (found.length > 0) setManualOpen(false)
+      }
+      if (found.length === 0) { setDiscoveryState('empty'); setManualOpen(true) } else setDiscoveryState('ready')
+    } catch (caught) {
+      if (revision !== discoveryRevision.current) return
+      if (protectSaved) { setManualUid(savedUid); manualUidRef.current = savedUid; savedFallbackRef.current = true; setSavedDatasourceMissing(true) }
+      else if (manualForRequest) { setManualUid(manualForRequest); manualUidRef.current = manualForRequest }
+      setDiscoveryState('error'); setDiscoveryError(failureMessage(caught)); setManualOpen(true)
+    }
+  }
+
+  useEffect(() => { if (active) void discover(context.trim(), true); return () => { discoveryRevision.current += 1 } }, [active])
+  const refreshForContext = () => { if (active && discoveredContext.current !== context.trim()) void discover(context.trim()) }
+  const chooseDatasource = (uid: string) => { setSelectedUid(uid); if (uid) { setManualUid(''); manualUidRef.current = ''; savedFallbackRef.current = false; setSavedDatasourceMissing(false); setManualOpen(false) } setMessage(null) }
+  const enterManualUid = (uid: string) => { setManualUid(uid); manualUidRef.current = uid; savedFallbackRef.current = uid.trim() === savedUid && Boolean(savedUid); if (uid.trim()) setSelectedUid(''); setMessage(null) }
+  const missingDatasourceMessage = datasources.length > 1 ? 'Choose one of the discovered Loki datasources before continuing.' : 'Choose a Loki datasource before continuing.'
+  const test = async () => {
+    if (!effectiveUid) return setMessage({ ok: false, text: missingDatasourceMessage })
+    setBusy(true); setMessage(null)
+    try {
+      const result = await api.connections.test(profile())
+      const datasourceName = selectedDatasource?.name ?? 'the manually configured Loki datasource'
+      setMessage(result.ok ? { ok: true, text: `Connected — ${datasourceName} is available through ${contextLabel}.` } : { ok: false, text: result.error })
+    } catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }) } finally { setBusy(false) }
+  }
+  const save = async () => {
+    if (!name.trim()) return setMessage({ ok: false, text: 'Connection name is required.' })
+    if (!effectiveUid) return setMessage({ ok: false, text: missingDatasourceMessage })
+    setBusy(true)
+    try { onSaved(await api.connections.upsert(profile())); onClose() } catch (caught) { setMessage({ ok: false, text: failureMessage(caught) }); setBusy(false) }
+  }
+  const datasourceOptions = datasources.map((source) => ({ value: source.uid, label: source.name, subtitle: `${source.type} · ID ${source.uid}` }))
+  const discoveryMessage = discoveryState === 'discovering' ? 'Discovering Loki datasources…'
+    : discoveryState === 'ready' && datasources.length === 1 ? `One Loki datasource found in ${contextLabel} and selected automatically.`
+      : discoveryState === 'ready' ? `${datasources.length} Loki datasources found in ${contextLabel}. Choose the one you want to explore.`
+        : discoveryState === 'empty' ? `No Loki datasource found in ${contextLabel}.`
+          : null
+  const canUseDatasource = Boolean(effectiveUid) && discoveryState !== 'discovering'
+
+  return <div className={styles.modalOverlay} onClick={onClose}><div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="loki-connection-title" onClick={(event) => event.stopPropagation()}>
+    <ConnectionFormHeader kind="loki" editing={!!existing} onBack={onBack} />
+    <div className={styles.field}><label htmlFor="loki-name">Connection name</label><input id="loki-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
+    <div className={styles.field}><label htmlFor="loki-context">gcx context <span className={styles.opt}>— optional</span></label><input id="loki-context" value={context} onChange={(event) => setContext(event.target.value)} onBlur={refreshForContext} placeholder="Current gcx context" /><div className={styles.pasteHint}>Discovering from: <strong>{contextLabel}</strong>. Change the context, then leave this field or use Discover again.</div></div>
+    <div className={styles.field}><div className={styles.discoveryHeading}><label>Loki datasource</label><button type="button" className="btn ghost" onClick={() => void discover(context.trim())} disabled={discoveryState === 'discovering'}>{discoveryState === 'idle' ? 'Discover' : 'Discover again'}</button></div><Combobox label="Loki datasource" value={selectedUid} options={datasourceOptions} onChange={chooseDatasource} searchable disabled={discoveryState === 'discovering' || datasources.length === 0} loading={discoveryState === 'discovering'} placeholder={datasources.length > 1 ? 'Choose a Loki datasource' : 'No datasource selected'} emptyMessage="No Loki datasources discovered" />
+      {discoveryMessage && <div className={styles.discoveryStatus} role="status">{discoveryMessage}</div>}
+      {discoveryState === 'error' && <div className={[styles.testMsg, styles.err].join(' ')} role="alert"><strong>Datasource discovery failed.</strong> {discoveryError}<br />Check that gcx is installed. Run <code>gcx login</code>, or re-authenticate {context.trim() ? `the ${context.trim()} context` : 'your current gcx context'}.</div>}
+      {savedDatasourceMissing && <div className={styles.fieldError} role="status">The saved Loki datasource was not found in {contextLabel}. Its saved ID remains available under Advanced, or choose a different discovered datasource deliberately.</div>}
+      {datasources.length > 1 && !selectedUid && !manualUid.trim() && <div className={styles.fieldError}>Selection required: choose one of the discovered Loki datasources.</div>}
+    </div>
+    <details className={styles.bqAdvanced} open={manualOpen}><summary onClick={(event) => { event.preventDefault(); setManualOpen((current) => !current) }}>Advanced — enter a datasource UID manually</summary><div className={styles.field}><label htmlFor="loki-uid">Datasource UID</label><input id="loki-uid" value={manualUid} onChange={(event) => enterManualUid(event.target.value)} placeholder="Enter a datasource UID" /><div className={styles.pasteHint}>Use this only when authenticated discovery cannot list the datasource.</div></div></details>
+    <div className={[styles.testMsg, styles.info].join(' ')}>Uses your existing gcx authentication. DataKoala never reads, copies, or stores Grafana credentials.</div>
+    {message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
+    <div className={styles.actions}><button type="button" className="btn ghost" onClick={() => void test()} disabled={busy || !canUseDatasource}>{busy ? 'Testing…' : 'Test datasource'}</button><button type="button" className="btn ghost" onClick={onClose}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={busy || !canUseDatasource}>{busy ? 'Working…' : 'Save'}</button></div>
+  </div></div>
+}
+
 export function ConnectionModal(props: Props) {
   const [kind, setKind] = useState<DataSourceProfile['kind'] | null>(props.existing?.kind ?? null)
   const [visited, setVisited] = useState<DataSourceKind[]>([])
   if (!props.existing) {
     const select = (next: DataSourceKind) => { setVisited((current) => current.includes(next) ? current : [...current, next]); setKind(next) }
     const onPickerKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => { if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) return; event.preventDefault(); const cards = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')); const index = Math.max(0, cards.indexOf(document.activeElement as HTMLButtonElement)); cards[(index + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : cards.length - 1)) % cards.length]?.focus() }
-    return <>{!kind && <div className={[styles.modalOverlay].join(' ')} onClick={props.onClose}><div className={[styles.modal, styles.connectionPicker].join(' ')} role="dialog" aria-modal="true" aria-labelledby="connection-picker-title" onClick={(event) => event.stopPropagation()}><div className={[styles.wizardSteps].join(' ')}>Step 1 of 2 · Source</div><h2 id="connection-picker-title">Choose a connection type</h2><p className={[styles.connectionPickerIntro].join(' ')}>Select where your data lives. You can return here before saving.</p><div className={[styles.connectionSourceGrid].join(' ')} role="radiogroup" aria-label="Connection types" onKeyDown={onPickerKeyDown}>{CONNECTION_SOURCE_DESCRIPTORS.map((source, index) => { const disabled = !source.supportsCreate; return <button key={source.kind} type="button" role="radio" aria-checked="false" aria-disabled={disabled} disabled={disabled} tabIndex={disabled ? -1 : index === 0 ? 0 : -1} className={[styles.connectionSourceCard].join(' ')} onClick={() => !disabled && select(source.kind as DataSourceKind)}><span className={[styles.sourceIcon].join(' ')}><SourceIcon type={source.icon} /></span><span className={[styles.sourceCardCopy].join(' ')}><strong>{source.label}</strong><span>{source.description}</span><small>{source.hint}</small></span></button> })}</div><div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={props.onClose}>Cancel</button></div></div></div>}{visited.map((item) => <div key={item} className={kind === item ? undefined : styles.wizardFormHidden} aria-hidden={kind !== item}>{item === 'postgres' ? <PostgresConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'local-files' ? <LocalFilesConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'bigquery' ? <BigQueryConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'tempo' ? <TempoConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : <PrometheusConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />}</div>)}</>
+    return <>{!kind && <div className={[styles.modalOverlay].join(' ')} onClick={props.onClose}><div className={[styles.modal, styles.connectionPicker].join(' ')} role="dialog" aria-modal="true" aria-labelledby="connection-picker-title" onClick={(event) => event.stopPropagation()}><div className={[styles.wizardSteps].join(' ')}>Step 1 of 2 · Source</div><h2 id="connection-picker-title">Choose a connection type</h2><p className={[styles.connectionPickerIntro].join(' ')}>Select where your data lives. You can return here before saving.</p><div className={[styles.connectionSourceGrid].join(' ')} role="radiogroup" aria-label="Connection types" onKeyDown={onPickerKeyDown}>{CONNECTION_SOURCE_DESCRIPTORS.map((source, index) => { const disabled = !source.supportsCreate; return <button key={source.kind} type="button" role="radio" aria-checked="false" aria-disabled={disabled} disabled={disabled} tabIndex={disabled ? -1 : index === 0 ? 0 : -1} className={[styles.connectionSourceCard].join(' ')} onClick={() => !disabled && select(source.kind as DataSourceKind)}><span className={[styles.sourceIcon].join(' ')}><SourceIcon type={source.icon} /></span><span className={[styles.sourceCardCopy].join(' ')}><strong>{source.label}</strong><span>{source.description}</span><small>{source.hint}</small></span></button> })}</div><div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={props.onClose}>Cancel</button></div></div></div>}{visited.map((item) => <div key={item} className={kind === item ? undefined : styles.wizardFormHidden} aria-hidden={kind !== item}>{item === 'postgres' ? <PostgresConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'local-files' ? <LocalFilesConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'bigquery' ? <BigQueryConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'tempo' ? <TempoConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : item === 'loki' ? <LokiConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} /> : <PrometheusConnectionModal {...props} existing={null} active={kind === item} onBack={() => setKind(null)} />}</div>)}</>
   }
-  return props.existing.kind === 'local-files' ? <LocalFilesConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'bigquery' ? <BigQueryConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'prometheus' ? <PrometheusConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'tempo' ? <TempoConnectionModal {...props} existing={props.existing} /> : <PostgresConnectionModal {...props} existing={props.existing as ConnectionProfile} />
+  return props.existing.kind === 'local-files' ? <LocalFilesConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'sqlite-file' ? <SqliteFileConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'bigquery' ? <BigQueryConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'prometheus' ? <PrometheusConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'tempo' ? <TempoConnectionModal {...props} existing={props.existing} /> : props.existing.kind === 'loki' ? <LokiConnectionModal {...props} existing={props.existing} /> : <PostgresConnectionModal {...props} existing={props.existing as ConnectionProfile} />
 }

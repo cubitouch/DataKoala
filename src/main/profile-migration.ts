@@ -33,7 +33,7 @@ function isBigQueryV1(stored: Record<string, unknown>): boolean {
     (stored.defaultDataset === undefined || typeof stored.defaultDataset === 'string') &&
     (stored.location === undefined || typeof stored.location === 'string')
 }
-function isGcxSignalV1(stored: Record<string, unknown>, kind: 'prometheus' | 'tempo'): boolean {
+function isGcxSignalV1(stored: Record<string, unknown>, kind: 'prometheus' | 'tempo' | 'loki'): boolean {
   if (stored.kind !== kind || stored.version !== 1 || stored.readonly !== true ||
     typeof stored.id !== 'string' || typeof stored.name !== 'string' || !stored.transport || typeof stored.transport !== 'object') return false
   const transport = stored.transport as Record<string, unknown>
@@ -58,5 +58,6 @@ export function migrateStoredProfile(stored: Record<string, unknown>): StoredPro
   if (isBigQueryV1(stored)) return { status: 'current', profile: stored as unknown as DataSourceProfile, stored }
   if (isGcxSignalV1(stored, 'prometheus')) return { status: 'current', profile: stored as unknown as DataSourceProfile, stored }
   if (isGcxSignalV1(stored, 'tempo')) return { status: 'current', profile: stored as unknown as DataSourceProfile, stored }
+  if (isGcxSignalV1(stored, 'loki')) return { status: 'current', profile: stored as unknown as DataSourceProfile, stored }
   return { status: 'unsupported', stored }
 }

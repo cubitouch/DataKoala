@@ -1,11 +1,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { copyTextToClipboard } from '../../lib/clipboardText'
 import { normalizeJsonCellValue } from '../../lib/jsonCell'
-import { Popover, usePopover } from '../ui/Popover'
+import { Modal } from '../ui/Modal'
 import styles from './JsonCellExplorer.module.css'
 
-function JsonCellExplorerContent({ columnLabel, value, onClose }: { columnLabel: string; value: unknown; onClose: () => void }) {
-  const titleId = useId()
+function JsonCellExplorerContent({ titleId, columnLabel, rowNumber, value, onClose }: { titleId: string; columnLabel: string; rowNumber: number; value: unknown; onClose: () => void }) {
   const contentRef = useRef<HTMLPreElement>(null)
   const normalized = useMemo(() => normalizeJsonCellValue(value), [value])
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle')
@@ -18,7 +17,7 @@ function JsonCellExplorerContent({ columnLabel, value, onClose }: { columnLabel:
   }
   return <section className={styles.explorer} aria-labelledby={titleId}>
     <div className={styles.header}>
-      <h2 id={titleId}>JSON · {columnLabel}</h2>
+      <div className={styles.title}><h2 id={titleId}>JSON · {columnLabel}</h2><span>Row {rowNumber}</span></div>
       <button type="button" className="btn ghost" onClick={copy}>{copyState === 'copied' ? 'Copied' : 'Copy JSON'}</button>
       <button type="button" className={styles.close} aria-label="Close JSON explorer" onClick={onClose}>×</button>
     </div>
@@ -29,23 +28,9 @@ function JsonCellExplorerContent({ columnLabel, value, onClose }: { columnLabel:
   </section>
 }
 
-function ContentWithClose({ columnLabel, value }: { columnLabel: string; value: unknown }) {
-  const popover = usePopover()
-  return <JsonCellExplorerContent columnLabel={columnLabel} value={value} onClose={() => popover?.close()} />
-}
-
 export function JsonCellExplorer({ columnLabel, rowNumber, value, open, onOpenChange, invalidationKey }: { columnLabel: string; rowNumber: number; value: unknown; open: boolean; onOpenChange: (open: boolean) => void; invalidationKey: unknown }) {
-  return <Popover
-    className={styles.popover}
-    contentClassName={styles.popoverContent}
-    contentRole="dialog"
-    popupType="dialog"
-    ariaLabel={`Explore JSON in ${columnLabel}, row ${rowNumber}`}
-    trigger={<span aria-hidden="true">⌕</span>}
-    open={open}
-    onOpenChange={(next) => onOpenChange(next)}
-    invalidationKey={invalidationKey}
-    maxHeight={720}
-    focusOptionsOnKeyboardOpen={false}
-  ><ContentWithClose columnLabel={columnLabel} value={value} /></Popover>
+  const titleId = useId(), trigger = useRef<HTMLButtonElement>(null)
+  useEffect(() => { if (open) onOpenChange(false) }, [invalidationKey])
+  return <><button ref={trigger} type="button" className={styles.trigger} aria-label={`Explore JSON in ${columnLabel}, row ${rowNumber}`} aria-expanded={open} onClick={() => onOpenChange(!open)}><span aria-hidden="true">⌕</span></button>
+    <Modal open={open} onClose={() => onOpenChange(false)} labelledBy={titleId} returnFocusRef={trigger}><JsonCellExplorerContent titleId={titleId} columnLabel={columnLabel} rowNumber={rowNumber} value={value} onClose={() => onOpenChange(false)} /></Modal></>
 }

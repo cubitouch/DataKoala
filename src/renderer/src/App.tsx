@@ -6,6 +6,7 @@ import { selectActiveSession, useStore } from './store/useStore'
 import { BuilderPanel } from './components/BuilderPanel'
 import { ResultExplorer } from './components/ResultExplorer'
 import { TraceExplorer } from './components/TraceExplorer'
+import { LokiExplorer } from './components/LokiExplorer'
 import { QueryTabs } from './components/QueryTabs'
 import { ConnectionStatus } from './components/ConnectionStatus'
 import {
@@ -56,6 +57,7 @@ export function App() {
   const queryProfileLoading = Boolean(tabConnectionId && !tabProfile)
   const querySurfaceBlocked = queryProfileLoading
   const tempoWorkspace = tabProfile?.kind === 'tempo' && !querySurfaceBlocked
+  const lokiWorkspace = tabProfile?.kind === 'loki' && !querySurfaceBlocked
 
   const currentSidebarBounds = () => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth)
   const currentEditorBounds = () => editorBounds(mainRef.current?.clientHeight ?? window.innerHeight - TITLEBAR_HEIGHT)
@@ -158,6 +160,7 @@ export function App() {
             style={{ '--editor-height': `${editorHeight}px` } as React.CSSProperties}>
             {queryProfileLoading ? <div className={`query-unavailable ${styles.queryUnavailable}`} role="status" aria-label="Loading connection…">Loading datasource…</div>
               : tempoWorkspace ? <TraceExplorer connectionId={tabConnectionId!} />
+                : lokiWorkspace ? <LokiExplorer connectionId={tabConnectionId!} />
                 : <>{effectiveMode === 'sql' ? <><QueryEditor builderMode={prometheusBuilder} /><div className={`editor-resizer ${styles.resizer} ${styles.editorResizer}`} role="separator" aria-label="Resize query editor"
                   aria-orientation="horizontal" aria-valuemin={EDITOR_MIN} aria-valuemax={Math.max(EDITOR_MIN, currentEditorBounds().max)}
                   aria-valuenow={Math.round(editorHeight)} tabIndex={0} onPointerDown={beginResize('editor')}

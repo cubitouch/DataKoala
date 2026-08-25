@@ -19,11 +19,11 @@ export interface ConnectionStateEvent {
   activeOperationAffected?: boolean
 }
 
-export type DataSourceKind = 'postgres' | 'local-files' | 'sqlite-file' | 'bigquery' | 'prometheus' | 'tempo'
-export type QueryEngine = 'postgres' | 'duckdb' | 'bigquery' | 'prometheus' | 'tempo'
+export type DataSourceKind = 'postgres' | 'local-files' | 'sqlite-file' | 'bigquery' | 'prometheus' | 'tempo' | 'loki'
+export type QueryEngine = 'postgres' | 'duckdb' | 'bigquery' | 'prometheus' | 'tempo' | 'loki'
 export type SqlDialect = 'postgres' | 'duckdb' | 'google-sql'
-export type QueryLanguage = { kind: 'sql'; dialect: SqlDialect } | { kind: 'promql' } | { kind: 'traceql' }
-type SqlDataSourceKind = Exclude<DataSourceKind, 'prometheus' | 'tempo'>
+export type QueryLanguage = { kind: 'sql'; dialect: SqlDialect } | { kind: 'promql' } | { kind: 'traceql' } | { kind: 'logql' }
+type SqlDataSourceKind = Exclude<DataSourceKind, 'prometheus' | 'tempo' | 'loki'>
 
 export interface DataSourceDescriptor {
   sourceKind: DataSourceKind
@@ -41,12 +41,14 @@ export const DATA_SOURCE_DESCRIPTORS: Record<SqlDataSourceKind, DataSourceDescri
 export function sqlDialectForSourceKind(kind: DataSourceKind): SqlDialect {
   if (kind === 'prometheus') throw new Error('Prometheus does not use a SQL dialect.')
   if (kind === 'tempo') throw new Error('Tempo does not use a SQL dialect.')
+  if (kind === 'loki') throw new Error('Loki does not use a SQL dialect.')
   return DATA_SOURCE_DESCRIPTORS[kind].dialect
 }
 
 export function queryLanguageForSourceKind(kind: DataSourceKind): QueryLanguage {
   if (kind === 'prometheus') return { kind: 'promql' }
   if (kind === 'tempo') return { kind: 'traceql' }
+  if (kind === 'loki') return { kind: 'logql' }
   return { kind: 'sql', dialect: DATA_SOURCE_DESCRIPTORS[kind].dialect }
 }
 
@@ -99,6 +101,7 @@ export interface GcxSignalTransportConfig {
 
 export type PrometheusTransportConfig = GcxSignalTransportConfig
 export type TempoTransportConfig = GcxSignalTransportConfig
+export type LokiTransportConfig = GcxSignalTransportConfig
 
 export interface PrometheusProfile extends ProfileBase {
   kind: 'prometheus'
@@ -112,7 +115,13 @@ export interface TempoProfile extends ProfileBase {
   transport: TempoTransportConfig
 }
 
-export type DataSourceProfile = PostgresProfile | LocalFilesProfile | SqliteFileProfile | BigQueryProfile | PrometheusProfile | TempoProfile
+export interface LokiProfile extends ProfileBase {
+  kind: 'loki'
+  readonly: true
+  transport: LokiTransportConfig
+}
+
+export type DataSourceProfile = PostgresProfile | LocalFilesProfile | SqliteFileProfile | BigQueryProfile | PrometheusProfile | TempoProfile | LokiProfile
 /** @deprecated Prefer the discriminated DataSourceProfile union. */
 export type ConnectionProfile = PostgresProfile
 
@@ -168,7 +177,8 @@ export const DATA_SOURCE_CAPABILITIES: Record<DataSourceKind, DataSourceCapabili
   'sqlite-file': { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true },
   bigquery: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: true },
   prometheus: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false },
-  tempo: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false }
+  tempo: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false },
+  loki: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false }
 }
 
 export interface SourceInfo { label?: string; version?: string }

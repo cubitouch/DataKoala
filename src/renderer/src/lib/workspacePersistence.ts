@@ -4,6 +4,7 @@ import type { Aggregation, ResultView, ValueAxisScale, VisualizationConfiguratio
 import { deserializeResultFilters, type ResultFilter } from './resultFilters.ts'
 import type { AppState, BuilderQueryState, QueryMode, QuerySession, TimeBucket } from '../store/useStore.ts'
 import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from './promqlBuilder.ts'
+import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '../../../shared/loki.ts'
 
 export const WORKSPACE_STORAGE_KEY = 'datakoala.workspace.v2'
 const LEGACY_DATAKOALA_WORKSPACE_STORAGE_KEY = 'datakoala.workspace.v2'
@@ -26,6 +27,12 @@ export interface QuerySessionDraft {
   prometheusTimeRange: BuilderTimeRange
   prometheusStep: QuerySession['prometheusStep']
   promqlBuilder: PromqlBuilderState
+  lokiTimeRange: BuilderTimeRange
+  lokiBuilder: LokiBuilderState
+  lokiResultLimit: number
+  lokiGroupBy: string[]
+  lokiResultView: 'list' | 'table' | 'line' | 'area' | 'bar' | 'scatter' | 'treemap' | 'sunburst'
+  lokiRangeHistory: BuilderTimeRange[]
   builder: BuilderQueryState
   sqlVisualization: VisualizationConfiguration
   builderVisualization: VisualizationConfiguration
@@ -84,7 +91,8 @@ function timeRange(value: unknown): BuilderTimeRange | null {
   if (!isRecord(value)) return null
   if (value.kind === 'all') return { kind: 'all' }
   if (value.kind === 'rolling') {
-    if (value.unit === 'hour' && typeof value.amount === 'number' && [1, 6, 12, 24].includes(value.amount)) return { kind: 'rolling', amount: value.amount as 1 | 6 | 12 | 24, unit: 'hour' }
+    if (value.unit === 'minute' && typeof value.amount === 'number' && [15, 30].includes(value.amount)) return { kind: 'rolling', amount: value.amount as 15 | 30, unit: 'minute' }
+    if (value.unit === 'hour' && typeof value.amount === 'number' && [1, 3, 6, 12, 24].includes(value.amount)) return { kind: 'rolling', amount: value.amount as 1 | 3 | 6 | 12 | 24, unit: 'hour' }
     if (value.unit === 'day' && typeof value.amount === 'number' && [7, 30].includes(value.amount)) return { kind: 'rolling', amount: value.amount as 7 | 30, unit: 'day' }
     if (value.unit === 'month' && typeof value.amount === 'number' && [3, 6, 12].includes(value.amount)) return { kind: 'rolling', amount: value.amount as 3 | 6 | 12, unit: 'month' }
     return null
@@ -134,6 +142,23 @@ function parsePromqlBuilder(value: unknown): PromqlBuilderState {
     window: isOneOf(value.window, windows) ? value.window : '5m',
     percentile: typeof value.percentile === 'number' && quantiles.includes(value.percentile as typeof quantiles[number]) ? value.percentile as typeof quantiles[number] : 0.95
   }
+}
+
+function parseLokiBuilder(value: unknown): LokiBuilderState {
+  if (!isRecord(value)) return { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }
+  const labelOperators = ['=', '!=', '=~', '!~'] as const
+  const lineOperators = ['|=', '!=', '|~', '!~'] as const
+  const parserKinds = ['json', 'logfmt', 'pattern', 'regexp'] as const
+  const labelMatchers = Array.isArray(value.labelMatchers) ? value.labelMatchers.flatMap((matcher) => {
+    if (!isRecord(matcher) || typeof matcher.label !== 'string' || !isOneOf(matcher.operator, labelOperators) || typeof matcher.value !== 'string') return []
+    const values = matcher.values === undefined ? undefined : stringArray(matcher.values)
+    if (matcher.values !== undefined && !values) return []
+    return [{ label: matcher.label, operator: matcher.operator, value: matcher.value, ...(values ? { values: [...new Set(values)] } : {}) }]
+  }) : []
+  const lineFilters = Array.isArray(value.lineFilters) ? value.lineFilters.flatMap((filter) => isRecord(filter) && isOneOf(filter.operator, lineOperators) && typeof filter.value === 'string' ? [{ operator: filter.operator, value: filter.value }] : []) : []
+  const parsers = Array.isArray(value.parsers) ? value.parsers.flatMap((stage) => isRecord(stage) && isOneOf(stage.kind, parserKinds) && (stage.expression === undefined || typeof stage.expression === 'string') ? [{ kind: stage.kind, ...(typeof stage.expression === 'string' ? { expression: stage.expression } : {}) }] : []) : []
+  const fieldFilters = Array.isArray(value.fieldFilters) ? value.fieldFilters.flatMap((filter) => isRecord(filter) && typeof filter.field === 'string' && isOneOf(filter.operator, labelOperators) && typeof filter.value === 'string' ? [{ field: filter.field, operator: filter.operator, value: filter.value }] : []) : []
+  return { labelMatchers, lineFilters, parsers, fieldFilters }
 }
 
 /**
@@ -238,6 +263,12 @@ function sessionDraft(session: QuerySession): QuerySessionDraft {
     prometheusTimeRange: session.prometheusTimeRange,
     prometheusStep: session.prometheusStep,
     promqlBuilder: session.promqlBuilder,
+    lokiTimeRange: session.lokiTimeRange,
+    lokiBuilder: session.lokiBuilder,
+    lokiResultLimit: session.lokiResultLimit,
+    lokiGroupBy: session.lokiGroupBy,
+    lokiResultView: session.lokiResultView,
+    lokiRangeHistory: session.lokiRangeHistory,
     builder: normalized.builder,
     sqlVisualization: cloneVisualization(session.sqlVisualization),
     builderVisualization: normalized.visualization,
@@ -276,6 +307,12 @@ function serializedSession(tab: QuerySessionDraft): Record<string, unknown> {
     prometheusTimeRange: tab.prometheusTimeRange,
     prometheusStep: tab.prometheusStep,
     promqlBuilder: tab.promqlBuilder,
+    lokiTimeRange: tab.lokiTimeRange,
+    lokiBuilder: tab.lokiBuilder,
+    lokiResultLimit: tab.lokiResultLimit,
+    lokiGroupBy: tab.lokiGroupBy,
+    lokiResultView: tab.lokiResultView,
+    lokiRangeHistory: tab.lokiRangeHistory,
     builder: persistedBuilder,
     sqlVisualization: tab.sqlVisualization,
     builderVisualization: tab.builderVisualization,
@@ -309,9 +346,16 @@ function parseSession(value: unknown): QuerySessionDraft | null {
   const prometheusTimeRange = value.prometheusTimeRange === undefined ? { kind: 'rolling', amount: 1, unit: 'hour' } as const : timeRange(value.prometheusTimeRange)
   const prometheusStep = value.prometheusStep === undefined ? '30s' : isOneOf(value.prometheusStep, ['15s', '30s', '1m', '5m'] as const) ? value.prometheusStep : null
   const promqlBuilder = parsePromqlBuilder(value.promqlBuilder)
-  if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null || !prometheusTimeRange || !prometheusStep) return null
+  const lokiTimeRange = value.lokiTimeRange === undefined ? { kind: 'rolling', amount: 1, unit: 'hour' } as const : timeRange(value.lokiTimeRange)
+  const lokiBuilder = parseLokiBuilder(value.lokiBuilder)
+  const lokiResultLimit = typeof value.lokiResultLimit === 'number' && value.lokiResultLimit > 0 && value.lokiResultLimit <= 5000 ? value.lokiResultLimit : 1000
+  const legacyBreakdown = stringOrNull(value.lokiBreakdown)
+  const lokiGroupBy = [...new Set(Array.isArray(value.lokiGroupBy) ? value.lokiGroupBy.filter((item): item is string => typeof item === 'string' && item.length > 0 && !item.startsWith('__')) : legacyBreakdown && !legacyBreakdown.startsWith('__') ? [legacyBreakdown] : [])]
+  const lokiResultView = value.lokiResultView === 'chart' ? 'line' : isOneOf(value.lokiResultView, ['list', 'table', 'line', 'area', 'bar', 'scatter', 'treemap', 'sunburst'] as const) ? value.lokiResultView : 'list'
+  const lokiRangeHistory = Array.isArray(value.lokiRangeHistory) ? value.lokiRangeHistory.map(timeRange).filter((item): item is BuilderTimeRange => item !== null) : []
+  if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null || !prometheusTimeRange || !prometheusStep || !lokiTimeRange) return null
   const normalized = normalizeBuilderAxis(parsedBuilder, parsedBuilderVisualization)
-  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, promqlBuilder, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
+  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, promqlBuilder, lokiTimeRange, lokiBuilder, lokiResultLimit, lokiGroupBy, lokiResultView, lokiRangeHistory, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
 }
 
 export function parseWorkspaceDraft(raw: string | null): WorkspaceDraft | null {
@@ -343,7 +387,7 @@ function parseLegacyWorkspace(raw: string | null): WorkspaceDraft | null {
     const id = 'migrated-query-1'
     return {
       activeTabId: id,
-      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: '30s', promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} }, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
+      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: '30s', promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} }, lokiTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }, lokiResultLimit: 1000, lokiGroupBy: [], lokiResultView: 'list', lokiRangeHistory: [], builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
     }
   } catch {
     return null
@@ -381,6 +425,12 @@ function restoredSession(draft: QuerySessionDraft): QuerySession {
     prometheusTimeRange: draft.prometheusTimeRange,
     prometheusStep: draft.prometheusStep,
     promqlBuilder: draft.promqlBuilder,
+    lokiTimeRange: draft.lokiTimeRange,
+    lokiBuilder: draft.lokiBuilder,
+    lokiResultLimit: draft.lokiResultLimit,
+    lokiGroupBy: draft.lokiGroupBy,
+    lokiResultView: draft.lokiResultView,
+    lokiRangeHistory: draft.lokiRangeHistory,
     running: false,
     queryError: null,
     result: null,

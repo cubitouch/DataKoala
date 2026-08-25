@@ -3,6 +3,7 @@ import test from 'node:test'
 import { formatPostgresLiteral, generateBuilderQuery, generateBuilderSql, isBuilderTemporalDataType, materializeSqlParameters, TIME_BUCKETS } from './builderSql.ts'
 import { formatSqlOrOriginal } from './formatSql.ts'
 import { encodeBuilderSeriesTuple } from './resultVisualization.ts'
+import type { BuilderTimeRange } from './builderTimeRange.ts'
 
 test('Builder bucket options expose Minute', () => {
   assert.equal(TIME_BUCKETS[0], 'minute')
@@ -219,6 +220,27 @@ test('uses type-correct GoogleSQL DATE, DATETIME, and TIMESTAMP temporal express
   assert.match(generateBuilderSql({ dialect: 'google-sql', table: { schema: 'p.d', name: 't' }, xColumn: 'd', xColumnDataType: 'DATE', timeColumn: 'd', timeColumnDataType: 'DATE', timeBucket: 'month', timeRange: { kind: 'rolling', amount: 3, unit: 'month' } }), /DATE_TRUNC\(`d`, MONTH\).*DATE_SUB\(CURRENT_DATE\(\), INTERVAL 3 MONTH\)/s)
   assert.match(generateBuilderSql({ dialect: 'google-sql', table: { schema: 'p.d', name: 't' }, xColumn: 'dt', xColumnDataType: 'DATETIME', timeColumn: 'dt', timeColumnDataType: 'DATETIME', timeBucket: 'hour', timeRange: { kind: 'rolling', amount: 3, unit: 'month' } }), /DATETIME_TRUNC\(`dt`, HOUR\).*DATETIME_SUB\(CURRENT_DATETIME\(\), INTERVAL 3 MONTH\)/s)
   assert.match(generateBuilderSql({ dialect: 'google-sql', table: { schema: 'p.d', name: 't' }, xColumn: 'ts', xColumnDataType: 'TIMESTAMP', timeColumn: 'ts', timeColumnDataType: 'TIMESTAMP', timeBucket: 'day', timeRange: { kind: 'rolling', amount: 3, unit: 'month' } }), /TIMESTAMP\(DATETIME_SUB\(DATETIME\(CURRENT_TIMESTAMP\(\)\), INTERVAL 3 MONTH\)\)/)
+})
+
+test('generates supported short rolling ranges for PostgreSQL and DuckDB', () => {
+  for (const dialect of ['postgres', 'duckdb'] as const) for (const [amount, unit, expected] of [
+    [15, 'minute', "INTERVAL '15 minutes'"], [30, 'minute', "INTERVAL '30 minutes'"], [3, 'hour', "INTERVAL '3 hours'"]
+  ] as const) {
+    const sql = generateBuilderSql({ dialect, table: { schema: 'public', name: 'events' }, timeColumn: 'created_at', timeColumnDataType: 'timestamp', timeRange: { kind: 'rolling', amount, unit } as BuilderTimeRange })
+    assert.match(sql, new RegExp(expected))
+  }
+})
+
+test('generates type-correct GoogleSQL boundaries for short rolling ranges', () => {
+  for (const [amount, unit, keyword] of [[15, 'minute', 'MINUTE'], [30, 'minute', 'MINUTE'], [3, 'hour', 'HOUR']] as const) {
+    const range = { kind: 'rolling' as const, amount, unit } as BuilderTimeRange
+    const date = generateBuilderSql({ dialect: 'google-sql', table: { schema: 'p.d', name: 't' }, timeColumn: 'd', timeColumnDataType: 'DATE', timeRange: range })
+    const datetime = generateBuilderSql({ dialect: 'google-sql', table: { schema: 'p.d', name: 't' }, timeColumn: 'dt', timeColumnDataType: 'DATETIME', timeRange: range })
+    const timestamp = generateBuilderSql({ dialect: 'google-sql', table: { schema: 'p.d', name: 't' }, timeColumn: 'ts', timeColumnDataType: 'TIMESTAMP', timeRange: range })
+    assert.match(date, new RegExp(`DATE\\(TIMESTAMP_SUB\\(CURRENT_TIMESTAMP\\(\\), INTERVAL ${amount} ${keyword}\\)\\)`))
+    assert.match(datetime, new RegExp(`DATETIME_SUB\\(CURRENT_DATETIME\\(\\), INTERVAL ${amount} ${keyword}\\)`))
+    assert.match(timestamp, new RegExp(`TIMESTAMP_SUB\\(CURRENT_TIMESTAMP\\(\\), INTERVAL ${amount} ${keyword}\\)`))
+  }
 })
 
 test('rejects minute and hour buckets for BigQuery DATE columns', () => {

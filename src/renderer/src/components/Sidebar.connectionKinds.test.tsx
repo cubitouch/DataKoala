@@ -2,23 +2,28 @@ import React from 'react'
 void React
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { DataSourceProfile } from '@shared/types'
 
 const profiles: DataSourceProfile[] = [
   { kind: 'postgres', version: 1, id: 'pg', name: 'Orders', host: 'db.internal', port: 5432, database: 'orders', user: 'reader', password: '', ssl: false, readonly: true },
   { kind: 'bigquery', version: 1, id: 'bq', name: 'Analytics', billingProject: 'billing', defaultProject: 'data', maximumBytesBilled: '1000', readonly: true },
   { kind: 'local-files', version: 1, id: 'files', name: 'Exports', files: [{ path: '/tmp/export.csv', alias: 'export' }], readonly: true },
-  { kind: 'sqlite-file', version: 1, id: 'sqlite', name: 'Archive', path: '/tmp/archive.sqlite', readonly: true }
+  { kind: 'sqlite-file', version: 1, id: 'sqlite', name: 'Archive', path: '/tmp/archive.sqlite', readonly: true },
+  { kind: 'loki', version: 1, id: 'loki', name: 'Production logs', transport: { kind: 'gcx', context: 'production' }, readonly: true }
 ]
 
 vi.mock('../lib/api', () => ({ api: { connections: {
   list: vi.fn(async () => profiles), listObjects: vi.fn(async () => []), describeTable: vi.fn(async () => []),
-  connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn()
+  connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), loki: {
+    labels: vi.fn(async () => ['service_name', 'namespace', '__stream_shard__']),
+    labelValues: vi.fn(async () => ['checkout-api', 'checkout-api'])
+  }
 } } }))
 
 import { Sidebar } from './Sidebar'
 import { resetTestStore } from '../test/sessionTestUtils'
+import { createQuerySession, useStore } from '../store/useStore'
 
 afterEach(() => { cleanup(); resetTestStore(); vi.clearAllMocks() })
 
@@ -31,4 +36,23 @@ it('derives every connection badge from the saved profile kind', async () => {
   expect(screen.queryByText('pg')).toBeNull()
   expect(document.body.textContent).not.toContain('db.internal')
   expect(document.body.textContent).not.toContain('orders @')
+})
+
+it('shows useful Loki labels, hides internal labels, and lazily seeds a value filter', async () => {
+  const tab = createQuerySession(1, { id: 'loki-tab', connectionProfileId: 'loki' })
+  useStore.setState({ profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true })
+  render(<Sidebar />)
+  await screen.findByText('Production logs')
+  expect(screen.getByRole('heading', { name: 'Objects' })).toBeTruthy()
+  expect(await screen.findByRole('tree', { name: 'Loki labels' })).toBeTruthy()
+  expect(screen.queryByText('__stream_shard__')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Expand service_name' }))
+  await screen.findByRole('treeitem', { name: 'checkout-api' })
+  const objectFilter = screen.getByPlaceholderText('Filter objects…')
+  fireEvent.change(objectFilter, { target: { value: 'checkout' } })
+  expect(screen.getByText('service_name')).toBeTruthy()
+  expect(screen.queryByText('namespace')).toBeNull()
+  fireEvent.change(objectFilter, { target: { value: '' } })
+  fireEvent.click(await screen.findByRole('treeitem', { name: 'checkout-api' }))
+  await waitFor(() => expect(useStore.getState().tabs[0].lokiBuilder.labelMatchers).toEqual([{ label: 'service_name', operator: '=', value: 'checkout-api', values: ['checkout-api'] }]))
 })

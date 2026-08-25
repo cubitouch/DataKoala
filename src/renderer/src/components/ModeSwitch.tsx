@@ -10,7 +10,7 @@ export function ModeSwitch() {
   const connectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const sourceKind = useStore((s) => s.profiles.find((profile) => profile.id === connectionId)?.kind)
   const queryLanguage = queryLanguageForSourceKind(sourceKind ?? 'postgres').kind
-  const plainLabel = queryLanguage === 'promql' ? 'PromQL' : queryLanguage === 'traceql' ? 'TraceQL' : 'SQL'
+  const plainLabel = queryLanguage === 'promql' ? 'PromQL' : queryLanguage === 'traceql' ? 'TraceQL' : queryLanguage === 'logql' ? 'LogQL' : 'SQL'
   const disabled = useStore((s) => selectActiveSession(s).activeExplainRequest !== null)
   return <div className={`segmented ${styles.root}`} aria-label="Query mode">
     {(['sql', 'builder'] as QueryMode[]).map((value) => {

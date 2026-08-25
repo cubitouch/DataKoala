@@ -46,6 +46,9 @@ const tab = (id: string, title: string, connectionProfileId: string | null, sql:
   prometheusTimeRange: { kind: 'rolling' as const, amount: 1 as const, unit: 'hour' as const },
   prometheusStep: '30s' as const,
   promqlBuilder: { metric: '', filterBy: [], groupBy: [], labelValues: {}, calculation: 'raw' as const, aggregation: 'none' as const, window: '5m' as const, percentile: 0.95 as const },
+  lokiTimeRange: id === 'tab-b' ? { kind: 'rolling' as const, amount: 15 as const, unit: 'minute' as const } : { kind: 'rolling' as const, amount: 3 as const, unit: 'hour' as const },
+  lokiBuilder: { labelMatchers: [{ label: 'service_name', operator: '=' as const, value: id }], lineFilters: [{ operator: '|=' as const, value: 'error' }], parsers: [{ kind: 'json' as const }], fieldFilters: [] },
+  lokiResultLimit: id === 'tab-b' ? 250 : 1000, lokiResultView: id === 'tab-b' ? 'line' as const : 'list' as const, lokiGroupBy: ['service_name'], lokiRangeHistory: [],
   running: true,
   queryError: 'runtime-error-secret',
   result: { columns: [], rows: [{ token: 'result-secret' }], rowCount: 1, durationMs: 1 },
@@ -108,6 +111,10 @@ test('workspace v2 round-trips ordered tabs, names, connection references and ax
   assert.deepEqual(restored.tabs[0].builderVisualization.hierarchyDimensions, ['device', 'country'])
   assert.equal(restored.tabs[0].builderQueryFilters.length, 1)
   assert.equal(restored.tabs[0].builderQueryFilters[0].execution, 'query')
+  assert.deepEqual(restored.tabs[0].lokiTimeRange, { kind: 'rolling', amount: 3, unit: 'hour' })
+  assert.equal(restored.tabs[1].lokiResultLimit, 250)
+  assert.equal(restored.tabs[1].lokiBuilder.labelMatchers[0].value, 'tab-b')
+  assert.deepEqual(restored.tabs[1].lokiGroupBy, ['service_name'])
 })
 
 test('categorical X persists its independent time filter but no hidden Time bucket', () => {
@@ -145,7 +152,7 @@ test('workspace serialization is allow-listed: no credentials, results, client f
   const serialized = serializeWorkspaceDraft(unsafe)
   const envelope = JSON.parse(serialized) as Record<string, unknown>
   assert.deepEqual(Object.keys(envelope).sort(), ['activeTabId', 'tabs', 'version'])
-  for (const forbidden of ['do-not-persist', 'result-secret', 'pending-secret', 'runtime-error-secret', 'client-device', 'mobile', 'explain-secret', 'runtime-notice-secret', 'seriesVisibility', 'profiles']) {
+  for (const forbidden of ['do-not-persist', 'result-secret', 'pending-secret', 'runtime-error-secret', 'client-device', 'mobile', 'explain-secret', 'runtime-notice-secret', 'seriesVisibility', 'lokiDisplayDirection', 'profiles']) {
     assert.equal(serialized.includes(forbidden), false, `workspace blob must not contain ${forbidden}`)
   }
   assert.equal(serialized.includes('"execution":"query"'), true)
@@ -247,6 +254,10 @@ test('invalid, duplicate or incompatible persisted state fails closed and stale 
   envelope.tabs[1].id = envelope.tabs[0].id
   assert.equal(parseWorkspaceDraft(JSON.stringify(envelope)), null)
 
+  const malformedLokiRange = JSON.parse(serializeWorkspaceDraft(state())) as { tabs: any[] }
+  malformedLokiRange.tabs[0].lokiTimeRange = { kind: 'rolling', amount: 17, unit: 'minutes' }
+  assert.equal(parseWorkspaceDraft(JSON.stringify(malformedLokiRange)), null)
+
   const minute = JSON.parse(serializeWorkspaceDraft(state())) as { activeTabId: string; tabs: any[]; version: number }
   minute.tabs[0].builder.timeRange = { kind: 'rolling', amount: 7, unit: 'day' }
   minute.tabs[0].builder.timeBucket = 'minute'
@@ -283,4 +294,21 @@ test('automatic persistence debounces edits, ignores runtime-only churn and flus
 
   stop()
   assert.equal(listeners.size, 0)
+})
+
+test('Loki value selections persist and legacy chart view migrates to line', () => {
+  const raw = JSON.parse(serializeWorkspaceDraft(state()))
+  raw.tabs[0].lokiResultView = 'chart'
+  raw.tabs[0].lokiBuilder.labelMatchers[0].values = ['prod', 'staging', 'prod']
+  const restored = parseWorkspaceDraft(JSON.stringify(raw))
+  assert.equal(restored?.tabs[0].lokiResultView, 'line')
+  assert.deepEqual(restored?.tabs[0].lokiBuilder.labelMatchers[0].values, ['prod', 'staging'])
+})
+
+test('migrates the legacy single Loki breakdown to ordered Group by state', () => {
+  const raw = JSON.parse(serializeWorkspaceDraft(state()))
+  delete raw.tabs[0].lokiGroupBy
+  raw.tabs[0].lokiBreakdown = 'level'
+  const restored = parseWorkspaceDraft(JSON.stringify(raw))
+  assert.deepEqual(restored?.tabs[0].lokiGroupBy, ['level'])
 })
