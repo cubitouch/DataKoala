@@ -4,17 +4,23 @@ void React
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-const { copyTextToClipboard } = vi.hoisted(() => ({ copyTextToClipboard: vi.fn() }))
+const { copyTextToClipboard, codeMirrorProps } = vi.hoisted(() => ({
+  copyTextToClipboard: vi.fn(),
+  codeMirrorProps: vi.fn()
+}))
 vi.mock('../../lib/clipboardText', () => ({ copyTextToClipboard }))
 vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: {} }))
 vi.mock('@uiw/react-codemirror', () => ({
-  default: ({ value, ...props }: { value: string; 'aria-label'?: string }) => <textarea aria-label={props['aria-label']} value={value} readOnly />
+  default: ({ value, ...props }: { value: string; 'aria-label'?: string; height?: string; basicSetup?: { lineNumbers?: boolean } }) => {
+    codeMirrorProps(props)
+    return <textarea aria-label={props['aria-label']} value={value} readOnly />
+  }
 }))
 
 import { GeneratedQueryPanel } from './GeneratedQueryPanel'
 
 describe('GeneratedQueryPanel', () => {
-  beforeEach(() => copyTextToClipboard.mockReset())
+  beforeEach(() => { copyTextToClipboard.mockReset(); codeMirrorProps.mockReset() })
   afterEach(cleanup)
 
   it('owns disclosure, preview, copy, supplementary content and open-in-editor behavior', async () => {
@@ -36,6 +42,7 @@ describe('GeneratedQueryPanel', () => {
     expect(details.open).toBe(true)
     expect((screen.getByLabelText('Generated TraceQL query') as HTMLTextAreaElement).value).toBe(query)
     expect(screen.getByText('Additional generated-query context')).toBeTruthy()
+    expect(codeMirrorProps).toHaveBeenCalledWith(expect.objectContaining({ height: '150px', basicSetup: expect.objectContaining({ lineNumbers: true }) }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy TraceQL to clipboard' }))
     await waitFor(() => expect(copyTextToClipboard).toHaveBeenCalledWith(query))
