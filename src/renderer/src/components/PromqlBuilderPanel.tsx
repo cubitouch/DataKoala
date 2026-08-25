@@ -141,6 +141,11 @@ export function PromqlBuilderPanel() {
   const groupByPlaceholder = loadingLabels ? 'Loading labels…' : labelError ? 'Could not load labels' : labels.length === 0 ? 'No labels available' : 'No grouping'
   const labelPlaceholder = loadingLabels ? 'Loading labels…' : labelError ? 'Could not load labels' : labels.length === 0 ? 'No labels available' : 'No filters'
   const histogramAmbiguous = detectedHistogramKind === 'unknown' && !loadingLabels
+  const openGeneratedQuery = () => {
+    if (!generated) return
+    setSql(generated, tabId)
+    setMode('sql', tabId)
+  }
 
   return <div className={`${styles.root} promql-builder-form`} data-promql-builder="">
     <div className={styles.coreRow} data-promql-row="core">
@@ -161,18 +166,6 @@ export function PromqlBuilderPanel() {
       const placeholder = loading ? 'Loading values…' : error ? 'Could not load values' : loaded && values[label].length === 0 ? 'No values found' : 'Select values…'
       return <div className={`${styles.control} ${styles.valueControl}`} key={label}><span className={styles.fieldLabel}>{label}</span><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={[...(values[label] ?? [])].sort((left, right) => left.localeCompare(right)).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={loading || Boolean(error) || loaded && values[label].length === 0} placeholder={placeholder} />{error && <small className="inline-error" role="alert">{error} <button type="button" className="btn ghost" onClick={() => { setValues((current) => { const next = { ...current }; delete next[label]; return next }); loadValues(label) }}>Retry</button></small>}</div>
     })}</div>
-    <GeneratedQueryPanel
-      className={styles.generated}
-      language="PromQL"
-      value={generated}
-      validation={validation}
-      openActionLabel="Open in PromQL"
-      openActionClassName="open-promql-action"
-      onOpenInEditor={() => {
-        if (generated) setSql(generated, tabId)
-        setMode('sql', tabId)
-        requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="PromQL editor"]')?.focus())
-      }}
-    />
+    <GeneratedQueryPanel language="PromQL" value={generated} validation={validation} onOpenInEditor={openGeneratedQuery} />
   </div>
 }
