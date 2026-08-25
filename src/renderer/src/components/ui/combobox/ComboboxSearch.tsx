@@ -11,5 +11,5 @@ interface Props {
 }
 
 export function ComboboxSearch({ value, onChange, onKeyDown, inputRef, label }: Props) {
-  return <div className={styles.searchWrap}><span aria-hidden="true">⌕</span><TextInput mode="inline" ref={inputRef} className={styles.search} aria-label={`Search ${label}`} placeholder="Search" value={value} onValueChange={onChange} onKeyDown={onKeyDown} /></div>
+  return <div className={styles.searchWrap}><span aria-hidden="true">⌕</span><TextInput label={`Search ${label}`} labelVisibility="sr-only" mode="inline" ref={inputRef} placeholder="Search" value={value} onValueChange={onChange} onKeyDown={onKeyDown} /></div>
 }

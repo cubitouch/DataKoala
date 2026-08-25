@@ -67,9 +67,6 @@
   min-width: 0;
 }
 
-.control > span {
-  display: block;
-}
 
 .fieldLabel {
   composes: builder-field-label from global;
@@ -81,9 +78,6 @@
   letter-spacing: normal;
 }
 
-.fieldLabel span {
-  color: var(--text-mute);
-}
 
 .unavailable {
   height: 31px;

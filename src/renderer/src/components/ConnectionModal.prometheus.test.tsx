@@ -21,7 +21,7 @@ describe('Prometheus gcx connection wizard', () => {
     expect(screen.getByText('Grafana Cloud via gcx')).toBeTruthy()
     expect(screen.queryByText('Direct Prometheus')).toBeNull()
     expect(screen.queryByLabelText(/token|password/i)).toBeNull()
-    await waitFor(() => expect((screen.getByLabelText('Prometheus datasource') as HTMLSelectElement).value).toBe('prom-uid'))
+    await waitFor(() => expect((screen.getByRole('combobox', { name: /Prometheus datasource:/ }) as HTMLButtonElement).value).toBe('prom-uid'))
     fireEvent.click(screen.getByRole('button', { name: 'Test & discover metrics' }))
     await screen.findByText(/discovered 1 metrics with metadata/i)
     expect(screen.getByText(/gcx 1.2.3/i)).toBeTruthy()
@@ -30,7 +30,7 @@ describe('Prometheus gcx connection wizard', () => {
 
   it('persists only gcx configuration', async () => {
     renderPrometheus()
-    await waitFor(() => expect((screen.getByLabelText('Prometheus datasource') as HTMLSelectElement).value).toBe('prom-uid'))
+    await waitFor(() => expect((screen.getByRole('combobox', { name: /Prometheus datasource:/ }) as HTMLButtonElement).value).toBe('prom-uid'))
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(upsert).toHaveBeenCalled())
     const profile = upsert.mock.calls[0][0]

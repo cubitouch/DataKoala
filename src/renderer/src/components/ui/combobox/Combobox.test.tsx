@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Combobox, MultiCombobox } from '.'
 import styles from './Combobox.module.css'
+import fieldStyles from '../FieldChrome.module.css'
 
 Element.prototype.scrollIntoView = vi.fn()
 afterEach(cleanup)
@@ -21,6 +22,13 @@ function Single({ searchable = false }: { searchable?: boolean }) {
 }
 
 describe('Combobox', () => {
+  it('owns visible normal/inline labels for single and multi controls', () => {
+    render(<><Combobox label="Status" value="" options={options} onChange={() => {}} /><MultiCombobox label="Group by" mode="inline" values={[]} options={options} onChange={() => {}} /></>)
+    expect(screen.getByRole('combobox', { name: /Status:/ })).toBeTruthy()
+    expect(screen.getByText('Status').parentElement?.classList.contains(fieldStyles.normal)).toBe(true)
+    expect(screen.getByRole('combobox', { name: /Group by:/ })).toBeTruthy()
+    expect(screen.getByText('Group by').parentElement?.classList.contains(fieldStyles.inline)).toBe(true)
+  })
   it('applies its locally owned error border state to the trigger', () => {
     render(<Combobox label="State" value="" options={[]} onChange={() => {}} error="Broken" />)
     expect(screen.getByRole('combobox').classList.contains(styles.errorTrigger)).toBe(true)

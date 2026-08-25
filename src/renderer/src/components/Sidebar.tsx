@@ -254,7 +254,7 @@ export function Sidebar() {
       {metadataStatus === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-label="Loading database objects" /> Loading database objects…</div>}
       {metadataStatus === 'error' && <div className={styles.objectError} role="alert">Could not load objects.<small>{metadataError}</small><button onClick={() => void retryObjects()}>Retry</button></div>}
       {metadataStatus === 'loaded' && <>
-        <TextInput className={styles.objectFilter} value={filter} onValueChange={setFilter} placeholder="Filter objects…" aria-label="Filter database objects" />
+        <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label="Filter database objects" /></div>
         {schemas.length === 0 ? <div className={styles.objectStatus}>No database objects</div> :
         <div className={styles.objectTree} role="tree" aria-label="Database objects">
           {visibleSchemas.map((schema) => {
