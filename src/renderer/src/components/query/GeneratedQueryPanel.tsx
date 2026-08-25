@@ -13,14 +13,9 @@ interface GeneratedQueryPanelProps {
   language: GeneratedQueryLanguage
   value?: string | null
   onOpenInEditor?: () => void
-  openActionLabel?: string
-  openActionClassName?: string
   emptyState?: ReactNode
   validation?: ReactNode
   supplementary?: ReactNode
-  editorHeight?: string
-  lineNumbers?: boolean
-  copyValue?: string
   className?: string
 }
 
@@ -35,25 +30,20 @@ export function GeneratedQueryPanel({
   language,
   value,
   onOpenInEditor,
-  openActionLabel = `Open in ${language} mode`,
-  openActionClassName,
   emptyState,
   validation,
   supplementary,
-  editorHeight = '150px',
-  lineNumbers = true,
-  copyValue,
   className
 }: GeneratedQueryPanelProps) {
   const query = value ?? ''
   const hasQuery = query.trim().length > 0
   const canOpen = hasQuery && !validation
 
-  return <details className={[styles.root, className].filter(Boolean).join(' ')}>
+  return <details className={[styles.root, className].filter(Boolean).join(' ')} data-generated-query-panel>
     <summary>
       <span className={styles.title}>Generated {language}</span>
       {onOpenInEditor && <button
-        className={['btn ghost', styles.openAction, openActionClassName].filter(Boolean).join(' ')}
+        className={`btn ghost ${styles.openAction}`}
         type="button"
         disabled={!canOpen}
         onClick={(event) => {
@@ -61,20 +51,20 @@ export function GeneratedQueryPanel({
           event.stopPropagation()
           if (canOpen) onOpenInEditor()
         }}
-      >{openActionLabel}</button>}
+      >Open in {language} mode</button>}
     </summary>
     {validation ? <div className={`${styles.feedback} inline-error`} role="status">{validation}</div> : hasQuery ? <>
       <CodeMirror
         value={query}
-        height={editorHeight}
+        height="150px"
         theme={oneDark}
         extensions={languageExtensions(language)}
         editable={false}
         aria-label={`Generated ${language} query`}
-        basicSetup={{ lineNumbers, foldGutter: false }}
+        basicSetup={{ lineNumbers: true, foldGutter: false }}
       />
       {supplementary && <div className={styles.supplementary}>{supplementary}</div>}
-      <div className={styles.actions}><CopySqlButton sql={copyValue ?? query} language={language} /></div>
+      <div className={styles.actions}><CopySqlButton sql={query} language={language} /></div>
     </> : <div className={styles.feedback}>{emptyState}</div>}
   </details>
 }
