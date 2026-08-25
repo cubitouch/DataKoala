@@ -6,6 +6,7 @@ import type { HierarchyNode } from './chartHierarchy.ts'
 
 export type TimeDisplayPrecision = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
 
+const DATAKOALA_CHART_COLORS = ['#f5cf33', '#809ca0', '#ffe0a7', '#6e8c8e', '#ffe5bf', '#617f7f']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const two = (value: number) => String(value).padStart(2, '0')
 
@@ -126,6 +127,7 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     const total = (input.hierarchy ?? []).reduce((sum, node) => sum + node.value, 0)
     return {
       backgroundColor: 'transparent',
+      color: DATAKOALA_CHART_COLORS,
       tooltip: {
         trigger: 'item', confine: true,
         formatter: (param: { treePathInfo?: Array<{ name: string }>; name?: string; value?: unknown }) => {
@@ -157,6 +159,7 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
   return {
     backgroundColor: 'transparent',
+    color: DATAKOALA_CHART_COLORS,
     tooltip: {
       trigger: 'axis', confine: true, axisPointer: {
         type: 'cross', lineStyle: { color: '#697184', width: 1, type: 'dashed' }, crossStyle: {
