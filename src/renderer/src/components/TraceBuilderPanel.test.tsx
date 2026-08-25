@@ -76,7 +76,8 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     expect(document.querySelectorAll('[class*="facet"]').length).toBeGreaterThan(0)
     const advanced = screen.getByText('Advanced filters').closest('details')!
     const generated = screen.getByText('Generated TraceQL').closest('details')!
-    expect(advanced.className.split(' ').some((name) => generated.classList.contains(name))).toBe(true)
+    expect(advanced.hasAttribute('data-generated-query-panel')).toBe(false)
+    expect(generated.hasAttribute('data-generated-query-panel')).toBe(true)
   })
 
   it('defaults a newly selected attribute to Include and removes it to express no filter', () => {
