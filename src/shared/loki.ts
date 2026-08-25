@@ -1,14 +1,12 @@
 import type { QueryResult } from './types.ts'
 
 export type LokiResultKind = 'logs' | 'metrics'
-export type LokiDirection = 'backward' | 'forward'
 export interface LokiQueryRequest {
   expression: string
   start: string
   end: string
   step: string
   limit: number
-  direction?: LokiDirection
 }
 export interface LokiLogRow {
   [key: string]: unknown

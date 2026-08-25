@@ -7,7 +7,7 @@ import { chartSeriesResultFilters, timeBucketRange, type ChartPointContext } fro
 import { chartTimeSelectionRange, isTemporalChartValues } from '../lib/chartRangeSelection'
 import { createResultFilter, createResultRangeFilter, filterQueryResult, resultFilterDemotion } from '../lib/resultFilters'
 import { isBuilderFilterPromotable } from '../lib/builderSql'
-import { decodeBuilderSeriesTuple, deriveEffectiveVisualization, numericColumns, pivotRowsForChart, reconcileHierarchyDimensions, visualizationConfigurationsEqual, type ResultView, type ValueAxisScale, type VisualizationConfiguration } from '../lib/resultVisualization'
+import { decodeBuilderSeriesTuple, deriveEffectiveVisualization, numericColumns, pivotRowsForChart, reconcileHierarchyDimensions, visualizationConfigurationsEqual, type ValueAxisScale, type VisualizationConfiguration } from '../lib/resultVisualization'
 import { selectActiveSession, selectSession, useStore, type QueryMode } from '../store/useStore'
 import { timeRangeChartDomain } from '../lib/prometheusTimeRange'
 import { ResultsTable } from './ResultsTable'
@@ -47,10 +47,9 @@ interface ResultExplorerProps {
   configurationOverride?: VisualizationConfiguration
   onConfigurationChange?: (configuration: VisualizationConfiguration) => void
   hidePicker?: boolean
-  availableViews?: readonly ResultView[]
   onTemporalRangeSelected?: (range: { startMs: number; endMs: number }) => void
 }
-export function ResultExplorer({ mode, hasRun = true, resultOverride, configurationOverride, onConfigurationChange, hidePicker = false, availableViews, onTemporalRangeSelected }: ResultExplorerProps) {
+export function ResultExplorer({ mode, hasRun = true, resultOverride, configurationOverride, onConfigurationChange, hidePicker = false, onTemporalRangeSelected }: ResultExplorerProps) {
   const tabId = useStore((state) => state.activeTabId)
   const isResultStale = useStore((state) => selectActiveSession(state).isResultStale)
   const connectionStatus = useStore((state) => state.connectionStatus)
@@ -366,7 +365,7 @@ export function ResultExplorer({ mode, hasRun = true, resultOverride, configurat
         {connectionStatus === 'reconnecting' ? 'Reconnecting…' : 'Reconnect'}
       </button>
     </div>}
-    {result && !hidePicker && <ChartPicker value={effectiveConfiguration.view} availableViews={availableViews} onChange={chooseView}/>}
+    {result && !hidePicker && <ChartPicker value={effectiveConfiguration.view} onChange={chooseView}/>}
     {effectiveConfiguration.view !== 'table' && result && mode === 'sql' && <div className={styles.visualizationControls}>
       <div className={styles.visualizationControl}><span>X axis</span><Combobox label="X axis" value={effectiveConfiguration.xColumn ?? ''} options={xAxisOptions} onChange={(value) => update({ xColumn: value || null })} placeholder="Choose…" searchable emptyMessage="No matching columns" /></div>
       <div className={styles.visualizationControl}><span>Y axis</span><Combobox label="Y axis" value={effectiveConfiguration.valueColumn ?? ''} options={yAxisOptions} onChange={(value) => update({ valueColumn: value || null })} placeholder={numeric.length ? 'Choose…' : 'No numeric column'} searchable emptyMessage="No matching numeric columns" /></div>

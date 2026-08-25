@@ -30,7 +30,6 @@ export interface QuerySessionDraft {
   lokiTimeRange: BuilderTimeRange
   lokiBuilder: LokiBuilderState
   lokiResultLimit: number
-  lokiDisplayDirection: 'backward' | 'forward'
   lokiGroupBy: string[]
   lokiResultView: 'list' | 'table' | 'line' | 'area' | 'bar' | 'scatter' | 'treemap' | 'sunburst'
   lokiRangeHistory: BuilderTimeRange[]
@@ -267,7 +266,6 @@ function sessionDraft(session: QuerySession): QuerySessionDraft {
     lokiTimeRange: session.lokiTimeRange,
     lokiBuilder: session.lokiBuilder,
     lokiResultLimit: session.lokiResultLimit,
-    lokiDisplayDirection: session.lokiDisplayDirection,
     lokiGroupBy: session.lokiGroupBy,
     lokiResultView: session.lokiResultView,
     lokiRangeHistory: session.lokiRangeHistory,
@@ -312,7 +310,6 @@ function serializedSession(tab: QuerySessionDraft): Record<string, unknown> {
     lokiTimeRange: tab.lokiTimeRange,
     lokiBuilder: tab.lokiBuilder,
     lokiResultLimit: tab.lokiResultLimit,
-    lokiDisplayDirection: tab.lokiDisplayDirection,
     lokiGroupBy: tab.lokiGroupBy,
     lokiResultView: tab.lokiResultView,
     lokiRangeHistory: tab.lokiRangeHistory,
@@ -352,14 +349,13 @@ function parseSession(value: unknown): QuerySessionDraft | null {
   const lokiTimeRange = value.lokiTimeRange === undefined ? { kind: 'rolling', amount: 1, unit: 'hour' } as const : timeRange(value.lokiTimeRange)
   const lokiBuilder = parseLokiBuilder(value.lokiBuilder)
   const lokiResultLimit = typeof value.lokiResultLimit === 'number' && value.lokiResultLimit > 0 && value.lokiResultLimit <= 5000 ? value.lokiResultLimit : 1000
-  const lokiDisplayDirection = isOneOf(value.lokiDisplayDirection, ['backward', 'forward'] as const) ? value.lokiDisplayDirection : 'backward'
   const legacyBreakdown = stringOrNull(value.lokiBreakdown)
   const lokiGroupBy = [...new Set(Array.isArray(value.lokiGroupBy) ? value.lokiGroupBy.filter((item): item is string => typeof item === 'string' && item.length > 0 && !item.startsWith('__')) : legacyBreakdown && !legacyBreakdown.startsWith('__') ? [legacyBreakdown] : [])]
   const lokiResultView = value.lokiResultView === 'chart' ? 'line' : isOneOf(value.lokiResultView, ['list', 'table', 'line', 'area', 'bar', 'scatter', 'treemap', 'sunburst'] as const) ? value.lokiResultView : 'list'
   const lokiRangeHistory = Array.isArray(value.lokiRangeHistory) ? value.lokiRangeHistory.map(timeRange).filter((item): item is BuilderTimeRange => item !== null) : []
   if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null || !prometheusTimeRange || !prometheusStep || !lokiTimeRange) return null
   const normalized = normalizeBuilderAxis(parsedBuilder, parsedBuilderVisualization)
-  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, promqlBuilder, lokiTimeRange, lokiBuilder, lokiResultLimit, lokiDisplayDirection, lokiGroupBy, lokiResultView, lokiRangeHistory, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
+  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, promqlBuilder, lokiTimeRange, lokiBuilder, lokiResultLimit, lokiGroupBy, lokiResultView, lokiRangeHistory, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
 }
 
 export function parseWorkspaceDraft(raw: string | null): WorkspaceDraft | null {
@@ -391,7 +387,7 @@ function parseLegacyWorkspace(raw: string | null): WorkspaceDraft | null {
     const id = 'migrated-query-1'
     return {
       activeTabId: id,
-      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: '30s', promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} }, lokiTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }, lokiResultLimit: 1000, lokiDisplayDirection: 'backward', lokiGroupBy: [], lokiResultView: 'list', lokiRangeHistory: [], builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
+      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: '30s', promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} }, lokiTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }, lokiResultLimit: 1000, lokiGroupBy: [], lokiResultView: 'list', lokiRangeHistory: [], builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
     }
   } catch {
     return null
@@ -432,7 +428,6 @@ function restoredSession(draft: QuerySessionDraft): QuerySession {
     lokiTimeRange: draft.lokiTimeRange,
     lokiBuilder: draft.lokiBuilder,
     lokiResultLimit: draft.lokiResultLimit,
-    lokiDisplayDirection: draft.lokiDisplayDirection,
     lokiGroupBy: draft.lokiGroupBy,
     lokiResultView: draft.lokiResultView,
     lokiRangeHistory: draft.lokiRangeHistory,

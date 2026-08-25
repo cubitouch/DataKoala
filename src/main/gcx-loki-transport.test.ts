@@ -2,15 +2,14 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { GcxLokiTransport, classifyLogql, normalizeLokiQuery } from './gcx-loki-transport.ts'
 
-test('uses exact gcx argv without shell interpolation or unsupported direction', async () => {
+test('uses exact gcx argv without shell interpolation', async () => {
   const calls: string[][] = []
   const transport = new GcxLokiTransport('prod context', async (args) => {
     calls.push(args)
     return { stdout: JSON.stringify({ status: 'success', data: { resultType: 'streams', result: [] } }), stderr: '' }
   }, 'loki/uid')
-  await transport.query({ expression: '{app="checkout"} |= "$(touch /tmp/nope)"', start: '2026-01-01T00:00:00Z', end: '2026-01-01T01:00:00Z', step: '30s', limit: 50, direction: 'forward' })
+  await transport.query({ expression: '{app="checkout"} |= "$(touch /tmp/nope)"', start: '2026-01-01T00:00:00Z', end: '2026-01-01T01:00:00Z', step: '30s', limit: 50 })
   assert.deepEqual(calls[0], ['logs', 'query', '{app="checkout"} |= "$(touch /tmp/nope)"', '--context', 'prod context', '--datasource', 'loki/uid', '--from', '2026-01-01T00:00:00Z', '--to', '2026-01-01T01:00:00Z', '--step', '30s', '--limit', '51', '-o', 'json'])
-  assert.equal(calls[0].includes('--direction'), false)
 })
 
 test('normalizes primary gcx object entries without mixing field namespaces', () => {

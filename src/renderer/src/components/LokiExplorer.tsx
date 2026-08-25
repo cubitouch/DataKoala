@@ -19,7 +19,6 @@ import { ModeSwitch } from './ModeSwitch'
 import { QueryUtilityActions } from './QueryUtilityActions'
 import { CopySqlButton } from './CopySqlButton'
 import { ChartPicker, type ChartPickerView } from './ChartPicker'
-import type { LokiTrendRange } from '../lib/lokiTrendRange'
 import { selectActiveSession, useStore } from '../store/useStore'
 import styles from './LokiExplorer.module.css'
 import type { VisualizationConfiguration } from '../lib/resultVisualization'
@@ -30,6 +29,8 @@ function interval(start: string, end: string): string {
   const choices = [1, 5, 10, 30, 60, 300, 900, 3600, 10_800, 21_600, 86_400]
   return `${choices.find((item) => item >= targetSeconds) ?? 86_400}s`
 }
+interface LokiTrendRange { startMs: number; endMs: number }
+
 function customRange({ startMs, endMs }: LokiTrendRange): BuilderTimeRange {
   const start = new Date(startMs), end = new Date(endMs)
   return { kind: 'custom', startDate: start.toISOString().slice(0, 10), startTime: start.toISOString().slice(11, 16), endDate: end.toISOString().slice(0, 10), endTime: end.toISOString().slice(11, 16), recurringWindows: [] }
