@@ -103,6 +103,7 @@
   min-width: 0;
 }
 
+/* Placement only: GeneratedQueryPanel owns the generated-query UI itself. */
 .generatedSql {
   margin: 0 12px 12px;
 }
