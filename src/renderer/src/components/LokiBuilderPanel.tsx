@@ -1,12 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
-import { oneDark } from '@codemirror/theme-one-dark'
 import type { LokiBuilderState, LokiLabelMatcher } from '@shared/loki'
 import type { LokiMetadataRequest } from '@shared/loki'
 import { lokiLabelValues } from '../lib/lokiMetadata'
-import { logql } from '../lib/logqlLanguage'
 import { MultiCombobox } from './ui/combobox'
-import { CopySqlButton } from './CopySqlButton'
+import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
 import styles from './LokiBuilderPanel.module.css'
 
 const internal = (label: string) => label.startsWith('__')
@@ -35,6 +32,6 @@ export function LokiBuilderPanel({ value, generated, labels, connectionId, bound
     </div>
     {matchers.length > 0 && <div className={styles.valuesGrid}>{matchers.map((matcher) => <ValueControl key={matcher.label} matcher={matcher} matchers={value.labelMatchers} connectionId={connectionId} bounds={bounds} onChange={(next) => patchValues(matcher.label, next)} />)}</div>}
     {preserved.length > 0 && <p className={styles.preserved}>Unsupported saved matcher expressions are preserved. Open in LogQL mode to edit them.</p>}
-    <details className={styles.generated}><summary><span>Generated LogQL</span><button type="button" className="btn ghost" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onOpenLogql() }} disabled={!generated}>Open in LogQL mode</button></summary>{generated && <><CodeMirror value={generated} height="96px" theme={oneDark} extensions={[logql()]} editable={false} aria-label="Generated LogQL query" basicSetup={{ lineNumbers: false, foldGutter: false }} /><div className={styles.generatedActions}><CopySqlButton sql={generated} language="LogQL" /></div></>}</details>
+    <GeneratedQueryPanel language="LogQL" value={generated} onOpenInEditor={onOpenLogql} editorHeight="96px" lineNumbers={false} />
   </section>
 }
