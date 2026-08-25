@@ -19,7 +19,7 @@ import { buildChartData } from './data.ts'
  *    missing an early category has all its later points shifted left.
  */
 
-export const CHART_COLORS = ['#f5cf33', '#75a8a6', '#e99a5b', '#8d83d8', '#69b978', '#d97883', '#62a0d2', '#d8a45d', '#a887c4', '#59b9b1', '#b7b96a', '#d786ae']
+export const CHART_COLORS = ['#f5cf33', '#62b8c5', '#ef8a62', '#8c9be8', '#70c486', '#df74a8', '#5fa7e0', '#d3a557', '#a783d5', '#48b5a2', '#c4c95c', '#e27b76']
 
 const AXIS_LINE = { lineStyle: { color: '#516666' } }
 const AXIS_LABEL = { color: '#809ca0' }
