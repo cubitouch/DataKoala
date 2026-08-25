@@ -30,8 +30,12 @@
 
 .root summary::before {
   content: '▸';
-  flex: none;
+  flex: 0 0 12px;
+  width: 12px;
   color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  text-align: center;
   transition: transform .12s ease;
 }
 
@@ -44,9 +48,11 @@
   min-width: 0;
 }
 
-.openAction {
+.summaryActions {
   flex: none;
-  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .root :global(.cm-scroller) {
@@ -71,11 +77,4 @@
 .supplementary code {
   color: var(--text);
   font-family: var(--mono);
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 6px 8px;
 }
