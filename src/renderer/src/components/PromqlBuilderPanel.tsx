@@ -4,6 +4,7 @@ import { buildPromql, detectPromqlHistogramKind, resolvePromqlHistogramKind, val
 import { metricLabels, metricLabelValues, prometheusMetadataError } from '../lib/prometheusMetadata'
 import { Combobox, MultiCombobox } from './ui/combobox'
 import { InfoTooltip } from './ui/InfoTooltip'
+import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
 import styles from './PromqlBuilderPanel.module.css'
 
 const ordinaryCalculations = ['raw', 'rate', 'increase'] as const
@@ -160,6 +161,18 @@ export function PromqlBuilderPanel() {
       const placeholder = loading ? 'Loading values…' : error ? 'Could not load values' : loaded && values[label].length === 0 ? 'No values found' : 'Select values…'
       return <div className={`${styles.control} ${styles.valueControl}`} key={label}><span className={styles.fieldLabel}>{label}</span><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={[...(values[label] ?? [])].sort((left, right) => left.localeCompare(right)).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={loading || Boolean(error) || loaded && values[label].length === 0} placeholder={placeholder} />{error && <small className="inline-error" role="alert">{error} <button type="button" className="btn ghost" onClick={() => { setValues((current) => { const next = { ...current }; delete next[label]; return next }); loadValues(label) }}>Retry</button></small>}</div>
     })}</div>
-    <details className={styles.generated}><summary><span>Generated PromQL</span><button className={`btn ghost ${styles.openAction} open-promql-action`} type="button" disabled={!generated} onClick={(event) => { event.preventDefault(); event.stopPropagation(); if (generated) setSql(generated, tabId); setMode('sql', tabId); requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="PromQL editor"]')?.focus()) }}>Open in PromQL</button></summary>{validation ? <p className={`${styles.generatedError} inline-error`} role="status">{validation}</p> : <pre>{generated}</pre>}</details>
+    <GeneratedQueryPanel
+      className={styles.generated}
+      language="PromQL"
+      value={generated}
+      validation={validation}
+      openActionLabel="Open in PromQL"
+      openActionClassName="open-promql-action"
+      onOpenInEditor={() => {
+        if (generated) setSql(generated, tabId)
+        setMode('sql', tabId)
+        requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-label="PromQL editor"]')?.focus())
+      }}
+    />
   </div>
 }
