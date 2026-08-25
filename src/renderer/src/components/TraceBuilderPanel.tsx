@@ -171,6 +171,6 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
       </div>
     </details>
 
-    <GeneratedQueryPanel className={styles.disclosure} language="TraceQL" value={traceql} onOpenInEditor={onOpenTraceql} />
+    <GeneratedQueryPanel language="TraceQL" value={traceql} onOpenInEditor={onOpenTraceql} />
   </div>
 }
