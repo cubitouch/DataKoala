@@ -74,11 +74,6 @@
 .facetMode button[aria-pressed="true"] { background: var(--accent); color: #0a0d12; font-weight: 600; }
 .facetValues { min-width: 0; display: grid; gap: 4px; }
 
-.generated summary { position: relative; padding-right: 180px; }
-.generated summary > button { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); }
-.generatedActions { display: flex; justify-content: flex-end; padding: 6px; }
-.generated :global(.cm-scroller) { font-family: var(--mono); }
-
 @media (max-width: 1180px) {
   .coreRow { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
 }
