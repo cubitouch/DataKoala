@@ -1,9 +1,10 @@
-.root { display: inline-flex; flex-direction: column; gap: 4px; min-width: 0; }
+.root { min-width: 0; }
+.normal { display: flex; width: 100%; flex-direction: column; gap: 4px; }
 .input { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid var(--border-hi); border-radius: 6px; background: var(--bg-3); color: var(--text); font: inherit; padding: 7px 9px; }
 .input::placeholder { color: var(--muted); }
 .input:focus-visible { border-color: var(--accent); outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 1px; }
 .input:disabled { cursor: not-allowed; opacity: .55; }
-.inline { display: inline-flex; }
+.inline { display: inline-flex; flex-direction: column; gap: 4px; }
 .inline .input { padding: 4px 7px; border-radius: 4px; background: var(--bg-4); }
 .warning .input { border-style: dashed; border-color: #d69e2e; }
 .error .input { border-width: 2px; border-color: #ef6b73; }
@@ -11,5 +12,4 @@
 .feedback[data-tone='info'] { color: var(--muted); }
 .feedback[data-tone='warning'] { color: #fbd38d; }
 .feedback[data-tone='error'] { color: #ff9ca3; font-weight: 600; }
-.marker { display: inline-grid; place-items: center; width: 15px; height: 15px; flex: 0 0 15px; border: 1px solid currentColor; border-radius: 50%; font-weight: 800; }
 .feedbackText { overflow-wrap: anywhere; }

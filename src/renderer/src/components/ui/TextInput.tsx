@@ -22,9 +22,8 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   return <span className={`${styles.root} ${styles[mode]} ${feedback ? styles[tone] : ''}${className ? ` ${className}` : ''}`}>
     <input ref={ref} type={type} {...props} aria-invalid={error ? true : props['aria-invalid']} aria-describedby={description} onChange={(event) => onValueChange?.(event.currentTarget.value)} className={styles.input} />
     {feedback && <span id={feedbackId} className={styles.feedback} data-tone={tone}>
-      <span className={styles.marker} aria-hidden="true">{error ? '×' : warning ? '!' : 'i'}</span>
+      <InfoTooltip label={`${tone} feedback`} tone={tone} mountWhenOpen>{feedback}</InfoTooltip>
       <span className={styles.feedbackText}>{feedback}</span>
-      <InfoTooltip label={`${tone} feedback`} tone={tone}>{`The adjacent ${tone} message describes this field.`}</InfoTooltip>
     </span>}
   </span>
 })

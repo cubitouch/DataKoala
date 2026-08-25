@@ -32,9 +32,6 @@
   font-size: 11px;
   font-weight: 600;
 }
-.traceIdBar input,
-.builderGrid input,
-.builderGrid select,
 .traceqlField :global(.cm-editor) {
   min-width: 0;
   border: 1px solid var(--border);
@@ -42,14 +39,6 @@
   background: var(--bg);
   color: var(--text);
 }
-.traceIdBar input {
-  height: 32px;
-  padding: 0 9px;
-  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-.traceIdBar input:focus,
-.builderGrid input:focus,
-.builderGrid select:focus,
 .traceqlField :global(.cm-editor.cm-focused) { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 .queryModeRow {
@@ -110,8 +99,6 @@
   gap: 8px;
 }
 .builderGrid label { display: grid; gap: 5px; min-width: 0; }
-.builderGrid input,
-.builderGrid select { width: 100%; height: 32px; padding: 0 8px; }
 .generatedQuery {
   grid-column: 1 / -1;
   display: grid;
