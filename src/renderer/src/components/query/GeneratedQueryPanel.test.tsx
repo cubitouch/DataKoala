@@ -46,9 +46,9 @@ describe('GeneratedQueryPanel', () => {
   })
 
   it('renders validation and empty states and disables open without a query', () => {
-    const { rerender } = render(<GeneratedQueryPanel language="PromQL" value="" validation="Choose a histogram representation." onOpenInEditor={vi.fn()} openActionLabel="Open in PromQL" />)
+    const { rerender } = render(<GeneratedQueryPanel language="PromQL" value="" validation="Choose a histogram representation." onOpenInEditor={vi.fn()} />)
     expect(screen.getByRole('status').textContent).toContain('Choose a histogram representation.')
-    expect(screen.getByRole('button', { name: 'Open in PromQL' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: 'Open in PromQL mode' }).hasAttribute('disabled')).toBe(true)
 
     rerender(<GeneratedQueryPanel language="SQL" value="" emptyState="Select a table and X axis to preview SQL." />)
     expect(screen.getByText('Select a table and X axis to preview SQL.')).toBeTruthy()
