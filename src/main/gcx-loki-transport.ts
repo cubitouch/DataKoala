@@ -27,12 +27,47 @@ function severityOf(...records: Record<string, unknown>[]): string {
   return 'unknown'
 }
 function identifierOf(kind: 'trace' | 'span', ...records: Record<string, unknown>[]): string | undefined {
-  for (const record of records) for (const [key, value] of Object.entries(record)) {
-    if (key.toLowerCase().replace(/[._]/g, '') === `${kind}id` && value != null && String(value)) return String(value)
+  const seen = new Set<object>()
+  const visit = (record: Record<string, unknown>, depth: number): string | undefined => {
+    if (depth > 4 || seen.has(record)) return undefined
+    seen.add(record)
+    for (const [key, value] of Object.entries(record)) {
+      const normalized = key.toLowerCase().replace(/[._]/g, '')
+      if (normalized === `${kind}id` && value != null && typeof value !== 'object' && String(value).trim()) return String(value)
+      if (key.toLowerCase() === kind && isRecord(value)) {
+        const nested = value.id
+        if (nested != null && typeof nested !== 'object' && String(nested).trim()) return String(nested)
+      }
+    }
+    for (const value of Object.values(record)) if (isRecord(value)) {
+      const nested = visit(value, depth + 1)
+      if (nested) return nested
+    }
+  }
+  for (const record of records) {
+    const found = visit(record, 0)
+    if (found) return found
   }
 }
 function jsonObject(line: string): Record<string, unknown> {
   try { const parsed: unknown = JSON.parse(line); return isRecord(parsed) ? parsed : {} } catch { return {} }
+}
+function rawMessageIdentifiers(line: string): { traceId?: string; spanId?: string } {
+  const json = jsonObject(line)
+  const traceId = identifierOf('trace', json)
+  const spanId = identifierOf('span', json)
+  if (traceId && spanId) return { traceId, spanId }
+  const logfmt: Record<string, unknown> = {}
+  const pattern = /(?:^|\s)(trace_id|traceId|trace\.id|span_id|spanId|span\.id)=("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s]+)/g
+  for (const match of line.matchAll(pattern)) {
+    const rawValue = match[2]
+    if ((rawValue.startsWith('"') && !rawValue.endsWith('"')) || (rawValue.startsWith("'") && !rawValue.endsWith("'"))) continue
+    let parsedValue = rawValue
+    if (rawValue.startsWith('"')) { try { parsedValue = JSON.parse(rawValue) as string } catch { /* retain malformed quoted value */ } }
+    else if (rawValue.startsWith("'") && rawValue.endsWith("'")) parsedValue = rawValue.slice(1, -1).replace(/\\'/g, "'")
+    logfmt[match[1]] = parsedValue
+  }
+  return { traceId: traceId ?? identifierOf('trace', logfmt), spanId: spanId ?? identifierOf('span', logfmt) }
 }
 
 export function normalizeLokiQuery(raw: unknown, request: Pick<LokiQueryRequest, 'limit'>, durationMs = 0, expectedKind?: LokiResultKind): LokiQueryResult {
@@ -64,12 +99,20 @@ export function normalizeLokiQuery(raw: unknown, request: Pick<LokiQueryRequest,
       const rawStructured = objectEntry?.structuredMetadata ?? tupleEntry?.[2]
       const rawParsed = objectEntry?.parsed ?? tupleEntry?.[3]
       const structuredMetadata = isRecord(rawStructured) ? Object.fromEntries(Object.entries(rawStructured).map(([key, item]) => [key, String(item)])) : {}
-      const parsedFields = isRecord(rawParsed) ? rawParsed : {}
+      const parsedFields = isRecord(rawParsed) ? { ...rawParsed } : {}
       const timestampNs = timestamp
       let timestampMs: number
       try { timestampMs = Number(BigInt(timestampNs) / 1_000_000n) } catch { throw new Error('Loki returned an invalid nanosecond timestamp.') }
       const payload = jsonObject(line)
-      rows.push({ id: `${timestampNs}:${rows.length}`, timestampNs, timestampMs, line, labels, structuredMetadata, parsedFields, severity: severityOf(parsedFields, structuredMetadata, payload, labels), traceId: identifierOf('trace', parsedFields, structuredMetadata, payload, labels), spanId: identifierOf('span', parsedFields, structuredMetadata, payload, labels) })
+      const entryFields = objectEntry ?? {}
+      const authoritativeTraceId = identifierOf('trace', parsedFields, structuredMetadata, entryFields, labels)
+      const authoritativeSpanId = identifierOf('span', parsedFields, structuredMetadata, entryFields, labels)
+      const extracted = rawMessageIdentifiers(line)
+      const traceId = authoritativeTraceId ?? extracted.traceId
+      const spanId = authoritativeSpanId ?? extracted.spanId
+      if (!authoritativeTraceId && extracted.traceId) parsedFields.trace_id = extracted.traceId
+      if (!authoritativeSpanId && extracted.spanId) parsedFields.span_id = extracted.spanId
+      rows.push({ id: `${timestampNs}:${rows.length}`, timestampNs, timestampMs, line, labels, structuredMetadata, parsedFields, severity: severityOf(parsedFields, structuredMetadata, payload, labels), traceId, spanId })
     }
   }
   const truncated = rows.length > request.limit

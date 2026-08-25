@@ -22,12 +22,66 @@ test('normalizes primary gcx object entries without mixing field namespaces', ()
   if (result.resultKind !== 'logs') return
   assert.deepEqual(result.logRows[0].labels, { service: 'checkout', environment: 'prod' })
   assert.deepEqual(result.logRows[0].structuredMetadata, { trace_id: 'abc', level: 'WARN' })
-  assert.deepEqual(result.logRows[0].parsedFields, { order_id: 42 })
+  assert.deepEqual(result.logRows[0].parsedFields, { order_id: 42, span_id: 'span-1' })
   assert.equal(result.logRows[0].timestampNs, '1750000000000000000')
   assert.equal(result.logRows[0].timestampMs, 1_750_000_000_000)
   assert.equal(result.logRows[0].severity, 'warn')
   assert.equal(result.logRows[0].traceId, 'abc')
   assert.equal(result.logRows[0].spanId, 'span-1')
+})
+
+function normalizedLog(line: string, options: { parsed?: Record<string, unknown>; structuredMetadata?: Record<string, unknown>; entry?: Record<string, unknown> } = {}) {
+  const result = normalizeLokiQuery({ status: 'success', data: { resultType: 'streams', result: [{ stream: { app: 'checkout' }, values: [{ timestamp: '1750000000000000000', line, ...options.entry, parsed: options.parsed, structuredMetadata: options.structuredMetadata }] }] } }, { limit: 10 })
+  assert.equal(result.resultKind, 'logs')
+  if (result.resultKind !== 'logs') throw new Error('Expected logs')
+  return result.logRows[0]
+}
+
+test('extracts snake, camel, dotted, and nested identifiers from raw JSON into parsed fields', () => {
+  const snake = normalizedLog('{"trace_id":"trace-snake","spanId":"span-camel"}')
+  assert.equal(snake.traceId, 'trace-snake')
+  assert.equal(snake.spanId, 'span-camel')
+  assert.deepEqual(snake.parsedFields, { trace_id: 'trace-snake', span_id: 'span-camel' })
+  const nested = normalizedLog('{"trace":{"id":"trace-nested"},"span":{"id":"span-nested"}}')
+  assert.equal(nested.traceId, 'trace-nested')
+  assert.equal(nested.spanId, 'span-nested')
+  assert.deepEqual(nested.parsedFields, { trace_id: 'trace-nested', span_id: 'span-nested' })
+  const dotted = normalizedLog('{"trace.id":"trace-dotted","span_id":"span-snake"}')
+  assert.deepEqual(dotted.parsedFields, { trace_id: 'trace-dotted', span_id: 'span-snake' })
+  const deeplyNested = normalizedLog('{"context":{"observability":{"traceId":"trace-context","span.id":"span-context"}}}')
+  assert.deepEqual(deeplyNested.parsedFields, { trace_id: 'trace-context', span_id: 'span-context' })
+})
+
+test('extracts identifiers from logfmt without changing the raw log', () => {
+  const line = 'level=error msg="provider timeout" traceId=trace-camel span.id="span-dotted"'
+  const row = normalizedLog(line)
+  assert.equal(row.line, line)
+  assert.equal(row.traceId, 'trace-camel')
+  assert.equal(row.spanId, 'span-dotted')
+  assert.deepEqual(row.parsedFields, { trace_id: 'trace-camel', span_id: 'span-dotted' })
+})
+
+test('authoritative parsed, metadata, and row identifiers take precedence over raw content', () => {
+  const row = normalizedLog('{"trace_id":"raw-trace","span_id":"raw-span"}', {
+    parsed: { traceId: 'parsed-trace' }, structuredMetadata: { span_id: 'metadata-span' }, entry: { traceId: 'row-trace', spanId: 'row-span' }
+  })
+  assert.equal(row.traceId, 'parsed-trace')
+  assert.equal(row.spanId, 'metadata-span')
+  assert.deepEqual(row.parsedFields, { traceId: 'parsed-trace' })
+  assert.deepEqual(row.structuredMetadata, { span_id: 'metadata-span' })
+  const rowProperties = normalizedLog('{"trace_id":"raw-trace","span_id":"raw-span"}', { entry: { traceId: 'row-trace', spanId: 'row-span' } })
+  assert.equal(rowProperties.traceId, 'row-trace')
+  assert.equal(rowProperties.spanId, 'row-span')
+  assert.deepEqual(rowProperties.parsedFields, {})
+})
+
+test('missing and malformed raw identifiers are ignored safely', () => {
+  for (const line of ['plain log without identifiers', '{"trace_id":', 'trace_id="unterminated span_id=']) {
+    const row = normalizedLog(line)
+    assert.equal(row.traceId, undefined)
+    assert.equal(row.spanId, undefined)
+    assert.deepEqual(row.parsedFields, {})
+  }
 })
 
 test('requests limit plus one and reports truncation', async () => {

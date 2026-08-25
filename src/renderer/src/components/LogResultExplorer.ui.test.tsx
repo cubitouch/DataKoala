@@ -31,7 +31,7 @@ it('keeps a large result set virtualized', () => {
 })
 
 it('extracts a JSON message and presents trace and span identifiers above metadata', () => {
-  const jsonRow = { ...row, line: JSON.stringify({ message: 'Readable checkout failure', trace_id: 'trace-json', span_id: 'span-json' }), traceId: 'trace-json', spanId: 'span-json' }
+  const jsonRow = { ...row, line: JSON.stringify({ message: 'Readable checkout failure', trace_id: 'trace-json', span_id: 'span-json' }), parsedFields: { ...row.parsedFields, trace_id: 'trace-json', span_id: 'span-json' }, traceId: 'trace-json', spanId: 'span-json' }
   render(<LogResultExplorer rows={[jsonRow]} limit={100} onFilter={vi.fn()} />)
   fireEvent.change(screen.getByRole('textbox', { name: 'Search loaded logs' }), { target: { value: 'Readable checkout' } })
   const listRow = screen.getByRole('button', { name: /ERROR, Readable checkout failure/ })
@@ -43,6 +43,9 @@ it('extracts a JSON message and presents trace and span identifiers above metada
   expect(screen.getByText('Trace ID').compareDocumentPosition(screen.getByRole('heading', { name: 'Indexed labels' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(screen.getByText('trace-json')).toBeTruthy()
   expect(screen.getByText('span-json')).toBeTruthy()
+  expect(screen.getAllByText('Trace ID')).toHaveLength(1)
+  expect(screen.queryByText('trace_id')).toBeNull()
+  expect(screen.queryByText('span_id')).toBeNull()
   expect(screen.getByRole('button', { name: 'Copy raw log' })).toBeTruthy()
 })
 

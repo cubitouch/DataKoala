@@ -30,8 +30,8 @@ export const previewLokiRows = Array.from({ length: 48 }, (_, index) => {
     timestampMs,
     line: index === 0 ? JSON.stringify({ message: line, level: severity, trace_id: traceId, span_id: 'c92f5b76d841a903', checkout_id: 'demo-4821' }) : `${line}; checkout_id=demo-${String(4821 - index).padStart(4, '0')}`,
     labels: { environment: 'production', cluster: 'eu-west-1', namespace: 'payments', service_name: 'checkout-api' },
-    structuredMetadata: { severity, pod: `checkout-api-7d9f${index % 3}`, trace_id: traceId ?? `synthetic-${String(index).padStart(4, '0')}` },
-    parsedFields: { attempt: index % 3 + 1, timeout_ms: index % 4 === 0 ? 800 : 650, downstream_service: index % 3 === 1 ? 'payment-worker' : 'inventory-service', outcome: severity === 'INFO' ? 'recovered' : 'retrying' },
+    structuredMetadata: { severity, pod: `checkout-api-7d9f${index % 3}`, ...(index === 0 ? {} : { trace_id: `synthetic-${String(index).padStart(4, '0')}` }) },
+    parsedFields: { attempt: index % 3 + 1, timeout_ms: index % 4 === 0 ? 800 : 650, downstream_service: index % 3 === 1 ? 'payment-worker' : 'inventory-service', outcome: severity === 'INFO' ? 'recovered' : 'retrying', ...(traceId ? { trace_id: traceId, span_id: 'c92f5b76d841a903' } : {}) },
     severity,
     ...(traceId ? { traceId, spanId: 'c92f5b76d841a903' } : {})
   }
