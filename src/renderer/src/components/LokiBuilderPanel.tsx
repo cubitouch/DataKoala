@@ -30,7 +30,7 @@ export function LokiBuilderPanel({ value, generated, labels, connectionId, bound
       <Control label="Line contains"><input aria-label="Line contains" value={value.lineFilters[0]?.value ?? ''} onChange={(event) => onChange({ ...value, lineFilters: event.target.value ? [{ operator: '|=', value: event.target.value }] : [] })} placeholder="timeout" /></Control>
       <Control label="Group by"><MultiCombobox label="Group by" values={groupBy} options={visibleLabels.map((label) => ({ value: label, label }))} onChange={(next) => onGroupByChange([...new Set(next)].filter((label) => !internal(label)))} searchable showChips loading={metadataStatus === 'loading'} error={metadataStatus === 'error' ? metadataError : null} loadingMessage="Loading indexed labels…" emptyMessage="No indexed labels in this range" placeholder="No grouping" /></Control>
     </div>
-    {matchers.length > 0 && <div className={styles.valuesGrid}>{matchers.map((matcher) => <ValueControl key={matcher.label} matcher={value.labelMatchers.find((item) => item.label === matcher.label) ?? matcher} matchers={value.labelMatchers} connectionId={connectionId} bounds={bounds} onChange={(next) => patchValues(matcher.label, next)} />)}</div>}
+    {matchers.length > 0 && <div className={styles.valuesGrid}>{matchers.map((matcher) => <ValueControl key={matcher.label} matcher={matcher} matchers={value.labelMatchers} connectionId={connectionId} bounds={bounds} onChange={(next) => patchValues(matcher.label, next)} />)}</div>}
     {preserved.length > 0 && <p className={styles.preserved}>Unsupported saved matcher expressions are preserved. Open in LogQL mode to edit them.</p>}
     <GeneratedQueryPanel language="LogQL" value={generated} onOpenInEditor={onOpenLogql} />
   </section>
