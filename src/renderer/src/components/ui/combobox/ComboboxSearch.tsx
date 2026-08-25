@@ -1,5 +1,6 @@
 import React from 'react'
 void React
+import { TextInput } from '../TextInput'
 import styles from './Combobox.module.css'
 interface Props {
   value: string
@@ -10,5 +11,5 @@ interface Props {
 }
 
 export function ComboboxSearch({ value, onChange, onKeyDown, inputRef, label }: Props) {
-  return <div className={styles.searchWrap}><span aria-hidden="true">⌕</span><input ref={inputRef} className={styles.search} aria-label={`Search ${label}`} placeholder="Search" value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={onKeyDown} /></div>
+  return <div className={styles.searchWrap}><span aria-hidden="true">⌕</span><TextInput mode="inline" ref={inputRef} className={styles.search} aria-label={`Search ${label}`} placeholder="Search" value={value} onValueChange={onChange} onKeyDown={onKeyDown} /></div>
 }

@@ -1,3 +1,4 @@
+import { TextInput } from './ui/TextInput'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { DataSourceProfile, DatabaseColumnNode, DatabaseRelationNode } from '@shared/types'
 import { api } from '../lib/api'
@@ -253,7 +254,7 @@ export function Sidebar() {
       {metadataStatus === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-label="Loading database objects" /> Loading database objects…</div>}
       {metadataStatus === 'error' && <div className={styles.objectError} role="alert">Could not load objects.<small>{metadataError}</small><button onClick={() => void retryObjects()}>Retry</button></div>}
       {metadataStatus === 'loaded' && <>
-        <input className={styles.objectFilter} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter objects…" aria-label="Filter database objects" />
+        <TextInput className={styles.objectFilter} value={filter} onValueChange={setFilter} placeholder="Filter objects…" aria-label="Filter database objects" />
         {schemas.length === 0 ? <div className={styles.objectStatus}>No database objects</div> :
         <div className={styles.objectTree} role="tree" aria-label="Database objects">
           {visibleSchemas.map((schema) => {

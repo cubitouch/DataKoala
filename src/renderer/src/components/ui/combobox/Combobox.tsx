@@ -9,6 +9,7 @@ import styles from './Combobox.module.css'
 import type { ComboboxOption } from './types'
 
 interface Props {
+  id?: string
   label: string
   value: string
   options: ComboboxOption[]
@@ -29,7 +30,7 @@ const optionId = (prefix: string, value: string) => `${prefix}-option-${encodeUR
 const optionText = (option: ComboboxOption) => norm([option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' '))
 const isTypingKey = (event: React.KeyboardEvent) => event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
 
-export function Combobox({ label, value, options, onChange, placeholder = 'Select an option…', searchable = false, disabled = false, loading = false, error = null, emptyMessage = 'No matching options', loadingMessage = 'Loading…', invalidationKey, allowCustomValue = false }: Props) {
+export function Combobox({ id, label, value, options, onChange, placeholder = 'Select an option…', searchable = false, disabled = false, loading = false, error = null, emptyMessage = 'No matching options', loadingMessage = 'Loading…', invalidationKey, allowCustomValue = false }: Props) {
   const reactId = useId()
   const menuId = `${reactId}-listbox`
   const selected = options.find((option) => option.value === value) ?? (allowCustomValue && value ? { value, label: value, subtitle: 'Manually entered' } : undefined)
@@ -94,7 +95,7 @@ export function Combobox({ label, value, options, onChange, placeholder = 'Selec
     if (searchable && isTypingKey(event)) { event.preventDefault(); setOpen(true); setQuery(event.key) }
   }
 
-  return <Popover triggerRef={triggerRef} contentClassName={styles.menu} triggerClassName={error ? styles.errorTrigger : undefined} maxHeight={360} open={open} onOpenChange={setOpen} disabled={disabled} invalidationKey={invalidationKey} ariaLabel={`${label}: ${selected?.label ?? placeholder}`} popupType="listbox" focusOptionsOnKeyboardOpen={false} triggerButtonProps={{ role: 'combobox', 'aria-controls': menuId, 'aria-activedescendant': active ? optionId(reactId, active.value) : undefined, onKeyDown: onTriggerKeyDown }} trigger={<ComboboxTrigger selected={selected} placeholder={placeholder} loading={loading} error={error} />}>
+  return <Popover triggerRef={triggerRef} contentClassName={styles.menu} triggerClassName={error ? styles.errorTrigger : undefined} maxHeight={360} open={open} onOpenChange={setOpen} disabled={disabled} invalidationKey={invalidationKey} ariaLabel={`${label}: ${selected?.label ?? placeholder}`} popupType="listbox" focusOptionsOnKeyboardOpen={false} triggerButtonProps={{ id, value, role: 'combobox', 'aria-controls': menuId, 'aria-activedescendant': active ? optionId(reactId, active.value) : undefined, onKeyDown: onTriggerKeyDown }} trigger={<ComboboxTrigger selected={selected} placeholder={placeholder} loading={loading} error={error} />}>
     <div ref={menuRef} id={menuId} role="listbox" aria-label={label} aria-busy={loading || undefined} aria-activedescendant={active ? optionId(reactId, active.value) : undefined} onKeyDown={onMenuKeyDown} tabIndex={searchable ? -1 : 0}>
       {searchable && <ComboboxSearch inputRef={searchRef} value={query} onChange={setQuery} onKeyDown={onMenuKeyDown} label={label} />}
       {loading && <div className={styles.state} role="status">{loadingMessage}</div>}

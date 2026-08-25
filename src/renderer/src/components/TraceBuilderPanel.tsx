@@ -1,3 +1,4 @@
+import { TextInput } from './ui/TextInput'
 import { useEffect, useMemo } from 'react'
 import type { DatabaseSchemaNode } from '@shared/types'
 import type { TempoAttribute } from '@shared/tempo'
@@ -134,29 +135,29 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
       <Control label="Span kind"><Combobox label="Span kind" value={value.spanKind} options={spanKindOptions} onChange={(spanKind) => onChange({ spanKind: spanKind as TraceSpanKind })} /></Control>
       <Control label="Protocol / subsystem"><Combobox label="Protocol or subsystem" value={value.protocol} options={protocolOptions} onChange={(protocol) => onChange({ protocol: protocol as TraceProtocol })} /></Control>
       <Control label="Status"><Combobox label="Status" value={value.status} options={statusOptions} onChange={(status) => onChange({ status: status as TraceStatus })} /></Control>
-      <Control label="Min duration (ms)"><input type="number" min="0" step="1" value={value.minDurationMs} onChange={(event) => onChange({ minDurationMs: event.target.value })} placeholder="300" /></Control>
+      <Control label="Min duration (ms)"><TextInput type="number" min="0" step="1" value={value.minDurationMs} onValueChange={(text) => onChange({ minDurationMs: text })} placeholder="300" /></Control>
     </div>
 
     {value.protocol === 'http' && <div className={styles.detailRow}>
       <Control label="HTTP method"><Combobox label="HTTP method" value={value.httpMethod} options={httpMethodOptions} onChange={(httpMethod) => onChange({ httpMethod })} /></Control>
-      <Control label="Route / endpoint" hint={value.spanKind === 'client' ? 'Matches URL template/path for client spans.' : value.spanKind === 'server' ? 'Matches the instrumented HTTP route.' : 'Matches route, URL template or path.'}><input value={value.endpoint} onChange={(event) => onChange({ endpoint: event.target.value })} placeholder="/checkout/{id}" /></Control>
+      <Control label="Route / endpoint" hint={value.spanKind === 'client' ? 'Matches URL template/path for client spans.' : value.spanKind === 'server' ? 'Matches the instrumented HTTP route.' : 'Matches route, URL template or path.'}><TextInput value={value.endpoint} onValueChange={(text) => onChange({ endpoint: text })} placeholder="/checkout/{id}" /></Control>
     </div>}
 
     {value.protocol === 'rpc' && <div className={styles.detailRow}>
       <Control label="RPC system"><Combobox label="RPC system" value={value.rpcSystem} options={rpcSystemOptions} onChange={(rpcSystem) => onChange({ rpcSystem })} searchable allowCustomValue /></Control>
-      <Control label="RPC service"><input value={value.rpcService} onChange={(event) => onChange({ rpcService: event.target.value })} placeholder="CartService" /></Control>
-      <Control label="RPC method"><input value={value.rpcMethod} onChange={(event) => onChange({ rpcMethod: event.target.value })} placeholder="Checkout" /></Control>
+      <Control label="RPC service"><TextInput value={value.rpcService} onValueChange={(text) => onChange({ rpcService: text })} placeholder="CartService" /></Control>
+      <Control label="RPC method"><TextInput value={value.rpcMethod} onValueChange={(text) => onChange({ rpcMethod: text })} placeholder="Checkout" /></Control>
     </div>}
 
     {value.protocol === 'messaging' && <div className={styles.detailRow}>
       <Control label="Messaging system"><Combobox label="Messaging system" value={value.messagingSystem} options={messagingSystemOptions} onChange={(messagingSystem) => onChange({ messagingSystem })} searchable allowCustomValue loading={messagingSystemsLoading} error={messagingSystemsError} loadingMessage="Loading messaging systems…" emptyMessage="No messaging systems found. Type a custom value." placeholder="Any messaging system" /></Control>
-      <Control label="Destination / topic"><input value={value.messagingDestination} onChange={(event) => onChange({ messagingDestination: event.target.value })} placeholder="orders" /></Control>
+      <Control label="Destination / topic"><TextInput value={value.messagingDestination} onValueChange={(text) => onChange({ messagingDestination: text })} placeholder="orders" /></Control>
       <Control label="Operation"><Combobox label="Messaging operation" value={value.messagingOperation} options={messagingOperationOptions} onChange={(messagingOperation) => onChange({ messagingOperation })} searchable allowCustomValue /></Control>
     </div>}
 
     {value.protocol === 'database' && <div className={styles.detailRow}>
       <Control label="Database system"><Combobox label="Database system" value={value.dbSystem} options={dbSystemOptions} onChange={(dbSystem) => onChange({ dbSystem })} searchable allowCustomValue /></Control>
-      <Control label="DB operation"><input value={value.dbOperation} onChange={(event) => onChange({ dbOperation: event.target.value })} placeholder="SELECT" /></Control>
+      <Control label="DB operation"><TextInput value={value.dbOperation} onValueChange={(text) => onChange({ dbOperation: text })} placeholder="SELECT" /></Control>
     </div>}
 
     <details className={`${styles.disclosure} ${styles.advanced}`}>
@@ -173,7 +174,7 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
           <div className={styles.facetValues}><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => updateFilter(filter.attribute, { values })} searchable showChips allowCustomValue loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} />{discovered.length > MAX_ATTRIBUTE_VALUES && <small className={styles.fieldHint}>Showing the first {MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.</small>}</div>
         </div>
       })}</div></div>}
-      <Control label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter."><input value={value.spanName} onChange={(event) => onChange({ spanName: event.target.value })} placeholder="POST /checkout" /></Control>
+      <Control label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter."><TextInput value={value.spanName} onValueChange={(text) => onChange({ spanName: text })} placeholder="POST /checkout" /></Control>
       </div>
     </details>
 

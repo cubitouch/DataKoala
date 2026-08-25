@@ -1,3 +1,4 @@
+import { TextInput } from './ui/TextInput'
 import { useEffect, useState, type ReactNode } from 'react'
 import type { LokiBuilderState, LokiLabelMatcher } from '@shared/loki'
 import type { LokiMetadataRequest } from '@shared/loki'
@@ -27,7 +28,7 @@ export function LokiBuilderPanel({ value, generated, labels, connectionId, bound
   return <section className={styles.root} data-loki-builder>
     <div className={styles.primaryRow}>
       <Control label="Filter by"><MultiCombobox label="Filter by" values={selected} options={visibleLabels.map((label) => ({ value: label, label }))} onChange={selectLabels} searchable showChips loading={metadataStatus === 'loading'} error={metadataStatus === 'error' ? metadataError : null} loadingMessage="Loading indexed labels…" emptyMessage="No indexed labels in this range" placeholder="Select indexed labels" /></Control>
-      <Control label="Line contains"><input aria-label="Line contains" value={value.lineFilters[0]?.value ?? ''} onChange={(event) => onChange({ ...value, lineFilters: event.target.value ? [{ operator: '|=', value: event.target.value }] : [] })} placeholder="timeout" /></Control>
+      <Control label="Line contains"><TextInput aria-label="Line contains" value={value.lineFilters[0]?.value ?? ''} onValueChange={(text) => onChange({ ...value, lineFilters: text ? [{ operator: '|=', value: text }] : [] })} placeholder="timeout" /></Control>
       <Control label="Group by"><MultiCombobox label="Group by" values={groupBy} options={visibleLabels.map((label) => ({ value: label, label }))} onChange={(next) => onGroupByChange([...new Set(next)].filter((label) => !internal(label)))} searchable showChips loading={metadataStatus === 'loading'} error={metadataStatus === 'error' ? metadataError : null} loadingMessage="Loading indexed labels…" emptyMessage="No indexed labels in this range" placeholder="No grouping" /></Control>
     </div>
     {matchers.length > 0 && <div className={styles.valuesGrid}>{matchers.map((matcher) => <ValueControl key={matcher.label} matcher={matcher} matchers={value.labelMatchers} connectionId={connectionId} bounds={bounds} onChange={(next) => patchValues(matcher.label, next)} />)}</div>}

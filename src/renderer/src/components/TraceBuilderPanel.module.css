@@ -41,22 +41,6 @@
   line-height: 1.25;
 }
 
-.control input {
-  width: 100%;
-  min-width: 0;
-  height: 32px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: var(--bg);
-  color: var(--text);
-}
-
-.control input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-}
-
 .disclosure { width: 100%; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-3); }
 .disclosure summary { min-height: 40px; padding: 9px 14px; cursor: pointer; user-select: none; color: var(--text-dim); font-size: 12px; line-height: 20px; }
 .disclosure summary:hover { color: var(--text); background: color-mix(in srgb, var(--bg-2) 55%, transparent); }
