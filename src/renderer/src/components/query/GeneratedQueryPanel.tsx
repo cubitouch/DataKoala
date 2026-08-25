@@ -12,7 +12,7 @@ export type GeneratedQueryLanguage = 'SQL' | 'PromQL' | 'TraceQL' | 'LogQL'
 interface GeneratedQueryPanelProps {
   language: GeneratedQueryLanguage
   value?: string | null
-  onOpenInQueryMode?: () => void
+  onOpenInEditor?: () => void
   emptyState?: ReactNode
   validation?: ReactNode
   supplementary?: ReactNode
@@ -29,7 +29,7 @@ function languageExtensions(language: GeneratedQueryLanguage) {
 export function GeneratedQueryPanel({
   language,
   value,
-  onOpenInQueryMode,
+  onOpenInEditor,
   emptyState,
   validation,
   supplementary,
@@ -42,14 +42,14 @@ export function GeneratedQueryPanel({
   return <details className={[styles.root, className].filter(Boolean).join(' ')} data-generated-query-panel>
     <summary>
       <span className={styles.title}>Generated {language}</span>
-      {onOpenInQueryMode && <button
+      {onOpenInEditor && <button
         className={`btn ghost ${styles.openAction}`}
         type="button"
         disabled={!canOpen}
         onClick={(event) => {
           event.preventDefault()
           event.stopPropagation()
-          if (canOpen) onOpenInQueryMode()
+          if (canOpen) onOpenInEditor()
         }}
       >Open in {language} mode</button>}
     </summary>
