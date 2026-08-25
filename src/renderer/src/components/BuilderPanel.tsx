@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
-import { oneDark } from '@codemirror/theme-one-dark'
 import { isNumericType, sqlDialectForSourceKind, type DatabaseColumnNode, type QueryResult } from '@shared/types'
 import { api } from '../lib/api'
 import { BUILDER_AGGREGATIONS, generateBuilderQuery, isBuilderTemporalDataType, isBuilderTimeBucketSupported, materializeSqlParameters, TIME_BUCKETS } from '../lib/builderSql'
@@ -20,6 +18,7 @@ import styles from './BuilderPanel.module.css'
 import { formatterDialect as formatterDialectForSql } from '../lib/sqlDialect'
 import { ensureRelationColumns } from '../lib/relationColumns'
 import { QueryUtilityActions } from './QueryUtilityActions'
+import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
 
 const isTimeColumn = (column: DatabaseColumnNode) => isBuilderTemporalDataType(column.dataTypeName)
 const aggregationLabel = (aggregation: Aggregation) => aggregation === 'average' ? 'Average' : aggregation === 'minimum' ? 'Minimum' : aggregation === 'maximum' ? 'Maximum' : aggregation === 'count' ? 'Count' : 'Sum'
@@ -440,18 +439,13 @@ export function BuilderPanel() {
     </div>
     {selectedRelation?.columnsStatus === 'error' && <div className="inline-error" role="alert">Could not load columns. {metadataError || selectedRelation.columnsError}<button className="btn ghost" type="button" onClick={() => void loadColumns(selectedRelation, true)}>Retry column metadata</button></div>}
     {(axisNotice || filterNotice) && <div className="toast" role="status">{[axisNotice, filterNotice?.message].filter(Boolean).join(' ')}</div>}
-    <details className={styles.generatedSql}>
-      <summary>
-        <span style={{ marginLeft: 4 }}>Generated SQL</span>
-        <button className="btn ghost" type="button" disabled={!generatedQuery} style={{ float: 'right', marginTop: -4, marginBottom: -4 }} onClick={(event) => {
-          event.preventDefault(); event.stopPropagation(); openGeneratedSqlMode()
-        }}>Open in SQL mode</button>
-      </summary>
-      {generatedQuery ? <>
-        <CodeMirror value={formattedGeneratedSql} height="150px" theme={oneDark} editable={false} basicSetup={{ lineNumbers: true, foldGutter: false }} />
-        {generatedQuery.parameters.length > 0 && <div className={styles.generatedParameters}><strong>Parameters:</strong> <code>{JSON.stringify(generatedQuery.parameters)}</code></div>}
-        <div className={styles.generatedActions}><CopySqlButton sql={formattedGeneratedSql} /></div>
-      </> : <p>{builder.table && selectedX && yRequired && !selectedY ? `Select a numeric Y axis for ${aggregationLabel(aggregation)}.` : 'Select a table and X axis to preview SQL.'}</p>}
-    </details>
+    <GeneratedQueryPanel
+      className={styles.generatedSql}
+      language="SQL"
+      value={formattedGeneratedSql}
+      onOpenInEditor={openGeneratedSqlMode}
+      emptyState={builder.table && selectedX && yRequired && !selectedY ? `Select a numeric Y axis for ${aggregationLabel(aggregation)}.` : 'Select a table and X axis to preview SQL.'}
+      supplementary={generatedQuery?.parameters.length ? <><strong>Parameters:</strong> <code>{JSON.stringify(generatedQuery.parameters)}</code></> : undefined}
+    />
   </div>
 }
