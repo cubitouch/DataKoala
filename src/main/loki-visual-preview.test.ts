@@ -13,6 +13,8 @@ test('Loki preview fixture preserves log field boundaries and realistic severiti
   assert.equal(row.structuredMetadata.severity, 'ERROR')
   assert.equal(row.parsedFields.downstream_service, 'inventory-service')
   assert.equal(row.traceId, '8f4a02ce4d7b41a2bd63688cf774913e')
+  assert.match(JSON.parse(row.line).message, /Payment provider timeout/)
+  assert.match(fixture.previewLokiRows[1].line, /\nTimeoutError:/)
   assert.deepEqual(new Set(fixture.previewLokiRows.map((item: { severity: string }) => item.severity)), new Set(['INFO', 'WARN', 'ERROR']))
 })
 

@@ -11,7 +11,7 @@ export const lokiLabelValues = {
 
 const messages = [
   ['ERROR', 'Payment provider timeout after 800ms; circuit breaker opened after 3 retries'],
-  ['WARN', 'Payment provider timeout on retry 2/3; applying 200ms exponential backoff'],
+  ['WARN', 'Payment provider timeout on retry 2/3; applying 200ms exponential backoff\nTimeoutError: provider request exceeded 800ms\n    at authorizePayment (checkout/payment.ts:184:17)'],
   ['ERROR', 'Checkout timeout while awaiting payment-worker acknowledgement'],
   ['WARN', 'Inventory reservation timeout; inventory-service recovered on retry'],
   ['INFO', 'Payment timeout rate returned below threshold; circuit breaker entering half-open'],

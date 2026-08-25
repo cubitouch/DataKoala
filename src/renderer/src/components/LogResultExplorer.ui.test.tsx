@@ -33,11 +33,27 @@ it('keeps a large result set virtualized', () => {
 it('extracts a JSON message and presents trace and span identifiers above metadata', () => {
   const jsonRow = { ...row, line: JSON.stringify({ message: 'Readable checkout failure', trace_id: 'trace-json', span_id: 'span-json' }), traceId: 'trace-json', spanId: 'span-json' }
   render(<LogResultExplorer rows={[jsonRow]} limit={100} onFilter={vi.fn()} />)
-  fireEvent.click(screen.getByRole('button', { name: /message.*Readable checkout failure/ }))
-  expect(screen.getByText('Readable checkout failure')).toBeTruthy()
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search loaded logs' }), { target: { value: 'Readable checkout' } })
+  const listRow = screen.getByRole('button', { name: /ERROR, Readable checkout failure/ })
+  expect(listRow.textContent).toContain('Readable checkout failure')
+  expect(listRow.textContent).not.toContain('{"message"')
+  fireEvent.click(listRow)
+  expect(screen.getByText('Readable checkout failure', { selector: 'p' })).toBeTruthy()
   expect(screen.queryByText(jsonRow.line, { selector: 'p' })).toBeNull()
   expect(screen.getByText('Trace ID').compareDocumentPosition(screen.getByRole('heading', { name: 'Indexed labels' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(screen.getByText('trace-json')).toBeTruthy()
   expect(screen.getByText('span-json')).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Copy raw log' })).toBeTruthy()
+})
+
+it('keeps multiline messages compact in the fixed row and complete in the inspector', () => {
+  const message = 'Timeout while authorizing payment\nTimeoutError: provider request exceeded 800ms\n    at authorizePayment (payment.ts:184:17)'
+  const multiline = { ...row, id: 'stack', line: JSON.stringify({ msg: message }) }
+  render(<LogResultExplorer rows={[multiline]} limit={100} onFilter={vi.fn()} />)
+  const listRow = screen.getByRole('button', { name: /Timeout while authorizing payment/ })
+  expect(listRow.closest('article')?.getBoundingClientRect().height || 0).toBeLessThanOrEqual(42)
+  fireEvent.click(listRow)
+  const complete = document.querySelector('p')!
+  expect(complete.textContent).toBe(message)
+  expect(complete.className).toContain('fullLine')
 })
