@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { DatabaseSchemaNode } from '@shared/types'
 import type { TempoAttribute } from '@shared/tempo'
 import type { MetadataStatus } from '../store/useStore'
 import {
+  traceBuilderFromTraceql,
   type TraceBuilderState,
   type TraceAttributeFilterMode,
   type TraceProtocol,
@@ -113,6 +114,11 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
   const activeAdvancedFilterCount = value.advancedFilters.filter((filter) => filter.values.some((item) => item.trim())).length + (value.spanName.trim() ? 1 : 0)
   const changeAttributes = (selected: string[]) => onChange({ advancedFilters: selected.map((attribute) => value.advancedFilters.find((filter) => filter.attribute === attribute) ?? { attribute, scope: attributes.find((item) => item.traceql === attribute)?.scope ?? (attribute.startsWith('resource.') ? 'resource' : 'span'), mode: 'include', values: [] }) })
   const updateFilter = (attribute: string, patch: Partial<(typeof value.advancedFilters)[number]>) => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === attribute ? { ...filter, ...patch } : filter) })
+
+  useEffect(() => {
+    const parsed = traceBuilderFromTraceql(traceql)
+    if (JSON.stringify(parsed) !== JSON.stringify(value)) onChange(parsed)
+  }, [traceql])
 
   const changeNamespace = (serviceNamespace: string) => {
     const allowedServices = new Set(serviceRelations
