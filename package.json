@@ -71,7 +71,7 @@
     "@codemirror/language": "^6.12.4",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@duckdb/node-api": "1.5.5-r.3",
-    "@google-cloud/bigquery": "8.3.1",
+    "@google-cloud/bigquery": "9.0.2",
     "@grafana/lezer-logql": "^0.3.0",
     "@grafana/lezer-traceql": "^1.0.0",
     "@lezer/common": "^1.5.2",
