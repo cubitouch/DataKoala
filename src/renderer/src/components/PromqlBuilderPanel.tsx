@@ -143,9 +143,10 @@ export function PromqlBuilderPanel() {
     const formatQuery = api.connections.prometheus.formatQuery
     if (!profileId || !generated || typeof formatQuery !== 'function') return
     const timer = window.setTimeout(() => {
-      void formatQuery(profileId, generated)
+      void Promise.resolve()
+        .then(() => formatQuery(profileId, generated))
         .then((query) => {
-          if (request === formatRequest.current && query.trim()) setFormattedGenerated({ source: generated, query })
+          if (request === formatRequest.current && typeof query === 'string' && query.trim()) setFormattedGenerated({ source: generated, query })
         })
         .catch(() => undefined)
     }, 120)
