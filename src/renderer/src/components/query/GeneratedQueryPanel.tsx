@@ -26,15 +26,7 @@ function languageExtensions(language: GeneratedQueryLanguage) {
   return []
 }
 
-export function GeneratedQueryPanel({
-  language,
-  value,
-  onOpenInEditor,
-  emptyState,
-  validation,
-  supplementary,
-  className
-}: GeneratedQueryPanelProps) {
+export function GeneratedQueryPanel({ language, value, onOpenInEditor, emptyState, validation, supplementary, className }: GeneratedQueryPanelProps) {
   const query = value ?? ''
   const hasQuery = query.trim().length > 0
   const canOpen = hasQuery && !validation
