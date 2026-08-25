@@ -56,6 +56,26 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     expect(disclosure.open).toBe(true)
   })
 
+  it('reconciles builder fields when TraceQL changes externally', async () => {
+    const onChange = vi.fn()
+    const common = {
+      schemas: [],
+      metadataStatus: 'loaded' as const,
+      metadataError: null,
+      messagingSystems: [],
+      messagingSystemsLoading: false,
+      messagingSystemsError: null,
+      onChange,
+      onOpenTraceql: vi.fn()
+    }
+    const { rerender } = render(<TraceBuilderPanel value={EMPTY_TRACE_BUILDER} traceql="{}" {...common} />)
+    onChange.mockClear()
+
+    rerender(<TraceBuilderPanel value={EMPTY_TRACE_BUILDER} traceql={'{ resource.service.name = "checkout-api" }'} {...common} />)
+
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ service: 'checkout-api' })))
+  })
+
   it('renders one facet for each selected attribute without raw operators', () => {
     render(<TraceBuilderPanel value={{ ...EMPTY_TRACE_BUILDER, advancedFilters: [
       { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] },
@@ -76,7 +96,8 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     expect(document.querySelectorAll('[class*="facet"]').length).toBeGreaterThan(0)
     const advanced = screen.getByText('Advanced filters').closest('details')!
     const generated = screen.getByText('Generated TraceQL').closest('details')!
-    expect(advanced.className.split(' ').some((name) => generated.classList.contains(name))).toBe(true)
+    expect(advanced.hasAttribute('data-generated-query-panel')).toBe(false)
+    expect(generated.hasAttribute('data-generated-query-panel')).toBe(true)
   })
 
   it('defaults a newly selected attribute to Include and removes it to express no filter', () => {

@@ -6,6 +6,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 
 const { labelsForMetric, labelValues } = vi.hoisted(() => ({ labelsForMetric: vi.fn(), labelValues: vi.fn() }))
 vi.mock('../lib/api', () => ({ api: { connections: { prometheus: { labelsForMetric, labelValues } } } }))
+vi.mock('@uiw/react-codemirror', () => ({
+  default: ({ value, ...props }: { value: string; 'aria-label'?: string }) => <textarea aria-label={props['aria-label']} value={value} readOnly />
+}))
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
 import { activeTestSession, patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '../test/sessionTestUtils'
 
@@ -62,13 +65,13 @@ describe('PromQL Builder controls', () => {
     const layoutRow = screen.getByText('Group by').closest('[data-promql-row="filters-and-grouping"]')
     expect(layoutRow?.textContent).toContain('Filter by')
     expect(layoutRow?.textContent?.indexOf('Group by')).toBeLessThan(layoutRow?.textContent?.indexOf('Filter by') ?? 0)
-    expect(screen.getByRole('button', { name: 'Open in PromQL' }).classList.contains('open-promql-action')).toBe(true)
+    expect(screen.getByRole('button', { name: 'Open in PromQL mode' })).toBeTruthy()
   })
 
   it('opens the canonical generated query in PromQL mode without running', () => {
     arrange()
     const details = screen.getByText('Generated PromQL').closest('details')!
-    fireEvent.click(screen.getByRole('button', { name: 'Open in PromQL' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open in PromQL mode' }))
     expect(details.open).toBe(false)
     expect(activeTestSession().queryMode).toBe('sql')
     expect(activeTestSession().sql).toContain('histogram_quantile')
@@ -128,7 +131,7 @@ describe('PromQL Builder controls', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'other_total' }))
     expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'percentile', aggregation: 'sum', histogramKindOverride: 'auto' })
     expect(await screen.findByRole('combobox', { name: 'Histogram representation: Auto' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open in PromQL' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: 'Open in PromQL mode' }).hasAttribute('disabled')).toBe(true)
   })
 
   it('fails closed for an ambiguous histogram calculation until the user chooses a representation', async () => {
@@ -141,7 +144,7 @@ describe('PromQL Builder controls', () => {
     expect(tooltip.hasAttribute('hidden')).toBe(true)
     fireEvent.focus(warning)
     expect(tooltip.hasAttribute('hidden')).toBe(false)
-    expect(screen.getByRole('button', { name: 'Open in PromQL' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: 'Open in PromQL mode' }).hasAttribute('disabled')).toBe(true)
     fireEvent.click(screen.getByText('Generated PromQL'))
     expect(screen.getByRole('status').textContent).toMatch(/Choose Classic histogram or Native histogram/)
 

@@ -42,8 +42,8 @@ describe('Builder generated SQL header', () => {
     const openButton = screen.getByRole('button', { name: 'Open in SQL mode' }) as HTMLButtonElement
 
     expect(details.open).toBe(false)
+    expect(details.hasAttribute('data-generated-query-panel')).toBe(true)
     expect(openButton.disabled).toBe(false)
-    expect(title.style.marginLeft).toBe('4px')
     fireEvent.click(openButton)
     expect(details.open).toBe(false)
     expect(activeTestSession().queryMode).toBe('sql')

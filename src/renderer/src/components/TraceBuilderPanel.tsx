@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { DatabaseSchemaNode } from '@shared/types'
 import type { TempoAttribute } from '@shared/tempo'
 import type { MetadataStatus } from '../store/useStore'
 import {
+  traceBuilderFromTraceql,
   type TraceBuilderState,
   type TraceAttributeFilterMode,
   type TraceProtocol,
@@ -10,11 +11,8 @@ import {
   type TraceStatus
 } from '../lib/traceBuilder'
 import { Combobox, MultiCombobox, type ComboboxOption } from './ui/combobox'
+import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
 import styles from './TraceBuilderPanel.module.css'
-import CodeMirror from '@uiw/react-codemirror'
-import { oneDark } from '@codemirror/theme-one-dark'
-import { traceql as traceqlSupport } from '../lib/traceqlLanguage'
-import { CopySqlButton } from './CopySqlButton'
 
 interface TraceBuilderPanelProps {
   value: TraceBuilderState
@@ -117,6 +115,11 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
   const changeAttributes = (selected: string[]) => onChange({ advancedFilters: selected.map((attribute) => value.advancedFilters.find((filter) => filter.attribute === attribute) ?? { attribute, scope: attributes.find((item) => item.traceql === attribute)?.scope ?? (attribute.startsWith('resource.') ? 'resource' : 'span'), mode: 'include', values: [] }) })
   const updateFilter = (attribute: string, patch: Partial<(typeof value.advancedFilters)[number]>) => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === attribute ? { ...filter, ...patch } : filter) })
 
+  useEffect(() => {
+    const parsed = traceBuilderFromTraceql(traceql)
+    if (JSON.stringify(parsed) !== JSON.stringify(value)) onChange(parsed)
+  }, [traceql])
+
   const changeNamespace = (serviceNamespace: string) => {
     const allowedServices = new Set(serviceRelations
       .filter((relation) => !serviceNamespace || relation.details?.kind === 'service' && relation.details.serviceNamespace === serviceNamespace)
@@ -174,10 +177,6 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
       </div>
     </details>
 
-    <details className={`${styles.disclosure} ${styles.generated}`}>
-      <summary><span>Generated TraceQL</span><button className="btn ghost" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onOpenTraceql() }}>Open in TraceQL mode</button></summary>
-      <CodeMirror value={traceql} height="150px" theme={oneDark} extensions={[traceqlSupport()]} editable={false} aria-label="Generated TraceQL query" basicSetup={{ lineNumbers: true, foldGutter: false }} />
-      <div className={styles.generatedActions}><CopySqlButton sql={traceql} language="TraceQL" /></div>
-    </details>
+    <GeneratedQueryPanel language="TraceQL" value={traceql} onOpenInEditor={onOpenTraceql} />
   </div>
 }

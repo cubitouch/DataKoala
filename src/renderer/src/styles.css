@@ -96,6 +96,14 @@ section[aria-label='Trace explorer']:has(> [role='status']:not(:has(code)):has(+
 }
 @keyframes tempo-search-spin { to { transform: rotate(360deg); } }
 
+/* Tempo historically overrode CodeMirror's One Dark editor background locally.
+   Keep the plain TraceQL editor visually aligned with the other query editors until
+   the shared QueryCodeEditor extraction in #128 removes that legacy override. */
+section[aria-label='Trace explorer'] .cm-editor:has([aria-label='TraceQL editor']) {
+  background: #282c34;
+  color: #abb2bf;
+}
+
 /* Shared native select fallback. */
 select {
   background: var(--bg-4); color: var(--text); border: 1px solid var(--border);

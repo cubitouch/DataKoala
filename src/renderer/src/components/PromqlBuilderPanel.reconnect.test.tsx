@@ -6,6 +6,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 
 const { labelsForMetric, labelValues } = vi.hoisted(() => ({ labelsForMetric: vi.fn(), labelValues: vi.fn() }))
 vi.mock('../lib/api', () => ({ api: { connections: { prometheus: { labelsForMetric, labelValues } } } }))
+vi.mock('@uiw/react-codemirror', () => ({
+  default: ({ value, ...props }: { value: string; 'aria-label'?: string }) => <textarea aria-label={props['aria-label']} value={value} readOnly />
+}))
 
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
 import { resetPrometheusMetadataCache } from '../lib/prometheusMetadata'
