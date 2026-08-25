@@ -6,7 +6,7 @@ import type { HierarchyNode } from './chartHierarchy.ts'
 
 export type TimeDisplayPrecision = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
 
-const DATAKOALA_CHART_COLORS = ['#f5cf33', '#809ca0', '#ffe0a7', '#6e8c8e', '#ffe5bf', '#617f7f']
+const DATAKOALA_CHART_COLORS = ['#f5cf33', '#75a8a6', '#e99a5b', '#8d83d8', '#69b978', '#d97883', '#62a0d2', '#d8a45d', '#a887c4', '#59b9b1', '#b7b96a', '#d786ae']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const two = (value: number) => String(value).padStart(2, '0')
 
