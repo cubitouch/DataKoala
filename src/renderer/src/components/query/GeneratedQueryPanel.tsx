@@ -3,8 +3,6 @@ import CodeMirror from '@uiw/react-codemirror'
 import { sql as sqlExtension } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { PromQLExtension } from '@prometheus-io/codemirror-promql'
-import type { SqlDialect } from '@shared/types'
-import { codeMirrorDialect } from '../../lib/sqlDialect'
 import { traceql as traceqlSupport } from '../../lib/traceqlLanguage'
 import { logql } from '../../lib/logqlLanguage'
 import { CopySqlButton } from '../CopySqlButton'
@@ -15,7 +13,6 @@ export type GeneratedQueryLanguage = 'SQL' | 'PromQL' | 'TraceQL' | 'LogQL'
 interface GeneratedQueryPanelProps {
   language: GeneratedQueryLanguage
   value?: string | null
-  sqlDialect?: SqlDialect
   onOpenInEditor?: () => void
   emptyState?: ReactNode
   validation?: ReactNode
@@ -23,15 +20,15 @@ interface GeneratedQueryPanelProps {
   className?: string
 }
 
-function languageExtensions(language: GeneratedQueryLanguage, sqlDialect: SqlDialect) {
-  if (language === 'SQL') return [sqlExtension({ dialect: codeMirrorDialect(sqlDialect) })]
+function languageExtensions(language: GeneratedQueryLanguage) {
+  if (language === 'SQL') return [sqlExtension()]
   if (language === 'PromQL') return [new PromQLExtension().asExtension()]
   if (language === 'TraceQL') return [traceqlSupport()]
   if (language === 'LogQL') return [logql()]
   return []
 }
 
-export function GeneratedQueryPanel({ language, value, sqlDialect = 'postgres', onOpenInEditor, emptyState, validation, supplementary, className }: GeneratedQueryPanelProps) {
+export function GeneratedQueryPanel({ language, value, onOpenInEditor, emptyState, validation, supplementary, className }: GeneratedQueryPanelProps) {
   const query = value ?? ''
   const hasQuery = query.trim().length > 0
   const canOpen = hasQuery && !validation
@@ -60,7 +57,7 @@ export function GeneratedQueryPanel({ language, value, sqlDialect = 'postgres', 
         value={query}
         height="150px"
         theme={oneDark}
-        extensions={languageExtensions(language, sqlDialect)}
+        extensions={languageExtensions(language)}
         editable={false}
         aria-label={`Generated ${language} query`}
         basicSetup={{ lineNumbers: true, foldGutter: false }}
