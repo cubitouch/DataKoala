@@ -3,6 +3,8 @@
   padding: 14px 12px;
   overflow: auto;
   min-height: 0;
+  display: grid;
+  gap: 12px;
 }
 
 .control {
@@ -29,14 +31,12 @@
 }
 
 .filterGroupRow {
-  margin-top: 12px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
 .valuesGrid {
-  margin-top: 12px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
@@ -51,10 +51,6 @@
   color: var(--text-mute);
   font-size: 10px;
   line-height: 1.3;
-}
-
-.generated {
-  margin-top: 12px;
 }
 
 @media (max-width: 1050px) {
