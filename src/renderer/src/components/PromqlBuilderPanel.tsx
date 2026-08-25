@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { selectActiveSession, useStore } from '../store/useStore'
+import { api } from '../lib/api'
 import { buildPromql, detectPromqlHistogramKind, resolvePromqlHistogramKind, validatePromqlBuilder, type PromqlAggregation, type PromqlCalculation, type PromqlHistogramKind, type PromqlHistogramKindOverride, type PromqlQuantile, type PromqlWindow } from '../lib/promqlBuilder'
 import { metricLabels, metricLabelValues, prometheusMetadataError } from '../lib/prometheusMetadata'
 import { Combobox, MultiCombobox } from './ui/combobox'
@@ -40,6 +41,7 @@ export function PromqlBuilderPanel() {
   const [values, setValues] = useState<Record<string, string[]>>({})
   const [loadingValues, setLoadingValues] = useState<Record<string, boolean>>({})
   const [valueErrors, setValueErrors] = useState<Record<string, string>>({})
+  const [formattedGenerated, setFormattedGenerated] = useState<{ source: string; query: string }>({ source: '', query: '' })
   const builder = session.promqlBuilder
   const metrics = useMemo(() => (metadata?.schemas ?? []).flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'metric'), [metadata?.schemas])
   const selectedMetric = metrics.find((metric) => metric.name === builder.metric)
@@ -49,6 +51,7 @@ export function PromqlBuilderPanel() {
   const histogramKind = resolvePromqlHistogramKind(detectedHistogramKind, histogramKindOverride)
   const previousHistogramKind = useRef(histogramKind)
   const labelRequest = useRef(0)
+  const formatRequest = useRef(0)
   const metricOptions = metrics.map((metric) => ({ value: metric.name, label: metric.name, subtitle: metric.details?.kind === 'metric' ? metric.details.type : undefined }))
   const labelOptions = labels.filter((label) => label !== '__name__').sort((left, right) => left.localeCompare(right)).map((label) => ({ value: label, label }))
   const activeLabels = [...new Set([...builder.groupBy, ...builder.filterBy])]
@@ -134,6 +137,23 @@ export function PromqlBuilderPanel() {
   }
   const validation = validatePromqlBuilder(builder, histogramKind)
   const generated = buildPromql(builder, histogramKind)
+  const displayedGenerated = formattedGenerated.source === generated ? formattedGenerated.query : generated
+  useEffect(() => {
+    const request = ++formatRequest.current
+    const formatQuery = api.connections.prometheus.formatQuery
+    if (!profileId || !generated || typeof formatQuery !== 'function') return
+    const timer = window.setTimeout(() => {
+      void formatQuery(profileId, generated)
+        .then((query) => {
+          if (request === formatRequest.current && query.trim()) setFormattedGenerated({ source: generated, query })
+        })
+        .catch(() => undefined)
+    }, 120)
+    return () => {
+      window.clearTimeout(timer)
+      if (request === formatRequest.current) formatRequest.current++
+    }
+  }, [profileId, generated])
   const availableCalculations = calculationsForHistogramKind(histogramKind)
   const calculationOptions = availableCalculations.map((value) => ({ value, label: calculationLabels[value] }))
   const aggregationOptions = aggregations.map((value) => ({ value, label: titleCase(value) }))
@@ -142,8 +162,8 @@ export function PromqlBuilderPanel() {
   const labelPlaceholder = loadingLabels ? 'Loading labels…' : labelError ? 'Could not load labels' : labels.length === 0 ? 'No labels available' : 'No filters'
   const histogramAmbiguous = detectedHistogramKind === 'unknown' && !loadingLabels
   const openGeneratedQuery = () => {
-    if (!generated) return
-    setSql(generated, tabId)
+    if (!displayedGenerated) return
+    setSql(displayedGenerated, tabId)
     setMode('sql', tabId)
   }
 
@@ -166,6 +186,6 @@ export function PromqlBuilderPanel() {
       const placeholder = loading ? 'Loading values…' : error ? 'Could not load values' : loaded && values[label].length === 0 ? 'No values found' : 'Select values…'
       return <div className={`${styles.control} ${styles.valueControl}`} key={label}><span className={styles.fieldLabel}>{label}</span><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={[...(values[label] ?? [])].sort((left, right) => left.localeCompare(right)).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={loading || Boolean(error) || loaded && values[label].length === 0} placeholder={placeholder} />{error && <small className="inline-error" role="alert">{error} <button type="button" className="btn ghost" onClick={() => { setValues((current) => { const next = { ...current }; delete next[label]; return next }); loadValues(label) }}>Retry</button></small>}</div>
     })}</div>
-    <GeneratedQueryPanel language="PromQL" value={generated} validation={validation} onOpenInEditor={openGeneratedQuery} />
+    <GeneratedQueryPanel language="PromQL" value={displayedGenerated} validation={validation} onOpenInEditor={openGeneratedQuery} />
   </div>
 }
