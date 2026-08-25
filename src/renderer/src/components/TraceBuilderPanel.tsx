@@ -10,11 +10,8 @@ import {
   type TraceStatus
 } from '../lib/traceBuilder'
 import { Combobox, MultiCombobox, type ComboboxOption } from './ui/combobox'
+import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
 import styles from './TraceBuilderPanel.module.css'
-import CodeMirror from '@uiw/react-codemirror'
-import { oneDark } from '@codemirror/theme-one-dark'
-import { traceql as traceqlSupport } from '../lib/traceqlLanguage'
-import { CopySqlButton } from './CopySqlButton'
 
 interface TraceBuilderPanelProps {
   value: TraceBuilderState
@@ -174,10 +171,6 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
       </div>
     </details>
 
-    <details className={`${styles.disclosure} ${styles.generated}`}>
-      <summary><span>Generated TraceQL</span><button className="btn ghost" type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onOpenTraceql() }}>Open in TraceQL mode</button></summary>
-      <CodeMirror value={traceql} height="150px" theme={oneDark} extensions={[traceqlSupport()]} editable={false} aria-label="Generated TraceQL query" basicSetup={{ lineNumbers: true, foldGutter: false }} />
-      <div className={styles.generatedActions}><CopySqlButton sql={traceql} language="TraceQL" /></div>
-    </details>
+    <GeneratedQueryPanel className={styles.disclosure} language="TraceQL" value={traceql} onOpenInEditor={onOpenTraceql} />
   </div>
 }
