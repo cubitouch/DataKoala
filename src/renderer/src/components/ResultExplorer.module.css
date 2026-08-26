@@ -10,7 +10,7 @@
 .chartActions { min-height: 38px; flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .chartCanvas { position: relative; contain: layout paint; width: 100%; max-width: 100%; min-width: 0; flex: 1; min-height: 0; padding: 6px 10px 10px; }
 .chartCanvas > div { width: 100% !important; max-width: 100%; min-width: 0; }
-.chartCanvas > .runningOverlay { position: absolute; inset: 6px 10px 10px; width: auto !important; display: grid; place-items: center; background: rgb(15 23 42 / 42%); color: var(--text); font-size: 12px; font-weight: 600; pointer-events: none; }
+.chartCanvas > .runningOverlay { position: absolute; inset: 6px 10px 10px; width: auto !important; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 42%, transparent); color: var(--text); font-size: 12px; font-weight: 600; pointer-events: none; }
 .stats { font-size: 11px; color: var(--text-mute); font-family: var(--mono); }
 .spacer { flex: 1; }
 .axisScale { display: inline-flex; align-items: center; gap: 5px; color: var(--text-mute); font-size: 11px; }
