@@ -22,6 +22,7 @@ describe('TextInput', () => {
   it('supports normal, inline, and disabled presentation', () => {
     const view = render(<><TextInput label="Normal" disabled /><TextInput label="Inline" mode="inline" /></>)
     expect((screen.getByLabelText('Normal') as HTMLInputElement).disabled).toBe(true); expect(view.container.querySelectorAll('span')[0].className).toContain('normal'); expect(screen.getByLabelText('Inline').closest(`.${fieldStyles.inline}`)).toBeTruthy()
+    expect(screen.getByLabelText('Inline').className).toBe(screen.getByLabelText('Normal').className)
   })
   it('renders an associated visible label and only visually hides genuine embedded labels', () => {
     render(<><TextInput label="Start time" type="time" /><TextInput label="Tab name" labelVisibility="sr-only" mode="inline" /></>)
