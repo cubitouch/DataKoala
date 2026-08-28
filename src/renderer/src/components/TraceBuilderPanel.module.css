@@ -30,7 +30,7 @@
 }
 
 .activeCount { display: inline-block; margin-left: 8px; padding: 0 5px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-mute); font-size: 10px; line-height: 16px; }
-.advancedContent { padding: 0 12px 12px; }
+.advancedContent { min-width: 0; }
 .facetTable { margin: 12px 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .facets { display: grid; }
 .facet { display: grid; grid-template-columns: minmax(180px, 1.4fr) minmax(210px, 1fr) minmax(240px, 2fr); gap: 12px; align-items: center; padding: 8px; }

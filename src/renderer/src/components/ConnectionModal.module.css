@@ -41,7 +41,7 @@
 .fileConnectionRow { align-items: end; } .fileConnectionRow > .field { min-width: 0; }
 .connPreview { font-family: var(--mono); font-size: 11px; color: var(--text-dim); background: var(--bg-3); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; word-break: break-all; user-select: text; }
 .bqAdvanced { margin-top: 10px; }
-.advancedFields { display: grid; gap: 12px; padding: 12px; }
+.advancedFields { display: grid; gap: 12px; }
 @media (max-width: 520px) { .connectionSourceGrid { grid-template-columns: 1fr; } .connectionPicker { width: calc(100vw - 20px); } .connectionFormHeader { flex-wrap: wrap; } }
 .discoveryHeading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .discoveryHeading > label { margin:0; }

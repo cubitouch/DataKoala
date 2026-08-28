@@ -9,9 +9,10 @@ interface Props {
   defaultOpen?: boolean
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  contentPadding?: 'normal' | 'none'
 }
 
-export function CollapsibleSection({ title, children, actions, defaultOpen = false, open, onOpenChange }: Props) {
+export function CollapsibleSection({ title, children, actions, defaultOpen = false, open, onOpenChange, contentPadding = 'normal' }: Props) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen)
   const isControlled = open !== undefined
   const expanded = isControlled ? open : internalOpen
@@ -25,6 +26,6 @@ export function CollapsibleSection({ title, children, actions, defaultOpen = fal
       <span className={styles.title}>{title}</span>
       {actions && <span className={styles.actions} onClick={(event) => { event.preventDefault(); event.stopPropagation() }}>{actions}</span>}
     </summary>
-    <div className={styles.content}>{children}</div>
+    <div className={`${styles.content} ${styles[`${contentPadding}Padding`]}`}>{children}</div>
   </details>
 }

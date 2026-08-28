@@ -34,7 +34,7 @@ export function GeneratedQueryPanel({ language, value, onOpenInEditor, emptyStat
   const hasQuery = query.trim().length > 0
   const canOpen = hasQuery && !validation
 
-  const section = <CollapsibleSection title={`Generated ${language}`} actions={<>
+  const section = <CollapsibleSection title={`Generated ${language}`} contentPadding="none" actions={<>
         <CopySqlButton sql={query} language={language} />
         {onOpenInEditor && <button
           className="btn ghost"

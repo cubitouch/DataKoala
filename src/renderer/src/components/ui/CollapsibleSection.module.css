@@ -7,4 +7,6 @@
 .root[open] > .summary::before { transform: rotate(90deg); }
 .title { flex: 1; min-width: 0; }
 .actions { flex: none; display: inline-flex; align-items: center; gap: 6px; }
-.content { border-top: 1px solid var(--border); }
+.content { border-top: 1px solid var(--border); background: color-mix(in srgb, var(--bg-2) 70%, var(--bg-3)); }
+.normalPadding { padding: 12px; }
+.nonePadding { padding: 0; }

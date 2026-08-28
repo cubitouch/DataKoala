@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CollapsibleSection } from './CollapsibleSection'
+import styles from './CollapsibleSection.module.css'
 
 afterEach(cleanup)
 describe('CollapsibleSection', () => {
@@ -24,5 +25,11 @@ describe('CollapsibleSection', () => {
     render(<CollapsibleSection title="Generated SQL" actions={<button onClick={action}>Copy</button>}>SQL</CollapsibleSection>)
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
     expect(action).toHaveBeenCalled(); expect(screen.getByText('Generated SQL').closest('details')?.open).toBe(false)
+  })
+  it('owns normal body spacing and supports edge-to-edge content', () => {
+    const { rerender } = render(<CollapsibleSection title="Form">Fields</CollapsibleSection>)
+    expect(screen.getByText('Fields').classList.contains(styles.normalPadding)).toBe(true)
+    rerender(<CollapsibleSection title="Preview" contentPadding="none">Code</CollapsibleSection>)
+    expect(screen.getByText('Code').classList.contains(styles.nonePadding)).toBe(true)
   })
 })
