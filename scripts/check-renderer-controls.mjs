@@ -4,7 +4,7 @@ import ts from 'typescript'
 
 const root = path.resolve('src/renderer/src')
 const allowedInputs = new Set([
-  path.join(root, 'components/ui/TextInput.tsx'),
+  path.join(root, 'components/ui/input/InputControl.tsx'),
   path.join(root, 'components/ui/Checkbox.tsx')
 ])
 const failures = []

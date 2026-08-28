@@ -36,6 +36,8 @@ describe('GeneratedQueryPanel', () => {
     />)
 
     const details = screen.getByText('Generated TraceQL').closest('details') as HTMLDetailsElement
+    expect(details.hasAttribute('data-collapsible-section')).toBe(true)
+    expect(screen.getByText('Generated TraceQL').closest('[data-generated-query-panel]')).toBeTruthy()
     expect(details.open).toBe(false)
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy TraceQL to clipboard' }))

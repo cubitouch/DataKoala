@@ -39,10 +39,12 @@ describe('Builder generated SQL header', () => {
     render(<BuilderPanel />)
     const title = screen.getByText('Generated SQL') as HTMLElement
     const details = title.closest('details') as HTMLDetailsElement
+    const panel = title.closest('[data-generated-query-panel]') as HTMLElement
     const openButton = screen.getByRole('button', { name: 'Open in SQL mode' }) as HTMLButtonElement
 
     expect(details.open).toBe(false)
-    expect(details.hasAttribute('data-generated-query-panel')).toBe(true)
+    expect(panel).toBeTruthy()
+    expect(details.hasAttribute('data-collapsible-section')).toBe(true)
     expect(openButton.disabled).toBe(false)
     fireEvent.click(openButton)
     expect(details.open).toBe(false)

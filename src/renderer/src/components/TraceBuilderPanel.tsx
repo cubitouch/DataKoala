@@ -13,6 +13,7 @@ import {
 } from '../lib/traceBuilder'
 import { Combobox, MultiCombobox, type ComboboxOption } from './ui/combobox'
 import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
+import { CollapsibleSection } from './ui/CollapsibleSection'
 import styles from './TraceBuilderPanel.module.css'
 
 interface TraceBuilderPanelProps {
@@ -158,8 +159,7 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
       <Control><TextInput label="DB operation" value={value.dbOperation} onValueChange={(text) => onChange({ dbOperation: text })} placeholder="SELECT" /></Control>
     </div>}
 
-    <details className={`${styles.disclosure} ${styles.advanced}`}>
-      <summary><span>Advanced filters</span>{activeAdvancedFilterCount > 0 && <span className={styles.activeCount}>{activeAdvancedFilterCount} active</span>}</summary>
+    <CollapsibleSection title="Advanced filters" actions={activeAdvancedFilterCount > 0 ? <span className={styles.activeCount}>{activeAdvancedFilterCount} active</span> : undefined}>
       <div className={styles.advancedContent}>
       <Control><MultiCombobox label="Attributes" values={selectedAttributes} options={attributeOptions} onChange={changeAttributes} searchable showChips loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Select attributes" /></Control>
       {value.advancedFilters.length > 0 && <div className={styles.facetTable}>
@@ -174,7 +174,7 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
       })}</div></div>}
       <Control><TextInput label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter." value={value.spanName} onValueChange={(text) => onChange({ spanName: text })} placeholder="POST /checkout" /></Control>
       </div>
-    </details>
+    </CollapsibleSection>
 
     <GeneratedQueryPanel language="TraceQL" value={traceql} onOpenInEditor={onOpenTraceql} />
   </div>
