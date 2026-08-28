@@ -58,7 +58,7 @@ describe('LokiExplorer execution', () => {
     expect(input.type).toBe('number')
     expect(input.min).toBe('1')
     expect(input.max).toBe('5000')
-    expect(input.closest('[data-field]')?.className).toContain('compact')
+    expect(input.closest('[data-field]')?.className).toContain('inline')
   })
 
   it('does not request or render a synthetic trend for metric LogQL', async () => {

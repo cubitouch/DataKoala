@@ -23,12 +23,6 @@ describe('TextInput', () => {
     const view = render(<><TextInput label="Normal" disabled /><TextInput label="Inline" mode="inline" /></>)
     expect((screen.getByLabelText('Normal') as HTMLInputElement).disabled).toBe(true); expect(view.container.querySelectorAll('span')[0].className).toContain('normal'); expect(screen.getByLabelText('Inline').closest(`.${fieldStyles.inline}`)).toBeTruthy()
   })
-  it('sizes compact controls without changing inline label placement', () => {
-    render(<TextInput label="Limit" mode="inline" controlSize="compact" type="number" value="1000" onValueChange={() => {}} />)
-    const field = screen.getByLabelText('Limit').closest('[data-field]')!
-    expect(field.classList.contains(fieldStyles.inline)).toBe(true)
-    expect(field.classList.contains(fieldStyles.compact)).toBe(true)
-  })
   it('renders an associated visible label and only visually hides genuine embedded labels', () => {
     render(<><TextInput label="Start time" type="time" /><TextInput label="Tab name" labelVisibility="sr-only" mode="inline" /></>)
     expect(screen.getByLabelText('Start time')).toBeTruthy()

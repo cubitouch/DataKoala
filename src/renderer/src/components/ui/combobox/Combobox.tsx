@@ -3,7 +3,7 @@ void React
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Popover } from '../Popover'
 import { FieldChrome } from '../FieldChrome'
-import type { FieldControlSize, FieldFeedbackProps, FieldMode, LabelVisibility } from '../FieldChrome'
+import type { FieldFeedbackProps, FieldMode, LabelVisibility } from '../FieldChrome'
 import { ComboboxOption as OptionRow } from './ComboboxOption'
 import { ComboboxSearch } from './ComboboxSearch'
 import { ComboboxTrigger } from './ComboboxTrigger'
@@ -14,7 +14,6 @@ interface Props extends FieldFeedbackProps {
   id?: string
   label: string
   mode?: FieldMode
-  controlSize?: FieldControlSize
   labelVisibility?: LabelVisibility
   value: string
   options: ComboboxOption[]
@@ -34,7 +33,7 @@ const optionId = (prefix: string, value: string) => `${prefix}-option-${encodeUR
 const optionText = (option: ComboboxOption) => norm([option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' '))
 const isTypingKey = (event: React.KeyboardEvent) => event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
 
-export function Combobox({ id, label, mode, controlSize, labelVisibility, hint, warning, value, options, onChange, placeholder = 'Select an option…', searchable = false, disabled = false, loading = false, error = null, emptyMessage = 'No matching options', loadingMessage = 'Loading…', invalidationKey, allowCustomValue = false }: Props) {
+export function Combobox({ id, label, mode, labelVisibility, hint, warning, value, options, onChange, placeholder = 'Select an option…', searchable = false, disabled = false, loading = false, error = null, emptyMessage = 'No matching options', loadingMessage = 'Loading…', invalidationKey, allowCustomValue = false }: Props) {
   const reactId = useId()
   const menuId = `${reactId}-listbox`
   const selected = options.find((option) => option.value === value) ?? (allowCustomValue && value ? { value, label: value, subtitle: 'Manually entered' } : undefined)
@@ -99,7 +98,7 @@ export function Combobox({ id, label, mode, controlSize, labelVisibility, hint, 
     if (searchable && isTypingKey(event)) { event.preventDefault(); setOpen(true); setQuery(event.key) }
   }
 
-  return <FieldChrome label={label} mode={mode} controlSize={controlSize} labelVisibility={labelVisibility} id={id} controlKind="button" hint={hint} warning={warning} error={error}>
+  return <FieldChrome label={label} mode={mode} labelVisibility={labelVisibility} id={id} controlKind="button" hint={hint} warning={warning} error={error}>
   {({ controlId, labelId, describedBy, invalid }) => <><span id={`${controlId}-value`} className={styles.srOnly}>{selected?.label ?? placeholder}</span><Popover triggerRef={triggerRef} contentClassName={styles.menu} triggerClassName={error ? styles.errorTrigger : undefined} maxHeight={360} open={open} onOpenChange={setOpen} disabled={disabled} invalidationKey={invalidationKey} ariaLabel={`${label}: ${selected?.label ?? placeholder}`} popupType="listbox" focusOptionsOnKeyboardOpen={false} triggerButtonProps={{ id: controlId, value, role: 'combobox', 'aria-labelledby': `${labelId} ${controlId}-value`, 'aria-describedby': describedBy, 'aria-invalid': invalid, 'aria-controls': menuId, 'aria-activedescendant': active ? optionId(reactId, active.value) : undefined, onKeyDown: onTriggerKeyDown }} trigger={<ComboboxTrigger selected={selected} placeholder={placeholder} loading={loading} error={error} />}>
     <div ref={menuRef} id={menuId} role="listbox" aria-label={label} aria-busy={loading || undefined} aria-activedescendant={active ? optionId(reactId, active.value) : undefined} onKeyDown={onMenuKeyDown} tabIndex={searchable ? -1 : 0}>
       {searchable && <ComboboxSearch inputRef={searchRef} value={query} onChange={setQuery} onKeyDown={onMenuKeyDown} label={label} />}
