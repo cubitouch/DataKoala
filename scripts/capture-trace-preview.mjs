@@ -86,7 +86,7 @@ async function seedTraceWorkspace(win) {
 async function validateBuilderIndependence(win) {
   const report = JSON.parse(await win.webContents.executeJavaScript(`(() => {
     const builder = document.querySelector('[data-tempo-builder]')
-    const control = (name) => [...(builder?.querySelectorAll('div') ?? [])].find((candidate) => [...candidate.children].some((child) => child.tagName === 'SPAN' && child.textContent?.trim() === name))
+    const control = (name) => builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]')
     const buttonLabel = (name) => control(name)?.querySelector('button')?.getAttribute('aria-label') ?? ''
     const inputFor = (name) => control(name)?.querySelector('input')
     const exactSpan = inputFor('Exact span / operation name')
@@ -95,7 +95,7 @@ async function validateBuilderIndependence(win) {
     const before = {
       namespace: buttonLabel('Namespace'),
       service: buttonLabel('Service'),
-      protocol: buttonLabel('Protocol / subsystem'),
+      protocol: buttonLabel('Protocol or subsystem'),
       exactSpan: exactSpan.value,
       duration: duration.value
     }
@@ -110,7 +110,7 @@ async function validateBuilderIndependence(win) {
   }
   await waitFor(win, `(() => {
     const builder=document.querySelector('[data-tempo-builder]');
-    const control=(name)=>[...(builder?.querySelectorAll('div') ?? [])].find((candidate)=>[...candidate.children].some((child)=>child.tagName==='SPAN' && child.textContent?.trim()===name));
+    const control=(name)=>builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]');
     return control('Service')?.querySelector('button')?.getAttribute('aria-label') === 'Service: checkout-api' && control('Exact span / operation name')?.querySelector('input')?.value === 'POST /checkout';
   })()`, 'independent Service and advanced operation values')
 }
@@ -118,8 +118,7 @@ async function validateBuilderIndependence(win) {
 async function searchTraces(win) {
   await waitFor(win, `(() => {
     const builder = document.querySelector('[data-tempo-builder]')
-    const durationControl = [...(builder?.querySelectorAll('div') ?? [])].find((candidate) =>
-      [...candidate.children].some((child) => child.tagName === 'SPAN' && child.textContent?.trim() === 'Min duration (ms)'))
+    const durationControl = builder?.querySelector('[data-field][data-field-name="Min duration (ms)"]')
     return document.querySelector('[aria-label="Query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' &&
       durationControl?.querySelector('input')?.value === '300' &&
       document.body.innerText.includes('Last hour') && document.body.innerText.includes('Sample size') &&
@@ -181,13 +180,13 @@ async function validateCloseAndSelectedSpanCohort(win) {
   })()`)
   await waitFor(win, `(() => {
     const builder=document.querySelector('[data-tempo-builder]');
-    const control=(name)=>[...(builder?.querySelectorAll('div') ?? [])].find((candidate)=>[...candidate.children].some((child)=>child.tagName==='SPAN' && child.textContent?.trim()===name));
+    const control=(name)=>builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]');
     const aria=(name)=>control(name)?.querySelector('button')?.getAttribute('aria-label');
     const input=(name)=>control(name)?.querySelector('input')?.value;
     return aria('Namespace') === 'Namespace: commerce' &&
       aria('Service') === 'Service: payment-service' &&
       aria('Span kind') === 'Span kind: Client' &&
-      aria('Protocol / subsystem') === 'Protocol or subsystem: HTTP / network' &&
+      aria('Protocol or subsystem') === 'Protocol or subsystem: HTTP / network' &&
       aria('HTTP method') === 'HTTP method: POST' &&
       input('Route / endpoint') === '/charges' &&
       aria('Status') === 'Status: Error' &&

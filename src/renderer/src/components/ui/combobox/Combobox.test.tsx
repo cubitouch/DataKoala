@@ -25,9 +25,12 @@ describe('Combobox', () => {
   it('owns visible normal/inline labels for single and multi controls', () => {
     render(<><Combobox label="Status" value="" options={options} onChange={() => {}} /><MultiCombobox label="Group by" mode="inline" values={[]} options={options} onChange={() => {}} /></>)
     expect(screen.getByRole('combobox', { name: /Status:/ })).toBeTruthy()
-    expect(screen.getByText('Status').parentElement?.classList.contains(fieldStyles.normal)).toBe(true)
+    const statusLabel = screen.getByText('Status').closest('[data-field-label]')
+    expect(statusLabel?.tagName).toBe('SPAN')
+    expect(statusLabel?.hasAttribute('aria-label')).toBe(false)
+    expect(statusLabel?.closest(`.${fieldStyles.normal}`) !== null).toBe(true)
     expect(screen.getByRole('combobox', { name: /Group by:/ })).toBeTruthy()
-    expect(screen.getByText('Group by').parentElement?.classList.contains(fieldStyles.inline)).toBe(true)
+    expect(screen.getByText('Group by').closest(`.${fieldStyles.inline}`) !== null).toBe(true)
   })
   it('applies its locally owned error border state to the trigger', () => {
     render(<Combobox label="State" value="" options={[]} onChange={() => {}} error="Broken" />)

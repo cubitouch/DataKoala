@@ -25,8 +25,12 @@ export function FieldChrome({ label, mode = 'normal', labelVisibility = 'visible
   const tone = error ? 'error' : warning ? 'warning' : 'info'
   const feedbackId = feedback ? `${generated}-feedback` : undefined
   const descriptions = [describedBy, feedbackId].filter(Boolean).join(' ') || undefined
-  return <span className={`${styles.field} ${styles[mode]}`}>
-    <label id={labelId} htmlFor={controlKind === 'input' ? controlId : undefined} aria-label={controlKind === 'button' ? `${label}:` : undefined} className={labelVisibility === 'sr-only' ? styles.srOnly : styles.label}>{label}</label>
+  const labelClass = labelVisibility === 'sr-only' ? styles.srOnly : styles.label
+  const labelNode = controlKind === 'input'
+    ? <label id={labelId} htmlFor={controlId} data-field-label="" data-field-name={label} className={labelClass}>{label}</label>
+    : <span id={labelId} data-field-label="" data-field-name={label} className={labelClass}><span aria-hidden="true">{label}</span><span className={styles.srOnly}>{`${label}:`}</span></span>
+  return <span className={`${styles.field} ${styles[mode]}`} data-field="" data-field-name={label}>
+    {labelNode}
     <span className={styles.control}>{children({ controlId, labelId, describedBy: descriptions, invalid: error ? true : undefined })}</span>
     {feedback && <span id={feedbackId} className={styles.feedback} data-tone={tone}>
       <InfoTooltip label={label} tone={tone} mountWhenOpen>{feedback}</InfoTooltip>

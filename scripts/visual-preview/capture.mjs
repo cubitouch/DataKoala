@@ -570,13 +570,12 @@ async function capture(win, filename) {
 
 async function verifySeriesTriggerAlignment(win) {
   const metrics = await win.webContents.executeJavaScript(`(() => {
-    const controls = Array.from(document.querySelectorAll('.builder-control'))
-    const schemaControl = controls.find((control) => control.textContent?.includes('Schema'))
-    const seriesControl = controls.find((control) => control.textContent?.includes('Series'))
+    const schemaControl = document.querySelector('[data-field][data-field-name="Schema"]')
+    const seriesControl = document.querySelector('[data-field][data-field-name="Series columns"]')
     const schemaTrigger = schemaControl?.querySelector('[data-popover-trigger]')
     const seriesTrigger = seriesControl?.querySelector('[data-popover-trigger]')
-    const schemaLabel = schemaControl?.querySelector('.builder-field-label')
-    const seriesLabel = seriesControl?.querySelector('.builder-field-label')
+    const schemaLabel = schemaControl?.querySelector('[data-field-label]')
+    const seriesLabel = seriesControl?.querySelector('[data-field-label]')
     if (!schemaTrigger || !seriesTrigger || !seriesLabel || !schemaLabel) return null
     const schemaTriggerStyle = getComputedStyle(schemaTrigger); const seriesTriggerStyle = getComputedStyle(seriesTrigger)
     const controlProperties = ['height', 'borderRadius', 'borderColor', 'backgroundColor', 'paddingLeft', 'paddingRight', 'fontSize', 'fontWeight', 'fontFamily']
