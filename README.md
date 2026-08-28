@@ -54,6 +54,13 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+If `pnpm dev` fails while starting Electron with an error from `getElectronPath` / `startElectron`, the Electron binary may not have been installed (for example, because dependency install scripts were skipped). Install it explicitly, then retry:
+
+```bash
+pnpm exec install-electron --no
+pnpm dev
+```
+
 Then create a connection or local source from the left sidebar. PostgreSQL, SQLite, and local-file use do not require additional command-line authentication tooling.
 
 ### Using BigQuery?
