@@ -639,7 +639,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     <section className={styles.root} aria-label="Trace explorer">
       <div className={styles.discoveryPanel}>
         <form className={styles.traceIdBar} onSubmit={submitTraceId}>
-          <TextInput label="Trace ID" id="trace-id" value={traceId} onValueChange={setTraceId} spellCheck={false} placeholder="4bf92f3577b34da6a3ce929d0e0e4736" />
+          <TextInput label="Trace ID" mode="inline" id="trace-id" value={traceId} onValueChange={setTraceId} spellCheck={false} placeholder="4bf92f3577b34da6a3ce929d0e0e4736" />
           <button className="btn ghost" type="submit" disabled={loading !== null || !traceId.trim()}>{loading === 'trace' ? 'Opening…' : 'Open trace'}</button>
         </form>
 
