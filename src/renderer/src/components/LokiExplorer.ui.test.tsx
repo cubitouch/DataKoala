@@ -52,6 +52,15 @@ describe('LokiExplorer execution', () => {
     expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toContain('app="x"')
   })
 
+  it('renders Limit as a complete numeric field without squeezing its input', () => {
+    render(<LokiExplorer connectionId="loki" />)
+    const input = screen.getByLabelText('Limit') as HTMLInputElement
+    expect(input.type).toBe('number')
+    expect(input.min).toBe('1')
+    expect(input.max).toBe('5000')
+    expect(input.closest('[data-field]')?.parentElement?.className).toContain('limit')
+  })
+
   it('does not request or render a synthetic trend for metric LogQL', async () => {
     useStore.getState().setSql('sum(count_over_time({app="x"}[1m]))')
     const run = mocks.runLoki.mockResolvedValue(metric)

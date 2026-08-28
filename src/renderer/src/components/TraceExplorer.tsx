@@ -649,7 +649,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
             <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
             <div className={`query-toolbar-group query-time-group ${styles.queryOptions}`} aria-label="Tempo query options">
               <TimeRangeField value={searchRange} onChange={setSearchRange} />
-              <div className={styles.sampleSize}><span>Sample size</span><Combobox label="Tempo trace sample size" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div>
+              <div className={styles.sampleSize}><Combobox label="Sample size" mode="inline" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div>
             </div>
             <div className="spacer" />
             <div className="query-toolbar-group"><QueryUtilityActions hasResults={Boolean(searchRows.length || spans.length || searchNotice || searchProgress || error || cohortHint)} onClearResults={clearTempoResults} onResetQuery={resetTempoQuery} /></div>

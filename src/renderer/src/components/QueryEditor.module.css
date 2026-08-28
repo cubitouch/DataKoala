@@ -41,16 +41,8 @@
 }
 
 .promqlStep {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-mute);
-  font-size: 11px;
+  width: 170px;
   white-space: nowrap;
-}
-
-.promqlStep [role="combobox"] {
-  width: 72px;
 }
 
 .spacer {

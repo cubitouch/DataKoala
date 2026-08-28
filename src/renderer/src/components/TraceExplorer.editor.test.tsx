@@ -80,7 +80,8 @@ describe('TraceExplorer TraceQL editor', () => {
 
   it('keeps the primary action named Run for exhaustive searches', () => {
     render(<TraceExplorer connectionId="tempo-1" />)
-    fireEvent.click(screen.getByRole('combobox', { name: /Tempo trace sample size/ }))
+    expect(screen.getAllByText('Sample size')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('combobox', { name: /Sample size:/ }))
     fireEvent.click(screen.getByRole('option', { name: 'All traces' }))
     expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('data-tempo-run-query')).toBe(true)
   })

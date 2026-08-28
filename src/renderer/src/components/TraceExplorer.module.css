@@ -89,8 +89,7 @@
 .queryOptions [data-time-range-field] { width: clamp(150px, 18vw, 220px); }
 .queryOptions [data-time-range-label] { display: none; }
 .queryOptions [data-popover-root] { margin-top: 0; }
-.sampleSize { display: flex; align-items: center; gap: 5px; color: var(--text-mute); font-size: 11px; white-space: nowrap; }
-.sampleSize [role="combobox"] { width: 124px; }
+.sampleSize { width: 200px; white-space: nowrap; }
 .editorActions { white-space: nowrap; }
 .searchHelper { padding: 7px 14px 9px; color: var(--text-mute); font-size: 11px; border-top: 1px solid var(--border); }
 .builderGrid {

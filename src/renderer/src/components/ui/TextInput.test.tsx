@@ -28,15 +28,28 @@ describe('TextInput', () => {
     expect(screen.getByLabelText('Start time')).toBeTruthy()
     expect(screen.getByText('Start time').classList.contains(fieldStyles.label)).toBe(true)
     expect(screen.getByLabelText('Tab name')).toBeTruthy()
-    expect(screen.getByText('Tab name').classList.contains(fieldStyles.srOnly)).toBe(true)
+    expect(screen.getByText('Tab name').parentElement?.classList.contains(fieldStyles.srOnly)).toBe(true)
   })
   it('prioritizes error, describes feedback, and merges caller descriptions', () => {
     render(<><span id="existing">Existing</span><TextInput label="Field" hint="Hint" warning="Warning" error="Error" aria-describedby="existing" /></>)
-    const input = screen.getByLabelText('Field'); expect(input.getAttribute('aria-invalid')).toBe('true'); expect(input.getAttribute('aria-describedby')).toContain('existing'); expect(input.getAttribute('aria-describedby')).toContain('feedback'); expect(screen.getAllByText('Error').length).toBeGreaterThan(0); expect(screen.queryByText('Warning')).toBeNull()
+    const input = screen.getByLabelText('Field'); expect(input.getAttribute('aria-invalid')).toBe('true'); expect(input.getAttribute('aria-describedby')).toContain('existing'); expect(input.getAttribute('aria-describedby')).toContain('feedback'); expect(screen.getByRole('alert').textContent).toBe('Error'); expect(screen.queryByText('Warning')).toBeNull()
   })
-  it.each([['hint', 'Helpful'], ['warning', 'Careful']] as const)('renders keyboard-accessible %s feedback', (prop, message) => {
+  it.each([['hint', 'Helpful', 'Field help'], ['warning', 'Careful', 'Field warning']] as const)('renders keyboard-accessible %s feedback beside the label', (prop, message, accessibleName) => {
     render(<TextInput label="Field" {...{ [prop]: message }} />)
-    const button = screen.getByRole('button'); fireEvent.focus(button)
-    expect(screen.getByRole('tooltip').hasAttribute('hidden')).toBe(false); expect(screen.getAllByText(message).length).toBeGreaterThan(0)
+    const button = screen.getByRole('button', { name: accessibleName })
+    expect(button.parentElement?.parentElement?.classList.contains(fieldStyles.labelRow)).toBe(true)
+    const description = document.getElementById(screen.getByLabelText('Field').getAttribute('aria-describedby')!)!
+    expect(description.classList.contains(fieldStyles.srOnly)).toBe(true)
+    expect(screen.queryByRole('alert')).toBeNull()
+    fireEvent.focus(button)
+    expect(screen.getByRole('tooltip').hasAttribute('hidden')).toBe(false)
+    expect(screen.getByRole('tooltip').textContent).toBe(message)
+  })
+  it('keeps placeholder copy separate from entered values', () => {
+    const { rerender } = render(<TextInput label="Search" placeholder="Filter values" value="" onValueChange={() => {}} />)
+    expect(screen.getByLabelText('Search')).toHaveProperty('placeholder', 'Filter values')
+    expect(screen.getByLabelText('Search')).toHaveProperty('value', '')
+    rerender(<TextInput label="Search" placeholder="Filter values" value="orders" onValueChange={() => {}} />)
+    expect(screen.getByLabelText('Search')).toHaveProperty('value', 'orders')
   })
 })

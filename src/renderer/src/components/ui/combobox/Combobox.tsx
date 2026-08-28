@@ -103,7 +103,6 @@ export function Combobox({ id, label, mode, labelVisibility, hint, warning, valu
     <div ref={menuRef} id={menuId} role="listbox" aria-label={label} aria-busy={loading || undefined} aria-activedescendant={active ? optionId(reactId, active.value) : undefined} onKeyDown={onMenuKeyDown} tabIndex={searchable ? -1 : 0}>
       {searchable && <ComboboxSearch inputRef={searchRef} value={query} onChange={setQuery} onKeyDown={onMenuKeyDown} label={label} />}
       {loading && <div className={styles.state} role="status">{loadingMessage}</div>}
-      {error && <div className={`${styles.state} ${styles.errorState}`} role="alert">{error}</div>}
       {allowCustomValue && query.trim() && !options.some((option) => option.value === query.trim()) && <button type="button" className={styles.custom} onClick={commitCustom}>Use “{query.trim()}”</button>}
       {!loading && !error && filtered.map((option) => <OptionRow key={option.value} id={optionId(reactId, option.value)} option={option} selected={option.value === value} active={option.value === active?.value} onMouseEnter={() => { if (!option.disabled) setActiveValue(option.value) }} onSelect={() => commit(option)} />)}
       {!loading && !error && filtered.length === 0 && <div className={styles.state} role="status">{emptyMessage}</div>}
