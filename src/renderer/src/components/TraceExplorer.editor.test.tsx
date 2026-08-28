@@ -33,6 +33,7 @@ describe('TraceExplorer TraceQL editor', () => {
   it('edits and locally formats Plain mode through CodeMirror', async () => {
     expect(formatTraceql('{duration>300ms}')).toEqual({ ok: true, query: '{ duration > 300ms }' })
     render(<TraceExplorer connectionId="tempo-1" />)
+    expect(screen.getAllByText('Trace ID')).toHaveLength(1)
     expect(screen.getAllByLabelText('Query mode')[0].textContent).toBe('TraceQLBuilder')
     expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('data-tempo-run-query')).toBe(true)
     const editor = screen.getByLabelText('TraceQL editor')

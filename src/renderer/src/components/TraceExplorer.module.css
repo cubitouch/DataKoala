@@ -18,13 +18,12 @@
 
 .traceIdBar {
   display: grid;
-  grid-template-columns: auto minmax(220px, 1fr) auto;
-  align-items: center;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
 }
-.traceIdBar label,
 .traceqlHeader > span,
 .builderGrid label > span,
 .generatedQuery > span {
@@ -594,7 +593,6 @@
 
 @media (max-width: 760px) {
   .traceIdBar { grid-template-columns: 1fr auto; }
-  .traceIdBar label { grid-column: 1 / -1; }
   .queryModeRow { align-items: flex-start; flex-direction: column; gap: 6px; }
   .builderGrid { grid-template-columns: 1fr; }
   .generatedQuery { grid-column: 1; grid-template-columns: 1fr; }

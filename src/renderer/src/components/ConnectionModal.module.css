@@ -43,7 +43,7 @@
 .bqAdvanced { margin-top: 10px; }
 .advancedFields { display: grid; gap: 12px; }
 @media (max-width: 520px) { .connectionSourceGrid { grid-template-columns: 1fr; } .connectionPicker { width: calc(100vw - 20px); } .connectionFormHeader { flex-wrap: wrap; } }
-.discoveryHeading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.discoveryHeading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
 .discoveryHeading > label { margin:0; }
 .discoveryHeading button { min-height:26px; padding:0 8px; }
 .discoveryStatus { margin-top:6px; color:var(--text-mute); font-size:11px; line-height:1.45; }

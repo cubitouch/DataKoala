@@ -1,5 +1,5 @@
 .root { display: inline-flex; vertical-align: middle; }
-.trigger { width: 18px; height: 18px; padding: 0; border: 1px solid #667085; border-radius: 50%; background: var(--bg-4); color: #eef2ff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04); font: 700 11px/16px var(--sans); cursor: help; }
+.trigger { width: 16px; height: 16px; padding: 0; border: 1px solid #667085; border-radius: 50%; background: var(--bg-4); color: #eef2ff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04); font: 700 10px/14px var(--sans); cursor: help; }
 .trigger:hover { border-color: var(--accent); background: #34405a; color: #fff; }
 .warning { border-color: #b7791f; color: #fbd38d; }
 .warning:hover { border-color: #d69e2e; background: #4a3722; color: #fff4d6; }
