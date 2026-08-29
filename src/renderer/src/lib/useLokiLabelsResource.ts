@@ -32,11 +32,22 @@ function load(resource: Resource, connectionId: string) {
   }).finally(() => { if (request === resource.request) resource.promise = undefined; emit(resource) })
   return resource.promise
 }
-export function useLokiLabelsResource(connectionId: string, generation: number, tabId: string, range: BuilderTimeRange) {
+export function useLokiLabelsResource(connectionId: string, generation: number, tabId: string, range: BuilderTimeRange, enabled = true) {
   const key = semanticKey(connectionId, generation, tabId, range)
   const resource = useMemo(() => resourceFor(key, range), [key, connectionId])
   const snapshot = useSyncExternalStore((listener) => { resource.listeners.add(listener); return () => resource.listeners.delete(listener) }, () => resource.snapshot, () => resource.snapshot)
-  useEffect(() => { void load(resource, connectionId) }, [resource, connectionId])
-  return { ...snapshot, retry: () => { resource.request++; resource.promise = undefined; return load(resource, connectionId) } }
+  useEffect(() => {
+    if (enabled) void load(resource, connectionId)
+    else {
+      resource.request++
+      resource.promise = undefined
+      resource.snapshot = { ...resource.snapshot, status: 'loaded', error: null }
+      emit(resource)
+    }
+  }, [resource, connectionId, enabled])
+  return { ...snapshot, enabled, retry: () => {
+    if (!enabled) return Promise.resolve()
+    resource.request++; resource.promise = undefined; return load(resource, connectionId)
+  } }
 }
 export function clearLokiLabelsResources() { resources.clear() }

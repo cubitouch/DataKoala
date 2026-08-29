@@ -28,6 +28,7 @@ beforeEach(() => {
   formatQuery.mockReset()
 
   resetTestStore({
+    activeProfileId: profileId, connected: true, connectionStatus: 'connected',
     profiles: [{ id: profileId, name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }]
   })
   patchActiveTestSession({
