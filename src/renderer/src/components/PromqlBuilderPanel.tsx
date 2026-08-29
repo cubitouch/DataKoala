@@ -44,18 +44,21 @@ export function PromqlBuilderPanel() {
   const [valueErrors, setValueErrors] = useState<Record<string, string>>({})
   const [formattedGenerated, setFormattedGenerated] = useState<{ source: string; query: string }>({ source: '', query: '' })
   const builder = session.promqlBuilder
+  const canLoadMetadata = Boolean(profileId && profileId === activeProfileId && connected)
   const metrics = useMemo(() => (metadata?.schemas ?? []).flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'metric'), [metadata?.schemas])
   const selectedMetric = metrics.find((metric) => metric.name === builder.metric)
   const metadataType = selectedMetric?.details?.kind === 'metric' ? selectedMetric.details.type : undefined
   const detectedHistogramKind = detectPromqlHistogramKind({ metric: builder.metric, labels, metadataType })
   const histogramKindOverride = builder.histogramKindOverride ?? 'auto'
-  const histogramKind = resolvePromqlHistogramKind(detectedHistogramKind, histogramKindOverride)
+  const resolvedHistogramKind = resolvePromqlHistogramKind(detectedHistogramKind, histogramKindOverride)
+  const lastKnownHistogramKind = useRef(resolvedHistogramKind)
+  const histogramKind = !canLoadMetadata || loadingLabels ? lastKnownHistogramKind.current : resolvedHistogramKind
+  if (canLoadMetadata && !loadingLabels) lastKnownHistogramKind.current = resolvedHistogramKind
   const previousHistogramKind = useRef(histogramKind)
   const labelRequest = useRef(0)
   const valueRequests = useRef<Record<string, number>>({})
   const metadataLifecycle = useRef({ key: '', generation: 0 })
   const formatRequest = useRef(0)
-  const canLoadMetadata = Boolean(profileId && profileId === activeProfileId && connected)
   const lifecycleKey = `${profileId ?? ''}\0${activeProfileId ?? ''}\0${connected}\0${connectionGeneration}`
   if (metadataLifecycle.current.key !== lifecycleKey) {
     metadataLifecycle.current = { key: lifecycleKey, generation: metadataLifecycle.current.generation + 1 }
@@ -113,7 +116,8 @@ export function PromqlBuilderPanel() {
   useEffect(() => {
     labelRequest.current++
     valueRequests.current = {}
-    setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({}); setLabelError(null)
+    if (canLoadMetadata) setLabels([])
+    setValues({}); setLoadingValues({}); setValueErrors({}); setLabelError(null); setLoadingLabels(false)
     loadLabels()
     return () => { labelRequest.current++ }
   }, [profileId, builder.metric, connectionGeneration, canLoadMetadata])
@@ -127,7 +131,7 @@ export function PromqlBuilderPanel() {
     added.forEach(loadValues)
   }
   const loadedValueLabels = Object.keys(values).sort().join('\0')
-  useEffect(() => { activeLabels.forEach(loadValues) }, [profileId, builder.metric, connectionGeneration, activeLabels.join('\0'), loadedValueLabels])
+  useEffect(() => { activeLabels.forEach(loadValues) }, [profileId, builder.metric, connectionGeneration, canLoadMetadata, activeLabels.join('\0'), loadedValueLabels])
   useEffect(() => {
     if (!calculationsForHistogramKind(histogramKind).includes(builder.calculation)) {
       apply({ calculation: 'raw', aggregation: 'none' })
@@ -176,7 +180,7 @@ export function PromqlBuilderPanel() {
   const metricPlaceholder = !canLoadMetadata ? 'Metadata unavailable' : loadingMetrics ? 'Loading metrics…' : 'Select a metric…'
   const groupByPlaceholder = !canLoadMetadata ? 'Metadata unavailable' : loadingLabels ? 'Loading labels…' : labelError ? 'Could not load labels' : labels.length === 0 ? 'No labels available' : 'No grouping'
   const labelPlaceholder = !canLoadMetadata ? 'Metadata unavailable' : loadingLabels ? 'Loading labels…' : labelError ? 'Could not load labels' : labels.length === 0 ? 'No labels available' : 'No filters'
-  const histogramAmbiguous = detectedHistogramKind === 'unknown' && !loadingLabels
+  const histogramAmbiguous = canLoadMetadata && detectedHistogramKind === 'unknown' && !loadingLabels
   const openGeneratedQuery = () => {
     if (!displayedGenerated) return
     setSql(displayedGenerated, tabId)

@@ -183,3 +183,46 @@ it('keeps actionable metadata errors while connected', async () => {
   expect((await screen.findByRole('alert')).textContent).toContain('upstream denied the request')
   expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
 })
+
+it('preserves a label-detected classic histogram interpretation across disconnect and reconnect', async () => {
+  labelsForMetric.mockReset()
+    .mockResolvedValueOnce(['service', 'le', '__name__'])
+    .mockResolvedValueOnce(['service', 'le', '__name__'])
+  patchActiveTestSession({
+    sql: '',
+    promqlBuilder: {
+      ...useStore.getState().tabs[0].promqlBuilder,
+      metric: 'request_latency',
+      calculation: 'percentile',
+      aggregation: 'sum',
+      groupBy: ['service'],
+      histogramKindOverride: 'auto'
+    }
+  })
+  setActiveTestMetadata([{ name: 'Prometheus', isSystem: false, relations: [{
+    schema: 'Prometheus', name: 'request_latency', qualifiedName: 'request_latency', kind: 'metric', columnsStatus: 'idle',
+    details: { kind: 'metric', type: 'histogram' }
+  }] }], 'loaded', null, profileId)
+
+  render(<PromqlBuilderPanel />)
+  await waitFor(() => expect(useStore.getState().tabs[0].sql).toContain('sum by (service, le)'))
+  const beforeBuilder = useStore.getState().tabs[0].promqlBuilder
+  const beforeSql = useStore.getState().tabs[0].sql
+  expect(screen.queryByRole('combobox', { name: /Histogram representation/ })).toBeNull()
+
+  act(() => useStore.setState({ connected: false, connectionStatus: 'reconnecting', connectionGeneration: 2 }))
+
+  expect(labelsForMetric).toHaveBeenCalledTimes(1)
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.queryByRole('combobox', { name: /Histogram representation/ })).toBeNull()
+  expect(useStore.getState().tabs[0].promqlBuilder).toEqual(beforeBuilder)
+  expect(useStore.getState().tabs[0].sql).toBe(beforeSql)
+  expect((screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement).value).toBe(beforeSql)
+
+  act(() => useStore.setState({ connected: true, connectionStatus: 'connected', connectionGeneration: 3 }))
+  await waitFor(() => expect(labelsForMetric).toHaveBeenCalledTimes(2))
+  await waitFor(() => expect(screen.getByRole('combobox', { name: /Group by:/ }).hasAttribute('disabled')).toBe(false))
+  expect(useStore.getState().tabs[0].promqlBuilder).toEqual(beforeBuilder)
+  expect(useStore.getState().tabs[0].sql).toBe(beforeSql)
+  expect(useStore.getState().tabs[0].sql).toContain('sum by (service, le)')
+})
