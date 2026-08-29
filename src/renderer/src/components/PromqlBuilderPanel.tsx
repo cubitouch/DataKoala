@@ -72,7 +72,9 @@ export function PromqlBuilderPanel() {
 
   const apply = (patch: Partial<typeof builder>) => {
     const next = { ...builder, ...patch }
-    const nextHistogramKind = resolvePromqlHistogramKind(detectedHistogramKind, next.histogramKindOverride ?? 'auto')
+    const nextHistogramKind = !canLoadMetadata || loadingLabels
+      ? histogramKind
+      : resolvePromqlHistogramKind(detectedHistogramKind, next.histogramKindOverride ?? 'auto')
     setBuilder(patch, tabId)
     const generated = buildPromql(next, nextHistogramKind)
     if (generated) setSql(generated, tabId)

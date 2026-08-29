@@ -185,9 +185,10 @@ it('keeps actionable metadata errors while connected', async () => {
 })
 
 it('preserves a label-detected classic histogram interpretation across disconnect and reconnect', async () => {
+  const reconnectLabels = deferred<string[]>()
   labelsForMetric.mockReset()
     .mockResolvedValueOnce(['service', 'le', '__name__'])
-    .mockResolvedValueOnce(['service', 'le', '__name__'])
+    .mockReturnValueOnce(reconnectLabels.promise)
   patchActiveTestSession({
     sql: '',
     promqlBuilder: {
@@ -221,8 +222,20 @@ it('preserves a label-detected classic histogram interpretation across disconnec
 
   act(() => useStore.setState({ connected: true, connectionStatus: 'connected', connectionGeneration: 3 }))
   await waitFor(() => expect(labelsForMetric).toHaveBeenCalledTimes(2))
+  expect(await screen.findByRole('combobox', { name: 'Group by: Loading labels…' })).toBeTruthy()
+
+  fireEvent.click(screen.getByRole('combobox', { name: 'Percentile: P95' }))
+  fireEvent.click(await screen.findByRole('option', { name: 'P99' }))
+  const loadingSql = useStore.getState().tabs[0].sql
+  expect(loadingSql).toMatch(/histogram_quantile\(\s*0\.99/)
+  expect(loadingSql).toContain('sum by (service, le)')
+  expect((screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement).value).toBe(loadingSql)
+
+  await act(async () => {
+    reconnectLabels.resolve(['service', 'le', '__name__'])
+    await reconnectLabels.promise
+  })
   await waitFor(() => expect(screen.getByRole('combobox', { name: /Group by:/ }).hasAttribute('disabled')).toBe(false))
-  expect(useStore.getState().tabs[0].promqlBuilder).toEqual(beforeBuilder)
-  expect(useStore.getState().tabs[0].sql).toBe(beforeSql)
+  expect(useStore.getState().tabs[0].promqlBuilder).toEqual({ ...beforeBuilder, percentile: 0.99 })
   expect(useStore.getState().tabs[0].sql).toContain('sum by (service, le)')
 })
