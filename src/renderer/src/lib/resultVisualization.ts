@@ -51,9 +51,9 @@ export function visualizationConfigurationsEqual(a: VisualizationConfiguration, 
     Boolean(a.anomalyDetectionEnabled) === Boolean(b.anomalyDetectionEnabled)
 }
 
-export function deriveEffectiveVisualization(result: QueryResult, persisted: VisualizationConfiguration, mode: 'sql' | 'builder', builderSeries: readonly unknown[] = []): VisualizationConfiguration {
+export function deriveEffectiveVisualization(result: QueryResult, persisted: VisualizationConfiguration, inference: 'result' | 'builder', builderSeries: readonly unknown[] = []): VisualizationConfiguration {
   const effective = inferVisualizationConfiguration(result, persisted)
-  if (mode === 'builder') {
+  if (inference === 'builder') {
     const seriesColumns = builderSeries.filter((value): value is string => typeof value === 'string' && result.columns.some((column) => column.name === value))
     const xColumn = result.columns[0]?.name ?? null
     const valueColumn = result.columns.find((column, index) => index > 0 && !seriesColumns.includes(column.name) && (column.name === 'count' || column.name === 'value'))?.name
@@ -68,7 +68,7 @@ export function deriveEffectiveVisualization(result: QueryResult, persisted: Vis
   const names = new Set(result.columns.map((column) => column.name))
   const selectedMultiple = (persisted.seriesColumns ?? []).filter((name) => names.has(name) && name !== effective.xColumn && name !== effective.valueColumn)
   const single = selectedMultiple[0] ?? (effective.seriesColumn && effective.seriesColumn !== effective.xColumn && effective.seriesColumn !== effective.valueColumn ? effective.seriesColumn : null)
-  // SQL mode charts describe already-returned columns. There is deliberately no
+  // Result-owned charts describe already-returned columns. There is deliberately no
   // Aggregation control: Sum is a fixed presentation fold only when duplicate
   // X/Series rows exist, so stale persisted Average/Min/Max choices cannot act invisibly.
   if (selectedMultiple.length > 1) return { ...effective, aggregation: 'sum', seriesColumn: null, seriesColumns: selectedMultiple,

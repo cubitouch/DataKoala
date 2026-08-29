@@ -165,7 +165,7 @@ export function App() {
                   aria-orientation="horizontal" aria-valuemin={EDITOR_MIN} aria-valuemax={Math.max(EDITOR_MIN, currentEditorBounds().max)}
                   aria-valuenow={Math.round(editorHeight)} tabIndex={0} onPointerDown={beginResize('editor')}
                   onKeyDown={resizeWithKeyboard('editor')} /></> : <BuilderPanel />}
-                <ResultExplorer mode={effectiveMode} hasRun={effectiveMode === 'sql' || builderHasRun}/></>}
+                <ResultExplorer mode={effectiveMode} dimensionControls={effectiveMode === 'builder' ? 'external' : 'result'} hasRun={effectiveMode === 'sql' || builderHasRun}/></>}
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@ import { ResultExplorer } from './ResultExplorer'
 import { createResultFilter } from '../lib/resultFilters'
 import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
 import type { QueryResult } from '@shared/types'
+import type { VisualizationConfiguration } from '../lib/resultVisualization'
 
 Element.prototype.scrollIntoView = vi.fn()
 
@@ -43,19 +44,69 @@ const arrange = (patch: Parameters<typeof patchActiveTestSession>[0] = {}) => {
     isResultStale: false,
     ...patch
   })
-  return render(<ResultExplorer mode="sql" />)
+  return render(<ResultExplorer mode="sql" dimensionControls="result" />)
 }
 
 afterEach(() => { cleanup(); resetTestStore() })
 
 describe('ResultExplorer chart combobox controls', () => {
-  it('uses only X axis, Y axis and Series for SQL chart configuration', () => {
+  it('uses only X axis, Y axis and Series for result-owned chart configuration', () => {
     const view = arrange()
     for (const label of ['X axis', 'Y axis', 'Series', 'Value axis scale']) expect(view.container.querySelector(`select[aria-label="${label}"]`)).toBeNull()
     expect(screen.queryByRole('combobox', { name: /Aggregation/ })).toBeNull()
     expect(screen.getByRole('combobox', { name: /X axis/ })).toBeTruthy()
     expect(screen.getByRole('combobox', { name: /Y axis/ })).toBeTruthy()
     expect(screen.getByRole('combobox', { name: /Series/ })).toBeTruthy()
+  })
+
+  it('derives dimension candidates from columns regardless of query mode identity', () => {
+    resetTestStore({ connected: true, connectionStatus: 'connected' })
+    patchActiveTestSession({
+      result, resultRevision: 1, queryMode: 'builder', builderResultFilters: [], running: false,
+      queryError: null, isResultStale: false
+    })
+    const configuration: VisualizationConfiguration = { view: 'line', xColumn: 'created_at', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: null, seriesColumns: [], valueAxisScale: 'linear' }
+    function ResultOwnedBuilderMode() {
+      const [current, setCurrent] = React.useState(configuration)
+      return <ResultExplorer mode="builder" dimensionControls="result" configurationOverride={current} onConfigurationChange={setCurrent} />
+    }
+    render(<ResultOwnedBuilderMode />)
+
+    fireEvent.click(screen.getByRole('combobox', { name: /X axis: created_at/ }))
+    expect(screen.getByRole('option', { name: /region, text/ })).toBeTruthy()
+    expect(screen.getByRole('option', { name: /duration_ms, integer/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('combobox', { name: /X axis/ }))
+
+    fireEvent.click(screen.getByRole('combobox', { name: /Y axis: revenue/ }))
+    expect(screen.getByRole('option', { name: /duration_ms, integer/ })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: /region, text/ })).toBeNull()
+    fireEvent.click(screen.getByRole('combobox', { name: /Y axis/ }))
+
+    fireEvent.click(screen.getByRole('combobox', { name: /Series: No breakdown/ }))
+    expect(screen.getByRole('option', { name: /region, text/ })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: /created_at/ })).toBeNull()
+    expect(screen.queryByRole('option', { name: /revenue/ })).toBeNull()
+    fireEvent.click(screen.getByRole('option', { name: /region, text/ }))
+
+    fireEvent.click(screen.getByRole('combobox', { name: /X axis: created_at/ }))
+    fireEvent.change(screen.getByRole('textbox', { name: /Search X axis/ }), { target: { value: 'extra_11' } })
+    fireEvent.click(screen.getByRole('option', { name: /extra_11, text/ }))
+    fireEvent.click(screen.getByRole('combobox', { name: /Y axis: revenue/ }))
+    fireEvent.click(screen.getByRole('option', { name: /duration_ms, integer/ }))
+
+    expect(screen.getByRole('combobox', { name: /X axis: extra_11/ })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /Y axis: duration_ms/ })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /Series: region/ })).toBeTruthy()
+  })
+
+  it('hides dimensions when mapping is externally owned or the table view is selected', () => {
+    const external = arrange()
+    external.rerender(<ResultExplorer mode="sql" dimensionControls="external" />)
+    for (const label of [/X axis/, /Y axis/, /Series/]) expect(screen.queryByRole('combobox', { name: label })).toBeNull()
+
+    cleanup()
+    arrange({ sqlVisualization: { view: 'table', xColumn: 'created_at', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: null, seriesColumns: [], valueAxisScale: 'linear' } })
+    for (const label of [/X axis/, /Y axis/, /Series/]) expect(screen.queryByRole('combobox', { name: label })).toBeNull()
   })
 
   it('updates X axis, Y axis, and multiple Series through comboboxes', () => {
@@ -83,7 +134,7 @@ describe('ResultExplorer chart combobox controls', () => {
     expect(activeTestSession().sqlVisualization.seriesColumns).toEqual([])
   })
 
-  it('keeps SQL result filters client-side with no Apply to SQL action', () => {
+  it('keeps result filters client-side with no Apply to SQL action', () => {
     arrange({ sqlResultFilters: [createResultFilter('region', 'equals', 'West')] })
     expect(screen.getByText(/region =/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Apply to SQL' })).toBeNull()
@@ -130,7 +181,7 @@ describe('ResultExplorer hierarchy state', () => {
       builderVisualization: { view: 'line', xColumn: 'created_at', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: 'series', seriesColumns: ['region', 'extra_0'], hierarchyDimensions: [], valueAxisScale: 'linear' },
       builderResultFilters: [], running: false, queryError: null, isResultStale: false
     })
-    return render(<ResultExplorer mode="builder" />)
+    return render(<ResultExplorer mode="builder" dimensionControls="external" />)
   }
 
   it('keeps Builder Series unchanged while hierarchy order changes and after returning to Line', () => {

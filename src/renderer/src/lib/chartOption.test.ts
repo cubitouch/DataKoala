@@ -176,6 +176,10 @@ test('area charts render as a line with an areaStyle', () => {
 test('the legend only appears when there is more than one series', () => {
   const single = buildEChartsOption(monthly, cfg())!
   assert.equal((single.option.legend as { show: boolean }).show, false)
+  const singleGrid = single.option.grid as { right: number; top: number }
+  assert.equal(singleGrid.right, 20)
+  assert.equal(singleGrid.top, 20)
+  assert.equal(single.option.media, undefined)
 
   const r = mk(
     [
@@ -189,7 +193,23 @@ test('the legend only appears when there is more than one series', () => {
     ]
   )
   const multi = buildEChartsOption(r, cfg({ seriesField: 'region' }))!
-  assert.equal((multi.option.legend as { show: boolean }).show, true)
+  const legend = multi.option.legend as Record<string, unknown>
+  const grid = multi.option.grid as { right: number; top: number }
+  assert.equal(legend.show, true)
+  assert.equal(legend.orient, 'vertical')
+  assert.equal(legend.type, 'scroll')
+  assert.equal(typeof legend.right, 'number')
+  assert.equal(typeof legend.top, 'number')
+  assert.equal(typeof legend.bottom, 'number')
+  assert.deepEqual(legend.textStyle, { color: '#809ca0', width: 180, overflow: 'truncate', ellipsis: '…' })
+  assert.ok(grid.right >= 200)
+  assert.equal(grid.top, 20)
+
+  const media = multi.option.media as Array<{ query: { maxWidth: number }; option: { legend: Record<string, unknown>; grid: { right: number; top: number } } }>
+  assert.equal(media[0].query.maxWidth, 620)
+  assert.equal(media[0].option.legend.orient, 'horizontal')
+  assert.equal(media[0].option.grid.right, 20)
+  assert.ok(media[0].option.grid.top > grid.top)
 })
 
 test('a single series is named after the Y column rather than a placeholder', () => {

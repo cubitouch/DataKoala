@@ -142,10 +142,10 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
       <div className={styles.resultViewBar}><ChartPicker value={resultView} availableViews={['list', 'table', 'bar', 'line', 'area', 'scatter', 'treemap', 'sunburst']} onChange={(view: ChartPickerView) => setLokiState({ lokiResultView: view as typeof resultView })} />{resultView !== 'list' && session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>
       <div className={styles.selectedView}>{resultView === 'list'
         ? <LogResultExplorer selectionKey={`${session.id}:${revision.current}`} rows={(result as LokiLogResult).logRows} truncated={result.execution?.truncated} limit={limit} onFilter={resultFilter} />
-        : resultView === 'table' ? <ResultExplorer mode="sql" hasRun resultOverride={result} configurationOverride={{ ...trendVisualization, view: 'table' }} onConfigurationChange={setTrendVisualization} hidePicker />
+        : resultView === 'table' ? <ResultExplorer mode="sql" dimensionControls="result" hasRun resultOverride={result} configurationOverride={{ ...trendVisualization, view: 'table' }} onConfigurationChange={setTrendVisualization} hidePicker />
         : trendError ? <div className={styles.empty}>Log volume unavailable: {trendError}</div>
-          : trend?.resultKind === 'metrics' ? <ResultExplorer mode="sql" hasRun resultOverride={trend} configurationOverride={trendVisualization} onConfigurationChange={setTrendVisualization} hidePicker onTemporalRangeSelected={selectRange} />
+          : trend?.resultKind === 'metrics' ? <ResultExplorer mode="sql" dimensionControls="result" hasRun resultOverride={trend} configurationOverride={trendVisualization} onConfigurationChange={setTrendVisualization} hidePicker onTemporalRangeSelected={selectRange} />
             : <div className={styles.empty}>Loading log volume…</div>}</div>
-    </> : result?.resultKind === 'metrics' ? <ResultExplorer mode="sql" hasRun /> : !loading && <div className={styles.empty}>Run a LogQL investigation to see results.</div>}</section>
+    </> : result?.resultKind === 'metrics' ? <ResultExplorer mode="sql" dimensionControls="result" hasRun /> : !loading && <div className={styles.empty}>Run a LogQL investigation to see results.</div>}</section>
   </main>
 }
