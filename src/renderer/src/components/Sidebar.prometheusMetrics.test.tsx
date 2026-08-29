@@ -130,7 +130,8 @@ describe('Prometheus metric object tree', () => {
 
   it('uses existing filtering to find metrics by name', async () => {
     render(<Sidebar />)
-    const filter = await screen.findByLabelText('Filter database objects')
+    const filter = await screen.findByLabelText('Filter metrics')
+    expect(filter.closest('[data-field]')?.getAttribute('data-label-visibility')).toBe('sr-only')
     fireEvent.change(filter, { target: { value: 'process_cpu' } })
     expect(screen.getByRole('button', { name: 'Select process_cpu_seconds_total for Builder' })).toBeTruthy()
     expect(screen.queryByText('http_requests_total')).toBeNull()

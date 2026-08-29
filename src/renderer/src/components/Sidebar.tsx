@@ -224,7 +224,13 @@ export function Sidebar() {
     void loadRelationColumns(relation)
   }
 
-  return <aside className={styles.sidebar} aria-label="Connections and database objects">
+  const objectFilterLabel = activeTabSourceKind === 'prometheus'
+    ? 'Filter metrics'
+    : activeTabSourceKind === 'tempo'
+      ? 'Filter services'
+      : 'Filter database objects'
+
+  return <aside className={styles.sidebar} aria-label="Connections and objects">
     <h3>Connections</h3>
     {profiles.map((profile) => {
       const isConnecting = activeId === profile.id && connecting
@@ -254,7 +260,7 @@ export function Sidebar() {
       {metadataStatus === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-label="Loading database objects" /> Loading database objects…</div>}
       {metadataStatus === 'error' && <div className={styles.objectError} role="alert">Could not load objects.<small>{metadataError}</small><button onClick={() => void retryObjects()}>Retry</button></div>}
       {metadataStatus === 'loaded' && <>
-        <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label="Filter database objects" /></div>
+        <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label={objectFilterLabel} labelVisibility="sr-only" /></div>
         {schemas.length === 0 ? <div className={styles.objectStatus}>No database objects</div> :
         <div className={styles.objectTree} role="tree" aria-label="Database objects">
           {visibleSchemas.map((schema) => {

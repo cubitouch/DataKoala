@@ -79,7 +79,8 @@ test('sampled Tempo search resolves root status by default without full trace ge
 
   assert.equal(result.rowCount, 1)
   assert.equal(result.rows[0].status, 'ok')
-  assert.match(result.notice ?? '', /sample up to 250 traces · 1 returned · 1 search query · 1 root-status query/)
+  assert.match(result.notice ?? '', /1 returned · 1 search query · 1 root-status query/)
+  assert.doesNotMatch(result.notice ?? '', /sample up to|max \d+ traces/)
   assert.equal(progress.length, 2)
   assert.equal(progress[0].coveredMs, 0)
   assert.equal(progress[0].totalMs, 3_600_000)

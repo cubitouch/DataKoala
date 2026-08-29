@@ -19,10 +19,10 @@ import { buildChartData } from './data.ts'
  *    missing an early category has all its later points shifted left.
  */
 
-export const CHART_COLORS = ['#5b9cff', '#7c5cff', '#4ade80', '#fbbf24', '#f87171', '#22d3ee']
+export const CHART_COLORS = ['#f5cf33', '#62b8c5', '#ef8a62', '#8c9be8', '#70c486', '#df74a8', '#5fa7e0', '#d3a557', '#a783d5', '#48b5a2', '#c4c95c', '#e27b76']
 
-const AXIS_LINE = { lineStyle: { color: '#2a2f3d' } }
-const AXIS_LABEL = { color: '#6b7185' }
+const AXIS_LINE = { lineStyle: { color: '#516666' } }
+const AXIS_LABEL = { color: '#809ca0' }
 
 export interface BuiltOption {
   option: Record<string, unknown>
@@ -120,7 +120,7 @@ export function buildEChartsOption(
       yAxis: {
         type: 'value',
         axisLine: AXIS_LINE,
-        splitLine: { lineStyle: { color: '#1d212c' } },
+        splitLine: { lineStyle: { color: '#2a3736' } },
         axisLabel: AXIS_LABEL
       },
       series,

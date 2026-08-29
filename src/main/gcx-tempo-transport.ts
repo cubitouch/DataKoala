@@ -180,7 +180,7 @@ export function normalizeTempoSearch(raw: unknown, durationMs = 0, rangeLabel = 
     rows,
     rowCount: rows.length,
     durationMs,
-    notice: `Tempo search · ${rangeLabel} · max ${SEARCH_LIMIT} traces`,
+    notice: `Tempo search · ${rangeLabel}`,
     execution: { provider: 'tempo', durationMs, rowCount: rows.length }
   }
 }

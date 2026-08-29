@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { previewTraceId, previewTraceResult, previewTraceSearchResult } from './visual-preview/trace-fixtures.mjs'
+import { assertCompactObjectFilter } from './visual-preview/assertions.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
@@ -129,7 +130,8 @@ async function searchTraces(win) {
     const bar = section?.querySelector('[data-query-toolbar]')
     const mode = bar?.querySelector('[aria-label="Query mode"]')?.getBoundingClientRect()
     const run = bar?.querySelector('[data-tempo-run-query]')?.getBoundingClientRect()
-    return { helperAbsent: !document.body.innerText.includes('returns up to') && !document.body.innerText.includes('choose All'), modeTop: mode?.top, runTop: run?.top, overflow: bar ? bar.scrollWidth > bar.clientWidth : true }
+    const text = document.body.innerText
+    return { helperAbsent: !text.includes('returns up to') && !text.includes('choose All') && !/max \d+ traces|sample up to \d+ traces/i.test(text), modeTop: mode?.top, runTop: run?.top, overflow: bar ? bar.scrollWidth > bar.clientWidth : true }
   })()`)
   if (!toolbar.helperAbsent || toolbar.overflow || Math.abs(toolbar.modeTop - toolbar.runTop) > 2) throw new Error(`Tempo toolbar regression: ${JSON.stringify(toolbar)}`)
   await win.webContents.executeJavaScript(`(() => {
@@ -227,6 +229,7 @@ app.whenReady().then(async () => {
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
     await waitFor(win, `document.getElementById('root')?.children.length && window.__datakoalaStore`, 'renderer and store')
     await seedTraceWorkspace(win)
+    await assertCompactObjectFilter(win, 'Filter services')
     await validateBuilderIndependence(win)
     await capture(win, 'tempo-trace-builder.png')
     await searchTraces(win)

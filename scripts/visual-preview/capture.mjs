@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { documentationScreenshots, syntheticSources } from './fixtures.mjs'
+import { assertCompactObjectFilter, assertVisibleSeriesField } from './assertions.mjs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -165,12 +166,30 @@ async function showChartTooltip(win, captureFilename) {
         throw new Error(`Chart tooltip escaped its chart viewport: ${JSON.stringify(after.tooltip)}`)
       }
       if (captureFilename) { await sleep(600); await capture(win, captureFilename) }
+      await cleanupPreviewState(win)
       return
     }
     await sleep(100)
   }
 
   throw new Error('Chart tooltip did not become visible')
+}
+
+async function cleanupPreviewState(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    document.getElementById('_visual-preview-tooltip')?.remove()
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    document.body.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 0, clientY: 0 }))
+  })()`)
+}
+
+async function assertCanonicalCaptureState(win, description) {
+  const errors = await win.webContents.executeJavaScript(`[...document.querySelectorAll('[role="alert"]')]
+    .filter((element) => element.offsetParent !== null)
+    .map((element) => element.textContent?.trim()).filter(Boolean)`)
+  if (errors.length) throw new Error(`${description} contains unexpected application errors: ${JSON.stringify(errors)}`)
+  const transient = await win.webContents.executeJavaScript(`Boolean(document.getElementById('_visual-preview-tooltip'))`)
+  if (transient) throw new Error(`${description} contains leaked preview-only DOM`)
 }
 
 async function seedPreviewData(win) {
@@ -285,7 +304,7 @@ async function assertDocumentationSourceTree(win, mode) {
     mode: document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim(),
     profile: document.querySelector('[data-connection-live="true"], [data-connection-item]')?.textContent,
     status: document.querySelector('[role="status"][data-state="connected"]')?.textContent,
-    tree: document.querySelector('[role="tree"]')?.innerText ?? document.querySelector('aside[aria-label="Connections and database objects"]')?.innerText,
+    tree: document.querySelector('[role="tree"]')?.innerText ?? document.querySelector('aside[aria-label="Connections and objects"]')?.innerText,
     filters: document.querySelectorAll('[data-result-filter-chip]').length
   })`)
   const expectedMode = mode === 'builder' ? 'Builder' : 'SQL'
@@ -377,6 +396,13 @@ async function configureMode(win, mode) {
 
     if ('${mode}' === 'sql') {
       store.getState().setProfiles([{ id: 'preview-postgres', name: 'Preview database', kind: 'postgres', version: 1, readonly: false, host: 'localhost', port: 5432, database: 'preview', user: 'preview', password: '', ssl: false }])
+      store.getState().setMetadata([{ name: 'analytics', isSystem: false, relations: [{
+        schema: 'analytics', name: 'monthly_market_activity', qualifiedName: 'analytics.monthly_market_activity', kind: 'r', columnsStatus: 'loaded', columns: [
+          { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },
+          { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+          { name: 'count', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
+        ]
+      }] }], 'loaded', null, 'preview-postgres')
       const current = store.getState()
       store.setState({ tabs: current.tabs.map((item) => item.id === current.activeTabId ? { ...item, connectionProfileId: 'preview-postgres' } : item) })
       store.getState().clearResultFilters('sql')
@@ -537,6 +563,8 @@ async function configureBuilderControls(win, variant) {
     const store = window.__datakoalaStore
     if (!store) return { error: 'window.__datakoalaStore is unavailable' }
     const variant = '${variant}'
+    store.getState().setBuilderHasRun(false)
+    store.getState().setResult(null, null)
     const temporal = variant === 'temporal-series'
     const count = variant === 'count-without-y'
     store.getState().setBuilder({
@@ -554,6 +582,7 @@ async function configureBuilderControls(win, variant) {
       seriesColumns: temporal ? ['series'] : [],
       aggregation: count ? 'count' : 'sum'
     })
+    store.getState().setBuilderHasRun(true)
     return { ok: true }
   })()`)
   if (report?.error) throw new Error(report.error)
@@ -607,14 +636,17 @@ async function verifySharedFieldGeometry(win) {
     const controls = names.map(control)
     const timeControls = ['Time column', 'Time range'].map(control)
     const timeLabels = ['Time column', 'Time range'].map(label)
-    const scale = field('Value axis scale')?.querySelector('[data-popover-trigger]')?.getBoundingClientRect()
-    return { controls, timeControls, timeLabels, scale: scale ? { width: scale.width } : null }
+    return { controls, timeControls, timeLabels }
   })()`)
   const aligned = (rects) => rects.every(Boolean) && Math.max(...rects.map((rect) => rect.top)) - Math.min(...rects.map((rect) => rect.top)) <= 1
     && Math.max(...rects.map((rect) => rect.height)) - Math.min(...rects.map((rect) => rect.height)) <= 1
   if (!aligned(report.controls)) throw new Error(`X/Y/Series shared controls are misaligned: ${JSON.stringify(report.controls)}`)
   if (!aligned(report.timeControls) || !aligned(report.timeLabels)) throw new Error(`Time column/range field geometry differs: ${JSON.stringify(report)}`)
-  if (!report.scale || report.scale.width < 90 || report.scale.width > 110) throw new Error(`Value axis scale is not compact: ${JSON.stringify(report.scale)}`)
+}
+
+async function verifyCompactAxisScale(win) {
+  const width = await win.webContents.executeJavaScript(`document.querySelector('[data-field][data-field-name="Value axis scale"] [data-popover-trigger]')?.getBoundingClientRect().width`)
+  if (width < 90 || width > 110) throw new Error(`Value axis scale is not compact: ${JSON.stringify(width)}`)
 }
 
 async function verifyCompactTableSearch(win) {
@@ -697,6 +729,16 @@ async function configureLongObjectTree(win) {
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
+  ipcMain.handle('query:run', async () => ({
+    columns: [
+      { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },
+      { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+      { name: 'count', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
+    ],
+    rows: Array.from({ length: 12 }, (_, index) => ({ time_bucket: new Date(Date.UTC(2026, index, 1)), series: index % 2 ? 'France' : 'Germany', count: 900 + index * 125 })),
+    rowCount: 12,
+    durationMs: 12
+  }))
   ipcMain.handle('connections:prometheus:metric-labels', async () => ['continent', 'environment', 'service', 'le', '__name__'])
   ipcMain.handle('connections:prometheus:label-values', async (_event, _id, _metric, label) => label === 'environment' ? ['production', 'staging'] : label === 'continent' ? ['Europe', 'Asia'] : ['api', 'worker'])
 
@@ -772,9 +814,13 @@ app.whenReady().then(async () => {
     }
 
     await configureMode(win, 'sql')
+    await assertCompactObjectFilter(win, 'Filter database objects')
+    await assertVisibleSeriesField(win)
+    await verifyCompactAxisScale(win)
     await capture(win, 'sql-default.png')
 
     await configurePrometheusToolbar(win)
+    await assertCompactObjectFilter(win, 'Filter metrics')
     await verifyQueryToolbar(win)
     await capture(win, 'prometheus-toolbar.png')
     win.setSize(760, 760)
@@ -821,12 +867,15 @@ app.whenReady().then(async () => {
     await configureBuilderControls(win, 'temporal-series')
     await waitForRendererState(win, `document.querySelector('[data-builder-form] [data-field][data-field-name="Time range"]')`, 'shared Builder time-range field')
     await verifySharedFieldGeometry(win)
+    await assertCanonicalCaptureState(win, 'Builder temporal Series preview')
     await capture(win, 'builder-temporal-series.png')
 
     await configureBuilderControls(win, 'categorical-numeric')
+    await assertCanonicalCaptureState(win, 'Builder categorical preview')
     await capture(win, 'builder-categorical-numeric.png')
 
     await configureBuilderControls(win, 'count-without-y')
+    await assertCanonicalCaptureState(win, 'Builder Count preview')
     await capture(win, 'builder-count-without-y.png')
 
     win.setSize(760, 760)
@@ -838,6 +887,7 @@ app.whenReady().then(async () => {
     await seedPreviewData(win)
     await configureTablePreview(win)
     await verifyCompactTableSearch(win)
+    await assertCanonicalCaptureState(win, 'Result table preview')
     await capture(win, 'table.png')
 
     app.exit(0)

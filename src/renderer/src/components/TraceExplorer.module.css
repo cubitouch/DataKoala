@@ -76,7 +76,7 @@
 .queryToolbar {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
@@ -84,11 +84,11 @@
 .queryToolbar > :global(.spacer) { flex: 1; }
 .queryToolbar > :global(.query-toolbar-group) { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .queryToolbar > :global(.query-toolbar-group) + :global(.query-toolbar-group) { padding-left: 10px; border-left: 1px solid var(--border); }
-.queryOptions { flex-wrap: wrap; }
-.queryOptions [data-time-range-field] { width: clamp(150px, 16vw, 200px); }
+.queryOptions { flex: none; flex-wrap: nowrap; }
+.queryOptions [data-time-range-field] { width: clamp(145px, 15vw, 180px); }
 
 .queryOptions [data-popover-root] { margin-top: 0; }
-.sampleSize { width: 170px; white-space: nowrap; }
+.sampleSize { width: 150px; white-space: nowrap; }
 .editorActions { white-space: nowrap; }
 .builderGrid {
   display: grid;
@@ -599,7 +599,8 @@
   .searchControls > :first-child { min-width: 0; }
   .searchActions { align-items: flex-start; flex-direction: column; }
   .queryToolbar > :global(.spacer) { display: none; }
-  .queryOptions { flex: 1 1 100%; order: 2; }
+  .queryToolbar { flex-wrap: wrap; }
+  .queryOptions { flex: 1 1 100%; flex-wrap: wrap; order: 2; }
   .resultsHeader { align-items: stretch; flex-direction: column; }
   .resultsHeaderActions { justify-content: space-between; }
   .traceHeader { flex-direction: column; }
