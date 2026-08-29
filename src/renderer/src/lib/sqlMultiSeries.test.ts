@@ -22,14 +22,14 @@ const result: QueryResult = {
 const base: VisualizationConfiguration = { view: 'line', xColumn: 'created_at', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: null, seriesColumns: [], valueAxisScale: 'linear' }
 
 test('SQL mode preserves the simple single-Series presentation', () => {
-  const effective = deriveEffectiveVisualization(result, { ...base, seriesColumn: 'country' }, 'sql')
+  const effective = deriveEffectiveVisualization(result, { ...base, seriesColumn: 'country' }, 'result')
   assert.equal(effective.seriesColumn, 'country')
   assert.deepEqual(effective.seriesColumns, [])
   assert.deepEqual(pivotRowsForChart(result, effective).series.map((series) => series.name).sort(), ['DE', 'FR'])
 })
 
 test('SQL mode combines multiple selected result columns only in the visualization layer', () => {
-  const effective = deriveEffectiveVisualization(result, { ...base, seriesColumns: ['country', 'device'] }, 'sql')
+  const effective = deriveEffectiveVisualization(result, { ...base, seriesColumns: ['country', 'device'] }, 'result')
   assert.equal(effective.seriesColumn, null)
   assert.deepEqual(effective.seriesColumns, ['country', 'device'])
   const pivot = pivotRowsForChart(result, effective)
@@ -45,14 +45,14 @@ test('SQL mode combines multiple selected result columns only in the visualizati
 })
 
 test('SQL tuple filters include and exclude the exact tuple client-side', () => {
-  const pivot = pivotRowsForChart(result, deriveEffectiveVisualization(result, { ...base, seriesColumns: ['country', 'device'] }, 'sql'))
+  const pivot = pivotRowsForChart(result, deriveEffectiveVisualization(result, { ...base, seriesColumns: ['country', 'device'] }, 'result'))
   const frDesktop = pivot.seriesValues[1]
   assert.deepEqual(applyResultFilters(result.rows, [createResultFilter('series', 'equals', frDesktop)]), [result.rows[1]])
   assert.deepEqual(applyResultFilters(result.rows, [createResultFilter('series', 'notEquals', frDesktop)]), [result.rows[0], result.rows[2]])
 })
 
 test('SQL multi-Series selection drops columns that become X or Value dimensions', () => {
-  const effective = deriveEffectiveVisualization(result, { ...base, xColumn: 'country', seriesColumns: ['country', 'device'] }, 'sql')
+  const effective = deriveEffectiveVisualization(result, { ...base, xColumn: 'country', seriesColumns: ['country', 'device'] }, 'result')
   assert.equal(effective.seriesColumn, 'device')
   assert.deepEqual(effective.seriesColumns, [])
 })

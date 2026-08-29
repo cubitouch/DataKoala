@@ -122,8 +122,8 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
   }, [running])
 
   const effectiveConfiguration = useMemo(
-    () => result ? deriveEffectiveVisualization(result, configuration, mode, builderSeries) : configuration,
-    [result, configuration, mode, builderSeries]
+    () => result ? deriveEffectiveVisualization(result, configuration, dimensionControls === 'external' && mode === 'builder' ? 'builder' : 'result', builderSeries) : configuration,
+    [result, configuration, mode, dimensionControls, builderSeries]
   )
   useEffect(() => {
     if (dimensionControls === 'result' && result && !visualizationConfigurationsEqual(effectiveConfiguration, configuration)) {
@@ -140,7 +140,7 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
   const selectedSeriesValues = useMemo(() => effectiveConfiguration.seriesColumns?.length
     ? effectiveConfiguration.seriesColumns
     : effectiveConfiguration.seriesColumn ? [effectiveConfiguration.seriesColumn] : [], [effectiveConfiguration.seriesColumn, effectiveConfiguration.seriesColumns])
-  const availableHierarchyDimensions = dimensionControls === 'external' ? builderSeries : selectedSeriesValues
+  const availableHierarchyDimensions = dimensionControls === 'external' && mode === 'builder' ? builderSeries : selectedSeriesValues
   const hierarchyDimensions = reconcileHierarchyDimensions(effectiveConfiguration.hierarchyDimensions, availableHierarchyDimensions)
   const hierarchyStats = useMemo(() => hierarchyCardinalities(filteredResult?.rows ?? [], hierarchyDimensions), [filteredResult, hierarchyDimensions.join('\0')])
   const suggestedHierarchyDimensions = useMemo(() => suggestHierarchyDimensions(filteredResult?.rows ?? [], hierarchyDimensions), [filteredResult, hierarchyDimensions.join('\0')])

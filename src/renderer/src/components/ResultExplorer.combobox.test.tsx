@@ -66,7 +66,11 @@ describe('ResultExplorer chart combobox controls', () => {
       queryError: null, isResultStale: false
     })
     const configuration: VisualizationConfiguration = { view: 'line', xColumn: 'created_at', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: null, seriesColumns: [], valueAxisScale: 'linear' }
-    render(<ResultExplorer mode="builder" dimensionControls="result" configurationOverride={configuration} onConfigurationChange={vi.fn()} />)
+    function ResultOwnedBuilderMode() {
+      const [current, setCurrent] = React.useState(configuration)
+      return <ResultExplorer mode="builder" dimensionControls="result" configurationOverride={current} onConfigurationChange={setCurrent} />
+    }
+    render(<ResultOwnedBuilderMode />)
 
     fireEvent.click(screen.getByRole('combobox', { name: /X axis: created_at/ }))
     expect(screen.getByRole('option', { name: /region, text/ })).toBeTruthy()
@@ -82,6 +86,17 @@ describe('ResultExplorer chart combobox controls', () => {
     expect(screen.getByRole('option', { name: /region, text/ })).toBeTruthy()
     expect(screen.queryByRole('option', { name: /created_at/ })).toBeNull()
     expect(screen.queryByRole('option', { name: /revenue/ })).toBeNull()
+    fireEvent.click(screen.getByRole('option', { name: /region, text/ }))
+
+    fireEvent.click(screen.getByRole('combobox', { name: /X axis: created_at/ }))
+    fireEvent.change(screen.getByRole('textbox', { name: /Search X axis/ }), { target: { value: 'extra_11' } })
+    fireEvent.click(screen.getByRole('option', { name: /extra_11, text/ }))
+    fireEvent.click(screen.getByRole('combobox', { name: /Y axis: revenue/ }))
+    fireEvent.click(screen.getByRole('option', { name: /duration_ms, integer/ }))
+
+    expect(screen.getByRole('combobox', { name: /X axis: extra_11/ })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /Y axis: duration_ms/ })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /Series: region/ })).toBeTruthy()
   })
 
   it('hides dimensions when mapping is externally owned or the table view is selected', () => {

@@ -55,9 +55,9 @@ test('invalid numeric strings are not converted to misleading zeroes', () => {
 test('derives repaired SQL configuration before persistence and preserves explicit choices', () => {
   const input = result([['date', 'date'], ['amount', 'numeric']], [{ date: '2026-01-01', amount: 2 }])
   const stale = config({ xColumn: 'missing', valueColumn: 'gone', seriesColumn: null })
-  const effective = deriveEffectiveVisualization(input, stale, 'sql')
+  const effective = deriveEffectiveVisualization(input, stale, 'result')
   assert.equal(effective.xColumn, 'date'); assert.equal(effective.valueColumn, 'amount')
-  assert.deepEqual(deriveEffectiveVisualization(input, effective, 'sql'), effective)
+  assert.deepEqual(deriveEffectiveVisualization(input, effective, 'result'), effective)
 })
 
 test('Builder keeps real Series columns in results and creates only a visual tuple', () => {
