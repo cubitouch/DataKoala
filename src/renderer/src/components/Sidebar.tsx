@@ -253,7 +253,7 @@ export function Sidebar() {
       <button onClick={() => void ensureConnectionForTab(activeTabId)} disabled={connecting}>{connecting ? 'Reconnecting…' : 'Reconnect'}</button>
     </div>}
 
-    {activeTabSourceKind === 'loki' && tabConnected && activeTabConnectionId && <LokiSidebarTree connectionId={activeTabConnectionId} />}
+    {activeTabSourceKind === 'loki' && activeTabConnectionId && <LokiSidebarTree connectionId={activeTabConnectionId} />}
     {activeTabSourceKind !== 'loki' && (tabConnected || schemas.length > 0) && <section className={styles.objectsSection}>
       <h3>Objects</h3>
       {!tabConnected && schemas.length > 0 && <div className={styles.objectStatus} role="status">Cached metadata — reconnects when needed.</div>}
