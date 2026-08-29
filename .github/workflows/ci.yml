@@ -39,6 +39,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: git diff --check "${{ github.event.pull_request.base.sha }}...${{ github.sha }}"
 
+      - name: Check renderer controls
+        run: pnpm check:renderer-controls
+
       - name: Typecheck
         run: pnpm typecheck
 

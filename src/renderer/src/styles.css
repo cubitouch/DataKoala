@@ -78,13 +78,13 @@ section[aria-label='Trace explorer'] > [role='status']:not(:has(code)):has(+ [ar
   display: none;
 }
 section[aria-label='Trace explorer']:has(> [role='status']:not(:has(code)):has(+ [aria-busy='true']))
-  form:has(select[aria-label='Tempo trace sample size']) .btn.primary {
+  form:has([data-field-name='Sample size']) .btn.primary {
   display: inline-flex;
   align-items: center;
   gap: 7px;
 }
 section[aria-label='Trace explorer']:has(> [role='status']:not(:has(code)):has(+ [aria-busy='true']))
-  form:has(select[aria-label='Tempo trace sample size']) .btn.primary::before {
+  form:has([data-field-name='Sample size']) .btn.primary::before {
   content: '';
   width: 12px;
   height: 12px;

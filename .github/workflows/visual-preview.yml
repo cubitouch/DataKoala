@@ -137,7 +137,9 @@ jobs:
         with:
           script: |
             const marker = '<!-- datakoala-visual-preview -->'
-            const shortSha = context.payload.pull_request.head.sha.slice(0, 7)
+            const headSha = context.payload.pull_request.head.sha
+            const baseSha = context.payload.pull_request.base.sha
+            const mergeSha = context.sha
             const captions = {
               'sql-default.png': 'SQL mode — default dimensions',
               'prometheus-toolbar.png': 'Prometheus — datasource-aware query toolbar',
@@ -170,7 +172,9 @@ jobs:
             const body = `${marker}
             ## Visual previews
 
-            Generated from commit \`${shortSha}\`.
+            PR head: \`${headSha.slice(0, 7)}\`<br>
+            Previewed merge: \`${mergeSha.slice(0, 7)}\`<br>
+            Base: \`${context.payload.pull_request.base.ref}\` @ \`${baseSha.slice(0, 7)}\`
 
             ${previews}
 

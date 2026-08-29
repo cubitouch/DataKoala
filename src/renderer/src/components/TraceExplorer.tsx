@@ -1,3 +1,4 @@
+import { TextInput } from './ui/TextInput'
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -638,8 +639,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     <section className={styles.root} aria-label="Trace explorer">
       <div className={styles.discoveryPanel}>
         <form className={styles.traceIdBar} onSubmit={submitTraceId}>
-          <label htmlFor="trace-id">Trace ID</label>
-          <input id="trace-id" value={traceId} onChange={(event) => setTraceId(event.target.value)} spellCheck={false} placeholder="4bf92f3577b34da6a3ce929d0e0e4736" />
+          <TextInput label="Trace ID" mode="inline" id="trace-id" value={traceId} onValueChange={setTraceId} spellCheck={false} placeholder="4bf92f3577b34da6a3ce929d0e0e4736" />
           <button className="btn ghost" type="submit" disabled={loading !== null || !traceId.trim()}>{loading === 'trace' ? 'Opening…' : 'Open trace'}</button>
         </form>
 
@@ -647,8 +647,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           <div className={`editor-head data-query-toolbar ${styles.queryToolbar}`} data-query-toolbar>
             <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
             <div className={`query-toolbar-group query-time-group ${styles.queryOptions}`} aria-label="Tempo query options">
-              <TimeRangeField value={searchRange} onChange={setSearchRange} />
-              <div className={styles.sampleSize}><span>Sample size</span><Combobox label="Tempo trace sample size" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div>
+              <TimeRangeField labelVisibility="sr-only" value={searchRange} onChange={setSearchRange} />
+              <div className={styles.sampleSize}><Combobox label="Sample size" mode="inline" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div>
             </div>
             <div className="spacer" />
             <div className="query-toolbar-group"><QueryUtilityActions hasResults={Boolean(searchRows.length || spans.length || searchNotice || searchProgress || error || cohortHint)} onClearResults={clearTempoResults} onResetQuery={resetTempoQuery} /></div>
@@ -663,9 +663,6 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
             : <div className={styles.traceqlField}>
               <CodeMirror ref={traceqlEditorRef} value={traceql} minHeight="66px" maxHeight="160px" theme={oneDark} extensions={traceqlExtensions} onChange={(value) => setSql(value)} aria-label="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} basicSetup={{ lineNumbers: true, foldGutter: false }} />
             </div>}
-          <div className={styles.searchHelper}>{sampledSearch
-            ? `Tempo via gcx · returns up to ${sampleSize} matches from one whole-period search; choose All for exhaustive coverage.`
-            : 'Tempo via gcx · streams trace summaries while it exhausts the complete selected period.'}</div>
         </form>
       </div>
 

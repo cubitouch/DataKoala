@@ -58,12 +58,13 @@
     "smoke:bigquery-client": "ELECTRON_RUN_AS_NODE=1 electron scripts/smoke-bigquery-client.mjs",
     "db:up": "node scripts/db-up.mjs",
     "db:down": "docker stop datakoala-test",
-    "verify": "pnpm typecheck && pnpm test && pnpm build && pnpm smoke && pnpm smoke:db && pnpm smoke:flow",
+    "verify": "pnpm check:renderer-controls && pnpm typecheck && pnpm test && pnpm build && pnpm smoke && pnpm smoke:db && pnpm smoke:flow",
     "package": "pnpm build && electron-builder",
     "docs:screenshots": "pnpm exec electron-vite build && DATAKOALA_PREVIEW_KIND=documentation DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-visual-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-sql-doc-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-prometheus-doc-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-trace-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-loki-preview.mjs",
     "docs:build": "vite build --config docs-site/vite.config.ts",
     "docs:dev": "vite --config docs-site/vite.config.ts",
-    "docs:preview": "vite preview --config docs-site/vite.config.ts"
+    "docs:preview": "vite preview --config docs-site/vite.config.ts",
+    "check:renderer-controls": "node scripts/check-renderer-controls.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

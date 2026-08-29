@@ -56,12 +56,9 @@
     min-width: 0;
 }
 
-.labelValues input {
+.valueFilter {
     width: calc(100% - 6px);
     margin: 3px 0;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text);
 }
 
 .labelValue {

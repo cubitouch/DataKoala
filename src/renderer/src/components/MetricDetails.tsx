@@ -1,3 +1,4 @@
+import { TextInput } from './ui/TextInput'
 import { useEffect, useState } from 'react'
 import type { DatabaseRelationNode } from '@shared/types'
 import { api } from '../lib/api'
@@ -52,7 +53,7 @@ export function MetricDetails({ connectionId, relation }: { connectionId: string
         {open && <div className={styles.labelValues} role="group" aria-label={`${label} values`}>
           {loadingValues.has(label) && <div className={styles.status} role="status">Loading values…</div>}
           {valueErrors[label] && <button className={`${styles.status} ${styles.error}`} onClick={() => void toggleLabel(label)}>Could not load values — retry</button>}
-          {allValues && allValues.length > LABEL_VALUE_DISPLAY_LIMIT && <input aria-label={`Filter values for ${label}`} placeholder="Filter values…" value={valueFilters[label] ?? ''} onChange={(event) => setValueFilters((old) => ({ ...old, [label]: event.target.value }))} />}
+          {allValues && allValues.length > LABEL_VALUE_DISPLAY_LIMIT && <div className={styles.valueFilter}><TextInput label={`Filter values for ${label}`} placeholder="Filter values…" value={valueFilters[label] ?? ''} onValueChange={(text) => setValueFilters((old) => ({ ...old, [label]: text }))} /></div>}
           {allValues?.length === 0 && <div className={styles.status}>No values</div>}
           {shown.map((value) => <div className={`${styles.labelValue} ${styles.truncate}`} role="treeitem" key={value} title={value}>{value}</div>)}
           {allValues && filtered.length > shown.length && <div className={styles.limit}>Showing {shown.length} of {filtered.length} matching values. Refine the filter to see more.</div>}

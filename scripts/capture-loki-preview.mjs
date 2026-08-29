@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { lokiLabels, lokiLabelValues, previewLokiLogResult, previewLokiTrendResult } from './visual-preview/loki-fixtures.mjs'
+import { assertCompactObjectFilter, assertFieldRowGeometry, assertVisibleSeriesField } from './visual-preview/assertions.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
@@ -70,8 +71,10 @@ app.whenReady().then(async () => {
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
     await waitFor(win, `document.getElementById('root')?.children.length && window.__datakoalaStore`, 'renderer and store')
     await seedWorkspace(win)
+    await assertCompactObjectFilter(win, 'Filter Loki objects')
     for (let attempt = 0; attempt < 80 && (!labelsReady || valueRequests.size < 3); attempt += 1) await sleep(100)
     if (!labelsReady || valueRequests.size < 3) throw new Error('Loki metadata fixtures did not finish loading')
+    await assertFieldRowGeometry(win, '[data-loki-builder]', ['Filter by', 'Line contains', 'Group by'])
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('main button')].find((button) => button.textContent?.trim() === 'Run')?.click()`)
     for (let attempt = 0; attempt < 80 && !logFinished; attempt += 1) await sleep(100)
     if (!logFinished) throw new Error('Loki log fixture did not finish')
@@ -88,6 +91,7 @@ app.whenReady().then(async () => {
     for (let attempt = 0; attempt < 80 && !trendFinished; attempt += 1) await sleep(100)
     if (!trendFinished) throw new Error('Loki trend fixture did not finish')
     await waitFor(win, `document.querySelector('[data-result-chart-canvas] canvas')`, 'rendered Loki trend')
+    await assertVisibleSeriesField(win)
     await sleep(400)
     const chartPath = resolve(outputDir, 'loki-log-chart.png')
     await win.webContents.capturePage()

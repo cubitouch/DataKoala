@@ -95,7 +95,7 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     expect(screen.getByText('2 active')).toBeTruthy()
     expect(document.querySelectorAll('[class*="facet"]').length).toBeGreaterThan(0)
     const advanced = screen.getByText('Advanced filters').closest('details')!
-    const generated = screen.getByText('Generated TraceQL').closest('details')!
+    const generated = screen.getByText('Generated TraceQL').closest('[data-generated-query-panel]')!
     expect(advanced.hasAttribute('data-generated-query-panel')).toBe(false)
     expect(generated.hasAttribute('data-generated-query-panel')).toBe(true)
   })

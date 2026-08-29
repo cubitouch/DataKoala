@@ -33,6 +33,7 @@ describe('TraceExplorer TraceQL editor', () => {
   it('edits and locally formats Plain mode through CodeMirror', async () => {
     expect(formatTraceql('{duration>300ms}')).toEqual({ ok: true, query: '{ duration > 300ms }' })
     render(<TraceExplorer connectionId="tempo-1" />)
+    expect(screen.getAllByText('Trace ID')).toHaveLength(1)
     expect(screen.getAllByLabelText('Query mode')[0].textContent).toBe('TraceQLBuilder')
     expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('data-tempo-run-query')).toBe(true)
     const editor = screen.getByLabelText('TraceQL editor')
@@ -80,7 +81,8 @@ describe('TraceExplorer TraceQL editor', () => {
 
   it('keeps the primary action named Run for exhaustive searches', () => {
     render(<TraceExplorer connectionId="tempo-1" />)
-    fireEvent.click(screen.getByRole('combobox', { name: /Tempo trace sample size/ }))
+    expect(screen.getAllByText('Sample size')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('combobox', { name: /Sample size:/ }))
     fireEvent.click(screen.getByRole('option', { name: 'All traces' }))
     expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('data-tempo-run-query')).toBe(true)
   })

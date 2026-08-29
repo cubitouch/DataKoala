@@ -1,3 +1,4 @@
+import { TextInput } from './ui/TextInput'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { selectActiveSession, useStore, type QueryMode } from '../store/useStore'
 import { isTimeType, type QueryResult } from '@shared/types'
@@ -139,7 +140,7 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
         <span className={styles.stats}>
           {activeFilters.length || filter.trim() ? `${rows.length} of ${result.rowCount}` : result.rowCount} rows · {result.columns.length} cols · {result.durationMs} ms
         </span>
-        <input className={styles.filterInput} placeholder="filter rows…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <div className={styles.filterInput}><TextInput mode="inline" labelVisibility="sr-only" label="Filter rows" placeholder="filter rows…" value={filter} onValueChange={setFilter} /></div>
         <div className={styles.spacer} />
         <button className="btn ghost" onClick={exportCsv}>Export CSV</button>
       </div>

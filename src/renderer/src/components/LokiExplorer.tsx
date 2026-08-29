@@ -1,3 +1,4 @@
+import { TextInput } from './ui/TextInput'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -125,7 +126,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     <section className={styles.queryPanel}>
       <div className={`editor-head data-query-toolbar ${styles.queryToolbar}`} data-query-toolbar>
         <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
-        <div className={`query-toolbar-group query-time-group ${styles.queryOptions}`}><TimeRangeField value={range} onChange={(value) => setLokiState({ lokiTimeRange: value })} /><label className={styles.limit}>Limit<input aria-label="Loki result limit" type="number" min={1} max={5000} value={limit} onChange={(event) => setLokiState({ lokiResultLimit: Math.max(1, Math.min(5000, Number(event.target.value))) })} /></label>{session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>
+        <div className={`query-toolbar-group query-time-group ${styles.queryOptions}`}><TimeRangeField labelVisibility="sr-only" value={range} onChange={(value) => setLokiState({ lokiTimeRange: value })} /><TextInput label="Limit" mode="inline" type="number" min={1} max={5000} value={limit} onValueChange={(text) => setLokiState({ lokiResultLimit: Math.max(1, Math.min(5000, Number(text))) })} />{session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>
         <div className="spacer" />
         <div className="query-toolbar-group"><QueryUtilityActions hasResults={Boolean(result || trend || error || warning)} onClearResults={clearResults} onResetQuery={resetQuery} /></div>
         <div className={`query-toolbar-group query-editor-actions ${styles.editorActions}`}>{mode === 'logql' && <button type="button" className="btn ghost" onClick={() => void format()} disabled={!query.trim()}>Format</button>}<CopySqlButton sql={expression} language="LogQL" /></div>

@@ -3,9 +3,7 @@
 .explorer > [data-result-table-pane] { flex: 1; min-height: 0; }
 .pane { overflow: auto; min-height: 0; display: flex; flex-direction: column; }
 .visualizationControls { display: flex; align-items: end; gap: 12px; padding: 8px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.visualizationControl { display: grid; gap: 4px; min-width: 130px; color: var(--text-mute); font-size: 11px; }
-.visualizationControl [data-popover-root] { margin-top: 0; }
-.visualizationControl:last-child > span > span { display: none; }
+.visualizationControl { min-width: 130px; }
 .chart { width: 100%; max-width: 100%; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg-2); }
 .chartActions { min-height: 38px; flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .chartCanvas { position: relative; contain: layout paint; width: 100%; max-width: 100%; min-width: 0; flex: 1; min-height: 0; padding: 6px 10px 10px; }
@@ -13,8 +11,8 @@
 .chartCanvas > .runningOverlay { position: absolute; inset: 6px 10px 10px; width: auto !important; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 42%, transparent); color: var(--text); font-size: 12px; font-weight: 600; pointer-events: none; }
 .stats { font-size: 11px; color: var(--text-mute); font-family: var(--mono); }
 .spacer { flex: 1; }
-.axisScale { display: inline-flex; align-items: center; gap: 5px; color: var(--text-mute); font-size: 11px; }
-.axisScale [data-popover-root] { width: 96px; margin-top: 0; }
+.axisScale { display: inline-flex; align-items: center; color: var(--text-mute); font-size: 11px; }
+.axisScale [data-field] { grid-template-columns: auto 96px; }
 .chartActions [aria-pressed="true"] { color: #fbbf24; border-color: #f59e0b; }
 .anomalyStatus { flex: none; padding: 5px 12px; border-bottom: 1px solid var(--border); color: var(--text-mute); font-size: 11px; }
 .empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-mute); font-size: 13px; }

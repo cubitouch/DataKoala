@@ -1,3 +1,4 @@
+import { TextInput } from '../ui/TextInput'
 import React from 'react'
 void React
 import styles from './TimeRange.module.css'
@@ -10,8 +11,8 @@ export function TimeWindowEditor({ windows, onChange, error }: { windows: TimeWi
     <div className={styles.windowHead}><span>Daily time windows</span><button type="button" className="btn ghost" onClick={() => onChange([...windows, { id: makeId(), from: '', to: '' }])}>+ Add window</button></div>
     {!rows.length && <p className={styles.windowEmpty}>No windows: use the full selected days.</p>}
     {rows.map((w, i) => <div className={styles.windowRow} key={w.id}>
-      <label>From<input className={styles.input} aria-label={`From time ${i + 1}`} type="time" value={w.from} onChange={(e) => update(w.id, { from: e.target.value })}/></label><span aria-hidden="true">→</span>
-      <label>To<input className={styles.input} aria-label={`To time ${i + 1}`} type="time" value={w.to} onChange={(e) => update(w.id, { to: e.target.value })}/></label>
+      <TextInput mode="inline" label={`From time ${i + 1}`} type="time" value={w.from} onValueChange={(text) => update(w.id, { from: text })}/><span aria-hidden="true">→</span>
+      <TextInput mode="inline" label={`To time ${i + 1}`} type="time" value={w.to} onValueChange={(text) => update(w.id, { to: text })}/>
       <button type="button" className="btn ghost" aria-label={`Delete time window ${i + 1}`} onClick={() => onChange(windows.filter((x) => x.id !== w.id))}>Delete</button>
     </div>)}
     {error && error !== 'Choose both a start and an end date.' && <small className={styles.error} role="alert">{error}</small>}

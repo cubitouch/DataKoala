@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { previewTraceId, previewTraceResult, previewTraceSearchResult } from './visual-preview/trace-fixtures.mjs'
+import { assertCompactObjectFilter, assertFieldRowGeometry } from './visual-preview/assertions.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
@@ -86,7 +87,7 @@ async function seedTraceWorkspace(win) {
 async function validateBuilderIndependence(win) {
   const report = JSON.parse(await win.webContents.executeJavaScript(`(() => {
     const builder = document.querySelector('[data-tempo-builder]')
-    const control = (name) => [...(builder?.querySelectorAll('div') ?? [])].find((candidate) => [...candidate.children].some((child) => child.tagName === 'SPAN' && child.textContent?.trim() === name))
+    const control = (name) => builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]')
     const buttonLabel = (name) => control(name)?.querySelector('button')?.getAttribute('aria-label') ?? ''
     const inputFor = (name) => control(name)?.querySelector('input')
     const exactSpan = inputFor('Exact span / operation name')
@@ -95,7 +96,7 @@ async function validateBuilderIndependence(win) {
     const before = {
       namespace: buttonLabel('Namespace'),
       service: buttonLabel('Service'),
-      protocol: buttonLabel('Protocol / subsystem'),
+      protocol: buttonLabel('Protocol or subsystem'),
       exactSpan: exactSpan.value,
       duration: duration.value
     }
@@ -110,7 +111,7 @@ async function validateBuilderIndependence(win) {
   }
   await waitFor(win, `(() => {
     const builder=document.querySelector('[data-tempo-builder]');
-    const control=(name)=>[...(builder?.querySelectorAll('div') ?? [])].find((candidate)=>[...candidate.children].some((child)=>child.tagName==='SPAN' && child.textContent?.trim()===name));
+    const control=(name)=>builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]');
     return control('Service')?.querySelector('button')?.getAttribute('aria-label') === 'Service: checkout-api' && control('Exact span / operation name')?.querySelector('input')?.value === 'POST /checkout';
   })()`, 'independent Service and advanced operation values')
 }
@@ -118,13 +119,21 @@ async function validateBuilderIndependence(win) {
 async function searchTraces(win) {
   await waitFor(win, `(() => {
     const builder = document.querySelector('[data-tempo-builder]')
-    const durationControl = [...(builder?.querySelectorAll('div') ?? [])].find((candidate) =>
-      [...candidate.children].some((child) => child.tagName === 'SPAN' && child.textContent?.trim() === 'Min duration (ms)'))
+    const durationControl = builder?.querySelector('[data-field][data-field-name="Min duration (ms)"]')
     return document.querySelector('[aria-label="Query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' &&
       durationControl?.querySelector('input')?.value === '300' &&
       document.body.innerText.includes('Last hour') && document.body.innerText.includes('Sample size') &&
       document.body.innerText.includes('Generated TraceQL')
   })()`, 'configured trace Builder, time range and sample size')
+  const toolbar = await win.webContents.executeJavaScript(`(() => {
+    const section = document.querySelector('section[aria-label="Trace explorer"]')
+    const bar = section?.querySelector('[data-query-toolbar]')
+    const mode = bar?.querySelector('[aria-label="Query mode"]')?.getBoundingClientRect()
+    const run = bar?.querySelector('[data-tempo-run-query]')?.getBoundingClientRect()
+    const text = document.body.innerText
+    return { helperAbsent: !text.includes('returns up to') && !text.includes('choose All') && !/max \d+ traces|sample up to \d+ traces/i.test(text), modeTop: mode?.top, runTop: run?.top, overflow: bar ? bar.scrollWidth > bar.clientWidth : true }
+  })()`)
+  if (!toolbar.helperAbsent || toolbar.overflow || Math.abs(toolbar.modeTop - toolbar.runTop) > 2) throw new Error(`Tempo toolbar regression: ${JSON.stringify(toolbar)}`)
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
     const button = section?.querySelector('[data-tempo-run-query]')
@@ -181,13 +190,13 @@ async function validateCloseAndSelectedSpanCohort(win) {
   })()`)
   await waitFor(win, `(() => {
     const builder=document.querySelector('[data-tempo-builder]');
-    const control=(name)=>[...(builder?.querySelectorAll('div') ?? [])].find((candidate)=>[...candidate.children].some((child)=>child.tagName==='SPAN' && child.textContent?.trim()===name));
+    const control=(name)=>builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]');
     const aria=(name)=>control(name)?.querySelector('button')?.getAttribute('aria-label');
     const input=(name)=>control(name)?.querySelector('input')?.value;
     return aria('Namespace') === 'Namespace: commerce' &&
       aria('Service') === 'Service: payment-service' &&
       aria('Span kind') === 'Span kind: Client' &&
-      aria('Protocol / subsystem') === 'Protocol or subsystem: HTTP / network' &&
+      aria('Protocol or subsystem') === 'Protocol or subsystem: HTTP / network' &&
       aria('HTTP method') === 'HTTP method: POST' &&
       input('Route / endpoint') === '/charges' &&
       aria('Status') === 'Status: Error' &&
@@ -220,7 +229,9 @@ app.whenReady().then(async () => {
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
     await waitFor(win, `document.getElementById('root')?.children.length && window.__datakoalaStore`, 'renderer and store')
     await seedTraceWorkspace(win)
+    await assertCompactObjectFilter(win, 'Filter services')
     await validateBuilderIndependence(win)
+    await assertFieldRowGeometry(win, '[data-tempo-builder]', ['Status', 'Min duration (ms)'])
     await capture(win, 'tempo-trace-builder.png')
     await searchTraces(win)
     await capture(win, 'tempo-trace-search.png')

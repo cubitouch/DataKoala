@@ -83,7 +83,8 @@ describe('PromQL execution', () => {
   it('groups the shared date-range picker and Resolution while hiding SQL-only actions', () => {
     renderPromql()
     expect(screen.getByRole('button', { name: /Time range: Last hour/ })).toBeTruthy()
-    expect(screen.getByRole('combobox', { name: /PromQL query resolution/ })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /Resolution:/ })).toBeTruthy()
+    expect(screen.getAllByText('Resolution')).toHaveLength(1)
     const help = screen.getByRole('button', { name: 'Resolution help' })
     expect(help.tabIndex).toBe(0)
     expect(help.getAttribute('aria-describedby')).toBeTruthy()
@@ -98,7 +99,7 @@ describe('PromQL execution', () => {
   it('persists each Resolution selection in the existing prometheusStep state', async () => {
     renderPromql()
     for (const step of ['30s', '1m', '5m'] as const) {
-      fireEvent.click(screen.getByRole('combobox', { name: /PromQL query resolution/ }))
+      fireEvent.click(screen.getByRole('combobox', { name: /Resolution:/ }))
       fireEvent.click(await screen.findByRole('option', { name: step }))
       expect(useStore.getState().tabs[0].prometheusStep).toBe(step)
     }
@@ -179,7 +180,7 @@ describe('QueryEditor Explain loading states', () => {
     renderExplainUi()
     expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Explain Analyze' })).toBeTruthy()
-    expect(screen.queryByRole('combobox', { name: /PromQL query resolution/ })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: /Resolution:/ })).toBeNull()
   })
   it('shows Explaining, disables both buttons, preserves the previous plan, and ends after success', async () => {
     const request = deferred<{ text: string }>()

@@ -3,7 +3,7 @@ void React
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { Popover } from './Popover'
+import { Popover, usePopover } from './Popover'
 
 afterEach(cleanup)
 
@@ -12,6 +12,18 @@ const openWithPointer = (name: string | RegExp) => {
   fireEvent.pointerDown(trigger)
   fireEvent.click(trigger, { detail: 1 })
   return trigger
+}
+
+function NestedOption() {
+  const popover = usePopover()
+  return <button onClick={() => popover?.close()}>Choose child option</button>
+}
+
+function NestedPopovers() {
+  return <><Popover ariaLabel="Parent" trigger="Parent trigger"><div>
+    <button>Parent content</button>
+    <Popover ariaLabel="Child" trigger="Child trigger"><NestedOption /></Popover>
+  </div></Popover><button>Outside both</button></>
 }
 
 describe('Popover', () => {
@@ -47,6 +59,45 @@ describe('Popover', () => {
     openWithPointer('Second')
     expect(screen.queryByText('First content')).toBeNull()
     expect(screen.getByText('Second content')).toBeTruthy()
+  })
+
+  it('keeps ancestors open while nested overlays interact and closes Escape from the inside out', () => {
+    render(<NestedPopovers />)
+    openWithPointer('Parent')
+    openWithPointer('Child')
+    expect(screen.getByRole('button', { name: 'Parent content' })).toBeTruthy()
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Choose child option' }))
+    expect(screen.getByRole('button', { name: 'Parent content' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Choose child option' }))
+    expect(screen.queryByRole('button', { name: 'Choose child option' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Parent content' })).toBeTruthy()
+
+    openWithPointer('Child')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('button', { name: 'Choose child option' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Parent content' })).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('button', { name: 'Parent content' })).toBeNull()
+  })
+
+  it('closes the complete nested overlay tree when interaction moves outside it', () => {
+    render(<NestedPopovers />)
+    openWithPointer('Parent')
+    openWithPointer('Child')
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Outside both' }))
+    expect(screen.queryByRole('button', { name: 'Parent content' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Choose child option' })).toBeNull()
+  })
+
+  it('still coordinates an unrelated peer against an open nested tree', () => {
+    render(<><NestedPopovers /><Popover ariaLabel="Unrelated" trigger="Unrelated trigger"><span>Unrelated content</span></Popover></>)
+    openWithPointer('Parent')
+    openWithPointer('Child')
+    openWithPointer('Unrelated')
+    expect(screen.queryByRole('button', { name: 'Parent content' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Choose child option' })).toBeNull()
+    expect(screen.getByText('Unrelated content')).toBeTruthy()
   })
 
   it('dismisses when disabled or invalidated and restores focus safely', () => {

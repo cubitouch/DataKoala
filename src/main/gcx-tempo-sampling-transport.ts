@@ -147,7 +147,7 @@ export class SamplingGcxTempoTransport implements TempoTransport {
       rows,
       rowCount: rows.length,
       durationMs,
-      notice: `Tempo search · ${rangeLabel(request)} · sample up to ${limit} traces · ${rows.length} returned · 1 search query`,
+      notice: `Tempo search · ${rangeLabel(request)} · ${rows.length} returned · 1 search query`,
       execution: { provider: 'tempo', durationMs, rowCount: rows.length, ...(perf ? { requestId: perf.requestId } : {}) }
     }
 

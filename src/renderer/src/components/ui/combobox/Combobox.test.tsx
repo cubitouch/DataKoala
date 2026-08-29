@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Combobox, MultiCombobox } from '.'
 import styles from './Combobox.module.css'
+import fieldStyles from '../FieldChrome.module.css'
 
 Element.prototype.scrollIntoView = vi.fn()
 afterEach(cleanup)
@@ -21,6 +22,16 @@ function Single({ searchable = false }: { searchable?: boolean }) {
 }
 
 describe('Combobox', () => {
+  it('owns visible normal/inline labels for single and multi controls', () => {
+    render(<><Combobox label="Status" value="" options={options} onChange={() => {}} /><MultiCombobox label="Group by" mode="inline" values={[]} options={options} onChange={() => {}} /></>)
+    expect(screen.getByRole('combobox', { name: /Status:/ })).toBeTruthy()
+    const statusLabel = screen.getByText('Status').closest('[data-field-label]')
+    expect(statusLabel?.tagName).toBe('SPAN')
+    expect(statusLabel?.hasAttribute('aria-label')).toBe(false)
+    expect(statusLabel?.closest(`.${fieldStyles.normal}`) !== null).toBe(true)
+    expect(screen.getByRole('combobox', { name: /Group by:/ })).toBeTruthy()
+    expect(screen.getByText('Group by').closest(`.${fieldStyles.inline}`) !== null).toBe(true)
+  })
   it('applies its locally owned error border state to the trigger', () => {
     render(<Combobox label="State" value="" options={[]} onChange={() => {}} error="Broken" />)
     expect(screen.getByRole('combobox').classList.contains(styles.errorTrigger)).toBe(true)
@@ -77,6 +88,9 @@ describe('Combobox', () => {
     const trigger = screen.getByRole('combobox')
     fireEvent.keyDown(trigger, { key: 'o' })
     const input = screen.getByRole('textbox', { name: /Search Table or view/ })
+    expect(document.querySelectorAll('[data-combobox-search]')).toHaveLength(1)
+    expect(input.closest('[data-field]')).toBeNull()
+    expect(screen.queryByText('Search Table or view')).toBeNull()
     expect(input).toHaveProperty('value', 'o')
     fireEvent.change(input, { target: { value: 'ANALYTICS' } })
     expect(screen.getByRole('option', { name: /monthly_sales/ })).toBeTruthy()

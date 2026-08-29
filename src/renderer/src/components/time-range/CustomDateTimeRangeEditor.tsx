@@ -1,3 +1,4 @@
+import { TextInput } from '../ui/TextInput'
 import React from 'react'
 void React
 import styles from './TimeRange.module.css'
@@ -15,5 +16,5 @@ export function CustomDateTimeRangeEditor({ draft, setDraft }: { draft: BuilderT
     const visualEnd = visualEndDate(custom.endDate, custom.endTime)
     change({ endTime, endDate: visualEnd && endTime === '00:00' ? addDays(visualEnd, 1) : visualEnd })
   }
-  return <div className={styles.dateTimeEditor}><h4 className={styles.editorTitle}>Start date + time → End date + time</h4><DateRangeCalendar value={{ startDate: custom.startDate, startTime: custom.startTime, endDate: custom.endDate, endTime: custom.endTime, recurringWindows: custom.recurringWindows ?? [] }} onChange={(value) => setDraft({ kind: 'custom', ...value })}/><div className={styles.boundaryGrid}><label>Start time<input className={styles.input} aria-label="Start time" type="time" value={custom.startTime} onChange={(e) => change({ startTime: e.target.value })}/></label><label>End time<input className={styles.input} aria-label="End time" type="time" value={custom.endTime} onChange={(e) => changeEndTime(e.target.value)}/></label></div></div>
+  return <div className={styles.dateTimeEditor}><h4 className={styles.editorTitle}>Start date + time → End date + time</h4><DateRangeCalendar value={{ startDate: custom.startDate, startTime: custom.startTime, endDate: custom.endDate, endTime: custom.endTime, recurringWindows: custom.recurringWindows ?? [] }} onChange={(value) => setDraft({ kind: 'custom', ...value })}/><div className={styles.boundaryGrid}><TextInput label="Start time" type="time" value={custom.startTime} onValueChange={(text) => change({ startTime: text })}/><TextInput label="End time" type="time" value={custom.endTime} onValueChange={changeEndTime}/></div></div>
 }

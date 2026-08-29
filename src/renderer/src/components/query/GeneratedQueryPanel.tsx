@@ -6,6 +6,7 @@ import { PromQLExtension } from '@prometheus-io/codemirror-promql'
 import { traceql as traceqlSupport } from '../../lib/traceqlLanguage'
 import { logql } from '../../lib/logqlLanguage'
 import { CopySqlButton } from '../CopySqlButton'
+import { CollapsibleSection } from '../ui/CollapsibleSection'
 import styles from './GeneratedQueryPanel.module.css'
 
 export type GeneratedQueryLanguage = 'SQL' | 'PromQL' | 'TraceQL' | 'LogQL'
@@ -33,16 +34,7 @@ export function GeneratedQueryPanel({ language, value, onOpenInEditor, emptyStat
   const hasQuery = query.trim().length > 0
   const canOpen = hasQuery && !validation
 
-  return <details className={[styles.root, className].filter(Boolean).join(' ')} data-generated-query-panel>
-    <summary>
-      <span className={styles.title}>Generated {language}</span>
-      <span
-        className={styles.summaryActions}
-        onClick={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-        }}
-      >
+  const section = <CollapsibleSection title={`Generated ${language}`} contentPadding="none" actions={<>
         <CopySqlButton sql={query} language={language} />
         {onOpenInEditor && <button
           className="btn ghost"
@@ -50,8 +42,7 @@ export function GeneratedQueryPanel({ language, value, onOpenInEditor, emptyStat
           disabled={!canOpen}
           onClick={() => { if (canOpen) onOpenInEditor() }}
         >Open in {language} mode</button>}
-      </span>
-    </summary>
+      </>}>
     {validation ? <div className={`${styles.feedback} inline-error`} role="status">{validation}</div> : hasQuery ? <>
       <CodeMirror
         value={query}
@@ -64,5 +55,6 @@ export function GeneratedQueryPanel({ language, value, onOpenInEditor, emptyStat
       />
       {supplementary && <div className={styles.supplementary}>{supplementary}</div>}
     </> : <div className={styles.feedback}>{emptyState}</div>}
-  </details>
+  </CollapsibleSection>
+  return <div className={className} data-generated-query-panel>{section}</div>
 }

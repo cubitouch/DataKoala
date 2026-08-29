@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { TextInput } from './ui/TextInput'
 import { useStore } from '../store/useStore'
 import styles from './QueryTabs.module.css'
 
@@ -62,12 +63,12 @@ export function QueryTabs({ className }: QueryTabsProps) {
         return <div key={tab.id} className={`${styles.tab} ${selected ? styles.active : ''}`} role="tab" aria-selected={selected}>
           <button className={styles.main} onClick={() => switchTo(tab.id)} onDoubleClick={() => beginRename(tab.id, tab.title)} title={`${tab.title}${connectionName ? ` — ${connectionName}` : ''}`}>
             {tab.running && <span className={styles.running} aria-label="Query running" />}
-            {renamingId === tab.id ? <input ref={inputRef} className={styles.renameInput} value={draftTitle}
-              onClick={(event) => event.stopPropagation()} onChange={(event) => setDraftTitle(event.target.value)}
+            {renamingId === tab.id ? <span className={styles.renameInput}><TextInput label="Tab name" labelVisibility="sr-only" mode="inline" ref={inputRef} value={draftTitle}
+              onClick={(event) => event.stopPropagation()} onValueChange={setDraftTitle}
               onBlur={finishRename} onKeyDown={(event) => {
                 if (event.key === 'Enter') { event.preventDefault(); finishRename() }
                 if (event.key === 'Escape') { event.preventDefault(); setRenamingId(null) }
-              }} /> : <span className={styles.title}>{tab.title}</span>}
+              }} /></span> : <span className={styles.title}>{tab.title}</span>}
             {connectionName && <span className={styles.connection}>{connectionName}</span>}
           </button>
           <button className={styles.close} aria-label={`Close ${tab.title}`} title="Close tab (⌘/Ctrl+W)" onClick={(event) => { event.stopPropagation(); close(tab.id) }}>×</button>

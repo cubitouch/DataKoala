@@ -83,7 +83,7 @@ describe('BuilderPanel axis-first controls', () => {
     chooseXAxis(/created_at/)
     const dimensions = view.container.querySelector('[data-builder-control-row="dimensions"]')!
     const transformations = view.container.querySelector('[data-builder-control-row="transformations"]')!
-    expect(comboboxLabels(dimensions)).toEqual(['X axis', 'Y axis', 'Series columns'])
+    expect(comboboxLabels(dimensions)).toEqual(['X axis', 'Y axis', 'Series'])
     expect(comboboxLabels(transformations)).toEqual(['Time bucket', 'Aggregation'])
   })
 
@@ -224,9 +224,9 @@ describe('BuilderPanel axis-first controls', () => {
     chooseOrders()
     chooseXAxis(/created_at/)
     const openSeries = async () => {
-      const control = screen.getByRole('combobox', { name: /Series columns/ })
+      const control = screen.getByRole('combobox', { name: /Series/ })
       if (control.getAttribute('aria-expanded') !== 'true') fireEvent.click(control)
-      await screen.findByRole('listbox', { name: 'Series columns' })
+      await screen.findByRole('listbox', { name: 'Series' })
     }
     await openSeries()
     expect(screen.queryByRole('option', { name: /created_at/ })).toBeNull()
@@ -235,13 +235,13 @@ describe('BuilderPanel axis-first controls', () => {
     fireEvent.click(region)
     await waitFor(() => {
       expect(activeTestSession().builder.seriesColumns).toEqual(['region'])
-      expect((screen.getByRole('combobox', { name: /Series columns/ }) as HTMLButtonElement).disabled).toBe(false)
+      expect((screen.getByRole('combobox', { name: /Series/ }) as HTMLButtonElement).disabled).toBe(false)
     })
     await openSeries()
     fireEvent.click(await screen.findByRole('option', { name: /customer_id, text/ }))
     await waitFor(() => {
       expect(activeTestSession().builder.seriesColumns).toEqual(['region', 'customer_id'])
-      expect((screen.getByRole('combobox', { name: /Series columns/ }) as HTMLButtonElement).disabled).toBe(false)
+      expect((screen.getByRole('combobox', { name: /Series/ }) as HTMLButtonElement).disabled).toBe(false)
     })
     expect(Array.from(view.container.querySelectorAll('[data-combobox-chip]')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['region', 'customer_id'])
     await openSeries()
@@ -254,7 +254,7 @@ describe('BuilderPanel axis-first controls', () => {
     chooseOrders()
     chooseXAxis(/created_at/)
     act(() => patchActiveTestSession({ builder: { ...activeTestSession().builder, seriesColumns: ['region'] } }))
-    fireEvent.click(screen.getByRole('combobox', { name: /Series columns/ }))
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Clear all' }))
     expect(activeTestSession().builder.seriesColumns).toEqual([])
   })
@@ -267,7 +267,7 @@ describe('BuilderPanel axis-first controls', () => {
     act(() => patchActiveTestSession({ builder: { ...activeTestSession().builder, table: { schema: 'analytics', name: 'monthly_sales' } } }))
     await new Promise((resolve) => setTimeout(resolve))
     expect(screen.queryByRole('listbox')).toBeNull()
-    fireEvent.click(screen.getByRole('combobox', { name: /Series columns/ }))
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
     expect(screen.getByRole('listbox')).toBeTruthy()
     act(() => patchActiveTestSession({ builder: { ...activeTestSession().builder, table: { schema: 'demo_shop', name: 'orders' } } }))
     await new Promise((resolve) => setTimeout(resolve))
@@ -279,10 +279,10 @@ describe('BuilderPanel axis-first controls', () => {
     arrange()
     chooseOrders()
     chooseXAxis(/created_at/)
-    fireEvent.click(screen.getByRole('combobox', { name: /Series columns/ }))
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
     fireEvent.click(screen.getByRole('option', { name: /customer_id/ }))
     await act(async () => { await Promise.resolve() })
-    expect((screen.getByRole('combobox', { name: /Series columns/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('combobox', { name: /Series/ }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('searches relations by schema, name, and object type without resetting relation state', () => {

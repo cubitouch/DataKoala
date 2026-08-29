@@ -49,7 +49,7 @@ export const previewTraceSearchResult = {
   ],
   rowCount: 5,
   durationMs: 74,
-  notice: 'Tempo search · 19 Aug 2026 16:00 → 19 Aug 2026 17:00 · max 20 traces',
+  notice: 'Tempo search · 19 Aug 2026 16:00 → 19 Aug 2026 17:00',
   execution: { provider: 'tempo', durationMs: 74, rowCount: 5 }
 }
 

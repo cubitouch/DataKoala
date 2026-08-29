@@ -2,14 +2,19 @@ import React from 'react'
 void React
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Popover } from '../Popover'
+import { FieldChrome } from '../FieldChrome'
+import type { FieldFeedbackProps, FieldMode, LabelVisibility } from '../FieldChrome'
 import { ComboboxOption as OptionRow } from './ComboboxOption'
 import { ComboboxSearch } from './ComboboxSearch'
 import { ComboboxTrigger } from './ComboboxTrigger'
 import styles from './Combobox.module.css'
 import type { ComboboxOption } from './types'
 
-interface Props {
+interface Props extends FieldFeedbackProps {
+  id?: string
   label: string
+  mode?: FieldMode
+  labelVisibility?: LabelVisibility
   value: string
   options: ComboboxOption[]
   onChange: (value: string) => void
@@ -17,7 +22,6 @@ interface Props {
   searchable?: boolean
   disabled?: boolean
   loading?: boolean
-  error?: string | null
   emptyMessage?: string
   loadingMessage?: string
   invalidationKey?: unknown
@@ -29,7 +33,7 @@ const optionId = (prefix: string, value: string) => `${prefix}-option-${encodeUR
 const optionText = (option: ComboboxOption) => norm([option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' '))
 const isTypingKey = (event: React.KeyboardEvent) => event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
 
-export function Combobox({ label, value, options, onChange, placeholder = 'Select an option…', searchable = false, disabled = false, loading = false, error = null, emptyMessage = 'No matching options', loadingMessage = 'Loading…', invalidationKey, allowCustomValue = false }: Props) {
+export function Combobox({ id, label, mode, labelVisibility, hint, warning, value, options, onChange, placeholder = 'Select an option…', searchable = false, disabled = false, loading = false, error = null, emptyMessage = 'No matching options', loadingMessage = 'Loading…', invalidationKey, allowCustomValue = false }: Props) {
   const reactId = useId()
   const menuId = `${reactId}-listbox`
   const selected = options.find((option) => option.value === value) ?? (allowCustomValue && value ? { value, label: value, subtitle: 'Manually entered' } : undefined)
@@ -94,14 +98,15 @@ export function Combobox({ label, value, options, onChange, placeholder = 'Selec
     if (searchable && isTypingKey(event)) { event.preventDefault(); setOpen(true); setQuery(event.key) }
   }
 
-  return <Popover triggerRef={triggerRef} contentClassName={styles.menu} triggerClassName={error ? styles.errorTrigger : undefined} maxHeight={360} open={open} onOpenChange={setOpen} disabled={disabled} invalidationKey={invalidationKey} ariaLabel={`${label}: ${selected?.label ?? placeholder}`} popupType="listbox" focusOptionsOnKeyboardOpen={false} triggerButtonProps={{ role: 'combobox', 'aria-controls': menuId, 'aria-activedescendant': active ? optionId(reactId, active.value) : undefined, onKeyDown: onTriggerKeyDown }} trigger={<ComboboxTrigger selected={selected} placeholder={placeholder} loading={loading} error={error} />}>
+  return <FieldChrome label={label} mode={mode} labelVisibility={labelVisibility} id={id} controlKind="button" hint={hint} warning={warning} error={error}>
+  {({ controlId, labelId, describedBy, invalid }) => <><span id={`${controlId}-value`} className={styles.srOnly}>{selected?.label ?? placeholder}</span><Popover triggerRef={triggerRef} contentClassName={styles.menu} triggerClassName={error ? styles.errorTrigger : undefined} maxHeight={360} open={open} onOpenChange={setOpen} disabled={disabled} invalidationKey={invalidationKey} ariaLabel={`${label}: ${selected?.label ?? placeholder}`} popupType="listbox" focusOptionsOnKeyboardOpen={false} triggerButtonProps={{ id: controlId, value, role: 'combobox', 'aria-labelledby': `${labelId} ${controlId}-value`, 'aria-describedby': describedBy, 'aria-invalid': invalid, 'aria-controls': menuId, 'aria-activedescendant': active ? optionId(reactId, active.value) : undefined, onKeyDown: onTriggerKeyDown }} trigger={<ComboboxTrigger selected={selected} placeholder={placeholder} loading={loading} error={error} />}>
     <div ref={menuRef} id={menuId} role="listbox" aria-label={label} aria-busy={loading || undefined} aria-activedescendant={active ? optionId(reactId, active.value) : undefined} onKeyDown={onMenuKeyDown} tabIndex={searchable ? -1 : 0}>
       {searchable && <ComboboxSearch inputRef={searchRef} value={query} onChange={setQuery} onKeyDown={onMenuKeyDown} label={label} />}
       {loading && <div className={styles.state} role="status">{loadingMessage}</div>}
-      {error && <div className={`${styles.state} ${styles.errorState}`} role="alert">{error}</div>}
       {allowCustomValue && query.trim() && !options.some((option) => option.value === query.trim()) && <button type="button" className={styles.custom} onClick={commitCustom}>Use “{query.trim()}”</button>}
       {!loading && !error && filtered.map((option) => <OptionRow key={option.value} id={optionId(reactId, option.value)} option={option} selected={option.value === value} active={option.value === active?.value} onMouseEnter={() => { if (!option.disabled) setActiveValue(option.value) }} onSelect={() => commit(option)} />)}
       {!loading && !error && filtered.length === 0 && <div className={styles.state} role="status">{emptyMessage}</div>}
     </div>
-  </Popover>
+  </Popover></>}
+  </FieldChrome>
 }
