@@ -51,11 +51,11 @@ afterEach(() => { cleanup(); resetTestStore() })
 describe('ResultExplorer chart combobox controls', () => {
   it('uses only X axis, Y axis and Series for SQL chart configuration', () => {
     const view = arrange()
-    for (const label of ['X axis', 'Y axis', 'Series columns', 'Value axis scale']) expect(view.container.querySelector(`select[aria-label="${label}"]`)).toBeNull()
+    for (const label of ['X axis', 'Y axis', 'Series', 'Value axis scale']) expect(view.container.querySelector(`select[aria-label="${label}"]`)).toBeNull()
     expect(screen.queryByRole('combobox', { name: /Aggregation/ })).toBeNull()
     expect(screen.getByRole('combobox', { name: /X axis/ })).toBeTruthy()
     expect(screen.getByRole('combobox', { name: /Y axis/ })).toBeTruthy()
-    expect(screen.getByRole('combobox', { name: /Series columns/ })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /Series/ })).toBeTruthy()
   })
 
   it('updates X axis, Y axis, and multiple Series through comboboxes', () => {
@@ -69,7 +69,7 @@ describe('ResultExplorer chart combobox controls', () => {
     fireEvent.click(screen.getByRole('option', { name: /duration_ms, integer/ }))
     expect(activeTestSession().sqlVisualization.valueColumn).toBe('duration_ms')
 
-    fireEvent.click(screen.getByRole('combobox', { name: /Series columns: No breakdown/ }))
+    fireEvent.click(screen.getByRole('combobox', { name: /Series: No breakdown/ }))
     fireEvent.click(screen.getByRole('option', { name: /region, text/ }))
     expect(activeTestSession().sqlVisualization.seriesColumn).toBe('region')
     expect(activeTestSession().sqlVisualization.seriesColumns).toEqual([])

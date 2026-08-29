@@ -11,6 +11,7 @@ const row = { id: '1', timestampNs: '1750000000000000000', timestampMs: 17500000
 it('opens a compact selected row in the side inspector without advertising unavailable correlation', () => {
   const onFilter = vi.fn()
   render(<LogResultExplorer rows={[row]} limit={100} onFilter={onFilter} />)
+  expect(screen.getByRole('textbox', { name: 'Search loaded logs' }).closest('[data-field]')?.getAttribute('data-label-visibility')).toBe('sr-only')
   expect(screen.getByText('ERROR').getAttribute('data-severity')).toBe('ERROR')
   const timestamp = screen.getByText(/\d{2}:\d{2}:\d{2}\.\d{3}/)
   expect(timestamp.getAttribute('title')).toContain('2025-')

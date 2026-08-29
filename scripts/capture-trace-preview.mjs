@@ -124,6 +124,14 @@ async function searchTraces(win) {
       document.body.innerText.includes('Last hour') && document.body.innerText.includes('Sample size') &&
       document.body.innerText.includes('Generated TraceQL')
   })()`, 'configured trace Builder, time range and sample size')
+  const toolbar = await win.webContents.executeJavaScript(`(() => {
+    const section = document.querySelector('section[aria-label="Trace explorer"]')
+    const bar = section?.querySelector('[data-query-toolbar]')
+    const mode = bar?.querySelector('[aria-label="Query mode"]')?.getBoundingClientRect()
+    const run = bar?.querySelector('[data-tempo-run-query]')?.getBoundingClientRect()
+    return { helperAbsent: !document.body.innerText.includes('returns up to') && !document.body.innerText.includes('choose All'), modeTop: mode?.top, runTop: run?.top, overflow: bar ? bar.scrollWidth > bar.clientWidth : true }
+  })()`)
+  if (!toolbar.helperAbsent || toolbar.overflow || Math.abs(toolbar.modeTop - toolbar.runTop) > 2) throw new Error(`Tempo toolbar regression: ${JSON.stringify(toolbar)}`)
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
     const button = section?.querySelector('[data-tempo-run-query]')

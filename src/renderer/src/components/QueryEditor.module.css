@@ -32,9 +32,6 @@
   width: clamp(150px, 22cqi, 230px);
 }
 
-.timeGroup [data-time-range-label] {
-  display: none;
-}
 
 .timeGroup [data-popover-root] {
   margin-top: 0;

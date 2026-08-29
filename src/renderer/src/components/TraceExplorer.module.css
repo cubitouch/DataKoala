@@ -85,12 +85,11 @@
 .queryToolbar > :global(.query-toolbar-group) { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .queryToolbar > :global(.query-toolbar-group) + :global(.query-toolbar-group) { padding-left: 10px; border-left: 1px solid var(--border); }
 .queryOptions { flex-wrap: wrap; }
-.queryOptions [data-time-range-field] { width: clamp(150px, 18vw, 220px); }
-.queryOptions [data-time-range-label] { display: none; }
+.queryOptions [data-time-range-field] { width: clamp(150px, 16vw, 200px); }
+
 .queryOptions [data-popover-root] { margin-top: 0; }
-.sampleSize { width: 200px; white-space: nowrap; }
+.sampleSize { width: 170px; white-space: nowrap; }
 .editorActions { white-space: nowrap; }
-.searchHelper { padding: 7px 14px 9px; color: var(--text-mute); font-size: 11px; border-top: 1px solid var(--border); }
 .builderGrid {
   display: grid;
   grid-template-columns: minmax(110px, .8fr) minmax(150px, 1fr) minmax(180px, 1.2fr) minmax(90px, .65fr) minmax(110px, .7fr);

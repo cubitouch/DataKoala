@@ -9,7 +9,7 @@ import type { CustomTimeRangeValue } from '../../lib/customTimeRange'
 afterEach(cleanup)
 const initial: CustomTimeRangeValue = { startDate: '2026-06-15', startTime: '00:00', endDate: '2026-06-21', endTime: '00:00', recurringWindows: [] }
 function View() { const [value, setValue] = useState(initial); return <><CustomTimeRangeField value={value} onChange={setValue}/><output aria-label="value">{JSON.stringify(value)}</output></> }
-const open = () => { const b = screen.getByRole('button', { name: /Custom time range/ }); fireEvent.pointerDown(b); fireEvent.click(b, { detail: 1 }); return b }
+const open = () => { const b = screen.getByRole('button', { name: /Custom range/ }); fireEvent.pointerDown(b); fireEvent.click(b, { detail: 1 }); return b }
 
 describe('CustomTimeRangeField', () => {
   it('opens with committed draft and cancel does not update state', () => {

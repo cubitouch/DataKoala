@@ -40,6 +40,7 @@ afterEach(() => {
 describe('ResultsTable virtualization', () => {
   it('keeps the mounted row count bounded and can navigate beyond row 1,000', () => {
     arrange()
+    expect(screen.getByRole('textbox', { name: 'Filter rows' }).closest('[data-field]')?.getAttribute('data-label-visibility')).toBe('sr-only')
     const scroll = document.querySelector<HTMLElement>('[data-result-scroll]')
     expect(scroll).toBeTruthy()
     expect(document.querySelectorAll('[data-result-row-index]').length).toBeLessThan(100)

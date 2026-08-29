@@ -647,7 +647,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           <div className={`editor-head data-query-toolbar ${styles.queryToolbar}`} data-query-toolbar>
             <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
             <div className={`query-toolbar-group query-time-group ${styles.queryOptions}`} aria-label="Tempo query options">
-              <TimeRangeField value={searchRange} onChange={setSearchRange} />
+              <TimeRangeField labelVisibility="sr-only" value={searchRange} onChange={setSearchRange} />
               <div className={styles.sampleSize}><Combobox label="Sample size" mode="inline" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div>
             </div>
             <div className="spacer" />
@@ -663,9 +663,6 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
             : <div className={styles.traceqlField}>
               <CodeMirror ref={traceqlEditorRef} value={traceql} minHeight="66px" maxHeight="160px" theme={oneDark} extensions={traceqlExtensions} onChange={(value) => setSql(value)} aria-label="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} basicSetup={{ lineNumbers: true, foldGutter: false }} />
             </div>}
-          <div className={styles.searchHelper}>{sampledSearch
-            ? `Tempo via gcx · returns up to ${sampleSize} matches from one whole-period search; choose All for exhaustive coverage.`
-            : 'Tempo via gcx · streams trace summaries while it exhausts the complete selected period.'}</div>
         </form>
       </div>
 

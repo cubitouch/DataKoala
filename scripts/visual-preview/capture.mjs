@@ -284,7 +284,7 @@ async function assertDocumentationSourceTree(win, mode) {
   const report = await win.webContents.executeJavaScript(`({
     mode: document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim(),
     profile: document.querySelector('[data-connection-live="true"], [data-connection-item]')?.textContent,
-    status: document.querySelector('.conn-pill')?.textContent,
+    status: document.querySelector('[role="status"][data-state="connected"]')?.textContent,
     tree: document.querySelector('[role="tree"]')?.innerText ?? document.querySelector('aside[aria-label="Connections and database objects"]')?.innerText,
     filters: document.querySelectorAll('[data-result-filter-chip]').length
   })`)
@@ -398,9 +398,9 @@ async function configureMode(win, mode) {
       store.getState().setMetadata([
         { name: 'analytics', isSystem: false, relations: [
           { schema: 'analytics', name: 'monthly_market_activity', qualifiedName: 'analytics.monthly_market_activity', kind: 'r', columnsStatus: 'loaded', columns: [
-            { name: 'time_bucket', dataTypeName: 'timestamptz' },
-            { name: 'series', dataTypeName: 'text' },
-            { name: 'count', dataTypeName: 'int8' }
+            { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },
+            { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+            { name: 'count', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
           ] },
           { schema: 'analytics', name: 'market_summary', qualifiedName: 'analytics.market_summary', kind: 'v', columnsStatus: 'idle' }
         ] },
@@ -543,6 +543,7 @@ async function configureBuilderControls(win, variant) {
       table: { schema: 'analytics', name: 'monthly_market_activity' },
       timeColumn: 'time_bucket',
       timeBucket: 'month',
+      timeRange: { kind: 'rolling', amount: 6, unit: 'month' },
       seriesColumns: temporal ? ['series'] : []
     })
     store.getState().setVisualization('builder', {
@@ -571,7 +572,7 @@ async function capture(win, filename) {
 async function verifySeriesTriggerAlignment(win) {
   const metrics = await win.webContents.executeJavaScript(`(() => {
     const schemaControl = document.querySelector('[data-field][data-field-name="Schema"]')
-    const seriesControl = document.querySelector('[data-field][data-field-name="Series columns"]')
+    const seriesControl = document.querySelector('[data-field][data-field-name="Series"]')
     const schemaTrigger = schemaControl?.querySelector('[data-popover-trigger]')
     const seriesTrigger = seriesControl?.querySelector('[data-popover-trigger]')
     const schemaLabel = schemaControl?.querySelector('[data-field-label]')
@@ -594,6 +595,35 @@ async function verifySeriesTriggerAlignment(win) {
   for (const property of Object.keys(metrics.seriesLabel)) {
     if (metrics.seriesLabel[property] !== metrics.schemaLabel[property]) throw new Error(`Series label ${property} does not match Schema label: ${JSON.stringify(metrics)}`)
   }
+}
+
+async function verifySharedFieldGeometry(win) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const field = (name) => document.querySelector('[data-field][data-field-name="' + name + '"]')
+    const rect = (element) => { const bounds = element?.getBoundingClientRect(); return bounds ? { top: bounds.top, height: bounds.height } : null }
+    const control = (name) => rect(field(name)?.querySelector('[data-popover-trigger], input'))
+    const label = (name) => rect(field(name)?.querySelector('[data-field-label]')?.parentElement)
+    const names = ['X axis', 'Y axis', 'Series']
+    const controls = names.map(control)
+    const timeControls = ['Time column', 'Time range'].map(control)
+    const timeLabels = ['Time column', 'Time range'].map(label)
+    const scale = field('Value axis scale')?.querySelector('[data-popover-trigger]')?.getBoundingClientRect()
+    return { controls, timeControls, timeLabels, scale: scale ? { width: scale.width } : null }
+  })()`)
+  const aligned = (rects) => rects.every(Boolean) && Math.max(...rects.map((rect) => rect.top)) - Math.min(...rects.map((rect) => rect.top)) <= 1
+    && Math.max(...rects.map((rect) => rect.height)) - Math.min(...rects.map((rect) => rect.height)) <= 1
+  if (!aligned(report.controls)) throw new Error(`X/Y/Series shared controls are misaligned: ${JSON.stringify(report.controls)}`)
+  if (!aligned(report.timeControls) || !aligned(report.timeLabels)) throw new Error(`Time column/range field geometry differs: ${JSON.stringify(report)}`)
+  if (!report.scale || report.scale.width < 90 || report.scale.width > 110) throw new Error(`Value axis scale is not compact: ${JSON.stringify(report.scale)}`)
+}
+
+async function verifyCompactTableSearch(win) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const field = document.querySelector('[data-result-toolbar] [data-field][data-field-name="Filter rows"]')
+    const input = field?.querySelector('input')
+    return { present: Boolean(input), accessible: input?.getAttribute('aria-labelledby') || input?.labels?.length > 0, hiddenLabel: field?.getAttribute('data-label-visibility') === 'sr-only', toolbarOverflow: document.querySelector('[data-result-toolbar]')?.scrollWidth > document.querySelector('[data-result-toolbar]')?.clientWidth }
+  })()`)
+  if (!report.present || !report.accessible || !report.hiddenLabel || report.toolbarOverflow) throw new Error(`Result-table search regression: ${JSON.stringify(report)}`)
 }
 
 async function dragDivider(win, selector, deltaX, deltaY) {
@@ -719,7 +749,7 @@ app.whenReady().then(async () => {
       await configureDocumentationPrometheus(win)
       await dragDivider(win, '.sidebar-resizer', 110, 0)
       await win.webContents.executeJavaScript(`(() => { const schema = [...document.querySelectorAll('[role="treeitem"]')].find((item) => item.textContent?.includes('Prometheus')); if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('button')?.click() })()`)
-      await waitForRendererState(win, `document.querySelector('[data-connection-live="true"]')?.innerText.includes('Service metrics') && document.querySelector('.conn-pill.on')?.innerText.includes('Service metrics') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'connected Prometheus metric tree')
+      await waitForRendererState(win, `document.querySelector('[data-connection-live="true"]')?.innerText.includes('Service metrics') && document.querySelector('[role="status"][data-state="connected"]')?.innerText.includes('Service metrics') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'connected Prometheus metric tree')
       await capture(win, 'docs-prometheus.png')
       await dragDivider(win, '.sidebar-resizer', -110, 0)
 
@@ -781,9 +811,16 @@ app.whenReady().then(async () => {
     await verifyResponsiveChartPicker(win)
     await showChartTooltip(win, 'sql-narrow-short-tooltip.png')
 
-    await configureMode(win, 'builder')
+    win.setSize(1440, 900)
+    await sleep(350)
+    // Restore the canonical SQL metadata after the long-name sidebar scenario so
+    // Builder geometry checks exercise real temporal controls rather than the
+    // unavailable placeholders.
+    await configureDocumentationSql(win, 'builder', 'line')
     await verifySeriesTriggerAlignment(win)
     await configureBuilderControls(win, 'temporal-series')
+    await waitForRendererState(win, `document.querySelector('[data-builder-form] [data-field][data-field-name="Time range"]')`, 'shared Builder time-range field')
+    await verifySharedFieldGeometry(win)
     await capture(win, 'builder-temporal-series.png')
 
     await configureBuilderControls(win, 'categorical-numeric')
@@ -798,7 +835,9 @@ app.whenReady().then(async () => {
 
     win.setSize(1440, 900)
     await sleep(350)
+    await seedPreviewData(win)
     await configureTablePreview(win)
+    await verifyCompactTableSearch(win)
     await capture(win, 'table.png')
 
     app.exit(0)

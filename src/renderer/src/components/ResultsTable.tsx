@@ -140,7 +140,7 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
         <span className={styles.stats}>
           {activeFilters.length || filter.trim() ? `${rows.length} of ${result.rowCount}` : result.rowCount} rows · {result.columns.length} cols · {result.durationMs} ms
         </span>
-        <div className={styles.filterInput}><TextInput mode="inline" label="Filter rows" placeholder="filter rows…" value={filter} onValueChange={setFilter} /></div>
+        <div className={styles.filterInput}><TextInput mode="inline" labelVisibility="sr-only" label="Filter rows" placeholder="filter rows…" value={filter} onValueChange={setFilter} /></div>
         <div className={styles.spacer} />
         <button className="btn ghost" onClick={exportCsv}>Export CSV</button>
       </div>

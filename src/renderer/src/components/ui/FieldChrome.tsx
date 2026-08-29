@@ -29,7 +29,7 @@ export function FieldChrome({ label, mode = 'normal', labelVisibility = 'visible
   const labelNode = controlKind === 'input'
     ? <label id={labelId} htmlFor={controlId} data-field-label="" data-field-name={label} className={labelClass}>{label}</label>
     : <span id={labelId} data-field-label="" data-field-name={label} className={labelClass}><span aria-hidden="true">{label}</span><span className={styles.srOnly}>{`${label}:`}</span></span>
-  return <span className={`${styles.field} ${styles[mode]}`} data-field="" data-field-name={label} data-feedback-tone={feedback ? tone : undefined}>
+  return <span className={`${styles.field} ${styles[mode]}`} data-field="" data-field-name={label} data-label-visibility={labelVisibility} data-feedback-tone={feedback ? tone : undefined}>
     <span className={labelVisibility === 'sr-only' ? styles.srOnly : styles.labelRow}>
       {labelNode}
       {feedback && <InfoTooltip label={label} tone={tone} mountWhenOpen>{feedback}</InfoTooltip>}
