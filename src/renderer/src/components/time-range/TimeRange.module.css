@@ -20,8 +20,9 @@
 .calendarHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .iconButton { width: 30px; height: 30px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text); cursor: pointer; font-size: 20px; }
 .iconButton:hover, .iconButton:focus-visible { background: var(--bg-3); border-color: var(--border); outline: none; }
-.monthYearPicker { display: flex; gap: 8px; margin-bottom: 10px; }
-.monthYearPicker label { flex: 1; color: var(--text-mute); font-size: 11px; }
+.monthYearPicker { display: flex; justify-content: center; gap: 16px; margin-bottom: 10px; }
+.monthField { width: 145px; }
+.yearField { width: 132px; }
 .calendarGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
 .dayOfWeek { padding: 6px 0; color: var(--text-mute); text-align: center; font-size: 11px; }
 .day { position: relative; min-width: 32px; height: 30px; padding: 0 4px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--text); cursor: pointer; }

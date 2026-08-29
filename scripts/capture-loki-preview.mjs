@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { lokiLabels, lokiLabelValues, previewLokiLogResult, previewLokiTrendResult } from './visual-preview/loki-fixtures.mjs'
-import { assertCompactObjectFilter, assertVisibleSeriesField } from './visual-preview/assertions.mjs'
+import { assertCompactObjectFilter, assertFieldRowGeometry, assertVisibleSeriesField } from './visual-preview/assertions.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
@@ -74,6 +74,7 @@ app.whenReady().then(async () => {
     await assertCompactObjectFilter(win, 'Filter Loki objects')
     for (let attempt = 0; attempt < 80 && (!labelsReady || valueRequests.size < 3); attempt += 1) await sleep(100)
     if (!labelsReady || valueRequests.size < 3) throw new Error('Loki metadata fixtures did not finish loading')
+    await assertFieldRowGeometry(win, '[data-loki-builder]', ['Filter by', 'Line contains', 'Group by'])
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('main button')].find((button) => button.textContent?.trim() === 'Run')?.click()`)
     for (let attempt = 0; attempt < 80 && !logFinished; attempt += 1) await sleep(100)
     if (!logFinished) throw new Error('Loki log fixture did not finish')

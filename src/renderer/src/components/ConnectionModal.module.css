@@ -40,6 +40,7 @@
 .sourceKindBadge { margin-left: auto; padding: 3px 7px; color: var(--text-mute); border: 1px solid var(--border); border-radius: 999px; font-size: 10px; }
 .fileConnectionRow { align-items: end; } .fileConnectionRow > .field { min-width: 0; }
 .connPreview { font-family: var(--mono); font-size: 11px; color: var(--text-dim); background: var(--bg-3); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; word-break: break-all; user-select: text; }
+.connectionPreviewField { margin-top: 9px; }
 .bqAdvanced { margin-top: 10px; }
 .advancedFields { display: grid; gap: 12px; }
 @media (max-width: 520px) { .connectionSourceGrid { grid-template-columns: 1fr; } .connectionPicker { width: calc(100vw - 20px); } .connectionFormHeader { flex-wrap: wrap; } }

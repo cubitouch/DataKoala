@@ -3,19 +3,28 @@ import { createPortal } from 'react-dom'
 import styles from './Popover.module.css'
 
 export type CloseReason = 'outside' | 'escape' | 'toggle' | 'coordination' | 'invalidated' | 'disabled'
-type OverlaySubscriber = (id: string) => void
+interface OverlayIdentity { id: string; ancestors: string[] }
+type OverlaySubscriber = (overlay: OverlayIdentity) => void
 
-// A tiny application-wide coordinator. Popovers remain independent of application state,
-// while opening one reliably dismisses every other instance.
+// A tiny application-wide coordinator. An opening overlay dismisses unrelated peers while
+// preserving its ancestor chain; the stack also makes Escape target the innermost overlay.
 const overlayCoordinator = (() => {
   const subscribers = new Set<OverlaySubscriber>()
+  const stack: string[] = []
   return {
-    open(id: string) { subscribers.forEach((subscriber) => subscriber(id)) },
+    open(overlay: OverlayIdentity) {
+      const previous = stack.indexOf(overlay.id)
+      if (previous >= 0) stack.splice(previous, 1)
+      stack.push(overlay.id)
+      subscribers.forEach((subscriber) => subscriber(overlay))
+    },
+    close(id: string) { const index = stack.indexOf(id); if (index >= 0) stack.splice(index, 1) },
+    isTop(id: string) { return stack.at(-1) === id },
     subscribe(subscriber: OverlaySubscriber) { subscribers.add(subscriber); return () => { subscribers.delete(subscriber) } }
   }
 })()
 
-interface PopoverContextValue { close: (reason?: CloseReason) => void }
+interface PopoverContextValue extends OverlayIdentity { close: (reason?: CloseReason) => void }
 const PopoverContext = createContext<PopoverContextValue | null>(null)
 export const usePopover = () => useContext(PopoverContext)
 
@@ -50,6 +59,8 @@ export interface PopoverProps {
 
 export function Popover({ trigger, children, ariaLabel, open: controlledOpen, defaultOpen = false, onOpenChange, disabled = false, invalidationKey, className = '', contentClassName = '', triggerClassName = '', preferredWidth, maxHeight = 280, focusOptionsOnKeyboardOpen = true, popupType, contentRole, triggerButtonProps, triggerRef: externalTriggerRef }: PopoverProps) {
   const id = useId()
+  const parentOverlay = useContext(PopoverContext)
+  const ancestors = parentOverlay ? [...parentOverlay.ancestors, parentOverlay.id] : []
   const internalTriggerRef = useRef<HTMLButtonElement>(null)
   const triggerRef = externalTriggerRef ?? internalTriggerRef
   const contentRef = useRef<HTMLDivElement>(null)
@@ -62,7 +73,7 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
     if (controlledOpen === undefined) setInternalOpen(next)
     onOpenChange?.(next, reason)
   }, [controlledOpen, onOpenChange])
-  const close = useCallback((reason: CloseReason = 'toggle') => changeOpen(false, reason), [changeOpen])
+  const close = useCallback((reason: CloseReason = 'toggle') => { overlayCoordinator.close(id); changeOpen(false, reason) }, [changeOpen, id])
   const focusNearTrigger = useCallback(() => {
     const trigger = triggerRef.current
     if (!trigger) return
@@ -98,19 +109,23 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
   useLayoutEffect(() => { if (isOpen) position() }, [isOpen, position, children])
   useEffect(() => {
     if (!isOpen) return
-    const onOtherOpen = (otherId: string) => { if (otherId !== id) close('coordination') }
-    return overlayCoordinator.subscribe(onOtherOpen)
-  }, [close, id, isOpen])
+    overlayCoordinator.open({ id, ancestors })
+    const onOtherOpen = (other: OverlayIdentity) => { if (other.id !== id && !other.ancestors.includes(id)) close('coordination') }
+    const unsubscribe = overlayCoordinator.subscribe(onOtherOpen)
+    return () => { unsubscribe(); overlayCoordinator.close(id) }
+  }, [ancestors.join('\0'), close, id, isOpen])
   useEffect(() => {
     if (!isOpen) return
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null
-      if (!target || triggerRef.current?.contains(target) || contentRef.current?.contains(target)) return
+      const descendantOverlay = target instanceof Element ? target.closest<HTMLElement>('[data-popover-overlay]') : null
+      const descendantAncestors = descendantOverlay?.dataset.popoverAncestors?.split(' ').filter(Boolean) ?? []
+      if (!target || triggerRef.current?.contains(target) || contentRef.current?.contains(target) || descendantOverlay?.dataset.popoverOverlay === id || descendantAncestors.includes(id)) return
       close('outside')
     }
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault(); close('escape'); triggerRef.current?.focus()
+      if (event.key !== 'Escape' || !overlayCoordinator.isTop(id)) return
+      event.preventDefault(); event.stopImmediatePropagation(); close('escape'); triggerRef.current?.focus()
     }
     const onResize = () => position()
     document.addEventListener('pointerdown', onPointerDown, true)
@@ -143,7 +158,6 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
     if (disabled) return
     if (isOpen) { close('toggle'); return }
     keyboardOpen.current = fromKeyboard
-    overlayCoordinator.open(id)
     changeOpen(true)
   }
   return <div className={[styles.root, className].filter(Boolean).join(' ')} data-popover-root="">
@@ -151,6 +165,6 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
       onPointerDown={() => { keyboardOpen.current = false }} onClick={(event) => toggle(event.detail === 0)}>
       {trigger}
     </button>
-    {isOpen && createPortal(<PopoverContext.Provider value={{ close }}><div ref={contentRef} id={`${id}-content`} role={contentRole} aria-label={contentRole ? ariaLabel : undefined} className={[styles.content, contentClassName].filter(Boolean).join(' ')} style={style}>{children}</div></PopoverContext.Provider>, document.body)}
+    {isOpen && createPortal(<PopoverContext.Provider value={{ id, ancestors, close }}><div ref={contentRef} id={`${id}-content`} role={contentRole} aria-label={contentRole ? ariaLabel : undefined} data-popover-overlay={id} data-popover-ancestors={ancestors.join(' ')} className={[styles.content, contentClassName].filter(Boolean).join(' ')} style={style}>{children}</div></PopoverContext.Provider>, document.body)}
   </div>
 }

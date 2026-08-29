@@ -22,6 +22,15 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
+it('places the static ADC helper after Advanced and before actions', () => {
+  renderBigQuery()
+  const advanced = screen.getByText('Advanced').closest('details')!
+  const helper = screen.getByText(/Authentication uses Google Application Default Credentials/)
+  const testButton = screen.getByRole('button', { name: 'Test' })
+  expect(advanced.compareDocumentPosition(helper) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(helper.compareDocumentPosition(testButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
+
 it('allows a blank billing cap when saving', async () => {
   const { onSaved } = renderBigQuery()
   fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'Warehouse' } })

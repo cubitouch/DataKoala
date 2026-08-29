@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { previewTraceId, previewTraceResult, previewTraceSearchResult } from './visual-preview/trace-fixtures.mjs'
-import { assertCompactObjectFilter } from './visual-preview/assertions.mjs'
+import { assertCompactObjectFilter, assertFieldRowGeometry } from './visual-preview/assertions.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
@@ -231,6 +231,7 @@ app.whenReady().then(async () => {
     await seedTraceWorkspace(win)
     await assertCompactObjectFilter(win, 'Filter services')
     await validateBuilderIndependence(win)
+    await assertFieldRowGeometry(win, '[data-tempo-builder]', ['Status', 'Min duration (ms)'])
     await capture(win, 'tempo-trace-builder.png')
     await searchTraces(win)
     await capture(win, 'tempo-trace-search.png')

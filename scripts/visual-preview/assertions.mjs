@@ -25,3 +25,23 @@ export async function assertVisibleSeriesField(win) {
   })()`)
   if (!visible) throw new Error('A visible semantic Series field is required in this visualization scenario')
 }
+
+export async function assertFieldRowGeometry(win, scopeSelector, names) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const scope = document.querySelector(${JSON.stringify(scopeSelector)})
+    const rect = (element) => { const bounds = element?.getBoundingClientRect(); return bounds ? { top: bounds.top, bottom: bounds.bottom, height: bounds.height } : null }
+    return ${JSON.stringify(names)}.map((name) => {
+      const field = [...(scope?.querySelectorAll('[data-field]') ?? [])].find((candidate) => candidate.getAttribute('data-field-name') === name)
+      const label = rect(field?.querySelector('[data-field-label]')?.parentElement)
+      const control = rect(field?.querySelector('[data-popover-trigger], input'))
+      return { name, label, control, gap: label && control ? control.top - label.bottom : null }
+    })
+  })()`)
+  const metrics = ['label.top', 'label.bottom', 'control.top', 'control.bottom', 'gap']
+  for (const metric of metrics) {
+    const values = report.map((item) => metric === 'gap' ? item.gap : metric.split('.').reduce((value, key) => value?.[key], item))
+    if (values.some((value) => typeof value !== 'number') || Math.max(...values) - Math.min(...values) > 1) {
+      throw new Error(`Mixed field geometry differs for ${metric}: ${JSON.stringify(report)}`)
+    }
+  }
+}

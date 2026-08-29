@@ -1,4 +1,4 @@
-.root { position: relative; margin-top: 5px; }
+.root { position: relative; }
 .trigger { width: 100%; height: 31px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-4); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
 .trigger:hover:not(:disabled) { border-color: var(--border-hi); }
 .trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

@@ -33,10 +33,6 @@
 }
 
 
-.timeGroup [data-popover-root] {
-  margin-top: 0;
-}
-
 .promqlStep {
   width: 170px;
   white-space: nowrap;
