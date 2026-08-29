@@ -63,3 +63,61 @@ test('lifecycle dispatches item scrolling only over a wide vertical legend and t
   lifecycle.detach()
   assert.equal(wheel, undefined)
 })
+
+test('detach uses the captured DOM and remains safe after ECharts disposal', () => {
+  let disposed = false
+  let getDomCalls = 0
+  let removes = 0
+  let offs = 0
+  const dom = {
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 400 }) as DOMRect,
+    addEventListener: () => {},
+    removeEventListener: () => { removes++ }
+  }
+  const chart: LegendWheelECharts = {
+    getDom: () => {
+      getDomCalls++
+      if (disposed) throw new Error('disposed chart DOM is unavailable')
+      return dom
+    },
+    dispatchAction: () => {},
+    on: () => {},
+    off: () => { offs++ },
+    isDisposed: () => disposed
+  }
+  const lifecycle = new ChartLegendWheelLifecycle()
+  lifecycle.attach(chart)
+  assert.equal(getDomCalls, 1)
+  disposed = true
+  assert.doesNotThrow(() => lifecycle.detach())
+  assert.equal(getDomCalls, 1, 'detach must not query a disposed ECharts instance')
+  assert.equal(removes, 1, 'detach removes from the DOM captured during attach')
+  assert.equal(offs, 0, 'disposed ECharts subscriptions are not queried')
+
+  assert.doesNotThrow(() => lifecycle.attach(null))
+})
+
+test('attaching another chart cleans up the first before subscribing to the second', () => {
+  const order: string[] = []
+  const fake = (name: string): LegendWheelECharts => ({
+    getDom: () => ({
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 400 }) as DOMRect,
+      addEventListener: () => { order.push(`${name}:dom:add`) },
+      removeEventListener: () => { order.push(`${name}:dom:remove`) }
+    }),
+    dispatchAction: () => {},
+    on: () => { order.push(`${name}:chart:on`) },
+    off: () => { order.push(`${name}:chart:off`) },
+    isDisposed: () => false
+  })
+  const lifecycle = new ChartLegendWheelLifecycle()
+  lifecycle.attach(fake('first'))
+  lifecycle.attach(fake('second'))
+  assert.deepEqual(order, [
+    'first:dom:add', 'first:chart:on',
+    'first:dom:remove', 'first:chart:off',
+    'second:dom:add', 'second:chart:on'
+  ])
+  lifecycle.attach(null)
+  assert.deepEqual(order.slice(-2), ['second:dom:remove', 'second:chart:off'])
+})

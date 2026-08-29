@@ -30,7 +30,7 @@ export function isPointerInVerticalLegend(clientX: number, clientY: number, boun
   return x >= bounds.width - CHART_LEGEND_RIGHT - CHART_LEGEND_WIDTH && x <= bounds.width - CHART_LEGEND_RIGHT && y >= 0 && y <= bounds.height
 }
 
-interface LegendWheelDom {
+export interface LegendWheelDom {
   getBoundingClientRect(): DOMRect
   addEventListener(type: 'wheel', listener: (event: WheelEvent) => void, options: AddEventListenerOptions): void
   removeEventListener(type: 'wheel', listener: (event: WheelEvent) => void): void
@@ -41,11 +41,13 @@ export interface LegendWheelECharts {
   dispatchAction(action: { type: 'legendScroll'; scrollDataIndex: number }): void
   on(event: 'legendscroll', handler: (params: unknown) => void): void
   off(event: 'legendscroll', handler: (params: unknown) => void): void
+  isDisposed?(): boolean
 }
 
 /** Owns wheel and native-pager synchronization without adding React render state. */
 export class ChartLegendWheelLifecycle {
   private chart: LegendWheelECharts | null = null
+  private dom: LegendWheelDom | null = null
   private seriesCount = 0
   private state: LegendWheelState = { index: 0, accumulatedDelta: 0 }
 
@@ -55,9 +57,11 @@ export class ChartLegendWheelLifecycle {
   }
 
   private readonly onWheel = (event: WheelEvent) => {
-    if (!this.chart || this.seriesCount <= 1 || !isPointerInVerticalLegend(event.clientX, event.clientY, this.chart.getDom().getBoundingClientRect())) return
+    if (!this.chart || !this.dom || this.seriesCount <= 1) return
+    const bounds = this.dom.getBoundingClientRect()
+    if (!isPointerInVerticalLegend(event.clientX, event.clientY, bounds)) return
     event.preventDefault()
-    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.chart.getDom().getBoundingClientRect().height : 1
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? bounds.height : 1
     const next = advanceLegendWheel(this.state, event.deltaY * unit, this.seriesCount)
     const changed = next.index !== this.state.index
     this.state = next
@@ -72,16 +76,20 @@ export class ChartLegendWheelLifecycle {
   attach(chart: LegendWheelECharts | null): void {
     if (chart === this.chart) return
     this.detach()
+    if (!chart) return
+    const dom = chart.getDom()
     this.chart = chart
-    this.chart?.getDom().addEventListener('wheel', this.onWheel, { passive: false })
-    this.chart?.on('legendscroll', this.onLegendScroll)
+    this.dom = dom
+    dom.addEventListener('wheel', this.onWheel, { passive: false })
+    chart.on('legendscroll', this.onLegendScroll)
   }
 
   detach(): void {
-    if (this.chart) {
-      this.chart.getDom().removeEventListener('wheel', this.onWheel)
+    this.dom?.removeEventListener('wheel', this.onWheel)
+    if (this.chart && !this.chart.isDisposed?.()) {
       this.chart.off('legendscroll', this.onLegendScroll)
     }
+    this.dom = null
     this.chart = null
   }
 }
