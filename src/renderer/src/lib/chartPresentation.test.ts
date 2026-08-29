@@ -109,6 +109,16 @@ test('multi-series presentation uses a bounded right legend with a narrow fallba
   assert.deepEqual((options.series as Array<{ name: string }>).map(({ name }) => name), ['Alpha', 'Beta'])
 })
 
+test('single-series presentation hides the legend and keeps a compact plot grid', () => {
+  const options = buildChartPresentationOptions({
+    labels: ['x'], series: [{ name: 'Orders', data: [1] }],
+    view: 'line', hasSeriesColumn: false, mode: 'sql'
+  })
+  assert.equal((options.legend as { show: boolean }).show, false)
+  assert.equal((options.grid as { right: number }).right, 24)
+  assert.equal(options.media, undefined)
+})
+
 test('temporal bar disables ECharts containShape only when all data lies outside a bounded domain', () => {
   const labels = ['2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z']
   const series = [{ name: 'Orders', data: [1, 2] }]

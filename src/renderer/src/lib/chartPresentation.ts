@@ -166,6 +166,7 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
   }))
   const formatLabel = precision ? (value: unknown) => formatTimeBucketLabel(value, precision) : (value: unknown) => String(value)
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
+  const hasMultipleSeries = renderedSeries.length > 1
   return {
     backgroundColor: 'transparent',
     color: DATAKOALA_CHART_COLORS,
@@ -198,24 +199,27 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
       extraCssText: 'box-sizing:border-box;max-width:min(300px,calc(100% - 16px));max-height:calc(100% - 16px);padding:8px 10px;overflow:hidden;overflow-wrap:anywhere;white-space:normal;box-shadow:0 5px 14px rgba(0,0,0,.3);border-radius:6px;'
     },
     legend: {
+      show: hasMultipleSeries,
       orient: 'vertical', type: 'scroll', top: CHART_LEGEND_VERTICAL_INSET, bottom: CHART_LEGEND_VERTICAL_INSET,
       right: CHART_LEGEND_RIGHT, width: CHART_LEGEND_WIDTH, selected: input.visibility,
       tooltip: { show: true },
       textStyle: { color: '#9aa0b0', width: CHART_LEGEND_WIDTH, overflow: 'truncate', ellipsis: '…' }
     },
-    grid: { left: 50, right: CHART_GRID_RIGHT_WITH_LEGEND, top: CHART_GRID_TOP, bottom: 45 },
+    grid: { left: 50, right: hasMultipleSeries ? CHART_GRID_RIGHT_WITH_LEGEND : CHART_GRID_RIGHT_COMPACT, top: CHART_GRID_TOP, bottom: 45 },
     // Keep the plot useful when reserving a fixed-width side legend would consume
     // too much of a narrow chart. ECharts applies this without React resize state.
-    media: [{
-      query: { maxWidth: CHART_NARROW_WIDTH },
-      option: {
-        legend: {
-          orient: 'horizontal', top: 4, bottom: 'auto', left: 8, right: 8, width: 'auto',
-          textStyle: { color: '#9aa0b0', width: CHART_LEGEND_WIDTH, overflow: 'truncate', ellipsis: '…' }
-        },
-        grid: { left: 50, right: CHART_GRID_RIGHT_COMPACT, top: CHART_GRID_TOP_WITH_HORIZONTAL_LEGEND, bottom: 45 }
-      }
-    }],
+    ...(hasMultipleSeries ? {
+      media: [{
+        query: { maxWidth: CHART_NARROW_WIDTH },
+        option: {
+          legend: {
+            orient: 'horizontal', top: 4, bottom: 'auto', left: 8, right: 8, width: 'auto',
+            textStyle: { color: '#9aa0b0', width: CHART_LEGEND_WIDTH, overflow: 'truncate', ellipsis: '…' }
+          },
+          grid: { left: 50, right: CHART_GRID_RIGHT_COMPACT, top: CHART_GRID_TOP_WITH_HORIZONTAL_LEGEND, bottom: 45 }
+        }
+      }]
+    } : {}),
     xAxis: temporal
       ? {
           type: 'time',
