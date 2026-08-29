@@ -1,4 +1,3 @@
-import type { QueryResult } from '../../../shared/types.ts'
 import { toFiniteNumber, type Aggregation } from './resultVisualization.ts'
 
 export interface HierarchyNode {
@@ -61,8 +60,4 @@ export function hierarchyCardinalities(rows: readonly Record<string, unknown>[],
 export function suggestHierarchyDimensions(rows: readonly Record<string, unknown>[], dimensions: readonly string[]): string[] {
   const originalIndex = new Map(dimensions.map((column, index) => [column, index]))
   return hierarchyCardinalities(rows, dimensions).sort((a, b) => a.distinctCount - b.distinctCount || originalIndex.get(a.column)! - originalIndex.get(b.column)!).map(({ column }) => column)
-}
-
-export function queryResultHierarchy(result: QueryResult, dimensions: readonly string[], valueColumn: string | null, aggregation: Aggregation): HierarchyNode[] {
-  return buildHierarchy({ rows: result.rows, dimensions, valueColumn, aggregation })
 }

@@ -37,5 +37,3 @@ export function ensureRelationColumns(profileId: string, relation: DatabaseRelat
   pending.set(key, request)
   return request
 }
-
-export const __testing = { pending }

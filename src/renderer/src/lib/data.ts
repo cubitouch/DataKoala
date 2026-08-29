@@ -83,9 +83,3 @@ export function buildChartData(result: QueryResult, cfg: ChartConfig): Record<st
   rows.sort((a, b) => String(a[cfg.xField]).localeCompare(String(b[cfg.xField]), undefined, { numeric: true }))
   return rows
 }
-
-export function toCsvString(rows: Record<string, unknown>[], columns: string[]): string {
-  const header = columns.map((c) => escapeCsv(c)).join(',')
-  const lines = rows.map((r) => columns.map((c) => escapeCsv(r[c])).join(','))
-  return [header, ...lines].join('\n')
-}

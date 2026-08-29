@@ -29,5 +29,3 @@ export const IPC = {
   QUERY_EXPLAIN: 'query:explain',
   CLIPBOARD_WRITE_PNG: 'clipboard:write-png'
 } as const
-
-export type IpcChannels = (typeof IPC)[keyof typeof IPC]

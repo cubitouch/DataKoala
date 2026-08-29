@@ -42,6 +42,9 @@ jobs:
       - name: Check renderer controls
         run: pnpm check:renderer-controls
 
+      - name: Check dead code
+        run: pnpm check:dead-code
+
       - name: Typecheck
         run: pnpm typecheck
 
