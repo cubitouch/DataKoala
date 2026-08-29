@@ -7,9 +7,9 @@
     "src/renderer/src/preload.d.ts",
     "src/**/*.test.{ts,tsx}",
     "scripts/**/*.{mjs,ts}",
-    "*.config.ts",
-    "docs-site/vite.config.ts"
+    "*.config.ts"
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{mjs,ts}", "*.config.ts", "docs-site/**/*.ts"],
-  "include": ["files", "dependencies", "unlisted", "binaries"]
+  "include": ["files", "exports", "types", "dependencies", "unlisted", "binaries"],
+  "ignoreExportsUsedInFile": true
 }

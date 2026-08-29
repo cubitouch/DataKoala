@@ -12,12 +12,12 @@ describe('QueryToolbar', () => {
       executionAction={<button disabled>Run</button>}
     />)
     expect(container.querySelector('[data-query-toolbar]')?.textContent).toBe('ModeOptionsResetFormatRun')
-    expect(screen.getByRole('button', { name: 'Run' })).toBeDisabled()
+    expect((screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('omits optional groups without changing the mode/run contract', () => {
-    render(<QueryToolbar modeControl={<span>Query</span>} executionAction={<button>Run</button>} />)
-    expect(screen.getByText('Query')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Run' })).toBeEnabled()
+    const { container } = render(<QueryToolbar modeControl={<span>Query</span>} executionAction={<button>Run</button>} />)
+    expect(container.textContent).toBe('QueryRun')
+    expect((container.querySelector('button') as HTMLButtonElement).disabled).toBe(false)
   })
 })

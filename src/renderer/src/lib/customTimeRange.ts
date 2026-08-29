@@ -2,7 +2,6 @@ export type TimeWindow = { id: string; from: string; to: string }
 export type CustomDateTimeRange = { startDate: string | null; startTime: string; endDate: string | null; endTime: string; recurringWindows: TimeWindow[] }
 export type CustomTimeRangeValue = CustomDateTimeRange
 
-export const EMPTY_CUSTOM_RANGE: CustomDateTimeRange = { startDate: null, startTime: '00:00', endDate: null, endTime: '00:00', recurringWindows: [] }
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
 export const pad2 = (n: number) => String(n).padStart(2, '0')
@@ -19,9 +18,6 @@ export function compareDateOnly(a: string, b: string): number { return a < b ? -
 export function todayDateOnly(date = new Date()): string { return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}` }
 export function isValidTime(value: string): boolean { return TIME_RE.test(value) }
 export function timeToMinutes(value: string): number | null { const m = TIME_RE.exec(value); return m ? Number(m[1]) * 60 + Number(m[2]) : null }
-export function cloneCustomRange(value: CustomDateTimeRange): CustomDateTimeRange { return { startDate: value.startDate, startTime: value.startTime || '00:00', endDate: value.endDate, endTime: value.endTime || '00:00', recurringWindows: (value.recurringWindows ?? []).map((w) => ({ ...w })) } }
-export function emptyCustomRange(): CustomDateTimeRange { return cloneCustomRange(EMPTY_CUSTOM_RANGE) }
-export function migrateLegacyCustomRange(value: { startInclusive?: string | null; endExclusive?: string | null; timeWindows?: TimeWindow[] }): CustomDateTimeRange { return { startDate: value.startInclusive ? value.startInclusive.slice(0, 10) : null, startTime: '00:00', endDate: value.endExclusive ? addDays(value.endExclusive.slice(0, 10), 1) : null, endTime: '00:00', recurringWindows: (value.timeWindows ?? []).map((w) => ({ ...w })) } }
 export function normalizeSelectedDates(value: CustomDateTimeRange): CustomDateTimeRange { if (value.startDate && value.endDate && compareDateOnly(value.endDate, value.startDate) < 0) return { ...value, startDate: value.endDate, endDate: value.startDate }; return value }
 export function normalizeCustomRange(value: CustomDateTimeRange): CustomDateTimeRange { const normalized = normalizeSelectedDates(value); return { ...normalized, startTime: normalized.startTime || '00:00', endTime: normalized.endTime || '00:00', recurringWindows: normalized.recurringWindows.filter((w) => w.from || w.to).map((w) => ({ ...w })).sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)) } }
 export function customRangeToComparableValues(value: CustomDateTimeRange): { start: string | null; end: string | null } { return { start: value.startDate && value.startTime ? `${value.startDate}T${value.startTime}` : null, end: value.endDate && value.endTime ? `${value.endDate}T${value.endTime}` : null } }

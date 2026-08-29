@@ -65,7 +65,7 @@
     "docs:dev": "vite --config docs-site/vite.config.ts",
     "docs:preview": "vite preview --config docs-site/vite.config.ts",
     "check:renderer-controls": "node scripts/check-renderer-controls.mjs",
-    "check:dead-code": "knip"
+    "check:dead-code": "knip --config knip.production.json && knip"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

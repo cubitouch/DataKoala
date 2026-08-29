@@ -1,6 +1,6 @@
 import { TextInput } from '../ui/TextInput'
 import { Combobox } from '../ui/combobox'
-import React from 'react'
+import type { KeyboardEvent } from 'react'
 import { useMemo, useRef, useState } from 'react'
 import styles from './TimeRange.module.css'
 import { addDays, compareDateOnly, dateOnlyToUtcDate, formatDateOnly, parseDateOnly, todayDateOnly, type CustomTimeRangeValue } from '../../lib/customTimeRange'
@@ -25,7 +25,7 @@ export function DateRangeCalendar({ value, onChange }: { value: CustomTimeRangeV
     setFocusDate(day)
     window.requestAnimationFrame(() => dayRefs.current.get(day)?.focus())
   }
-  const key = (e: React.KeyboardEvent<HTMLButtonElement>, day: string) => { let delta = 0; if (e.key === 'ArrowLeft') delta = -1; if (e.key === 'ArrowRight') delta = 1; if (e.key === 'ArrowUp') delta = -7; if (e.key === 'ArrowDown') delta = 7; if (delta) { e.preventDefault(); const next = addDays(day, delta); const np = parseDateOnly(next); setMonth(`${np.year}-${String(np.month).padStart(2, '0')}`); focusDay(next) } }
+  const key = (e: KeyboardEvent<HTMLButtonElement>, day: string) => { let delta = 0; if (e.key === 'ArrowLeft') delta = -1; if (e.key === 'ArrowRight') delta = 1; if (e.key === 'ArrowUp') delta = -7; if (e.key === 'ArrowDown') delta = 7; if (delta) { e.preventDefault(); const next = addDays(day, delta); const np = parseDateOnly(next); setMonth(`${np.year}-${String(np.month).padStart(2, '0')}`); focusDay(next) } }
   const start = value.startDate, visualEndDate = value.endDate && value.endTime === '00:00' ? addDays(value.endDate, -1) : value.endDate, today = todayDateOnly()
   return <div className={styles.calendar}><div className={styles.calendarHead}><button type="button" className={styles.iconButton} aria-label="Previous month" onClick={() => moveMonth(-1)}>‹</button><strong>{monthName(p.year, p.month)}</strong><button type="button" className={styles.iconButton} aria-label="Next month" onClick={() => moveMonth(1)}>›</button></div>
   <div className={styles.monthYearPicker}><div className={styles.monthField}><Combobox label="Month" mode="inline" value={String(p.month)} onChange={(month) => setMonth(`${p.year}-${month.padStart(2, '0')}`)} options={Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2020, i, 1))) }))} /></div><div className={styles.yearField}><TextInput label="Year" mode="inline" type="number" value={p.year} onValueChange={(year) => setMonth(`${year.padStart(4, '0')}-${String(p.month).padStart(2, '0')}`)}/></div></div>

@@ -7,26 +7,7 @@
   container-type: inline-size;
 }
 
-.head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-
-.toolbarGroup {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.toolbarGroup + .toolbarGroup {
-  padding-left: 10px;
-  border-left: 1px solid var(--border);
-}
+.head { min-width: 0; }
 
 .timeGroup [data-time-range-field] {
   width: clamp(150px, 22cqi, 230px);
@@ -36,10 +17,6 @@
 .promqlStep {
   width: 170px;
   white-space: nowrap;
-}
-
-.spacer {
-  flex: 1;
 }
 
 .explainAction {
@@ -70,7 +47,7 @@
 }
 
 @container (max-width: 690px) {
-  .head .spacer {
+  .head :global(.spacer) {
     display: none;
   }
 

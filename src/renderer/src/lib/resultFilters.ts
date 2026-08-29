@@ -3,7 +3,6 @@ import { builderSeriesTupleLabel, decodeBuilderSeriesTuple } from './resultVisua
 
 export type ScalarResultFilterOperator = 'equals' | 'notEquals' | 'isNull' | 'isNotNull'
 export type RangeResultFilterOperator = 'range' | 'notRange'
-export type ResultFilterOperator = ScalarResultFilterOperator | RangeResultFilterOperator
 export type SerializableFilterValue = string | number | boolean | null | { type: 'date'; value: string }
 
 export interface BuilderFilterProvenance {
@@ -78,7 +77,6 @@ export function deserializeResultFilters(serialized: string): ResultFilter[] {
     return { ...normalized, id: stableResultFilterId(normalized) }
   }))
 }
-export function normalizeLegacyResultFilters(value: unknown): ResultFilter[] { return Array.isArray(value) ? deserializeResultFilters(JSON.stringify(value)) : [] }
 
 function dateInRange(value: unknown, startInclusive: string, endExclusive: string): boolean {
   const candidate = value instanceof Date ? value.getTime() : new Date(String(value)).getTime()
@@ -134,7 +132,6 @@ export function resultFilterDemotion(filter: ResultFilter, resultColumns: readon
 }
 
 export const queryResultFilters = (filters: ResultFilter[]) => filters.filter((filter) => filter.execution === 'query')
-export const clientResultFilters = (filters: ResultFilter[]) => filters.filter((filter) => filter.execution !== 'query')
 export const isPromotableFilter = (filter: ResultFilter) => filter.operator !== 'notRange'
 function parameterValue(value: SerializableFilterValue | undefined): unknown { return typeof value === 'object' && value !== null ? value.value : value }
 function googleSqlParameterType(nativeType: string | undefined): string | null {

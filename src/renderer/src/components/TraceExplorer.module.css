@@ -12,15 +12,12 @@
 .discoveryPanel {
   grid-row: 1;
   min-width: 0;
-  border-bottom: 1px solid var(--border);
   background: var(--bg-2);
 }
 
 .traceIdBar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
 }
@@ -41,7 +38,6 @@
 .traceqlField :global(.cm-editor.cm-focused) { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 .queryModeRow {
-  display: flex;
   align-items: center;
   gap: 12px;
   padding: 8px 14px 0;
@@ -78,12 +74,8 @@
   align-items: center;
   flex-wrap: nowrap;
   gap: 10px;
-  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
 }
-.queryToolbar > :global(.spacer) { flex: 1; }
-.queryToolbar > :global(.query-toolbar-group) { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.queryToolbar > :global(.query-toolbar-group) + :global(.query-toolbar-group) { padding-left: 10px; border-left: 1px solid var(--border); }
 .queryOptions { flex: none; flex-wrap: nowrap; }
 .queryOptions [data-time-range-field] { width: clamp(145px, 15vw, 180px); }
 

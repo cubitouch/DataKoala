@@ -18,12 +18,13 @@ describe('QueryCodeEditor', () => {
     fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true })
     expect(onChange).toHaveBeenCalledWith('rate(up[5m])')
     expect(onRun).toHaveBeenCalledOnce()
-    expect(editor).toHaveAttribute('data-extensions', '1')
+    expect(editor.getAttribute('data-extensions')).toBe('1')
   })
 
   it('presents disabled editors as non-editable', () => {
     render(<QueryCodeEditor value="{}" onChange={() => undefined} ariaLabel="TraceQL editor" disabled />)
-    expect(screen.getByRole('textbox', { name: 'TraceQL editor' })).toHaveAttribute('readonly')
-    expect(screen.getByRole('textbox', { name: 'TraceQL editor' })).toHaveAttribute('aria-disabled', 'true')
+    const editor = screen.getByRole('textbox', { name: 'TraceQL editor' }) as HTMLTextAreaElement
+    expect(editor.readOnly).toBe(true)
+    expect(editor.getAttribute('aria-disabled')).toBe('true')
   })
 })

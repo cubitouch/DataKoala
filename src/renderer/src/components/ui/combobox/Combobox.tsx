@@ -1,5 +1,4 @@
-import React from 'react'
-void React
+import type { KeyboardEvent } from 'react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Popover } from '../Popover'
 import { FieldChrome } from '../FieldChrome'
@@ -31,7 +30,7 @@ interface Props extends FieldFeedbackProps {
 const norm = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase()
 const optionId = (prefix: string, value: string) => `${prefix}-option-${encodeURIComponent(value)}`
 const optionText = (option: ComboboxOption) => norm([option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' '))
-const isTypingKey = (event: React.KeyboardEvent) => event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
+const isTypingKey = (event: KeyboardEvent) => event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
 
 export function Combobox({ id, label, mode, labelVisibility, hint, warning, value, options, onChange, placeholder = 'Select an option…', searchable = false, disabled = false, loading = false, error = null, emptyMessage = 'No matching options', loadingMessage = 'Loading…', invalidationKey, allowCustomValue = false }: Props) {
   const reactId = useId()
@@ -75,7 +74,7 @@ export function Combobox({ id, label, mode, labelVisibility, hint, warning, valu
     setOpen(false)
     window.requestAnimationFrame(() => triggerRef.current?.focus())
   }
-  const onMenuKeyDown = (event: React.KeyboardEvent) => {
+  const onMenuKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'ArrowDown') { event.preventDefault(); move(1); return }
     if (event.key === 'ArrowUp') { event.preventDefault(); move(-1); return }
     if (event.key === 'Home') { event.preventDefault(); setActiveValue(enabled[0]?.value ?? null); return }
@@ -91,7 +90,7 @@ export function Combobox({ id, label, mode, labelVisibility, hint, warning, valu
       if (found) setActiveValue(found.value)
     }
   }
-  const onTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+  const onTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(true); return }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true); setActiveValue((event.key === 'ArrowDown' ? enabled[0] : enabled.at(-1))?.value ?? null); return }
     if (event.key === 'Escape') { setOpen(false); return }

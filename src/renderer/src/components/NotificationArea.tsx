@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { selectActiveSession, useStore } from '../store/useStore'
 import styles from './NotificationArea.module.css'
 

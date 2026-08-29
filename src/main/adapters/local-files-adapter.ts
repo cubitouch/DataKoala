@@ -4,7 +4,6 @@ import { DuckDBInstance, StatementType, type DuckDBConnection, type DuckDBResult
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
 import type { ColumnMeta, DataSourceCapabilities, DataSourceProfile, LocalFilesProfile, LogicalType, QueryResult } from '../../shared/types.ts'
 
-export const SUPPORTED_FILE_EXTENSIONS = new Set(['.csv', '.tsv', '.parquet', '.json', '.jsonl', '.ndjson'])
 export const MAX_LOCAL_FILE_RESULT_ROWS = 10_000
 
 export const LOCAL_FILES_CAPABILITIES: DataSourceCapabilities = {

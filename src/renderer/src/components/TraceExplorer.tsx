@@ -647,7 +647,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
         <form className={styles.searchForm} onSubmit={submitSearch} onKeyDown={onTraceqlKeyDown}>
           <QueryToolbar className={styles.queryToolbar} queryOptionsClassName={styles.queryOptions} editorActionsClassName={styles.editorActions}
             modeControl={<ModeSwitch />}
-            queryOptions={<div aria-label="Tempo query options"><TimeRangeField labelVisibility="sr-only" value={searchRange} onChange={setSearchRange} /><div className={styles.sampleSize}><Combobox label="Sample size" mode="inline" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div></div>}
+            queryOptionsAriaLabel="Tempo query options"
+            queryOptions={<><TimeRangeField labelVisibility="sr-only" value={searchRange} onChange={setSearchRange} /><div className={styles.sampleSize}><Combobox label="Sample size" mode="inline" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div></>}
             utilityActions={<QueryUtilityActions hasResults={Boolean(searchRows.length || spans.length || searchNotice || searchProgress || error || cohortHint)} onClearResults={clearTempoResults} onResetQuery={resetTempoQuery} />}
             editorActions={<>{mode === 'sql' && <button type="button" className="btn ghost" onClick={formatCurrentTraceql} title="Format TraceQL (Shift+Alt+F)" disabled={!traceql.trim()}>Format</button>}<CopySqlButton sql={traceql} language="TraceQL" /></>}
             executionAction={<button className="btn primary" type="submit" data-tempo-run-query disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button>}

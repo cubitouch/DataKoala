@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type AriaAttributes, type AriaRole, type ReactNode, type ButtonHTMLAttributes, type RefObject } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type AriaAttributes, type AriaRole, type ReactNode, type ButtonHTMLAttributes, type RefObject, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import styles from './Popover.module.css'
 
@@ -65,7 +65,7 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
   const triggerRef = externalTriggerRef ?? internalTriggerRef
   const contentRef = useRef<HTMLDivElement>(null)
   const [internalOpen, setInternalOpen] = useState(defaultOpen)
-  const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' })
+  const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden' })
   const keyboardOpen = useRef(false)
   const isOpen = controlledOpen ?? internalOpen
 
