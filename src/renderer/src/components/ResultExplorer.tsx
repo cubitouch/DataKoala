@@ -42,6 +42,8 @@ function resultColumnToComboboxOption(column: ColumnMeta): ComboboxOption {
 
 interface ResultExplorerProps {
   mode: QueryMode
+  /** Determines whether this result view or an upstream UI owns X/Y/Series mapping. */
+  dimensionControls?: 'result' | 'external'
   hasRun?: boolean
   resultOverride?: QueryResult | null
   configurationOverride?: VisualizationConfiguration
@@ -49,7 +51,7 @@ interface ResultExplorerProps {
   hidePicker?: boolean
   onTemporalRangeSelected?: (range: { startMs: number; endMs: number }) => void
 }
-export function ResultExplorer({ mode, hasRun = true, resultOverride, configurationOverride, onConfigurationChange, hidePicker = false, onTemporalRangeSelected }: ResultExplorerProps) {
+export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = true, resultOverride, configurationOverride, onConfigurationChange, hidePicker = false, onTemporalRangeSelected }: ResultExplorerProps) {
   const tabId = useStore((state) => state.activeTabId)
   const isResultStale = useStore((state) => selectActiveSession(state).isResultStale)
   const connectionStatus = useStore((state) => state.connectionStatus)
@@ -124,21 +126,21 @@ export function ResultExplorer({ mode, hasRun = true, resultOverride, configurat
     [result, configuration, mode, builderSeries]
   )
   useEffect(() => {
-    if (mode === 'sql' && result && !visualizationConfigurationsEqual(effectiveConfiguration, configuration)) {
+    if (dimensionControls === 'result' && result && !visualizationConfigurationsEqual(effectiveConfiguration, configuration)) {
       if (onConfigurationChange) onConfigurationChange(effectiveConfiguration)
       else setVisualization(mode, effectiveConfiguration, tabId)
     }
-  }, [result, effectiveConfiguration, configuration, mode, setVisualization, tabId, onConfigurationChange])
+  }, [result, effectiveConfiguration, configuration, mode, dimensionControls, setVisualization, tabId, onConfigurationChange])
 
   const filteredResult = useMemo(() => result ? filterQueryResult(result, activeFilters) : null, [result, activeFilters])
   const numeric = useMemo(() => filteredResult ? numericColumns(filteredResult) : [], [filteredResult])
   const xAxisOptions = useMemo<ComboboxOption[]>(() => result ? result.columns.map(resultColumnToComboboxOption) : [], [result])
   const yAxisOptions = useMemo<ComboboxOption[]>(() => result ? result.columns.filter((column) => numeric.includes(column.name)).map(resultColumnToComboboxOption) : [], [result, numeric])
   const seriesOptions = useMemo<ComboboxOption[]>(() => result ? result.columns.filter((column) => column.name !== effectiveConfiguration.xColumn && column.name !== effectiveConfiguration.valueColumn).map(resultColumnToComboboxOption) : [], [result, effectiveConfiguration.xColumn, effectiveConfiguration.valueColumn])
-  const sqlSeriesValues = useMemo(() => effectiveConfiguration.seriesColumns?.length
+  const selectedSeriesValues = useMemo(() => effectiveConfiguration.seriesColumns?.length
     ? effectiveConfiguration.seriesColumns
     : effectiveConfiguration.seriesColumn ? [effectiveConfiguration.seriesColumn] : [], [effectiveConfiguration.seriesColumn, effectiveConfiguration.seriesColumns])
-  const availableHierarchyDimensions = mode === 'builder' ? builderSeries : sqlSeriesValues
+  const availableHierarchyDimensions = dimensionControls === 'external' ? builderSeries : selectedSeriesValues
   const hierarchyDimensions = reconcileHierarchyDimensions(effectiveConfiguration.hierarchyDimensions, availableHierarchyDimensions)
   const hierarchyStats = useMemo(() => hierarchyCardinalities(filteredResult?.rows ?? [], hierarchyDimensions), [filteredResult, hierarchyDimensions.join('\0')])
   const suggestedHierarchyDimensions = useMemo(() => suggestHierarchyDimensions(filteredResult?.rows ?? [], hierarchyDimensions), [filteredResult, hierarchyDimensions.join('\0')])
@@ -158,7 +160,7 @@ export function ResultExplorer({ mode, hasRun = true, resultOverride, configurat
     if (onConfigurationChange) onConfigurationChange({ ...configuration, ...patch })
     else setVisualization(mode, patch, tabId)
   }
-  const updateSqlSeries = (values: string[]) => update(values.length > 1
+  const updateSeries = (values: string[]) => update(values.length > 1
     ? { seriesColumn: null, seriesColumns: values }
     : { seriesColumn: values[0] ?? null, seriesColumns: [] })
   const hierarchical = effectiveConfiguration.view === 'treemap' || effectiveConfiguration.view === 'sunburst'
@@ -366,10 +368,10 @@ export function ResultExplorer({ mode, hasRun = true, resultOverride, configurat
       </button>
     </div>}
     {result && !hidePicker && <ChartPicker value={effectiveConfiguration.view} onChange={chooseView}/>}
-    {effectiveConfiguration.view !== 'table' && result && mode === 'sql' && <div className={styles.visualizationControls}>
+    {effectiveConfiguration.view !== 'table' && result && dimensionControls === 'result' && <div className={styles.visualizationControls}>
       <div className={styles.visualizationControl}><Combobox label="X axis" value={effectiveConfiguration.xColumn ?? ''} options={xAxisOptions} onChange={(value) => update({ xColumn: value || null })} placeholder="Choose…" searchable emptyMessage="No matching columns" /></div>
       <div className={styles.visualizationControl}><Combobox label="Y axis" value={effectiveConfiguration.valueColumn ?? ''} options={yAxisOptions} onChange={(value) => update({ valueColumn: value || null })} placeholder={numeric.length ? 'Choose…' : 'No numeric column'} searchable emptyMessage="No matching numeric columns" /></div>
-      <div className={styles.visualizationControl}><MultiCombobox label="Series" values={sqlSeriesValues} options={seriesOptions} onChange={updateSqlSeries} placeholder="No breakdown" searchable showChips emptyMessage="No matching columns" /></div>
+      <div className={styles.visualizationControl}><MultiCombobox label="Series" values={selectedSeriesValues} options={seriesOptions} onChange={updateSeries} placeholder="No breakdown" searchable showChips emptyMessage="No matching columns" /></div>
     </div>}
     {hierarchical && result && <div className={styles.hierarchyOrder} aria-label="Hierarchy order">
       <div><strong>Hierarchy</strong><small> Inner → outer · lowest cardinality recommended</small></div>
