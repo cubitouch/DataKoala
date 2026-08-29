@@ -22,6 +22,7 @@ vi.mock('../lib/api', () => ({ api: { connections: {
 } } }))
 
 import { Sidebar } from './Sidebar'
+import { api } from '../lib/api'
 import { resetTestStore } from '../test/sessionTestUtils'
 import { createQuerySession, useStore } from '../store/useStore'
 
@@ -36,6 +37,49 @@ it('derives every connection badge from the saved profile kind', async () => {
   expect(screen.queryByText('pg')).toBeNull()
   expect(document.body.textContent).not.toContain('db.internal')
   expect(document.body.textContent).not.toContain('orders @')
+})
+
+it('keeps the kind and keyboard-reachable actions in one trailing slot', async () => {
+  render(<Sidebar />)
+  const name = await screen.findByText('Orders')
+  const item = name.closest<HTMLElement>('[data-connection-item]')!
+  const trailing = within(item).getByText('PostgreSQL').closest<HTMLElement>('[data-connection-trailing]')!
+  const edit = within(item).getByRole('button', { name: 'Edit connection Orders' })
+  const remove = within(item).getByRole('button', { name: 'Delete connection Orders' })
+
+  expect(name.hasAttribute('data-connection-name')).toBe(true)
+  expect(trailing.contains(edit)).toBe(true)
+  expect(trailing.contains(remove)).toBe(true)
+  expect(edit.getAttribute('title')).toBe('Edit connection')
+  expect(remove.getAttribute('title')).toBe('Delete connection')
+  expect(edit.getAttribute('tabindex')).not.toBe('-1')
+  expect(remove.getAttribute('tabindex')).not.toBe('-1')
+
+  fireEvent.click(edit)
+  expect(api.connections.connect).not.toHaveBeenCalled()
+})
+
+it('shows a selected non-live profile without persistent connect-on-run copy', async () => {
+  const tab = createQuerySession(1, { id: 'bound-tab', connectionProfileId: 'bq' })
+  useStore.setState({ profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'pg', connected: true })
+  render(<Sidebar />)
+
+  const item = (await screen.findByText('Analytics')).closest<HTMLElement>('[data-connection-item]')!
+  expect(item.getAttribute('aria-current')).toBe('true')
+  expect(item.hasAttribute('data-connection-live')).toBe(false)
+  expect(within(item).getByText('BigQuery')).toBeTruthy()
+  expect(screen.queryByText(/connect on run/i)).toBeNull()
+})
+
+it('retains compact progress feedback during an active connection attempt', async () => {
+  const tab = createQuerySession(1, { id: 'connecting-tab', connectionProfileId: 'bq' })
+  useStore.setState({ profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'bq', connected: false, connecting: true })
+  render(<Sidebar />)
+
+  const item = (await screen.findByText('Analytics')).closest<HTMLElement>('[data-connection-item]')!
+  expect(within(item).getByLabelText('Connecting')).toBeTruthy()
+  expect(within(item).getByText('Connecting…').closest('[data-connection-trailing]')).toBeTruthy()
+  expect(screen.queryByText(/connect on run/i)).toBeNull()
 })
 
 it('shows useful Loki labels, hides internal labels, and lazily seeds a value filter', async () => {

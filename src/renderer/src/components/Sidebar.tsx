@@ -240,11 +240,14 @@ export function Sidebar() {
         onClick={() => { if (!connecting) void connect(profile) }} aria-busy={isConnecting} aria-current={isSelected ? 'true' : undefined}>
         <span className={isConnecting ? styles.spinner : styles.dot} aria-label={isConnecting ? 'Connecting' : undefined} />
         <span className={styles.name} data-connection-name>{profile.name}</span>
-        <span className={styles.kind}>{connectionKindLabel(profile.kind)}</span>
-        {isConnecting && <span className={styles.connectingLabel}>Connecting…</span>}
-        {isSelected && !isLive && !isConnecting && <span className={styles.connectingLabel}>connect on run</span>}
-        <button className={styles.del} aria-label={`Edit connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); setEditing(profile); setShowModal(true) }}>✎</button>
-        <button className={styles.del} aria-label={`Delete connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); deleteOrigin.current = event.currentTarget; setPendingDelete(profile) }}>✕</button>
+        <span className={styles.trailing} data-connection-trailing>
+          <span className={styles.kind}>{connectionKindLabel(profile.kind)}</span>
+          {isConnecting && <span className={styles.connectingLabel}>Connecting…</span>}
+          <span className={styles.actions} data-connection-actions>
+            <button className={styles.action} type="button" title="Edit connection" aria-label={`Edit connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); setEditing(profile); setShowModal(true) }}>✎</button>
+            <button className={styles.action} type="button" title="Delete connection" aria-label={`Delete connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); deleteOrigin.current = event.currentTarget; setPendingDelete(profile) }}>✕</button>
+          </span>
+        </span>
       </div>
     })}
     <button className={styles.btnAdd} disabled={connecting} onClick={() => { setEditing(null); setShowModal(true) }}>+ new connection</button>
