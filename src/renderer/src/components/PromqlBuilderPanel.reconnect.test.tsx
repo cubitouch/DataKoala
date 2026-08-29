@@ -16,7 +16,7 @@ import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '.
 import { useStore } from '../store/useStore'
 
 const profileId = 'prom-reconnect'
-const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done }); return { promise, resolve } }
+const deferred = <T,>() => { let resolve!: (value: T) => void; let reject!: (reason: unknown) => void; const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail }); return { promise, resolve, reject } }
 
 beforeEach(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn()
@@ -119,4 +119,67 @@ it('shows a loading state while metric metadata is being fetched', () => {
   render(<PromqlBuilderPanel />)
 
   expect(screen.getByRole('combobox', { name: 'Metric: Loading metrics…' })).toBeTruthy()
+})
+
+it('keeps metadata controls calm and makes no requests when already disconnected', () => {
+  patchActiveTestSession({ promqlBuilder: {
+    ...useStore.getState().tabs[0].promqlBuilder,
+    groupBy: ['service'], filterBy: ['region'], labelValues: { region: ['eu'] }
+  } })
+  useStore.setState({ connected: false, connectionStatus: 'disconnected' })
+
+  render(<PromqlBuilderPanel />)
+
+  expect(labelsForMetric).not.toHaveBeenCalled()
+  expect(labelValues).not.toHaveBeenCalled()
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.queryByRole('button', { name: /retry/i })).toBeNull()
+  expect(screen.getByRole('combobox', { name: /Metric:/ }).hasAttribute('disabled')).toBe(true)
+  expect(screen.getByRole('combobox', { name: /Group by:/ }).hasAttribute('disabled')).toBe(true)
+  expect(screen.getByRole('combobox', { name: /Filter by:/ }).hasAttribute('disabled')).toBe(true)
+  expect(screen.getByRole('combobox', { name: /region values:/ }).hasAttribute('disabled')).toBe(true)
+})
+
+it('ignores metadata failures which arrive after disconnect and clears loading state', async () => {
+  const pendingLabels = deferred<string[]>()
+  labelsForMetric.mockReset().mockReturnValue(pendingLabels.promise)
+  render(<PromqlBuilderPanel />)
+  expect(await screen.findByRole('combobox', { name: 'Group by: Loading labels…' })).toBeTruthy()
+
+  act(() => useStore.setState({ connected: false, connectionStatus: 'disconnected', connectionGeneration: 2 }))
+  await act(async () => {
+    pendingLabels.reject(new Error('This profile is not connected'))
+    await pendingLabels.promise.catch(() => undefined)
+  })
+
+  expect(labelsForMetric).toHaveBeenCalledTimes(1)
+  expect(screen.queryByText(/This profile is not connected/)).toBeNull()
+  expect(screen.queryByRole('button', { name: /retry/i })).toBeNull()
+  expect(screen.getByRole('combobox', { name: 'Group by: Metadata unavailable' }).hasAttribute('disabled')).toBe(true)
+})
+
+it('refreshes active metadata once on reconnect without changing builder configuration', async () => {
+  const configured = {
+    ...useStore.getState().tabs[0].promqlBuilder,
+    groupBy: ['service'], filterBy: ['region'], labelValues: { region: ['eu'] }
+  }
+  patchActiveTestSession({ promqlBuilder: configured })
+  useStore.setState({ connected: false, connectionStatus: 'reconnecting' })
+  render(<PromqlBuilderPanel />)
+  expect(labelsForMetric).not.toHaveBeenCalled()
+  expect(labelValues).not.toHaveBeenCalled()
+
+  act(() => useStore.setState({ connected: true, connectionStatus: 'connected', connectionGeneration: 2 }))
+  await waitFor(() => expect(labelsForMetric).toHaveBeenCalledTimes(1))
+  await waitFor(() => expect(labelValues).toHaveBeenCalledTimes(2))
+  await waitFor(() => expect(screen.getByRole('combobox', { name: /Group by:/ }).hasAttribute('disabled')).toBe(false))
+  expect(useStore.getState().tabs[0].promqlBuilder).toEqual(configured)
+})
+
+it('keeps actionable metadata errors while connected', async () => {
+  labelsForMetric.mockReset().mockRejectedValue(new Error('upstream denied the request'))
+  render(<PromqlBuilderPanel />)
+
+  expect((await screen.findByRole('alert')).textContent).toContain('upstream denied the request')
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
 })

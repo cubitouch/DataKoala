@@ -17,7 +17,7 @@ const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = n
 let sequence = 0
 function arrange(metric = 'request_duration_seconds_bucket', metricType?: string) {
   const id = `prom-builder-${++sequence}`
-  resetTestStore({ profiles: [{ id, name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }] })
+  resetTestStore({ activeProfileId: id, connected: true, connectionStatus: 'connected', profiles: [{ id, name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }] })
   patchActiveTestSession({ connectionProfileId: id, queryMode: 'builder', sql: '', promqlBuilder: { metric, filterBy: [], groupBy: [], labelValues: {}, calculation: 'percentile', aggregation: 'sum', window: '5m', percentile: 0.95, histogramKindOverride: 'auto' } })
   setActiveTestMetadata([{ name: 'Prometheus', isSystem: false, relations: [metric, 'other_total', 'other_bucket'].filter((name, index, all) => all.indexOf(name) === index).map((name) => ({ schema: 'Prometheus', name, qualifiedName: name, kind: 'metric' as const, columnsStatus: 'idle' as const, ...(name === metric && metricType ? { details: { kind: 'metric' as const, type: metricType } } : {}) })) }], 'loaded', null, id)
   return render(<PromqlBuilderPanel />)
