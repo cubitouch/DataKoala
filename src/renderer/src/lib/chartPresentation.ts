@@ -7,14 +7,14 @@ import type { HierarchyNode } from './chartHierarchy.ts'
 export type TimeDisplayPrecision = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
 
 const DATAKOALA_CHART_COLORS = ['#f5cf33', '#62b8c5', '#ef8a62', '#8c9be8', '#70c486', '#df74a8', '#5fa7e0', '#d3a557', '#a783d5', '#48b5a2', '#c4c95c', '#e27b76']
-const CHART_LEGEND_WIDTH = 180
-const CHART_LEGEND_GAP = 16
-const CHART_LEGEND_RIGHT = 12
+export const CHART_LEGEND_WIDTH = 180
+export const CHART_LEGEND_GAP = 16
+export const CHART_LEGEND_RIGHT = 12
 const CHART_GRID_RIGHT_WITH_LEGEND = CHART_LEGEND_WIDTH + CHART_LEGEND_GAP + CHART_LEGEND_RIGHT
 const CHART_GRID_RIGHT_COMPACT = 24
 const CHART_GRID_TOP = 20
 const CHART_GRID_TOP_WITH_HORIZONTAL_LEGEND = 42
-const CHART_NARROW_WIDTH = 620
+export const CHART_NARROW_WIDTH = 620
 const CHART_LEGEND_VERTICAL_INSET = 16
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const two = (value: number) => String(value).padStart(2, '0')

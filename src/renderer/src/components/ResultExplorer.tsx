@@ -30,6 +30,7 @@ import { chartAnomalyEligibility, DEFAULT_ANOMALY_OPTIONS, detectChartAnomalies 
 import { buildHierarchy, hierarchyCardinalities, suggestHierarchyDimensions } from '../lib/chartHierarchy'
 import { ChartPicker } from './ChartPicker'
 import styles from './ResultExplorer.module.css'
+import { ChartLegendWheelLifecycle } from '../lib/chartLegendWheel'
 
 const valueScaleOptions: ComboboxOption[] = [
   { value: 'linear', label: 'Linear' },
@@ -92,6 +93,7 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
   const hoveredSeriesIdentity = useRef<string | undefined>(undefined)
   const legendModifiers = useRef(new LegendModifierBridge())
   const chartEvents = useRef<ChartEventBridgeLifecycle | null>(null)
+  const legendWheel = useRef(new ChartLegendWheelLifecycle())
   if (!chartEvents.current) chartEvents.current = new ChartEventBridgeLifecycle(legendModifiers.current, () => { hoveredSeriesIdentity.current = undefined })
   const ref = useRef<EChartsReact | null>(null)
   const chartRevisionRef = useRef<ChartRevision | null>(null)
@@ -112,6 +114,7 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
   useEffect(() => () => {
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
     chartEvents.current?.detach()
+    legendWheel.current.detach()
     if (applicationFrame.current !== null) cancelAnimationFrame(applicationFrame.current)
   }, [])
 
@@ -154,6 +157,7 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
   const activeChartTimeRange = datasourceKind === 'prometheus' ? prometheusTimeRange : activeBuilderTimeBucket ? builder.timeRange : undefined
   const chartTimeDomain = useMemo(() => activeChartTimeRange ? timeRangeChartDomain(activeChartTimeRange) : null, [activeChartTimeRange])
   const seriesIdentities = chart?.series.map((series) => series.name) ?? []
+  useEffect(() => legendWheel.current.setSeriesCount(seriesIdentities.length), [seriesIdentities.length])
   useEffect(() => updateSeriesVisibility((previous) => reconcileSeriesVisibility(previous, seriesIdentities)), [seriesIdentities.join('\0'), updateSeriesVisibility])
   const logPresentation = useMemo(() => effectiveConfiguration.valueAxisScale === 'log' ? prepareLogScaleSeries(chart?.series ?? [], seriesVisibility) : null, [chart, seriesVisibility, effectiveConfiguration.valueAxisScale])
   const update = (patch: Parameters<typeof setVisualization>[1]) => {
@@ -228,6 +232,7 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
     ref.current = instance
     const echarts = instance?.getEchartsInstance() ?? null
     chartEvents.current?.attach(echarts)
+    legendWheel.current.attach(echarts)
     if (echarts && chartRevisionRef.current) readiness.current.commitRevision(chartRevisionRef.current)
     if (echarts && temporalRangeSelectionEnabled) {
       echarts.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' } })
