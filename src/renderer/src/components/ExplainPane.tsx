@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import { selectActiveSession, useStore } from '../store/useStore'
 import styles from './ExplainPane.module.css'
 

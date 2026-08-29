@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import styles from './TimeRange.module.css'
 import { TimeWindowEditor } from './TimeWindowEditor'
 import type { TimeWindow } from '../../lib/customTimeRange'

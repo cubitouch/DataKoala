@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-void React
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'

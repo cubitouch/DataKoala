@@ -58,13 +58,14 @@
     "smoke:bigquery-client": "ELECTRON_RUN_AS_NODE=1 electron scripts/smoke-bigquery-client.mjs",
     "db:up": "node scripts/db-up.mjs",
     "db:down": "docker stop datakoala-test",
-    "verify": "pnpm check:renderer-controls && pnpm typecheck && pnpm test && pnpm build && pnpm smoke && pnpm smoke:db && pnpm smoke:flow",
+    "verify": "pnpm check:renderer-controls && pnpm check:dead-code && pnpm typecheck && pnpm test && pnpm build && pnpm smoke && pnpm smoke:db && pnpm smoke:flow",
     "package": "pnpm build && electron-builder",
     "docs:screenshots": "pnpm exec electron-vite build && DATAKOALA_PREVIEW_KIND=documentation DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-visual-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-sql-doc-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-prometheus-doc-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-trace-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-loki-preview.mjs",
     "docs:build": "vite build --config docs-site/vite.config.ts",
     "docs:dev": "vite --config docs-site/vite.config.ts",
     "docs:preview": "vite preview --config docs-site/vite.config.ts",
-    "check:renderer-controls": "node scripts/check-renderer-controls.mjs"
+    "check:renderer-controls": "node scripts/check-renderer-controls.mjs",
+    "check:dead-code": "knip"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -84,7 +85,6 @@
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.2",
     "google-auth-library": "11.0.2",
-    "node-sql-parser": "^5.3.6",
     "pg": "^8.23.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -103,6 +103,7 @@
     "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "jsdom": "25.0.1",
+    "knip": "^5.88.1",
     "typescript": "^5.6.3",
     "vite": "^6.4.3",
     "vitest": "4.1.11"

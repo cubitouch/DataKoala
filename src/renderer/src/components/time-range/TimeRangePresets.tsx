@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import styles from './TimeRange.module.css'
 import { EMPTY_BUILDER_CUSTOM_RANGE, type BuilderTimeRange } from '../../lib/builderTimeRange'
 import { quickRanges } from '../../lib/customTimeRange'

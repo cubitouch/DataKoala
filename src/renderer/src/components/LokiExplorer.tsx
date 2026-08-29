@@ -1,7 +1,5 @@
 import { TextInput } from './ui/TextInput'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
-import { oneDark } from '@codemirror/theme-one-dark'
 import type { LokiLogResult, LokiQueryResult } from '@shared/loki'
 import { DEFAULT_LOKI_BUILDER } from '@shared/loki'
 import { buildLokiQuery, logqlResultKind } from '@shared/loki-builder'
@@ -18,6 +16,8 @@ import { ResultExplorer } from './ResultExplorer'
 import { LokiBuilderPanel } from './LokiBuilderPanel'
 import { ModeSwitch } from './ModeSwitch'
 import { QueryUtilityActions } from './QueryUtilityActions'
+import { QueryCodeEditor } from './query/QueryCodeEditor'
+import { QueryToolbar } from './query/QueryToolbar'
 import { CopySqlButton } from './CopySqlButton'
 import { ChartPicker, type ChartPickerView } from './ChartPicker'
 import { selectActiveSession, useStore } from '../store/useStore'
@@ -124,15 +124,14 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
 
   return <main className={styles.workspace} aria-label="Loki explorer">
     <section className={styles.queryPanel}>
-      <div className={`editor-head data-query-toolbar ${styles.queryToolbar}`} data-query-toolbar>
-        <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
-        <div className={`query-toolbar-group query-time-group ${styles.queryOptions}`}><TimeRangeField labelVisibility="sr-only" value={range} onChange={(value) => setLokiState({ lokiTimeRange: value })} /><TextInput label="Limit" mode="inline" type="number" min={1} max={5000} value={limit} onValueChange={(text) => setLokiState({ lokiResultLimit: Math.max(1, Math.min(5000, Number(text))) })} />{session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>
-        <div className="spacer" />
-        <div className="query-toolbar-group"><QueryUtilityActions hasResults={Boolean(result || trend || error || warning)} onClearResults={clearResults} onResetQuery={resetQuery} /></div>
-        <div className={`query-toolbar-group query-editor-actions ${styles.editorActions}`}>{mode === 'logql' && <button type="button" className="btn ghost" onClick={() => void format()} disabled={!query.trim()}>Format</button>}<CopySqlButton sql={expression} language="LogQL" /></div>
-        <div className="query-toolbar-group execution-group"><button className="btn primary" type="button" onClick={() => void run()} disabled={loading || !expression.trim()} title="Run (Ctrl/Command+Enter)">{loading ? 'Running…' : 'Run'}</button></div>
-      </div>
-      {mode === 'logql' ? <div className={styles.editor}><CodeMirror value={query} minHeight="66px" maxHeight="150px" theme={oneDark} extensions={[logql()]} onChange={(value) => setSql(value)} aria-label="LogQL editor" onKeyDown={(event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void run() } }} basicSetup={{ lineNumbers: true, foldGutter: false }} /></div> : <LokiBuilderPanel value={builder} generated={generated} labels={labels} connectionId={connectionId} bounds={labelResource.bounds} groupBy={groupBy} metadataStatus={labelResource.status} metadataError={labelResource.error} onChange={(lokiBuilder) => setLokiState({ lokiBuilder })} onGroupByChange={(lokiGroupBy) => setLokiState({ lokiGroupBy })} onOpenLogql={() => { setSql(generated); setMode('sql') }} />}
+      <QueryToolbar className={styles.queryToolbar} queryOptionsClassName={styles.queryOptions} editorActionsClassName={styles.editorActions}
+        modeControl={<ModeSwitch />}
+        queryOptions={<><TimeRangeField labelVisibility="sr-only" value={range} onChange={(value) => setLokiState({ lokiTimeRange: value })} /><TextInput label="Limit" mode="inline" type="number" min={1} max={5000} value={limit} onValueChange={(text) => setLokiState({ lokiResultLimit: Math.max(1, Math.min(5000, Number(text))) })} />{session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</>}
+        utilityActions={<QueryUtilityActions hasResults={Boolean(result || trend || error || warning)} onClearResults={clearResults} onResetQuery={resetQuery} />}
+        editorActions={<>{mode === 'logql' && <button type="button" className="btn ghost" onClick={() => void format()} disabled={!query.trim()}>Format</button>}<CopySqlButton sql={expression} language="LogQL" /></>}
+        executionAction={<button className="btn primary" type="button" onClick={() => void run()} disabled={loading || !expression.trim()} title="Run (Ctrl/Command+Enter)">{loading ? 'Running…' : 'Run'}</button>}
+      />
+      {mode === 'logql' ? <div className={styles.editor}><QueryCodeEditor value={query} minHeight="66px" maxHeight="150px" extensions={[logql()]} onChange={(value) => setSql(value)} ariaLabel="LogQL editor" onRun={() => void run()} /></div> : <LokiBuilderPanel value={builder} generated={generated} labels={labels} connectionId={connectionId} bounds={labelResource.bounds} groupBy={groupBy} metadataStatus={labelResource.status} metadataError={labelResource.error} onChange={(lokiBuilder) => setLokiState({ lokiBuilder })} onGroupByChange={(lokiGroupBy) => setLokiState({ lokiGroupBy })} onOpenLogql={() => { setSql(generated); setMode('sql') }} />}
     </section>
     {error && <div className={`${styles.status} ${styles.error}`} role="alert">{error}</div>}{labelResource.status === 'error' && <div className={styles.status}>Metadata unavailable: {labelResource.error}. Raw LogQL remains available.</div>}{warning && <div className={styles.status}>{warning}</div>}
     <section className={styles.results} aria-label="Loki query results">{result?.resultKind === 'logs' ? <>

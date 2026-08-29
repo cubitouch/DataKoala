@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ labels: vi.fn() }))

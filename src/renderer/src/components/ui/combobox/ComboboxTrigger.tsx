@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import { PopoverChevron } from '../Popover'
 import styles from './Combobox.module.css'
 import type { ComboboxOption } from './types'

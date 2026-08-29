@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import { resultFilterLabel, type ResultFilter } from '../../lib/resultFilters'
 import styles from './ResultFilterChip.module.css'
 

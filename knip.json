@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main/index.ts",
+    "src/preload/index.ts",
+    "src/renderer/src/main.tsx",
+    "src/renderer/src/preload.d.ts",
+    "src/**/*.test.{ts,tsx}",
+    "scripts/**/*.{mjs,ts}",
+    "*.config.ts",
+    "docs-site/vite.config.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{mjs,ts}", "*.config.ts", "docs-site/**/*.ts"],
+  "include": ["files", "dependencies", "unlisted", "binaries"]
+}

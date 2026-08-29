@@ -1,5 +1,4 @@
 import React, { useEffect, useId, useRef } from 'react'
-void React
 import type { DataSourceProfile } from '@shared/types'
 import styles from './DeleteConnectionDialog.module.css'
 
