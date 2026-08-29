@@ -236,7 +236,7 @@ export function Sidebar() {
       const isConnecting = activeId === profile.id && connecting
       const isSelected = activeTabConnectionId === profile.id
       const isLive = activeId === profile.id && connected
-      return <div key={profile.id} className={cx(styles.connItem, isLive && styles.active, isConnecting && styles.connecting)} data-connection-item data-connection-live={isLive || undefined}
+      return <div key={profile.id} className={cx(styles.connItem, isSelected && styles.selected, isLive && styles.active, isConnecting && styles.connecting)} data-connection-item data-connection-live={isLive || undefined}
         onClick={() => { if (!connecting) void connect(profile) }} aria-busy={isConnecting} aria-current={isSelected ? 'true' : undefined}>
         <span className={isConnecting ? styles.spinner : styles.dot} aria-label={isConnecting ? 'Connecting' : undefined} />
         <span className={styles.name} data-connection-name>{profile.name}</span>

@@ -22,6 +22,7 @@ vi.mock('../lib/api', () => ({ api: { connections: {
 } } }))
 
 import { Sidebar } from './Sidebar'
+import styles from './Sidebar.module.css'
 import { api } from '../lib/api'
 import { resetTestStore } from '../test/sessionTestUtils'
 import { createQuerySession, useStore } from '../store/useStore'
@@ -66,9 +67,16 @@ it('shows a selected non-live profile without persistent connect-on-run copy', a
 
   const item = (await screen.findByText('Analytics')).closest<HTMLElement>('[data-connection-item]')!
   expect(item.getAttribute('aria-current')).toBe('true')
+  expect(item.classList.contains(styles.selected)).toBe(true)
   expect(item.hasAttribute('data-connection-live')).toBe(false)
   expect(within(item).getByText('BigQuery')).toBeTruthy()
   expect(screen.queryByText(/connect on run/i)).toBeNull()
+
+  const liveItem = screen.getByText('Orders').closest<HTMLElement>('[data-connection-item]')!
+  expect(liveItem.hasAttribute('data-connection-live')).toBe(true)
+  expect(liveItem.classList.contains(styles.active)).toBe(true)
+  expect(liveItem.classList.contains(styles.selected)).toBe(false)
+  expect(liveItem.hasAttribute('aria-current')).toBe(false)
 })
 
 it('retains compact progress feedback during an active connection attempt', async () => {

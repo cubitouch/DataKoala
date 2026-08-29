@@ -2,7 +2,7 @@
 .sidebar h3 { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--text-mute); margin: 14px 0 6px; font-weight: 600; flex: none; }
 .connItem { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding: 7px 8px; border-radius: 6px; cursor: pointer; color: var(--text-dim); flex: none; }
 .connItem:hover { background: var(--bg-3); color: var(--text); }
-.connItem.active { background: var(--bg-4); color: var(--text); }
+.connItem.selected { background: var(--bg-4); color: var(--text); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-mute); flex-shrink: 0; }
 .active .dot { background: var(--green); }
 .spinner { width: 11px; height: 11px; flex: 0 0 11px; border-radius: 50%; border: 2px solid var(--text-mute); border-top-color: var(--accent); animation: spin .75s linear infinite; }
