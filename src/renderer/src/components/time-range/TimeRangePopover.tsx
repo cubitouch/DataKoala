@@ -1,3 +1,5 @@
+import React from 'react'
+void React
 import styles from './TimeRange.module.css'
 import { EMPTY_BUILDER_CUSTOM_RANGE, validateBuilderTimeRange, type BuilderTimeRange } from '../../lib/builderTimeRange'
 import { CustomDateTimeRangeEditor } from './CustomDateTimeRangeEditor'

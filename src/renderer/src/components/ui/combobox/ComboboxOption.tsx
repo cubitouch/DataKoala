@@ -1,3 +1,5 @@
+import React from 'react'
+void React
 import styles from './Combobox.module.css'
 import type { ComboboxOption as ComboboxOptionModel } from './types'
 

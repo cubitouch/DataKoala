@@ -1,3 +1,5 @@
+import React from 'react'
+void React
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LokiProfile } from '@shared/types'

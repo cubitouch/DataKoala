@@ -1,6 +1,7 @@
 import { TextInput } from './ui/TextInput'
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactCodeMirrorRef } from '@uiw/react-codemirror'
+import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror'
+import { oneDark } from '@codemirror/theme-one-dark'
 import type { QueryResult } from '@shared/types'
 import type { TempoAttribute, TempoSearchProgress } from '@shared/tempo'
 import { api } from '../lib/api'
@@ -32,8 +33,6 @@ import { formatTraceql } from '../lib/formatTraceql'
 import { notify } from './NotificationArea'
 import { ModeSwitch } from './ModeSwitch'
 import { QueryUtilityActions } from './QueryUtilityActions'
-import { QueryCodeEditor } from './query/QueryCodeEditor'
-import { QueryToolbar } from './query/QueryToolbar'
 import { CopySqlButton } from './CopySqlButton'
 import { defaultQueryTextForDatasource } from '../lib/queryDefaults'
 
@@ -645,18 +644,24 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
         </form>
 
         <form className={styles.searchForm} onSubmit={submitSearch} onKeyDown={onTraceqlKeyDown}>
-          <QueryToolbar className={styles.queryToolbar} queryOptionsClassName={styles.queryOptions} editorActionsClassName={styles.editorActions}
-            modeControl={<ModeSwitch />}
-            queryOptionsAriaLabel="Tempo query options"
-            queryOptions={<><TimeRangeField labelVisibility="sr-only" value={searchRange} onChange={setSearchRange} /><div className={styles.sampleSize}><Combobox label="Sample size" mode="inline" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div></>}
-            utilityActions={<QueryUtilityActions hasResults={Boolean(searchRows.length || spans.length || searchNotice || searchProgress || error || cohortHint)} onClearResults={clearTempoResults} onResetQuery={resetTempoQuery} />}
-            editorActions={<>{mode === 'sql' && <button type="button" className="btn ghost" onClick={formatCurrentTraceql} title="Format TraceQL (Shift+Alt+F)" disabled={!traceql.trim()}>Format</button>}<CopySqlButton sql={traceql} language="TraceQL" /></>}
-            executionAction={<button className="btn primary" type="submit" data-tempo-run-query disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button>}
-          />
+          <div className={`editor-head data-query-toolbar ${styles.queryToolbar}`} data-query-toolbar>
+            <div className="query-toolbar-group query-mode-group"><ModeSwitch /></div>
+            <div className={`query-toolbar-group query-time-group ${styles.queryOptions}`} aria-label="Tempo query options">
+              <TimeRangeField labelVisibility="sr-only" value={searchRange} onChange={setSearchRange} />
+              <div className={styles.sampleSize}><Combobox label="Sample size" mode="inline" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div>
+            </div>
+            <div className="spacer" />
+            <div className="query-toolbar-group"><QueryUtilityActions hasResults={Boolean(searchRows.length || spans.length || searchNotice || searchProgress || error || cohortHint)} onClearResults={clearTempoResults} onResetQuery={resetTempoQuery} /></div>
+            <div className={`query-toolbar-group query-editor-actions ${styles.editorActions}`}>
+              {mode === 'sql' && <button type="button" className="btn ghost" onClick={formatCurrentTraceql} title="Format TraceQL (Shift+Alt+F)" disabled={!traceql.trim()}>Format</button>}
+              <CopySqlButton sql={traceql} language="TraceQL" />
+            </div>
+            <div className="query-toolbar-group execution-group"><button className="btn primary" type="submit" data-tempo-run-query disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button></div>
+          </div>
           {mode === 'builder'
             ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} attributes={attributes} attributesLoading={attributesLoading} attributesError={attributesError} attributeValues={advancedValues} attributeValuesLoading={advancedValuesLoading} attributeValuesError={advancedValuesError} onChange={updateBuilder} onOpenTraceql={() => { setSql(traceql); setQueryMode('sql') }} />
             : <div className={styles.traceqlField}>
-              <QueryCodeEditor ref={traceqlEditorRef} value={traceql} minHeight="66px" maxHeight="160px" extensions={traceqlExtensions} onChange={(value) => setSql(value)} ariaLabel="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} />
+              <CodeMirror ref={traceqlEditorRef} value={traceql} minHeight="66px" maxHeight="160px" theme={oneDark} extensions={traceqlExtensions} onChange={(value) => setSql(value)} aria-label="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} basicSetup={{ lineNumbers: true, foldGutter: false }} />
             </div>}
         </form>
       </div>

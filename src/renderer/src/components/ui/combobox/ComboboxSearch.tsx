@@ -1,11 +1,12 @@
-import type { KeyboardEventHandler, RefObject } from 'react'
+import React from 'react'
+void React
 import { InputControl } from '../input/InputControl'
 import styles from './Combobox.module.css'
 interface Props {
   value: string
   onChange: (value: string) => void
-  onKeyDown: KeyboardEventHandler<HTMLInputElement>
-  inputRef: RefObject<HTMLInputElement | null>
+  onKeyDown: React.KeyboardEventHandler<HTMLInputElement>
+  inputRef: React.RefObject<HTMLInputElement | null>
   label: string
 }
 

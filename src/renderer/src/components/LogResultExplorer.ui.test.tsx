@@ -1,3 +1,5 @@
+import React from 'react'
+void React
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 vi.mock('@tanstack/react-virtual', () => ({ useVirtualizer: ({ count }: { count: number }) => ({ measure: vi.fn(), getTotalSize: () => count * 42, getVirtualItems: () => Array.from({ length: Math.min(count, 20) }, (_, index) => ({ index, start: index * 42 })), measureElement: vi.fn() }) }))

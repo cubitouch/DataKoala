@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { selectActiveSession, useStore } from '../store/useStore'
 import styles from './NotificationArea.module.css'
+void React
 
 export type NotificationDetail = { message: string; tone?: 'status' | 'error'; duration?: number }
 export const NOTIFICATION_EVENT = 'datakoala:notification'

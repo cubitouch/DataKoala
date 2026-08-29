@@ -1,4 +1,5 @@
-import type { KeyboardEvent } from 'react'
+import React from 'react'
+void React
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Popover } from '../Popover'
 import { FieldChrome } from '../FieldChrome'
@@ -26,7 +27,7 @@ export function MultiCombobox({ id, label, mode, labelVisibility, hint, warning,
   const toggle = (option = active) => { if (!option || option.disabled) return; onChange(values.includes(option.value) ? values.filter((value) => value !== option.value) : [...values, option.value]) }
   const remove = (value: string) => onChange(values.filter((existing) => existing !== value))
   const move = (direction: 1 | -1) => { if (!enabled.length) return; const index = active ? enabled.findIndex((option) => option.value === active.value) : -1; setActiveValue(enabled[(index + direction + enabled.length) % enabled.length].value) }
-  const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'ArrowDown') { event.preventDefault(); move(1) } else if (event.key === 'ArrowUp') { event.preventDefault(); move(-1) } else if (event.key === 'Home') { event.preventDefault(); setActiveValue(enabled[0]?.value ?? null) } else if (event.key === 'End') { event.preventDefault(); setActiveValue(enabled.at(-1)?.value ?? null) } else if (event.key === 'Enter' || (!searchable && event.key === ' ')) { event.preventDefault(); if (allowCustomValue && query.trim() && !options.some((option) => option.value === query.trim())) commitCustom(); else toggle() } else if (event.key === 'Escape' || event.key === 'Tab') setOpen(false); else if (event.key === 'Backspace' && searchable && query === '' && values.length) remove(values.at(-1)!) }
+  const onKeyDown = (event: React.KeyboardEvent) => { if (event.key === 'ArrowDown') { event.preventDefault(); move(1) } else if (event.key === 'ArrowUp') { event.preventDefault(); move(-1) } else if (event.key === 'Home') { event.preventDefault(); setActiveValue(enabled[0]?.value ?? null) } else if (event.key === 'End') { event.preventDefault(); setActiveValue(enabled.at(-1)?.value ?? null) } else if (event.key === 'Enter' || (!searchable && event.key === ' ')) { event.preventDefault(); if (allowCustomValue && query.trim() && !options.some((option) => option.value === query.trim())) commitCustom(); else toggle() } else if (event.key === 'Escape' || event.key === 'Tab') setOpen(false); else if (event.key === 'Backspace' && searchable && query === '' && values.length) remove(values.at(-1)!) }
   const clearAll = () => onChange([])
   const commitCustom = () => { const custom = query.trim(); if (custom && !values.includes(custom)) onChange([...values, custom]); setQuery('') }
   const triggerSummary = selectedOptions.length ? { value: 'summary', label: `${selectedOptions.length} selected` } : undefined

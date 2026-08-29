@@ -1,4 +1,5 @@
-import { forwardRef } from 'react'
+import React from 'react'
+void React
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,7 +9,7 @@ vi.mock('./NotificationArea', () => ({ notify }))
 vi.mock('../lib/api', () => ({ api: { tempoPerformanceEnabled: false, connections: { tempo: { attributes: vi.fn().mockResolvedValue([]), attributeValues: vi.fn().mockResolvedValue([]) } }, query: { run: vi.fn() } } }))
 vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: {} }))
 vi.mock('@uiw/react-codemirror', () => ({
-  default: forwardRef(function MockCodeMirror({ value, onChange, ...props }: { value: string; onChange: (value: string) => void; 'aria-label'?: string }, _ref) {
+  default: React.forwardRef(function MockCodeMirror({ value, onChange, ...props }: { value: string; onChange: (value: string) => void; 'aria-label'?: string }, _ref) {
     return <textarea aria-label={props['aria-label']} value={value} onChange={(event) => onChange(event.target.value)} />
   })
 }))

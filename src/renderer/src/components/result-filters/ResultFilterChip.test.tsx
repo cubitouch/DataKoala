@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import React from 'react'
+void React
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createResultFilter, stableResultFilterId, type ResultFilter } from '../../lib/resultFilters'
