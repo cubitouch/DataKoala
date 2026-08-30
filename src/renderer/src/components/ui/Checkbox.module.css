@@ -1,4 +1,0 @@
-.root { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
-.root input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
-.root:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
-.root:has(input:disabled) { cursor: not-allowed; opacity: .55; }

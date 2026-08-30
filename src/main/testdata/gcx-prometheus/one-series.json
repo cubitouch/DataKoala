@@ -1,1 +1,0 @@
-{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"__name__":"up","instance":"a"},"values":[[1723622400,"1"],[1723622430,"0"]]}]}}

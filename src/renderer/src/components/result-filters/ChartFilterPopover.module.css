@@ -1,3 +1,0 @@
-.popover { position: fixed; z-index: 45; min-width: 260px; max-width: calc(100vw - 16px); padding: 5px; background: var(--bg-4); border: 1px solid var(--border); border-radius: 7px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
-.popover button { display: block; width: 100%; padding: 7px 9px; border: 0; border-radius: 4px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
-.popover button:hover, .popover button:focus-visible { background: rgba(255,255,255,.08); outline: none; }
