@@ -63,6 +63,7 @@ export const EMPTY_TRACE_BUILDER: TraceBuilderState = {
 }
 
 const HTTP_METHOD = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)(?:\s+(.+))?$/i
+const HTTP_ENDPOINT_KEYS = ['span.http.route', 'span.url.template', 'span.url.path', 'span.http.target']
 
 function text(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
@@ -316,15 +317,8 @@ export function buildTraceql(builder: TraceBuilderState): string {
 
   if (builder.protocol === 'http') {
     if (builder.httpMethod.trim()) conditions.push(either(['span.http.request.method', 'span.http.method'], builder.httpMethod))
-    if (builder.endpoint.trim()) {
-      const endpointKeys = builder.spanKind === 'server'
-        ? ['span.http.route']
-        : builder.spanKind === 'client'
-          ? ['span.url.template', 'span.url.path']
-          : ['span.http.route', 'span.url.template', 'span.url.path']
-      conditions.push(either(endpointKeys, builder.endpoint))
-    }
-    if (!builder.httpMethod.trim() && !builder.endpoint.trim()) conditions.push(existsAny(['span.http.request.method', 'span.http.method', 'span.http.route', 'span.url.template']))
+    if (builder.endpoint.trim()) conditions.push(either(HTTP_ENDPOINT_KEYS, builder.endpoint))
+    if (!builder.httpMethod.trim() && !builder.endpoint.trim()) conditions.push(existsAny(['span.http.request.method', 'span.http.method', ...HTTP_ENDPOINT_KEYS]))
   }
 
   if (builder.protocol === 'rpc') {

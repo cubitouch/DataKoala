@@ -527,7 +527,7 @@ export class GcxTempoTransport implements TempoTransport {
     const started = Date.now()
     const perf = (request as TempoQueryContext | undefined)?.performance ?? createTempoPerformance(request?.diagnosticRequestId, 'trace.get')
     try {
-      const args = ['traces', 'get', traceId, ...this.commonArgs(), '-o', 'json']
+      const args = ['traces', 'get', traceId, ...this.commonArgs(), ...(request ? ['--from', request.start, '--to', request.end] : []), '-o', 'json']
       const gcxStarted = perf?.now() ?? 0
       const response = await this.run(args)
       const gcxWallMs = perf ? perf.now() - gcxStarted : 0

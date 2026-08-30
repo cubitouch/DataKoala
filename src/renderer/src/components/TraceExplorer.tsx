@@ -1,5 +1,5 @@
 import { TextInput } from './ui/TextInput'
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { oneDark } from '@codemirror/theme-one-dark'
 import type { QueryResult } from '@shared/types'
@@ -8,6 +8,7 @@ import { api } from '../lib/api'
 import { selectActiveSession, useStore } from '../store/useStore'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { TraceScatterChart } from './TraceScatterChart'
+import { TraceServiceMap } from './TraceServiceMap'
 import { TraceBuilderPanel } from './TraceBuilderPanel'
 import { Combobox } from './ui/combobox'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
@@ -35,12 +36,15 @@ import { ModeSwitch } from './ModeSwitch'
 import { QueryUtilityActions } from './QueryUtilityActions'
 import { CopySqlButton } from './CopySqlButton'
 import { defaultQueryTextForDatasource } from '../lib/queryDefaults'
+import { tempoTraceLookupRequest } from '../lib/traceCohort'
+import { useTraceCohortAnalysis } from '../lib/useTraceCohortAnalysis'
 
 interface TraceExplorerProps {
   connectionId: string
+  resizeHandle?: ReactNode
 }
 
-type ResultView = 'list' | 'scatter'
+type ResultView = 'list' | 'scatter' | 'service-map'
 
 const MAX_RENDERED_SPANS = 500
 const DEFAULT_TRACE_RANGE: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
@@ -214,7 +218,7 @@ function mergeSearchRows(existing: TraceRow[], incoming: TraceRow[]): TraceRow[]
   })
 }
 
-export function TraceExplorer({ connectionId }: TraceExplorerProps) {
+export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps) {
   const mode = useStore((state) => selectActiveSession(state).queryMode)
   const traceql = useStore((state) => selectActiveSession(state).sql)
   const metadata = useStore((state) => state.metadataByProfileId[connectionId])
@@ -251,6 +255,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   const traceRenderTiming = useRef<{ started: number; requestId?: string; spanCount: number } | null>(null)
   const traceqlEditorRef = useRef<ReactCodeMirrorRef>(null)
   const traceqlExtensions = useMemo(() => [traceqlSupport()], [])
+  const cohortAnalysis = useTraceCohortAnalysis(connectionId, searchRows)
 
   const formatCurrentTraceql = () => {
     if (mode !== 'sql' || !traceql.trim()) return
@@ -361,8 +366,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     return () => { current = false; window.clearTimeout(timer) }
   }, [advancedDiscoveryBaseContext, builder.advancedFilters, connected, connectionGeneration, connectionId, mode])
 
-  const runSearch = async (sampleOverride: TraceSampleSize = sampleSize, rangeOverride: BuilderTimeRange = searchRange) => {
-    const request = traceql.trim()
+  const runSearch = async (sampleOverride: TraceSampleSize = sampleSize, rangeOverride: BuilderTimeRange = searchRange, queryOverride?: string) => {
+    const request = (queryOverride ?? traceql).trim()
     if (!request) return
     if (rangeOverride.recurringWindows?.some((window) => window.from || window.to)) {
       setError('Recurring daily windows are not supported for Tempo trace searches yet. Choose a continuous range.')
@@ -385,6 +390,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
       ...(sampled ? { sampleSize: Number(sampleOverride) } : {})
     }
 
+    cohortAnalysis.reset()
+    setResultView((current) => current === 'service-map' ? 'list' : current)
     setLoading('search')
     setError('')
     setCohortHint('')
@@ -430,9 +437,10 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     setError('')
     setCohortHint('')
     const perfStarted = performance.now()
-    const openSource = searchRows.some((row) => canonicalTraceId(row.traceId) === request) ? 'search-result' : 'direct-id'
+    const sourceRow = searchRows.find((row) => canonicalTraceId(row.traceId) === request)
+    const openSource = sourceRow ? 'search-result' : 'direct-id'
     try {
-      const result = await api.query.run(connectionId, request, [], undefined, undefined, true)
+      const result = await api.query.run(connectionId, request, [], sourceRow ? tempoTraceLookupRequest(sourceRow) : undefined, undefined, true)
       tempoPerf('trace.result-renderer', { requestId: result.execution?.requestId, elapsedMs: performance.now() - perfStarted, spanCount: result.rows.length, openSource })
       if (isSpanResult(result)) {
         traceRenderTiming.current = { started: perfStarted, requestId: result.execution?.requestId, spanCount: result.rows.length }
@@ -574,14 +582,15 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
     const source = selectedSpan ?? rootSpan
     if (!source) return
     const next = traceBuilderFromSpan(source)
+    const query = buildTraceql(next)
     setBuilder(next)
-    setSql(buildTraceql(next))
+    setSql(query)
     setQueryMode('builder')
     setSpans([])
     setSelectedSpanId('')
-    setCohortHint(selectedSpan
-      ? 'Builder seeded from the selected span semantic attributes: service, span kind, protocol/operation and status when available. Adjust the cohort definition, then search similar traces.'
-      : 'Builder seeded from the trace root semantic attributes. Adjust the cohort definition, then search similar traces.')
+    cohortAnalysis.reset()
+    setResultView('list')
+    void runSearch(sampleSize, searchRange, query)
   }
 
   const toggleCollapse = (spanId: string) => setCollapsed((current) => {
@@ -603,6 +612,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   }
 
   const clearTempoResults = () => {
+    cohortAnalysis.reset()
     setSearchRows([])
     setSpans([])
     setTraceId('')
@@ -636,8 +646,8 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
   }))
 
   return (
-    <section className={styles.root} aria-label="Trace explorer">
-      <div className={styles.discoveryPanel}>
+    <section className={styles.root} aria-label="Trace explorer" style={{ gridTemplateRows: 'minmax(120px, var(--editor-height, 300px)) 8px auto auto minmax(0, 1fr)' }}>
+      <div className={styles.discoveryPanel} style={{ minHeight: 0, overflow: 'auto' }}>
         <form className={styles.traceIdBar} onSubmit={submitTraceId}>
           <TextInput label="Trace ID" mode="inline" id="trace-id" value={traceId} onValueChange={setTraceId} spellCheck={false} placeholder="4bf92f3577b34da6a3ce929d0e0e4736" />
           <button className="btn ghost" type="submit" disabled={loading !== null || !traceId.trim()}>{loading === 'trace' ? 'Opening…' : 'Open trace'}</button>
@@ -666,17 +676,18 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
         </form>
       </div>
 
-      {cohortHint && <div className={styles.cohortHint} role="status">{cohortHint}</div>}
-      {error && <div className={styles.error} role="alert">{error}</div>}
-      {loading === 'trace' && <div className={styles.warning} role="status" aria-live="polite"><strong>Opening trace…</strong> Fetching the full span tree from Tempo via gcx for <code>{traceId}</code>.</div>}
-      {loading === 'search' && <div className={styles.warning} role="status" aria-live="polite">
+      {resizeHandle}
+      {cohortHint && <div className={styles.cohortHint} role="status" style={{ gridRow: 3 }}>{cohortHint}</div>}
+      {error && <div className={styles.error} role="alert" style={{ gridRow: 4 }}>{error}</div>}
+      {loading === 'trace' && <div className={styles.warning} role="status" aria-live="polite" style={{ gridRow: 5 }}><strong>Opening trace…</strong> Fetching the full span tree from Tempo via gcx for <code>{traceId}</code>.</div>}
+      {loading === 'search' && <div className={styles.warning} role="status" aria-live="polite" style={{ gridRow: 5 }}>
         {sampledSearch ? <strong>Fetching up to {sampleSize} Tempo traces across the selected period…</strong> : searchProgress ? <>
           <div><strong>Fetching Tempo…</strong> {periodLabel(searchProgress.coveredMs)} / {periodLabel(searchProgress.totalMs)} covered ({progressPercent}%) · {searchProgress.completedChunks}/{currentChunkCount || 1} current chunks · {searchProgress.tracesFound} traces found · {searchProgress.queriesCompleted} {searchProgress.queriesCompleted === 1 ? 'query' : 'queries'}</div>
           <progress value={searchProgress.coveredMs} max={Math.max(1, searchProgress.totalMs)} aria-label={`Tempo search ${progressPercent}% complete`} style={{ width: '100%', marginTop: 6 }} />
         </> : <strong>Starting exhaustive Tempo search…</strong>}
       </div>}
 
-      {spans.length > 0 ? <div className={styles.traceView} aria-busy={loading === 'trace'}>
+      {spans.length > 0 ? <div className={styles.traceView} aria-busy={loading === 'trace'} style={{ gridRow: 5 }}>
         <header className={styles.traceHeader}>
           <div className={styles.traceTitle}>
             {searchRows.length > 0 && <button type="button" className="btn ghost" onClick={() => { setSpans([]); setSelectedSpanId('') }}>← Search results</button>}
@@ -742,13 +753,14 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
           </div>
           {selectedSpan && <SpanInspector span={selectedSpan} traceStart={traceStart} onClose={() => setSelectedSpanId('')} />}
         </div>
-      </div> : <div className={styles.searchResults} aria-busy={loading !== null}>
+      </div> : <div className={styles.searchResults} aria-busy={loading !== null} style={{ gridRow: 5 }}>
         <header className={styles.resultsHeader}>
           <div><h2>Trace search</h2><p>{searchNotice || 'Use the Builder or TraceQL to find candidate traces.'}</p></div>
           <div className={styles.resultsHeaderActions}>
             {searchRows.length > 0 && <div className={styles.resultViewSwitch} role="group" aria-label="Trace search result view">
               <button type="button" className={resultView === 'list' ? styles.modeActive : ''} aria-pressed={resultView === 'list'} onClick={() => setResultView('list')}>List</button>
               <button type="button" className={resultView === 'scatter' ? styles.modeActive : ''} aria-pressed={resultView === 'scatter'} onClick={() => setResultView('scatter')}>Scatter</button>
+              <button type="button" className={resultView === 'service-map' ? styles.modeActive : ''} aria-pressed={resultView === 'service-map'} disabled={loading === 'search'} onClick={() => { setResultView('service-map'); cohortAnalysis.ensureStarted() }}>Service map</button>
             </div>}
             {searchRows.length > 0 && <strong>{searchRows.length} traces{loading === 'search' ? ' so far' : ''}</strong>}
           </div>
@@ -756,6 +768,7 @@ export function TraceExplorer({ connectionId }: TraceExplorerProps) {
         {searchRows.length === 0 ? <div className={styles.empty}>{loading === 'search' ? 'Waiting for the first Tempo trace summaries…' : 'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.'}</div>
           : <>
               {resultView === 'scatter' ? <div className={styles.scatter} data-trace-scatter=""><TraceScatterChart option={scatterOption} searchRange={searchRange} onEvents={scatterEvents} onSelectRange={(next) => { setSearchRange(next); void runSearch(sampleSize, next) }} /></div>
+                : resultView === 'service-map' ? <TraceServiceMap aggregate={cohortAnalysis.aggregate} traces={cohortAnalysis.traces} progress={cohortAnalysis.progress} searchTraceCount={searchRows.length} sampleLimit={cohortAnalysis.sampleLimit} onSampleLimitChange={cohortAnalysis.changeSampleLimit} onRetry={cohortAnalysis.retry} onStop={cohortAnalysis.stop} onOpenTrace={(candidate) => void openTrace(candidate)} />
                 : <div className={styles.traceList}>{searchRows.map((row) => {
                   const status = traceResultStatus(row)
                   return <button key={text(row.traceId)} type="button" className={styles.traceResult} onClick={() => void openTrace(text(row.traceId))} disabled={loading !== null}>

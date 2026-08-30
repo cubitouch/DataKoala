@@ -14,12 +14,15 @@ vi.mock('@uiw/react-codemirror', () => ({
   })
 }))
 vi.mock('./TraceBuilderPanel', () => ({ TraceBuilderPanel: ({ value, traceql, onOpenTraceql, onChange }: { value: { advancedFilters: Array<{ attribute: string; scope: 'resource' | 'span'; mode: 'include'; values: string[] }> }; traceql: string; onOpenTraceql: () => void; onChange: (patch: { advancedFilters: unknown[] }) => void }) => <div data-testid="trace-builder">Builder remains available<output>{traceql}</output><span data-testid="selected-facets">{value.advancedFilters.map((filter) => `${filter.attribute}:${filter.values.join(',')}`).join('|')}</span><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })}>Add facet</button><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.a', scope: 'resource', mode: 'include', values: [] }, { attribute: 'span.b', scope: 'span', mode: 'include', values: [] }] })}>Select A and B</button><button type="button" onClick={() => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === 'resource.a' ? { ...filter, values: ['one'] } : filter) })}>Set A</button><button type="button" onClick={() => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === 'span.b' ? { ...filter, values: ['two'] } : filter) })}>Set B</button><button type="button" onClick={onOpenTraceql}>Open in TraceQL mode</button></div> }))
-vi.mock('./TraceScatterChart', () => ({ TraceScatterChart: () => null }))
+vi.mock('./TraceScatterChart', () => ({
+  TraceScatterChart: ({ onSelectRange }: { onSelectRange: (range: { kind: 'custom'; startDate: string; startTime: string; endDate: string; endTime: string; recurringWindows: [] }) => void }) => <button type="button" onClick={() => onSelectRange({ kind: 'custom', startDate: '2026-08-30', startTime: '10:00', endDate: '2026-08-30', endTime: '10:30', recurringWindows: [] })}>Refine scatter range</button>
+}))
 
 import { TraceExplorer } from './TraceExplorer'
 import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
 import { useStore } from '../store/useStore'
 import { formatTraceql } from '../lib/formatTraceql'
+import { api } from '../lib/api'
 
 describe('TraceExplorer TraceQL editor', () => {
   beforeEach(() => {
@@ -27,6 +30,7 @@ describe('TraceExplorer TraceQL editor', () => {
     patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'sql', sql: '{resource.service.name="checkout"}' })
     useStore.setState({ profiles: [{ id: 'tempo-1', name: 'Tempo', kind: 'tempo', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test' } }] })
     notify.mockReset()
+    vi.mocked(api.query.run).mockReset()
   })
   afterEach(cleanup)
 
@@ -95,5 +99,27 @@ describe('TraceExplorer TraceQL editor', () => {
     await waitFor(() => expect(activeTestSession().queryMode).toBe('sql'))
     expect(activeTestSession().sql).toBe(generated)
     expect(screen.getByRole('button', { name: 'TraceQL' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('keeps Scatter selected when a range refinement reruns the search', async () => {
+    const result = {
+      columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' as const }],
+      rows: [{ traceId: '00000000000000000000000000000001', rootService: 'service-01', rootOperation: 'GET /example', startTimeMs: Date.now() - 60_000, durationMs: 120, matchedSpans: 3, status: 'ok' }],
+      rowCount: 1,
+      durationMs: 1,
+      notice: 'Synthetic search'
+    }
+    vi.mocked(api.query.run).mockResolvedValue(result)
+    render(<TraceExplorer connectionId="tempo-1" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(screen.getByText('1 traces')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Scatter' }))
+    expect(screen.getByRole('button', { name: 'Scatter' }).getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refine scatter range' }))
+    await waitFor(() => expect(vi.mocked(api.query.run)).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Scatter' }).getAttribute('aria-pressed')).toBe('true'))
+    expect(screen.getByRole('button', { name: 'Refine scatter range' })).toBeTruthy()
   })
 })
