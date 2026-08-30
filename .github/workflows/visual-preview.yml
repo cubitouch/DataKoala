@@ -26,6 +26,9 @@ jobs:
         tempo-trace-builder.png
         tempo-trace-search.png
         tempo-trace-scatter.png
+        tempo-service-map.png
+        tempo-service-map-dense.png
+        tempo-service-map-fullscreen.png
         tempo-waterfall.png
         loki-log-list.png
         loki-log-chart.png
@@ -76,8 +79,11 @@ jobs:
       - name: Capture application previews
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
 
-      - name: Capture realistic Tempo previews
+      - name: Capture synthetic Tempo previews
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-trace-preview.mjs
+
+      - name: Capture fullscreen Tempo service map
+        run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-service-map-fullscreen-preview.mjs
 
       - name: Capture realistic Loki preview
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-loki-preview.mjs
@@ -146,10 +152,13 @@ jobs:
               'prometheus-toolbar-narrow.png': 'Prometheus — narrow responsive toolbar',
               'prometheus-builder.png': 'Prometheus Builder — metric, filters, grouping, and calculation',
               'prometheus-builder-narrow.png': 'Prometheus Builder — narrow responsive layout',
-              'tempo-trace-builder.png': 'Tempo Builder — TraceQL query shell and generated query',
-              'tempo-trace-search.png': 'Tempo — realistic checkout trace search',
-              'tempo-trace-scatter.png': 'Tempo — checkout traces by time, duration, and status',
-              'tempo-waterfall.png': 'Tempo — checkout waterfall with selected failing payment span',
+              'tempo-trace-builder.png': 'Tempo Builder — synthetic TraceQL query shell',
+              'tempo-trace-search.png': 'Tempo — synthetic trace search',
+              'tempo-trace-scatter.png': 'Tempo — synthetic traces by time, duration, and status',
+              'tempo-service-map.png': 'Tempo — synthetic cohort service map and bottlenecks',
+              'tempo-service-map-dense.png': 'Tempo — synthetic dense 60-service cohort map',
+              'tempo-service-map-fullscreen.png': 'Tempo — synthetic fullscreen async-branch map with Top 10 bottlenecks',
+              'tempo-waterfall.png': 'Tempo — synthetic waterfall with selected failing dependency span',
               'loki-log-list.png': 'Loki — production checkout logs and selected event inspector',
               'loki-log-chart.png': 'Loki — production incident log-volume trend',
               'sql-resized-panes.png': 'SQL mode — resized sidebar and editor',
