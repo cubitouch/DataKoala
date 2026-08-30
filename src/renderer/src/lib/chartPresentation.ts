@@ -10,6 +10,9 @@ const DATAKOALA_CHART_COLORS = ['#f5cf33', '#62b8c5', '#ef8a62', '#8c9be8', '#70
 export const CHART_LEGEND_WIDTH = 180
 export const CHART_LEGEND_GAP = 16
 export const CHART_LEGEND_RIGHT = 12
+const CHART_LEGEND_MARKER_WIDTH = 25
+const CHART_LEGEND_TEXT_GAP = 8
+export const CHART_LEGEND_TEXT_WIDTH = CHART_LEGEND_WIDTH - CHART_LEGEND_MARKER_WIDTH - CHART_LEGEND_TEXT_GAP
 const CHART_GRID_RIGHT_WITH_LEGEND = CHART_LEGEND_WIDTH + CHART_LEGEND_GAP + CHART_LEGEND_RIGHT
 const CHART_GRID_RIGHT_COMPACT = 24
 const CHART_GRID_TOP = 20
@@ -201,9 +204,9 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     legend: {
       show: hasMultipleSeries,
       orient: 'vertical', type: 'scroll', top: CHART_LEGEND_VERTICAL_INSET, bottom: CHART_LEGEND_VERTICAL_INSET,
-      right: CHART_LEGEND_RIGHT, width: CHART_LEGEND_WIDTH, selected: input.visibility,
+      right: CHART_LEGEND_RIGHT, width: CHART_LEGEND_WIDTH, itemWidth: CHART_LEGEND_MARKER_WIDTH, selected: input.visibility,
       tooltip: { show: true },
-      textStyle: { color: '#9aa0b0', width: CHART_LEGEND_WIDTH, overflow: 'truncate', ellipsis: '…' }
+      textStyle: { color: '#9aa0b0', width: CHART_LEGEND_TEXT_WIDTH, overflow: 'truncate', ellipsis: '…' }
     },
     grid: { left: 50, right: hasMultipleSeries ? CHART_GRID_RIGHT_WITH_LEGEND : CHART_GRID_RIGHT_COMPACT, top: CHART_GRID_TOP, bottom: 45 },
     // Keep the plot useful when reserving a fixed-width side legend would consume
@@ -213,8 +216,8 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
         query: { maxWidth: CHART_NARROW_WIDTH },
         option: {
           legend: {
-            orient: 'horizontal', top: 4, bottom: 'auto', left: 8, right: 8, width: 'auto',
-            textStyle: { color: '#9aa0b0', width: CHART_LEGEND_WIDTH, overflow: 'truncate', ellipsis: '…' }
+            orient: 'horizontal', top: 4, bottom: 'auto', left: 8, right: 8, width: 'auto', itemWidth: CHART_LEGEND_MARKER_WIDTH,
+            textStyle: { color: '#9aa0b0', width: CHART_LEGEND_TEXT_WIDTH, overflow: 'truncate', ellipsis: '…' }
           },
           grid: { left: 50, right: CHART_GRID_RIGHT_COMPACT, top: CHART_GRID_TOP_WITH_HORIZONTAL_LEGEND, bottom: 45 }
         }

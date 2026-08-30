@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import {
   buildChartPresentationOptions,
   buildChartTooltipFormatter,
+  CHART_LEGEND_TEXT_WIDTH,
   formatChartNumber,
   formatTimeBucketLabel,
   inferTimeDisplayPrecision,
@@ -95,7 +96,7 @@ test('multi-series presentation uses a bounded right legend with a narrow fallba
   assert.deepEqual(legend.selected, visibility)
   assert.ok((legend.width as number) >= 160)
   assert.equal((legend.tooltip as { show: boolean }).show, true)
-  assert.deepEqual(legend.textStyle, { color: '#9aa0b0', width: 180, overflow: 'truncate', ellipsis: '…' })
+  assert.deepEqual(legend.textStyle, { color: '#9aa0b0', width: CHART_LEGEND_TEXT_WIDTH, overflow: 'truncate', ellipsis: '…' })
   assert.ok(grid.right >= 200)
   assert.ok(grid.top < 42)
 
