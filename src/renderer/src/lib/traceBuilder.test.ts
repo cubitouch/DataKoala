@@ -37,19 +37,37 @@ test('builds service, kind, status and duration filters with scoped intrinsics',
   )
 })
 
-test('HTTP controls separate method from route and tolerate old method attributes', () => {
+test('HTTP controls separate method from route and tolerate semantic-convention aliases', () => {
   assert.equal(
     buildTraceql(builder({ spanKind: 'server', protocol: 'http', httpMethod: 'POST', endpoint: '/checkout' })),
-    '{ span:kind = server && (span.http.request.method = "POST" || span.http.method = "POST") && span.http.route = "/checkout" }'
+    '{ span:kind = server && (span.http.request.method = "POST" || span.http.method = "POST") && (span.http.route = "/checkout" || span.url.template = "/checkout" || span.url.path = "/checkout" || span.http.target = "/checkout") }'
   )
   assert.equal(
     buildTraceql(builder({ spanKind: 'client', protocol: 'http', endpoint: '/payments/{id}' })),
-    '{ span:kind = client && (span.url.template = "/payments/{id}" || span.url.path = "/payments/{id}") }'
+    '{ span:kind = client && (span.http.route = "/payments/{id}" || span.url.template = "/payments/{id}" || span.url.path = "/payments/{id}" || span.http.target = "/payments/{id}") }'
   )
+})
+
+test('server Explore similar queries preserve url.path-only root spans', () => {
+  const seeded = traceBuilderFromSpan({
+    serviceNamespace: 'commerce',
+    service: 'checkout-api',
+    kind: 'SERVER',
+    name: 'POST /checkout/42',
+    status: 'UNSET',
+    attributes: JSON.stringify({ 'http.request.method': 'POST', 'url.path': '/checkout/42' })
+  })
+  const query = buildTraceql(seeded)
+
+  assert.equal(seeded.protocol, 'http')
+  assert.equal(seeded.endpoint, '/checkout/42')
+  assert.match(query, /span\.url\.path = "\/checkout\/42"/)
+  assert.match(query, /span:kind = server/)
 })
 
 test('protocol-only filters still narrow the search', () => {
   assert.match(buildTraceql(builder({ protocol: 'http' })), /span\.http\.request\.method != nil/)
+  assert.match(buildTraceql(builder({ protocol: 'http' })), /span\.url\.path != nil/)
   assert.equal(buildTraceql(builder({ protocol: 'rpc' })), '{ span.rpc.system != nil }')
   assert.equal(buildTraceql(builder({ protocol: 'messaging' })), '{ span.messaging.system != nil }')
   assert.match(buildTraceql(builder({ protocol: 'database' })), /span\.db\.system\.name != nil/)

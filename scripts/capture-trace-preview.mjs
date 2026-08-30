@@ -2,7 +2,8 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { previewTraceId, previewTraceResult, previewTraceSearchResult } from './visual-preview/trace-fixtures.mjs'
+import { previewTraceId, previewTraceResultForId, previewTraceSearchResult } from './visual-preview/trace-fixtures.mjs'
+import { previewDenseTraceResultForId, previewDenseTraceSearchResult } from './visual-preview/trace-dense-fixtures.mjs'
 import { assertCompactObjectFilter, assertFieldRowGeometry } from './visual-preview/assertions.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -10,6 +11,7 @@ const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWi
 const outputDir = resolve(process.env.DATAKOALA_PREVIEW_OUTPUT ?? outputArgument ?? 'visual-preview')
 
 process.env.DATAKOALA_SMOKE = '1'
+let densePreview = false
 
 const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 
@@ -38,26 +40,26 @@ async function seedTraceWorkspace(win) {
     const state = store.getState()
     const profile = {
       id: 'preview-tempo',
-      name: 'Production traces',
+      name: 'Synthetic traces',
       kind: 'tempo',
       version: 1,
       readonly: true,
-      transport: { kind: 'gcx', context: 'production' }
+      transport: { kind: 'gcx', context: 'synthetic' }
     }
     const schemas = [
-      { name: 'commerce', isSystem: false, relations: [
-        { schema: 'commerce', name: 'checkout-api', qualifiedName: 'commerce.checkout-api', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } },
-        { schema: 'commerce', name: 'inventory-service', qualifiedName: 'commerce.inventory-service', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } },
-        { schema: 'commerce', name: 'payment-service', qualifiedName: 'commerce.payment-service', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } },
-        { schema: 'commerce', name: 'redis', qualifiedName: 'commerce.redis', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } },
-        { schema: 'commerce', name: 'postgres', qualifiedName: 'commerce.postgres', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'commerce' } }
+      { name: 'example', isSystem: false, relations: [
+        { schema: 'example', name: 'service-01', qualifiedName: 'example.service-01', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'example' } },
+        { schema: 'example', name: 'service-02', qualifiedName: 'example.service-02', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'example' } },
+        { schema: 'example', name: 'service-03', qualifiedName: 'example.service-03', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'example' } },
+        { schema: 'example', name: 'cache-01', qualifiedName: 'example.cache-01', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'example' } },
+        { schema: 'example', name: 'database-01', qualifiedName: 'example.database-01', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'example' } }
       ] },
       { name: 'platform', isSystem: false, relations: [
-        { schema: 'platform', name: 'kafka', qualifiedName: 'platform.kafka', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'platform' } }
+        { schema: 'platform', name: 'broker-01', qualifiedName: 'platform.broker-01', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'platform' } }
       ] },
-      { name: 'fulfilment', isSystem: false, relations: [
-        { schema: 'fulfilment', name: 'fulfilment-worker', qualifiedName: 'fulfilment.fulfilment-worker', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'fulfilment' } },
-        { schema: 'fulfilment', name: 'warehouse-service', qualifiedName: 'fulfilment.warehouse-service', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'fulfilment' } }
+      { name: 'workers', isSystem: false, relations: [
+        { schema: 'workers', name: 'worker-01', qualifiedName: 'workers.worker-01', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'workers' } },
+        { schema: 'workers', name: 'service-04', qualifiedName: 'workers.service-04', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'workers' } }
       ] }
     ]
     store.setState({
@@ -74,14 +76,15 @@ async function seedTraceWorkspace(win) {
       },
       tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
         ...tab,
-        title: 'Checkout latency',
+        title: 'Synthetic latency',
         connectionProfileId: profile.id,
         queryMode: 'builder',
-        sql: '{ resource.service.namespace = "commerce" && resource.service.name = "checkout-api" && duration > 300ms }'
+        sql: '{ resource.service.namespace = "example" && resource.service.name = "service-01" && duration > 300ms }'
       } : tab)
     })
   })()`)
-  await waitFor(win, `document.querySelector('section[aria-label="Trace explorer"]') && document.body.innerText.includes('Production traces') && document.body.innerText.includes('checkout-api')`, 'seeded Tempo workspace and service tree')
+  await waitFor(win, `document.querySelector('section[aria-label="Trace explorer"]') && document.body.innerText.includes('Synthetic traces') && document.body.innerText.includes('service-01')`, 'seeded synthetic Tempo workspace and service tree')
+  await waitFor(win, `document.querySelector('[aria-label="Resize Tempo query and results"]')`, 'Tempo query/results resize handle')
 }
 
 async function validateBuilderIndependence(win) {
@@ -101,19 +104,26 @@ async function validateBuilderIndependence(win) {
       duration: duration.value
     }
     const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(exactSpan), 'value')
-    descriptor.set.call(exactSpan, 'POST /checkout')
+    descriptor.set.call(exactSpan, 'POST /example')
     exactSpan.dispatchEvent(new Event('input', { bubbles: true }))
     return JSON.stringify({ before })
   })()`))
   if (report.error) throw new Error(report.error)
-  if (report.before.namespace !== 'Namespace: commerce' || report.before.service !== 'Service: checkout-api' || report.before.protocol !== 'Protocol or subsystem: Any protocol' || report.before.exactSpan !== '' || report.before.duration !== '300') {
+  if (report.before.namespace !== 'Namespace: example' || report.before.service !== 'Service: service-01' || report.before.protocol !== 'Protocol or subsystem: Any protocol' || report.before.exactSpan !== '' || report.before.duration !== '300') {
     throw new Error(`Builder parser cross-wired structured fields: ${JSON.stringify(report.before)}`)
   }
   await waitFor(win, `(() => {
     const builder=document.querySelector('[data-tempo-builder]');
     const control=(name)=>builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]');
-    return control('Service')?.querySelector('button')?.getAttribute('aria-label') === 'Service: checkout-api' && control('Exact span / operation name')?.querySelector('input')?.value === 'POST /checkout';
+    return control('Service')?.querySelector('button')?.getAttribute('aria-label') === 'Service: service-01' && control('Exact span / operation name')?.querySelector('input')?.value === 'POST /example';
   })()`, 'independent Service and advanced operation values')
+}
+
+async function clickRun(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const section = document.querySelector('section[aria-label="Trace explorer"]')
+    section?.querySelector('[data-tempo-run-query]')?.click()
+  })()`)
 }
 
 async function searchTraces(win) {
@@ -134,12 +144,8 @@ async function searchTraces(win) {
     return { helperAbsent: !text.includes('returns up to') && !text.includes('choose All') && !/max \d+ traces|sample up to \d+ traces/i.test(text), modeTop: mode?.top, runTop: run?.top, overflow: bar ? bar.scrollWidth > bar.clientWidth : true }
   })()`)
   if (!toolbar.helperAbsent || toolbar.overflow || Math.abs(toolbar.modeTop - toolbar.runTop) > 2) throw new Error(`Tempo toolbar regression: ${JSON.stringify(toolbar)}`)
-  await win.webContents.executeJavaScript(`(() => {
-    const section = document.querySelector('section[aria-label="Trace explorer"]')
-    const button = section?.querySelector('[data-tempo-run-query]')
-    button?.click()
-  })()`)
-  await waitFor(win, `document.body.innerText.includes('5 traces') && document.body.innerText.includes('POST /checkout') && document.body.innerText.includes('1.48s') && document.body.innerText.includes('16 matched spans') && document.querySelector('[aria-label="Successful trace"]') && document.querySelector('[aria-label="Error trace"]')`, 'realistic Tempo list results with statuses')
+  await clickRun(win)
+  await waitFor(win, `document.body.innerText.includes('5 traces') && document.body.innerText.includes('POST /example') && document.body.innerText.includes('1.48s') && document.body.innerText.includes('16 matched spans') && document.querySelector('[aria-label="Successful trace"]') && document.querySelector('[aria-label="Error trace"]')`, 'synthetic Tempo list results with statuses')
 }
 
 async function showScatter(win) {
@@ -150,6 +156,39 @@ async function showScatter(win) {
   })()`)
   await waitFor(win, `document.querySelector('[data-trace-scatter] canvas') && document.querySelector('[aria-label="Trace search result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Scatter'`, 'Tempo scatter results')
   await sleep(400)
+}
+
+async function showServiceMap(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Service map')
+    button?.click()
+  })()`)
+  await waitFor(win, `document.querySelector('[data-trace-service-map] canvas') && document.body.innerText.includes('Bottleneck candidates') && document.body.innerText.includes('service-03') && document.body.innerText.includes('slow traces')`, 'Tempo cohort service map and bottleneck candidates')
+  await sleep(500)
+}
+
+async function showDenseServiceMap(win) {
+  densePreview = true
+  await clickRun(win)
+  await waitFor(win, `document.body.innerText.includes('20 traces') && document.body.innerText.includes('synthetic-gateway')`, 'dense Tempo search results')
+  await win.webContents.executeJavaScript(`(() => {
+    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Service map')
+    button?.click()
+  })()`)
+  await waitFor(win, `(() => {
+    const map = document.querySelector('[data-trace-service-map]')
+    const text = map?.innerText ?? ''
+    return Boolean(map?.querySelector('canvas')) && map?.getAttribute('data-service-map-grouping') === 'namespace' && text.includes('Bottleneck candidates') && text.includes('5 collapsed namespaces') && text.includes('60')
+  })()`, 'dense grouped 60-service Tempo map')
+  await sleep(700)
+}
+
+async function restoreStandardSearch(win) {
+  densePreview = false
+  await clickRun(win)
+  await waitFor(win, `document.body.innerText.includes('5 traces') && document.body.innerText.includes('1.48s')`, 'restored standard Tempo search')
 }
 
 async function showList(win) {
@@ -164,25 +203,25 @@ async function showList(win) {
 async function openPreviewTrace(win) {
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
-    const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('checkout-api') && candidate.textContent?.includes('POST /checkout') && candidate.textContent?.includes('1.48s'))
+    const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('service-01') && candidate.textContent?.includes('POST /example') && candidate.textContent?.includes('1.48s'))
     button?.click()
   })()`)
-  await waitFor(win, `(() => { const section = document.querySelector('section[aria-label="Trace explorer"]'); const text = section?.innerText ?? ''; return text.includes('Span tree') && text.includes('payment-service') && text.includes('Show async branches') && !text.includes('fulfilment-worker') && text.includes('Explore similar traces') })()`, 'opened focused checkout trace waterfall')
+  await waitFor(win, `(() => { const section = document.querySelector('section[aria-label="Trace explorer"]'); const text = section?.innerText ?? ''; return text.includes('Span tree') && text.includes('service-03') && text.includes('Show async branches') && !text.includes('worker-01') && text.includes('Explore similar traces') })()`, 'opened focused synthetic trace waterfall')
 }
 
-async function selectPaymentSpan(win) {
+async function selectHotspotSpan(win) {
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
-    const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('payment-service') && candidate.textContent?.includes('POST /charges'))
+    const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('service-03') && candidate.textContent?.includes('POST /dependency-b'))
     button?.click()
   })()`)
-  await waitFor(win, `document.querySelector('aside[aria-label="Selected span details"]') && document.querySelector('button[aria-label="Close span details"]') && document.body.innerText.includes('TimeoutError') && document.body.innerText.includes('HTTP & network') && document.body.innerText.includes('Error')`, 'structured closable payment HTTP span inspector')
+  await waitFor(win, `document.querySelector('aside[aria-label="Selected span details"]') && document.querySelector('button[aria-label="Close span details"]') && document.body.innerText.includes('TimeoutError') && document.body.innerText.includes('HTTP & network') && document.body.innerText.includes('Error')`, 'structured closable synthetic HTTP span inspector')
 }
 
 async function validateCloseAndSelectedSpanCohort(win) {
   await win.webContents.executeJavaScript(`document.querySelector('button[aria-label="Close span details"]')?.click()`)
   await waitFor(win, `!document.querySelector('aside[aria-label="Selected span details"]')`, 'closed span detail panel')
-  await selectPaymentSpan(win)
+  await selectHotspotSpan(win)
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
     const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Explore similar traces')
@@ -193,23 +232,26 @@ async function validateCloseAndSelectedSpanCohort(win) {
     const control=(name)=>builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]');
     const aria=(name)=>control(name)?.querySelector('button')?.getAttribute('aria-label');
     const input=(name)=>control(name)?.querySelector('input')?.value;
-    return aria('Namespace') === 'Namespace: commerce' &&
-      aria('Service') === 'Service: payment-service' &&
+    return aria('Namespace') === 'Namespace: example' &&
+      aria('Service') === 'Service: service-03' &&
       aria('Span kind') === 'Span kind: Client' &&
       aria('Protocol or subsystem') === 'Protocol or subsystem: HTTP / network' &&
       aria('HTTP method') === 'HTTP method: POST' &&
-      input('Route / endpoint') === '/charges' &&
+      input('Route / endpoint') === '/dependency-b' &&
       aria('Status') === 'Status: Error' &&
       input('Exact span / operation name') === '' &&
-      document.body.innerText.includes('selected span');
-  })()`, 'selected HTTP span structured cohort seed')
+      document.body.innerText.includes('5 traces') &&
+      document.querySelector('[aria-label="Trace search result view"]');
+  })()`, 'selected synthetic HTTP span cohort seed and automatic search results')
 }
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
   ipcMain.handle('connections:prometheus:metric-labels', async () => [])
   ipcMain.handle('connections:prometheus:label-values', async () => [])
-  ipcMain.handle('query:run', async (_event, _connectionId, query) => String(query).trim() === previewTraceId ? previewTraceResult : previewTraceSearchResult)
+  ipcMain.handle('query:run', async (_event, _connectionId, query) => densePreview
+    ? previewDenseTraceResultForId(String(query).trim()) ?? previewDenseTraceSearchResult
+    : previewTraceResultForId(String(query).trim()) ?? previewTraceSearchResult)
 
   const win = new BrowserWindow({
     width: 1440,
@@ -237,9 +279,14 @@ app.whenReady().then(async () => {
     await capture(win, 'tempo-trace-search.png')
     await showScatter(win)
     await capture(win, 'tempo-trace-scatter.png')
+    await showServiceMap(win)
+    await capture(win, 'tempo-service-map.png')
+    await showDenseServiceMap(win)
+    await capture(win, 'tempo-service-map-dense.png')
+    await restoreStandardSearch(win)
     await showList(win)
     await openPreviewTrace(win)
-    await selectPaymentSpan(win)
+    await selectHotspotSpan(win)
     await capture(win, 'tempo-waterfall.png')
     await validateCloseAndSelectedSpanCohort(win)
     app.exit(0)
