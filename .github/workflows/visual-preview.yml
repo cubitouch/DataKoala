@@ -132,7 +132,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "Preview images are unchanged"
           else
-            git commit -m "Update visual previews for PR #${PR_NUMBER} (${HEAD_SHA:0:7})"
+            git commit -m "Update visual previews for PR ${PR_NUMBER} (${HEAD_SHA:0:7})"
             git push origin visual-previews
           fi
 
