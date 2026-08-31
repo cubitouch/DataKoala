@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type EChartsReact from 'echarts-for-react'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
@@ -37,6 +37,7 @@ export function traceScatterCustomRange(coordRange: readonly unknown[], domainSt
 
 export function TraceScatterChart({ option, searchRange, onSelectRange, onEvents = {} }: TraceScatterChartProps) {
   const ref = useRef<EChartsReact | null>(null)
+  const [finished, setFinished] = useState(false)
   const domain = useMemo(() => {
     try {
       const bounds = prometheusRangeBounds(searchRange)
@@ -54,6 +55,16 @@ export function TraceScatterChart({ option, searchRange, onSelectRange, onEvents
     toolbox: { show: false },
     brush: { toolbox: [], xAxisIndex: 'all', brushMode: 'single', transformable: false, throttleType: 'debounce', throttleDelay: 0 }
   }), [option, domain])
+  const series = useMemo(() => {
+    const value = option.series
+    return (Array.isArray(value) ? value : value ? [value] : []) as Array<{ data?: unknown[] }>
+  }, [option])
+  const visibleItems = useMemo(() => series.reduce((count, item) => count + (item.data ?? []).filter((datum) => {
+    const value = Array.isArray(datum) ? datum : (datum as { value?: unknown[] } | null)?.value
+    const timestamp = Number(Array.isArray(value) ? value[0] : NaN)
+    return Boolean(domain && Number.isFinite(timestamp) && timestamp >= domain.start && timestamp <= domain.end)
+  }).length, 0), [domain, series])
+  useEffect(() => setFinished(false), [renderedOption])
 
   const enableBrush = () => ref.current?.getEchartsInstance().dispatchAction({
     type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' }
@@ -70,12 +81,12 @@ export function TraceScatterChart({ option, searchRange, onSelectRange, onEvents
     if (next) onSelectRange(next)
   }
 
-  return <ReactECharts
+  return <div data-visual-type="scatter" data-visual-finished={finished} data-visual-series={series.length} data-visual-items={visibleItems} data-visual-range={domain ? `${new Date(domain.start).toISOString()}..${new Date(domain.end).toISOString()}` : 'invalid'} style={{ width: '100%', height: '100%' }}><ReactECharts
     ref={ref}
     option={renderedOption}
-    onEvents={{ ...onEvents, brushEnd }}
+    onEvents={{ ...onEvents, brushEnd, finished: (value: unknown) => { setFinished(true); onEvents.finished?.(value) } }}
     notMerge
     lazyUpdate
     style={{ width: '100%', height: '100%' }}
-  />
+  /></div>
 }

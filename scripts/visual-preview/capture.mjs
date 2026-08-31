@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { documentationScreenshots, syntheticSources } from './fixtures.mjs'
-import { assertCompactObjectFilter, assertVisibleSeriesField } from './assertions.mjs'
+import { assertCompactObjectFilter, assertPreviewReady, assertVisibleSeriesField } from './assertions.mjs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -590,6 +590,7 @@ async function configureBuilderControls(win, variant) {
 }
 
 async function capture(win, filename) {
+  if (captureKind === 'regression') await assertPreviewReady(win, filename)
   await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
   await sleep(150)
   const image = await win.webContents.capturePage()

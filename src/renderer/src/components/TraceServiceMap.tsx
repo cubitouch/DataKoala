@@ -141,6 +141,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
   const [serviceSearch, setServiceSearch] = useState('')
   const [graphFullscreen, setGraphFullscreen] = useState(false)
+  const [renderFinished, setRenderFinished] = useState(false)
   const chartRef = useRef<ReactECharts>(null)
   const didAutoGroup = useRef(false)
   const colors = useMemo(palette, [])
@@ -309,6 +310,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       }]
     }
   }, [aggregate, colors, denseGraph, graph, groupedGraph.edgeById, groupedGraph.nodeById, matchingViewNodeIds, normalizedSearch, selection, topEdgeKeys])
+  useEffect(() => setRenderFinished(false), [option])
 
   const events = useMemo(() => ({
     click: (value: unknown) => {
@@ -332,7 +334,8 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
         const originalKey = viewEdge.memberEdgeKeys[0]
         setSelection((current) => current?.kind === 'edge' && current.key === originalKey ? null : { kind: 'edge', key: originalKey })
       }
-    }
+    },
+    finished: () => setRenderFinished(true)
   }), [groupedGraph.edgeById, groupedGraph.nodeById])
 
   const progressPercent = progress.total ? Math.round((progress.completed / progress.total) * 100) : 0
@@ -396,7 +399,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
     <p className={styles.methodNote}>Ranking combines observed tail time, slow-vs-baseline latency change, errors, repeated calls and slow-trace presence. Edge latency is cumulative observed child-span time per affected trace; traces without the edge are excluded from latency medians and compared separately via presence. Parallel work may overlap, so this is not critical-path time.</p>
   </>
 
-  return <div className={styles.root} data-trace-service-map="" data-branch-scope={branchScope} data-service-map-grouping={grouping}>
+  return <div className={styles.root} data-trace-service-map="" data-branch-scope={branchScope} data-service-map-grouping={grouping} data-visual-type="graph" data-visual-finished={renderFinished && progress.status !== 'loading'} data-visual-nodes={graph.nodes.length} data-visual-edges={graph.edges.length}>
     <div className={styles.toolbar}>
       <div className={styles.toolbarIdentity}><strong>Service map</strong><span>{sampled ? `Representative analysis of ${progress.total} / ${searchTraceCount} search results` : `${progress.total || Math.min(searchTraceCount, sampleLimit)} traces selected for analysis`}</span></div>
       {aggregate.traceCount > 0 && <dl className={styles.summary}>
