@@ -20,6 +20,7 @@ import { ensureRelationColumns } from '../lib/relationColumns'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { QueryUtilityActions } from './QueryUtilityActions'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
+import { effectivePrometheusStep, isPrometheusStepSafe, PROMETHEUS_MANUAL_STEPS } from '../lib/prometheusResolution'
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
 import { detectPromqlHistogramKind, resolvePromqlHistogramKind, validatePromqlBuilder } from '../lib/promqlBuilder'
 import { Combobox } from './ui/combobox'
@@ -112,9 +113,12 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
       const execution = promoted.length ? wrapSqlWithResultFilters(requestSql, promoted, dialect) : { sql: requestSql, parameters: [] }
       if (!execution) throw new Error('This SQL cannot safely be wrapped; move query filters back to the client.')
       const requestSession = selectSession(useStore.getState(), requestTabId)
-      const promRange = language.kind === 'promql' && requestSession
-        ? { ...prometheusRangeBounds(requestSession.prometheusTimeRange), step: requestSession.prometheusStep }
-        : undefined
+      const promBounds = language.kind === 'promql' && requestSession ? prometheusRangeBounds(requestSession.prometheusTimeRange) : undefined
+      const effectiveStep = promBounds && requestSession ? effectivePrometheusStep(promBounds, requestSession.prometheusStep) : undefined
+      if (promBounds && requestSession?.prometheusStep !== 'auto' && effectiveStep && !isPrometheusStepSafe(promBounds, effectiveStep)) {
+        throw new Error('Too many data points for this Resolution — use Auto, increase the Resolution, or reduce the time range.')
+      }
+      const promRange = promBounds && effectiveStep ? { ...promBounds, step: effectiveStep } : undefined
       const res: QueryResult = await api.query.run(requestProfileId, execution.sql, execution.parameters, promRange)
       if (language.kind === 'promql') {
         const seriesColumns = builderMode ? (requestSession?.promqlBuilder.groupBy ?? []) : []
@@ -228,7 +232,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
     <div className={`editor-pane ${styles.pane}`} data-query-editor onKeyDown={onKey}>
       <div className={`editor-head ${styles.head}`} data-query-toolbar>
         <div className={`query-toolbar-group query-mode-group ${styles.toolbarGroup}`}><ModeSwitch /></div>
-        {language.kind === 'promql' && <div className={`query-toolbar-group query-time-group ${styles.toolbarGroup} ${styles.timeGroup}`} aria-label="Prometheus time controls"><TimeRangeField labelVisibility="sr-only" value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><div className={`promql-step ${styles.promqlStep}`}><Combobox label="Resolution" mode="inline" hint="How often Prometheus evaluates the query across the selected time range. Example: 30s produces one evaluation point every 30 seconds." value={prometheusStep} options={['15s', '30s', '1m', '5m'].map((value) => ({ value, label: value }))} onChange={(value) => setPrometheusQueryOptions({ prometheusStep: value as typeof prometheusStep }, tabId)} /></div></div>}
+        {language.kind === 'promql' && <div className={`query-toolbar-group query-time-group ${styles.toolbarGroup} ${styles.timeGroup}`} aria-label="Prometheus time controls"><TimeRangeField labelVisibility="sr-only" value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><div className={`promql-step ${styles.promqlStep}`}><Combobox label="Resolution" mode="inline" hint="Auto targets about 1,200 points per series. Choose a fixed interval for manual control." value={prometheusStep} options={[{ value: 'auto', label: `Auto (${effectivePrometheusStep(prometheusRangeBounds(prometheusTimeRange), 'auto')})` }, ...PROMETHEUS_MANUAL_STEPS.map((value) => ({ value, label: value }))]} onChange={(value) => setPrometheusQueryOptions({ prometheusStep: value as typeof prometheusStep }, tabId)} /></div></div>}
         <div className={`spacer ${styles.spacer}`} />
         <div className={styles.toolbarGroup}><QueryUtilityActions /></div>
         <div className={`query-toolbar-group query-editor-actions ${styles.toolbarGroup} ${styles.editorActions}`}>{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>

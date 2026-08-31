@@ -3,7 +3,7 @@ import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { GcxPrometheusTransport, normalizeGcxDatasources, normalizeGcxLabels, normalizeGcxMetadata, normalizeGcxQuery, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
+import { boundedProviderDiagnostic, GcxPrometheusTransport, normalizeGcxDatasources, normalizeGcxLabels, normalizeGcxMetadata, normalizeGcxQuery, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
 import { migrateStoredProfile } from './profile-migration.ts'
 
 const metadataFixture = readFileSync(fileURLToPath(new URL('./fixtures/gcx-metrics-metadata.json', import.meta.url)), 'utf8')
@@ -195,4 +195,23 @@ test('preserves PromQL server errors and identifies malformed JSON', async () =>
 test('non-zero gcx query exits retain actionable stderr without secrets', async () => {
   const failure = Object.assign(new Error('exit 1'), { stderr: 'bad_data: parse error near token; token=supersecret' })
   await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => { throw failure }).query({ expression: 'bad(', start: 'a', end: 'b', step: '30s' }), (error: Error) => error.message.includes('parse error') && !error.message.includes('supersecret'))
+})
+
+test('structured point-limit errors become concise actionable failures', () => {
+  assert.throws(() => normalizeGcxQuery({ status: 'error', errorType: 'execution', error: 'exceeded maximum resolution of 11,000 points per timeseries' }), /Too many data points — use Auto/)
+  assert.throws(() => normalizeGcxQuery({ status: 'error', errorType: 'bad_data', error: 'parse error at char 4' }), /bad_data: parse error/)
+})
+
+test('sample limits in non-zero gcx stderr become actionable without changing auth errors', async () => {
+  const limited = Object.assign(new Error('exit 1'), { stderr: 'Mimir query rejected: maximum number of samples exceeded' })
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => { throw limited }).query({ expression: 'up', start: 'a', end: 'b', step: '30s' }), /^PrometheusOversizedQueryError: Too many data points — use Auto/)
+  const forbidden = Object.assign(new Error('exit 1'), { stderr: 'status 403 forbidden' })
+  await assert.rejects(() => new GcxPrometheusTransport(undefined, async () => { throw forbidden }).query({ expression: 'up', start: 'a', end: 'b', step: '30s' }), /Metrics access is not permitted/)
+})
+
+test('provider diagnostics are sanitized and explicitly bounded', () => {
+  const diagnostic = boundedProviderDiagnostic(`token=supersecret too many samples ${'x'.repeat(10_000)}`)
+  assert.doesNotMatch(diagnostic, /supersecret/)
+  assert.match(diagnostic, /… \[truncated\]$/)
+  assert.ok(diagnostic.length < 2_100)
 })

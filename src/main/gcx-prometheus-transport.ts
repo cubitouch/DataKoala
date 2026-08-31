@@ -6,6 +6,27 @@ import type { PrometheusTransport } from './prometheus-transport.ts'
 export { runGcxCommand, sanitizeGcxError }
 export type { GcxCommandResult, GcxCommandRunner }
 
+export const PROMETHEUS_OVERSIZED_QUERY_MESSAGE = 'Too many data points — use Auto, increase the Resolution, or reduce the time range.'
+const MAX_PROVIDER_DIAGNOSTIC_LENGTH = 2_048
+
+class PrometheusOversizedQueryError extends Error {
+  readonly providerDiagnostic: string
+  constructor(detail: string) {
+    super(PROMETHEUS_OVERSIZED_QUERY_MESSAGE)
+    this.name = 'PrometheusOversizedQueryError'
+    this.providerDiagnostic = boundedProviderDiagnostic(detail)
+  }
+}
+
+export function isPrometheusOversizedQueryError(detail: string): boolean {
+  return /(?:exceed(?:ed|s)?\s+(?:the\s+)?maximum\s+resolution.*points?\s+per\s+time\s*series|too many\s+(?:data\s+)?points?|maximum number of\s+(?:data\s+)?points?|(?:too many|max(?:imum)?(?: number of)?)\s+samples?|sample limit\s+(?:exceeded|reached)|exceed(?:ed|s)?\s+(?:the\s+)?(?:maximum|max)\s+(?:number of\s+)?samples?)/i.test(detail)
+}
+
+export function boundedProviderDiagnostic(detail: string): string {
+  const sanitized = sanitizeGcxError(detail)
+  return sanitized.length <= MAX_PROVIDER_DIAGNOSTIC_LENGTH ? sanitized : `${sanitized.slice(0, MAX_PROVIDER_DIAGNOSTIC_LENGTH)}… [truncated]`
+}
+
 function parseJson(value: string, command: string): unknown {
   try { return JSON.parse(value) }
   catch { throw new Error(`gcx returned malformed JSON for ${command}. Update gcx and try again.`) }
@@ -15,11 +36,12 @@ function errorMessage(error: unknown): string {
   const value = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string }
   if (value?.code === 'ENOENT') return 'gcx is not installed. Install gcx, then try again.'
   const detail = `${value?.stderr ?? ''} ${value?.stdout ?? ''} ${value?.message ?? ''}`.toLowerCase()
+  if (isPrometheusOversizedQueryError(detail)) return PROMETHEUS_OVERSIZED_QUERY_MESSAGE
   if (/expired|token.*expir|session.*expir/.test(detail)) return 'gcx authentication has expired. Run gcx login, then try again.'
   if (/not authenticated|not logged|no.*context|login required|unauthenticated/.test(detail)) return 'gcx is installed but no authenticated context is available. Run gcx login, then try again.'
   if (/forbidden|permission|not permitted|access denied|status.?403/.test(detail)) return 'Metrics access is not permitted for this account.'
   const raw = `${value?.stderr ?? ''} ${value?.stdout ?? ''}`.trim()
-  if (raw && /parse|promql|query|bad_data|execution|timeout|server error/i.test(raw)) return sanitizeGcxError(raw)
+  if (raw && /parse|promql|query|bad_data|execution|timeout|server error/i.test(raw)) return boundedProviderDiagnostic(raw)
   return 'gcx could not complete the Prometheus operation. Check the selected context and run gcx login if needed.'
 }
 
@@ -30,7 +52,7 @@ function throwNormalizedGcxApiError(error: unknown): never {
   const normalized = errorMessage(error)
   if (/not installed|authentication has expired|no authenticated context|not permitted/.test(normalized)) throw new Error(normalized)
   const exitCode = value?.code === undefined ? '' : ` (exit code ${String(value.code)})`
-  const stderr = sanitizeGcxError(value?.stderr ?? '')
+  const stderr = boundedProviderDiagnostic(value?.stderr ?? '')
   const diagnostic = `gcx api failed${exitCode}${stderr ? `: ${stderr}` : `: ${normalized}`}`
   if (process.env.NODE_ENV !== 'production') console.error(`[prometheus:gcx] ${diagnostic}`)
   throw new Error(diagnostic)
@@ -122,7 +144,9 @@ export function normalizeGcxQuery(raw: unknown, durationMs = 0): QueryResult {
   if (raw.status === 'error') {
     const detail = typeof raw.error === 'string' ? raw.error : 'Prometheus rejected the query.'
     const kind = typeof raw.errorType === 'string' ? `${raw.errorType}: ` : ''
-    const error = new Error(sanitizeGcxError(`${kind}${detail}`))
+    const providerDetail = `${kind}${detail}`
+    if (isPrometheusOversizedQueryError(providerDetail)) throw new PrometheusOversizedQueryError(providerDetail)
+    const error = new Error(sanitizeGcxError(providerDetail))
     error.name = 'PrometheusApiError'
     throw error
   }
@@ -243,7 +267,16 @@ export class GcxPrometheusTransport implements PrometheusTransport {
       const result = normalizeGcxQuery(raw, Date.now() - started)
       if (process.env.NODE_ENV !== 'production') console.debug(`[prometheus:gcx] range response step=${request.step} rows=${result.rowCount}`)
       return result
-    } catch (error) { throwNormalizedGcxError(error) }
+    } catch (error) {
+      const value = error as { name?: string; providerDiagnostic?: string; stderr?: string; stdout?: string; message?: string }
+      const rawDetail = `${value.stderr ?? ''} ${value.stdout ?? ''} ${value.message ?? ''}`.trim()
+      if (value.name === 'PrometheusOversizedQueryError' || isPrometheusOversizedQueryError(rawDetail)) {
+        const diagnostic = value.providerDiagnostic ?? boundedProviderDiagnostic(rawDetail)
+        if (process.env.NODE_ENV !== 'production') console.error(`[prometheus:gcx] oversized range query start=${request.start} end=${request.end} step=${request.step} providerError=${JSON.stringify(diagnostic)}`)
+        throw new PrometheusOversizedQueryError(diagnostic)
+      }
+      throwNormalizedGcxError(error)
+    }
   }
   async formatQuery(query: string): Promise<string> {
     try {
@@ -259,6 +292,6 @@ export class GcxPrometheusTransport implements PrometheusTransport {
 }
 
 function throwNormalizedGcxError(error: unknown): never {
-  if (error instanceof Error && (error.name === 'PrometheusApiError' || error.message.startsWith('gcx returned') || error.message.startsWith('Select a Grafana') || error.message.includes('metric metadata shape') || /^(bad_data|execution|timeout|canceled|Prometheus rejected)/.test(error.message))) throw error
+  if (error instanceof Error && (error.name === 'PrometheusApiError' || error.name === 'PrometheusOversizedQueryError' || error.message.startsWith('gcx returned') || error.message.startsWith('Select a Grafana') || error.message.includes('metric metadata shape') || /^(bad_data|execution|timeout|canceled|Prometheus rejected)/.test(error.message))) throw error
   throw new Error(errorMessage(error))
 }
