@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MetadataTree, type MetadataTreeNode } from './MetadataTree'
@@ -28,6 +26,14 @@ describe('MetadataTree', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Child' }))
     expect(onToggle).toHaveBeenCalledWith(nodes[0])
     expect(onActivate).toHaveBeenCalledWith(nodes[0].children![0])
+  })
+
+  it('toggles an expandable non-activatable node from its label', () => {
+    const onToggle = vi.fn()
+    const parent = { ...nodes[0], activatable: false }
+    render(<MetadataTree ariaLabel="Things" nodes={[parent]} onToggle={onToggle} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Parent' }))
+    expect(onToggle).toHaveBeenCalledWith(parent)
   })
 
   it('keeps matching ancestors visible while filtering without changing controlled expansion', () => {

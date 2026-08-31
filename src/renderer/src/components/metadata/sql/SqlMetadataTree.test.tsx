@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { DatabaseSchemaNode } from '@shared/types'
@@ -26,12 +24,14 @@ describe('SqlMetadataTree', () => {
 
   it('routes relation toggles, activation, and retry to the SQL callbacks', () => {
     const relation = { ...schemas[0].relations[0], columns: undefined, columnsStatus: 'error' as const }
-    const onToggleRelation = vi.fn(); const onActivateRelation = vi.fn(); const onRetryRelation = vi.fn()
+    const onToggleSchema = vi.fn(); const onToggleRelation = vi.fn(); const onActivateRelation = vi.fn(); const onRetryRelation = vi.fn()
     render(<SqlMetadataTree schemas={[{ ...schemas[0], relations: [relation] }]} expanded={new Set(['schema:internal', 'relation:internal.orders'])} filter=""
-      onToggleSchema={vi.fn()} onToggleRelation={onToggleRelation} onActivateRelation={onActivateRelation} onRetryRelation={onRetryRelation} />)
+      onToggleSchema={onToggleSchema} onToggleRelation={onToggleRelation} onActivateRelation={onActivateRelation} onRetryRelation={onRetryRelation} />)
+    fireEvent.click(screen.getByRole('button', { name: 'internal' }))
     fireEvent.click(screen.getByRole('button', { name: 'Collapse orders' }))
     fireEvent.click(screen.getByRole('button', { name: 'Select internal.orders for Builder' }))
     fireEvent.click(screen.getByRole('button', { name: 'Could not load columns — retry' }))
+    expect(onToggleSchema).toHaveBeenCalledWith('schema:internal')
     expect(onToggleRelation).toHaveBeenCalledWith(relation)
     expect(onActivateRelation).toHaveBeenCalledWith(relation)
     expect(onRetryRelation).toHaveBeenCalledWith(relation)

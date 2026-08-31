@@ -48,6 +48,8 @@ export function MetadataTree({ ariaLabel, nodes, filter = '', onToggle, onActiva
           : null}
         {node.activatable && onActivate
           ? <button className={styles.nodeName} title={node.tooltip} aria-label={node.ariaLabel} aria-current={node.selected ? 'true' : undefined} onClick={() => onActivate(node)}>{node.label}</button>
+          : expandable
+            ? <button className={styles.nodeName} title={node.tooltip} aria-label={node.ariaLabel} onClick={() => onToggle?.(node)}>{node.label}</button>
           : <span className={styles.nodeName} title={node.tooltip}>{node.label}</span>}
         {node.badge && <span className={styles.badge}>{node.badge}</span>}
         {node.secondaryText && <span className={styles.secondaryText}>{node.secondaryText}</span>}
