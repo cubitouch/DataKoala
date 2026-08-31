@@ -1,11 +1,16 @@
 import React from 'react'
 void React
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { QueryResult } from '@shared/types'
 import { ResultsTable } from './ResultsTable'
+import styles from './ResultsTable.module.css'
 import { patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+
+const resultsTableCss = readFileSync('src/renderer/src/components/ResultsTable.module.css', 'utf8')
+const longValue = `row-0-${'complete-value-'.repeat(40)}`
 
 const saveText = vi.hoisted(() => vi.fn())
 vi.mock('../lib/api', () => ({ api: { export: { saveText } } }))
@@ -15,7 +20,7 @@ const largeResult: QueryResult = {
     { name: 'id', dataTypeID: 23, dataTypeName: 'int4' },
     { name: 'label', dataTypeID: 25, dataTypeName: 'text' }
   ],
-  rows: Array.from({ length: 1500 }, (_, id) => ({ id, label: `row-${id}` })),
+  rows: Array.from({ length: 1500 }, (_, id) => ({ id, label: id === 0 ? longValue : `row-${id}` })),
   rowCount: 1500,
   durationMs: 4
 }
@@ -38,6 +43,18 @@ afterEach(() => {
 })
 
 describe('ResultsTable virtualization', () => {
+  it('makes only complete result values selectable while controls remain non-selectable', () => {
+    arrange()
+
+    const value = screen.getByText(longValue)
+    expect(value.classList.contains(styles.cellValue)).toBe(true)
+    expect(value.textContent).toBe(longValue)
+    expect(resultsTableCss).toMatch(/\.cellValue\s*\{[^}]*user-select:\s*text\s*;/)
+    expect(resultsTableCss).toMatch(/\.cellActions\s*\{[^}]*user-select:\s*none\s*;/)
+    expect(screen.getByRole('columnheader', { name: /label/ }).classList.contains(styles.cellValue)).toBe(false)
+    expect(screen.getByRole('button', { name: 'Export CSV' }).classList.contains(styles.cellValue)).toBe(false)
+  })
+
   it('keeps the mounted row count bounded and can navigate beyond row 1,000', () => {
     arrange()
     expect(screen.getByRole('textbox', { name: 'Filter rows' }).closest('[data-field]')?.getAttribute('data-label-visibility')).toBe('sr-only')
