@@ -33,21 +33,6 @@ async function waitForRenderer(win) {
   throw new Error('Timed out waiting for the renderer and test store seam')
 }
 
-async function waitForChart(win) {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const ready = await win.webContents.executeJavaScript(
-      `Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`
-    )
-    if (ready) return
-    await sleep(100)
-  }
-
-  const bodyText = await win.webContents.executeJavaScript(
-    `(document.body.innerText || '').slice(0, 500)`
-  )
-  throw new Error(`Chart did not render. Renderer text: ${bodyText}`)
-}
-
 async function waitForTable(win) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const ready = await win.webContents.executeJavaScript(
@@ -469,8 +454,8 @@ async function configureMode(win, mode) {
     if (attempt === 39) throw new Error(`The ${mode} editor did not render`)
     await sleep(100)
   }
-  await waitForChart(win)
-  await sleep(600)
+  // Populated chart captures wait on their audited semantic renderer report in
+  // assertPreviewReady(), rather than racing that report with a canvas-only wait.
 }
 
 async function configurePrometheusToolbar(win) {

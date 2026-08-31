@@ -15,6 +15,7 @@ import { groupTraceServiceMap, type TraceServiceMapGrouping, type TraceServiceMa
 import { layoutTraceServiceMap } from '../lib/traceServiceMapLayout'
 import { projectTraceServiceMap } from '../lib/traceServiceMapProjection'
 import { scopeTraceServiceMap, type TraceServiceMapScope } from '../lib/traceServiceMapScope'
+import { createChartRevision, type ChartRevision } from '../lib/chartReadiness'
 import styles from './TraceServiceMap.module.css'
 
 interface TraceServiceMapProps {
@@ -141,7 +142,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
   const [serviceSearch, setServiceSearch] = useState('')
   const [graphFullscreen, setGraphFullscreen] = useState(false)
-  const [renderFinished, setRenderFinished] = useState(false)
+  const [finishedRevision, setFinishedRevision] = useState<ChartRevision | null>(null)
   const chartRef = useRef<ReactECharts>(null)
   const didAutoGroup = useRef(false)
   const colors = useMemo(palette, [])
@@ -310,7 +311,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       }]
     }
   }, [aggregate, colors, denseGraph, graph, groupedGraph.edgeById, groupedGraph.nodeById, matchingViewNodeIds, normalizedSearch, selection, topEdgeKeys])
-  useEffect(() => setRenderFinished(false), [option])
+  const renderRevision = useMemo(createChartRevision, [option])
 
   const events = useMemo(() => ({
     click: (value: unknown) => {
@@ -335,8 +336,8 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
         setSelection((current) => current?.kind === 'edge' && current.key === originalKey ? null : { kind: 'edge', key: originalKey })
       }
     },
-    finished: () => setRenderFinished(true)
-  }), [groupedGraph.edgeById, groupedGraph.nodeById])
+    finished: () => setFinishedRevision(renderRevision)
+  }), [groupedGraph.edgeById, groupedGraph.nodeById, renderRevision])
 
   const progressPercent = progress.total ? Math.round((progress.completed / progress.total) * 100) : 0
   const sampled = searchTraceCount > progress.total && progress.total > 0
@@ -399,7 +400,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
     <p className={styles.methodNote}>Ranking combines observed tail time, slow-vs-baseline latency change, errors, repeated calls and slow-trace presence. Edge latency is cumulative observed child-span time per affected trace; traces without the edge are excluded from latency medians and compared separately via presence. Parallel work may overlap, so this is not critical-path time.</p>
   </>
 
-  return <div className={styles.root} data-trace-service-map="" data-branch-scope={branchScope} data-service-map-grouping={grouping} data-visual-type="graph" data-visual-finished={renderFinished && progress.status !== 'loading'} data-visual-nodes={graph.nodes.length} data-visual-edges={graph.edges.length}>
+  return <div className={styles.root} data-trace-service-map="" data-branch-scope={branchScope} data-service-map-grouping={grouping} data-visual-type="graph" data-visual-finished={finishedRevision === renderRevision && progress.status !== 'loading'} data-visual-nodes={graph.nodes.length} data-visual-edges={graph.edges.length}>
     <div className={styles.toolbar}>
       <div className={styles.toolbarIdentity}><strong>Service map</strong><span>{sampled ? `Representative analysis of ${progress.total} / ${searchTraceCount} search results` : `${progress.total || Math.min(searchTraceCount, sampleLimit)} traces selected for analysis`}</span></div>
       {aggregate.traceCount > 0 && <dl className={styles.summary}>
@@ -429,7 +430,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
           <button type="button" className={styles.fullscreenButton} data-service-map-fullscreen onClick={() => setGraphFullscreen((value) => !value)} aria-label={graphFullscreen ? 'Exit service map full screen' : 'Open service map full screen'}>{graphFullscreen ? 'Exit full screen' : 'Full screen'}</button>
         </div>
         <div className={`${styles.chartArea} ${graphFullscreen ? styles.chartAreaFullscreen : ''}`}>
-          {graph.edges.length ? <ReactECharts ref={chartRef} option={option} onEvents={events} notMerge lazyUpdate style={{ width: '100%', height: '100%' }} /> : <div className={styles.empty}>{scopeEmptyMessage}</div>}
+          {graph.edges.length ? <ReactECharts ref={chartRef} option={option} onChartReady={() => setFinishedRevision(renderRevision)} onEvents={events} notMerge lazyUpdate style={{ width: '100%', height: '100%' }} /> : <div className={styles.empty}>{scopeEmptyMessage}</div>}
         </div>
         {graphFullscreen && <aside className={styles.fullscreenInsights} aria-label="Full screen service map bottlenecks">{insightsContent(true)}</aside>}
         <div className={`${styles.graphLegend} ${graphFullscreen ? styles.graphLegendFullscreen : ''}`}>
