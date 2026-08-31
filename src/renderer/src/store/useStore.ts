@@ -44,7 +44,7 @@ export interface QuerySession {
   /** True only until the user first edits a newly-created manual query. */
   manualQueryPristine?: boolean
   prometheusTimeRange: BuilderTimeRange
-  prometheusStep: '15s' | '30s' | '1m' | '5m'
+  prometheusStep: import('../lib/prometheusResolution').PrometheusStep
   promqlBuilder: PromqlBuilderState
   lokiTimeRange: BuilderTimeRange
   lokiBuilder: LokiBuilderState
@@ -104,7 +104,7 @@ export function createQuerySession(index = 1, options: Partial<Pick<QuerySession
     sql: options.sql ?? defaultQueryTextForDatasource(),
     manualQueryPristine: options.sql === undefined,
     prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' },
-    prometheusStep: '30s',
+    prometheusStep: 'auto',
     promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} },
     lokiTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' },
     lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] },

@@ -69,7 +69,7 @@ describe('PromQL execution', () => {
     const call = runQuery.mock.calls[0]
     expect(call[0]).toBe('prom-1')
     expect(call[1]).toBe('up')
-    expect(call[3]).toMatchObject({ step: '30s' })
+    expect(call[3]).toMatchObject({ step: '15s' })
     await waitFor(() => expect(useStore.getState().tabs[0].result?.rows).toEqual(result.rows))
     expect(useStore.getState().tabs[0].sqlVisualization).toMatchObject({ view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: null, seriesColumns: [] })
   })
@@ -98,11 +98,45 @@ describe('PromQL execution', () => {
 
   it('persists each Resolution selection in the existing prometheusStep state', async () => {
     renderPromql()
+    expect(useStore.getState().tabs[0].prometheusStep).toBe('auto')
+    expect(screen.getByRole('combobox', { name: /Resolution: Auto \(15s\)/ })).toBeTruthy()
     for (const step of ['30s', '1m', '5m'] as const) {
       fireEvent.click(screen.getByRole('combobox', { name: /Resolution:/ }))
       fireEvent.click(await screen.findByRole('option', { name: step }))
       expect(useStore.getState().tabs[0].prometheusStep).toBe(step)
     }
+  })
+
+  it('uses a coarser Auto server-side step as the range grows', async () => {
+    renderPromql()
+    useStore.getState().setPrometheusQueryOptions({ prometheusTimeRange: { kind: 'custom', startDate: '2026-05-01', startTime: '00:00', endDate: '2026-07-30', endTime: '00:00', recurringWindows: [] }, prometheusStep: 'auto' })
+    runQuery.mockResolvedValue({ columns: [], rows: [], rowCount: 0, durationMs: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(runQuery).toHaveBeenCalled())
+    expect(runQuery.mock.calls[0][3].step).toBe('2h')
+  })
+
+  it('blocks an unsafe manual resolution without calling the backend', async () => {
+    renderPromql()
+    useStore.getState().setPrometheusQueryOptions({ prometheusTimeRange: { kind: 'rolling', amount: 30, unit: 'day' }, prometheusStep: '15s' })
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(useStore.getState().tabs[0].queryError).toMatch(/Too many data points for this Resolution/))
+    expect(runQuery).not.toHaveBeenCalled()
+    expect(useStore.getState().tabs[0].running).toBe(false)
+    expect(useStore.getState().connected).toBe(true)
+  })
+
+  it('can rerun successfully after an oversized provider error without reconnecting', async () => {
+    renderPromql()
+    runQuery.mockRejectedValueOnce(new Error('Too many data points — use Auto, increase the Resolution, or reduce the time range.'))
+      .mockResolvedValueOnce({ columns: [], rows: [], rowCount: 0, durationMs: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(useStore.getState().tabs[0].queryError).toMatch(/Too many data points/))
+    expect(screen.getByLabelText('PromQL editor').hasAttribute('disabled')).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(runQuery).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(useStore.getState().tabs[0].queryError).toBeNull())
+    expect(useStore.getState().connected).toBe(true)
   })
 
   it('defaults Prometheus Builder chart Series from all Group by labels', async () => {
