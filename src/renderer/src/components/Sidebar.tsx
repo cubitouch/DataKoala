@@ -14,6 +14,7 @@ import { connectionKindLabel } from '../lib/connectionKind'
 import { DeleteConnectionDialog } from './DeleteConnectionDialog'
 import { MetricDetails } from './MetricDetails'
 import { LokiSidebarTree } from './LokiSidebarTree'
+import { SqlMetadataTree } from './metadata/sql/SqlMetadataTree'
 import styles from './Sidebar.module.css'
 
 const cx = (...classes: Array<string | false | undefined>) => classes.filter(Boolean).join(' ')
@@ -176,6 +177,7 @@ export function Sidebar() {
     })).filter((schema) => schema.relations.length || schema.name.toLocaleLowerCase().includes(needle))
   }, [filter, schemas])
   const filtering = Boolean(filter.trim())
+  const isSqlSource = activeTabSourceKind !== 'prometheus' && activeTabSourceKind !== 'tempo' && activeTabSourceKind !== 'loki'
 
   const selectForBuilder = (relation: DatabaseRelationNode) => {
     if (relation.kind === 'service') {
@@ -242,6 +244,11 @@ export function Sidebar() {
       {metadataStatus === 'loaded' && <>
         <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label={objectFilterLabel} labelVisibility="sr-only" /></div>
         {schemas.length === 0 ? <div className={styles.objectStatus}>No database objects</div> :
+        isSqlSource ? <SqlMetadataTree schemas={schemas} expanded={expanded} filter={filter} selectedRelation={builderTable}
+          onToggleSchema={toggle}
+          onToggleRelation={(relation) => void expandRelation(relation)}
+          onActivateRelation={selectForBuilder}
+          onRetryRelation={(relation) => void loadRelationColumns({ ...relation, columnsStatus: 'idle' })} /> :
         <div className={styles.objectTree} role="tree" aria-label="Database objects">
           {visibleSchemas.map((schema) => {
             const schemaId = `schema:${schema.name}`
