@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildPromql, DEFAULT_PROMQL_BUILDER, detectPromqlHistogramKind, escapePromqlRegexLiteral, escapePromqlString, resolvePromqlHistogramKind, validatePromqlBuilder, type PromqlBuilderState, type PromqlHistogramKind } from './promqlBuilder.ts'
+import { buildPromql, calculationsForPromqlHistogramKind, DEFAULT_PROMQL_BUILDER, detectPromqlHistogramKind, escapePromqlRegexLiteral, escapePromqlString, reconcilePromqlBuilderForMetric, resolvePromqlHistogramKind, validatePromqlBuilder, type PromqlBuilderState, type PromqlHistogramKind } from './promqlBuilder.ts'
 
 const build = (patch: Partial<PromqlBuilderState>, kind: PromqlHistogramKind = 'unknown') => buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'requests_total', ...patch }, kind)
 const percentile = (metric: string, kind: PromqlHistogramKind, patch: Partial<PromqlBuilderState> = {}) => buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric, calculation: 'percentile', aggregation: 'sum', ...patch }, kind)
@@ -82,6 +82,42 @@ test('only applies a histogram override when auto detection is genuinely unknown
   assert.equal(resolvePromqlHistogramKind('classic', 'native'), 'classic')
   assert.equal(resolvePromqlHistogramKind('native', 'classic'), 'native')
   assert.equal(resolvePromqlHistogramKind('not-histogram', 'native'), 'not-histogram')
+})
+test('exposes calculations compatible with each histogram kind', () => {
+  assert.deepEqual(calculationsForPromqlHistogramKind('not-histogram'), ['raw', 'rate', 'increase'])
+  assert.deepEqual(calculationsForPromqlHistogramKind('classic'), ['raw', 'percentile'])
+  assert.deepEqual(calculationsForPromqlHistogramKind('native'), ['raw', 'observation-rate', 'histogram-average', 'histogram-sum', 'percentile'])
+})
+test('reconciles ordinary, classic, and native metric selections', () => {
+  const ordinary = reconcilePromqlBuilderForMetric({ ...DEFAULT_PROMQL_BUILDER, calculation: 'rate', aggregation: 'avg' }, 'requests_total', 'counter')
+  assert.equal(ordinary.histogramKind, 'not-histogram')
+  assert.equal(ordinary.builder.calculation, 'rate')
+  assert.equal(ordinary.builder.aggregation, 'avg')
+
+  const classic = reconcilePromqlBuilderForMetric({ ...DEFAULT_PROMQL_BUILDER, calculation: 'percentile', aggregation: 'none' }, 'request_duration_bucket', 'histogram')
+  assert.equal(classic.histogramKind, 'classic')
+  assert.equal(classic.builder.calculation, 'percentile')
+  assert.equal(classic.builder.aggregation, 'sum')
+
+  const native = reconcilePromqlBuilderForMetric({ ...DEFAULT_PROMQL_BUILDER, calculation: 'histogram-average', aggregation: 'max' }, 'request_duration', 'histogram')
+  assert.equal(native.histogramKind, 'native')
+  assert.equal(native.builder.calculation, 'histogram-average')
+  assert.equal(native.builder.aggregation, 'sum')
+})
+test('metric reconciliation defaults incompatible calculations and clears metric-specific state', () => {
+  const current: PromqlBuilderState = {
+    ...DEFAULT_PROMQL_BUILDER,
+    metric: 'request_duration',
+    calculation: 'percentile',
+    aggregation: 'sum',
+    histogramKindOverride: 'native',
+    filterBy: ['status'],
+    groupBy: ['service'],
+    labelValues: { status: ['500'], service: ['api'] }
+  }
+  const { builder, histogramKind } = reconcilePromqlBuilderForMetric(current, 'requests_total', 'counter')
+  assert.equal(histogramKind, 'not-histogram')
+  assert.deepEqual(builder, { ...current, metric: 'requests_total', calculation: 'raw', aggregation: 'none', histogramKindOverride: 'auto', filterBy: [], groupBy: [], labelValues: {} })
 })
 test('rejects incomplete and semantically invalid state', () => {
   assert.equal(buildPromql(DEFAULT_PROMQL_BUILDER), '')

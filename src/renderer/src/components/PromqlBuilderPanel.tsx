@@ -1,29 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { selectActiveSession, useStore } from '../store/useStore'
 import { api } from '../lib/api'
-import { buildPromql, detectPromqlHistogramKind, resolvePromqlHistogramKind, validatePromqlBuilder, type PromqlAggregation, type PromqlCalculation, type PromqlHistogramKind, type PromqlHistogramKindOverride, type PromqlQuantile, type PromqlWindow } from '../lib/promqlBuilder'
+import { buildPromql, calculationsForPromqlHistogramKind, detectPromqlHistogramKind, isHistogramCalculation, reconcilePromqlBuilderForMetric, resolvePromqlHistogramKind, validatePromqlBuilder, type PromqlAggregation, type PromqlCalculation, type PromqlHistogramKindOverride, type PromqlQuantile, type PromqlWindow } from '../lib/promqlBuilder'
 import { metricLabels, metricLabelValues, prometheusMetadataError } from '../lib/prometheusMetadata'
 import { Combobox, MultiCombobox } from './ui/combobox'
 import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
 import styles from './PromqlBuilderPanel.module.css'
 
-const ordinaryCalculations = ['raw', 'rate', 'increase'] as const
 const histogramCalculations = ['observation-rate', 'histogram-average', 'histogram-sum', 'percentile'] as const
 const aggregations = ['none', 'sum', 'avg', 'min', 'max'] as const
 const windows = ['1m', '5m', '10m', '15m', '30m', '1h'] as const
 const quantiles = [{ value: 0.5, label: 'P50' }, { value: 0.75, label: 'P75' }, { value: 0.9, label: 'P90' }, { value: 0.95, label: 'P95' }, { value: 0.99, label: 'P99' }, { value: 0.999, label: 'P99.9' }] as const
 const histogramKindOverrides: { value: PromqlHistogramKindOverride; label: string }[] = [{ value: 'auto', label: 'Auto' }, { value: 'classic', label: 'Classic histogram' }, { value: 'native', label: 'Native histogram' }]
 const rangeCalculations = new Set<PromqlCalculation>(['rate', 'increase', ...histogramCalculations])
-const histogramCalculationSet = new Set<PromqlCalculation>(histogramCalculations)
 const calculationLabels: Record<PromqlCalculation, string> = { raw: 'Raw', rate: 'Rate', increase: 'Increase', 'observation-rate': 'Observation rate', 'histogram-average': 'Average', 'histogram-sum': 'Sum of observations', percentile: 'Percentile' }
 const titleCase = (value: string) => value === 'avg' ? 'Average' : value === 'min' ? 'Minimum' : value === 'max' ? 'Maximum' : value[0].toUpperCase() + value.slice(1)
-
-function calculationsForHistogramKind(kind: PromqlHistogramKind): readonly PromqlCalculation[] {
-  if (kind === 'classic') return ['raw', 'percentile']
-  if (kind === 'native') return ['raw', ...histogramCalculations]
-  if (kind === 'not-histogram') return ordinaryCalculations
-  return [...ordinaryCalculations, ...histogramCalculations]
-}
 
 export function PromqlBuilderPanel() {
   const tabId = useStore((state) => state.activeTabId)
@@ -106,10 +97,7 @@ export function PromqlBuilderPanel() {
     if (metric === builder.metric) return
     const target = metrics.find((candidate) => candidate.name === metric)
     const targetType = target?.details?.kind === 'metric' ? target.details.type : undefined
-    const targetDetectedKind = detectPromqlHistogramKind({ metric, labels: [], metadataType: targetType })
-    const targetKind = resolvePromqlHistogramKind(targetDetectedKind, 'auto')
-    const calculation = calculationsForHistogramKind(targetKind).includes(builder.calculation) ? builder.calculation : 'raw' as const
-    const next = { ...builder, metric, calculation, histogramKindOverride: 'auto' as const, aggregation: histogramCalculationSet.has(calculation) ? 'sum' as const : calculation === 'raw' ? 'none' as const : builder.aggregation, filterBy: [], groupBy: [], labelValues: {} }
+    const { builder: next, histogramKind: targetKind } = reconcilePromqlBuilderForMetric(builder, metric, targetType)
     setBuilder(next, tabId)
     const generated = buildPromql(next, targetKind)
     if (generated) setSql(generated, tabId)
@@ -135,12 +123,12 @@ export function PromqlBuilderPanel() {
   const loadedValueLabels = Object.keys(values).sort().join('\0')
   useEffect(() => { activeLabels.forEach(loadValues) }, [profileId, builder.metric, connectionGeneration, canLoadMetadata, activeLabels.join('\0'), loadedValueLabels])
   useEffect(() => {
-    if (!calculationsForHistogramKind(histogramKind).includes(builder.calculation)) {
+    if (!calculationsForPromqlHistogramKind(histogramKind).includes(builder.calculation)) {
       apply({ calculation: 'raw', aggregation: 'none' })
       previousHistogramKind.current = histogramKind
       return
     }
-    if (previousHistogramKind.current !== histogramKind && histogramCalculationSet.has(builder.calculation)) {
+    if (previousHistogramKind.current !== histogramKind && isHistogramCalculation(builder.calculation)) {
       const generated = buildPromql(builder, histogramKind)
       if (generated) setSql(generated, tabId)
     }
@@ -148,13 +136,13 @@ export function PromqlBuilderPanel() {
     if (import.meta.env.DEV && builder.metric && !loadingLabels) console.debug(`[prometheus:builder] selectedMetric=${builder.metric} metadataType=${metadataType ?? 'unknown'} labels=${JSON.stringify(labels)} detectedHistogramKind=${detectedHistogramKind} histogramKind=${histogramKind}`)
   }, [histogramKind, builder.metric, loadingLabels])
   const changeCalculation = (calculation: PromqlCalculation) => {
-    const aggregation: PromqlAggregation = histogramCalculationSet.has(calculation) ? 'sum' : calculation === 'rate' || calculation === 'increase' ? 'sum' : builder.aggregation
+    const aggregation: PromqlAggregation = isHistogramCalculation(calculation) ? 'sum' : calculation === 'rate' || calculation === 'increase' ? 'sum' : builder.aggregation
     apply({ calculation, aggregation, groupBy: calculation === 'raw' && aggregation === 'none' ? [] : builder.groupBy })
   }
   const changeHistogramKindOverride = (override: PromqlHistogramKindOverride) => {
     const nextKind = resolvePromqlHistogramKind(detectedHistogramKind, override)
-    const calculation = calculationsForHistogramKind(nextKind).includes(builder.calculation) ? builder.calculation : 'raw' as const
-    apply({ histogramKindOverride: override, calculation, aggregation: histogramCalculationSet.has(calculation) ? 'sum' : calculation === 'raw' ? 'none' : builder.aggregation })
+    const calculation = calculationsForPromqlHistogramKind(nextKind).includes(builder.calculation) ? builder.calculation : 'raw' as const
+    apply({ histogramKindOverride: override, calculation, aggregation: isHistogramCalculation(calculation) ? 'sum' : calculation === 'raw' ? 'none' : builder.aggregation })
   }
   const validation = validatePromqlBuilder(builder, histogramKind)
   const generated = buildPromql(builder, histogramKind)
@@ -176,7 +164,7 @@ export function PromqlBuilderPanel() {
       if (request === formatRequest.current) formatRequest.current++
     }
   }, [canLoadMetadata, profileId, generated])
-  const availableCalculations = calculationsForHistogramKind(histogramKind)
+  const availableCalculations = calculationsForPromqlHistogramKind(histogramKind)
   const calculationOptions = availableCalculations.map((value) => ({ value, label: calculationLabels[value] }))
   const aggregationOptions = aggregations.map((value) => ({ value, label: titleCase(value) }))
   const metricPlaceholder = !canLoadMetadata ? 'Metadata unavailable' : loadingMetrics ? 'Loading metrics…' : 'Select a metric…'
@@ -195,7 +183,7 @@ export function PromqlBuilderPanel() {
       <div className={styles.control}><Combobox label="Calculation" warning={histogramAmbiguous ? 'Auto detection could not determine whether this metric is a classic or native histogram. Histogram calculations are not generated until you choose a representation.' : undefined} value={builder.calculation} options={calculationOptions} onChange={(value) => changeCalculation(value as PromqlCalculation)} /></div>
       {histogramAmbiguous && <div className={styles.control}><Combobox label="Histogram representation" value={histogramKindOverride} options={histogramKindOverrides} onChange={(value) => changeHistogramKindOverride(value as PromqlHistogramKindOverride)} /></div>}
       {builder.calculation === 'percentile' && <div className={styles.control}><Combobox label="Percentile" value={String(builder.percentile)} options={quantiles.map(({ value, label }) => ({ value: String(value), label }))} onChange={(value) => apply({ percentile: Number(value) as PromqlQuantile })} /></div>}
-      {!histogramCalculationSet.has(builder.calculation) && <div className={styles.control}><Combobox label="Aggregation" hint="Combines the resulting time series after the calculation. Sum is common for counters split across instances; Average, Minimum and Maximum compare the calculated values across series." value={builder.aggregation} options={aggregationOptions} onChange={(value) => apply({ aggregation: value as PromqlAggregation, ...(value === 'none' ? { groupBy: [] } : {}) })} /></div>}
+      {!isHistogramCalculation(builder.calculation) && <div className={styles.control}><Combobox label="Aggregation" hint="Combines the resulting time series after the calculation. Sum is common for counters split across instances; Average, Minimum and Maximum compare the calculated values across series." value={builder.aggregation} options={aggregationOptions} onChange={(value) => apply({ aggregation: value as PromqlAggregation, ...(value === 'none' ? { groupBy: [] } : {}) })} /></div>}
       {rangeCalculations.has(builder.calculation) && <div className={styles.control}><Combobox label="Rate window" hint="How much history each calculation looks back over. Example: 5m means rate(...[5m]) uses the previous 5 minutes at each point." value={builder.window} options={windows.map((value) => ({ value, label: value }))} onChange={(value) => apply({ window: value as PromqlWindow })} /></div>}
     </div>
     <div className={styles.filterGroupRow} data-promql-row="filters-and-grouping">

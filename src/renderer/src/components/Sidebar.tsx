@@ -6,7 +6,7 @@ import { ensureRelationColumns } from '../lib/relationColumns'
 import { normalizeDatabaseObjects } from '../lib/databaseObjects'
 import { relationIdentity, selectionPatchForColumns } from '../lib/builderRelations'
 import { isBuilderTemporalDataType } from '../lib/builderSql'
-import { buildPromql, detectPromqlHistogramKind, resolvePromqlHistogramKind, type PromqlCalculation, type PromqlHistogramKind } from '../lib/promqlBuilder'
+import { buildPromql, reconcilePromqlBuilderForMetric } from '../lib/promqlBuilder'
 import { bindTabConnection, ensureConnectionForTab } from '../lib/tabConnection'
 import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { ConnectionModal } from './ConnectionModal'
@@ -19,17 +19,6 @@ import styles from './Sidebar.module.css'
 const cx = (...classes: Array<string | false | undefined>) => classes.filter(Boolean).join(' ')
 
 const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'metric' ? 'metric' : kind === 'service' ? 'service' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
-const ordinaryPromqlCalculations = ['raw', 'rate', 'increase'] as const
-const histogramPromqlCalculations = ['observation-rate', 'histogram-average', 'histogram-sum', 'percentile'] as const
-const histogramPromqlCalculationSet = new Set<PromqlCalculation>(histogramPromqlCalculations)
-
-function calculationsForHistogramKind(kind: PromqlHistogramKind): readonly PromqlCalculation[] {
-  if (kind === 'classic') return ['raw', 'percentile']
-  if (kind === 'native') return ['raw', ...histogramPromqlCalculations]
-  if (kind === 'not-histogram') return ordinaryPromqlCalculations
-  return [...ordinaryPromqlCalculations, ...histogramPromqlCalculations]
-}
-
 function traceqlForService(relation: DatabaseRelationNode): string {
   const namespace = relation.details?.kind === 'service' ? relation.details.serviceNamespace : undefined
   const service = `resource.service.name = ${JSON.stringify(relation.name)}`
@@ -198,19 +187,7 @@ export function Sidebar() {
     if (relation.kind === 'metric') {
       if (promqlBuilder.metric === relation.name) return
       const metadataType = relation.details?.kind === 'metric' ? relation.details.type : undefined
-      const detectedKind = detectPromqlHistogramKind({ metric: relation.name, labels: [], metadataType })
-      const histogramKind = resolvePromqlHistogramKind(detectedKind, 'auto')
-      const calculation = calculationsForHistogramKind(histogramKind).includes(promqlBuilder.calculation) ? promqlBuilder.calculation : 'raw' as const
-      const next = {
-        ...promqlBuilder,
-        metric: relation.name,
-        calculation,
-        histogramKindOverride: 'auto' as const,
-        aggregation: histogramPromqlCalculationSet.has(calculation) ? 'sum' as const : calculation === 'raw' ? 'none' as const : promqlBuilder.aggregation,
-        filterBy: [],
-        groupBy: [],
-        labelValues: {}
-      }
+      const { builder: next, histogramKind } = reconcilePromqlBuilderForMetric(promqlBuilder, relation.name, metadataType)
       setPromqlBuilder(next, activeTabId)
       const generated = buildPromql(next, histogramKind)
       if (generated) setSql(generated, activeTabId)
