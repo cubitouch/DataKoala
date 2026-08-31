@@ -21,6 +21,13 @@ const HISTOGRAM_CALCULATIONS = new Set<PromqlCalculation>(['observation-rate', '
 const NATIVE_ONLY_HISTOGRAM_CALCULATIONS = new Set<PromqlCalculation>(['observation-rate', 'histogram-average', 'histogram-sum'])
 const KNOWN_NON_HISTOGRAM_METADATA_TYPES = new Set(['counter', 'gauge', 'summary', 'info', 'stateset', 'gaugehistogram'])
 
+export function calculationsForPromqlHistogramKind(kind: PromqlHistogramKind): readonly PromqlCalculation[] {
+  if (kind === 'classic') return ['raw', 'percentile']
+  if (kind === 'native') return ['raw', 'observation-rate', 'histogram-average', 'histogram-sum', 'percentile']
+  if (kind === 'not-histogram') return ['raw', 'rate', 'increase']
+  return ['raw', 'rate', 'increase', 'observation-rate', 'histogram-average', 'histogram-sum', 'percentile']
+}
+
 export function isHistogramCalculation(calculation: PromqlCalculation): boolean {
   return HISTOGRAM_CALCULATIONS.has(calculation)
 }
@@ -80,6 +87,29 @@ export function detectPromqlHistogramKind({ metric, labels, metadataType }: { me
 export function resolvePromqlHistogramKind(detectedKind: PromqlHistogramKind, override: PromqlHistogramKindOverride = 'auto'): PromqlHistogramKind {
   if (detectedKind !== 'unknown' || override === 'auto') return detectedKind
   return override
+}
+
+export function reconcilePromqlBuilderForMetric(
+  current: PromqlBuilderState,
+  metric: string,
+  metadataType?: string
+): { builder: PromqlBuilderState; histogramKind: PromqlHistogramKind } {
+  const detectedKind = detectPromqlHistogramKind({ metric, labels: [], metadataType })
+  const histogramKind = resolvePromqlHistogramKind(detectedKind, 'auto')
+  const calculation = calculationsForPromqlHistogramKind(histogramKind).includes(current.calculation) ? current.calculation : 'raw'
+  return {
+    histogramKind,
+    builder: {
+      ...current,
+      metric,
+      calculation,
+      histogramKindOverride: 'auto',
+      aggregation: isHistogramCalculation(calculation) ? 'sum' : calculation === 'raw' ? 'none' : current.aggregation,
+      filterBy: [],
+      groupBy: [],
+      labelValues: {}
+    }
+  }
 }
 
 export function buildClassicHistogramPercentile(state: PromqlBuilderState, selector: string): string {
