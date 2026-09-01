@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
 import { api } from '../../../lib/api'
 import { TextInput } from '../../ui/TextInput'
@@ -30,9 +30,11 @@ export function PrometheusMetadataTree(props: Props) {
   const valueRequests = useRef(new Set<string>())
   const metrics = new Map<string, DatabaseRelationNode>()
   const labelsById = new Map<string, { metric: DatabaseRelationNode; label: string }>()
+  const metricKey = (metric: DatabaseRelationNode) => `${props.connectionId}\0${metric.qualifiedName}`
+  const valueKey = (metric: DatabaseRelationNode, label: string) => `${metricKey(metric)}\0${label}`
 
   const loadLabels = async (metric: DatabaseRelationNode, retry = false) => {
-    const key = metric.qualifiedName
+    const key = metricKey(metric)
     if (labelRequests.current.has(key) || (!retry && labels[key]?.data)) return
     labelRequests.current.add(key)
     setLabels((old) => ({ ...old, [key]: { loading: true } }))
@@ -45,7 +47,7 @@ export function PrometheusMetadataTree(props: Props) {
   }
 
   const loadValues = async (metric: DatabaseRelationNode, label: string, retry = false) => {
-    const key = `${metric.qualifiedName}\0${label}`
+    const key = valueKey(metric, label)
     if (valueRequests.current.has(key) || (!retry && values[key]?.data)) return
     valueRequests.current.add(key)
     setValues((old) => ({ ...old, [key]: { loading: true } }))
@@ -56,6 +58,18 @@ export function PrometheusMetadataTree(props: Props) {
       setValues((old) => ({ ...old, [key]: { error: message(error) } }))
     } finally { valueRequests.current.delete(key) }
   }
+
+  useEffect(() => {
+    for (const schema of props.schemas) {
+      for (const metric of schema.relations) {
+        const id = `relation:${metric.qualifiedName}`
+        const key = metricKey(metric)
+        if (props.expanded.has(id) && !labels[key]?.data && !labels[key]?.error && !labelRequests.current.has(key)) {
+          void loadLabels(metric)
+        }
+      }
+    }
+  }, [props.connectionId, props.expanded, props.schemas])
 
   const needle = props.filter.trim().toLocaleLowerCase()
   const visibleSchemas = props.schemas.flatMap((schema) => {
@@ -72,12 +86,12 @@ export function PrometheusMetadataTree(props: Props) {
     children: schema.relations.map((metric) => {
       const id = `relation:${metric.qualifiedName}`
       metrics.set(id, metric)
-      const state = labels[metric.qualifiedName]
+      const state = labels[metricKey(metric)]
       const detail = metric.details?.kind === 'metric' ? metric.details : undefined
       const children = state?.data?.map((label): MetadataTreeNode => {
         const labelId = `${id}:label:${label}`
         labelsById.set(labelId, { metric, label })
-        const key = `${metric.qualifiedName}\0${label}`
+        const key = valueKey(metric, label)
         const valueState = values[key]
         const filter = filters[key]?.toLocaleLowerCase() ?? ''
         const matching = valueState?.data?.filter((value) => value.toLocaleLowerCase().includes(filter)) ?? []
@@ -122,7 +136,7 @@ export function PrometheusMetadataTree(props: Props) {
       }
       const label = labelsById.get(node.id)
       if (label) {
-        const key = `${label.metric.qualifiedName}\0${label.label}`
+        const key = valueKey(label.metric, label.label)
         setOpenLabels((old) => { const next = new Set(old); next.has(key) ? next.delete(key) : next.add(key); return next })
         if (!openLabels.has(key)) void loadValues(label.metric, label.label)
         return
