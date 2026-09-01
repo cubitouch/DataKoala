@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { previewDenseTraceResultForId, previewDenseTraceSearchResult } from './visual-preview/trace-dense-fixtures.mjs'
+import { assertPreviewReady } from './visual-preview/assertions.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputDir = resolve(process.env.DATAKOALA_PREVIEW_OUTPUT ?? 'visual-preview')
@@ -133,6 +134,7 @@ app.whenReady().then(async () => {
     await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
     await sleep(350)
     if (!(await fullscreenReady(win))) throw new Error('Fullscreen service-map state changed before capture')
+    await assertPreviewReady(win, 'tempo-service-map-fullscreen.png')
     const image = await win.webContents.capturePage()
     const path = resolve(outputDir, 'tempo-service-map-fullscreen.png')
     await writeFile(path, image.toPNG())

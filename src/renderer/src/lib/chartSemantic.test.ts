@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { ChartAnimationPolicy, createChartFingerprint } from './chartSemantic.ts'
+import { ChartAnimationPolicy, createChartFingerprint, semanticChartCounts } from './chartSemantic.ts'
 import { ChartReadinessController, createChartRevision } from './chartReadiness.ts'
 import type { PivotedResult, VisualizationConfiguration } from './resultVisualization.ts'
 
@@ -40,4 +40,20 @@ test('a stale ECharts completion cannot commit or suppress the newer revision', 
   assert.equal(policy.shouldAnimate('result-b'), true)
   if (readiness.finishRevision(newRevision)) policy.commit('result-b')
   assert.equal(policy.shouldAnimate('result-b'), false)
+})
+
+test('semantic chart counts exclude time-series points outside the final axis domain', () => {
+  const report = semanticChartCounts({
+    xAxis: { type: 'time', min: Date.UTC(2026, 6, 1), max: Date.UTC(2026, 7, 31) },
+    series: [{ name: 'orders', data: [['2025-01-01T00:00:00.000Z', 12], ['2025-02-01T00:00:00.000Z', 14]] }]
+  })
+  assert.deepEqual(report, { series: 1, items: 0 })
+})
+
+test('semantic chart counts include current visible points and exclude null values', () => {
+  const report = semanticChartCounts({
+    xAxis: { type: 'time', min: Date.UTC(2026, 6, 1), max: Date.UTC(2026, 7, 31) },
+    series: [{ name: 'orders', data: [['2026-07-01T00:00:00.000Z', 12], ['2026-08-01T00:00:00.000Z', 14], ['2026-08-02T00:00:00.000Z', null]] }]
+  })
+  assert.deepEqual(report, { series: 1, items: 2 })
 })

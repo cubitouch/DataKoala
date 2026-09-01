@@ -720,7 +720,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
         {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans. Virtualised rendering remains follow-up work in #88.</div>}
 
         <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
-          <div className={styles.waterfall}>
+          <div className={styles.waterfall} data-trace-waterfall="" data-visual-type="waterfall" data-visual-finished={renderedTree.length > 0} data-visual-items={renderedTree.length}>
             <div className={styles.waterfallHeader}>
               <span>Span tree · {filteredSpanCount}/{spans.length} visible</span>
               <div className={styles.timelineHeader}>

@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { lokiLabels, lokiLabelValues, previewLokiLogResult, previewLokiTrendResult } from './visual-preview/loki-fixtures.mjs'
-import { assertCompactObjectFilter, assertFieldRowGeometry, assertVisibleSeriesField } from './visual-preview/assertions.mjs'
+import { assertCompactObjectFilter, assertFieldRowGeometry, assertPreviewReady, assertVisibleSeriesField } from './visual-preview/assertions.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
@@ -84,6 +84,7 @@ app.whenReady().then(async () => {
     await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
     await sleep(400)
     const listPath = resolve(outputDir, 'loki-log-list.png')
+    await assertPreviewReady(win, 'loki-log-list.png')
     await win.webContents.capturePage()
     await sleep(200)
     await writeFile(listPath, (await win.webContents.capturePage()).toPNG())
@@ -94,6 +95,7 @@ app.whenReady().then(async () => {
     await assertVisibleSeriesField(win)
     await sleep(400)
     const chartPath = resolve(outputDir, 'loki-log-chart.png')
+    await assertPreviewReady(win, 'loki-log-chart.png')
     await win.webContents.capturePage()
     await sleep(200)
     await writeFile(chartPath, (await win.webContents.capturePage()).toPNG())

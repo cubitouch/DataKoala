@@ -43,7 +43,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
-    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
+    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\" && node --test scripts/visual-preview/assertions.test.mjs",
     "test:unit": "node --experimental-strip-types --test \"src/**/!(*.e2e).test.ts\"",
     "test:e2e": "node --experimental-strip-types --test \"src/**/*.e2e.test.ts\"",
     "test:ui": "vitest run --config vitest.ui.config.ts",

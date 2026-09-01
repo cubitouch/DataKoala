@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { documentationScreenshots, syntheticSources } from './fixtures.mjs'
-import { assertCompactObjectFilter, assertVisibleSeriesField } from './assertions.mjs'
+import { assertCompactObjectFilter, assertPreviewReady, assertVisibleSeriesField } from './assertions.mjs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -13,6 +13,24 @@ const captureKind = process.env.DATAKOALA_PREVIEW_KIND ?? 'regression'
 process.env.DATAKOALA_SMOKE = '1'
 
 const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
+
+function builderFixtureResult(query) {
+  const sql = String(query)
+  if (!/monthly_market_activity/i.test(sql)) return null
+  const count = /count\s*\(/i.test(sql)
+  const amount = /amount/i.test(sql)
+  if (!count && !amount) return null
+  const temporal = /date_trunc\s*\(/i.test(sql)
+  const currentMonth = new Date(); currentMonth.setUTCDate(1); currentMonth.setUTCHours(0, 0, 0, 0)
+  // End at the previous month so every bucket is complete and inside “Last 6 months”.
+  const rows = temporal
+    ? Array.from({ length: 5 }, (_, month) => ['North', 'South'].map((series, seriesIndex) => ({ time_bucket: new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth() - (5 - month), 15)), series, value: 120 + month * 35 + seriesIndex * 55 }))).flat()
+    : ['France', 'Germany', 'Spain', 'United Kingdom'].map((series, index) => ({ series, [count ? 'count' : 'value']: count ? [8, 13, 5, 11][index] : [42, 31, 24, 37][index] }))
+  return {
+    columns: [...(temporal ? [{ name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' }] : []), { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' }, { name: count ? 'count' : 'value', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }],
+    rows, rowCount: rows.length, durationMs: 7
+  }
+}
 
 async function waitForRendererState(win, expression, description, attempts = 60) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -31,21 +49,6 @@ async function waitForRenderer(win) {
     await sleep(100)
   }
   throw new Error('Timed out waiting for the renderer and test store seam')
-}
-
-async function waitForChart(win) {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const ready = await win.webContents.executeJavaScript(
-      `Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`
-    )
-    if (ready) return
-    await sleep(100)
-  }
-
-  const bodyText = await win.webContents.executeJavaScript(
-    `(document.body.innerText || '').slice(0, 500)`
-  )
-  throw new Error(`Chart did not render. Renderer text: ${bodyText}`)
 }
 
 async function waitForTable(win) {
@@ -262,7 +265,8 @@ async function configureDocumentationSql(win, mode, view) {
       { schema: 'analytics', name: 'monthly_market_activity', qualifiedName: 'analytics.monthly_market_activity', kind: 'r', columnsStatus: 'loaded', columns: [
         { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },
         { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
-        { name: 'count', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
+        { name: 'count', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' },
+        { name: 'amount', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
       ] },
       { schema: 'analytics', name: 'market_summary', qualifiedName: 'analytics.market_summary', kind: 'v', columnsStatus: 'idle' },
       { schema: 'analytics', name: 'customer_activity', qualifiedName: 'analytics.customer_activity', kind: 'r', columnsStatus: 'idle' }
@@ -469,8 +473,8 @@ async function configureMode(win, mode) {
     if (attempt === 39) throw new Error(`The ${mode} editor did not render`)
     await sleep(100)
   }
-  await waitForChart(win)
-  await sleep(600)
+  // Populated chart captures wait on their audited semantic renderer report in
+  // assertPreviewReady(), rather than racing that report with a canvas-only wait.
 }
 
 async function configurePrometheusToolbar(win) {
@@ -559,37 +563,68 @@ async function configureTablePreview(win) {
 }
 
 async function configureBuilderControls(win, variant) {
+  await waitForRendererState(win, `!window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).running`, `settled query before Builder ${variant} fixture`)
   const report = await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
     if (!store) return { error: 'window.__datakoalaStore is unavailable' }
     const variant = '${variant}'
-    store.getState().setBuilderHasRun(false)
-    store.getState().setResult(null, null)
     const temporal = variant === 'temporal-series'
     const count = variant === 'count-without-y'
-    store.getState().setBuilder({
-      table: { schema: 'analytics', name: 'monthly_market_activity' },
-      timeColumn: 'time_bucket',
-      timeBucket: 'month',
-      timeRange: { kind: 'rolling', amount: 6, unit: 'month' },
-      seriesColumns: temporal ? ['series'] : []
-    })
-    store.getState().setVisualization('builder', {
+    const currentMonth = new Date()
+    currentMonth.setUTCDate(1); currentMonth.setUTCHours(0, 0, 0, 0)
+    // End at the previous month so every bucket is complete and inside “Last 6 months”.
+    const rows = temporal
+      ? Array.from({ length: 5 }, (_, month) => ['North', 'South'].map((series, seriesIndex) => ({
+          time_bucket: new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth() - (5 - month), 15)),
+          series,
+          value: 120 + month * 35 + seriesIndex * 55
+        }))).flat()
+      : ['France', 'Germany', 'Spain', 'United Kingdom'].map((series, index) => ({
+          series,
+          [count ? 'count' : 'value']: count ? [8, 13, 5, 11][index] : [42, 31, 24, 37][index]
+        }))
+    const result = {
+      columns: [
+        ...(temporal ? [{ name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' }] : []),
+        { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+        { name: count ? 'count' : 'value', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
+      ],
+      rows,
+      rowCount: rows.length,
+      durationMs: 7
+    }
+    const visualization = {
       view: temporal ? 'line' : 'bar',
       xColumn: temporal ? 'time_bucket' : 'series',
-      valueColumn: count ? null : 'count',
+      valueColumn: count ? null : 'amount',
       seriesColumn: null,
       seriesColumns: temporal ? ['series'] : [],
       aggregation: count ? 'count' : 'sum'
-    })
-    store.getState().setBuilderHasRun(true)
-    return { ok: true }
+    }
+    const current = store.getState()
+    const active = current.tabs.find((tab) => tab.id === current.activeTabId)
+    const previousRevision = active.resultRevision
+    const resultRevision = previousRevision + 1
+    store.setState({ tabs: current.tabs.map((tab) => tab.id === current.activeTabId ? {
+      ...tab,
+      running: false,
+      pendingResult: null,
+      queryError: null,
+      result,
+      resultRevision,
+      builderHasRun: true,
+      builderResultFilters: [],
+      builder: { ...tab.builder, table: { schema: 'analytics', name: 'monthly_market_activity' }, timeColumn: 'time_bucket', timeBucket: 'month', timeRange: { kind: 'rolling', amount: 6, unit: 'month' }, seriesColumns: temporal ? ['series'] : [] },
+      builderVisualization: { ...tab.builderVisualization, ...visualization }
+    } : tab) })
+    return { ok: true, previousRevision, resultRevision }
   })()`)
   if (report?.error) throw new Error(report.error)
-  await sleep(250)
+  if (!(report.resultRevision > report.previousRevision)) throw new Error(`Builder ${variant} fixture did not advance the result revision: ${JSON.stringify(report)}`)
 }
 
 async function capture(win, filename) {
+  if (captureKind === 'regression') await assertPreviewReady(win, filename)
   await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
   await sleep(150)
   const image = await win.webContents.capturePage()
@@ -729,7 +764,7 @@ async function configureLongObjectTree(win) {
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
-  ipcMain.handle('query:run', async () => ({
+  ipcMain.handle('query:run', async (_event, _connectionId, query) => builderFixtureResult(query) ?? ({
     columns: [
       { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },
       { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },

@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { previewTraceId, previewTraceResultForId, previewTraceSearchResult } from './visual-preview/trace-fixtures.mjs'
 import { previewDenseTraceResultForId, previewDenseTraceSearchResult } from './visual-preview/trace-dense-fixtures.mjs'
-import { assertCompactObjectFilter, assertFieldRowGeometry } from './visual-preview/assertions.mjs'
+import { assertCompactObjectFilter, assertFieldRowGeometry, assertPreviewReady } from './visual-preview/assertions.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
@@ -25,6 +25,7 @@ async function waitFor(win, expression, description, attempts = 80) {
 }
 
 async function capture(win, filename) {
+  await assertPreviewReady(win, filename)
   await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
   await sleep(250)
   const image = await win.webContents.capturePage()
