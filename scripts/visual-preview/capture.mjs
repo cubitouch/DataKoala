@@ -22,8 +22,9 @@ function builderFixtureResult(query) {
   if (!count && !amount) return null
   const temporal = /date_trunc\s*\(/i.test(sql)
   const currentMonth = new Date(); currentMonth.setUTCDate(1); currentMonth.setUTCHours(0, 0, 0, 0)
+  // End at the previous month so every bucket is complete and inside “Last 6 months”.
   const rows = temporal
-    ? Array.from({ length: 5 }, (_, month) => ['North', 'South'].map((series, seriesIndex) => ({ time_bucket: new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth() - (4 - month), 15)), series, value: 120 + month * 35 + seriesIndex * 55 }))).flat()
+    ? Array.from({ length: 5 }, (_, month) => ['North', 'South'].map((series, seriesIndex) => ({ time_bucket: new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth() - (5 - month), 15)), series, value: 120 + month * 35 + seriesIndex * 55 }))).flat()
     : ['France', 'Germany', 'Spain', 'United Kingdom'].map((series, index) => ({ series, [count ? 'count' : 'value']: count ? [8, 13, 5, 11][index] : [42, 31, 24, 37][index] }))
   return {
     columns: [...(temporal ? [{ name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' }] : []), { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' }, { name: count ? 'count' : 'value', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }],
@@ -571,9 +572,10 @@ async function configureBuilderControls(win, variant) {
     const count = variant === 'count-without-y'
     const currentMonth = new Date()
     currentMonth.setUTCDate(1); currentMonth.setUTCHours(0, 0, 0, 0)
+    // End at the previous month so every bucket is complete and inside “Last 6 months”.
     const rows = temporal
       ? Array.from({ length: 5 }, (_, month) => ['North', 'South'].map((series, seriesIndex) => ({
-          time_bucket: new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth() - (4 - month), 15)),
+          time_bucket: new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth() - (5 - month), 15)),
           series,
           value: 120 + month * 35 + seriesIndex * 55
         }))).flat()
