@@ -8,8 +8,8 @@
 .nodeName[aria-current="true"] { color: var(--accent); font-weight: 600; }
 .secondaryText { flex: 0 1 auto; min-width: 0; max-width: 48%; color: var(--text-mute); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .badge { margin-left: auto; padding: 1px 4px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-mute); font-size: 10px; }
-.description { position: fixed; z-index: 20; max-width: 280px; margin: 30px 0 0 20px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-1); color: var(--text); box-shadow: 0 4px 12px #0006; visibility: hidden; }
-.treeRow:has(.nodeName:hover) .description, .treeRow:has(.nodeName:focus) .description { visibility: visible; }
+.description { position: fixed; z-index: 20; max-width: 280px; margin: 30px 0 0 20px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-1); color: var(--text); box-shadow: 0 4px 12px #0006; visibility: hidden; pointer-events: none; }
+.treeRow:has(.nodeName:hover) .description, .treeRow:has(.nodeName:focus-visible) .description { visibility: visible; }
 .status { display: block; padding: 4px 4px 4px calc(4px + var(--tree-depth) * 17px); color: var(--text-mute); font-size: 10px; }
 button.status { width: 100%; background: none; border: 0; text-align: left; }
 .status.error { color: var(--accent); cursor: pointer; }
