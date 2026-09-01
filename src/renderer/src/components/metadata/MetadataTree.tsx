@@ -10,6 +10,7 @@ export type MetadataTreeNode = {
   description?: string
   ariaLabel?: string
   selected?: boolean
+  disabled?: boolean
   activatable?: boolean
   expandable?: boolean
   expanded?: boolean
@@ -50,12 +51,12 @@ export function MetadataTree({ ariaLabel, nodes, filter = '', onToggle, onActiva
     return <div key={node.id} role="treeitem" aria-label={!node.activatable ? node.ariaLabel : undefined} aria-expanded={expandable ? expanded : undefined}>
       <div className={styles.treeRow} style={{ '--tree-depth': depth } as CSSProperties}>
         {expandable
-          ? <button className={styles.chevronButton} aria-label={`${expanded ? 'Collapse' : 'Expand'} ${node.label}`} onClick={() => onToggle?.(node)}>{expanded ? '▾' : '▸'}</button>
+          ? <button disabled={node.disabled} className={styles.chevronButton} aria-label={`${expanded ? 'Collapse' : 'Expand'} ${node.label}`} onClick={() => onToggle?.(node)}>{expanded ? '▾' : '▸'}</button>
           : null}
         {node.activatable && onActivate
-          ? <button className={styles.nodeName} title={node.tooltip} aria-label={node.ariaLabel} aria-describedby={node.description ? descriptionId : undefined} aria-current={node.selected ? 'true' : undefined} onClick={() => onActivate(node)}>{node.label}</button>
+          ? <button disabled={node.disabled} className={styles.nodeName} title={node.tooltip} aria-label={node.ariaLabel} aria-describedby={node.description ? descriptionId : undefined} aria-current={node.selected ? 'true' : undefined} onClick={() => onActivate(node)}>{node.label}</button>
           : expandable
-            ? <button className={styles.nodeName} title={node.tooltip} aria-label={node.ariaLabel} onClick={() => onToggle?.(node)}>{node.label}</button>
+            ? <button disabled={node.disabled} className={styles.nodeName} title={node.tooltip} aria-label={node.ariaLabel} onClick={() => onToggle?.(node)}>{node.label}</button>
           : <span className={styles.nodeName} title={node.tooltip}>{node.label}</span>}
         {node.badge && <span className={styles.badge}>{node.badge}</span>}
         {node.secondaryText && <span className={styles.secondaryText}>{node.secondaryText}</span>}
@@ -64,7 +65,7 @@ export function MetadataTree({ ariaLabel, nodes, filter = '', onToggle, onActiva
       {expanded && <div role="group" aria-label={node.groupAriaLabel}>
         {node.beforeChildren}
         {node.status === 'loading' && <div className={styles.status} style={{ '--tree-depth': depth + 1 } as CSSProperties} role="status">{node.statusText ?? 'Loading…'}</div>}
-        {node.status === 'error' && <button className={`${styles.status} ${styles.error}`} style={{ '--tree-depth': depth + 1 } as CSSProperties} onClick={() => onRetry?.(node)}>{node.statusText ?? 'Could not load — retry'}</button>}
+        {node.status === 'error' && <button disabled={node.disabled} className={`${styles.status} ${styles.error}`} style={{ '--tree-depth': depth + 1 } as CSSProperties} onClick={() => onRetry?.(node)}>{node.statusText ?? 'Could not load — retry'}</button>}
         {renderNodes(node.children ?? [], depth + 1)}
         {node.afterChildren}
       </div>}
