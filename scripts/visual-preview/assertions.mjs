@@ -69,10 +69,11 @@ export const previewExpectations = Object.freeze({
   'sql-long-query-scroll.png': { selector: '[data-result-chart-canvas]', description: 'SQL chart below long query', minSeries: 1, minItems: 1 },
   'sql-wide-sidebar-long-names.png': { selector: '[data-result-chart-canvas]', description: 'SQL chart with wide sidebar', minSeries: 1, minItems: 1 },
   'sql-narrow-short-tooltip.png': { selector: '[data-result-chart-canvas]', description: 'SQL narrow chart', minSeries: 1, minItems: 1 },
-  'builder-temporal-series.png': { selector: '[data-result-chart-canvas]', description: 'Builder temporal series chart', minSeries: 1, minItems: 1 },
-  'builder-categorical-numeric.png': { selector: '[data-result-chart-canvas]', description: 'Builder categorical chart', minSeries: 1, minItems: 1 },
-  'builder-count-without-y.png': { selector: '[data-result-chart-canvas]', description: 'Builder count chart', minSeries: 1, minItems: 1 },
-  'builder-narrow.png': { selector: '[data-result-chart-canvas]', description: 'Builder narrow chart', minSeries: 1, minItems: 1 },
+  'builder-temporal-series.png': { selector: '[data-result-chart-canvas]', description: 'Builder temporal series chart', minSeries: 2, minItems: 10, itemCount: 10, expectedConfig: { view: 'line', x: 'time_bucket', y: 'amount', series: ['series'], aggregation: 'sum' } },
+  'builder-categorical-numeric.png': { selector: '[data-result-chart-canvas]', description: 'Builder categorical chart', minSeries: 1, minItems: 4, itemCount: 4, expectedConfig: { view: 'bar', x: 'series', y: 'amount', series: [], aggregation: 'sum' } },
+  'builder-count-without-y.png': { selector: '[data-result-chart-canvas]', description: 'Builder count chart', minSeries: 1, minItems: 4, itemCount: 4, expectedConfig: { view: 'bar', x: 'series', y: null, series: [], aggregation: 'count' } },
+  // This capture exercises responsive Builder controls; its plot is below the viewport.
+  'builder-narrow.png': { kind: 'not-visualization' },
   'table.png': { kind: 'not-visualization' }
 })
 
@@ -81,6 +82,12 @@ export function validateVisualReport(previewName, expectation, report) {
   if (!report) throw new Error(`[${previewName}] Missing ${expectation.description} semantic report (${expectation.selector})`)
   const diagnostics = JSON.stringify({ previewName, visualization: report.type, expectation, actual: report })
   if (!report.finished) throw new Error(`[${previewName}] ${expectation.description} has not finished rendering. ${diagnostics}`)
+  if (report.expectedFingerprint && report.fingerprint !== report.expectedFingerprint) throw new Error(`[${previewName}] ${expectation.description} is a stale chart from a previous result or configuration. ${diagnostics}`)
+  if (expectation.expectedConfig) {
+    for (const [key, expected] of Object.entries(expectation.expectedConfig)) {
+      if (JSON.stringify(report.config?.[key]) !== JSON.stringify(expected)) throw new Error(`[${previewName}] ${expectation.description} has unexpected ${key}. ${diagnostics}`)
+    }
+  }
   const counts = [['series', 'minSeries'], ['items', 'minItems'], ['nodes', 'minNodes'], ['edges', 'minEdges']]
   if (expectation.expectEmpty) {
     if (counts.some(([actual]) => Number(report[actual] ?? 0) !== 0)) throw new Error(`[${previewName}] Expected an intentionally empty visualization. ${diagnostics}`)
@@ -91,6 +98,7 @@ export function validateVisualReport(previewName, expectation, report) {
       throw new Error(`[${previewName}] ${expectation.description} expected ${minimum}=${expectation[minimum]}, actual ${actual}=${report[actual] ?? 0}. ${diagnostics}`)
     }
   }
+  if (expectation.itemCount != null && Number(report.items ?? 0) !== expectation.itemCount) throw new Error(`[${previewName}] ${expectation.description} expected itemCount=${expectation.itemCount}, actual items=${report.items ?? 0}. ${diagnostics}`)
 }
 
 export async function assertPreviewReady(win, previewName, override) {
@@ -103,7 +111,8 @@ export async function assertPreviewReady(win, previewName, override) {
       const element = document.querySelector(${JSON.stringify(expectation.selector)})
       if (!element) return null
       const number = (name) => Number(element.getAttribute(name) || 0)
-      return { type: element.getAttribute('data-visual-type'), finished: element.getAttribute('data-visual-finished') === 'true', series: number('data-visual-series'), items: number('data-visual-items'), nodes: number('data-visual-nodes'), edges: number('data-visual-edges'), range: element.getAttribute('data-visual-range'), fixture: element.getAttribute('data-visual-fixture') }
+      const config = element.getAttribute('data-visual-config')
+      return { type: element.getAttribute('data-visual-type'), finished: element.getAttribute('data-visual-finished') === 'true', series: number('data-visual-series'), items: number('data-visual-items'), nodes: number('data-visual-nodes'), edges: number('data-visual-edges'), range: element.getAttribute('data-visual-range'), fixture: element.getAttribute('data-visual-fixture'), fingerprint: element.getAttribute('data-visual-fingerprint'), expectedFingerprint: element.getAttribute('data-visual-expected-fingerprint'), config: config ? JSON.parse(config) : null }
     })()`)
     try { validateVisualReport(previewName, expectation, report); return report } catch (error) {
       if (attempt === 99) throw error
