@@ -1,5 +1,5 @@
 import { TextInput } from './ui/TextInput'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DataSourceProfile, DatabaseColumnNode, DatabaseRelationNode } from '@shared/types'
 import { api } from '../lib/api'
 import { ensureRelationColumns } from '../lib/relationColumns'
@@ -12,14 +12,14 @@ import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { ConnectionModal } from './ConnectionModal'
 import { connectionKindLabel } from '../lib/connectionKind'
 import { DeleteConnectionDialog } from './DeleteConnectionDialog'
-import { MetricDetails } from './MetricDetails'
 import { LokiSidebarTree } from './LokiSidebarTree'
 import { SqlMetadataTree } from './metadata/sql/SqlMetadataTree'
+import { PrometheusMetadataTree } from './metadata/prometheus/PrometheusMetadataTree'
 import styles from './Sidebar.module.css'
 
 const cx = (...classes: Array<string | false | undefined>) => classes.filter(Boolean).join(' ')
 
-const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'metric' ? 'metric' : kind === 'service' ? 'service' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
+const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'service' ? 'service' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
 function traceqlForService(relation: DatabaseRelationNode): string {
   const namespace = relation.details?.kind === 'service' ? relation.details.serviceNamespace : undefined
   const service = `resource.service.name = ${JSON.stringify(relation.name)}`
@@ -29,23 +29,16 @@ function traceqlForService(relation: DatabaseRelationNode): string {
 }
 
 function RelationName({ relation, current, onClick }: { relation: DatabaseRelationNode; current: boolean; onClick: () => void }) {
-  const tooltipId = useId()
-  const metricHelp = relation.details?.kind === 'metric' ? relation.details.help : undefined
-  const isMetric = relation.kind === 'metric'
   const isService = relation.kind === 'service'
-  const ariaLabel = isMetric
-    ? `Select ${relation.name} for Builder`
-    : isService ? `Explore traces for ${relation.name}` : `Select ${relation.qualifiedName} for Builder`
+  const ariaLabel = isService ? `Explore traces for ${relation.name}` : `Select ${relation.qualifiedName} for Builder`
   return <>
     <button
-      className={cx(styles.relationName, styles.truncate, metricHelp && styles.tooltipTrigger)}
-      title={isMetric ? undefined : isService ? relation.name : relation.qualifiedName}
+      className={cx(styles.relationName, styles.truncate)}
+      title={isService ? relation.name : relation.qualifiedName}
       aria-label={ariaLabel}
-      aria-describedby={metricHelp ? tooltipId : undefined}
       aria-current={current ? 'true' : undefined}
       onClick={onClick}
     >{relation.name}</button>
-    {metricHelp && <span className={cx('info-tooltip', styles.metricHelpTooltip)} id={tooltipId} role="tooltip">{metricHelp}</span>}
   </>
 }
 
@@ -164,7 +157,7 @@ export function Sidebar() {
     if (relation.kind === 'service') return
     const treeId = `relation:${relation.qualifiedName}`
     toggle(treeId)
-    if (relation.kind === 'metric' || expanded.has(treeId) || relation.columnsStatus !== 'idle') return
+    if (expanded.has(treeId) || relation.columnsStatus !== 'idle') return
     await loadRelationColumns(relation)
   }
 
@@ -178,6 +171,7 @@ export function Sidebar() {
   }, [filter, schemas])
   const filtering = Boolean(filter.trim())
   const isSqlSource = activeTabSourceKind !== 'prometheus' && activeTabSourceKind !== 'tempo' && activeTabSourceKind !== 'loki'
+  const isPrometheusMetadata = activeTabSourceKind === 'prometheus' && schemas.some((schema) => schema.relations.some((relation) => relation.kind === 'metric'))
 
   const selectForBuilder = (relation: DatabaseRelationNode) => {
     if (relation.kind === 'service') {
@@ -244,6 +238,8 @@ export function Sidebar() {
       {metadataStatus === 'loaded' && <>
         <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label={objectFilterLabel} labelVisibility="sr-only" /></div>
         {schemas.length === 0 ? <div className={styles.objectStatus}>No database objects</div> :
+        isPrometheusMetadata && activeTabConnectionId ? <PrometheusMetadataTree connectionId={activeTabConnectionId} schemas={schemas} expanded={expanded} filter={filter} selectedMetric={promqlBuilder.metric}
+          onToggleSchema={toggle} onToggleMetric={(relation) => toggle(`relation:${relation.qualifiedName}`)} onActivateMetric={selectForBuilder} /> :
         isSqlSource ? <SqlMetadataTree schemas={schemas} expanded={expanded} filter={filter} selectedRelation={builderTable}
           onToggleSchema={toggle}
           onToggleRelation={(relation) => void expandRelation(relation)}
@@ -258,10 +254,8 @@ export function Sidebar() {
               {schemaOpen && <div role="group">{schema.relations.map((relation) => {
                 const relationId = `relation:${relation.qualifiedName}`
                 const leaf = relation.kind === 'service'
-                const relationOpen = relation.kind === 'metric' ? expanded.has(relationId) : leaf ? false : filtering || expanded.has(relationId)
-                const current = relation.kind === 'metric'
-                  ? promqlBuilder.metric === relation.name
-                  : relation.kind === 'service'
+                const relationOpen = leaf ? false : filtering || expanded.has(relationId)
+                const current = relation.kind === 'service'
                     ? currentSql === traceqlForService(relation)
                     : builderTable?.schema === relation.schema && builderTable.name === relation.name
                 return <div key={relationId} role="treeitem" aria-expanded={leaf ? undefined : relationOpen}>
@@ -270,10 +264,9 @@ export function Sidebar() {
                       ? <span className={styles.chevronButton} aria-hidden="true" />
                       : <button className={styles.chevronButton} aria-label={`${relationOpen ? 'Collapse' : 'Expand'} ${relation.name}`} onClick={() => void expandRelation(relation)}>{relationOpen ? '▾' : '▸'}</button>}
                     <RelationName relation={relation} current={current} onClick={() => selectForBuilder(relation)} />
-                    {(relation.details?.kind !== 'metric' || relation.details.type) && <span className={cx(styles.kind, styles.relationKind)}>{relation.details?.kind === 'metric' ? relation.details.type : typeLabel(relation.kind)}</span>}
+                    <span className={cx(styles.kind, styles.relationKind)}>{typeLabel(relation.kind)}</span>
                   </div>
                   {relationOpen && <div role="group" className={styles.columns}>
-                    {relation.details?.kind === 'metric' && <MetricDetails connectionId={activeTabConnectionId} relation={relation} />}
                     {relation.columnsStatus === 'loading' && <div className={styles.columnStatus} role="status">Loading columns…</div>}
                     {relation.columnsStatus === 'error' && <button className={cx(styles.columnStatus, styles.error)} onClick={() => void loadRelationColumns({ ...relation, columnsStatus: 'idle' })}>Could not load columns — retry</button>}
                     {relation.columns?.map((column) => <div className={cx(styles.treeRow, styles.columnRow)} role="treeitem" key={column.name} title={`${relation.qualifiedName}.${column.name} — ${column.dataTypeName}`} aria-label={`${relation.qualifiedName}.${column.name}, ${column.dataTypeName}`}><span className={styles.truncate}>{column.name}</span><span className={cx(styles.columnType, styles.truncate)}>{column.dataTypeName}</span></div>)}

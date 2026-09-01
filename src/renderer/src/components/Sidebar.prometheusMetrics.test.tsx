@@ -123,7 +123,7 @@ describe('Prometheus metric object tree', () => {
     fireEvent.click(status)
     const children = await screen.findByRole('group', { name: 'status values' })
     expect(within(children).getAllByRole('treeitem').map((item) => item.textContent)).toEqual(['success', 'failure'])
-    expect(status.parentElement?.contains(children)).toBe(true)
+    expect(status.closest('[role=treeitem]')?.contains(children)).toBe(true)
     expect(mocks.labelValues).toHaveBeenCalledTimes(1)
     expect(mocks.labelValues).toHaveBeenCalledWith('prom-1', 'http_requests_total', 'status')
   })
