@@ -55,4 +55,13 @@ describe('MetadataTree', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Failed — retry' }))
     expect(onRetry).toHaveBeenCalledWith(statusNodes[1])
   })
+
+  it('renders accessible descriptions and supplementary expanded content', () => {
+    render(<MetadataTree ariaLabel="Things" nodes={[{ id: 'described', label: 'Described', activatable: true, expandable: true, expanded: true,
+      description: 'Helpful details', beforeChildren: <span>Before</span>, afterChildren: <span>After</span> }]} onActivate={() => {}} />)
+    const button = screen.getByRole('button', { name: 'Described' })
+    expect(button.getAttribute('aria-describedby')).toBe(screen.getByRole('tooltip', { name: 'Helpful details' }).id)
+    expect(screen.getByText('Before')).toBeTruthy()
+    expect(screen.getByText('After')).toBeTruthy()
+  })
 })

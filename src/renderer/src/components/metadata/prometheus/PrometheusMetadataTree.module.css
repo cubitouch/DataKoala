@@ -1,0 +1,6 @@
+.unit { display: flex; gap: 8px; padding: 4px 8px 4px 39px; color: var(--text-dim); font-size: 11px; }
+.unit strong { color: var(--text-mute); font-weight: 500; }
+.heading { padding: 4px 8px 2px 39px; color: var(--text-mute); font-size: 11px; font-weight: 600; }
+.valueFilter { padding: 3px 8px 3px 56px; }
+.status { padding: 3px 8px 3px 56px; color: var(--text-mute); font-size: 10px; }
+.limit { padding: 3px 8px 3px 56px; color: var(--text-mute); font-size: 10px; }
