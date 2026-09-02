@@ -27,6 +27,31 @@ test('dependent metadata selector excludes its own matcher only', () => {
   ], 'service'), '{environment="prod"}')
 })
 
+test('dependent metadata selectors require a positive non-empty anchor', () => {
+  assert.equal(selectorWithoutMatcher([], 'service'), undefined)
+  assert.equal(selectorWithoutMatcher([{ label: 'environment', operator: '!=', value: 'production' }], 'service'), undefined)
+  assert.equal(selectorWithoutMatcher([{ label: 'environment', operator: '!~', value: 'dev|test' }], 'service'), undefined)
+  assert.equal(selectorWithoutMatcher([{ label: 'environment', operator: '=~', value: '.*' }], 'service'), undefined)
+  assert.equal(selectorWithoutMatcher([{ label: 'environment', operator: '=~', value: '.+' }], 'service'), '{environment=~".+"}')
+  assert.equal(selectorWithoutMatcher([{ label: 'environment', operator: '=~', value: '[' }], 'service'), undefined)
+  assert.equal(selectorWithoutMatcher([{ label: 'environment', operator: '=~', value: '(?!production).*' }], 'service'), undefined)
+})
+
+test('dependent metadata selectors retain filters when a positive anchor exists', () => {
+  assert.equal(selectorWithoutMatcher([
+    { label: 'service_name', operator: '=', value: 'checkout' },
+    { label: 'environment', operator: '!=', value: 'development' }
+  ], 'namespace'), '{service_name="checkout", environment!="development"}')
+  assert.equal(selectorWithoutMatcher([
+    { label: 'environment', operator: '=', value: '', values: ['production', 'staging'] },
+    { label: 'service_name', operator: '=', value: 'checkout' }
+  ], 'service_name'), '{environment=~"^(?:production|staging)$"}')
+  assert.equal(selectorWithoutMatcher([
+    { label: 'environment', operator: '=', value: '', values: [] },
+    { label: 'service_name', operator: '=', value: 'checkout' }
+  ], 'service_name'), undefined)
+})
+
 test('value selections generate exact and anchored escaped regex matchers', () => {
   const base = { lineFilters: [], parsers: [], fieldFilters: [] }
   assert.equal(buildLokiQuery({ ...base, labelMatchers: [{ label: 'environment', operator: '=', value: 'production', values: ['production'] }] }), '{environment="production"}')

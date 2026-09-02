@@ -14,4 +14,21 @@ describe('Loki dependent metadata', () => {
     expect(mocks.labelValues).toHaveBeenCalledTimes(1)
     expect(mocks.labelValues).toHaveBeenCalledWith('loki', 'service', { start: 'a', end: 'b', selector: '{environment="prod"}' })
   })
+
+  it('omits an exclusion-only dependent selector so metadata remains discoverable', async () => {
+    clearLokiMetadataCache(); mocks.labelValues.mockResolvedValue(['checkout'])
+    const matchers = [{ label: 'environment', operator: '!=' as const, value: 'production' }]
+    expect(await lokiLabelValues('loki', 'service_name', { start: 'a', end: 'b' }, matchers)).toEqual(['checkout'])
+    expect(mocks.labelValues).toHaveBeenCalledWith('loki', 'service_name', { start: 'a', end: 'b' })
+  })
+
+  it('retains positive and negative dependencies when the selector is valid', async () => {
+    clearLokiMetadataCache(); mocks.labelValues.mockResolvedValue(['checkout'])
+    const matchers = [
+      { label: 'service_name', operator: '=' as const, value: 'checkout' },
+      { label: 'environment', operator: '!=' as const, value: 'development' }
+    ]
+    await lokiLabelValues('loki', 'namespace', { start: 'a', end: 'b' }, matchers)
+    expect(mocks.labelValues).toHaveBeenCalledWith('loki', 'namespace', { start: 'a', end: 'b', selector: '{service_name="checkout", environment!="development"}' })
+  })
 })

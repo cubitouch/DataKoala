@@ -127,6 +127,10 @@ export function normalizeLokiQuery(raw: unknown, request: Pick<LokiQueryRequest,
 }
 
 function normalizeStringData(raw: unknown, description: string): string[] {
+  if (isRecord(raw) && raw.status === 'error') {
+    const detail = typeof raw.error === 'string' ? sanitizeGcxError(raw.error) : ''
+    throw new Error(detail || `Loki rejected the ${description} request.`)
+  }
   const data = isRecord(raw) && raw.status === 'success' ? raw.data : undefined
   if (!Array.isArray(data) || data.some((item) => typeof item !== 'string')) throw new Error(`Loki returned an invalid ${description} response.`)
   return [...new Set(data as string[])].sort()
