@@ -52,6 +52,19 @@ test('dependent metadata selectors retain filters when a positive anchor exists'
   ], 'service_name'), undefined)
 })
 
+test('dependent metadata selectors omit unsafe regexes while retaining a valid equality anchor', () => {
+  const equality = { label: 'service_name', operator: '=' as const, value: 'checkout' }
+  assert.equal(selectorWithoutMatcher([
+    equality, { label: 'environment', operator: '=~', value: '[' }
+  ], 'namespace'), '{service_name="checkout"}')
+  assert.equal(selectorWithoutMatcher([
+    equality, { label: 'environment', operator: '!~', value: '[' }
+  ], 'namespace'), '{service_name="checkout"}')
+  assert.equal(selectorWithoutMatcher([
+    equality, { label: 'environment', operator: '!=', value: 'development' }
+  ], 'namespace'), '{service_name="checkout", environment!="development"}')
+})
+
 test('value selections generate exact and anchored escaped regex matchers', () => {
   const base = { lineFilters: [], parsers: [], fieldFilters: [] }
   assert.equal(buildLokiQuery({ ...base, labelMatchers: [{ label: 'environment', operator: '=', value: 'production', values: ['production'] }] }), '{environment="production"}')

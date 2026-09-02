@@ -7,22 +7,27 @@ export function escapeLogqlString(value: string): string {
   return JSON.stringify(value).replace(/\u2028|\u2029/g, (character) => character === '\u2028' ? '\\u2028' : '\\u2029')
 }
 export function escapeLogqlRegexValue(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
-type RenderedMatcher = { expression: string; anchorsSelector: boolean }
+type RenderedMatcher = { expression: string; anchorsSelector: boolean; safeForMetadata: boolean }
 
-function positiveRegexAnchorsSelector(value: string): boolean {
+function regexMetadataSafety(value: string): { safe: boolean; matchesEmpty: boolean } {
   // Loki uses RE2. Treat constructs whose semantics cannot be verified with the
   // JavaScript regexp engine conservatively instead of risking invalid metadata.
-  if (/\\[1-9]|\(\?[=!<]/.test(value)) return false
-  try { return !new RegExp(value).test('') } catch { return false }
+  if (/\\[1-9]|\(\?[=!<]/.test(value)) return { safe: false, matchesEmpty: true }
+  try { return { safe: true, matchesEmpty: new RegExp(value).test('') } } catch { return { safe: false, matchesEmpty: true } }
 }
 
 function renderedMatcher({ label, operator, value, values }: LokiLabelMatcher): RenderedMatcher | null {
   const unique = [...new Set((values ?? [value]).filter((item) => item !== ''))]
   if (!label.trim() || !unique.length) return null
   if (!isValidLokiLabelName(label)) throw new Error(`Invalid Loki label name: ${label}`)
-  if (values && unique.length > 1) return { expression: `${label}=~${escapeLogqlString(`^(?:${unique.map(escapeLogqlRegexValue).join('|')})$`)}`, anchorsSelector: true }
-  if (values) return { expression: `${label}=${escapeLogqlString(unique[0])}`, anchorsSelector: true }
-  return { expression: `${label}${operator}${escapeLogqlString(value)}`, anchorsSelector: operator === '=' || (operator === '=~' && positiveRegexAnchorsSelector(value)) }
+  if (values && unique.length > 1) return { expression: `${label}=~${escapeLogqlString(`^(?:${unique.map(escapeLogqlRegexValue).join('|')})$`)}`, anchorsSelector: true, safeForMetadata: true }
+  if (values) return { expression: `${label}=${escapeLogqlString(unique[0])}`, anchorsSelector: true, safeForMetadata: true }
+  const regexSafety = operator === '=~' || operator === '!~' ? regexMetadataSafety(value) : undefined
+  return {
+    expression: `${label}${operator}${escapeLogqlString(value)}`,
+    anchorsSelector: operator === '=' || (operator === '=~' && Boolean(regexSafety?.safe) && !regexSafety?.matchesEmpty),
+    safeForMetadata: regexSafety?.safe ?? true
+  }
 }
 function matcherExpression(matcher: LokiLabelMatcher): string | null {
   return renderedMatcher(matcher)?.expression ?? null
@@ -61,7 +66,7 @@ export function logqlResultKind(query: string): 'logs' | 'metrics' {
   return kind
 }
 export function selectorWithoutMatcher(matchers: LokiLabelMatcher[], excludedLabel: string): string | undefined {
-  const remaining = matchers.filter(({ label }) => label !== excludedLabel).map(renderedMatcher).filter((value): value is RenderedMatcher => Boolean(value))
+  const remaining = matchers.filter(({ label }) => label !== excludedLabel).map(renderedMatcher).filter((value): value is RenderedMatcher => Boolean(value?.safeForMetadata))
   if (!remaining.some(({ anchorsSelector }) => anchorsSelector)) return undefined
   return `{${remaining.map(({ expression }) => expression).join(', ')}}`
 }
