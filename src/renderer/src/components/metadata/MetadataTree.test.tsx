@@ -64,4 +64,18 @@ describe('MetadataTree', () => {
     expect(screen.getByText('Before')).toBeTruthy()
     expect(screen.getByText('After')).toBeTruthy()
   })
+
+  it('uses native disabled semantics and blocks node interaction', () => {
+    const onToggle = vi.fn()
+    const onActivate = vi.fn()
+    render(<MetadataTree ariaLabel="Things" nodes={[{ ...nodes[0], disabled: true }]} onToggle={onToggle} onActivate={onActivate} />)
+    const toggle = screen.getByRole('button', { name: 'Collapse Parent' })
+    const activate = screen.getByRole('button', { name: 'Parent' })
+    expect(toggle.hasAttribute('disabled')).toBe(true)
+    expect(activate.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(toggle)
+    fireEvent.click(activate)
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(onActivate).not.toHaveBeenCalled()
+  })
 })

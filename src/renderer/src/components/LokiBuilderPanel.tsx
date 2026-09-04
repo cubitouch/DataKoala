@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { LokiBuilderState, LokiLabelMatcher } from '@shared/loki'
 import type { LokiMetadataRequest } from '@shared/loki'
 import { lokiLabelValues } from '../lib/lokiMetadata'
+import { selectorWithoutMatcher } from '@shared/loki-builder'
 import { MultiCombobox } from './ui/combobox'
 import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
 import styles from './LokiBuilderPanel.module.css'
@@ -20,7 +21,8 @@ function ValueControl({ matcher, matchers, connectionId, connectionGeneration, c
     const current = ++request.current
     setLoading(true); setError(null)
     try {
-      const found = [...new Set(await lokiLabelValues(connectionId, matcher.label, bounds, matchers))].sort()
+      const selector = selectorWithoutMatcher(matchers, matcher.label)
+      const found = [...new Set(await lokiLabelValues(connectionId, matcher.label, { ...bounds, ...(selector ? { selector } : {}) }))].sort()
       if (available.current && current === request.current) setValues(found)
     } catch (e) {
       if (available.current && current === request.current) setError(e instanceof Error ? e.message : String(e))

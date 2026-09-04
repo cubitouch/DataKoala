@@ -3,6 +3,7 @@
 .treeRow:hover { background: var(--bg-3); color: var(--text); }
 .treeRow button { background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .treeRow button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.treeRow button:disabled { cursor: default; opacity: .55; }
 .chevronButton { width: 20px; padding: 4px; flex: none; }
 .nodeName { flex: 1 1 auto; min-width: 0; padding: 4px 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nodeName[aria-current="true"] { color: var(--accent); font-weight: 600; }
@@ -13,3 +14,4 @@
 .status { display: block; padding: 4px 4px 4px calc(4px + var(--tree-depth) * 17px); color: var(--text-mute); font-size: 10px; }
 button.status { width: 100%; background: none; border: 0; text-align: left; }
 .status.error { color: var(--accent); cursor: pointer; }
+button.status:disabled { cursor: default; opacity: .55; }

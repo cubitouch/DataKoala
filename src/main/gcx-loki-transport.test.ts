@@ -111,6 +111,31 @@ test('probe uses datasource discovery and never sends millisecond metadata times
   assert.deepEqual(calls, [['api', '/api/datasources', '-o', 'json']])
 })
 
+test('label values omit invalid dependent selectors and preserve valid ones in the request URL', async () => {
+  const calls: string[][] = []
+  const transport = new GcxLokiTransport(undefined, async (args) => { calls.push(args); return { stdout: JSON.stringify({ status: 'success', data: ['checkout'] }), stderr: '' } }, 'loki')
+  await transport.labelValues('service_name', { start: 'a', end: 'b' })
+  await transport.labelValues('namespace', { start: 'a', end: 'b', selector: '{service_name="checkout", environment!="development"}' })
+  const broad = new URL(calls[0][1], 'https://grafana.invalid')
+  const filtered = new URL(calls[1][1], 'https://grafana.invalid')
+  assert.equal(broad.searchParams.has('query'), false)
+  assert.equal(filtered.searchParams.get('query'), '{service_name="checkout", environment!="development"}')
+})
+
+test('surfaces sanitized Loki metadata errors without exposing response payloads', async () => {
+  const transport = new GcxLokiTransport(undefined, async () => ({ stdout: JSON.stringify({ status: 'error', error: 'parse error: token=secret queries require an equality matcher', data: ['sensitive-value'] }), stderr: '' }), 'loki')
+  await assert.rejects(() => transport.labelValues('service_name', { start: 'a', end: 'b' }), (error: Error) => {
+    assert.equal(error.message, 'parse error: token=[redacted] queries require an equality matcher')
+    assert.doesNotMatch(error.message, /sensitive-value/)
+    return true
+  })
+})
+
+test('retains the structural error for malformed successful label values', async () => {
+  const transport = new GcxLokiTransport(undefined, async () => ({ stdout: JSON.stringify({ status: 'success', data: { result: [] } }), stderr: '' }), 'loki')
+  await assert.rejects(() => transport.labelValues('service_name', { start: 'a', end: 'b' }), /Loki returned an invalid label values response/)
+})
+
 test('metric queries use the authenticated canonical Loki range proxy when a datasource UID is selected', async () => {
   let argv: string[] = []
   const transport = new GcxLokiTransport('prod', async (args) => { argv = args; return { stdout: JSON.stringify({ status: 'success', data: { resultType: 'matrix', result: [{ metric: { level: 'error' }, values: [[10, '2']] }] } }), stderr: '' } }, 'loki/uid')

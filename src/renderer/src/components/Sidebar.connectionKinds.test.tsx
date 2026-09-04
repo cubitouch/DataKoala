@@ -105,6 +105,6 @@ it('shows useful Loki labels, hides internal labels, and lazily seeds a value fi
   expect(screen.getByText('service_name')).toBeTruthy()
   expect(screen.queryByText('namespace')).toBeNull()
   fireEvent.change(objectFilter, { target: { value: '' } })
-  fireEvent.click(await screen.findByRole('treeitem', { name: 'checkout-api' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'checkout-api' }))
   await waitFor(() => expect(useStore.getState().tabs[0].lokiBuilder.labelMatchers).toEqual([{ label: 'service_name', operator: '=', value: 'checkout-api', values: ['checkout-api'] }]))
 })

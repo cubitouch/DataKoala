@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
@@ -50,4 +48,38 @@ it('keeps connected metadata failures actionable', async () => {
   expect(await screen.findByRole('alert')).toBeTruthy()
   expect(screen.getByText('upstream denied')).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+})
+
+it('discovers sidebar values independently of Builder matchers', async () => {
+  mocks.labels.mockResolvedValue(['service_name'])
+  mocks.labelValues.mockResolvedValue(['checkout'])
+  const sessionId = useStore.getState().activeTabId
+  const setMatchersAndRange = (labelMatchers: Array<{ label: string; operator: '=' | '!='; value: string }>, amount: 1 | 3 | 6) => {
+    const session = useStore.getState().tabs.find(({ id }) => id === sessionId)!
+    useStore.getState().setLokiState({
+      lokiBuilder: { ...session.lokiBuilder, labelMatchers },
+      lokiTimeRange: { kind: 'rolling', amount, unit: 'hour' }
+    }, sessionId)
+  }
+
+  act(() => setMatchersAndRange([{ label: 'environment', operator: '=', value: 'production' }], 1))
+  render(<LokiSidebarTree connectionId="loki" />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Expand service_name' }))
+  expect(await screen.findByRole('button', { name: 'checkout' })).toBeTruthy()
+
+  act(() => setMatchersAndRange([{ label: 'environment', operator: '!=', value: 'production' }], 3))
+  fireEvent.click(await screen.findByRole('button', { name: 'Expand service_name' }))
+  expect(await screen.findByRole('button', { name: 'checkout' })).toBeTruthy()
+
+  act(() => setMatchersAndRange([], 6))
+  fireEvent.click(await screen.findByRole('button', { name: 'Expand service_name' }))
+  expect(await screen.findByRole('button', { name: 'checkout' })).toBeTruthy()
+
+  await waitFor(() => expect(mocks.labelValues).toHaveBeenCalledTimes(3))
+  for (const [connectionId, label, request] of mocks.labelValues.mock.calls) {
+    expect(connectionId).toBe('loki')
+    expect(label).toBe('service_name')
+    expect(request).not.toHaveProperty('selector')
+    expect(request).toEqual(expect.objectContaining({ start: expect.any(String), end: expect.any(String) }))
+  }
 })
