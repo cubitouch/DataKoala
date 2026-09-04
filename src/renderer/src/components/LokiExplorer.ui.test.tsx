@@ -16,6 +16,7 @@ const logs = { resultKind: 'logs' as const, logRows: [], columns: [], rows: [], 
 
 afterEach(() => { cleanup(); clearLokiLabelsResources() })
 beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn()
   const tab = createQuerySession(1, { id: 'loki-tab', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
   useStore.setState({ tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true, connectionStatus: 'connected', connectionGeneration: 1, profiles: [{ id: 'loki', name: 'Production logs', kind: 'loki', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test' } }] })
   mocks.labels.mockReset().mockResolvedValue(['app', 'service'])
@@ -83,7 +84,10 @@ describe('LokiExplorer execution', () => {
     expect(screen.getByRole('combobox', { name: /app values/ })).toBeTruthy()
     fireEvent.click(labelPicker)
     fireEvent.click(await screen.findByRole('option', { name: 'service' }))
-    expect(screen.getByRole('combobox', { name: /service values/ })).toBeTruthy()
+    const serviceValues = screen.getByRole('combobox', { name: /service values/ })
+    fireEvent.click(serviceValues)
+    fireEvent.click(await screen.findByRole('option', { name: 'x' }))
+    fireEvent.change(screen.getByLabelText('Line contains'), { target: { value: 'timeout' } })
     fireEvent.click(screen.getByRole('combobox', { name: /Filter by/ }))
     const groupBy = screen.getByRole('combobox', { name: /Group by/ })
     fireEvent.click(groupBy)
@@ -91,7 +95,10 @@ describe('LokiExplorer execution', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'service' }))
     expect(useStore.getState().tabs[0].lokiGroupBy).toEqual(['app', 'service'])
     fireEvent.click(screen.getByText('Generated LogQL'))
-    expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toContain('app="x"')
+    const generated = (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value
+    expect(generated).toContain('app="x"')
+    expect(generated).toContain('service="x"')
+    expect(generated).toContain('|= "timeout"')
   })
 
   it('renders Limit as a complete numeric field without squeezing its input', () => {
