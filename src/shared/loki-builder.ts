@@ -8,6 +8,7 @@ export function escapeLogqlString(value: string): string {
 }
 export function escapeLogqlRegexValue(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
 type RenderedMatcher = { expression: string; anchorsSelector: boolean; safeForMetadata: boolean }
+export interface BuildLokiQueryOptions { fallbackMatcher?: LokiLabelMatcher }
 
 function regexMetadataSafety(value: string): { safe: boolean; matchesEmpty: boolean } {
   // Loki uses RE2. Treat constructs whose semantics cannot be verified with the
@@ -32,10 +33,16 @@ function renderedMatcher({ label, operator, value, values }: LokiLabelMatcher): 
 function matcherExpression(matcher: LokiLabelMatcher): string | null {
   return renderedMatcher(matcher)?.expression ?? null
 }
-export function buildLokiQuery(state: LokiBuilderState): string {
-  const complete = state.labelMatchers.map(matcherExpression).filter((value): value is string => Boolean(value))
-  if (!complete.length) throw new Error('Choose a value for at least one indexed label.')
-  let query = `{${complete.join(', ')}}`
+export function buildLokiQuery(state: LokiBuilderState, options: BuildLokiQueryOptions = {}): string {
+  const userMatchers = state.labelMatchers.map(matcherExpression).filter((value): value is string => Boolean(value))
+  let selectorMatchers = userMatchers
+  if (!selectorMatchers.length && options.fallbackMatcher) {
+    const fallback = renderedMatcher(options.fallbackMatcher)
+    if (!fallback?.anchorsSelector) throw new Error('The fallback Loki selector must contain a positive matcher that cannot match empty values.')
+    selectorMatchers = [fallback.expression]
+  }
+  if (!selectorMatchers.length) throw new Error('Choose a value for at least one indexed label or provide a safe fallback selector.')
+  let query = `{${selectorMatchers.join(', ')}}`
   for (const filter of state.lineFilters) query += ` ${filter.operator} ${escapeLogqlString(filter.value)}`
   for (const stage of state.parsers) {
     query += ` | ${stage.kind}`

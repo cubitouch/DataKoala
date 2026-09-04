@@ -24,6 +24,64 @@ beforeEach(() => {
 })
 
 describe('LokiExplorer execution', () => {
+  it('runs an empty Builder through the service_name fallback with bounded time and limit', async () => {
+    mocks.labels.mockResolvedValue(['app', 'service_name'])
+    mocks.runLoki.mockResolvedValue(logs)
+    const tab = createQuerySession(1, { id: 'empty-builder', connectionProfileId: 'loki', queryMode: 'builder' })
+    tab.lokiResultLimit = 2000
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+
+    const run = await screen.findByRole('button', { name: 'Run' })
+    await waitFor(() => expect(run.hasAttribute('disabled')).toBe(false))
+    expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toBe('{service_name=~".+"}')
+    fireEvent.click(run)
+
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+    const request = mocks.runLoki.mock.calls[0][1]
+    expect(request).toMatchObject({ expression: '{service_name=~".+"}', limit: 2000 })
+    expect(Date.parse(request.start)).not.toBeNaN()
+    expect(Date.parse(request.end)).not.toBeNaN()
+    expect(Date.parse(request.end) - Date.parse(request.start)).toBe(60 * 60 * 1000)
+  })
+
+  it('keeps a completed Builder selector instead of adding the fallback', async () => {
+    mocks.labels.mockResolvedValue(['app', 'service_name'])
+    mocks.runLoki.mockResolvedValue(logs)
+    const tab = createQuerySession(1, { id: 'filtered-builder', connectionProfileId: 'loki', queryMode: 'builder' })
+    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [], parsers: [], fieldFilters: [] }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+    await waitFor(() => expect(mocks.labels).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+    expect(mocks.runLoki.mock.calls[0][1].expression).toBe('{app="x"}')
+  })
+
+  it('explains why an empty Builder cannot run without a safe metadata anchor', async () => {
+    mocks.labels.mockResolvedValue(['app'])
+    const tab = createQuerySession(1, { id: 'unsupported-empty-builder', connectionProfileId: 'loki', queryMode: 'builder' })
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+    await waitFor(() => expect(mocks.labels).toHaveBeenCalled())
+    const reason = await screen.findByRole('status')
+    expect(reason.textContent).toContain('An unfiltered query isn’t available for this Loki datasource')
+    const run = screen.getByRole('button', { name: 'Run' })
+    expect(run.hasAttribute('disabled')).toBe(true)
+    expect(run.getAttribute('aria-describedby')).toBe(reason.id)
+    expect(mocks.runLoki).not.toHaveBeenCalled()
+  })
+
+  it('does not rewrite raw LogQL when fallback metadata is available', async () => {
+    mocks.labels.mockResolvedValue(['service_name'])
+    mocks.runLoki.mockResolvedValue(logs)
+    render(<LokiExplorer connectionId="loki" />)
+    await waitFor(() => expect(mocks.labels).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+    expect(mocks.runLoki.mock.calls[0][1].expression).toBe('{app="x"}')
+  })
+
   it('keeps saved Builder metadata controls unavailable without requests while disconnected', () => {
     const tab = createQuerySession(1, { id: 'disconnected-builder', connectionProfileId: 'loki', queryMode: 'builder' })
     tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'saved', values: ['saved'] }], lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: [] }
