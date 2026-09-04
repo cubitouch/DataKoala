@@ -1,9 +1,6 @@
 .form {
-  composes: builder-form axis-builder-form from global;
+  --builder-form-gap: 12px;
   container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   padding: 14px 12px;
 }
 
@@ -47,10 +44,9 @@
 }
 
 .row {
-  display: grid;
+  --builder-row-gap: 12px;
+  --builder-row-align: start;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  align-items: start;
 }
 
 .contextRow {
@@ -62,14 +58,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.control {
-  composes: builder-control from global;
-  min-width: 0;
-}
-
-
 .fieldLabel {
-  composes: builder-field-label from global;
   color: var(--text-mute);
   font-family: var(--sans);
   font-size: 11px;

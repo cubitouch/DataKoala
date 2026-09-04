@@ -77,6 +77,18 @@ const comboboxLabels = (container: Element) => Array.from(container.querySelecto
   .map((control) => control.getAttribute('aria-label')?.split(':')[0])
 
 describe('BuilderPanel axis-first controls', () => {
+  it('uses the shared builder form, row, and field structure', () => {
+    const view = arrange()
+    const form = view.container.querySelector('[data-builder-form]')!
+    const rows = form.querySelectorAll(':scope > [data-builder-control-row]')
+
+    expect(rows).toHaveLength(3)
+    expect(Array.from(rows, (row) => row.getAttribute('data-builder-control-row'))).toEqual(['context', 'dimensions', 'transformations'])
+    expect(form.querySelectorAll('[data-builder-field]')).toHaveLength(8)
+    expect(form.querySelectorAll('[data-builder-field] [role="combobox"]')).toHaveLength(7)
+    expect(form.querySelector('[data-builder-field] [aria-disabled="true"]')?.textContent).toBe('Select a table')
+  })
+
   it('groups dimensions before their aligned transformations', () => {
     const view = arrange()
     chooseOrders()
