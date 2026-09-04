@@ -161,3 +161,17 @@ test('CSV export renders nulls as empty and dates as ISO', () => {
   const csv = resultToCsv(r)
   assert.equal(csv.split('\n')[1], ',,2024-01-02T03:04:05.000Z')
 })
+
+test('CSV export preserves duplicate headers and their distinct values', () => {
+  const result: QueryResult = {
+    columns: [
+      { name: 'id', dataTypeID: 25, dataTypeName: 'text' },
+      { name: 'id', key: '__datakoala_column_1', dataTypeID: 25, dataTypeName: 'text' }
+    ],
+    rows: [{ id: 'A', __datakoala_column_1: 'B' }],
+    rowCount: 1,
+    durationMs: 1
+  }
+
+  assert.equal(resultToCsv(result), 'id,id\nA,B')
+})

@@ -129,6 +129,8 @@ export type LogicalType = 'number' | 'string' | 'boolean' | 'date' | 'timestamp'
 
 export interface ColumnMeta {
   name: string
+  /** Internal row-property lookup key when it differs from the displayed SQL name. */
+  key?: string
   logicalType?: LogicalType
   nativeType?: string
   nativeTypeId?: string | number

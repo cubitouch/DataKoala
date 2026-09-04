@@ -321,8 +321,13 @@ export const __testing = {
   }
 }
 
-function toColumnMeta(r: PgQueryResult): ColumnMeta[] {
-  return r.fields.map((f) => ({
+interface PostgresField {
+  name: string
+  dataTypeID: number
+}
+
+function toColumnMeta(fields: readonly PostgresField[]): ColumnMeta[] {
+  return fields.map((f) => ({
     name: f.name,
     dataTypeID: f.dataTypeID,
     dataTypeName: f.dataTypeID in OID_NAMES ? OID_NAMES[f.dataTypeID] : guessTypeName(f.dataTypeID),
@@ -330,6 +335,31 @@ function toColumnMeta(r: PgQueryResult): ColumnMeta[] {
     nativeType: f.dataTypeID in OID_NAMES ? OID_NAMES[f.dataTypeID] : guessTypeName(f.dataTypeID),
     nativeTypeId: f.dataTypeID
   }))
+}
+
+/** Convert pg array-mode output without losing columns that share a name. */
+export function normalizePostgresResult(
+  fields: readonly PostgresField[],
+  positionalRows: readonly (readonly unknown[])[]
+): Pick<QueryResult, 'columns' | 'rows' | 'rowCount'> {
+  const reservedKeys = new Set(fields.map((field) => field.name))
+  const assignedKeys = new Set<string>()
+  const columns = toColumnMeta(fields).map((column, index) => {
+    let key = column.name
+    if (assignedKeys.has(key)) {
+      let candidateIndex = index
+      do {
+        key = `__datakoala_column_${candidateIndex}`
+        candidateIndex += 1
+      } while (reservedKeys.has(key) || assignedKeys.has(key))
+    }
+    assignedKeys.add(key)
+    return key === column.name ? column : { ...column, key }
+  })
+  const rows = positionalRows.map((values) => Object.fromEntries(
+    columns.map((column, index) => [column.key ?? column.name, values[index]])
+  ))
+  return { columns, rows, rowCount: rows.length }
 }
 
 function logicalTypeForOid(oid: number): ColumnMeta['logicalType'] {
@@ -381,11 +411,12 @@ export async function runQuery(id: ConnectionId, sql: string, parameters: unknow
   assertReadonly(m.profile, sql)
   return withClient(id, async (client) => {
     const start = performance.now()
-    const r = await client.query(sql, parameters)
+    const r: PgQueryResult<unknown[]> = await client.query({ text: sql, values: parameters, rowMode: 'array' })
     const durationMs = Math.round(performance.now() - start)
+    const normalized = normalizePostgresResult(r.fields, r.rows)
     return {
-      columns: toColumnMeta(r),
-      rows: r.rows as Record<string, unknown>[],
+      columns: normalized.columns,
+      rows: normalized.rows,
       rowCount: r.rowCount ?? r.rows.length,
       durationMs,
       execution: { provider: 'postgres', durationMs, rowCount: r.rowCount ?? r.rows.length }
