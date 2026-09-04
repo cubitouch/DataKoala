@@ -1,5 +1,4 @@
-import type { LokiLabelMatcher, LokiMetadataRequest } from '../../../shared/loki.ts'
-import { selectorWithoutMatcher } from '../../../shared/loki-builder.ts'
+import type { LokiMetadataRequest } from '../../../shared/loki.ts'
 import { api } from './api.ts'
 
 const cache = new Map<string, Promise<string[]>>()
@@ -14,12 +13,11 @@ export function lokiLabels(connectionId: string, request: LokiMetadataRequest): 
   return pending
 }
 
-export function lokiLabelValues(connectionId: string, label: string, request: Omit<LokiMetadataRequest, 'selector'>, matchers: LokiLabelMatcher[]): Promise<string[]> {
-  const selector = selectorWithoutMatcher(matchers, label)
-  const cacheKey = key('values', connectionId, request.start, request.end, selector ?? '', label)
+export function lokiLabelValues(connectionId: string, label: string, request: LokiMetadataRequest): Promise<string[]> {
+  const cacheKey = key('values', connectionId, request.start, request.end, request.selector ?? '', label)
   const previous = cache.get(cacheKey)
   if (previous) return previous
-  const pending = api.connections.loki.labelValues(connectionId, label, { ...request, ...(selector ? { selector } : {}) }).catch((error) => { cache.delete(cacheKey); throw error })
+  const pending = api.connections.loki.labelValues(connectionId, label, request).catch((error) => { cache.delete(cacheKey); throw error })
   cache.set(cacheKey, pending)
   return pending
 }

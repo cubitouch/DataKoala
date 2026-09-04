@@ -5,30 +5,18 @@ import { clearLokiMetadataCache, lokiLabelValues } from './lokiMetadata.ts'
 
 afterEach(() => mocks.labelValues.mockReset())
 describe('Loki dependent metadata', () => {
-  it('excludes the requested labels own matcher and caches it', async () => {
+  it('passes an explicit Builder selector and caches it', async () => {
     clearLokiMetadataCache(); mocks.labelValues.mockResolvedValue(['checkout'])
     const request = { start: 'a', end: 'b' }
-    const matchers = [{ label: 'environment', operator: '=' as const, value: 'prod' }, { label: 'service', operator: '=' as const, value: 'checkout' }]
-    expect(await lokiLabelValues('loki', 'service', request, matchers)).toEqual(['checkout'])
-    await lokiLabelValues('loki', 'service', request, matchers)
+    expect(await lokiLabelValues('loki', 'service', { ...request, selector: '{environment="prod"}' })).toEqual(['checkout'])
+    await lokiLabelValues('loki', 'service', { ...request, selector: '{environment="prod"}' })
     expect(mocks.labelValues).toHaveBeenCalledTimes(1)
     expect(mocks.labelValues).toHaveBeenCalledWith('loki', 'service', { start: 'a', end: 'b', selector: '{environment="prod"}' })
   })
 
-  it('omits an exclusion-only dependent selector so metadata remains discoverable', async () => {
+  it('supports unfiltered metadata discovery', async () => {
     clearLokiMetadataCache(); mocks.labelValues.mockResolvedValue(['checkout'])
-    const matchers = [{ label: 'environment', operator: '!=' as const, value: 'production' }]
-    expect(await lokiLabelValues('loki', 'service_name', { start: 'a', end: 'b' }, matchers)).toEqual(['checkout'])
+    expect(await lokiLabelValues('loki', 'service_name', { start: 'a', end: 'b' })).toEqual(['checkout'])
     expect(mocks.labelValues).toHaveBeenCalledWith('loki', 'service_name', { start: 'a', end: 'b' })
-  })
-
-  it('retains positive and negative dependencies when the selector is valid', async () => {
-    clearLokiMetadataCache(); mocks.labelValues.mockResolvedValue(['checkout'])
-    const matchers = [
-      { label: 'service_name', operator: '=' as const, value: 'checkout' },
-      { label: 'environment', operator: '!=' as const, value: 'development' }
-    ]
-    await lokiLabelValues('loki', 'namespace', { start: 'a', end: 'b' }, matchers)
-    expect(mocks.labelValues).toHaveBeenCalledWith('loki', 'namespace', { start: 'a', end: 'b', selector: '{service_name="checkout", environment!="development"}' })
   })
 })

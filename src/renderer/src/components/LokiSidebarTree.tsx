@@ -40,7 +40,7 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
     if (!canLoadMetadata || valueStatus[label] === 'loading' || (!retry && values[label])) return
     const request = revision.current, tabId = session.id
     setValueStatus((current) => ({ ...current, [label]: 'loading' }))
-    try { const next = visibleLokiMetadata(await lokiLabelValues(connectionId, label, bounds, session.lokiBuilder.labelMatchers)); if (!available.current || request !== revision.current || useStore.getState().activeTabId !== tabId) return; setValues((current) => ({ ...current, [label]: next })); setValueStatus((current) => { const copy = { ...current }; delete copy[label]; return copy }) }
+    try { const next = visibleLokiMetadata(await lokiLabelValues(connectionId, label, bounds)); if (!available.current || request !== revision.current || useStore.getState().activeTabId !== tabId) return; setValues((current) => ({ ...current, [label]: next })); setValueStatus((current) => { const copy = { ...current }; delete copy[label]; return copy }) }
     catch { if (available.current && request === revision.current && useStore.getState().activeTabId === tabId) setValueStatus((current) => ({ ...current, [label]: 'error' })) }
   }
   const toggle = (label: string) => {
