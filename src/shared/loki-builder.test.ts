@@ -17,8 +17,32 @@ test('generates parser-valid LogQL for every supported operator and escaped inpu
 })
 
 test('rejects invalid label names and requires a stream matcher', () => {
-  assert.throws(() => buildLokiQuery({ labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }), /at least one/)
+  assert.throws(() => buildLokiQuery({ labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }), /safe fallback selector/)
   assert.throws(() => buildLokiQuery({ labelMatchers: [{ label: 'bad-label', operator: '=', value: 'x' }], lineFilters: [], parsers: [], fieldFilters: [] }), /Invalid Loki label/)
+})
+
+test('uses a safe provider fallback only when user matchers are incomplete', () => {
+  const base = { labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }
+  const fallbackMatcher = { label: 'service_name', operator: '=~' as const, value: '.+' }
+  const query = buildLokiQuery(base, { fallbackMatcher })
+  assert.equal(query, '{service_name=~".+"}')
+  assert.equal(logqlResultKind(query), 'logs')
+  assert.equal(buildLokiQuery({ ...base, labelMatchers: [{ label: 'app', operator: '=', value: '', values: [] }] }, { fallbackMatcher }), query)
+  assert.throws(() => buildLokiQuery(base, { fallbackMatcher: { label: 'service_name', operator: '=~', value: '.*' } }), /positive matcher/)
+})
+
+test('appends the normal pipeline to the provider fallback selector', () => {
+  const query = buildLokiQuery({
+    labelMatchers: [], lineFilters: [{ operator: '|=', value: 'timeout' }],
+    parsers: [{ kind: 'json' }, { kind: 'regexp', expression: 'status=(?P<status>\\d+)' }],
+    fieldFilters: [{ field: 'status', operator: '!=', value: '200' }]
+  }, { fallbackMatcher: { label: 'service_name', operator: '=~', value: '.+' } })
+  assert.equal(query, '{service_name=~".+"} |= "timeout" | json | regexp "status=(?P<status>\\\\d+)" | status!="200"')
+})
+
+test('does not use the fallback when a completed user matcher exists', () => {
+  const state = { labelMatchers: [{ label: 'app', operator: '=' as const, value: 'checkout' }], lineFilters: [], parsers: [], fieldFilters: [] }
+  assert.equal(buildLokiQuery(state, { fallbackMatcher: { label: 'service_name', operator: '=~', value: '.+' } }), '{app="checkout"}')
 })
 
 test('dependent metadata selector excludes its own matcher only', () => {

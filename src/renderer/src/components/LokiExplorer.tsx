@@ -25,6 +25,8 @@ import styles from './LokiExplorer.module.css'
 import type { VisualizationConfiguration } from '../lib/resultVisualization'
 
 const defaultRange: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
+const serviceNameFallback = { label: 'service_name', operator: '=~' as const, value: '.+' }
+const unfilteredUnavailable = 'An unfiltered query isn’t available for this Loki datasource. Add an indexed-label filter to run the query safely.'
 function interval(start: string, end: string): string {
   const targetSeconds = Math.max(1, (Date.parse(end) - Date.parse(start)) / 250_000)
   const choices = [1, 5, 10, 30, 60, 300, 900, 3600, 10_800, 21_600, 86_400]
@@ -61,8 +63,18 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const revision = useRef(0), trendRevision = useRef(0), hasRun = useRef(false), mounted = useRef(true)
   const trendCacheKey = useRef<string | null>(null)
   const rangeKey = JSON.stringify(range), previousRangeKey = useRef(rangeKey)
-  const generated = useMemo(() => { try { return builder.labelMatchers.length ? buildLokiQuery(builder) : '' } catch { return '' } }, [builder])
+  const fallbackMatcher = labelResource.status === 'loaded' && labelResource.labels.includes('service_name')
+    ? serviceNameFallback
+    : undefined
+  const generation = useMemo(() => {
+    try { return { generated: buildLokiQuery(builder, { fallbackMatcher }), error: null } }
+    catch (caught) { return { generated: '', error: caught instanceof Error ? caught.message : String(caught) } }
+  }, [builder, fallbackMatcher])
+  const generated = generation.generated
   const expression = mode === 'builder' ? generated : query
+  const builderDisabledReason = mode === 'builder' && !generated && labelResource.status !== 'loading'
+    ? (generation.error?.includes('safe fallback selector') ? unfilteredUnavailable : generation.error)
+    : null
   const isCurrentTab = (tabId: string) => mounted.current && useStore.getState().activeTabId === tabId
   const clearResults = () => { revision.current++; trendRevision.current++; hasRun.current = false; trendCacheKey.current = null; setResult(null); setTrend(null); setError(null); setWarning(null); setTrendError(null); setLoading(false); clearActiveResults() }
   const resetQuery = () => { clearResults(); setSql(''); setLokiState({ lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }, lokiTimeRange: defaultRange, lokiResultLimit: 1000, lokiGroupBy: [], lokiRangeHistory: [], lokiResultView: 'list' }) }
@@ -98,7 +110,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   }
   const run = async () => {
     const tabId = session.id
-    if (!expression.trim()) return setError(mode === 'builder' ? 'Choose a value for at least one indexed label.' : 'Enter a LogQL query.')
+    if (!expression.trim()) return setError(mode === 'builder' ? (builderDisabledReason ?? 'The Builder query is not ready to run.') : 'Enter a LogQL query.')
     let kind: 'logs' | 'metrics'
     try { kind = logqlResultKind(expression) } catch (caught) { return setError(caught instanceof Error ? caught.message : String(caught)) }
     const current = ++revision.current
@@ -133,11 +145,11 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
         <div className="spacer" />
         <div className="query-toolbar-group"><QueryUtilityActions hasResults={Boolean(result || trend || error || warning)} onClearResults={clearResults} onResetQuery={resetQuery} /></div>
         <div className={`query-toolbar-group query-editor-actions ${styles.editorActions}`}>{mode === 'logql' && <button type="button" className="btn ghost" onClick={() => void format()} disabled={!canLoadMetadata || !query.trim()}>Format</button>}<CopySqlButton sql={expression} language="LogQL" /></div>
-        <div className="query-toolbar-group execution-group"><button className="btn primary" type="button" onClick={() => void run()} disabled={loading || !expression.trim()} title="Run (Ctrl/Command+Enter)">{loading ? 'Running…' : 'Run'}</button></div>
+        <div className="query-toolbar-group execution-group"><button className="btn primary" type="button" onClick={() => void run()} disabled={loading || !expression.trim()} title="Run (Ctrl/Command+Enter)" aria-describedby={builderDisabledReason ? 'loki-builder-run-reason' : undefined}>{loading ? 'Running…' : 'Run'}</button></div>
       </div>
       {mode === 'logql' ? <div className={styles.editor}><CodeMirror value={query} minHeight="66px" maxHeight="150px" theme={oneDark} extensions={[logql()]} onChange={(value) => setSql(value)} aria-label="LogQL editor" onKeyDown={(event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void run() } }} basicSetup={{ lineNumbers: true, foldGutter: false }} /></div> : <LokiBuilderPanel value={builder} generated={generated} labels={labels} connectionId={connectionId} connectionGeneration={connectionGeneration} canLoadMetadata={canLoadMetadata} bounds={labelResource.bounds} groupBy={groupBy} metadataStatus={labelResource.status} metadataError={labelResource.error} onChange={(lokiBuilder) => setLokiState({ lokiBuilder })} onGroupByChange={(lokiGroupBy) => setLokiState({ lokiGroupBy })} onOpenLogql={() => { setSql(generated); setMode('sql') }} />}
     </section>
-    {error && <div className={`${styles.status} ${styles.error}`} role="alert">{error}</div>}{canLoadMetadata && labelResource.status === 'error' && <div className={styles.status}>Metadata unavailable: {labelResource.error}. Raw LogQL remains available.</div>}{warning && <div className={styles.status}>{warning}</div>}
+    {builderDisabledReason && <div id="loki-builder-run-reason" className={styles.status} role="status">{builderDisabledReason}</div>}{error && <div className={`${styles.status} ${styles.error}`} role="alert">{error}</div>}{canLoadMetadata && labelResource.status === 'error' && <div className={styles.status}>Metadata unavailable: {labelResource.error}. Raw LogQL remains available.</div>}{warning && <div className={styles.status}>{warning}</div>}
     <section className={styles.results} aria-label="Loki query results">{result?.resultKind === 'logs' ? <>
       <div className={styles.resultViewBar}><ChartPicker value={resultView} availableViews={['list', 'table', 'bar', 'line', 'area', 'scatter', 'treemap', 'sunburst']} onChange={(view: ChartPickerView) => setLokiState({ lokiResultView: view as typeof resultView })} />{resultView !== 'list' && session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>
       <div className={styles.selectedView}>{resultView === 'list'
