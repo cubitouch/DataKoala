@@ -1,4 +1,5 @@
 import type { QueryResult } from '@shared/types'
+import { resultCellValue } from '../../../shared/query-result.ts'
 import type { ChartConfig } from '../store/useStore'
 
 function escapeCsv(value: unknown): string {
@@ -11,7 +12,7 @@ function escapeCsv(value: unknown): string {
 export function resultToCsv(result: QueryResult): string {
   const header = result.columns.map((c) => escapeCsv(c.name)).join(',')
   const lines = result.rows.map((row) =>
-    result.columns.map((c) => escapeCsv(row[c.name])).join(',')
+    result.columns.map((c) => escapeCsv(resultCellValue(row, c))).join(',')
   )
   return [header, ...lines].join('\n')
 }

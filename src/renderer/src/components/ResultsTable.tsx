@@ -2,6 +2,7 @@ import { TextInput } from './ui/TextInput'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { selectActiveSession, useStore, type QueryMode } from '../store/useStore'
 import { isTimeType, type QueryResult } from '@shared/types'
+import { resultCellValue, resultColumnKey } from '@shared/query-result'
 import { resultToCsv } from '../lib/data'
 import { api } from '../lib/api'
 import { resultFilterDemotion, type FilteredQueryResult, type ResultFilter } from '../lib/resultFilters'
@@ -83,7 +84,7 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
     let r = filteredResult.rows
     if (filter.trim()) {
       const f = filter.toLowerCase()
-      r = r.filter((row) => result.columns.some((c) => String(row[c.name] ?? '').toLowerCase().includes(f)))
+      r = r.filter((row) => result.columns.some((c) => String(resultCellValue(row, c) ?? '').toLowerCase().includes(f)))
     }
     if (sortCol && sortDir) {
       r = [...r].sort((a, b) => {
@@ -162,8 +163,8 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
           <thead>
             <tr>
               {result.columns.map((c) => (
-                <th key={c.name} onClick={() => toggleSort(c.name)}>
-                  {c.name} {sortCol === c.name ? (sortDir === 'asc' ? '▲' : sortDir === 'desc' ? '▼' : '') : ''}
+                <th key={resultColumnKey(c)} onClick={() => toggleSort(resultColumnKey(c))}>
+                  {c.name} {sortCol === resultColumnKey(c) ? (sortDir === 'asc' ? '▲' : sortDir === 'desc' ? '▼' : '') : ''}
                   <span className={styles.timeHint}>
                     {isTimeType(c.dataTypeName) ? '⏱' : ''}
                   </span>
@@ -178,19 +179,21 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
               const rowId = getRowId(row)
               return <tr key={rowId} className={styles.dataRow} data-result-row-index={rowIndex}>
                 {result.columns.map((c) => {
-                  const cell = renderCell(row[c.name])
+                  const columnKey = resultColumnKey(c)
+                  const value = resultCellValue(row, c)
+                  const cell = renderCell(value)
                   return (
-                    <td key={c.name} className={cell.cls} title={cell.text} data-result-cell>
+                    <td key={columnKey} className={cell.cls} title={cell.text} data-result-cell>
                       <span className={styles.cellValue}>{cell.text}</span>
                       <div className={styles.cellActions}>
-                        <CellFilterMenu column={c.name} value={row[c.name]} nativeType={c.nativeType ?? c.dataTypeName} onAdd={(newFilter) => addResultFilter(mode, newFilter, tabId)} />
-                        {mode === 'sql' && row[c.name] != null && (isJsonColumnType(c) || mayContainJsonDocument(row[c.name])) && <JsonCellExplorer
+                        <CellFilterMenu column={c.name} value={value} nativeType={c.nativeType ?? c.dataTypeName} onAdd={(newFilter) => addResultFilter(mode, newFilter, tabId)} />
+                        {mode === 'sql' && value != null && (isJsonColumnType(c) || mayContainJsonDocument(value)) && <JsonCellExplorer
                           columnLabel={c.name}
                           rowNumber={rowIndex + 1}
-                          value={row[c.name]}
-                          open={jsonTarget?.resultRevision === resultRevision && jsonTarget.rowId === rowId && jsonTarget.columnKey === c.name}
-                          onOpenChange={(open) => setJsonTarget(open ? { resultRevision, rowId, columnKey: c.name } : null)}
-                          invalidationKey={`${mode}:${resultRevision}:${rowId}:${c.name}`}
+                          value={value}
+                          open={jsonTarget?.resultRevision === resultRevision && jsonTarget.rowId === rowId && jsonTarget.columnKey === columnKey}
+                          onOpenChange={(open) => setJsonTarget(open ? { resultRevision, rowId, columnKey } : null)}
+                          invalidationKey={`${mode}:${resultRevision}:${rowId}:${columnKey}`}
                         />}
                       </div>
                     </td>

@@ -93,3 +93,31 @@ describe('ResultsTable virtualization', () => {
     expect(content).toContain('row-1499')
   })
 })
+
+describe('ResultsTable duplicate columns', () => {
+  it('renders and searches values through each column internal key', () => {
+    patchActiveTestSession({ running: false, queryError: null })
+    const result: QueryResult = {
+      columns: [
+        { name: 'id', dataTypeID: 25, dataTypeName: 'text' },
+        { name: 'id', key: '__datakoala_column_1', dataTypeID: 25, dataTypeName: 'text' }
+      ],
+      rows: [{ id: 'A', __datakoala_column_1: 'B' }],
+      rowCount: 1,
+      durationMs: 1
+    }
+    render(<ResultsTable
+      mode="sql"
+      rawResult={result}
+      filteredResult={{ ...result, originalRowCount: 1, filteredRowCount: 1 }}
+      activeFilters={[]}
+      resultRevision={1}
+    />)
+
+    expect(screen.getAllByRole('columnheader', { name: /id/ })).toHaveLength(2)
+    expect(screen.getByText('A')).toBeTruthy()
+    expect(screen.getByText('B')).toBeTruthy()
+    fireEvent.change(screen.getByPlaceholderText('filter rows…'), { target: { value: 'B' } })
+    expect(screen.getByText('B')).toBeTruthy()
+  })
+})
