@@ -8,6 +8,32 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  PREVIEW_FILES: |-
+    sql-default.png
+    prometheus-toolbar.png
+    prometheus-toolbar-narrow.png
+    prometheus-builder.png
+    prometheus-builder-narrow.png
+    tempo-trace-builder.png
+    tempo-trace-search.png
+    tempo-trace-scatter.png
+    tempo-service-map.png
+    tempo-service-map-dense.png
+    tempo-service-map-fullscreen.png
+    tempo-waterfall.png
+    loki-log-list.png
+    loki-log-chart.png
+    sql-resized-panes.png
+    sql-long-query-scroll.png
+    sql-wide-sidebar-long-names.png
+    sql-narrow-short-tooltip.png
+    builder-temporal-series.png
+    builder-categorical-numeric.png
+    builder-count-without-y.png
+    builder-narrow.png
+    table.png
+
 concurrency:
   group: visual-preview-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -16,32 +42,6 @@ jobs:
   capture:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    env:
-      PREVIEW_FILES: |-
-        sql-default.png
-        prometheus-toolbar.png
-        prometheus-toolbar-narrow.png
-        prometheus-builder.png
-        prometheus-builder-narrow.png
-        tempo-trace-builder.png
-        tempo-trace-search.png
-        tempo-trace-scatter.png
-        tempo-service-map.png
-        tempo-service-map-dense.png
-        tempo-service-map-fullscreen.png
-        tempo-waterfall.png
-        loki-log-list.png
-        loki-log-chart.png
-        sql-resized-panes.png
-        sql-long-query-scroll.png
-        sql-wide-sidebar-long-names.png
-        sql-narrow-short-tooltip.png
-        builder-temporal-series.png
-        builder-categorical-numeric.png
-        builder-count-without-y.png
-        builder-narrow.png
-        table.png
-
     steps:
       - name: Check out pull request
         uses: actions/checkout@v7
@@ -79,14 +79,11 @@ jobs:
       - name: Capture application previews
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
 
-      - name: Capture synthetic Tempo previews
-        run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-trace-preview.mjs
+      - name: Capture shared Tempo and Loki previews
+        run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm preview:shared-captures
 
       - name: Capture fullscreen Tempo service map
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-service-map-fullscreen-preview.mjs
-
-      - name: Capture realistic Loki preview
-        run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-loki-preview.mjs
 
       - name: Validate preview image set
         shell: bash
@@ -105,6 +102,19 @@ jobs:
           path: visual-preview/*.png
           if-no-files-found: error
           retention-days: 14
+
+  publish:
+    needs: capture
+    runs-on: ubuntu-latest
+    concurrency:
+      group: visual-previews-publish
+      cancel-in-progress: false
+    steps:
+      - name: Download captured previews
+        uses: actions/download-artifact@v8
+        with:
+          name: datakoala-visual-preview-pr-${{ github.event.pull_request.number }}
+          path: visual-preview
 
       - name: Check out preview branch
         uses: actions/checkout@v7
@@ -133,7 +143,19 @@ jobs:
             echo "Preview images are unchanged"
           else
             git commit -m "Update visual previews for PR #${PR_NUMBER} (${HEAD_SHA:0:7})"
-            git push origin visual-previews
+            for attempt in 1 2 3 4; do
+              git fetch origin visual-previews
+              git rebase origin/visual-previews
+              if git push origin HEAD:visual-previews; then
+                break
+              fi
+              if [ "$attempt" -eq 4 ]; then
+                echo "Could not publish previews after ${attempt} attempts" >&2
+                exit 1
+              fi
+              echo "Preview branch advanced during push; retrying (${attempt}/4)"
+              sleep $((attempt * 2))
+            done
           fi
 
       - name: Create or update PR comment

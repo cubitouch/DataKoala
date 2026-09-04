@@ -15,7 +15,7 @@ import { groupTraceServiceMap, type TraceServiceMapGrouping, type TraceServiceMa
 import { layoutTraceServiceMap } from '../lib/traceServiceMapLayout'
 import { projectTraceServiceMap } from '../lib/traceServiceMapProjection'
 import { scopeTraceServiceMap, type TraceServiceMapScope } from '../lib/traceServiceMapScope'
-import { createChartRevision, type ChartRevision } from '../lib/chartReadiness'
+import { ChartReadinessController, createChartRevision, finishChartRevisionAfterPaint, type ChartRevision } from '../lib/chartReadiness'
 import styles from './TraceServiceMap.module.css'
 
 interface TraceServiceMapProps {
@@ -144,6 +144,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
   const [graphFullscreen, setGraphFullscreen] = useState(false)
   const [finishedRevision, setFinishedRevision] = useState<ChartRevision | null>(null)
   const chartRef = useRef<ReactECharts>(null)
+  const readiness = useRef(new ChartReadinessController())
   const didAutoGroup = useRef(false)
   const colors = useMemo(palette, [])
 
@@ -313,6 +314,22 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
   }, [aggregate, colors, denseGraph, graph, groupedGraph.edgeById, groupedGraph.nodeById, matchingViewNodeIds, normalizedSearch, selection, topEdgeKeys])
   const renderRevision = useMemo(createChartRevision, [option])
 
+  useEffect(() => {
+    setFinishedRevision(null)
+    readiness.current.commitRevision(renderRevision)
+    return finishChartRevisionAfterPaint(readiness.current, renderRevision, () => {
+      const instance = chartRef.current?.getEchartsInstance()
+      if (!instance || typeof instance.getOption !== 'function') return false
+      const applied = instance.getOption() as { series?: Array<{ data?: unknown[]; links?: unknown[] }> } | undefined
+      const series = applied?.series?.[0]
+      return (series?.data?.length ?? -1) === graph.nodes.length && (series?.links?.length ?? -1) === graph.edges.length
+    }, setFinishedRevision)
+  }, [graph.edges.length, graph.nodes.length, renderRevision])
+
+  const markRendered = () => {
+    if (readiness.current.finishRevision(renderRevision)) setFinishedRevision(renderRevision)
+  }
+
   const events = useMemo(() => ({
     click: (value: unknown) => {
       const item = value as { dataType?: string; data?: { id?: unknown } }
@@ -336,7 +353,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
         setSelection((current) => current?.kind === 'edge' && current.key === originalKey ? null : { kind: 'edge', key: originalKey })
       }
     },
-    finished: () => setFinishedRevision(renderRevision)
+    finished: markRendered
   }), [groupedGraph.edgeById, groupedGraph.nodeById, renderRevision])
 
   const progressPercent = progress.total ? Math.round((progress.completed / progress.total) * 100) : 0
@@ -430,7 +447,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
           <button type="button" className={styles.fullscreenButton} data-service-map-fullscreen onClick={() => setGraphFullscreen((value) => !value)} aria-label={graphFullscreen ? 'Exit service map full screen' : 'Open service map full screen'}>{graphFullscreen ? 'Exit full screen' : 'Full screen'}</button>
         </div>
         <div className={`${styles.chartArea} ${graphFullscreen ? styles.chartAreaFullscreen : ''}`}>
-          {graph.edges.length ? <ReactECharts ref={chartRef} option={option} onChartReady={() => setFinishedRevision(renderRevision)} onEvents={events} notMerge lazyUpdate style={{ width: '100%', height: '100%' }} /> : <div className={styles.empty}>{scopeEmptyMessage}</div>}
+          {graph.edges.length ? <ReactECharts ref={chartRef} option={option} onChartReady={markRendered} onEvents={events} notMerge lazyUpdate style={{ width: '100%', height: '100%' }} /> : <div className={styles.empty}>{scopeEmptyMessage}</div>}
         </div>
         {graphFullscreen && <aside className={styles.fullscreenInsights} aria-label="Full screen service map bottlenecks">{insightsContent(true)}</aside>}
         <div className={`${styles.graphLegend} ${graphFullscreen ? styles.graphLegendFullscreen : ''}`}>

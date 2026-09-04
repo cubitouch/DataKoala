@@ -104,6 +104,8 @@ app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
   ipcMain.handle('connections:prometheus:metric-labels', async () => [])
   ipcMain.handle('connections:prometheus:label-values', async () => [])
+  ipcMain.handle('connections:prometheus:format-query', async (_event, _id, query) => query)
+  ipcMain.handle('connections:tempo:attributes', async () => [])
   ipcMain.handle('query:run', async (_event, _connectionId, query) => previewDenseTraceResultForId(String(query).trim()) ?? previewDenseTraceSearchResult)
 
   const win = new BrowserWindow({
