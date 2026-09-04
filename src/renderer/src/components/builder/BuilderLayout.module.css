@@ -10,7 +10,7 @@
   display: grid;
   min-width: 0;
   gap: var(--builder-row-gap, 10px);
-  align-items: var(--builder-row-align, end);
+  align-items: var(--builder-row-align, stretch);
 }
 
 .field {

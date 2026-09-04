@@ -1,11 +1,9 @@
-import React from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { TextInput } from '../ui/TextInput'
 import { BuilderForm } from './BuilderForm'
 import { BuilderRow } from './BuilderRow'
 import { FormField } from './FormField'
-void React
 
 afterEach(cleanup)
 
