@@ -21,3 +21,27 @@ export class ChartReadinessController {
     return revision === this.revision
   }
 }
+
+type FrameScheduler = (callback: FrameRequestCallback) => number
+type FrameCanceller = (handle: number) => void
+
+/**
+ * Accepts a revision only after ECharts has had two paint opportunities and the
+ * caller confirms that the instance contains the option for that revision.
+ * The controller check prevents delayed callbacks from completing a newer chart.
+ */
+export function finishChartRevisionAfterPaint(
+  readiness: ChartReadinessController,
+  revision: ChartRevision,
+  isApplied: () => boolean,
+  onFinished: (revision: ChartRevision) => void,
+  scheduleFrame: FrameScheduler = requestAnimationFrame,
+  cancelFrame: FrameCanceller = cancelAnimationFrame
+): () => void {
+  let handle = scheduleFrame(() => {
+    handle = scheduleFrame(() => {
+      if (isApplied() && readiness.finishRevision(revision)) onFinished(revision)
+    })
+  })
+  return () => cancelFrame(handle)
+}
