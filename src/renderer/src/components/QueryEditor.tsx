@@ -1,10 +1,6 @@
-import React from 'react'
-void React
-import { useEffect, useMemo, useRef, useState } from 'react'
-import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { sql as sqlExtension } from '@codemirror/lang-sql'
 import { PromQLExtension } from '@prometheus-io/codemirror-promql'
-import { oneDark } from '@codemirror/theme-one-dark'
 import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { api } from '../lib/api'
 import { ensureConnectionForTab } from '../lib/tabConnection'
@@ -26,6 +22,8 @@ import { detectPromqlHistogramKind, resolvePromqlHistogramKind, validatePromqlBu
 import { Combobox } from './ui/combobox'
 import { notify } from './NotificationArea'
 import styles from './QueryEditor.module.css'
+import { QueryToolbar } from './query/QueryToolbar'
+import { QueryCodeEditor, type QueryCodeEditorHandle } from './query/QueryCodeEditor'
 
 export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) {
   const tabId = useStore((s) => s.activeTabId)
@@ -64,7 +62,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const activeExplainRequest = useStore((s) => selectActiveSession(s).activeExplainRequest)
   const setActiveExplainRequest = useStore((s) => s.setActiveExplainRequest)
   const [formatting, setFormatting] = useState(false)
-  const editorRef = useRef<ReactCodeMirrorRef>(null)
+  const editorRef = useRef<QueryCodeEditorHandle>(null)
   const filters = useStore((s) => selectActiveSession(s).sqlResultFilters)
   const filterRevision = useStore((s) => selectActiveSession(s).queryFilterRevision.sql)
   const initialFilterRevision = useRef(new Map<string, number>())
@@ -175,13 +173,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
 
   const applyFormattedQuery = (formatted: string, requestTabId: string) => {
     const active = useStore.getState().activeTabId === requestTabId
-    const view = active ? editorRef.current?.view : undefined
-    if (view) {
-      const anchor = Math.min(view.state.selection.main.anchor, formatted.length)
-      const head = Math.min(view.state.selection.main.head, formatted.length)
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: formatted }, selection: { anchor, head }, userEvent: 'input.format' })
-      view.focus()
-    } else {
+    if (!active || !editorRef.current?.replaceDocumentAndFocus(formatted)) {
       setSql(formatted, requestTabId)
       if (active) requestAnimationFrame(() => document.querySelector<HTMLElement>(language.kind === 'promql' ? '[aria-label="PromQL editor"]' : '[aria-label="SQL editor"]')?.focus())
     }
@@ -216,7 +208,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
     }
   }
 
-  const onKey = (e: React.KeyboardEvent) => {
+  const onKey = (e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
       run()
@@ -230,12 +222,11 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
 
   return (
     <div className={`editor-pane ${styles.pane}`} data-query-editor onKeyDown={onKey}>
-      <div className={`editor-head ${styles.head}`} data-query-toolbar>
-        <div className={`query-toolbar-group query-mode-group ${styles.toolbarGroup}`}><ModeSwitch /></div>
-        {language.kind === 'promql' && <div className={`query-toolbar-group query-time-group ${styles.toolbarGroup} ${styles.timeGroup}`} aria-label="Prometheus time controls"><TimeRangeField labelVisibility="sr-only" value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><div className={`promql-step ${styles.promqlStep}`}><Combobox label="Resolution" mode="inline" hint="Auto targets about 1,200 points per series. Choose a fixed interval for manual control." value={prometheusStep} options={[{ value: 'auto', label: `Auto (${effectivePrometheusStep(prometheusRangeBounds(prometheusTimeRange), 'auto')})` }, ...PROMETHEUS_MANUAL_STEPS.map((value) => ({ value, label: value }))]} onChange={(value) => setPrometheusQueryOptions({ prometheusStep: value as typeof prometheusStep }, tabId)} /></div></div>}
-        <div className={`spacer ${styles.spacer}`} />
-        <div className={styles.toolbarGroup}><QueryUtilityActions /></div>
-        <div className={`query-toolbar-group query-editor-actions ${styles.toolbarGroup} ${styles.editorActions}`}>{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
+      <QueryToolbar className={styles.head}
+        mode={<ModeSwitch />}
+        options={language.kind === 'promql' ? <div className={styles.timeGroup} aria-label="Prometheus time controls"><TimeRangeField labelVisibility="sr-only" value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><div className={`promql-step ${styles.promqlStep}`}><Combobox label="Resolution" mode="inline" hint="Auto targets about 1,200 points per series. Choose a fixed interval for manual control." value={prometheusStep} options={[{ value: 'auto', label: `Auto (${effectivePrometheusStep(prometheusRangeBounds(prometheusTimeRange), 'auto')})` }, ...PROMETHEUS_MANUAL_STEPS.map((value) => ({ value, label: value }))]} onChange={(value) => setPrometheusQueryOptions({ prometheusStep: value as typeof prometheusStep }, tabId)} /></div></div> : undefined}
+        utilities={<QueryUtilityActions />}
+        editorActions={<div className={styles.editorActions}>{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
           {formatting ? 'Formatting…' : 'Format'}
         </button>}
         <CopySqlButton sql={sql} />
@@ -246,25 +237,22 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
         {language.kind === 'sql' && capabilities.analyze && <button className={`btn ghost explain-action analyze ${styles.explainAction} ${styles.analyzeAction}`} onClick={() => explain('analyze')} disabled={isAnyExplainLoading || !canAnalyze} aria-busy={isAnalyzeLoading}>
           {isAnalyzeLoading && <span className="spinner" aria-hidden="true" />}
           {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
-        </button>}</div>
-        <div className={`query-toolbar-group execution-group ${styles.toolbarGroup}`}><button className="btn primary" onClick={run} disabled={!canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder, builderHistogramKind)))} title="Run (Ctrl/Command+Enter)">
+        </button>}</div>}
+        execution={<button className="btn primary" onClick={run} disabled={!canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder, builderHistogramKind)))} title="Run (Ctrl/Command+Enter)">
           {running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}
-        </button></div>
-      </div>
+        </button>}
+      />
 
-      {builderMode ? <PromqlBuilderPanel /> : <div className={`cm-wrap ${styles.editor}`}>
-        <CodeMirror
+      {builderMode ? <PromqlBuilderPanel /> : <QueryCodeEditor
           ref={editorRef}
+          className={`cm-wrap ${styles.editor}`}
           value={sql}
           height="100%"
-          theme={oneDark}
           extensions={extensions}
           onChange={(value) => setSql(value, tabId)}
           editable={!isAnyExplainLoading}
           aria-label={language.kind === 'promql' ? 'PromQL editor' : 'SQL editor'}
-          basicSetup={{ lineNumbers: true, foldGutter: false }}
-        />
-      </div>}
+        />}
 
     </div>
   )

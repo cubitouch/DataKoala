@@ -1,0 +1,12 @@
+.editor {
+  min-width: 0;
+}
+
+.editor :global(.cm-theme),
+.editor :global(.cm-editor) {
+  min-width: 0;
+}
+
+.editor :global(.cm-scroller) {
+  font-family: var(--mono);
+}
