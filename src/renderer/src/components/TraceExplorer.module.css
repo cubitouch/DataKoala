@@ -72,14 +72,23 @@
 .modeSwitch .modeActive,
 .resultViewSwitch .modeActive { background: var(--bg-3); color: var(--text); }
 
-.searchForm { min-width: 0; }
+.searchForm {
+  min-width: 0;
+  container-type: inline-size;
+}
 .queryToolbar {
-  flex-wrap: nowrap;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
 }
-.queryOptions { display:flex;align-items:center;gap:6px;min-width:0;flex: none; flex-wrap: nowrap; }
-.queryOptions [data-time-range-field] { width: clamp(145px, 15vw, 180px); }
+.queryToolbar :global(.query-mode-group),
+.queryToolbar :global(.query-time-group),
+.queryToolbar :global(.query-utility-actions),
+.queryToolbar :global(.query-editor-actions),
+.queryToolbar :global(.execution-group) {
+  flex-shrink: 0;
+}
+.queryOptions { display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:nowrap; }
+.queryOptions [data-time-range-field] { width: clamp(145px, 22cqi, 180px); }
 
 .sampleSize { width: 175px; white-space: nowrap; }
 .editorActions { display:flex;align-items:center;gap:6px;white-space: nowrap; }
@@ -591,9 +600,6 @@
   .searchControls { align-items: stretch; flex-direction: column; }
   .searchControls > :first-child { min-width: 0; }
   .searchActions { align-items: flex-start; flex-direction: column; }
-  .queryToolbar > :global(.spacer) { display: none; }
-  .queryToolbar { flex-wrap: wrap; }
-  .queryOptions { flex: 1 1 100%; flex-wrap: wrap; order: 2; }
   .resultsHeader { align-items: stretch; flex-direction: column; }
   .resultsHeaderActions { justify-content: space-between; }
   .traceHeader { flex-direction: column; }
@@ -602,4 +608,17 @@
   .inspectionArea.withDetails { display: flex; flex-direction: column; overflow: auto; }
   .inspectionArea.withDetails .waterfall { flex: 0 0 55%; min-height: 260px; border-right: 0; border-bottom: 1px solid var(--border); }
   .details { flex: 1 1 auto; min-height: 220px; }
+}
+
+@container (max-width: 760px) {
+  .queryToolbar > :global(.spacer) { display: none; }
+  .queryToolbar :global(.query-time-group) {
+    flex: 1 0 100%;
+    order: 2;
+    padding-top: 8px;
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .queryOptions { flex-wrap: wrap; }
 }
