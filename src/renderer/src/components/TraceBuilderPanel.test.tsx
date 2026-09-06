@@ -1,7 +1,5 @@
-import React from 'react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-void React
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
