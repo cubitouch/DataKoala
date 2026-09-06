@@ -8,38 +8,26 @@
 }
 
 .head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-
-.toolbarGroup {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.toolbarGroup + .toolbarGroup {
-  padding-left: 10px;
-  border-left: 1px solid var(--border);
 }
 
 .timeGroup [data-time-range-field] {
   width: clamp(150px, 22cqi, 230px);
 }
 
+.timeGroup,
+.editorActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 
 .promqlStep {
   width: 170px;
   white-space: nowrap;
-}
-
-.spacer {
-  flex: 1;
 }
 
 .explainAction {
@@ -70,15 +58,15 @@
 }
 
 @container (max-width: 690px) {
-  .head .spacer {
+  .head > :global(.spacer) {
     display: none;
   }
 
-  .editorActions {
+  .head :global(.query-editor-actions) {
     margin-left: auto;
   }
 
-  .timeGroup {
+  .head :global(.query-time-group) {
     order: 4;
     flex: 1 0 100%;
     padding: 8px 0 0 !important;
@@ -86,7 +74,7 @@
     border-top: 1px solid var(--border) !important;
   }
 
-  .timeGroup [data-time-range-field] {
+  .head :global(.query-time-group) [data-time-range-field] {
     width: min(260px, calc(100% - 78px));
   }
 }

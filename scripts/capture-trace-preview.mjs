@@ -34,6 +34,32 @@ async function capture(win, filename) {
   console.log(`Trace visual preview written to ${path}`)
 }
 
+async function validateNarrowQueryToolbar(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const query = [...document.querySelectorAll('[aria-label="Query mode"] button')].find((button) => button.textContent?.trim() === 'TraceQL')
+    query?.click()
+  })()`)
+  await waitFor(win, `document.querySelector('[aria-label="TraceQL editor"]') && [...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Format')`, 'Tempo TraceQL mode')
+  win.setSize(900, 900)
+  await sleep(300)
+  const layout = await win.webContents.executeJavaScript(`(() => {
+    const bar = document.querySelector('section[aria-label="Trace explorer"] [data-query-toolbar]')
+    const groups = [...(bar?.querySelectorAll(':scope > .query-toolbar-group') ?? [])]
+    const rects = groups.map((group) => group.getBoundingClientRect())
+    const overlaps = rects.some((left, index) => rects.slice(index + 1).some((right) => left.left < right.right && left.right > right.left && left.top < right.bottom && left.bottom > right.top))
+    const bounds = bar?.getBoundingClientRect()
+    const clipped = !bounds || rects.some((rect) => rect.left < bounds.left || rect.right > bounds.right)
+    return { overlaps, clipped, overflow: !bar || bar.scrollWidth > bar.clientWidth }
+  })()`)
+  if (layout.overlaps || layout.clipped || layout.overflow) throw new Error(`Narrow Tempo toolbar regression: ${JSON.stringify(layout)}`)
+  win.setSize(1440, 900)
+  await win.webContents.executeJavaScript(`(() => {
+    const builder = [...document.querySelectorAll('[aria-label="Query mode"] button')].find((button) => button.textContent?.trim() === 'Builder')
+    builder?.click()
+  })()`)
+  await waitFor(win, `document.querySelector('[data-tempo-builder]')`, 'Tempo Builder mode restored')
+}
+
 async function seedTraceWorkspace(win) {
   await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
@@ -278,6 +304,7 @@ app.whenReady().then(async () => {
     await validateBuilderIndependence(win)
     await assertFieldRowGeometry(win, '[data-tempo-builder]', ['Status', 'Min duration (ms)'])
     await capture(win, 'tempo-trace-builder.png')
+    await validateNarrowQueryToolbar(win)
     await searchTraces(win)
     await capture(win, 'tempo-trace-search.png')
     await showScatter(win)
