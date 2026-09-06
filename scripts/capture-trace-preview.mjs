@@ -34,7 +34,7 @@ async function capture(win, filename) {
   console.log(`Trace visual preview written to ${path}`)
 }
 
-async function captureNarrowQueryToolbar(win) {
+async function validateNarrowQueryToolbar(win) {
   await win.webContents.executeJavaScript(`(() => {
     const query = [...document.querySelectorAll('[aria-label="Query mode"] button')].find((button) => button.textContent?.trim() === 'TraceQL')
     query?.click()
@@ -52,7 +52,6 @@ async function captureNarrowQueryToolbar(win) {
     return { overlaps, clipped, overflow: !bar || bar.scrollWidth > bar.clientWidth }
   })()`)
   if (layout.overlaps || layout.clipped || layout.overflow) throw new Error(`Narrow Tempo toolbar regression: ${JSON.stringify(layout)}`)
-  await capture(win, 'tempo-trace-query-narrow.png')
   win.setSize(1440, 900)
   await win.webContents.executeJavaScript(`(() => {
     const builder = [...document.querySelectorAll('[aria-label="Query mode"] button')].find((button) => button.textContent?.trim() === 'Builder')
@@ -303,7 +302,7 @@ app.whenReady().then(async () => {
     await validateBuilderIndependence(win)
     await assertFieldRowGeometry(win, '[data-tempo-builder]', ['Status', 'Min duration (ms)'])
     await capture(win, 'tempo-trace-builder.png')
-    await captureNarrowQueryToolbar(win)
+    await validateNarrowQueryToolbar(win)
     await searchTraces(win)
     await capture(win, 'tempo-trace-search.png')
     await showScatter(win)
