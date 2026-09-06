@@ -14,6 +14,9 @@ import {
 import { Combobox, MultiCombobox, type ComboboxOption } from './ui/combobox'
 import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
 import { CollapsibleSection } from './ui/CollapsibleSection'
+import { BuilderForm } from './builder/BuilderForm'
+import { BuilderRow } from './builder/BuilderRow'
+import { FormField } from './builder/FormField'
 import styles from './TraceBuilderPanel.module.css'
 
 interface TraceBuilderPanelProps {
@@ -88,8 +91,6 @@ const filterModes: Array<{ value: TraceAttributeFilterMode; label: string }> = [
 ]
 const MAX_ATTRIBUTE_VALUES = 250
 
-function Control({ children }: { children: React.ReactNode }) { return <div className={styles.control}>{children}</div> }
-
 export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, attributes = [], attributesLoading = false, attributesError = null, attributeValues = {}, attributeValuesLoading = {}, attributeValuesError = {}, onChange, onOpenTraceql }: TraceBuilderPanelProps) {
   const serviceRelations = useMemo(() => schemas.flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'service'), [schemas])
   const namespaceOptions = useMemo<ComboboxOption[]>(() => {
@@ -127,55 +128,55 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
     onChange({ serviceNamespace, ...(value.service && !allowedServices.has(value.service) ? { service: '' } : {}) })
   }
 
-  return <div className={styles.root} data-tempo-builder="">
-    <div className={styles.coreRow}>
-      <Control><Combobox label="Namespace" value={value.serviceNamespace} options={namespaceOptions} onChange={changeNamespace} searchable allowCustomValue loading={metadataLoading} error={metadataMessage} placeholder="Any namespace" emptyMessage="No namespaces found" /></Control>
-      <Control><Combobox label="Service" value={value.service} options={serviceOptions} onChange={(service) => onChange({ service })} searchable allowCustomValue loading={metadataLoading} error={metadataMessage} placeholder="Any service" emptyMessage="No services found" invalidationKey={value.serviceNamespace} /></Control>
-      <Control><Combobox label="Span kind" value={value.spanKind} options={spanKindOptions} onChange={(spanKind) => onChange({ spanKind: spanKind as TraceSpanKind })} /></Control>
-      <Control><Combobox label="Protocol or subsystem" value={value.protocol} options={protocolOptions} onChange={(protocol) => onChange({ protocol: protocol as TraceProtocol })} /></Control>
-      <Control><Combobox label="Status" value={value.status} options={statusOptions} onChange={(status) => onChange({ status: status as TraceStatus })} /></Control>
-      <Control><TextInput label="Min duration (ms)" type="number" min="0" step="1" value={value.minDurationMs} onValueChange={(text) => onChange({ minDurationMs: text })} placeholder="300" /></Control>
-    </div>
+  return <BuilderForm className={styles.root} data-tempo-builder="" data-builder-form="">
+    <BuilderRow className={styles.coreRow} data-tempo-builder-row="core">
+      <FormField data-builder-field=""><Combobox label="Namespace" value={value.serviceNamespace} options={namespaceOptions} onChange={changeNamespace} searchable allowCustomValue loading={metadataLoading} error={metadataMessage} placeholder="Any namespace" emptyMessage="No namespaces found" /></FormField>
+      <FormField data-builder-field=""><Combobox label="Service" value={value.service} options={serviceOptions} onChange={(service) => onChange({ service })} searchable allowCustomValue loading={metadataLoading} error={metadataMessage} placeholder="Any service" emptyMessage="No services found" invalidationKey={value.serviceNamespace} /></FormField>
+      <FormField data-builder-field=""><Combobox label="Span kind" value={value.spanKind} options={spanKindOptions} onChange={(spanKind) => onChange({ spanKind: spanKind as TraceSpanKind })} /></FormField>
+      <FormField data-builder-field=""><Combobox label="Protocol or subsystem" value={value.protocol} options={protocolOptions} onChange={(protocol) => onChange({ protocol: protocol as TraceProtocol })} /></FormField>
+      <FormField data-builder-field=""><Combobox label="Status" value={value.status} options={statusOptions} onChange={(status) => onChange({ status: status as TraceStatus })} /></FormField>
+      <FormField data-builder-field=""><TextInput label="Min duration (ms)" type="number" min="0" step="1" value={value.minDurationMs} onValueChange={(text) => onChange({ minDurationMs: text })} placeholder="300" /></FormField>
+    </BuilderRow>
 
-    {value.protocol === 'http' && <div className={styles.detailRow}>
-      <Control><Combobox label="HTTP method" value={value.httpMethod} options={httpMethodOptions} onChange={(httpMethod) => onChange({ httpMethod })} /></Control>
-      <Control><TextInput label="Route / endpoint" hint={value.spanKind === 'client' ? 'Matches URL template/path for client spans.' : value.spanKind === 'server' ? 'Matches the instrumented HTTP route.' : 'Matches route, URL template or path.'} value={value.endpoint} onValueChange={(text) => onChange({ endpoint: text })} placeholder="/checkout/{id}" /></Control>
-    </div>}
+    {value.protocol === 'http' && <BuilderRow className={styles.detailRow} data-tempo-builder-row="detail">
+      <FormField data-builder-field=""><Combobox label="HTTP method" value={value.httpMethod} options={httpMethodOptions} onChange={(httpMethod) => onChange({ httpMethod })} /></FormField>
+      <FormField data-builder-field=""><TextInput label="Route / endpoint" hint={value.spanKind === 'client' ? 'Matches URL template/path for client spans.' : value.spanKind === 'server' ? 'Matches the instrumented HTTP route.' : 'Matches route, URL template or path.'} value={value.endpoint} onValueChange={(text) => onChange({ endpoint: text })} placeholder="/checkout/{id}" /></FormField>
+    </BuilderRow>}
 
-    {value.protocol === 'rpc' && <div className={styles.detailRow}>
-      <Control><Combobox label="RPC system" value={value.rpcSystem} options={rpcSystemOptions} onChange={(rpcSystem) => onChange({ rpcSystem })} searchable allowCustomValue /></Control>
-      <Control><TextInput label="RPC service" value={value.rpcService} onValueChange={(text) => onChange({ rpcService: text })} placeholder="CartService" /></Control>
-      <Control><TextInput label="RPC method" value={value.rpcMethod} onValueChange={(text) => onChange({ rpcMethod: text })} placeholder="Checkout" /></Control>
-    </div>}
+    {value.protocol === 'rpc' && <BuilderRow className={styles.detailRow} data-tempo-builder-row="detail">
+      <FormField data-builder-field=""><Combobox label="RPC system" value={value.rpcSystem} options={rpcSystemOptions} onChange={(rpcSystem) => onChange({ rpcSystem })} searchable allowCustomValue /></FormField>
+      <FormField data-builder-field=""><TextInput label="RPC service" value={value.rpcService} onValueChange={(text) => onChange({ rpcService: text })} placeholder="CartService" /></FormField>
+      <FormField data-builder-field=""><TextInput label="RPC method" value={value.rpcMethod} onValueChange={(text) => onChange({ rpcMethod: text })} placeholder="Checkout" /></FormField>
+    </BuilderRow>}
 
-    {value.protocol === 'messaging' && <div className={styles.detailRow}>
-      <Control><Combobox label="Messaging system" value={value.messagingSystem} options={messagingSystemOptions} onChange={(messagingSystem) => onChange({ messagingSystem })} searchable allowCustomValue loading={messagingSystemsLoading} error={messagingSystemsError} loadingMessage="Loading messaging systems…" emptyMessage="No messaging systems found. Type a custom value." placeholder="Any messaging system" /></Control>
-      <Control><TextInput label="Destination / topic" value={value.messagingDestination} onValueChange={(text) => onChange({ messagingDestination: text })} placeholder="orders" /></Control>
-      <Control><Combobox label="Messaging operation" value={value.messagingOperation} options={messagingOperationOptions} onChange={(messagingOperation) => onChange({ messagingOperation })} searchable allowCustomValue /></Control>
-    </div>}
+    {value.protocol === 'messaging' && <BuilderRow className={styles.detailRow} data-tempo-builder-row="detail">
+      <FormField data-builder-field=""><Combobox label="Messaging system" value={value.messagingSystem} options={messagingSystemOptions} onChange={(messagingSystem) => onChange({ messagingSystem })} searchable allowCustomValue loading={messagingSystemsLoading} error={messagingSystemsError} loadingMessage="Loading messaging systems…" emptyMessage="No messaging systems found. Type a custom value." placeholder="Any messaging system" /></FormField>
+      <FormField data-builder-field=""><TextInput label="Destination / topic" value={value.messagingDestination} onValueChange={(text) => onChange({ messagingDestination: text })} placeholder="orders" /></FormField>
+      <FormField data-builder-field=""><Combobox label="Messaging operation" value={value.messagingOperation} options={messagingOperationOptions} onChange={(messagingOperation) => onChange({ messagingOperation })} searchable allowCustomValue /></FormField>
+    </BuilderRow>}
 
-    {value.protocol === 'database' && <div className={styles.detailRow}>
-      <Control><Combobox label="Database system" value={value.dbSystem} options={dbSystemOptions} onChange={(dbSystem) => onChange({ dbSystem })} searchable allowCustomValue /></Control>
-      <Control><TextInput label="DB operation" value={value.dbOperation} onValueChange={(text) => onChange({ dbOperation: text })} placeholder="SELECT" /></Control>
-    </div>}
+    {value.protocol === 'database' && <BuilderRow className={styles.detailRow} data-tempo-builder-row="detail">
+      <FormField data-builder-field=""><Combobox label="Database system" value={value.dbSystem} options={dbSystemOptions} onChange={(dbSystem) => onChange({ dbSystem })} searchable allowCustomValue /></FormField>
+      <FormField data-builder-field=""><TextInput label="DB operation" value={value.dbOperation} onValueChange={(text) => onChange({ dbOperation: text })} placeholder="SELECT" /></FormField>
+    </BuilderRow>}
 
     <CollapsibleSection title="Advanced filters" actions={activeAdvancedFilterCount > 0 ? <span className={styles.activeCount}>{activeAdvancedFilterCount} active</span> : undefined}>
       <div className={styles.advancedContent}>
-      <Control><MultiCombobox label="Attributes" values={selectedAttributes} options={attributeOptions} onChange={changeAttributes} searchable showChips loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Select attributes" /></Control>
+      <FormField data-builder-field=""><MultiCombobox label="Attributes" values={selectedAttributes} options={attributeOptions} onChange={changeAttributes} searchable showChips loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Select attributes" /></FormField>
       {value.advancedFilters.length > 0 && <div className={styles.facetTable}>
         <div className={styles.facets}>{value.advancedFilters.map((filter) => {
         const discovered = attributeValues[filter.attribute] ?? []
         const displayed = discovered.slice(0, MAX_ATTRIBUTE_VALUES)
-        return <div className={styles.facet} key={filter.attribute}>
+        return <BuilderRow className={styles.facet} key={filter.attribute}>
           <div className={styles.facetAttribute} title={filter.attribute}><strong>{filter.attribute.replace(/^(?:resource|span)\./, '')}</strong><small>{filter.scope} attribute</small></div>
           <div className={styles.facetMode} role="group" aria-label={`${filter.attribute} match mode`}>{filterModes.map((mode) => <button type="button" key={mode.value} aria-pressed={filter.mode === mode.value} onClick={() => updateFilter(filter.attribute, { mode: mode.value })}>{mode.label}</button>)}</div>
-          <div className={styles.facetValues}><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => updateFilter(filter.attribute, { values })} searchable showChips allowCustomValue loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} hint={discovered.length > MAX_ATTRIBUTE_VALUES ? `Showing the first ${MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.` : undefined} /></div>
-        </div>
+          <FormField className={styles.facetValues} data-builder-field=""><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => updateFilter(filter.attribute, { values })} searchable showChips allowCustomValue loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} hint={discovered.length > MAX_ATTRIBUTE_VALUES ? `Showing the first ${MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.` : undefined} /></FormField>
+        </BuilderRow>
       })}</div></div>}
-      <Control><TextInput label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter." value={value.spanName} onValueChange={(text) => onChange({ spanName: text })} placeholder="POST /checkout" /></Control>
+      <FormField data-builder-field=""><TextInput label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter." value={value.spanName} onValueChange={(text) => onChange({ spanName: text })} placeholder="POST /checkout" /></FormField>
       </div>
     </CollapsibleSection>
 
     <GeneratedQueryPanel language="TraceQL" value={traceql} onOpenInEditor={onOpenTraceql} />
-  </div>
+  </BuilderForm>
 }

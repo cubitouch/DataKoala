@@ -1,4 +1,6 @@
 import React from 'react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 void React
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,6 +23,31 @@ import { TraceBuilderPanel } from './TraceBuilderPanel'
 describe('TraceBuilderPanel generated TraceQL', () => {
   beforeEach(() => copyTextToClipboard.mockReset())
   afterEach(cleanup)
+
+  it('uses the shared builder form, row, and field structure without a local control wrapper', () => {
+    const { container } = render(<TraceBuilderPanel
+      value={{ ...EMPTY_TRACE_BUILDER, protocol: 'http' }}
+      traceql="{}"
+      schemas={[]}
+      metadataStatus="loaded"
+      metadataError={null}
+      messagingSystems={[]}
+      messagingSystemsLoading={false}
+      messagingSystemsError={null}
+      onChange={vi.fn()}
+      onOpenTraceql={vi.fn()}
+    />)
+
+    const form = container.querySelector('[data-tempo-builder]')
+    const coreRow = form?.querySelector('[data-tempo-builder-row="core"]')
+    const detailRow = form?.querySelector('[data-tempo-builder-row="detail"]')
+    expect(form?.hasAttribute('data-builder-form')).toBe(true)
+    expect(coreRow?.querySelectorAll(':scope > [data-builder-field]')).toHaveLength(6)
+    expect(detailRow?.querySelectorAll(':scope > [data-builder-field]')).toHaveLength(2)
+
+    const css = readFileSync(resolve(process.cwd(), 'src/renderer/src/components/TraceBuilderPanel.module.css'), 'utf8')
+    expect(css).not.toMatch(/\.control\s*\{/)
+  })
 
   it('starts collapsed, expands the complete query, copies TraceQL, and opens plain mode', async () => {
     copyTextToClipboard.mockResolvedValue(undefined)
