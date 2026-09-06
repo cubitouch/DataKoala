@@ -1,6 +1,7 @@
 import React from 'react'
 void React
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
@@ -26,6 +27,21 @@ beforeEach(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); labelsForMetr
 afterEach(cleanup)
 
 describe('PromQL Builder controls', () => {
+  it('uses shared builder structure while preserving Prometheus row hooks', () => {
+    const { container } = arrange()
+    const root = container.querySelector('[data-promql-builder]')
+    expect(root?.matches('[data-builder-form].promql-builder-form')).toBe(true)
+    expect(root?.querySelector('[data-promql-row="core"]')).toBeTruthy()
+    expect(root?.querySelector('[data-promql-row="filters-and-grouping"]')).toBeTruthy()
+    expect(root?.querySelector('[data-promql-row="filter-values"]')).toBeTruthy()
+    for (const label of ['Metric', 'Calculation', 'Percentile', 'Rate window', 'Group by', 'Filter by']) {
+      expect(root?.querySelector(`[data-field-name="${label}"]`)?.closest('[data-builder-field]')).toBeTruthy()
+    }
+
+    const css = readFileSync('src/renderer/src/components/PromqlBuilderPanel.module.css', 'utf8')
+    expect(css).not.toMatch(/\.control\s*\{/)
+  })
+
   it('shows label loading and loads only the values for a newly selected label', async () => {
     const labelsRequest = deferred<string[]>(); const valuesRequest = deferred<string[]>()
     labelsForMetric.mockReturnValueOnce(labelsRequest.promise); labelValues.mockReturnValueOnce(valuesRequest.promise)
