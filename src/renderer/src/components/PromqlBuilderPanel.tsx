@@ -4,6 +4,9 @@ import { api } from '../lib/api'
 import { buildPromql, calculationsForPromqlHistogramKind, detectPromqlHistogramKind, isHistogramCalculation, reconcilePromqlBuilderForMetric, resolvePromqlHistogramKind, validatePromqlBuilder, type PromqlAggregation, type PromqlCalculation, type PromqlHistogramKindOverride, type PromqlQuantile, type PromqlWindow } from '../lib/promqlBuilder'
 import { metricLabels, metricLabelValues, prometheusMetadataError } from '../lib/prometheusMetadata'
 import { Combobox, MultiCombobox } from './ui/combobox'
+import { BuilderForm } from './builder/BuilderForm'
+import { BuilderRow } from './builder/BuilderRow'
+import { FormField } from './builder/FormField'
 import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
 import styles from './PromqlBuilderPanel.module.css'
 
@@ -177,25 +180,25 @@ export function PromqlBuilderPanel() {
     setMode('sql', tabId)
   }
 
-  return <div className={`${styles.root} promql-builder-form`} data-promql-builder="">
-    <div className={styles.coreRow} data-promql-row="core">
-      <div className={styles.control}><Combobox label="Metric" value={builder.metric} options={metricOptions} onChange={selectMetric} searchable placeholder={metricPlaceholder} emptyMessage="No matching metrics" disabled={!canLoadMetadata || loadingMetrics} /></div>
-      <div className={styles.control}><Combobox label="Calculation" warning={histogramAmbiguous ? 'Auto detection could not determine whether this metric is a classic or native histogram. Histogram calculations are not generated until you choose a representation.' : undefined} value={builder.calculation} options={calculationOptions} onChange={(value) => changeCalculation(value as PromqlCalculation)} /></div>
-      {histogramAmbiguous && <div className={styles.control}><Combobox label="Histogram representation" value={histogramKindOverride} options={histogramKindOverrides} onChange={(value) => changeHistogramKindOverride(value as PromqlHistogramKindOverride)} /></div>}
-      {builder.calculation === 'percentile' && <div className={styles.control}><Combobox label="Percentile" value={String(builder.percentile)} options={quantiles.map(({ value, label }) => ({ value: String(value), label }))} onChange={(value) => apply({ percentile: Number(value) as PromqlQuantile })} /></div>}
-      {!isHistogramCalculation(builder.calculation) && <div className={styles.control}><Combobox label="Aggregation" hint="Combines the resulting time series after the calculation. Sum is common for counters split across instances; Average, Minimum and Maximum compare the calculated values across series." value={builder.aggregation} options={aggregationOptions} onChange={(value) => apply({ aggregation: value as PromqlAggregation, ...(value === 'none' ? { groupBy: [] } : {}) })} /></div>}
-      {rangeCalculations.has(builder.calculation) && <div className={styles.control}><Combobox label="Rate window" hint="How much history each calculation looks back over. Example: 5m means rate(...[5m]) uses the previous 5 minutes at each point." value={builder.window} options={windows.map((value) => ({ value, label: value }))} onChange={(value) => apply({ window: value as PromqlWindow })} /></div>}
-    </div>
-    <div className={styles.filterGroupRow} data-promql-row="filters-and-grouping">
-      <div className={styles.control}><MultiCombobox label="Group by" values={builder.groupBy} options={labelOptions.filter((option) => builder.calculation !== 'percentile' || histogramKind !== 'classic' || option.value !== 'le')} onChange={(labels) => changeDimensions('groupBy', labels)} searchable showChips disabled={!canLoadMetadata || !builder.metric || loadingLabels || Boolean(labelError) || labels.length === 0} placeholder={groupByPlaceholder} /></div>
-      <div className={styles.control}><MultiCombobox label="Filter by" values={builder.filterBy} options={labelOptions} onChange={(labels) => changeDimensions('filterBy', labels)} searchable showChips disabled={!canLoadMetadata || !builder.metric || loadingLabels || Boolean(labelError) || labels.length === 0} placeholder={labelPlaceholder} /></div>
-    </div>
+  return <BuilderForm className={`${styles.root} promql-builder-form`} data-promql-builder="" data-builder-form="">
+    <BuilderRow className={styles.coreRow} data-promql-row="core">
+      <FormField data-builder-field=""><Combobox label="Metric" value={builder.metric} options={metricOptions} onChange={selectMetric} searchable placeholder={metricPlaceholder} emptyMessage="No matching metrics" disabled={!canLoadMetadata || loadingMetrics} /></FormField>
+      <FormField data-builder-field=""><Combobox label="Calculation" warning={histogramAmbiguous ? 'Auto detection could not determine whether this metric is a classic or native histogram. Histogram calculations are not generated until you choose a representation.' : undefined} value={builder.calculation} options={calculationOptions} onChange={(value) => changeCalculation(value as PromqlCalculation)} /></FormField>
+      {histogramAmbiguous && <FormField data-builder-field=""><Combobox label="Histogram representation" value={histogramKindOverride} options={histogramKindOverrides} onChange={(value) => changeHistogramKindOverride(value as PromqlHistogramKindOverride)} /></FormField>}
+      {builder.calculation === 'percentile' && <FormField data-builder-field=""><Combobox label="Percentile" value={String(builder.percentile)} options={quantiles.map(({ value, label }) => ({ value: String(value), label }))} onChange={(value) => apply({ percentile: Number(value) as PromqlQuantile })} /></FormField>}
+      {!isHistogramCalculation(builder.calculation) && <FormField data-builder-field=""><Combobox label="Aggregation" hint="Combines the resulting time series after the calculation. Sum is common for counters split across instances; Average, Minimum and Maximum compare the calculated values across series." value={builder.aggregation} options={aggregationOptions} onChange={(value) => apply({ aggregation: value as PromqlAggregation, ...(value === 'none' ? { groupBy: [] } : {}) })} /></FormField>}
+      {rangeCalculations.has(builder.calculation) && <FormField data-builder-field=""><Combobox label="Rate window" hint="How much history each calculation looks back over. Example: 5m means rate(...[5m]) uses the previous 5 minutes at each point." value={builder.window} options={windows.map((value) => ({ value, label: value }))} onChange={(value) => apply({ window: value as PromqlWindow })} /></FormField>}
+    </BuilderRow>
+    <BuilderRow className={styles.filterGroupRow} data-promql-row="filters-and-grouping">
+      <FormField data-builder-field=""><MultiCombobox label="Group by" values={builder.groupBy} options={labelOptions.filter((option) => builder.calculation !== 'percentile' || histogramKind !== 'classic' || option.value !== 'le')} onChange={(labels) => changeDimensions('groupBy', labels)} searchable showChips disabled={!canLoadMetadata || !builder.metric || loadingLabels || Boolean(labelError) || labels.length === 0} placeholder={groupByPlaceholder} /></FormField>
+      <FormField data-builder-field=""><MultiCombobox label="Filter by" values={builder.filterBy} options={labelOptions} onChange={(labels) => changeDimensions('filterBy', labels)} searchable showChips disabled={!canLoadMetadata || !builder.metric || loadingLabels || Boolean(labelError) || labels.length === 0} placeholder={labelPlaceholder} /></FormField>
+    </BuilderRow>
     {canLoadMetadata && labelError && <div className="inline-error" role="alert">Could not load metric labels. {labelError} <button type="button" className="btn ghost" onClick={loadLabels} disabled={loadingLabels}>{loadingLabels ? 'Retrying…' : 'Retry'}</button></div>}
-    <div className={styles.valuesGrid} data-promql-row="filter-values">{activeLabels.map((label) => {
+    <BuilderRow className={styles.valuesGrid} data-promql-row="filter-values">{activeLabels.map((label) => {
       const loading = Boolean(loadingValues[label]); const error = valueErrors[label]; const loaded = Object.hasOwn(values, label)
       const placeholder = !canLoadMetadata ? 'Metadata unavailable' : loading ? 'Loading values…' : error ? 'Could not load values' : loaded && values[label].length === 0 ? 'No values found' : 'Select values…'
-      return <div className={`${styles.control} ${styles.valueControl}`} key={label}><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={[...(values[label] ?? [])].sort((left, right) => left.localeCompare(right)).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={!canLoadMetadata || loading || Boolean(error) || loaded && values[label].length === 0} placeholder={placeholder} />{canLoadMetadata && error && <small className="inline-error" role="alert">{error} <button type="button" className="btn ghost" onClick={() => { setValues((current) => { const next = { ...current }; delete next[label]; return next }); loadValues(label) }}>Retry</button></small>}</div>
-    })}</div>
+      return <FormField key={label} data-builder-field=""><MultiCombobox label={`${label} values`} values={builder.labelValues[label] ?? []} options={[...(values[label] ?? [])].sort((left, right) => left.localeCompare(right)).map((value) => ({ value, label: value }))} onChange={(selected) => apply({ labelValues: { ...builder.labelValues, [label]: selected } })} onOpen={() => loadValues(label)} searchable showChips disabled={!canLoadMetadata || loading || Boolean(error) || loaded && values[label].length === 0} placeholder={placeholder} />{canLoadMetadata && error && <small className="inline-error" role="alert">{error} <button type="button" className="btn ghost" onClick={() => { setValues((current) => { const next = { ...current }; delete next[label]; return next }); loadValues(label) }}>Retry</button></small>}</FormField>
+    })}</BuilderRow>
     <GeneratedQueryPanel language="PromQL" value={displayedGenerated} validation={validation} onOpenInEditor={openGeneratedQuery} />
-  </div>
+  </BuilderForm>
 }

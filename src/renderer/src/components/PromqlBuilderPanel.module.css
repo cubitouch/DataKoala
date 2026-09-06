@@ -1,40 +1,24 @@
 .root {
-  width: 100%;
   padding: 14px 12px;
   overflow: auto;
   min-height: 0;
-  display: grid;
-  gap: 12px;
-}
-
-.control {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  --builder-form-gap: 12px;
 }
 
 .coreRow {
-  display: grid;
   grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(120px, 1fr));
-  gap: 12px;
-  align-items: end;
+  --builder-row-gap: 12px;
+  --builder-row-align: end;
 }
 
 .filterGroupRow {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  --builder-row-gap: 12px;
 }
 
 .valuesGrid {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.valueControl {
-  min-width: 0;
+  --builder-row-gap: 12px;
 }
 
 @media (max-width: 1050px) {
