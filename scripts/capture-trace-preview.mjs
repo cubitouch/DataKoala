@@ -236,6 +236,38 @@ async function openPreviewTrace(win) {
   await waitFor(win, `(() => { const section = document.querySelector('section[aria-label="Trace explorer"]'); const text = section?.innerText ?? ''; return text.includes('Span tree') && text.includes('service-03') && text.includes('Show async branches') && !text.includes('worker-01') && text.includes('Explore similar traces') })()`, 'opened focused synthetic trace waterfall')
 }
 
+async function validateNarrowTraceHeader(win) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const view = document.querySelector('section[aria-label="Trace explorer"] [aria-busy]')
+    const header = view?.querySelector('header')
+    const title = header?.querySelector('h2')?.closest('div')?.parentElement
+    const identity = title?.querySelector('div')
+    const actions = [...(title?.querySelectorAll(':scope > button') ?? [])]
+    const summary = header?.querySelector('dl')
+    if (!view || !header || !title || !identity || actions.length !== 2 || !summary) return null
+    view.style.width = '460px'
+    const identityRect = identity.getBoundingClientRect()
+    const actionRects = actions.map((action) => action.getBoundingClientRect())
+    const summaryRect = summary.getBoundingClientRect()
+    const titleRect = title.getBoundingClientRect()
+    const report = {
+      viewportWidth: innerWidth,
+      paneWidth: view.getBoundingClientRect().width,
+      headerDirection: getComputedStyle(header).flexDirection,
+      identityWidth: identityRect.width,
+      actionsBelowIdentity: actionRects.every((rect) => rect.top >= identityRect.bottom),
+      actionsInsideTitle: actionRects.every((rect) => rect.left >= titleRect.left && rect.right <= titleRect.right),
+      summaryBelowTitle: summaryRect.top >= titleRect.bottom,
+      overflow: header.scrollWidth > header.clientWidth
+    }
+    view.style.width = ''
+    return report
+  })()`)
+  if (!report || report.viewportWidth < 1000 || report.paneWidth > 500 || report.headerDirection !== 'column' || report.identityWidth < 300 || !report.actionsBelowIdentity || !report.actionsInsideTitle || !report.summaryBelowTitle || report.overflow) {
+    throw new Error(`Responsive Tempo trace header failed in a narrow content pane: ${JSON.stringify(report)}`)
+  }
+}
+
 async function selectHotspotSpan(win) {
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
@@ -316,6 +348,7 @@ app.whenReady().then(async () => {
     await restoreStandardSearch(win)
     await showList(win)
     await openPreviewTrace(win)
+    await validateNarrowTraceHeader(win)
     await selectHotspotSpan(win)
     await capture(win, 'tempo-waterfall.png')
     await validateCloseAndSelectedSpanCohort(win)
