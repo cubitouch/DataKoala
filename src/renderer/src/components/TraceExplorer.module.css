@@ -206,6 +206,7 @@
   flex-direction: column;
   overflow: hidden;
 }
+.traceView { container-type: inline-size; }
 .resultsHeader, .traceHeader {
   display: flex;
   align-items: flex-start;
@@ -283,9 +284,10 @@
   gap: 10px;
   min-width: 0;
 }
-.traceTitle > div { min-width: 0; }
+.traceTitle > div { flex: 1 1 auto; min-width: 0; }
+.traceTitle > button { flex: 0 0 auto; }
 .traceTitle h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.traceTitle code { display: block; margin-top: 3px; color: var(--text-mute); font-size: 10px; }
+.traceTitle code { display: block; overflow: hidden; margin-top: 3px; color: var(--text-mute); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .summary { display: flex; gap: 16px; margin: 0; }
 .summary div { min-width: 58px; }
 .summary dt { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-mute); }
@@ -602,12 +604,25 @@
   .searchActions { align-items: flex-start; flex-direction: column; }
   .resultsHeader { align-items: stretch; flex-direction: column; }
   .resultsHeaderActions { justify-content: space-between; }
-  .traceHeader { flex-direction: column; }
-  .traceTitle { flex-wrap: wrap; }
-  .summary { gap: 10px; flex-wrap: wrap; }
   .inspectionArea.withDetails { display: flex; flex-direction: column; overflow: auto; }
   .inspectionArea.withDetails .waterfall { flex: 0 0 55%; min-height: 260px; border-right: 0; border-bottom: 1px solid var(--border); }
   .details { flex: 1 1 auto; min-height: 220px; }
+}
+
+@container (max-width: 760px) {
+  .traceHeader { flex-direction: column; }
+  .traceTitle { width: 100%; }
+  .summary { width: 100%; gap: 10px; flex-wrap: wrap; }
+}
+
+@container (max-width: 500px) {
+  .traceTitle {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: center;
+  }
+  .traceTitle > div { grid-row: 1; grid-column: 1 / -1; width: 100%; }
+  .traceTitle > button { grid-row: 2; }
 }
 
 @container (max-width: 760px) {
