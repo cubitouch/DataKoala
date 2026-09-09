@@ -255,6 +255,8 @@ async function validateNarrowTraceHeader(win) {
       paneWidth: view.getBoundingClientRect().width,
       headerDirection: getComputedStyle(header).flexDirection,
       identityWidth: identityRect.width,
+      titleWidth: titleRect.width,
+      identityUsesTitleWidth: Math.abs(identityRect.width - titleRect.width) <= 1,
       actionsBelowIdentity: actionRects.every((rect) => rect.top >= identityRect.bottom),
       actionsInsideTitle: actionRects.every((rect) => rect.left >= titleRect.left && rect.right <= titleRect.right),
       summaryBelowTitle: summaryRect.top >= titleRect.bottom,
@@ -263,7 +265,7 @@ async function validateNarrowTraceHeader(win) {
     view.style.width = ''
     return report
   })()`)
-  if (!report || report.viewportWidth < 1000 || report.paneWidth > 500 || report.headerDirection !== 'column' || report.identityWidth < 300 || !report.actionsBelowIdentity || !report.actionsInsideTitle || !report.summaryBelowTitle || report.overflow) {
+  if (!report || report.viewportWidth < 1000 || report.paneWidth > 500 || report.headerDirection !== 'column' || !report.identityUsesTitleWidth || !report.actionsBelowIdentity || !report.actionsInsideTitle || !report.summaryBelowTitle || report.overflow) {
     throw new Error(`Responsive Tempo trace header failed in a narrow content pane: ${JSON.stringify(report)}`)
   }
 }

@@ -618,7 +618,7 @@
 @container (max-width: 500px) {
   .traceTitle {
     display: grid;
-    grid-template-columns: repeat(2, max-content);
+    grid-template-columns: max-content minmax(0, 1fr);
     align-items: center;
   }
   .traceTitle > div { grid-row: 1; grid-column: 1 / -1; width: 100%; }
