@@ -40,6 +40,42 @@ async function validateNarrowQueryToolbar(win) {
     query?.click()
   })()`)
   await waitFor(win, `document.querySelector('[aria-label="TraceQL editor"]') && [...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Format')`, 'Tempo TraceQL mode')
+  const sizing = JSON.parse(await win.webContents.executeJavaScript(`(async () => {
+    const store = window.__datakoalaStore
+    const activeTabId = store.getState().activeTabId
+    const setQuery = (sql) => store.setState((state) => ({
+      tabs: state.tabs.map((tab) => tab.id === activeTabId ? { ...tab, sql } : tab)
+    }))
+    const settle = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const measure = () => {
+      const editor = document.querySelector('[aria-label="TraceQL editor"] .cm-editor')
+      const scroller = editor?.querySelector('.cm-scroller')
+      return editor && scroller ? {
+        height: editor.getBoundingClientRect().height,
+        clientHeight: scroller.clientHeight,
+        scrollHeight: scroller.scrollHeight
+      } : null
+    }
+    setQuery('{ true }')
+    await settle()
+    const single = measure()
+    setQuery(Array.from({ length: 6 }, (_, index) => index ? '&& true' : '{ true').join('\\n') + '\\n}')
+    await settle()
+    const multiline = measure()
+    setQuery(Array.from({ length: 24 }, (_, index) => index ? '&& true' : '{ true').join('\\n') + '\\n}')
+    await settle()
+    const capped = measure()
+    setQuery('{ true }')
+    await settle()
+    const restored = measure()
+    return JSON.stringify({ single, multiline, capped, restored })
+  })()`))
+  if (!sizing.single || !sizing.multiline || !sizing.capped || !sizing.restored ||
+      sizing.multiline.height <= sizing.single.height || sizing.capped.height < sizing.multiline.height ||
+      sizing.capped.height > 162 || sizing.capped.scrollHeight <= sizing.capped.clientHeight ||
+      Math.abs(sizing.restored.height - sizing.single.height) > 1) {
+    throw new Error(`TraceQL auto-grow regression: ${JSON.stringify(sizing)}`)
+  }
   win.setSize(900, 900)
   await sleep(300)
   const layout = await win.webContents.executeJavaScript(`(() => {
