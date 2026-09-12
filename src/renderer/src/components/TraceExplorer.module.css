@@ -327,6 +327,13 @@
   grid-template-columns: minmax(270px, 38%) minmax(440px, 1fr);
   pointer-events: none;
 }
+.withDetails .waterfallHeader,
+.withDetails .spanRow {
+  min-width: 0;
+  grid-template-columns: minmax(200px, 38%) minmax(0, 1fr);
+}
+.withDetails .waterfallBody { min-width: 0; }
+.withDetails .timelineGapOverlay { grid-template-columns: minmax(200px, 38%) minmax(0, 1fr); }
 .timelineGapLayer {
   position: relative;
   grid-column: 2;
