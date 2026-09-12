@@ -43,10 +43,13 @@ async function validateNarrowQueryToolbar(win) {
   const sizing = JSON.parse(await win.webContents.executeJavaScript(`(async () => {
     const store = window.__datakoalaStore
     const activeTabId = store.getState().activeTabId
+    const originalSql = store.getState().tabs.find((tab) => tab.id === activeTabId)?.sql
     const setQuery = (sql) => store.setState((state) => ({
       tabs: state.tabs.map((tab) => tab.id === activeTabId ? { ...tab, sql } : tab)
     }))
     const settle = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const editorQuery = () => [...(document.querySelector('[aria-label="TraceQL editor"]')?.querySelectorAll('.cm-line') ?? [])]
+      .map((line) => line.textContent ?? '').join('\\n')
     const measure = () => {
       const editor = document.querySelector('[aria-label="TraceQL editor"] .cm-editor')
       const scroller = editor?.querySelector('.cm-scroller')
@@ -67,13 +70,18 @@ async function validateNarrowQueryToolbar(win) {
     const capped = measure()
     setQuery('{ true }')
     await settle()
-    const restored = measure()
-    return JSON.stringify({ single, multiline, capped, restored })
+    const singleAgain = measure()
+    setQuery(originalSql)
+    await settle()
+    const restoredSql = store.getState().tabs.find((tab) => tab.id === activeTabId)?.sql
+    const restoredEditorSql = editorQuery()
+    return JSON.stringify({ single, multiline, capped, singleAgain, originalSql, restoredSql, restoredEditorSql })
   })()`))
-  if (!sizing.single || !sizing.multiline || !sizing.capped || !sizing.restored ||
+  if (!sizing.single || !sizing.multiline || !sizing.capped || !sizing.singleAgain ||
       sizing.multiline.height <= sizing.single.height || sizing.capped.height < sizing.multiline.height ||
       sizing.capped.height > 162 || sizing.capped.scrollHeight <= sizing.capped.clientHeight ||
-      Math.abs(sizing.restored.height - sizing.single.height) > 1) {
+      Math.abs(sizing.singleAgain.height - sizing.single.height) > 1 ||
+      sizing.restoredSql !== sizing.originalSql || sizing.restoredEditorSql !== sizing.originalSql) {
     throw new Error(`TraceQL auto-grow regression: ${JSON.stringify(sizing)}`)
   }
   win.setSize(900, 900)
