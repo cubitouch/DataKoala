@@ -67,7 +67,7 @@ async function validateNarrowQueryToolbar(win) {
     const multiline = measure()
     setQuery(Array.from({ length: 24 }, (_, index) => index ? '&& true' : '{ true').join('\\n') + '\\n}')
     await settle()
-    const capped = measure()
+    const long = measure()
     setQuery('{ true }')
     await settle()
     const singleAgain = measure()
@@ -75,11 +75,12 @@ async function validateNarrowQueryToolbar(win) {
     await settle()
     const restoredSql = store.getState().tabs.find((tab) => tab.id === activeTabId)?.sql
     const restoredEditorSql = editorQuery()
-    return JSON.stringify({ single, multiline, capped, singleAgain, originalSql, restoredSql, restoredEditorSql })
+    return JSON.stringify({ single, multiline, long, singleAgain, originalSql, restoredSql, restoredEditorSql })
   })()`))
-  if (!sizing.single || !sizing.multiline || !sizing.capped || !sizing.singleAgain ||
-      sizing.multiline.height <= sizing.single.height || sizing.capped.height < sizing.multiline.height ||
-      sizing.capped.height > 162 || sizing.capped.scrollHeight <= sizing.capped.clientHeight ||
+  if (!sizing.single || !sizing.multiline || !sizing.long || !sizing.singleAgain ||
+      sizing.single.height < 65 || sizing.single.height > 68 ||
+      sizing.multiline.height <= sizing.single.height || sizing.long.height <= sizing.multiline.height ||
+      sizing.long.scrollHeight > sizing.long.clientHeight ||
       Math.abs(sizing.singleAgain.height - sizing.single.height) > 1 ||
       sizing.restoredSql !== sizing.originalSql || sizing.restoredEditorSql !== sizing.originalSql) {
     throw new Error(`TraceQL auto-grow regression: ${JSON.stringify(sizing)}`)

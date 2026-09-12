@@ -32,10 +32,10 @@ describe('QueryCodeEditor', () => {
   })
 
   it('forwards the shared editor sizing contract unchanged', () => {
-    render(<QueryCodeEditor value="query" onChange={() => {}} extensions={[]} aria-label="TraceQL editor" minHeight="66px" maxHeight="160px" />)
+    render(<QueryCodeEditor value="query" onChange={() => {}} extensions={[]} aria-label="Query editor" minHeight="72px" maxHeight="240px" />)
     expect(captured.props?.height).toBeUndefined()
-    expect(captured.props?.minHeight).toBe('66px')
-    expect(captured.props?.maxHeight).toBe('160px')
+    expect(captured.props?.minHeight).toBe('72px')
+    expect(captured.props?.maxHeight).toBe('240px')
   })
 
   it('replaces content, caps the selection, and restores focus through its narrow ref API', () => {
