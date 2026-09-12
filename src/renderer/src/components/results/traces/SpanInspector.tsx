@@ -1,5 +1,6 @@
 import type { TraceRow } from '../../../lib/traceViewer'
 import styles from './SpanInspector.module.css'
+import { traceDurationLabel, traceNumber, traceText } from './tracePresentation'
 
 interface SpanInspectorProps {
   span: TraceRow
@@ -7,20 +8,9 @@ interface SpanInspectorProps {
   onClose: () => void
 }
 
-function text(value: unknown): string {
-  return value === undefined || value === null ? '' : String(value)
-}
-
-function number(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-function durationLabel(milliseconds: number): string {
-  if (milliseconds >= 1_000) return `${(milliseconds / 1_000).toFixed(milliseconds >= 10_000 ? 1 : 2)}s`
-  if (milliseconds >= 1) return `${milliseconds.toFixed(milliseconds >= 100 ? 0 : 1)}ms`
-  return `${Math.max(0, milliseconds * 1_000).toFixed(0)}µs`
-}
+const text = traceText
+const number = traceNumber
+const durationLabel = traceDurationLabel
 
 function jsonRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>
