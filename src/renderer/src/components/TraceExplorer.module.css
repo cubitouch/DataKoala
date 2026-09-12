@@ -141,14 +141,11 @@
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  min-height: 66px;
-  max-height: 160px;
   font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 .traceqlField :global(.cm-scroller) {
   min-width: 0;
   max-width: 100%;
-  min-height: 66px;
   overflow: auto;
   font-family: var(--mono);
 }
