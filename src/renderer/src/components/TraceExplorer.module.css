@@ -230,43 +230,6 @@
   text-align: center;
   color: var(--text-mute);
 }
-.traceList { overflow: auto; }
-.traceResult {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 10px 14px;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.traceResult:hover, .traceResult:focus-visible { background: var(--bg-2); }
-.resultIdentity {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-}
-.resultIdentity > span:last-child,
-.resultMeta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.resultIdentity span span,
-.resultMeta span { color: var(--text-mute); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
-.resultStatus {
-  flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 18%, transparent);
-}
-.resultStatusOk { color: #3fb950; background: #3fb950; }
-.resultStatusError { color: #f85149; background: #f85149; }
-.resultStatusUnknown { color: #8b949e; background: #8b949e; }
-.resultMeta { align-items: flex-end; flex: 0 0 auto; }
 .scatter {
   flex: 1;
   min-height: 280px;
