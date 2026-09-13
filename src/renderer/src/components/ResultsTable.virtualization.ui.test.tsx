@@ -55,6 +55,24 @@ describe('ResultsTable virtualization', () => {
     expect(screen.getByRole('button', { name: 'Export CSV' }).classList.contains(styles.cellValue)).toBe(false)
   })
 
+  it('keeps long-value caps until explicit column sizing is activated', () => {
+    window.PointerEvent = MouseEvent as typeof PointerEvent
+    arrange()
+    const table = document.querySelector('table')
+    const header = screen.getByRole('columnheader', { name: /label/ })
+    vi.spyOn(screen.getByRole('columnheader', { name: /id/ }), 'getBoundingClientRect').mockReturnValue({ width: 120 } as DOMRect)
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({ width: 240 } as DOMRect)
+
+    expect(table?.classList.contains(styles.resizedTable)).toBe(false)
+    expect(resultsTableCss).toMatch(/\.table th, \.table td \{[^}]*max-width:\s*320px/)
+    expect(resultsTableCss).toMatch(/\.cellValue \{[^}]*max-width:\s*290px/)
+
+    fireEvent.pointerDown(screen.getByRole('separator', { name: 'Resize label column' }), { pointerId: 1, clientX: 100 })
+
+    expect(table?.classList.contains(styles.resizedTable)).toBe(true)
+    expect(resultsTableCss).toMatch(/\.resizedTable th, \.resizedTable td, \.resizedTable \.cellValue \{\s*max-width:\s*none/)
+  })
+
   it('keeps the mounted row count bounded and can navigate beyond row 1,000', () => {
     arrange()
     expect(screen.getByRole('textbox', { name: 'Filter rows' }).closest('[data-field]')?.getAttribute('data-label-visibility')).toBe('sr-only')

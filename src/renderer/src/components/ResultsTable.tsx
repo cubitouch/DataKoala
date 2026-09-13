@@ -207,7 +207,7 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
         {result.rows.length === 0 ? <div className={styles.empty}>Query returned no rows.</div> : rows.length === 0 ? <div className={styles.empty}>
           {activeFilters.length ? 'No rows match the active filters.' : 'No rows match the row search.'}
         </div> : <table
-          className={styles.table}
+          className={`${styles.table}${activeColumnWidths ? ` ${styles.resizedTable}` : ''}`}
           style={activeColumnWidths ? { width: Object.values(activeColumnWidths).reduce((total, width) => total + width, 0), tableLayout: 'fixed' } : undefined}
         >
           {activeColumnWidths && <colgroup>
