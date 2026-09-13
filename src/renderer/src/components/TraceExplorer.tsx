@@ -544,7 +544,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
           onBackToResults={() => { setSpans([]); setSelectedSpanId('') }} onExploreSimilar={exploreSimilar} onToggleSpanKind={toggleSpanKind}
           onToggleAsyncBranches={() => setHideAsyncBranches((current) => !current)} onToggleIdleCompression={() => setCompressIdleGaps((current) => !current)} onShowAllKinds={() => setHiddenSpanKinds(new Set())} />
 
-        {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans. Virtualised rendering remains follow-up work in #88.</div>}
+        {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans.</div>}
 
         <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
           <TraceWaterfall visibleTree={visibleTree} timelineSpans={timelineSpans} selectedSpanId={selectedSpanId} collapsed={collapsed}
