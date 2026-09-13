@@ -1,10 +1,10 @@
-import { runGcxCommand, sanitizeGcxError, type GcxCommandResult, type GcxCommandRunner } from './gcx-command.ts'
+import { runGcxCommand, sanitizeGcxError, type GcxCommandRunner } from './gcx-command.ts'
 import type { PrometheusDatasourceOption, PrometheusMetricMetadata, PrometheusQueryRequest } from '../shared/prometheus.ts'
 import type { ColumnMeta, QueryResult } from '../shared/types.ts'
 import type { PrometheusTransport } from './prometheus-transport.ts'
 
 export { runGcxCommand, sanitizeGcxError }
-export type { GcxCommandResult, GcxCommandRunner }
+export type { GcxCommandRunner }
 
 export const PROMETHEUS_OVERSIZED_QUERY_MESSAGE = 'Too many data points — use Auto, increase the Resolution, or reduce the time range.'
 const MAX_PROVIDER_DIAGNOSTIC_LENGTH = 2_048
@@ -19,7 +19,7 @@ class PrometheusOversizedQueryError extends Error {
 }
 
 export function isPrometheusOversizedQueryError(detail: string): boolean {
-  return /(?:exceed(?:ed|s)?\s+(?:the\s+)?maximum\s+resolution.*points?\s+per\s+time\s*series|too many\s+(?:data\s+)?points?|maximum number of\s+(?:data\s+)?points?|(?:too many|max(?:imum)?(?: number of)?)\s+samples?|sample limit\s+(?:exceeded|reached)|exceed(?:ed|s)?\s+(?:the\s+)?(?:maximum|max)\s+(?:number of\s+)?samples?)/i.test(detail)
+  return /(?:exceed(?:ed|s)?\s+(?:the\s+)?maximum\s+resolution.*points?\s+per\s*time\s*series|too many\s+(?:data\s+)?points?|maximum number of\s+(?:data\s+)?points?|(?:too many|max(?:imum)?(?: number of)?)\s+samples?|sample limit\s+(?:exceeded|reached)|exceed(?:ed|s)?\s+(?:the\s+)?(?:maximum|max)\s+(?:number of\s+)?samples?)/i.test(detail)
 }
 
 export function boundedProviderDiagnostic(detail: string): string {
@@ -38,7 +38,7 @@ function errorMessage(error: unknown): string {
   const detail = `${value?.stderr ?? ''} ${value?.stdout ?? ''} ${value?.message ?? ''}`.toLowerCase()
   if (isPrometheusOversizedQueryError(detail)) return PROMETHEUS_OVERSIZED_QUERY_MESSAGE
   if (/expired|token.*expir|session.*expir/.test(detail)) return 'gcx authentication has expired. Run gcx login, then try again.'
-  if (/not authenticated|not logged|no.*context|login required|unauthenticated/.test(detail)) return 'gcx is installed but no authenticated context is available. Run gcx login, then try again.'
+  if (/not authenticated|not logged|no.*context|login required|unauthenticated/.test(detail)) return 'gcx is installed but no authenticated context is available. Run gcx login if needed.'
   if (/forbidden|permission|not permitted|access denied|status.?403/.test(detail)) return 'Metrics access is not permitted for this account.'
   const raw = `${value?.stderr ?? ''} ${value?.stdout ?? ''}`.trim()
   if (raw && /parse|promql|query|bad_data|execution|timeout|server error/i.test(raw)) return boundedProviderDiagnostic(raw)
