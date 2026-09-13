@@ -66,7 +66,7 @@ export function TraceScatterChart({ option, searchRange, onSelectRange, onEvents
     const timestamp = Number(Array.isArray(value) ? value[0] : NaN)
     return Boolean(domain && Number.isFinite(timestamp) && timestamp >= domain.start && timestamp <= domain.end)
   }).length, 0), [domain, series])
-  const enableBrush = () => ref.current?.getEchartsInstance().dispatchAction({
+  const enableBrush = (instance = ref.current?.getEchartsInstance()) => instance?.dispatchAction({
     type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' }
   })
   useEffect(() => { enableBrush() }, [renderedOption])
@@ -84,7 +84,7 @@ export function TraceScatterChart({ option, searchRange, onSelectRange, onEvents
   return <div data-visual-type="scatter" data-visual-finished={finishedRevision === renderRevision} data-visual-series={series.length} data-visual-items={visibleItems} data-visual-range={domain ? `${new Date(domain.start).toISOString()}..${new Date(domain.end).toISOString()}` : 'invalid'} style={{ width: '100%', height: '100%' }}><ReactECharts
     ref={ref}
     option={renderedOption}
-    onChartReady={() => setFinishedRevision(renderRevision)}
+    onChartReady={(instance) => { enableBrush(instance); setFinishedRevision(renderRevision) }}
     onEvents={{ ...onEvents, brushEnd, finished: (value: unknown) => { setFinishedRevision(renderRevision); onEvents.finished?.(value) } }}
     notMerge
     lazyUpdate

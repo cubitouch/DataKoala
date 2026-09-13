@@ -4,8 +4,13 @@ import { buildTraceql, EMPTY_TRACE_BUILDER, mergeTraceBuilderState, traceBuilder
 
 const builder = (patch: Partial<TraceBuilderState>): TraceBuilderState => ({ ...EMPTY_TRACE_BUILDER, ...patch })
 
-test('empty trace builder keeps the broad TraceQL selector', () => {
-  assert.equal(buildTraceql(EMPTY_TRACE_BUILDER), '{ }')
+test('empty trace builder applies the default 300ms duration threshold', () => {
+  assert.equal(buildTraceql(EMPTY_TRACE_BUILDER), '{ span:duration > 300ms }')
+  assert.equal(buildTraceql(builder({ minDurationMs: '' })), '{ span:duration > 300ms }')
+  assert.equal(buildTraceql(builder({ minDurationMs: '   ' })), '{ span:duration > 300ms }')
+  assert.equal(buildTraceql(builder({ minDurationMs: '500' })), '{ span:duration > 500ms }')
+  assert.equal(buildTraceql(builder({ minDurationMs: '0' })), '{ span:duration > 0ms }')
+  assert.equal(buildTraceql(builder({ minDurationMs: 'invalid' })), '{ }')
 })
 
 test('merges generated structured constraints while preserving absent and advanced constraints', () => {
@@ -92,11 +97,11 @@ test('merged constraints survive a TraceQL round trip', () => {
 })
 
 test('builds and parses faceted attribute predicates', () => {
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })), '{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'exclude', values: ['staging', 'test'] }] })), '{ resource.deployment.environment.name != "staging" && resource.deployment.environment.name != "test" }')
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'span.custom', scope: 'span', mode: 'include', values: ['a"b'] }] })), '{ span.custom = "a\\\"b" }')
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: [] }] })), '{ }')
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'invalid; true', scope: 'span', mode: 'include', values: ['x'] }] })), '{ }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })), '{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") && span:duration > 300ms }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'exclude', values: ['staging', 'test'] }] })), '{ resource.deployment.environment.name != "staging" && resource.deployment.environment.name != "test" && span:duration > 300ms }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'span.custom', scope: 'span', mode: 'include', values: ['a"b'] }] })), '{ span.custom = "a\\\"b" && span:duration > 300ms }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: [] }] })), '{ span:duration > 300ms }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'invalid; true', scope: 'span', mode: 'include', values: ['x'] }] })), '{ span:duration > 300ms }')
   const parsed = traceBuilderFromTraceql('{ resource.service.name = "checkout" && (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')
   assert.equal(parsed.service, 'checkout')
   assert.deepEqual(parsed.advancedFilters, [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }])
@@ -123,11 +128,11 @@ test('builds service, kind, status and duration filters with scoped intrinsics',
 test('HTTP controls separate method from route and tolerate semantic-convention aliases', () => {
   assert.equal(
     buildTraceql(builder({ spanKind: 'server', protocol: 'http', httpMethod: 'POST', endpoint: '/checkout' })),
-    '{ span:kind = server && (span.http.request.method = "POST" || span.http.method = "POST") && (span.http.route = "/checkout" || span.url.template = "/checkout" || span.url.path = "/checkout" || span.http.target = "/checkout") }'
+    '{ span:kind = server && (span.http.request.method = "POST" || span.http.method = "POST") && (span.http.route = "/checkout" || span.url.template = "/checkout" || span.url.path = "/checkout" || span.http.target = "/checkout") && span:duration > 300ms }'
   )
   assert.equal(
     buildTraceql(builder({ spanKind: 'client', protocol: 'http', endpoint: '/payments/{id}' })),
-    '{ span:kind = client && (span.http.route = "/payments/{id}" || span.url.template = "/payments/{id}" || span.url.path = "/payments/{id}" || span.http.target = "/payments/{id}") }'
+    '{ span:kind = client && (span.http.route = "/payments/{id}" || span.url.template = "/payments/{id}" || span.url.path = "/payments/{id}" || span.http.target = "/payments/{id}") && span:duration > 300ms }'
   )
 })
 
@@ -151,23 +156,23 @@ test('server Explore similar queries preserve url.path-only root spans', () => {
 test('protocol-only filters still narrow the search', () => {
   assert.match(buildTraceql(builder({ protocol: 'http' })), /span\.http\.request\.method != nil/)
   assert.match(buildTraceql(builder({ protocol: 'http' })), /span\.url\.path != nil/)
-  assert.equal(buildTraceql(builder({ protocol: 'rpc' })), '{ span.rpc.system != nil }')
-  assert.equal(buildTraceql(builder({ protocol: 'messaging' })), '{ span.messaging.system != nil }')
+  assert.equal(buildTraceql(builder({ protocol: 'rpc' })), '{ span.rpc.system != nil && span:duration > 300ms }')
+  assert.equal(buildTraceql(builder({ protocol: 'messaging' })), '{ span.messaging.system != nil && span:duration > 300ms }')
   assert.match(buildTraceql(builder({ protocol: 'database' })), /span\.db\.system\.name != nil/)
 })
 
 test('builds RPC, messaging and database semantic-convention filters', () => {
   assert.equal(
     buildTraceql(builder({ protocol: 'rpc', rpcSystem: 'grpc', rpcService: 'CartService', rpcMethod: 'Checkout' })),
-    '{ span.rpc.system = "grpc" && span.rpc.service = "CartService" && span.rpc.method = "Checkout" }'
+    '{ span.rpc.system = "grpc" && span.rpc.service = "CartService" && span.rpc.method = "Checkout" && span:duration > 300ms }'
   )
   assert.equal(
     buildTraceql(builder({ protocol: 'messaging', messagingSystem: 'kafka', messagingDestination: 'orders', messagingOperation: 'publish' })),
-    '{ span.messaging.system = "kafka" && (span.messaging.destination.name = "orders" || span.messaging.destination = "orders") && (span.messaging.operation.type = "publish" || span.messaging.operation = "publish") }'
+    '{ span.messaging.system = "kafka" && (span.messaging.destination.name = "orders" || span.messaging.destination = "orders") && (span.messaging.operation.type = "publish" || span.messaging.operation = "publish") && span:duration > 300ms }'
   )
   assert.equal(
     buildTraceql(builder({ protocol: 'database', dbSystem: 'postgresql', dbOperation: 'SELECT' })),
-    '{ (span.db.system.name = "postgresql" || span.db.system = "postgresql") && (span.db.operation.name = "SELECT" || span.db.operation = "SELECT") }'
+    '{ (span.db.system.name = "postgresql" || span.db.system = "postgresql") && (span.db.operation.name = "SELECT" || span.db.operation = "SELECT") && span:duration > 300ms }'
   )
 })
 
