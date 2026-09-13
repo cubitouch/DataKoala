@@ -1,0 +1,37 @@
+.traceHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.traceHeader h2 { margin: 0; font-size: 15px; }
+.traceTitle { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.traceTitle > div { flex: 1 1 auto; min-width: 0; }
+.traceTitle > button { flex: 0 0 auto; }
+.traceTitle h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.traceTitle code { display: block; overflow: hidden; margin-top: 3px; color: var(--text-mute); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.summary { display: flex; gap: 16px; margin: 0; }
+.summary div { min-width: 58px; }
+.summary dt { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-mute); }
+.summary dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; }
+.filterToolbar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.filterToolbar > span { color: var(--text-mute); font-size: 11px; }
+.modeSwitch { display: inline-flex; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.modeSwitch button { display: grid; justify-items: center; min-width: 82px; min-height: 26px; height: auto; padding: 5px 10px; border: 0; border-radius: 4px; background: transparent; color: var(--text-mute); cursor: pointer; line-height: 1.15; }
+.modeSwitch button:hover, .modeSwitch button:focus-visible { color: var(--text); }
+.modeSwitch .modeActive { background: var(--bg-3); color: var(--text); }
+.modeSwitch strong { margin-top: 3px; font-size: 11px; font-weight: 500; }
+
+@media (max-width: 760px) { .filterToolbar { align-items: flex-start; flex-direction: column; gap: 6px; } }
+@container (max-width: 760px) {
+  .traceHeader { flex-direction: column; }
+  .traceTitle { width: 100%; }
+  .summary { width: 100%; gap: 10px; flex-wrap: wrap; }
+}
+@container (max-width: 500px) {
+  .traceTitle { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; }
+  .traceTitle > div { grid-row: 1; grid-column: 1 / -1; width: 100%; }
+  .traceTitle > button { grid-row: 2; }
+}

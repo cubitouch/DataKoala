@@ -19,7 +19,6 @@ import {
   openedTraceStatus,
   traceResultStatus,
   traceSpanKind,
-  traceSpanKindLabel,
   traceSpanKinds,
   visibleSpanCount,
   withoutAsyncTraceBranches,
@@ -40,6 +39,7 @@ import { QueryCodeEditor, type QueryCodeEditorHandle } from './query/QueryCodeEd
 import { SpanInspector } from './results/traces/SpanInspector'
 import { MAX_RENDERED_SPANS, TraceWaterfall } from './results/traces/TraceWaterfall'
 import { TraceSearchList } from './results/traces/TraceSearchList'
+import { TraceResultHeader } from './results/traces/TraceResultHeader'
 import { traceDateTimeLabel, traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from './results/traces/tracePresentation'
 
 interface TraceExplorerProps {
@@ -61,12 +61,12 @@ const TRACE_SAMPLE_SIZE_OPTIONS = [
 const text = traceText
 const number = traceNumber
 const periodLabel = tracePeriodLabel
+const durationLabel = traceDurationLabel
 
 function tempoPerf(event: string, fields: Record<string, unknown>): void {
   if (api.tempoPerformanceEnabled) console.info(`[tempo-perf] ${JSON.stringify({ event, ...fields })}`)
 }
 
-const durationLabel = traceDurationLabel
 const dateTimeLabel = traceDateTimeLabel
 
 function isSpanResult(result: QueryResult): boolean {
@@ -343,6 +343,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
 
   const sortedSpans = useMemo(() => [...spans].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs)), [spans])
   const spanKinds = useMemo(() => traceSpanKinds(sortedSpans), [sortedSpans])
+  const spanKindCounts = useMemo(() => Object.fromEntries(spanKinds.map((kind) => [kind, sortedSpans.filter((span) => traceSpanKind(span) === kind).length])), [sortedSpans, spanKinds])
   const viewerSpans = useMemo(() => hideAsyncBranches ? withoutAsyncTraceBranches(sortedSpans) : sortedSpans, [sortedSpans, hideAsyncBranches])
   const asyncPrunedCount = sortedSpans.length - viewerSpans.length
   const filteredSpanCount = useMemo(() => visibleSpanCount(viewerSpans, hiddenSpanKinds), [viewerSpans, hiddenSpanKinds])
@@ -536,36 +537,14 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       </div>}
 
       {spans.length > 0 ? <div className={styles.traceView} aria-busy={loading === 'trace'} style={{ gridRow: 5 }}>
-        <header className={styles.traceHeader}>
-          <div className={styles.traceTitle}>
-            {searchRows.length > 0 && <button type="button" className="btn ghost" onClick={() => { setSpans([]); setSelectedSpanId('') }}>← Search results</button>}
-            <div><h2>{text(rootSpan?.service) || 'Trace'} · {text(rootSpan?.name) || text(rootSpan?.traceId)}</h2><code>{text(rootSpan?.traceId)}</code></div>
-            <button type="button" className="btn ghost" onClick={exploreSimilar}>Explore similar traces</button>
-          </div>
-          <dl className={styles.summary}>
-            <div><dt>Duration</dt><dd>{durationLabel(traceDuration)}</dd></div>
-            <div><dt>Spans</dt><dd>{filteredSpanCount === spans.length ? spans.length : `${filteredSpanCount}/${spans.length}`}</dd></div>
-            <div><dt>Services</dt><dd>{services.size}</dd></div>
-            <div><dt>Errors</dt><dd>{errorCount}</dd></div>
-          </dl>
-        </header>
+        <TraceResultHeader traceId={text(rootSpan?.traceId)} service={text(rootSpan?.service)} operation={text(rootSpan?.name)} durationMs={traceDuration}
+          visibleSpanCount={filteredSpanCount} totalSpanCount={spans.length} serviceCount={services.size} errorCount={errorCount}
+          spanKinds={spanKinds} spanKindCounts={spanKindCounts} hiddenSpanKinds={hiddenSpanKinds} hideAsyncBranches={hideAsyncBranches}
+          asyncPrunedCount={asyncPrunedCount} hasAsyncKinds={hasAsyncKinds} compressIdleGaps={compressIdleGaps} showBackToResults={searchRows.length > 0}
+          onBackToResults={() => { setSpans([]); setSelectedSpanId('') }} onExploreSimilar={exploreSimilar} onToggleSpanKind={toggleSpanKind}
+          onToggleAsyncBranches={() => setHideAsyncBranches((current) => !current)} onToggleIdleCompression={() => setCompressIdleGaps((current) => !current)} onShowAllKinds={() => setHiddenSpanKinds(new Set())} />
 
-        {spanKinds.length > 0 && <div className={styles.queryModeRow} style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
-          <span>Span kind</span>
-          <div className={styles.modeSwitch} role="group" aria-label="Visible span kinds">
-            {spanKinds.map((kind) => {
-              const visible = !hiddenSpanKinds.has(kind)
-              const count = sortedSpans.filter((row) => traceSpanKind(row) === kind).length
-              return <button key={kind} type="button" className={visible ? styles.modeActive : ''} aria-pressed={visible} onClick={() => toggleSpanKind(kind)} title={kind === 'INTERNAL' ? 'In-process/code spans; turn this off to reduce application-code noise.' : `Show or hide ${kind} spans`} style={{ display: 'grid', justifyItems: 'center', minWidth: 82, height: 'auto', padding: '5px 10px', lineHeight: 1.15 }}><span>{traceSpanKindLabel(kind)}</span><strong style={{ marginTop: 3, fontSize: 11, fontWeight: 500 }}>{count}</strong></button>
-            })}
-          </div>
-          <span>{filteredSpanCount}/{spans.length} shown{hideAsyncBranches && asyncPrunedCount > 0 ? ` · ${asyncPrunedCount} async-branch spans hidden` : ''}.</span>
-          {hasAsyncKinds && <button type="button" className="btn ghost" aria-pressed={hideAsyncBranches} onClick={() => setHideAsyncBranches((current) => !current)} title="Hide non-root Producer/Consumer branches and their descendants so delayed messaging work does not dominate the waterfall.">{hideAsyncBranches ? 'Show async branches' : 'Hide async branches'}</button>}
-          <button type="button" className="btn ghost" aria-pressed={compressIdleGaps} onClick={() => setCompressIdleGaps((current) => !current)} title="Compress long periods with no visible leaf-span activity. Span ordering and real duration labels remain unchanged; shaded breaks mark transformed idle time.">{compressIdleGaps ? 'Use wall-clock scale' : 'Compress idle gaps'}</button>
-          {hiddenSpanKinds.size > 0 && <button type="button" className="btn ghost" onClick={() => setHiddenSpanKinds(new Set())}>Show all kinds</button>}
-        </div>}
-
-        {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans. Virtualised rendering remains follow-up work in #88.</div>}
+        {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans.</div>}
 
         <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
           <TraceWaterfall visibleTree={visibleTree} timelineSpans={timelineSpans} selectedSpanId={selectedSpanId} collapsed={collapsed}
