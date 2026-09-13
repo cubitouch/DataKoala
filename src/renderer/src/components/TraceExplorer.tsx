@@ -40,14 +40,13 @@ import { SpanInspector } from './results/traces/SpanInspector'
 import { MAX_RENDERED_SPANS, TraceWaterfall } from './results/traces/TraceWaterfall'
 import { TraceSearchList } from './results/traces/TraceSearchList'
 import { TraceResultHeader } from './results/traces/TraceResultHeader'
+import { TraceSearchResults, type TraceResultView } from './results/traces/TraceSearchResults'
 import { traceDateTimeLabel, traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from './results/traces/tracePresentation'
 
 interface TraceExplorerProps {
   connectionId: string
   resizeHandle?: ReactNode
 }
-
-type ResultView = 'list' | 'scatter' | 'service-map'
 
 const DEFAULT_TRACE_RANGE: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
 const DEFAULT_TRACE_SAMPLE_SIZE: TraceSampleSize = '250'
@@ -119,7 +118,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const [cohortHint, setCohortHint] = useState('')
   const [searchRange, setSearchRange] = useState<BuilderTimeRange>(DEFAULT_TRACE_RANGE)
   const [sampleSize, setSampleSize] = useState<TraceSampleSize>(DEFAULT_TRACE_SAMPLE_SIZE)
-  const [resultView, setResultView] = useState<ResultView>('list')
+  const [resultView, setResultView] = useState<TraceResultView>('list')
   const [messagingSystems, setMessagingSystems] = useState<string[]>([])
   const [messagingSystemsLoading, setMessagingSystemsLoading] = useState(false)
   const [messagingSystemsError, setMessagingSystemsError] = useState<string | null>(null)
@@ -472,6 +471,11 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     if (shouldRerun && traceql.trim()) void runSearch(next)
   }
 
+  const changeResultView = (next: TraceResultView) => {
+    setResultView(next)
+    if (next === 'service-map') cohortAnalysis.ensureStarted()
+  }
+
   const clearTempoResults = () => {
     cohortAnalysis.reset()
     setSearchRows([])
@@ -552,25 +556,10 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
             compressIdleGaps={compressIdleGaps} hasInspector={Boolean(selectedSpan)} onSelectSpan={setSelectedSpanId} onToggleCollapse={toggleCollapse} />
           {selectedSpan && <SpanInspector span={selectedSpan} traceStart={traceStart} onClose={() => setSelectedSpanId('')} />}
         </div>
-      </div> : <div className={styles.searchResults} aria-busy={loading !== null} style={{ gridRow: 5 }}>
-        <header className={styles.resultsHeader}>
-          <div><h2>Trace search</h2><p>{searchNotice || 'Use the Builder or TraceQL to find candidate traces.'}</p></div>
-          <div className={styles.resultsHeaderActions}>
-            {searchRows.length > 0 && <div className={styles.resultViewSwitch} role="group" aria-label="Trace search result view">
-              <button type="button" className={resultView === 'list' ? styles.modeActive : ''} aria-pressed={resultView === 'list'} onClick={() => setResultView('list')}>List</button>
-              <button type="button" className={resultView === 'scatter' ? styles.modeActive : ''} aria-pressed={resultView === 'scatter'} onClick={() => setResultView('scatter')}>Scatter</button>
-              <button type="button" className={resultView === 'service-map' ? styles.modeActive : ''} aria-pressed={resultView === 'service-map'} disabled={loading === 'search'} onClick={() => { setResultView('service-map'); cohortAnalysis.ensureStarted() }}>Service map</button>
-            </div>}
-            {searchRows.length > 0 && <strong>{searchRows.length} traces{loading === 'search' ? ' so far' : ''}</strong>}
-          </div>
-        </header>
-        {searchRows.length === 0 ? <div className={styles.empty}>{loading === 'search' ? 'Waiting for the first Tempo trace summaries…' : 'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.'}</div>
-          : <>
-              {resultView === 'scatter' ? <div className={styles.scatter} data-trace-scatter=""><TraceScatterChart option={scatterOption} searchRange={searchRange} onEvents={scatterEvents} onSelectRange={(next) => { setSearchRange(next); void runSearch(sampleSize, next) }} /></div>
-                : resultView === 'service-map' ? <TraceServiceMap aggregate={cohortAnalysis.aggregate} traces={cohortAnalysis.traces} progress={cohortAnalysis.progress} searchTraceCount={searchRows.length} sampleLimit={cohortAnalysis.sampleLimit} onSampleLimitChange={cohortAnalysis.changeSampleLimit} onRetry={cohortAnalysis.retry} onStop={cohortAnalysis.stop} onOpenTrace={(candidate) => void openTrace(candidate)} />
-                : <TraceSearchList rows={searchRows} disabled={loading !== null} onOpenTrace={(candidate) => void openTrace(candidate)} />}
-            </>}
-      </div>}
+      </div> : <TraceSearchResults rows={searchRows} notice={searchNotice} loading={loading} resultView={resultView} onResultViewChange={changeResultView}
+        listView={<TraceSearchList rows={searchRows} disabled={loading !== null} onOpenTrace={(candidate) => void openTrace(candidate)} />}
+        scatterView={<TraceScatterChart option={scatterOption} searchRange={searchRange} onEvents={scatterEvents} onSelectRange={(next) => { setSearchRange(next); void runSearch(sampleSize, next) }} />}
+        serviceMapView={<TraceServiceMap aggregate={cohortAnalysis.aggregate} traces={cohortAnalysis.traces} progress={cohortAnalysis.progress} searchTraceCount={searchRows.length} sampleLimit={cohortAnalysis.sampleLimit} onSampleLimitChange={cohortAnalysis.changeSampleLimit} onRetry={cohortAnalysis.retry} onStop={cohortAnalysis.stop} onOpenTrace={(candidate) => void openTrace(candidate)} />} />}
     </section>
   )
 }
