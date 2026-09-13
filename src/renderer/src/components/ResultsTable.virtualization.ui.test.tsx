@@ -72,6 +72,43 @@ describe('ResultsTable virtualization', () => {
     expect(screen.queryByText(/Showing first 1000/)).toBeNull()
   })
 
+  it('resizes one snapped column without sorting or unbounding virtualization', () => {
+    window.PointerEvent = MouseEvent as typeof PointerEvent
+    arrange()
+    const headers = screen.getAllByRole('columnheader')
+    vi.spyOn(headers[0], 'getBoundingClientRect').mockReturnValue({ width: 120 } as DOMRect)
+    vi.spyOn(headers[1], 'getBoundingClientRect').mockReturnValue({ width: 240 } as DOMRect)
+    const handle = screen.getByRole('separator', { name: 'Resize id column' })
+
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 100 })
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 180 })
+    fireEvent.pointerUp(handle, { pointerId: 1, clientX: 180 })
+
+    const columns = document.querySelectorAll('col')
+    expect(columns).toHaveLength(2)
+    expect((columns[0] as HTMLElement).style.width).toBe('200px')
+    expect((columns[1] as HTMLElement).style.width).toBe('240px')
+    expect(document.querySelector<HTMLTableElement>('table')?.style.width).toBe('440px')
+    expect(headers[0].textContent).not.toContain('▲')
+    expect(document.querySelectorAll('[data-result-row-index]').length).toBeLessThan(100)
+  })
+
+  it('clamps resized columns at the minimum and maximum widths', () => {
+    window.PointerEvent = MouseEvent as typeof PointerEvent
+    arrange()
+    const header = screen.getByRole('columnheader', { name: /id/ })
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({ width: 160 } as DOMRect)
+    const handle = screen.getByRole('separator', { name: 'Resize id column' })
+
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 200 })
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: -1000 })
+    expect(document.querySelector<HTMLElement>('col')?.style.width).toBe('80px')
+
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 2000 })
+    expect(document.querySelector<HTMLElement>('col')?.style.width).toBe('720px')
+    fireEvent.pointerCancel(handle, { pointerId: 1 })
+  })
+
   it('sorts and searches the full result before virtualizing', () => {
     arrange()
     const idHeader = screen.getByRole('columnheader', { name: /id/ })
