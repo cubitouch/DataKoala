@@ -1,5 +1,4 @@
-import React from 'react'
-void React
+import type { ComponentProps } from 'react'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
@@ -15,7 +14,7 @@ const producer: TraceRow = { traceId: 'trace-42', spanId: 'producer', parentSpan
 const asyncChild: TraceRow = { traceId: 'trace-42', spanId: 'consumer', parentSpanId: 'producer', service: 'worker', name: 'consume', kind: 'CONSUMER', status: 'OK', startTimeMs: 600, durationMs: 1500 }
 const spans = [client, asyncChild, root, producer]
 
-function renderResult(overrides: Partial<React.ComponentProps<typeof TraceOpenedResult>> = {}) {
+function renderResult(overrides: Partial<ComponentProps<typeof TraceOpenedResult>> = {}) {
   const callbacks = {
     onSelectSpan: vi.fn(), onToggleCollapsed: vi.fn(), onToggleSpanKind: vi.fn(), onToggleAsyncBranches: vi.fn(),
     onToggleIdleCompression: vi.fn(), onShowAllKinds: vi.fn(), onBackToResults: vi.fn(), onExploreSimilar: vi.fn()
