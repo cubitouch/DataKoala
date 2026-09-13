@@ -1,11 +1,90 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { buildTraceql, EMPTY_TRACE_BUILDER, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState } from './traceBuilder.ts'
+import { buildTraceql, EMPTY_TRACE_BUILDER, mergeTraceBuilderState, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState } from './traceBuilder.ts'
 
 const builder = (patch: Partial<TraceBuilderState>): TraceBuilderState => ({ ...EMPTY_TRACE_BUILDER, ...patch })
 
 test('empty trace builder keeps the broad TraceQL selector', () => {
   assert.equal(buildTraceql(EMPTY_TRACE_BUILDER), '{ }')
+})
+
+test('merges generated structured constraints while preserving absent and advanced constraints', () => {
+  const current = builder({
+    serviceNamespace: 'commerce',
+    service: 'checkout',
+    spanKind: 'client',
+    status: 'ok',
+    minDurationMs: '250',
+    advancedFilters: [
+      { attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'include', values: ['production'] },
+      { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1'] }
+    ]
+  })
+  const merged = mergeTraceBuilderState(current, builder({ service: 'payments', spanKind: 'server', status: 'error' }))
+
+  assert.equal(merged.service, 'payments')
+  assert.equal(merged.spanKind, 'server')
+  assert.equal(merged.status, 'error')
+  assert.equal(merged.minDurationMs, '250')
+  assert.equal(merged.serviceNamespace, 'commerce')
+  assert.deepEqual(merged.advancedFilters, current.advancedFilters)
+})
+
+test('incoming advanced filters replace semantic conflicts, normalize values, and merge idempotently', () => {
+  const current = builder({ advancedFilters: [
+    { attribute: ' resource.deployment.environment.name ', scope: 'resource', mode: 'include', values: [' production ', 'production'] },
+    { attribute: 'span.custom', scope: 'span', mode: 'include', values: ['keep'] },
+    { attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'include', values: ['production'] }
+  ] })
+  const incoming = builder({ advancedFilters: [
+    { attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'exclude', values: [' staging ', 'staging'] },
+    { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: [' eu-west-1 ', 'eu-west-1'] }
+  ] })
+  const once = mergeTraceBuilderState(current, incoming)
+  const twice = mergeTraceBuilderState(once, incoming)
+
+  assert.deepEqual(once.advancedFilters, [
+    { attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'exclude', values: ['staging'] },
+    { attribute: 'span.custom', scope: 'span', mode: 'include', values: ['keep'] },
+    { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1'] }
+  ])
+  assert.deepEqual(twice, once)
+  const query = buildTraceql(twice)
+  assert.equal(query.match(/deployment\.environment\.name/g)?.length, 1)
+  assert.equal(query.match(/cloud\.region/g)?.length, 1)
+})
+
+test('reconciles protocol details without retaining fields from an inactive protocol', () => {
+  const http = builder({ protocol: 'http', httpMethod: 'GET', endpoint: '/orders' })
+  assert.deepEqual(
+    mergeTraceBuilderState(http, builder({ protocol: 'http', httpMethod: 'POST' })),
+    builder({ protocol: 'http', httpMethod: 'POST', endpoint: '/orders' })
+  )
+  assert.deepEqual(
+    mergeTraceBuilderState(http, builder({ protocol: 'rpc', rpcSystem: 'grpc', rpcMethod: 'ListOrders' })),
+    builder({ protocol: 'rpc', rpcSystem: 'grpc', rpcMethod: 'ListOrders' })
+  )
+  assert.deepEqual(mergeTraceBuilderState(http, builder({ protocol: 'any', rpcSystem: 'grpc' })), http)
+})
+
+test('merged constraints survive a TraceQL round trip', () => {
+  const current = builder({
+    service: 'checkout',
+    minDurationMs: '100',
+    protocol: 'http',
+    endpoint: '/checkout',
+    advancedFilters: [{ attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'include', values: ['production'] }]
+  })
+  const merged = mergeTraceBuilderState(current, builder({ service: 'payments', protocol: 'http', httpMethod: 'POST', status: 'error' }))
+  const reparsed = traceBuilderFromTraceql(buildTraceql(merged))
+
+  assert.equal(reparsed.service, 'payments')
+  assert.equal(reparsed.minDurationMs, '100')
+  assert.equal(reparsed.protocol, 'http')
+  assert.equal(reparsed.httpMethod, 'POST')
+  assert.equal(reparsed.endpoint, '/checkout')
+  assert.equal(reparsed.status, 'error')
+  assert.deepEqual(reparsed.advancedFilters, current.advancedFilters)
 })
 
 test('builds and parses faceted attribute predicates', () => {
