@@ -1,0 +1,36 @@
+.traceView {
+  grid-column: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+.warning {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  background: var(--bg-2);
+  font-size: 12px;
+}
+
+.inspectionArea {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.inspectionArea.withDetails { grid-template-columns: minmax(0, 1fr) minmax(280px, 34%); }
+.waterfallOnly { grid-template-columns: minmax(0, 1fr); }
+
+@media (max-width: 960px) {
+  .inspectionArea.withDetails { grid-template-columns: minmax(0, 1fr) minmax(250px, 40%); }
+}
+
+@media (max-width: 760px) {
+  .inspectionArea.withDetails { display: flex; flex-direction: column; overflow: auto; }
+}

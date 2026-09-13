@@ -162,32 +162,9 @@
 .root > .warning[role="status"] > * { width: min(680px, 80vw); max-width: 100%; }
 .root > .warning[role="status"] progress { accent-color: var(--accent); }
 
-.traceView {
-  grid-row: 4;
-  grid-column: 1;
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.traceView { container-type: inline-size; }
-.inspectionArea {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  overflow: hidden;
-}
-.inspectionArea.withDetails { grid-template-columns: minmax(0, 1fr) minmax(280px, 34%); }
-.waterfallOnly { grid-template-columns: minmax(0, 1fr); }
-
-
 @media (max-width: 960px) {
   .builderGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .generatedQuery { grid-column: 1 / -1; }
-  .inspectionArea.withDetails { grid-template-columns: minmax(0, 1fr) minmax(250px, 40%); }
 }
 
 @media (max-width: 760px) {
@@ -197,7 +174,6 @@
   .searchControls { align-items: stretch; flex-direction: column; }
   .searchControls > :first-child { min-width: 0; }
   .searchActions { align-items: flex-start; flex-direction: column; }
-  .inspectionArea.withDetails { display: flex; flex-direction: column; overflow: auto; }
 }
 
 @container (max-width: 760px) {
