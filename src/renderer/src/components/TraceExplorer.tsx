@@ -132,6 +132,8 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const traceqlEditorRef = useRef<QueryCodeEditorHandle>(null)
   const traceqlExtensions = useMemo(() => [traceqlSupport()], [])
   const cohortAnalysis = useTraceCohortAnalysis(connectionId, searchRows)
+  const builderTraceql = useMemo(() => buildTraceql(builder), [builder])
+  const activeTraceql = mode === 'builder' ? builderTraceql : traceql
 
   const formatCurrentTraceql = () => {
     if (mode !== 'sql' || !traceql.trim()) return
@@ -237,7 +239,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   }, [advancedDiscoveryBaseContext, builder.advancedFilters, connected, connectionGeneration, connectionId, mode])
 
   const runSearch = async (sampleOverride: TraceSampleSize = sampleSize, rangeOverride: BuilderTimeRange = searchRange, queryOverride?: string) => {
-    const request = (queryOverride ?? traceql).trim()
+    const request = (queryOverride ?? activeTraceql).trim()
     if (!request) return
     if (rangeOverride.recurringWindows?.some((window) => window.from || window.to)) {
       setError('Recurring daily windows are not supported for Tempo trace searches yet. Choose a continuous range.')
@@ -468,7 +470,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const changeSampleSize = (next: TraceSampleSize) => {
     const shouldRerun = searchRows.length > 0 || !!searchNotice
     setSampleSize(next)
-    if (shouldRerun && traceql.trim()) void runSearch(next)
+    if (shouldRerun && activeTraceql.trim()) void runSearch(next)
   }
 
   const changeResultView = (next: TraceResultView) => {
@@ -519,12 +521,12 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
             utilities={<QueryUtilityActions hasResults={Boolean(searchRows.length || spans.length || searchNotice || searchProgress || error || cohortHint)} onClearResults={clearTempoResults} onResetQuery={resetTempoQuery} />}
             editorActions={<div className={styles.editorActions}>
               {mode === 'sql' && <button type="button" className="btn ghost" onClick={formatCurrentTraceql} title="Format TraceQL (Shift+Alt+F)" disabled={!traceql.trim()}>Format</button>}
-              <CopySqlButton sql={traceql} language="TraceQL" />
+              <CopySqlButton sql={activeTraceql} language="TraceQL" />
             </div>}
-            execution={<button className="btn primary" type="submit" data-tempo-run-query disabled={loading !== null || !traceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button>}
+            execution={<button className="btn primary" type="submit" data-tempo-run-query disabled={loading !== null || !activeTraceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button>}
           />
           {mode === 'builder'
-            ? <TraceBuilderPanel value={builder} traceql={traceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} attributes={attributes} attributesLoading={attributesLoading} attributesError={attributesError} attributeValues={advancedValues} attributeValuesLoading={advancedValuesLoading} attributeValuesError={advancedValuesError} onChange={updateBuilder} onOpenTraceql={() => { setSql(traceql); setQueryMode('sql') }} />
+            ? <TraceBuilderPanel value={builder} traceql={builderTraceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} attributes={attributes} attributesLoading={attributesLoading} attributesError={attributesError} attributeValues={advancedValues} attributeValuesLoading={advancedValuesLoading} attributeValuesError={advancedValuesError} onChange={updateBuilder} onOpenTraceql={() => { setSql(builderTraceql); setQueryMode('sql') }} />
             : <QueryCodeEditor ref={traceqlEditorRef} className={styles.traceqlField} value={traceql} minHeight="66px" extensions={traceqlExtensions} onChange={(value) => setSql(value)} aria-label="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} />}
         </form>
       </div>

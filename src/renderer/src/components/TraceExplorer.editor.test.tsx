@@ -22,6 +22,7 @@ import { TraceExplorer } from './TraceExplorer'
 import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
 import { useStore } from '../store/useStore'
 import { formatTraceql } from '../lib/formatTraceql'
+import { buildTraceql, traceBuilderFromTraceql } from '../lib/traceBuilder'
 import { api } from '../lib/api'
 
 describe('TraceExplorer TraceQL editor', () => {
@@ -59,6 +60,26 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(screen.queryByLabelText('TraceQL editor')).toBeNull()
   })
 
+  it('executes and opens the Builder-generated TraceQL instead of stale manual SQL', async () => {
+    patchActiveTestSession({ queryMode: 'builder', sql: 'select now();' })
+    vi.mocked(api.query.run).mockResolvedValue({
+      columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' }],
+      rows: [], rowCount: 0, durationMs: 1
+    })
+    render(<TraceExplorer connectionId="tempo-1" />)
+
+    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe('{ }')
+    expect((screen.getByRole('button', { name: 'Copy TraceQL to clipboard' }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(api.query.run).toHaveBeenCalled())
+    expect(vi.mocked(api.query.run).mock.calls[0]?.[1]).toBe('{ }')
+    expect(vi.mocked(api.query.run).mock.calls[0]?.[1]).not.toContain('select now()')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
+    await waitFor(() => expect(activeTestSession().queryMode).toBe('sql'))
+    expect(activeTestSession().sql).toBe('{ }')
+  })
+
   it('stores automatically formatted TraceQL after Builder edits', async () => {
     patchActiveTestSession({ queryMode: 'builder', sql: '{ }' })
     render(<TraceExplorer connectionId="tempo-1" />)
@@ -66,7 +87,7 @@ describe('TraceExplorer TraceQL editor', () => {
     const expected = formatTraceql('{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')
     expect(expected.ok).toBe(true)
     await waitFor(() => expect(activeTestSession().sql).toBe(expected.ok ? expected.query : ''))
-    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe(expected.ok ? expected.query : '')
+    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe('{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')
     expect(notify).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'Formatted' }))
   })
 
@@ -97,7 +118,7 @@ describe('TraceExplorer TraceQL editor', () => {
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
     await waitFor(() => expect(activeTestSession().queryMode).toBe('sql'))
-    expect(activeTestSession().sql).toBe(generated)
+    expect(activeTestSession().sql).toBe(buildTraceql(traceBuilderFromTraceql(generated)))
     expect(screen.getByRole('button', { name: 'TraceQL' }).getAttribute('aria-pressed')).toBe('true')
   })
 
