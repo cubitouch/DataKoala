@@ -13,17 +13,7 @@ import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import { tempoAttributes, tempoAttributeValues } from '../lib/tempoMetadata'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
 import { buildTraceql, mergeTraceBuilderState, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '../lib/traceBuilder'
-import {
-  buildVisibleTraceTree,
-  canonicalTraceId,
-  openedTraceStatus,
-  traceResultStatus,
-  traceSpanKind,
-  traceSpanKinds,
-  visibleSpanCount,
-  withoutAsyncTraceBranches,
-  type TraceRow
-} from '../lib/traceViewer'
+import { canonicalTraceId, openedTraceStatus, traceResultStatus, type TraceRow } from '../lib/traceViewer'
 import styles from './TraceExplorer.module.css'
 import { traceql as traceqlSupport } from '../lib/traceqlLanguage'
 import { formatTraceql } from '../lib/formatTraceql'
@@ -36,10 +26,8 @@ import { tempoTraceLookupRequest } from '../lib/traceCohort'
 import { useTraceCohortAnalysis } from '../lib/useTraceCohortAnalysis'
 import { QueryToolbar } from './query/QueryToolbar'
 import { QueryCodeEditor, type QueryCodeEditorHandle } from './query/QueryCodeEditor'
-import { SpanInspector } from './results/traces/SpanInspector'
-import { MAX_RENDERED_SPANS, TraceWaterfall } from './results/traces/TraceWaterfall'
 import { TraceSearchList } from './results/traces/TraceSearchList'
-import { TraceResultHeader } from './results/traces/TraceResultHeader'
+import { TraceOpenedResult } from './results/traces/TraceOpenedResult'
 import { TraceSearchResults, type TraceResultView } from './results/traces/TraceSearchResults'
 import { traceDateTimeLabel, traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from './results/traces/tracePresentation'
 
@@ -342,25 +330,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const submitTraceId = (event: FormEvent) => { event.preventDefault(); void openTrace() }
   const submitSearch = (event: FormEvent) => { event.preventDefault(); void runSearch() }
 
-  const sortedSpans = useMemo(() => [...spans].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs)), [spans])
-  const spanKinds = useMemo(() => traceSpanKinds(sortedSpans), [sortedSpans])
-  const spanKindCounts = useMemo(() => Object.fromEntries(spanKinds.map((kind) => [kind, sortedSpans.filter((span) => traceSpanKind(span) === kind).length])), [sortedSpans, spanKinds])
-  const viewerSpans = useMemo(() => hideAsyncBranches ? withoutAsyncTraceBranches(sortedSpans) : sortedSpans, [sortedSpans, hideAsyncBranches])
-  const asyncPrunedCount = sortedSpans.length - viewerSpans.length
-  const filteredSpanCount = useMemo(() => visibleSpanCount(viewerSpans, hiddenSpanKinds), [viewerSpans, hiddenSpanKinds])
-  const visibleTree = useMemo(() => buildVisibleTraceTree(viewerSpans, collapsed, hiddenSpanKinds), [viewerSpans, collapsed, hiddenSpanKinds])
-  const timelineSpans = useMemo(() => viewerSpans.filter((row) => !hiddenSpanKinds.has(traceSpanKind(row))), [viewerSpans, hiddenSpanKinds])
-  const traceStart = sortedSpans.length ? Math.min(...sortedSpans.map((row) => number(row.startTimeMs))) : 0
-  const traceEnd = sortedSpans.length ? Math.max(...sortedSpans.map((row) => number(row.startTimeMs) + number(row.durationMs))) : 0
-  const traceDuration = Math.max(0, traceEnd - traceStart)
-  const services = useMemo(() => new Set(sortedSpans.map((row) => text(row.service)).filter(Boolean)), [sortedSpans])
-  const errorCount = useMemo(() => sortedSpans.filter((row) => text(row.status).toUpperCase().includes('ERROR')).length, [sortedSpans])
-  const rootSpan = sortedSpans.find((row) => !text(row.parentSpanId)) ?? sortedSpans[0]
-  const selectedSpanCandidate = sortedSpans.find((row) => text(row.spanId) === selectedSpanId)
-  const selectedSpanVisible = selectedSpanCandidate && viewerSpans.some((row) => text(row.spanId) === selectedSpanId)
-  const selectedSpan = selectedSpanVisible && !hiddenSpanKinds.has(traceSpanKind(selectedSpanCandidate)) ? selectedSpanCandidate : undefined
   const sampledSearch = sampleSize !== 'all'
-  const hasAsyncKinds = spanKinds.some((kind) => kind === 'PRODUCER' || kind === 'CONSUMER')
   const progressPercent = searchProgress?.totalMs
     ? Math.min(100, Math.round((searchProgress.coveredMs / searchProgress.totalMs) * 100))
     : 0
@@ -439,9 +409,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     }
   }), [connectionId, searchRows])
 
-  const exploreSimilar = () => {
-    const source = selectedSpan ?? rootSpan
-    if (!source) return
+  const exploreSimilar = (source: TraceRow) => {
     const incoming = traceBuilderFromSpan(source)
     const next = mergeTraceBuilderState(builder, incoming)
     const query = buildTraceql(next)
@@ -542,23 +510,11 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
         </> : <strong>Starting exhaustive Tempo search…</strong>}
       </div>}
 
-      {spans.length > 0 ? <div className={styles.traceView} aria-busy={loading === 'trace'} style={{ gridRow: 5 }}>
-        <TraceResultHeader traceId={text(rootSpan?.traceId)} service={text(rootSpan?.service)} operation={text(rootSpan?.name)} durationMs={traceDuration}
-          visibleSpanCount={filteredSpanCount} totalSpanCount={spans.length} serviceCount={services.size} errorCount={errorCount}
-          spanKinds={spanKinds} spanKindCounts={spanKindCounts} hiddenSpanKinds={hiddenSpanKinds} hideAsyncBranches={hideAsyncBranches}
-          asyncPrunedCount={asyncPrunedCount} hasAsyncKinds={hasAsyncKinds} compressIdleGaps={compressIdleGaps} showBackToResults={searchRows.length > 0}
-          onBackToResults={() => { setSpans([]); setSelectedSpanId('') }} onExploreSimilar={exploreSimilar} onToggleSpanKind={toggleSpanKind}
-          onToggleAsyncBranches={() => setHideAsyncBranches((current) => !current)} onToggleIdleCompression={() => setCompressIdleGaps((current) => !current)} onShowAllKinds={() => setHiddenSpanKinds(new Set())} />
-
-        {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans.</div>}
-
-        <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
-          <TraceWaterfall visibleTree={visibleTree} timelineSpans={timelineSpans} selectedSpanId={selectedSpanId} collapsed={collapsed}
-            filteredSpanCount={filteredSpanCount} totalSpanCount={spans.length} traceStart={traceStart} traceDuration={traceDuration}
-            compressIdleGaps={compressIdleGaps} hasInspector={Boolean(selectedSpan)} onSelectSpan={setSelectedSpanId} onToggleCollapse={toggleCollapse} />
-          {selectedSpan && <SpanInspector span={selectedSpan} traceStart={traceStart} onClose={() => setSelectedSpanId('')} />}
-        </div>
-      </div> : <TraceSearchResults rows={searchRows} notice={searchNotice} loading={loading} resultView={resultView} onResultViewChange={changeResultView}
+      {spans.length > 0 ? <TraceOpenedResult spans={spans} selectedSpanId={selectedSpanId} collapsed={collapsed} hiddenSpanKinds={hiddenSpanKinds}
+        hideAsyncBranches={hideAsyncBranches} compressIdleGaps={compressIdleGaps} showBackToResults={searchRows.length > 0} busy={loading === 'trace'}
+        onSelectSpan={setSelectedSpanId} onToggleCollapsed={toggleCollapse} onToggleSpanKind={toggleSpanKind}
+        onToggleAsyncBranches={() => setHideAsyncBranches((current) => !current)} onToggleIdleCompression={() => setCompressIdleGaps((current) => !current)}
+        onShowAllKinds={() => setHiddenSpanKinds(new Set())} onBackToResults={() => { setSpans([]); setSelectedSpanId('') }} onExploreSimilar={exploreSimilar} /> : <TraceSearchResults rows={searchRows} notice={searchNotice} loading={loading} resultView={resultView} onResultViewChange={changeResultView}
         listView={<TraceSearchList rows={searchRows} disabled={loading !== null} onOpenTrace={(candidate) => void openTrace(candidate)} />}
         scatterView={<TraceScatterChart option={scatterOption} searchRange={searchRange} onEvents={scatterEvents} onSelectRange={(next) => { setSearchRange(next); void runSearch(sampleSize, next) }} />}
         serviceMapView={<TraceServiceMap aggregate={cohortAnalysis.aggregate} traces={cohortAnalysis.traces} progress={cohortAnalysis.progress} searchTraceCount={searchRows.length} sampleLimit={cohortAnalysis.sampleLimit} onSampleLimitChange={cohortAnalysis.changeSampleLimit} onRetry={cohortAnalysis.retry} onStop={cohortAnalysis.stop} onOpenTrace={(candidate) => void openTrace(candidate)} />} />}
