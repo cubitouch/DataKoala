@@ -1,10 +1,10 @@
-import { runGcxCommand, sanitizeGcxError, type GcxCommandResult, type GcxCommandRunner } from './gcx-command.ts'
+import { runGcxCommand, sanitizeGcxError, type GcxCommandRunner } from './gcx-command.ts'
 import type { PrometheusDatasourceOption, PrometheusMetricMetadata, PrometheusQueryRequest } from '../shared/prometheus.ts'
 import type { ColumnMeta, QueryResult } from '../shared/types.ts'
 import type { PrometheusTransport } from './prometheus-transport.ts'
 
 export { runGcxCommand, sanitizeGcxError }
-export type { GcxCommandResult, GcxCommandRunner }
+export type { GcxCommandRunner }
 
 export const PROMETHEUS_OVERSIZED_QUERY_MESSAGE = 'Too many data points — use Auto, increase the Resolution, or reduce the time range.'
 const MAX_PROVIDER_DIAGNOSTIC_LENGTH = 2_048
