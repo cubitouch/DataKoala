@@ -65,6 +65,10 @@ test('reconciles protocol details without retaining fields from an inactive prot
     builder({ protocol: 'rpc', rpcSystem: 'grpc', rpcMethod: 'ListOrders' })
   )
   assert.deepEqual(mergeTraceBuilderState(http, builder({ protocol: 'any', rpcSystem: 'grpc' })), http)
+  assert.equal(
+    mergeTraceBuilderState(builder({ spanName: 'POST /example' }), builder({ protocol: 'http', spanName: '' })).spanName,
+    'POST /example'
+  )
 })
 
 test('merged constraints survive a TraceQL round trip', () => {

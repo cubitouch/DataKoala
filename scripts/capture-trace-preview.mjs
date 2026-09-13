@@ -345,7 +345,7 @@ async function validateCloseAndSelectedSpanCohort(win) {
       aria('HTTP method') === 'HTTP method: POST' &&
       input('Route / endpoint') === '/dependency-b' &&
       aria('Status') === 'Status: Error' &&
-      input('Exact span / operation name') === '' &&
+      input('Exact span / operation name') === 'POST /example' &&
       document.body.innerText.includes('5 traces') &&
       document.querySelector('[aria-label="Trace search result view"]');
   })()`, 'selected synthetic HTTP span cohort seed and automatic search results')
