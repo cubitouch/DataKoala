@@ -39,6 +39,8 @@ import { useTraceCohortAnalysis } from '../lib/useTraceCohortAnalysis'
 import { QueryToolbar } from './query/QueryToolbar'
 import { QueryCodeEditor, type QueryCodeEditorHandle } from './query/QueryCodeEditor'
 import { SpanInspector } from './results/traces/SpanInspector'
+import { TraceSearchList } from './results/traces/TraceSearchList'
+import { traceDateTimeLabel, traceDurationLabel, traceNumber, traceText } from './results/traces/tracePresentation'
 
 interface TraceExplorerProps {
   connectionId: string
@@ -78,35 +80,21 @@ export function TimelineGapOverlay({ gaps }: { gaps: RenderedTimelineGap[] }) {
   </div>
 }
 
-function text(value: unknown): string {
-  return value === undefined || value === null ? '' : String(value)
-}
-
-function number(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(parsed) ? parsed : 0
-}
+const text = traceText
+const number = traceNumber
 
 function tempoPerf(event: string, fields: Record<string, unknown>): void {
   if (api.tempoPerformanceEnabled) console.info(`[tempo-perf] ${JSON.stringify({ event, ...fields })}`)
 }
 
-function durationLabel(milliseconds: number): string {
-  if (milliseconds >= 1_000) return `${(milliseconds / 1_000).toFixed(milliseconds >= 10_000 ? 1 : 2)}s`
-  if (milliseconds >= 1) return `${milliseconds.toFixed(milliseconds >= 100 ? 0 : 1)}ms`
-  return `${Math.max(0, milliseconds * 1_000).toFixed(0)}µs`
-}
+const durationLabel = traceDurationLabel
+const dateTimeLabel = traceDateTimeLabel
 
 function periodLabel(milliseconds: number): string {
   if (milliseconds >= 3_600_000) return `${(milliseconds / 3_600_000).toFixed(milliseconds % 3_600_000 === 0 ? 0 : 1)}h`
   if (milliseconds >= 60_000) return `${(milliseconds / 60_000).toFixed(milliseconds % 60_000 === 0 ? 0 : 1)}m`
   if (milliseconds >= 1_000) return `${(milliseconds / 1_000).toFixed(milliseconds % 1_000 === 0 ? 0 : 1)}s`
   return `${Math.max(0, Math.round(milliseconds))}ms`
-}
-
-function dateTimeLabel(milliseconds: number): string {
-  if (!Number.isFinite(milliseconds) || milliseconds <= 0) return 'Unknown time'
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(milliseconds))
 }
 
 function isSpanResult(result: QueryResult): boolean {
@@ -677,13 +665,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
           : <>
               {resultView === 'scatter' ? <div className={styles.scatter} data-trace-scatter=""><TraceScatterChart option={scatterOption} searchRange={searchRange} onEvents={scatterEvents} onSelectRange={(next) => { setSearchRange(next); void runSearch(sampleSize, next) }} /></div>
                 : resultView === 'service-map' ? <TraceServiceMap aggregate={cohortAnalysis.aggregate} traces={cohortAnalysis.traces} progress={cohortAnalysis.progress} searchTraceCount={searchRows.length} sampleLimit={cohortAnalysis.sampleLimit} onSampleLimitChange={cohortAnalysis.changeSampleLimit} onRetry={cohortAnalysis.retry} onStop={cohortAnalysis.stop} onOpenTrace={(candidate) => void openTrace(candidate)} />
-                : <div className={styles.traceList}>{searchRows.map((row) => {
-                  const status = traceResultStatus(row)
-                  return <button key={text(row.traceId)} type="button" className={styles.traceResult} onClick={() => void openTrace(text(row.traceId))} disabled={loading !== null}>
-                    <span className={styles.resultIdentity}><span className={`${styles.resultStatus} ${status === 'error' ? styles.resultStatusError : status === 'ok' ? styles.resultStatusOk : styles.resultStatusUnknown}`} aria-label={status === 'error' ? 'Error trace' : status === 'ok' ? 'Successful trace' : 'Trace status unknown'} /><span><strong>{text(row.rootService) || 'unknown service'}</strong><span>{text(row.rootOperation) || text(row.traceId)}</span></span></span>
-                    <span className={styles.resultMeta}><strong>{durationLabel(number(row.durationMs))}</strong><span>{dateTimeLabel(number(row.startTimeMs))}</span><span>{number(row.matchedSpans) ? `${number(row.matchedSpans)} matched spans` : text(row.traceId)}</span></span>
-                  </button>
-                })}</div>}
+                : <TraceSearchList rows={searchRows} disabled={loading !== null} onOpenTrace={(candidate) => void openTrace(candidate)} />}
             </>}
       </div>}
     </section>
