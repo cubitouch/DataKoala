@@ -14,7 +14,6 @@ import { tempoAttributes, tempoAttributeValues } from '../lib/tempoMetadata'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
 import { buildTraceql, mergeTraceBuilderState, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '../lib/traceBuilder'
 import {
-  buildTraceTimelineScale,
   buildVisibleTraceTree,
   canonicalTraceId,
   openedTraceStatus,
@@ -39,8 +38,9 @@ import { useTraceCohortAnalysis } from '../lib/useTraceCohortAnalysis'
 import { QueryToolbar } from './query/QueryToolbar'
 import { QueryCodeEditor, type QueryCodeEditorHandle } from './query/QueryCodeEditor'
 import { SpanInspector } from './results/traces/SpanInspector'
+import { MAX_RENDERED_SPANS, TraceWaterfall } from './results/traces/TraceWaterfall'
 import { TraceSearchList } from './results/traces/TraceSearchList'
-import { traceDateTimeLabel, traceDurationLabel, traceNumber, traceText } from './results/traces/tracePresentation'
+import { traceDateTimeLabel, traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from './results/traces/tracePresentation'
 
 interface TraceExplorerProps {
   connectionId: string
@@ -49,7 +49,6 @@ interface TraceExplorerProps {
 
 type ResultView = 'list' | 'scatter' | 'service-map'
 
-const MAX_RENDERED_SPANS = 500
 const DEFAULT_TRACE_RANGE: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
 const DEFAULT_TRACE_SAMPLE_SIZE: TraceSampleSize = '250'
 const TRACE_SAMPLE_SIZE_OPTIONS = [
@@ -59,29 +58,9 @@ const TRACE_SAMPLE_SIZE_OPTIONS = [
   { value: 'all', label: 'All traces' }
 ]
 
-interface RenderedTimelineGap {
-  key: string
-  left: number
-  width: number
-  durationMs: number
-}
-
-export function TimelineGapOverlay({ gaps }: { gaps: RenderedTimelineGap[] }) {
-  return <div className={styles.timelineGapOverlay} aria-hidden="true">
-    <div className={styles.timelineGapLayer}>
-      {gaps.map((gap) => <span
-        key={gap.key}
-        className={styles.timelineGap}
-        data-trace-idle-gap=""
-        style={{ left: `${gap.left}%`, width: `${gap.width}%` }}
-        title={`Compressed idle gap · ${periodLabel(gap.durationMs)}`}
-      />)}
-    </div>
-  </div>
-}
-
 const text = traceText
 const number = traceNumber
+const periodLabel = tracePeriodLabel
 
 function tempoPerf(event: string, fields: Record<string, unknown>): void {
   if (api.tempoPerformanceEnabled) console.info(`[tempo-perf] ${JSON.stringify({ event, ...fields })}`)
@@ -89,13 +68,6 @@ function tempoPerf(event: string, fields: Record<string, unknown>): void {
 
 const durationLabel = traceDurationLabel
 const dateTimeLabel = traceDateTimeLabel
-
-function periodLabel(milliseconds: number): string {
-  if (milliseconds >= 3_600_000) return `${(milliseconds / 3_600_000).toFixed(milliseconds % 3_600_000 === 0 ? 0 : 1)}h`
-  if (milliseconds >= 60_000) return `${(milliseconds / 60_000).toFixed(milliseconds % 60_000 === 0 ? 0 : 1)}m`
-  if (milliseconds >= 1_000) return `${(milliseconds / 1_000).toFixed(milliseconds % 1_000 === 0 ? 0 : 1)}s`
-  return `${Math.max(0, Math.round(milliseconds))}ms`
-}
 
 function isSpanResult(result: QueryResult): boolean {
   return result.columns.some((column) => column.name === 'spanId')
@@ -375,19 +347,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const asyncPrunedCount = sortedSpans.length - viewerSpans.length
   const filteredSpanCount = useMemo(() => visibleSpanCount(viewerSpans, hiddenSpanKinds), [viewerSpans, hiddenSpanKinds])
   const visibleTree = useMemo(() => buildVisibleTraceTree(viewerSpans, collapsed, hiddenSpanKinds), [viewerSpans, collapsed, hiddenSpanKinds])
-  const renderedTree = visibleTree.slice(0, MAX_RENDERED_SPANS)
   const timelineSpans = useMemo(() => viewerSpans.filter((row) => !hiddenSpanKinds.has(traceSpanKind(row))), [viewerSpans, hiddenSpanKinds])
-  const timelineScale = useMemo(() => buildTraceTimelineScale(timelineSpans, compressIdleGaps), [timelineSpans, compressIdleGaps])
-  const renderedTimelineGaps = useMemo(() => timelineScale.gaps.map((gap, index) => {
-    const left = timelineScale.offsetPercent(gap.startMs)
-    const right = timelineScale.offsetPercent(gap.endMs)
-    return {
-      key: `${gap.startMs}-${gap.endMs}-${index}`,
-      left,
-      width: Math.max(.45, right - left),
-      durationMs: gap.durationMs
-    }
-  }), [timelineScale])
   const traceStart = sortedSpans.length ? Math.min(...sortedSpans.map((row) => number(row.startTimeMs))) : 0
   const traceEnd = sortedSpans.length ? Math.max(...sortedSpans.map((row) => number(row.startTimeMs) + number(row.durationMs))) : 0
   const traceDuration = Math.max(0, traceEnd - traceStart)
@@ -535,15 +495,6 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     clearTempoResults()
   }
 
-  const timelineLabel = timelineScale.gaps.length > 0
-    ? `Idle gaps compressed · ${durationLabel(timelineScale.wallDurationMs)} visible wall time → ${durationLabel(timelineScale.displayDurationMs)} visual scale${Math.abs(timelineScale.wallDurationMs - traceDuration) > .5 ? ` · full trace ${durationLabel(traceDuration)}` : ''}`
-    : Math.abs(timelineScale.wallDurationMs - traceDuration) > .5
-      ? `Visible timeline · ${durationLabel(timelineScale.wallDurationMs)} · full trace ${durationLabel(traceDuration)}`
-      : `Timeline · ${durationLabel(traceDuration)}`
-  const timelineTicks = [0, 25, 50, 75, 100].map((position) => ({
-    position,
-    label: `+${periodLabel(Math.max(0, timelineScale.timeAtPercent(position) - traceStart))}`
-  }))
 
   return (
     <section className={styles.root} aria-label="Trace explorer" style={{ gridTemplateRows: 'minmax(120px, var(--editor-height, 300px)) 8px auto auto minmax(0, 1fr)' }}>
@@ -617,37 +568,9 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
         {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans. Virtualised rendering remains follow-up work in #88.</div>}
 
         <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
-          <div className={styles.waterfall} data-trace-waterfall="" data-visual-type="waterfall" data-visual-finished={renderedTree.length > 0} data-visual-items={renderedTree.length}>
-            <div className={styles.waterfallHeader}>
-              <span>Span tree · {filteredSpanCount}/{spans.length} visible</span>
-              <div className={styles.timelineHeader}>
-                <span className={styles.timelineDescription}>{timelineLabel}</span>
-                <div className={styles.timelineTicks} aria-label="Time relative to trace start">
-                  {timelineTicks.map((tick) => <span key={tick.position} style={{ left: `${tick.position}%`, transform: tick.position === 0 ? 'none' : tick.position === 100 ? 'translateX(-100%)' : 'translateX(-50%)' }}>{tick.label}</span>)}
-                </div>
-              </div>
-            </div>
-            {renderedTree.length === 0 ? <div className={styles.warning}>No spans match the current trace filters.</div> : <div className={styles.waterfallBody}>
-              <TimelineGapOverlay gaps={renderedTimelineGaps} />
-              {renderedTree.map(({ row: span, id: spanId, depth, hasChildren }) => {
-              const offset = timelineScale.offsetPercent(number(span.startTimeMs))
-              const width = Math.max(0, Math.min(timelineScale.widthPercent(number(span.startTimeMs), number(span.durationMs)), 100 - offset))
-              const isError = text(span.status).toUpperCase().includes('ERROR')
-              return <div key={spanId} className={`${styles.spanRow} ${selectedSpanId === spanId ? styles.selected : ''}`} data-span-id={spanId}>
-                <div className={styles.spanLabel}>
-                  <span className={styles.treeGuides} aria-hidden="true">{Array.from({ length: depth }, (_, index) => <span key={index} />)}</span>
-                  {hasChildren ? <button type="button" className={styles.caret} aria-label={`${collapsed.has(spanId) ? 'Expand' : 'Collapse'} ${text(span.name) || spanId}`} aria-expanded={!collapsed.has(spanId)} onClick={() => toggleCollapse(spanId)}>{collapsed.has(spanId) ? '▸' : '▾'}</button> : <span className={styles.leafDot} aria-hidden="true">•</span>}
-                  <button type="button" className={styles.spanIdentity} onClick={() => setSelectedSpanId(spanId)} aria-pressed={selectedSpanId === spanId}>
-                    <strong>{text(span.service) || 'unknown'}</strong><span>{text(span.name) || spanId}</span>
-                  </button>
-                </div>
-                <button type="button" className={styles.timeline} onClick={() => setSelectedSpanId(spanId)} aria-label={`Select ${text(span.service)} ${text(span.name)}, starts +${periodLabel(Math.max(0, number(span.startTimeMs) - traceStart))}, lasts ${durationLabel(number(span.durationMs))}`}>
-                  <span className={`${styles.bar} ${isError ? styles.errorBar : ''}`} style={{ left: `${offset}%`, width: `${width}%`, minWidth: '1px' }}><span>{durationLabel(number(span.durationMs))}</span></span>
-                </button>
-              </div>
-              })}
-            </div>}
-          </div>
+          <TraceWaterfall visibleTree={visibleTree} timelineSpans={timelineSpans} selectedSpanId={selectedSpanId} collapsed={collapsed}
+            filteredSpanCount={filteredSpanCount} totalSpanCount={spans.length} traceStart={traceStart} traceDuration={traceDuration}
+            compressIdleGaps={compressIdleGaps} hasInspector={Boolean(selectedSpan)} onSelectSpan={setSelectedSpanId} onToggleCollapse={toggleCollapse} />
           {selectedSpan && <SpanInspector span={selectedSpan} traceStart={traceStart} onClose={() => setSelectedSpanId('')} />}
         </div>
       </div> : <div className={styles.searchResults} aria-busy={loading !== null} style={{ gridRow: 5 }}>
