@@ -38,7 +38,7 @@ import { useTraceCohortAnalysis } from '../lib/useTraceCohortAnalysis'
 import { QueryToolbar } from './query/QueryToolbar'
 import { QueryCodeEditor, type QueryCodeEditorHandle } from './query/QueryCodeEditor'
 import { SpanInspector } from './results/traces/SpanInspector'
-import { TraceWaterfall } from './results/traces/TraceWaterfall'
+import { MAX_RENDERED_SPANS, TraceWaterfall } from './results/traces/TraceWaterfall'
 import { TraceSearchList } from './results/traces/TraceSearchList'
 import { traceDateTimeLabel, traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from './results/traces/tracePresentation'
 
@@ -563,6 +563,8 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
           <button type="button" className="btn ghost" aria-pressed={compressIdleGaps} onClick={() => setCompressIdleGaps((current) => !current)} title="Compress long periods with no visible leaf-span activity. Span ordering and real duration labels remain unchanged; shaded breaks mark transformed idle time.">{compressIdleGaps ? 'Use wall-clock scale' : 'Compress idle gaps'}</button>
           {hiddenSpanKinds.size > 0 && <button type="button" className="btn ghost" onClick={() => setHiddenSpanKinds(new Set())}>Show all kinds</button>}
         </div>}
+
+        {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans. Virtualised rendering remains follow-up work in #88.</div>}
 
         <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
           <TraceWaterfall visibleTree={visibleTree} timelineSpans={timelineSpans} selectedSpanId={selectedSpanId} collapsed={collapsed}

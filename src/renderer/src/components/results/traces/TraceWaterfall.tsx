@@ -3,7 +3,7 @@ import { buildTraceTimelineScale, type TraceRow, type VisibleTraceSpan } from '.
 import styles from './TraceWaterfall.module.css'
 import { traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from './tracePresentation'
 
-const MAX_RENDERED_SPANS = 500
+export const MAX_RENDERED_SPANS = 500
 
 interface RenderedTimelineGap {
   key: string
@@ -53,7 +53,6 @@ export function TraceWaterfall({ visibleTree, timelineSpans, selectedSpanId, col
   const ticks = [0, 25, 50, 75, 100].map((position) => ({ position, label: `+${tracePeriodLabel(Math.max(0, timelineScale.timeAtPercent(position) - traceStart))}` }))
 
   return <div className={`${styles.waterfall} ${hasInspector ? styles.withInspector : ''}`} data-trace-waterfall="" data-visual-type="waterfall" data-visual-finished={renderedTree.length > 0} data-visual-items={renderedTree.length}>
-    {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans. Virtualised rendering remains follow-up work in #88.</div>}
     <div className={styles.waterfallHeader}>
       <span>Span tree · {filteredSpanCount}/{totalSpanCount} visible</span>
       <div className={styles.timelineHeader}><span className={styles.timelineDescription}>{timelineLabel}</span>

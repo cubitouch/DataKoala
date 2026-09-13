@@ -80,11 +80,11 @@ describe('TraceWaterfall', () => {
     expect(container.querySelector('[data-trace-waterfall]')?.getAttribute('data-visual-items')).toBe('0')
   })
 
-  it('caps rendering at 500 rows and displays the existing warning', () => {
+  it('caps rendering at 500 rows', () => {
     const visibleTree = Array.from({ length: 501 }, (_, index) => ({ row: { ...child, spanId: `span-${index}` }, id: `span-${index}`, depth: 0, hasChildren: false }))
-    const { getByText, container } = render(<TraceWaterfall {...waterfallProps({ visibleTree, filteredSpanCount: 501, totalSpanCount: 501 })} />)
+    const { container } = render(<TraceWaterfall {...waterfallProps({ visibleTree, filteredSpanCount: 501, totalSpanCount: 501 })} />)
 
     expect(container.querySelectorAll('[data-span-id]')).toHaveLength(500)
-    expect(getByText(/Showing the first 500 visible spans/)).toBeTruthy()
+    expect(container.querySelector('[data-trace-waterfall]')?.getAttribute('data-visual-items')).toBe('500')
   })
 })
