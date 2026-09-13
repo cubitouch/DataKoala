@@ -17,6 +17,15 @@ type SortDir = 'asc' | 'desc' | null
 
 const ROW_HEIGHT = 28
 const ROW_OVERSCAN = 8
+const MIN_COLUMN_WIDTH = 80
+const MAX_COLUMN_WIDTH = 720
+
+type ColumnWidths = {
+  result: QueryResult
+  resultRevision: number
+  mode: QueryMode
+  widths: Record<string, number>
+}
 
 function renderCell(v: unknown): { text: string; cls: string } {
   if (v === null || v === undefined) return { text: '␀', cls: styles.null }
@@ -48,7 +57,10 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(600)
   const [jsonTarget, setJsonTarget] = useState<{ resultRevision: number; rowId: number; columnKey: string } | null>(null)
+  const [columnWidths, setColumnWidths] = useState<ColumnWidths | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const headerRefs = useRef(new Map<string, HTMLTableCellElement>())
+  const resizeRef = useRef<{ columnKey: string; startX: number; startWidth: number } | null>(null)
   const rowIds = useRef(new WeakMap<object, number>())
   const nextRowId = useRef(1)
 
@@ -63,6 +75,8 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
 
   useEffect(() => {
     setJsonTarget(null)
+    setColumnWidths(null)
+    resizeRef.current = null
     setScrollTop(0)
     if (scrollRef.current) scrollRef.current.scrollTop = 0
   }, [mode, resultRevision, result])
@@ -125,6 +139,35 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
     } else setSortDir('asc')
   }
 
+  const startColumnResize = (event: React.PointerEvent<HTMLSpanElement>, columnKey: string) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!result) return
+
+    const snappedWidths = Object.fromEntries(result.columns.map((column) => {
+      const key = resultColumnKey(column)
+      return [key, headerRefs.current.get(key)?.getBoundingClientRect().width ?? MIN_COLUMN_WIDTH]
+    }))
+    setColumnWidths({ result, resultRevision, mode, widths: snappedWidths })
+    resizeRef.current = { columnKey, startX: event.clientX, startWidth: snappedWidths[columnKey] }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  const resizeColumn = (event: React.PointerEvent<HTMLSpanElement>) => {
+    const resize = resizeRef.current
+    if (!resize) return
+    event.preventDefault()
+    event.stopPropagation()
+    const width = Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, resize.startWidth + event.clientX - resize.startX))
+    setColumnWidths((current) => current ? { ...current, widths: { ...current.widths, [resize.columnKey]: width } } : current)
+  }
+
+  const finishColumnResize = (event: React.PointerEvent<HTMLSpanElement>) => {
+    event.stopPropagation()
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    resizeRef.current = null
+  }
+
   const exportCsv = async () => {
     if (!result) return
     const csv = resultToCsv({ ...result, rows, rowCount: rows.length })
@@ -134,6 +177,10 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
   if (running) return <div className={styles.pane} data-result-table-pane><div className={styles.empty}>Running query…</div></div>
   if (error) return <div className={styles.pane} data-result-table-pane><div className={styles.error} role="alert">{error}</div></div>
   if (!result) return <div className={styles.pane} data-result-table-pane><div className={styles.empty}>Run a query to see results.</div></div>
+
+  const activeColumnWidths = columnWidths?.result === result && columnWidths.resultRevision === resultRevision && columnWidths.mode === mode
+    ? columnWidths.widths
+    : null
 
   return (
     <div className={styles.pane} data-result-table-pane>
@@ -159,15 +206,40 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
       <div className={styles.scroll} ref={scrollRef} data-result-scroll onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
         {result.rows.length === 0 ? <div className={styles.empty}>Query returned no rows.</div> : rows.length === 0 ? <div className={styles.empty}>
           {activeFilters.length ? 'No rows match the active filters.' : 'No rows match the row search.'}
-        </div> : <table className={styles.table}>
+        </div> : <table
+          className={`${styles.table}${activeColumnWidths ? ` ${styles.resizedTable}` : ''}`}
+          style={activeColumnWidths ? { width: Object.values(activeColumnWidths).reduce((total, width) => total + width, 0), tableLayout: 'fixed' } : undefined}
+        >
+          {activeColumnWidths && <colgroup>
+            {result.columns.map((column) => <col key={resultColumnKey(column)} style={{ width: activeColumnWidths[resultColumnKey(column)] }} />)}
+          </colgroup>}
           <thead>
             <tr>
               {result.columns.map((c) => (
-                <th key={resultColumnKey(c)} onClick={() => toggleSort(resultColumnKey(c))}>
+                <th
+                  key={resultColumnKey(c)}
+                  ref={(element) => {
+                    const key = resultColumnKey(c)
+                    if (element) headerRefs.current.set(key, element)
+                    else headerRefs.current.delete(key)
+                  }}
+                  onClick={() => toggleSort(resultColumnKey(c))}
+                >
                   {c.name} {sortCol === resultColumnKey(c) ? (sortDir === 'asc' ? '▲' : sortDir === 'desc' ? '▼' : '') : ''}
                   <span className={styles.timeHint}>
                     {isTimeType(c.dataTypeName) ? '⏱' : ''}
                   </span>
+                  <span
+                    className={styles.resizeHandle}
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label={`Resize ${c.name} column`}
+                    onClick={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => startColumnResize(event, resultColumnKey(c))}
+                    onPointerMove={resizeColumn}
+                    onPointerUp={finishColumnResize}
+                    onPointerCancel={finishColumnResize}
+                  />
                 </th>
               ))}
             </tr>

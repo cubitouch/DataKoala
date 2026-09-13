@@ -55,6 +55,24 @@ describe('ResultsTable virtualization', () => {
     expect(screen.getByRole('button', { name: 'Export CSV' }).classList.contains(styles.cellValue)).toBe(false)
   })
 
+  it('keeps long-value caps until explicit column sizing is activated', () => {
+    window.PointerEvent = MouseEvent as typeof PointerEvent
+    arrange()
+    const table = document.querySelector('table')
+    const header = screen.getByRole('columnheader', { name: /label/ })
+    vi.spyOn(screen.getByRole('columnheader', { name: /id/ }), 'getBoundingClientRect').mockReturnValue({ width: 120 } as DOMRect)
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({ width: 240 } as DOMRect)
+
+    expect(table?.classList.contains(styles.resizedTable)).toBe(false)
+    expect(resultsTableCss).toMatch(/\.table th, \.table td \{[^}]*max-width:\s*320px/)
+    expect(resultsTableCss).toMatch(/\.cellValue \{[^}]*max-width:\s*290px/)
+
+    fireEvent.pointerDown(screen.getByRole('separator', { name: 'Resize label column' }), { pointerId: 1, clientX: 100 })
+
+    expect(table?.classList.contains(styles.resizedTable)).toBe(true)
+    expect(resultsTableCss).toMatch(/\.resizedTable th, \.resizedTable td, \.resizedTable \.cellValue \{\s*max-width:\s*none/)
+  })
+
   it('keeps the mounted row count bounded and can navigate beyond row 1,000', () => {
     arrange()
     expect(screen.getByRole('textbox', { name: 'Filter rows' }).closest('[data-field]')?.getAttribute('data-label-visibility')).toBe('sr-only')
@@ -70,6 +88,43 @@ describe('ResultsTable virtualization', () => {
     expect(screen.getByText('row-1200')).toBeTruthy()
     expect(document.querySelectorAll('[data-result-row-index]').length).toBeLessThan(100)
     expect(screen.queryByText(/Showing first 1000/)).toBeNull()
+  })
+
+  it('resizes one snapped column without sorting or unbounding virtualization', () => {
+    window.PointerEvent = MouseEvent as typeof PointerEvent
+    arrange()
+    const headers = screen.getAllByRole('columnheader')
+    vi.spyOn(headers[0], 'getBoundingClientRect').mockReturnValue({ width: 120 } as DOMRect)
+    vi.spyOn(headers[1], 'getBoundingClientRect').mockReturnValue({ width: 240 } as DOMRect)
+    const handle = screen.getByRole('separator', { name: 'Resize id column' })
+
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 100 })
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 180 })
+    fireEvent.pointerUp(handle, { pointerId: 1, clientX: 180 })
+
+    const columns = document.querySelectorAll('col')
+    expect(columns).toHaveLength(2)
+    expect((columns[0] as HTMLElement).style.width).toBe('200px')
+    expect((columns[1] as HTMLElement).style.width).toBe('240px')
+    expect(document.querySelector<HTMLTableElement>('table')?.style.width).toBe('440px')
+    expect(headers[0].textContent).not.toContain('▲')
+    expect(document.querySelectorAll('[data-result-row-index]').length).toBeLessThan(100)
+  })
+
+  it('clamps resized columns at the minimum and maximum widths', () => {
+    window.PointerEvent = MouseEvent as typeof PointerEvent
+    arrange()
+    const header = screen.getByRole('columnheader', { name: /id/ })
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({ width: 160 } as DOMRect)
+    const handle = screen.getByRole('separator', { name: 'Resize id column' })
+
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 200 })
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: -1000 })
+    expect(document.querySelector<HTMLElement>('col')?.style.width).toBe('80px')
+
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 2000 })
+    expect(document.querySelector<HTMLElement>('col')?.style.width).toBe('720px')
+    fireEvent.pointerCancel(handle, { pointerId: 1 })
   })
 
   it('sorts and searches the full result before virtualizing', () => {
