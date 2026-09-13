@@ -62,6 +62,82 @@ export const EMPTY_TRACE_BUILDER: TraceBuilderState = {
   minDurationMs: ''
 }
 
+const PROTOCOL_DETAIL_FIELDS = {
+  http: ['httpMethod', 'endpoint'],
+  rpc: ['rpcSystem', 'rpcService', 'rpcMethod'],
+  messaging: ['messagingSystem', 'messagingDestination', 'messagingOperation'],
+  database: ['dbSystem', 'dbOperation']
+} as const
+
+type ProtocolDetailField = typeof PROTOCOL_DETAIL_FIELDS[keyof typeof PROTOCOL_DETAIL_FIELDS][number]
+
+function normalizedAdvancedFilters(filters: TraceAttributeFilter[]): TraceAttributeFilter[] {
+  const normalized: TraceAttributeFilter[] = []
+  const positions = new Map<string, number>()
+  for (const filter of filters) {
+    const attribute = filter.attribute.trim()
+    if (!attribute) continue
+    const values = [...new Set(filter.values.map((value) => value.trim()).filter(Boolean))]
+    const next = { ...filter, attribute, values }
+    const identity = `${filter.scope}\0${attribute}`
+    const position = positions.get(identity)
+    if (position === undefined) {
+      positions.set(identity, normalized.length)
+      normalized.push(next)
+    } else if (normalized[position].mode === next.mode) {
+      normalized[position] = {
+        ...next,
+        values: [...new Set([...normalized[position].values, ...next.values])]
+      }
+    } else {
+      normalized[position] = next
+    }
+  }
+  return normalized
+}
+
+/** Merge generated constraints into an existing Builder state without treating defaults as clears. */
+export function mergeTraceBuilderState(current: TraceBuilderState, incoming: TraceBuilderState): TraceBuilderState {
+  const next: TraceBuilderState = { ...current }
+  const stringFields = ['serviceNamespace', 'service', 'spanName', 'minDurationMs'] as const
+  for (const field of stringFields) {
+    const value = incoming[field].trim()
+    if (value) next[field] = value
+  }
+  if (incoming.spanKind !== 'any') next.spanKind = incoming.spanKind
+  if (incoming.status !== 'any') next.status = incoming.status
+
+  if (incoming.protocol !== 'any') {
+    if (incoming.protocol !== current.protocol) {
+      for (const fields of Object.values(PROTOCOL_DETAIL_FIELDS)) {
+        for (const field of fields) next[field as ProtocolDetailField] = ''
+      }
+    }
+    next.protocol = incoming.protocol
+    for (const field of PROTOCOL_DETAIL_FIELDS[incoming.protocol]) {
+      const value = incoming[field].trim()
+      if (value) next[field] = value
+    }
+  }
+
+  const currentFilters = normalizedAdvancedFilters(current.advancedFilters)
+  const incomingFilters = normalizedAdvancedFilters(incoming.advancedFilters)
+  const positions = new Map(currentFilters.map((filter, index) => [`${filter.scope}\0${filter.attribute}`, index]))
+  next.advancedFilters = currentFilters.map((filter) => ({ ...filter, values: [...filter.values] }))
+  for (const filter of incomingFilters) {
+    const identity = `${filter.scope}\0${filter.attribute}`
+    const position = positions.get(identity)
+    const replacement = { ...filter, values: [...filter.values] }
+    if (position === undefined) {
+      positions.set(identity, next.advancedFilters.length)
+      next.advancedFilters.push(replacement)
+    } else {
+      next.advancedFilters[position] = replacement
+    }
+  }
+  return next
+}
+
 const HTTP_METHOD = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)(?:\s+(.+))?$/i
 const HTTP_ENDPOINT_KEYS = ['span.http.route', 'span.url.template', 'span.url.path', 'span.http.target']
 

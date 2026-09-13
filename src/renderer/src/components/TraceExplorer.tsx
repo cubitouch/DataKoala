@@ -12,7 +12,7 @@ import { Combobox } from './ui/combobox'
 import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import { tempoAttributes, tempoAttributeValues } from '../lib/tempoMetadata'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
-import { buildTraceql, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '../lib/traceBuilder'
+import { buildTraceql, mergeTraceBuilderState, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '../lib/traceBuilder'
 import {
   buildTraceTimelineScale,
   buildVisibleTraceTree,
@@ -480,7 +480,8 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const exploreSimilar = () => {
     const source = selectedSpan ?? rootSpan
     if (!source) return
-    const next = traceBuilderFromSpan(source)
+    const incoming = traceBuilderFromSpan(source)
+    const next = mergeTraceBuilderState(builder, incoming)
     const query = buildTraceql(next)
     setBuilder(next)
     setSql(query)
