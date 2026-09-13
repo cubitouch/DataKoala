@@ -42,8 +42,8 @@ importers:
         specifier: ^1.4.10
         version: 1.4.10
       '@prometheus-io/codemirror-promql':
-        specifier: 0.313.2
-        version: 0.313.2(@codemirror/autocomplete@6.20.3)(@codemirror/language@6.12.4)(@codemirror/lint@6.9.7)(@codemirror/state@6.7.1)(@codemirror/view@6.43.7)(@lezer/common@1.5.2)(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10)
+        specifier: 0.313.3
+        version: 0.313.3(@codemirror/autocomplete@6.20.3)(@codemirror/language@6.12.4)(@codemirror/lint@6.9.7)(@codemirror/state@6.7.1)(@codemirror/view@6.43.7)(@lezer/common@1.5.2)(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10)
       '@tanstack/react-virtual':
         specifier: ^3.14.10
         version: 3.14.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -904,8 +904,8 @@ packages:
     resolution: {integrity: sha512-ODOov0sGMJMf3jPonOkgGqPknTsu+DdQ7kD++gz8aI+aFMOMHFbWAA2taqXXVTdP+OTOQR/znGvSpmkeI0WTYQ==}
     engines: {node: '>=14.18.0'}
 
-  '@prometheus-io/codemirror-promql@0.313.2':
-    resolution: {integrity: sha512-4N0SqE1avsVUJF0p7QeQyIf3HURVsE4KGmPdRs2LFUEkGLPYe1C//jdxXig9n7Nu2SGw/Qx9k8UaqPZN36EtdQ==}
+  '@prometheus-io/codemirror-promql@0.313.3':
+    resolution: {integrity: sha512-p12SczSsxUJOsQSnduMtVclagjkbKcXrL18M7Vi+Z56IyBkDFY93yO+wv2gpGDemA/lJYMstxN5PT2a+W8GSIA==}
     engines: {node: '>=12.0.0'}
     peerDependencies:
       '@codemirror/autocomplete': ^6.4.0
@@ -915,8 +915,8 @@ packages:
       '@codemirror/view': ^6.4.0
       '@lezer/common': ^1.0.1
 
-  '@prometheus-io/lezer-promql@0.313.2':
-    resolution: {integrity: sha512-pPSHrMD+MBRPZ4zvut4DH/n75+Ahq2pCuI2lkyEfWO8UfpGv3tquyjx3DhozjCXgsHQtTggoG8Q4eG+ZfVadEw==}
+  '@prometheus-io/lezer-promql@0.313.3':
+    resolution: {integrity: sha512-vlh0zfQ6ShMIPEwvpDKr4o9lzbflWiStmEXnt7GJv5Uv1MtvcDJNq6HEkwU5WAUuOddrwV8Sy6Vx8ZmDc5DGHw==}
     peerDependencies:
       '@lezer/highlight': ^1.1.2
       '@lezer/lr': ^1.2.3
@@ -3611,7 +3611,7 @@ snapshots:
       tslib: 2.8.1
       webcrypto-core: 1.9.2
 
-  '@prometheus-io/codemirror-promql@0.313.2(@codemirror/autocomplete@6.20.3)(@codemirror/language@6.12.4)(@codemirror/lint@6.9.7)(@codemirror/state@6.7.1)(@codemirror/view@6.43.7)(@lezer/common@1.5.2)(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10)':
+  '@prometheus-io/codemirror-promql@0.313.3(@codemirror/autocomplete@6.20.3)(@codemirror/language@6.12.4)(@codemirror/lint@6.9.7)(@codemirror/state@6.7.1)(@codemirror/view@6.43.7)(@lezer/common@1.5.2)(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10)':
     dependencies:
       '@codemirror/autocomplete': 6.20.3
       '@codemirror/language': 6.12.4
@@ -3619,13 +3619,13 @@ snapshots:
       '@codemirror/state': 6.7.1
       '@codemirror/view': 6.43.7
       '@lezer/common': 1.5.2
-      '@prometheus-io/lezer-promql': 0.313.2(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10)
+      '@prometheus-io/lezer-promql': 0.313.3(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10)
       lru-cache: 11.5.2
     transitivePeerDependencies:
       - '@lezer/highlight'
       - '@lezer/lr'
 
-  '@prometheus-io/lezer-promql@0.313.2(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10)':
+  '@prometheus-io/lezer-promql@0.313.3(@lezer/highlight@1.2.3)(@lezer/lr@1.4.10)':
     dependencies:
       '@lezer/highlight': 1.2.3
       '@lezer/lr': 1.4.10
