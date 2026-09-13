@@ -21,6 +21,7 @@ vi.mock('./api', () => ({
 import { bindTabConnection, ensureConnectionForTab } from './tabConnection'
 import { selectActiveSession, selectSession, useStore } from '../store/useStore'
 import { patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+import { defaultQueryTextForDatasource } from './queryDefaults'
 
 const profiles: ConnectionProfile[] = [
   { kind: 'postgres', version: 1, id: 'profile-a', name: 'A', host: 'a', port: 5432, database: 'a', user: 'reader', password: '', ssl: false, readonly: true },
@@ -70,7 +71,7 @@ describe('tab connection lifecycle', () => {
     expect(selectSession(useStore.getState(), id)?.sql).toBe('up')
     useStore.getState().setSql('sum(rate(requests_total[5m]))', id)
     bindTabConnection(id, tempoProfile.id)
-    expect(selectSession(useStore.getState(), id)?.sql).toBe('{ duration > 100ms }')
+    expect(selectSession(useStore.getState(), id)?.sql).toBe(defaultQueryTextForDatasource('tempo'))
   })
 
   it('rebinding a tab clears result-derived state but preserves editable work and promoted Builder predicates', () => {

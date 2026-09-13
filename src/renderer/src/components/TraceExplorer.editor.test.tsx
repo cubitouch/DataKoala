@@ -68,26 +68,27 @@ describe('TraceExplorer TraceQL editor', () => {
     })
     render(<TraceExplorer connectionId="tempo-1" />)
 
-    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe('{ }')
+    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe('{ span:duration > 300ms }')
     expect((screen.getByRole('button', { name: 'Copy TraceQL to clipboard' }) as HTMLButtonElement).disabled).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(api.query.run).toHaveBeenCalled())
-    expect(vi.mocked(api.query.run).mock.calls[0]?.[1]).toBe('{ }')
+    expect(vi.mocked(api.query.run).mock.calls[0]?.[1]).toBe('{ span:duration > 300ms }')
     expect(vi.mocked(api.query.run).mock.calls[0]?.[1]).not.toContain('select now()')
 
     fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
     await waitFor(() => expect(activeTestSession().queryMode).toBe('sql'))
-    expect(activeTestSession().sql).toBe('{ }')
+    expect(activeTestSession().sql).toBe('{ span:duration > 300ms }')
   })
 
   it('stores automatically formatted TraceQL after Builder edits', async () => {
     patchActiveTestSession({ queryMode: 'builder', sql: '{ }' })
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Add facet' }))
-    const expected = formatTraceql('{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')
+    const generated = '{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") && span:duration > 300ms }'
+    const expected = formatTraceql(generated)
     expect(expected.ok).toBe(true)
     await waitFor(() => expect(activeTestSession().sql).toBe(expected.ok ? expected.query : ''))
-    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe('{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')
+    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe(generated)
     expect(notify).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'Formatted' }))
   })
 

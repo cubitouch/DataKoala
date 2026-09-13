@@ -10,7 +10,7 @@ test('datasource defaults keep manual languages separate and prefer Builder when
   assert.equal(defaultQueryModeForDatasource(undefined, false), 'sql')
   assert.equal(defaultQueryTextForDatasource('postgres'), 'select now();')
   assert.equal(defaultQueryTextForDatasource('prometheus'), 'up')
-  assert.equal(defaultQueryTextForDatasource('tempo'), '{ }')
+  assert.equal(defaultQueryTextForDatasource('tempo'), '{ span:duration > 300ms }')
   assert.equal(defaultQueryTextForDatasource('tempo'), buildTraceql(EMPTY_TRACE_BUILDER))
 })
 

@@ -38,7 +38,7 @@ describe('Trace Explorer attribute facet metadata', () => {
     const oldValues = deferred<string[]>()
     attributeValues.mockReturnValueOnce(oldValues.promise).mockResolvedValueOnce(['eu-central-1'])
     const view = render(<TraceExplorer connectionId="tempo-1" />)
-    await waitFor(() => expect(attributeValues).toHaveBeenCalledWith('tempo-1', 'resource.cloud.region', '{ resource.service.name = "checkout" }'))
+    await waitFor(() => expect(attributeValues).toHaveBeenCalledWith('tempo-1', 'resource.cloud.region', '{ resource.service.name = "checkout" && span:duration > 300ms }'))
 
     useStore.setState({ connectionGeneration: 8 })
     view.rerender(<TraceExplorer connectionId="tempo-1" />)

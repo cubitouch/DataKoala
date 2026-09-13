@@ -41,6 +41,8 @@ export interface TraceBuilderSpanSeed {
   resourceAttributes?: unknown
 }
 
+export const DEFAULT_TRACE_MIN_DURATION_MS = 300
+
 export const EMPTY_TRACE_BUILDER: TraceBuilderState = {
   serviceNamespace: '',
   service: '',
@@ -426,7 +428,8 @@ export function buildTraceql(builder: TraceBuilderState): string {
     conditions.push(filter.mode === 'include' && predicates.length > 1 ? `(${predicates.join(' || ')})` : predicates.join(' && '))
   }
   if (builder.status !== 'any') conditions.push(`span:status = ${builder.status}`)
-  const duration = Number(builder.minDurationMs)
-  if (builder.minDurationMs.trim() && Number.isFinite(duration) && duration >= 0) conditions.push(`span:duration > ${duration}ms`)
+  const rawDuration = builder.minDurationMs.trim()
+  const duration = rawDuration ? Number(rawDuration) : DEFAULT_TRACE_MIN_DURATION_MS
+  if (Number.isFinite(duration) && duration >= 0) conditions.push(`span:duration > ${duration}ms`)
   return conditions.length ? `{ ${conditions.join(' && ')} }` : '{ }'
 }
