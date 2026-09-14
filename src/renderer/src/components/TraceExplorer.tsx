@@ -1,7 +1,7 @@
 import { TextInput } from './ui/TextInput'
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import type { QueryResult } from '@shared/types'
-import type { TempoAttribute, TempoSearchProgress } from '@shared/tempo'
+import type { TempoAttribute } from '@shared/tempo'
 import { api } from '../lib/api'
 import { selectActiveSession, useStore } from '../store/useStore'
 import { TimeRangeField } from './time-range/TimeRangeField'
@@ -9,7 +9,6 @@ import { TraceScatterChart } from './TraceScatterChart'
 import { TraceServiceMap } from './TraceServiceMap'
 import { TraceBuilderPanel } from './TraceBuilderPanel'
 import { Combobox } from './ui/combobox'
-import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
 import { tempoAttributes, tempoAttributeValues } from '../lib/tempoMetadata'
 import type { BuilderTimeRange } from '../lib/builderTimeRange'
 import { buildTraceql, mergeTraceBuilderState, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '../lib/traceBuilder'
@@ -30,6 +29,7 @@ import { TraceSearchList } from './results/traces/TraceSearchList'
 import { TraceOpenedResult } from './results/traces/TraceOpenedResult'
 import { TraceSearchResults, type TraceResultView } from './results/traces/TraceSearchResults'
 import { traceDateTimeLabel, traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from './results/traces/tracePresentation'
+import { useTempoTraceSearchController } from '../lib/useTempoTraceSearchController'
 
 interface TraceExplorerProps {
   connectionId: string
@@ -64,24 +64,6 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character)
 }
 
-function mergeSearchRows(existing: TraceRow[], incoming: TraceRow[]): TraceRow[] {
-  const merged = new Map(existing.map((row) => [text(row.traceId), row]))
-  for (const row of incoming) {
-    const traceId = text(row.traceId)
-    if (!traceId) continue
-    const previous = merged.get(traceId)
-    const previousStatus = previous ? traceResultStatus(previous) : 'unknown'
-    const nextStatus = traceResultStatus(row)
-    merged.set(traceId, previous && previousStatus !== 'unknown' && nextStatus === 'unknown'
-      ? { ...row, status: previous.status }
-      : row)
-  }
-  return [...merged.values()].sort((left, right) => {
-    const byTime = number(right.startTimeMs) - number(left.startTimeMs)
-    return byTime || text(left.traceId).localeCompare(text(right.traceId))
-  })
-}
-
 export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps) {
   const mode = useStore((state) => selectActiveSession(state).queryMode)
   const traceql = useStore((state) => selectActiveSession(state).sql)
@@ -92,16 +74,13 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const setQueryMode = useStore((state) => state.setQueryMode)
   const [builder, setBuilder] = useState<TraceBuilderState>(() => traceBuilderFromTraceql(traceql))
   const [traceId, setTraceId] = useState('')
-  const [searchRows, setSearchRows] = useState<TraceRow[]>([])
   const [spans, setSpans] = useState<TraceRow[]>([])
-  const [searchNotice, setSearchNotice] = useState('')
-  const [searchProgress, setSearchProgress] = useState<TempoSearchProgress | null>(null)
   const [selectedSpanId, setSelectedSpanId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [hiddenSpanKinds, setHiddenSpanKinds] = useState<Set<string>>(new Set())
   const [hideAsyncBranches, setHideAsyncBranches] = useState(true)
   const [compressIdleGaps, setCompressIdleGaps] = useState(true)
-  const [loading, setLoading] = useState<'search' | 'trace' | null>(null)
+  const [traceLoading, setTraceLoading] = useState(false)
   const [error, setError] = useState('')
   const [cohortHint, setCohortHint] = useState('')
   const [searchRange, setSearchRange] = useState<BuilderTimeRange>(DEFAULT_TRACE_RANGE)
@@ -117,9 +96,25 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const [advancedValuesLoading, setAdvancedValuesLoading] = useState<Record<string, boolean>>({})
   const [advancedValuesError, setAdvancedValuesError] = useState<Record<string, string | null>>({})
   const traceRenderTiming = useRef<{ started: number; requestId?: string; spanCount: number } | null>(null)
+  const cohortResetRef = useRef<() => void>(() => undefined)
   const traceqlEditorRef = useRef<QueryCodeEditorHandle>(null)
   const traceqlExtensions = useMemo(() => [traceqlSupport()], [])
+  const { searchRows, searchNotice, searchProgress, searching, runSearch, resetSearch, updateSearchRowStatus } = useTempoTraceSearchController({
+    connectionId,
+    onError: setError,
+    onSearchStart: () => {
+      cohortResetRef.current()
+      setResultView((current) => current === 'service-map' ? 'list' : current)
+      setSpans([])
+      setSelectedSpanId('')
+      setCollapsed(new Set())
+      setCohortHint('')
+      setError('')
+    }
+  })
   const cohortAnalysis = useTraceCohortAnalysis(connectionId, searchRows)
+  cohortResetRef.current = cohortAnalysis.reset
+  const loading: 'search' | 'trace' | null = searching ? 'search' : traceLoading ? 'trace' : null
   const builderTraceql = useMemo(() => buildTraceql(builder), [builder])
   const activeTraceql = mode === 'builder' ? builderTraceql : traceql
 
@@ -160,7 +155,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   }, [connectionId])
 
   useEffect(() => {
-    setSearchRows([])
+    resetSearch()
     setSpans([])
     setTraceId('')
     setSelectedSpanId('')
@@ -173,8 +168,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     setSearchRange(DEFAULT_TRACE_RANGE)
     setSampleSize(DEFAULT_TRACE_SAMPLE_SIZE)
     setResultView('list')
-    setSearchProgress(null)
-  }, [connectionId])
+  }, [connectionId, resetSearch])
 
   useEffect(() => {
     if (!connected || mode !== 'builder' || builder.protocol !== 'messaging') {
@@ -226,66 +220,6 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     return () => { current = false; window.clearTimeout(timer) }
   }, [advancedDiscoveryBaseContext, builder.advancedFilters, connected, connectionGeneration, connectionId, mode])
 
-  const runSearch = async (sampleOverride: TraceSampleSize = sampleSize, rangeOverride: BuilderTimeRange = searchRange, queryOverride?: string) => {
-    const request = (queryOverride ?? activeTraceql).trim()
-    if (!request) return
-    if (rangeOverride.recurringWindows?.some((window) => window.from || window.to)) {
-      setError('Recurring daily windows are not supported for Tempo trace searches yet. Choose a continuous range.')
-      return
-    }
-    let range: { start: string; end: string }
-    try {
-      range = prometheusRangeBounds(rangeOverride)
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
-      return
-    }
-
-    const sampled = sampleOverride !== 'all'
-    const perfStarted = performance.now()
-    let firstUsefulResult = false
-    const tempoSearchRequest = {
-      start: range.start,
-      end: range.end,
-      ...(sampled ? { sampleSize: Number(sampleOverride) } : {})
-    }
-
-    cohortAnalysis.reset()
-    setResultView((current) => current === 'service-map' ? 'list' : current)
-    setLoading('search')
-    setError('')
-    setCohortHint('')
-    setSearchRows([])
-    setSpans([])
-    setSelectedSpanId('')
-    setCollapsed(new Set())
-    setSearchProgress(null)
-    setSearchNotice(sampled
-      ? `Fetching a quick sample of up to ${sampleOverride} traces across the selected period…`
-      : 'Fetching the complete selected period…')
-    try {
-      const result = await api.query.run(connectionId, request, [], tempoSearchRequest, (progress, requestId) => {
-        if (!firstUsefulResult && progress.rows.length > 0) {
-          firstUsefulResult = true
-          tempoPerf('search.first-result-renderer', { requestId, elapsedMs: performance.now() - perfStarted, rowsInBatch: progress.rows.length, tracesFound: progress.tracesFound, sampleSize: sampleOverride })
-        }
-        setSearchProgress(progress)
-        setSearchRows((current) => mergeSearchRows(current, progress.rows))
-      })
-      if (isSpanResult(result)) throw new Error('TraceQL search returned a trace instead of search results.')
-      setSearchRows(result.rows)
-      setSearchNotice(result.notice ?? '')
-      setSearchProgress(null)
-      tempoPerf('search.final-renderer', { requestId: result.execution?.requestId, elapsedMs: performance.now() - perfStarted, rowCount: result.rows.length, sampleSize: sampleOverride })
-    } catch (reason) {
-      setSearchNotice(sampled
-        ? 'Sample search stopped before Tempo returned its bounded result set.'
-        : 'Search stopped before the selected period was fully covered; partial results found so far are shown.')
-      setSearchProgress(null)
-      setError(reason instanceof Error ? reason.message : String(reason))
-    } finally { setLoading(null) }
-  }
-
   const openTrace = async (candidate = traceId) => {
     const request = canonicalTraceId(candidate)
     if (!request) {
@@ -293,7 +227,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       return
     }
     setTraceId(request)
-    setLoading('trace')
+    setTraceLoading(true)
     setError('')
     setCohortHint('')
     const perfStarted = performance.now()
@@ -309,14 +243,14 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
         setCollapsed(new Set())
         const status = openedTraceStatus(result.rows)
         if (status !== 'unknown') {
-          setSearchRows((current) => current.map((row) => canonicalTraceId(row.traceId) === request ? { ...row, status } : row))
+          updateSearchRowStatus(request, status)
         }
       } else {
         throw new Error('Tempo returned search results instead of the requested trace.')
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
-    } finally { setLoading(null) }
+    } finally { setTraceLoading(false) }
   }
 
   const updateBuilder = (patch: Partial<TraceBuilderState>) => {
@@ -328,7 +262,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   }
 
   const submitTraceId = (event: FormEvent) => { event.preventDefault(); void openTrace() }
-  const submitSearch = (event: FormEvent) => { event.preventDefault(); void runSearch() }
+  const submitSearch = (event: FormEvent) => { event.preventDefault(); void runSearch({ query: activeTraceql, sampleSize, range: searchRange }) }
 
   const sampledSearch = sampleSize !== 'all'
   const progressPercent = searchProgress?.totalMs
@@ -420,7 +354,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     setSelectedSpanId('')
     cohortAnalysis.reset()
     setResultView('list')
-    void runSearch(sampleSize, searchRange, query)
+    void runSearch({ query, sampleSize, range: searchRange })
   }
 
   const toggleCollapse = (spanId: string) => setCollapsed((current) => {
@@ -438,7 +372,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const changeSampleSize = (next: TraceSampleSize) => {
     const shouldRerun = searchRows.length > 0 || !!searchNotice
     setSampleSize(next)
-    if (shouldRerun && activeTraceql.trim()) void runSearch(next)
+    if (shouldRerun && activeTraceql.trim()) void runSearch({ query: activeTraceql, sampleSize: next, range: searchRange })
   }
 
   const changeResultView = (next: TraceResultView) => {
@@ -448,13 +382,11 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
 
   const clearTempoResults = () => {
     cohortAnalysis.reset()
-    setSearchRows([])
+    resetSearch()
     setSpans([])
     setTraceId('')
     setSelectedSpanId('')
     setCollapsed(new Set())
-    setSearchProgress(null)
-    setSearchNotice('')
     setError('')
     setCohortHint('')
     setResultView('list')
@@ -516,7 +448,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
         onToggleAsyncBranches={() => setHideAsyncBranches((current) => !current)} onToggleIdleCompression={() => setCompressIdleGaps((current) => !current)}
         onShowAllKinds={() => setHiddenSpanKinds(new Set())} onBackToResults={() => { setSpans([]); setSelectedSpanId('') }} onExploreSimilar={exploreSimilar} /> : <TraceSearchResults rows={searchRows} notice={searchNotice} loading={loading} resultView={resultView} onResultViewChange={changeResultView}
         listView={<TraceSearchList rows={searchRows} disabled={loading !== null} onOpenTrace={(candidate) => void openTrace(candidate)} />}
-        scatterView={<TraceScatterChart option={scatterOption} searchRange={searchRange} onEvents={scatterEvents} onSelectRange={(next) => { setSearchRange(next); void runSearch(sampleSize, next) }} />}
+        scatterView={<TraceScatterChart option={scatterOption} searchRange={searchRange} onEvents={scatterEvents} onSelectRange={(next) => { setSearchRange(next); void runSearch({ query: activeTraceql, sampleSize, range: next }) }} />}
         serviceMapView={<TraceServiceMap aggregate={cohortAnalysis.aggregate} traces={cohortAnalysis.traces} progress={cohortAnalysis.progress} searchTraceCount={searchRows.length} sampleLimit={cohortAnalysis.sampleLimit} onSampleLimitChange={cohortAnalysis.changeSampleLimit} onRetry={cohortAnalysis.retry} onStop={cohortAnalysis.stop} onOpenTrace={(candidate) => void openTrace(candidate)} />} />}
     </section>
   )
