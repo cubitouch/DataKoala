@@ -96,27 +96,27 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const [advancedValuesLoading, setAdvancedValuesLoading] = useState<Record<string, boolean>>({})
   const [advancedValuesError, setAdvancedValuesError] = useState<Record<string, string | null>>({})
   const traceRenderTiming = useRef<{ started: number; requestId?: string; spanCount: number } | null>(null)
-  const cohortResetRef = useRef<() => void>(() => undefined)
   const traceqlEditorRef = useRef<QueryCodeEditorHandle>(null)
   const traceqlExtensions = useMemo(() => [traceqlSupport()], [])
   const { searchRows, searchNotice, searchProgress, searching, runSearch, resetSearch, updateSearchRowStatus } = useTempoTraceSearchController({
     connectionId,
     onError: setError,
-    onSearchStart: () => {
-      cohortResetRef.current()
-      setResultView((current) => current === 'service-map' ? 'list' : current)
-      setSpans([])
-      setSelectedSpanId('')
-      setCollapsed(new Set())
-      setCohortHint('')
-      setError('')
-    }
+    onSearchStart: resetForSearch
   })
   const cohortAnalysis = useTraceCohortAnalysis(connectionId, searchRows)
-  cohortResetRef.current = cohortAnalysis.reset
   const loading: 'search' | 'trace' | null = searching ? 'search' : traceLoading ? 'trace' : null
   const builderTraceql = useMemo(() => buildTraceql(builder), [builder])
   const activeTraceql = mode === 'builder' ? builderTraceql : traceql
+
+  function resetForSearch() {
+    cohortAnalysis.reset()
+    setResultView((current) => current === 'service-map' ? 'list' : current)
+    setSpans([])
+    setSelectedSpanId('')
+    setCollapsed(new Set())
+    setCohortHint('')
+    setError('')
+  }
 
   const formatCurrentTraceql = () => {
     if (mode !== 'sql' || !traceql.trim()) return
