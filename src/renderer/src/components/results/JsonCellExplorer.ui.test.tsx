@@ -4,12 +4,12 @@ void React
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ResultsTable } from '../ResultsTable'
-import { patchActiveTestSession, resetTestStore } from '../../test/sessionTestUtils'
 import type { QueryResult } from '@shared/types'
 
 const copyTextToClipboard = vi.hoisted(() => vi.fn())
 vi.mock('../../lib/clipboardText', () => ({ copyTextToClipboard }))
 vi.mock('../../lib/api', () => ({ api: { export: { saveText: vi.fn() } } }))
+const controlledProps = { running: false, error: null, onAddFilter: vi.fn(), onRemoveFilter: vi.fn(), onClearFilters: vi.fn() }
 
 const baseResult: QueryResult = {
   columns: [
@@ -22,11 +22,10 @@ const baseResult: QueryResult = {
 }
 
 function arrange(result = baseResult, mode: 'sql' | 'builder' = 'sql') {
-  patchActiveTestSession({ running: false, queryError: null })
-  return render(<ResultsTable mode={mode} rawResult={result} filteredResult={{ ...result, originalRowCount: result.rowCount, filteredRowCount: result.rowCount }} activeFilters={[]} resultRevision={1} />)
+  return render(<ResultsTable {...controlledProps} mode={mode} rawResult={result} filteredResult={{ ...result, originalRowCount: result.rowCount, filteredRowCount: result.rowCount }} activeFilters={[]} resultRevision={1} />)
 }
 
-afterEach(() => { cleanup(); copyTextToClipboard.mockReset(); resetTestStore() })
+afterEach(() => { cleanup(); copyTextToClipboard.mockReset(); Object.values(controlledProps).forEach((value) => typeof value === 'function' && value.mockReset()) })
 
 describe('JSON cell explorer', () => {
   it('shows JSON actions for native JSON columns and JSON-shaped text in SQL mode', () => {
@@ -92,7 +91,7 @@ describe('JSON cell explorer', () => {
     const { rerender } = arrange()
     fireEvent.click(screen.getByRole('button', { name: 'Explore JSON in payload, row 1' }))
     expect(await screen.findByRole('dialog')).toBeTruthy()
-    rerender(<ResultsTable mode="sql" rawResult={baseResult} filteredResult={{ ...baseResult, originalRowCount: baseResult.rowCount, filteredRowCount: baseResult.rowCount }} activeFilters={[]} resultRevision={2} />)
+    rerender(<ResultsTable {...controlledProps} mode="sql" rawResult={baseResult} filteredResult={{ ...baseResult, originalRowCount: baseResult.rowCount, filteredRowCount: baseResult.rowCount }} activeFilters={[]} resultRevision={2} />)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
