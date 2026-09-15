@@ -1,12 +1,10 @@
 import { TextInput } from './ui/TextInput'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { selectActiveSession, useStore, type QueryMode } from '../store/useStore'
 import { isTimeType, type QueryResult } from '@shared/types'
 import { resultCellValue, resultColumnKey } from '@shared/query-result'
 import { resultToCsv } from '../lib/data'
 import { api } from '../lib/api'
-import { resultFilterDemotion, type FilteredQueryResult, type ResultFilter } from '../lib/resultFilters'
-import { isBuilderFilterPromotable } from '../lib/builderSql'
+import type { FilteredQueryResult, ResultFilter } from '../lib/resultFilters'
 import { CellFilterMenu } from './result-filters/CellFilterMenu'
 import { ResultFilterBar } from './result-filters/ResultFilterBar'
 import { isJsonColumnType, mayContainJsonDocument } from '../lib/jsonCell'
@@ -14,6 +12,7 @@ import { JsonCellExplorer } from './results/JsonCellExplorer'
 import styles from './ResultsTable.module.css'
 
 type SortDir = 'asc' | 'desc' | null
+type QueryMode = 'sql' | 'builder'
 
 const ROW_HEIGHT = 28
 const ROW_OVERSCAN = 8
@@ -35,21 +34,23 @@ function renderCell(v: unknown): { text: string; cls: string } {
   return { text: String(v), cls: '' }
 }
 
-export function ResultsTable({ mode, rawResult: result, filteredResult, activeFilters, resultRevision = 0 }: {
+export interface ResultsTableProps {
   mode: QueryMode
   rawResult: QueryResult | null
   filteredResult: FilteredQueryResult | null
   activeFilters: ResultFilter[]
   resultRevision?: number
-}) {
-  const tabId = useStore((s) => s.activeTabId)
-  const error = useStore((s) => selectActiveSession(s).queryError)
-  const running = useStore((s) => selectActiveSession(s).running)
-  const addResultFilter = useStore((s) => s.addResultFilter)
-  const removeResultFilter = useStore((s) => s.removeResultFilter)
-  const clearResultFilters = useStore((s) => s.clearResultFilters)
-  const setResultFilterExecution = useStore((s) => s.setResultFilterExecution)
-  const builder = useStore((s) => selectActiveSession(s).builder)
+  running: boolean
+  error: string | null
+  onAddFilter: (filter: ResultFilter) => void
+  onRemoveFilter: (id: string) => void
+  onClearFilters: () => void
+  onToggleFilterExecution?: (id: string) => void
+  canPromoteFilter?: (filter: ResultFilter) => boolean
+  canDemoteFilter?: (filter: ResultFilter) => { allowed: boolean; reason?: string }
+}
+
+export function ResultsTable({ mode, rawResult: result, filteredResult, activeFilters, resultRevision = 0, running, error, onAddFilter, onRemoveFilter, onClearFilters, onToggleFilterExecution, canPromoteFilter, canDemoteFilter }: ResultsTableProps) {
 
   const [sortCol, setSortCol] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
@@ -194,14 +195,11 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
       </div>
       <ResultFilterBar
         filters={activeFilters}
-        onRemove={(id) => removeResultFilter(mode, id, tabId)}
-        onClear={() => clearResultFilters(mode, tabId)}
-        onToggleExecution={mode === 'builder' ? (id) => {
-          const target = activeFilters.find((item) => item.id === id)
-          if (target) setResultFilterExecution(mode, id, target.execution === 'query' ? 'client' : 'query', tabId)
-        } : undefined}
-        canPromote={mode === 'builder' ? (target) => isBuilderFilterPromotable(target, builder) : undefined}
-        canDemote={mode === 'builder' ? (target) => resultFilterDemotion(target, result.columns.map((column) => column.name)) : undefined}
+        onRemove={onRemoveFilter}
+        onClear={onClearFilters}
+        onToggleExecution={onToggleFilterExecution}
+        canPromote={canPromoteFilter}
+        canDemote={canDemoteFilter}
       />
       <div className={styles.scroll} ref={scrollRef} data-result-scroll onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
         {result.rows.length === 0 ? <div className={styles.empty}>Query returned no rows.</div> : rows.length === 0 ? <div className={styles.empty}>
@@ -258,7 +256,7 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
                     <td key={columnKey} className={cell.cls} title={cell.text} data-result-cell>
                       <span className={styles.cellValue}>{cell.text}</span>
                       <div className={styles.cellActions}>
-                        <CellFilterMenu column={c.name} value={value} nativeType={c.nativeType ?? c.dataTypeName} onAdd={(newFilter) => addResultFilter(mode, newFilter, tabId)} />
+                        <CellFilterMenu column={c.name} value={value} nativeType={c.nativeType ?? c.dataTypeName} onAdd={onAddFilter} />
                         {mode === 'sql' && value != null && (isJsonColumnType(c) || mayContainJsonDocument(value)) && <JsonCellExplorer
                           columnLabel={c.name}
                           rowNumber={rowIndex + 1}

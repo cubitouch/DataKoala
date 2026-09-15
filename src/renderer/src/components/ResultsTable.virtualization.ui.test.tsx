@@ -7,13 +7,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { QueryResult } from '@shared/types'
 import { ResultsTable } from './ResultsTable'
 import styles from './ResultsTable.module.css'
-import { patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
 
 const resultsTableCss = readFileSync('src/renderer/src/components/ResultsTable.module.css', 'utf8')
 const longValue = `row-0-${'complete-value-'.repeat(40)}`
 
 const saveText = vi.hoisted(() => vi.fn())
 vi.mock('../lib/api', () => ({ api: { export: { saveText } } }))
+const controlledProps = { running: false, error: null, onAddFilter: vi.fn(), onRemoveFilter: vi.fn(), onClearFilters: vi.fn() }
 
 const largeResult: QueryResult = {
   columns: [
@@ -26,8 +26,8 @@ const largeResult: QueryResult = {
 }
 
 function arrange() {
-  patchActiveTestSession({ running: false, queryError: null })
   return render(<ResultsTable
+    {...controlledProps}
     mode="sql"
     rawResult={largeResult}
     filteredResult={{ ...largeResult, originalRowCount: largeResult.rowCount, filteredRowCount: largeResult.rowCount }}
@@ -39,7 +39,7 @@ function arrange() {
 afterEach(() => {
   cleanup()
   saveText.mockReset()
-  resetTestStore()
+  Object.values(controlledProps).forEach((value) => typeof value === 'function' && value.mockReset())
 })
 
 describe('ResultsTable virtualization', () => {
@@ -151,7 +151,6 @@ describe('ResultsTable virtualization', () => {
 
 describe('ResultsTable duplicate columns', () => {
   it('renders and searches values through each column internal key', () => {
-    patchActiveTestSession({ running: false, queryError: null })
     const result: QueryResult = {
       columns: [
         { name: 'id', dataTypeID: 25, dataTypeName: 'text' },
@@ -162,6 +161,7 @@ describe('ResultsTable duplicate columns', () => {
       durationMs: 1
     }
     render(<ResultsTable
+      {...controlledProps}
       mode="sql"
       rawResult={result}
       filteredResult={{ ...result, originalRowCount: 1, filteredRowCount: 1 }}
