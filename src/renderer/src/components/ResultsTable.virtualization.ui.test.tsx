@@ -151,7 +151,7 @@ describe('ResultsTable virtualization', () => {
 
 describe('ResultsTable duplicate columns', () => {
   it('renders and searches values through each column internal key', () => {
-      const result: QueryResult = {
+    const result: QueryResult = {
       columns: [
         { name: 'id', dataTypeID: 25, dataTypeName: 'text' },
         { name: 'id', key: '__datakoala_column_1', dataTypeID: 25, dataTypeName: 'text' }
