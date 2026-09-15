@@ -144,4 +144,40 @@ describe('TraceExplorer TraceQL editor', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Scatter' }).getAttribute('aria-pressed')).toBe('true'))
     expect(screen.getByRole('button', { name: 'Refine scatter range' })).toBeTruthy()
   })
+
+  it('opens search and direct-ID traces and returns to the retained search results', async () => {
+    const searchedTraceId = '00000000000000000000000000000001'
+    const directTraceId = '00000000000000000000000000000002'
+    const searchResult = {
+      columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' as const }],
+      rows: [{ traceId: searchedTraceId, rootService: 'checkout', rootOperation: 'GET /cart', startTimeMs: 1_000, durationMs: 20, matchedSpans: 1 }],
+      rowCount: 1,
+      durationMs: 1
+    }
+    const openedResult = (id: string) => ({
+      columns: [{ name: 'spanId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' as const }],
+      rows: [{ traceId: id, spanId: `span-${id}`, parentSpanId: '', service: 'checkout', name: 'GET /cart', startTimeMs: 1_000, durationMs: 20, kind: 'SERVER' }],
+      rowCount: 1,
+      durationMs: 1
+    })
+    vi.mocked(api.query.run)
+      .mockResolvedValueOnce(searchResult)
+      .mockResolvedValueOnce(openedResult(searchedTraceId))
+      .mockResolvedValueOnce(openedResult(directTraceId))
+    render(<TraceExplorer connectionId="tempo-1" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(screen.getByText('checkout')).toBeTruthy())
+    fireEvent.click(screen.getByText('checkout'))
+    await waitFor(() => expect(screen.getByText(`${searchedTraceId}`)).toBeTruthy())
+    expect(vi.mocked(api.query.run).mock.calls[1]?.[1]).toBe(searchedTraceId)
+
+    fireEvent.click(screen.getByRole('button', { name: '← Search results' }))
+    expect(screen.getByText('checkout')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Trace ID'), { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Open trace' }))
+    await waitFor(() => expect(vi.mocked(api.query.run)).toHaveBeenCalledTimes(3))
+    expect(vi.mocked(api.query.run).mock.calls[2]).toEqual(['tempo-1', directTraceId, [], undefined, undefined, true])
+    await waitFor(() => expect(screen.getByText(directTraceId)).toBeTruthy())
+  })
 })
