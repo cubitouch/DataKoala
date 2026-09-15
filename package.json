@@ -93,7 +93,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@codemirror/state": "^6.7.1",
+    "@codemirror/state": "^6.7.4",
     "@testing-library/react": "16.3.2",
     "@types/node": "^22.9.0",
     "@types/pg": "^8.23.1",
