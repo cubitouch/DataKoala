@@ -1,5 +1,5 @@
 import { TextInput } from './ui/TextInput'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { LokiLogResult, LokiQueryResult } from '@shared/loki'
 import { DEFAULT_LOKI_BUILDER } from '@shared/loki'
 import { buildLokiQuery, logqlResultKind } from '@shared/loki-builder'
@@ -12,7 +12,7 @@ import { useLokiLabelsResource } from '../lib/useLokiLabelsResource'
 import { api } from '../lib/api'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { LogResultExplorer } from './LogResultExplorer'
-import { ResultExplorer } from './ResultExplorer'
+import { GenericResultExplorer } from './results/GenericResultExplorer'
 import { LokiBuilderPanel } from './LokiBuilderPanel'
 import { ModeSwitch } from './ModeSwitch'
 import { QueryUtilityActions } from './QueryUtilityActions'
@@ -21,6 +21,7 @@ import { ChartPicker, type ChartPickerView } from './ChartPicker'
 import { selectActiveSession, useStore } from '../store/useStore'
 import styles from './LokiExplorer.module.css'
 import type { VisualizationConfiguration } from '../lib/resultVisualization'
+import type { ResultFilter } from '../lib/resultFilters'
 import { QueryToolbar } from './query/QueryToolbar'
 import { QueryCodeEditor } from './query/QueryCodeEditor'
 
@@ -45,6 +46,13 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const setMode = useStore((state) => state.setQueryMode)
   const setLokiState = useStore((state) => state.setLokiState)
   const clearActiveResults = useStore((state) => state.clearActiveResults)
+  const connectionStatus = useStore((state) => state.connectionStatus)
+  const reconnectActiveProfile = useStore((state) => state.reconnectActiveProfile)
+  const setVisualization = useStore((state) => state.setVisualization)
+  const setSeriesVisibility = useStore((state) => state.setSeriesVisibility)
+  const addResultFilter = useStore((state) => state.addResultFilter)
+  const removeResultFilter = useStore((state) => state.removeResultFilter)
+  const clearResultFilters = useStore((state) => state.clearResultFilters)
   const mode = session.queryMode === 'builder' ? 'builder' : 'logql'
   const { sql: query, lokiBuilder: builder, lokiTimeRange: range, lokiResultLimit: limit, lokiGroupBy: groupBy, lokiResultView: resultView } = session
   const connectionGeneration = useStore((state) => state.connectionGeneration)
@@ -136,6 +144,11 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     setMode('builder')
   }
   const format = async () => { if (!canLoadMetadata) return; const original = query; try { setSql(await api.connections.loki.formatQuery(connectionId, original)) } catch (caught) { setError(`Formatting failed; query was not changed. ${caught instanceof Error ? caught.message : String(caught)}`) } }
+  const onSeriesVisibilityChange = useCallback((visibility: Record<string, boolean>) => setSeriesVisibility(visibility, session.id), [setSeriesVisibility, session.id])
+  const onAddResultFilter = useCallback((filter: ResultFilter) => addResultFilter('sql', filter, session.id), [addResultFilter, session.id])
+  const onRemoveResultFilter = useCallback((id: string) => removeResultFilter('sql', id, session.id), [removeResultFilter, session.id])
+  const onClearResultFilters = useCallback(() => clearResultFilters('sql', session.id), [clearResultFilters, session.id])
+  const onMetricVisualizationChange = useCallback((next: VisualizationConfiguration) => setVisualization('sql', next, session.id), [setVisualization, session.id])
 
   return <main className={styles.workspace} aria-label="Loki explorer">
     <section className={styles.queryPanel}>
@@ -153,10 +166,10 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
       <div className={styles.resultViewBar}><ChartPicker value={resultView} availableViews={['list', 'table', 'bar', 'line', 'area', 'scatter', 'treemap', 'sunburst']} onChange={(view: ChartPickerView) => setLokiState({ lokiResultView: view as typeof resultView })} />{resultView !== 'list' && session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>
       <div className={styles.selectedView}>{resultView === 'list'
         ? <LogResultExplorer selectionKey={`${session.id}:${revision.current}`} rows={(result as LokiLogResult).logRows} truncated={result.execution?.truncated} limit={limit} onFilter={resultFilter} />
-        : resultView === 'table' ? <ResultExplorer mode="sql" dimensionControls="result" hasRun resultOverride={result} configurationOverride={{ ...trendVisualization, view: 'table' }} onConfigurationChange={setTrendVisualization} hidePicker />
+        : resultView === 'table' ? <GenericResultExplorer mode="sql" dimensionControls="result" hasRun result={result} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={{ ...trendVisualization, view: 'table' }} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} hidePicker onConfigurationChange={setTrendVisualization} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} />
         : trendError ? <div className={styles.empty}>Log volume unavailable: {trendError}</div>
-          : trend?.resultKind === 'metrics' ? <ResultExplorer mode="sql" dimensionControls="result" hasRun resultOverride={trend} configurationOverride={trendVisualization} onConfigurationChange={setTrendVisualization} hidePicker onTemporalRangeSelected={selectRange} />
+          : trend?.resultKind === 'metrics' ? <GenericResultExplorer mode="sql" dimensionControls="result" hasRun result={trend} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={trendVisualization} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} hidePicker onConfigurationChange={setTrendVisualization} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} onTemporalRangeSelected={selectRange} />
             : <div className={styles.empty}>Loading log volume…</div>}</div>
-    </> : result?.resultKind === 'metrics' ? <ResultExplorer mode="sql" dimensionControls="result" hasRun /> : !loading && <div className={styles.empty}>Run a LogQL investigation to see results.</div>}</section>
+    </> : result?.resultKind === 'metrics' ? <GenericResultExplorer mode="sql" dimensionControls="result" hasRun result={session.result} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={session.sqlVisualization} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} onConfigurationChange={onMetricVisualizationChange} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} /> : !loading && <div className={styles.empty}>Run a LogQL investigation to see results.</div>}</section>
   </main>
 }
