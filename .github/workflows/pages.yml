@@ -25,7 +25,7 @@ jobs:
           version: 9
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Ensure Electron display libraries

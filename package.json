@@ -6,6 +6,9 @@
   "main": "out/main/index.js",
   "author": "Hugo Carnicelli",
   "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=24 <25"
+  },
   "build": {
     "appId": "com.cubitouch.datakoala",
     "productName": "DataKoala",
@@ -95,7 +98,7 @@
   "devDependencies": {
     "@codemirror/state": "^6.7.5",
     "@testing-library/react": "16.3.3",
-    "@types/node": "^22.9.0",
+    "@types/node": "^24.13.6",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
