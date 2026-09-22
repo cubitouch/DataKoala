@@ -11,7 +11,6 @@ import { ResultExplorer } from './ResultExplorer'
 import { createResultFilter } from '../lib/resultFilters'
 import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
 import type { QueryResult } from '@shared/types'
-import type { VisualizationConfiguration } from '../lib/resultVisualization'
 
 Element.prototype.scrollIntoView = vi.fn()
 
@@ -63,14 +62,10 @@ describe('ResultExplorer chart combobox controls', () => {
     resetTestStore({ connected: true, connectionStatus: 'connected' })
     patchActiveTestSession({
       result, resultRevision: 1, queryMode: 'builder', builderResultFilters: [], running: false,
-      queryError: null, isResultStale: false
+      queryError: null, isResultStale: false,
+      builderVisualization: { view: 'line', xColumn: 'created_at', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: null, seriesColumns: [], valueAxisScale: 'linear' }
     })
-    const configuration: VisualizationConfiguration = { view: 'line', xColumn: 'created_at', valueColumn: 'revenue', aggregation: 'sum', seriesColumn: null, seriesColumns: [], valueAxisScale: 'linear' }
-    function ResultOwnedBuilderMode() {
-      const [current, setCurrent] = React.useState(configuration)
-      return <ResultExplorer mode="builder" dimensionControls="result" configurationOverride={current} onConfigurationChange={setCurrent} />
-    }
-    render(<ResultOwnedBuilderMode />)
+    render(<ResultExplorer mode="builder" dimensionControls="result" />)
 
     fireEvent.click(screen.getByRole('combobox', { name: /X axis: created_at/ }))
     expect(screen.getByRole('option', { name: /region, text/ })).toBeTruthy()
