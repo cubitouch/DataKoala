@@ -48,7 +48,7 @@ export function TraceResultHeader({ traceId, service, operation, durationMs, vis
       <div className={styles.modeSwitch} role="group" aria-label="Visible span kinds">
         {spanKinds.map((kind) => {
           const visible = !hiddenSpanKinds.has(kind)
-          return <button key={kind} type="button" className={visible ? styles.modeActive : ''} aria-pressed={visible} onClick={() => onToggleSpanKind(kind)} title={kind === 'INTERNAL' ? 'In-process/code spans; turn this off to reduce application-code noise.' : `Show or hide ${kind} spans`}><span>{traceSpanKindLabel(kind)}</span><strong>{spanKindCounts[kind] ?? 0}</strong></button>
+          return <button key={kind} type="button" className={visible ? styles.modeActive : ''} aria-label={`${traceSpanKindLabel(kind)} ${spanKindCounts[kind] ?? 0}`} aria-pressed={visible} onClick={() => onToggleSpanKind(kind)} title={kind === 'INTERNAL' ? 'In-process/code spans; turn this off to reduce application-code noise.' : `Show or hide ${kind} spans`}><span>{traceSpanKindLabel(kind)}</span><strong>{spanKindCounts[kind] ?? 0}</strong></button>
         })}
       </div>
       <span>{visibleSpanCount}/{totalSpanCount} shown{hideAsyncBranches && asyncPrunedCount > 0 ? ` · ${asyncPrunedCount} async-branch spans hidden` : ''}.</span>
