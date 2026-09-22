@@ -41,7 +41,11 @@ src/shared    types + IPC channel names shared across the boundary
 
 ## Getting started
 
-Requires Node 22+, pnpm, and Git.
+Requires Node 24, pnpm, and Git. DataKoala uses Node 24 for both local development and CI. Check your active version before installing dependencies:
+
+```bash
+node --version
+```
 
 Then clone and run DataKoala:
 
@@ -52,6 +56,21 @@ cd DataKoala
 corepack enable
 pnpm install --frozen-lockfile
 pnpm dev
+```
+
+Node version managers are optional conveniences, not prerequisites. The repository includes `.nvmrc` for nvm-compatible tools; nvm users can select it with:
+
+```bash
+nvm install
+nvm use
+```
+
+Volta users can run DataKoala with Node 24 without changing their global or default Node version:
+
+```bash
+volta run --node 24 node --version
+volta run --node 24 pnpm install --frozen-lockfile
+volta run --node 24 pnpm dev
 ```
 
 If `pnpm dev` fails while starting Electron with an error from `getElectronPath` / `startElectron`, the Electron binary may not have been installed (for example, because dependency install scripts were skipped). Install it explicitly, then retry:
