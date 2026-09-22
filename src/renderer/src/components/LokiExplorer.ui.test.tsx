@@ -1,4 +1,3 @@
-import React from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LokiExplorer } from './LokiExplorer'
@@ -6,7 +5,6 @@ const mocks = vi.hoisted(() => ({ labels: vi.fn(), labelValues: vi.fn(), formatQ
 vi.mock('../lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels, labelValues: mocks.labelValues, formatQuery: mocks.formatQuery } }, query: { runLoki: mocks.runLoki } } }))
 import { createQuerySession, useStore } from '../store/useStore'
 import { clearLokiLabelsResources } from '../lib/useLokiLabelsResource'
-void React
 
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value }: { value: string }) => <textarea aria-label="LogQL editor" value={value} readOnly /> }))
 vi.mock('echarts-for-react', () => ({ default: () => <div data-testid="loki-echarts" /> }))
@@ -175,6 +173,20 @@ describe('LokiExplorer execution', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
     expect(screen.queryByLabelText('Log volume trend')).toBeNull()
+    expect(screen.getByRole('toolbar', { name: 'Result view' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    expect(useStore.getState().tabs[0].sqlVisualization.view).toBe('line')
+  })
+
+  it('renders log tables in the generic explorer without duplicating Loki’s picker', async () => {
+    mocks.runLoki.mockResolvedValue(logs)
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }))
+    expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
+    expect(screen.getAllByRole('toolbar', { name: 'Result view' })).toHaveLength(1)
+    expect(useStore.getState().tabs[0].lokiResultView).toBe('table')
   })
 
   it('loads and renders log volume only when Chart is selected', async () => {
