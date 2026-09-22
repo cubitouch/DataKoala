@@ -56,7 +56,10 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
     const target = activeFilters.find((filter) => filter.id === id)
     if (target) setResultFilterExecution(mode, id, target.execution === 'query' ? 'client' : 'query', tabId)
   } : undefined, [activeFilters, mode, setResultFilterExecution, tabId])
-  const canPromoteFilter = useMemo(() => mode === 'builder'
+  const canPromoteTableFilter = useMemo(() => mode === 'builder'
+    ? (filter: ResultFilter) => isBuilderFilterPromotable(filter, session.builder)
+    : undefined, [mode, session.builder])
+  const canPromoteChartFilter = useMemo(() => mode === 'builder'
     ? (filter: ResultFilter) => isBuilderFilterPromotable(filter, { ...session.builder, xColumn: configuration.xColumn })
     : undefined, [configuration.xColumn, mode, session.builder])
   const canDemoteFilter = useMemo(() => mode === 'builder'
@@ -86,7 +89,8 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
     onRemoveFilter={onRemoveFilter}
     onClearFilters={onClearFilters}
     onToggleFilterExecution={onToggleFilterExecution}
-    canPromoteFilter={canPromoteFilter}
+    canPromoteTableFilter={canPromoteTableFilter}
+    canPromoteChartFilter={canPromoteChartFilter}
     canDemoteFilter={canDemoteFilter}
     onReconnect={() => void reconnect()}
     onTemporalRangeSelected={onTemporalRangeSelected}
