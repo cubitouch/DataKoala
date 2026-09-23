@@ -679,6 +679,60 @@ async function verifySharedFieldGeometry(win) {
   if (!aligned(report.timeControls) || !aligned(report.timeLabels)) throw new Error(`Time column/range field geometry differs: ${JSON.stringify(report)}`)
 }
 
+async function openTimeRangePicker(win) {
+  const opened = await win.webContents.executeJavaScript(`(() => {
+    const field = document.querySelector('[data-builder-form] [data-time-range-field]')
+    const trigger = field?.querySelector('[data-popover-trigger]')
+    if (!(trigger instanceof HTMLElement)) return false
+    trigger.click()
+    return true
+  })()`)
+  if (!opened) throw new Error('Builder Time range trigger is unavailable')
+
+  await waitForRendererState(win, `(() => {
+    const dialog = [...document.querySelectorAll('[role="dialog"]')].find((candidate) => candidate.querySelector('#time-range-title'))
+    if (!dialog) return false
+    const bounds = dialog.getBoundingClientRect()
+    const style = getComputedStyle(dialog)
+    const visible = style.visibility !== 'hidden' && style.display !== 'none' && bounds.width > 0 && bounds.height > 0
+    const trigger = document.querySelector('[data-builder-form] [data-time-range-field] [data-popover-trigger]')
+    return visible
+      && trigger?.getAttribute('aria-expanded') === 'true'
+      && Boolean(dialog.querySelector('[data-time-range-region="presets"]'))
+      && Boolean(dialog.querySelector('[data-time-range-region="editor"]'))
+      && Boolean(dialog.querySelector('[data-time-range-region="actions"]'))
+  })()`, 'open Builder Time range picker')
+
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const dialog = [...document.querySelectorAll('[role="dialog"]')].find((candidate) => candidate.querySelector('#time-range-title'))
+    const trigger = document.querySelector('[data-builder-form] [data-time-range-field] [data-popover-trigger]')
+    const labels = dialog ? [...dialog.querySelectorAll('button')].map((button) => button.textContent?.trim()).filter(Boolean) : []
+    return {
+      open: trigger?.getAttribute('aria-expanded') === 'true',
+      title: dialog?.querySelector('#time-range-title')?.textContent?.trim(),
+      visible: Boolean(dialog && (() => { const bounds = dialog.getBoundingClientRect(); const style = getComputedStyle(dialog); return style.visibility !== 'hidden' && style.display !== 'none' && bounds.width > 0 && bounds.height > 0 })()),
+      presets: Boolean(dialog?.querySelector('[data-time-range-region="presets"]')),
+      editor: Boolean(dialog?.querySelector('[data-time-range-region="editor"]')),
+      actions: Boolean(dialog?.querySelector('[data-time-range-region="actions"]')),
+      hasCancel: labels.includes('Cancel'),
+      hasConfirm: labels.includes('Confirm')
+    }
+  })()`)
+
+  if (!report.open || !report.visible || report.title !== 'Time range' || !report.presets || !report.editor || !report.actions || !report.hasCancel || !report.hasConfirm) {
+    throw new Error(`Open Time range picker preview is incomplete: ${JSON.stringify(report)}`)
+  }
+}
+
+async function closeTimeRangePicker(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const dialog = [...document.querySelectorAll('[role="dialog"]')].find((candidate) => candidate.querySelector('#time-range-title'))
+    const cancel = dialog && [...dialog.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Cancel')
+    cancel?.click()
+  })()`)
+  await waitForRendererState(win, `!([...document.querySelectorAll('[role="dialog"]')].some((candidate) => candidate.querySelector('#time-range-title')))`, 'closed Builder Time range picker')
+}
+
 async function verifyCompactAxisScale(win) {
   const width = await win.webContents.executeJavaScript(`document.querySelector('[data-field][data-field-name="Value axis scale"] [data-popover-trigger]')?.getBoundingClientRect().width`)
   if (width < 90 || width > 110) throw new Error(`Value axis scale is not compact: ${JSON.stringify(width)}`)
@@ -904,6 +958,11 @@ app.whenReady().then(async () => {
     await verifySharedFieldGeometry(win)
     await assertCanonicalCaptureState(win, 'Builder temporal Series preview')
     await capture(win, 'builder-temporal-series.png')
+
+    await openTimeRangePicker(win)
+    await assertCanonicalCaptureState(win, 'Open Builder Time range preview')
+    await capture(win, 'builder-time-range-open.png')
+    await closeTimeRangePicker(win)
 
     await configureBuilderControls(win, 'categorical-numeric')
     await assertCanonicalCaptureState(win, 'Builder categorical preview')
