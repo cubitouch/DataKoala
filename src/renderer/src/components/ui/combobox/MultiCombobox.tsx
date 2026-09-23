@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Popover } from '../Popover'
 import { FieldChrome } from '../FieldChrome'

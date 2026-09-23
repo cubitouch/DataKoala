@@ -1,6 +1,4 @@
 import { TextInput } from '../ui/TextInput'
-import React from 'react'
-void React
 import styles from './TimeRange.module.css'
 import { DateRangeCalendar } from './DateRangeCalendar'
 import { addDays } from '../../lib/customTimeRange'

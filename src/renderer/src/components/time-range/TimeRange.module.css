@@ -4,10 +4,6 @@
 .body { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px; min-height: 0; overflow: hidden; }
 .presetPane { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 12px; }
 .editorPane { min-width: 0; min-height: 0; overflow: hidden; scroll-padding-bottom: 12px; }
-.customLayout { display: grid; grid-template-columns: 140px minmax(280px, 1fr); grid-template-areas: "presets calendar" "presets windows"; gap: 14px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
-.customLayout > .quickList { grid-area: presets; }
-.customLayout > .calendar { grid-area: calendar; }
-.customLayout > .windowEditor { grid-area: windows; }
 .quickList { display: flex; flex-direction: column; gap: 8px; }
 .presetSection { display: flex; flex-direction: column; gap: 4px; }
 .presetSectionTitle { color: var(--text-mute); font-size: 11px; }
@@ -48,10 +44,9 @@
 }
 
 @media (max-width: 720px) {
-  .body, .customLayout { grid-template-columns: minmax(0, 1fr); }
+  .body { grid-template-columns: minmax(0, 1fr); }
   .presetPane { max-height: 180px; }
   .editorPane { overflow-y: auto; }
-  .customLayout { grid-template-areas: "presets" "calendar" "windows"; }
   .quickList { flex-direction: row; flex-wrap: wrap; }
   .quickPill { width: auto; }
   .windowRow { grid-template-columns: minmax(80px, 1fr) auto minmax(80px, 1fr); }

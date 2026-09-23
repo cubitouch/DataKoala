@@ -38,35 +38,6 @@ button.treeRow, .treeRow button { background: none; border: 0; color: inherit; f
 .relationName { flex: 1 1 auto; min-width: 0; padding: 4px 2px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .relationName[aria-current="true"] { color: var(--accent); font-weight: 600; }
 .relationKind { flex: 0 1 auto; min-width: 0; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
-.metricHelpTooltip {
-  position: absolute;
-  z-index: 1000;
-  top: calc(100% + 3px);
-  left: 37px;
-  width: max-content;
-  max-width: min(320px, calc(100vw - 50px));
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  box-shadow: 0 6px 18px rgba(0,0,0,.45);
-  background: var(--bg-4);
-  color: var(--text);
-  font-size: 11px;
-  line-height: 1.35;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-2px);
-  transition: opacity .12s ease, transform .12s ease;
-}
-.tooltipTrigger:hover + .metricHelpTooltip,
-.tooltipTrigger:focus-visible + .metricHelpTooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
 .chevronButton { width: 20px; padding: 4px; flex: none; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .kind, .badge, .columnType { color: var(--text-mute); font-size: 10px; }
 .badge { margin-left: auto; padding: 1px 4px; border: 1px solid var(--border); border-radius: 6px; }

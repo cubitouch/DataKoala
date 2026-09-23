@@ -24,13 +24,6 @@
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
 }
-.traceqlHeader > span,
-.builderGrid label > span,
-.generatedQuery > span {
-  color: var(--text-mute);
-  font-size: 11px;
-  font-weight: 600;
-}
 .traceqlField :global(.cm-editor) {
   min-width: 0;
   border: 1px solid var(--border);
@@ -60,28 +53,6 @@
 
 .sampleSize { width: 175px; white-space: nowrap; }
 .editorActions { display:flex;align-items:center;gap:6px;white-space: nowrap; }
-.builderGrid {
-  display: grid;
-  grid-template-columns: minmax(110px, .8fr) minmax(150px, 1fr) minmax(180px, 1.2fr) minmax(90px, .65fr) minmax(110px, .7fr);
-  gap: 8px;
-}
-.builderGrid label { display: grid; gap: 5px; min-width: 0; }
-.generatedQuery {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: baseline;
-  gap: 10px;
-  padding-top: 2px;
-}
-.generatedQuery code {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-mute);
-  font-size: 11px;
-}
 .traceqlField {
   display: grid;
   gap: 5px;
@@ -90,15 +61,6 @@
   max-width: 100%;
   padding: 12px 14px;
 }
-.traceqlHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-}
-.traceqlHeader button { min-height: 26px; padding: 0 10px; }
 .traceqlField :global(.cm-theme) {
   min-width: 0;
   width: 100%;
@@ -117,22 +79,6 @@
   overflow: auto;
   font-family: var(--mono);
 }
-.searchControls {
-  display: flex;
-  align-items: flex-end;
-  gap: 14px;
-  margin-top: 9px;
-}
-.searchControls > :first-child { flex: 0 0 auto; min-width: 170px; }
-.searchActions {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.searchActions span { color: var(--text-mute); font-size: 11px; }
-
 .error, .warning, .cohortHint {
   padding: 7px 14px;
   border-bottom: 1px solid var(--border);
@@ -162,18 +108,8 @@
 .root > .warning[role="status"] > * { width: min(680px, 80vw); max-width: 100%; }
 .root > .warning[role="status"] progress { accent-color: var(--accent); }
 
-@media (max-width: 960px) {
-  .builderGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .generatedQuery { grid-column: 1 / -1; }
-}
-
 @media (max-width: 760px) {
   .traceIdBar { grid-template-columns: 1fr auto; }
-  .builderGrid { grid-template-columns: 1fr; }
-  .generatedQuery { grid-column: 1; grid-template-columns: 1fr; }
-  .searchControls { align-items: stretch; flex-direction: column; }
-  .searchControls > :first-child { min-width: 0; }
-  .searchActions { align-items: flex-start; flex-direction: column; }
 }
 
 @container (max-width: 760px) {

@@ -1,6 +1,4 @@
 import { TextInput } from '../ui/TextInput'
-import React from 'react'
-void React
 import styles from './TimeRange.module.css'
 import type { TimeWindow } from '../../lib/customTimeRange'
 const makeId = () => `tw-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`

@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-void React
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, LokiProfile, PrometheusProfile, SqliteFileProfile, TempoProfile } from '../../../shared/types'
 import type { LokiDatasourceOption } from '../../../shared/loki'
 import type { PrometheusDatasourceOption } from '../../../shared/prometheus'

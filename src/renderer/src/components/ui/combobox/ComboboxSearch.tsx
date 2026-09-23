@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import { InputControl } from '../input/InputControl'
 import styles from './Combobox.module.css'
 interface Props {
