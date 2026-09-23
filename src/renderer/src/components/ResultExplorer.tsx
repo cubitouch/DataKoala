@@ -4,7 +4,6 @@ import { resultFilterDemotion, type ResultFilter } from '../lib/resultFilters'
 import { timeRangeChartDomain } from '../lib/prometheusTimeRange'
 import { deriveEffectiveVisualization, type VisualizationConfiguration } from '../lib/resultVisualization'
 import { selectActiveSession, useStore, type QueryMode } from '../store/useStore'
-import type { QueryResult } from '@shared/types'
 import { GenericResultExplorer } from './results/GenericResultExplorer'
 
 export interface ResultExplorerProps {
@@ -12,15 +11,10 @@ export interface ResultExplorerProps {
   /** Determines whether this result view or an upstream UI owns X/Y/Series mapping. */
   dimensionControls?: 'result' | 'external'
   hasRun?: boolean
-  resultOverride?: QueryResult | null
-  configurationOverride?: VisualizationConfiguration
-  onConfigurationChange?: (configuration: VisualizationConfiguration) => void
-  hidePicker?: boolean
-  onTemporalRangeSelected?: (range: { startMs: number; endMs: number }) => void
 }
 
-/** Compatibility adapter that maps the active session onto controlled result presentation. */
-export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = true, resultOverride, configurationOverride, onConfigurationChange, hidePicker = false, onTemporalRangeSelected }: ResultExplorerProps) {
+/** Active-session adapter that maps session state onto controlled result presentation. */
+export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = true }: ResultExplorerProps) {
   const tabId = useStore((state) => state.activeTabId)
   const session = useStore(selectActiveSession)
   const connectionStatus = useStore((state) => state.connectionStatus)
@@ -33,8 +27,8 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
   const setResultFilterExecution = useStore((state) => state.setResultFilterExecution)
   const setSeriesVisibility = useStore((state) => state.setSeriesVisibility)
 
-  const result = resultOverride === undefined ? session.result : resultOverride
-  const configuration = configurationOverride ?? (mode === 'sql' ? session.sqlVisualization : session.builderVisualization)
+  const result = session.result
+  const configuration = mode === 'sql' ? session.sqlVisualization : session.builderVisualization
   const activeFilters = mode === 'sql' ? session.sqlResultFilters : session.builderResultFilters
   const effectiveConfiguration = useMemo(() => result
     ? deriveEffectiveVisualization(result, configuration, dimensionControls === 'external' && mode === 'builder' ? 'builder' : 'result', session.builder.seriesColumns)
@@ -45,9 +39,8 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
   const chartTimeDomain = useMemo(() => activeTimeRange ? timeRangeChartDomain(activeTimeRange) : null, [activeTimeRange])
 
   const handleConfigurationChange = useCallback((next: VisualizationConfiguration) => {
-    if (onConfigurationChange) onConfigurationChange(next)
-    else setVisualization(mode, next, tabId)
-  }, [mode, onConfigurationChange, setVisualization, tabId])
+    setVisualization(mode, next, tabId)
+  }, [mode, setVisualization, tabId])
   const onSeriesVisibilityChange = useCallback((visibility: Record<string, boolean>) => setSeriesVisibility(visibility, tabId), [setSeriesVisibility, tabId])
   const onAddFilter = useCallback((filter: ResultFilter) => addResultFilter(mode, filter, tabId), [addResultFilter, mode, tabId])
   const onRemoveFilter = useCallback((id: string) => removeResultFilter(mode, id, tabId), [removeResultFilter, mode, tabId])
@@ -82,7 +75,6 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
     externalSeriesColumns={session.builder.seriesColumns}
     timeBucket={session.builder.timeBucket}
     chartTimeDomain={chartTimeDomain}
-    hidePicker={hidePicker}
     onConfigurationChange={handleConfigurationChange}
     onSeriesVisibilityChange={onSeriesVisibilityChange}
     onAddFilter={onAddFilter}
@@ -93,6 +85,5 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
     canPromoteChartFilter={canPromoteChartFilter}
     canDemoteFilter={canDemoteFilter}
     onReconnect={() => void reconnect()}
-    onTemporalRangeSelected={onTemporalRangeSelected}
   />
 }
