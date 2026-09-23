@@ -1,5 +1,11 @@
 import type { TimeBucket } from '../store/useStore'
 import { timeBucketRange } from './chartPointFilters.ts'
+import type { ResultFilter } from './resultFilters.ts'
+
+export interface ChartTimeDomain {
+  min: number
+  max: number
+}
 
 export interface ChartTimeSelectionRange {
   startInclusive: string
@@ -11,6 +17,34 @@ function timestamp(value: unknown): number | null {
   const date = value instanceof Date ? value : new Date(String(value))
   const valueMs = date.getTime()
   return Number.isFinite(valueMs) ? valueMs : null
+}
+
+/**
+ * Narrows the chart viewport to client-side range filters on its current X
+ * axis. Query filters are already represented by the picker/query domain and
+ * must not independently alter the viewport here.
+ */
+export function effectiveChartTimeDomain(
+  chartTimeDomain: ChartTimeDomain | null | undefined,
+  filters: readonly ResultFilter[],
+  xColumn: string | null | undefined
+): ChartTimeDomain | null | undefined {
+  if (!xColumn) return chartTimeDomain
+
+  const ranges = filters.flatMap((filter) => {
+    if (filter.column !== xColumn || filter.operator !== 'range' || filter.execution === 'query') return []
+    const min = timestamp(filter.startInclusive)
+    const max = timestamp(filter.endExclusive)
+    return min !== null && max !== null && min < max ? [{ min, max }] : []
+  })
+  if (!ranges.length) return chartTimeDomain
+
+  const intersection = ranges.reduce<ChartTimeDomain>((domain, range) => ({
+    min: Math.max(domain.min, range.min),
+    max: Math.min(domain.max, range.max)
+  }), chartTimeDomain ?? ranges[0])
+
+  return intersection.min < intersection.max ? intersection : chartTimeDomain
 }
 
 export function isTemporalChartValues(values: readonly unknown[]): boolean {
