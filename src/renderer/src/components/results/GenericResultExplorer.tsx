@@ -4,7 +4,7 @@ import type EChartsReact from 'echarts-for-react'
 import { api } from '../../lib/api'
 import { buildChartPresentationOptions } from '../../lib/chartPresentation'
 import { chartSeriesResultFilters, timeBucketRange, type ChartPointContext } from '../../lib/chartPointFilters'
-import { chartTimeSelectionRange, isTemporalChartValues } from '../../lib/chartRangeSelection'
+import { chartTimeSelectionRange, effectiveChartTimeDomain, isTemporalChartValues } from '../../lib/chartRangeSelection'
 import { createResultFilter, createResultRangeFilter, filterQueryResult, type ResultFilter } from '../../lib/resultFilters'
 import { decodeBuilderSeriesTuple, deriveEffectiveVisualization, numericColumns, pivotRowsForChart, reconcileHierarchyDimensions, visualizationConfigurationsEqual, type ValueAxisScale, type VisualizationConfiguration } from '../../lib/resultVisualization'
 import { ResultsTable } from '../ResultsTable'
@@ -134,6 +134,10 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   const anomalies = useMemo(() => effectiveConfiguration.anomalyDetectionEnabled && anomalyEligibility.available && chart
     ? detectChartAnomalies(chart.series, DEFAULT_ANOMALY_OPTIONS) : [], [chart, effectiveConfiguration.anomalyDetectionEnabled, anomalyEligibility.available])
   const temporalRangeSelectionEnabled = Boolean(chart?.renderable && effectiveConfiguration.xColumn && isTemporalChartValues(chart.xValues))
+  const effectiveTimeDomain = useMemo(
+    () => effectiveChartTimeDomain(chartTimeDomain, activeFilters, effectiveConfiguration.xColumn),
+    [chartTimeDomain, activeFilters, effectiveConfiguration.xColumn]
+  )
   const activeBuilderTimeBucket = mode === 'builder' && effectiveConfiguration.xColumn === 'time_bucket' ? timeBucket : undefined
   const seriesIdentities = chart?.series.map((series) => series.name) ?? []
   useEffect(() => legendWheel.current.setSeriesCount(seriesIdentities.length), [seriesIdentities.length])
@@ -153,13 +157,13 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
     labels: chart?.labels ?? [], series: chart?.series ?? [], view: effectiveConfiguration.view,
     hasSeriesColumn: Boolean(effectiveConfiguration.seriesColumn || effectiveConfiguration.seriesColumns?.length), mode,
     timeBucket: activeBuilderTimeBucket,
-    timeDomain: chartTimeDomain ?? undefined,
+    timeDomain: effectiveTimeDomain ?? undefined,
     valueAxisScale: effectiveConfiguration.valueAxisScale, visibility: seriesVisibility,
     hoveredSeriesIdentity: () => hoveredSeriesIdentity.current,
     anomalies,
     rangeSelectionEnabled: temporalRangeSelectionEnabled && !hierarchical,
     hierarchy
-  }) : null, [chart, chartReady, effectiveConfiguration, seriesVisibility, mode, activeBuilderTimeBucket, chartTimeDomain, temporalRangeSelectionEnabled, anomalies, hierarchy, hierarchical])
+  }) : null, [chart, chartReady, effectiveConfiguration, seriesVisibility, mode, activeBuilderTimeBucket, effectiveTimeDomain, temporalRangeSelectionEnabled, anomalies, hierarchy, hierarchical])
   const setHierarchyDimensions = (dimensions: string[]) => update({ hierarchyDimensions: dimensions })
   const chooseView = (view: typeof effectiveConfiguration.view) => {
     const enteringHierarchy = view === 'treemap' || view === 'sunburst'
@@ -175,8 +179,8 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
     setHierarchyDimensions(next)
   }
   const chartFingerprint = useMemo(
-    () => `${resultRevision}:${createChartFingerprint(chart, effectiveConfiguration, seriesVisibility)}:${mode}:${activeBuilderTimeBucket ?? ''}:domain=${chartTimeDomain ? `${chartTimeDomain.min}-${chartTimeDomain.max}` : ''}:requested=${configuration.view}/${configuration.xColumn ?? ''}/${configuration.valueColumn ?? ''}/${configuration.aggregation}/${configuration.seriesColumn ?? ''}/${configuration.seriesColumns?.join(',') ?? ''}:hierarchy=${hierarchical ? JSON.stringify(hierarchy) : ''}:anomalies=${anomalies.map((item) => `${item.seriesName}:${item.dataIndex}`).join(',')}`,
-    [resultRevision, chart, effectiveConfiguration, configuration, seriesVisibility, mode, activeBuilderTimeBucket, chartTimeDomain, hierarchy, hierarchical, anomalies]
+    () => `${resultRevision}:${createChartFingerprint(chart, effectiveConfiguration, seriesVisibility)}:${mode}:${activeBuilderTimeBucket ?? ''}:domain=${effectiveTimeDomain ? `${effectiveTimeDomain.min}-${effectiveTimeDomain.max}` : ''}:requested=${configuration.view}/${configuration.xColumn ?? ''}/${configuration.valueColumn ?? ''}/${configuration.aggregation}/${configuration.seriesColumn ?? ''}/${configuration.seriesColumns?.join(',') ?? ''}:hierarchy=${hierarchical ? JSON.stringify(hierarchy) : ''}:anomalies=${anomalies.map((item) => `${item.seriesName}:${item.dataIndex}`).join(',')}`,
+    [resultRevision, chart, effectiveConfiguration, configuration, seriesVisibility, mode, activeBuilderTimeBucket, effectiveTimeDomain, hierarchy, hierarchical, anomalies]
   )
   const renderedOption = useMemo(() => option ? {
     ...option,
