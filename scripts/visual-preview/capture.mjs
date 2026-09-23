@@ -691,9 +691,13 @@ async function openTimeRangePicker(win) {
 
   await waitForRendererState(win, `(() => {
     const dialog = [...document.querySelectorAll('[role="dialog"]')].find((candidate) => candidate.querySelector('#time-range-title'))
-    if (!dialog || dialog.offsetParent === null) return false
+    if (!dialog) return false
+    const bounds = dialog.getBoundingClientRect()
+    const style = getComputedStyle(dialog)
+    const visible = style.visibility !== 'hidden' && style.display !== 'none' && bounds.width > 0 && bounds.height > 0
     const trigger = document.querySelector('[data-builder-form] [data-time-range-field] [data-popover-trigger]')
-    return trigger?.getAttribute('aria-expanded') === 'true'
+    return visible
+      && trigger?.getAttribute('aria-expanded') === 'true'
       && Boolean(dialog.querySelector('[data-time-range-region="presets"]'))
       && Boolean(dialog.querySelector('[data-time-range-region="editor"]'))
       && Boolean(dialog.querySelector('[data-time-range-region="actions"]'))
@@ -706,7 +710,7 @@ async function openTimeRangePicker(win) {
     return {
       open: trigger?.getAttribute('aria-expanded') === 'true',
       title: dialog?.querySelector('#time-range-title')?.textContent?.trim(),
-      visible: Boolean(dialog && dialog.offsetParent !== null),
+      visible: Boolean(dialog && (() => { const bounds = dialog.getBoundingClientRect(); const style = getComputedStyle(dialog); return style.visibility !== 'hidden' && style.display !== 'none' && bounds.width > 0 && bounds.height > 0 })()),
       presets: Boolean(dialog?.querySelector('[data-time-range-region="presets"]')),
       editor: Boolean(dialog?.querySelector('[data-time-range-region="editor"]')),
       actions: Boolean(dialog?.querySelector('[data-time-range-region="actions"]')),
@@ -726,7 +730,7 @@ async function closeTimeRangePicker(win) {
     const cancel = dialog && [...dialog.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Cancel')
     cancel?.click()
   })()`)
-  await waitForRendererState(win, `!([...document.querySelectorAll('[role="dialog"]')].some((candidate) => candidate.querySelector('#time-range-title') && candidate.offsetParent !== null))`, 'closed Builder Time range picker')
+  await waitForRendererState(win, `!([...document.querySelectorAll('[role="dialog"]')].some((candidate) => candidate.querySelector('#time-range-title')))`, 'closed Builder Time range picker')
 }
 
 async function verifyCompactAxisScale(win) {
