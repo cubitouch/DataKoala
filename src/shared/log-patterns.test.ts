@@ -229,3 +229,55 @@ test('clusters prose-prefixed JSON objects while keeping a different prose actio
   assert.equal(result.find(({ template }) => template.startsWith('Sending payload'))?.count, 2)
   assert.equal(result.find(({ template }) => template.startsWith('Received payload'))?.count, 1)
 })
+
+
+test('clusters Python SDK repr objects by outer class and field names', () => {
+  const result = clusterLogPatterns(records(
+    "Taxjar response TaxJarTax(amount_to_collect=7.44, breakdown=TaxJarBreakdown(city_tax_collectable=0.0, county_amount=3.72, state_amount=3.72), freight_taxable=True, has_nexus=True, jurisdictions=TaxJarJurisdictions(city='UNINCORPORATED', country='US', county='BROOME', state='NY'), order_total_amount=93.0, rate=0.08, shipping=TaxJarShipping(city_amount=0.0, state_amount=0.0), tax_source='destination', taxable_amount=93.0)",
+    "Taxjar response TaxJarTax(amount_to_collect=32.44, breakdown=TaxJarBreakdown(city_tax_collectable=0.0, county_amount=16.22, state_amount=16.22), freight_taxable=True, has_nexus=True, jurisdictions=TaxJarJurisdictions(city='NEW YORK', country='US', county='NEW YORK', state='NY'), order_total_amount=405.48, rate=0.08, shipping=TaxJarShipping(city_amount=0.0, state_amount=0.0), tax_source='destination', taxable_amount=405.48)"
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 2)
+  assert.match(result[0].template, /^Taxjar response TaxJarTax /)
+  assert.match(result[0].template, /amount_to_collect=<value>/)
+  assert.match(result[0].template, /breakdown=<value>/)
+  assert.match(result[0].template, /jurisdictions=<value>/)
+  assert.match(result[0].template, /shipping=<value>/)
+})
+
+test('treats None as compatible with nested Python repr objects under the same field', () => {
+  const result = clusterLogPatterns(records(
+    "Taxjar response TaxJarTax(amount_to_collect=7.44, breakdown=TaxJarBreakdown(city_tax_collectable=0.0), shipping=TaxJarShipping(city_amount=0.0), taxable_amount=93.0)",
+    "Taxjar response TaxJarTax(amount_to_collect=8.00, breakdown=None, shipping=None, taxable_amount=100.0)"
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 2)
+  assert.match(result[0].template, /breakdown=<value>/)
+  assert.match(result[0].template, /shipping=<value>/)
+})
+
+test('treats changing lists inside Python repr objects as one field value', () => {
+  const result = clusterLogPatterns(records(
+    "Taxjar response TaxJarTax(amount_to_collect=7.44, line_items=[TaxJarBreakdownLineItem(id='1', quantity=1, unit_price=93.0)], taxable_amount=93.0)",
+    "Taxjar response TaxJarTax(amount_to_collect=14.88, line_items=[TaxJarBreakdownLineItem(id='9', quantity=2, unit_price=46.5), TaxJarBreakdownLineItem(id='10', quantity=1, unit_price=20.0)], taxable_amount=113.0)"
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 2)
+  assert.match(result[0].template, /line_items=<value>/)
+})
+
+test('keeps different Python repr outer classes separate even with identical fields', () => {
+  const result = clusterLogPatterns(records(
+    "SDK response TaxJarTax(amount=10, rate=0.08, state='NY')",
+    "SDK response TaxJarRefund(amount=10, rate=0.08, state='NY')"
+  ))
+  assert.equal(result.length, 2)
+})
+
+test('parses equals signs inside quoted Python repr field values', () => {
+  const result = clusterLogPatterns(records(
+    "SDK response RequestResult(message='a=b,c=d', status='ok', attempt=1)",
+    "SDK response RequestResult(message='x=y,z=w', status='ok', attempt=2)"
+  ))
+  assert.equal(result.length, 1)
+})
