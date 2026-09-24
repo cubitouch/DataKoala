@@ -6,14 +6,17 @@ export const LOG_PATTERN_LIMITS = Object.freeze({
   maxMessageCharacters: 8192,
   maxTokens: 160,
   maxVariableSamples: 8,
-  anchorCount: 4,
-  minSignatureVotes: 2
+  maxSemanticKeys: 10,
+  maxCandidateClusters: 32,
+  maxVariableRatio: .4,
+  minStableTokens: 3
 })
 
 const timestamp = /^(?:\d{4}-\d\d-\d\d[T ][0-9:.+-]+Z?|\d\d:\d\d:\d\d(?:\.\d+)?)$/i
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const ipv4 = /^(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?$/
 const ipv6 = /^(?:[0-9a-f]{0,4}:){2,}[0-9a-f]{0,4}(?::\d+)?$/i
+const field = /^([a-z_][a-z0-9_.-]*=)(.+)$/i
 
 function normalizedValue(value: string): string | null {
   if (timestamp.test(value)) return '<timestamp>'
@@ -29,13 +32,43 @@ function normalizedValue(value: string): string | null {
   return null
 }
 
-interface Token { display: string; normalized: string; variable: boolean; raw: string }
+interface Token {
+  display: string
+  normalized: string
+  variable: boolean
+  raw: string
+  prefix: string
+  suffix: string
+  fieldKey?: string
+  fieldValueRaw?: string
+}
+
+function stripMatchingQuotes(value: string): string {
+  return value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) ? value.slice(1, -1) : value
+}
 
 function token(raw: string): Token {
   const match = raw.match(/^([^\p{L}\p{N}/\\]*)(.*?)([^\p{L}\p{N}/\\]*)$/u)
   const prefix = match?.[1] ?? '', core = match?.[2] ?? raw, suffix = match?.[3] ?? ''
+  const fieldMatch = core.match(field)
+  if (fieldMatch) {
+    const fieldPrefix = fieldMatch[1]
+    const fieldKey = fieldPrefix.slice(0, -1).toLowerCase()
+    const fieldValueRaw = stripMatchingQuotes(fieldMatch[2])
+    const placeholder = normalizedValue(fieldValueRaw)
+    return {
+      raw,
+      prefix,
+      suffix,
+      fieldKey,
+      fieldValueRaw,
+      display: placeholder ? prefix + fieldPrefix + placeholder + suffix : raw,
+      normalized: placeholder ? 'field:' + fieldKey + '=' + placeholder : core.toLowerCase(),
+      variable: Boolean(placeholder)
+    }
+  }
   const placeholder = normalizedValue(core)
-  return { raw, display: placeholder ? prefix + placeholder + suffix : raw, normalized: placeholder ?? core.toLowerCase(), variable: Boolean(placeholder) }
+  return { raw, prefix, suffix, display: placeholder ? prefix + placeholder + suffix : raw, normalized: placeholder ?? core.toLowerCase(), variable: Boolean(placeholder) }
 }
 
 function tokenize(message: string): Token[] {
@@ -71,23 +104,34 @@ function tokenSequenceHash(tokens: Token[]): string {
 
 function hashId(text: string): string { return 'pattern-' + hashText(text).toString(36) }
 
-function anchorPositions(length: number): number[] {
-  if (!length) return []
-  const last = length - 1
-  return [...new Set([0, Math.floor(last / 3), Math.floor(last * 2 / 3), last])].slice(0, LOG_PATTERN_LIMITS.anchorCount)
+function semanticKey(item: Token): string | null {
+  if (item.fieldKey) return 'field:' + item.fieldKey
+  if (item.variable) return null
+  const normalized = item.normalized.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+  return normalized.length >= 2 ? 'token:' + normalized : null
+}
+
+function semanticKeys(tokens: Token[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const item of tokens) {
+    const key = semanticKey(item)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    result.push(key)
+    if (result.length >= LOG_PATTERN_LIMITS.maxSemanticKeys) break
+  }
+  return result
 }
 
 function compactSignatures(tokens: Token[]): string[] {
-  const positions = anchorPositions(tokens.length)
+  const keys = semanticKeys(tokens)
+  if (keys.length < 2) return keys.map((key) => 'single:' + hashText(key).toString(36))
   const signatures: string[] = []
-  for (let left = 0; left < positions.length; left++) {
-    for (let right = left + 1; right < positions.length; right++) {
-      const leftIndex = positions[left], rightIndex = positions[right]
-      signatures.push(
-        tokens.length.toString(36) + ':' +
-        leftIndex.toString(36) + ':' + hashText(tokens[leftIndex].normalized).toString(36) + ':' +
-        rightIndex.toString(36) + ':' + hashText(tokens[rightIndex].normalized).toString(36)
-      )
+  for (let left = 0; left < keys.length; left++) {
+    for (let right = left + 1; right < keys.length; right++) {
+      const first = hashText(keys[left]).toString(36), second = hashText(keys[right]).toString(36)
+      signatures.push('pair:' + (first < second ? first + ':' + second : second + ':' + first))
     }
   }
   return signatures
@@ -104,19 +148,57 @@ interface Working {
   values: Map<number, string[]>
 }
 
-const typedPlaceholder = (item: Token) => item.variable && item.normalized !== '<value>'
+interface Match {
+  differences: number[]
+  score: number
+}
 
-function matchingDifference(candidate: Working, incoming: Token[]): number | null {
+const typedPlaceholder = (item: Token) => item.variable && item.normalized !== '<value>' && !item.normalized.endsWith('=<value>')
+const broadVariable = (item: Token) => item.normalized === '<value>' || item.normalized.endsWith('=<value>')
+
+function sameField(template: Token, item: Token): boolean {
+  return Boolean(template.fieldKey && item.fieldKey && template.fieldKey === item.fieldKey)
+}
+
+function compatibleVariable(template: Token, item: Token): boolean {
+  if (!template.variable) return false
+  if (template.fieldKey) {
+    if (!sameField(template, item)) return false
+    if (broadVariable(template)) return true
+    return template.normalized === item.normalized
+  }
+  if (broadVariable(template)) return true
+  return template.normalized === item.normalized
+}
+
+function matchingCandidate(candidate: Working, incoming: Token[]): Match | null {
   if (candidate.tokens.length !== incoming.length) return null
-  let differingIndex = -1
+  const differences: number[] = []
+  let stable = 0
+
   for (let index = 0; index < incoming.length; index++) {
     const template = candidate.tokens[index], item = incoming[index]
-    if (template.normalized === item.normalized || template.normalized === '<value>') continue
-    if (typedPlaceholder(template) || typedPlaceholder(item) || differingIndex >= 0) return null
-    differingIndex = index
+    if (template.normalized === item.normalized || compatibleVariable(template, item)) {
+      if (!broadVariable(template)) stable += 1
+      continue
+    }
+    if (typedPlaceholder(template) || typedPlaceholder(item)) return null
+    if (sameField(template, item)) {
+      differences.push(index)
+      continue
+    }
+    if (index === 0) return null
+    differences.push(index)
   }
-  if (differingIndex < 0) return -1
-  return differingIndex > 0 && incoming.length >= 6 ? differingIndex : null
+
+  if (!differences.length) return { differences, score: stable + incoming.length }
+  if (incoming.length < 6) return null
+  const maxDifferences = Math.max(1, Math.floor(incoming.length * LOG_PATTERN_LIMITS.maxVariableRatio))
+  if (differences.length > maxDifferences || stable < LOG_PATTERN_LIMITS.minStableTokens) return null
+
+  const similarity = stable / incoming.length
+  if (similarity < 1 - LOG_PATTERN_LIMITS.maxVariableRatio) return null
+  return { differences, score: stable * 4 - differences.length }
 }
 
 function addIndex(index: Map<string, number[]>, key: string, clusterIndex: number): void {
@@ -130,6 +212,20 @@ function addSample(samples: string[], value: string): void {
   samples.push(value)
 }
 
+function sampleValue(item: Token): string { return item.fieldValueRaw ?? item.raw }
+
+function generalize(template: Token, item: Token): void {
+  if (sameField(template, item)) {
+    template.display = template.prefix + (template.fieldKey ?? '') + '=<value>' + template.suffix
+    template.normalized = 'field:' + template.fieldKey + '=<value>'
+    template.variable = true
+    return
+  }
+  template.display = template.prefix + '<value>' + template.suffix
+  template.normalized = '<value>'
+  template.variable = true
+}
+
 function addRecord(cluster: Working, record: LogPatternRecord, incoming: Token[]): void {
   cluster.memberIds.push(record.id)
   cluster.count += 1
@@ -140,7 +236,7 @@ function addRecord(cluster: Working, record: LogPatternRecord, incoming: Token[]
   incoming.forEach((item, index) => {
     if (!cluster.tokens[index].variable) return
     const samples = cluster.values.get(index) ?? []
-    addSample(samples, item.raw)
+    addSample(samples, sampleValue(item))
     cluster.values.set(index, samples)
   })
 }
@@ -161,9 +257,10 @@ function createWorking(incoming: Token[]): Working {
 /**
  * Pure, bounded Drain-inspired template mining.
  *
- * Candidate discovery uses a constant number of compact hashed anchor-pair signatures per
- * cluster instead of storing a near-complete message for every omitted token position.
- * Hash collisions are harmless because every candidate is verified token-by-token.
+ * Candidate discovery uses a constant number of compact, position-independent signatures
+ * built from stable words and structured field names. Candidate verification then allows
+ * several learned variable positions while keeping typed placeholders and the leading
+ * semantic token conservative.
  */
 export function clusterLogPatterns(records: LogPatternRecord[]): LogPatternCluster[] {
   const clusters: Working[] = []
@@ -173,46 +270,50 @@ export function clusterLogPatterns(records: LogPatternRecord[]): LogPatternClust
   for (const record of records) {
     const incoming = tokenize(record.message)
     const exactKey = incoming.length.toString(36) + ':' + tokenSequenceHash(incoming)
-    const candidates = new Set<number>(exactIndex.get(exactKey) ?? [])
+    const exactCandidates = exactIndex.get(exactKey) ?? []
     const votes = new Map<number, number>()
-    const signatures = compactSignatures(incoming)
 
-    for (const signature of signatures) {
+    for (const signature of compactSignatures(incoming)) {
       for (const candidateIndex of signatureIndex.get(signature) ?? []) {
         votes.set(candidateIndex, (votes.get(candidateIndex) ?? 0) + 1)
       }
     }
-    for (const [candidateIndex, voteCount] of [...votes.entries()].sort((left, right) => right[1] - left[1])) {
-      if (voteCount >= LOG_PATTERN_LIMITS.minSignatureVotes) candidates.add(candidateIndex)
-    }
+
+    const candidates = [...new Set([
+      ...exactCandidates,
+      ...[...votes.entries()]
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, LOG_PATTERN_LIMITS.maxCandidateClusters)
+        .map(([candidateIndex]) => candidateIndex)
+    ])]
 
     let selected: number | undefined
-    let differingIndex = -1
+    let selectedMatch: Match | null = null
     for (const candidateIndex of candidates) {
-      const difference = matchingDifference(clusters[candidateIndex], incoming)
-      if (difference === null) continue
+      const match = matchingCandidate(clusters[candidateIndex], incoming)
+      if (!match || (selectedMatch && match.score <= selectedMatch.score)) continue
       selected = candidateIndex
-      differingIndex = difference
-      break
+      selectedMatch = match
     }
 
-    if (selected === undefined) {
+    if (selected === undefined || !selectedMatch) {
       selected = clusters.length
       clusters.push(createWorking(incoming))
       addIndex(exactIndex, exactKey, selected)
-      for (const signature of signatures) addIndex(signatureIndex, signature, selected)
+      for (const signature of compactSignatures(incoming)) addIndex(signatureIndex, signature, selected)
+      selectedMatch = { differences: [], score: incoming.length }
     } else {
       addIndex(exactIndex, exactKey, selected)
     }
 
     const cluster = clusters[selected]
-    if (differingIndex >= 0) {
-      const template = cluster.tokens[differingIndex]
+    for (const differingIndex of selectedMatch.differences) {
+      const template = cluster.tokens[differingIndex], item = incoming[differingIndex]
       const samples = cluster.values.get(differingIndex) ?? []
-      addSample(samples, template.raw)
-      addSample(samples, incoming[differingIndex].raw)
+      addSample(samples, sampleValue(template))
+      addSample(samples, sampleValue(item))
       cluster.values.set(differingIndex, samples)
-      Object.assign(template, { display: '<value>', normalized: '<value>', variable: true })
+      generalize(template, item)
     }
     addRecord(cluster, record, incoming)
   }
