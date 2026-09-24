@@ -1,5 +1,3 @@
-import React from 'react'
-void React
 import { copyTextToClipboard } from '../lib/clipboardText'
 import { notify } from './NotificationArea'
 

@@ -15,7 +15,6 @@
 .loadingSpinner { width: 11px; height: 11px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: connection-test-spin .7s linear infinite; }
 @keyframes connection-test-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .loadingSpinner { animation-duration: 1.5s; } }
-.opt { color: var(--text-mute); font-weight: 400; }
 .connPaste { width: 100%; background: var(--bg-4); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 9px; font-family: var(--mono); font-size: 12px; resize: vertical; line-height: 1.5; }
 .connPaste:focus { outline: none; border-color: var(--accent); } .connPaste::placeholder { color: var(--text-mute); }
 .pasteHint { font-size: 10.5px; color: var(--text-mute); margin-top: 5px; line-height: 1.5; }

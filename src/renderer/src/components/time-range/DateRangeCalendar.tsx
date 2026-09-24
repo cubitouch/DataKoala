@@ -1,6 +1,5 @@
 import { TextInput } from '../ui/TextInput'
 import { Combobox } from '../ui/combobox'
-import React from 'react'
 import { useMemo, useRef, useState } from 'react'
 import styles from './TimeRange.module.css'
 import { addDays, compareDateOnly, dateOnlyToUtcDate, formatDateOnly, parseDateOnly, todayDateOnly, type CustomTimeRangeValue } from '../../lib/customTimeRange'

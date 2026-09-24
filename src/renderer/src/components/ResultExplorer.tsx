@@ -13,7 +13,7 @@ export interface ResultExplorerProps {
   hasRun?: boolean
 }
 
-/** Active-session adapter that maps session state onto controlled result presentation. */
+/** Connects active-session state to the controlled result presentation. */
 export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = true }: ResultExplorerProps) {
   const tabId = useStore((state) => state.activeTabId)
   const session = useStore(selectActiveSession)
