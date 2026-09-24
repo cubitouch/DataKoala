@@ -6,6 +6,7 @@ export const LOG_PATTERN_LIMITS = Object.freeze({
   maxMessageCharacters: 8192,
   maxTokens: 160,
   maxVariableSamples: 8,
+  maxStructuredDepth: 8,
   maxSemanticKeys: 10,
   maxCandidateClusters: 32,
   maxVariableRatio: .4,
@@ -17,8 +18,12 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const ipv4 = /^(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?$/
 const ipv6 = /^(?:[0-9a-f]{0,4}:){2,}[0-9a-f]{0,4}(?::\d+)?$/i
 const field = /^([a-z_][a-z0-9_.-]*=)(.+)$/i
+const nullableValue = /^(?:null|none|nil)$/i
+
+function isNullableValue(value: string): boolean { return nullableValue.test(stripMatchingQuotes(value.trim())) }
 
 function normalizedValue(value: string): string | null {
+  if (isNullableValue(value)) return '<value>'
   if (timestamp.test(value)) return '<timestamp>'
   if (uuid.test(value)) return '<uuid>'
   if (ipv4.test(value) || ipv6.test(value)) return '<ip>'
@@ -41,6 +46,7 @@ interface Token {
   suffix: string
   fieldKey?: string
   fieldValueRaw?: string
+  nullable?: boolean
 }
 
 function stripMatchingQuotes(value: string): string {
@@ -62,6 +68,7 @@ function token(raw: string): Token {
       suffix,
       fieldKey,
       fieldValueRaw,
+      nullable: isNullableValue(fieldValueRaw),
       display: placeholder ? prefix + fieldPrefix + placeholder + suffix : raw,
       normalized: placeholder ? 'field:' + fieldKey + '=' + placeholder : core.toLowerCase(),
       variable: Boolean(placeholder)
@@ -71,11 +78,123 @@ function token(raw: string): Token {
   return { raw, prefix, suffix, display: placeholder ? prefix + placeholder + suffix : raw, normalized: placeholder ?? core.toLowerCase(), variable: Boolean(placeholder) }
 }
 
+
+interface StructuredEntry { path: string; rawValue: string }
+
+function scanTopLevel(value: string, delimiter: ',' | ':'): number[] | null {
+  const positions: number[] = []
+  let quote: '"' | "'" | null = null
+  let escaped = false
+  let braces = 0, brackets = 0, parentheses = 0
+  for (let index = 0; index < value.length; index++) {
+    const char = value[index]
+    if (quote) {
+      if (escaped) { escaped = false; continue }
+      if (char === '\\') { escaped = true; continue }
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === '"' || char === "'") { quote = char; continue }
+    if (char === '{') braces += 1
+    else if (char === '}') { braces -= 1; if (braces < 0) return null }
+    else if (char === '[') brackets += 1
+    else if (char === ']') { brackets -= 1; if (brackets < 0) return null }
+    else if (char === '(') parentheses += 1
+    else if (char === ')') { parentheses -= 1; if (parentheses < 0) return null }
+    else if (char === delimiter && braces === 0 && brackets === 0 && parentheses === 0) positions.push(index)
+  }
+  return quote || braces || brackets || parentheses ? null : positions
+}
+
+function splitTopLevel(value: string): string[] | null {
+  const positions = scanTopLevel(value, ',')
+  if (!positions) return null
+  const parts: string[] = []
+  let start = 0
+  for (const position of positions) {
+    parts.push(value.slice(start, position))
+    start = position + 1
+  }
+  parts.push(value.slice(start))
+  return parts
+}
+
+function topLevelColon(value: string): number | null {
+  const positions = scanTopLevel(value, ':')
+  return positions?.[0] ?? null
+}
+
+function structuredKey(raw: string): string | null {
+  const trimmed = raw.trim()
+  const unquoted = stripMatchingQuotes(trimmed)
+  if (!unquoted || (unquoted === trimmed && !/^[a-z_][a-z0-9_.-]*$/i.test(unquoted))) return null
+  return unquoted
+}
+
+function parseStructuredObject(value: string, prefix = '', depth = 0): StructuredEntry[] | null {
+  const trimmed = value.trim()
+  if (depth > LOG_PATTERN_LIMITS.maxStructuredDepth || !trimmed.startsWith('{') || !trimmed.endsWith('}')) return null
+  const body = trimmed.slice(1, -1).trim()
+  if (!body) return []
+  const parts = splitTopLevel(body)
+  if (!parts) return null
+  const entries: StructuredEntry[] = []
+  for (const part of parts) {
+    if (!part.trim()) continue
+    const separator = topLevelColon(part)
+    if (separator === null) return null
+    const key = structuredKey(part.slice(0, separator))
+    if (!key) return null
+    const rawValue = part.slice(separator + 1).trim()
+    if (!rawValue) return null
+    const path = prefix ? prefix + '.' + key : key
+    if (rawValue.startsWith('{') && rawValue.endsWith('}')) {
+      const nested = parseStructuredObject(rawValue, path, depth + 1)
+      if (!nested) return null
+      if (nested.length) entries.push(...nested)
+      else entries.push({ path, rawValue })
+    } else {
+      entries.push({ path, rawValue })
+    }
+    if (entries.length > LOG_PATTERN_LIMITS.maxTokens * 2) break
+  }
+  return entries
+}
+
+function structuredToken(entry: StructuredEntry): Token {
+  const fieldKey = entry.path.toLowerCase()
+  const rawValue = stripMatchingQuotes(entry.rawValue)
+  return {
+    raw: entry.path + '=' + entry.rawValue,
+    prefix: '',
+    suffix: '',
+    fieldKey,
+    fieldValueRaw: rawValue,
+    nullable: isNullableValue(rawValue),
+    display: entry.path + '=<value>',
+    normalized: 'field:' + fieldKey + '=<value>',
+    variable: true
+  }
+}
+
+function structuredObjectTokens(message: string): Token[] | null {
+  const entries = parseStructuredObject(message)
+  if (!entries) return null
+  if (!entries.length) return [token('{}')]
+  entries.sort((left, right) => left.path.localeCompare(right.path))
+  const selected = entries.length <= LOG_PATTERN_LIMITS.maxTokens
+    ? entries
+    : [...entries.slice(0, Math.floor(LOG_PATTERN_LIMITS.maxTokens * .75)), ...entries.slice(-Math.ceil(LOG_PATTERN_LIMITS.maxTokens * .25))]
+  return selected.map(structuredToken)
+}
+
 function tokenize(message: string): Token[] {
   const maxCharacters = LOG_PATTERN_LIMITS.maxMessageCharacters
   const source = message.length <= maxCharacters
     ? message
     : message.slice(0, Math.floor(maxCharacters * .75)) + ' ' + message.slice(-Math.floor(maxCharacters * .25))
+  const structured = structuredObjectTokens(source)
+  if (structured) return structured
   const words = source.match(/\S+/g) ?? []
   if (words.length <= LOG_PATTERN_LIMITS.maxTokens) return words.map(token)
   const headCount = Math.floor(LOG_PATTERN_LIMITS.maxTokens * .75)
@@ -182,6 +301,10 @@ function matchingCandidate(candidate: Working, incoming: Token[]): Match | null 
       if (!broadVariable(template)) stable += 1
       continue
     }
+    if (sameField(template, item) && (template.nullable || item.nullable)) {
+      differences.push(index)
+      continue
+    }
     if (typedPlaceholder(template) || typedPlaceholder(item)) return null
     if (sameField(template, item)) {
       differences.push(index)
@@ -219,6 +342,7 @@ function generalize(template: Token, item: Token): void {
     template.display = template.prefix + (template.fieldKey ?? '') + '=<value>' + template.suffix
     template.normalized = 'field:' + template.fieldKey + '=<value>'
     template.variable = true
+    template.nullable = template.nullable || item.nullable
     return
   }
   template.display = template.prefix + '<value>' + template.suffix
