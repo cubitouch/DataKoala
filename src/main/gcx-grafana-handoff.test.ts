@@ -59,3 +59,27 @@ test('falls back to gcx current-context when a multi-context config does not exp
     datasourceType: 'loki'
   })
 })
+
+
+test('uses a gcx context default datasource before requiring a unique signal datasource', async () => {
+  const run: GcxCommandRunner = async (args) => {
+    if (args[0] === 'config') return {
+      stdout: JSON.stringify({
+        'current-context': 'prod',
+        contexts: { prod: { grafana: { server: 'https://prod.grafana.net' }, datasources: { tempo: 'tempo-preferred' } } }
+      }),
+      stderr: ''
+    }
+    return {
+      stdout: JSON.stringify([
+        { uid: 'tempo-other', type: 'tempo', name: 'Other traces' },
+        { uid: 'tempo-preferred', type: 'tempo', name: 'Preferred traces' }
+      ]),
+      stderr: ''
+    }
+  }
+
+  const result = await resolveGcxGrafanaHandoff({ signal: 'tempo' }, run)
+  assert.equal(result.datasourceUid, 'tempo-preferred')
+  assert.equal(result.datasourceType, 'tempo')
+})
