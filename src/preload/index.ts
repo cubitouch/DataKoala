@@ -16,6 +16,7 @@ import type { PrometheusTransportConfig, TempoTransportConfig } from '@shared/ty
 import type { TempoDatasourceOption } from '@shared/tempoDatasource'
 import type { LokiTransportConfig } from '@shared/types'
 import type { LokiDatasourceOption, LokiMetadataRequest, LokiQueryRequest, LokiQueryResult } from '@shared/loki'
+import type { ResolveGrafanaHandoffRequest, ResolvedGrafanaHandoff } from '@shared/grafanaExplore'
 
 let queryProgressSequence = 0
 
@@ -70,6 +71,9 @@ const api = {
       discoverDatasources: (transport: TempoTransportConfig): Promise<TempoDatasourceOption[]> => ipcRenderer.invoke(IPC.TEMPO_DISCOVER_DATASOURCES, transport),
       attributeValues: (id: string, attribute: string, query?: string): Promise<string[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTE_VALUES, id, attribute, query),
       attributes: (id: string, query?: string): Promise<TempoAttribute[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTES, id, query)
+    },
+    grafana: {
+      resolveHandoff: (request: ResolveGrafanaHandoffRequest): Promise<ResolvedGrafanaHandoff> => ipcRenderer.invoke(IPC.GCX_RESOLVE_GRAFANA_HANDOFF, request)
     },
     loki: {
       discover: (transport: LokiTransportConfig): Promise<LokiDatasourceOption[]> => ipcRenderer.invoke(IPC.LOKI_DISCOVER, transport),
