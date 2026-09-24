@@ -106,6 +106,9 @@ export async function resolveGcxGrafanaHandoff(
   request: { context?: string; datasourceUid?: string; signal: GrafanaSignal },
   run: GcxCommandRunner = runGcxCommand
 ): Promise<ResolvedGrafanaHandoff> {
+  if (!request || !['prometheus', 'loki', 'tempo'].includes(request.signal)) throw new Error('A valid observability signal is required for Grafana handoff.')
+  if (request.context !== undefined && typeof request.context !== 'string') throw new Error('The gcx context must be a string.')
+  if (request.datasourceUid !== undefined && typeof request.datasourceUid !== 'string') throw new Error('The Grafana datasource UID must be a string.')
   try {
     const config = parseGcxJson((await run(['config', 'view', '-o', 'json'])).stdout, 'config view')
     let target: { context: string; baseUrl: string; orgId?: number }
@@ -113,7 +116,7 @@ export async function resolveGcxGrafanaHandoff(
       target = grafanaTargetFromConfig(config, request.context)
     } catch (error) {
       if (request.context?.trim()) throw error
-      const current = currentContextFromOutput((await run(['config', 'current-context', '-o', 'json'])).stdout)
+      const current = currentContextFromOutput((await run(['config', 'current-context'])).stdout)
       if (!current) throw error
       target = grafanaTargetFromConfig(config, current)
     }
