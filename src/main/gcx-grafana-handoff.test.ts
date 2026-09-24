@@ -37,3 +37,25 @@ test('resolves the Grafana destination and a unique compatible datasource withou
     ['api', '/api/datasources', '--context', 'prod', '-o', 'json']
   ])
 })
+
+
+test('falls back to gcx current-context when a multi-context config does not expose the active name', async () => {
+  const run: GcxCommandRunner = async (args) => {
+    if (args.join(' ') === 'config view -o json') return {
+      stdout: JSON.stringify({
+        contexts: {
+          prod: { grafana: { server: 'https://prod.grafana.net' } },
+          staging: { grafana: { server: 'https://staging.grafana.net' } }
+        }
+      }),
+      stderr: ''
+    }
+    if (args.join(' ') === 'config current-context') return { stdout: 'staging\n', stderr: '' }
+    return { stdout: JSON.stringify([{ uid: 'logs-staging', type: 'loki', name: 'Logs' }]), stderr: '' }
+  }
+  assert.deepEqual(await resolveGcxGrafanaHandoff({ signal: 'loki' }, run), {
+    baseUrl: 'https://staging.grafana.net',
+    datasourceUid: 'logs-staging',
+    datasourceType: 'loki'
+  })
+})
