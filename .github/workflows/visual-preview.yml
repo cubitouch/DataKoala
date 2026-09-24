@@ -30,6 +30,7 @@ env:
     sql-narrow-short-tooltip.png
     builder-temporal-series.png
     builder-time-range-open.png
+    builder-time-range-overflow.png
     builder-categorical-numeric.png
     builder-count-without-y.png
     builder-narrow.png
@@ -190,6 +191,7 @@ jobs:
               'sql-narrow-short-tooltip.png': 'SQL mode — narrow/short window with chart tooltip',
               'builder-temporal-series.png': 'Builder — temporal X, numeric Y, and Series',
               'builder-time-range-open.png': 'Builder — open Time range picker',
+              'builder-time-range-overflow.png': 'Builder — overflowing Time range picker',
               'builder-categorical-numeric.png': 'Builder — categorical X and numeric Y',
               'builder-count-without-y.png': 'Builder — Count without a Y axis',
               'builder-narrow.png': 'Builder — narrow responsive layout',
