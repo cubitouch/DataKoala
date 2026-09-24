@@ -70,6 +70,13 @@ function compatibleDatasource(signal: GrafanaSignal, type: string): boolean {
   return /tempo/i.test(type)
 }
 
+function contextDatasourceUid(raw: unknown, context: string, signal: GrafanaSignal): string | undefined {
+  if (!isRecord(raw) || !isRecord(raw.contexts) || !isRecord(raw.contexts[context])) return undefined
+  const datasources = isRecord(raw.contexts[context].datasources) ? raw.contexts[context].datasources as Record<string, unknown> : undefined
+  if (!datasources) return undefined
+  return stringValue(datasources, signal)
+}
+
 function datasourceFromResponse(raw: unknown, signal: GrafanaSignal, requestedUid?: string): { uid: string; type: string } {
   if (!Array.isArray(raw)) throw new Error('gcx returned an invalid Grafana datasource response.')
   const compatible = raw.flatMap((item) => {
@@ -123,7 +130,8 @@ export async function resolveGcxGrafanaHandoff(
 
     const contextArgs = target.context ? ['--context', target.context] : []
     const datasources = parseGcxJson((await run(['api', '/api/datasources', ...contextArgs, '-o', 'json'])).stdout, 'Grafana datasources')
-    const selected = datasourceFromResponse(datasources, request.signal, request.datasourceUid)
+    const requestedUid = request.datasourceUid?.trim() || contextDatasourceUid(config, target.context, request.signal)
+    const selected = datasourceFromResponse(datasources, request.signal, requestedUid)
     return { baseUrl: target.baseUrl, ...(target.orgId ? { orgId: target.orgId } : {}), datasourceUid: selected.uid, datasourceType: selected.type }
   } catch (error) {
     throw normalizedGcxFailure(error)
