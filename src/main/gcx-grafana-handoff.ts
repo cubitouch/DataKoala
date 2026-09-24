@@ -71,10 +71,10 @@ function compatibleDatasource(signal: GrafanaSignal, type: string): boolean {
 }
 
 function contextDatasourceUid(raw: unknown, context: string, signal: GrafanaSignal): string | undefined {
-  if (!isRecord(raw) || !isRecord(raw.contexts) || !isRecord(raw.contexts[context])) return undefined
-  const datasources = isRecord(raw.contexts[context].datasources) ? raw.contexts[context].datasources as Record<string, unknown> : undefined
-  if (!datasources) return undefined
-  return stringValue(datasources, signal)
+  if (!isRecord(raw) || !isRecord(raw.contexts)) return undefined
+  const contextConfig = raw.contexts[context]
+  if (!isRecord(contextConfig) || !isRecord(contextConfig.datasources)) return undefined
+  return stringValue(contextConfig.datasources, signal)
 }
 
 function datasourceFromResponse(raw: unknown, signal: GrafanaSignal, requestedUid?: string): { uid: string; type: string } {
