@@ -2,10 +2,11 @@ import type { ReactNode } from 'react'
 import type { ResultView } from '../lib/resultVisualization'
 import styles from './ChartPicker.module.css'
 
-export type ChartPickerView = ResultView | 'list'
+export type ChartPickerView = ResultView | 'list' | 'patterns'
 const views: Array<{ view: ChartPickerView; label: string; path: ReactNode }> = [
   { view: 'list', label: 'List', path: <><path d="M7 6h14M7 12h14M7 18h14"/><circle cx="3" cy="6" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/></> },
   { view: 'table', label: 'Table', path: <><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M8 4v16"/></> },
+  { view: 'patterns', label: 'Patterns', path: <><path d="M4 6h5M12 6h8M4 12h9M16 12h4M4 18h3M10 18h10"/><circle cx="10.5" cy="6" r="1"/><circle cx="14.5" cy="12" r="1"/><circle cx="8.5" cy="18" r="1"/></> },
   { view: 'bar', label: 'Bar', path: <><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7"/></> },
   { view: 'line', label: 'Line', path: <path d="m3 17 5-6 4 3 8-9"/> },
   { view: 'area', label: 'Area', path: <><path d="m3 17 5-6 4 3 8-9v11H3Z" className={styles.fill}/><path d="m3 17 5-6 4 3 8-9"/></> },

@@ -31,7 +31,7 @@ export interface QuerySessionDraft {
   lokiBuilder: LokiBuilderState
   lokiResultLimit: number
   lokiGroupBy: string[]
-  lokiResultView: 'list' | 'table' | 'line' | 'area' | 'bar' | 'scatter' | 'treemap' | 'sunburst'
+  lokiResultView: 'list' | 'table' | 'patterns' | 'line' | 'area' | 'bar' | 'scatter' | 'treemap' | 'sunburst'
   lokiRangeHistory: BuilderTimeRange[]
   builder: BuilderQueryState
   sqlVisualization: VisualizationConfiguration
@@ -351,7 +351,7 @@ function parseSession(value: unknown): QuerySessionDraft | null {
   const lokiResultLimit = typeof value.lokiResultLimit === 'number' && value.lokiResultLimit > 0 && value.lokiResultLimit <= 5000 ? value.lokiResultLimit : 1000
   const legacyBreakdown = stringOrNull(value.lokiBreakdown)
   const lokiGroupBy = [...new Set(Array.isArray(value.lokiGroupBy) ? value.lokiGroupBy.filter((item): item is string => typeof item === 'string' && item.length > 0 && !item.startsWith('__')) : legacyBreakdown && !legacyBreakdown.startsWith('__') ? [legacyBreakdown] : [])]
-  const lokiResultView = value.lokiResultView === 'chart' ? 'line' : isOneOf(value.lokiResultView, ['list', 'table', 'line', 'area', 'bar', 'scatter', 'treemap', 'sunburst'] as const) ? value.lokiResultView : 'list'
+  const lokiResultView = value.lokiResultView === 'chart' ? 'line' : isOneOf(value.lokiResultView, ['list', 'table', 'patterns', 'line', 'area', 'bar', 'scatter', 'treemap', 'sunburst'] as const) ? value.lokiResultView : 'list'
   const lokiRangeHistory = Array.isArray(value.lokiRangeHistory) ? value.lokiRangeHistory.map(timeRange).filter((item): item is BuilderTimeRange => item !== null) : []
   if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null || !prometheusTimeRange || !prometheusStep || !lokiTimeRange) return null
   const normalized = normalizeBuilderAxis(parsedBuilder, parsedBuilderVisualization)
