@@ -191,7 +191,7 @@ function selectStructuredEntries(entries: StructuredEntry[], budget: number): St
   return [...sorted.slice(0, headCount), ...sorted.slice(-tailCount)]
 }
 
-function structuredObjectTokens(message: string, budget = LOG_PATTERN_LIMITS.maxTokens): Token[] | null {
+function structuredObjectTokens(message: string, budget: number = LOG_PATTERN_LIMITS.maxTokens): Token[] | null {
   const entries = parseStructuredObject(message)
   if (!entries) return null
   if (!entries.length) return [token('{}')]
@@ -237,7 +237,7 @@ function structuralTypeToken(className: string): Token {
   }
 }
 
-function structuredConstructorTokens(value: string, budget = LOG_PATTERN_LIMITS.maxTokens): Token[] | null {
+function structuredConstructorTokens(value: string, budget: number = LOG_PATTERN_LIMITS.maxTokens): Token[] | null {
   const parsed = parseStructuredConstructor(value)
   if (!parsed) return null
   const fieldBudget = Math.max(0, budget - 1)
@@ -314,7 +314,7 @@ function trailingStructuredObject(message: string): { prefix: string; object: st
   return null
 }
 
-function plainTokens(message: string, budget = LOG_PATTERN_LIMITS.maxTokens): Token[] {
+function plainTokens(message: string, budget: number = LOG_PATTERN_LIMITS.maxTokens): Token[] {
   const words = message.match(/\S+/g) ?? []
   if (words.length <= budget) return words.map(token)
   const headCount = Math.floor(budget * .75)
@@ -438,6 +438,7 @@ function compatibleVariable(template: Token, item: Token): boolean {
 function matchingCandidate(candidate: Working, incoming: Token[]): Match | null {
   if (candidate.tokens.length !== incoming.length) return null
   const differences: number[] = []
+  let nullableFieldDifferences = 0
   let stable = 0
 
   for (let index = 0; index < incoming.length; index++) {
@@ -449,6 +450,7 @@ function matchingCandidate(candidate: Working, incoming: Token[]): Match | null 
     if (template.structural || item.structural) return null
     if (sameField(template, item) && (template.nullable || item.nullable)) {
       differences.push(index)
+      nullableFieldDifferences += 1
       continue
     }
     if (typedPlaceholder(template) || typedPlaceholder(item)) return null
@@ -461,7 +463,7 @@ function matchingCandidate(candidate: Working, incoming: Token[]): Match | null 
   }
 
   if (!differences.length) return { differences, score: stable + incoming.length }
-  if (incoming.length < 6) return null
+  if (incoming.length < 6 && nullableFieldDifferences !== differences.length) return null
   const maxDifferences = Math.max(1, Math.floor(incoming.length * LOG_PATTERN_LIMITS.maxVariableRatio))
   if (differences.length > maxDifferences || stable < LOG_PATTERN_LIMITS.minStableTokens) return null
 
