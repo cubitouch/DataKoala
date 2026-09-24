@@ -12,7 +12,10 @@ describe('GrafanaHandoffActions', () => {
   beforeEach(() => { cleanup(); mocks.copy.mockReset(); mocks.open.mockReset() })
   it('copies and opens exactly the same effective-query URL', async () => {
     render(<GrafanaHandoffActions profile={profile} query={'rate(x{label=~"a|b"}[5m])'} range={{ kind: 'rolling', amount: 30, unit: 'minute' }} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Grafana link' })); fireEvent.click(screen.getByRole('button', { name: /Open in Grafana/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Grafana handoff' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy Grafana link' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Grafana handoff' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Open in Grafana/ }))
     await waitFor(() => expect(mocks.copy).toHaveBeenCalledOnce())
     expect(mocks.open).toHaveBeenCalledWith(mocks.copy.mock.calls[0][0])
     const pane = JSON.parse(new URL(mocks.copy.mock.calls[0][0]).searchParams.get('panes')!)
@@ -20,6 +23,8 @@ describe('GrafanaHandoffActions', () => {
   })
   it('disables both actions when configuration is missing', () => {
     render(<GrafanaHandoffActions profile={{ ...profile, grafana: undefined }} query="up" range={{ kind: 'all' }} />)
-    expect(screen.getByRole('button', { name: /Open in Grafana/ }).hasAttribute('disabled')).toBe(true); expect(screen.getByRole('button', { name: 'Copy Grafana link' }).hasAttribute('disabled')).toBe(true)
+    const trigger = screen.getByRole('button', { name: 'Grafana handoff' })
+    expect(trigger.hasAttribute('disabled')).toBe(true)
+    expect(trigger.getAttribute('title')).toMatch(/Configure the Grafana URL/)
   })
 })

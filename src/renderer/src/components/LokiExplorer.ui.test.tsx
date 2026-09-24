@@ -2,6 +2,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LokiExplorer } from './LokiExplorer'
 const mocks = vi.hoisted(() => ({ labels: vi.fn(), labelValues: vi.fn(), formatQuery: vi.fn(), runLoki: vi.fn() }))
+const copyTextToClipboard = vi.hoisted(() => vi.fn())
+vi.mock('../lib/clipboardText', () => ({ copyTextToClipboard }))
 vi.mock('../lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels, labelValues: mocks.labelValues, formatQuery: mocks.formatQuery } }, query: { runLoki: mocks.runLoki } } }))
 import { createQuerySession, useStore } from '../store/useStore'
 import { clearLokiLabelsResources } from '../lib/useLokiLabelsResource'
@@ -16,7 +18,7 @@ afterEach(() => { cleanup(); clearLokiLabelsResources() })
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn()
   const tab = createQuerySession(1, { id: 'loki-tab', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
-  useStore.setState({ tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true, connectionStatus: 'connected', connectionGeneration: 1, profiles: [{ id: 'loki', name: 'Production logs', kind: 'loki', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test' } }] })
+  useStore.setState({ tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true, connectionStatus: 'connected', connectionGeneration: 1, profiles: [{ id: 'loki', name: 'Production logs', kind: 'loki', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test', datasourceUid: 'loki-main' }, grafana: { baseUrl: 'https://grafana.example', datasourceType: 'loki' } }] })
   mocks.labels.mockReset().mockResolvedValue(['app', 'service'])
   mocks.labelValues.mockReset().mockResolvedValue(['x'])
   mocks.runLoki.mockReset()
@@ -55,6 +57,10 @@ describe('LokiExplorer execution', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
     expect(mocks.runLoki.mock.calls[0][1].expression).toBe('{app="x"}')
+    fireEvent.click(screen.getByRole('button', { name: 'Grafana handoff' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy Grafana link' }))
+    const pane = JSON.parse(new URL(copyTextToClipboard.mock.calls.at(-1)![0]).searchParams.get('panes')!)
+    expect(pane.datakoala.queries[0].expr).toBe('{app="x"}')
   })
 
   it('explains why an empty Builder cannot run without a safe metadata anchor', async () => {

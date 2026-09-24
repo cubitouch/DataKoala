@@ -4,6 +4,8 @@ import { buildGrafanaExploreUrl, grafanaRange } from '@shared/grafanaExplore'
 import type { DataSourceProfile } from '@shared/types'
 import { copyTextToClipboard } from '../lib/clipboardText'
 import { api } from '../lib/api'
+import { Popover, PopoverChevron, usePopover } from './ui/Popover'
+import styles from './GrafanaHandoffActions.module.css'
 
 type ObservabilityProfile = Extract<DataSourceProfile, { kind: GrafanaSignal }>
 
@@ -21,8 +23,15 @@ export function grafanaUrlFor(profile: ObservabilityProfile | undefined, query: 
 export function GrafanaHandoffActions({ profile, query, range }: { profile?: ObservabilityProfile; query: string; range: BuilderTimeRange | GrafanaRange }) {
   const url = grafanaUrlFor(profile, query, range)
   const hint = url ? 'Open this query and time range in Grafana Explore' : 'Configure the Grafana URL and datasource mapping in this connection'
-  return <>
-    <button type="button" className="btn ghost" disabled={!url} title={hint} onClick={() => { if (url) void api.external.openUrl(url) }}>Open in Grafana ↗</button>
-    <button type="button" className="btn ghost" disabled={!url} title={url ? 'Copy Grafana Explore link' : hint} onClick={() => { if (url) void copyTextToClipboard(url) }}>Copy Grafana link</button>
-  </>
+  return <Popover ariaLabel="Grafana handoff" trigger={<><span>Grafana</span><PopoverChevron /></>} disabled={!url} popupType="menu" contentRole="menu" preferredWidth={190} triggerClassName={styles.trigger} triggerButtonProps={{ title: hint }}>
+    {url && <GrafanaMenu url={url} />}
+  </Popover>
+}
+
+function GrafanaMenu({ url }: { url: string }) {
+  const popover = usePopover()
+  return <div className={styles.menu}>
+    <button type="button" role="menuitem" onClick={() => { popover?.close(); void api.external.openUrl(url) }}>Open in Grafana ↗</button>
+    <button type="button" role="menuitem" onClick={() => { popover?.close(); void copyTextToClipboard(url) }}>Copy Grafana link</button>
+  </div>
 }

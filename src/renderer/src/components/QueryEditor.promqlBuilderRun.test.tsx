@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const { labelsForMetric, labelValues, promqlAsExtension } = vi.hoisted(() => ({
   labelsForMetric: vi.fn(),
   labelValues: vi.fn(),
   promqlAsExtension: vi.fn(() => ({}))
 }))
+const copyTextToClipboard = vi.hoisted(() => vi.fn())
+vi.mock('../lib/clipboardText', () => ({ copyTextToClipboard }))
 
 vi.mock('../lib/api', () => ({
   api: {
@@ -31,7 +33,7 @@ import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '.
 function arrange(metric: string, metadataType: string | undefined, sql: string) {
   const id = 'prom-builder-run'
   resetTestStore({
-    profiles: [{ id, name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx', datasourceUid: 'prom-main' } }],
+    profiles: [{ id, name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx', datasourceUid: 'prom-main' }, grafana: { baseUrl: 'https://grafana.example', datasourceType: 'prometheus' } }],
     activeProfileId: id,
     connected: true,
     connecting: false,
@@ -79,6 +81,10 @@ describe('PromQL Builder Run availability', () => {
       'histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))'
     )
     await waitFor(() => expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('disabled')).toBe(false))
+    fireEvent.click(screen.getByRole('button', { name: 'Grafana handoff' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy Grafana link' }))
+    const pane = JSON.parse(new URL(copyTextToClipboard.mock.calls.at(-1)![0]).searchParams.get('panes')!)
+    expect(pane.datakoala.queries[0].expr).toBe('histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))')
   })
 
   it('enables Run for a metadata-known native histogram', async () => {

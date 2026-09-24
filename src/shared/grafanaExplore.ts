@@ -16,8 +16,9 @@ export function normalizeGrafanaBaseUrl(value: string): string {
 }
 
 export function grafanaRange(range: GrafanaTimeRange): GrafanaRange {
-  if (range.kind === 'all') return { from: 'now-5y', to: 'now' }
+  if (range.kind === 'all') return { from: '0', to: 'now' }
   if (range.kind === 'rolling') {
+    if (range.unit === 'month') return { from: `now-${range.amount * 30}d`, to: 'now' }
     const suffix = { minute: 'm', hour: 'h', day: 'd', month: 'M' }[range.unit]
     return { from: `now-${range.amount}${suffix}`, to: 'now' }
   }
