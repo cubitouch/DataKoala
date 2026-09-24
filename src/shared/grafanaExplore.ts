@@ -1,5 +1,7 @@
 export type GrafanaSignal = 'prometheus' | 'loki' | 'tempo'
 export interface GrafanaRange { from: string; to: string }
+export interface ResolveGrafanaHandoffRequest { context?: string; datasourceUid?: string; signal: GrafanaSignal }
+export interface ResolvedGrafanaHandoff { baseUrl: string; orgId?: number; datasourceUid: string; datasourceType: string }
 export type GrafanaTimeRange =
   | { kind: 'all' }
   | { kind: 'rolling'; amount: number; unit: 'minute' | 'hour' | 'day' | 'month' }
