@@ -202,3 +202,30 @@ test('treats nullable key=value fields as compatible with typed values', () => {
   assert.match(result[0].template, /duration=<value>/)
   assert.match(result[0].template, /retry=<value>/)
 })
+
+
+test('clusters prose-prefixed Python dictionaries by the trailing object shape', () => {
+  const result = clusterLogPatterns(records(
+    "Sending request for taxes {'from_country': 'US', 'from_zip': 11201, 'from_state': 'NY', 'from_city': 'New York City', 'from_street': '123 Bogart St, Brooklyn', 'to_country': 'US', 'to_zip': 94107, 'to_state': 'CA', 'to_city': 'San Francisco', 'to_street': '500 Market St', 'amount': 1200, 'shipping': 20, 'line_items': [{'id': 'sku-101', 'quantity': 2, 'product_tax_code': 'tx-101', 'unit_price': 500, 'discount': None}], 'nexus_addresses': [{'state': 'CA', 'country': 'US'}, {'state': 'NY', 'country': 'US'}]}",
+    "Sending request for taxes {'to_city': 'Austin', 'from_country': 'US', 'from_zip': 10001, 'from_state': 'NY', 'from_city': 'New York City', 'from_street': '88 8th Ave', 'to_country': 'US', 'to_zip': 78701, 'to_state': None, 'to_street': '100 Congress Ave', 'amount': 2400, 'shipping': 0, 'line_items': [{'id': 'sku-999', 'quantity': 5, 'product_tax_code': 'tx-999', 'unit_price': 480, 'discount': 20}], 'nexus_addresses': [{'state': 'AL', 'country': 'US'}, {'state': 'TX', 'country': 'US'}, {'state': 'WA', 'country': 'US'}]}",
+    "Sending request for taxes {'from_country': 'US', 'from_zip': 60601, 'from_state': 'IL', 'from_city': 'Chicago', 'from_street': '10 Lake St', 'to_country': 'US', 'to_zip': 98101, 'to_state': 'WA', 'to_city': None, 'to_street': '1 Pine St', 'amount': 950, 'shipping': 15, 'line_items': [{'id': 'sku-555', 'quantity': 1, 'product_tax_code': 'tx-555', 'unit_price': 950, 'discount': None}], 'nexus_addresses': [{'state': 'IL', 'country': 'US'}]}"
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 3)
+  assert.match(result[0].template, /^Sending request for taxes /)
+  assert.match(result[0].template, /from_zip=<value>/)
+  assert.match(result[0].template, /line_items=<value>/)
+  assert.match(result[0].template, /nexus_addresses=<value>/)
+  assert.match(result[0].template, /to_state=<value>/)
+})
+
+test('clusters prose-prefixed JSON objects while keeping a different prose action separate', () => {
+  const result = clusterLogPatterns(records(
+    'Sending payload {"service":"checkout","tenant":"alpha","attempt":2}',
+    'Sending payload {"attempt":null,"tenant":"beta","service":"checkout"}',
+    'Received payload {"service":"checkout","tenant":"alpha","attempt":3}'
+  ))
+  assert.equal(result.length, 2)
+  assert.equal(result.find(({ template }) => template.startsWith('Sending payload'))?.count, 2)
+  assert.equal(result.find(({ template }) => template.startsWith('Received payload'))?.count, 1)
+})
