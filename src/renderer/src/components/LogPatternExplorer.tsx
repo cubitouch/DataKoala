@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { LokiLogRow } from '@shared/loki'
 import { clusterLogPatterns, type LogPatternCluster } from '@shared/log-patterns'
@@ -20,6 +20,8 @@ export function LogPatternExplorer({ rows, onViewLogs }: { rows: LokiLogRow[]; o
   const clusters = useMemo(() => clustersFor(rows), [rows])
   const [expanded, setExpanded] = useState<string | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
+  const cards = useRef(new Map<string, HTMLElement>())
+  const previouslyExpanded = useRef<string | null>(null)
   const virtualizer = useVirtualizer({
     count: clusters.length,
     getScrollElement: () => scroller.current,
@@ -29,7 +31,22 @@ export function LogPatternExplorer({ rows, onViewLogs }: { rows: LokiLogRow[]; o
     gap: 9,
     initialRect: { width: 800, height: 600 }
   })
-  useEffect(() => { virtualizer.measure() }, [expanded, virtualizer])
+  const measureCard = useCallback((clusterId: string, element: HTMLElement | null) => {
+    if (!element) { cards.current.delete(clusterId); return }
+    cards.current.set(clusterId, element)
+    virtualizer.measureElement(element)
+  }, [virtualizer])
+  useLayoutEffect(() => {
+    const ids = [...new Set([previouslyExpanded.current, expanded].filter((id): id is string => Boolean(id)))]
+    previouslyExpanded.current = expanded
+    const frame = requestAnimationFrame(() => {
+      for (const id of ids) {
+        const element = cards.current.get(id)
+        if (element) virtualizer.measureElement(element)
+      }
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [expanded, virtualizer])
 
   return <section className={styles.root} aria-label="Log patterns">
     <header><div><h2>Patterns</h2><p>{clusters.length} patterns across {rows.length} loaded logs</p></div></header>
@@ -37,7 +54,7 @@ export function LogPatternExplorer({ rows, onViewLogs }: { rows: LokiLogRow[]; o
       <div className={styles.spacer} style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
           const cluster = clusters[item.index], open = expanded === cluster.id
-          return <article ref={virtualizer.measureElement} data-index={item.index} data-pattern-card className={styles.card} key={cluster.id} data-expanded={open || undefined} style={{ transform: 'translateY(' + item.start + 'px)' }}>
+          return <article ref={(element) => measureCard(cluster.id, element)} data-index={item.index} data-pattern-card className={styles.card} key={cluster.id} data-expanded={open || undefined} style={{ transform: 'translateY(' + item.start + 'px)' }}>
             <button className={styles.summary} type="button" aria-expanded={open} onClick={() => setExpanded(open ? null : cluster.id)}>
               <code>{cluster.segments.map((segment, index) => <span key={index} className={segment.variable ? styles.variable : styles.literal}>{segment.text}{index < cluster.segments.length - 1 ? ' ' : ''}</span>)}</code>
               <span className={styles.metrics}><strong>{cluster.count}</strong> logs · {cluster.percentage.toFixed(1)}%</span>
