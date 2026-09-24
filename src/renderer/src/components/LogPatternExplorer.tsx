@@ -1,13 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { LokiLogRow } from '@shared/loki'
-import { clusterLogPatterns } from '@shared/log-patterns'
+import { clusterLogPatterns, type LogPatternCluster } from '@shared/log-patterns'
 import { effectiveLogMessage } from '../lib/lokiLogMessage'
 import styles from './LogPatternExplorer.module.css'
 
+const clusterCache = new WeakMap<LokiLogRow[], LogPatternCluster[]>()
+
+function clustersFor(rows: LokiLogRow[]): LogPatternCluster[] {
+  const cached = clusterCache.get(rows)
+  if (cached) return cached
+  const records = rows.map((row) => ({ id: row.id, message: effectiveLogMessage(row), timestampMs: row.timestampMs, severity: row.severity }))
+  const clusters = clusterLogPatterns(records)
+  clusterCache.set(rows, clusters)
+  return clusters
+}
+
 export function LogPatternExplorer({ rows, onViewLogs }: { rows: LokiLogRow[]; onViewLogs: (template: string, memberIds: string[]) => void }) {
-  const records = useMemo(() => rows.map((row) => ({ id: row.id, message: effectiveLogMessage(row), timestampMs: row.timestampMs, severity: row.severity })), [rows])
-  const clusters = useMemo(() => clusterLogPatterns(records), [records])
+  const clusters = useMemo(() => clustersFor(rows), [rows])
   const [expanded, setExpanded] = useState<string | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
@@ -27,7 +37,7 @@ export function LogPatternExplorer({ rows, onViewLogs }: { rows: LokiLogRow[]; o
       <div className={styles.spacer} style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
           const cluster = clusters[item.index], open = expanded === cluster.id
-          return <article ref={virtualizer.measureElement} data-index={item.index} data-pattern-card className={styles.card} key={cluster.id} data-expanded={open || undefined} style={{ transform: `translateY(${item.start}px)` }}>
+          return <article ref={virtualizer.measureElement} data-index={item.index} data-pattern-card className={styles.card} key={cluster.id} data-expanded={open || undefined} style={{ transform: 'translateY(' + item.start + 'px)' }}>
             <button className={styles.summary} type="button" aria-expanded={open} onClick={() => setExpanded(open ? null : cluster.id)}>
               <code>{cluster.segments.map((segment, index) => <span key={index} className={segment.variable ? styles.variable : styles.literal}>{segment.text}{index < cluster.segments.length - 1 ? ' ' : ''}</span>)}</code>
               <span className={styles.metrics}><strong>{cluster.count}</strong> logs · {cluster.percentage.toFixed(1)}%</span>
