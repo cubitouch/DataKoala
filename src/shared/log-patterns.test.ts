@@ -92,3 +92,46 @@ test('caps the representation used to mine very large messages', () => {
   assert.equal(result.length, 1)
   assert.equal(result[0].count, 2)
 })
+
+
+test('groups logs with several changing textual values when the surrounding structure is stable', () => {
+  const result = clusterLogPatterns(records(
+    'Checkout for customer alice in tenant north failed after request 12345 timed out',
+    'Checkout for customer bob in tenant south failed after request 98765 timed out',
+    'Checkout for customer carol in tenant west failed after request 45678 timed out'
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 3)
+  assert.match(result[0].template, /customer <value> in tenant <value>/)
+  assert.equal(result[0].variables.length >= 3, true)
+})
+
+test('uses key=value field names as stable structure and generalizes their values', () => {
+  const result = clusterLogPatterns(records(
+    'request completed service=checkout tenant=alpha request_id=req-101 duration=120ms',
+    'request completed service=checkout tenant=beta request_id=req-202 duration=250ms',
+    'request completed service=checkout tenant=gamma request_id=req-303 duration=180ms'
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 3)
+  assert.match(result[0].template, /tenant=<value>/)
+  assert.match(result[0].template, /request_id=<value>/)
+  assert.match(result[0].template, /duration=<duration>/)
+})
+
+test('does not merge longer messages whose leading semantic action differs', () => {
+  const result = clusterLogPatterns(records(
+    'Started worker 123 after authentication completed successfully for service checkout',
+    'Stopped worker 456 after authentication completed successfully for service checkout'
+  ))
+  assert.equal(result.length, 2)
+})
+
+test('candidate discovery is position independent for stable semantic words', () => {
+  const result = clusterLogPatterns(records(
+    'Payment for customer alice on tenant north request 12345 failed with downstream timeout',
+    'Payment for customer bob on tenant south request 98765 failed with downstream timeout'
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 2)
+})
