@@ -135,3 +135,70 @@ test('candidate discovery is position independent for stable semantic words', ()
   assert.equal(result.length, 1)
   assert.equal(result[0].count, 2)
 })
+
+
+test('clusters JSON objects by canonical key structure regardless of key order or nullable values', () => {
+  const result = clusterLogPatterns(records(
+    '{"service":"checkout","tenant":"alpha","request_id":"req-101","attempt":2}',
+    '{"request_id":"req-202","attempt":null,"tenant":"beta","service":"checkout"}',
+    '{"tenant":null,"service":"checkout","attempt":5,"request_id":"req-303"}'
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 3)
+  assert.match(result[0].template, /attempt=<value>/)
+  assert.match(result[0].template, /request_id=<value>/)
+  assert.match(result[0].template, /tenant=<value>/)
+})
+
+test('clusters Python dictionary strings and treats None like any other value for the same key', () => {
+  const result = clusterLogPatterns(records(
+    "{'service': 'checkout', 'tenant': 'alpha', 'request_id': 'req-101', 'retry': True}",
+    "{'request_id': 'req-202', 'retry': None, 'tenant': 'beta', 'service': 'checkout'}",
+    "{'tenant': None, 'service': 'checkout', 'retry': False, 'request_id': 'req-303'}"
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 3)
+  assert.match(result[0].template, /retry=<value>/)
+  assert.match(result[0].template, /tenant=<value>/)
+})
+
+test('flattens nested JSON and Python dictionaries into stable key paths', () => {
+  const result = clusterLogPatterns(records(
+    '{"event":"checkout","user":{"id":123,"profile":{"region":"fr"}},"result":{"code":200}}',
+    "{'result': {'code': None}, 'user': {'profile': {'region': 'uk'}, 'id': 456}, 'event': 'checkout'}"
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 2)
+  assert.match(result[0].template, /result\.code=<value>/)
+  assert.match(result[0].template, /user\.id=<value>/)
+  assert.match(result[0].template, /user\.profile\.region=<value>/)
+})
+
+test('parses quoted commas and colons inside structured string values', () => {
+  const result = clusterLogPatterns(records(
+    '{"message":"failed: downstream, timed out","service":"checkout","context":{"note":"a,b:c"}}',
+    "{'context': {'note': 'x,y:z'}, 'service': 'checkout', 'message': 'failed: upstream, timed out'}"
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 2)
+})
+
+test('keeps structured objects with different key shapes separate', () => {
+  const result = clusterLogPatterns(records(
+    '{"service":"checkout","tenant":"alpha","request_id":"req-101"}',
+    '{"service":"checkout","tenant":"alpha","trace_id":"trace-101"}'
+  ))
+  assert.equal(result.length, 2)
+})
+
+test('treats nullable key=value fields as compatible with typed values', () => {
+  const result = clusterLogPatterns(records(
+    'request completed service=checkout duration=120ms retry=2',
+    'request completed service=checkout duration=null retry=None',
+    'request completed service=checkout duration=250ms retry=3'
+  ))
+  assert.equal(result.length, 1)
+  assert.equal(result[0].count, 3)
+  assert.match(result[0].template, /duration=<value>/)
+  assert.match(result[0].template, /retry=<value>/)
+})
