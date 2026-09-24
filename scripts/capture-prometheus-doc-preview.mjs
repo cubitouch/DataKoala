@@ -150,11 +150,7 @@ async function seedPrometheusWorkspace(win) {
     `document.querySelector('[data-result-chart-canvas] canvas') && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Line' && document.body.innerText.includes('Last 6 hours')`,
     'rendered Prometheus line result')
 
-  await win.webContents.executeJavaScript(`(() => {
-    const schema = [...document.querySelectorAll('[role="treeitem"]')].find((item) => item.textContent?.includes('Prometheus'))
-    if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('button')?.click()
-  })()`)
-  await waitFor(win, `document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'expanded Prometheus metric tree')
+  await waitFor(win, `document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'Prometheus metric tree')
 }
 
 app.whenReady().then(async () => {

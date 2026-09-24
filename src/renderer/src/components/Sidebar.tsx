@@ -239,7 +239,7 @@ export function Sidebar() {
         <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label={objectFilterLabel} labelVisibility="sr-only" /></div>
         {schemas.length === 0 ? <div className={styles.objectStatus}>No database objects</div> :
         isPrometheusMetadata && activeTabConnectionId ? <PrometheusMetadataTree connectionId={activeTabConnectionId} schemas={schemas} expanded={expanded} filter={filter} selectedMetric={promqlBuilder.metric}
-          onToggleSchema={toggle} onToggleMetric={(relation) => toggle(`relation:${relation.qualifiedName}`)} onActivateMetric={selectForBuilder} /> :
+          onToggleMetric={(relation) => toggle(`relation:${relation.qualifiedName}`)} onActivateMetric={selectForBuilder} /> :
         isSqlSource ? <SqlMetadataTree schemas={schemas} expanded={expanded} filter={filter} selectedRelation={builderTable}
           onToggleSchema={toggle}
           onToggleRelation={(relation) => void expandRelation(relation)}

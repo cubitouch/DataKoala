@@ -38,13 +38,16 @@ afterEach(() => { cleanup(); resetTestStore() })
 describe('Prometheus metric object tree', () => {
   it('selects a metric for Builder without taking over metadata expansion', async () => {
     render(<Sidebar />)
-    expect(await screen.findByText('Metrics')).toBeTruthy()
+    const tree = await screen.findByRole('tree', { name: 'Prometheus metrics' })
+    expect(within(tree).queryByText('Metrics')).toBeNull()
     const metric = await screen.findByRole('button', { name: 'Select http_requests_total for Builder' })
     const row = metric.closest<HTMLElement>('[role=treeitem]')!
     expect(within(row).getByText('counter')).toBeTruthy()
     expect(within(row).queryByText('metric')).toBeNull()
     const tooltip = screen.getByRole('tooltip', { name: 'Total HTTP requests.' })
     expect(metric.getAttribute('aria-describedby')).toBe(tooltip.id)
+    expect(screen.getByRole('button', { name: 'Expand http_requests_total' })).toBeTruthy()
+    expect(screen.queryByText('Labels')).toBeNull()
 
     fireEvent.click(metric)
 

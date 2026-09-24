@@ -13,7 +13,6 @@ type Props = {
   expanded: ReadonlySet<string>
   filter: string
   selectedMetric?: string | null
-  onToggleSchema: (id: string) => void
   onToggleMetric: (relation: DatabaseRelationNode) => void
   onActivateMetric: (relation: DatabaseRelationNode) => void
 }
@@ -72,18 +71,11 @@ export function PrometheusMetadataTree(props: Props) {
   }, [props.connectionId, props.expanded, props.schemas])
 
   const needle = props.filter.trim().toLocaleLowerCase()
-  const visibleSchemas = props.schemas.flatMap((schema) => {
-    const schemaMatches = schema.name.toLocaleLowerCase().includes(needle)
-    const relations = needle && !schemaMatches
-      ? schema.relations.filter((metric) => metric.name.toLocaleLowerCase().includes(needle))
-      : schema.relations
-    return relations.length || schemaMatches ? [{ ...schema, relations }] : []
-  })
+  const visibleMetrics = props.schemas
+    .flatMap((schema) => schema.relations)
+    .filter((metric) => metric.name.toLocaleLowerCase().includes(needle))
 
-  const nodes: MetadataTreeNode[] = visibleSchemas.map((schema) => ({
-    id: `schema:${schema.name}`, label: schema.name, tooltip: schema.name, badge: schema.isSystem ? 'system' : undefined,
-    expandable: true, expanded: Boolean(needle) || props.expanded.has(`schema:${schema.name}`),
-    children: schema.relations.map((metric) => {
+  const nodes: MetadataTreeNode[] = visibleMetrics.map((metric) => {
       const id = `relation:${metric.qualifiedName}`
       metrics.set(id, metric)
       const state = labels[metricKey(metric)]
@@ -124,9 +116,8 @@ export function PrometheusMetadataTree(props: Props) {
         children
       }
     })
-  }))
 
-  return <MetadataTree ariaLabel="Database objects" nodes={nodes}
+  return <MetadataTree ariaLabel="Prometheus metrics" nodes={nodes}
     onToggle={(node) => {
       const metric = metrics.get(node.id)
       if (metric) {
@@ -141,7 +132,6 @@ export function PrometheusMetadataTree(props: Props) {
         if (!openLabels.has(key)) void loadValues(label.metric, label.label)
         return
       }
-      props.onToggleSchema(node.id)
     }}
     onActivate={(node) => { const metric = metrics.get(node.id); if (metric) props.onActivateMetric(metric) }}
     onRetry={(node) => {

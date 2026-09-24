@@ -497,12 +497,7 @@ async function configurePrometheusToolbar(win) {
     return { ok: true }
   })()`)
   if (report?.error) throw new Error(report.error)
-  await waitForRendererState(win, `document.body.innerText.includes('http_requests_total') || Boolean([...document.querySelectorAll('[role="treeitem"]')].find((node) => node.textContent?.includes('Metrics')))`, 'Prometheus metric browser')
-  await win.webContents.executeJavaScript(`(() => {
-    const item = [...document.querySelectorAll('[role="treeitem"]')].find((node) => node.textContent?.includes('Metrics'))
-    if (item?.getAttribute('aria-expanded') === 'false') item.querySelector('button')?.click()
-  })()`)
-  await waitForRendererState(win, `document.body.innerText.includes('http_requests_total')`, 'expanded Prometheus metrics')
+  await waitForRendererState(win, `document.body.innerText.includes('http_requests_total')`, 'Prometheus metric browser')
 }
 
 async function configurePrometheusBuilder(win) {
