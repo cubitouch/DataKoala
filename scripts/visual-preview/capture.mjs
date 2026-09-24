@@ -728,6 +728,42 @@ async function closeTimeRangePicker(win) {
   await waitForRendererState(win, `!([...document.querySelectorAll('[role="dialog"]')].some((candidate) => candidate.querySelector('#time-range-title')))`, 'closed Builder Time range picker')
 }
 
+async function configureOverflowingTimeRangePicker(win) {
+  await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    const state = store.getState()
+    const recurringWindows = Array.from({ length: 8 }, (_, index) => ({
+      id: 'preview-window-' + index,
+      from: String(index * 3).padStart(2, '0') + ':00',
+      to: String(index * 3 + 2).padStart(2, '0') + ':00'
+    }))
+    store.setState({ tabs: state.tabs.map((tab) => tab.id === state.activeTabId
+      ? { ...tab, builder: { ...tab.builder, timeRange: { ...tab.builder.timeRange, recurringWindows } } }
+      : tab) })
+  })()`)
+  await openTimeRangePicker(win)
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const dialog = [...document.querySelectorAll('[role="dialog"]')].find((candidate) => candidate.querySelector('#time-range-title'))
+    const editor = dialog?.querySelector('[data-time-range-region="editor"]')
+    const presets = dialog?.querySelector('[data-time-range-region="presets"]')
+    const actions = dialog?.querySelector('[data-time-range-region="actions"]')
+    if (editor) editor.scrollTop = editor.scrollHeight
+    const dialogBounds = dialog?.getBoundingClientRect()
+    const actionBounds = actions?.getBoundingClientRect()
+    return {
+      timeInputs: editor?.querySelectorAll('input[type="time"]').length,
+      editorOverflow: Boolean(editor && editor.scrollHeight > editor.clientHeight),
+      editorOverflowY: editor && getComputedStyle(editor).overflowY,
+      presetsOverflowY: presets && getComputedStyle(presets).overflowY,
+      footerVisible: Boolean(dialogBounds && actionBounds && actionBounds.top >= dialogBounds.top && actionBounds.bottom <= dialogBounds.bottom)
+    }
+  })()`)
+  // Eight recurring rows plus the range's start and end boundary inputs.
+  if (report.timeInputs !== 18 || !report.editorOverflow || report.editorOverflowY !== 'auto' || report.presetsOverflowY !== 'auto' || !report.footerVisible) {
+    throw new Error(`Overflowing Time range picker preview is incomplete: ${JSON.stringify(report)}`)
+  }
+}
+
 async function verifyCompactAxisScale(win) {
   const width = await win.webContents.executeJavaScript(`document.querySelector('[data-field][data-field-name="Value axis scale"] [data-popover-trigger]')?.getBoundingClientRect().width`)
   if (width < 90 || width > 110) throw new Error(`Value axis scale is not compact: ${JSON.stringify(width)}`)
@@ -957,6 +993,11 @@ app.whenReady().then(async () => {
     await openTimeRangePicker(win)
     await assertCanonicalCaptureState(win, 'Open Builder Time range preview')
     await capture(win, 'builder-time-range-open.png')
+    await closeTimeRangePicker(win)
+
+    await configureOverflowingTimeRangePicker(win)
+    await assertCanonicalCaptureState(win, 'Overflowing Builder Time range preview')
+    await capture(win, 'builder-time-range-overflow.png')
     await closeTimeRangePicker(win)
 
     await configureBuilderControls(win, 'categorical-numeric')
