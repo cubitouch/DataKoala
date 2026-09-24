@@ -177,15 +177,65 @@ function structuredToken(entry: StructuredEntry): Token {
   }
 }
 
-function structuredObjectTokens(message: string): Token[] | null {
+function selectStructuredEntries(entries: StructuredEntry[], budget: number): StructuredEntry[] {
+  const sorted = [...entries].sort((left, right) => left.path.localeCompare(right.path))
+  if (sorted.length <= budget) return sorted
+  const headCount = Math.floor(budget * .75)
+  const tailCount = budget - headCount
+  return [...sorted.slice(0, headCount), ...sorted.slice(-tailCount)]
+}
+
+function structuredObjectTokens(message: string, budget = LOG_PATTERN_LIMITS.maxTokens): Token[] | null {
   const entries = parseStructuredObject(message)
   if (!entries) return null
   if (!entries.length) return [token('{}')]
-  entries.sort((left, right) => left.path.localeCompare(right.path))
-  const selected = entries.length <= LOG_PATTERN_LIMITS.maxTokens
-    ? entries
-    : [...entries.slice(0, Math.floor(LOG_PATTERN_LIMITS.maxTokens * .75)), ...entries.slice(-Math.ceil(LOG_PATTERN_LIMITS.maxTokens * .25))]
-  return selected.map(structuredToken)
+  return selectStructuredEntries(entries, Math.max(1, budget)).map(structuredToken)
+}
+
+function trailingStructuredObject(message: string): { prefix: string; object: string } | null {
+  const source = message.trimEnd()
+  let quote: '"' | "'" | null = null
+  let escaped = false
+  let depth = 0
+  let start = -1
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index]
+    if (quote) {
+      if (escaped) { escaped = false; continue }
+      if (char === '\\') { escaped = true; continue }
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === '"' || char === "'") { quote = char; continue }
+    if (char === '{') {
+      if (depth === 0) start = index
+      depth += 1
+      continue
+    }
+    if (char !== '}') continue
+    depth -= 1
+    if (depth < 0) return null
+    if (depth === 0 && start >= 0 && index === source.length - 1) {
+      return { prefix: source.slice(0, start).trim(), object: source.slice(start, index + 1) }
+    }
+  }
+  return null
+}
+
+function plainTokens(message: string, budget = LOG_PATTERN_LIMITS.maxTokens): Token[] {
+  const words = message.match(/\S+/g) ?? []
+  if (words.length <= budget) return words.map(token)
+  const headCount = Math.floor(budget * .75)
+  const tailCount = budget - headCount
+  return [...words.slice(0, headCount), ...words.slice(-tailCount)].map(token)
+}
+
+function structuredMessageTokens(message: string): Token[] | null {
+  const trailing = trailingStructuredObject(message)
+  if (!trailing) return null
+  const prefixTokens = trailing.prefix ? plainTokens(trailing.prefix, Math.min(32, LOG_PATTERN_LIMITS.maxTokens - 1)) : []
+  const structured = structuredObjectTokens(trailing.object, LOG_PATTERN_LIMITS.maxTokens - prefixTokens.length)
+  return structured ? [...prefixTokens, ...structured] : null
 }
 
 function tokenize(message: string): Token[] {
@@ -193,13 +243,9 @@ function tokenize(message: string): Token[] {
   const source = message.length <= maxCharacters
     ? message
     : message.slice(0, Math.floor(maxCharacters * .75)) + ' ' + message.slice(-Math.floor(maxCharacters * .25))
-  const structured = structuredObjectTokens(source)
+  const structured = structuredMessageTokens(source)
   if (structured) return structured
-  const words = source.match(/\S+/g) ?? []
-  if (words.length <= LOG_PATTERN_LIMITS.maxTokens) return words.map(token)
-  const headCount = Math.floor(LOG_PATTERN_LIMITS.maxTokens * .75)
-  const tailCount = LOG_PATTERN_LIMITS.maxTokens - headCount
-  return [...words.slice(0, headCount), ...words.slice(-tailCount)].map(token)
+  return plainTokens(source)
 }
 
 function hashText(text: string, seed = 2166136261): number {
