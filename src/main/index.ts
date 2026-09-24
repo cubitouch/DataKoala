@@ -23,6 +23,8 @@ import type { LokiMetadataRequest, LokiQueryRequest } from '@shared/loki'
 import { GcxLokiTransport } from './gcx-loki-transport'
 import { validateExternalUrl } from './external-url'
 import { discoverTempoDatasources } from './tempo-datasource-discovery'
+import { resolveGcxGrafanaHandoff } from './gcx-grafana-handoff'
+import type { ResolveGrafanaHandoffRequest } from '@shared/grafanaExplore'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -551,6 +553,7 @@ app.on('before-quit', (event) => {
 
 function registerIpc(): void {
   ipcMain.handle(IPC.EXTERNAL_OPEN_URL, (_event, url: unknown) => shell.openExternal(validateExternalUrl(url)))
+  ipcMain.handle(IPC.GCX_RESOLVE_GRAFANA_HANDOFF, (_event, request: ResolveGrafanaHandoffRequest) => resolveGcxGrafanaHandoff(request))
   ipcMain.handle(IPC.CLIPBOARD_WRITE_PNG, (_event, dataUrl: unknown) => writePngDataUrl(dataUrl, {
     createFromBuffer: (buffer) => nativeImage.createFromBuffer(buffer),
     writeImage: (image) => clipboard.writeImage(image as Electron.NativeImage),
