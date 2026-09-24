@@ -12,9 +12,11 @@ import type { SeriesCardinalityProbeRequest, SeriesCardinalityProbeResult, Serie
 import type { BigQueryDatasetOption, BigQueryDiscoveryDefaults, BigQueryProjectOption } from '@shared/bigqueryDiscovery'
 import type { PrometheusDatasourceOption, PrometheusDiscoveryResult, PrometheusQueryRequest } from '@shared/prometheus'
 import type { TempoAttribute, TempoQueryRequest, TempoSearchProgress, TempoSearchProgressEnvelope } from '@shared/tempo'
-import type { PrometheusTransportConfig } from '@shared/types'
+import type { PrometheusTransportConfig, TempoTransportConfig } from '@shared/types'
+import type { TempoDatasourceOption } from '@shared/tempoDatasource'
 import type { LokiTransportConfig } from '@shared/types'
 import type { LokiDatasourceOption, LokiMetadataRequest, LokiQueryRequest, LokiQueryResult } from '@shared/loki'
+import type { ResolveGrafanaHandoffRequest, ResolvedGrafanaHandoff } from '@shared/grafanaExplore'
 
 let queryProgressSequence = 0
 
@@ -24,6 +26,7 @@ function nextQueryProgressRequestId(): string {
 }
 
 const api = {
+  external: { openUrl: (url: string): Promise<void> => ipcRenderer.invoke(IPC.EXTERNAL_OPEN_URL, url) },
   /** True only when the app is launched by a test/repro harness. */
   smokeMode: process.env.DATAKOALA_SMOKE === '1' || !!process.env.DATAKOALA_REPRO,
   /** Narrow opt-in flag; no arbitrary environment values cross the context bridge. */
@@ -65,8 +68,12 @@ const api = {
       formatQuery: (connectionId: string, query: string): Promise<string> => ipcRenderer.invoke(IPC.PROMETHEUS_FORMAT_QUERY, connectionId, query)
     },
     tempo: {
+      discoverDatasources: (transport: TempoTransportConfig): Promise<TempoDatasourceOption[]> => ipcRenderer.invoke(IPC.TEMPO_DISCOVER_DATASOURCES, transport),
       attributeValues: (id: string, attribute: string, query?: string): Promise<string[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTE_VALUES, id, attribute, query),
       attributes: (id: string, query?: string): Promise<TempoAttribute[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTES, id, query)
+    },
+    grafana: {
+      resolveHandoff: (request: ResolveGrafanaHandoffRequest): Promise<ResolvedGrafanaHandoff> => ipcRenderer.invoke(IPC.GCX_RESOLVE_GRAFANA_HANDOFF, request)
     },
     loki: {
       discover: (transport: LokiTransportConfig): Promise<LokiDatasourceOption[]> => ipcRenderer.invoke(IPC.LOKI_DISCOVER, transport),

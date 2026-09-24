@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { notify } = vi.hoisted(() => ({ notify: vi.fn() }))
+const copyTextToClipboard = vi.hoisted(() => vi.fn())
+vi.mock('../lib/clipboardText', () => ({ copyTextToClipboard }))
 vi.mock('./NotificationArea', () => ({ notify }))
 vi.mock('../lib/api', () => ({ api: { tempoPerformanceEnabled: false, connections: { tempo: { attributes: vi.fn().mockResolvedValue([]), attributeValues: vi.fn().mockResolvedValue([]) } }, query: { run: vi.fn() } } }))
 vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: {} }))
@@ -28,7 +30,7 @@ describe('TraceExplorer TraceQL editor', () => {
   beforeEach(() => {
     resetTestStore()
     patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'sql', sql: '{resource.service.name="checkout"}' })
-    useStore.setState({ profiles: [{ id: 'tempo-1', name: 'Tempo', kind: 'tempo', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test' } }] })
+    useStore.setState({ profiles: [{ id: 'tempo-1', name: 'Tempo', kind: 'tempo', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test', datasourceUid: 'tempo-main' }, grafana: { baseUrl: 'https://grafana.example', datasourceType: 'tempo' } }] })
     notify.mockReset()
     vi.mocked(api.query.run).mockReset()
   })
@@ -73,6 +75,10 @@ describe('TraceExplorer TraceQL editor', () => {
     await waitFor(() => expect(api.query.run).toHaveBeenCalled())
     expect(vi.mocked(api.query.run).mock.calls[0]?.[1]).toBe('{ span:duration > 300ms }')
     expect(vi.mocked(api.query.run).mock.calls[0]?.[1]).not.toContain('select now()')
+    fireEvent.click(screen.getByRole('button', { name: 'Grafana handoff' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy Grafana link' }))
+    const pane = JSON.parse(new URL(copyTextToClipboard.mock.calls.at(-1)![0]).searchParams.get('panes')!)
+    expect(pane.datakoala.queries[0].query).toBe('{ span:duration > 300ms }')
 
     fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
     await waitFor(() => expect(activeTestSession().queryMode).toBe('sql'))

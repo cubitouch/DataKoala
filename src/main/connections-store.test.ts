@@ -54,3 +54,11 @@ test('Tempo gcx profiles persist independently from Prometheus profiles', () => 
   assert.equal(result.profile.kind, 'tempo')
   assert.deepEqual(result.profile.transport, { kind: 'gcx', context: 'production' })
 })
+test('observability Grafana handoff config and Tempo datasource UID remain optional and round-trip', () => {
+  const oldTempo = { kind: 'tempo', version: 1, id: 't1', name: 'Traces', readonly: true, transport: { kind: 'gcx' } }
+  assert.equal(migrateStoredProfile(oldTempo).status, 'current')
+  const configured = { ...oldTempo, transport: { kind: 'gcx', datasourceUid: 'tempo-main' }, grafana: { baseUrl: 'https://example.com/grafana', orgId: 4, datasourceType: 'tempo' } }
+  const result = migrateStoredProfile(configured)
+  assert.equal(result.status, 'current')
+  if (result.status === 'current') assert.deepEqual(result.profile, configured)
+})

@@ -103,22 +103,33 @@ export type PrometheusTransportConfig = GcxSignalTransportConfig
 export type TempoTransportConfig = GcxSignalTransportConfig
 export type LokiTransportConfig = GcxSignalTransportConfig
 
+/** Browser-only Grafana Explore destination. Query authentication remains in transport. */
+export interface GrafanaHandoffConfig {
+  baseUrl: string
+  orgId?: number
+  datasourceUid?: string
+  datasourceType?: string
+}
+
 export interface PrometheusProfile extends ProfileBase {
   kind: 'prometheus'
   readonly: true
   transport: PrometheusTransportConfig
+  grafana?: GrafanaHandoffConfig
 }
 
 export interface TempoProfile extends ProfileBase {
   kind: 'tempo'
   readonly: true
   transport: TempoTransportConfig
+  grafana?: GrafanaHandoffConfig
 }
 
 export interface LokiProfile extends ProfileBase {
   kind: 'loki'
   readonly: true
   transport: LokiTransportConfig
+  grafana?: GrafanaHandoffConfig
 }
 
 export type DataSourceProfile = PostgresProfile | LocalFilesProfile | SqliteFileProfile | BigQueryProfile | PrometheusProfile | TempoProfile | LokiProfile
