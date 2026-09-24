@@ -24,6 +24,7 @@ import type { VisualizationConfiguration } from '../lib/resultVisualization'
 import type { ResultFilter } from '../lib/resultFilters'
 import { QueryToolbar } from './query/QueryToolbar'
 import { QueryCodeEditor } from './query/QueryCodeEditor'
+import { GrafanaHandoffActions } from './GrafanaHandoffActions'
 
 const defaultRange: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
 const serviceNameFallback = { label: 'service_name', operator: '=~' as const, value: '.+' }
@@ -41,6 +42,7 @@ function customRange({ startMs, endMs }: LokiTrendRange): BuilderTimeRange {
 }
 
 export function LokiExplorer({ connectionId }: { connectionId: string }) {
+  const profile = useStore((state) => state.profiles.find((item) => item.id === connectionId && item.kind === 'loki'))
   const session = useStore(selectActiveSession)
   const setSql = useStore((state) => state.setSql)
   const setMode = useStore((state) => state.setQueryMode)
@@ -156,7 +158,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
         mode={<ModeSwitch />}
         options={<div className={styles.queryOptions}><TimeRangeField labelVisibility="sr-only" value={range} onChange={(value) => setLokiState({ lokiTimeRange: value })} /><TextInput label="Limit" mode="inline" type="number" min={1} max={5000} value={limit} onValueChange={(text) => setLokiState({ lokiResultLimit: Math.max(1, Math.min(5000, Number(text))) })} />{session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>}
         utilities={<QueryUtilityActions hasResults={Boolean(result || trend || error || warning)} onClearResults={clearResults} onResetQuery={resetQuery} />}
-        editorActions={<div className={styles.editorActions}>{mode === 'logql' && <button type="button" className="btn ghost" onClick={() => void format()} disabled={!canLoadMetadata || !query.trim()}>Format</button>}<CopySqlButton sql={expression} language="LogQL" /></div>}
+        editorActions={<div className={styles.editorActions}>{mode === 'logql' && <button type="button" className="btn ghost" onClick={() => void format()} disabled={!canLoadMetadata || !query.trim()}>Format</button>}<CopySqlButton sql={expression} language="LogQL" /><GrafanaHandoffActions profile={profile?.kind === 'loki' ? profile : undefined} query={expression} range={range} /></div>}
         execution={<button className="btn primary" type="button" onClick={() => void run()} disabled={loading || !expression.trim()} title="Run (Ctrl/Command+Enter)" aria-describedby={builderDisabledReason ? 'loki-builder-run-reason' : undefined}>{loading ? 'Running…' : 'Run'}</button>}
       />
       {mode === 'logql' ? <QueryCodeEditor className={styles.editor} value={query} minHeight="66px" maxHeight="150px" extensions={[logql()]} onChange={(value) => setSql(value)} aria-label="LogQL editor" onKeyDown={(event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void run() } }} /> : <LokiBuilderPanel value={builder} generated={generated} labels={labels} connectionId={connectionId} connectionGeneration={connectionGeneration} canLoadMetadata={canLoadMetadata} bounds={labelResource.bounds} groupBy={groupBy} metadataStatus={labelResource.status} metadataError={labelResource.error} onChange={(lokiBuilder) => setLokiState({ lokiBuilder })} onGroupByChange={(lokiGroupBy) => setLokiState({ lokiGroupBy })} onOpenLogql={() => { setSql(generated); setMode('sql') }} />}

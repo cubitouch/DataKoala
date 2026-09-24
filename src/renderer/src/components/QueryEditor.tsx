@@ -24,6 +24,7 @@ import { notify } from './NotificationArea'
 import styles from './QueryEditor.module.css'
 import { QueryToolbar } from './query/QueryToolbar'
 import { QueryCodeEditor, type QueryCodeEditorHandle } from './query/QueryCodeEditor'
+import { GrafanaHandoffActions } from './GrafanaHandoffActions'
 
 export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) {
   const tabId = useStore((s) => s.activeTabId)
@@ -35,6 +36,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const setPrometheusQueryOptions = useStore((s) => s.setPrometheusQueryOptions)
   const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const connectionKind = useStore((s) => s.profiles.find((profile) => profile.id === tabConnectionId)?.kind)
+  const prometheusProfile = useStore((s) => s.profiles.find((profile) => profile.id === tabConnectionId && profile.kind === 'prometheus'))
   const prometheusDatasourceUid = useStore((s) => {
     const profile = s.profiles.find((item) => item.id === tabConnectionId)
     return profile?.kind === 'prometheus' ? profile.transport.datasourceUid : undefined
@@ -230,6 +232,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
           {formatting ? 'Formatting…' : 'Format'}
         </button>}
         <CopySqlButton sql={sql} />
+        {language.kind === 'promql' && <GrafanaHandoffActions profile={prometheusProfile?.kind === 'prometheus' ? prometheusProfile : undefined} query={sql} range={prometheusTimeRange} />}
         {language.kind === 'sql' && capabilities.explain && <button className={`btn ghost explain-action ${styles.explainAction}`} onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
           {isExplainLoading && <span className="spinner" aria-hidden="true" />}
           {isExplainLoading ? 'Explaining…' : 'Explain'}

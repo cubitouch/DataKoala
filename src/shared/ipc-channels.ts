@@ -17,6 +17,7 @@ export const IPC = {
   PROMETHEUS_FORMAT_QUERY: 'connections:prometheus:format-query',
   TEMPO_ATTRIBUTE_VALUES: 'connections:tempo:attribute-values',
   TEMPO_ATTRIBUTES: 'connections:tempo:attributes',
+  TEMPO_DISCOVER_DATASOURCES: 'connections:tempo:discover-datasources',
   LOKI_DISCOVER: 'connections:loki:discover',
   LOKI_LABELS: 'connections:loki:labels',
   LOKI_LABEL_VALUES: 'connections:loki:label-values',
@@ -27,5 +28,6 @@ export const IPC = {
   QUERY_PROBE_SERIES_CARDINALITY: 'query:probe-series-cardinality',
   QUERY_SERIES_STATISTICS: 'query:series-statistics',
   QUERY_EXPLAIN: 'query:explain',
-  CLIPBOARD_WRITE_PNG: 'clipboard:write-png'
+  CLIPBOARD_WRITE_PNG: 'clipboard:write-png',
+  EXTERNAL_OPEN_URL: 'external:open-url'
 } as const

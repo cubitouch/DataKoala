@@ -37,7 +37,12 @@ function isGcxSignalV1(stored: Record<string, unknown>, kind: 'prometheus' | 'te
   if (stored.kind !== kind || stored.version !== 1 || stored.readonly !== true ||
     typeof stored.id !== 'string' || typeof stored.name !== 'string' || !stored.transport || typeof stored.transport !== 'object') return false
   const transport = stored.transport as Record<string, unknown>
-  return transport.kind === 'gcx' && (transport.context === undefined || typeof transport.context === 'string') &&
+  const grafana = stored.grafana as Record<string, unknown> | undefined
+  const validGrafana = grafana === undefined || (!!grafana && typeof grafana === 'object' &&
+    typeof grafana.baseUrl === 'string' && (grafana.orgId === undefined || (typeof grafana.orgId === 'number' && Number.isInteger(grafana.orgId) && grafana.orgId > 0)) &&
+    (grafana.datasourceUid === undefined || typeof grafana.datasourceUid === 'string') &&
+    (grafana.datasourceType === undefined || typeof grafana.datasourceType === 'string'))
+  return validGrafana && transport.kind === 'gcx' && (transport.context === undefined || typeof transport.context === 'string') &&
     (transport.datasourceUid === undefined || typeof transport.datasourceUid === 'string')
 }
 

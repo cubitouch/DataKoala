@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, clipboard, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, clipboard, nativeImage, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import * as db from './db'
@@ -17,10 +17,12 @@ import type { SqliteFileProfile } from '@shared/types'
 import { bigQueryDiscovery } from './bigquery-discovery'
 import { discoverPrometheus } from './prometheus-discovery'
 import { GcxPrometheusTransport } from './gcx-prometheus-transport'
-import type { PrometheusTransportConfig } from '@shared/types'
+import type { PrometheusTransportConfig, TempoTransportConfig } from '@shared/types'
 import type { LokiTransportConfig } from '@shared/types'
 import type { LokiMetadataRequest, LokiQueryRequest } from '@shared/loki'
 import { GcxLokiTransport } from './gcx-loki-transport'
+import { validateExternalUrl } from './external-url'
+import { discoverTempoDatasources } from './tempo-datasource-discovery'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -548,6 +550,7 @@ app.on('before-quit', (event) => {
 })
 
 function registerIpc(): void {
+  ipcMain.handle(IPC.EXTERNAL_OPEN_URL, (_event, url: unknown) => shell.openExternal(validateExternalUrl(url)))
   ipcMain.handle(IPC.CLIPBOARD_WRITE_PNG, (_event, dataUrl: unknown) => writePngDataUrl(dataUrl, {
     createFromBuffer: (buffer) => nativeImage.createFromBuffer(buffer),
     writeImage: (image) => clipboard.writeImage(image as Electron.NativeImage),
@@ -562,6 +565,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.PROMETHEUS_LABEL_VALUES, (_e, id: string, metricName: string, labelName: string) => db.labelValues(id, metricName, labelName))
   ipcMain.handle(IPC.TEMPO_ATTRIBUTE_VALUES, (_e, id: string, attribute: string, query?: string) => db.tempoAttributeValues(id, attribute, query))
   ipcMain.handle(IPC.TEMPO_ATTRIBUTES, (_e, id: string, query?: string) => db.tempoAttributes(id, query))
+  ipcMain.handle(IPC.TEMPO_DISCOVER_DATASOURCES, (_e, transport: TempoTransportConfig) => discoverTempoDatasources(transport.context))
   ipcMain.handle(IPC.LOKI_DISCOVER, (_e, transport: LokiTransportConfig) => new GcxLokiTransport(transport.context).datasources())
   ipcMain.handle(IPC.LOKI_LABELS, (_e, id: string, request: LokiMetadataRequest) => db.lokiLabels(id, request))
   ipcMain.handle(IPC.LOKI_LABEL_VALUES, (_e, id: string, label: string, request: LokiMetadataRequest) => db.lokiLabelValues(id, label, request))

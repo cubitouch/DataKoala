@@ -28,6 +28,7 @@ import { TraceSearchResults, type TraceResultView } from './results/traces/Trace
 import { traceDateTimeLabel, traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from './results/traces/tracePresentation'
 import { useTempoTraceSearchController } from '../lib/useTempoTraceSearchController'
 import { useTempoTraceOpenController } from '../lib/useTempoTraceOpenController'
+import { GrafanaHandoffActions } from './GrafanaHandoffActions'
 
 interface TraceExplorerProps {
   connectionId: string
@@ -55,6 +56,7 @@ function escapeHtml(value: string): string {
 }
 
 export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps) {
+  const profile = useStore((state) => state.profiles.find((item) => item.id === connectionId && item.kind === 'tempo'))
   const mode = useStore((state) => selectActiveSession(state).queryMode)
   const traceql = useStore((state) => selectActiveSession(state).sql)
   const metadata = useStore((state) => state.metadataByProfileId[connectionId])
@@ -380,6 +382,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
             editorActions={<div className={styles.editorActions}>
               {mode === 'sql' && <button type="button" className="btn ghost" onClick={formatCurrentTraceql} title="Format TraceQL (Shift+Alt+F)" disabled={!traceql.trim()}>Format</button>}
               <CopySqlButton sql={activeTraceql} language="TraceQL" />
+              <GrafanaHandoffActions profile={profile?.kind === 'tempo' ? profile : undefined} query={activeTraceql} range={searchRange} />
             </div>}
             execution={<button className="btn primary" type="submit" data-tempo-run-query disabled={loading !== null || !activeTraceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button>}
           />
