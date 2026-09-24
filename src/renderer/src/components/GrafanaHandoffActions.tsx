@@ -50,8 +50,13 @@ export function GrafanaHandoffActions({ profile, query, range }: { profile?: Obs
       return
     }
     let active = true
+    const resolver = api.connections.grafana?.resolveHandoff
+    if (!resolver) {
+      setResolution({ status: 'error', message: 'Grafana handoff resolution is unavailable.' })
+      return
+    }
     setResolution({ status: 'loading' })
-    api.connections.grafana.resolveHandoff({
+    resolver({
       signal: profile.kind,
       context: profile.transport.context,
       datasourceUid: profile.grafana?.datasourceUid || profile.transport.datasourceUid
