@@ -47,6 +47,7 @@ interface Token {
   fieldKey?: string
   fieldValueRaw?: string
   nullable?: boolean
+  structural?: boolean
 }
 
 function stripMatchingQuotes(value: string): string {
@@ -81,7 +82,7 @@ function token(raw: string): Token {
 
 interface StructuredEntry { path: string; rawValue: string }
 
-function scanTopLevel(value: string, delimiter: ',' | ':'): number[] | null {
+function scanTopLevel(value: string, delimiter: ',' | ':' | '='): number[] | null {
   const positions: number[] = []
   let quote: '"' | "'" | null = null
   let escaped = false
@@ -121,6 +122,11 @@ function splitTopLevel(value: string): string[] | null {
 
 function topLevelColon(value: string): number | null {
   const positions = scanTopLevel(value, ':')
+  return positions?.[0] ?? null
+}
+
+function topLevelEquals(value: string): number | null {
+  const positions = scanTopLevel(value, '=')
   return positions?.[0] ?? null
 }
 
@@ -192,6 +198,92 @@ function structuredObjectTokens(message: string, budget = LOG_PATTERN_LIMITS.max
   return selectStructuredEntries(entries, Math.max(1, budget)).map(structuredToken)
 }
 
+
+interface StructuredConstructor { className: string; entries: StructuredEntry[] }
+
+function parseStructuredConstructor(value: string): StructuredConstructor | null {
+  const trimmed = value.trim()
+  const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_.]*)\(([\s\S]*)\)$/)
+  if (!match) return null
+  const className = match[1]
+  const body = match[2].trim()
+  if (!body) return { className, entries: [] }
+  const parts = splitTopLevel(body)
+  if (!parts) return null
+  const entries: StructuredEntry[] = []
+  for (const part of parts) {
+    if (!part.trim()) continue
+    const separator = topLevelEquals(part)
+    if (separator === null) return null
+    const key = structuredKey(part.slice(0, separator))
+    if (!key) return null
+    const rawValue = part.slice(separator + 1).trim()
+    if (!rawValue) return null
+    entries.push({ path: key, rawValue })
+    if (entries.length > LOG_PATTERN_LIMITS.maxTokens * 2) break
+  }
+  return { className, entries }
+}
+
+function structuralTypeToken(className: string): Token {
+  return {
+    raw: className,
+    prefix: '',
+    suffix: '',
+    display: className,
+    normalized: 'type:' + className.toLowerCase(),
+    variable: false,
+    structural: true
+  }
+}
+
+function structuredConstructorTokens(value: string, budget = LOG_PATTERN_LIMITS.maxTokens): Token[] | null {
+  const parsed = parseStructuredConstructor(value)
+  if (!parsed) return null
+  const fieldBudget = Math.max(0, budget - 1)
+  const fields = fieldBudget ? selectStructuredEntries(parsed.entries, fieldBudget).map(structuredToken) : []
+  return [structuralTypeToken(parsed.className), ...fields]
+}
+
+function trailingStructuredConstructor(message: string): { prefix: string; constructor: string } | null {
+  const source = message.trimEnd()
+  if (!source.endsWith(')')) return null
+  let quote: '"' | "'" | null = null
+  let escaped = false
+  let depth = 0
+  let start = -1
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index]
+    if (quote) {
+      if (escaped) { escaped = false; continue }
+      if (char === '\\') { escaped = true; continue }
+      if (char === quote) quote = null
+      continue
+    }
+    if (char === '"' || char === "'") { quote = char; continue }
+    if (char === '(') {
+      if (depth === 0) start = index
+      depth += 1
+      continue
+    }
+    if (char !== ')') continue
+    depth -= 1
+    if (depth < 0) return null
+    if (depth === 0 && start >= 0 && index === source.length - 1) {
+      const before = source.slice(0, start)
+      const classMatch = before.match(/([A-Za-z_][A-Za-z0-9_.]*)\s*$/)
+      if (!classMatch || classMatch.index === undefined) return null
+      const classStart = classMatch.index
+      const constructor = source.slice(classStart)
+      return parseStructuredConstructor(constructor)
+        ? { prefix: source.slice(0, classStart).trim(), constructor }
+        : null
+    }
+  }
+  return null
+}
+
+
 function trailingStructuredObject(message: string): { prefix: string; object: string } | null {
   const source = message.trimEnd()
   let quote: '"' | "'" | null = null
@@ -231,10 +323,17 @@ function plainTokens(message: string, budget = LOG_PATTERN_LIMITS.maxTokens): To
 }
 
 function structuredMessageTokens(message: string): Token[] | null {
-  const trailing = trailingStructuredObject(message)
-  if (!trailing) return null
-  const prefixTokens = trailing.prefix ? plainTokens(trailing.prefix, Math.min(32, LOG_PATTERN_LIMITS.maxTokens - 1)) : []
-  const structured = structuredObjectTokens(trailing.object, LOG_PATTERN_LIMITS.maxTokens - prefixTokens.length)
+  const trailingObject = trailingStructuredObject(message)
+  if (trailingObject) {
+    const prefixTokens = trailingObject.prefix ? plainTokens(trailingObject.prefix, Math.min(32, LOG_PATTERN_LIMITS.maxTokens - 1)) : []
+    const structured = structuredObjectTokens(trailingObject.object, LOG_PATTERN_LIMITS.maxTokens - prefixTokens.length)
+    if (structured) return [...prefixTokens, ...structured]
+  }
+
+  const trailingConstructor = trailingStructuredConstructor(message)
+  if (!trailingConstructor) return null
+  const prefixTokens = trailingConstructor.prefix ? plainTokens(trailingConstructor.prefix, Math.min(32, LOG_PATTERN_LIMITS.maxTokens - 1)) : []
+  const structured = structuredConstructorTokens(trailingConstructor.constructor, LOG_PATTERN_LIMITS.maxTokens - prefixTokens.length)
   return structured ? [...prefixTokens, ...structured] : null
 }
 
@@ -347,6 +446,7 @@ function matchingCandidate(candidate: Working, incoming: Token[]): Match | null 
       if (!broadVariable(template)) stable += 1
       continue
     }
+    if (template.structural || item.structural) return null
     if (sameField(template, item) && (template.nullable || item.nullable)) {
       differences.push(index)
       continue
