@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LokiExplorer } from './LokiExplorer'
 const mocks = vi.hoisted(() => ({ labels: vi.fn(), labelValues: vi.fn(), formatQuery: vi.fn(), runLoki: vi.fn() }))
 vi.mock('../lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels, labelValues: mocks.labelValues, formatQuery: mocks.formatQuery } }, query: { runLoki: mocks.runLoki } } }))
+vi.mock('@tanstack/react-virtual', () => ({ useVirtualizer: ({ count }: { count: number }) => ({ measure: vi.fn(), measureElement: vi.fn(), getTotalSize: () => count * 113, getVirtualItems: () => Array.from({ length: Math.min(count, 20) }, (_, index) => ({ index, start: index * 113 })) }) }))
 import { createQuerySession, useStore } from '../store/useStore'
 import { clearLokiLabelsResources } from '../lib/useLokiLabelsResource'
 
@@ -11,6 +12,8 @@ vi.mock('echarts-for-react', () => ({ default: () => <div data-testid="loki-echa
 
 const metric = { resultKind: 'metrics' as const, columns: [{ name: 'timestamp', dataTypeID: 0, dataTypeName: 'timestamp' }, { name: 'value', dataTypeID: 0, dataTypeName: 'number' }], rows: [{ timestamp: '2026-01-01T00:00:00Z', value: 2 }], rowCount: 1, durationMs: 1, execution: { provider: 'loki' as const, durationMs: 1 } }
 const logs = { resultKind: 'logs' as const, logRows: [], columns: [], rows: [], rowCount: 0, durationMs: 1, execution: { provider: 'loki' as const, durationMs: 1 } }
+const logRow = (id: string, line: string, severity = 'INFO') => ({ id, timestampNs: `${Date.parse('2026-01-01T00:00:00Z') * 1_000_000}`, timestampMs: Date.parse('2026-01-01T00:00:00Z'), line, labels: { app: 'x' }, structuredMetadata: {}, parsedFields: {}, severity })
+const patternLogs = (suffix = '') => { const logRows = [logRow(`one${suffix}`, 'Request 123 completed'), logRow(`two${suffix}`, 'Request 456 completed', 'ERROR'), logRow(`three${suffix}`, 'Worker started normally')]; return { ...logs, logRows, rows: logRows, rowCount: logRows.length, columns: [{ name: 'line', dataTypeID: 0, dataTypeName: 'text' }] } }
 
 afterEach(() => { cleanup(); clearLokiLabelsResources() })
 beforeEach(() => {
@@ -189,15 +192,57 @@ describe('LokiExplorer execution', () => {
     expect(useStore.getState().tabs[0].lokiResultView).toBe('table')
   })
 
+  it('explores patterns without a trend request and drills into List and Table', async () => {
+    mocks.runLoki.mockResolvedValue(patternLogs())
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+    expect(screen.getByRole('button', { name: 'Patterns' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    expect(await screen.findByText('2 patterns across 3 loaded logs')).toBeTruthy()
+    expect(mocks.runLoki).toHaveBeenCalledTimes(1)
+    const requestPattern = screen.getByRole('button', { name: /Request.*<number>.*completed/ })
+    fireEvent.click(requestPattern)
+    fireEvent.click(await screen.findByRole('button', { name: 'View logs' }))
+    expect(useStore.getState().tabs[0].lokiResultView).toBe('list')
+    expect(await screen.findByText(/Showing 2 logs matching/)).toBeTruthy()
+    expect(screen.getByText(/^2 loaded/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }))
+    expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
+    expect(screen.getByText(/Showing 2 logs matching/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear pattern' }))
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    expect(screen.getByText(/^3 loaded/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Clear pattern' })).toBeNull()
+  })
+
+  it('invalidates a selected pattern when a new query result arrives', async () => {
+    mocks.runLoki.mockResolvedValueOnce(patternLogs()).mockResolvedValueOnce(patternLogs('-new'))
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await screen.findByRole('button', { name: 'Patterns' })
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Request.*<number>.*completed/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'View logs' }))
+    expect(await screen.findByRole('button', { name: 'Clear pattern' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Clear pattern' })).toBeNull())
+    expect(screen.getByText(/^3 loaded/)).toBeTruthy()
+  })
+
   it('loads and renders log volume only when Chart is selected', async () => {
     const run = mocks.runLoki.mockResolvedValueOnce(logs).mockResolvedValueOnce(metric)
     render(<LokiExplorer connectionId="loki" />)
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
     const picker = screen.getByRole('toolbar', { name: 'Result view' })
-    for (const view of ['List', 'Table', 'Bar', 'Line', 'Area', 'Scatter', 'Treemap', 'Sunburst']) expect(screen.getByRole('button', { name: view })).toBeTruthy()
+    for (const view of ['List', 'Table', 'Patterns', 'Bar', 'Line', 'Area', 'Scatter', 'Treemap', 'Sunburst']) expect(screen.getByRole('button', { name: view })).toBeTruthy()
     expect(screen.getAllByRole('toolbar', { name: 'Result view' })).toHaveLength(1)
     expect(screen.getByRole('textbox', { name: 'Search loaded logs' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    expect(run).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: 'Line' }))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
     expect(screen.getByRole('toolbar', { name: 'Result view' })).toBe(picker)

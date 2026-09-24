@@ -91,7 +91,7 @@ app.whenReady().then(async () => {
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Patterns')?.click()`)
     await waitFor(win, `document.querySelector('section[aria-label="Log patterns"] article')`, 'rendered Loki patterns')
     await win.webContents.executeJavaScript(`document.querySelector('section[aria-label="Log patterns"] article button')?.click()`)
-    await waitFor(win, `document.body.innerText.includes('Example messages') && document.body.innerText.includes('View logs')`, 'expanded Loki pattern')
+    await waitFor(win, `document.querySelector('section[aria-label="Log patterns"] article button[aria-expanded="true"]') && [...document.querySelectorAll('section[aria-label="Log patterns"] button')].some((button) => button.textContent?.trim() === 'View logs')`, 'expanded Loki pattern')
     await sleep(400)
     const patternsPath = resolve(outputDir, 'loki-log-patterns.png')
     await assertPreviewReady(win, 'loki-log-patterns.png')

@@ -45,6 +45,7 @@ describe('GenericResultExplorer controlled presentation', () => {
   it('emits a complete next configuration when chart type changes', () => {
     const onConfigurationChange = vi.fn()
     render(<GenericResultExplorer {...props({ onConfigurationChange })} />)
+    expect(screen.queryByRole('button', { name: 'Patterns' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Bar' }))
     expect(onConfigurationChange).toHaveBeenCalledWith({ ...configuration, view: 'bar' })
   })

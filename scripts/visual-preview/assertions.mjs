@@ -64,6 +64,7 @@ export const previewExpectations = Object.freeze({
   'tempo-service-map-fullscreen.png': { selector: '[data-trace-service-map]', description: 'Tempo fullscreen async service map (60 fixture services)', minNodes: 1, minEdges: 1 },
   'tempo-waterfall.png': { selector: '[data-trace-waterfall]', description: 'Tempo trace waterfall', minItems: 1 },
   'loki-log-list.png': { kind: 'not-visualization' },
+  'loki-log-patterns.png': { kind: 'not-visualization' },
   'loki-log-chart.png': { selector: '[data-result-chart-canvas]', description: 'Loki log-volume trend', minSeries: 1, minItems: 1 },
   'sql-resized-panes.png': { selector: '[data-result-chart-canvas]', description: 'SQL chart with resized panes', minSeries: 1, minItems: 1 },
   'sql-long-query-scroll.png': { selector: '[data-result-chart-canvas]', description: 'SQL chart below long query', minSeries: 1, minItems: 1 },

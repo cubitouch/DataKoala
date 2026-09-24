@@ -23,6 +23,7 @@ env:
     tempo-service-map-fullscreen.png
     tempo-waterfall.png
     loki-log-list.png
+    loki-log-patterns.png
     loki-log-chart.png
     sql-resized-panes.png
     sql-long-query-scroll.png
@@ -183,6 +184,7 @@ jobs:
               'tempo-service-map-fullscreen.png': 'Tempo — synthetic fullscreen async-branch map with Top 10 bottlenecks',
               'tempo-waterfall.png': 'Tempo — synthetic waterfall with selected failing dependency span',
               'loki-log-list.png': 'Loki — production checkout logs and selected event inspector',
+              'loki-log-patterns.png': 'Loki — clustered log patterns with examples and variable samples',
               'loki-log-chart.png': 'Loki — production incident log-volume trend',
               'sql-resized-panes.png': 'SQL mode — resized sidebar and editor',
               'sql-long-query-scroll.png': 'SQL mode — long query scrolling internally',

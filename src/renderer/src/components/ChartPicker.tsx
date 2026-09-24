@@ -16,7 +16,7 @@ const views: Array<{ view: ChartPickerView; label: string; path: ReactNode }> = 
 ]
 
 export function ChartPicker<T extends ChartPickerView>({ value, onChange, availableViews }: { value: T; onChange: (view: T) => void; availableViews?: readonly T[] }) {
-  const visible = availableViews ? views.filter(({ view }) => availableViews.includes(view as T)) : views.filter(({ view }) => view !== 'list')
+  const visible = availableViews ? views.filter(({ view }) => availableViews.includes(view as T)) : views.filter(({ view }) => view !== 'list' && view !== 'patterns')
   return <div className={styles.root} role="toolbar" aria-label="Result view">
     <span className={styles.label}>View</span>
     {visible.map(({ view, label, path }) => <button key={view} type="button" className={`${styles.button}${value === view ? ` ${styles.active}` : ''}`} aria-label={label} title={label} aria-pressed={value === view} onClick={() => onChange(view as T)}>
