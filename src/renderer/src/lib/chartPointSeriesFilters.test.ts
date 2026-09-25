@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { chartSeriesResultFilters, type ChartPointContext } from './chartPointFilters.ts'
 import { applyResultFilters } from './resultFilters.ts'
 import { encodeBuilderSeriesTuple } from './resultVisualization.ts'
