@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { advanceLegendWheel, ChartLegendWheelLifecycle, clampLegendScrollIndex, isPointerInVerticalLegend, type LegendWheelECharts } from './chartLegendWheel.ts'
 
 test('legend wheel advances, reverses, accumulates small deltas, and clamps', () => {
