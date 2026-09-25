@@ -347,6 +347,24 @@ async function configureDocumentationPrometheus(win) {
       { schema: 'Prometheus', name: 'http_request_duration_seconds_bucket', qualifiedName: 'http_request_duration_seconds_bucket', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'histogram', help: 'HTTP request duration buckets.' } },
       { schema: 'Prometheus', name: 'process_memory_bytes', qualifiedName: 'process_memory_bytes', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'gauge', help: 'Resident process memory.' } }
     ] }]
+
+    const rows = []
+    const stepMs = 14 * 60 * 1000
+    const end = Date.now() - 15 * 60 * 1000
+    const start = end - 24 * stepMs
+    const services = ['api', 'worker']
+    for (let point = 0; point < 25; point += 1) {
+      for (let serviceIndex = 0; serviceIndex < services.length; serviceIndex += 1) {
+        const wave = Math.sin((point + serviceIndex * 2) / 3) * 0.035
+        const trend = point * (serviceIndex === 0 ? 0.0018 : 0.0011)
+        rows.push({
+          timestamp: new Date(start + point * stepMs),
+          service: services[serviceIndex],
+          value: Number((0.19 + serviceIndex * 0.075 + wave + trend).toFixed(3))
+        })
+      }
+    }
+
     store.setState({
       profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false,
       connectionStatus: 'connected', connectionError: null, serverVersion: null,
@@ -356,13 +374,26 @@ async function configureDocumentationPrometheus(win) {
         sqlResultFilters: [], builderResultFilters: [],
         sql: 'histogram_quantile(\\n  0.95,\\n  sum by (service, le) (rate(http_request_duration_seconds_bucket{environment="production"}[5m]))\\n)',
         prometheusTimeRange: { kind: 'rolling', amount: 6, unit: 'hour' }, prometheusStep: '30s',
-        promqlBuilder: { ...tab.promqlBuilder, metric: 'http_request_duration_seconds_bucket', filterBy: ['environment'], groupBy: ['service'], labelValues: { environment: ['production'], service: ['api', 'worker'] }, calculation: 'percentile', aggregation: 'sum', percentile: 0.95, window: '5m' }
+        promqlBuilder: { ...tab.promqlBuilder, metric: 'http_request_duration_seconds_bucket', filterBy: ['environment'], groupBy: ['service'], labelValues: { environment: ['production'], service: ['api', 'worker'] }, calculation: 'percentile', aggregation: 'sum', percentile: 0.95, window: '5m' },
+        builderVisualization: { ...tab.builderVisualization, view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: 'service', seriesColumns: [], aggregation: 'sum' }
       } : tab)
     })
+
+    store.getState().setResult({
+      columns: [
+        { name: 'timestamp', dataTypeName: 'timestamp', logicalType: 'timestamp' },
+        { name: 'service', dataTypeName: 'text', logicalType: 'string' },
+        { name: 'value', dataTypeName: 'double precision', logicalType: 'number' }
+      ],
+      rows,
+      rowCount: rows.length,
+      durationMs: 42
+    }, null)
   })()`)
   await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && document.querySelector('.promql-builder-form') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'visible configured Prometheus Builder')
-  const report = await win.webContents.executeJavaScript(`(() => { const state = window.__datakoalaStore.getState(); const tab = state.tabs.find((item) => item.id === state.activeTabId); return { mode: tab.queryMode, result: tab.result, metric: tab.promqlBuilder.metric, tables: document.querySelectorAll('table tbody tr').length } })()`)
-  if (report.mode !== 'builder' || report.result !== null || report.metric !== 'http_request_duration_seconds_bucket' || report.tables) throw new Error(`Prometheus documentation assertion failed: ${JSON.stringify(report)}`)
+  await waitForRendererState(win, `document.querySelector('[data-result-chart-canvas] canvas') && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Line'`, 'rendered Prometheus documentation result')
+  const report = await win.webContents.executeJavaScript(`(() => { const state = window.__datakoalaStore.getState(); const tab = state.tabs.find((item) => item.id === state.activeTabId); return { mode: tab.queryMode, rowCount: tab.result?.rowCount, metric: tab.promqlBuilder.metric, view: document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() } })()`)
+  if (report.mode !== 'builder' || report.rowCount !== 50 || report.metric !== 'http_request_duration_seconds_bucket' || report.view !== 'Line') throw new Error(`Prometheus documentation assertion failed: ${JSON.stringify(report)}`)
 }
 
 async function configureDocumentationTreemap(win) {
