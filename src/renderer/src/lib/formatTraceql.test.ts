@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { parser } from '@grafana/lezer-traceql'
 import { formatTraceql, traceqlHasErrors } from './formatTraceql.ts'
 

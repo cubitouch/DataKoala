@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { applyResultFilters, createResultFilter, deduplicateResultFilters, deserializeResultFilters, resultFilterDemotion, resultFilterLabel, serializeResultFilters, stableResultFilterId, type BuilderFilterProvenance, type ResultFilter } from './resultFilters.ts'
 import { resolveBuilderPromotedFilters } from './builderPromotedFilters.ts'
 import { encodeBuilderSeriesTuple } from './resultVisualization.ts'

@@ -9,7 +9,8 @@
   "project": [
     "src/**/*.{ts,tsx}",
     "!src/**/*.test.{ts,tsx}",
-    "!src/renderer/src/test/**"
+    "!src/renderer/src/test/**",
+    "!src/**/*.vitest.ts"
   ],
   "include": [
     "files"

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import type { QueryResult } from '@shared/types'
 import { generateBuilderQuery } from './builderSql.ts'
 import { applyResultFilters, createResultFilter, resultFilterDemotion, type BuilderFilterProvenance } from './resultFilters.ts'

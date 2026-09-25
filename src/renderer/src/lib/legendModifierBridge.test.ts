@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { hasLegendModifier, LegendModifierBridge } from './legendModifierBridge.ts'
 import { isolateSeries, reconcileSeriesVisibility, showAllSeries } from './chartVisibility.ts'
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { buildTraceql, EMPTY_TRACE_BUILDER, mergeTraceBuilderState, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState } from './traceBuilder.ts'
 
 const builder = (patch: Partial<TraceBuilderState>): TraceBuilderState => ({ ...EMPTY_TRACE_BUILDER, ...patch })

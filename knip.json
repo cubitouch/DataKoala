@@ -5,7 +5,7 @@
     "src/preload/index.ts",
     "src/renderer/src/main.tsx",
     "src/renderer/src/preload.d.ts",
-    "src/**/*.test.{ts,tsx}",
+    "src/**/*.{test,vitest}.{ts,tsx}",
     "scripts/**/*.{mjs,ts}",
     "*.config.ts"
   ],

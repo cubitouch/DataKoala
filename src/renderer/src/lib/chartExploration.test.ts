@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { measureChartSeries, orderChartSeries } from './chartSeries.ts'
 import { summarizeTooltipRows } from './chartTooltip.ts'
 import { isolateSeries, reconcileSeriesVisibility, showAllSeries, toggleSeries } from './chartVisibility.ts'

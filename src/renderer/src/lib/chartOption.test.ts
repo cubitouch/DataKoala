@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { buildEChartsOption } from './chartOption.ts'
 import type { QueryResult } from '../../../shared/types.ts'

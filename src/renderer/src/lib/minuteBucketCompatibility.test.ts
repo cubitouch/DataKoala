@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { generateBuilderQuery } from './builderSql.ts'
 import { compatibleTimeBucket, isMinuteBucketAvailable, MINUTE_BUCKET_UNAVAILABLE_REASON, type BuilderTimeRange } from './builderTimeRange.ts'

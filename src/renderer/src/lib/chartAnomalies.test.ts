@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { chartAnomalyEligibility, detectChartAnomalies } from './chartAnomalies.ts'
 import type { ChartSeries, PivotedResult } from './resultVisualization.ts'
 

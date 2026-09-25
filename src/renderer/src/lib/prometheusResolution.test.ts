@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { isPrometheusStepSafe, prometheusAutoStep } from './prometheusResolution.ts'
 
 const bounds = (seconds: number) => ({ start: new Date(0).toISOString(), end: new Date(seconds * 1_000).toISOString() })

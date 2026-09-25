@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { formatPostgresLiteral, generateBuilderQuery, generateBuilderSql, isBuilderTemporalDataType, materializeSqlParameters, TIME_BUCKETS } from './builderSql.ts'
 import { formatSqlOrOriginal } from './formatSql.ts'
 import { encodeBuilderSeriesTuple } from './resultVisualization.ts'
