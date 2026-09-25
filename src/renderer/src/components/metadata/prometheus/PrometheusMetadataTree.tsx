@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
 import { api } from '../../../lib/api'
+import { matchesSearch } from '../../../lib/matchesSearch'
 import { TextInput } from '../../ui/TextInput'
 import { MetadataTree, type MetadataTreeNode } from '../MetadataTree'
 import styles from './PrometheusMetadataTree.module.css'
@@ -82,10 +83,9 @@ export function PrometheusMetadataTree(props: Props) {
     }
   }, [props.revision])
 
-  const needle = props.filter.trim().toLocaleLowerCase()
   const visibleMetrics = props.schemas
     .flatMap((schema) => schema.relations)
-    .filter((metric) => metric.name.toLocaleLowerCase().includes(needle))
+    .filter((metric) => matchesSearch(metric.name, props.filter))
 
   const nodes: MetadataTreeNode[] = visibleMetrics.map((metric) => {
       const id = `relation:${metric.qualifiedName}`
@@ -97,8 +97,8 @@ export function PrometheusMetadataTree(props: Props) {
         labelsById.set(labelId, { metric, label })
         const key = valueKey(metric, label)
         const valueState = values[key]
-        const filter = filters[key]?.toLocaleLowerCase() ?? ''
-        const matching = valueState?.data?.filter((value) => value.toLocaleLowerCase().includes(filter)) ?? []
+        const filter = filters[key] ?? ''
+        const matching = valueState?.data?.filter((value) => matchesSearch(value, filter)) ?? []
         const shown = matching.slice(0, VALUE_LIMIT)
         return {
           id: labelId, label, expandable: true, expanded: openLabels.has(key),
