@@ -8,7 +8,7 @@ const { seriesStatistics, probeSeriesCardinality } = vi.hoisted(() => ({
   seriesStatistics: vi.fn(async () => ({ available: true, estimatedDistinct: 2, source: 'pg_stats' as const })),
   probeSeriesCardinality: vi.fn(async () => ({ exceedsHardLimit: false }))
 }))
-vi.mock('../lib/api', () => ({
+vi.mock('@lib/api', () => ({
   api: {
     query: { seriesStatistics, probeSeriesCardinality },
     connections: { describeTable: vi.fn() }

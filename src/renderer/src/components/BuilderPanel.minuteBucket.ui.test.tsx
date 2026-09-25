@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value }: { value: string }) => <pre>{value}</pre> }))
-vi.mock('../lib/api', () => ({ api: { query: { seriesStatistics: vi.fn(), probeSeriesCardinality: vi.fn() }, connections: { describeTable: vi.fn() } } }))
+vi.mock('@lib/api', () => ({ api: { query: { seriesStatistics: vi.fn(), probeSeriesCardinality: vi.fn() }, connections: { describeTable: vi.fn() } } }))
 
 import { BuilderPanel } from './BuilderPanel'
 import type { BuilderTimeRange } from '@lib/builderTimeRange'

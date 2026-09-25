@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConnectionModal } from './ConnectionModal'
 
 const { discover, discoverDatasources, upsert } = vi.hoisted(() => ({ discover: vi.fn(), discoverDatasources: vi.fn(), upsert: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: { connections: { discover: vi.fn(), upsert, prometheus: { discover, discoverDatasources } } } }))
+vi.mock('@lib/api', () => ({ api: { connections: { discover: vi.fn(), upsert, prometheus: { discover, discoverDatasources } } } }))
 
 const renderPrometheus = () => {
   render(<ConnectionModal existing={null} onClose={vi.fn()} onSaved={vi.fn()} />)

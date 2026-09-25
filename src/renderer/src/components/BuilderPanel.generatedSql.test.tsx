@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { DatabaseSchemaNode } from '@shared/types'
 
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value }: { value: string }) => <pre>{value}</pre> }))
-vi.mock('../lib/api', () => ({
+vi.mock('@lib/api', () => ({
   api: {
     query: { run: vi.fn(), seriesStatistics: vi.fn(), probeSeriesCardinality: vi.fn() },
     connections: { describeTable: vi.fn() }
