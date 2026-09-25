@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { defaultQueryModeForDatasource, defaultQueryTextForDatasource, queryLanguageForDatasource } from './queryDefaults.ts'
 import { buildTraceql, EMPTY_TRACE_BUILDER } from './traceBuilder.ts'
 
