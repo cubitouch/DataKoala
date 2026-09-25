@@ -618,6 +618,7 @@ function registerIpc(): void {
     return true
   })
   ipcMain.handle(IPC.CONNECTION_LIST_OBJECTS, (_e, id: string) => db.listObjects(id))
+  ipcMain.handle(IPC.CONNECTION_REFRESH_METADATA, (_e, id: string) => db.refreshMetadata(id))
   ipcMain.handle(
     IPC.CONNECTION_DESCRIBE_TABLE,
     (_e, id: string, schema: string, table: string) => db.describeTable(id, schema, table)

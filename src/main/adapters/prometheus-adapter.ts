@@ -29,12 +29,13 @@ export class PrometheusAdapter implements DataSourceAdapter {
     try { discovery = await this.discover(profile.transport) }
     catch (error) { return { result: { ok: false as const, error: error instanceof Error ? error.message : String(error) } } }
     const sourceInfo = { label: `Prometheus · ${discovery.metricNames.length} metrics` }
-    const relations = [...discovery.metadata]
+    const toRelations = (value: PrometheusDiscoveryResult) => [...value.metadata]
       .sort((left, right) => left.name.localeCompare(right.name))
       .map((metric) => ({
         namespace: 'Metrics', name: metric.name, kind: 'metric' as const,
         details: { kind: 'metric' as const, type: metric.type, help: metric.help, unit: metric.unit }
       }))
+    let relations = toRelations(discovery)
     const transport = this.createTransport(profile.transport.context, profile.transport.datasourceUid)
     const session: DataSourceSession = {
       info: { profileId: profile.id, provider: 'prometheus' }, capabilities,
@@ -44,6 +45,10 @@ export class PrometheusAdapter implements DataSourceAdapter {
       },
       listNamespaces: async () => [{ name: 'Metrics' }],
       listRelations: async (namespace) => namespace && namespace.name !== 'Metrics' ? [] : relations,
+      refreshMetadata: async () => {
+        const refreshed = await this.discover(profile.transport)
+        relations = toRelations(refreshed)
+      },
       labelsForMetric: (metricName) => transport.labelsForMetric(metricName),
       labelValues: (metricName, labelName) => transport.labelValues(metricName, labelName),
       describeRelation: async () => [], close: async () => {}

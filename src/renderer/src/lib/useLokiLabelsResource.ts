@@ -32,7 +32,7 @@ function load(resource: Resource, connectionId: string) {
   }).finally(() => { if (request === resource.request) resource.promise = undefined; emit(resource) })
   return resource.promise
 }
-export function useLokiLabelsResource(connectionId: string, generation: number, tabId: string, range: BuilderTimeRange, enabled = true) {
+export function useLokiLabelsResource(connectionId: string, generation: number, tabId: string, range: BuilderTimeRange, enabled = true, refreshRevision = 0) {
   const key = semanticKey(connectionId, generation, tabId, range)
   const resource = useMemo(() => resourceFor(key, range), [key, connectionId])
   const snapshot = useSyncExternalStore((listener) => { resource.listeners.add(listener); return () => resource.listeners.delete(listener) }, () => resource.snapshot, () => resource.snapshot)
@@ -45,6 +45,11 @@ export function useLokiLabelsResource(connectionId: string, generation: number, 
       emit(resource)
     }
   }, [resource, connectionId, enabled])
+  useEffect(() => {
+    if (!enabled || !refreshRevision) return
+    resource.request++; resource.promise = undefined
+    void load(resource, connectionId)
+  }, [resource, connectionId, enabled, refreshRevision])
   return { ...snapshot, enabled, retry: () => {
     if (!enabled) return Promise.resolve()
     resource.request++; resource.promise = undefined; return load(resource, connectionId)

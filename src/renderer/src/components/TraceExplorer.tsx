@@ -62,6 +62,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const metadata = useStore((state) => state.metadataByProfileId[connectionId])
   const connected = useStore((state) => state.connected)
   const connectionGeneration = useStore((state) => state.connectionGeneration)
+  const metadataRevision = useStore((state) => state.metadataByProfileId[connectionId]?.revision ?? 0)
   const setSql = useStore((state) => state.setSql)
   const setQueryMode = useStore((state) => state.setQueryMode)
   const [builder, setBuilder] = useState<TraceBuilderState>(() => traceBuilderFromTraceql(traceql))
@@ -161,6 +162,9 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     setSearchRange(DEFAULT_TRACE_RANGE)
     setSampleSize(DEFAULT_TRACE_SAMPLE_SIZE)
     setResultView('list')
+    setMessagingSystems([])
+    setAttributes([])
+    setAdvancedValues({})
   }, [connectionId, resetSearch, resetTrace])
 
   useEffect(() => {
@@ -171,7 +175,6 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       return
     }
     let current = true
-    setMessagingSystems([])
     setMessagingSystemsLoading(true)
     setMessagingSystemsError(null)
     void tempoAttributeValues(connectionId, connectionGeneration, 'span.messaging.system').then(
@@ -179,18 +182,18 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       (metadataError: unknown) => { if (current) setMessagingSystemsError(metadataError instanceof Error ? metadataError.message : String(metadataError)) }
     ).finally(() => { if (current) setMessagingSystemsLoading(false) })
     return () => { current = false }
-  }, [builder.protocol, connected, connectionGeneration, connectionId, mode])
+  }, [builder.protocol, connected, connectionGeneration, connectionId, metadataRevision, mode])
 
   useEffect(() => {
     if (!connected || mode !== 'builder') { setAttributes([]); setAttributesLoading(false); setAttributesError(null); return }
     let current = true
-    setAttributes([]); setAttributesLoading(true); setAttributesError(null)
+    setAttributesLoading(true); setAttributesError(null)
     void tempoAttributes(connectionId, connectionGeneration).then(
       (items) => { if (current) setAttributes(items) },
       (reason: unknown) => { if (current) setAttributesError(reason instanceof Error ? reason.message : String(reason)) }
     ).finally(() => { if (current) setAttributesLoading(false) })
     return () => { current = false }
-  }, [connected, connectionGeneration, connectionId, mode])
+  }, [connected, connectionGeneration, connectionId, metadataRevision, mode])
 
   const advancedDiscoveryBaseContext = buildTraceql({ ...builder, advancedFilters: [] })
   useEffect(() => {
@@ -211,7 +214,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       }
     }, 200)
     return () => { current = false; window.clearTimeout(timer) }
-  }, [advancedDiscoveryBaseContext, builder.advancedFilters, connected, connectionGeneration, connectionId, mode])
+  }, [advancedDiscoveryBaseContext, builder.advancedFilters, connected, connectionGeneration, connectionId, metadataRevision, mode])
 
   const updateBuilder = (patch: Partial<TraceBuilderState>) => {
     const next = { ...builder, ...patch }

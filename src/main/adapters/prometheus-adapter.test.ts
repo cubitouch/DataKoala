@@ -47,6 +47,16 @@ test('Prometheus relation discovery is deterministic and rejects unrelated names
   assert.deepEqual((await connected.session.listRelations({ name: 'Metrics' })).map((item) => item.name), ['http_requests_total', 'process_cpu_seconds_total'])
 })
 
+test('Prometheus refresh atomically replaces metrics without reconnecting', async () => {
+  let current = discovery
+  const adapter = new PrometheusAdapter(async () => current)
+  const connected = await adapter.connect(profile)
+  assert.ok(connected.session?.refreshMetadata)
+  current = { ...discovery, metricNames: ['new_metric'], metadata: [{ name: 'new_metric', type: 'gauge' }] }
+  await connected.session.refreshMetadata()
+  assert.deepEqual((await connected.session.listRelations()).map((item) => item.name), ['new_metric'])
+})
+
 test('Prometheus sessions execute range PromQL only through the metrics transport', async () => {
   const requests: unknown[] = []
   const normalized: QueryResult = { columns: [], rows: [], rowCount: 0, durationMs: 2 }

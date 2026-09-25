@@ -53,6 +53,7 @@ const api = {
       return () => ipcRenderer.removeListener(IPC.CONNECTION_STATE_CHANGED, handler)
     },
     listObjects: (id: string): Promise<TableInfo[]> => ipcRenderer.invoke(IPC.CONNECTION_LIST_OBJECTS, id),
+    refreshMetadata: (id: string): Promise<void> => ipcRenderer.invoke(IPC.CONNECTION_REFRESH_METADATA, id),
     describeTable: (id: string, schema: string, table: string) =>
       ipcRenderer.invoke(IPC.CONNECTION_DESCRIBE_TABLE, id, schema, table),
     bigquery: {

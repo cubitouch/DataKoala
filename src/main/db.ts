@@ -239,6 +239,11 @@ export async function listObjects(id: ConnectionId) {
   }))
 }
 
+/** Refresh discovery owned by a live provider session. This deliberately does not reconnect. */
+export async function refreshMetadata(id: ConnectionId): Promise<void> {
+  await session(id).refreshMetadata?.()
+}
+
 export async function describeTable(id: ConnectionId, schema: string, table: string) {
   return (await session(id).describeRelation({ namespace: schema, name: table })).map((column) => ({
     name: column.name,

@@ -45,10 +45,12 @@ it('keeps the kind and keyboard-reachable actions in one trailing slot', async (
   const trailing = within(item).getByText('PostgreSQL').closest<HTMLElement>('[data-connection-trailing]')!
   const edit = within(item).getByRole('button', { name: 'Edit connection Orders' })
   const remove = within(item).getByRole('button', { name: 'Delete connection Orders' })
+  const refresh = within(item).getByRole('button', { name: 'Refresh metadata for Orders' })
 
   expect(name.hasAttribute('data-connection-name')).toBe(true)
   expect(trailing.contains(edit)).toBe(true)
   expect(trailing.contains(remove)).toBe(true)
+  expect(trailing.contains(refresh)).toBe(true)
   expect(edit.getAttribute('title')).toBe('Edit connection')
   expect(remove.getAttribute('title')).toBe('Delete connection')
   expect(edit.getAttribute('tabindex')).not.toBe('-1')

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DataSourceProfile, DatabaseColumnNode, DatabaseRelationNode } from '@shared/types'
 import { api } from '../lib/api'
 import { ensureRelationColumns } from '../lib/relationColumns'
-import { normalizeDatabaseObjects } from '../lib/databaseObjects'
+import { loadConnectionMetadata } from '../lib/connectionMetadata'
 import { relationIdentity, selectionPatchForColumns } from '../lib/builderRelations'
 import { isBuilderTemporalDataType } from '../lib/builderSql'
 import { buildPromql, reconcilePromqlBuilderForMetric } from '../lib/promqlBuilder'
@@ -58,6 +58,9 @@ export function Sidebar() {
   const schemas = metadata?.schemas ?? []
   const metadataStatus = metadata?.status ?? 'idle'
   const metadataError = metadata?.error ?? null
+  const metadataRevision = metadata?.revision ?? 0
+  const metadataRefreshing = metadata?.refreshing ?? false
+  const metadataRefreshError = metadata?.refreshError ?? null
   const setMetadata = useStore((s) => s.setMetadata)
   const builderTable = useStore((s) => selectActiveSession(s).builder.table)
   const promqlBuilder = useStore((s) => selectActiveSession(s).promqlBuilder)
@@ -85,7 +88,7 @@ export function Sidebar() {
   const loadObjects = async (id: string) => {
     setMetadata([], 'loading', null, id)
     try {
-      const nodes = normalizeDatabaseObjects(await api.connections.listObjects(id))
+      const nodes = await loadConnectionMetadata(id)
       setMetadata(nodes, 'loaded', null, id)
     } catch (error) {
       setMetadata([], 'error', error instanceof Error ? error.message : String(error), id)
@@ -161,6 +164,15 @@ export function Sidebar() {
     await loadRelationColumns(relation)
   }
 
+  useEffect(() => {
+    if (!metadataRevision || !activeTabConnectionId || activeTabSourceKind === 'prometheus' || activeTabSourceKind === 'tempo' || activeTabSourceKind === 'loki') return
+    const selected = builderTable ? `${builderTable.schema}.${builderTable.name}` : null
+    for (const schema of schemas) for (const relation of schema.relations) {
+      if (expanded.has(`relation:${relation.qualifiedName}`) || relation.qualifiedName === selected) void loadRelationColumns(relation)
+    }
+  // A revision denotes a successful replacement; expansion and selection intentionally survive it.
+  }, [metadataRevision])
+
   const visibleSchemas = useMemo(() => {
     const needle = filter.trim().toLocaleLowerCase()
     if (!needle) return schemas
@@ -217,6 +229,11 @@ export function Sidebar() {
           <span className={styles.kind}>{connectionKindLabel(profile.kind)}</span>
           {isConnecting && <span className={styles.connectingLabel}>Connecting…</span>}
           <span className={styles.actions} data-connection-actions>
+            <button className={styles.action} type="button" title="Refresh metadata" aria-label={`Refresh metadata for ${profile.name}`}
+              disabled={!isLive || metadataRefreshing} aria-busy={isLive && metadataRefreshing || undefined}
+              onClick={(event) => { event.stopPropagation(); if (isLive) void useStore.getState().refreshMetadata(profile.id) }}>
+              <span className={metadataRefreshing && isLive ? styles.refreshing : undefined} aria-hidden="true">↻</span>
+            </button>
             <button className={styles.action} type="button" title="Edit connection" aria-label={`Edit connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); setEditing(profile); setShowModal(true) }}>✎</button>
             <button className={styles.action} type="button" title="Delete connection" aria-label={`Delete connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); deleteOrigin.current = event.currentTarget; setPendingDelete(profile) }}>✕</button>
           </span>
@@ -228,6 +245,7 @@ export function Sidebar() {
       {connectionError}
       <button onClick={() => void ensureConnectionForTab(activeTabId)} disabled={connecting}>{connecting ? 'Reconnecting…' : 'Reconnect'}</button>
     </div>}
+    {metadataRefreshError && activeId === activeTabConnectionId && <div className={styles.objectError} role="alert">Could not refresh metadata.<small>{metadataRefreshError}</small></div>}
 
     {activeTabSourceKind === 'loki' && activeTabConnectionId && <LokiSidebarTree connectionId={activeTabConnectionId} />}
     {activeTabSourceKind !== 'loki' && (tabConnected || schemas.length > 0) && <section className={styles.objectsSection}>
@@ -238,7 +256,7 @@ export function Sidebar() {
       {metadataStatus === 'loaded' && <>
         <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label={objectFilterLabel} labelVisibility="sr-only" /></div>
         {schemas.length === 0 ? <div className={styles.objectStatus}>No database objects</div> :
-        isPrometheusMetadata && activeTabConnectionId ? <PrometheusMetadataTree connectionId={activeTabConnectionId} schemas={schemas} expanded={expanded} filter={filter} selectedMetric={promqlBuilder.metric}
+        isPrometheusMetadata && activeTabConnectionId ? <PrometheusMetadataTree connectionId={activeTabConnectionId} revision={metadataRevision} schemas={schemas} expanded={expanded} filter={filter} selectedMetric={promqlBuilder.metric}
           onToggleMetric={(relation) => toggle(`relation:${relation.qualifiedName}`)} onActivateMetric={selectForBuilder} /> :
         isSqlSource ? <SqlMetadataTree schemas={schemas} expanded={expanded} filter={filter} selectedRelation={builderTable}
           onToggleSchema={toggle}

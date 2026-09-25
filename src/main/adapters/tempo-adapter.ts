@@ -94,6 +94,16 @@ export class TempoAdapter implements DataSourceAdapter {
           const relations = await listRelations()
           return namespace ? relations.filter((relation) => relation.namespace === namespace.name) : relations
         },
+        refreshMetadata: async () => {
+          const previous = servicesPromise
+          servicesPromise = undefined
+          servicesResolved = false
+          try { await loadServices() } catch (error) {
+            servicesPromise = previous
+            servicesResolved = Boolean(previous)
+            throw error
+          }
+        },
         describeRelation: async () => [],
         attributeValues: (attribute, query) => transport.attributeValues(attribute, query),
         attributes: (query) => transport.attributeNames(query),

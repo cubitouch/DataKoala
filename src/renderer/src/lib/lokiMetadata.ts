@@ -23,3 +23,10 @@ export function lokiLabelValues(connectionId: string, label: string, request: Lo
 }
 
 export function clearLokiMetadataCache(): void { cache.clear() }
+
+export function invalidateLokiMetadata(connectionId: string): void {
+  for (const cacheKey of cache.keys()) {
+    const parsed = JSON.parse(cacheKey) as unknown[]
+    if (parsed[1] === connectionId) cache.delete(cacheKey)
+  }
+}

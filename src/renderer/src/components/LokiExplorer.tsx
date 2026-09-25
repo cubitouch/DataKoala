@@ -61,10 +61,11 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const mode = session.queryMode === 'builder' ? 'builder' : 'logql'
   const { sql: query, lokiBuilder: builder, lokiTimeRange: range, lokiResultLimit: limit, lokiGroupBy: groupBy, lokiResultView: resultView } = session
   const connectionGeneration = useStore((state) => state.connectionGeneration)
+  const metadataRevision = useStore((state) => state.metadataByProfileId[connectionId]?.revision ?? 0)
   const activeProfileId = useStore((state) => state.activeProfileId)
   const connected = useStore((state) => state.connected)
   const canLoadMetadata = connectionId === activeProfileId && connected
-  const labelResource = useLokiLabelsResource(connectionId, connectionGeneration, session.id, range, canLoadMetadata)
+  const labelResource = useLokiLabelsResource(connectionId, connectionGeneration, session.id, range, canLoadMetadata, metadataRevision)
   const labels = [...new Set([...labelResource.labels, ...builder.labelMatchers.map(({ label }) => label).filter((label) => !label.startsWith('__')), ...groupBy])].sort()
   const [result, setResult] = useState<LokiQueryResult | null>(null)
   const [trend, setTrend] = useState<LokiQueryResult | null>(null)
