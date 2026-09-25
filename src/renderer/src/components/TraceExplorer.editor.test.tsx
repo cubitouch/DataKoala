@@ -20,11 +20,11 @@ vi.mock('./results/traces/TraceScatterChart', () => ({
 }))
 
 import { TraceExplorer } from './TraceExplorer'
-import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
-import { useStore } from '../store/useStore'
-import { formatTraceql } from '../lib/formatTraceql'
-import { buildTraceql, traceBuilderFromTraceql } from '../lib/traceBuilder'
-import { api } from '../lib/api'
+import { activeTestSession, patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
+import { useStore } from '@store/useStore'
+import { formatTraceql } from '@lib/formatTraceql'
+import { buildTraceql, traceBuilderFromTraceql } from '@lib/traceBuilder'
+import { api } from '@lib/api'
 
 describe('TraceExplorer TraceQL editor', () => {
   beforeEach(() => {

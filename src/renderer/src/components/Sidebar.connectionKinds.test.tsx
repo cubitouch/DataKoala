@@ -23,9 +23,9 @@ vi.mock('../lib/api', () => ({ api: { connections: {
 
 import { Sidebar } from './Sidebar'
 import styles from './Sidebar.module.css'
-import { api } from '../lib/api'
-import { resetTestStore } from '../test/sessionTestUtils'
-import { createQuerySession, useStore } from '../store/useStore'
+import { api } from '@lib/api'
+import { resetTestStore } from '@test/sessionTestUtils'
+import { createQuerySession, useStore } from '@store/useStore'
 
 afterEach(() => { cleanup(); resetTestStore(); vi.clearAllMocks() })
 

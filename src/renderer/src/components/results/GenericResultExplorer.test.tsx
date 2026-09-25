@@ -6,8 +6,8 @@ vi.mock('echarts-for-react', () => ({ default: () => <div data-testid="chart" />
 vi.mock('../../lib/api', () => ({ api: { clipboardImage: vi.fn(), export: { saveBinary: vi.fn() } } }))
 
 import { GenericResultExplorer, type GenericResultExplorerProps } from './GenericResultExplorer'
-import { createResultFilter } from '../../lib/resultFilters'
-import type { VisualizationConfiguration } from '../../lib/resultVisualization'
+import { createResultFilter } from '@lib/resultFilters'
+import type { VisualizationConfiguration } from '@lib/resultVisualization'
 import type { QueryResult } from '@shared/types'
 
 const result: QueryResult = {

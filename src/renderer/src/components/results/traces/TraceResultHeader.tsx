@@ -1,5 +1,5 @@
 import { traceDurationLabel } from './tracePresentation'
-import { traceSpanKindLabel } from '../../../lib/traceViewer'
+import { traceSpanKindLabel } from '@lib/traceViewer'
 import styles from './TraceResultHeader.module.css'
 
 interface TraceResultHeaderProps {

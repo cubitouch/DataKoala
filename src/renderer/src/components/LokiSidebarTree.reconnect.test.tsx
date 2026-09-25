@@ -5,9 +5,9 @@ const mocks = vi.hoisted(() => ({ labels: vi.fn(), labelValues: vi.fn() }))
 vi.mock('../lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels, labelValues: mocks.labelValues } } } }))
 
 import { LokiSidebarTree } from './LokiSidebarTree'
-import { clearLokiLabelsResources } from '../lib/useLokiLabelsResource'
-import { clearLokiMetadataCache } from '../lib/lokiMetadata'
-import { createQuerySession, useStore } from '../store/useStore'
+import { clearLokiLabelsResources } from '@lib/useLokiLabelsResource'
+import { clearLokiMetadataCache } from '@lib/lokiMetadata'
+import { createQuerySession, useStore } from '@store/useStore'
 
 beforeEach(() => {
   const tab = createQuerySession(1, { id: 'loki-sidebar', connectionProfileId: 'loki', queryMode: 'builder' })

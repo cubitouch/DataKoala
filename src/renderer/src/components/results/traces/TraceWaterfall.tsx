@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { buildTraceTimelineScale, type TraceRow, type VisibleTraceSpan } from '../../../lib/traceViewer'
+import { buildTraceTimelineScale, type TraceRow, type VisibleTraceSpan } from '@lib/traceViewer'
 import styles from './TraceWaterfall.module.css'
 import { traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from './tracePresentation'
 

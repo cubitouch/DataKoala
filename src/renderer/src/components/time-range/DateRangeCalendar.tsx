@@ -1,8 +1,8 @@
-import { TextInput } from '../ui/TextInput'
-import { Combobox } from '../ui/combobox'
+import { TextInput } from '@components/ui/TextInput'
+import { Combobox } from '@components/ui/combobox'
 import { useMemo, useRef, useState } from 'react'
 import styles from './TimeRange.module.css'
-import { addDays, compareDateOnly, dateOnlyToUtcDate, formatDateOnly, parseDateOnly, todayDateOnly, type CustomTimeRangeValue } from '../../lib/customTimeRange'
+import { addDays, compareDateOnly, dateOnlyToUtcDate, formatDateOnly, parseDateOnly, todayDateOnly, type CustomTimeRangeValue } from '@lib/customTimeRange'
 const DOW = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 const monthName = (y: number, m: number) => new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)))
 export function DateRangeCalendar({ value, onChange }: { value: CustomTimeRangeValue; onChange: (value: CustomTimeRangeValue) => void }) {

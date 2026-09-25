@@ -2,7 +2,7 @@ import { TextInput } from './ui/TextInput'
 import { useEffect, useMemo } from 'react'
 import type { DatabaseSchemaNode } from '@shared/types'
 import type { TempoAttribute } from '@shared/tempo'
-import type { MetadataStatus } from '../store/useStore'
+import type { MetadataStatus } from '@store/useStore'
 import {
   traceBuilderFromTraceql,
   type TraceBuilderState,
@@ -10,7 +10,7 @@ import {
   type TraceProtocol,
   type TraceSpanKind,
   type TraceStatus
-} from '../lib/traceBuilder'
+} from '@lib/traceBuilder'
 import { Combobox, MultiCombobox, type ComboboxOption } from './ui/combobox'
 import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
 import { CollapsibleSection } from './ui/CollapsibleSection'

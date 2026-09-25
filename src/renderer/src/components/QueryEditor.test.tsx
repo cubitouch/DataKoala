@@ -16,8 +16,8 @@ vi.mock('./ModeSwitch', () => ({ ModeSwitch: () => <div aria-label="Query mode" 
 
 import { QueryEditor } from './QueryEditor'
 import { ExplainPane } from './ExplainPane'
-import { patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
-import { useStore } from '../store/useStore'
+import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
+import { useStore } from '@store/useStore'
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void

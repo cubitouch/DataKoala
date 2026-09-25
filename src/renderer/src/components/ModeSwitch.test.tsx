@@ -2,8 +2,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ModeSwitch } from './ModeSwitch'
-import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
-import { useStore } from '../store/useStore'
+import { activeTestSession, patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
+import { useStore } from '@store/useStore'
 
 afterEach(() => { cleanup(); resetTestStore() })
 

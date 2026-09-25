@@ -15,7 +15,7 @@ vi.mock('@uiw/react-codemirror', () => ({
 }))
 
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
-import { activeTestSession, patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '../test/sessionTestUtils'
+import { activeTestSession, patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
 
 const profileId = 'prom-formatting'
 

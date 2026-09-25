@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { QueryResult } from '@shared/types'
-import { createResultFilter, type ResultFilter } from '../../lib/resultFilters'
+import { createResultFilter, type ResultFilter } from '@lib/resultFilters'
 import { ResultsTable, type ResultsTableProps } from './ResultsTable'
 
 vi.mock('../../lib/api', () => ({ api: { export: { saveText: vi.fn() } } }))

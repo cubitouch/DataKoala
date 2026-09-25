@@ -1,4 +1,4 @@
-import { selectActiveSession, useStore } from '../store/useStore'
+import { selectActiveSession, useStore } from '@store/useStore'
 import styles from './ExplainPane.module.css'
 
 export function ExplainPane() {

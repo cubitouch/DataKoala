@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { copyTextToClipboard } from '../../lib/clipboardText'
-import { normalizeJsonCellValue } from '../../lib/jsonCell'
-import { Modal } from '../ui/Modal'
+import { copyTextToClipboard } from '@lib/clipboardText'
+import { normalizeJsonCellValue } from '@lib/jsonCell'
+import { Modal } from '@components/ui/Modal'
 import styles from './JsonCellExplorer.module.css'
 
 function JsonCellExplorerContent({ titleId, columnLabel, rowNumber, value, onClose }: { titleId: string; columnLabel: string; rowNumber: number; value: unknown; onClose: () => void }) {

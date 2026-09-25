@@ -9,7 +9,7 @@ vi.mock('@uiw/react-codemirror', () => ({
 }))
 
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
-import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '../test/sessionTestUtils'
+import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
 
 const profileId = 'prom-same-metric'
 

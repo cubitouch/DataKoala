@@ -1,8 +1,8 @@
-import { TextInput } from '../ui/TextInput'
+import { TextInput } from '@components/ui/TextInput'
 import styles from './TimeRange.module.css'
 import { DateRangeCalendar } from './DateRangeCalendar'
-import { addDays } from '../../lib/customTimeRange'
-import type { BuilderTimeRange } from '../../lib/builderTimeRange'
+import { addDays } from '@lib/customTimeRange'
+import type { BuilderTimeRange } from '@lib/builderTimeRange'
 
 export function CustomDateTimeRangeEditor({ draft, setDraft }: { draft: BuilderTimeRange; setDraft: (value: BuilderTimeRange) => void }) {
   const custom = draft.kind === 'custom'

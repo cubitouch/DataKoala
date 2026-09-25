@@ -6,7 +6,7 @@ import {
   visibleSpanCount,
   withoutAsyncTraceBranches,
   type TraceRow
-} from '../../../lib/traceViewer'
+} from '@lib/traceViewer'
 import { SpanInspector } from './SpanInspector'
 import { TraceResultHeader } from './TraceResultHeader'
 import { MAX_RENDERED_SPANS, TraceWaterfall } from './TraceWaterfall'

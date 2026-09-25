@@ -16,8 +16,8 @@ vi.mock('../lib/api', () => ({
 }))
 
 import { QueryTabs } from './QueryTabs'
-import { createQuerySession, useStore } from '../store/useStore'
-import { resetTestStore } from '../test/sessionTestUtils'
+import { createQuerySession, useStore } from '@store/useStore'
+import { resetTestStore } from '@test/sessionTestUtils'
 
 describe('QueryTabs lazy connection switching', () => {
   afterEach(() => {

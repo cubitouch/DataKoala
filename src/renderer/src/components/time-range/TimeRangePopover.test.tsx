@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { TimeRangePopover } from './TimeRangePopover'
-import type { BuilderTimeRange } from '../../lib/builderTimeRange'
+import type { BuilderTimeRange } from '@lib/builderTimeRange'
 
 afterEach(cleanup)
 

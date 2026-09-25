@@ -1,4 +1,4 @@
-import type { TraceRow } from '../../../lib/traceViewer'
+import type { TraceRow } from '@lib/traceViewer'
 import styles from './SpanInspector.module.css'
 import { traceDurationLabel, traceNumber, traceText } from './tracePresentation'
 

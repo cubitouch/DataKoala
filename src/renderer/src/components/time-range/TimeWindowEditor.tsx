@@ -1,6 +1,6 @@
-import { TextInput } from '../ui/TextInput'
+import { TextInput } from '@components/ui/TextInput'
 import styles from './TimeRange.module.css'
-import type { TimeWindow } from '../../lib/customTimeRange'
+import type { TimeWindow } from '@lib/customTimeRange'
 const makeId = () => `tw-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 export function TimeWindowEditor({ windows, onChange, error }: { windows: TimeWindow[]; onChange: (windows: TimeWindow[]) => void; error?: string | null }) {
   const rows = windows.length ? windows : []

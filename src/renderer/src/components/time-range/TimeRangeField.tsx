@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import styles from './TimeRange.module.css'
-import { Popover, PopoverSummaryTrigger } from '../ui/Popover'
-import { builderTimeRangeSummary, normalizeBuilderTimeRange, validateBuilderTimeRange, type BuilderTimeRange } from '../../lib/builderTimeRange'
+import { Popover, PopoverSummaryTrigger } from '@components/ui/Popover'
+import { builderTimeRangeSummary, normalizeBuilderTimeRange, validateBuilderTimeRange, type BuilderTimeRange } from '@lib/builderTimeRange'
 import { TimeRangePopover } from './TimeRangePopover'
-import { normalizeCustomRange } from '../../lib/customTimeRange'
-import { FieldChrome } from '../ui/FieldChrome'
-import type { LabelVisibility } from '../ui/FieldChrome'
+import { normalizeCustomRange } from '@lib/customTimeRange'
+import { FieldChrome } from '@components/ui/FieldChrome'
+import type { LabelVisibility } from '@components/ui/FieldChrome'
 
 const cloneRange = (range: BuilderTimeRange): BuilderTimeRange => ({ ...range, recurringWindows: (range.recurringWindows ?? []).map((window) => ({ ...window })) } as BuilderTimeRange)
 const normalizeRange = (range: BuilderTimeRange): BuilderTimeRange => range.kind === 'custom'

@@ -2,8 +2,8 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NotificationArea, notify } from './NotificationArea'
-import { selectActiveSession, useStore } from '../store/useStore'
-import { patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+import { selectActiveSession, useStore } from '@store/useStore'
+import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 
 describe('NotificationArea', () => {
   beforeEach(() => vi.useFakeTimers())

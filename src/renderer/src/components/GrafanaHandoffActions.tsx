@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import type { BuilderTimeRange } from '../lib/builderTimeRange'
+import type { BuilderTimeRange } from '@lib/builderTimeRange'
 import type { GrafanaSignal, GrafanaRange, ResolvedGrafanaHandoff } from '@shared/grafanaExplore'
 import { buildGrafanaExploreUrl, grafanaRange } from '@shared/grafanaExplore'
 import type { DataSourceProfile } from '@shared/types'
-import { copyTextToClipboard } from '../lib/clipboardText'
-import { api } from '../lib/api'
+import { copyTextToClipboard } from '@lib/clipboardText'
+import { api } from '@lib/api'
 import { Popover, PopoverChevron, usePopover } from './ui/Popover'
 import styles from './GrafanaHandoffActions.module.css'
 

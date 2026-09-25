@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import type { TraceRow } from '../../../lib/traceViewer'
+import type { TraceRow } from '@lib/traceViewer'
 import { MAX_RENDERED_SPANS } from './TraceWaterfall'
 import { TraceOpenedResult } from './TraceOpenedResult'
 

@@ -1,5 +1,5 @@
-import { matchesSearch } from '../../../lib/matchesSearch'
-import { MetadataTree, type MetadataTreeNode } from '../MetadataTree'
+import { matchesSearch } from '@lib/matchesSearch'
+import { MetadataTree, type MetadataTreeNode } from '@components/metadata/MetadataTree'
 
 export type LokiValueStatus = 'loading' | 'error'
 

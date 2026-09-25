@@ -1,4 +1,4 @@
-import { PopoverChevron } from '../Popover'
+import { PopoverChevron } from '@components/ui/Popover'
 import styles from './Combobox.module.css'
 import type { ComboboxOption } from './types'
 

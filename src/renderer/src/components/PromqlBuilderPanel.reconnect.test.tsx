@@ -9,9 +9,9 @@ vi.mock('@uiw/react-codemirror', () => ({
 }))
 
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
-import { resetPrometheusMetadataCache } from '../lib/prometheusMetadata'
-import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '../test/sessionTestUtils'
-import { useStore } from '../store/useStore'
+import { resetPrometheusMetadataCache } from '@lib/prometheusMetadata'
+import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
+import { useStore } from '@store/useStore'
 
 const profileId = 'prom-reconnect'
 const deferred = <T,>() => { let resolve!: (value: T) => void; let reject!: (reason: unknown) => void; const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail }); return { promise, resolve, reject } }

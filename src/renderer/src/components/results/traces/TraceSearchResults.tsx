@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { TraceRow } from '../../../lib/traceViewer'
+import type { TraceRow } from '@lib/traceViewer'
 import styles from './TraceSearchResults.module.css'
 
 export type TraceResultView = 'list' | 'scatter' | 'service-map'

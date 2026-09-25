@@ -1,4 +1,4 @@
-import { selectActiveSession, useStore } from '../store/useStore'
+import { selectActiveSession, useStore } from '@store/useStore'
 import styles from './QueryUtilityActions.module.css'
 
 /** Secondary, tab-scoped actions shared by editor and Builder toolbars. */

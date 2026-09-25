@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
-import { api } from '../../../lib/api'
-import { matchesSearch } from '../../../lib/matchesSearch'
-import { TextInput } from '../../ui/TextInput'
-import { MetadataTree, type MetadataTreeNode } from '../MetadataTree'
+import { api } from '@lib/api'
+import { matchesSearch } from '@lib/matchesSearch'
+import { TextInput } from '@components/ui/TextInput'
+import { MetadataTree, type MetadataTreeNode } from '@components/metadata/MetadataTree'
 import styles from './PrometheusMetadataTree.module.css'
 
 const VALUE_LIMIT = 200
