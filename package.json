@@ -56,7 +56,7 @@
     "smoke:loki": "node --experimental-strip-types scripts/smoke-loki-gcx.ts",
     "smoke:duckdb": "node scripts/smoke-duckdb.mjs",
     "prepare:sqlite-extension": "node scripts/prepare-sqlite-extension.mjs",
-    "smoke:sqlite": "node --experimental-strip-types --test src/main/adapters/sqlite-file-adapter.integration.test.ts",
+    "smoke:sqlite": "vitest run --config vitest.renderer.config.ts src/main/adapters/sqlite-file-adapter.integration.vitest.ts",
     "smoke:sqlite:electron": "node scripts/smoke-sqlite-electron.mjs",
     "smoke:bigquery-client": "ELECTRON_RUN_AS_NODE=1 electron scripts/smoke-bigquery-client.mjs",
     "db:up": "node scripts/db-up.mjs",
