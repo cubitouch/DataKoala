@@ -1,8 +1,8 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { buildChartData, resultToCsv } from './data.ts'
-import type { QueryResult } from '../../../shared/types.ts'
-import type { ChartConfig } from '../store/useStore.ts'
+import type { QueryResult } from '@shared/types.ts'
+import type { ChartConfig } from '@store/useStore.ts'
 
 function mkResult(rows: Record<string, unknown>[], cols: [string, string][]): QueryResult {
   return {
