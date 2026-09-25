@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { ChartEventBridgeLifecycle, type ZRenderLike } from './chartEventBridgeLifecycle.ts'
 import { hasLegendModifier, LegendModifierBridge } from './legendModifierBridge.ts'
 

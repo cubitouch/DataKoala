@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { chartActionsReady, shouldKeepChartMounted } from './chartQueryLifecycle.ts'
 
 test('a chart stays mounted for the complete false → true → false running transition', () => {
