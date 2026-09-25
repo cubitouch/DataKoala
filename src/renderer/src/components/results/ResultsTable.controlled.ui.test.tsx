@@ -5,7 +5,7 @@ import type { QueryResult } from '@shared/types'
 import { createResultFilter, type ResultFilter } from '@lib/resultFilters'
 import { ResultsTable, type ResultsTableProps } from './ResultsTable'
 
-vi.mock('../../lib/api', () => ({ api: { export: { saveText: vi.fn() } } }))
+vi.mock('@lib/api', () => ({ api: { export: { saveText: vi.fn() } } }))
 
 const result: QueryResult = {
   columns: [{ name: 'status', dataTypeID: 25, dataTypeName: 'text', nativeType: 'varchar' }],

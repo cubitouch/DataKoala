@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('echarts-for-react', () => ({ default: () => <div data-testid="chart" /> }))
-vi.mock('../../lib/api', () => ({ api: { clipboardImage: vi.fn(), export: { saveBinary: vi.fn() } } }))
+vi.mock('@lib/api', () => ({ api: { clipboardImage: vi.fn(), export: { saveBinary: vi.fn() } } }))
 
 import { GenericResultExplorer, type GenericResultExplorerProps } from './GenericResultExplorer'
 import { createResultFilter } from '@lib/resultFilters'
