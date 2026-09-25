@@ -13,6 +13,7 @@ const profiles: DataSourceProfile[] = [
 
 vi.mock('../lib/api', () => ({ api: { connections: {
   list: vi.fn(async () => profiles), listObjects: vi.fn(async () => []), describeTable: vi.fn(async () => []),
+  refreshMetadata: vi.fn(async () => {}),
   connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), loki: {
     labels: vi.fn(async () => ['service_name', 'namespace', '__stream_shard__']),
     labelValues: vi.fn(async () => ['checkout-api', 'checkout-api'])
@@ -77,6 +78,27 @@ it('shows a selected non-live profile without persistent connect-on-run copy', a
   expect(liveItem.classList.contains(styles.active)).toBe(true)
   expect(liveItem.classList.contains(styles.selected)).toBe(false)
   expect(liveItem.hasAttribute('aria-current')).toBe(false)
+})
+
+it('keeps only the live profile refresh action pending and does not switch connections', async () => {
+  let finish!: () => void
+  vi.mocked(api.connections.refreshMetadata).mockReturnValueOnce(new Promise<void>((resolve) => { finish = resolve }))
+  const tab = createQuerySession(1, { id: 'live-tab', connectionProfileId: 'pg' })
+  useStore.setState({
+    profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'pg', connected: true, connectionGeneration: 4,
+    metadataByProfileId: { pg: { schemas: [], status: 'loaded', error: null, isStale: false } }
+  })
+  render(<Sidebar />)
+  const refresh = await screen.findByRole('button', { name: 'Refresh metadata for Orders' })
+  const analyticsRefresh = screen.getByRole('button', { name: 'Refresh metadata for Analytics' })
+  fireEvent.click(refresh)
+  await waitFor(() => expect((refresh as HTMLButtonElement).disabled).toBe(true))
+  expect(refresh.getAttribute('aria-busy')).toBe('true')
+  expect((analyticsRefresh as HTMLButtonElement).disabled).toBe(true)
+  expect(api.connections.connect).not.toHaveBeenCalled()
+  expect(api.connections.disconnect).not.toHaveBeenCalled()
+  finish()
+  await waitFor(() => expect((refresh as HTMLButtonElement).disabled).toBe(false))
 })
 
 it('retains compact progress feedback during an active connection attempt', async () => {

@@ -54,12 +54,12 @@ export function Sidebar() {
   const activeTabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const activeTabSourceKind = useStore((s) => s.profiles.find((profile) => profile.id === selectActiveSession(s).connectionProfileId)?.kind)
   const currentSql = useStore((s) => selectActiveSession(s).sql)
-  const metadata = useStore((s) => activeTabConnectionId ? s.metadataByProfileId[activeTabConnectionId] : undefined)
+  const metadataByProfileId = useStore((s) => s.metadataByProfileId)
+  const metadata = activeTabConnectionId ? metadataByProfileId[activeTabConnectionId] : undefined
   const schemas = metadata?.schemas ?? []
   const metadataStatus = metadata?.status ?? 'idle'
   const metadataError = metadata?.error ?? null
   const metadataRevision = metadata?.revision ?? 0
-  const metadataRefreshing = metadata?.refreshing ?? false
   const metadataRefreshError = metadata?.refreshError ?? null
   const setMetadata = useStore((s) => s.setMetadata)
   const builderTable = useStore((s) => selectActiveSession(s).builder.table)
@@ -221,6 +221,7 @@ export function Sidebar() {
       const isConnecting = activeId === profile.id && connecting
       const isSelected = activeTabConnectionId === profile.id
       const isLive = activeId === profile.id && connected
+      const isRefreshing = metadataByProfileId[profile.id]?.refreshing ?? false
       return <div key={profile.id} className={cx(styles.connItem, isSelected && styles.selected, isLive && styles.active, isConnecting && styles.connecting)} data-connection-item data-connection-live={isLive || undefined}
         onClick={() => { if (!connecting) void connect(profile) }} aria-busy={isConnecting} aria-current={isSelected ? 'true' : undefined}>
         <span className={isConnecting ? styles.spinner : styles.dot} aria-label={isConnecting ? 'Connecting' : undefined} />
@@ -230,9 +231,9 @@ export function Sidebar() {
           {isConnecting && <span className={styles.connectingLabel}>Connecting…</span>}
           <span className={styles.actions} data-connection-actions>
             <button className={styles.action} type="button" title="Refresh metadata" aria-label={`Refresh metadata for ${profile.name}`}
-              disabled={!isLive || metadataRefreshing} aria-busy={isLive && metadataRefreshing || undefined}
+              disabled={!isLive || isRefreshing} aria-busy={isLive && isRefreshing || undefined}
               onClick={(event) => { event.stopPropagation(); if (isLive) void useStore.getState().refreshMetadata(profile.id) }}>
-              <span className={metadataRefreshing && isLive ? styles.refreshing : undefined} aria-hidden="true">↻</span>
+              <span className={isRefreshing && isLive ? styles.refreshing : undefined} aria-hidden="true">↻</span>
             </button>
             <button className={styles.action} type="button" title="Edit connection" aria-label={`Edit connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); setEditing(profile); setShowModal(true) }}>✎</button>
             <button className={styles.action} type="button" title="Delete connection" aria-label={`Delete connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); deleteOrigin.current = event.currentTarget; setPendingDelete(profile) }}>✕</button>

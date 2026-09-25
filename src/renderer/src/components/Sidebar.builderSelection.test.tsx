@@ -50,6 +50,22 @@ afterEach(() => {
 })
 
 describe('Sidebar Builder relation selection', () => {
+  it('reloads columns for an expanded relation after metadata revision', async () => {
+    resetTestStore({ connected: true, activeProfileId: 'p1', connectionStatus: 'connected' })
+    setActiveTestMetadata(schemas, 'loaded', null, 'p1')
+    const { useStore } = await import('../store/useStore')
+    const session = activeTestSession()
+    useStore.setState({ tabs: [{ ...session, connectionProfileId: 'p1' }] })
+    render(<Sidebar />)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand orders' }))
+    await waitFor(() => expect(describeTable).toHaveBeenCalledTimes(1))
+    describeTable.mockClear()
+    useStore.setState((state) => ({ metadataByProfileId: { ...state.metadataByProfileId, p1: {
+      ...state.metadataByProfileId.p1, schemas, revision: 1
+    } } }))
+    await waitFor(() => expect(describeTable).toHaveBeenCalledWith('p1', 'demo_shop', 'orders'))
+  })
+
   it('loads relation columns and populates explicit Time and X axis choices when the table is chosen from the object tree', async () => {
     resetTestStore({ connected: true, activeProfileId: 'p1', connectionStatus: 'connected' })
     setActiveTestMetadata(schemas, 'loaded', null, 'p1')

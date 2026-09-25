@@ -47,6 +47,7 @@ export class PrometheusAdapter implements DataSourceAdapter {
       listRelations: async (namespace) => namespace && namespace.name !== 'Metrics' ? [] : relations,
       refreshMetadata: async () => {
         const refreshed = await this.discover(profile.transport)
+        transport.invalidateMetadataCache?.()
         relations = toRelations(refreshed)
       },
       labelsForMetric: (metricName) => transport.labelsForMetric(metricName),

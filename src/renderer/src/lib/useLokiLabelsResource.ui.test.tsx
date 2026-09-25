@@ -36,6 +36,17 @@ it('does not load while disabled and ignores a request rejected after disabling'
   expect(screen.getByText('loaded::')).toBeTruthy()
   expect(mocks.labels).toHaveBeenCalledTimes(1)
 })
+
+function RefreshConsumer({ revision }: { revision: number }) { const resource = useLokiLabelsResource('loki', 4, 'tab-refresh', range, true, revision); return <span>{resource.status}:{resource.error}:{resource.labels.join(',')}</span> }
+it('forced refresh bypasses resolved metadata while retaining stale labels on failure', async () => {
+  mocks.labels.mockResolvedValueOnce(['old_label']).mockRejectedValueOnce(new Error('refresh failed'))
+  const view = render(<RefreshConsumer revision={0} />)
+  await waitFor(() => expect(screen.getByText('loaded::old_label')).toBeTruthy())
+  clearLokiMetadataCache()
+  view.rerender(<RefreshConsumer revision={1} />)
+  await waitFor(() => expect(screen.getByText('error:refresh failed:old_label')).toBeTruthy())
+  expect(mocks.labels).toHaveBeenCalledTimes(2)
+})
 it('shares one fresh request after metadata loading is re-enabled', async () => {
   mocks.labels.mockResolvedValue(['service'])
   const view = render(<><LifecycleConsumer enabled={false} generation={1} /><LifecycleConsumer enabled={false} generation={1} /></>)

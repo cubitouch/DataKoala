@@ -414,7 +414,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
   }),
-  refreshMetadata: refreshConnectionMetadata,
+  refreshMetadata: (profileId) => refreshConnectionMetadata(profileId, { getState: get, setState: set }),
 
   createTab: () => {
     const state = get()

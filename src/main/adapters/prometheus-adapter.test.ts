@@ -49,12 +49,26 @@ test('Prometheus relation discovery is deterministic and rejects unrelated names
 
 test('Prometheus refresh atomically replaces metrics without reconnecting', async () => {
   let current = discovery
-  const adapter = new PrometheusAdapter(async () => current)
+  let labelRevision = 'old'
+  const cache = new Map<string, string[]>()
+  const cached = (key: string, value: string) => cache.get(key) ?? (cache.set(key, [value]), [value])
+  const adapter = new PrometheusAdapter(async () => current, () => ({
+    metadata: async () => [],
+    labelsForMetric: (metric) => Promise.resolve(cached(`labels:${metric}`, `${labelRevision}-label`)),
+    labelValues: (metric, label) => Promise.resolve(cached(`values:${metric}:${label}`, `${labelRevision}-value`)),
+    invalidateMetadataCache: () => cache.clear(),
+    query: async () => ({ columns: [], rows: [], rowCount: 0, durationMs: 0 })
+  }))
   const connected = await adapter.connect(profile)
   assert.ok(connected.session?.refreshMetadata)
+  assert.deepEqual(await connected.session.labelsForMetric?.('up'), ['old-label'])
+  assert.deepEqual(await connected.session.labelValues?.('up', 'job'), ['old-value'])
+  labelRevision = 'new'
   current = { ...discovery, metricNames: ['new_metric'], metadata: [{ name: 'new_metric', type: 'gauge' }] }
   await connected.session.refreshMetadata()
   assert.deepEqual((await connected.session.listRelations()).map((item) => item.name), ['new_metric'])
+  assert.deepEqual(await connected.session.labelsForMetric?.('up'), ['new-label'])
+  assert.deepEqual(await connected.session.labelValues?.('up', 'job'), ['new-value'])
 })
 
 test('Prometheus sessions execute range PromQL only through the metrics transport', async () => {
