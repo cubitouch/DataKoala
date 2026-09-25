@@ -12,6 +12,7 @@ import { useLokiLabelsResource } from '../lib/useLokiLabelsResource'
 import { api } from '../lib/api'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { LogResultExplorer } from './LogResultExplorer'
+import { LogPatternExplorer } from './LogPatternExplorer'
 import { GenericResultExplorer } from './results/GenericResultExplorer'
 import { LokiBuilderPanel } from './LokiBuilderPanel'
 import { ModeSwitch } from './ModeSwitch'
@@ -21,7 +22,7 @@ import { ChartPicker, type ChartPickerView } from './ChartPicker'
 import { selectActiveSession, useStore } from '../store/useStore'
 import styles from './LokiExplorer.module.css'
 import type { VisualizationConfiguration } from '../lib/resultVisualization'
-import type { ResultFilter } from '../lib/resultFilters'
+import { applyResultFilters, type ResultFilter } from '../lib/resultFilters'
 import { QueryToolbar } from './query/QueryToolbar'
 import { QueryCodeEditor } from './query/QueryCodeEditor'
 import { GrafanaHandoffActions } from './GrafanaHandoffActions'
@@ -35,6 +36,8 @@ function interval(start: string, end: string): string {
   return `${choices.find((item) => item >= targetSeconds) ?? 86_400}s`
 }
 interface LokiTrendRange { startMs: number; endMs: number }
+type LokiChartView = 'bar' | 'line' | 'area' | 'scatter' | 'treemap' | 'sunburst'
+const isLokiChartView = (view: ChartPickerView): view is LokiChartView => ['bar', 'line', 'area', 'scatter', 'treemap', 'sunburst'].includes(view)
 
 function customRange({ startMs, endMs }: LokiTrendRange): BuilderTimeRange {
   const start = new Date(startMs), end = new Date(endMs)
@@ -69,6 +72,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [patternScope, setPatternScope] = useState<{ template: string; memberIds: Set<string> } | null>(null)
   const [trendVisualization, setTrendVisualization] = useState<VisualizationConfiguration>({ view: 'line', xColumn: 'timestamp', valueColumn: 'value', aggregation: 'sum', seriesColumn: null, seriesColumns: [], hierarchyDimensions: [], valueAxisScale: 'linear', anomalyDetectionEnabled: false })
   const revision = useRef(0), trendRevision = useRef(0), hasRun = useRef(false), mounted = useRef(true)
   const trendCacheKey = useRef<string | null>(null)
@@ -91,7 +95,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; revision.current++; trendRevision.current++ } }, [])
   useLayoutEffect(() => { revision.current++; trendRevision.current++; hasRun.current = false; previousRangeKey.current = rangeKey; setResult(null); setTrend(null); setTrendError(null); setError(null); setWarning(null); setLoading(false) }, [session.id])
   useEffect(() => {
-    if (resultView === 'list' || resultView === 'table') return
+    if (!isLokiChartView(resultView)) return
     setTrendVisualization((current) => ({ ...current, view: resultView, xColumn: 'timestamp', valueColumn: 'value', aggregation: 'sum', seriesColumn: groupBy.length === 1 ? groupBy[0] : null, seriesColumns: groupBy.length > 1 ? groupBy : [], hierarchyDimensions: groupBy }))
   }, [resultView, groupBy.join('\0'), session.id])
 
@@ -128,7 +132,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     hasRun.current = true; setLoading(true); setError(null); setTrendError(null); setWarning(null)
     const bounds = prometheusRangeBounds(range), step = interval(bounds.start, bounds.end)
     try {
-      const chartRequest = kind === 'logs' && resultView !== 'list' && resultView !== 'table' ? loadTrend(tabId, expression, range, groupBy) : Promise.resolve()
+      const chartRequest = kind === 'logs' && isLokiChartView(resultView) ? loadTrend(tabId, expression, range, groupBy) : Promise.resolve()
       const main = await api.query.runLoki(connectionId, { expression, ...bounds, step, limit })
       await chartRequest
       if (current !== revision.current || !isCurrentTab(tabId)) return
@@ -137,7 +141,8 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     finally { if (current === revision.current && isCurrentTab(tabId)) setLoading(false) }
   }
   useEffect(() => { if (previousRangeKey.current === rangeKey) return; previousRangeKey.current = rangeKey; if (hasRun.current) void run() }, [rangeKey])
-  useEffect(() => { if (hasRun.current && resultView !== 'list' && resultView !== 'table' && result?.resultKind === 'logs' && expression.trim()) void loadTrend(session.id, expression, range, groupBy) }, [resultView, groupBy.join('\0'), rangeKey])
+  useEffect(() => { if (hasRun.current && isLokiChartView(resultView) && result?.resultKind === 'logs' && expression.trim()) void loadTrend(session.id, expression, range, groupBy) }, [resultView, groupBy.join('\0'), rangeKey])
+  useEffect(() => setPatternScope(null), [result])
   const selectRange = (selected: LokiTrendRange) => setLokiState({ lokiRangeHistory: [...session.lokiRangeHistory, range], lokiTimeRange: customRange(selected) })
   const restoreRange = (reset = false) => { const history = session.lokiRangeHistory; const prior = reset ? history[0] : history.at(-1); if (prior) setLokiState({ lokiTimeRange: prior, lokiRangeHistory: reset ? [] : history.slice(0, -1) }) }
   const resultFilter = (kind: 'label' | 'field', key: string, value: string, exclude: boolean) => {
@@ -151,6 +156,9 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const onRemoveResultFilter = useCallback((id: string) => removeResultFilter('sql', id, session.id), [removeResultFilter, session.id])
   const onClearResultFilters = useCallback(() => clearResultFilters('sql', session.id), [clearResultFilters, session.id])
   const onMetricVisualizationChange = useCallback((next: VisualizationConfiguration) => setVisualization('sql', next, session.id), [setVisualization, session.id])
+  const filteredLogRows = useMemo(() => result?.resultKind === 'logs' ? applyResultFilters(result.logRows, session.sqlResultFilters) as LokiLogResult['logRows'] : [], [result, session.sqlResultFilters])
+  const scopedLogRows = useMemo(() => patternScope ? filteredLogRows.filter(({ id }) => patternScope.memberIds.has(id)) : filteredLogRows, [filteredLogRows, patternScope])
+  const scopedResult = useMemo(() => result?.resultKind === 'logs' ? { ...result, rows: scopedLogRows, logRows: scopedLogRows, rowCount: scopedLogRows.length } : result, [result, scopedLogRows])
 
   return <main className={styles.workspace} aria-label="Loki explorer">
     <section className={styles.queryPanel}>
@@ -165,10 +173,12 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     </section>
     {builderDisabledReason && <div id="loki-builder-run-reason" className={styles.status} role="status">{builderDisabledReason}</div>}{error && <div className={`${styles.status} ${styles.error}`} role="alert">{error}</div>}{canLoadMetadata && labelResource.status === 'error' && <div className={styles.status}>Metadata unavailable: {labelResource.error}. Raw LogQL remains available.</div>}{warning && <div className={styles.status}>{warning}</div>}
     <section className={styles.results} aria-label="Loki query results">{result?.resultKind === 'logs' ? <>
-      <div className={styles.resultViewBar}><ChartPicker value={resultView} availableViews={['list', 'table', 'bar', 'line', 'area', 'scatter', 'treemap', 'sunburst']} onChange={(view: ChartPickerView) => setLokiState({ lokiResultView: view as typeof resultView })} />{resultView !== 'list' && session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>
+      <div className={styles.resultViewBar}><ChartPicker value={resultView} availableViews={['list', 'table', 'patterns', 'bar', 'line', 'area', 'scatter', 'treemap', 'sunburst']} onChange={(view: ChartPickerView) => setLokiState({ lokiResultView: view as typeof resultView })} />{resultView !== 'list' && session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>
+      {patternScope && (resultView === 'list' || resultView === 'table') && <div className={styles.status} role="status">Showing {scopedLogRows.length} logs matching <code>{patternScope.template}</code>. <button type="button" className="btn ghost" onClick={() => setPatternScope(null)}>Clear pattern</button></div>}
       <div className={styles.selectedView}>{resultView === 'list'
-        ? <LogResultExplorer selectionKey={`${session.id}:${revision.current}`} rows={(result as LokiLogResult).logRows} truncated={result.execution?.truncated} limit={limit} onFilter={resultFilter} />
-        : resultView === 'table' ? <GenericResultExplorer mode="sql" dimensionControls="result" hasRun result={result} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={{ ...trendVisualization, view: 'table' }} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} hidePicker onConfigurationChange={setTrendVisualization} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} />
+        ? <LogResultExplorer selectionKey={`${session.id}:${revision.current}`} rows={scopedLogRows} truncated={result.execution?.truncated} limit={limit} onFilter={resultFilter} />
+        : resultView === 'patterns' ? <LogPatternExplorer rows={filteredLogRows} onViewLogs={(template, memberIds) => { setPatternScope({ template, memberIds: new Set(memberIds) }); setLokiState({ lokiResultView: 'list' }) }} />
+        : resultView === 'table' ? <GenericResultExplorer mode="sql" dimensionControls="result" hasRun result={scopedResult} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={{ ...trendVisualization, view: 'table' }} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} hidePicker onConfigurationChange={setTrendVisualization} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} />
         : trendError ? <div className={styles.empty}>Log volume unavailable: {trendError}</div>
           : trend?.resultKind === 'metrics' ? <GenericResultExplorer mode="sql" dimensionControls="result" hasRun result={trend} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={trendVisualization} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} hidePicker onConfigurationChange={setTrendVisualization} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} onTemporalRangeSelected={selectRange} />
             : <div className={styles.empty}>Loading log volume…</div>}</div>

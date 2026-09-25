@@ -50,7 +50,7 @@ export interface QuerySession {
   lokiBuilder: LokiBuilderState
   lokiResultLimit: number
   lokiGroupBy: string[]
-  lokiResultView: 'list' | 'table' | 'line' | 'area' | 'bar' | 'scatter' | 'treemap' | 'sunburst'
+  lokiResultView: 'list' | 'table' | 'patterns' | 'line' | 'area' | 'bar' | 'scatter' | 'treemap' | 'sunburst'
   lokiRangeHistory: BuilderTimeRange[]
   running: boolean
   queryError: string | null

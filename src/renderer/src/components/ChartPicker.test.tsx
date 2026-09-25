@@ -12,8 +12,14 @@ describe('ChartPicker', () => {
     render(<ChartPicker value="treemap" onChange={onChange}/>)
     expect(screen.getByRole('button', { name: 'Treemap' }).getAttribute('aria-pressed')).toBe('true')
     for (const name of ['Table', 'Bar', 'Line', 'Area', 'Scatter', 'Treemap', 'Sunburst']) expect(screen.getByRole('button', { name })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Patterns' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Sunburst' }))
     expect(onChange).toHaveBeenCalledWith('sunburst')
+  })
+
+  it('only exposes Patterns when explicitly requested by Loki', () => {
+    render(<ChartPicker value="list" availableViews={['list', 'table', 'patterns']} onChange={vi.fn()}/>)
+    expect(screen.getByRole('button', { name: 'Patterns' })).toBeTruthy()
   })
 
   it('uses its result-pane container and wraps safely instead of the viewport width', () => {

@@ -305,6 +305,14 @@ test('Loki value selections persist and legacy chart view migrates to line', () 
   assert.deepEqual(restored?.tabs[0].lokiBuilder.labelMatchers[0].values, ['prod', 'staging'])
 })
 
+test('persists the Loki patterns view and rejects invalid legacy views', () => {
+  const raw = JSON.parse(serializeWorkspaceDraft(state()))
+  raw.tabs[0].lokiResultView = 'patterns'
+  assert.equal(parseWorkspaceDraft(JSON.stringify(raw))?.tabs[0].lokiResultView, 'patterns')
+  raw.tabs[0].lokiResultView = 'unknown-view'
+  assert.equal(parseWorkspaceDraft(JSON.stringify(raw))?.tabs[0].lokiResultView, 'list')
+})
+
 test('migrates the legacy single Loki breakdown to ordered Group by state', () => {
   const raw = JSON.parse(serializeWorkspaceDraft(state()))
   delete raw.tabs[0].lokiGroupBy
