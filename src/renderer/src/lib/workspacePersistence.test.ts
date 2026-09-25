@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import type { ResultFilter } from './resultFilters.ts'
 import {
   LEGACY_WORKSPACE_STORAGE_KEY,
