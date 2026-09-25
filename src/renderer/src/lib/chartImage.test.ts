@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { captureChartPng, chartCapturePixelRatio, copyChartPng, exportChartPng, isChartActionDisabled, isCopyChartDisabled, CHART_BACKGROUND } from './chartImage.ts'
 
 test('capture neutralizes tooltip and hover before requesting a DPR PNG', async () => {

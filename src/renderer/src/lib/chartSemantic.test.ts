@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { ChartAnimationPolicy, createChartFingerprint, semanticChartCounts } from './chartSemantic.ts'
 import { ChartReadinessController, createChartRevision } from './chartReadiness.ts'
 import type { PivotedResult, VisualizationConfiguration } from './resultVisualization.ts'
