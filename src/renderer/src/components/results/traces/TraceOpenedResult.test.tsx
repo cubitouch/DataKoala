@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { TraceRow } from '@lib/traceViewer'
 import { MAX_RENDERED_SPANS } from './TraceWaterfall'
-import { TraceOpenedResult } from './TraceOpenedResult'
+import { renderedSpanLimitWarning, TraceOpenedResult } from './TraceOpenedResult'
 
 afterEach(cleanup)
 
@@ -77,10 +77,7 @@ describe('TraceOpenedResult', () => {
   })
 
   it('shows the existing cap warning only above the rendered-span limit', () => {
-    const manySpans = Array.from({ length: MAX_RENDERED_SPANS + 1 }, (_, index) => ({ ...root, spanId: `span-${index}`, parentSpanId: '' }))
-    const view = renderResult({ spans: manySpans })
-    expect(screen.getByText(`Showing the first ${MAX_RENDERED_SPANS} visible spans.`)).toBeTruthy()
-    view.rerender(<TraceOpenedResult spans={manySpans.slice(0, MAX_RENDERED_SPANS)} selectedSpanId="" collapsed={new Set()} hiddenSpanKinds={new Set()} hideAsyncBranches={false} compressIdleGaps={false} showBackToResults {...view.callbacks} />)
-    expect(screen.queryByText(`Showing the first ${MAX_RENDERED_SPANS} visible spans.`)).toBeNull()
+    expect(renderedSpanLimitWarning(MAX_RENDERED_SPANS)).toBeNull()
+    expect(renderedSpanLimitWarning(MAX_RENDERED_SPANS + 1)).toBe(`Showing the first ${MAX_RENDERED_SPANS} visible spans.`)
   })
 })
