@@ -23,7 +23,7 @@ it('virtualizes hundreds of patterns while preserving expansion, scrolling, and 
 
   const firstCard = document.querySelector('[data-pattern-card]') as HTMLElement
   const first = firstCard.querySelector('button[aria-expanded]') as HTMLButtonElement
-  const viewLogs = Array.from(firstCard.querySelectorAll('button')).find((button) => /^View \d+ logs?$/.test(button.textContent ?? '')) as HTMLButtonElement
+  const viewLogs = Array.from(firstCard.querySelectorAll('button')).find((button) => button.textContent === 'View logs') as HTMLButtonElement
   const severity = firstCard.querySelector('[data-severity]') as HTMLElement
   expect(viewLogs).toBeTruthy()
   expect(severity.getAttribute('data-severity')).toMatch(/^(INFO|ERROR)$/)
