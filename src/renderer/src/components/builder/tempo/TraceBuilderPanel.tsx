@@ -1,4 +1,4 @@
-import { TextInput } from './ui/TextInput'
+import { TextInput } from '@components/ui/TextInput'
 import { useEffect, useMemo } from 'react'
 import type { DatabaseSchemaNode } from '@shared/types'
 import type { TempoAttribute } from '@shared/tempo'
@@ -11,12 +11,12 @@ import {
   type TraceSpanKind,
   type TraceStatus
 } from '@lib/traceBuilder'
-import { Combobox, MultiCombobox, type ComboboxOption } from './ui/combobox'
-import { GeneratedQueryPanel } from './query/GeneratedQueryPanel'
-import { CollapsibleSection } from './ui/CollapsibleSection'
-import { BuilderForm } from './builder/BuilderForm'
-import { BuilderRow } from './builder/BuilderRow'
-import { FormField } from './builder/FormField'
+import { Combobox, MultiCombobox, type ComboboxOption } from '@components/ui/combobox'
+import { GeneratedQueryPanel } from '@components/query/GeneratedQueryPanel'
+import { CollapsibleSection } from '@components/ui/CollapsibleSection'
+import { BuilderForm } from '@components/builder/BuilderForm'
+import { BuilderRow } from '@components/builder/BuilderRow'
+import { FormField } from '@components/builder/FormField'
 import styles from './TraceBuilderPanel.module.css'
 
 interface TraceBuilderPanelProps {

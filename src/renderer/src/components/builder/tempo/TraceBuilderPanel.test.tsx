@@ -10,7 +10,7 @@ vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: {} }))
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value, ...props }: { value: string; 'aria-label'?: string }) => <textarea aria-label={props['aria-label']} value={value} readOnly />
 }))
-vi.mock('./ui/combobox', () => ({
+vi.mock('@components/ui/combobox', () => ({
   Combobox: ({ label, value }: { label: string; value: string }) => <button type="button" aria-label={`${label}: ${value}`}>{value}</button>,
   MultiCombobox: ({ label, values, options, onChange }: { label: string; values: string[]; options: Array<{ value: string }>; onChange: (values: string[]) => void }) => <button type="button" aria-label={`${label}: ${values.join(', ')}`} onClick={() => onChange(values.length ? [] : options.slice(0, 1).map((option) => option.value))}>{values.join(', ')}</button>
 }))
@@ -43,7 +43,7 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     expect(coreRow?.querySelectorAll(':scope > [data-builder-field]')).toHaveLength(6)
     expect(detailRow?.querySelectorAll(':scope > [data-builder-field]')).toHaveLength(2)
 
-    const css = readFileSync(resolve(process.cwd(), 'src/renderer/src/components/TraceBuilderPanel.module.css'), 'utf8')
+    const css = readFileSync(resolve(process.cwd(), 'src/renderer/src/components/builder/tempo/TraceBuilderPanel.module.css'), 'utf8')
     expect(css).not.toMatch(/\.control\s*\{/)
   })
 

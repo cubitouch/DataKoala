@@ -36,7 +36,7 @@ describe('PromQL Builder controls', () => {
       expect(root?.querySelector(`[data-field-name="${label}"]`)?.closest('[data-builder-field]')).toBeTruthy()
     }
 
-    const css = readFileSync('src/renderer/src/components/PromqlBuilderPanel.module.css', 'utf8')
+    const css = readFileSync('src/renderer/src/components/builder/prometheus/PromqlBuilderPanel.module.css', 'utf8')
     expect(css).not.toMatch(/\.control\s*\{/)
   })
 

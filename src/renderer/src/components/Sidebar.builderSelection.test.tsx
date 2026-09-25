@@ -31,7 +31,7 @@ vi.mock('@lib/api', () => ({
 }))
 
 import { Sidebar } from './Sidebar'
-import { BuilderPanel } from './BuilderPanel'
+import { BuilderPanel } from '@components/builder/sql/BuilderPanel'
 import { activeTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
 
 const schemas = [{
