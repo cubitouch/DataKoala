@@ -16,6 +16,7 @@ const rendererAliases = [
 ]
 
 const sourceExtensions = new Set(['.ts', '.tsx'])
+const vitestModuleSpecifierCalls = new Set(['mock', 'doMock', 'unmock', 'importActual', 'importMock'])
 
 function isWithin(parent, candidate) {
   const relative = path.relative(parent, candidate)
@@ -38,6 +39,17 @@ function aliasForTarget(target) {
   return null
 }
 
+function isVitestModuleSpecifierCall(node) {
+  if (!ts.isCallExpression(node) || !node.arguments.length) return false
+  const expression = node.expression
+  return (
+    ts.isPropertyAccessExpression(expression) &&
+    ts.isIdentifier(expression.expression) &&
+    expression.expression.text === 'vi' &&
+    vitestModuleSpecifierCalls.has(expression.name.text)
+  )
+}
+
 function collectModuleSpecifiers(sourceFile) {
   const specifiers = []
 
@@ -53,6 +65,8 @@ function collectModuleSpecifiers(sourceFile) {
       node.expression.kind === ts.SyntaxKind.ImportKeyword &&
       node.arguments.length === 1
     ) {
+      add(node.arguments[0])
+    } else if (isVitestModuleSpecifierCall(node)) {
       add(node.arguments[0])
     } else if (
       ts.isImportTypeNode(node) &&
