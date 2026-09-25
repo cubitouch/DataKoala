@@ -2,14 +2,31 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
-    "types": ["node", "electron"],
+    "lib": [
+      "ES2022"
+    ],
+    "types": [
+      "node",
+      "electron"
+    ],
     "baseUrl": ".",
     "paths": {
-      "@main/*": ["src/main/*"],
-      "@shared/*": ["src/shared/*"]
+      "@main/*": [
+        "src/main/*"
+      ],
+      "@shared/*": [
+        "src/shared/*"
+      ]
     }
   },
-  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+  "include": [
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/shared/**/*"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.vitest.ts"
+  ]
 }

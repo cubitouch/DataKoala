@@ -2,18 +2,42 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "jsx": "react-jsx",
-    "types": ["node", "vitest/globals", "vite/client"],
+    "types": [
+      "node",
+      "vitest/globals",
+      "vite/client"
+    ],
     "baseUrl": ".",
     "paths": {
-      "@components/*": ["src/renderer/src/components/*"],
-      "@lib/*": ["src/renderer/src/lib/*"],
-      "@store/*": ["src/renderer/src/store/*"],
-      "@test/*": ["src/renderer/src/test/*"],
-      "@renderer/*": ["src/renderer/src/*"],
-      "@shared/*": ["src/shared/*"]
+      "@components/*": [
+        "src/renderer/src/components/*"
+      ],
+      "@lib/*": [
+        "src/renderer/src/lib/*"
+      ],
+      "@store/*": [
+        "src/renderer/src/store/*"
+      ],
+      "@test/*": [
+        "src/renderer/src/test/*"
+      ],
+      "@renderer/*": [
+        "src/renderer/src/*"
+      ],
+      "@shared/*": [
+        "src/shared/*"
+      ]
     }
   },
-  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/renderer/src/preload.d.ts"]
+  "include": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.vitest.ts",
+    "src/renderer/src/preload.d.ts"
+  ]
 }
