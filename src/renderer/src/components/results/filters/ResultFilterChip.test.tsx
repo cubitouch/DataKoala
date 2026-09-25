@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createResultFilter, stableResultFilterId, type ResultFilter } from '../../../lib/resultFilters'
+import { createResultFilter, stableResultFilterId, type ResultFilter } from '@lib/resultFilters'
 import { ResultFilterChip } from './ResultFilterChip'
 
 const promoted = (): ResultFilter => {

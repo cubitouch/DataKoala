@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Combobox, MultiCombobox } from '.'
 import styles from './Combobox.module.css'
-import fieldStyles from '../FieldChrome.module.css'
+import fieldStyles from '@components/ui/FieldChrome.module.css'
 
 Element.prototype.scrollIntoView = vi.fn()
 afterEach(cleanup)

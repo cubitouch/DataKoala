@@ -1,4 +1,4 @@
-import { selectActiveSession, useStore, type QueryMode } from '../store/useStore'
+import { selectActiveSession, useStore, type QueryMode } from '@store/useStore'
 import { queryLanguageForSourceKind } from '@shared/types'
 import styles from './ModeSwitch.module.css'
 

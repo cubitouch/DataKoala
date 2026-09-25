@@ -1,4 +1,4 @@
-import { traceResultStatus, type TraceRow } from '../../../lib/traceViewer'
+import { traceResultStatus, type TraceRow } from '@lib/traceViewer'
 import styles from './TraceSearchList.module.css'
 import { traceDateTimeLabel, traceDurationLabel, traceNumber, traceText } from './tracePresentation'
 

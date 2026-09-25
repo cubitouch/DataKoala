@@ -1,4 +1,4 @@
-import type { ResultFilter } from '../../../lib/resultFilters'
+import type { ResultFilter } from '@lib/resultFilters'
 import { ResultFilterChip } from './ResultFilterChip'
 import styles from './ResultFilterBar.module.css'
 

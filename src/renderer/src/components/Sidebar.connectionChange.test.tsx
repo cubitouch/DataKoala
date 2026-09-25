@@ -26,8 +26,8 @@ vi.mock('../lib/api', () => ({
 }))
 
 import { Sidebar } from './Sidebar'
-import { selectActiveSession, useStore } from '../store/useStore'
-import { patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+import { selectActiveSession, useStore } from '@store/useStore'
+import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 
 const profiles: ConnectionProfile[] = [
   { kind: 'postgres', version: 1, id: 'profile-a', name: 'Database A', host: 'a.local', port: 5432, database: 'a', user: 'reader', password: 'secret-a', ssl: false, readonly: true },

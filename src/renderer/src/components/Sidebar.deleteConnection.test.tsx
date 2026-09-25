@@ -12,7 +12,7 @@ vi.mock('../lib/api', () => ({ api: { connections: {
 } } }))
 
 import { Sidebar } from './Sidebar'
-import { resetTestStore } from '../test/sessionTestUtils'
+import { resetTestStore } from '@test/sessionTestUtils'
 
 beforeEach(() => { remove.mockReset(); remove.mockResolvedValue(undefined) })
 afterEach(() => { cleanup(); resetTestStore() })

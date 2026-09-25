@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryUtilityActions } from './QueryUtilityActions'
-import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+import { activeTestSession, patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 
 describe('QueryUtilityActions', () => {
   afterEach(() => { cleanup(); resetTestStore(); vi.restoreAllMocks() })

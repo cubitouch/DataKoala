@@ -32,7 +32,7 @@ vi.mock('../lib/api', () => ({
 
 import { Sidebar } from './Sidebar'
 import { BuilderPanel } from './BuilderPanel'
-import { activeTestSession, resetTestStore, setActiveTestMetadata } from '../test/sessionTestUtils'
+import { activeTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
 
 const schemas = [{
   name: 'demo_shop',
@@ -53,7 +53,7 @@ describe('Sidebar Builder relation selection', () => {
   it('reloads columns for an expanded relation after metadata revision', async () => {
     resetTestStore({ connected: true, activeProfileId: 'p1', connectionStatus: 'connected' })
     setActiveTestMetadata(schemas, 'loaded', null, 'p1')
-    const { useStore } = await import('../store/useStore')
+    const { useStore } = await import('@store/useStore')
     const session = activeTestSession()
     useStore.setState({ tabs: [{ ...session, connectionProfileId: 'p1' }] })
     render(<Sidebar />)
@@ -70,7 +70,7 @@ describe('Sidebar Builder relation selection', () => {
     resetTestStore({ connected: true, activeProfileId: 'p1', connectionStatus: 'connected' })
     setActiveTestMetadata(schemas, 'loaded', null, 'p1')
     const session = activeTestSession()
-    const { useStore } = await import('../store/useStore')
+    const { useStore } = await import('@store/useStore')
     useStore.setState({
       tabs: [{ ...session, connectionProfileId: 'p1', builder: { table: null, timeColumn: null, timeBucket: 'day', seriesColumns: [], timeRange: undefined } }]
     })

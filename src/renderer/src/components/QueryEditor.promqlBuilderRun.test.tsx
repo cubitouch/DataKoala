@@ -28,7 +28,7 @@ vi.mock('./ModeSwitch', () => ({ ModeSwitch: () => <div aria-label="Query mode" 
 vi.mock('./NotificationArea', () => ({ notify: vi.fn() }))
 
 import { QueryEditor } from './QueryEditor'
-import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '../test/sessionTestUtils'
+import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
 
 function arrange(metric: string, metadataType: string | undefined, sql: string) {
   const id = 'prom-builder-run'

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { ResultView } from '../../lib/resultVisualization'
+import type { ResultView } from '@lib/resultVisualization'
 import styles from './ChartPicker.module.css'
 
 export type ChartPickerView = ResultView | 'list' | 'patterns'

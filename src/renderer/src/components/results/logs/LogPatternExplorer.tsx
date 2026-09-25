@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { LokiLogRow } from '@shared/loki'
 import { clusterLogPatterns, type LogPatternCluster } from '@shared/log-patterns'
-import { effectiveLogMessage } from '../../../lib/lokiLogMessage'
+import { effectiveLogMessage } from '@lib/lokiLogMessage'
 import styles from './LogPatternExplorer.module.css'
 
 const clusterCache = new WeakMap<LokiLogRow[], LogPatternCluster[]>()

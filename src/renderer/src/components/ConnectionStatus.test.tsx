@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ConnectionStatus } from './ConnectionStatus'
-import { resetTestStore } from '../test/sessionTestUtils'
+import { resetTestStore } from '@test/sessionTestUtils'
 
 const postgres = { kind: 'postgres' as const, version: 1 as const, id: 'pg', name: 'A very long production database name', host: 'db', port: 5432, database: 'app', user: 'app', password: '', ssl: false, readonly: true }
 

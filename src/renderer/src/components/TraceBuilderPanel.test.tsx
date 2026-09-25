@@ -15,7 +15,7 @@ vi.mock('./ui/combobox', () => ({
   MultiCombobox: ({ label, values, options, onChange }: { label: string; values: string[]; options: Array<{ value: string }>; onChange: (values: string[]) => void }) => <button type="button" aria-label={`${label}: ${values.join(', ')}`} onClick={() => onChange(values.length ? [] : options.slice(0, 1).map((option) => option.value))}>{values.join(', ')}</button>
 }))
 
-import { EMPTY_TRACE_BUILDER } from '../lib/traceBuilder'
+import { EMPTY_TRACE_BUILDER } from '@lib/traceBuilder'
 import { TraceBuilderPanel } from './TraceBuilderPanel'
 
 describe('TraceBuilderPanel generated TraceQL', () => {

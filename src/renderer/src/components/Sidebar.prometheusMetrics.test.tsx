@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PrometheusProfile } from '@shared/types'
-import { normalizeDatabaseObjects } from '../lib/databaseObjects'
-import { resetTestStore } from '../test/sessionTestUtils'
-import { selectActiveSession, useStore } from '../store/useStore'
+import { normalizeDatabaseObjects } from '@lib/databaseObjects'
+import { resetTestStore } from '@test/sessionTestUtils'
+import { selectActiveSession, useStore } from '@store/useStore'
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), describeTable: vi.fn(), labelsForMetric: vi.fn(), labelValues: vi.fn() }))
 vi.mock('../lib/api', () => ({ api: { connections: {

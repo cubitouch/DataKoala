@@ -1,6 +1,6 @@
 import styles from './TimeRange.module.css'
-import { EMPTY_BUILDER_CUSTOM_RANGE, type BuilderTimeRange } from '../../lib/builderTimeRange'
-import { quickRanges } from '../../lib/customTimeRange'
+import { EMPTY_BUILDER_CUSTOM_RANGE, type BuilderTimeRange } from '@lib/builderTimeRange'
+import { quickRanges } from '@lib/customTimeRange'
 
 export const PRESETS: { section: string; items: { id: string; label: string; range: BuilderTimeRange }[] }[] = [
   { section: 'Rolling', items: [

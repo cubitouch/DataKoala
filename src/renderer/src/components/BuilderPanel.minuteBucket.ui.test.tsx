@@ -6,9 +6,9 @@ vi.mock('@uiw/react-codemirror', () => ({ default: ({ value }: { value: string }
 vi.mock('../lib/api', () => ({ api: { query: { seriesStatistics: vi.fn(), probeSeriesCardinality: vi.fn() }, connections: { describeTable: vi.fn() } } }))
 
 import { BuilderPanel } from './BuilderPanel'
-import type { BuilderTimeRange } from '../lib/builderTimeRange'
-import { activeTestSession, patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '../test/sessionTestUtils'
-import { useStore } from '../store/useStore'
+import type { BuilderTimeRange } from '@lib/builderTimeRange'
+import { activeTestSession, patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
+import { useStore } from '@store/useStore'
 import type { DatabaseSchemaNode } from '@shared/types'
 
 const schemas: DatabaseSchemaNode[] = [{

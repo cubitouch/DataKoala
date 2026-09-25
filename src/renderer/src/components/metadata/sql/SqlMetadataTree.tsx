@@ -1,5 +1,5 @@
 import type { DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
-import { MetadataTree, type MetadataTreeNode } from '../MetadataTree'
+import { MetadataTree, type MetadataTreeNode } from '@components/metadata/MetadataTree'
 
 const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
 

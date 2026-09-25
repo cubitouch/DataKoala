@@ -1,24 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, LokiProfile, PrometheusProfile, SqliteFileProfile, TempoProfile } from '../../../shared/types'
-import type { LokiDatasourceOption } from '../../../shared/loki'
-import type { PrometheusDatasourceOption } from '../../../shared/prometheus'
-import type { TempoDatasourceOption } from '../../../shared/tempoDatasource'
-import { normalizeGrafanaBaseUrl } from '../../../shared/grafanaExplore'
-import { parseConnectionString, buildConnectionString, DEFAULT_PORT } from '../../../shared/connString'
-import { api } from '../lib/api'
+import type { BigQueryProfile, ConnectionProfile, DataSourceKind, DataSourceProfile, LocalFilesProfile, LokiProfile, PrometheusProfile, SqliteFileProfile, TempoProfile } from '@shared/types'
+import type { LokiDatasourceOption } from '@shared/loki'
+import type { PrometheusDatasourceOption } from '@shared/prometheus'
+import type { TempoDatasourceOption } from '@shared/tempoDatasource'
+import { normalizeGrafanaBaseUrl } from '@shared/grafanaExplore'
+import { parseConnectionString, buildConnectionString, DEFAULT_PORT } from '@shared/connString'
+import { api } from '@lib/api'
 import { Combobox } from './ui/combobox'
 import { Checkbox } from './ui/Checkbox'
 import { TextInput } from './ui/TextInput'
 import { CollapsibleSection } from './ui/CollapsibleSection'
 import styles from './ConnectionModal.module.css'
-import { parseBigQueryReference, type BigQueryDatasetOption, type BigQueryProjectOption } from '../../../shared/bigqueryDiscovery'
+import { parseBigQueryReference, type BigQueryDatasetOption, type BigQueryProjectOption } from '@shared/bigqueryDiscovery'
 import {
   buildConnectionProfileDraft,
   draftFromProfile,
   type ConnectionDraft,
   type ConnectionDraftErrors,
   type ConnectionDraftField
-} from '../lib/connectionDraft'
+} from '@lib/connectionDraft'
 
 interface Props {
   existing: DataSourceProfile | null

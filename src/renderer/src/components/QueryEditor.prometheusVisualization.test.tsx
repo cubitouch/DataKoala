@@ -31,7 +31,7 @@ vi.mock('./ModeSwitch', () => ({ ModeSwitch: () => <div aria-label="Query mode" 
 vi.mock('./NotificationArea', () => ({ notify: vi.fn() }))
 
 import { QueryEditor } from './QueryEditor'
-import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+import { activeTestSession, patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 
 const profileId = 'prom-visualization'
 const result = {

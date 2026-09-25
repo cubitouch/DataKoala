@@ -2,20 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { TITLEBAR_HEIGHT } from '@shared/layoutDimensions'
-import { Combobox } from '../../ui/combobox'
-import { TextInput } from '../../ui/TextInput'
+import { Combobox } from '@components/ui/combobox'
+import { TextInput } from '@components/ui/TextInput'
 import type {
   TraceCohortAggregate,
   TraceCohortAnalysisProgress,
   TraceCohortEdge,
   TraceCohortNode,
   TraceCohortTraceSummary
-} from '../../../lib/traceCohort'
-import { groupTraceServiceMap, type TraceServiceMapGrouping, type TraceServiceMapViewEdge, type TraceServiceMapViewNode } from '../../../lib/traceServiceMapGrouping'
-import { layoutTraceServiceMap } from '../../../lib/traceServiceMapLayout'
-import { projectTraceServiceMap } from '../../../lib/traceServiceMapProjection'
-import { scopeTraceServiceMap, type TraceServiceMapScope } from '../../../lib/traceServiceMapScope'
-import { ChartReadinessController, createChartRevision, finishChartRevisionAfterPaint, type ChartRevision } from '../../../lib/chartReadiness'
+} from '@lib/traceCohort'
+import { groupTraceServiceMap, type TraceServiceMapGrouping, type TraceServiceMapViewEdge, type TraceServiceMapViewNode } from '@lib/traceServiceMapGrouping'
+import { layoutTraceServiceMap } from '@lib/traceServiceMapLayout'
+import { projectTraceServiceMap } from '@lib/traceServiceMapProjection'
+import { scopeTraceServiceMap, type TraceServiceMapScope } from '@lib/traceServiceMapScope'
+import { ChartReadinessController, createChartRevision, finishChartRevisionAfterPaint, type ChartRevision } from '@lib/chartReadiness'
 import styles from './TraceServiceMap.module.css'
 
 interface TraceServiceMapProps {

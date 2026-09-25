@@ -1,4 +1,4 @@
-import { InputControl } from '../input/InputControl'
+import { InputControl } from '@components/ui/input/InputControl'
 import styles from './Combobox.module.css'
 interface Props {
   value: string

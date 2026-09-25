@@ -10,9 +10,9 @@ vi.mock('../lib/api', () => ({ api: {
 } }))
 
 import { TraceExplorer } from './TraceExplorer'
-import { resetTempoMetadataCache } from '../lib/tempoMetadata'
-import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '../test/sessionTestUtils'
-import { useStore } from '../store/useStore'
+import { resetTempoMetadataCache } from '@lib/tempoMetadata'
+import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
+import { useStore } from '@store/useStore'
 
 function deferred<T>() {
   let resolve!: (value: T) => void

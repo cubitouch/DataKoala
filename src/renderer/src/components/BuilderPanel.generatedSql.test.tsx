@@ -12,7 +12,7 @@ vi.mock('../lib/api', () => ({
 }))
 
 import { BuilderPanel } from './BuilderPanel'
-import { activeTestSession, patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '../test/sessionTestUtils'
+import { activeTestSession, patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
 
 const schemas: DatabaseSchemaNode[] = [{
   name: 'demo_shop', isSystem: false, relations: [{

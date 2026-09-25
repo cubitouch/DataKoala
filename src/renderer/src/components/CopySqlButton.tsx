@@ -1,4 +1,4 @@
-import { copyTextToClipboard } from '../lib/clipboardText'
+import { copyTextToClipboard } from '@lib/clipboardText'
 import { notify } from './NotificationArea'
 
 interface CopySqlButtonProps {

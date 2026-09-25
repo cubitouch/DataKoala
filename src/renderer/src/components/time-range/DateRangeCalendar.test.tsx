@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { DateRangeCalendar } from './DateRangeCalendar'
-import type { CustomTimeRangeValue } from '../../lib/customTimeRange'
+import type { CustomTimeRangeValue } from '@lib/customTimeRange'
 
 afterEach(cleanup)
 function CalendarView({ initial }: { initial: CustomTimeRangeValue }) {

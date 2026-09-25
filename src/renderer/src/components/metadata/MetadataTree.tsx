@@ -1,5 +1,5 @@
 import { useId, type CSSProperties, type ReactNode } from 'react'
-import { matchesSearch } from '../../lib/matchesSearch'
+import { matchesSearch } from '@lib/matchesSearch'
 import styles from './MetadataTree.module.css'
 
 export type MetadataTreeNode = {

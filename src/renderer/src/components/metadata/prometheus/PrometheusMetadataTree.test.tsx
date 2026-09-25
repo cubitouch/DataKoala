@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { normalizeDatabaseObjects } from '../../../lib/databaseObjects'
+import { normalizeDatabaseObjects } from '@lib/databaseObjects'
 
 const mocks = vi.hoisted(() => ({ labelsForMetric: vi.fn(), labelValues: vi.fn() }))
 vi.mock('../../../lib/api', () => ({ api: { connections: { prometheus: mocks } } }))

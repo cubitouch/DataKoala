@@ -1,5 +1,5 @@
-import { connectionKindLabel } from '../lib/connectionKind'
-import { useStore } from '../store/useStore'
+import { connectionKindLabel } from '@lib/connectionKind'
+import { useStore } from '@store/useStore'
 import styles from './ConnectionStatus.module.css'
 
 /** The single, shared connection indicator used by each query-mode toolbar. */
