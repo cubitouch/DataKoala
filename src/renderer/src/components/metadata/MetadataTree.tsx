@@ -1,4 +1,5 @@
 import { useId, type CSSProperties, type ReactNode } from 'react'
+import { matchesSearch } from '../../lib/matchesSearch'
 import styles from './MetadataTree.module.css'
 
 export type MetadataTreeNode = {
@@ -31,23 +32,23 @@ type Props = {
   onRetry?: (node: MetadataTreeNode) => void
 }
 
-function filteredNodes(nodes: MetadataTreeNode[], needle: string): MetadataTreeNode[] {
+function filteredNodes(nodes: MetadataTreeNode[], query: string): MetadataTreeNode[] {
   return nodes.flatMap((node) => {
-    const ownMatch = `${node.label} ${node.secondaryText ?? ''}`.toLocaleLowerCase().includes(needle)
-    const children = ownMatch ? (node.children ?? []) : filteredNodes(node.children ?? [], needle)
+    const ownMatch = matchesSearch(`${node.label} ${node.secondaryText ?? ''}`, query)
+    const children = ownMatch ? (node.children ?? []) : filteredNodes(node.children ?? [], query)
     return ownMatch || children.length ? [{ ...node, children }] : []
   })
 }
 
 export function MetadataTree({ ariaLabel, nodes, filter = '', onToggle, onActivate, onRetry }: Props) {
   const descriptionPrefix = useId()
-  const needle = filter.trim().toLocaleLowerCase()
-  const visible = needle ? filteredNodes(nodes, needle) : nodes
+  const query = filter.trim()
+  const visible = query ? filteredNodes(nodes, query) : nodes
 
   const renderNodes = (items: MetadataTreeNode[], depth: number) => items.map((node) => {
     const descriptionId = `${descriptionPrefix}-${node.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`
     const expandable = Boolean(node.expandable || node.children?.length || node.status === 'loading' || node.status === 'error')
-    const expanded = expandable && (Boolean(needle) || Boolean(node.expanded))
+    const expanded = expandable && (Boolean(query) || Boolean(node.expanded))
     return <div key={node.id} role="treeitem" aria-label={!node.activatable ? node.ariaLabel : undefined} aria-expanded={expandable ? expanded : undefined}>
       <div className={styles.treeRow} style={{ '--tree-depth': depth } as CSSProperties}>
         {expandable
