@@ -1,8 +1,5 @@
-// Relative rather than the '@shared' alias: this module is unit tested under plain
-// Node, which does not know about Vite's path aliases, and `isTimeType` is a runtime
-// value so the import is not erased by type stripping.
-import { isTimeType, type QueryResult } from '../../../shared/types.ts'
-import type { ChartConfig } from '../store/useStore'
+import { isTimeType, type QueryResult } from '@shared/types.ts'
+import type { ChartConfig } from '@store/useStore'
 import { buildChartData } from './data.ts'
 
 /**

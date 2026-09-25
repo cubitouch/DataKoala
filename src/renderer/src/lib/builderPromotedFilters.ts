@@ -1,8 +1,8 @@
-import type { TimeBucket } from '../store/useStore'
+import type { TimeBucket } from '@store/useStore'
 import { timeBucketRange } from './chartPointFilters.ts'
 import { decodeBuilderSeriesTuple, type SerializableBuilderSeriesValue } from './resultVisualization.ts'
 import { queryResultFilters, type ResultFilter, type SerializableFilterValue } from './resultFilters.ts'
-import { quotePostgresIdentifier } from '../../../shared/seriesCardinality.ts'
+import { quotePostgresIdentifier } from '@shared/seriesCardinality.ts'
 
 export interface BuilderFilterContext {
   table: { schema: string; name: string }
