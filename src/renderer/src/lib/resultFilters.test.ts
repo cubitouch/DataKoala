@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { applyResultFilters, createResultFilter, createResultRangeFilter, deduplicateResultFilters, filterQueryResult, resultFilterLabel, resultValuesEqual, type ResultFilter } from './resultFilters.ts'
 
 test('applies multiple filters with AND semantics', () => {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { buildSeriesCardinalityProbe } from '@shared/seriesCardinality.ts'
 import { CHART_SERIES_HARD_LIMIT } from '@shared/chartLimits.ts'
 import { isSeriesColumnRemoval, SeriesCardinalityProbeGuard, selectionAfterCardinalityProbe, seriesProbeFingerprint } from './seriesCardinalityGuard.ts'

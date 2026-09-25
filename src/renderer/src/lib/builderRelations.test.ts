@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import type { BuilderQueryState } from '@store/useStore'
 import { canLoadRelationColumns, relationIdentity, relationsForSchema, selectBuilderRelationState, selectionPatchForColumns } from './builderRelations.ts'
