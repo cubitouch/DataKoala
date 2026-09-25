@@ -35,6 +35,10 @@ interface TraceOpenedResultProps {
 const text = traceText
 const number = traceNumber
 
+export function renderedSpanLimitWarning(visibleSpanCount: number): string | null {
+  return visibleSpanCount > MAX_RENDERED_SPANS ? `Showing the first ${MAX_RENDERED_SPANS} visible spans.` : null
+}
+
 export function TraceOpenedResult({ spans, selectedSpanId, collapsed, hiddenSpanKinds, hideAsyncBranches, compressIdleGaps, showBackToResults, busy = false, onSelectSpan, onToggleCollapsed, onToggleSpanKind, onToggleAsyncBranches, onToggleIdleCompression, onShowAllKinds, onBackToResults, onExploreSimilar }: TraceOpenedResultProps) {
   const sortedSpans = useMemo(() => [...spans].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs)), [spans])
   const spanKinds = useMemo(() => traceSpanKinds(sortedSpans), [sortedSpans])
@@ -55,6 +59,7 @@ export function TraceOpenedResult({ spans, selectedSpanId, collapsed, hiddenSpan
   const asyncPrunedCount = sortedSpans.length - viewerSpans.length
   const hasAsyncKinds = spanKinds.some((kind) => kind === 'PRODUCER' || kind === 'CONSUMER')
   const exploreSource = selectedSpan ?? rootSpan
+  const spanLimitWarning = renderedSpanLimitWarning(visibleTree.length)
 
   return <div className={styles.traceView} aria-busy={busy} style={{ gridRow: 5 }}>
     <TraceResultHeader traceId={text(rootSpan?.traceId)} service={text(rootSpan?.service)} operation={text(rootSpan?.name)} durationMs={traceDuration}
@@ -64,7 +69,7 @@ export function TraceOpenedResult({ spans, selectedSpanId, collapsed, hiddenSpan
       onBackToResults={onBackToResults} onExploreSimilar={() => { if (exploreSource) onExploreSimilar(exploreSource) }} onToggleSpanKind={onToggleSpanKind}
       onToggleAsyncBranches={onToggleAsyncBranches} onToggleIdleCompression={onToggleIdleCompression} onShowAllKinds={onShowAllKinds} />
 
-    {visibleTree.length > MAX_RENDERED_SPANS && <div className={styles.warning}>Showing the first {MAX_RENDERED_SPANS} visible spans.</div>}
+    {spanLimitWarning && <div className={styles.warning}>{spanLimitWarning}</div>}
 
     <div className={`${styles.inspectionArea} ${selectedSpan ? styles.withDetails : styles.waterfallOnly}`}>
       <TraceWaterfall visibleTree={visibleTree} timelineSpans={timelineSpans} selectedSpanId={selectedSpanId} collapsed={collapsed}
