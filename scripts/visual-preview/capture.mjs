@@ -396,30 +396,28 @@ async function configureDocumentationPrometheus(win) {
   if (report.mode !== 'builder' || report.rowCount !== 50 || report.metric !== 'http_request_duration_seconds_bucket' || report.view !== 'Line') throw new Error(`Prometheus documentation assertion failed: ${JSON.stringify(report)}`)
 }
 
-async function configureDocumentationTreemap(win) {
-  await configureDocumentationSql(win, 'sql', 'treemap')
+async function configureDocumentationSunburst(win) {
+  await configureDocumentationSql(win, 'sql', 'sunburst')
   await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
     const rows = [
-      ['Europe', 'France', 'Web', 1480], ['Europe', 'France', 'Marketplace', 920],
-      ['Europe', 'Germany', 'Web', 1320], ['Europe', 'Germany', 'Marketplace', 810],
-      ['Europe', 'Spain', 'Web', 980], ['Europe', 'Spain', 'Marketplace', 640],
-      ['North America', 'United States', 'Web', 1760], ['North America', 'United States', 'Marketplace', 1210],
-      ['North America', 'Canada', 'Web', 890], ['North America', 'Canada', 'Marketplace', 570]
-    ].map(([region, country, channel, value], index) => ({ record: 'Segment ' + (index + 1), region, country, channel, value }))
+      ['EUR', 'France', 2840], ['EUR', 'Germany', 2260], ['EUR', 'Spain', 1540], ['EUR', 'Italy', 1310],
+      ['USD', 'United States', 3520], ['USD', 'Canada', 1180],
+      ['GBP', 'United Kingdom', 1760],
+      ['CHF', 'Switzerland', 820]
+    ].map(([currency, country, value], index) => ({ payment: 'Payments ' + (index + 1), currency, country, value }))
     store.getState().setResult({ columns: [
-      { name: 'record', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
-      { name: 'region', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+      { name: 'payment', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+      { name: 'currency', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
       { name: 'country', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
-      { name: 'channel', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
       { name: 'value', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
     ], rows, rowCount: rows.length, durationMs: 12 }, null)
-    store.getState().setSql('select region, country, channel, value\\nfrom analytics.market_summary\\norder by region, country, channel;')
-    store.getState().setVisualization('sql', { view: 'treemap', xColumn: 'record', valueColumn: 'value', seriesColumn: null, seriesColumns: ['region', 'country', 'channel'], hierarchyDimensions: ['region', 'country', 'channel'], aggregation: 'sum' })
+    store.getState().setSql('select currency, country, value\\nfrom analytics.payment_summary\\norder by currency, country;')
+    store.getState().setVisualization('sql', { view: 'sunburst', xColumn: 'payment', valueColumn: 'value', seriesColumn: null, seriesColumns: ['currency', 'country'], hierarchyDimensions: ['currency', 'country'], aggregation: 'sum' })
   })()`)
-  await waitForRendererState(win, `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Treemap' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`, 'rendered documentation Treemap')
+  await waitForRendererState(win, `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Sunburst' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`, 'rendered documentation Sunburst')
   const report = await win.webContents.executeJavaScript(`({ view: document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim(), hierarchy: document.querySelector('[aria-label="Hierarchy order"]')?.innerText, filters: document.querySelectorAll('[data-result-filter-chip]').length, empty: Boolean(document.querySelector('[data-result-empty]')) })`)
-  if (report.view !== 'Treemap' || report.filters || report.empty || !report.hierarchy?.includes('region') || !report.hierarchy.includes('country') || !report.hierarchy.includes('channel')) throw new Error(`Treemap documentation assertion failed: ${JSON.stringify(report)}`)
+  if (report.view !== 'Sunburst' || report.filters || report.empty || !report.hierarchy?.includes('currency') || !report.hierarchy.includes('country')) throw new Error(`Sunburst documentation assertion failed: ${JSON.stringify(report)}`)
 }
 
 async function configureMode(win, mode) {
