@@ -210,6 +210,12 @@ describe('LokiExplorer execution', () => {
     expect(await screen.findByText(/Showing 2 logs matching/)).toBeTruthy()
     expect(screen.getByText(/^2 loaded/)).toBeTruthy()
 
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    expect(screen.queryByText(/Showing 2 logs matching/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    expect(screen.getByText(/Showing 2 logs matching/)).toBeTruthy()
+    expect(screen.getByText(/^2 loaded/)).toBeTruthy()
+
     fireEvent.click(screen.getByRole('button', { name: 'Table' }))
     expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
     expect(screen.getByText(/Showing 2 logs matching/)).toBeTruthy()
