@@ -11,5 +11,5 @@
     }
   },
   "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.vitest.ts"]
 }
