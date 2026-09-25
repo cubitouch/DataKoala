@@ -347,12 +347,13 @@ async function configureDocumentationPrometheus(win) {
       { schema: 'Prometheus', name: 'http_request_duration_seconds_bucket', qualifiedName: 'http_request_duration_seconds_bucket', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'histogram', help: 'HTTP request duration buckets.' } },
       { schema: 'Prometheus', name: 'process_memory_bytes', qualifiedName: 'process_memory_bytes', kind: 'metric', columnsStatus: 'idle', details: { kind: 'metric', type: 'gauge', help: 'Resident process memory.' } }
     ] }]
+
     store.setState({
       profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false,
       connectionStatus: 'connected', connectionError: null, serverVersion: null,
       metadataByProfileId: { ...state.metadataByProfileId, [profile.id]: { schemas, status: 'loaded', error: null, isStale: false } },
       tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
-        ...tab, connectionProfileId: profile.id, queryMode: 'builder', result: null, pendingResult: null,
+        ...tab, title: 'Service latency', connectionProfileId: profile.id, queryMode: 'builder',
         sqlResultFilters: [], builderResultFilters: [],
         sql: 'histogram_quantile(\\n  0.95,\\n  sum by (service, le) (rate(http_request_duration_seconds_bucket{environment="production"}[5m]))\\n)',
         prometheusTimeRange: { kind: 'rolling', amount: 6, unit: 'hour' }, prometheusStep: '30s',
@@ -360,35 +361,79 @@ async function configureDocumentationPrometheus(win) {
       } : tab)
     })
   })()`)
-  await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && document.querySelector('.promql-builder-form') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'visible configured Prometheus Builder')
-  const report = await win.webContents.executeJavaScript(`(() => { const state = window.__datakoalaStore.getState(); const tab = state.tabs.find((item) => item.id === state.activeTabId); return { mode: tab.queryMode, result: tab.result, metric: tab.promqlBuilder.metric, tables: document.querySelectorAll('table tbody tr').length } })()`)
-  if (report.mode !== 'builder' || report.result !== null || report.metric !== 'http_request_duration_seconds_bucket' || report.tables) throw new Error(`Prometheus documentation assertion failed: ${JSON.stringify(report)}`)
-}
 
-async function configureDocumentationTreemap(win) {
-  await configureDocumentationSql(win, 'sql', 'treemap')
+  // Switching from the SQL documentation fixture to Prometheus remounts source-specific
+  // UI and clears stale results. Wait for that transition to settle before seeding the
+  // synthetic result, otherwise the cleanup effect can erase it immediately afterwards.
+  await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && document.querySelector('.promql-builder-form') && document.querySelector('[data-connection-live="true"]')?.innerText.includes('Service metrics') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'settled configured Prometheus Builder')
+
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    const state = store.getState()
+    const rows = []
+    const stepMs = 14 * 60 * 1000
+    const end = Date.now() - 15 * 60 * 1000
+    const start = end - 24 * stepMs
+    const services = ['api', 'worker']
+    for (let point = 0; point < 25; point += 1) {
+      for (let serviceIndex = 0; serviceIndex < services.length; serviceIndex += 1) {
+        const wave = Math.sin((point + serviceIndex * 2) / 3) * 0.035
+        const trend = point * (serviceIndex === 0 ? 0.0018 : 0.0011)
+        rows.push({
+          timestamp: new Date(start + point * stepMs),
+          service: services[serviceIndex],
+          value: Number((0.19 + serviceIndex * 0.075 + wave + trend).toFixed(3))
+        })
+      }
+    }
+
+    store.setState({
+      tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
+        ...tab,
+        sqlVisualization: { ...tab.sqlVisualization, view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: 'service', seriesColumns: [], aggregation: 'sum' },
+        builderVisualization: { ...tab.builderVisualization, view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: 'service', seriesColumns: [], aggregation: 'sum' }
+      } : tab)
+    })
+    store.getState().setResult({
+      columns: [
+        { name: 'timestamp', dataTypeName: 'timestamp', logicalType: 'timestamp' },
+        { name: 'service', dataTypeName: 'text', logicalType: 'string' },
+        { name: 'value', dataTypeName: 'double precision', logicalType: 'number' }
+      ],
+      rows,
+      rowCount: rows.length,
+      durationMs: 42
+    }, null)
+
+    const tab = store.getState().tabs.find((item) => item.id === store.getState().activeTabId)
+    return { rowCount: tab?.result?.rowCount, metric: tab?.promqlBuilder.metric }
+  })()`)
+  if (report?.rowCount !== 50 || report?.metric !== 'http_request_duration_seconds_bucket') throw new Error(`Prometheus documentation fixture did not seed correctly: ${JSON.stringify(report)}`)
+
+  await waitForRendererState(win, `document.querySelector('[data-result-chart-canvas] canvas') && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Line' && document.body.innerText.includes('Last 6 hours')`, 'rendered Prometheus documentation result')
+}
+async function configureDocumentationSunburst(win) {
+  await configureDocumentationSql(win, 'sql', 'sunburst')
   await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
     const rows = [
-      ['Europe', 'France', 'Web', 1480], ['Europe', 'France', 'Marketplace', 920],
-      ['Europe', 'Germany', 'Web', 1320], ['Europe', 'Germany', 'Marketplace', 810],
-      ['Europe', 'Spain', 'Web', 980], ['Europe', 'Spain', 'Marketplace', 640],
-      ['North America', 'United States', 'Web', 1760], ['North America', 'United States', 'Marketplace', 1210],
-      ['North America', 'Canada', 'Web', 890], ['North America', 'Canada', 'Marketplace', 570]
-    ].map(([region, country, channel, value], index) => ({ record: 'Segment ' + (index + 1), region, country, channel, value }))
+      ['EUR', 'France', 2840], ['EUR', 'Germany', 2260], ['EUR', 'Spain', 1540], ['EUR', 'Italy', 1310],
+      ['USD', 'United States', 3520], ['USD', 'Canada', 1180],
+      ['GBP', 'United Kingdom', 1760],
+      ['CHF', 'Switzerland', 820]
+    ].map(([currency, country, value], index) => ({ payment: 'Payments ' + (index + 1), currency, country, value }))
     store.getState().setResult({ columns: [
-      { name: 'record', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
-      { name: 'region', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+      { name: 'payment', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
+      { name: 'currency', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
       { name: 'country', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
-      { name: 'channel', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
       { name: 'value', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
     ], rows, rowCount: rows.length, durationMs: 12 }, null)
-    store.getState().setSql('select region, country, channel, value\\nfrom analytics.market_summary\\norder by region, country, channel;')
-    store.getState().setVisualization('sql', { view: 'treemap', xColumn: 'record', valueColumn: 'value', seriesColumn: null, seriesColumns: ['region', 'country', 'channel'], hierarchyDimensions: ['region', 'country', 'channel'], aggregation: 'sum' })
+    store.getState().setSql('select currency, country, value\\nfrom analytics.payment_summary\\norder by currency, country;')
+    store.getState().setVisualization('sql', { view: 'sunburst', xColumn: 'payment', valueColumn: 'value', seriesColumn: null, seriesColumns: ['currency', 'country'], hierarchyDimensions: ['currency', 'country'], aggregation: 'sum' })
   })()`)
-  await waitForRendererState(win, `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Treemap' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`, 'rendered documentation Treemap')
+  await waitForRendererState(win, `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Sunburst' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`, 'rendered documentation Sunburst')
   const report = await win.webContents.executeJavaScript(`({ view: document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim(), hierarchy: document.querySelector('[aria-label="Hierarchy order"]')?.innerText, filters: document.querySelectorAll('[data-result-filter-chip]').length, empty: Boolean(document.querySelector('[data-result-empty]')) })`)
-  if (report.view !== 'Treemap' || report.filters || report.empty || !report.hierarchy?.includes('region') || !report.hierarchy.includes('country') || !report.hierarchy.includes('channel')) throw new Error(`Treemap documentation assertion failed: ${JSON.stringify(report)}`)
+  if (report.view !== 'Sunburst' || report.filters || report.empty || !report.hierarchy?.includes('currency') || !report.hierarchy.includes('country')) throw new Error(`Sunburst documentation assertion failed: ${JSON.stringify(report)}`)
 }
 
 async function configureMode(win, mode) {
@@ -861,6 +906,13 @@ app.whenReady().then(async () => {
   }))
   ipcMain.handle('connections:prometheus:metric-labels', async () => ['continent', 'environment', 'service', 'le', '__name__'])
   ipcMain.handle('connections:prometheus:label-values', async (_event, _id, _metric, label) => label === 'environment' ? ['production', 'staging'] : label === 'continent' ? ['Europe', 'Asia'] : ['api', 'worker'])
+  ipcMain.handle('connections:prometheus:format-query', async (_event, _id, query) => query)
+  ipcMain.handle('gcx:resolve-grafana-handoff', async (_event, request) => ({
+    baseUrl: 'https://grafana.example.test',
+    orgId: 1,
+    datasourceUid: request?.datasourceUid ?? 'sample-metrics',
+    datasourceType: request?.signal === 'tempo' ? 'tempo' : request?.signal === 'loki' ? 'loki' : 'prometheus'
+  }))
 
   const win = new BrowserWindow({
     width: 1440,
@@ -915,7 +967,7 @@ app.whenReady().then(async () => {
       await capture(win, 'docs-prometheus.png')
       await dragDivider(win, '.sidebar-resizer', -110, 0)
 
-      await configureDocumentationTreemap(win)
+      await configureDocumentationSunburst(win)
       await capture(win, 'docs-visualization.png')
 
       await win.webContents.executeJavaScript(`window.__datakoalaStore.setState({ profiles: ${JSON.stringify(syntheticSources)} })`)
