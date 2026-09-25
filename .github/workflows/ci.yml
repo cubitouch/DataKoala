@@ -45,6 +45,9 @@ jobs:
       - name: Check dead code
         run: pnpm check:dead-code
 
+      - name: Check renderer import boundaries
+        run: pnpm lint:imports
+
       - name: Typecheck
         run: pnpm typecheck
 
