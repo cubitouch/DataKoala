@@ -1,16 +1,16 @@
 import { create } from 'zustand'
 import type { DataSourceProfile, ConnectionStateEvent, DatabaseColumnNode, DatabaseSchemaNode, QueryResult } from '@shared/types'
-import type { VisualizationConfiguration } from '../lib/resultVisualization'
-import { deduplicateResultFilters, resultFilterDemotion, stableResultFilterId, type ResultFilter } from '../lib/resultFilters'
-import { selectBuilderRelationState } from '../lib/builderRelations'
-import { clearedBuilderFiltersMessage, transitionBuilderState } from '../lib/builderTransitions'
-import { SEVEN_DAYS, type BuilderTimeRange } from '../lib/builderTimeRange'
-import { completeQueryState, deliverQueryResultState, startQueryState, stopQueryState } from '../lib/queryResultLifecycle'
-import { api } from '../lib/api'
-import { loadConnectionMetadata } from '../lib/connectionMetadata'
-import { refreshConnectionMetadata } from '../lib/metadataRefresh'
-import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from '../lib/promqlBuilder'
-import { defaultQueryModeForDatasource, defaultQueryTextForDatasource } from '../lib/queryDefaults'
+import type { VisualizationConfiguration } from '@lib/resultVisualization'
+import { deduplicateResultFilters, resultFilterDemotion, stableResultFilterId, type ResultFilter } from '@lib/resultFilters'
+import { selectBuilderRelationState } from '@lib/builderRelations'
+import { clearedBuilderFiltersMessage, transitionBuilderState } from '@lib/builderTransitions'
+import { SEVEN_DAYS, type BuilderTimeRange } from '@lib/builderTimeRange'
+import { completeQueryState, deliverQueryResultState, startQueryState, stopQueryState } from '@lib/queryResultLifecycle'
+import { api } from '@lib/api'
+import { loadConnectionMetadata } from '@lib/connectionMetadata'
+import { refreshConnectionMetadata } from '@lib/metadataRefresh'
+import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from '@lib/promqlBuilder'
+import { defaultQueryModeForDatasource, defaultQueryTextForDatasource } from '@lib/queryDefaults'
 import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '@shared/loki'
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'idle' | 'reconnecting' | 'error'
@@ -45,7 +45,7 @@ export interface QuerySession {
   /** True only until the user first edits a newly-created manual query. */
   manualQueryPristine?: boolean
   prometheusTimeRange: BuilderTimeRange
-  prometheusStep: import('../lib/prometheusResolution').PrometheusStep
+  prometheusStep: import('@lib/prometheusResolution').PrometheusStep
   promqlBuilder: PromqlBuilderState
   lokiTimeRange: BuilderTimeRange
   lokiBuilder: LokiBuilderState
