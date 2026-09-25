@@ -21,12 +21,18 @@ it('virtualizes hundreds of patterns while preserving expansion, scrolling, and 
   expect(screen.getByText('600 patterns across 600 loaded logs')).toBeTruthy()
   expect(document.querySelectorAll('[data-pattern-card]').length).toBeLessThan(30)
 
-  const first = document.querySelector('[data-pattern-card] button[aria-expanded]') as HTMLButtonElement
+  const firstCard = document.querySelector('[data-pattern-card]') as HTMLElement
+  const first = firstCard.querySelector('button[aria-expanded]') as HTMLButtonElement
+  const viewLogs = Array.from(firstCard.querySelectorAll('button')).find((button) => button.textContent === 'View logs') as HTMLButtonElement
+  const severity = firstCard.querySelector('[data-severity]') as HTMLElement
+  expect(viewLogs).toBeTruthy()
+  expect(severity.getAttribute('data-severity')).toMatch(/^(INFO|ERROR)$/)
+  fireEvent.click(viewLogs)
+  expect(onViewLogs).toHaveBeenCalledWith(expect.any(String), expect.any(Array))
+
   fireEvent.click(first)
   expect(first.getAttribute('aria-expanded')).toBe('true')
   expect(document.querySelector('[data-pattern-details]')).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: 'View logs' }))
-  expect(onViewLogs).toHaveBeenCalledWith(expect.any(String), expect.any(Array))
 
   const scroller = document.querySelector('[data-pattern-scroller]') as HTMLDivElement
   Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 600 * 113 })
