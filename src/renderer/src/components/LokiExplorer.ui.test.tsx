@@ -204,7 +204,7 @@ describe('LokiExplorer execution', () => {
     const requestPattern = screen.getByRole('button', { name: /Request.*<number>.*completed/ })
     const requestCard = requestPattern.closest('[data-pattern-card]') as HTMLElement
     fireEvent.click(requestPattern)
-    const requestViewLogs = Array.from(requestCard.querySelectorAll('button')).find((button) => button.textContent === 'View logs') as HTMLButtonElement
+    const requestViewLogs = Array.from(requestCard.querySelectorAll('button')).find((button) => /^View \d+ logs?$/.test(button.textContent ?? '')) as HTMLButtonElement
     fireEvent.click(requestViewLogs)
     expect(useStore.getState().tabs[0].lokiResultView).toBe('list')
     expect(await screen.findByText(/Showing 2 logs matching/)).toBeTruthy()
@@ -228,7 +228,7 @@ describe('LokiExplorer execution', () => {
     const requestPattern = await screen.findByRole('button', { name: /Request.*<number>.*completed/ })
     const requestCard = requestPattern.closest('[data-pattern-card]') as HTMLElement
     fireEvent.click(requestPattern)
-    const requestViewLogs = Array.from(requestCard.querySelectorAll('button')).find((button) => button.textContent === 'View logs') as HTMLButtonElement
+    const requestViewLogs = Array.from(requestCard.querySelectorAll('button')).find((button) => /^View \d+ logs?$/.test(button.textContent ?? '')) as HTMLButtonElement
     fireEvent.click(requestViewLogs)
     expect(await screen.findByRole('button', { name: 'Clear pattern' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
