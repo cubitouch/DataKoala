@@ -9,14 +9,14 @@ export interface LokiLabelsSnapshot {
   error: string | null
   bounds: { start: string; end: string }
 }
-interface Resource { snapshot: LokiLabelsSnapshot; listeners: Set<() => void>; request: number; promise?: Promise<void> }
+interface Resource { snapshot: LokiLabelsSnapshot; listeners: Set<() => void>; request: number; refreshRevision: number; promise?: Promise<void> }
 const resources = new Map<string, Resource>()
 const semanticKey = (connectionId: string, generation: number, tabId: string, range: BuilderTimeRange) => JSON.stringify([connectionId, generation, tabId, range])
 const visibleLabels = (labels: string[]) => [...new Set(labels)].filter((label) => label && !label.startsWith('__')).sort()
 function resourceFor(key: string, range: BuilderTimeRange): Resource {
   const previous = resources.get(key)
   if (previous) return previous
-  const resource: Resource = { snapshot: { status: 'loading', labels: [], error: null, bounds: prometheusRangeBounds(range) }, listeners: new Set(), request: 0 }
+  const resource: Resource = { snapshot: { status: 'loading', labels: [], error: null, bounds: prometheusRangeBounds(range) }, listeners: new Set(), request: 0, refreshRevision: 0 }
   resources.set(key, resource)
   return resource
 }
@@ -37,18 +37,20 @@ export function useLokiLabelsResource(connectionId: string, generation: number, 
   const resource = useMemo(() => resourceFor(key, range), [key, connectionId])
   const snapshot = useSyncExternalStore((listener) => { resource.listeners.add(listener); return () => resource.listeners.delete(listener) }, () => resource.snapshot, () => resource.snapshot)
   useEffect(() => {
-    if (enabled) void load(resource, connectionId)
+    if (enabled) {
+      if (refreshRevision > resource.refreshRevision) {
+        resource.refreshRevision = refreshRevision
+        resource.request++
+        resource.promise = undefined
+      }
+      void load(resource, connectionId)
+    }
     else {
       resource.request++
       resource.promise = undefined
       resource.snapshot = { ...resource.snapshot, status: 'loaded', error: null }
       emit(resource)
     }
-  }, [resource, connectionId, enabled])
-  useEffect(() => {
-    if (!enabled || !refreshRevision) return
-    resource.request++; resource.promise = undefined
-    void load(resource, connectionId)
   }, [resource, connectionId, enabled, refreshRevision])
   return { ...snapshot, enabled, retry: () => {
     if (!enabled) return Promise.resolve()

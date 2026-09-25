@@ -47,6 +47,20 @@ it('forced refresh bypasses resolved metadata while retaining stale labels on fa
   await waitFor(() => expect(screen.getByText('error:refresh failed:old_label')).toBeTruthy())
   expect(mocks.labels).toHaveBeenCalledTimes(2)
 })
+function SharedRefreshConsumer({ name, revision }: { name: string; revision: number }) { const resource = useLokiLabelsResource('loki', 4, 'tab-shared-refresh', range, true, revision); return <span>{name}:{resource.status}:{resource.labels.join(',')}</span> }
+it('issues one forced request when two consumers observe the same new revision', async () => {
+  let resolveRefresh!: (labels: string[]) => void
+  mocks.labels.mockResolvedValueOnce(['old_label']).mockReturnValueOnce(new Promise((resolve) => { resolveRefresh = resolve }))
+  const view = render(<><SharedRefreshConsumer name="sidebar" revision={0} /><SharedRefreshConsumer name="builder" revision={0} /></>)
+  await waitFor(() => expect(screen.getByText('sidebar:loaded:old_label')).toBeTruthy())
+  expect(mocks.labels).toHaveBeenCalledTimes(1)
+  clearLokiMetadataCache()
+  view.rerender(<><SharedRefreshConsumer name="sidebar" revision={1} /><SharedRefreshConsumer name="builder" revision={1} /></>)
+  await waitFor(() => expect(mocks.labels).toHaveBeenCalledTimes(2))
+  resolveRefresh(['new_label'])
+  await waitFor(() => expect(screen.getByText('builder:loaded:new_label')).toBeTruthy())
+  expect(mocks.labels).toHaveBeenCalledTimes(2)
+})
 it('shares one fresh request after metadata loading is re-enabled', async () => {
   mocks.labels.mockResolvedValue(['service'])
   const view = render(<><LifecycleConsumer enabled={false} generation={1} /><LifecycleConsumer enabled={false} generation={1} /></>)
