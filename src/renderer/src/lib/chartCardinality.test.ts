@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import type { QueryResult } from '../../../shared/types.ts'
+import type { QueryResult } from '@shared/types.ts'
 import { pivotRowsForChart } from './resultVisualization.ts'
 
 const config = { view: 'line' as const, xColumn: 'x', valueColumn: 'value', aggregation: 'sum' as const, seriesColumn: 'series' }
