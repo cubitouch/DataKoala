@@ -231,11 +231,11 @@ export function Sidebar() {
           <span className={styles.kind}>{connectionKindLabel(profile.kind)}</span>
           {isConnecting && <span className={styles.connectingLabel}>Connecting…</span>}
           <span className={styles.actions} data-connection-actions>
-            <button className={styles.action} type="button" title="Refresh metadata" aria-label={`Refresh metadata for ${profile.name}`}
-              disabled={!isLive || isRefreshing} aria-busy={isLive && isRefreshing || undefined}
-              onClick={(event) => { event.stopPropagation(); if (isLive) void useStore.getState().refreshMetadata(profile.id) }}>
+            {isLive && <button className={styles.action} type="button" title="Refresh metadata" aria-label={`Refresh metadata for ${profile.name}`}
+              disabled={isRefreshing} aria-busy={isRefreshing || undefined}
+              onClick={(event) => { event.stopPropagation(); void useStore.getState().refreshMetadata(profile.id) }}>
               <span aria-hidden="true">↻</span>
-            </button>
+            </button>}
             <button className={styles.action} type="button" title="Edit connection" aria-label={`Edit connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); setEditing(profile); setShowModal(true) }}>✎</button>
             <button className={styles.action} type="button" title="Delete connection" aria-label={`Delete connection ${profile.name}`} disabled={connecting} onClick={(event) => { event.stopPropagation(); deleteOrigin.current = event.currentTarget; setPendingDelete(profile) }}>✕</button>
           </span>
@@ -251,12 +251,12 @@ export function Sidebar() {
     {activeTabSourceKind !== 'loki' && (tabConnected || schemas.length > 0) && <section className={styles.objectsSection}>
       <h3>Objects</h3>
       {!tabConnected && schemas.length > 0 && <div className={styles.objectStatus} role="status">Cached metadata — reconnects when needed.</div>}
-      {metadataRefreshing && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-hidden="true" /> Refreshing metadata…</div>}
-      {!metadataRefreshing && metadataRefreshError && <div className={styles.objectError} role="alert">Could not refresh metadata.<small>{metadataRefreshError}</small></div>}
       {!metadataRefreshing && metadataStatus === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-label="Loading database objects" /> Loading database objects…</div>}
       {!metadataRefreshing && metadataStatus === 'error' && <div className={styles.objectError} role="alert">Could not load objects.<small>{metadataError}</small><button onClick={() => void retryObjects()}>Retry</button></div>}
       {metadataStatus === 'loaded' && <>
         <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label={objectFilterLabel} labelVisibility="sr-only" /></div>
+        {metadataRefreshing && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-hidden="true" /> Refreshing metadata…</div>}
+        {!metadataRefreshing && metadataRefreshError && <div className={styles.objectError} role="alert">Could not refresh metadata.<small>{metadataRefreshError}</small></div>}
         <div className={styles.objectTreeViewport} hidden={metadataRefreshing} data-object-tree-viewport>
         {schemas.length === 0 ? <div className={styles.objectStatus}>No database objects</div> :
         isPrometheusMetadata && activeTabConnectionId ? <PrometheusMetadataTree connectionId={activeTabConnectionId} revision={metadataRevision} schemas={schemas} expanded={expanded} filter={filter} selectedMetric={promqlBuilder.metric}
