@@ -145,6 +145,34 @@ it('retains compact progress feedback during an active connection attempt', asyn
   expect(screen.queryByText(/connect on run/i)).toBeNull()
 })
 
+it('keeps the Loki filter visible and uses the generic refresh status while labels reload', async () => {
+  let finishLabels!: (labels: string[]) => void
+  vi.mocked(api.connections.loki.labels)
+    .mockResolvedValueOnce(['service_name', 'namespace'])
+    .mockReturnValueOnce(new Promise<string[]>((resolve) => { finishLabels = resolve }))
+  const tab = createQuerySession(1, { id: 'loki-refresh-tab', connectionProfileId: 'loki' })
+  useStore.setState({
+    profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true, connectionGeneration: 3,
+    metadataByProfileId: { loki: { schemas: [], status: 'loaded', error: null, isStale: false } }
+  })
+  render(<Sidebar />)
+  const filter = await screen.findByRole('textbox', { name: 'Filter Loki objects' })
+  await screen.findByRole('tree', { name: 'Loki labels' })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh metadata for Production logs' }))
+
+  const refreshing = await screen.findByText('Refreshing metadata…')
+  expect(filter).toBeTruthy()
+  expect(filter.compareDocumentPosition(refreshing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(screen.queryByText('Loading indexed labels…')).toBeNull()
+  expect(document.querySelector<HTMLElement>('[data-object-tree-viewport]')?.hidden).toBe(true)
+
+  finishLabels(['service_name', 'namespace', 'cluster'])
+  await waitFor(() => expect(screen.queryByText('Refreshing metadata…')).toBeNull())
+  expect(screen.getByRole('textbox', { name: 'Filter Loki objects' })).toBeTruthy()
+  expect(screen.getByRole('tree', { name: 'Loki labels' })).toBeTruthy()
+})
+
 it('shows useful Loki labels, hides internal labels, and lazily seeds a value filter', async () => {
   const tab = createQuerySession(1, { id: 'loki-tab', connectionProfileId: 'loki' })
   useStore.setState({ profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true })
