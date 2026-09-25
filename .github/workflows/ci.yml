@@ -144,6 +144,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Smoke BigQuery client in Electron runtime
+        run: pnpm smoke:bigquery-client
+
       - name: Build and smoke DuckDB in Electron
         run: pnpm prepare:sqlite-extension && pnpm build && pnpm smoke:duckdb && pnpm smoke:sqlite && pnpm smoke:sqlite:electron
 
