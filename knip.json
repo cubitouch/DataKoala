@@ -5,11 +5,23 @@
     "src/preload/index.ts",
     "src/renderer/src/main.tsx",
     "src/renderer/src/preload.d.ts",
-    "src/**/*.test.{ts,tsx}",
+    "src/**/*.{test,vitest}.{ts,tsx}",
     "scripts/**/*.{mjs,ts}",
     "*.config.ts"
   ],
-  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{mjs,ts}", "*.config.ts", "docs-site/**/*.ts"],
-  "include": ["files", "exports", "types", "dependencies", "unlisted", "binaries"],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "scripts/**/*.{mjs,ts}",
+    "*.config.ts",
+    "docs-site/**/*.ts"
+  ],
+  "include": [
+    "files",
+    "exports",
+    "types",
+    "dependencies",
+    "unlisted",
+    "binaries"
+  ],
   "ignoreExportsUsedInFile": true
 }
