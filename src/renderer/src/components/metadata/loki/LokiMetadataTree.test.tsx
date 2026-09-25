@@ -56,6 +56,18 @@ describe('LokiMetadataTree', () => {
     expect(screen.getByText('worker')).toBeTruthy()
   })
 
+  it('matches multiple partial tokens across Loki labels and loaded values', () => {
+    const handlers = callbacks()
+    const { rerender } = render(<LokiMetadataTree labels={['payment-service', 'payment-service-worker']} expanded={new Set()} values={{}} valueStatus={{}} filter="pay worker" {...handlers} />)
+    expect(screen.getByText('payment-service-worker')).toBeTruthy()
+    expect(screen.queryByText('payment-service')).toBeNull()
+
+    rerender(<LokiMetadataTree labels={['service']} expanded={new Set(['service'])} values={{ service: ['payment-api', 'payment-service-worker'] }} valueStatus={{}} filter="pay worker" {...handlers} />)
+    expect(screen.getByText('service')).toBeTruthy()
+    expect(screen.getByText('payment-service-worker')).toBeTruthy()
+    expect(screen.queryByText('payment-api')).toBeNull()
+  })
+
   it('disables expansion, activation, and retry with native controls', () => {
     const handlers = callbacks()
     render(<LokiMetadataTree labels={['app']} expanded={new Set(['app'])} values={{ app: ['api'] }} valueStatus={{ app: 'error' }} filter="" disabled {...handlers} />)

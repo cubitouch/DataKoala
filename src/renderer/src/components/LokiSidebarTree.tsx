@@ -1,6 +1,7 @@
 import { TextInput } from './ui/TextInput'
 import { useEffect, useRef, useState } from 'react'
 import { lokiLabelValues } from '../lib/lokiMetadata'
+import { matchesSearch } from '../lib/matchesSearch'
 import { useLokiLabelsResource } from '../lib/useLokiLabelsResource'
 import { selectActiveSession, useStore } from '../store/useStore'
 import { LokiMetadataTree, visibleLokiMetadata, type LokiValueStatus } from './metadata/loki/LokiMetadataTree'
@@ -57,8 +58,7 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
     setExpanded((current) => { const next = new Set(current); next.has(label) ? next.delete(label) : next.add(label); return next })
     if (opening) void loadValues(label)
   }
-  const needle = filter.trim().toLowerCase()
-  const filteredLabels = labels.filter((label) => !needle || label.toLowerCase().includes(needle) || values[label]?.some((value) => value.toLowerCase().includes(needle)))
+  const filteredLabels = labels.filter((label) => matchesSearch(label, filter) || values[label]?.some((value) => matchesSearch(value, filter)))
   const refreshingLabels = metadataRefreshing || (status === 'loading' && labels.length > 0)
   const showFilter = status === 'loaded' || labels.length > 0
   return <section className={styles.objectsSection} aria-label="Loki indexed labels"><h3>Objects</h3>

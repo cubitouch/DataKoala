@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Popover } from '../Popover'
+import { matchesSearch } from '../../../lib/matchesSearch'
 import { FieldChrome } from '../FieldChrome'
 import type { FieldFeedbackProps, FieldMode, LabelVisibility } from '../FieldChrome'
 import { ComboboxOption as OptionRow } from './ComboboxOption'
@@ -9,13 +10,12 @@ import styles from './Combobox.module.css'
 import type { ComboboxOption } from './types'
 
 interface Props extends FieldFeedbackProps { id?: string; label: string; mode?: FieldMode; labelVisibility?: LabelVisibility; values: string[]; options: ComboboxOption[]; onChange: (values: string[]) => void; onOpen?: () => void; placeholder?: string; searchable?: boolean; showChips?: boolean; disabled?: boolean; loading?: boolean; loadingMessage?: string; emptyMessage?: string; invalidationKey?: unknown; allowCustomValue?: boolean }
-const norm = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase()
-const optionText = (option: ComboboxOption) => norm([option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' '))
+const optionText = (option: ComboboxOption) => [option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' ')
 const optionId = (prefix: string, value: string) => `${prefix}-option-${encodeURIComponent(value)}`
 
 export function MultiCombobox({ id, label, mode, labelVisibility, hint, warning, values, options, onChange, onOpen, placeholder = 'Select options…', searchable = true, showChips = false, disabled = false, loading = false, error = null, loadingMessage = 'Loading…', emptyMessage = 'No matching options', invalidationKey, allowCustomValue = false }: Props) {
   const reactId = useId(); const menuId = `${reactId}-listbox`; const [open, setOpen] = useState(false); const [query, setQuery] = useState(''); const [activeValue, setActiveValue] = useState<string | null>(null); const searchRef = useRef<HTMLInputElement>(null); const triggerRef = useRef<HTMLButtonElement>(null)
-  const filtered = useMemo(() => { const q = norm(query); return q ? options.filter((option) => optionText(option).includes(q)) : options }, [options, query])
+  const filtered = useMemo(() => options.filter((option) => matchesSearch(optionText(option), query)), [options, query])
   const enabled = useMemo(() => filtered.filter((option) => !option.disabled), [filtered]); const active = filtered.find((option) => option.value === activeValue && !option.disabled) ?? enabled[0]
   const optionByValue = useMemo(() => new Map(options.map((option) => [option.value, option])), [options])
   const selectedOptions = values.map((value) => optionByValue.get(value) ?? (allowCustomValue ? { value, label: value, subtitle: 'Manually entered' } : undefined)).filter((option): option is ComboboxOption => Boolean(option))

@@ -1,3 +1,4 @@
+import { matchesSearch } from '../../../lib/matchesSearch'
 import { MetadataTree, type MetadataTreeNode } from '../MetadataTree'
 
 export type LokiValueStatus = 'loading' | 'error'
@@ -21,11 +22,10 @@ export const visibleLokiMetadata = (items: string[]) => [...new Set(items)]
 export function LokiMetadataTree(props: Props) {
   const labelsById = new Map<string, string>()
   const valuesById = new Map<string, { label: string; value: string }>()
-  const needle = props.filter.trim().toLocaleLowerCase()
   const nodes = props.labels.flatMap((label, index): MetadataTreeNode[] => {
     const loadedValues = props.values[label] ?? []
-    const labelMatches = !needle || label.toLocaleLowerCase().includes(needle)
-    const matchingValues = labelMatches ? loadedValues : loadedValues.filter((value) => value.toLocaleLowerCase().includes(needle))
+    const labelMatches = matchesSearch(label, props.filter)
+    const matchingValues = labelMatches ? loadedValues : loadedValues.filter((value) => matchesSearch(value, props.filter))
     if (!labelMatches && matchingValues.length === 0) return []
     const id = `loki-label:${index}`
     labelsById.set(id, label)

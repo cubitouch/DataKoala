@@ -8,7 +8,8 @@ const profiles: DataSourceProfile[] = [
   { kind: 'bigquery', version: 1, id: 'bq', name: 'Analytics', billingProject: 'billing', defaultProject: 'data', maximumBytesBilled: '1000', readonly: true },
   { kind: 'local-files', version: 1, id: 'files', name: 'Exports', files: [{ path: '/tmp/export.csv', alias: 'export' }], readonly: true },
   { kind: 'sqlite-file', version: 1, id: 'sqlite', name: 'Archive', path: '/tmp/archive.sqlite', readonly: true },
-  { kind: 'loki', version: 1, id: 'loki', name: 'Production logs', transport: { kind: 'gcx', context: 'production' }, readonly: true }
+  { kind: 'loki', version: 1, id: 'loki', name: 'Production logs', transport: { kind: 'gcx', context: 'production' }, readonly: true },
+  { kind: 'tempo', version: 1, id: 'tempo', name: 'Production traces', transport: { kind: 'gcx', context: 'production' }, readonly: true }
 ]
 
 vi.mock('../lib/api', () => ({ api: { connections: {
@@ -143,6 +144,24 @@ it('retains compact progress feedback during an active connection attempt', asyn
   expect(within(item).getByLabelText('Connecting')).toBeTruthy()
   expect(within(item).getByText('Connecting…').closest('[data-connection-trailing]')).toBeTruthy()
   expect(screen.queryByText(/connect on run/i)).toBeNull()
+})
+
+it('filters Tempo services with multiple partial tokens', async () => {
+  const tab = createQuerySession(1, { id: 'tempo-tab', connectionProfileId: 'tempo' })
+  useStore.setState({
+    profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'tempo', connected: true,
+    metadataByProfileId: { tempo: { schemas: [{ name: 'Tempo', isSystem: false, relations: [
+      { schema: 'Tempo', name: 'payment-service', qualifiedName: 'Tempo.payment-service', kind: 'service', columnsStatus: 'idle', details: { kind: 'service' } },
+      { schema: 'Tempo', name: 'payment-service-worker', qualifiedName: 'Tempo.payment-service-worker', kind: 'service', columnsStatus: 'idle', details: { kind: 'service' } }
+    ] }], status: 'loaded', error: null, isStale: false } }
+  })
+  render(<Sidebar />)
+
+  const filter = screen.getByRole('textbox', { name: 'Filter services' })
+  fireEvent.change(filter, { target: { value: 'pay worker' } })
+
+  expect(screen.getByText('payment-service-worker')).toBeTruthy()
+  expect(screen.queryByText('payment-service')).toBeNull()
 })
 
 it('keeps the Loki filter visible and uses the generic refresh status while labels reload', async () => {

@@ -13,7 +13,9 @@ const options = [
   { value: 'public', label: 'public', subtitle: 'schema' },
   { value: 'orders', label: 'orders', subtitle: 'table · demo_shop', keywords: ['sales_fact'] },
   { value: 'disabled', label: 'Disabled', disabled: true },
-  { value: 'analytics', label: 'monthly_sales', subtitle: 'view · analytics' }
+  { value: 'analytics', label: 'monthly_sales', subtitle: 'view · analytics' },
+  { value: 'payment-service', label: 'payment-service' },
+  { value: 'payment-service-worker', label: 'payment-service-worker' }
 ]
 function Single({ searchable = false }: { searchable?: boolean }) {
   const [value, setValue] = useState('')
@@ -95,6 +97,9 @@ describe('Combobox', () => {
     expect(screen.getByRole('option', { name: /monthly_sales/ })).toBeTruthy()
     fireEvent.change(input, { target: { value: 'sales_fact' } })
     expect(screen.getByRole('option', { name: /orders/ })).toBeTruthy()
+    fireEvent.change(input, { target: { value: 'pay worker' } })
+    expect(screen.getByRole('option', { name: 'payment-service-worker' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'payment-service' })).toBeNull()
     fireEvent.change(input, { target: { value: 'nope' } })
     expect(screen.getByText('No matching options')).toBeTruthy()
     fireEvent.keyDown(input, { key: 'Escape' })
@@ -107,7 +112,7 @@ describe('Combobox', () => {
     const trigger = screen.getByRole('combobox')
     fireEvent.click(trigger)
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'End' })
-    expect(screen.getByRole('option', { name: /monthly_sales/ }).getAttribute('data-active')).toBe('true')
+    expect(screen.getByRole('option', { name: 'payment-service-worker' }).getAttribute('data-active')).toBe('true')
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Home' })
     expect(screen.getByRole('option', { name: /public/ }).getAttribute('data-active')).toBe('true')
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'm' })
@@ -126,6 +131,15 @@ describe('Combobox', () => {
 })
 
 describe('MultiCombobox', () => {
+  it('filters searchable options using multiple partial tokens', () => {
+    render(<MultiCombobox label="Services" values={[]} onChange={() => {}} options={options} searchable />)
+    fireEvent.click(screen.getByRole('combobox'))
+    const input = screen.getByRole('textbox', { name: /Search Services/ })
+    fireEvent.change(input, { target: { value: 'worker pay' } })
+    expect(screen.getByRole('option', { name: 'payment-service-worker' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'payment-service' })).toBeNull()
+  })
+
   it('selects multiple values, keeps open, renders/removes chips, avoids duplicates, and exposes multi-select semantics', () => {
     function View() { const [values, setValues] = useState<string[]>([]); return <MultiCombobox label="Columns" values={values} onChange={setValues} options={options} showChips /> }
     render(<View />)
@@ -153,7 +167,7 @@ describe('MultiCombobox', () => {
     const view = render(<View />)
     expect(Array.from(view.container.querySelectorAll('[data-combobox-chip]')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['monthly_sales', 'public'])
     fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowUp' })
-    expect(screen.getByRole('option', { name: /monthly_sales/ }).getAttribute('data-active')).toBe('true')
+    expect(screen.getByRole('option', { name: 'payment-service-worker' }).getAttribute('data-active')).toBe('true')
   })
 
   it('removes the last value with Backspace when search is empty', () => {
