@@ -44,6 +44,20 @@ describe('MetadataTree', () => {
     expect(screen.queryByText('Child')).toBeNull()
   })
 
+  it('keeps matching descendants visible for multi-token partial filters', () => {
+    const serviceNodes: MetadataTreeNode[] = [{
+      id: 'services', label: 'Services', expandable: true, expanded: false,
+      children: [
+        { id: 'payment', label: 'payment-service' },
+        { id: 'worker', label: 'payment-service-worker' }
+      ]
+    }]
+    render(<MetadataTree ariaLabel="Services" nodes={serviceNodes} filter="pay worker" />)
+    expect(screen.getByText('Services')).toBeTruthy()
+    expect(screen.getByText('payment-service-worker')).toBeTruthy()
+    expect(screen.queryByText('payment-service')).toBeNull()
+  })
+
   it('renders loading and error states and surfaces retry', () => {
     const onRetry = vi.fn()
     const statusNodes: MetadataTreeNode[] = [
