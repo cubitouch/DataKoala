@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { buildPromql, calculationsForPromqlHistogramKind, DEFAULT_PROMQL_BUILDER, detectPromqlHistogramKind, escapePromqlRegexLiteral, escapePromqlString, reconcilePromqlBuilderForMetric, resolvePromqlHistogramKind, validatePromqlBuilder, type PromqlBuilderState, type PromqlHistogramKind } from './promqlBuilder.ts'
 
 const build = (patch: Partial<PromqlBuilderState>, kind: PromqlHistogramKind = 'unknown') => buildPromql({ ...DEFAULT_PROMQL_BUILDER, metric: 'requests_total', ...patch }, kind)

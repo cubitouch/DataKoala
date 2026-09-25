@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import type { QueryResult } from '@shared/types'
 import { builderSeriesTupleLabel, decodeBuilderSeriesTuple, deriveEffectiveVisualization, inferVisualizationConfiguration, pivotRowsForChart, toFiniteNumber, type VisualizationConfiguration } from './resultVisualization.ts'
 
