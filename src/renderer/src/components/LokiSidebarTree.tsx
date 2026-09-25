@@ -18,18 +18,26 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
   const connectionGeneration = useStore((state) => state.connectionGeneration)
   const activeProfileId = useStore((state) => state.activeProfileId)
   const connected = useStore((state) => state.connected)
+  const metadataRevision = useStore((state) => state.metadataByProfileId[connectionId]?.revision ?? 0)
+  const metadataRefreshing = useStore((state) => state.metadataByProfileId[connectionId]?.refreshing ?? false)
+  const metadataRefreshError = useStore((state) => state.metadataByProfileId[connectionId]?.refreshError ?? null)
   const canLoadMetadata = connectionId === activeProfileId && connected
   const available = useRef(canLoadMetadata)
   available.current = canLoadMetadata
   const lifecycleKey = useRef('')
   const currentLifecycleKey = `${connectionId}\0${connectionGeneration}\0${session.id}\0${canLoadMetadata}`
   if (lifecycleKey.current !== currentLifecycleKey) { lifecycleKey.current = currentLifecycleKey; revision.current++ }
-  const resource = useLokiLabelsResource(connectionId, connectionGeneration, session.id, session.lokiTimeRange, canLoadMetadata)
+  const resource = useLokiLabelsResource(connectionId, connectionGeneration, session.id, session.lokiTimeRange, canLoadMetadata, metadataRevision)
   const { labels, status, error, bounds } = resource
   useEffect(() => {
     revision.current++; setValueStatus({})
     if (canLoadMetadata) { setValues({}); setExpanded(new Set()) }
   }, [connectionId, connectionGeneration, session.id, canLoadMetadata, JSON.stringify(session.lokiTimeRange)])
+  useEffect(() => {
+    if (!metadataRevision || !canLoadMetadata) return
+    revision.current++
+    for (const label of expanded) void loadValues(label, true)
+  }, [metadataRevision])
   const addLabel = (label: string, value?: string) => {
     const current = session.lokiBuilder.labelMatchers.filter((matcher, index, all) => all.findIndex((item) => item.label === matcher.label) === index)
     const existing = current.find((matcher) => matcher.label === label)
@@ -51,14 +59,20 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
   }
   const needle = filter.trim().toLowerCase()
   const filteredLabels = labels.filter((label) => !needle || label.toLowerCase().includes(needle) || values[label]?.some((value) => value.toLowerCase().includes(needle)))
+  const refreshingLabels = metadataRefreshing || (status === 'loading' && labels.length > 0)
+  const showFilter = status === 'loaded' || labels.length > 0
   return <section className={styles.objectsSection} aria-label="Loki indexed labels"><h3>Objects</h3>
-    {!canLoadMetadata && <div className={styles.objectStatus} role="status">Metadata unavailable</div>}
-    {canLoadMetadata && status === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} /> Loading indexed labels…</div>}
-    {canLoadMetadata && status === 'error' && <div className={styles.objectError} role="alert">Could not load indexed labels.<small>{error}</small><button onClick={() => void resource.retry()}>Retry</button></div>}
-    {status === 'loaded' && <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label="Filter Loki objects" labelVisibility="sr-only" /></div>}
-    {status === 'loaded' && labels.length === 0 && <div className={styles.objectStatus}>No indexed labels in this range</div>}
-    {status === 'loaded' && labels.length > 0 && filteredLabels.length === 0 && <div className={styles.objectStatus}>No objects match this filter</div>}
-    {status === 'loaded' && labels.length > 0 && <LokiMetadataTree labels={labels} expanded={expanded} values={values} valueStatus={valueStatus} filter={filter} disabled={!canLoadMetadata}
-      onToggle={toggle} onActivate={addLabel} onRetry={(label) => void loadValues(label, true)} />}
+    {!refreshingLabels && !canLoadMetadata && <div className={styles.objectStatus} role="status">Metadata unavailable</div>}
+    {!refreshingLabels && canLoadMetadata && status === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} /> Loading indexed labels…</div>}
+    {showFilter && <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label="Filter Loki objects" labelVisibility="sr-only" /></div>}
+    {refreshingLabels && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-hidden="true" /> Refreshing metadata…</div>}
+    {!refreshingLabels && metadataRefreshError && <div className={styles.objectError} role="alert">Could not refresh metadata.<small>{metadataRefreshError}</small></div>}
+    {!refreshingLabels && canLoadMetadata && status === 'error' && <div className={styles.objectError} role="alert">Could not load indexed labels.<small>{error}</small><button onClick={() => void resource.retry()}>Retry</button></div>}
+    <div className={styles.objectTreeViewport} hidden={refreshingLabels} data-object-tree-viewport>
+      {status === 'loaded' && labels.length === 0 && <div className={styles.objectStatus}>No indexed labels in this range</div>}
+      {status === 'loaded' && labels.length > 0 && filteredLabels.length === 0 && <div className={styles.objectStatus}>No objects match this filter</div>}
+      {status === 'loaded' && labels.length > 0 && <LokiMetadataTree labels={labels} expanded={expanded} values={values} valueStatus={valueStatus} filter={filter} disabled={!canLoadMetadata}
+        onToggle={toggle} onActivate={addLabel} onRetry={(label) => void loadValues(label, true)} />}
+    </div>
   </section>
 }

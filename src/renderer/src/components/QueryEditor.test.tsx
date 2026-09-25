@@ -50,6 +50,15 @@ describe('PromQL execution', () => {
     render(<QueryEditor />)
   }
 
+  it('blocks Run and Ctrl/Command+Enter while metadata refreshes', async () => {
+    renderPromql()
+    useStore.setState((state) => ({ metadataByProfileId: { ...state.metadataByProfileId, 'prom-1': { schemas: [], status: 'loaded', error: null, isStale: false, refreshing: true } } }))
+    const run = screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement
+    await waitFor(() => expect(run.disabled).toBe(true))
+    fireEvent.keyDown(screen.getByLabelText('PromQL editor'), { key: 'Enter', ctrlKey: true })
+    expect(runQuery).not.toHaveBeenCalled()
+  })
+
   it('uses the PromQL editor and delivers normalized rows with timeseries defaults', async () => {
     const result = { columns: [
       { name: 'timestamp', dataTypeID: 1184, dataTypeName: 'timestamptz' },

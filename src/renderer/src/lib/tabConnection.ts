@@ -1,6 +1,6 @@
-import type { DataSourceProfile, TableInfo } from '@shared/types'
+import type { DataSourceProfile } from '@shared/types'
 import { api } from './api'
-import { normalizeDatabaseObjects } from './databaseObjects'
+import { loadConnectionMetadata } from './connectionMetadata'
 import { selectSession, useStore } from '../store/useStore'
 import { defaultQueryModeForDatasource, defaultQueryTextForDatasource, queryLanguageForDatasource } from './queryDefaults'
 
@@ -88,7 +88,9 @@ async function connectForTab(tabId: string, desiredProfileId: string, confirmInt
         [actualId]: {
           ...(state.metadataByProfileId[actualId] ?? { schemas: [], status: 'idle', error: null, isStale: false }),
           status: 'loading',
-          error: null
+          error: null,
+          refreshing: false,
+          refreshError: null
         }
       },
       ...(actualId === desiredProfileId ? {} : {
@@ -97,8 +99,8 @@ async function connectForTab(tabId: string, desiredProfileId: string, confirmInt
     }))
 
     if (actualId !== desiredProfileId) void api.connections.list().then((profiles: DataSourceProfile[]) => useStore.getState().setProfiles(profiles))
-    void api.connections.listObjects(actualId).then(
-      (nodes: TableInfo[]) => useStore.getState().setMetadata(normalizeDatabaseObjects(nodes), 'loaded', null, actualId),
+    void loadConnectionMetadata(actualId).then(
+      (nodes) => useStore.getState().setMetadata(nodes, 'loaded', null, actualId),
       (error: unknown) => useStore.getState().setMetadata([], 'error', error instanceof Error ? error.message : String(error), actualId)
     )
     return actualId

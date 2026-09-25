@@ -46,6 +46,7 @@ export function BuilderPanel() {
   const completeQuery = useStore((state) => state.completeQuery)
   const setHasRun = useStore((state) => state.setBuilderHasRun)
   const metadata = useStore((state) => tabConnectionId ? state.metadataByProfileId[tabConnectionId] : undefined)
+  const metadataRefreshing = metadata?.refreshing ?? false
   const schemas = metadata?.schemas ?? []
   const metadataStatus = metadata?.status ?? 'idle'
   const storeMetadataError = metadata?.error ?? null
@@ -383,7 +384,7 @@ export function BuilderPanel() {
   }, [tabConnectionId, builder.table?.schema, builder.table?.name, builder.timeColumn, selectedX, builder.timeBucket, JSON.stringify(effectiveTimeRange)])
   useEffect(() => () => probeGuard.current.invalidate(), [])
   const run = async () => {
-    if (!generatedSql || !tabConnectionId || connecting) return
+    if (!generatedSql || !tabConnectionId || connecting || metadataRefreshing) return
     const requestTabId = tabId
     const requestQuery = generatedQuery
     const requestSql = generatedSql
@@ -422,7 +423,7 @@ export function BuilderPanel() {
   }
 
   return <div className="editor-pane builder-pane" data-builder-panel="" onKeyDown={onKeyDown}>
-    <div className="editor-head"><ModeSwitch /><div className="spacer"/><QueryUtilityActions /><div className="query-toolbar-group builder-copy-action"><CopySqlButton sql={generatedSql} /></div><div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={!generatedSql || !tabConnectionId || connecting || running || Boolean(rangeError)}>{running ? 'Running…' : connecting ? 'Connecting…' : 'Run query'}</button></div></div>
+    <div className="editor-head"><ModeSwitch /><div className="spacer"/><QueryUtilityActions /><div className="query-toolbar-group builder-copy-action"><CopySqlButton sql={generatedSql} /></div><div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={metadataRefreshing || !generatedSql || !tabConnectionId || connecting || running || Boolean(rangeError)}>{running ? 'Running…' : connecting ? 'Connecting…' : 'Run query'}</button></div></div>
     <BuilderForm className={styles.form} data-builder-form="">
       <BuilderRow className={`${styles.row} ${styles.contextRow}`} data-builder-control-row="context">
         <FormField data-builder-field=""><Combobox label="Schema" value={selectedSchema} options={schemaOptions} onChange={chooseSchema} placeholder="Select a schema…" searchable emptyMessage="No matching schemas" loading={metadataStatus === 'loading'} error={metadataStatus === 'error' ? (storeMetadataError ?? 'Could not load schemas') : null} disabled={!tabConnectionId || metadataStatus === 'loading'} /></FormField>

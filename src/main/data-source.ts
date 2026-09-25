@@ -45,6 +45,8 @@ export interface DataSourceSession {
   explain?(sql: string, analyze?: boolean): Promise<ExplainResult>
   estimateQuery?(sql: string): Promise<QueryEstimate>
   cancel?(queryId: string): Promise<void>
+  /** Refresh provider-owned discovery state without replacing this live session. */
+  refreshMetadata?(): Promise<void>
   close(): Promise<void>
 }
 

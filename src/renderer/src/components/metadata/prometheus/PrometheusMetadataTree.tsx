@@ -9,6 +9,7 @@ const VALUE_LIMIT = 200
 
 type Props = {
   connectionId: string
+  revision?: number
   schemas: DatabaseSchemaNode[]
   expanded: ReadonlySet<string>
   filter: string
@@ -36,12 +37,12 @@ export function PrometheusMetadataTree(props: Props) {
     const key = metricKey(metric)
     if (labelRequests.current.has(key) || (!retry && labels[key]?.data)) return
     labelRequests.current.add(key)
-    setLabels((old) => ({ ...old, [key]: { loading: true } }))
+    setLabels((old) => ({ ...old, [key]: { ...old[key], loading: true, error: undefined } }))
     try {
       const data = await api.connections.prometheus.labelsForMetric(props.connectionId, metric.name)
       setLabels((old) => ({ ...old, [key]: { data } }))
     } catch (error) {
-      setLabels((old) => ({ ...old, [key]: { error: message(error) } }))
+      setLabels((old) => ({ ...old, [key]: { ...old[key], loading: false, error: message(error) } }))
     } finally { labelRequests.current.delete(key) }
   }
 
@@ -49,12 +50,12 @@ export function PrometheusMetadataTree(props: Props) {
     const key = valueKey(metric, label)
     if (valueRequests.current.has(key) || (!retry && values[key]?.data)) return
     valueRequests.current.add(key)
-    setValues((old) => ({ ...old, [key]: { loading: true } }))
+    setValues((old) => ({ ...old, [key]: { ...old[key], loading: true, error: undefined } }))
     try {
       const data = await api.connections.prometheus.labelValues(props.connectionId, metric.name, label)
       setValues((old) => ({ ...old, [key]: { data } }))
     } catch (error) {
-      setValues((old) => ({ ...old, [key]: { error: message(error) } }))
+      setValues((old) => ({ ...old, [key]: { ...old[key], loading: false, error: message(error) } }))
     } finally { valueRequests.current.delete(key) }
   }
 
@@ -69,6 +70,17 @@ export function PrometheusMetadataTree(props: Props) {
       }
     }
   }, [props.connectionId, props.expanded, props.schemas])
+
+  useEffect(() => {
+    if (!props.revision) return
+    for (const schema of props.schemas) for (const metric of schema.relations) {
+      if (!props.expanded.has(`relation:${metric.qualifiedName}`)) continue
+      void loadLabels(metric, true).then(() => {
+        const currentLabels = labels[metricKey(metric)]?.data ?? []
+        for (const label of currentLabels) if (openLabels.has(valueKey(metric, label))) void loadValues(metric, label, true)
+      })
+    }
+  }, [props.revision])
 
   const needle = props.filter.trim().toLocaleLowerCase()
   const visibleMetrics = props.schemas

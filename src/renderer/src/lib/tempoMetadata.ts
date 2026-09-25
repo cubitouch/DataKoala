@@ -9,6 +9,11 @@ export function resetTempoMetadataCache(): void {
   attributeRequests.clear()
 }
 
+export function invalidateTempoMetadata(profileId: string): void {
+  for (const key of valueRequests.keys()) if (key.startsWith(`${profileId}\0`)) valueRequests.delete(key)
+  for (const key of attributeRequests.keys()) if (key.startsWith(`${profileId}\0`)) attributeRequests.delete(key)
+}
+
 export function tempoAttributes(profileId: string, connectionGeneration: number, query?: string): Promise<TempoAttribute[]> {
   const key = `${profileId}\0${connectionGeneration}\0${query ?? ''}`
   const existing = attributeRequests.get(key)

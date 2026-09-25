@@ -1,7 +1,8 @@
+import { performance } from 'node:perf_hooks'
 import type { ColumnMeta, QueryResult } from '../shared/types.ts'
 import type { TempoAttribute, TempoQueryContext, TempoQueryRequest } from '../shared/tempo.ts'
 import { runGcxCommand, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
-import { createTempoPerformance } from './tempo-performance.ts'
+import { createTempoPerformance, tempoPerformanceLog } from './tempo-performance.ts'
 
 export interface TempoService { name: string; namespace?: string }
 export interface TempoTransport {
@@ -472,22 +473,68 @@ export class GcxTempoTransport implements TempoTransport {
   }
 
   async services(): Promise<TempoService[]> {
+    const discoveryStarted = performance.now()
+    tempoPerformanceLog('metadata.services.discovery.started', { concurrency: SERVICE_DISCOVERY_CONCURRENCY })
     try {
-      const names = await this.attributeValues('resource.service.name')
-      if (!names.length) return []
-      const namespaces = await this.attributeValues('resource.service.namespace')
+      const namesStarted = performance.now()
+      const namesPromise = this.attributeValues('resource.service.name').then((values) => {
+        tempoPerformanceLog('metadata.services.names.completed', { durationMs: performance.now() - namesStarted, count: values.length })
+        return values
+      })
+      const namespacesStarted = performance.now()
+      const namespacesPromise = this.attributeValues('resource.service.namespace').then((values) => {
+        tempoPerformanceLog('metadata.services.namespaces.completed', { durationMs: performance.now() - namespacesStarted, count: values.length })
+        return values
+      })
+      const [names, discoveredNamespaces] = await Promise.all([namesPromise, namespacesPromise])
+      if (!names.length) {
+        tempoPerformanceLog('metadata.services.discovery.completed', { durationMs: performance.now() - discoveryStarted, serviceCount: 0, namespaceCount: 0 })
+        return []
+      }
+      const namespaces = [...new Set(discoveredNamespaces)]
+      tempoPerformanceLog('metadata.services.base.completed', {
+        durationMs: performance.now() - discoveryStarted,
+        serviceNameCount: names.length,
+        namespaceCount: namespaces.length,
+        duplicateNamespaceCount: discoveredNamespaces.length - namespaces.length
+      })
       const mapped = new Map<string, TempoService>()
-      await mapConcurrent(namespaces, SERVICE_DISCOVERY_CONCURRENCY, async (namespace) => {
+      const scopedStarted = performance.now()
+      if (namespaces.length) await mapConcurrent(namespaces, SERVICE_DISCOVERY_CONCURRENCY, async (namespace) => {
+        const namespaceStarted = performance.now()
         const scopedNames = await this.attributeValues('resource.service.name', `{ resource.service.namespace = ${JSON.stringify(namespace)} }`)
+        tempoPerformanceLog('metadata.services.namespace.completed', {
+          durationMs: performance.now() - namespaceStarted,
+          serviceCount: scopedNames.length
+        })
         for (const name of scopedNames) collectService(mapped, name, namespace)
+      })
+      tempoPerformanceLog('metadata.services.scoped.completed', {
+        durationMs: performance.now() - scopedStarted,
+        namespaceCount: namespaces.length,
+        namespacedServiceCount: mapped.size
       })
       const assigned = new Set([...mapped.values()].map((service) => service.name))
       for (const name of names) if (!assigned.has(name)) collectService(mapped, name)
-      return [...mapped.values()].sort((left, right) => `${left.namespace ?? ''}/${left.name}`.localeCompare(`${right.namespace ?? ''}/${right.name}`))
+      const services = [...mapped.values()].sort((left, right) => `${left.namespace ?? ''}/${left.name}`.localeCompare(`${right.namespace ?? ''}/${right.name}`))
+      tempoPerformanceLog('metadata.services.discovery.completed', {
+        durationMs: performance.now() - discoveryStarted,
+        serviceCount: services.length,
+        namespaceCount: namespaces.length
+      })
+      return services
     } catch (error) {
+      tempoPerformanceLog('metadata.services.discovery.primary_failed', { durationMs: performance.now() - discoveryStarted })
       try {
+        const fallbackStarted = performance.now()
         const args = ['traces', 'query', '{}', ...this.commonArgs(), '--since', '24h', '--limit', '100', '-o', 'json']
-        return normalizeTempoServices(parseJson((await this.run(args)).stdout, 'traces service discovery fallback'))
+        const services = normalizeTempoServices(parseJson((await this.run(args)).stdout, 'traces service discovery fallback'))
+        tempoPerformanceLog('metadata.services.discovery.fallback_completed', {
+          durationMs: performance.now() - fallbackStarted,
+          totalDurationMs: performance.now() - discoveryStarted,
+          serviceCount: services.length
+        })
+        return services
       } catch {
         if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
         throw tempoError(error)

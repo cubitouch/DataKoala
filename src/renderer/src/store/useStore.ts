@@ -6,8 +6,9 @@ import { selectBuilderRelationState } from '../lib/builderRelations'
 import { clearedBuilderFiltersMessage, transitionBuilderState } from '../lib/builderTransitions'
 import { SEVEN_DAYS, type BuilderTimeRange } from '../lib/builderTimeRange'
 import { completeQueryState, deliverQueryResultState, startQueryState, stopQueryState } from '../lib/queryResultLifecycle'
-import { normalizeDatabaseObjects } from '../lib/databaseObjects'
 import { api } from '../lib/api'
+import { loadConnectionMetadata } from '../lib/connectionMetadata'
+import { refreshConnectionMetadata } from '../lib/metadataRefresh'
 import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from '../lib/promqlBuilder'
 import { defaultQueryModeForDatasource, defaultQueryTextForDatasource } from '../lib/queryDefaults'
 import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '@shared/loki'
@@ -79,6 +80,9 @@ export interface ConnectionMetadataState {
   status: MetadataStatus
   error: string | null
   isStale: boolean
+  revision?: number
+  refreshing?: boolean
+  refreshError?: string | null
 }
 
 const defaultSqlVisualization = (): VisualizationConfiguration => ({
@@ -168,6 +172,7 @@ export interface AppState {
   reconnectActiveProfile: () => Promise<void>
   setMetadata: (schemas: DatabaseSchemaNode[], status: MetadataStatus, error?: string | null, profileId?: string) => void
   setRelationColumns: (qualifiedName: string, columns: DatabaseColumnNode[] | undefined, status: 'loading' | 'loaded' | 'error', error?: string, profileId?: string) => void
+  refreshMetadata: (profileId: string) => Promise<void>
 
   createTab: () => string
   activateTab: (id: string) => Promise<void>
@@ -349,12 +354,12 @@ export const useStore = create<AppState>((set, get) => ({
         connectionError: null,
         metadataByProfileId: {
           ...state.metadataByProfileId,
-          [actualId]: { ...(state.metadataByProfileId[actualId] ?? emptyMetadata()), status: 'loading', error: null }
+          [actualId]: { ...(state.metadataByProfileId[actualId] ?? emptyMetadata()), status: 'loading', error: null, refreshing: false, refreshError: null }
         }
       }))
       if (actualId !== profile.id) set({ profiles: await api.connections.list() })
       try {
-        const schemas = normalizeDatabaseObjects(await api.connections.listObjects(actualId))
+        const schemas = await loadConnectionMetadata(actualId)
         if (intent !== connectionIntent) return
         get().setMetadata(schemas, 'loaded', null, actualId)
       } catch (error) {
@@ -409,6 +414,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
   }),
+  refreshMetadata: (profileId) => refreshConnectionMetadata(profileId, { getState: get, setState: set }),
 
   createTab: () => {
     const state = get()

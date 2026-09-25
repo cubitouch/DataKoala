@@ -230,6 +230,7 @@ export class GcxPrometheusTransport implements PrometheusTransport {
   labelValues(metricName: string, labelName: string): Promise<string[]> {
     return this.cachedLabels(`values:${metricName}:${labelName}`, ['--metric', metricName, '--label', labelName])
   }
+  invalidateMetadataCache(): void { this.labelCache.clear() }
   private cachedLabels(key: string, scopeArgs: string[]): Promise<string[]> {
     const cached = this.labelCache.get(key)
     if (cached) return cached

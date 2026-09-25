@@ -13,6 +13,7 @@ const profiles: DataSourceProfile[] = [
 
 vi.mock('../lib/api', () => ({ api: { connections: {
   list: vi.fn(async () => profiles), listObjects: vi.fn(async () => []), describeTable: vi.fn(async () => []),
+  refreshMetadata: vi.fn(async () => {}),
   connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), loki: {
     labels: vi.fn(async () => ['service_name', 'namespace', '__stream_shard__']),
     labelValues: vi.fn(async () => ['checkout-api', 'checkout-api'])
@@ -49,6 +50,7 @@ it('keeps the kind and keyboard-reachable actions in one trailing slot', async (
   expect(name.hasAttribute('data-connection-name')).toBe(true)
   expect(trailing.contains(edit)).toBe(true)
   expect(trailing.contains(remove)).toBe(true)
+  expect(within(item).queryByRole('button', { name: 'Refresh metadata for Orders' })).toBeNull()
   expect(edit.getAttribute('title')).toBe('Edit connection')
   expect(remove.getAttribute('title')).toBe('Delete connection')
   expect(edit.getAttribute('tabindex')).not.toBe('-1')
@@ -75,6 +77,61 @@ it('shows a selected non-live profile without persistent connect-on-run copy', a
   expect(liveItem.classList.contains(styles.active)).toBe(true)
   expect(liveItem.classList.contains(styles.selected)).toBe(false)
   expect(liveItem.hasAttribute('aria-current')).toBe(false)
+  expect(within(liveItem).getByRole('button', { name: 'Refresh metadata for Orders' })).toBeTruthy()
+  expect(within(item).queryByRole('button', { name: 'Refresh metadata for Analytics' })).toBeNull()
+})
+
+it('keeps only the live profile refresh action pending and does not switch connections', async () => {
+  let finish!: () => void
+  vi.mocked(api.connections.refreshMetadata).mockReturnValueOnce(new Promise<void>((resolve) => { finish = resolve }))
+  vi.mocked(api.connections.listObjects).mockResolvedValueOnce([{ schema: 'public', name: 'new_orders', kind: 'r' }])
+  const tab = createQuerySession(1, { id: 'live-tab', connectionProfileId: 'pg' })
+  useStore.setState({
+    profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'pg', connected: true, connectionGeneration: 4,
+    metadataByProfileId: { pg: { schemas: [{ name: 'public', isSystem: false, relations: [{ schema: 'public', name: 'old_orders', qualifiedName: 'public.old_orders', kind: 'r', columnsStatus: 'idle' }] }], status: 'loaded', error: null, isStale: false } }
+  })
+  render(<Sidebar />)
+  const filter = screen.getByRole('textbox', { name: 'Filter database objects' }) as HTMLInputElement
+  fireEvent.change(filter, { target: { value: 'orders' } })
+  expect(screen.getByText('old_orders')).toBeTruthy()
+  const refresh = await screen.findByRole('button', { name: 'Refresh metadata for Orders' })
+  expect(screen.queryByRole('button', { name: 'Refresh metadata for Analytics' })).toBeNull()
+  fireEvent.click(refresh)
+  await waitFor(() => expect((refresh as HTMLButtonElement).disabled).toBe(true))
+  expect(refresh.getAttribute('aria-busy')).toBe('true')
+  expect(refresh.querySelector('span')?.className).toBe('')
+  const refreshing = screen.getByText('Refreshing metadata…')
+  expect(refreshing).toBeTruthy()
+  expect(filter.value).toBe('orders')
+  const viewport = document.querySelector<HTMLElement>('[data-object-tree-viewport]')!
+  expect(viewport.hidden).toBe(true)
+  expect(filter.closest(`.${styles.objectFilter}`)?.contains(viewport)).toBe(false)
+  expect(filter.compareDocumentPosition(refreshing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(api.connections.connect).not.toHaveBeenCalled()
+  expect(api.connections.disconnect).not.toHaveBeenCalled()
+  finish()
+  await waitFor(() => expect((refresh as HTMLButtonElement).disabled).toBe(false))
+  await waitFor(() => expect(screen.getByText('new_orders')).toBeTruthy())
+  await Promise.resolve()
+  expect(filter.value).toBe('orders')
+  expect(viewport.hidden).toBe(false)
+})
+
+it('restores the previous filtered tree and reports a failed manual refresh', async () => {
+  await Promise.resolve()
+  vi.mocked(api.connections.refreshMetadata).mockRejectedValueOnce(new Error('provider unavailable'))
+  const tab = createQuerySession(1, { id: 'live-tab', connectionProfileId: 'pg' })
+  useStore.setState({
+    profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'pg', connected: true, connectionGeneration: 4,
+    metadataByProfileId: { pg: { schemas: [{ name: 'public', isSystem: false, relations: [{ schema: 'public', name: 'old_orders', qualifiedName: 'public.old_orders', kind: 'r', columnsStatus: 'idle' }] }], status: 'loaded', error: null, isStale: false } }
+  })
+  render(<Sidebar />)
+  const filter = screen.getByRole('textbox', { name: 'Filter database objects' }) as HTMLInputElement
+  fireEvent.change(filter, { target: { value: 'orders' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh metadata for Orders' }))
+  await waitFor(() => expect(screen.getByText('Could not refresh metadata.')).toBeTruthy())
+  expect(screen.getByText('old_orders')).toBeTruthy()
+  expect(filter.value).toBe('orders')
 })
 
 it('retains compact progress feedback during an active connection attempt', async () => {
@@ -86,6 +143,34 @@ it('retains compact progress feedback during an active connection attempt', asyn
   expect(within(item).getByLabelText('Connecting')).toBeTruthy()
   expect(within(item).getByText('Connecting…').closest('[data-connection-trailing]')).toBeTruthy()
   expect(screen.queryByText(/connect on run/i)).toBeNull()
+})
+
+it('keeps the Loki filter visible and uses the generic refresh status while labels reload', async () => {
+  let finishLabels!: (labels: string[]) => void
+  vi.mocked(api.connections.loki.labels)
+    .mockResolvedValueOnce(['service_name', 'namespace'])
+    .mockReturnValueOnce(new Promise<string[]>((resolve) => { finishLabels = resolve }))
+  const tab = createQuerySession(1, { id: 'loki-refresh-tab', connectionProfileId: 'loki' })
+  useStore.setState({
+    profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true, connectionGeneration: 3,
+    metadataByProfileId: { loki: { schemas: [], status: 'loaded', error: null, isStale: false } }
+  })
+  render(<Sidebar />)
+  const filter = await screen.findByRole('textbox', { name: 'Filter Loki objects' })
+  await screen.findByRole('tree', { name: 'Loki labels' })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh metadata for Production logs' }))
+
+  const refreshing = await screen.findByText('Refreshing metadata…')
+  expect(filter).toBeTruthy()
+  expect(filter.compareDocumentPosition(refreshing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(screen.queryByText('Loading indexed labels…')).toBeNull()
+  expect(document.querySelector<HTMLElement>('[data-object-tree-viewport]')?.hidden).toBe(true)
+
+  finishLabels(['service_name', 'namespace', 'cluster'])
+  await waitFor(() => expect(screen.queryByText('Refreshing metadata…')).toBeNull())
+  expect(screen.getByRole('textbox', { name: 'Filter Loki objects' })).toBeTruthy()
+  expect(screen.getByRole('tree', { name: 'Loki labels' })).toBeTruthy()
 })
 
 it('shows useful Loki labels, hides internal labels, and lazily seeds a value filter', async () => {

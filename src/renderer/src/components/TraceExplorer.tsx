@@ -62,6 +62,8 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const metadata = useStore((state) => state.metadataByProfileId[connectionId])
   const connected = useStore((state) => state.connected)
   const connectionGeneration = useStore((state) => state.connectionGeneration)
+  const metadataRevision = useStore((state) => state.metadataByProfileId[connectionId]?.revision ?? 0)
+  const metadataRefreshing = metadata?.refreshing ?? false
   const setSql = useStore((state) => state.setSql)
   const setQueryMode = useStore((state) => state.setQueryMode)
   const [builder, setBuilder] = useState<TraceBuilderState>(() => traceBuilderFromTraceql(traceql))
@@ -161,6 +163,9 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     setSearchRange(DEFAULT_TRACE_RANGE)
     setSampleSize(DEFAULT_TRACE_SAMPLE_SIZE)
     setResultView('list')
+    setMessagingSystems([])
+    setAttributes([])
+    setAdvancedValues({})
   }, [connectionId, resetSearch, resetTrace])
 
   useEffect(() => {
@@ -171,7 +176,6 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       return
     }
     let current = true
-    setMessagingSystems([])
     setMessagingSystemsLoading(true)
     setMessagingSystemsError(null)
     void tempoAttributeValues(connectionId, connectionGeneration, 'span.messaging.system').then(
@@ -179,18 +183,18 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       (metadataError: unknown) => { if (current) setMessagingSystemsError(metadataError instanceof Error ? metadataError.message : String(metadataError)) }
     ).finally(() => { if (current) setMessagingSystemsLoading(false) })
     return () => { current = false }
-  }, [builder.protocol, connected, connectionGeneration, connectionId, mode])
+  }, [builder.protocol, connected, connectionGeneration, connectionId, metadataRevision, mode])
 
   useEffect(() => {
     if (!connected || mode !== 'builder') { setAttributes([]); setAttributesLoading(false); setAttributesError(null); return }
     let current = true
-    setAttributes([]); setAttributesLoading(true); setAttributesError(null)
+    setAttributesLoading(true); setAttributesError(null)
     void tempoAttributes(connectionId, connectionGeneration).then(
       (items) => { if (current) setAttributes(items) },
       (reason: unknown) => { if (current) setAttributesError(reason instanceof Error ? reason.message : String(reason)) }
     ).finally(() => { if (current) setAttributesLoading(false) })
     return () => { current = false }
-  }, [connected, connectionGeneration, connectionId, mode])
+  }, [connected, connectionGeneration, connectionId, metadataRevision, mode])
 
   const advancedDiscoveryBaseContext = buildTraceql({ ...builder, advancedFilters: [] })
   useEffect(() => {
@@ -211,7 +215,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       }
     }, 200)
     return () => { current = false; window.clearTimeout(timer) }
-  }, [advancedDiscoveryBaseContext, builder.advancedFilters, connected, connectionGeneration, connectionId, mode])
+  }, [advancedDiscoveryBaseContext, builder.advancedFilters, connected, connectionGeneration, connectionId, metadataRevision, mode])
 
   const updateBuilder = (patch: Partial<TraceBuilderState>) => {
     const next = { ...builder, ...patch }
@@ -221,8 +225,8 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     setSql(formatted.ok ? formatted.query : raw)
   }
 
-  const submitTraceId = (event: FormEvent) => { event.preventDefault(); void openTrace({ candidate: traceId, searchRows }) }
-  const submitSearch = (event: FormEvent) => { event.preventDefault(); void runSearch({ query: activeTraceql, sampleSize, range: searchRange }) }
+  const submitTraceId = (event: FormEvent) => { event.preventDefault(); if (!metadataRefreshing) void openTrace({ candidate: traceId, searchRows }) }
+  const submitSearch = (event: FormEvent) => { event.preventDefault(); if (!metadataRefreshing) void runSearch({ query: activeTraceql, sampleSize, range: searchRange }) }
 
   const sampledSearch = sampleSize !== 'all'
   const progressPercent = searchProgress?.totalMs
@@ -368,7 +372,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       <div className={styles.discoveryPanel} style={{ minHeight: 0, overflow: 'auto' }}>
         <form className={styles.traceIdBar} onSubmit={submitTraceId}>
           <TextInput label="Trace ID" mode="inline" id="trace-id" value={traceId} onValueChange={setTraceId} spellCheck={false} placeholder="4bf92f3577b34da6a3ce929d0e0e4736" />
-          <button className="btn ghost" type="submit" disabled={loading !== null || !traceId.trim()}>{loading === 'trace' ? 'Opening…' : 'Open trace'}</button>
+          <button className="btn ghost" type="submit" disabled={metadataRefreshing || loading !== null || !traceId.trim()}>{loading === 'trace' ? 'Opening…' : 'Open trace'}</button>
         </form>
 
         <form className={styles.searchForm} onSubmit={submitSearch} onKeyDown={onTraceqlKeyDown}>
@@ -384,7 +388,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
               <CopySqlButton sql={activeTraceql} language="TraceQL" />
               <GrafanaHandoffActions profile={profile?.kind === 'tempo' ? profile : undefined} query={activeTraceql} range={searchRange} />
             </div>}
-            execution={<button className="btn primary" type="submit" data-tempo-run-query disabled={loading !== null || !activeTraceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button>}
+            execution={<button className="btn primary" type="submit" data-tempo-run-query disabled={metadataRefreshing || loading !== null || !activeTraceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button>}
           />
           {mode === 'builder'
             ? <TraceBuilderPanel value={builder} traceql={builderTraceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} attributes={attributes} attributesLoading={attributesLoading} attributesError={attributesError} attributeValues={advancedValues} attributeValuesLoading={advancedValuesLoading} attributeValuesError={advancedValuesError} onChange={updateBuilder} onOpenTraceql={() => { setSql(builderTraceql); setQueryMode('sql') }} />

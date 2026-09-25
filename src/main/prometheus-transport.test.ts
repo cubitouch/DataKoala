@@ -74,6 +74,27 @@ test('label cache reuses identical requests without crossing metrics', async () 
   assert.equal(calls.length, 2)
 })
 
+test('metadata cache invalidation refetches metric labels and label values', async () => {
+  let revision = 'old'
+  const calls: string[][] = []
+  const transport = new GcxPrometheusTransport(undefined, async (args) => {
+    calls.push(args)
+    const value = args[1].includes('/label/job/values') ? `${revision}-value` : `${revision}-label`
+    return { stdout: JSON.stringify({ status: 'success', data: [value] }), stderr: '' }
+  }, 'uid')
+
+  assert.deepEqual(await transport.labelsForMetric('up'), ['old-label'])
+  assert.deepEqual(await transport.labelValues('up', 'job'), ['old-value'])
+  revision = 'new'
+  assert.deepEqual(await transport.labelsForMetric('up'), ['old-label'])
+  assert.deepEqual(await transport.labelValues('up', 'job'), ['old-value'])
+
+  transport.invalidateMetadataCache()
+  assert.deepEqual(await transport.labelsForMetric('up'), ['new-label'])
+  assert.deepEqual(await transport.labelValues('up', 'job'), ['new-value'])
+  assert.equal(calls.length, 4)
+})
+
 test('discovers only compatible Grafana datasources from structured JSON', async () => {
   const raw = [{ uid: 'loki', name: 'Logs', type: 'loki' }, { uid: 'prom', name: 'Metrics', type: 'prometheus' }, { uid: 'mimir', name: 'Cloud Mimir', type: 'grafana-mimir-datasource' }]
   assert.deepEqual(normalizeGcxDatasources(raw).map(({ uid }) => uid), ['mimir', 'prom'])
