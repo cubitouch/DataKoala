@@ -1,4 +1,4 @@
-import type { ConnectionProfile } from '../../../shared/types'
+import type { ConnectionProfile } from '@shared/types'
 
 export interface ConnectionDraft {
   id: string

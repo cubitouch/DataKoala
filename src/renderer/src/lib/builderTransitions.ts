@@ -1,4 +1,4 @@
-import type { BuilderQueryState } from '../store/useStore'
+import type { BuilderQueryState } from '@store/useStore'
 import { compatibleTimeBucket, MINUTE_BUCKET_UNAVAILABLE_REASON, normalizeBuilderTimeRange } from './builderTimeRange.ts'
 import { decodeBuilderSeriesTuple } from './resultVisualization.ts'
 import type { ResultFilter } from './resultFilters'

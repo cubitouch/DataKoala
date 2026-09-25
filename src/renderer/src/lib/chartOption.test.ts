@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildEChartsOption } from './chartOption.ts'
-import type { QueryResult } from '../../../shared/types.ts'
-import type { ChartConfig } from '../store/useStore.ts'
+import type { QueryResult } from '@shared/types.ts'
+import type { ChartConfig } from '@store/useStore.ts'
 
 function mk(rows: Record<string, unknown>[], cols: [string, string][]): QueryResult {
   return {

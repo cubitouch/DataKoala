@@ -1,13 +1,13 @@
-import type { TimeBucket } from '../store/useStore'
+import type { TimeBucket } from '@store/useStore'
 import type { Aggregation } from './resultVisualization.ts'
 import { isMinuteBucketAvailable, MINUTE_BUCKET_UNAVAILABLE_REASON, SEVEN_DAYS, validateBuilderTimeRange, type BuilderTimeRange } from './builderTimeRange.ts'
 import { customRangeToQueryBounds } from './customTimeRange.ts'
 import { isPromotableFilter, type ResultFilter } from './resultFilters.ts'
 import { resolveBuilderPromotedFilters } from './builderPromotedFilters.ts'
-import { quotePostgresIdentifier } from '../../../shared/seriesCardinality.ts'
-import { isTimeType, type SqlDialect } from '../../../shared/types.ts'
+import { quotePostgresIdentifier } from '@shared/seriesCardinality.ts'
+import { isTimeType, type SqlDialect } from '@shared/types.ts'
 
-export { quotePostgresIdentifier as quoteIdentifier } from '../../../shared/seriesCardinality.ts'
+export { quotePostgresIdentifier as quoteIdentifier } from '@shared/seriesCardinality.ts'
 
 export const TIME_BUCKETS: readonly TimeBucket[] = ['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year']
 export const BUILDER_AGGREGATIONS: readonly Aggregation[] = ['count', 'sum', 'average', 'minimum', 'maximum']

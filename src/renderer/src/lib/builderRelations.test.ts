@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import type { BuilderQueryState } from '../store/useStore'
+import type { BuilderQueryState } from '@store/useStore'
 import { canLoadRelationColumns, relationIdentity, relationsForSchema, selectBuilderRelationState, selectionPatchForColumns } from './builderRelations.ts'
 
 const isTime = (column: { dataTypeName: string }) => column.dataTypeName === 'date'

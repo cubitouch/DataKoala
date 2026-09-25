@@ -1,6 +1,6 @@
 import type { DatabaseColumnNode, DatabaseRelationNode } from '@shared/types'
 import { api } from './api'
-import { useStore } from '../store/useStore'
+import { useStore } from '@store/useStore'
 
 const pending = new Map<string, Promise<DatabaseColumnNode[] | undefined>>()
 

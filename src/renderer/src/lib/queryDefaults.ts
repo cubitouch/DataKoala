@@ -1,5 +1,5 @@
 import type { DataSourceKind } from '@shared/types'
-import type { QueryMode } from '../store/useStore'
+import type { QueryMode } from '@store/useStore'
 
 export type QueryLanguage = 'sql' | 'promql' | 'traceql' | 'logql'
 

@@ -1,4 +1,4 @@
-import type { LokiMetadataRequest } from '../../../shared/loki.ts'
+import type { LokiMetadataRequest } from '@shared/loki.ts'
 import { api } from './api.ts'
 
 const cache = new Map<string, Promise<string[]>>()

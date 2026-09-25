@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BuilderTimeRange } from '../lib/builderTimeRange'
+import type { BuilderTimeRange } from '@lib/builderTimeRange'
 
 const ALL_TIME: BuilderTimeRange = { kind: 'all' }
 const events = { schema: 'app', name: 'events' }

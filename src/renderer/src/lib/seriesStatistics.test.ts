@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { interpretSeriesStatistics, SERIES_STATISTICS_SQL } from '../../../shared/seriesStatistics.ts'
+import { interpretSeriesStatistics, SERIES_STATISTICS_SQL } from '@shared/seriesStatistics.ts'
 import { decideFromSeriesStatistics, SeriesCardinalityProbeGuard, seriesProbeFingerprint, seriesStatisticsFingerprint } from './seriesCardinalityGuard.ts'
 
 const available = (estimatedDistinct: number) => ({ available: true, estimatedDistinct, source: 'pg_stats' as const })

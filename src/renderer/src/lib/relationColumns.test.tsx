@@ -6,8 +6,8 @@ const { describeTable } = vi.hoisted(() => ({ describeTable: vi.fn() }))
 vi.mock('./api', () => ({ api: { connections: { describeTable } } }))
 
 import { ensureRelationColumns } from './relationColumns'
-import { useStore } from '../store/useStore'
-import { resetTestStore } from '../test/sessionTestUtils'
+import { useStore } from '@store/useStore'
+import { resetTestStore } from '@test/sessionTestUtils'
 
 const relation: DatabaseRelationNode = {
   schema: 'public', name: 'orders', qualifiedName: 'public.orders', kind: 'r', columnsStatus: 'idle'

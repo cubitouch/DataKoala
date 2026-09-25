@@ -1,6 +1,6 @@
 import type { QueryResult } from '@shared/types'
-import { resultCellValue } from '../../../shared/query-result.ts'
-import type { ChartConfig } from '../store/useStore'
+import { resultCellValue } from '@shared/query-result.ts'
+import type { ChartConfig } from '@store/useStore'
 
 function escapeCsv(value: unknown): string {
   if (value === null || value === undefined) return ''

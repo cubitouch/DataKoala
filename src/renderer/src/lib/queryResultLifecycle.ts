@@ -1,4 +1,4 @@
-import type { QueryResult } from '../../../shared/types.ts'
+import type { QueryResult } from '@shared/types.ts'
 
 export interface QueryResultLifecycleState {
   result: QueryResult | null

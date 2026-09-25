@@ -1,7 +1,7 @@
 import type { DataSourceProfile } from '@shared/types'
 import { api } from './api'
 import { loadConnectionMetadata } from './connectionMetadata'
-import { selectSession, useStore } from '../store/useStore'
+import { selectSession, useStore } from '@store/useStore'
 import { defaultQueryModeForDatasource, defaultQueryTextForDatasource, queryLanguageForDatasource } from './queryDefaults'
 
 let switchSequence = 0

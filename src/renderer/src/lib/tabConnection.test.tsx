@@ -19,8 +19,8 @@ vi.mock('./api', () => ({
 }))
 
 import { bindTabConnection, ensureConnectionForTab } from './tabConnection'
-import { selectActiveSession, selectSession, useStore } from '../store/useStore'
-import { patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+import { selectActiveSession, selectSession, useStore } from '@store/useStore'
+import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 import { defaultQueryTextForDatasource } from './queryDefaults'
 
 const profiles: ConnectionProfile[] = [

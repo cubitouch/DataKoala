@@ -1,6 +1,6 @@
 import type { DatabaseColumnNode, DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
 import type { VisualizationConfiguration } from './resultVisualization.ts'
-import type { BuilderQueryState } from '../store/useStore'
+import type { BuilderQueryState } from '@store/useStore'
 
 /** A collision-safe identity for a relation (qualified names are not collision-safe). */
 export function relationIdentity(relation: { schema: string; name: string }): string {

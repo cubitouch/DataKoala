@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QueryResult } from '@shared/types'
-import type { ResultFilter } from '../lib/resultFilters'
+import type { ResultFilter } from '@lib/resultFilters'
 
 const resultA: QueryResult = {
   columns: [{ name: 'value', dataTypeID: 23, dataTypeName: 'int4' }],

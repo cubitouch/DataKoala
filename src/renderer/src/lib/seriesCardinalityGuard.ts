@@ -1,5 +1,5 @@
-import type { BuilderQueryState } from '../store/useStore'
-import { SERIES_STATS_ACCEPT_THRESHOLD, SERIES_STATS_REJECT_THRESHOLD, type SeriesStatisticsResult } from '../../../shared/chartLimits.ts'
+import type { BuilderQueryState } from '@store/useStore'
+import { SERIES_STATS_ACCEPT_THRESHOLD, SERIES_STATS_REJECT_THRESHOLD, type SeriesStatisticsResult } from '@shared/chartLimits.ts'
 import { SEVEN_DAYS } from './builderTimeRange.ts'
 
 export interface SeriesProbeFingerprintInput {

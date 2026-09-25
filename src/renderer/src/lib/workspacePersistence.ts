@@ -2,9 +2,9 @@ import { compatibleTimeBucket, SEVEN_DAYS, type BuilderTimeRange } from './build
 import type { TimeWindow } from './customTimeRange.ts'
 import type { Aggregation, ResultView, ValueAxisScale, VisualizationConfiguration } from './resultVisualization.ts'
 import { deserializeResultFilters, type ResultFilter } from './resultFilters.ts'
-import type { AppState, BuilderQueryState, QueryMode, QuerySession, TimeBucket } from '../store/useStore.ts'
+import type { AppState, BuilderQueryState, QueryMode, QuerySession, TimeBucket } from '@store/useStore.ts'
 import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from './promqlBuilder.ts'
-import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '../../../shared/loki.ts'
+import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '@shared/loki.ts'
 
 export const WORKSPACE_STORAGE_KEY = 'datakoala.workspace.v2'
 const LEGACY_DATAKOALA_WORKSPACE_STORAGE_KEY = 'datakoala.workspace.v2'

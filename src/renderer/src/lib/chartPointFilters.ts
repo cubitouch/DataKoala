@@ -1,4 +1,4 @@
-import type { TimeBucket } from '../store/useStore'
+import type { TimeBucket } from '@store/useStore'
 import { createResultFilter, type ResultFilter } from './resultFilters.ts'
 
 export interface ChartSeriesFilterValue { column: string; value: unknown }

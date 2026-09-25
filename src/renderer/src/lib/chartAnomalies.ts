@@ -1,4 +1,4 @@
-import { isNumericType, isTimeType, type ColumnMeta } from '../../../shared/types.ts'
+import { isNumericType, isTimeType, type ColumnMeta } from '@shared/types.ts'
 import type { ChartSeries, PivotedResult, ResultView } from './resultVisualization.ts'
 
 export interface AnomalyDetectionOptions { windowSize: number; minimumBaselineSize: number; threshold: number }
