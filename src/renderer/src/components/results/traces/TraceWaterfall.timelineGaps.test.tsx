@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { TimelineGapOverlay, TraceWaterfall, type TraceWaterfallProps } from './TraceWaterfall'
+import { MAX_RENDERED_SPANS, TimelineGapOverlay, TraceWaterfall, type TraceWaterfallProps } from './TraceWaterfall'
 
 describe('TimelineGapOverlay', () => {
   afterEach(cleanup)
@@ -78,11 +78,11 @@ describe('TraceWaterfall', () => {
     expect(container.querySelector('[data-trace-waterfall]')?.getAttribute('data-visual-items')).toBe('0')
   })
 
-  it('caps rendering at 500 rows', () => {
-    const visibleTree = Array.from({ length: 501 }, (_, index) => ({ row: { ...child, spanId: `span-${index}` }, id: `span-${index}`, depth: 0, hasChildren: false }))
-    const { container } = render(<TraceWaterfall {...waterfallProps({ visibleTree, filteredSpanCount: 501, totalSpanCount: 501 })} />)
+  it('caps rendering at the configured row limit', () => {
+    const visibleTree = Array.from({ length: MAX_RENDERED_SPANS + 1 }, (_, index) => ({ row: { ...child, spanId: `span-${index}` }, id: `span-${index}`, depth: 0, hasChildren: false }))
+    const { container } = render(<TraceWaterfall {...waterfallProps({ visibleTree, filteredSpanCount: MAX_RENDERED_SPANS + 1, totalSpanCount: MAX_RENDERED_SPANS + 1 })} />)
 
-    expect(container.querySelectorAll('[data-span-id]')).toHaveLength(500)
-    expect(container.querySelector('[data-trace-waterfall]')?.getAttribute('data-visual-items')).toBe('500')
+    expect(container.querySelectorAll('[data-span-id]')).toHaveLength(MAX_RENDERED_SPANS)
+    expect(container.querySelector('[data-trace-waterfall]')?.getAttribute('data-visual-items')).toBe(String(MAX_RENDERED_SPANS))
   })
 })
