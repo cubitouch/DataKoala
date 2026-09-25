@@ -7,7 +7,7 @@ const { labelsForMetric, labelValues, formatQuery } = vi.hoisted(() => ({
   labelValues: vi.fn(),
   formatQuery: vi.fn()
 }))
-vi.mock('../lib/api', () => ({
+vi.mock('@lib/api', () => ({
   api: { connections: { prometheus: { labelsForMetric, labelValues, formatQuery } } }
 }))
 vi.mock('@uiw/react-codemirror', () => ({

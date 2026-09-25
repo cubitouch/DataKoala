@@ -7,7 +7,7 @@ const { queryRun, promqlAsExtension } = vi.hoisted(() => ({
   promqlAsExtension: vi.fn(() => ({}))
 }))
 
-vi.mock('../lib/api', () => ({
+vi.mock('@lib/api', () => ({
   api: {
     connections: {
       connect: vi.fn(),

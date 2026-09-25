@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LokiExplorer } from './LokiExplorer'
 const mocks = vi.hoisted(() => ({ labels: vi.fn(), labelValues: vi.fn(), formatQuery: vi.fn(), runLoki: vi.fn() }))
 const copyTextToClipboard = vi.hoisted(() => vi.fn())
-vi.mock('../lib/clipboardText', () => ({ copyTextToClipboard }))
-vi.mock('../lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels, labelValues: mocks.labelValues, formatQuery: mocks.formatQuery } }, query: { runLoki: mocks.runLoki } } }))
+vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
+vi.mock('@lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels, labelValues: mocks.labelValues, formatQuery: mocks.formatQuery } }, query: { runLoki: mocks.runLoki } } }))
 vi.mock('@tanstack/react-virtual', () => ({ useVirtualizer: ({ count }: { count: number }) => ({ measure: vi.fn(), measureElement: vi.fn(), getTotalSize: () => count * 113, getVirtualItems: () => Array.from({ length: Math.min(count, 20) }, (_, index) => ({ index, start: index * 113 })) }) }))
 import { createQuerySession, useStore } from '@store/useStore'
 import { clearLokiLabelsResources } from '@lib/useLokiLabelsResource'

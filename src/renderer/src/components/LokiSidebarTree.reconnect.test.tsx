@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ labels: vi.fn(), labelValues: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels, labelValues: mocks.labelValues } } } }))
+vi.mock('@lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels, labelValues: mocks.labelValues } } } }))
 
 import { LokiSidebarTree } from './LokiSidebarTree'
 import { clearLokiLabelsResources } from '@lib/useLokiLabelsResource'
