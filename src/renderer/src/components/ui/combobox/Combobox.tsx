@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Popover } from '../Popover'
+import { matchesSearch, normalizeSearchText } from '../../../lib/matchesSearch'
 import { FieldChrome } from '../FieldChrome'
 import type { FieldFeedbackProps, FieldMode, LabelVisibility } from '../FieldChrome'
 import { ComboboxOption as OptionRow } from './ComboboxOption'
@@ -26,9 +27,8 @@ interface Props extends FieldFeedbackProps {
   allowCustomValue?: boolean
 }
 
-const norm = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase()
 const optionId = (prefix: string, value: string) => `${prefix}-option-${encodeURIComponent(value)}`
-const optionText = (option: ComboboxOption) => norm([option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' '))
+const optionText = (option: ComboboxOption) => [option.label, option.subtitle, ...(option.keywords ?? [])].filter(Boolean).join(' ')
 const isTypingKey = (event: React.KeyboardEvent) => event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
 
 export function Combobox({ id, label, mode, labelVisibility, hint, warning, value, options, onChange, placeholder = 'Select an option…', searchable = false, disabled = false, loading = false, error = null, emptyMessage = 'No matching options', loadingMessage = 'Loading…', invalidationKey, allowCustomValue = false }: Props) {
@@ -43,11 +43,7 @@ export function Combobox({ id, label, mode, labelVisibility, hint, warning, valu
   const menuRef = useRef<HTMLDivElement>(null)
   const typeahead = useRef('')
   const typeaheadTime = useRef(0)
-  const filtered = useMemo(() => {
-    const q = norm(query)
-    if (!q) return options
-    return options.filter((option) => optionText(option).includes(q))
-  }, [options, query])
+  const filtered = useMemo(() => options.filter((option) => matchesSearch(optionText(option), query)), [options, query])
   const enabled = useMemo(() => filtered.filter((option) => !option.disabled), [filtered])
   const active = filtered.find((option) => option.value === activeValue && !option.disabled) ?? enabled[0]
 
@@ -85,7 +81,7 @@ export function Combobox({ id, label, mode, labelVisibility, hint, warning, valu
       const now = Date.now(); typeahead.current = now - typeaheadTime.current > 650 ? event.key : typeahead.current + event.key; typeaheadTime.current = now
       const start = active ? enabled.findIndex((option) => option.value === active.value) : -1
       const ordered = [...enabled.slice(start + 1), ...enabled.slice(0, start + 1)]
-      const found = ordered.find((option) => norm(option.label).startsWith(norm(typeahead.current)))
+      const found = ordered.find((option) => normalizeSearchText(option.label).startsWith(normalizeSearchText(typeahead.current)))
       if (found) setActiveValue(found.value)
     }
   }
