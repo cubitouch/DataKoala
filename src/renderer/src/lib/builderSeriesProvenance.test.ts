@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { resolveBuilderPromotedFilters, type BuilderFilterContext } from './builderPromotedFilters.ts'
 import { transitionBuilderState } from './builderTransitions.ts'
 import { createResultFilter, type BuilderFilterProvenance, type ResultFilter } from './resultFilters.ts'
