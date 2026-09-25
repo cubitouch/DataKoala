@@ -3,7 +3,7 @@ import { buildTraceTimelineScale, type TraceRow, type VisibleTraceSpan } from '.
 import styles from './TraceWaterfall.module.css'
 import { traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from './tracePresentation'
 
-export const MAX_RENDERED_SPANS = 500
+export const MAX_RENDERED_SPANS = 2_000
 
 interface RenderedTimelineGap {
   key: string
