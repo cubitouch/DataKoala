@@ -4,6 +4,7 @@ import type { DataSourceProfile, DatabaseColumnNode, DatabaseRelationNode } from
 import { api } from '../lib/api'
 import { ensureRelationColumns } from '../lib/relationColumns'
 import { loadConnectionMetadata } from '../lib/connectionMetadata'
+import { matchesSearch } from '../lib/matchesSearch'
 import { relationIdentity, selectionPatchForColumns } from '../lib/builderRelations'
 import { isBuilderTemporalDataType } from '../lib/builderSql'
 import { buildPromql, reconcilePromqlBuilderForMetric } from '../lib/promqlBuilder'
@@ -175,12 +176,11 @@ export function Sidebar() {
   }, [metadataRevision])
 
   const visibleSchemas = useMemo(() => {
-    const needle = filter.trim().toLocaleLowerCase()
-    if (!needle) return schemas
+    if (!filter.trim()) return schemas
     return schemas.map((schema) => ({ ...schema, relations: schema.relations.filter((relation) =>
-      schema.name.toLocaleLowerCase().includes(needle) || relation.name.toLocaleLowerCase().includes(needle) ||
-      relation.columns?.some((column) => column.name.toLocaleLowerCase().includes(needle) || column.dataTypeName.toLocaleLowerCase().includes(needle)))
-    })).filter((schema) => schema.relations.length || schema.name.toLocaleLowerCase().includes(needle))
+      matchesSearch(schema.name, filter) || matchesSearch(relation.name, filter) ||
+      relation.columns?.some((column) => matchesSearch(`${column.name} ${column.dataTypeName}`, filter)))
+    })).filter((schema) => schema.relations.length || matchesSearch(schema.name, filter))
   }, [filter, schemas])
   const filtering = Boolean(filter.trim())
   const isSqlSource = activeTabSourceKind !== 'prometheus' && activeTabSourceKind !== 'tempo' && activeTabSourceKind !== 'loki'
