@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchesSearch, normalizeSearchText } from './matchesSearch'
+import { matchesSearch, normalizeSearchText } from './matchesSearch.ts'
 
 describe('matchesSearch', () => {
   const candidate = 'payment-service-worker'
