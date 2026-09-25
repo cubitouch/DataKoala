@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import { queryLanguageForSourceKind, sqlDialectForSourceKind, type DatabaseSchemaNode } from '../../../shared/types.ts'
+import { queryLanguageForSourceKind, sqlDialectForSourceKind, type DatabaseSchemaNode } from '@shared/types.ts'
 import { buildSqlCompletionSchema } from './sqlCompletionSchema.ts'
 import { codeMirrorDialect, DuckDBDialect, formatterDialect, GoogleSQLDialect } from './sqlDialect.ts'
 import { quoteSqlIdentifier, resolveQuerySources, sqlAliasCompletionSource } from './sqlAliasCompletion.ts'
