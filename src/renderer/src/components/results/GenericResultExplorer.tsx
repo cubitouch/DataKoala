@@ -87,7 +87,7 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   const previousVisibility = useRef(seriesVisibility)
   const [pointMenu, setPointMenu] = useState<{ context: ChartPointContext; position: { x: number; y: number } } | null>(null)
   const [renderedRevision, setRenderedRevision] = useState<ChartRevision | null>(null)
-  const [capturing, setCapturing] = useState<'copy' | 'export' | null>(null)
+  const [capturing, setCapturing] = useState<'copy' | 'export' | 'slack-text-png' | 'slack-html' | 'slack-all' | null>(null)
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readiness = useRef(new ChartReadinessController())
@@ -259,6 +259,23 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
       notifyChartCopyResult(false)
     } finally { setCapturing(null) }
   }
+  const copyForSlack = async (mode: 'text-and-png' | 'html-embedded' | 'all') => {
+    if (!chartRendered || capturing || !appliedChart) return
+    const revision = appliedChart.revision
+    const captureState = mode === 'text-and-png' ? 'slack-text-png' : mode === 'html-embedded' ? 'slack-html' : 'slack-all'
+    setCapturing(captureState)
+    const x = effectiveConfiguration.xColumn ?? 'X'
+    const y = effectiveConfiguration.valueColumn ?? 'Y'
+    const text = `DataKoala ${effectiveConfiguration.view} chart: ${x} → ${y}`
+    try {
+      const result = await api.clipboardImage.writeRich({ dataUrl: await image(revision), text, mode })
+      if (result.ok) feedback(`Slack clipboard test copied (${mode})`)
+      else feedback('Could not copy Slack clipboard test')
+    } catch (error) {
+      console.error('[chart] Could not copy Slack clipboard test', error)
+      feedback('Could not copy Slack clipboard test')
+    } finally { setCapturing(null) }
+  }
   const exportPng = async () => {
     if (!chartRendered || capturing || !appliedChart) return
     const revision = appliedChart.revision
@@ -368,7 +385,7 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
       {hierarchyDimensions.join('\0') !== suggestedHierarchyDimensions.join('\0') && <button className="btn ghost" type="button" onClick={() => setHierarchyDimensions(suggestedHierarchyDimensions)}>Use suggested order</button>}
     </div>}
     {!showChart || !result ? <ResultsTable mode={mode} rawResult={result} filteredResult={filteredResult} activeFilters={activeFilters} resultRevision={resultRevision} running={running} error={error} onAddFilter={onAddFilter} onRemoveFilter={onRemoveFilter} onClearFilters={onClearFilters} onToggleFilterExecution={onToggleFilterExecution} canPromoteFilter={canPromoteTableFilter} canDemoteFilter={canDemoteFilter}/> : <div className={styles.chart} data-result-chart>
-      <div className={styles.chartActions}><span className={styles.stats}>{activeFilters.length ? `${filteredResult?.rowCount ?? 0} of ${result.rowCount}` : result.rowCount} rows · {result.columns.length} cols · {result.durationMs} ms</span><div className={styles.spacer}/>{!hierarchical && seriesIdentities.length > 1 && hiddenSeries.length > 0 && <button className="btn ghost" onClick={() => updateSeriesVisibility(showAllSeries(seriesIdentities))}>Show all</button>}{!hierarchical && <div className={styles.axisScale}><Combobox label="Value axis scale" mode="inline" value={effectiveConfiguration.valueAxisScale ?? 'linear'} options={valueScaleOptions} onChange={(value) => update({ valueAxisScale: value as ValueAxisScale })} /></div>}{!hierarchical && <button className="btn ghost" aria-pressed={Boolean(effectiveConfiguration.anomalyDetectionEnabled)} disabled={!anomalyEligibility.available} title={anomalyEligibility.available ? 'Uses the previous 12 valid points in each Series. Detection uses linear values, including on Log scale.' : anomalyEligibility.reason} onClick={() => update({ anomalyDetectionEnabled: !effectiveConfiguration.anomalyDetectionEnabled })}>Highlight anomalies</button>}<button className="btn ghost" disabled={isChartActionDisabled(chartRendered, capturing !== null)} onClick={copyChart}>{capturing === 'copy' ? 'Copying…' : 'Copy chart'}</button><button className="btn ghost" disabled={isChartActionDisabled(chartRendered, capturing !== null)} onClick={exportPng}>{capturing === 'export' ? 'Exporting…' : 'Export PNG'}</button></div>
+      <div className={styles.chartActions}><span className={styles.stats}>{activeFilters.length ? `${filteredResult?.rowCount ?? 0} of ${result.rowCount}` : result.rowCount} rows · {result.columns.length} cols · {result.durationMs} ms</span><div className={styles.spacer}/>{!hierarchical && seriesIdentities.length > 1 && hiddenSeries.length > 0 && <button className="btn ghost" onClick={() => updateSeriesVisibility(showAllSeries(seriesIdentities))}>Show all</button>}{!hierarchical && <div className={styles.axisScale}><Combobox label="Value axis scale" mode="inline" value={effectiveConfiguration.valueAxisScale ?? 'linear'} options={valueScaleOptions} onChange={(value) => update({ valueAxisScale: value as ValueAxisScale })} /></div>}{!hierarchical && <button className="btn ghost" aria-pressed={Boolean(effectiveConfiguration.anomalyDetectionEnabled)} disabled={!anomalyEligibility.available} title={anomalyEligibility.available ? 'Uses the previous 12 valid points in each Series. Detection uses linear values, including on Log scale.' : anomalyEligibility.reason} onClick={() => update({ anomalyDetectionEnabled: !effectiveConfiguration.anomalyDetectionEnabled })}>Highlight anomalies</button>}<button className="btn ghost" disabled={isChartActionDisabled(chartRendered, capturing !== null)} onClick={copyChart}>{capturing === 'copy' ? 'Copying…' : 'Copy chart'}</button><button className="btn ghost" disabled={isChartActionDisabled(chartRendered, capturing !== null)} title="Experimental: publish text/plain + image/png together" onClick={() => void copyForSlack('text-and-png')}>{capturing === 'slack-text-png' ? 'Copying…' : 'Slack text+PNG'}</button><button className="btn ghost" disabled={isChartActionDisabled(chartRendered, capturing !== null)} title="Experimental: publish text/html with an embedded PNG data URL" onClick={() => void copyForSlack('html-embedded')}>{capturing === 'slack-html' ? 'Copying…' : 'Slack HTML'}</button><button className="btn ghost" disabled={isChartActionDisabled(chartRendered, capturing !== null)} title="Experimental: publish text/plain, text/html and image/png together" onClick={() => void copyForSlack('all')}>{capturing === 'slack-all' ? 'Copying…' : 'Slack all'}</button><button className="btn ghost" disabled={isChartActionDisabled(chartRendered, capturing !== null)} onClick={exportPng}>{capturing === 'export' ? 'Exporting…' : 'Export PNG'}</button></div>
       {effectiveConfiguration.anomalyDetectionEnabled && anomalyEligibility.available && <div className={styles.anomalyStatus} role="status">{anomalies.length ? `${anomalies.length} ${anomalies.length === 1 ? 'anomaly' : 'anomalies'} detected across ${new Set(anomalies.map((item) => item.seriesName)).size} ${new Set(anomalies.map((item) => item.seriesName)).size === 1 ? 'series' : 'series'}.` : 'No anomalies detected with the current settings.'}</div>}
       <ResultFilterBar filters={activeFilters} onRemove={onRemoveFilter} onClear={onClearFilters} onToggleExecution={onToggleFilterExecution} canPromote={canPromoteChartFilter} canDemote={canDemoteFilter}/>
       {error && <div className={styles.error} role="alert">{error}</div>}
