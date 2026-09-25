@@ -2,7 +2,7 @@ export const normalizeSearchText = (value: string) => value.trim().replace(/\s+/
 
 export function matchesSearch(value: string, query: string): boolean {
   const normalizedQuery = normalizeSearchText(query)
-  if (!normalizedQuery) return true
+  if (!normalizedQuery) return false
 
   const haystack = normalizeSearchText(value)
   return normalizedQuery.split(' ').every((token) => haystack.includes(token))
