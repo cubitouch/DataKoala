@@ -12,7 +12,7 @@ const profiles: DataSourceProfile[] = [
   { kind: 'tempo', version: 1, id: 'tempo', name: 'Production traces', transport: { kind: 'gcx', context: 'production' }, readonly: true }
 ]
 
-vi.mock('../lib/api', () => ({ api: { connections: {
+vi.mock('@lib/api', () => ({ api: { connections: {
   list: vi.fn(async () => profiles), listObjects: vi.fn(async () => []), describeTable: vi.fn(async () => []),
   refreshMetadata: vi.fn(async () => {}),
   connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), loki: {

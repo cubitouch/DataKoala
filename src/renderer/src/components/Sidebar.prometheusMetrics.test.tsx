@@ -6,7 +6,7 @@ import { resetTestStore } from '@test/sessionTestUtils'
 import { selectActiveSession, useStore } from '@store/useStore'
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), describeTable: vi.fn(), labelsForMetric: vi.fn(), labelValues: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: { connections: {
+vi.mock('@lib/api', () => ({ api: { connections: {
   list: mocks.list, describeTable: mocks.describeTable, listObjects: vi.fn(),
   connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), prometheus: { labelsForMetric: mocks.labelsForMetric, labelValues: mocks.labelValues }
 } } }))

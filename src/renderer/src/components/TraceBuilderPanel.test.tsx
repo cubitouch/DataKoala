@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const { copyTextToClipboard } = vi.hoisted(() => ({ copyTextToClipboard: vi.fn() }))
-vi.mock('../lib/clipboardText', () => ({ copyTextToClipboard }))
+vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
 vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: {} }))
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value, ...props }: { value: string; 'aria-label'?: string }) => <textarea aria-label={props['aria-label']} value={value} readOnly />

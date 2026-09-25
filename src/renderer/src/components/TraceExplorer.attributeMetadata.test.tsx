@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { attributeValues, attributes } = vi.hoisted(() => ({ attributeValues: vi.fn(), attributes: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: {
+vi.mock('@lib/api', () => ({ api: {
   tempoPerformanceEnabled: false,
   connections: { tempo: { attributeValues, attributes } },
   query: { run: vi.fn() }
