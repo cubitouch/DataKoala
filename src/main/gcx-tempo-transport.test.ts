@@ -205,6 +205,26 @@ test('Tempo service discovery uses tag values and keeps gcx context and datasour
   ])
 })
 
+test('Tempo begins service-name and namespace discovery concurrently and deduplicates namespaces', async () => {
+  const started: string[] = []
+  let resolveNames!: (value: { stdout: string; stderr: string }) => void
+  const namesPending = new Promise<{ stdout: string; stderr: string }>((resolve) => { resolveNames = resolve })
+  const run: GcxCommandRunner = async (args) => {
+    const label = args[args.indexOf('--label') + 1]
+    const queryIndex = args.indexOf('--query')
+    started.push(queryIndex < 0 ? label : args[queryIndex + 1])
+    if (label === 'resource.service.name' && queryIndex < 0) return namesPending
+    if (label === 'resource.service.namespace') return { stdout: JSON.stringify({ tagValues: ['commerce', 'commerce'] }), stderr: '' }
+    return { stdout: JSON.stringify({ tagValues: ['checkout-api'] }), stderr: '' }
+  }
+  const pending = new GcxTempoTransport(undefined, run, 'tempo').services()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.deepEqual(started, ['resource.service.name', 'resource.service.namespace'])
+  resolveNames({ stdout: JSON.stringify({ tagValues: ['checkout-api'] }), stderr: '' })
+  assert.deepEqual(await pending, [{ name: 'checkout-api', namespace: 'commerce' }])
+  assert.equal(started.filter((value) => value.includes('commerce')).length, 1)
+})
+
 test('Tempo transport rejects empty queries and malformed responses', async () => {
   const transport: TempoTransport = new GcxTempoTransport(undefined, async () => ({ stdout: 'not-json', stderr: '' }))
   await assert.rejects(() => transport.query(''), /TraceQL query or trace ID/)

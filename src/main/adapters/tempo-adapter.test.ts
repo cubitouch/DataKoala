@@ -164,6 +164,20 @@ test('Tempo metadata refresh replaces the memoized service discovery without rec
   assert.equal(calls, 2)
 })
 
+test('Tempo failed metadata refresh preserves previously discovered services', async () => {
+  let fail = false
+  const adapter = new TempoAdapter(() => transport({ services: async () => {
+    if (fail) throw new Error('refresh unavailable')
+    return [{ namespace: 'commerce', name: 'checkout-api' }]
+  } }))
+  const connected = await adapter.connect(profile)
+  assert.ok(connected.session?.refreshMetadata)
+  assert.deepEqual((await connected.session.listRelations()).map((item) => item.name), ['checkout-api'])
+  fail = true
+  await assert.rejects(connected.session.refreshMetadata(), /refresh unavailable/)
+  assert.deepEqual((await connected.session.listRelations()).map((item) => item.name), ['checkout-api'])
+})
+
 test('Tempo probe failure still prevents connection', async () => {
   let serviceCalls = 0
   const adapter = new TempoAdapter(() => transport({

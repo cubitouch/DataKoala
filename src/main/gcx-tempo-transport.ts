@@ -473,11 +473,14 @@ export class GcxTempoTransport implements TempoTransport {
 
   async services(): Promise<TempoService[]> {
     try {
-      const names = await this.attributeValues('resource.service.name')
+      const [names, discoveredNamespaces] = await Promise.all([
+        this.attributeValues('resource.service.name'),
+        this.attributeValues('resource.service.namespace')
+      ])
       if (!names.length) return []
-      const namespaces = await this.attributeValues('resource.service.namespace')
+      const namespaces = [...new Set(discoveredNamespaces)]
       const mapped = new Map<string, TempoService>()
-      await mapConcurrent(namespaces, SERVICE_DISCOVERY_CONCURRENCY, async (namespace) => {
+      if (namespaces.length) await mapConcurrent(namespaces, SERVICE_DISCOVERY_CONCURRENCY, async (namespace) => {
         const scopedNames = await this.attributeValues('resource.service.name', `{ resource.service.namespace = ${JSON.stringify(namespace)} }`)
         for (const name of scopedNames) collectService(mapped, name, namespace)
       })

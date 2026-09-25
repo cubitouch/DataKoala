@@ -83,22 +83,53 @@ it('shows a selected non-live profile without persistent connect-on-run copy', a
 it('keeps only the live profile refresh action pending and does not switch connections', async () => {
   let finish!: () => void
   vi.mocked(api.connections.refreshMetadata).mockReturnValueOnce(new Promise<void>((resolve) => { finish = resolve }))
+  vi.mocked(api.connections.listObjects).mockResolvedValueOnce([{ schema: 'public', name: 'new_orders', kind: 'r' }])
   const tab = createQuerySession(1, { id: 'live-tab', connectionProfileId: 'pg' })
   useStore.setState({
     profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'pg', connected: true, connectionGeneration: 4,
-    metadataByProfileId: { pg: { schemas: [], status: 'loaded', error: null, isStale: false } }
+    metadataByProfileId: { pg: { schemas: [{ name: 'public', isSystem: false, relations: [{ schema: 'public', name: 'old_orders', qualifiedName: 'public.old_orders', kind: 'r', columnsStatus: 'idle' }] }], status: 'loaded', error: null, isStale: false } }
   })
   render(<Sidebar />)
+  const filter = screen.getByRole('textbox', { name: 'Filter database objects' }) as HTMLInputElement
+  fireEvent.change(filter, { target: { value: 'orders' } })
+  expect(screen.getByText('old_orders')).toBeTruthy()
   const refresh = await screen.findByRole('button', { name: 'Refresh metadata for Orders' })
   const analyticsRefresh = screen.getByRole('button', { name: 'Refresh metadata for Analytics' })
   fireEvent.click(refresh)
   await waitFor(() => expect((refresh as HTMLButtonElement).disabled).toBe(true))
   expect(refresh.getAttribute('aria-busy')).toBe('true')
+  expect(refresh.querySelector('span')?.className).toBe('')
+  expect(screen.getByText('Refreshing metadata…')).toBeTruthy()
+  expect(filter.value).toBe('orders')
+  const viewport = document.querySelector<HTMLElement>('[data-object-tree-viewport]')!
+  expect(viewport.hidden).toBe(true)
+  expect(filter.closest(`.${styles.objectFilter}`)?.contains(viewport)).toBe(false)
   expect((analyticsRefresh as HTMLButtonElement).disabled).toBe(true)
   expect(api.connections.connect).not.toHaveBeenCalled()
   expect(api.connections.disconnect).not.toHaveBeenCalled()
   finish()
   await waitFor(() => expect((refresh as HTMLButtonElement).disabled).toBe(false))
+  await waitFor(() => expect(screen.getByText('new_orders')).toBeTruthy())
+  await Promise.resolve()
+  expect(filter.value).toBe('orders')
+  expect(viewport.hidden).toBe(false)
+})
+
+it('restores the previous filtered tree and reports a failed manual refresh', async () => {
+  await Promise.resolve()
+  vi.mocked(api.connections.refreshMetadata).mockRejectedValueOnce(new Error('provider unavailable'))
+  const tab = createQuerySession(1, { id: 'live-tab', connectionProfileId: 'pg' })
+  useStore.setState({
+    profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'pg', connected: true, connectionGeneration: 4,
+    metadataByProfileId: { pg: { schemas: [{ name: 'public', isSystem: false, relations: [{ schema: 'public', name: 'old_orders', qualifiedName: 'public.old_orders', kind: 'r', columnsStatus: 'idle' }] }], status: 'loaded', error: null, isStale: false } }
+  })
+  render(<Sidebar />)
+  const filter = screen.getByRole('textbox', { name: 'Filter database objects' }) as HTMLInputElement
+  fireEvent.change(filter, { target: { value: 'orders' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh metadata for Orders' }))
+  await waitFor(() => expect(screen.getByText('Could not refresh metadata.')).toBeTruthy())
+  expect(screen.getByText('old_orders')).toBeTruthy()
+  expect(filter.value).toBe('orders')
 })
 
 it('retains compact progress feedback during an active connection attempt', async () => {

@@ -61,6 +61,15 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(screen.queryByLabelText('TraceQL editor')).toBeNull()
   })
 
+  it('disables and guards Tempo execution while metadata refreshes', () => {
+    useStore.setState({ metadataByProfileId: { 'tempo-1': { schemas: [], status: 'loaded', error: null, isStale: false, refreshing: true } } })
+    render(<TraceExplorer connectionId="tempo-1" />)
+    const run = screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement
+    expect(run.disabled).toBe(true)
+    fireEvent.submit(run.closest('form')!)
+    expect(api.query.run).not.toHaveBeenCalled()
+  })
+
   it('executes and opens the Builder-generated TraceQL instead of stale manual SQL', async () => {
     patchActiveTestSession({ queryMode: 'builder', sql: 'select now();' })
     vi.mocked(api.query.run).mockResolvedValue({

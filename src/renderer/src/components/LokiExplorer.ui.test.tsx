@@ -21,13 +21,23 @@ afterEach(() => { cleanup(); clearLokiLabelsResources() })
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn()
   const tab = createQuerySession(1, { id: 'loki-tab', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
-  useStore.setState({ tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true, connectionStatus: 'connected', connectionGeneration: 1, profiles: [{ id: 'loki', name: 'Production logs', kind: 'loki', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test', datasourceUid: 'loki-main' }, grafana: { baseUrl: 'https://grafana.example', datasourceType: 'loki' } }] })
+  useStore.setState({ tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true, connectionStatus: 'connected', connectionGeneration: 1, metadataByProfileId: {}, profiles: [{ id: 'loki', name: 'Production logs', kind: 'loki', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test', datasourceUid: 'loki-main' }, grafana: { baseUrl: 'https://grafana.example', datasourceType: 'loki' } }] })
   mocks.labels.mockReset().mockResolvedValue(['app', 'service'])
   mocks.labelValues.mockReset().mockResolvedValue(['x'])
   mocks.runLoki.mockReset()
 })
 
 describe('LokiExplorer execution', () => {
+  it('disables and guards Loki execution while metadata refreshes', () => {
+    useStore.setState({ metadataByProfileId: { loki: { schemas: [], status: 'loaded', error: null, isStale: false, refreshing: true } } })
+    render(<LokiExplorer connectionId="loki" />)
+    const run = screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement
+    expect(run.disabled).toBe(true)
+    fireEvent.click(run)
+    fireEvent.keyDown(screen.getByLabelText('LogQL editor'), { key: 'Enter', metaKey: true })
+    expect(mocks.runLoki).not.toHaveBeenCalled()
+  })
+
   it('runs an empty Builder through the service_name fallback with bounded time and limit', async () => {
     mocks.labels.mockResolvedValue(['app', 'service_name'])
     mocks.runLoki.mockResolvedValue(logs)

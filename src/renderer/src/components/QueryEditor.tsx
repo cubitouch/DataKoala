@@ -44,6 +44,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const language = queryLanguageForSourceKind(connectionKind ?? 'postgres')
   const dialect = language.kind === 'sql' ? language.dialect : 'postgres'
   const metadata = useStore((s) => tabConnectionId ? s.metadataByProfileId[tabConnectionId] : undefined)
+  const metadataRefreshing = metadata?.refreshing ?? false
   const schemas = metadata?.schemas ?? []
   const selectedBuilderMetric = schemas.flatMap((schema) => schema.relations).find((relation) => relation.kind === 'metric' && relation.name === promqlBuilder.metric)
   const selectedBuilderMetricType = selectedBuilderMetric?.details?.kind === 'metric' ? selectedBuilderMetric.details.type : undefined
@@ -86,7 +87,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const stillBoundTo = (requestTabId: string, profileId: string) => selectSession(useStore.getState(), requestTabId)?.connectionProfileId === profileId
 
   const run = async () => {
-    if (connecting) return
+    if (connecting || metadataRefreshing) return
     const requestTabId = tabId
     const requestSql = sql
     const requestFilters = filters
@@ -241,7 +242,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
           {isAnalyzeLoading && <span className="spinner" aria-hidden="true" />}
           {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
         </button>}</div>}
-        execution={<button className="btn primary" onClick={run} disabled={!canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder, builderHistogramKind)))} title="Run (Ctrl/Command+Enter)">
+        execution={<button className="btn primary" onClick={run} disabled={metadataRefreshing || !canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder, builderHistogramKind)))} title="Run (Ctrl/Command+Enter)">
           {running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}
         </button>}
       />
