@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { QUERY_LOADING_DELAY_MS, shouldShowQueryLoading } from './loadingIndicator.ts'
 
 test('fast queries never show visual loading while slow queries show it once', () => {

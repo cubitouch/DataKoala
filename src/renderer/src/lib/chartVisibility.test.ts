@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { reconcileSeriesVisibility } from './chartVisibility.ts'
 
 test('unchanged visibility retains its object identity regardless of identity order', () => {

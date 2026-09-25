@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { isJsonColumnType, normalizeJsonCellValue, normalizePostgresTypeName } from './jsonCell.ts'
 
 test('normalizes parsed and stringified JSON values with two-space formatting', () => {
