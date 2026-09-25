@@ -10,7 +10,7 @@ import { interpretSeriesStatistics, SERIES_STATISTICS_SQL } from '@shared/series
 import { validateConnectionId, validateSeriesCardinalityRequest, validateSeriesStatisticsRequest } from '@shared/seriesCardinalityValidation'
 import type { ConnectionProfile, DataSourceProfile } from '@shared/types'
 import { MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH } from '@shared/layoutDimensions'
-import { writePngDataUrl } from './clipboard-image'
+import { writePngDataUrl, writeRichClipboard } from './clipboard-image'
 import { createGracefulShutdown } from './gracefulShutdown'
 import { smokeDuckDB } from './adapters/local-files-adapter'
 import type { SqliteFileProfile } from '@shared/types'
@@ -558,6 +558,14 @@ function registerIpc(): void {
     createFromBuffer: (buffer) => nativeImage.createFromBuffer(buffer),
     writeImage: (image) => clipboard.writeImage(image as Electron.NativeImage),
     logError: (error) => console.error('[clipboard] Could not write chart PNG', error)
+  }))
+  ipcMain.handle(IPC.CLIPBOARD_WRITE_RICH, (_event, request: unknown) => writeRichClipboard(request, {
+    createFromBuffer: (buffer) => nativeImage.createFromBuffer(buffer),
+    write: (payload) => clipboard.write({
+      ...payload,
+      image: payload.image as Electron.NativeImage | undefined
+    }),
+    logError: (error) => console.error('[clipboard] Could not write rich chart payload', error)
   }))
   ipcMain.handle(IPC.CONNECTION_TEST, (_e, profile: DataSourceProfile) => db.testConnection(profile))
   ipcMain.handle(IPC.BIGQUERY_DISCOVER_PROJECTS, () => bigQueryDiscovery.discoverProjects())
