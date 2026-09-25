@@ -59,14 +59,16 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
   }
   const needle = filter.trim().toLowerCase()
   const filteredLabels = labels.filter((label) => !needle || label.toLowerCase().includes(needle) || values[label]?.some((value) => value.toLowerCase().includes(needle)))
+  const refreshingLabels = metadataRefreshing || (status === 'loading' && labels.length > 0)
+  const showFilter = status === 'loaded' || labels.length > 0
   return <section className={styles.objectsSection} aria-label="Loki indexed labels"><h3>Objects</h3>
-    {metadataRefreshing && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-hidden="true" /> Refreshing metadata…</div>}
-    {!metadataRefreshing && metadataRefreshError && <div className={styles.objectError} role="alert">Could not refresh metadata.<small>{metadataRefreshError}</small></div>}
-    {!metadataRefreshing && !canLoadMetadata && <div className={styles.objectStatus} role="status">Metadata unavailable</div>}
-    {!metadataRefreshing && canLoadMetadata && status === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} /> Loading indexed labels…</div>}
-    {!metadataRefreshing && canLoadMetadata && status === 'error' && <div className={styles.objectError} role="alert">Could not load indexed labels.<small>{error}</small><button onClick={() => void resource.retry()}>Retry</button></div>}
-    {status === 'loaded' && <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label="Filter Loki objects" labelVisibility="sr-only" /></div>}
-    <div className={styles.objectTreeViewport} hidden={metadataRefreshing} data-object-tree-viewport>
+    {!refreshingLabels && !canLoadMetadata && <div className={styles.objectStatus} role="status">Metadata unavailable</div>}
+    {!refreshingLabels && canLoadMetadata && status === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} /> Loading indexed labels…</div>}
+    {showFilter && <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label="Filter Loki objects" labelVisibility="sr-only" /></div>}
+    {refreshingLabels && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-hidden="true" /> Refreshing metadata…</div>}
+    {!refreshingLabels && metadataRefreshError && <div className={styles.objectError} role="alert">Could not refresh metadata.<small>{metadataRefreshError}</small></div>}
+    {!refreshingLabels && canLoadMetadata && status === 'error' && <div className={styles.objectError} role="alert">Could not load indexed labels.<small>{error}</small><button onClick={() => void resource.retry()}>Retry</button></div>}
+    <div className={styles.objectTreeViewport} hidden={refreshingLabels} data-object-tree-viewport>
       {status === 'loaded' && labels.length === 0 && <div className={styles.objectStatus}>No indexed labels in this range</div>}
       {status === 'loaded' && labels.length > 0 && filteredLabels.length === 0 && <div className={styles.objectStatus}>No objects match this filter</div>}
       {status === 'loaded' && labels.length > 0 && <LokiMetadataTree labels={labels} expanded={expanded} values={values} valueStatus={valueStatus} filter={filter} disabled={!canLoadMetadata}
