@@ -112,7 +112,7 @@ describe('Combobox', () => {
     const trigger = screen.getByRole('combobox')
     fireEvent.click(trigger)
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'End' })
-    expect(screen.getByRole('option', { name: /monthly_sales/ }).getAttribute('data-active')).toBe('true')
+    expect(screen.getByRole('option', { name: 'payment-service-worker' }).getAttribute('data-active')).toBe('true')
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Home' })
     expect(screen.getByRole('option', { name: /public/ }).getAttribute('data-active')).toBe('true')
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'm' })
@@ -167,7 +167,7 @@ describe('MultiCombobox', () => {
     const view = render(<View />)
     expect(Array.from(view.container.querySelectorAll('[data-combobox-chip]')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['monthly_sales', 'public'])
     fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowUp' })
-    expect(screen.getByRole('option', { name: /monthly_sales/ }).getAttribute('data-active')).toBe('true')
+    expect(screen.getByRole('option', { name: 'payment-service-worker' }).getAttribute('data-active')).toBe('true')
   })
 
   it('removes the last value with Backspace when search is empty', () => {
