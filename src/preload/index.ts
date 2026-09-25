@@ -130,7 +130,13 @@ const api = {
   },
   clipboardImage: {
     writePng: (dataUrl: string): Promise<{ ok: true } | { ok: false }> =>
-      ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_PNG, dataUrl)
+      ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_PNG, dataUrl),
+    writeRich: (request: {
+      dataUrl: string
+      text: string
+      mode: 'text-and-png' | 'html-embedded' | 'all'
+    }): Promise<{ ok: true } | { ok: false }> =>
+      ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_RICH, request)
   }
 }
 
