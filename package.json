@@ -64,12 +64,14 @@
     "verify": "pnpm check:renderer-controls && pnpm check:dead-code && pnpm typecheck && pnpm test && pnpm build && pnpm smoke && pnpm smoke:db && pnpm smoke:flow",
     "package": "pnpm build && electron-builder",
     "preview:shared-captures": "electron --no-sandbox scripts/capture-trace-preview.mjs && electron --no-sandbox scripts/capture-loki-preview.mjs",
-    "docs:screenshots": "pnpm exec electron-vite build && DATAKOALA_PREVIEW_KIND=documentation DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-visual-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-sql-doc-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-prometheus-doc-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots pnpm preview:shared-captures",
+    "docs:screenshots": "pnpm exec electron-vite build && DATAKOALA_PREVIEW_KIND=documentation DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-visual-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots electron --no-sandbox scripts/capture-sql-doc-preview.mjs && DATAKOALA_PREVIEW_OUTPUT=docs-site/public/screenshots pnpm preview:shared-captures",
     "docs:build": "vite build --config docs-site/vite.config.ts",
     "docs:dev": "vite --config docs-site/vite.config.ts",
     "docs:preview": "vite preview --config docs-site/vite.config.ts",
     "check:renderer-controls": "node scripts/check-renderer-controls.mjs",
-    "check:dead-code": "knip --config knip.production.json && knip"
+    "check:dead-code": "knip --config knip.production.json && knip",
+    "lint:imports": "node scripts/lint-renderer-imports.mjs",
+    "lint:imports:fix": "node scripts/lint-renderer-imports.mjs --fix"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

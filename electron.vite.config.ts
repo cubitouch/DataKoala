@@ -2,6 +2,14 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
+const rendererAliases = {
+  '@components': resolve(__dirname, 'src/renderer/src/components'),
+  '@lib': resolve(__dirname, 'src/renderer/src/lib'),
+  '@store': resolve(__dirname, 'src/renderer/src/store'),
+  '@renderer': resolve(__dirname, 'src/renderer/src'),
+  '@shared': resolve(__dirname, 'src/shared')
+}
+
 export default defineConfig({
   main: {
     build: {
@@ -32,10 +40,7 @@ export default defineConfig({
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
     resolve: {
-      alias: {
-        '@renderer': resolve(__dirname, 'src/renderer/src'),
-        '@shared': resolve(__dirname, 'src/shared')
-      }
+      alias: rendererAliases
     },
     build: {
       rollupOptions: { input: { index: resolve(__dirname, 'src/renderer/index.html') } }

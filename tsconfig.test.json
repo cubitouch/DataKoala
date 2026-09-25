@@ -7,6 +7,10 @@
     "types": ["node", "vitest/globals", "vite/client"],
     "baseUrl": ".",
     "paths": {
+      "@components/*": ["src/renderer/src/components/*"],
+      "@lib/*": ["src/renderer/src/lib/*"],
+      "@store/*": ["src/renderer/src/store/*"],
+      "@test/*": ["src/renderer/src/test/*"],
       "@renderer/*": ["src/renderer/src/*"],
       "@shared/*": ["src/shared/*"]
     }
