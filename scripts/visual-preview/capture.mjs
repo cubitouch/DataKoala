@@ -890,6 +890,13 @@ app.whenReady().then(async () => {
   }))
   ipcMain.handle('connections:prometheus:metric-labels', async () => ['continent', 'environment', 'service', 'le', '__name__'])
   ipcMain.handle('connections:prometheus:label-values', async (_event, _id, _metric, label) => label === 'environment' ? ['production', 'staging'] : label === 'continent' ? ['Europe', 'Asia'] : ['api', 'worker'])
+  ipcMain.handle('connections:prometheus:format-query', async (_event, _id, query) => query)
+  ipcMain.handle('gcx:resolve-grafana-handoff', async (_event, request) => ({
+    baseUrl: 'https://grafana.example.test',
+    orgId: 1,
+    datasourceUid: request?.datasourceUid ?? 'sample-metrics',
+    datasourceType: request?.signal === 'tempo' ? 'tempo' : request?.signal === 'loki' ? 'loki' : 'prometheus'
+  }))
 
   const win = new BrowserWindow({
     width: 1440,
@@ -944,7 +951,7 @@ app.whenReady().then(async () => {
       await capture(win, 'docs-prometheus.png')
       await dragDivider(win, '.sidebar-resizer', -110, 0)
 
-      await configureDocumentationTreemap(win)
+      await configureDocumentationSunburst(win)
       await capture(win, 'docs-visualization.png')
 
       await win.webContents.executeJavaScript(`window.__datakoalaStore.setState({ profiles: ${JSON.stringify(syntheticSources)} })`)
