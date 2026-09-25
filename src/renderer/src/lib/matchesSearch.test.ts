@@ -1,26 +1,27 @@
-import { describe, expect, it } from 'vitest'
+import test from 'node:test'
+import assert from 'node:assert/strict'
 import { matchesSearch, normalizeSearchText } from './matchesSearch.ts'
 
-describe('matchesSearch', () => {
-  const candidate = 'payment-service-worker'
+const candidate = 'payment-service-worker'
 
-  it.each([
-    ['payment-serv', true],
-    ['pay worker', true],
-    ['worker pay', true],
-    ['PAY WORKER', true],
-    ['  pay   worker  ', true],
-    ['pay missing', false],
-    ['', true]
-  ])('matches %j as %s', (query, expected) => {
-    expect(matchesSearch(candidate, query)).toBe(expected)
+for (const [query, expected] of [
+  ['payment-serv', true],
+  ['pay worker', true],
+  ['worker pay', true],
+  ['PAY WORKER', true],
+  ['  pay   worker  ', true],
+  ['pay missing', false],
+  ['', true]
+] as const) {
+  test(`matches ${JSON.stringify(query)} as ${expected}`, () => {
+    assert.equal(matchesSearch(candidate, query), expected)
   })
+}
 
-  it('matches tokens across normalized searchable text', () => {
-    expect(matchesSearch('orders table · demo_shop sales_fact', 'ord demo fact')).toBe(true)
-  })
+test('matches tokens across normalized searchable text', () => {
+  assert.equal(matchesSearch('orders table · demo_shop sales_fact', 'ord demo fact'), true)
+})
 
-  it('normalizes surrounding, repeated, and mixed whitespace', () => {
-    expect(normalizeSearchText('  Payment\t Service\nWorker ')).toBe('payment service worker')
-  })
+test('normalizes surrounding, repeated, and mixed whitespace', () => {
+  assert.equal(normalizeSearchText('  Payment\t Service\nWorker '), 'payment service worker')
 })
