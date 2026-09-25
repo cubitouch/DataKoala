@@ -19,7 +19,8 @@ const TRACE_ID = /^[0-9a-f]{32}$/i
 const SEARCH_LIMIT = 20
 const DEFAULT_SEARCH_SINCE = '1h'
 const STATUS_CONCURRENCY = 4
-const SERVICE_DISCOVERY_CONCURRENCY = 4
+const SERVICE_DISCOVERY_QUERY = '{} | count_over_time() by (resource.service.namespace, resource.service.name)'
+const SERVICE_DISCOVERY_SINCE = '24h'
 
 const column = (name: string, dataTypeName: string, logicalType: ColumnMeta['logicalType']): ColumnMeta => ({
   name,
@@ -335,21 +336,28 @@ function collectService(services: Map<string, TempoService>, name: unknown, name
   services.set(key, { name: serviceName, ...(serviceNamespace ? { namespace: serviceNamespace } : {}) })
 }
 
-export function normalizeTempoServices(raw: unknown): TempoService[] {
+function tempoMetricLabel(labels: unknown, key: string): string {
+  if (!Array.isArray(labels)) return ''
+  for (const label of labels) {
+    if (!isRecord(label) || label.key !== key) continue
+    return asString(decodeOtelValue(label.value)).trim()
+  }
+  return ''
+}
+
+export function normalizeTempoServiceMetrics(raw: unknown): TempoService[] {
+  const payload = isRecord(raw) && isRecord(raw.data) ? raw.data : raw
+  if (!isRecord(payload) || !Array.isArray(payload.series)) {
+    throw new Error('gcx returned valid JSON, but the Tempo service metrics response has no series.')
+  }
   const services = new Map<string, TempoService>()
-  for (const trace of tempoSearchTraces(raw)) {
-    collectService(services, trace.rootServiceName ?? trace.rootService ?? trace.serviceName, trace.rootServiceNamespace)
-    const rawSets = trace.spanSets ?? trace.spanSet
-    const sets = Array.isArray(rawSets) ? rawSets : rawSets ? [rawSets] : []
-    for (const set of sets) {
-      if (!isRecord(set) || !Array.isArray(set.spans)) continue
-      for (const span of set.spans) {
-        if (!isRecord(span)) continue
-        const attributes = attributesToRecord(span.attributes)
-        const resource = attributesToRecord(span.resourceAttributes ?? (isRecord(span.resource) ? span.resource.attributes : undefined))
-        collectService(services, span.serviceName ?? resource['service.name'] ?? attributes['service.name'], resource['service.namespace'] ?? attributes['service.namespace'])
-      }
-    }
+  for (const series of payload.series) {
+    if (!isRecord(series)) continue
+    collectService(
+      services,
+      tempoMetricLabel(series.labels, 'resource.service.name'),
+      tempoMetricLabel(series.labels, 'resource.service.namespace')
+    )
   }
   return [...services.values()].sort((left, right) => `${left.namespace ?? ''}/${left.name}`.localeCompare(`${right.namespace ?? ''}/${right.name}`))
 }
@@ -474,71 +482,37 @@ export class GcxTempoTransport implements TempoTransport {
 
   async services(): Promise<TempoService[]> {
     const discoveryStarted = performance.now()
-    tempoPerformanceLog('metadata.services.discovery.started', { concurrency: SERVICE_DISCOVERY_CONCURRENCY })
+    tempoPerformanceLog('metadata.services.discovery.started', {
+      strategy: 'traceql_metrics',
+      window: SERVICE_DISCOVERY_SINCE
+    })
     try {
-      const namesStarted = performance.now()
-      const namesPromise = this.attributeValues('resource.service.name').then((values) => {
-        tempoPerformanceLog('metadata.services.names.completed', { durationMs: performance.now() - namesStarted, count: values.length })
-        return values
-      })
-      const namespacesStarted = performance.now()
-      const namespacesPromise = this.attributeValues('resource.service.namespace').then((values) => {
-        tempoPerformanceLog('metadata.services.namespaces.completed', { durationMs: performance.now() - namespacesStarted, count: values.length })
-        return values
-      })
-      const [names, discoveredNamespaces] = await Promise.all([namesPromise, namespacesPromise])
-      if (!names.length) {
-        tempoPerformanceLog('metadata.services.discovery.completed', { durationMs: performance.now() - discoveryStarted, serviceCount: 0, namespaceCount: 0 })
-        return []
-      }
-      const namespaces = [...new Set(discoveredNamespaces)]
-      tempoPerformanceLog('metadata.services.base.completed', {
-        durationMs: performance.now() - discoveryStarted,
-        serviceNameCount: names.length,
-        namespaceCount: namespaces.length,
-        duplicateNamespaceCount: discoveredNamespaces.length - namespaces.length
-      })
-      const mapped = new Map<string, TempoService>()
-      const scopedStarted = performance.now()
-      if (namespaces.length) await mapConcurrent(namespaces, SERVICE_DISCOVERY_CONCURRENCY, async (namespace) => {
-        const namespaceStarted = performance.now()
-        const scopedNames = await this.attributeValues('resource.service.name', `{ resource.service.namespace = ${JSON.stringify(namespace)} }`)
-        tempoPerformanceLog('metadata.services.namespace.completed', {
-          durationMs: performance.now() - namespaceStarted,
-          serviceCount: scopedNames.length
-        })
-        for (const name of scopedNames) collectService(mapped, name, namespace)
-      })
-      tempoPerformanceLog('metadata.services.scoped.completed', {
-        durationMs: performance.now() - scopedStarted,
-        namespaceCount: namespaces.length,
-        namespacedServiceCount: mapped.size
-      })
-      const assigned = new Set([...mapped.values()].map((service) => service.name))
-      for (const name of names) if (!assigned.has(name)) collectService(mapped, name)
-      const services = [...mapped.values()].sort((left, right) => `${left.namespace ?? ''}/${left.name}`.localeCompare(`${right.namespace ?? ''}/${right.name}`))
+      const args = [
+        'traces', 'metrics', SERVICE_DISCOVERY_QUERY,
+        ...this.commonArgs(),
+        '--instant', '--since', SERVICE_DISCOVERY_SINCE,
+        '-o', 'json'
+      ]
+      const services = normalizeTempoServiceMetrics(
+        parseJson((await this.run(args)).stdout, 'traces service discovery metrics')
+      )
+      const namespaces = new Set(services.map((service) => service.namespace).filter(Boolean))
       tempoPerformanceLog('metadata.services.discovery.completed', {
         durationMs: performance.now() - discoveryStarted,
         serviceCount: services.length,
-        namespaceCount: namespaces.length
+        namespaceCount: namespaces.size,
+        strategy: 'traceql_metrics',
+        window: SERVICE_DISCOVERY_SINCE
       })
       return services
     } catch (error) {
-      tempoPerformanceLog('metadata.services.discovery.primary_failed', { durationMs: performance.now() - discoveryStarted })
-      try {
-        const fallbackStarted = performance.now()
-        const args = ['traces', 'query', '{}', ...this.commonArgs(), '--since', '24h', '--limit', '100', '-o', 'json']
-        const services = normalizeTempoServices(parseJson((await this.run(args)).stdout, 'traces service discovery fallback'))
-        tempoPerformanceLog('metadata.services.discovery.fallback_completed', {
-          durationMs: performance.now() - fallbackStarted,
-          totalDurationMs: performance.now() - discoveryStarted,
-          serviceCount: services.length
-        })
-        return services
-      } catch {
-        if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
-        throw tempoError(error)
-      }
+      tempoPerformanceLog('metadata.services.discovery.failed', {
+        durationMs: performance.now() - discoveryStarted,
+        strategy: 'traceql_metrics',
+        window: SERVICE_DISCOVERY_SINCE
+      })
+      if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
+      throw tempoError(error)
     }
   }
 

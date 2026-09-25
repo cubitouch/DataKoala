@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { GcxTempoTransport, normalizeTempoLabelValues, normalizeTempoSearch, normalizeTempoServices, normalizeTempoTrace, type TempoTransport } from './gcx-tempo-transport.ts'
+import { GcxTempoTransport, normalizeTempoLabelValues, normalizeTempoSearch, normalizeTempoServiceMetrics, normalizeTempoTrace, type TempoTransport } from './gcx-tempo-transport.ts'
 import type { GcxCommandRunner } from './gcx-prometheus-transport.ts'
 
 const traceId = '0123456789abcdef0123456789abcdef'
@@ -155,16 +155,26 @@ test('Tempo normalizers accept wrapped search and Jaeger-style trace responses',
   assert.equal(trace.rows[0].status, 'ERROR')
 })
 
-test('Tempo service discovery groups service names by OpenTelemetry namespace', () => {
-  const services = normalizeTempoServices({ traces: [
-    { rootServiceName: 'checkout-api', rootServiceNamespace: 'commerce' },
-    { rootServiceName: 'legacy-worker' },
-    { spanSets: [{ spans: [{ serviceName: 'payment-service', resourceAttributes: { 'service.namespace': 'commerce' } }] }] }
+test('Tempo service metrics normalize OpenTelemetry namespace/name label pairs', () => {
+  const services = normalizeTempoServiceMetrics({ series: [
+    { labels: [
+      { key: 'resource.service.namespace', value: { stringValue: 'commerce' } },
+      { key: 'resource.service.name', value: { stringValue: 'checkout-api' } }
+    ], value: 12 },
+    { labels: [
+      { key: 'resource.service.name', value: { stringValue: 'legacy-worker' } }
+    ], value: 4 },
+    { labels: [
+      { key: 'resource.service.namespace', value: { stringValue: 'commerce' } },
+      { key: 'resource.service.name', value: { stringValue: 'checkout-api' } }
+    ], value: 3 },
+    { labels: [
+      { key: 'resource.service.namespace', value: { stringValue: 'commerce' } }
+    ], value: 1 }
   ] })
   assert.deepEqual(services, [
     { name: 'legacy-worker' },
-    { name: 'checkout-api', namespace: 'commerce' },
-    { name: 'payment-service', namespace: 'commerce' }
+    { name: 'checkout-api', namespace: 'commerce' }
   ])
 })
 
@@ -174,55 +184,41 @@ test('Tempo label-value normalizer accepts standard and LLM-friendly gcx JSON', 
   assert.deepEqual(normalizeTempoLabelValues({ data: { values: [{ type: 'string', value: 'production' }, { type: 'string', value: 'staging' }] } }), ['production', 'staging'])
 })
 
-test('Tempo service discovery uses tag values and keeps gcx context and datasource selection', async () => {
+test('Tempo service discovery uses one 24h TraceQL metrics query and keeps gcx selection', async () => {
   const calls: string[][] = []
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
-    const labelIndex = args.indexOf('--label')
-    if (labelIndex < 0) return { stdout: JSON.stringify({ scopes: [] }), stderr: '' }
-    const label = args[labelIndex + 1]
-    const queryIndex = args.indexOf('--query')
-    const query = queryIndex >= 0 ? args[queryIndex + 1] : ''
-    if (label === 'resource.service.namespace') {
-      return { stdout: JSON.stringify({ tagValues: [{ type: 'string', value: 'commerce' }] }), stderr: '' }
-    }
-    if (query.includes('commerce')) {
-      return { stdout: JSON.stringify({ tagValues: [{ type: 'string', value: 'checkout-api' }] }), stderr: '' }
-    }
-    return { stdout: JSON.stringify({ tagValues: [{ type: 'string', value: 'checkout-api' }, { type: 'string', value: 'legacy-worker' }] }), stderr: '' }
+    return { stdout: JSON.stringify({ series: [
+      { labels: [
+        { key: 'resource.service.namespace', value: { stringValue: 'commerce' } },
+        { key: 'resource.service.name', value: { stringValue: 'checkout-api' } }
+      ], value: 12 }
+    ] }), stderr: '' }
   }
   const transport = new GcxTempoTransport('production', run, 'tempo-uid')
-  await transport.probe()
   assert.deepEqual(await transport.services(), [
-    { name: 'legacy-worker' },
     { name: 'checkout-api', namespace: 'commerce' }
   ])
-  assert.deepEqual(calls, [
-    ['traces', 'labels', '--context', 'production', '--datasource', 'tempo-uid', '-o', 'json'],
-    ['traces', 'tags', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.name', '-o', 'json'],
-    ['traces', 'tags', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.namespace', '-o', 'json'],
-    ['traces', 'tags', '--context', 'production', '--datasource', 'tempo-uid', '--label', 'resource.service.name', '--query', '{ resource.service.namespace = "commerce" }', '-o', 'json']
-  ])
+  assert.deepEqual(calls, [[
+    'traces', 'metrics', '{} | count_over_time() by (resource.service.namespace, resource.service.name)',
+    '--context', 'production', '--datasource', 'tempo-uid',
+    '--instant', '--since', '24h', '-o', 'json'
+  ]])
 })
 
-test('Tempo begins service-name and namespace discovery concurrently and deduplicates namespaces', async () => {
-  const started: string[] = []
-  let resolveNames!: (value: { stdout: string; stderr: string }) => void
-  const namesPending = new Promise<{ stdout: string; stderr: string }>((resolve) => { resolveNames = resolve })
+test('Tempo service discovery lets gcx auto-discover the datasource when no UID is configured', async () => {
+  const calls: string[][] = []
   const run: GcxCommandRunner = async (args) => {
-    const label = args[args.indexOf('--label') + 1]
-    const queryIndex = args.indexOf('--query')
-    started.push(queryIndex < 0 ? label : args[queryIndex + 1])
-    if (label === 'resource.service.name' && queryIndex < 0) return namesPending
-    if (label === 'resource.service.namespace') return { stdout: JSON.stringify({ tagValues: ['commerce', 'commerce'] }), stderr: '' }
-    return { stdout: JSON.stringify({ tagValues: ['checkout-api'] }), stderr: '' }
+    calls.push(args)
+    return { stdout: JSON.stringify({ series: [] }), stderr: '' }
   }
-  const pending = new GcxTempoTransport(undefined, run, 'tempo').services()
-  await new Promise((resolve) => setTimeout(resolve, 0))
-  assert.deepEqual(started, ['resource.service.name', 'resource.service.namespace'])
-  resolveNames({ stdout: JSON.stringify({ tagValues: ['checkout-api'] }), stderr: '' })
-  assert.deepEqual(await pending, [{ name: 'checkout-api', namespace: 'commerce' }])
-  assert.equal(started.filter((value) => value.includes('commerce')).length, 1)
+  assert.deepEqual(await new GcxTempoTransport('production', run).services(), [])
+  assert.deepEqual(calls, [[
+    'traces', 'metrics', '{} | count_over_time() by (resource.service.namespace, resource.service.name)',
+    '--context', 'production',
+    '--instant', '--since', '24h', '-o', 'json'
+  ]])
+  assert.equal(calls[0].includes('--datasource'), false)
 })
 
 test('Tempo transport rejects empty queries and malformed responses', async () => {
@@ -230,6 +226,7 @@ test('Tempo transport rejects empty queries and malformed responses', async () =
   await assert.rejects(() => transport.query(''), /TraceQL query or trace ID/)
   await assert.rejects(() => transport.query('{ true }'), /malformed JSON/)
   await assert.rejects(() => transport.probe(), /malformed JSON/)
+  await assert.rejects(() => transport.services(), /malformed JSON/)
   assert.throws(() => normalizeTempoTrace({ batches: [] }), /could not find any spans/)
 })
 
