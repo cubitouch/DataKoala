@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react'
-import { isBuilderFilterPromotable } from '../lib/builderSql'
-import { resultFilterDemotion, type ResultFilter } from '../lib/resultFilters'
-import { timeRangeChartDomain } from '../lib/prometheusTimeRange'
-import { deriveEffectiveVisualization, type VisualizationConfiguration } from '../lib/resultVisualization'
-import { selectActiveSession, useStore, type QueryMode } from '../store/useStore'
-import { GenericResultExplorer } from './results/GenericResultExplorer'
+import { isBuilderFilterPromotable } from '../../lib/builderSql'
+import { resultFilterDemotion, type ResultFilter } from '../../lib/resultFilters'
+import { timeRangeChartDomain } from '../../lib/prometheusTimeRange'
+import { deriveEffectiveVisualization, type VisualizationConfiguration } from '../../lib/resultVisualization'
+import { selectActiveSession, useStore, type QueryMode } from '../../store/useStore'
+import { GenericResultExplorer } from './GenericResultExplorer'
 
 export interface ResultExplorerProps {
   mode: QueryMode

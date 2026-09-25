@@ -17,7 +17,7 @@ vi.mock('./lib/api', () => ({ api: {
 } }))
 vi.mock('./components/QueryEditor', () => ({ QueryEditor: () => { mocks.queryEditorRenders += 1; return <div>SQL editor mounted</div> } }))
 vi.mock('./components/BuilderPanel', () => ({ BuilderPanel: () => <div>Builder mounted</div> }))
-vi.mock('./components/ResultExplorer', () => ({ ResultExplorer: () => <div>Results mounted</div> }))
+vi.mock('./components/results/ResultExplorer', () => ({ ResultExplorer: () => <div>Results mounted</div> }))
 vi.mock('./components/ExplainPane', () => ({ ExplainPane: () => null }))
 
 import { App } from './App'

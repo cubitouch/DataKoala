@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { ChartPicker } from './ChartPicker'
 
-const resultExplorerStyles = readFileSync('src/renderer/src/components/ResultExplorer.module.css', 'utf8')
-const styles = readFileSync('src/renderer/src/components/ChartPicker.module.css', 'utf8')
+const resultExplorerStyles = readFileSync('src/renderer/src/components/results/ResultExplorer.module.css', 'utf8')
+const styles = readFileSync('src/renderer/src/components/results/ChartPicker.module.css', 'utf8')
 
 describe('ChartPicker', () => {
   it('exposes every view by accessible name and reports the selected view', () => {

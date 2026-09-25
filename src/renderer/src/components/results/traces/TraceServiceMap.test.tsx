@@ -26,7 +26,7 @@ vi.mock('echarts-for-react', async () => {
 })
 
 import { TraceServiceMap } from './TraceServiceMap'
-import type { TraceCohortAggregate, TraceCohortEdge, TraceCohortNode, TraceCohortTraceSummary } from '../lib/traceCohort'
+import type { TraceCohortAggregate, TraceCohortEdge, TraceCohortNode, TraceCohortTraceSummary } from '../../../lib/traceCohort'
 
 function node(id: string, rootTraceCount = 0, namespace?: string): TraceCohortNode {
   return {

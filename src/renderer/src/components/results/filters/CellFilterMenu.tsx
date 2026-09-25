@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { createResultFilter, type ResultFilter } from '../../lib/resultFilters'
+import { createResultFilter, type ResultFilter } from '../../../lib/resultFilters'
 import styles from './CellFilterMenu.module.css'
 
 export function CellFilterMenu({ column, value, nativeType, onAdd }: {
