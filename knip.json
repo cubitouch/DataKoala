@@ -9,19 +9,7 @@
     "scripts/**/*.{mjs,ts}",
     "*.config.ts"
   ],
-  "project": [
-    "src/**/*.{ts,tsx}",
-    "scripts/**/*.{mjs,ts}",
-    "*.config.ts",
-    "docs-site/**/*.ts"
-  ],
-  "include": [
-    "files",
-    "exports",
-    "types",
-    "dependencies",
-    "unlisted",
-    "binaries"
-  ],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{mjs,ts}", "*.config.ts", "docs-site/**/*.ts"],
+  "include": ["files", "exports", "types", "dependencies", "unlisted", "binaries"],
   "ignoreExportsUsedInFile": true
 }
