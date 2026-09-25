@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type EChartsReact from 'echarts-for-react'
-import type { BuilderTimeRange } from '../lib/builderTimeRange'
-import { createChartRevision, type ChartRevision } from '../lib/chartReadiness'
-import { prometheusRangeBounds } from '../lib/prometheusTimeRange'
+import type { BuilderTimeRange } from '../../../lib/builderTimeRange'
+import { createChartRevision, type ChartRevision } from '../../../lib/chartReadiness'
+import { prometheusRangeBounds } from '../../../lib/prometheusTimeRange'
 
 interface TraceScatterChartProps {
   option: Record<string, unknown>

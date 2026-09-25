@@ -1,4 +1,4 @@
-import { resultFilterLabel, type ResultFilter } from '../../lib/resultFilters'
+import { resultFilterLabel, type ResultFilter } from '../../../lib/resultFilters'
 import styles from './ResultFilterChip.module.css'
 
 export function ResultFilterChip({ filter, onRemove, onToggleExecution, canPromote, demotion }: { filter: ResultFilter; onRemove: () => void; onToggleExecution?: () => void; canPromote?: boolean; demotion?: { allowed: boolean; reason?: string } }) {

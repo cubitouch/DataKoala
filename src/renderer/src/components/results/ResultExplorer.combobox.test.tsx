@@ -3,11 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('echarts-for-react', () => ({ default: () => <div data-testid="chart" /> }))
-vi.mock('../lib/api', () => ({ api: { connections: { connect: vi.fn() } } }))
+vi.mock('../../lib/api', () => ({ api: { connections: { connect: vi.fn() } } }))
 
 import { ResultExplorer } from './ResultExplorer'
-import { createResultFilter } from '../lib/resultFilters'
-import { activeTestSession, patchActiveTestSession, resetTestStore } from '../test/sessionTestUtils'
+import { createResultFilter } from '../../lib/resultFilters'
+import { activeTestSession, patchActiveTestSession, resetTestStore } from '../../test/sessionTestUtils'
 import type { QueryResult } from '@shared/types'
 
 Element.prototype.scrollIntoView = vi.fn()
