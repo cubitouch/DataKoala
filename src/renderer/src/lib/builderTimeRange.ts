@@ -1,5 +1,5 @@
-import type { CardinalityProbePredicate } from '../../../shared/chartLimits.ts'
-import type { TimeBucket } from '../store/useStore'
+import type { CardinalityProbePredicate } from '@shared/chartLimits.ts'
+import type { TimeBucket } from '@store/useStore'
 import { addDays, customRangeToQueryBounds, recurringWindowIntervals, timeToMinutes, validateCustomRange, type TimeWindow } from './customTimeRange.ts'
 
 type BuilderTimeRangeBase =

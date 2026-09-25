@@ -1,4 +1,4 @@
-import type { TimeBucket } from '../store/useStore'
+import type { TimeBucket } from '@store/useStore'
 import { timeBucketRange } from './chartPointFilters.ts'
 import type { ResultFilter } from './resultFilters.ts'
 

@@ -2,7 +2,7 @@ import { api } from './api'
 import { loadConnectionMetadata } from './connectionMetadata'
 import { invalidateLokiMetadata } from './lokiMetadata'
 import { invalidateTempoMetadata } from './tempoMetadata'
-import type { AppState } from '../store/useStore'
+import type { AppState } from '@store/useStore'
 
 const inFlight = new Map<string, Promise<void>>()
 
