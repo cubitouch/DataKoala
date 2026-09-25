@@ -1,5 +1,5 @@
 import type { DatabaseSchemaNode } from '@shared/types'
-import { selectActiveSession, useStore, type AppState, type ConnectionMetadataState, type QuerySession } from '../store/useStore'
+import { selectActiveSession, useStore, type AppState, type ConnectionMetadataState, type QuerySession } from '@store/useStore'
 
 export function activeTestSession(): QuerySession {
   return selectActiveSession(useStore.getState())

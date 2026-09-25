@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import type { ConnectionStateEvent } from '../../../shared/types.ts'
+import type { ConnectionStateEvent } from '@shared/types.ts'
 import { unexpectedDisconnectPatch } from './connectionLifecycle.ts'
 
 const event = (profileId: string, generation: number): ConnectionStateEvent => ({ profileId, generation,

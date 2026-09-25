@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import { buildSeriesCardinalityProbe } from '../../../shared/seriesCardinality.ts'
-import { CHART_SERIES_HARD_LIMIT } from '../../../shared/chartLimits.ts'
+import { buildSeriesCardinalityProbe } from '@shared/seriesCardinality.ts'
+import { CHART_SERIES_HARD_LIMIT } from '@shared/chartLimits.ts'
 import { isSeriesColumnRemoval, SeriesCardinalityProbeGuard, selectionAfterCardinalityProbe, seriesProbeFingerprint } from './seriesCardinalityGuard.ts'
 
 test('high-cardinality selection preserves previous selection and safe selection commits', () => {

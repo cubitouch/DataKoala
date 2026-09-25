@@ -6,7 +6,7 @@ vi.mock('./api', () => ({ api: { connections: {
   listObjects: mocks.listObjects
 } } }))
 
-import { createQuerySession, useStore } from '../store/useStore'
+import { createQuerySession, useStore } from '@store/useStore'
 
 const oldSchemas = [{ name: 'public', isSystem: false, relations: [{ schema: 'public', name: 'old_table', qualifiedName: 'public.old_table', kind: 'r' as const, columnsStatus: 'idle' as const }] }]
 
