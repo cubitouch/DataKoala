@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import type { QueryResult } from '../../../shared/types.ts'
+import type { QueryResult } from '@shared/types.ts'
 import { completeQueryState, deliverQueryResultState, startQueryState, stopQueryState, type QueryResultLifecycleState } from './queryResultLifecycle.ts'
 
 const result = (value: number): QueryResult => ({ columns: [], rows: [{ value }], rowCount: 1, durationMs: 1 })
