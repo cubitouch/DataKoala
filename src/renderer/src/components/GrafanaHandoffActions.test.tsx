@@ -4,8 +4,8 @@ import { GrafanaHandoffActions } from './GrafanaHandoffActions'
 import type { PrometheusProfile } from '@shared/types'
 
 const mocks = vi.hoisted(() => ({ copy: vi.fn(), open: vi.fn(), resolve: vi.fn() }))
-vi.mock('../lib/clipboardText', () => ({ copyTextToClipboard: mocks.copy }))
-vi.mock('../lib/api', () => ({ api: { external: { openUrl: mocks.open }, connections: { grafana: { resolveHandoff: mocks.resolve } } } }))
+vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard: mocks.copy }))
+vi.mock('@lib/api', () => ({ api: { external: { openUrl: mocks.open }, connections: { grafana: { resolveHandoff: mocks.resolve } } } }))
 const profile: PrometheusProfile = { kind: 'prometheus', version: 1, id: 'p', name: 'Metrics', readonly: true, transport: { kind: 'gcx', datasourceUid: 'prom' }, grafana: { baseUrl: 'https://example.com/grafana', orgId: 2, datasourceType: 'prometheus' } }
 
 describe('GrafanaHandoffActions', () => {

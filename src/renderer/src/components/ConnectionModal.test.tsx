@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { ConnectionProfile, DataSourceProfile } from '@shared/types'
 
 const { testConnection, upsert, chooseSqliteFile, chooseFiles, discoverProjects, discoverDefaults, listDatasets } = vi.hoisted(() => ({ testConnection: vi.fn(), upsert: vi.fn(), chooseSqliteFile: vi.fn(), chooseFiles: vi.fn(), discoverProjects: vi.fn(), discoverDefaults: vi.fn(), listDatasets: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: { connections: { test: testConnection, upsert, chooseSqliteFile, chooseFiles, bigquery: { discoverProjects, discoverDefaults, listDatasets } } } }))
+vi.mock('@lib/api', () => ({ api: { connections: { test: testConnection, upsert, chooseSqliteFile, chooseFiles, bigquery: { discoverProjects, discoverDefaults, listDatasets } } } }))
 import { ConnectionModal } from './ConnectionModal'
 
 const existing: ConnectionProfile = {

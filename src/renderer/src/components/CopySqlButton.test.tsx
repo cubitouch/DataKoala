@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/react'
 
 const { copyTextToClipboard } = vi.hoisted(() => ({ copyTextToClipboard: vi.fn() }))
-vi.mock('../lib/clipboardText', () => ({ copyTextToClipboard }))
+vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
 import { CopySqlButton } from './CopySqlButton'
 import { NotificationArea } from './NotificationArea'
 

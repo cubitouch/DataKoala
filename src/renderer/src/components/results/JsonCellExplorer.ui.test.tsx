@@ -5,8 +5,8 @@ import { ResultsTable } from './ResultsTable'
 import type { QueryResult } from '@shared/types'
 
 const copyTextToClipboard = vi.hoisted(() => vi.fn())
-vi.mock('../../lib/clipboardText', () => ({ copyTextToClipboard }))
-vi.mock('../../lib/api', () => ({ api: { export: { saveText: vi.fn() } } }))
+vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
+vi.mock('@lib/api', () => ({ api: { export: { saveText: vi.fn() } } }))
 const controlledProps = { running: false, error: null, onAddFilter: vi.fn(), onRemoveFilter: vi.fn(), onClearFilters: vi.fn() }
 
 const baseResult: QueryResult = {

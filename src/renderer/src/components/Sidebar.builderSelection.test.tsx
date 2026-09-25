@@ -13,7 +13,7 @@ const { describeTable } = vi.hoisted(() => ({
     { name: 'clock_time_tz', dataTypeName: 'TIMETZ' }
   ])
 }))
-vi.mock('../lib/api', () => ({
+vi.mock('@lib/api', () => ({
   api: {
     connections: {
       list: vi.fn(async () => []),

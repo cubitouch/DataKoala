@@ -8,9 +8,9 @@ const { labelsForMetric, labelValues, promqlAsExtension } = vi.hoisted(() => ({
   promqlAsExtension: vi.fn(() => ({}))
 }))
 const copyTextToClipboard = vi.hoisted(() => vi.fn())
-vi.mock('../lib/clipboardText', () => ({ copyTextToClipboard }))
+vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
 
-vi.mock('../lib/api', () => ({
+vi.mock('@lib/api', () => ({
   api: {
     connections: { prometheus: { formatQuery: vi.fn(), labelsForMetric, labelValues } },
     query: { explain: vi.fn(), run: vi.fn() },

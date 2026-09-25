@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LokiProfile } from '@shared/types'
 
 const mocks = vi.hoisted(() => ({ discover: vi.fn(), test: vi.fn(), upsert: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: { connections: { loki: { discover: mocks.discover }, test: mocks.test, upsert: mocks.upsert } } }))
+vi.mock('@lib/api', () => ({ api: { connections: { loki: { discover: mocks.discover }, test: mocks.test, upsert: mocks.upsert } } }))
 import { LokiConnectionModal } from './ConnectionModal'
 
 const alpha = { uid: 'loki-alpha', name: 'Production logs', type: 'loki' }

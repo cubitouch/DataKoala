@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 Element.prototype.scrollIntoView = vi.fn()
 
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value }: { value: string }) => <pre>{value}</pre> }))
-vi.mock('../lib/api', () => ({
+vi.mock('@lib/api', () => ({
   api: {
     query: {
       seriesStatistics: vi.fn(async () => ({ available: true, estimatedDistinct: 2, source: 'pg_stats' as const })),

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ discover: vi.fn(), test: vi.fn(), upsert: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: { connections: { tempo: { discoverDatasources: mocks.discover }, test: mocks.test, upsert: mocks.upsert } } }))
+vi.mock('@lib/api', () => ({ api: { connections: { tempo: { discoverDatasources: mocks.discover }, test: mocks.test, upsert: mocks.upsert } } }))
 import { TempoConnectionModal } from './ConnectionModal'
 
 const props = { existing: null, onClose: vi.fn(), onSaved: vi.fn() }

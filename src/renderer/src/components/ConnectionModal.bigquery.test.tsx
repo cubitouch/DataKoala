@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { BigQueryProfile } from '@shared/types'
 
 const mocks = vi.hoisted(() => ({ discoverProjects: vi.fn(), discoverDefaults: vi.fn(), listDatasets: vi.fn(), test: vi.fn(), upsert: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: { connections: { ...mocks, bigquery: { discoverProjects: mocks.discoverProjects, discoverDefaults: mocks.discoverDefaults, listDatasets: mocks.listDatasets } } } }))
+vi.mock('@lib/api', () => ({ api: { connections: { ...mocks, bigquery: { discoverProjects: mocks.discoverProjects, discoverDefaults: mocks.discoverDefaults, listDatasets: mocks.listDatasets } } } }))
 import { ConnectionModal } from './ConnectionModal'
 
 const renderBigQuery = (existing: BigQueryProfile | null = null) => {

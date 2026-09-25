@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { normalizeDatabaseObjects } from '@lib/databaseObjects'
 
 const mocks = vi.hoisted(() => ({ labelsForMetric: vi.fn(), labelValues: vi.fn() }))
-vi.mock('../../../lib/api', () => ({ api: { connections: { prometheus: mocks } } }))
+vi.mock('@lib/api', () => ({ api: { connections: { prometheus: mocks } } }))
 
 import { PrometheusMetadataTree } from './PrometheusMetadataTree'
 

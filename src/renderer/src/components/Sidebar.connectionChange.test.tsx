@@ -9,7 +9,7 @@ const { connect, disconnect, listObjects } = vi.hoisted(() => ({
   listObjects: vi.fn(async () => [])
 }))
 
-vi.mock('../lib/api', () => ({
+vi.mock('@lib/api', () => ({
   api: {
     connections: {
       list: vi.fn(async () => [

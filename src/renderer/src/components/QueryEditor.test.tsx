@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const { explain, runQuery, formatQuery, labelsForMetric, labelValues, promqlAsExtension, notify } = vi.hoisted(() => ({ explain: vi.fn(), runQuery: vi.fn(), formatQuery: vi.fn(), labelsForMetric: vi.fn(), labelValues: vi.fn(), promqlAsExtension: vi.fn(() => ({})), notify: vi.fn() }))
-vi.mock('../lib/api', () => ({ api: { connections: { prometheus: { formatQuery, labelsForMetric, labelValues } }, query: { explain, run: runQuery }, export: { saveText: vi.fn() } } }))
+vi.mock('@lib/api', () => ({ api: { connections: { prometheus: { formatQuery, labelsForMetric, labelValues } }, query: { explain, run: runQuery }, export: { saveText: vi.fn() } } }))
 vi.mock('./NotificationArea', () => ({ notify }))
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value, onChange, editable = true, ...props }: { value: string, onChange: (value: string) => void, editable?: boolean, 'aria-label'?: string }) => <textarea aria-label={props['aria-label'] ?? 'SQL editor'} value={value} disabled={!editable} onChange={(event) => onChange(event.target.value)} /> }))
 vi.mock('@codemirror/lang-sql', () => {

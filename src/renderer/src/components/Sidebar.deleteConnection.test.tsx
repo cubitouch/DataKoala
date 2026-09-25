@@ -6,7 +6,7 @@ const { profile, remove } = vi.hoisted(() => ({
   profile: { kind: 'postgres' as const, version: 1 as const, id: 'pg', name: 'Production Database', host: 'localhost', port: 5432, database: 'app', user: 'reader', password: '', ssl: false, readonly: true as const },
   remove: vi.fn()
 }))
-vi.mock('../lib/api', () => ({ api: { connections: {
+vi.mock('@lib/api', () => ({ api: { connections: {
   list: vi.fn(async () => [profile]), listObjects: vi.fn(async () => []), describeTable: vi.fn(async () => []),
   connect: vi.fn(), disconnect: vi.fn(), remove
 } } }))

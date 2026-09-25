@@ -10,7 +10,7 @@ const resultsTableCss = readFileSync('src/renderer/src/components/results/Result
 const longValue = `row-0-${'complete-value-'.repeat(40)}`
 
 const saveText = vi.hoisted(() => vi.fn())
-vi.mock('../../lib/api', () => ({ api: { export: { saveText } } }))
+vi.mock('@lib/api', () => ({ api: { export: { saveText } } }))
 const controlledProps = { running: false, error: null, onAddFilter: vi.fn(), onRemoveFilter: vi.fn(), onClearFilters: vi.fn() }
 
 const largeResult: QueryResult = {

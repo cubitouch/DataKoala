@@ -6,7 +6,7 @@ const { copyTextToClipboard, codeMirrorProps } = vi.hoisted(() => ({
   copyTextToClipboard: vi.fn(),
   codeMirrorProps: vi.fn()
 }))
-vi.mock('../../lib/clipboardText', () => ({ copyTextToClipboard }))
+vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
 vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: {} }))
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value, ...props }: { value: string; 'aria-label'?: string; height?: string; basicSetup?: { lineNumbers?: boolean } }) => {
