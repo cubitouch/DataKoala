@@ -16,7 +16,7 @@ function confirmConnectionSwitch(previousProfileId: string, nextProfileId: strin
   return window.confirm('A query is still running on the current connection. Running this action on another connection will stop it. Continue?')
 }
 
-async function connectForTab(tabId: string, desiredProfileId: string, confirmInterrupt: boolean): Promise<string | null> {
+async function connectForTab(desiredProfileId: string, confirmInterrupt: boolean): Promise<string | null> {
   const initial = useStore.getState()
   const profile = initial.profiles.find((candidate) => candidate.id === desiredProfileId)
   if (!profile) return null
@@ -97,7 +97,7 @@ export async function ensureConnectionForTab(tabId: string, options: { confirmIn
   const pending = inFlight.get(desiredProfileId)
   if (pending) return pending
 
-  const promise = connectForTab(tabId, desiredProfileId, options.confirmInterrupt !== false)
+  const promise = connectForTab(desiredProfileId, options.confirmInterrupt !== false)
   inFlight.set(desiredProfileId, promise)
   try {
     return await promise
