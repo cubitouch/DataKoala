@@ -75,7 +75,7 @@ it('shows a selected non-live profile without persistent connect-on-run copy', a
 
   const liveItem = screen.getByText('Orders').closest<HTMLElement>('[data-connection-item]')!
   expect(liveItem.hasAttribute('data-connection-live')).toBe(true)
-  expect(liveItem.classList.contains(styles.active)).toBe(true)
+  expect(liveItem.classList.contains(styles.backgroundLive)).toBe(true)
   expect(liveItem.classList.contains(styles.selected)).toBe(false)
   expect(liveItem.hasAttribute('aria-current')).toBe(false)
   expect(within(liveItem).getByRole('button', { name: 'Refresh metadata for Orders' })).toBeTruthy()
@@ -137,7 +137,7 @@ it('restores the previous filtered tree and reports a failed manual refresh', as
 
 it('retains compact progress feedback during an active connection attempt', async () => {
   const tab = createQuerySession(1, { id: 'connecting-tab', connectionProfileId: 'bq' })
-  useStore.setState({ profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'bq', connected: false, connecting: true })
+  useStore.setState({ profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'bq', connected: false, connecting: true, connectionStateByProfileId: { bq: { status: 'connecting', generation: 0, error: null, serverVersion: null } } })
   render(<Sidebar />)
 
   const item = (await screen.findByText('Analytics')).closest<HTMLElement>('[data-connection-item]')!

@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/re
 const { copyTextToClipboard } = vi.hoisted(() => ({ copyTextToClipboard: vi.fn() }))
 vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
 import { CopySqlButton } from './CopySqlButton'
-import { NotificationArea } from '@components/NotificationArea'
+import { NotificationArea } from '@components/ui/feedback/NotificationArea'
 
 beforeEach(() => {
   cleanup()
