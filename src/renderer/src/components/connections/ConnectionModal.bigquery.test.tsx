@@ -5,12 +5,11 @@ import type { BigQueryProfile } from '@shared/types'
 
 const mocks = vi.hoisted(() => ({ discoverProjects: vi.fn(), discoverDefaults: vi.fn(), listDatasets: vi.fn(), test: vi.fn(), upsert: vi.fn() }))
 vi.mock('@lib/api', () => ({ api: { connections: { ...mocks, bigquery: { discoverProjects: mocks.discoverProjects, discoverDefaults: mocks.discoverDefaults, listDatasets: mocks.listDatasets } } } }))
-import { ConnectionModal } from './ConnectionModal'
+import { BigQueryConnectionModal as ConnectionModal } from './BigQueryConnectionModal'
 
 const renderBigQuery = (existing: BigQueryProfile | null = null) => {
   const onSaved = vi.fn()
   render(<ConnectionModal existing={existing} onClose={vi.fn()} onSaved={onSaved} />)
-  if (!existing) fireEvent.click(screen.getByRole('radio', { name: /BigQuery/ }))
   return { onSaved }
 }
 

@@ -1,13 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ConnectionModal } from './ConnectionModal'
+import { PrometheusConnectionModal as ConnectionModal } from './PrometheusConnectionModal'
 
 const { discover, discoverDatasources, upsert } = vi.hoisted(() => ({ discover: vi.fn(), discoverDatasources: vi.fn(), upsert: vi.fn() }))
 vi.mock('@lib/api', () => ({ api: { connections: { discover: vi.fn(), upsert, prometheus: { discover, discoverDatasources } } } }))
 
 const renderPrometheus = () => {
   render(<ConnectionModal existing={null} onClose={vi.fn()} onSaved={vi.fn()} />)
-  fireEvent.click(screen.getByRole('radio', { name: /Prometheus/ }))
 }
 
 describe('Prometheus gcx connection wizard', () => {
