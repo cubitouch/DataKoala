@@ -23,4 +23,3 @@ export function applyPresetToSession({ preset, profile, session }: { preset: Sav
   const adapter = presetAdapterForSourceKind(profile.kind), payload = adapter.parse(preset.payload)
   return payload === null ? { ok: false, reason: 'invalid-payload' } : { ok: true, session: adapter.apply(session, payload) }
 }
-

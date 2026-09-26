@@ -18,4 +18,3 @@ export const PRESET_ADAPTERS = {
 export function presetAdapterForSourceKind(kind: DataSourceKind): ExplorationPresetAdapter<unknown> {
   return PRESET_ADAPTERS[kind] as ExplorationPresetAdapter<unknown>
 }
-

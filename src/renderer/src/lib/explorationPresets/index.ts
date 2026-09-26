@@ -7,4 +7,3 @@ export * from './sqlPresetAdapter'
 export * from './prometheusPresetAdapter'
 export * from './lokiPresetAdapter'
 export * from './tempoPresetAdapter'
-

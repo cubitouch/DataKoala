@@ -15,4 +15,3 @@ describe('isPresetCompatibleWithConnection', () => {
     expect(isPresetCompatibleWithConnection({ ...value, queryLanguage: { kind: 'sql', dialect: 'duckdb' } }, profile)).toBe(false)
   })
 })
-

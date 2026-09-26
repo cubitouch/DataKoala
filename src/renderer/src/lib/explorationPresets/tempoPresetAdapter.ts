@@ -15,4 +15,3 @@ export const tempoPresetAdapter: ExplorationPresetAdapter<TempoPresetPayload> = 
   },
   apply: (session, payload) => ({ ...session, ...clone(payload) })
 }
-

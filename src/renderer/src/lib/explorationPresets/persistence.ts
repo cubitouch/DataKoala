@@ -71,4 +71,3 @@ export class ExplorationPresetRepository {
     this.storage.setItem(PRESET_STORAGE_KEY, JSON.stringify(envelope))
   }
 }
-

@@ -17,4 +17,3 @@ export function testSession(options: Partial<QuerySession> = {}): QuerySession {
     explainText: null, showExplain: false, activeExplainRequest: null, seriesVisibility: {}, ...options
   }
 }
-

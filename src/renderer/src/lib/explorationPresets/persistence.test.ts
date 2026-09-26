@@ -55,4 +55,3 @@ describe('ExplorationPresetRepository', () => {
     { createdAt: -1 }, { updatedAt: Number.POSITIVE_INFINITY }, { version: 2 }, { payloadVersion: 2 }
   ])('rejects malformed records: %o', (override) => expect(parseSavedExplorationPreset({ ...preset(), ...override })).toBeNull())
 })
-

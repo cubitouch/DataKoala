@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createResultFilter } from '@lib/resultFilters'
 import { sqlPresetAdapter } from './sqlPresetAdapter'
 import { prometheusPresetAdapter } from './prometheusPresetAdapter'
 import { lokiPresetAdapter } from './lokiPresetAdapter'
@@ -11,17 +12,28 @@ describe('datasource preset adapters', () => {
     source.builder = { table: { schema: 'sales', name: 'orders' }, timeColumn: 'created_at', timeBucket: 'hour', seriesColumns: ['region'], timeRange: { kind: 'rolling', amount: 24, unit: 'hour' } }
     source.sqlVisualization = { ...source.sqlVisualization, view: 'bar', xColumn: 'region' }
     source.builderVisualization = { ...source.builderVisualization, view: 'area', seriesColumns: ['region'] }
+    source.builderResultFilters = [
+      { ...createResultFilter('status', 'equals', 'paid'), execution: 'query' },
+      { ...createResultFilter('region', 'equals', 'EU'), execution: 'client' }
+    ]
     const payload = sqlPresetAdapter.capture(source), parsed = sqlPresetAdapter.parse(JSON.parse(JSON.stringify(payload)))
     expect(parsed).toEqual(payload)
-    const target = testSession({ id: 'target', title: 'Target', connectionProfileId: 'target-profile' })
-    expect(sqlPresetAdapter.apply(target, parsed!)).toMatchObject({ id: 'target', title: 'Target', connectionProfileId: 'target-profile', queryMode: 'builder', sql: source.sql, builder: source.builder })
+    const targetClientFilter = { ...createResultFilter('owner', 'equals', 'me'), execution: 'client' as const }
+    const target = testSession({ id: 'target', title: 'Target', connectionProfileId: 'target-profile', builderResultFilters: [targetClientFilter] })
+    const applied = sqlPresetAdapter.apply(target, parsed!)
+    expect(applied).toMatchObject({ id: 'target', title: 'Target', connectionProfileId: 'target-profile', queryMode: 'builder', sql: source.sql, builder: source.builder })
+    expect(applied.builderResultFilters).toEqual([targetClientFilter, source.builderResultFilters[0]])
+    expect(payload.builderQueryFilters).toEqual([source.builderResultFilters[0]])
+    expect(payload.builderQueryFilters).not.toContainEqual(source.builderResultFilters[1])
     expect(sqlPresetAdapter.parse({ ...payload, builder: { nope: true } })).toBeNull()
+    expect(sqlPresetAdapter.parse({ ...payload, builderQueryFilters: [source.builderResultFilters[1]] })).toBeNull()
   })
 
   it('round-trips all structured Prometheus exploration fields', () => {
     const source = testSession({ queryMode: 'builder', sql: 'rate(http_requests_total[5m])' })
     source.promqlBuilder = { metric: 'http_requests_total', filterBy: ['method'], labelValues: { method: ['GET', 'POST'] }, groupBy: ['service'], calculation: 'percentile', aggregation: 'sum', window: '10m', percentile: 0.99, histogramKindOverride: 'classic' }
     source.prometheusTimeRange = { kind: 'rolling', amount: 30, unit: 'day' }; source.prometheusStep = '2m'
+    source.sqlVisualization = { ...source.sqlVisualization, view: 'line', xColumn: 'timestamp', valueColumn: 'value', seriesColumn: 'service' }
     const payload = prometheusPresetAdapter.capture(source)
     expect(prometheusPresetAdapter.parse(payload)).toEqual(payload)
     expect(prometheusPresetAdapter.apply(testSession(), payload)).toMatchObject(payload)
@@ -32,6 +44,7 @@ describe('datasource preset adapters', () => {
     const source = testSession({ queryMode: 'builder', sql: '{app="api"} |= "error"' })
     source.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'api', values: ['api'] }], lineFilters: [{ operator: '|=', value: 'error' }], parsers: [{ kind: 'json' }, { kind: 'regexp', expression: 'status=(?P<status>\\d+)' }], fieldFilters: [{ field: 'status', operator: '=~', value: '5..' }] }
     source.lokiTimeRange = { kind: 'rolling', amount: 6, unit: 'hour' }; source.lokiResultLimit = 500; source.lokiGroupBy = ['app']; source.lokiResultView = 'patterns'
+    source.sqlVisualization = { ...source.sqlVisualization, view: 'area', xColumn: 'timestamp', valueColumn: 'rate', seriesColumn: 'app' }
     source.lokiRangeHistory = [{ kind: 'all' }]
     const payload = lokiPresetAdapter.capture(source)
     expect(payload).not.toHaveProperty('lokiRangeHistory')

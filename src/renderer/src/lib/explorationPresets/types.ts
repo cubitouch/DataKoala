@@ -22,4 +22,3 @@ export interface ExplorationPresetAdapter<TPayload = unknown> {
   parse(value: unknown): TPayload | null
   apply(session: QuerySession, payload: TPayload): QuerySession
 }
-
