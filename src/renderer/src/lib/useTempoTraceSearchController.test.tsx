@@ -6,6 +6,7 @@ const { run } = vi.hoisted(() => ({ run: vi.fn() }))
 vi.mock('./api', () => ({ api: { tempoPerformanceEnabled: false, query: { run } } }))
 
 import { useTempoTraceSearchController } from './useTempoTraceSearchController'
+import { selectActiveSession, useStore } from '@store/useStore'
 
 const range = { kind: 'rolling', amount: 1, unit: 'hour' } as const
 const progress = (rows: Record<string, unknown>[]) => ({
@@ -25,7 +26,10 @@ function deferred<T>() {
 }
 
 describe('useTempoTraceSearchController', () => {
-  beforeEach(() => run.mockReset())
+  beforeEach(() => {
+    run.mockReset()
+    useStore.setState(useStore.getInitialState(), true)
+  })
   afterEach(cleanup)
 
   it('owns start, progressive merge/order, and successful final state', async () => {
@@ -60,7 +64,23 @@ describe('useTempoTraceSearchController', () => {
     expect(hook.result.current.searchNotice).toBe('Finished')
     expect(hook.result.current.searchProgress).toBeNull()
     expect(hook.result.current.searching).toBe(false)
+    expect(selectActiveSession(useStore.getState()).result?.rows).toEqual(finalRows)
     expect(onError).not.toHaveBeenCalled()
+  })
+
+  it('restores a completed search result after the workspace remounts', () => {
+    const stored = result([{ traceId: 'stored', startTimeMs: 42 }], 'Stored result')
+    const tabId = useStore.getState().activeTabId
+    useStore.getState().completeQuery(stored, null, tabId)
+
+    const first = renderHook(() => useTempoTraceSearchController({ connectionId: 'tempo-1', onError: vi.fn() }))
+    expect(first.result.current.searchRows).toEqual(stored.rows)
+    expect(first.result.current.searchNotice).toBe('Stored result')
+    first.unmount()
+
+    const second = renderHook(() => useTempoTraceSearchController({ connectionId: 'tempo-1', onError: vi.fn() }))
+    expect(second.result.current.searchRows).toEqual(stored.rows)
+    expect(second.result.current.searchNotice).toBe('Stored result')
   })
 
   it.each([
