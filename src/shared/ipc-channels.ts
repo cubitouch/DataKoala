@@ -1,6 +1,7 @@
 export const IPC = {
   CONNECTION_TEST: 'connection:test',
   CONNECTION_CONNECT: 'connection:connect',
+  CONNECTION_RECONNECT: 'connection:reconnect',
   CONNECTION_DISCONNECT: 'connection:disconnect',
   CONNECTION_STATE_CHANGED: 'connection:state-changed',
   CONNECTION_LIST_OBJECTS: 'connection:list-objects',

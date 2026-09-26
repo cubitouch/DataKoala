@@ -15,7 +15,7 @@ const deferred = <T,>() => {
 async function setup(connect: ReturnType<typeof vi.fn>, disconnect = vi.fn(async () => undefined)) {
   vi.resetModules()
   Object.defineProperty(window, 'datakoala', { configurable: true, value: {
-    connections: { connect, disconnect, listObjects: vi.fn(async () => []) }, smokeMode: false
+    connections: { connect, reconnect: connect, disconnect, listObjects: vi.fn(async () => []) }, smokeMode: false
   } })
   const module = await import('./useStore')
   const { useStore, selectActiveSession } = module
@@ -37,7 +37,7 @@ async function setup(connect: ReturnType<typeof vi.fn>, disconnect = vi.fn(async
 describe('profile-scoped reconnect attempts', () => {
   beforeEach(() => vi.restoreAllMocks())
 
-  it('does not apply A success after switching to B and cleans only A generation', async () => {
+  it('keeps a successful A reconnect live in the background after switching to B', async () => {
     const request = deferred<any>()
     const connect = vi.fn(() => request.promise)
     const { useStore, disconnect } = await setup(connect)
@@ -47,7 +47,8 @@ describe('profile-scoped reconnect attempts', () => {
     await reconnect
     expect(useStore.getState()).toMatchObject({ activeProfileId: 'b', connected: false,
       connectionStatus: 'disconnected', serverVersion: null, connectionError: null })
-    expect(disconnect).toHaveBeenCalledWith('a', 7)
+    expect(disconnect).not.toHaveBeenCalled()
+    expect(useStore.getState().connectionStateByProfileId.a).toMatchObject({ status: 'connected', generation: 7 })
   })
 
   it('allows a new profile attempt while stale A is pending and A cannot overwrite it', async () => {
@@ -61,7 +62,11 @@ describe('profile-scoped reconnect attempts', () => {
     a.resolve({ ok: true, serverVersion: '16-a', generation: 11, id: 'a' }); await attemptA
     expect(useStore.getState()).toMatchObject({ activeProfileId: 'b', connected: true,
       connectionStatus: 'connected', serverVersion: '16-b', connectionGeneration: 22 })
-    expect(disconnect).toHaveBeenCalledWith('a', 11)
+    expect(disconnect).not.toHaveBeenCalled()
+    expect(useStore.getState().connectionStateByProfileId).toMatchObject({
+      a: { status: 'connected', generation: 11 },
+      b: { status: 'connected', generation: 22 }
+    })
   })
 
   it('does not show a stale A failure on B', async () => {

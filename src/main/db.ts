@@ -93,6 +93,16 @@ export class SessionManager {
     await Promise.allSettled(this.registry.values().map((adapter) => adapter.shutdown?.()))
   }
 
+  async reconnect(profile: DataSourceProfile): Promise<ConnectResult> {
+    await this.disconnect(profile.id)
+    return this.connect(profile)
+  }
+
+  forget(id: ConnectionId, generation: number): void {
+    const current = this.sessions.get(id)
+    if (current?.result.generation === generation) this.sessions.delete(id)
+  }
+
   get(id: ConnectionId): DataSourceSession | undefined {
     return this.sessions.get(id)?.session
   }
@@ -121,7 +131,10 @@ const sessionManager = new SessionManager(adapterRegistry)
 export { DatabaseConnectionError, __testing }
 
 export function onConnectionStateChanged(listener: (event: ConnectionStateEvent) => void): void {
-  postgresAdapter.onConnectionStateChanged(listener)
+  postgresAdapter.onConnectionStateChanged((event) => {
+    if (event.state === 'failed' || event.state === 'disconnected') sessionManager.forget(event.profileId, event.generation)
+    listener(event)
+  })
 }
 
 export function testConnection(profile: DataSourceProfile) {
@@ -130,6 +143,10 @@ export function testConnection(profile: DataSourceProfile) {
 
 export async function connect(profile: DataSourceProfile): Promise<ConnectResult> {
   return sessionManager.connect(profile)
+}
+
+export async function reconnect(profile: DataSourceProfile): Promise<ConnectResult> {
+  return sessionManager.reconnect(profile)
 }
 
 export async function disconnect(id: ConnectionId, generation?: number): Promise<void> {

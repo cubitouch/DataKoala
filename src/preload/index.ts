@@ -45,6 +45,8 @@ const api = {
       p: DataSourceProfile
     ): Promise<ConnectResult & { id: string }> =>
       ipcRenderer.invoke(IPC.CONNECTION_CONNECT, p),
+    reconnect: (p: DataSourceProfile): Promise<ConnectResult & { id: string }> =>
+      ipcRenderer.invoke(IPC.CONNECTION_RECONNECT, p),
     disconnect: (id: string, generation?: number): Promise<void> => ipcRenderer.invoke(IPC.CONNECTION_DISCONNECT, id, generation),
     onStateChanged: (listener: (event: ConnectionStateEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, value: unknown) => {

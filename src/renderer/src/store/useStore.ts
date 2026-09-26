@@ -175,7 +175,7 @@ export interface AppState {
   setConnecting: (value: boolean) => void
   setConnectionGeneration: (generation: number) => void
   applyConnectionEvent: (event: ConnectionStateEvent) => void
-  connectProfile: (profile: DataSourceProfile) => Promise<void>
+  connectProfile: (profile: DataSourceProfile, options?: { force?: boolean }) => Promise<void>
   reconnectActiveProfile: () => Promise<void>
   setMetadata: (schemas: DatabaseSchemaNode[], status: MetadataStatus, error?: string | null, profileId?: string) => void
   setRelationColumns: (qualifiedName: string, columns: DatabaseColumnNode[] | undefined, status: 'loading' | 'loaded' | 'error', error?: string, profileId?: string) => void
@@ -344,7 +344,7 @@ export const useStore = create<AppState>((set, get) => ({
       } : tab)
     }
   }),
-  connectProfile: async (profile) => {
+  connectProfile: async (profile, options) => {
     const intent = ++connectionIntent
     connectionIntents.set(profile.id, intent)
     set((state) => ({
@@ -358,7 +358,7 @@ export const useStore = create<AppState>((set, get) => ({
       , connectionStateByProfileId: { ...state.connectionStateByProfileId, [profile.id]: { status: 'connecting', generation: state.connectionStateByProfileId[profile.id]?.generation ?? 0, error: null, serverVersion: null } }
     }))
     try {
-      const result = await api.connections.connect(profile)
+      const result = await (options?.force ? api.connections.reconnect(profile) : api.connections.connect(profile))
       if (connectionIntents.get(profile.id) !== intent) {
         if (result.ok) await api.connections.disconnect(result.id ?? profile.id, result.generation).catch(() => undefined)
         return
@@ -405,7 +405,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!profile || state.connecting) return
     const attemptId = state.reconnectAttemptId + 1
     set({ reconnectAttemptId: attemptId, activeReconnectAttempt: { id: attemptId, profileId: profile.id }, connectionStatus: 'reconnecting' })
-    await get().connectProfile(profile)
+    await get().connectProfile(profile, { force: true })
     const current = get()
     if (current.activeReconnectAttempt?.id === attemptId) set({ activeReconnectAttempt: null })
   },

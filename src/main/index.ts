@@ -589,6 +589,12 @@ function registerIpc(): void {
     const res = await db.connect(toUse)
     return { ...res, id: toUse.id }
   })
+  ipcMain.handle(IPC.CONNECTION_RECONNECT, async (_e, profile: DataSourceProfile) => {
+    const saved = profile.id ? connectionProfiles.get(profile.id) : undefined
+    const toUse = saved ?? connectionProfiles.upsert(profile)
+    const res = await db.reconnect(toUse)
+    return { ...res, id: toUse.id }
+  })
   ipcMain.handle(IPC.CONNECTION_DISCONNECT, (_e, id: string, generation?: number) => db.disconnect(id, generation))
   ipcMain.handle('connections:list', () => connectionProfiles.list())
   ipcMain.handle('connections:live', () => db.listLiveSessions())

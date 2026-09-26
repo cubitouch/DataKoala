@@ -146,3 +146,46 @@ test('an already-live profile is reused without another adapter connection', asy
   assert.ok(manager.get('same'))
   await manager.disconnectAll()
 })
+
+test('explicit reconnect replaces only the requested profile with a fresh generation', async () => {
+  const closed: string[] = []
+  let generation = 0
+  const adapter: DataSourceAdapter = {
+    kind: 'bigquery', async test() { return { ok: true } },
+    async connect(value) {
+      generation++
+      return { result: { ok: true, generation }, session: fakeSession(`${value.id}:${generation}`, closed) }
+    }
+  }
+  const manager = new SessionManager(new AdapterRegistry().register(adapter))
+  const firstA = await manager.connect(profile('a'))
+  const firstB = await manager.connect(profile('b'))
+  const secondA = await manager.reconnect(profile('a'))
+
+  assert.ok(firstA.ok && firstB.ok && secondA.ok)
+  assert.notEqual(secondA.generation, firstA.generation)
+  assert.equal((await manager.connect(profile('b'))).generation, firstB.generation)
+  assert.ok(manager.get('a'))
+  assert.ok(manager.get('b'))
+  assert.deepEqual(closed, [`a:${firstA.generation}`])
+  await manager.disconnectAll()
+})
+
+test('a failed session can connect normally again', async () => {
+  let generation = 0
+  const adapter: DataSourceAdapter = {
+    kind: 'bigquery', async test() { return { ok: true } },
+    async connect(value) {
+      generation++
+      return { result: { ok: true, generation }, session: fakeSession(value.id, []) }
+    }
+  }
+  const manager = new SessionManager(new AdapterRegistry().register(adapter))
+  const first = await manager.connect(profile('a'))
+  assert.ok(first.ok)
+  manager.forget('a', first.generation)
+  const reconnected = await manager.connect(profile('a'))
+  assert.ok(reconnected.ok)
+  assert.notEqual(reconnected.generation, first.generation)
+  await manager.disconnectAll()
+})
