@@ -16,13 +16,17 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
   const [values, setValues] = useState<Record<string, string[]>>({})
   const [valueStatus, setValueStatus] = useState<Record<string, LokiValueStatus>>({})
   const revision = useRef(0)
-  const connectionGeneration = useStore((state) => state.connectionGeneration)
   const activeProfileId = useStore((state) => state.activeProfileId)
   const connected = useStore((state) => state.connected)
+  const scopedConnection = useStore((state) => state.connectionStateByProfileId[connectionId])
+  const connectionGeneration = scopedConnection?.generation ?? useStore.getState().connectionGeneration
   const metadataRevision = useStore((state) => state.metadataByProfileId[connectionId]?.revision ?? 0)
   const metadataRefreshing = useStore((state) => state.metadataByProfileId[connectionId]?.refreshing ?? false)
   const metadataRefreshError = useStore((state) => state.metadataByProfileId[connectionId]?.refreshError ?? null)
-  const canLoadMetadata = connectionId === activeProfileId && connected
+  const canLoadMetadata =
+    scopedConnection?.status === 'connected' ||
+    scopedConnection?.status === 'idle' ||
+    (connectionId === activeProfileId && connected)
   const available = useRef(canLoadMetadata)
   available.current = canLoadMetadata
   const lifecycleKey = useRef('')
