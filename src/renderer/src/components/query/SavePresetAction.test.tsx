@@ -32,7 +32,9 @@ describe('SavePresetAction', () => {
     const session = createQuerySession(1, { connectionProfileId: sqlProfile.id })
     resetTestStore({ profiles: [sqlProfile], tabs: [session], activeTabId: session.id })
     render(<SavePresetAction repository={{ create: vi.fn() }} />)
-    expect((screen.getByRole('button', { name: 'Save preset' }) as HTMLButtonElement).disabled).toBe(false)
+    const action = screen.getByRole('button', { name: 'Save preset' }) as HTMLButtonElement
+    expect(action.disabled).toBe(false)
+    expect(action.textContent).toBe('Save')
     expect(openDialog()).toBeTruthy()
     expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Preset name' }))
   })

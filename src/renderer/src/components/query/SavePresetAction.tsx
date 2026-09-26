@@ -46,7 +46,7 @@ export function SavePresetAction({ repository, session: suppliedSession, profile
   }
 
   return <>
-    <button ref={buttonRef} type="button" className="btn ghost" disabled={!canSave} aria-label="Save preset" title={canSave ? 'Save the current exploration as a preset.' : 'Attach this tab to a connection before saving a preset.'} onClick={() => setOpen(true)}>Save preset</button>
+    <button ref={buttonRef} type="button" className="btn ghost" disabled={!canSave} aria-label="Save preset" title={canSave ? 'Save the current exploration as a preset.' : 'Attach this tab to a connection before saving a preset.'} onClick={() => setOpen(true)}>Save</button>
     <Modal open={open} onClose={close} labelledBy={titleId} returnFocusRef={buttonRef} dialogClassName={styles.dialog}>
       <form className={styles.form} onSubmit={save}>
         <h2 className={styles.title} id={titleId}>Save preset</h2>
