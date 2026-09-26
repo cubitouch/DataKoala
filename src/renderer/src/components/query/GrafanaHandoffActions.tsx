@@ -5,7 +5,7 @@ import { buildGrafanaExploreUrl, grafanaRange } from '@shared/grafanaExplore'
 import type { DataSourceProfile } from '@shared/types'
 import { copyTextToClipboard } from '@lib/clipboardText'
 import { api } from '@lib/api'
-import { Popover, PopoverChevron, usePopover } from './ui/Popover'
+import { Popover, PopoverChevron, usePopover } from '@components/ui/Popover'
 import styles from './GrafanaHandoffActions.module.css'
 
 type ObservabilityProfile = Extract<DataSourceProfile, { kind: GrafanaSignal }>

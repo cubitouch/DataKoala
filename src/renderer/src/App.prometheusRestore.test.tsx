@@ -15,10 +15,10 @@ vi.mock('./lib/api', () => ({ api: {
   query: { run: vi.fn(), explain: vi.fn() },
   export: { saveText: vi.fn() }
 } }))
-vi.mock('./components/QueryEditor', () => ({ QueryEditor: () => { mocks.queryEditorRenders += 1; return <div>SQL editor mounted</div> } }))
+vi.mock('@components/query/QueryEditor', () => ({ QueryEditor: () => { mocks.queryEditorRenders += 1; return <div>SQL editor mounted</div> } }))
 vi.mock('@components/builder/sql/BuilderPanel', () => ({ BuilderPanel: () => <div>Builder mounted</div> }))
 vi.mock('./components/results/ResultExplorer', () => ({ ResultExplorer: () => <div>Results mounted</div> }))
-vi.mock('./components/ExplainPane', () => ({ ExplainPane: () => null }))
+vi.mock('@components/query/sql/ExplainPane', () => ({ ExplainPane: () => null }))
 
 import { App } from './App'
 

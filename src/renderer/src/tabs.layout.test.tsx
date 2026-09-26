@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest'
 import { readFileSync } from 'node:fs'
 
-const tabsCss = readFileSync('src/renderer/src/components/QueryTabs.module.css', 'utf8')
+const tabsCss = readFileSync('src/renderer/src/components/query/QueryTabs.module.css', 'utf8')
 const appCss = readFileSync('src/renderer/src/App.module.css', 'utf8')
-const utilityCss = readFileSync('src/renderer/src/components/QueryUtilityActions.module.css', 'utf8')
+const utilityCss = readFileSync('src/renderer/src/components/query/QueryUtilityActions.module.css', 'utf8')
 const shellCss = readFileSync('src/renderer/src/styles.css', 'utf8')
 
 function rule(css: string, selector: string): string {

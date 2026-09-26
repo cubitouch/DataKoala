@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
-import { QueryEditor } from './components/QueryEditor'
-import { ExplainPane } from './components/ExplainPane'
+import { QueryEditor } from '@components/query/QueryEditor'
+import { ExplainPane } from '@components/query/sql/ExplainPane'
 import { selectActiveSession, useStore } from './store/useStore'
 import { BuilderPanel } from '@components/builder/sql/BuilderPanel'
 import { ResultExplorer } from './components/results/ResultExplorer'
 import { TraceExplorer } from './components/TraceExplorer'
 import { LokiExplorer } from './components/LokiExplorer'
-import { QueryTabs } from './components/QueryTabs'
+import { QueryTabs } from '@components/query/QueryTabs'
 import { ConnectionStatus } from './components/ConnectionStatus'
 import {
   EDITOR_MIN, SIDEBAR_MIN, TITLEBAR_HEIGHT,

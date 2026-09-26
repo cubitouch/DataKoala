@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { TextInput } from './ui/TextInput'
+import { TextInput } from '@components/ui/TextInput'
 import { useStore } from '@store/useStore'
 import styles from './QueryTabs.module.css'
 
