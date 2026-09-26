@@ -12,6 +12,8 @@ import { refreshConnectionMetadata } from '@lib/metadataRefresh'
 import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from '@lib/promqlBuilder'
 import { defaultQueryModeForDatasource, defaultQueryTextForDatasource } from '@lib/queryDefaults'
 import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '@shared/loki'
+import { DEFAULT_TRACE_RANGE, DEFAULT_TRACE_RESULT_VIEW, DEFAULT_TRACE_SAMPLE_SIZE, defaultTempoBuilder, type TraceResultView } from '@lib/tempoQueryState'
+import type { TraceBuilderState, TraceSampleSize } from '@lib/traceBuilder'
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'idle' | 'reconnecting' | 'error'
 export type MetadataStatus = 'idle' | 'loading' | 'loaded' | 'error'
@@ -59,6 +61,10 @@ export interface QuerySession {
   lokiGroupBy: string[]
   lokiResultView: 'list' | 'table' | 'patterns' | 'line' | 'area' | 'bar' | 'scatter' | 'treemap' | 'sunburst'
   lokiRangeHistory: BuilderTimeRange[]
+  tempoBuilder: TraceBuilderState
+  tempoTimeRange: BuilderTimeRange
+  tempoSampleSize: TraceSampleSize
+  tempoResultView: TraceResultView
   running: boolean
   queryError: string | null
   result: QueryResult | null
@@ -122,6 +128,10 @@ export function createQuerySession(index = 1, options: Partial<Pick<QuerySession
     lokiGroupBy: [],
     lokiResultView: 'list',
     lokiRangeHistory: [],
+    tempoBuilder: defaultTempoBuilder(),
+    tempoTimeRange: { ...DEFAULT_TRACE_RANGE },
+    tempoSampleSize: DEFAULT_TRACE_SAMPLE_SIZE,
+    tempoResultView: DEFAULT_TRACE_RESULT_VIEW,
     running: false,
     queryError: null,
     result: null,
@@ -192,6 +202,7 @@ export interface AppState {
   setPrometheusQueryOptions: (patch: Partial<Pick<QuerySession, 'prometheusTimeRange' | 'prometheusStep'>>, tabId?: string) => void
   setPromqlBuilder: (patch: Partial<PromqlBuilderState>, tabId?: string) => void
   setLokiState: (patch: Partial<Pick<QuerySession, 'lokiTimeRange' | 'lokiBuilder' | 'lokiResultLimit' | 'lokiGroupBy' | 'lokiResultView' | 'lokiRangeHistory'>>, tabId?: string) => void
+  setTempoState: (patch: Partial<Pick<QuerySession, 'tempoBuilder' | 'tempoTimeRange' | 'tempoSampleSize' | 'tempoResultView'>>, tabId?: string) => void
   setResult: (result: QueryResult | null, error?: string | null, tabId?: string) => void
   startQuery: (tabId?: string) => void
   completeQuery: (result: QueryResult | null, error?: string | null, tabId?: string) => void
@@ -523,6 +534,7 @@ export const useStore = create<AppState>((set, get) => ({
   })),
   setPrometheusQueryOptions: (patch, tabId) => set((state) => patchSession(state, tabId, (session) => ({ ...session, ...patch }))),
   setLokiState: (patch, tabId) => set((state) => patchSession(state, tabId, (session) => ({ ...session, ...patch }))),
+  setTempoState: (patch, tabId) => set((state) => patchSession(state, tabId, (session) => ({ ...session, ...patch }))),
   setPromqlBuilder: (patch, tabId) => set((state) => patchSession(state, tabId, (session) => ({
     ...session, promqlBuilder: { ...session.promqlBuilder, ...patch }
   }))),

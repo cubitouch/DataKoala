@@ -14,7 +14,7 @@ vi.mock('@uiw/react-codemirror', () => ({
     return <textarea aria-label={props['aria-label']} value={value} onChange={(event) => onChange(event.target.value)} />
   })
 }))
-vi.mock('@components/builder/tempo/TraceBuilderPanel', () => ({ TraceBuilderPanel: ({ value, traceql, onOpenTraceql, onChange }: { value: { advancedFilters: Array<{ attribute: string; scope: 'resource' | 'span'; mode: 'include'; values: string[] }> }; traceql: string; onOpenTraceql: () => void; onChange: (patch: { advancedFilters: unknown[] }) => void }) => <div data-testid="trace-builder">Builder remains available<output>{traceql}</output><span data-testid="selected-facets">{value.advancedFilters.map((filter) => `${filter.attribute}:${filter.values.join(',')}`).join('|')}</span><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })}>Add facet</button><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.a', scope: 'resource', mode: 'include', values: [] }, { attribute: 'span.b', scope: 'span', mode: 'include', values: [] }] })}>Select A and B</button><button type="button" onClick={() => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === 'resource.a' ? { ...filter, values: ['one'] } : filter) })}>Set A</button><button type="button" onClick={() => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === 'span.b' ? { ...filter, values: ['two'] } : filter) })}>Set B</button><button type="button" onClick={onOpenTraceql}>Open in TraceQL mode</button></div> }))
+vi.mock('@components/builder/tempo/TraceBuilderPanel', () => ({ TraceBuilderPanel: ({ value, traceql, onOpenTraceql, onChange }: { value: { service: string; advancedFilters: Array<{ attribute: string; scope: 'resource' | 'span'; mode: 'include'; values: string[] }> }; traceql: string; onOpenTraceql: () => void; onChange: (patch: { advancedFilters: unknown[] }) => void }) => <div data-testid="trace-builder">Builder remains available<output>{traceql}</output><span data-testid="builder-service">{value.service}</span><span data-testid="selected-facets">{value.advancedFilters.map((filter) => `${filter.attribute}:${filter.values.join(',')}`).join('|')}</span><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })}>Add facet</button><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.a', scope: 'resource', mode: 'include', values: [] }, { attribute: 'span.b', scope: 'span', mode: 'include', values: [] }] })}>Select A and B</button><button type="button" onClick={() => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === 'resource.a' ? { ...filter, values: ['one'] } : filter) })}>Set A</button><button type="button" onClick={() => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === 'span.b' ? { ...filter, values: ['two'] } : filter) })}>Set B</button><button type="button" onClick={onOpenTraceql}>Open in TraceQL mode</button></div> }))
 vi.mock('@components/results/traces/TraceScatterChart', () => ({
   TraceScatterChart: ({ onSelectRange }: { onSelectRange: (range: { kind: 'custom'; startDate: string; startTime: string; endDate: string; endTime: string; recurringWindows: [] }) => void }) => <button type="button" onClick={() => onSelectRange({ kind: 'custom', startDate: '2026-08-30', startTime: '10:00', endDate: '2026-08-30', endTime: '10:30', recurringWindows: [] })}>Refine scatter range</button>
 }))
@@ -129,12 +129,30 @@ describe('TraceExplorer TraceQL editor', () => {
 
   it('opens the generated query in TraceQL mode without changing it', async () => {
     const generated = '{ resource.service.name = "checkout" && duration > 300ms }'
-    patchActiveTestSession({ queryMode: 'builder', sql: generated })
+    patchActiveTestSession({ queryMode: 'builder', sql: generated, tempoBuilder: traceBuilderFromTraceql(generated) })
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
     await waitFor(() => expect(activeTestSession().queryMode).toBe('sql'))
     expect(activeTestSession().sql).toBe(buildTraceql(traceBuilderFromTraceql(generated)))
     expect(screen.getByRole('button', { name: 'TraceQL' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('restores each Tempo tab Builder and query options when switching tabs', async () => {
+    const firstId = useStore.getState().activeTabId
+    patchActiveTestSession({ queryMode: 'builder', tempoBuilder: { ...traceBuilderFromTraceql('{ }'), service: 'checkout' }, tempoTimeRange: { kind: 'rolling', amount: 6, unit: 'hour' }, tempoSampleSize: '500', tempoResultView: 'scatter' })
+    const secondId = useStore.getState().createTab()
+    useStore.getState().setTempoState({ tempoBuilder: { ...traceBuilderFromTraceql('{ }'), service: 'payments' }, tempoTimeRange: { kind: 'rolling', amount: 30, unit: 'minute' }, tempoSampleSize: '100', tempoResultView: 'service-map' }, secondId)
+    useStore.setState({ activeTabId: firstId })
+    render(<TraceExplorer connectionId="tempo-1" />)
+
+    expect(screen.getByTestId('builder-service').textContent).toBe('checkout')
+    expect(screen.getByRole('combobox', { name: /Sample size:/ }).textContent).toContain('500 traces')
+    useStore.setState({ activeTabId: secondId })
+    await waitFor(() => expect(screen.getByTestId('builder-service').textContent).toBe('payments'))
+    expect(screen.getByRole('combobox', { name: /Sample size:/ }).textContent).toContain('100 traces')
+    useStore.setState({ activeTabId: firstId })
+    await waitFor(() => expect(screen.getByTestId('builder-service').textContent).toBe('checkout'))
+    expect(activeTestSession().tempoResultView).toBe('scatter')
   })
 
   it('keeps Scatter selected when a range refinement reruns the search', async () => {

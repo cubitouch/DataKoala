@@ -8,7 +8,6 @@ import { TraceServiceMap } from '@components/results/traces/TraceServiceMap'
 import { TraceBuilderPanel } from '@components/builder/tempo/TraceBuilderPanel'
 import { Combobox } from '@components/ui/combobox'
 import { tempoAttributes, tempoAttributeValues } from '@lib/tempoMetadata'
-import type { BuilderTimeRange } from '@lib/builderTimeRange'
 import { buildTraceql, mergeTraceBuilderState, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState, type TraceSampleSize } from '@lib/traceBuilder'
 import { traceResultStatus, type TraceRow } from '@lib/traceViewer'
 import styles from './TraceExplorer.module.css'
@@ -24,7 +23,8 @@ import { QueryToolbar } from '@components/query/QueryToolbar'
 import { QueryCodeEditor, type QueryCodeEditorHandle } from '@components/query/QueryCodeEditor'
 import { TraceSearchList } from '@components/results/traces/TraceSearchList'
 import { TraceOpenedResult } from '@components/results/traces/TraceOpenedResult'
-import { TraceSearchResults, type TraceResultView } from '@components/results/traces/TraceSearchResults'
+import { TraceSearchResults } from '@components/results/traces/TraceSearchResults'
+import { DEFAULT_TRACE_RANGE, DEFAULT_TRACE_SAMPLE_SIZE, type TraceResultView } from '@lib/tempoQueryState'
 import { traceDateTimeLabel, traceDurationLabel, traceNumber, tracePeriodLabel, traceText } from '@components/results/traces/tracePresentation'
 import { useTempoTraceSearchController } from '@lib/useTempoTraceSearchController'
 import { useTempoTraceOpenController } from '@lib/useTempoTraceOpenController'
@@ -35,8 +35,6 @@ interface TraceExplorerProps {
   resizeHandle?: ReactNode
 }
 
-const DEFAULT_TRACE_RANGE: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
-const DEFAULT_TRACE_SAMPLE_SIZE: TraceSampleSize = '250'
 const TRACE_SAMPLE_SIZE_OPTIONS = [
   { value: '100', label: '100 traces' },
   { value: '250', label: '250 traces' },
@@ -57,8 +55,13 @@ function escapeHtml(value: string): string {
 
 export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps) {
   const profile = useStore((state) => state.profiles.find((item) => item.id === connectionId && item.kind === 'tempo'))
+  const tabId = useStore((state) => selectActiveSession(state).id)
   const mode = useStore((state) => selectActiveSession(state).queryMode)
   const traceql = useStore((state) => selectActiveSession(state).sql)
+  const builder = useStore((state) => selectActiveSession(state).tempoBuilder)
+  const searchRange = useStore((state) => selectActiveSession(state).tempoTimeRange)
+  const sampleSize = useStore((state) => selectActiveSession(state).tempoSampleSize)
+  const resultView = useStore((state) => selectActiveSession(state).tempoResultView)
   const metadata = useStore((state) => state.metadataByProfileId[connectionId])
   const activeProfileId = useStore((state) => state.activeProfileId)
   const globalConnected = useStore((state) => state.connected)
@@ -73,7 +76,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const metadataRefreshing = metadata?.refreshing ?? false
   const setSql = useStore((state) => state.setSql)
   const setQueryMode = useStore((state) => state.setQueryMode)
-  const [builder, setBuilder] = useState<TraceBuilderState>(() => traceBuilderFromTraceql(traceql))
+  const setTempoState = useStore((state) => state.setTempoState)
   const [traceId, setTraceId] = useState('')
   const [selectedSpanId, setSelectedSpanId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -82,9 +85,6 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const [compressIdleGaps, setCompressIdleGaps] = useState(true)
   const [error, setError] = useState('')
   const [cohortHint, setCohortHint] = useState('')
-  const [searchRange, setSearchRange] = useState<BuilderTimeRange>(DEFAULT_TRACE_RANGE)
-  const [sampleSize, setSampleSize] = useState<TraceSampleSize>(DEFAULT_TRACE_SAMPLE_SIZE)
-  const [resultView, setResultView] = useState<TraceResultView>('list')
   const [messagingSystems, setMessagingSystems] = useState<string[]>([])
   const [messagingSystemsLoading, setMessagingSystemsLoading] = useState(false)
   const [messagingSystemsError, setMessagingSystemsError] = useState<string | null>(null)
@@ -122,7 +122,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
 
   function resetForSearch() {
     cohortAnalysis.reset()
-    setResultView((current) => current === 'service-map' ? 'list' : current)
+    if (resultView === 'service-map') setTempoState({ tempoResultView: 'list' }, tabId)
     resetTrace()
     setSelectedSpanId('')
     setCollapsed(new Set())
@@ -137,7 +137,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       notify({ message: result.error, duration: 3200 })
       return
     }
-    if (!traceqlEditorRef.current?.replaceDocumentAndFocus(result.query)) setSql(result.query)
+    if (!traceqlEditorRef.current?.replaceDocumentAndFocus(result.query)) setSql(result.query, tabId)
     notify({ message: 'Formatted', duration: 2600 })
   }
 
@@ -149,12 +149,8 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   }
 
   useEffect(() => {
-    if (mode === 'sql') setBuilder(traceBuilderFromTraceql(traceql))
-  }, [mode, traceql])
-
-  useEffect(() => {
-    setBuilder(traceBuilderFromTraceql(traceql))
-  }, [connectionId])
+    if (mode === 'sql') setTempoState({ tempoBuilder: traceBuilderFromTraceql(traceql) }, tabId)
+  }, [mode, setTempoState, tabId, traceql])
 
   useEffect(() => {
     resetSearch()
@@ -167,13 +163,10 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     setCompressIdleGaps(true)
     setError('')
     setCohortHint('')
-    setSearchRange(DEFAULT_TRACE_RANGE)
-    setSampleSize(DEFAULT_TRACE_SAMPLE_SIZE)
-    setResultView('list')
     setMessagingSystems([])
     setAttributes([])
     setAdvancedValues({})
-  }, [connectionId, resetSearch, resetTrace])
+  }, [connectionId, resetSearch, resetTrace, tabId])
 
   useEffect(() => {
     if (!connected || mode !== 'builder' || builder.protocol !== 'messaging') {
@@ -228,8 +221,8 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     const next = { ...builder, ...patch }
     const raw = buildTraceql(next)
     const formatted = formatTraceql(raw)
-    setBuilder(next)
-    setSql(formatted.ok ? formatted.query : raw)
+    setTempoState({ tempoBuilder: next }, tabId)
+    setSql(formatted.ok ? formatted.query : raw, tabId)
   }
 
   const submitTraceId = (event: FormEvent) => { event.preventDefault(); if (!metadataRefreshing) void openTrace({ candidate: traceId, searchRows }) }
@@ -318,13 +311,13 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     const incoming = traceBuilderFromSpan(source)
     const next = mergeTraceBuilderState(builder, incoming)
     const query = buildTraceql(next)
-    setBuilder(next)
-    setSql(query)
-    setQueryMode('builder')
+    setTempoState({ tempoBuilder: next }, tabId)
+    setSql(query, tabId)
+    setQueryMode('builder', tabId)
     resetTrace()
     setSelectedSpanId('')
     cohortAnalysis.reset()
-    setResultView('list')
+    setTempoState({ tempoResultView: 'list' }, tabId)
     void runSearch({ query, sampleSize, range: searchRange })
   }
 
@@ -342,12 +335,12 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
 
   const changeSampleSize = (next: TraceSampleSize) => {
     const shouldRerun = searchRows.length > 0 || !!searchNotice
-    setSampleSize(next)
+    setTempoState({ tempoSampleSize: next }, tabId)
     if (shouldRerun && activeTraceql.trim()) void runSearch({ query: activeTraceql, sampleSize: next, range: searchRange })
   }
 
   const changeResultView = (next: TraceResultView) => {
-    setResultView(next)
+    setTempoState({ tempoResultView: next }, tabId)
     if (next === 'service-map') cohortAnalysis.ensureStarted()
   }
 
@@ -360,16 +353,14 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     setCollapsed(new Set())
     setError('')
     setCohortHint('')
-    setResultView('list')
+    setTempoState({ tempoResultView: 'list' }, tabId)
   }
 
   const resetTempoQuery = () => {
     const freshTraceql = defaultQueryTextForDatasource('tempo')
-    setSql(freshTraceql)
-    setBuilder(traceBuilderFromTraceql(freshTraceql))
-    setSearchRange(DEFAULT_TRACE_RANGE)
-    setSampleSize(DEFAULT_TRACE_SAMPLE_SIZE)
-    setQueryMode('builder')
+    setSql(freshTraceql, tabId)
+    setTempoState({ tempoBuilder: traceBuilderFromTraceql(freshTraceql), tempoTimeRange: { ...DEFAULT_TRACE_RANGE }, tempoSampleSize: DEFAULT_TRACE_SAMPLE_SIZE }, tabId)
+    setQueryMode('builder', tabId)
     clearTempoResults()
   }
 
@@ -386,7 +377,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
           <QueryToolbar className={styles.queryToolbar}
             mode={<ModeSwitch />}
             options={<div className={styles.queryOptions} aria-label="Tempo query options">
-              <TimeRangeField labelVisibility="sr-only" value={searchRange} onChange={setSearchRange} />
+              <TimeRangeField labelVisibility="sr-only" value={searchRange} onChange={(next) => setTempoState({ tempoTimeRange: next }, tabId)} />
               <div className={styles.sampleSize}><Combobox label="Sample size" mode="inline" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div>
             </div>}
             utilities={<QueryUtilityActions hasResults={Boolean(searchRows.length || spans.length || searchNotice || searchProgress || error || cohortHint)} onClearResults={clearTempoResults} onResetQuery={resetTempoQuery} />}
@@ -398,8 +389,8 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
             execution={<button className="btn primary" type="submit" data-tempo-run-query disabled={metadataRefreshing || loading !== null || !activeTraceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button>}
           />
           {mode === 'builder'
-            ? <TraceBuilderPanel value={builder} traceql={builderTraceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} attributes={attributes} attributesLoading={attributesLoading} attributesError={attributesError} attributeValues={advancedValues} attributeValuesLoading={advancedValuesLoading} attributeValuesError={advancedValuesError} onChange={updateBuilder} onOpenTraceql={() => { setSql(builderTraceql); setQueryMode('sql') }} />
-            : <QueryCodeEditor ref={traceqlEditorRef} className={styles.traceqlField} value={traceql} minHeight="66px" extensions={traceqlExtensions} onChange={(value) => setSql(value)} aria-label="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} />}
+            ? <TraceBuilderPanel value={builder} traceql={builderTraceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} attributes={attributes} attributesLoading={attributesLoading} attributesError={attributesError} attributeValues={advancedValues} attributeValuesLoading={advancedValuesLoading} attributeValuesError={advancedValuesError} onChange={updateBuilder} onOpenTraceql={() => { setSql(builderTraceql, tabId); setQueryMode('sql', tabId) }} />
+            : <QueryCodeEditor ref={traceqlEditorRef} className={styles.traceqlField} value={traceql} minHeight="66px" extensions={traceqlExtensions} onChange={(value) => setSql(value, tabId)} aria-label="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} />}
         </form>
       </div>
 
@@ -420,7 +411,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
         onToggleAsyncBranches={() => setHideAsyncBranches((current) => !current)} onToggleIdleCompression={() => setCompressIdleGaps((current) => !current)}
         onShowAllKinds={() => setHiddenSpanKinds(new Set())} onBackToResults={() => { resetTrace(); setSelectedSpanId('') }} onExploreSimilar={exploreSimilar} /> : <TraceSearchResults rows={searchRows} notice={searchNotice} loading={loading} resultView={resultView} onResultViewChange={changeResultView}
         listView={<TraceSearchList rows={searchRows} disabled={loading !== null} onOpenTrace={(candidate) => void openTrace({ candidate, searchRows })} />}
-        scatterView={<TraceScatterChart option={scatterOption} searchRange={searchRange} onEvents={scatterEvents} onSelectRange={(next) => { setSearchRange(next); void runSearch({ query: activeTraceql, sampleSize, range: next }) }} />}
+        scatterView={<TraceScatterChart option={scatterOption} searchRange={searchRange} onEvents={scatterEvents} onSelectRange={(next) => { setTempoState({ tempoTimeRange: next }, tabId); void runSearch({ query: activeTraceql, sampleSize, range: next }) }} />}
         serviceMapView={<TraceServiceMap aggregate={cohortAnalysis.aggregate} traces={cohortAnalysis.traces} progress={cohortAnalysis.progress} searchTraceCount={searchRows.length} sampleLimit={cohortAnalysis.sampleLimit} onSampleLimitChange={cohortAnalysis.changeSampleLimit} onRetry={cohortAnalysis.retry} onStop={cohortAnalysis.stop} onOpenTrace={(candidate) => void openTrace({ candidate, searchRows })} />} />}
     </section>
   )
