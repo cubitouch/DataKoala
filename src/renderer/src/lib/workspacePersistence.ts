@@ -5,6 +5,8 @@ import { deserializeResultFilters, type ResultFilter } from './resultFilters.ts'
 import type { AppState, BuilderQueryState, QueryMode, QuerySession, TimeBucket } from '@store/useStore.ts'
 import { DEFAULT_PROMQL_BUILDER, type PromqlBuilderState } from './promqlBuilder.ts'
 import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '@shared/loki.ts'
+import { cloneTempoBuilder, DEFAULT_TRACE_RANGE, DEFAULT_TRACE_RESULT_VIEW, DEFAULT_TRACE_SAMPLE_SIZE, defaultTempoBuilder, parseTempoBuilder, parseTempoSampleSize, parseTraceResultView, type TraceResultView } from './tempoQueryState.ts'
+import type { TraceBuilderState, TraceSampleSize } from './traceBuilder.ts'
 
 export const WORKSPACE_STORAGE_KEY = 'datakoala.workspace.v2'
 const LEGACY_DATAKOALA_WORKSPACE_STORAGE_KEY = 'datakoala.workspace.v2'
@@ -33,6 +35,10 @@ export interface QuerySessionDraft {
   lokiGroupBy: string[]
   lokiResultView: 'list' | 'table' | 'patterns' | 'line' | 'area' | 'bar' | 'scatter' | 'treemap' | 'sunburst'
   lokiRangeHistory: BuilderTimeRange[]
+  tempoBuilder: TraceBuilderState
+  tempoTimeRange: BuilderTimeRange
+  tempoSampleSize: TraceSampleSize
+  tempoResultView: TraceResultView
   builder: BuilderQueryState
   sqlVisualization: VisualizationConfiguration
   builderVisualization: VisualizationConfiguration
@@ -269,6 +275,10 @@ function sessionDraft(session: QuerySession): QuerySessionDraft {
     lokiGroupBy: session.lokiGroupBy,
     lokiResultView: session.lokiResultView,
     lokiRangeHistory: session.lokiRangeHistory,
+    tempoBuilder: cloneTempoBuilder(session.tempoBuilder),
+    tempoTimeRange: cloneTimeRange(session.tempoTimeRange)!,
+    tempoSampleSize: session.tempoSampleSize,
+    tempoResultView: session.tempoResultView,
     builder: normalized.builder,
     sqlVisualization: cloneVisualization(session.sqlVisualization),
     builderVisualization: normalized.visualization,
@@ -313,6 +323,10 @@ function serializedSession(tab: QuerySessionDraft): Record<string, unknown> {
     lokiGroupBy: tab.lokiGroupBy,
     lokiResultView: tab.lokiResultView,
     lokiRangeHistory: tab.lokiRangeHistory,
+    tempoBuilder: tab.tempoBuilder,
+    tempoTimeRange: tab.tempoTimeRange,
+    tempoSampleSize: tab.tempoSampleSize,
+    tempoResultView: tab.tempoResultView,
     builder: persistedBuilder,
     sqlVisualization: tab.sqlVisualization,
     builderVisualization: tab.builderVisualization,
@@ -353,9 +367,13 @@ function parseSession(value: unknown): QuerySessionDraft | null {
   const lokiGroupBy = [...new Set(Array.isArray(value.lokiGroupBy) ? value.lokiGroupBy.filter((item): item is string => typeof item === 'string' && item.length > 0 && !item.startsWith('__')) : legacyBreakdown && !legacyBreakdown.startsWith('__') ? [legacyBreakdown] : [])]
   const lokiResultView = value.lokiResultView === 'chart' ? 'line' : isOneOf(value.lokiResultView, ['list', 'table', 'patterns', 'line', 'area', 'bar', 'scatter', 'treemap', 'sunburst'] as const) ? value.lokiResultView : 'list'
   const lokiRangeHistory = Array.isArray(value.lokiRangeHistory) ? value.lokiRangeHistory.map(timeRange).filter((item): item is BuilderTimeRange => item !== null) : []
+  const tempoBuilder = parseTempoBuilder(value.tempoBuilder) ?? defaultTempoBuilder()
+  const tempoTimeRange = (value.tempoTimeRange === undefined ? null : timeRange(value.tempoTimeRange)) ?? { ...DEFAULT_TRACE_RANGE }
+  const tempoSampleSize = parseTempoSampleSize(value.tempoSampleSize) ?? DEFAULT_TRACE_SAMPLE_SIZE
+  const tempoResultView = parseTraceResultView(value.tempoResultView) ?? DEFAULT_TRACE_RESULT_VIEW
   if (connectionProfileId === undefined || !isOneOf(value.queryMode, QUERY_MODES) || typeof value.sql !== 'string' || !parsedBuilder || !sqlVisualization || !parsedBuilderVisualization || filters === null || !prometheusTimeRange || !prometheusStep || !lokiTimeRange) return null
   const normalized = normalizeBuilderAxis(parsedBuilder, parsedBuilderVisualization)
-  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, promqlBuilder, lokiTimeRange, lokiBuilder, lokiResultLimit, lokiGroupBy, lokiResultView, lokiRangeHistory, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
+  return { id: value.id, title: value.title.trim(), connectionProfileId, queryMode: value.queryMode, sql: value.sql, prometheusTimeRange, prometheusStep, promqlBuilder, lokiTimeRange, lokiBuilder, lokiResultLimit, lokiGroupBy, lokiResultView, lokiRangeHistory, tempoBuilder, tempoTimeRange, tempoSampleSize, tempoResultView, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: filters }
 }
 
 export function parseWorkspaceDraft(raw: string | null): WorkspaceDraft | null {
@@ -387,7 +405,7 @@ function parseLegacyWorkspace(raw: string | null): WorkspaceDraft | null {
     const id = 'migrated-query-1'
     return {
       activeTabId: id,
-      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: 'auto', promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} }, lokiTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }, lokiResultLimit: 1000, lokiGroupBy: [], lokiResultView: 'list', lokiRangeHistory: [], builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
+      tabs: [{ id, title: 'Query 1', connectionProfileId: null, queryMode: draft.queryMode, sql: draft.sql, prometheusTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, prometheusStep: 'auto', promqlBuilder: { ...DEFAULT_PROMQL_BUILDER, filterBy: [], groupBy: [], labelValues: {} }, lokiTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' }, lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }, lokiResultLimit: 1000, lokiGroupBy: [], lokiResultView: 'list', lokiRangeHistory: [], tempoBuilder: defaultTempoBuilder(), tempoTimeRange: { ...DEFAULT_TRACE_RANGE }, tempoSampleSize: DEFAULT_TRACE_SAMPLE_SIZE, tempoResultView: DEFAULT_TRACE_RESULT_VIEW, builder: normalized.builder, sqlVisualization, builderVisualization: normalized.visualization, builderQueryFilters: [] }]
     }
   } catch {
     return null
@@ -431,6 +449,10 @@ function restoredSession(draft: QuerySessionDraft): QuerySession {
     lokiGroupBy: draft.lokiGroupBy,
     lokiResultView: draft.lokiResultView,
     lokiRangeHistory: draft.lokiRangeHistory,
+    tempoBuilder: cloneTempoBuilder(draft.tempoBuilder),
+    tempoTimeRange: cloneTimeRange(draft.tempoTimeRange)!,
+    tempoSampleSize: draft.tempoSampleSize,
+    tempoResultView: draft.tempoResultView,
     running: false,
     queryError: null,
     result: null,

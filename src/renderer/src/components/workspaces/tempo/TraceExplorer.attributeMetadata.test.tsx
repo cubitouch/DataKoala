@@ -13,6 +13,7 @@ import { TraceExplorer } from './TraceExplorer'
 import { resetTempoMetadataCache } from '@lib/tempoMetadata'
 import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
 import { useStore } from '@store/useStore'
+import { traceBuilderFromTraceql } from '@lib/traceBuilder'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -27,7 +28,8 @@ describe('Trace Explorer attribute facet metadata', () => {
     attributes.mockReset().mockResolvedValue([{ scope: 'resource', name: 'cloud.region', traceql: 'resource.cloud.region' }])
     attributeValues.mockReset()
     resetTestStore({ connected: true, connectionGeneration: 7 })
-    patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'builder', sql: '{ resource.service.name = "checkout" && resource.cloud.region = "eu-west-1" }' })
+    const traceql = '{ resource.service.name = "checkout" && resource.cloud.region = "eu-west-1" }'
+    patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'builder', sql: traceql, tempoBuilder: traceBuilderFromTraceql(traceql) })
     setActiveTestMetadata([], 'loaded', null, 'tempo-1')
   })
   afterEach(cleanup)

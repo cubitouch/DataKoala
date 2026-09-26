@@ -54,6 +54,35 @@ async function setup() {
 describe('query session model', () => {
   beforeEach(() => vi.restoreAllMocks())
 
+  it('creates independent Tempo defaults and patches only the requested tab', async () => {
+    const { createQuerySession, selectSession, useStore } = await setup()
+    const first = createQuerySession()
+    const second = createQuerySession()
+    expect(first.tempoBuilder).toEqual(second.tempoBuilder)
+    expect(first.tempoBuilder).not.toBe(second.tempoBuilder)
+    expect(first.tempoBuilder.advancedFilters).not.toBe(second.tempoBuilder.advancedFilters)
+
+    const a = useStore.getState().activeTabId
+    const b = useStore.getState().createTab()
+    useStore.getState().setTempoState({
+      tempoBuilder: { ...first.tempoBuilder, service: 'checkout' },
+      tempoTimeRange: { kind: 'rolling', amount: 6, unit: 'hour' },
+      tempoSampleSize: '500',
+      tempoResultView: 'scatter'
+    }, a)
+    useStore.getState().setTempoState({
+      tempoBuilder: { ...second.tempoBuilder, service: 'payments' },
+      tempoTimeRange: { kind: 'rolling', amount: 30, unit: 'minute' },
+      tempoSampleSize: '100',
+      tempoResultView: 'service-map'
+    }, b)
+
+    const state = useStore.getState()
+    expect(selectSession(state, a)).toMatchObject({ tempoBuilder: { service: 'checkout' }, tempoTimeRange: { amount: 6, unit: 'hour' }, tempoSampleSize: '500', tempoResultView: 'scatter' })
+    expect(selectSession(state, b)).toMatchObject({ tempoBuilder: { service: 'payments' }, tempoTimeRange: { amount: 30, unit: 'minute' }, tempoSampleSize: '100', tempoResultView: 'service-map' })
+    expect(selectSession(state, a)?.sql).toBe('select now();')
+  })
+
   it('keeps SQL, Builder, filters, visualization and result state isolated between tabs', async () => {
     const { useStore, selectSession } = await setup()
     const a = useStore.getState().activeTabId

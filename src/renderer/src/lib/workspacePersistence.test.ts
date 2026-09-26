@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
 import type { ResultFilter } from './resultFilters.ts'
+import { defaultTempoBuilder } from './tempoQueryState.ts'
 import {
   LEGACY_WORKSPACE_STORAGE_KEY,
   WORKSPACE_STORAGE_KEY,
@@ -49,6 +50,10 @@ const tab = (id: string, title: string, connectionProfileId: string | null, sql:
   lokiTimeRange: id === 'tab-b' ? { kind: 'rolling' as const, amount: 15 as const, unit: 'minute' as const } : { kind: 'rolling' as const, amount: 3 as const, unit: 'hour' as const },
   lokiBuilder: { labelMatchers: [{ label: 'service_name', operator: '=' as const, value: id }], lineFilters: [{ operator: '|=' as const, value: 'error' }], parsers: [{ kind: 'json' as const }], fieldFilters: [] },
   lokiResultLimit: id === 'tab-b' ? 250 : 1000, lokiResultView: id === 'tab-b' ? 'line' as const : 'list' as const, lokiGroupBy: ['service_name'], lokiRangeHistory: [],
+  tempoBuilder: { ...defaultTempoBuilder(), service: id, advancedFilters: [{ attribute: 'resource.cluster', scope: 'resource' as const, mode: 'include' as const, values: [id] }] },
+  tempoTimeRange: id === 'tab-b' ? { kind: 'rolling' as const, amount: 30 as const, unit: 'minute' as const } : { kind: 'rolling' as const, amount: 6 as const, unit: 'hour' as const },
+  tempoSampleSize: id === 'tab-b' ? '500' as const : '100' as const,
+  tempoResultView: id === 'tab-b' ? 'scatter' as const : 'service-map' as const,
   running: true,
   queryError: 'runtime-error-secret',
   result: { columns: [], rows: [{ token: 'result-secret' }], rowCount: 1, durationMs: 1 },
@@ -115,6 +120,34 @@ test('workspace v2 round-trips ordered tabs, names, connection references and ax
   assert.equal(restored.tabs[1].lokiResultLimit, 250)
   assert.equal(restored.tabs[1].lokiBuilder.labelMatchers[0].value, 'tab-b')
   assert.deepEqual(restored.tabs[1].lokiGroupBy, ['service_name'])
+  assert.equal(restored.tabs[0].tempoBuilder.service, 'tab-a')
+  assert.deepEqual(restored.tabs[0].tempoBuilder.advancedFilters[0].values, ['tab-a'])
+  assert.deepEqual(restored.tabs[1].tempoTimeRange, { kind: 'rolling', amount: 30, unit: 'minute' })
+  assert.equal(restored.tabs[1].tempoSampleSize, '500')
+  assert.equal(restored.tabs[1].tempoResultView, 'scatter')
+})
+
+test('older and malformed Tempo drafts restore independent standard defaults', () => {
+  const raw = JSON.parse(serializeWorkspaceDraft(state())) as { tabs: Record<string, unknown>[] }
+  delete raw.tabs[0].tempoBuilder
+  delete raw.tabs[0].tempoTimeRange
+  delete raw.tabs[0].tempoSampleSize
+  delete raw.tabs[0].tempoResultView
+  raw.tabs[1].tempoBuilder = { service: 42 }
+  raw.tabs[1].tempoTimeRange = { kind: 'rolling', amount: 17, unit: 'minutes' }
+  raw.tabs[1].tempoSampleSize = 'unlimited'
+  raw.tabs[1].tempoResultView = 'chart'
+
+  const restored = parseWorkspaceDraft(JSON.stringify(raw))
+  assert.ok(restored)
+  for (const restoredTab of restored.tabs) {
+    assert.deepEqual(restoredTab.tempoBuilder, defaultTempoBuilder())
+    assert.deepEqual(restoredTab.tempoTimeRange, { kind: 'rolling', amount: 1, unit: 'hour' })
+    assert.equal(restoredTab.tempoSampleSize, '250')
+    assert.equal(restoredTab.tempoResultView, 'list')
+  }
+  assert.notEqual(restored.tabs[0].tempoBuilder, restored.tabs[1].tempoBuilder)
+  assert.notEqual(restored.tabs[0].tempoBuilder.advancedFilters, restored.tabs[1].tempoBuilder.advancedFilters)
 })
 
 test('categorical X persists its independent time filter but no hidden Time bucket', () => {

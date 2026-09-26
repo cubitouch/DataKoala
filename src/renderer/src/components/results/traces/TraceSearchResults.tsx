@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import type { TraceRow } from '@lib/traceViewer'
+import type { TraceResultView } from '@lib/tempoQueryState'
+export type { TraceResultView } from '@lib/tempoQueryState'
 import styles from './TraceSearchResults.module.css'
-
-export type TraceResultView = 'list' | 'scatter' | 'service-map'
 
 interface TraceSearchResultsProps {
   rows: TraceRow[]

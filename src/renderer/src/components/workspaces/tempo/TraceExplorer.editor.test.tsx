@@ -14,7 +14,7 @@ vi.mock('@uiw/react-codemirror', () => ({
     return <textarea aria-label={props['aria-label']} value={value} onChange={(event) => onChange(event.target.value)} />
   })
 }))
-vi.mock('@components/builder/tempo/TraceBuilderPanel', () => ({ TraceBuilderPanel: ({ value, traceql, onOpenTraceql, onChange }: { value: { advancedFilters: Array<{ attribute: string; scope: 'resource' | 'span'; mode: 'include'; values: string[] }> }; traceql: string; onOpenTraceql: () => void; onChange: (patch: { advancedFilters: unknown[] }) => void }) => <div data-testid="trace-builder">Builder remains available<output>{traceql}</output><span data-testid="selected-facets">{value.advancedFilters.map((filter) => `${filter.attribute}:${filter.values.join(',')}`).join('|')}</span><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })}>Add facet</button><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.a', scope: 'resource', mode: 'include', values: [] }, { attribute: 'span.b', scope: 'span', mode: 'include', values: [] }] })}>Select A and B</button><button type="button" onClick={() => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === 'resource.a' ? { ...filter, values: ['one'] } : filter) })}>Set A</button><button type="button" onClick={() => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === 'span.b' ? { ...filter, values: ['two'] } : filter) })}>Set B</button><button type="button" onClick={onOpenTraceql}>Open in TraceQL mode</button></div> }))
+vi.mock('@components/builder/tempo/TraceBuilderPanel', () => ({ TraceBuilderPanel: ({ value, traceql, onOpenTraceql, onChange }: { value: { service: string; advancedFilters: Array<{ attribute: string; scope: 'resource' | 'span'; mode: 'include'; values: string[] }> }; traceql: string; onOpenTraceql: () => void; onChange: (patch: { advancedFilters: unknown[] }) => void }) => <div data-testid="trace-builder">Builder remains available<output>{traceql}</output><span data-testid="builder-service">{value.service}</span><span data-testid="selected-facets">{value.advancedFilters.map((filter) => `${filter.attribute}:${filter.values.join(',')}`).join('|')}</span><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })}>Add facet</button><button type="button" onClick={() => onChange({ advancedFilters: [{ attribute: 'resource.a', scope: 'resource', mode: 'include', values: [] }, { attribute: 'span.b', scope: 'span', mode: 'include', values: [] }] })}>Select A and B</button><button type="button" onClick={() => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === 'resource.a' ? { ...filter, values: ['one'] } : filter) })}>Set A</button><button type="button" onClick={() => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === 'span.b' ? { ...filter, values: ['two'] } : filter) })}>Set B</button><button type="button" onClick={onOpenTraceql}>Open in TraceQL mode</button></div> }))
 vi.mock('@components/results/traces/TraceScatterChart', () => ({
   TraceScatterChart: ({ onSelectRange }: { onSelectRange: (range: { kind: 'custom'; startDate: string; startTime: string; endDate: string; endTime: string; recurringWindows: [] }) => void }) => <button type="button" onClick={() => onSelectRange({ kind: 'custom', startDate: '2026-08-30', startTime: '10:00', endDate: '2026-08-30', endTime: '10:30', recurringWindows: [] })}>Refine scatter range</button>
 }))
@@ -29,7 +29,8 @@ import { api } from '@lib/api'
 describe('TraceExplorer TraceQL editor', () => {
   beforeEach(() => {
     resetTestStore()
-    patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'sql', sql: '{resource.service.name="checkout"}' })
+    const traceql = '{resource.service.name="checkout"}'
+    patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'sql', sql: traceql, tempoBuilder: traceBuilderFromTraceql(traceql) })
     useStore.setState({ profiles: [{ id: 'tempo-1', name: 'Tempo', kind: 'tempo', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test', datasourceUid: 'tempo-main' }, grafana: { baseUrl: 'https://grafana.example', datasourceType: 'tempo' } }] })
     notify.mockReset()
     vi.mocked(api.query.run).mockReset()
@@ -48,8 +49,10 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(document.querySelector('#traceql-query')).toBeNull()
     fireEvent.change(editor, { target: { value: '{duration>300ms}' } })
     await waitFor(() => expect(activeTestSession().sql).toBe('{duration>300ms}'))
+    expect(activeTestSession().tempoBuilder.service).toBe('checkout')
     fireEvent.click(screen.getByRole('button', { name: 'Format' }))
     await waitFor(() => expect(activeTestSession().sql).toBe('{ duration > 300ms }'))
+    expect(activeTestSession().tempoBuilder.service).toBe('checkout')
     expect(notify).toHaveBeenCalledWith(expect.objectContaining({ message: 'Formatted' }))
   })
 
@@ -71,7 +74,7 @@ describe('TraceExplorer TraceQL editor', () => {
   })
 
   it('executes and opens the Builder-generated TraceQL instead of stale manual SQL', async () => {
-    patchActiveTestSession({ queryMode: 'builder', sql: 'select now();' })
+    patchActiveTestSession({ queryMode: 'builder', sql: 'select now();', tempoBuilder: traceBuilderFromTraceql('') })
     vi.mocked(api.query.run).mockResolvedValue({
       columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' }],
       rows: [], rowCount: 0, durationMs: 1
@@ -95,7 +98,7 @@ describe('TraceExplorer TraceQL editor', () => {
   })
 
   it('stores automatically formatted TraceQL after Builder edits', async () => {
-    patchActiveTestSession({ queryMode: 'builder', sql: '{ }' })
+    patchActiveTestSession({ queryMode: 'builder', sql: '{ }', tempoBuilder: traceBuilderFromTraceql('{ }') })
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Add facet' }))
     const generated = '{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") && span:duration > 300ms }'
@@ -107,7 +110,7 @@ describe('TraceExplorer TraceQL editor', () => {
   })
 
   it('preserves incomplete selected facets while other facet values change', async () => {
-    patchActiveTestSession({ queryMode: 'builder', sql: '{ }' })
+    patchActiveTestSession({ queryMode: 'builder', sql: '{ }', tempoBuilder: traceBuilderFromTraceql('{ }') })
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Select A and B' }))
     expect(screen.getByTestId('selected-facets').textContent).toBe('resource.a:|span.b:')
@@ -129,12 +132,30 @@ describe('TraceExplorer TraceQL editor', () => {
 
   it('opens the generated query in TraceQL mode without changing it', async () => {
     const generated = '{ resource.service.name = "checkout" && duration > 300ms }'
-    patchActiveTestSession({ queryMode: 'builder', sql: generated })
+    patchActiveTestSession({ queryMode: 'builder', sql: generated, tempoBuilder: traceBuilderFromTraceql(generated) })
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
     await waitFor(() => expect(activeTestSession().queryMode).toBe('sql'))
     expect(activeTestSession().sql).toBe(buildTraceql(traceBuilderFromTraceql(generated)))
     expect(screen.getByRole('button', { name: 'TraceQL' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('restores each Tempo tab Builder and query options when switching tabs', async () => {
+    const firstId = useStore.getState().activeTabId
+    patchActiveTestSession({ queryMode: 'builder', tempoBuilder: { ...traceBuilderFromTraceql('{ }'), service: 'checkout' }, tempoTimeRange: { kind: 'rolling', amount: 6, unit: 'hour' }, tempoSampleSize: '500', tempoResultView: 'scatter' })
+    const secondId = useStore.getState().createTab()
+    useStore.getState().setTempoState({ tempoBuilder: { ...traceBuilderFromTraceql('{ }'), service: 'payments' }, tempoTimeRange: { kind: 'rolling', amount: 30, unit: 'minute' }, tempoSampleSize: '100', tempoResultView: 'service-map' }, secondId)
+    useStore.setState({ activeTabId: firstId })
+    render(<TraceExplorer connectionId="tempo-1" />)
+
+    expect(screen.getByTestId('builder-service').textContent).toBe('checkout')
+    expect(screen.getByRole('combobox', { name: /Sample size:/ }).textContent).toContain('500 traces')
+    useStore.setState({ activeTabId: secondId })
+    await waitFor(() => expect(screen.getByTestId('builder-service').textContent).toBe('payments'))
+    expect(screen.getByRole('combobox', { name: /Sample size:/ }).textContent).toContain('100 traces')
+    useStore.setState({ activeTabId: firstId })
+    await waitFor(() => expect(screen.getByTestId('builder-service').textContent).toBe('checkout'))
+    expect(activeTestSession().tempoResultView).toBe('scatter')
   })
 
   it('keeps Scatter selected when a range refinement reruns the search', async () => {

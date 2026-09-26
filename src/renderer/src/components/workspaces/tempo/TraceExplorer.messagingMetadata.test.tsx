@@ -13,6 +13,7 @@ import { TraceExplorer } from './TraceExplorer'
 import { resetTempoMetadataCache } from '@lib/tempoMetadata'
 import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
 import { useStore } from '@store/useStore'
+import { traceBuilderFromTraceql } from '@lib/traceBuilder'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -27,7 +28,8 @@ describe('Trace Explorer messaging metadata', () => {
     attributeValues.mockReset().mockResolvedValue(['rabbitmq', 'kafka'])
     attributes.mockReset().mockResolvedValue([])
     resetTestStore({ connected: true, connectionGeneration: 7 })
-    patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'builder', sql: '{ span.messaging.system != nil }' })
+    const traceql = '{ span.messaging.system != nil }'
+    patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'builder', sql: traceql, tempoBuilder: traceBuilderFromTraceql(traceql) })
     setActiveTestMetadata([], 'loaded', null, 'tempo-1')
   })
   afterEach(cleanup)
