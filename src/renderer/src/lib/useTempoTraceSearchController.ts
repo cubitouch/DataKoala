@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { QueryResult } from '@shared/types'
 import type { TempoSearchProgress } from '@shared/tempo'
 import { api } from './api'
@@ -6,6 +6,7 @@ import type { BuilderTimeRange } from './builderTimeRange'
 import { prometheusRangeBounds } from './prometheusTimeRange'
 import type { TraceSampleSize } from './traceBuilder'
 import { canonicalTraceId, traceResultStatus, type TraceRow } from './traceViewer'
+import { selectSession, useStore } from '@store/useStore'
 
 interface SearchRequest {
   query: string
@@ -25,6 +26,11 @@ function text(value: unknown): string {
 
 function isSpanResult(result: QueryResult): boolean {
   return result.columns.some((column) => column.name === 'spanId')
+}
+
+function searchRowsFromResult(result: QueryResult | null): TraceRow[] {
+  if (!result || isSpanResult(result) || !result.columns.some((column) => column.name === 'traceId')) return []
+  return result.rows as TraceRow[]
 }
 
 function mergeSearchRows(existing: TraceRow[], incoming: TraceRow[]): TraceRow[] {
@@ -50,10 +56,20 @@ function tempoPerf(event: string, fields: Record<string, unknown>): void {
 }
 
 export function useTempoTraceSearchController({ connectionId, onSearchStart, onError }: ControllerOptions) {
-  const [searchRows, setSearchRows] = useState<TraceRow[]>([])
-  const [searchNotice, setSearchNotice] = useState('')
+  const tabId = useStore((state) => state.activeTabId)
+  const initialStoredResult = selectSession(useStore.getState(), tabId)?.result ?? null
+  const [searchRows, setSearchRows] = useState<TraceRow[]>(() => searchRowsFromResult(initialStoredResult))
+  const [searchNotice, setSearchNotice] = useState(() => initialStoredResult?.notice ?? '')
   const [searchProgress, setSearchProgress] = useState<TempoSearchProgress | null>(null)
   const [searching, setSearching] = useState(false)
+
+  useEffect(() => {
+    const storedResult = selectSession(useStore.getState(), tabId)?.result ?? null
+    setSearchRows(searchRowsFromResult(storedResult))
+    setSearchNotice(storedResult?.notice ?? '')
+    setSearchProgress(null)
+    setSearching(false)
+  }, [tabId])
 
   const resetSearch = useCallback(() => {
     setSearchRows([])
@@ -85,6 +101,7 @@ export function useTempoTraceSearchController({ connectionId, onSearchStart, onE
     const perfStarted = performance.now()
     let firstUsefulResult = false
     onSearchStart?.()
+    useStore.getState().startQuery(tabId)
     setSearching(true)
     setSearchRows([])
     setSearchProgress(null)
@@ -108,17 +125,20 @@ export function useTempoTraceSearchController({ connectionId, onSearchStart, onE
       setSearchRows(result.rows)
       setSearchNotice(result.notice ?? '')
       setSearchProgress(null)
+      useStore.getState().completeQuery(result, null, tabId)
       tempoPerf('search.final-renderer', { requestId: result.execution?.requestId, elapsedMs: performance.now() - perfStarted, rowCount: result.rows.length, sampleSize })
     } catch (reason) {
       setSearchNotice(sampled
         ? 'Sample search stopped before Tempo returned its bounded result set.'
         : 'Search stopped before the selected period was fully covered; partial results found so far are shown.')
       setSearchProgress(null)
-      onError(reason instanceof Error ? reason.message : String(reason))
+      const message = reason instanceof Error ? reason.message : String(reason)
+      useStore.getState().completeQuery(null, message, tabId)
+      onError(message)
     } finally {
       setSearching(false)
     }
-  }, [connectionId, onError, onSearchStart])
+  }, [connectionId, onError, onSearchStart, tabId])
 
   return { searchRows, searchNotice, searchProgress, searching, runSearch, resetSearch, updateSearchRowStatus }
 }

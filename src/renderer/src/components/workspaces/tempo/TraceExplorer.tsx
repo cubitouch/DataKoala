@@ -77,6 +77,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const setSql = useStore((state) => state.setSql)
   const setQueryMode = useStore((state) => state.setQueryMode)
   const setTempoState = useStore((state) => state.setTempoState)
+  const clearActiveResults = useStore((state) => state.clearActiveResults)
   const [traceId, setTraceId] = useState('')
   const [selectedSpanId, setSelectedSpanId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -149,7 +150,6 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   }
 
   useEffect(() => {
-    resetSearch()
     resetTrace()
     setTraceId('')
     setSelectedSpanId('')
@@ -343,6 +343,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const clearTempoResults = () => {
     cohortAnalysis.reset()
     resetSearch()
+    clearActiveResults()
     resetTrace()
     setTraceId('')
     setSelectedSpanId('')

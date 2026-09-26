@@ -278,6 +278,24 @@ describe('LokiExplorer execution', () => {
     await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
   })
 
+  it('restores a completed Loki result and selected view after the workspace remounts', () => {
+    const tab = createQuerySession(1, { id: 'restored-result', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
+    tab.result = patternLogs()
+    tab.resultRevision = 1
+    tab.lokiResultView = 'table'
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+
+    const first = render(<LokiExplorer connectionId="loki" />)
+    expect(screen.getByRole('button', { name: 'Table' }).getAttribute('aria-pressed')).toBe('true')
+    expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
+    first.unmount()
+
+    render(<LokiExplorer connectionId="loki" />)
+    expect(screen.getByRole('button', { name: 'Table' }).getAttribute('aria-pressed')).toBe('true')
+    expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
+    expect(mocks.runLoki).not.toHaveBeenCalled()
+  })
+
   it('does not deliver a deferred tab A query into tab B', async () => {
     let resolveQuery!: (value: typeof metric) => void
     const deferred = new Promise<typeof metric>((resolve) => { resolveQuery = resolve })
