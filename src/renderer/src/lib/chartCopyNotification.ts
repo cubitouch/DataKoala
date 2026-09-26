@@ -1,4 +1,4 @@
-import { notify } from '@components/NotificationArea'
+import { notify } from '@components/ui/feedback/NotificationArea'
 
 export function notifyChartCopyResult(ok: boolean): void {
   notify(ok
