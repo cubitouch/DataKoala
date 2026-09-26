@@ -1,4 +1,4 @@
-import { TextInput } from './ui/TextInput'
+import { TextInput } from '@components/ui/TextInput'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DataSourceProfile, DatabaseColumnNode, DatabaseRelationNode } from '@shared/types'
 import { api } from '@lib/api'
@@ -14,8 +14,8 @@ import { ConnectionModal } from '@components/connections/ConnectionModal'
 import { connectionKindLabel } from '@lib/connectionKind'
 import { DeleteConnectionDialog } from '@components/connections/DeleteConnectionDialog'
 import { LokiSidebarTree } from './LokiSidebarTree'
-import { SqlMetadataTree } from './metadata/sql/SqlMetadataTree'
-import { PrometheusMetadataTree } from './metadata/prometheus/PrometheusMetadataTree'
+import { SqlMetadataTree } from '@components/metadata/sql/SqlMetadataTree'
+import { PrometheusMetadataTree } from '@components/metadata/prometheus/PrometheusMetadataTree'
 import styles from './Sidebar.module.css'
 
 const cx = (...classes: Array<string | false | undefined>) => classes.filter(Boolean).join(' ')

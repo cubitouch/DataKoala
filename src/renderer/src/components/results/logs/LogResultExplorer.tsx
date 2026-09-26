@@ -2,7 +2,7 @@ import { TextInput } from '@components/ui/TextInput'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { LokiLogRow } from '@shared/loki'
-import styles from '@components/LokiExplorer.module.css'
+import styles from './LogResultExplorer.module.css'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
 
 const shortTimestamp = (timestampMs: number) => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false, timeZone: 'UTC' }).format(timestampMs)

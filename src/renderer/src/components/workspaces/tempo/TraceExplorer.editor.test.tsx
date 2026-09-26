@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const { notify } = vi.hoisted(() => ({ notify: vi.fn() }))
 const copyTextToClipboard = vi.hoisted(() => vi.fn())
 vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
-vi.mock('./NotificationArea', () => ({ notify }))
+vi.mock('@components/ui/feedback/NotificationArea', () => ({ notify }))
 vi.mock('@lib/api', () => ({ api: { tempoPerformanceEnabled: false, connections: { tempo: { attributes: vi.fn().mockResolvedValue([]), attributeValues: vi.fn().mockResolvedValue([]) } }, query: { run: vi.fn() } } }))
 vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: {} }))
 vi.mock('@uiw/react-codemirror', () => ({

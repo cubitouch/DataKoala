@@ -1,10 +1,10 @@
-import { TextInput } from './ui/TextInput'
+import { TextInput } from '@components/ui/TextInput'
 import { useEffect, useRef, useState } from 'react'
 import { lokiLabelValues } from '@lib/lokiMetadata'
 import { matchesSearch } from '@lib/matchesSearch'
 import { useLokiLabelsResource } from '@lib/useLokiLabelsResource'
 import { selectActiveSession, useStore } from '@store/useStore'
-import { LokiMetadataTree, visibleLokiMetadata, type LokiValueStatus } from './metadata/loki/LokiMetadataTree'
+import { LokiMetadataTree, visibleLokiMetadata, type LokiValueStatus } from '@components/metadata/loki/LokiMetadataTree'
 import styles from './Sidebar.module.css'
 
 export function LokiSidebarTree({ connectionId }: { connectionId: string }) {

@@ -1,5 +1,5 @@
 import { copyTextToClipboard } from '@lib/clipboardText'
-import { notify } from '@components/NotificationArea'
+import { notify } from '@components/ui/feedback/NotificationArea'
 
 interface CopySqlButtonProps {
   sql: string

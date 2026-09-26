@@ -20,7 +20,7 @@ import { effectivePrometheusStep, isPrometheusStepSafe, PROMETHEUS_MANUAL_STEPS 
 import { PromqlBuilderPanel } from '@components/builder/prometheus/PromqlBuilderPanel'
 import { detectPromqlHistogramKind, resolvePromqlHistogramKind, validatePromqlBuilder } from '@lib/promqlBuilder'
 import { Combobox } from '@components/ui/combobox'
-import { notify } from '@components/NotificationArea'
+import { notify } from '@components/ui/feedback/NotificationArea'
 import styles from './QueryEditor.module.css'
 import { QueryToolbar } from './QueryToolbar'
 import { QueryCodeEditor, type QueryCodeEditorHandle } from './QueryCodeEditor'

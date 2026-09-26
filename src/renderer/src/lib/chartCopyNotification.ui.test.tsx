@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
-import { NotificationArea } from '@components/NotificationArea'
+import { NotificationArea } from '@components/ui/feedback/NotificationArea'
 import { notifyChartCopyResult } from './chartCopyNotification'
 import { resetTestStore } from '@test/sessionTestUtils'
 
