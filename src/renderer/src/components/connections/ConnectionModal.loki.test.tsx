@@ -4,7 +4,7 @@ import type { LokiProfile } from '@shared/types'
 
 const mocks = vi.hoisted(() => ({ discover: vi.fn(), test: vi.fn(), upsert: vi.fn() }))
 vi.mock('@lib/api', () => ({ api: { connections: { loki: { discover: mocks.discover }, test: mocks.test, upsert: mocks.upsert } } }))
-import { LokiConnectionModal } from './ConnectionModal'
+import { LokiConnectionModal } from './LokiConnectionModal'
 
 const alpha = { uid: 'loki-alpha', name: 'Production logs', type: 'loki' }
 const beta = { uid: 'loki-beta', name: 'Audit logs', type: 'loki' }

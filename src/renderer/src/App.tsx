@@ -8,7 +8,7 @@ import { ResultExplorer } from './components/results/ResultExplorer'
 import { TraceExplorer } from './components/TraceExplorer'
 import { LokiExplorer } from './components/LokiExplorer'
 import { QueryTabs } from '@components/query/QueryTabs'
-import { ConnectionStatus } from './components/ConnectionStatus'
+import { ConnectionStatus } from '@components/connections/ConnectionStatus'
 import {
   EDITOR_MIN, SIDEBAR_MIN, TITLEBAR_HEIGHT,
   clampDimension, editorBounds, keyboardDimension, parseStoredDimension, sidebarBounds

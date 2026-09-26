@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ discover: vi.fn(), test: vi.fn(), upsert: vi.fn() }))
 vi.mock('@lib/api', () => ({ api: { connections: { tempo: { discoverDatasources: mocks.discover }, test: mocks.test, upsert: mocks.upsert } } }))
-import { TempoConnectionModal } from './ConnectionModal'
+import { TempoConnectionModal } from './TempoConnectionModal'
 
 const props = { existing: null, onClose: vi.fn(), onSaved: vi.fn() }
 beforeEach(() => { mocks.discover.mockReset(); mocks.test.mockReset().mockResolvedValue({ ok: true }); mocks.upsert.mockReset().mockImplementation(async (profile) => profile) })

@@ -1,0 +1,22 @@
+import { useState } from 'react'
+import type { LocalFilesProfile } from '@shared/types'
+import { api } from '@lib/api'
+import { TextInput } from '@components/ui/TextInput'
+import { ConnectionFormHeader } from './ConnectionFormHeader'
+import type { ConnectionFormProps } from './connectionFormTypes'
+import { failureMessage } from './connectionFormTypes'
+import styles from './ConnectionModal.module.css'
+
+const defaultFileAlias = (path: string) => (path.split(/[\\/]/).pop() ?? 'data').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_]+/g, '_').replace(/^\d/, '_$&') || 'data'
+
+export function LocalFilesConnectionModal({ existing, onClose, onSaved, onBack }: ConnectionFormProps & { existing: LocalFilesProfile | null }) {
+  const [name, setName] = useState(existing?.name ?? 'Local files')
+  const [files, setFiles] = useState(existing?.files ?? [])
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const profile = (): LocalFilesProfile => ({ kind: 'local-files', version: 1, id: existing?.id ?? '', name: name.trim(), files, readonly: true })
+  const choose = async () => { try { const paths = await api.connections.chooseFiles(); setFiles((current) => { const known = new Set(current.map((file) => file.path)); const aliases = new Set(current.map((file) => file.alias.toLocaleLowerCase())); const additions = paths.filter((path: string) => !known.has(path)).map((path: string) => { const base = defaultFileAlias(path); let alias = base; let suffix = 2; while (aliases.has(alias.toLocaleLowerCase())) alias = `${base}_${suffix++}`; aliases.add(alias.toLocaleLowerCase()); return { path, alias } }); return [...current, ...additions] }); setMessage(null) } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } }
+  const test = async () => { if (!name.trim() || !files.length) return setMessage({ ok: false, text: 'Enter a name and choose at least one file.' }); setBusy(true); try { const result = await api.connections.test(profile()); setMessage(result.ok ? { ok: true, text: 'Files loaded successfully with DuckDB.' } : { ok: false, text: result.error }) } catch (error) { setMessage({ ok: false, text: failureMessage(error) }) } finally { setBusy(false) } }
+  const save = async () => { if (!name.trim() || !files.length) return setMessage({ ok: false, text: 'Enter a name and choose at least one file.' }); setBusy(true); try { onSaved(await api.connections.upsert(profile())); onClose() } catch (error) { setMessage({ ok: false, text: error instanceof Error ? error.message : String(error) }) } finally { setBusy(false) } }
+  return <div className={[styles.modalOverlay].join(' ')} onClick={onClose}><div className={[styles.modal].join(' ')} role="dialog" aria-modal="true" aria-labelledby="local-files-connection-title" onClick={(event) => event.stopPropagation()}><ConnectionFormHeader kind="local-files" editing={!!existing} onBack={onBack} /><div className={[styles.field].join(' ')}><TextInput label="Connection name" id="local-profile-name" value={name} onValueChange={setName} /></div><div className={[styles.field].join(' ')}><label>Data files</label><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void choose()}>Choose files…</button><div className={[styles.pasteHint].join(' ')}>CSV, TSV, Parquet, JSON, JSONL, and NDJSON. Each file is exposed as a read-only SQL view.</div></div>{files.map((file, index) => <div className={[styles.row, styles.fileConnectionRow].join(' ')} key={file.path}><div className={[styles.field].join(' ')}><TextInput label={`Table alias for ${file.path}`} value={file.alias} onValueChange={(text) => setFiles((current) => current.map((item, i) => i === index ? { ...item, alias: text } : item))} /></div><button type="button" className={['btn', 'ghost'].join(' ')} aria-label={`Remove ${file.path}`} onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}>Remove</button></div>)}{message && <div className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(' ')} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}<div className={[styles.actions].join(' ')}><button type="button" className={['btn', 'ghost'].join(' ')} onClick={() => void test()} disabled={busy}>Test</button><button type="button" className={['btn', 'ghost'].join(' ')} onClick={onClose}>Cancel</button><button type="button" className={['btn', 'primary'].join(' ')} onClick={() => void save()} disabled={busy}>{busy ? 'Working…' : 'Save'}</button></div></div></div>
+}
