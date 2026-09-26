@@ -1,5 +1,5 @@
 import type { QueryLanguage } from '@shared/types'
-import type { BuilderQueryState, QueryMode, QuerySession } from '@store/useStore'
+import type { BuilderQueryState, QueryMode } from '@store/useStore'
 import type { BuilderTimeRange } from '@lib/builderTimeRange'
 import type { VisualizationConfiguration } from '@lib/resultVisualization'
 
@@ -65,4 +65,3 @@ export function parseVisualization(value: unknown): VisualizationConfiguration |
   return clone(value) as unknown as VisualizationConfiguration
 }
 
-export type SessionPatch = Partial<QuerySession>
