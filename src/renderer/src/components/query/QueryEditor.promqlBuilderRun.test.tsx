@@ -25,7 +25,7 @@ vi.mock('@codemirror/lang-sql', () => {
 vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: {} }))
 vi.mock('@prometheus-io/codemirror-promql', () => ({ PromQLExtension: class { asExtension() { return promqlAsExtension() } } }))
 vi.mock('./ModeSwitch', () => ({ ModeSwitch: () => <div aria-label="Query mode" /> }))
-vi.mock('./NotificationArea', () => ({ notify: vi.fn() }))
+vi.mock('@components/NotificationArea', () => ({ notify: vi.fn() }))
 
 import { QueryEditor } from './QueryEditor'
 import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'

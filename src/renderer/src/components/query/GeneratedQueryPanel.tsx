@@ -5,7 +5,7 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import { PromQLExtension } from '@prometheus-io/codemirror-promql'
 import { traceql as traceqlSupport } from '@lib/traceqlLanguage'
 import { logql } from '@lib/logqlLanguage'
-import { CopySqlButton } from '@components/CopySqlButton'
+import { CopySqlButton } from './CopySqlButton'
 import { CollapsibleSection } from '@components/ui/CollapsibleSection'
 import styles from './GeneratedQueryPanel.module.css'
 
