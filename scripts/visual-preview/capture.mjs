@@ -1076,6 +1076,9 @@ app.whenReady().then(async () => {
     await capture(win, 'prometheus-builder-narrow.png')
     win.setSize(1440, 900)
     await configureMode(win, 'sql')
+    // The Prometheus preview intentionally replaces the active result. Restore the
+    // canonical SQL fixture before the remaining SQL layout regression captures.
+    await seedPreviewData(win)
 
     await dragDivider(win, '.sidebar-resizer', 170, 0)
     await dragDivider(win, '.editor-resizer', 0, 90)
