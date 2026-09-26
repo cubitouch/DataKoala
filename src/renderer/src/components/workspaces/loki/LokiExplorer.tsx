@@ -73,7 +73,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     (connectionId === activeProfileId && connected)
   const labelResource = useLokiLabelsResource(connectionId, connectionGeneration, session.id, range, canLoadMetadata, metadataRevision)
   const labels = [...new Set([...labelResource.labels, ...builder.labelMatchers.map(({ label }) => label).filter((label) => !label.startsWith('__')), ...groupBy])].sort()
-  const [result, setResult] = useState<LokiQueryResult | null>(null)
+  const result = session.result as LokiQueryResult | null
   const [trend, setTrend] = useState<LokiQueryResult | null>(null)
   const [trendError, setTrendError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -81,7 +81,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const [loading, setLoading] = useState(false)
   const [patternScope, setPatternScope] = useState<{ template: string; memberIds: Set<string> } | null>(null)
   const [trendVisualization, setTrendVisualization] = useState<VisualizationConfiguration>({ view: 'line', xColumn: 'timestamp', valueColumn: 'value', aggregation: 'sum', seriesColumn: null, seriesColumns: [], hierarchyDimensions: [], valueAxisScale: 'linear', anomalyDetectionEnabled: false })
-  const revision = useRef(0), trendRevision = useRef(0), hasRun = useRef(false), mounted = useRef(true)
+  const revision = useRef(0), trendRevision = useRef(0), hasRun = useRef(Boolean(session.result)), mounted = useRef(true)
   const trendCacheKey = useRef<string | null>(null)
   const rangeKey = JSON.stringify(range), previousRangeKey = useRef(rangeKey)
   const fallbackMatcher = labelResource.status === 'loaded' && labelResource.labels.includes('service_name')
@@ -97,10 +97,10 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     ? (generation.error?.includes('safe fallback selector') ? unfilteredUnavailable : generation.error)
     : null
   const isCurrentTab = (tabId: string) => mounted.current && useStore.getState().activeTabId === tabId
-  const clearResults = () => { revision.current++; trendRevision.current++; hasRun.current = false; trendCacheKey.current = null; setResult(null); setTrend(null); setError(null); setWarning(null); setTrendError(null); setLoading(false); clearActiveResults() }
+  const clearResults = () => { revision.current++; trendRevision.current++; hasRun.current = false; trendCacheKey.current = null; setTrend(null); setError(null); setWarning(null); setTrendError(null); setLoading(false); clearActiveResults() }
   const resetQuery = () => { clearResults(); setSql(''); setLokiState({ lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }, lokiTimeRange: defaultRange, lokiResultLimit: 1000, lokiGroupBy: [], lokiRangeHistory: [], lokiResultView: 'list' }) }
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; revision.current++; trendRevision.current++ } }, [])
-  useLayoutEffect(() => { revision.current++; trendRevision.current++; hasRun.current = false; previousRangeKey.current = rangeKey; setResult(null); setTrend(null); setTrendError(null); setError(null); setWarning(null); setLoading(false) }, [session.id])
+  useLayoutEffect(() => { revision.current++; trendRevision.current++; hasRun.current = Boolean(session.result); previousRangeKey.current = rangeKey; setTrend(null); setTrendError(null); setError(null); setWarning(null); setLoading(false) }, [session.id])
   useEffect(() => {
     if (!isLokiChartView(resultView)) return
     setTrendVisualization((current) => ({ ...current, view: resultView, xColumn: 'timestamp', valueColumn: 'value', aggregation: 'sum', seriesColumn: groupBy.length === 1 ? groupBy[0] : null, seriesColumns: groupBy.length > 1 ? groupBy : [], hierarchyDimensions: groupBy }))
@@ -144,7 +144,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
       const main = await api.query.runLoki(connectionId, { expression, ...bounds, step, limit })
       await chartRequest
       if (current !== revision.current || !isCurrentTab(tabId)) return
-      setResult(main); useStore.getState().completeQuery(main, null, tabId)
+      useStore.getState().completeQuery(main, null, tabId)
     } catch (caught) { if (current === revision.current && isCurrentTab(tabId)) setError(caught instanceof Error ? caught.message : String(caught)) }
     finally { if (current === revision.current && isCurrentTab(tabId)) setLoading(false) }
   }
