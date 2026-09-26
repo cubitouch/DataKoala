@@ -11,5 +11,6 @@
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{mjs,ts}", "*.config.ts", "docs-site/**/*.ts"],
   "include": ["files", "exports", "types", "dependencies", "unlisted", "binaries"],
+  "ignore": ["src/renderer/src/lib/explorationPresets/index.ts"],
   "ignoreExportsUsedInFile": true
 }

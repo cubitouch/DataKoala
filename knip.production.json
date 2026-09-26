@@ -14,5 +14,8 @@
   ],
   "include": [
     "files"
+  ],
+  "ignore": [
+    "src/renderer/src/lib/explorationPresets/**"
   ]
 }
