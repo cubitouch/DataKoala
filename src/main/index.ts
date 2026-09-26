@@ -591,6 +591,7 @@ function registerIpc(): void {
   })
   ipcMain.handle(IPC.CONNECTION_DISCONNECT, (_e, id: string, generation?: number) => db.disconnect(id, generation))
   ipcMain.handle('connections:list', () => connectionProfiles.list())
+  ipcMain.handle('connections:live', () => db.listLiveSessions())
   ipcMain.handle('connections:upsert', (_e, profile: DataSourceProfile) => connectionProfiles.upsert(profile))
   ipcMain.handle(IPC.CONNECTION_CHOOSE_FILES, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {

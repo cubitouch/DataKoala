@@ -16,8 +16,10 @@ export function refreshConnectionMetadata(profileId: string, store: StoreAccess)
   const joined = inFlight.get(profileId)
   if (joined) return joined
   const initial = store.getState()
-  if (!initial.connected || initial.activeProfileId !== profileId) return Promise.resolve()
-  const generation = initial.connectionGeneration
+  const connection = initial.connectionStateByProfileId[profileId]
+  const legacyActive = initial.activeProfileId === profileId && initial.connected
+  if (connection?.status !== 'connected' && connection?.status !== 'idle' && !legacyActive) return Promise.resolve()
+  const generation = connection?.generation ?? initial.connectionGeneration
   store.setState((state) => {
     const old = state.metadataByProfileId[profileId]
     return old ? { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: { ...old, refreshing: true, refreshError: null } } } : {}
@@ -27,7 +29,9 @@ export function refreshConnectionMetadata(profileId: string, store: StoreAccess)
       await api.connections.refreshMetadata(profileId)
       const schemas = await loadConnectionMetadata(profileId)
       const current = store.getState()
-      if (current.activeProfileId !== profileId || current.connectionGeneration !== generation || !current.connected) return
+      const currentConnection = current.connectionStateByProfileId[profileId]
+      if (currentConnection && (currentConnection.generation !== generation || (currentConnection.status !== 'connected' && currentConnection.status !== 'idle'))) return
+      if (!currentConnection && (current.activeProfileId !== profileId || current.connectionGeneration !== generation || !current.connected)) return
       store.setState((state) => {
         const old = state.metadataByProfileId[profileId]
         if (!old) return {}
@@ -42,7 +46,8 @@ export function refreshConnectionMetadata(profileId: string, store: StoreAccess)
       const message = error instanceof Error ? error.message : String(error)
       store.setState((state) => {
         const old = state.metadataByProfileId[profileId]
-        if (!old || state.activeProfileId !== profileId || state.connectionGeneration !== generation) return {}
+        const latest = state.connectionStateByProfileId[profileId]
+        if (!old || (latest ? latest.generation !== generation : state.activeProfileId !== profileId || state.connectionGeneration !== generation)) return {}
         return { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: { ...old, refreshing: false, refreshError: message } } }
       })
     } finally { inFlight.delete(profileId) }

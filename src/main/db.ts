@@ -32,22 +32,26 @@ export const adapterRegistry = new AdapterRegistry()
 
 export class SessionManager {
   private readonly registry: AdapterRegistry
-  private readonly sessions = new Map<ConnectionId, { session: DataSourceSession; generation: number }>()
+  private readonly sessions = new Map<ConnectionId, { session: DataSourceSession; result: Extract<ConnectResult, { ok: true }> }>()
   private readonly pendingConnections = new Map<number, {
     profileId: ConnectionId
     adapter: ReturnType<AdapterRegistry['get']>
   }>()
   private connectionIntent = 0
+  private readonly connectionIntents = new Map<ConnectionId, number>()
 
   constructor(registry: AdapterRegistry) { this.registry = registry }
 
   async connect(profile: DataSourceProfile): Promise<ConnectResult> {
+    const existing = this.sessions.get(profile.id)
+    if (existing) return existing.result
     const intent = ++this.connectionIntent
+    this.connectionIntents.set(profile.id, intent)
     const adapter = this.registry.get(profile.kind)
     const pending = { profileId: profile.id, adapter }
     this.pendingConnections.set(intent, pending)
-    await Promise.all([this.closeSessions(), this.cancelPendingConnections(intent)])
-    if (intent !== this.connectionIntent) {
+    await this.cancelPendingConnections(profile.id, intent)
+    if (this.connectionIntents.get(profile.id) !== intent) {
       this.pendingConnections.delete(intent)
       return supersededResult()
     }
@@ -55,13 +59,13 @@ export class SessionManager {
     let result: ConnectResult = supersededResult()
     try {
       const connected = await adapter.connect(profile)
-      if (intent !== this.connectionIntent) {
+      if (this.connectionIntents.get(profile.id) !== intent) {
         if (connected.session) await connected.session.close()
         return result
       }
       result = connected.result
       if (connected.result.ok && connected.session) {
-        this.sessions.set(profile.id, { session: connected.session, generation: connected.result.generation })
+        this.sessions.set(profile.id, { session: connected.session, result: connected.result })
       }
       return result
     } finally {
@@ -74,17 +78,17 @@ export class SessionManager {
       const pending = [...this.pendingConnections.entries()]
         .filter(([, connection]) => connection.profileId === id)
       for (const [intent] of pending) this.pendingConnections.delete(intent)
-      if (pending.some(([intent]) => intent === this.connectionIntent)) this.connectionIntent++
+      if (pending.some(([intent]) => intent === this.connectionIntents.get(id))) this.connectionIntents.delete(id)
       await Promise.allSettled(pending.map(([, connection]) => connection.adapter.cancelConnect?.(id)))
     }
     const current = this.sessions.get(id)
-    if (!current || (generation !== undefined && current.generation !== generation)) return
+    if (!current || (generation !== undefined && current.result.generation !== generation)) return
     this.sessions.delete(id)
     await current.session.close()
   }
 
   async disconnectAll(): Promise<void> {
-    this.connectionIntent++
+    this.connectionIntents.clear()
     await Promise.all([this.closeSessions(), this.cancelPendingConnections()])
     await Promise.allSettled(this.registry.values().map((adapter) => adapter.shutdown?.()))
   }
@@ -93,15 +97,19 @@ export class SessionManager {
     return this.sessions.get(id)?.session
   }
 
+  listLive(): Array<{ id: ConnectionId; generation: number; serverVersion?: string }> {
+    return [...this.sessions.entries()].map(([id, { result }]) => ({ id, generation: result.generation, serverVersion: result.serverVersion }))
+  }
+
   private async closeSessions(): Promise<void> {
     const active = [...this.sessions.values()]
     this.sessions.clear()
     await Promise.allSettled(active.map(({ session }) => session.close()))
   }
 
-  private async cancelPendingConnections(exceptIntent?: number): Promise<void> {
+  private async cancelPendingConnections(profileId?: ConnectionId, exceptIntent?: number): Promise<void> {
     const pending = [...this.pendingConnections.entries()]
-      .filter(([intent]) => intent !== exceptIntent)
+      .filter(([intent, connection]) => intent !== exceptIntent && (profileId === undefined || connection.profileId === profileId))
     for (const [intent] of pending) this.pendingConnections.delete(intent)
     await Promise.allSettled(pending.map(([, connection]) =>
       connection.adapter.cancelConnect?.(connection.profileId)))
@@ -130,6 +138,10 @@ export async function disconnect(id: ConnectionId, generation?: number): Promise
 
 export async function disconnectAll(): Promise<void> {
   await sessionManager.disconnectAll()
+}
+
+export function listLiveSessions(): Array<{ id: ConnectionId; generation: number; serverVersion?: string }> {
+  return sessionManager.listLive()
 }
 
 function supersededResult(): ConnectResult {

@@ -15,6 +15,12 @@ import { DEFAULT_LOKI_BUILDER, type LokiBuilderState } from '@shared/loki'
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'idle' | 'reconnecting' | 'error'
 export type MetadataStatus = 'idle' | 'loading' | 'loaded' | 'error'
+export interface ProfileConnectionState {
+  status: ConnectionStatus
+  generation: number
+  error: string | null
+  serverVersion: string | null
+}
 
 export type ChartType = 'bar' | 'line' | 'scatter' | 'area' | 'treemap' | 'sunburst'
 export type QueryMode = 'sql' | 'builder'
@@ -156,6 +162,7 @@ export interface AppState {
   disconnectedAt: number | null
   reconnectAttemptId: number
   activeReconnectAttempt: { id: number; profileId: string } | null
+  connectionStateByProfileId: Record<string, ProfileConnectionState>
   metadataByProfileId: Record<string, ConnectionMetadataState>
 
   tabs: QuerySession[]
@@ -217,6 +224,10 @@ export function selectActiveMetadata(state: Pick<AppState, 'metadataByProfileId'
   return state.activeProfileId ? state.metadataByProfileId[state.activeProfileId] ?? EMPTY_METADATA : EMPTY_METADATA
 }
 
+export function selectProfileConnection(state: Pick<AppState, 'connectionStateByProfileId'>, profileId: string | null | undefined): ProfileConnectionState | undefined {
+  return profileId ? state.connectionStateByProfileId[profileId] : undefined
+}
+
 function patchSession(state: AppState, id: string | undefined, update: (session: QuerySession) => QuerySession): Partial<AppState> {
   const target = id ?? state.activeTabId
   if (!state.tabs.some((tab) => tab.id === target)) return {}
@@ -231,6 +242,7 @@ function nextQueryTitle(tabs: QuerySession[]): string {
 }
 
 let connectionIntent = 0
+const connectionIntents = new Map<string, number>()
 
 const initialSession = createQuerySession(1)
 
@@ -246,6 +258,7 @@ export const useStore = create<AppState>((set, get) => ({
   disconnectedAt: null,
   reconnectAttemptId: 0,
   activeReconnectAttempt: null,
+  connectionStateByProfileId: {},
   metadataByProfileId: {},
 
   tabs: [initialSession],
@@ -272,6 +285,7 @@ export const useStore = create<AppState>((set, get) => ({
   }),
   detachProfile: (id) => set((state) => ({
     tabs: state.tabs.map((tab) => tab.connectionProfileId === id ? { ...tab, connectionProfileId: null } : tab),
+    connectionStateByProfileId: Object.fromEntries(Object.entries(state.connectionStateByProfileId).filter(([profileId]) => profileId !== id)),
     ...(state.activeProfileId === id ? {
       activeProfileId: null, connected: false, connecting: false, connectionStatus: 'disconnected' as const,
       connectionError: null, serverVersion: null
@@ -286,19 +300,34 @@ export const useStore = create<AppState>((set, get) => ({
   setConnecting: (value) => set((state) => ({ connecting: value, connectionStatus: value ? 'connecting' : state.connectionStatus })),
   setConnectionGeneration: (connectionGeneration) => set({ connectionGeneration }),
   applyConnectionEvent: (event) => set((state) => {
-    if (event.profileId !== state.activeProfileId || event.generation < state.connectionGeneration) return {}
+    const previousConnection = state.connectionStateByProfileId[event.profileId]
+    if (previousConnection && event.generation < previousConnection.generation) return {}
     const metadata = state.metadataByProfileId[event.profileId] ?? emptyMetadata()
+    const status: ConnectionStatus = event.state === 'failed' ? 'error' : event.state === 'disconnecting' ? 'disconnected' : event.state
+    const nextConnection: ProfileConnectionState = {
+      status, generation: event.generation,
+      error: event.state === 'failed' && !event.expected ? event.message : null,
+      serverVersion: previousConnection?.serverVersion ?? null
+    }
+    const scoped = { connectionStateByProfileId: { ...state.connectionStateByProfileId, [event.profileId]: nextConnection } }
+    if (event.profileId !== state.activeProfileId) return event.state === 'failed' || event.state === 'disconnected'
+      ? { ...scoped, metadataByProfileId: { ...state.metadataByProfileId, [event.profileId]: { ...metadata, isStale: true } } }
+      : scoped
     if (event.state === 'idle') return {
+      ...scoped,
       connectionGeneration: event.generation, connected: true, connecting: false, connectionStatus: 'idle', connectionError: null
     }
     if (event.state === 'reconnecting') return {
+      ...scoped,
       connectionGeneration: event.generation, connected: false, connecting: true, connectionStatus: 'reconnecting', connectionError: null
     }
     if (event.state === 'connected') return {
+      ...scoped,
       connectionGeneration: event.generation, connected: true, connecting: false, connectionStatus: 'connected', connectionError: null
     }
     if (event.state !== 'failed' && event.state !== 'disconnected') return { connectionGeneration: event.generation }
     return {
+      ...scoped,
       connectionGeneration: event.generation,
       connected: false,
       connecting: false,
@@ -317,12 +346,7 @@ export const useStore = create<AppState>((set, get) => ({
   }),
   connectProfile: async (profile) => {
     const intent = ++connectionIntent
-    const previous = get().activeProfileId
-    const previousGeneration = get().connectionGeneration
-    if (previous && previous !== profile.id) {
-      await api.connections.disconnect(previous, previousGeneration).catch(() => undefined)
-      if (intent !== connectionIntent) return
-    }
+    connectionIntents.set(profile.id, intent)
     set((state) => ({
       ...patchSession(state, state.activeTabId, (session) => ({ ...session, connectionProfileId: profile.id })),
       activeProfileId: profile.id,
@@ -331,27 +355,27 @@ export const useStore = create<AppState>((set, get) => ({
       connectionStatus: 'connecting',
       connectionError: null,
       serverVersion: null
+      , connectionStateByProfileId: { ...state.connectionStateByProfileId, [profile.id]: { status: 'connecting', generation: state.connectionStateByProfileId[profile.id]?.generation ?? 0, error: null, serverVersion: null } }
     }))
     try {
       const result = await api.connections.connect(profile)
-      if (intent !== connectionIntent || get().activeProfileId !== profile.id) {
+      if (connectionIntents.get(profile.id) !== intent) {
         if (result.ok) await api.connections.disconnect(result.id ?? profile.id, result.generation).catch(() => undefined)
         return
       }
       const actualId = result.id ?? profile.id
       if (!result.ok) {
-        set({ connected: false, connecting: false, connectionStatus: 'error', connectionError: result.error, serverVersion: null })
+        set((state) => ({ ...(selectActiveSession(state).connectionProfileId === profile.id ? { connected: false, connecting: false, connectionStatus: 'error' as const, connectionError: result.error, serverVersion: null } : {}),
+          connectionStateByProfileId: { ...state.connectionStateByProfileId, [profile.id]: { status: 'error', generation: state.connectionStateByProfileId[profile.id]?.generation ?? 0, error: result.error, serverVersion: null } } }))
         return
       }
       set((state) => ({
-        tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? { ...tab, connectionProfileId: actualId } : tab),
-        activeProfileId: actualId,
-        connected: true,
-        connecting: false,
-        connectionStatus: 'connected',
-        connectionGeneration: result.generation,
-        serverVersion: result.serverVersion,
-        connectionError: null,
+        ...(selectActiveSession(state).connectionProfileId === profile.id ? {
+          tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? { ...tab, connectionProfileId: actualId } : tab),
+          activeProfileId: actualId, connected: true, connecting: false, connectionStatus: 'connected' as const,
+          connectionGeneration: result.generation, serverVersion: result.serverVersion, connectionError: null
+        } : {}),
+        connectionStateByProfileId: { ...state.connectionStateByProfileId, [actualId]: { status: 'connected', generation: result.generation, error: null, serverVersion: result.serverVersion ?? null } },
         metadataByProfileId: {
           ...state.metadataByProfileId,
           [actualId]: { ...(state.metadataByProfileId[actualId] ?? emptyMetadata()), status: 'loading', error: null, refreshing: false, refreshError: null }
@@ -360,18 +384,19 @@ export const useStore = create<AppState>((set, get) => ({
       if (actualId !== profile.id) set({ profiles: await api.connections.list() })
       try {
         const schemas = await loadConnectionMetadata(actualId)
-        if (intent !== connectionIntent) return
+        if (connectionIntents.get(profile.id) !== intent) return
         get().setMetadata(schemas, 'loaded', null, actualId)
       } catch (error) {
-        if (intent !== connectionIntent) return
+        if (connectionIntents.get(profile.id) !== intent) return
         get().setMetadata([], 'error', error instanceof Error ? error.message : String(error), actualId)
       }
     } catch (error) {
-      if (intent !== connectionIntent || get().activeProfileId !== profile.id) return
-      set({
-        connected: false, connecting: false, connectionStatus: 'error', serverVersion: null,
-        connectionError: error instanceof Error ? error.message : String(error)
-      })
+      if (connectionIntents.get(profile.id) !== intent) return
+      const message = error instanceof Error ? error.message : String(error)
+      set((state) => ({
+        ...(selectActiveSession(state).connectionProfileId === profile.id ? { connected: false, connecting: false, connectionStatus: 'error' as const, serverVersion: null, connectionError: message } : {}),
+        connectionStateByProfileId: { ...state.connectionStateByProfileId, [profile.id]: { status: 'error', generation: state.connectionStateByProfileId[profile.id]?.generation ?? 0, error: message, serverVersion: null } }
+      }))
     }
   },
   reconnectActiveProfile: async () => {
@@ -430,25 +455,24 @@ export const useStore = create<AppState>((set, get) => ({
     const before = get()
     const target = selectSession(before, id)
     if (!target) return
-    const previousProfile = before.activeProfileId
     const targetProfile = target.connectionProfileId
-    const sameProfile = previousProfile === targetProfile && before.connected
+    const live = targetProfile ? before.connectionStateByProfileId[targetProfile] : undefined
+    const sameProfile = live?.status === 'connected' || live?.status === 'idle'
     set({
       activeTabId: id,
       activeProfileId: targetProfile,
-      ...(sameProfile ? {} : {
+      ...(sameProfile && live ? {
+        connected: true, connecting: false, connectionStatus: live.status,
+        connectionError: live.error, connectionGeneration: live.generation, serverVersion: live.serverVersion
+      } : {
         connected: false, connecting: false, connectionStatus: 'disconnected' as const,
         connectionError: null, serverVersion: null, activeReconnectAttempt: null
       })
     })
     if (sameProfile) return
-    const intent = ++connectionIntent
-    if (previousProfile) await api.connections.disconnect(previousProfile, before.connectionGeneration).catch(() => undefined)
-    if (intent !== connectionIntent || get().activeTabId !== id) return
     if (!targetProfile) return
     const profile = get().profiles.find((candidate) => candidate.id === targetProfile)
     if (!profile) return
-    // connectProfile owns its own intent token; the active-tab check above prevents a stale switch from invoking it.
     await get().connectProfile(profile)
   },
   closeTab: (id) => set((state) => {

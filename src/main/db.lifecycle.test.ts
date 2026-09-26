@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import test from 'node:test'
 import type { Pool, PoolClient } from 'pg'
-import { __testing, connect, disconnect, onConnectionStateChanged, runQuery, DatabaseConnectionError } from './db.ts'
+import { __testing, connect, disconnect, disconnectAll, onConnectionStateChanged, runQuery, DatabaseConnectionError } from './db.ts'
 import type { ConnectionProfile, ConnectionStateEvent } from '../shared/types.ts'
 
 const profile = (id: string): ConnectionProfile => ({ kind: 'postgres', version: 1, id, name: id, host: 'localhost', port: 5432,
@@ -51,6 +51,7 @@ class FakePool extends EventEmitter {
 }
 
 async function harness(pools: FakePool[]): Promise<ConnectionStateEvent[]> {
+  await disconnectAll()
   await __testing.reset()
   const events: ConnectionStateEvent[] = []
   onConnectionStateChanged((event) => events.push(event))
@@ -124,11 +125,12 @@ test('released-client lifecycle signals are not treated as active failures', asy
   await disconnect('a')
 })
 
-test('late generation-one client event cannot fail generation two', async () => {
+test('connecting an already-live profile reuses its generation', async () => {
   const oldClient = new FakeClient(); const newClient = new FakeClient()
   const events = await harness([new FakePool(oldClient), new FakePool(newClient)])
   await connect(profile('a')); const second = await connect(profile('a'))
-  oldClient.emit('error', new Error('late')); oldClient.emit('end')
+  assert.ok(second.ok)
+  assert.equal(second.generation, __testing.snapshot('a')?.generation)
   assert.equal(__testing.snapshot('a')?.generation, second.ok ? second.generation : -1)
   assert.equal(__testing.snapshot('a')?.state, 'connected')
   assert.equal(events.length, 0)
@@ -169,33 +171,32 @@ test('older validation success is superseded and cannot reclaim ownership', asyn
   await disconnect('a')
 })
 
-test('generation-scoped stale disconnect cannot remove the newer pool', async () => {
+test('generation-scoped disconnect removes the reused pool', async () => {
   const oldClient = new FakeClient(); const newClient = new FakeClient()
   await harness([new FakePool(oldClient), new FakePool(newClient)])
   const older = await connect(profile('a')); const newer = await connect(profile('a'))
   assert.ok(older.ok && newer.ok)
+  assert.equal(older.generation, newer.generation)
   await disconnect('a', older.generation)
-  assert.equal(__testing.snapshot('a')?.generation, newer.generation)
-  assert.equal(__testing.snapshot('a')?.state, 'connected')
-  await disconnect('a')
+  assert.equal(__testing.snapshot('a'), undefined)
 })
 
-test('late lifecycle signals from a replaced profile cannot affect the active profile', async () => {
+test('lifecycle signals remain scoped while different profiles coexist', async () => {
   const av = new FakeClient(); const bv = new FakeClient()
   const ap = new FakePool(av); const bp = new FakePool(bv)
   const events = await harness([ap, bp])
   await connect(profile('a'))
   await connect(profile('b'))
 
-  assert.equal(__testing.snapshot('a'), undefined)
+  assert.equal(__testing.snapshot('a')?.state, 'connected')
   assert.equal(__testing.snapshot('b')?.state, 'connected')
-  assert.ok(ap.ended >= 1)
+  assert.equal(ap.ended, 0)
 
   ap.emit('error', new Error('late idle socket loss'), av)
   av.emit('error', new Error('late client error'))
   av.emit('end')
 
   assert.equal(__testing.snapshot('b')?.state, 'connected')
-  assert.equal(events.length, 0)
+  assert.ok(events.every((event) => event.profileId === 'a'))
   await disconnect('b')
 })
