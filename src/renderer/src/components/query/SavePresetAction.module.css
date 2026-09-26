@@ -1,4 +1,0 @@
-.dialog{width:min(420px,calc(100vw - 32px));min-height:0}
-.form{display:flex;flex-direction:column;gap:18px;padding:22px}
-.title{margin:0;font-size:18px}
-.actions{display:flex;justify-content:flex-end;gap:8px}
