@@ -149,10 +149,6 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   }
 
   useEffect(() => {
-    if (mode === 'sql') setTempoState({ tempoBuilder: traceBuilderFromTraceql(traceql) }, tabId)
-  }, [mode, setTempoState, tabId, traceql])
-
-  useEffect(() => {
     resetSearch()
     resetTrace()
     setTraceId('')

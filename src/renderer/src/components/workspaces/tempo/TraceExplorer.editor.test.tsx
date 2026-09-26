@@ -29,7 +29,8 @@ import { api } from '@lib/api'
 describe('TraceExplorer TraceQL editor', () => {
   beforeEach(() => {
     resetTestStore()
-    patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'sql', sql: '{resource.service.name="checkout"}' })
+    const traceql = '{resource.service.name="checkout"}'
+    patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'sql', sql: traceql, tempoBuilder: traceBuilderFromTraceql(traceql) })
     useStore.setState({ profiles: [{ id: 'tempo-1', name: 'Tempo', kind: 'tempo', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test', datasourceUid: 'tempo-main' }, grafana: { baseUrl: 'https://grafana.example', datasourceType: 'tempo' } }] })
     notify.mockReset()
     vi.mocked(api.query.run).mockReset()
@@ -48,8 +49,10 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(document.querySelector('#traceql-query')).toBeNull()
     fireEvent.change(editor, { target: { value: '{duration>300ms}' } })
     await waitFor(() => expect(activeTestSession().sql).toBe('{duration>300ms}'))
+    expect(activeTestSession().tempoBuilder.service).toBe('checkout')
     fireEvent.click(screen.getByRole('button', { name: 'Format' }))
     await waitFor(() => expect(activeTestSession().sql).toBe('{ duration > 300ms }'))
+    expect(activeTestSession().tempoBuilder.service).toBe('checkout')
     expect(notify).toHaveBeenCalledWith(expect.objectContaining({ message: 'Formatted' }))
   })
 
@@ -71,7 +74,7 @@ describe('TraceExplorer TraceQL editor', () => {
   })
 
   it('executes and opens the Builder-generated TraceQL instead of stale manual SQL', async () => {
-    patchActiveTestSession({ queryMode: 'builder', sql: 'select now();' })
+    patchActiveTestSession({ queryMode: 'builder', sql: 'select now();', tempoBuilder: traceBuilderFromTraceql('') })
     vi.mocked(api.query.run).mockResolvedValue({
       columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' }],
       rows: [], rowCount: 0, durationMs: 1
@@ -95,7 +98,7 @@ describe('TraceExplorer TraceQL editor', () => {
   })
 
   it('stores automatically formatted TraceQL after Builder edits', async () => {
-    patchActiveTestSession({ queryMode: 'builder', sql: '{ }' })
+    patchActiveTestSession({ queryMode: 'builder', sql: '{ }', tempoBuilder: traceBuilderFromTraceql('{ }') })
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Add facet' }))
     const generated = '{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") && span:duration > 300ms }'
@@ -107,7 +110,7 @@ describe('TraceExplorer TraceQL editor', () => {
   })
 
   it('preserves incomplete selected facets while other facet values change', async () => {
-    patchActiveTestSession({ queryMode: 'builder', sql: '{ }' })
+    patchActiveTestSession({ queryMode: 'builder', sql: '{ }', tempoBuilder: traceBuilderFromTraceql('{ }') })
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Select A and B' }))
     expect(screen.getByTestId('selected-facets').textContent).toBe('resource.a:|span.b:')

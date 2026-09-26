@@ -151,7 +151,13 @@ async function seedTraceWorkspace(win) {
         title: 'Synthetic latency',
         connectionProfileId: profile.id,
         queryMode: 'builder',
-        sql: '{ resource.service.namespace = "example" && resource.service.name = "service-01" && duration > 300ms }'
+        sql: '{ resource.service.namespace = "example" && resource.service.name = "service-01" && duration > 300ms }',
+        tempoBuilder: {
+          serviceNamespace: 'example', service: 'service-01', spanKind: 'any', protocol: 'any',
+          httpMethod: '', endpoint: '', rpcSystem: '', rpcService: '', rpcMethod: '', messagingSystem: '',
+          messagingDestination: '', messagingOperation: '', dbSystem: '', dbOperation: '', spanName: '',
+          advancedFilters: [], status: 'any', minDurationMs: '300'
+        }
       } : tab)
     })
   })()`)
