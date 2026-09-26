@@ -77,7 +77,12 @@ export function Sidebar() {
   const deleteOrigin = useRef<HTMLButtonElement | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
-  const tabConnected = Boolean(activeTabConnectionId && connected && activeId === activeTabConnectionId)
+  const activeTabConnection = activeTabConnectionId ? connectionStateByProfileId[activeTabConnectionId] : undefined
+  const tabConnected = Boolean(activeTabConnectionId && (
+    activeTabConnection?.status === 'connected' ||
+    activeTabConnection?.status === 'idle' ||
+    (connected && activeId === activeTabConnectionId)
+  ))
 
   const loadProfiles = async () => {
     setProfiles(await api.connections.list())
