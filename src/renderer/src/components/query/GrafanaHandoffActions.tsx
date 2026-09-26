@@ -6,6 +6,7 @@ import type { DataSourceProfile } from '@shared/types'
 import { copyTextToClipboard } from '@lib/clipboardText'
 import { api } from '@lib/api'
 import { Popover, PopoverChevron, usePopover } from '@components/ui/Popover'
+import { notify } from '@components/ui/feedback/NotificationArea'
 import styles from './GrafanaHandoffActions.module.css'
 
 type ObservabilityProfile = Extract<DataSourceProfile, { kind: GrafanaSignal }>
@@ -94,8 +95,22 @@ export function GrafanaHandoffActions({ profile, query, range }: { profile?: Obs
 
 function GrafanaMenu({ url }: { url: string }) {
   const popover = usePopover()
+
+  const handleCopy = async () => {
+    popover?.close()
+    try {
+      await copyTextToClipboard(url)
+      notify({ message: 'Grafana link copied' })
+    } catch (error) {
+      notify({
+        message: error instanceof Error && error.message ? `Could not copy Grafana link: ${error.message}` : 'Could not copy Grafana link',
+        tone: 'error'
+      })
+    }
+  }
+
   return <div className={styles.menu}>
     <button type="button" role="menuitem" onClick={() => { popover?.close(); void api.external.openUrl(url) }}>Open in Grafana ↗</button>
-    <button type="button" role="menuitem" onClick={() => { popover?.close(); void copyTextToClipboard(url) }}>Copy Grafana link</button>
+    <button type="button" role="menuitem" onClick={handleCopy}>Copy Grafana link</button>
   </div>
 }
