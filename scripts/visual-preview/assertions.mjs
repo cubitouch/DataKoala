@@ -52,10 +52,10 @@ export async function assertFieldRowGeometry(win, scopeSelector, names) {
  */
 export const previewExpectations = Object.freeze({
   'sql-default.png': { selector: '[data-result-chart-canvas]', description: 'SQL default chart', minSeries: 1, minItems: 1 },
-  'prometheus-toolbar.png': { kind: 'not-visualization' },
-  'prometheus-toolbar-narrow.png': { kind: 'not-visualization' },
-  'prometheus-builder.png': { kind: 'not-visualization' },
-  'prometheus-builder-narrow.png': { kind: 'not-visualization' },
+  'prometheus-toolbar.png': { selector: '[data-result-chart-canvas]', description: 'Prometheus query result chart', minSeries: 2, minItems: 50, itemCount: 50, expectedConfig: { view: 'line', x: 'timestamp', y: 'value', series: ['status'], aggregation: 'sum' } },
+  'prometheus-toolbar-narrow.png': { selector: '[data-result-chart-canvas]', description: 'Prometheus query result chart in narrow layout', minSeries: 2, minItems: 50, itemCount: 50, expectedConfig: { view: 'line', x: 'timestamp', y: 'value', series: ['status'], aggregation: 'sum' } },
+  'prometheus-builder.png': { selector: '[data-result-chart-canvas]', description: 'Prometheus Builder result chart', minSeries: 2, minItems: 50, itemCount: 50, expectedConfig: { view: 'line', x: 'timestamp', y: 'value', series: ['continent'], aggregation: 'sum' } },
+  'prometheus-builder-narrow.png': { selector: '[data-result-chart-canvas]', description: 'Prometheus Builder result chart in narrow layout', minSeries: 2, minItems: 50, itemCount: 50, expectedConfig: { view: 'line', x: 'timestamp', y: 'value', series: ['continent'], aggregation: 'sum' } },
   'tempo-trace-builder.png': { kind: 'not-visualization' },
   'tempo-trace-search.png': { kind: 'not-visualization' },
   'tempo-trace-scatter.png': { selector: '[data-trace-scatter] [data-visual-type="scatter"]', description: 'Tempo trace scatter in Last hour', minSeries: 1, minItems: 5 },
