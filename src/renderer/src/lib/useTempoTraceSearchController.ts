@@ -57,17 +57,19 @@ function tempoPerf(event: string, fields: Record<string, unknown>): void {
 
 export function useTempoTraceSearchController({ connectionId, onSearchStart, onError }: ControllerOptions) {
   const tabId = useStore((state) => state.activeTabId)
-  const storedResult = useStore((state) => selectSession(state, tabId)?.result ?? null)
-  const [searchRows, setSearchRows] = useState<TraceRow[]>(() => searchRowsFromResult(storedResult))
-  const [searchNotice, setSearchNotice] = useState(() => storedResult?.notice ?? '')
+  const initialStoredResult = selectSession(useStore.getState(), tabId)?.result ?? null
+  const [searchRows, setSearchRows] = useState<TraceRow[]>(() => searchRowsFromResult(initialStoredResult))
+  const [searchNotice, setSearchNotice] = useState(() => initialStoredResult?.notice ?? '')
   const [searchProgress, setSearchProgress] = useState<TempoSearchProgress | null>(null)
   const [searching, setSearching] = useState(false)
 
   useEffect(() => {
-    if (searching) return
+    const storedResult = selectSession(useStore.getState(), tabId)?.result ?? null
     setSearchRows(searchRowsFromResult(storedResult))
     setSearchNotice(storedResult?.notice ?? '')
-  }, [searching, storedResult, tabId])
+    setSearchProgress(null)
+    setSearching(false)
+  }, [tabId])
 
   const resetSearch = useCallback(() => {
     setSearchRows([])
