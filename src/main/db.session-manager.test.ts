@@ -164,7 +164,9 @@ test('explicit reconnect replaces only the requested profile with a fresh genera
 
   assert.ok(firstA.ok && firstB.ok && secondA.ok)
   assert.notEqual(secondA.generation, firstA.generation)
-  assert.equal((await manager.connect(profile('b'))).generation, firstB.generation)
+  const reusedB = await manager.connect(profile('b'))
+  assert.ok(reusedB.ok)
+  assert.equal(reusedB.generation, firstB.generation)
   assert.ok(manager.get('a'))
   assert.ok(manager.get('b'))
   assert.deepEqual(closed, [`a:${firstA.generation}`])
