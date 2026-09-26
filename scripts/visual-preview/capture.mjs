@@ -545,6 +545,73 @@ async function configurePrometheusToolbar(win) {
   await waitForRendererState(win, `document.body.innerText.includes('http_requests_total')`, 'Prometheus metric browser')
 }
 
+async function seedPrometheusPreviewResult(win, seriesColumn, seriesValues) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const store = window.__datakoalaStore
+    const state = store?.getState()
+    if (!state) return { error: 'window.__datakoalaStore is unavailable' }
+
+    const seriesColumn = ${JSON.stringify(seriesColumn)}
+    const seriesValues = ${JSON.stringify(seriesValues)}
+    const stepMs = 14 * 60 * 1000
+    const end = Date.now() - 15 * 60 * 1000
+    const start = end - 24 * stepMs
+    const rows = []
+    for (let point = 0; point < 25; point += 1) {
+      for (let seriesIndex = 0; seriesIndex < seriesValues.length; seriesIndex += 1) {
+        const wave = Math.sin((point + seriesIndex * 2) / 3) * 8
+        const trend = point * (seriesIndex === 0 ? 1.8 : 1.1)
+        rows.push({
+          timestamp: new Date(start + point * stepMs),
+          [seriesColumn]: seriesValues[seriesIndex],
+          value: Number((120 + seriesIndex * 45 + wave + trend).toFixed(2))
+        })
+      }
+    }
+
+    const visualization = {
+      view: 'line',
+      xColumn: 'timestamp',
+      valueColumn: 'value',
+      seriesColumn,
+      seriesColumns: [],
+      aggregation: 'sum'
+    }
+    store.setState({
+      tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
+        ...tab,
+        sqlResultFilters: [],
+        builderResultFilters: [],
+        sqlVisualization: { ...tab.sqlVisualization, ...visualization },
+        builderVisualization: { ...tab.builderVisualization, ...visualization }
+      } : tab)
+    })
+    store.getState().setResult({
+      columns: [
+        { name: 'timestamp', dataTypeName: 'timestamp', logicalType: 'timestamp' },
+        { name: seriesColumn, dataTypeName: 'text', logicalType: 'string' },
+        { name: 'value', dataTypeName: 'double precision', logicalType: 'number' }
+      ],
+      rows,
+      rowCount: rows.length,
+      durationMs: 18
+    }, null)
+
+    const active = store.getState().tabs.find((tab) => tab.id === store.getState().activeTabId)
+    return {
+      rowCount: active?.result?.rowCount,
+      sqlFilters: active?.sqlResultFilters.length,
+      builderFilters: active?.builderResultFilters.length,
+      seriesColumn
+    }
+  })()`)
+
+  if (report?.error) throw new Error(report.error)
+  if (report?.rowCount !== 50 || report?.sqlFilters !== 0 || report?.builderFilters !== 0 || report?.seriesColumn !== seriesColumn) {
+    throw new Error(`Prometheus regression fixture did not seed correctly: ${JSON.stringify(report)}`)
+  }
+}
+
 async function configurePrometheusBuilder(win) {
   await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
@@ -992,6 +1059,7 @@ app.whenReady().then(async () => {
     await capture(win, 'sql-default.png')
 
     await configurePrometheusToolbar(win)
+    await seedPrometheusPreviewResult(win, 'status', ['200', '500'])
     await assertCompactObjectFilter(win, 'Filter metrics')
     await verifyQueryToolbar(win)
     await capture(win, 'prometheus-toolbar.png')
@@ -1001,12 +1069,16 @@ app.whenReady().then(async () => {
     await capture(win, 'prometheus-toolbar-narrow.png')
     win.setSize(1440, 900)
     await configurePrometheusBuilder(win)
+    await seedPrometheusPreviewResult(win, 'continent', ['Europe', 'North America'])
     await capture(win, 'prometheus-builder.png')
     win.setSize(760, 760)
     await sleep(350)
     await capture(win, 'prometheus-builder-narrow.png')
     win.setSize(1440, 900)
     await configureMode(win, 'sql')
+    // The Prometheus preview intentionally replaces the active result. Restore the
+    // canonical SQL fixture before the remaining SQL layout regression captures.
+    await seedPreviewData(win)
 
     await dragDivider(win, '.sidebar-resizer', 170, 0)
     await dragDivider(win, '.editor-resizer', 0, 90)
