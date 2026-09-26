@@ -25,7 +25,9 @@ export function PromqlBuilderPanel() {
   const profileId = session.connectionProfileId
   const activeProfileId = useStore((state) => state.activeProfileId)
   const connected = useStore((state) => state.connected)
-  const connectionGeneration = useStore((state) => state.connectionGeneration)
+  const legacyGeneration = useStore((state) => state.connectionGeneration)
+  const scopedConnection = useStore((state) => profileId ? state.connectionStateByProfileId[profileId] : undefined)
+  const connectionGeneration = scopedConnection?.generation ?? legacyGeneration
   const metadata = useStore((state) => profileId ? state.metadataByProfileId[profileId] : undefined)
   const setBuilder = useStore((state) => state.setPromqlBuilder)
   const setSql = useStore((state) => state.setSql)
@@ -38,7 +40,11 @@ export function PromqlBuilderPanel() {
   const [valueErrors, setValueErrors] = useState<Record<string, string>>({})
   const [formattedGenerated, setFormattedGenerated] = useState<{ source: string; query: string }>({ source: '', query: '' })
   const builder = session.promqlBuilder
-  const canLoadMetadata = Boolean(profileId && profileId === activeProfileId && connected)
+  const canLoadMetadata = Boolean(profileId && (
+    scopedConnection?.status === 'connected' ||
+    scopedConnection?.status === 'idle' ||
+    (profileId === activeProfileId && connected)
+  ))
   const metrics = useMemo(() => (metadata?.schemas ?? []).flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'metric'), [metadata?.schemas])
   const selectedMetric = metrics.find((metric) => metric.name === builder.metric)
   const metadataType = selectedMetric?.details?.kind === 'metric' ? selectedMetric.details.type : undefined
@@ -53,7 +59,7 @@ export function PromqlBuilderPanel() {
   const valueRequests = useRef<Record<string, number>>({})
   const metadataLifecycle = useRef({ key: '', generation: 0 })
   const formatRequest = useRef(0)
-  const lifecycleKey = `${profileId ?? ''}\0${activeProfileId ?? ''}\0${connected}\0${connectionGeneration}`
+  const lifecycleKey = `${profileId ?? ''}\0${canLoadMetadata}\0${connectionGeneration}`
   if (metadataLifecycle.current.key !== lifecycleKey) {
     metadataLifecycle.current = { key: lifecycleKey, generation: metadataLifecycle.current.generation + 1 }
   }

@@ -76,7 +76,7 @@ afterEach(async () => {
   await __testing.reset()
 })
 
-test('connecting a different profile closes the previous pool before keeping the new one', async () => {
+test('connecting a different profile keeps both pools alive', async () => {
   const first = new FakePool()
   const second = new FakePool()
   usePools(first, second)
@@ -88,11 +88,11 @@ test('connecting a different profile closes the previous pool before keeping the
 
   const secondResult = await connect(profile('second'))
   assert.equal(secondResult.ok, true)
-  assert.equal(first.endCalls, 1)
-  assert.deepEqual(__testing.activePoolIds(), ['second'])
+  assert.equal(first.endCalls, 0)
+  assert.deepEqual(__testing.activePoolIds().sort(), ['first', 'second'])
 })
 
-test('reconnecting the same profile replaces its old pool instead of accumulating sockets', async () => {
+test('connecting an already-live profile reuses its pool', async () => {
   const first = new FakePool()
   const replacement = new FakePool()
   usePools(first, replacement)
@@ -100,7 +100,7 @@ test('reconnecting the same profile replaces its old pool instead of accumulatin
   assert.equal((await connect(profile('same'))).ok, true)
   assert.equal((await connect(profile('same'))).ok, true)
 
-  assert.equal(first.endCalls, 1)
+  assert.equal(first.endCalls, 0)
   assert.deepEqual(__testing.activePoolIds(), ['same'])
 })
 

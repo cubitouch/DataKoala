@@ -63,7 +63,10 @@ describe('Sidebar connection changes', () => {
       activeProfileId: 'profile-a',
       connected: true,
       connectionStatus: 'connected',
-      connectionGeneration: 1
+      connectionGeneration: 1,
+      connectionStateByProfileId: {
+        'profile-a': { status: 'connected', generation: 1, error: null, serverVersion: '16' }
+      }
     })
     patchActiveTestSession({
       connectionProfileId: 'profile-a',
@@ -90,7 +93,7 @@ describe('Sidebar connection changes', () => {
     expect(session.showExplain).toBe(false)
     expect(session.sqlResultFilters).toEqual([])
     expect(session.seriesVisibility).toEqual({})
-    expect(disconnect).toHaveBeenCalledWith('profile-a', 1)
+    expect(disconnect).not.toHaveBeenCalled()
     expect(connect).toHaveBeenCalledWith(profiles[1])
   })
 })

@@ -60,8 +60,15 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const mode = useStore((state) => selectActiveSession(state).queryMode)
   const traceql = useStore((state) => selectActiveSession(state).sql)
   const metadata = useStore((state) => state.metadataByProfileId[connectionId])
-  const connected = useStore((state) => state.connected)
-  const connectionGeneration = useStore((state) => state.connectionGeneration)
+  const activeProfileId = useStore((state) => state.activeProfileId)
+  const globalConnected = useStore((state) => state.connected)
+  const legacyGeneration = useStore((state) => state.connectionGeneration)
+  const scopedConnection = useStore((state) => state.connectionStateByProfileId[connectionId])
+  const connected =
+    scopedConnection?.status === 'connected' ||
+    scopedConnection?.status === 'idle' ||
+    (connectionId === activeProfileId && globalConnected)
+  const connectionGeneration = scopedConnection?.generation ?? legacyGeneration
   const metadataRevision = useStore((state) => state.metadataByProfileId[connectionId]?.revision ?? 0)
   const metadataRefreshing = metadata?.refreshing ?? false
   const setSql = useStore((state) => state.setSql)

@@ -16,6 +16,7 @@ const pools = new Map<ConnectionId, ManagedPool>()
 const observedClients = new WeakSet<PoolClient>()
 let nextGeneration = 0
 let connectionIntent = 0
+const connectionIntents = new Map<ConnectionId, number>()
 let stateListener: (event: ConnectionStateEvent) => void = () => undefined
 let createPool = (config: PoolConfig): Pool => new Pool(config)
 
@@ -181,15 +182,11 @@ async function closeAllPools(): Promise<void> {
 }
 
 export async function connect(profile: ConnectionProfile): Promise<{ ok: true; serverVersion: string; generation: number } | { ok: false; error: string }> {
-  // The UI presents one active profile, so the main-process resource model should
-  // match it: selecting a new profile tears down every previous managed pool first.
-  // The intent token also makes overlapping connection attempts converge on the
-  // most recent choice instead of leaving two pools alive.
   const intent = ++connectionIntent
-  await closeAllPools()
-  if (intent !== connectionIntent) {
-    return { ok: false, error: 'This connection attempt was superseded by a newer connection.' }
-  }
+  connectionIntents.set(profile.id, intent)
+  await disconnect(profile.id)
+  // disconnect invalidates an older intent; restore ownership for this attempt.
+  connectionIntents.set(profile.id, intent)
 
   const pool = createPool({
     ...buildPoolConfig(profile, 4),
@@ -220,7 +217,7 @@ export async function connect(profile: ConnectionProfile): Promise<{ ok: true; s
     client = await pool.connect()
     attachClientLifecycle(managed, client)
     const v = await client.query('SHOW server_version')
-    if (intent !== connectionIntent || pools.get(profile.id)?.generation !== managed.generation) {
+    if (connectionIntents.get(profile.id) !== intent || pools.get(profile.id)?.generation !== managed.generation) {
       throw new DatabaseConnectionError('CONNECTION_LOST', 'This connection attempt was superseded by a newer connection.')
     }
     managed.state = 'connected'
@@ -239,6 +236,7 @@ export async function connect(profile: ConnectionProfile): Promise<{ ok: true; s
 export async function disconnect(id: ConnectionId, generation?: number): Promise<void> {
   const m = pools.get(id)
   if (!m || (generation !== undefined && m.generation !== generation)) return
+  connectionIntents.delete(id)
   m.state = 'disconnecting'
   m.terminalHandled = true
   pools.delete(id)
@@ -253,7 +251,7 @@ export async function disconnect(id: ConnectionId, generation?: number): Promise
 export async function disconnectAll(): Promise<void> {
   // Invalidate an in-flight connect before closing tracked pools so it cannot add a
   // fresh pool after an explicit disconnect-all (notably during app shutdown).
-  connectionIntent++
+  connectionIntents.clear()
   await closeAllPools()
 }
 
@@ -316,6 +314,7 @@ export const __testing = {
     await disconnectAll()
     nextGeneration = 0
     connectionIntent = 0
+    connectionIntents.clear()
     createPool = (config) => new Pool(config)
     stateListener = () => undefined
   }

@@ -105,17 +105,19 @@ describe('tab connection lifecycle', () => {
     expect(session.seriesVisibility).toEqual({})
   })
 
-  it('activates the tab connection only when requested and replaces the previous live pool', async () => {
-    resetTestStore({ profiles, activeProfileId: 'profile-a', connected: true, connectionStatus: 'connected', connectionGeneration: 1 })
+  it('connects the requested profile without disconnecting another live profile', async () => {
+    resetTestStore({ profiles, activeProfileId: 'profile-a', connected: true, connectionStatus: 'connected', connectionGeneration: 1,
+      connectionStateByProfileId: { 'profile-a': { status: 'connected', generation: 1, error: null, serverVersion: '16' } } })
     const id = useStore.getState().activeTabId
     patchActiveTestSession({ connectionProfileId: 'profile-b' })
 
     const profileId = await ensureConnectionForTab(id)
 
     expect(profileId).toBe('profile-b')
-    expect(disconnect).toHaveBeenCalledWith('profile-a', 1)
+    expect(disconnect).not.toHaveBeenCalled()
     expect(connect).toHaveBeenCalledWith(profiles[1])
-    expect(useStore.getState().activeProfileId).toBe('profile-b')
+    expect(useStore.getState().connectionStateByProfileId['profile-a']?.status).toBe('connected')
+    expect(useStore.getState().connectionStateByProfileId['profile-b']?.status).toBe('connected')
     expect(useStore.getState().connected).toBe(true)
   })
 

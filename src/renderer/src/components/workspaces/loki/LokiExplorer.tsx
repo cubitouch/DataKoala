@@ -60,12 +60,17 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const clearResultFilters = useStore((state) => state.clearResultFilters)
   const mode = session.queryMode === 'builder' ? 'builder' : 'logql'
   const { sql: query, lokiBuilder: builder, lokiTimeRange: range, lokiResultLimit: limit, lokiGroupBy: groupBy, lokiResultView: resultView } = session
-  const connectionGeneration = useStore((state) => state.connectionGeneration)
-  const metadataRevision = useStore((state) => state.metadataByProfileId[connectionId]?.revision ?? 0)
-  const metadataRefreshing = useStore((state) => state.metadataByProfileId[connectionId]?.refreshing ?? false)
   const activeProfileId = useStore((state) => state.activeProfileId)
   const connected = useStore((state) => state.connected)
-  const canLoadMetadata = connectionId === activeProfileId && connected
+  const legacyGeneration = useStore((state) => state.connectionGeneration)
+  const scopedConnection = useStore((state) => state.connectionStateByProfileId[connectionId])
+  const connectionGeneration = scopedConnection?.generation ?? legacyGeneration
+  const metadataRevision = useStore((state) => state.metadataByProfileId[connectionId]?.revision ?? 0)
+  const metadataRefreshing = useStore((state) => state.metadataByProfileId[connectionId]?.refreshing ?? false)
+  const canLoadMetadata =
+    scopedConnection?.status === 'connected' ||
+    scopedConnection?.status === 'idle' ||
+    (connectionId === activeProfileId && connected)
   const labelResource = useLokiLabelsResource(connectionId, connectionGeneration, session.id, range, canLoadMetadata, metadataRevision)
   const labels = [...new Set([...labelResource.labels, ...builder.labelMatchers.map(({ label }) => label).filter((label) => !label.startsWith('__')), ...groupBy])].sort()
   const [result, setResult] = useState<LokiQueryResult | null>(null)

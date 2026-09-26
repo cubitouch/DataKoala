@@ -4,8 +4,7 @@ import { loadConnectionMetadata } from './connectionMetadata'
 import { selectSession, useStore } from '@store/useStore'
 import { defaultQueryModeForDatasource, defaultQueryTextForDatasource, queryLanguageForDatasource } from './queryDefaults'
 
-let switchSequence = 0
-let inFlight: { profileId: string; promise: Promise<string | null> } | null = null
+const inFlight = new Map<string, Promise<string | null>>()
 
 function runningOnProfile(profileId: string): boolean {
   return useStore.getState().tabs.some((tab) => tab.connectionProfileId === profileId && tab.running)
@@ -17,7 +16,7 @@ function confirmConnectionSwitch(previousProfileId: string, nextProfileId: strin
   return window.confirm('A query is still running on the current connection. Running this action on another connection will stop it. Continue?')
 }
 
-async function connectForTab(tabId: string, desiredProfileId: string, confirmInterrupt: boolean): Promise<string | null> {
+async function connectForTab(desiredProfileId: string, confirmInterrupt: boolean): Promise<string | null> {
   const initial = useStore.getState()
   const profile = initial.profiles.find((candidate) => candidate.id === desiredProfileId)
   if (!profile) return null
@@ -25,64 +24,36 @@ async function connectForTab(tabId: string, desiredProfileId: string, confirmInt
   const previousProfileId = initial.activeProfileId
   if (confirmInterrupt && previousProfileId && previousProfileId !== desiredProfileId && !confirmConnectionSwitch(previousProfileId, desiredProfileId)) return null
 
-  const sequence = ++switchSequence
-  if (previousProfileId && previousProfileId !== desiredProfileId) {
-    await api.connections.disconnect(previousProfileId, initial.connectionGeneration).catch(() => undefined)
-    if (sequence !== switchSequence) return null
-  }
-
-  useStore.setState({
+  useStore.setState((state) => ({
     activeProfileId: desiredProfileId,
     connecting: true,
     connected: false,
     connectionStatus: 'connecting',
     connectionError: null,
     serverVersion: null,
-    activeReconnectAttempt: null
-  })
+    activeReconnectAttempt: null,
+    connectionStateByProfileId: { ...state.connectionStateByProfileId, [desiredProfileId]: {
+      status: 'connecting', generation: state.connectionStateByProfileId[desiredProfileId]?.generation ?? 0, error: null, serverVersion: null
+    } }
+  }))
 
   try {
     const result = await api.connections.connect(profile)
-    if (sequence !== switchSequence) {
-      if (result.ok) await api.connections.disconnect(result.id ?? desiredProfileId, result.generation).catch(() => undefined)
-      return null
-    }
-
-    const session = selectSession(useStore.getState(), tabId)
-    if (!session || session.connectionProfileId !== desiredProfileId) {
-      if (result.ok) await api.connections.disconnect(result.id ?? desiredProfileId, result.generation).catch(() => undefined)
-      useStore.setState({
-        activeProfileId: null,
-        connecting: false,
-        connected: false,
-        connectionStatus: 'disconnected',
-        connectionError: null,
-        serverVersion: null
-      })
-      return null
-    }
-
     if (!result.ok) {
-      useStore.setState({
-        activeProfileId: desiredProfileId,
-        connected: false,
-        connecting: false,
-        connectionStatus: 'error',
-        connectionError: result.error,
-        serverVersion: null
-      })
+      useStore.setState((state) => ({
+        ...(state.activeProfileId === desiredProfileId ? { connected: false, connecting: false, connectionStatus: 'error' as const, connectionError: result.error, serverVersion: null } : {}),
+        connectionStateByProfileId: { ...state.connectionStateByProfileId, [desiredProfileId]: { status: 'error', generation: state.connectionStateByProfileId[desiredProfileId]?.generation ?? 0, error: result.error, serverVersion: null } }
+      }))
       return null
     }
 
     const actualId = result.id ?? desiredProfileId
     useStore.setState((state) => ({
-      activeProfileId: actualId,
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
-      connectionGeneration: result.generation,
-      serverVersion: result.serverVersion,
-      connectionError: null,
+      ...(selectSession(state, state.activeTabId)?.connectionProfileId === desiredProfileId ? {
+        activeProfileId: actualId, connected: true, connecting: false, connectionStatus: 'connected' as const,
+        connectionGeneration: result.generation, serverVersion: result.serverVersion, connectionError: null
+      } : {}),
+      connectionStateByProfileId: { ...state.connectionStateByProfileId, [actualId]: { status: 'connected', generation: result.generation, error: null, serverVersion: result.serverVersion ?? null } },
       metadataByProfileId: {
         ...state.metadataByProfileId,
         [actualId]: {
@@ -105,15 +76,11 @@ async function connectForTab(tabId: string, desiredProfileId: string, confirmInt
     )
     return actualId
   } catch (error) {
-    if (sequence !== switchSequence) return null
-    useStore.setState({
-      activeProfileId: desiredProfileId,
-      connected: false,
-      connecting: false,
-      connectionStatus: 'error',
-      connectionError: error instanceof Error ? error.message : String(error),
-      serverVersion: null
-    })
+    const message = error instanceof Error ? error.message : String(error)
+    useStore.setState((state) => ({
+      ...(state.activeProfileId === desiredProfileId ? { connected: false, connecting: false, connectionStatus: 'error' as const, connectionError: message, serverVersion: null } : {}),
+      connectionStateByProfileId: { ...state.connectionStateByProfileId, [desiredProfileId]: { status: 'error', generation: state.connectionStateByProfileId[desiredProfileId]?.generation ?? 0, error: message, serverVersion: null } }
+    }))
     return null
   }
 }
@@ -123,15 +90,19 @@ export async function ensureConnectionForTab(tabId: string, options: { confirmIn
   const session = selectSession(state, tabId)
   const desiredProfileId = session?.connectionProfileId ?? null
   if (!desiredProfileId) return null
-  if (state.connected && state.activeProfileId === desiredProfileId) return desiredProfileId
-  if (inFlight?.profileId === desiredProfileId) return inFlight.promise
+  const connection = state.connectionStateByProfileId[desiredProfileId]
+  if (connection?.status === 'connected' || connection?.status === 'idle') return desiredProfileId
+  // Compatibility for restored/older state snapshots; new connections are always profile-scoped.
+  if (state.activeProfileId === desiredProfileId && state.connected) return desiredProfileId
+  const pending = inFlight.get(desiredProfileId)
+  if (pending) return pending
 
-  const promise = connectForTab(tabId, desiredProfileId, options.confirmInterrupt !== false)
-  inFlight = { profileId: desiredProfileId, promise }
+  const promise = connectForTab(desiredProfileId, options.confirmInterrupt !== false)
+  inFlight.set(desiredProfileId, promise)
   try {
     return await promise
   } finally {
-    if (inFlight?.promise === promise) inFlight = null
+    if (inFlight.get(desiredProfileId) === promise) inFlight.delete(desiredProfileId)
   }
 }
 

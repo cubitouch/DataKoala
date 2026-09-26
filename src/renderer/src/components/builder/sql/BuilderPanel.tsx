@@ -34,6 +34,7 @@ export function BuilderPanel() {
   const connected = useStore((state) => state.connected)
   const connecting = useStore((state) => state.connecting)
   const tabConnectionId = useStore((state) => selectActiveSession(state).connectionProfileId)
+  const scopedConnection = useStore((state) => tabConnectionId ? state.connectionStateByProfileId[tabConnectionId] : undefined)
   const connectionKind = useStore((state) => state.profiles.find((profile) => profile.id === selectActiveSession(state).connectionProfileId)?.kind)
   const builder = useStore((state) => selectActiveSession(state).builder)
   const builderVisualization = useStore((state) => selectActiveSession(state).builderVisualization)
@@ -59,12 +60,15 @@ export function BuilderPanel() {
   const clearFilterNotice = useStore((state) => state.clearBuilderFilterNotice)
   const previousExecution = useRef(new Map<string, string>())
   const queryRevisions = useRef(new Map<string, number>())
-  const previousMetadataStatus = useRef(metadataStatus)
   const probeGuard = useRef(new SeriesCardinalityProbeGuard())
   const statisticsCache = useRef(new Map<string, SeriesStatisticsResult>())
   const [seriesProbe, setSeriesProbe] = useState<{ status: 'checking' | 'error'; message?: string; retry?: () => void } | null>(null)
   const [axisNotice, setAxisNotice] = useState<string | null>(null)
-  const tabConnected = Boolean(tabConnectionId && connected && activeId === tabConnectionId)
+  const tabConnected = Boolean(tabConnectionId && (
+    scopedConnection?.status === 'connected' ||
+    scopedConnection?.status === 'idle' ||
+    (connected && activeId === tabConnectionId)
+  ))
   const documentationCapture = Boolean(window.datakoala?.smokeMode && (window as unknown as Record<string, unknown>).__datakoalaDocumentationCapture)
   const stillBoundTo = (requestTabId: string, profileId: string) => selectSession(useStore.getState(), requestTabId)?.connectionProfileId === profileId
 
@@ -159,11 +163,9 @@ export function BuilderPanel() {
     }
   }
   useEffect(() => {
-    const previous = previousMetadataStatus.current
-    previousMetadataStatus.current = metadataStatus
-    if (previous !== 'loading' || metadataStatus !== 'loaded' || !tabConnected || !selectedRelation || selectedRelation.columnsStatus !== 'idle') return
+    if (metadataStatus !== 'loaded' || !tabConnected || !selectedRelation || selectedRelation.columnsStatus !== 'idle') return
     void loadColumns(selectedRelation)
-  }, [metadataStatus, tabConnected, selectedRelation?.qualifiedName, selectedRelation?.columnsStatus])
+  }, [tabId, metadataStatus, tabConnected, selectedRelation?.qualifiedName, selectedRelation?.columnsStatus])
 
   const generatedQuery = useMemo(() => configurationComplete && builder.table && selectedX ? generateBuilderQuery({
     dialect: sqlDialectForSourceKind(connectionKind ?? 'postgres'),

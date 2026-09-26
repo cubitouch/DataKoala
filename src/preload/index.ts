@@ -33,6 +33,7 @@ const api = {
   tempoPerformanceEnabled: process.env.DATAKOALA_TEMPO_PERF === '1',
   connections: {
     list: (): Promise<DataSourceProfile[]> => ipcRenderer.invoke('connections:list'),
+    listLive: (): Promise<Array<{ id: string; generation: number; serverVersion?: string }>> => ipcRenderer.invoke('connections:live'),
     upsert: (p: DataSourceProfile): Promise<DataSourceProfile> =>
       ipcRenderer.invoke('connections:upsert', p),
     chooseFiles: (): Promise<string[]> => ipcRenderer.invoke(IPC.CONNECTION_CHOOSE_FILES),
@@ -44,6 +45,8 @@ const api = {
       p: DataSourceProfile
     ): Promise<ConnectResult & { id: string }> =>
       ipcRenderer.invoke(IPC.CONNECTION_CONNECT, p),
+    reconnect: (p: DataSourceProfile): Promise<ConnectResult & { id: string }> =>
+      ipcRenderer.invoke(IPC.CONNECTION_RECONNECT, p),
     disconnect: (id: string, generation?: number): Promise<void> => ipcRenderer.invoke(IPC.CONNECTION_DISCONNECT, id, generation),
     onStateChanged: (listener: (event: ConnectionStateEvent) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, value: unknown) => {

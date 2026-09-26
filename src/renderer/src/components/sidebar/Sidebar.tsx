@@ -51,6 +51,7 @@ export function Sidebar() {
   const connectionError = useStore((s) => s.connectionError)
   const connecting = useStore((s) => s.connecting)
   const connected = useStore((s) => s.connected)
+  const connectionStateByProfileId = useStore((s) => s.connectionStateByProfileId)
   const activeTabId = useStore((s) => s.activeTabId)
   const activeTabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const activeTabSourceKind = useStore((s) => s.profiles.find((profile) => profile.id === selectActiveSession(s).connectionProfileId)?.kind)
@@ -76,9 +77,23 @@ export function Sidebar() {
   const deleteOrigin = useRef<HTMLButtonElement | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
-  const tabConnected = Boolean(activeTabConnectionId && connected && activeId === activeTabConnectionId)
+  const activeTabConnection = activeTabConnectionId ? connectionStateByProfileId[activeTabConnectionId] : undefined
+  const tabConnected = Boolean(activeTabConnectionId && (
+    activeTabConnection?.status === 'connected' ||
+    activeTabConnection?.status === 'idle' ||
+    (connected && activeId === activeTabConnectionId)
+  ))
 
-  const loadProfiles = async () => setProfiles(await api.connections.list())
+  const loadProfiles = async () => {
+    setProfiles(await api.connections.list())
+    const live = await api.connections.listLive?.()
+    if (live?.length) useStore.setState((state) => ({
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        ...Object.fromEntries(live.map((session) => [session.id, { status: 'connected' as const, generation: session.generation, error: null, serverVersion: session.serverVersion ?? null }]))
+      }
+    }))
+  }
   useEffect(() => { void loadProfiles() }, [])
 
   useEffect(() => {
@@ -98,8 +113,9 @@ export function Sidebar() {
   }
 
   const connect = async (profile: DataSourceProfile) => {
-    if (connecting) return
     const state = useStore.getState()
+    const profileStatus = state.connectionStateByProfileId[profile.id]?.status
+    if (profileStatus === 'connecting' || profileStatus === 'reconnecting') return
     const switchingLiveConnection = Boolean(state.activeProfileId && state.activeProfileId !== profile.id)
     const wouldInterrupt = switchingLiveConnection && state.tabs.some((tab) => tab.connectionProfileId === state.activeProfileId && tab.running)
     if (wouldInterrupt && !window.confirm('A query is still running on the current connection. Switching connections will stop it. Continue?')) return
@@ -219,12 +235,16 @@ export function Sidebar() {
   return <aside className={styles.sidebar} aria-label="Connections and objects">
     <h3>Connections</h3>
     {profiles.map((profile) => {
-      const isConnecting = activeId === profile.id && connecting
+      const profileConnection = connectionStateByProfileId[profile.id]
+      const isConnecting = profileConnection?.status === 'connecting' || profileConnection?.status === 'reconnecting'
       const isSelected = activeTabConnectionId === profile.id
-      const isLive = activeId === profile.id && connected
+      const isLive = profileConnection?.status === 'connected' || profileConnection?.status === 'idle' || (activeId === profile.id && connected)
+      const isCurrentLive = isLive && isSelected
+      const isBackgroundLive = isLive && !isSelected
+      const stateLabel = isConnecting ? 'connecting' : isCurrentLive ? 'live, current tab' : isBackgroundLive ? 'live, background' : profileConnection?.status === 'error' ? 'connection error' : 'disconnected'
       const isRefreshing = metadataByProfileId[profile.id]?.refreshing ?? false
-      return <div key={profile.id} className={cx(styles.connItem, isSelected && styles.selected, isLive && styles.active, isConnecting && styles.connecting)} data-connection-item data-connection-live={isLive || undefined}
-        onClick={() => { if (!connecting) void connect(profile) }} aria-busy={isConnecting} aria-current={isSelected ? 'true' : undefined}>
+      return <div key={profile.id} className={cx(styles.connItem, isSelected && styles.selected, isCurrentLive && styles.currentLive, isBackgroundLive && styles.backgroundLive, isConnecting && styles.connecting, profileConnection?.status === 'error' && styles.connectionError)} data-connection-item data-connection-live={isLive || undefined} data-connection-state={stateLabel} title={`${profile.name}: ${stateLabel}`}
+        onClick={() => { if (!isConnecting) void connect(profile) }} aria-busy={isConnecting} aria-current={isSelected ? 'true' : undefined} aria-label={`${profile.name}, ${stateLabel}`}>
         <span className={isConnecting ? styles.spinner : styles.dot} aria-label={isConnecting ? 'Connecting' : undefined} />
         <span className={styles.name} data-connection-name>{profile.name}</span>
         <span className={styles.trailing} data-connection-trailing>
