@@ -1,5 +1,6 @@
 import { selectActiveSession, useStore } from '@store/useStore'
 import styles from './QueryUtilityActions.module.css'
+import { SavePresetAction } from './SavePresetAction'
 
 /** Secondary, tab-scoped actions shared by editor and Builder toolbars. */
 interface QueryUtilityActionsProps {
@@ -17,10 +18,11 @@ export function QueryUtilityActions({ hasResults: hasResultsOverride, onClearRes
     || active.builderResultFilters.some((filter) => filter.execution !== 'query'))
 
   return <div className={`query-utility-actions ${styles.root}`} aria-label="Query utilities">
-    <button type="button" className="btn ghost" onClick={() => {
+    <SavePresetAction />
+    <button type="button" className="btn ghost" aria-label="Reset query" onClick={() => {
       if (window.confirm(`Reset ${active.title} to a fresh query?`)) (onResetQuery ?? resetQuery)()
-    }} title="Reset the current tab's query and Builder state.">Reset query</button>
-    <button type="button" className="btn ghost" onClick={onClearResults ?? clearResults} disabled={!(hasResultsOverride ?? defaultHasResults)}
-      title="Clear the current result without changing the query.">Clear results</button>
+    }} title="Reset the current tab's query and Builder state.">Reset</button>
+    <button type="button" className="btn ghost" aria-label="Clear results" onClick={onClearResults ?? clearResults} disabled={!(hasResultsOverride ?? defaultHasResults)}
+      title="Clear the current result without changing the query.">Clear</button>
   </div>
 }

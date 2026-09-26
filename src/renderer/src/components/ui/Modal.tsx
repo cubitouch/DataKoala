@@ -4,7 +4,7 @@ import styles from './Modal.module.css'
 
 const focusable = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
-export function Modal({ open, onClose, labelledBy, returnFocusRef, children }: { open: boolean; onClose: () => void; labelledBy: string; returnFocusRef: React.RefObject<HTMLElement | null>; children: ReactNode }) {
+export function Modal({ open, onClose, labelledBy, returnFocusRef, dialogClassName, children }: { open: boolean; onClose: () => void; labelledBy: string; returnFocusRef: React.RefObject<HTMLElement | null>; dialogClassName?: string; children: ReactNode }) {
   const dialog = useRef<HTMLDivElement>(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
@@ -26,6 +26,6 @@ export function Modal({ open, onClose, labelledBy, returnFocusRef, children }: {
   }, [open, returnFocusRef])
   if (!open) return null
   return createPortal(<div className={styles.backdrop} data-modal-backdrop onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-    <div ref={dialog} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1}>{children}</div>
+    <div ref={dialog} className={`${styles.dialog}${dialogClassName ? ` ${dialogClassName}` : ''}`} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1}>{children}</div>
   </div>, document.body)
 }
