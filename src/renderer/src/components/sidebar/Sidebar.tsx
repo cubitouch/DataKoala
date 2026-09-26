@@ -8,6 +8,7 @@ import { matchesSearch } from '@lib/matchesSearch'
 import { relationIdentity, selectionPatchForColumns } from '@lib/builderRelations'
 import { isBuilderTemporalDataType } from '@lib/builderSql'
 import { buildPromql, reconcilePromqlBuilderForMetric } from '@lib/promqlBuilder'
+import { defaultTempoBuilder } from '@lib/tempoQueryState'
 import { bindTabConnection, ensureConnectionForTab } from '@lib/tabConnection'
 import { selectActiveSession, selectSession, useStore } from '@store/useStore'
 import { ConnectionModal } from '@components/connections/ConnectionModal'
@@ -69,6 +70,7 @@ export function Sidebar() {
   const promqlBuilder = useStore((s) => selectActiveSession(s).promqlBuilder)
   const selectBuilderRelation = useStore((s) => s.selectBuilderRelation)
   const setPromqlBuilder = useStore((s) => s.setPromqlBuilder)
+  const setTempoState = useStore((s) => s.setTempoState)
   const setQueryMode = useStore((s) => s.setQueryMode)
   const setSql = useStore((s) => s.setSql)
   const [editing, setEditing] = useState<DataSourceProfile | null>(null)
@@ -205,6 +207,8 @@ export function Sidebar() {
   const selectForBuilder = (relation: DatabaseRelationNode) => {
     if (relation.kind === 'service') {
       const generated = traceqlForService(relation)
+      const serviceNamespace = relation.details?.kind === 'service' ? relation.details.serviceNamespace ?? '' : ''
+      setTempoState({ tempoBuilder: { ...defaultTempoBuilder(), serviceNamespace, service: relation.name } }, activeTabId)
       setQueryMode('builder', activeTabId)
       setSql(generated, activeTabId)
       return
