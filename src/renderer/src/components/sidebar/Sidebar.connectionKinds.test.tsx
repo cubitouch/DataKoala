@@ -146,6 +146,44 @@ it('retains compact progress feedback during an active connection attempt', asyn
   expect(screen.queryByText(/connect on run/i)).toBeNull()
 })
 
+it('selecting a Tempo service seeds the structured Builder and clears stale service-specific filters', async () => {
+  const tab = createQuerySession(1, { id: 'tempo-builder-tab', connectionProfileId: 'tempo' })
+  tab.tempoBuilder = {
+    ...tab.tempoBuilder,
+    serviceNamespace: 'old',
+    service: 'old-service',
+    protocol: 'http',
+    httpMethod: 'POST',
+    endpoint: '/old',
+    status: 'error',
+    minDurationMs: '900',
+    advancedFilters: [{ attribute: 'deployment.environment', scope: 'resource', mode: 'include', values: ['production'] }]
+  }
+  useStore.setState({
+    profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'tempo', connected: true,
+    metadataByProfileId: { tempo: { schemas: [{ name: 'Tempo', isSystem: false, relations: [
+      { schema: 'Tempo', name: 'payment-service', qualifiedName: 'Tempo.payment-service', kind: 'service', columnsStatus: 'idle', details: { kind: 'service', serviceNamespace: 'payments' } }
+    ] }], status: 'loaded', error: null, isStale: false } }
+  })
+  render(<Sidebar />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Explore traces for payment-service' }))
+
+  const session = useStore.getState().tabs[0]
+  expect(session.queryMode).toBe('builder')
+  expect(session.tempoBuilder).toMatchObject({
+    serviceNamespace: 'payments',
+    service: 'payment-service',
+    protocol: 'any',
+    httpMethod: '',
+    endpoint: '',
+    status: 'any',
+    minDurationMs: '',
+    advancedFilters: []
+  })
+  expect(session.sql).toBe('{ resource.service.namespace = "payments" && resource.service.name = "payment-service" }')
+})
+
 it('filters Tempo services with multiple partial tokens', async () => {
   const tab = createQuerySession(1, { id: 'tempo-tab', connectionProfileId: 'tempo' })
   useStore.setState({
