@@ -29,8 +29,8 @@ function isSpanResult(result: QueryResult): boolean {
 }
 
 function searchRowsFromResult(result: QueryResult | null): TraceRow[] {
-  const isTraceSearch = result?.columns.some((column) => column.name === 'traceId') && !isSpanResult(result)
-  return isTraceSearch ? result.rows as TraceRow[] : []
+  if (!result || isSpanResult(result) || !result.columns.some((column) => column.name === 'traceId')) return []
+  return result.rows as TraceRow[]
 }
 
 function mergeSearchRows(existing: TraceRow[], incoming: TraceRow[]): TraceRow[] {
