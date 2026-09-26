@@ -14,7 +14,7 @@ const progress = (rows: Record<string, unknown>[]) => ({
   pendingChunks: 1, queriesCompleted: 1, tracesFound: rows.length, rows
 })
 const result = (rows: Record<string, unknown>[], notice?: string) => ({
-  columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' }],
+  columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' as const }],
   rows, rowCount: rows.length, durationMs: 1, notice
 })
 
