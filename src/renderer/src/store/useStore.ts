@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { DataSourceProfile, ConnectionStateEvent, DatabaseColumnNode, DatabaseSchemaNode, QueryResult } from '@shared/types'
+import { queryLanguageForSourceKind, type DataSourceProfile, type ConnectionStateEvent, type DatabaseColumnNode, type DatabaseSchemaNode, type QueryResult } from '@shared/types'
 import type { VisualizationConfiguration } from '@lib/resultVisualization'
 import { deduplicateResultFilters, resultFilterDemotion, stableResultFilterId, type ResultFilter } from '@lib/resultFilters'
 import { selectBuilderRelationState } from '@lib/builderRelations'
@@ -526,31 +526,37 @@ export const useStore = create<AppState>((set, get) => ({
     })
     return fresh
   })),
-  commitLoadedPreset: (nextSession, tabId) => set((state) => patchSession(state, tabId, (session) => ({
-    ...nextSession,
-    // A preset changes the contents of the current tab, never the tab itself.
-    id: session.id,
-    title: session.title,
-    connectionProfileId: session.connectionProfileId,
-    manualQueryPristine: false,
-    running: false,
-    queryError: null,
-    result: null,
-    pendingResult: null,
-    resultRevision: 0,
-    lastSuccessfulResultRevision: 0,
-    isResultStale: false,
-    builderHasRun: false,
-    sqlResultFilters: [],
-    builderResultFilters: nextSession.builderResultFilters.filter((filter) => filter.execution === 'query'),
-    queryFilterRevision: { sql: 0, builder: 0 },
-    builderFilterNotice: null,
-    explainText: null,
-    showExplain: false,
-    activeExplainRequest: null,
-    seriesVisibility: {},
-    lokiRangeHistory: []
-  }))),
+  commitLoadedPreset: (nextSession, tabId) => set((state) => patchSession(state, tabId, (session) => {
+    const profile = state.profiles.find((candidate) => candidate.id === session.connectionProfileId)
+    const preservesBuilderQueryFilters = profile && queryLanguageForSourceKind(profile.kind).kind === 'sql'
+    return {
+      ...nextSession,
+      // A preset changes the contents of the current tab, never the tab itself.
+      id: session.id,
+      title: session.title,
+      connectionProfileId: session.connectionProfileId,
+      manualQueryPristine: false,
+      running: false,
+      queryError: null,
+      result: null,
+      pendingResult: null,
+      resultRevision: 0,
+      lastSuccessfulResultRevision: 0,
+      isResultStale: false,
+      builderHasRun: false,
+      sqlResultFilters: [],
+      builderResultFilters: preservesBuilderQueryFilters
+        ? nextSession.builderResultFilters.filter((filter) => filter.execution === 'query')
+        : [],
+      queryFilterRevision: { sql: 0, builder: 0 },
+      builderFilterNotice: null,
+      explainText: null,
+      showExplain: false,
+      activeExplainRequest: null,
+      seriesVisibility: {},
+      lokiRangeHistory: []
+    }
+  })),
 
   setSql: (sql, tabId) => set((state) => patchSession(state, tabId, (session) => session.activeExplainRequest ? session : {
     ...session,

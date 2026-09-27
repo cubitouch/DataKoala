@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { QueryResult } from '@shared/types'
+import type { DataSourceProfile, QueryResult } from '@shared/types'
 import type { ResultFilter } from '@lib/resultFilters'
 
 const resultA: QueryResult = {
@@ -188,6 +188,24 @@ describe('query session model', () => {
     expect(active.builder.timeRange).toEqual({ kind: 'rolling', amount: 7, unit: 'day' })
     expect(active.builderResultFilters).toEqual([])
     expect(active.sqlVisualization.view).toBe('table')
+  })
+
+  it('keeps loaded SQL Builder query filters but clears leftover filters for non-SQL presets', async () => {
+    const { createQuerySession, selectActiveSession, useStore } = await setup()
+    const postgres: DataSourceProfile = { id: 'postgres-a', name: 'Postgres', kind: 'postgres', version: 1, readonly: false, host: 'localhost', port: 5432, database: 'app', user: 'user', password: '', ssl: false }
+    const prometheus: DataSourceProfile = { id: 'prometheus-a', name: 'Prometheus', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }
+    const sqlTarget = createQuerySession(1, { id: 'sql-tab', connectionProfileId: postgres.id })
+    const prometheusTarget = createQuerySession(2, { id: 'prometheus-tab', connectionProfileId: prometheus.id })
+    sqlTarget.builderResultFilters = [clientFilter]
+    prometheusTarget.builderResultFilters = [promotedFilter]
+    useStore.setState({ profiles: [postgres, prometheus], tabs: [sqlTarget, prometheusTarget], activeTabId: sqlTarget.id })
+
+    useStore.getState().commitLoadedPreset({ ...sqlTarget, builderResultFilters: [clientFilter, promotedFilter] }, sqlTarget.id)
+    useStore.getState().commitLoadedPreset({ ...prometheusTarget, builderResultFilters: [promotedFilter] }, prometheusTarget.id)
+
+    expect(useStore.getState().tabs.find((tab) => tab.id === sqlTarget.id)?.builderResultFilters).toEqual([promotedFilter])
+    useStore.setState({ activeTabId: prometheusTarget.id })
+    expect(selectActiveSession(useStore.getState()).builderResultFilters).toEqual([])
   })
 
   it('closing the final tab always leaves one fresh tab and keeps its connection association', async () => {
