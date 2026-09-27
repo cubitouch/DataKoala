@@ -138,7 +138,6 @@ export function PresetManagerAction({ repository: suppliedRepository, session: s
     <button ref={buttonRef} type="button" className="btn ghost" disabled={!canSave} aria-label="Manage saved presets" title={canSave ? 'Save, load and manage exploration presets.' : 'Attach this tab to a connection before managing presets.'} onClick={openManager}>Presets</button>
     <Modal open={open} onClose={close} labelledBy={titleId} returnFocusRef={buttonRef} dialogClassName={styles.dialog}>
       <div className={styles.content}>
-        <h2 className={styles.title} id={titleId}>Saved presets</h2>
         <form className={styles.saveForm} onSubmit={save}>
           <h3 className={styles.sectionTitle}>Save current exploration</h3>
           <div className={styles.formRow}>
@@ -146,8 +145,8 @@ export function PresetManagerAction({ repository: suppliedRepository, session: s
             <button type="submit" className="btn primary" disabled={!normalizedName}>Save</button>
           </div>
         </form>
-        <section aria-labelledby={`${titleId}-existing`}>
-          <h3 className={styles.sectionTitle} id={`${titleId}-existing`}>Existing presets</h3>
+        <section aria-labelledby={titleId}>
+          <h2 className={styles.sectionTitle} id={titleId}>Presets</h2>
           {readError ? <p className={styles.state} role="alert">Could not read saved presets. Close and reopen this dialog to try again.</p>
             : presets.length === 0 ? <p className={styles.state}>No saved presets for this connection yet.</p>
               : <ul className={styles.list}>{presets.map((preset) => <li className={styles.row} key={preset.id}>

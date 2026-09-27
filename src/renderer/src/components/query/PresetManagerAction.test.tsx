@@ -21,7 +21,7 @@ class MemoryStorage implements PresetStorage {
 
 function openDialog() {
   fireEvent.click(screen.getByRole('button', { name: 'Manage saved presets' }))
-  return screen.getByRole('dialog', { name: 'Saved presets' })
+  return screen.getByRole('dialog', { name: 'Presets' })
 }
 function seed(repository: ExplorationPresetRepository, name: string, connectionProfileId = sqlProfile.id, timestamp = 1) {
   const profile = { ...sqlProfile, id: connectionProfileId }
@@ -53,7 +53,7 @@ describe('PresetManagerAction', () => {
     fireEvent.submit(input.closest('form')!)
     expect(repository.listForConnection(sqlProfile.id)).toEqual([expect.objectContaining({ name: 'Checkout errors', payload: expect.objectContaining({ sql: 'select * from checkout_errors' }) })])
     expect(notify).toHaveBeenCalledWith({ message: 'Saved preset “Checkout errors”.' })
-    expect(screen.getByRole('dialog', { name: 'Saved presets' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Presets' })).toBeTruthy()
     expect(screen.getByText('Checkout errors')).toBeTruthy()
     expect((input as HTMLInputElement).value).toBe('')
   })
@@ -199,7 +199,7 @@ describe('PresetManagerAction', () => {
     render(<PresetManagerAction repository={repository} onPresetLoaded={onPresetLoaded} />)
     openDialog()
     fireEvent.click(screen.getByRole('button', { name: 'Load preset Checkout errors' }))
-    expect(screen.queryByRole('dialog', { name: 'Saved presets' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Presets' })).toBeNull()
     expect(useStore.getState().tabs[0]).toEqual(expect.objectContaining({
       id: 'target-tab', title: 'Keep this title', connectionProfileId: sqlProfile.id,
       queryMode: 'sql', sql: source.sql, sqlVisualization: source.sqlVisualization,
@@ -223,7 +223,7 @@ describe('PresetManagerAction', () => {
     expect(load.disabled).toBe(true)
     expect(load.title).toBe('Wait for the current query to finish before loading a preset.')
     fireEvent.click(load)
-    expect(screen.getByRole('dialog', { name: 'Saved presets' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Presets' })).toBeTruthy()
     expect(session.sql).toBe('keep me')
   })
 })
