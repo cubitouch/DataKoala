@@ -340,16 +340,19 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     if (next === 'service-map') cohortAnalysis.ensureStarted()
   }
 
-  const clearTempoResults = () => {
+  const clearTempoTransientState = () => {
     cohortAnalysis.reset()
     resetSearch()
-    clearActiveResults()
     resetTrace()
     setTraceId('')
     setSelectedSpanId('')
     setCollapsed(new Set())
     setError('')
     setCohortHint('')
+  }
+  const clearTempoResults = () => {
+    clearTempoTransientState()
+    clearActiveResults()
     setTempoState({ tempoResultView: 'list' }, tabId)
   }
 
@@ -377,7 +380,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
               <TimeRangeField labelVisibility="sr-only" value={searchRange} onChange={(next) => setTempoState({ tempoTimeRange: next }, tabId)} />
               <div className={styles.sampleSize}><Combobox label="Sample size" mode="inline" value={sampleSize} options={TRACE_SAMPLE_SIZE_OPTIONS} onChange={(value) => changeSampleSize(value as TraceSampleSize)} disabled={loading !== null} /></div>
             </div>}
-            utilities={<QueryUtilityActions hasResults={Boolean(searchRows.length || spans.length || searchNotice || searchProgress || error || cohortHint)} onClearResults={clearTempoResults} onResetQuery={resetTempoQuery} />}
+            utilities={<QueryUtilityActions hasResults={Boolean(searchRows.length || spans.length || searchNotice || searchProgress || error || cohortHint)} onClearResults={clearTempoResults} onResetQuery={resetTempoQuery} onPresetLoaded={clearTempoTransientState} />}
             editorActions={<div className={styles.editorActions}>
               {mode === 'sql' && <button type="button" className="btn ghost" onClick={formatCurrentTraceql} title="Format TraceQL (Shift+Alt+F)" disabled={!traceql.trim()}>Format</button>}
               <CopySqlButton sql={activeTraceql} language="TraceQL" />

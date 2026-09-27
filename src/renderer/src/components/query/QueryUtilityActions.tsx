@@ -7,9 +7,10 @@ interface QueryUtilityActionsProps {
   hasResults?: boolean
   onClearResults?: () => void
   onResetQuery?: () => void
+  onPresetLoaded?: () => void
 }
 
-export function QueryUtilityActions({ hasResults: hasResultsOverride, onClearResults, onResetQuery }: QueryUtilityActionsProps = {}) {
+export function QueryUtilityActions({ hasResults: hasResultsOverride, onClearResults, onResetQuery, onPresetLoaded }: QueryUtilityActionsProps = {}) {
   const active = useStore(selectActiveSession)
   const clearResults = useStore((state) => state.clearActiveResults)
   const resetQuery = useStore((state) => state.resetActiveQuery)
@@ -18,7 +19,7 @@ export function QueryUtilityActions({ hasResults: hasResultsOverride, onClearRes
     || active.builderResultFilters.some((filter) => filter.execution !== 'query'))
 
   return <div className={`query-utility-actions ${styles.root}`} aria-label="Query utilities">
-    <PresetManagerAction />
+    <PresetManagerAction onPresetLoaded={onPresetLoaded} />
     <button type="button" className="btn ghost" aria-label="Reset query" onClick={() => {
       if (window.confirm(`Reset ${active.title} to a fresh query?`)) (onResetQuery ?? resetQuery)()
     }} title="Reset the current tab's query and Builder state.">Reset</button>
