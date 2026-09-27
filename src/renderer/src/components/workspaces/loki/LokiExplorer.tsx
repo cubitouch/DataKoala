@@ -97,7 +97,8 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     ? (generation.error?.includes('safe fallback selector') ? unfilteredUnavailable : generation.error)
     : null
   const isCurrentTab = (tabId: string) => mounted.current && useStore.getState().activeTabId === tabId
-  const clearResults = () => { revision.current++; trendRevision.current++; hasRun.current = false; trendCacheKey.current = null; setTrend(null); setError(null); setWarning(null); setTrendError(null); setLoading(false); clearActiveResults() }
+  const clearLokiTransientState = () => { revision.current++; trendRevision.current++; hasRun.current = false; trendCacheKey.current = null; setTrend(null); setError(null); setWarning(null); setTrendError(null); setLoading(false); setPatternScope(null) }
+  const clearResults = () => { clearLokiTransientState(); clearActiveResults() }
   const resetQuery = () => { clearResults(); setSql(''); setLokiState({ lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }, lokiTimeRange: defaultRange, lokiResultLimit: 1000, lokiGroupBy: [], lokiRangeHistory: [], lokiResultView: 'list' }) }
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; revision.current++; trendRevision.current++ } }, [])
   useLayoutEffect(() => { revision.current++; trendRevision.current++; hasRun.current = Boolean(session.result); previousRangeKey.current = rangeKey; setTrend(null); setTrendError(null); setError(null); setWarning(null); setLoading(false) }, [session.id])
@@ -173,7 +174,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
       <QueryToolbar className={styles.queryToolbar}
         mode={<ModeSwitch />}
         options={<div className={styles.queryOptions}><TimeRangeField labelVisibility="sr-only" value={range} onChange={(value) => setLokiState({ lokiTimeRange: value })} /><TextInput label="Limit" mode="inline" type="number" min={1} max={5000} value={limit} onValueChange={(text) => setLokiState({ lokiResultLimit: Math.max(1, Math.min(5000, Number(text))) })} />{session.lokiRangeHistory.length > 0 && <div className={styles.rangeHistory}><button type="button" className="btn ghost" onClick={() => restoreRange()}>Back</button><button type="button" className="btn ghost" onClick={() => restoreRange(true)}>Reset range</button></div>}</div>}
-        utilities={<QueryUtilityActions hasResults={Boolean(result || trend || error || warning)} onClearResults={clearResults} onResetQuery={resetQuery} />}
+        utilities={<QueryUtilityActions hasResults={Boolean(result || trend || error || warning)} onClearResults={clearResults} onResetQuery={resetQuery} onPresetLoaded={clearLokiTransientState} />}
         editorActions={<div className={styles.editorActions}>{mode === 'logql' && <button type="button" className="btn ghost" onClick={() => void format()} disabled={!canLoadMetadata || !query.trim()}>Format</button>}<CopySqlButton sql={expression} language="LogQL" /><GrafanaHandoffActions profile={profile?.kind === 'loki' ? profile : undefined} query={expression} range={range} /></div>}
         execution={<button className="btn primary" type="button" onClick={() => void run()} disabled={metadataRefreshing || loading || !expression.trim()} title="Run (Ctrl/Command+Enter)" aria-describedby={builderDisabledReason ? 'loki-builder-run-reason' : undefined}>{loading ? 'Running…' : 'Run'}</button>}
       />

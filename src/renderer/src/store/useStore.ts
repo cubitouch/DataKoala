@@ -197,6 +197,7 @@ export interface AppState {
   renameTab: (id: string, title: string) => void
   clearActiveResults: () => void
   resetActiveQuery: () => void
+  commitLoadedPreset: (nextSession: QuerySession, tabId?: string) => void
 
   setSql: (sql: string, tabId?: string) => void
   setPrometheusQueryOptions: (patch: Partial<Pick<QuerySession, 'prometheusTimeRange' | 'prometheusStep'>>, tabId?: string) => void
@@ -525,6 +526,31 @@ export const useStore = create<AppState>((set, get) => ({
     })
     return fresh
   })),
+  commitLoadedPreset: (nextSession, tabId) => set((state) => patchSession(state, tabId, (session) => ({
+    ...nextSession,
+    // A preset changes the contents of the current tab, never the tab itself.
+    id: session.id,
+    title: session.title,
+    connectionProfileId: session.connectionProfileId,
+    manualQueryPristine: false,
+    running: false,
+    queryError: null,
+    result: null,
+    pendingResult: null,
+    resultRevision: 0,
+    lastSuccessfulResultRevision: 0,
+    isResultStale: false,
+    builderHasRun: false,
+    sqlResultFilters: [],
+    builderResultFilters: nextSession.builderResultFilters.filter((filter) => filter.execution === 'query'),
+    queryFilterRevision: { sql: 0, builder: 0 },
+    builderFilterNotice: null,
+    explainText: null,
+    showExplain: false,
+    activeExplainRequest: null,
+    seriesVisibility: {},
+    lokiRangeHistory: []
+  }))),
 
   setSql: (sql, tabId) => set((state) => patchSession(state, tabId, (session) => session.activeExplainRequest ? session : {
     ...session,

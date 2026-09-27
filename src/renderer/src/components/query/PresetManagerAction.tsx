@@ -1,7 +1,7 @@
 import { useId, useRef, useState, type FormEvent } from 'react'
 import { selectActiveSession, useStore, type QuerySession } from '@store/useStore'
 import type { DataSourceProfile } from '@shared/types'
-import { createPresetFromSession, type ExplorationPresetRepository, type SavedExplorationPreset } from '@lib/explorationPresets'
+import { applyPresetToSession, createPresetFromSession, type ExplorationPresetRepository, type SavedExplorationPreset } from '@lib/explorationPresets'
 import { explorationPresetRepository } from '@lib/explorationPresetRepository'
 import { notify } from '@components/ui/feedback/NotificationArea'
 import { Modal } from '@components/ui/Modal'
@@ -15,19 +15,21 @@ interface PresetManagerActionProps {
   repository?: PresetManagerRepository
   session?: QuerySession
   profile?: DataSourceProfile
+  onPresetLoaded?: () => void
 }
 
 function errorDetail(error: unknown): string {
   return error instanceof Error && error.message ? `: ${error.message}` : ''
 }
 
-/** Manages presets for the active tab without updating any query workspace state. */
-export function PresetManagerAction({ repository: suppliedRepository, session: suppliedSession, profile: suppliedProfile }: PresetManagerActionProps = {}) {
+/** Saves and applies presets for the active tab through the preset domain and store boundary. */
+export function PresetManagerAction({ repository: suppliedRepository, session: suppliedSession, profile: suppliedProfile, onPresetLoaded }: PresetManagerActionProps = {}) {
   const activeSession = useStore(selectActiveSession)
   const profiles = useStore((state) => state.profiles)
   const session = suppliedSession ?? activeSession
   const profile = suppliedProfile ?? profiles.find((candidate) => candidate.id === session.connectionProfileId)
   const repository = suppliedRepository ?? explorationPresetRepository()
+  const commitLoadedPreset = useStore((state) => state.commitLoadedPreset)
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [presets, setPresets] = useState<SavedExplorationPreset[]>([])
@@ -114,9 +116,26 @@ export function PresetManagerAction({ repository: suppliedRepository, session: s
       notify({ message: `Could not delete preset${errorDetail(error)}`, tone: 'error' })
     }
   }
+  const load = (preset: SavedExplorationPreset) => {
+    // The disabled control is the primary protection; this guard also covers a
+    // query starting between render and the click handler.
+    const target = suppliedSession ?? useStore.getState().tabs.find((tab) => tab.id === session.id) ?? session
+    if (target.running || !profile) return
+    const result = applyPresetToSession({ preset, profile, session: target })
+    if (!result.ok) {
+      notify({ message: result.reason === 'incompatible'
+        ? 'This preset is not compatible with the current connection.'
+        : 'This preset contains invalid or unsupported saved data.', tone: 'error' })
+      return
+    }
+    commitLoadedPreset(result.session, target.id)
+    onPresetLoaded?.()
+    close()
+    notify({ message: `Loaded preset “${preset.name}”.` })
+  }
 
   return <>
-    <button ref={buttonRef} type="button" className="btn ghost" disabled={!canSave} aria-label="Manage saved presets" title={canSave ? 'Save and manage exploration presets.' : 'Attach this tab to a connection before managing presets.'} onClick={openManager}>Save</button>
+    <button ref={buttonRef} type="button" className="btn ghost" disabled={!canSave} aria-label="Manage saved presets" title={canSave ? 'Save, load and manage exploration presets.' : 'Attach this tab to a connection before managing presets.'} onClick={openManager}>Presets</button>
     <Modal open={open} onClose={close} labelledBy={titleId} returnFocusRef={buttonRef} dialogClassName={styles.dialog}>
       <div className={styles.content}>
         <h2 className={styles.title} id={titleId}>Saved presets</h2>
@@ -141,6 +160,7 @@ export function PresetManagerAction({ repository: suppliedRepository, session: s
                     </div>
                   </form>
                   : <><span className={styles.presetName}>{preset.name}</span><div className={styles.rowActions}>
+                    <button type="button" className="btn ghost" aria-label={`Load preset ${preset.name}`} disabled={session.running} title={session.running ? 'Wait for the current query to finish before loading a preset.' : `Load preset ${preset.name}`} onClick={() => load(preset)}>Load</button>
                     <button type="button" className="btn ghost" aria-label={`Rename preset ${preset.name}`} onClick={() => startRename(preset)}>Rename</button>
                     <button type="button" className="btn ghost" aria-label={`Delete preset ${preset.name}`} onClick={() => remove(preset)}>Delete</button>
                   </div></>}

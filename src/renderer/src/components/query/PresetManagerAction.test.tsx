@@ -42,7 +42,7 @@ describe('PresetManagerAction', () => {
     renderManager(repository, session)
     const action = screen.getByRole('button', { name: 'Manage saved presets' }) as HTMLButtonElement
     expect(action.disabled).toBe(false)
-    expect(action.textContent).toBe('Save')
+    expect(action.textContent).toBe('Presets')
     openDialog()
     const input = screen.getByRole('textbox', { name: 'Preset name' })
     expect(document.activeElement).toBe(input)
@@ -185,5 +185,45 @@ describe('PresetManagerAction', () => {
     expect(completeQuery).not.toHaveBeenCalled()
     expect(setResult).not.toHaveBeenCalled()
     expect(useStore.getState().tabs).toEqual(before)
+  })
+
+  it('loads a preset into the current tab, clears runtime state, and does not execute it', () => {
+    const repository = new ExplorationPresetRepository(new MemoryStorage())
+    const source = createQuerySession(1, { connectionProfileId: sqlProfile.id, queryMode: 'sql', sql: "select * from orders where status = 'failed'" })
+    source.sqlVisualization = { ...source.sqlVisualization, view: 'bar' }
+    repository.create(createPresetFromSession({ name: 'Checkout errors', profile: sqlProfile, session: source, id: 'load-me' }))
+    const target = createQuerySession(2, { id: 'target-tab', title: 'Keep this title', connectionProfileId: sqlProfile.id, queryMode: 'builder', sql: 'old query' })
+    Object.assign(target, { running: false, queryError: 'old error', result: { columns: [], rows: [], rowCount: 0 }, pendingResult: { columns: [], rows: [], rowCount: 0 }, resultRevision: 8, lastSuccessfulResultRevision: 7, isResultStale: true, builderHasRun: true, explainText: 'plan', showExplain: true, activeExplainRequest: 'explain', seriesVisibility: { failed: false }, lokiRangeHistory: [{ kind: 'rolling', amount: 7, unit: 'day' }] })
+    const startQuery = vi.fn(), completeQuery = vi.fn(), setResult = vi.fn(), onPresetLoaded = vi.fn()
+    resetTestStore({ profiles: [sqlProfile], tabs: [target], activeTabId: target.id, startQuery, completeQuery, setResult })
+    render(<PresetManagerAction repository={repository} onPresetLoaded={onPresetLoaded} />)
+    openDialog()
+    fireEvent.click(screen.getByRole('button', { name: 'Load preset Checkout errors' }))
+    expect(screen.queryByRole('dialog', { name: 'Saved presets' })).toBeNull()
+    expect(useStore.getState().tabs[0]).toEqual(expect.objectContaining({
+      id: 'target-tab', title: 'Keep this title', connectionProfileId: sqlProfile.id,
+      queryMode: 'sql', sql: source.sql, sqlVisualization: source.sqlVisualization,
+      manualQueryPristine: false, running: false, queryError: null, result: null, pendingResult: null,
+      resultRevision: 0, lastSuccessfulResultRevision: 0, isResultStale: false, builderHasRun: false,
+      explainText: null, showExplain: false, activeExplainRequest: null, seriesVisibility: {}, lokiRangeHistory: []
+    }))
+    expect(onPresetLoaded).toHaveBeenCalledOnce()
+    expect(notify).toHaveBeenCalledWith({ message: 'Loaded preset “Checkout errors”.' })
+    expect(startQuery).not.toHaveBeenCalled(); expect(completeQuery).not.toHaveBeenCalled(); expect(setResult).not.toHaveBeenCalled()
+  })
+
+  it('disables loading while a query is running', () => {
+    const repository = new ExplorationPresetRepository(new MemoryStorage())
+    seed(repository, 'Wait')
+    const session = createQuerySession(1, { connectionProfileId: sqlProfile.id, sql: 'keep me' })
+    session.running = true
+    renderManager(repository, session)
+    openDialog()
+    const load = screen.getByRole('button', { name: 'Load preset Wait' }) as HTMLButtonElement
+    expect(load.disabled).toBe(true)
+    expect(load.title).toBe('Wait for the current query to finish before loading a preset.')
+    fireEvent.click(load)
+    expect(screen.getByRole('dialog', { name: 'Saved presets' })).toBeTruthy()
+    expect(session.sql).toBe('keep me')
   })
 })
