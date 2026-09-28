@@ -14,7 +14,7 @@ export function defaultTempoBuilder(): TraceBuilderState {
 export function cloneTempoBuilder(builder: TraceBuilderState): TraceBuilderState {
   return {
     ...builder,
-    advancedFilters: builder.advancedFilters.map((filter) => ({ ...filter, values: [...filter.values] }))
+    advancedFilters: builder.advancedFilters.map((filter) => filter.mode === 'compare' ? { ...filter } : { ...filter, values: [...filter.values] })
   }
 }
 
@@ -28,12 +28,19 @@ export function parseTempoBuilder(value: unknown): TraceBuilderState | null {
   if (!oneOf(value.spanKind, ['any', 'server', 'client', 'producer', 'consumer', 'internal', 'unspecified'] as const) ||
       !oneOf(value.protocol, ['any', 'http', 'rpc', 'messaging', 'database'] as const) ||
       !oneOf(value.status, ['any', 'unset', 'error', 'ok'] as const) || !Array.isArray(value.advancedFilters)) return null
-  const advancedFilters = value.advancedFilters.flatMap((filter) => {
-    if (!isRecord(filter) || typeof filter.attribute !== 'string' || !oneOf(filter.scope, ['resource', 'span'] as const) ||
-        !oneOf(filter.mode, ['include', 'exclude'] as const) || !Array.isArray(filter.values) || filter.values.some((item) => typeof item !== 'string')) return []
-    return [{ attribute: filter.attribute, scope: filter.scope, mode: filter.mode, values: [...filter.values] as string[] }]
-  })
-  if (advancedFilters.length !== value.advancedFilters.length) return null
+  const advancedFilters: TraceBuilderState['advancedFilters'] = []
+  for (const filter of value.advancedFilters) {
+    if (!isRecord(filter) || typeof filter.attribute !== 'string' || !oneOf(filter.scope, ['resource', 'span'] as const)) return null
+    if (oneOf(filter.mode, ['include', 'exclude'] as const) && Array.isArray(filter.values) && !filter.values.some((item) => typeof item !== 'string')) {
+      advancedFilters.push({ attribute: filter.attribute, scope: filter.scope, mode: filter.mode, values: [...filter.values] as string[] })
+      continue
+    }
+    if (filter.mode === 'compare' && oneOf(filter.operator, ['>', '>=', '<', '<=', '=~', '!~'] as const) && typeof filter.value === 'string') {
+      advancedFilters.push({ attribute: filter.attribute, scope: filter.scope, mode: 'compare', operator: filter.operator, value: filter.value })
+      continue
+    }
+    return null
+  }
   return { ...Object.fromEntries(stringFields.map((field) => [field, value[field]])), spanKind: value.spanKind, protocol: value.protocol, status: value.status, advancedFilters } as TraceBuilderState
 }
 

@@ -121,7 +121,7 @@ test('workspace v2 round-trips ordered tabs, names, connection references and ax
   assert.equal(restored.tabs[1].lokiBuilder.labelMatchers[0].value, 'tab-b')
   assert.deepEqual(restored.tabs[1].lokiGroupBy, ['service_name'])
   assert.equal(restored.tabs[0].tempoBuilder.service, 'tab-a')
-  assert.deepEqual(restored.tabs[0].tempoBuilder.advancedFilters[0].values, ['tab-a'])
+  assert.deepEqual(restored.tabs[0].tempoBuilder.advancedFilters[0], { attribute: 'resource.cluster', scope: 'resource', mode: 'include', values: ['tab-a'] })
   assert.deepEqual(restored.tabs[1].tempoTimeRange, { kind: 'rolling', amount: 30, unit: 'minute' })
   assert.equal(restored.tabs[1].tempoSampleSize, '500')
   assert.equal(restored.tabs[1].tempoResultView, 'scatter')

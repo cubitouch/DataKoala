@@ -28,9 +28,7 @@
 .facetAttribute { min-width: 0; display: grid; gap: 2px; }
 .facetAttribute strong { overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; }
 .facetAttribute small { color: var(--text-mute); font-size: 10px; }
-.facetMode { display: inline-flex; width: fit-content; min-height: 32px; padding: 2px; gap: 2px; align-items: stretch; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-3); }
-.facetMode button { border: 0; border-radius: 5px; padding: 4px 8px; background: transparent; color: var(--text-dim); cursor: pointer; }
-.facetMode button[aria-pressed="true"] { background: var(--accent); color: #0a0d12; font-weight: 600; }
+.facetMode { min-width: 0; }
 .facetValues { --builder-field-gap: 4px; }
 
 @media (max-width: 1180px) {

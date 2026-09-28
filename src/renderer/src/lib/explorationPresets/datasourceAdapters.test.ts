@@ -55,7 +55,7 @@ describe('datasource preset adapters', () => {
 
   it('round-trips Tempo structured search independently of raw TraceQL', () => {
     const source = testSession({ queryMode: 'builder', sql: '{ resource.service.name = "raw-only" }' })
-    source.tempoBuilder = { ...source.tempoBuilder, serviceNamespace: 'shop', service: 'checkout', spanKind: 'server', protocol: 'http', httpMethod: 'POST', endpoint: '/checkout', spanName: 'pay', status: 'error', minDurationMs: '500', advancedFilters: [{ attribute: 'deployment.environment', scope: 'resource', mode: 'include', values: ['prod'] }, { attribute: 'http.response.status_code', scope: 'span', mode: 'exclude', values: ['200'] }] }
+    source.tempoBuilder = { ...source.tempoBuilder, serviceNamespace: 'shop', service: 'checkout', spanKind: 'server', protocol: 'http', httpMethod: 'POST', endpoint: '/checkout', spanName: 'pay', status: 'error', minDurationMs: '500', advancedFilters: [{ attribute: 'deployment.environment', scope: 'resource', mode: 'include', values: ['prod'] }, { attribute: 'http.response.status_code', scope: 'span', mode: 'exclude', values: ['200'] }, { attribute: 'span.http.status_code', scope: 'span', mode: 'compare', operator: '>=', value: '500' }] }
     source.tempoTimeRange = { kind: 'rolling', amount: 12, unit: 'hour' }; source.tempoSampleSize = '500'; source.tempoResultView = 'service-map'
     const payload = tempoPresetAdapter.capture(source), target = testSession()
     expect(tempoPresetAdapter.parse(payload)).toEqual(payload)

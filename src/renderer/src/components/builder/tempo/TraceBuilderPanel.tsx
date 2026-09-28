@@ -1,12 +1,12 @@
 import { TextInput } from '@components/ui/TextInput'
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import type { DatabaseSchemaNode } from '@shared/types'
 import type { TempoAttribute } from '@shared/tempo'
 import type { MetadataStatus } from '@store/useStore'
 import {
-  traceBuilderFromTraceql,
+  type TraceAttributeFilter,
+  type TraceAttributeFilterOperator,
   type TraceBuilderState,
-  type TraceAttributeFilterMode,
   type TraceProtocol,
   type TraceSpanKind,
   type TraceStatus
@@ -86,8 +86,12 @@ const dbSystemOptions: ComboboxOption[] = [
   { value: '', label: 'Any database' },
   ...['postgresql', 'mysql', 'sqlite', 'mongodb', 'redis', 'elasticsearch'].map((system) => ({ value: system, label: system }))
 ]
-const filterModes: Array<{ value: TraceAttributeFilterMode; label: string }> = [
-  { value: 'include', label: 'Include' }, { value: 'exclude', label: 'Exclude' }
+type FilterChoice = 'include' | 'exclude' | TraceAttributeFilterOperator
+const filterModes: Array<{ value: FilterChoice; label: string }> = [
+  { value: 'include', label: 'Include (=)' }, { value: 'exclude', label: 'Exclude (!=)' },
+  { value: '>', label: 'Greater than (>)' }, { value: '>=', label: 'Greater than or equal (>=)' },
+  { value: '<', label: 'Less than (<)' }, { value: '<=', label: 'Less than or equal (<=)' },
+  { value: '=~', label: 'Matches regex (=~)' }, { value: '!~', label: 'Does not match regex (!~)' }
 ]
 const MAX_ATTRIBUTE_VALUES = 250
 
@@ -112,14 +116,13 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
   }, [messagingSystems, value.messagingSystem])
   const attributeOptions = useMemo<ComboboxOption[]>(() => attributes.map((attribute) => ({ value: attribute.traceql, label: attribute.traceql, subtitle: `${attribute.scope === 'resource' ? 'Resource' : 'Span'} attribute`, keywords: [attribute.name, attribute.scope] })), [attributes])
   const selectedAttributes = value.advancedFilters.map((filter) => filter.attribute)
-  const activeAdvancedFilterCount = value.advancedFilters.filter((filter) => filter.values.some((item) => item.trim())).length + (value.spanName.trim() ? 1 : 0)
+  const activeAdvancedFilterCount = value.advancedFilters.filter((filter) => filter.mode === 'compare' ? filter.value.trim() : filter.values.some((item) => item.trim())).length + (value.spanName.trim() ? 1 : 0)
   const changeAttributes = (selected: string[]) => onChange({ advancedFilters: selected.map((attribute) => value.advancedFilters.find((filter) => filter.attribute === attribute) ?? { attribute, scope: attributes.find((item) => item.traceql === attribute)?.scope ?? (attribute.startsWith('resource.') ? 'resource' : 'span'), mode: 'include', values: [] }) })
-  const updateFilter = (attribute: string, patch: Partial<(typeof value.advancedFilters)[number]>) => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === attribute ? { ...filter, ...patch } : filter) })
-
-  useEffect(() => {
-    const parsed = traceBuilderFromTraceql(traceql)
-    if (JSON.stringify(parsed) !== JSON.stringify(value)) onChange(parsed)
-  }, [traceql])
+  const replaceFilter = (replacement: TraceAttributeFilter) => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === replacement.attribute ? replacement : filter) })
+  const changeFilterMode = (filter: TraceAttributeFilter, choice: FilterChoice) => {
+    if (choice === 'include' || choice === 'exclude') replaceFilter({ attribute: filter.attribute, scope: filter.scope, mode: choice, values: filter.mode === 'compare' && filter.value.trim() ? [filter.value] : filter.mode === 'compare' ? [] : filter.values })
+    else replaceFilter({ attribute: filter.attribute, scope: filter.scope, mode: 'compare', operator: choice, value: filter.mode === 'compare' ? filter.value : filter.values[0] ?? '' })
+  }
 
   const changeNamespace = (serviceNamespace: string) => {
     const allowedServices = new Set(serviceRelations
@@ -169,8 +172,10 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
         const displayed = discovered.slice(0, MAX_ATTRIBUTE_VALUES)
         return <BuilderRow className={styles.facet} key={filter.attribute}>
           <div className={styles.facetAttribute} title={filter.attribute}><strong>{filter.attribute.replace(/^(?:resource|span)\./, '')}</strong><small>{filter.scope} attribute</small></div>
-          <div className={styles.facetMode} role="group" aria-label={`${filter.attribute} match mode`}>{filterModes.map((mode) => <button type="button" key={mode.value} aria-pressed={filter.mode === mode.value} onClick={() => updateFilter(filter.attribute, { mode: mode.value })}>{mode.label}</button>)}</div>
-          <FormField className={styles.facetValues} data-builder-field=""><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => updateFilter(filter.attribute, { values })} searchable showChips allowCustomValue loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} hint={discovered.length > MAX_ATTRIBUTE_VALUES ? `Showing the first ${MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.` : undefined} /></FormField>
+          <div className={styles.facetMode}><Combobox label={`${filter.attribute} match mode`} value={filter.mode === 'compare' ? filter.operator : filter.mode} options={filterModes} onChange={(mode) => changeFilterMode(filter, mode as FilterChoice)} /></div>
+          {filter.mode === 'compare'
+            ? <FormField className={styles.facetValues} data-builder-field=""><TextInput label={`${filter.attribute} value`} value={filter.value} onValueChange={(scalarValue) => replaceFilter({ ...filter, value: scalarValue })} placeholder={filter.operator === '=~' || filter.operator === '!~' ? 'api-.*' : '500 or 300ms'} /></FormField>
+            : <FormField className={styles.facetValues} data-builder-field=""><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => replaceFilter({ ...filter, values })} searchable showChips allowCustomValue loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} hint={discovered.length > MAX_ATTRIBUTE_VALUES ? `Showing the first ${MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.` : undefined} /></FormField>}
         </BuilderRow>
       })}</div></div>}
       <FormField data-builder-field=""><TextInput label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter." value={value.spanName} onValueChange={(text) => onChange({ spanName: text })} placeholder="POST /checkout" /></FormField>
