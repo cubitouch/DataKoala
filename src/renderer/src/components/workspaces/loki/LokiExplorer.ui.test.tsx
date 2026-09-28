@@ -8,6 +8,7 @@ vi.mock('@lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels,
 vi.mock('@tanstack/react-virtual', () => ({ useVirtualizer: ({ count }: { count: number }) => ({ measure: vi.fn(), measureElement: vi.fn(), getTotalSize: () => count * 113, getVirtualItems: () => Array.from({ length: Math.min(count, 20) }, (_, index) => ({ index, start: index * 113 })) }) }))
 import { createQuerySession, useStore } from '@store/useStore'
 import { clearLokiLabelsResources } from '@lib/useLokiLabelsResource'
+import type { LokiLogResult } from '@shared/loki'
 
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value }: { value: string }) => <textarea aria-label="LogQL editor" value={value} readOnly /> }))
 vi.mock('echarts-for-react', () => ({ default: () => <div data-testid="loki-echarts" /> }))
@@ -174,6 +175,37 @@ describe('LokiExplorer execution', () => {
     expect(generated).toContain('app="x"')
     expect(generated).toContain('service="x"')
     expect(generated).toContain('|= "timeout"')
+  })
+
+  it('keeps parsed JSON actions in the pipeline and exposes them in Advanced filters', () => {
+    const tab = createQuerySession(1, { id: 'json-filter', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
+    const parsed = { ...logRow('json', JSON.stringify({ message: 'Retrying', attempt: 3 })), parsedFields: { attempt: 3 } }
+    tab.result = { ...logs, logRows: [parsed], rows: [parsed], rowCount: 1 } as LokiLogResult
+    tab.resultRevision = 1
+    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'retry' }], parsers: [], fieldFilters: [] }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: /Retrying/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Include attempt' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Include attempt' }))
+    expect(useStore.getState().tabs[0].lokiBuilder).toEqual({ labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'retry' }], parsers: [{ kind: 'json' }], fieldFilters: [{ field: 'attempt', operator: '=', value: '3' }] })
+    fireEvent.click(screen.getByText('Advanced filters'))
+    expect(screen.getByRole('combobox', { name: /Parser 1/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Exclude attempt' }))
+    expect(useStore.getState().tabs[0].lokiBuilder.parsers).toEqual([{ kind: 'json' }])
+    expect(useStore.getState().tabs[0].lokiBuilder.fieldFilters).toEqual([{ field: 'attempt', operator: '!=', value: '3' }])
+  })
+
+  it('edits and removes advanced filters without changing indexed labels', () => {
+    const tab = createQuerySession(1, { id: 'advanced-builder', connectionProfileId: 'loki', queryMode: 'builder' })
+    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [], parsers: [{ kind: 'json' }], fieldFilters: [{ field: 'attempt', operator: '=', value: '3' }] }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByText('Advanced filters'))
+    fireEvent.change(screen.getByLabelText('Field 1 value'), { target: { value: '4' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Remove field filter 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove parser 1' }))
+    expect(useStore.getState().tabs[0].lokiBuilder).toMatchObject({ labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], parsers: [], fieldFilters: [] })
   })
 
   it('renders Limit as a complete numeric field without squeezing its input', () => {

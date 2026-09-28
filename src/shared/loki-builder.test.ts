@@ -40,6 +40,20 @@ test('appends the normal pipeline to the provider fallback selector', () => {
   assert.equal(query, '{service_name=~".+"} |= "timeout" | json | regexp "status=(?P<status>\\\\d+)" | status!="200"')
 })
 
+test('orders JSON parsing before included and excluded parsed-field filters', () => {
+  const base = { labelMatchers: [{ label: 'service_name', operator: '=' as const, value: 'checkout' }], lineFilters: [], parsers: [{ kind: 'json' as const }] }
+  const included = buildLokiQuery({ ...base, fieldFilters: [{ field: 'attempt', operator: '=', value: '3' }] })
+  const excluded = buildLokiQuery({ ...base, fieldFilters: [{ field: 'attempt', operator: '!=', value: '3' }] })
+  assert.equal(included, '{service_name="checkout"} | json | attempt="3"')
+  assert.equal(excluded, '{service_name="checkout"} | json | attempt!="3"')
+  assert.equal(logqlResultKind(included), 'logs')
+  assert.equal(logqlResultKind(excluded), 'logs')
+})
+
+test('does not require a parser for a structured-metadata field filter', () => {
+  assert.equal(buildLokiQuery({ labelMatchers: [{ label: 'service_name', operator: '=', value: 'checkout' }], lineFilters: [], parsers: [], fieldFilters: [{ field: 'trace_id', operator: '=', value: 'abc' }] }), '{service_name="checkout"} | trace_id="abc"')
+})
+
 test('does not use the fallback when a completed user matcher exists', () => {
   const state = { labelMatchers: [{ label: 'app', operator: '=' as const, value: 'checkout' }], lineFilters: [], parsers: [], fieldFilters: [] }
   assert.equal(buildLokiQuery(state, { fallbackMatcher: { label: 'service_name', operator: '=~', value: '.+' } }), '{app="checkout"}')

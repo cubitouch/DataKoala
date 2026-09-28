@@ -4,7 +4,7 @@ vi.mock('@tanstack/react-virtual', () => ({ useVirtualizer: ({ count }: { count:
 import { LogResultExplorer } from './LogResultExplorer'
 
 afterEach(cleanup)
-const row = { id: '1', timestampNs: '1750000000000000000', timestampMs: 1750000000000, line: 'Payment provider timeout after retries', labels: { service_name: 'checkout-api' }, structuredMetadata: { severity: 'ERROR', trace_id: 'abc' }, parsedFields: { attempt: 3 }, severity: 'ERROR', traceId: 'abc' }
+const row = { id: '1', timestampNs: '1750000000000000000', timestampMs: 1750000000000, line: JSON.stringify({ message: 'Payment provider timeout after retries', attempt: 3 }), labels: { service_name: 'checkout-api' }, structuredMetadata: { severity: 'ERROR', trace_id: 'abc', region: 'west' }, parsedFields: { attempt: 3 }, severity: 'ERROR', traceId: 'abc' }
 
 it('opens a compact selected row in the side inspector without advertising unavailable correlation', () => {
   const onFilter = vi.fn()
@@ -20,7 +20,11 @@ it('opens a compact selected row in the side inspector without advertising unava
   expect(screen.getByRole('button', { name: /Payment provider timeout/ }).getAttribute('aria-selected')).toBe('true')
   expect(screen.queryByRole('button', { name: 'Open trace' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Include service_name' }))
-  expect(onFilter).toHaveBeenCalledWith('label', 'service_name', 'checkout-api', false)
+  expect(onFilter).toHaveBeenCalledWith('label', 'service_name', 'checkout-api', false, undefined)
+  fireEvent.click(screen.getByRole('button', { name: 'Exclude region' }))
+  expect(onFilter).toHaveBeenCalledWith('structured-metadata', 'region', 'west', true, undefined)
+  fireEvent.click(screen.getByRole('button', { name: 'Include attempt' }))
+  expect(onFilter).toHaveBeenCalledWith('parsed-field', 'attempt', '3', false, 'json')
 })
 
 it('keeps a large result set virtualized', () => {
