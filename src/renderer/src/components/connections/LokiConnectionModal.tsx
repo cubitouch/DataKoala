@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LokiProfile } from '@shared/types'
 import type { LokiDatasourceOption } from '@shared/loki'
 import { normalizeGrafanaBaseUrl } from '@shared/grafanaExplore'
@@ -31,6 +31,8 @@ export function LokiConnectionModal({ existing, onClose, onSaved, onBack, active
   const discoveredContext = useRef<string | null>(null)
   const manualUidRef = useRef('')
   const savedFallbackRef = useRef(false)
+  const latestContext = useRef(context.trim())
+  latestContext.current = context.trim()
   const effectiveUid = selectedUid.trim() || manualUid.trim()
   const selectedDatasource = datasources.find((source) => source.uid === selectedUid)
   const contextLabel = context.trim() || 'Current gcx context'
@@ -38,7 +40,7 @@ export function LokiConnectionModal({ existing, onClose, onSaved, onBack, active
   const grafanaType = selectedDatasource?.type ?? existing?.grafana?.datasourceType
   const profile = (): LokiProfile => ({ kind: 'loki', version: 1, id: existing?.id ?? '', name: name.trim(), readonly: true, transport: transport(), ...(grafanaUrl.trim() ? { grafana: { baseUrl: normalizeGrafanaBaseUrl(grafanaUrl), orgId: Number(orgId), datasourceType: grafanaType } } : {}) })
 
-  const discover = async (nextContext = context.trim(), preserveSaved = false) => {
+  const discover = useCallback(async (nextContext: string, preserveSaved = false) => {
     const revision = ++discoveryRevision.current
     const previousContext = discoveredContext.current
     const contextChanged = previousContext !== null && previousContext !== nextContext
@@ -69,9 +71,10 @@ export function LokiConnectionModal({ existing, onClose, onSaved, onBack, active
       else if (manualForRequest) { setManualUid(manualForRequest); manualUidRef.current = manualForRequest }
       setDiscoveryState('error'); setDiscoveryError(failureMessage(caught)); setManualOpen(true)
     }
-  }
+  }, [savedUid])
 
-  useEffect(() => { if (active) void discover(context.trim(), true); return () => { discoveryRevision.current += 1 } }, [active])
+  const invalidateDiscovery = useCallback(() => { discoveryRevision.current += 1 }, [])
+  useEffect(() => { if (active) void discover(latestContext.current, true); return invalidateDiscovery }, [active, discover, invalidateDiscovery])
   const refreshForContext = () => { if (active && discoveredContext.current !== context.trim()) void discover(context.trim()) }
   const chooseDatasource = (uid: string) => { setSelectedUid(uid); if (uid) { setManualUid(''); manualUidRef.current = ''; savedFallbackRef.current = false; setSavedDatasourceMissing(false); setManualOpen(false) } setMessage(null) }
   const enterManualUid = (uid: string) => { setManualUid(uid); manualUidRef.current = uid; savedFallbackRef.current = uid.trim() === savedUid && Boolean(savedUid); if (uid.trim()) setSelectedUid(''); setMessage(null) }

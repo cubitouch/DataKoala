@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TempoProfile } from '@shared/types'
 import type { TempoDatasourceOption } from '@shared/tempoDatasource'
 import { normalizeGrafanaBaseUrl } from '@shared/grafanaExplore'
@@ -26,8 +26,10 @@ export function TempoConnectionModal({ existing, onClose, onSaved, onBack, activ
   const [orgId, setOrgId] = useState(String(existing?.grafana?.orgId ?? 1))
   const discoveryRevision = useRef(0)
   const discoveredContext = useRef<string | null>(null)
+  const latestContext = useRef(context.trim())
+  latestContext.current = context.trim()
 
-  const discover = async (nextContext = context.trim(), preserveSaved = false) => {
+  const discover = useCallback(async (nextContext: string, preserveSaved = false) => {
     const revision = ++discoveryRevision.current
     const contextChanged = discoveredContext.current !== null && discoveredContext.current !== nextContext
     discoveredContext.current = nextContext
@@ -50,8 +52,9 @@ export function TempoConnectionModal({ existing, onClose, onSaved, onBack, activ
       if (contextChanged) setDatasourceUid('')
       setDiscoveryState('error'); setDatasourceMessage(`Datasource discovery failed. ${failureMessage(caught)}`)
     }
-  }
-  useEffect(() => { if (active) void discover(context.trim(), true); return () => { discoveryRevision.current += 1 } }, [active])
+  }, [savedUid])
+  const invalidateDiscovery = useCallback(() => { discoveryRevision.current += 1 }, [])
+  useEffect(() => { if (active) void discover(latestContext.current, true); return invalidateDiscovery }, [active, discover, invalidateDiscovery])
   const refreshForContext = () => { if (active && discoveredContext.current !== context.trim()) void discover(context.trim()) }
   const selected = datasources.find((item) => item.uid === datasourceUid)
   const makeProfile = (): TempoProfile => ({ kind: 'tempo', version: 1, id: existing?.id ?? '', name: name.trim(), readonly: true, transport: { kind: 'gcx', ...(context.trim() ? { context: context.trim() } : {}), ...(datasourceUid ? { datasourceUid } : {}) }, ...(grafanaUrl.trim() ? { grafana: { baseUrl: normalizeGrafanaBaseUrl(grafanaUrl), orgId: Number(orgId), datasourceType: selected?.type ?? existing?.grafana?.datasourceType } } : {}) })
