@@ -31,6 +31,7 @@ export const IPC = {
   QUERY_SERIES_STATISTICS: 'query:series-statistics',
   QUERY_EXPLAIN: 'query:explain',
   CLIPBOARD_WRITE_PNG: 'clipboard:write-png',
+  CLIPBOARD_WRITE_SVG: 'clipboard:write-svg',
   EXTERNAL_OPEN_URL: 'external:open-url',
   GCX_RESOLVE_GRAFANA_HANDOFF: 'gcx:resolve-grafana-handoff'
 } as const

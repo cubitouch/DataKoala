@@ -9,6 +9,7 @@ import { scopeTraceServiceMap, type TraceServiceMapScope } from '@lib/traceServi
 import { api } from '@lib/api'
 import { copyChartPng } from '@lib/chartImage'
 import { notifyChartCopyResult } from '@lib/chartCopyNotification'
+import { notify } from '@components/ui/feedback/NotificationArea'
 import { TraceServiceMapCanvas, type TraceServiceMapCanvasHandle } from './TraceServiceMapCanvas'
 import styles from './TraceServiceMap.module.css'
 
@@ -149,7 +150,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
   const [serviceSearch, setServiceSearch] = useState('')
   const [graphFullscreen, setGraphFullscreen] = useState(false)
   const [renderedGraphKey, setRenderedGraphKey] = useState('')
-  const [exporting, setExporting] = useState<'copy' | 'svg' | 'excalidraw' | null>(null)
+  const [exporting, setExporting] = useState<'copy' | 'figma' | 'svg' | 'excalidraw' | null>(null)
   const canvasRef = useRef<TraceServiceMapCanvasHandle>(null)
   const didAutoGroup = useRef(false)
   const colors = useMemo(palette, [])
@@ -267,13 +268,30 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       setExporting(null)
     }
   }
+  const copyForFigma = async () => {
+    if (exporting) return
+    setExporting('figma')
+    try {
+      const result = await api.clipboardSvg.write(canvasRef.current!.svg())
+      notify(result.ok
+        ? { message: 'SVG copied for Figma' }
+        : { message: 'Could not copy SVG', tone: 'error' })
+    } catch (error) {
+      console.error('[service-map] Could not copy SVG for Figma', error)
+      notify({ message: 'Could not copy SVG', tone: 'error' })
+    } finally {
+      setExporting(null)
+    }
+  }
   const exportSvg = async () => {
     if (exporting) return
     setExporting('svg')
     try {
       await api.export.saveText({
         defaultName: 'datakoala_service_map.svg',
-        content: canvasRef.current!.svg()
+        content: canvasRef.current!.svg(),
+        extensions: ['svg'],
+        filterName: 'SVG'
       })
     } catch (error) {
       console.error('[service-map] Could not export SVG', error)
@@ -287,7 +305,9 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
     try {
       await api.export.saveText({
         defaultName: 'datakoala_service_map.excalidraw',
-        content: canvasRef.current!.excalidraw()
+        content: canvasRef.current!.excalidraw(),
+        extensions: ['excalidraw'],
+        filterName: 'Excalidraw'
       })
     } catch (error) {
       console.error('[service-map] Could not export Excalidraw scene', error)
@@ -611,6 +631,9 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
               </button>
               <button type="button" className={styles.fullscreenButton} onClick={copyImage} disabled={Boolean(exporting)}>
                 Copy image
+              </button>
+              <button type="button" className={styles.fullscreenButton} onClick={copyForFigma} disabled={Boolean(exporting)}>
+                Copy for Figma
               </button>
               <button type="button" className={styles.fullscreenButton} onClick={exportSvg} disabled={Boolean(exporting)}>
                 Export SVG

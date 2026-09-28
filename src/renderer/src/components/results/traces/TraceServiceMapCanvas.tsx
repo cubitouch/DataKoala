@@ -363,15 +363,13 @@ export function TraceServiceMapCanvas({
     })
     resizeObserver.observe(hostElement)
     let disposed = false
-    paper.unfreeze({
-      batchSize: 100,
-      afterRender: () => {
-        if (disposed) return
-        renderedBounds()
-        fit()
-        onReady()
-      },
+    paper.once('render:done', () => {
+      if (disposed) return
+      renderedBounds()
+      fit()
+      onReady()
     })
+    paper.unfreeze({ batchSize: 100 })
     return () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)

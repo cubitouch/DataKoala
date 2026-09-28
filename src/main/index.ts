@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, clipboard, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, ClipboardItem, ipcMain, dialog, clipboard, nativeImage, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import * as db from './db'
@@ -559,6 +559,24 @@ function registerIpc(): void {
     writeImage: (image) => clipboard.writeImage(image as Electron.NativeImage),
     logError: (error) => console.error('[clipboard] Could not write chart PNG', error)
   }))
+  ipcMain.handle(IPC.CLIPBOARD_WRITE_SVG, async (_event, value: unknown) => {
+    if (typeof value !== 'string') return { ok: false as const }
+    const svg = value.trim()
+    if (!/^<svg[\s>]/i.test(svg) || svg.length > 20_000_000) return { ok: false as const }
+    try {
+      await clipboard.write([
+        new ClipboardItem({
+          'image/svg+xml': new Blob([svg], { type: 'image/svg+xml' }),
+          'text/html': svg,
+          'text/plain': svg
+        })
+      ])
+      return { ok: true as const }
+    } catch (error) {
+      console.error('[clipboard] Could not write service-map SVG', error)
+      return { ok: false as const }
+    }
+  })
   ipcMain.handle(IPC.CONNECTION_TEST, (_e, profile: DataSourceProfile) => db.testConnection(profile))
   ipcMain.handle(IPC.BIGQUERY_DISCOVER_PROJECTS, () => bigQueryDiscovery.discoverProjects())
   ipcMain.handle(IPC.BIGQUERY_DISCOVER_DEFAULTS, () => bigQueryDiscovery.discoverDefaults())
@@ -649,11 +667,23 @@ function registerIpc(): void {
     }
   })
   ipcMain.handle(IPC.QUERY_EXPLAIN, (_e, id: string, sql: string, analyze: boolean) => db.explainQuery(id, sql, analyze))
-  ipcMain.handle('export:save-text', async (_e, opts: { defaultName: string; content: string }) => {
+  ipcMain.handle('export:save-text', async (_e, opts: {
+    defaultName: string
+    content: string
+    extensions?: string[]
+    filterName?: string
+  }) => {
     const win = BrowserWindow.getFocusedWindow()
+    const requestedExtensions = Array.isArray(opts.extensions)
+      ? opts.extensions.filter((extension) => typeof extension === 'string' && /^[a-z0-9]+$/i.test(extension))
+      : []
+    const extensions = requestedExtensions.length ? requestedExtensions : ['sql', 'txt', 'csv']
+    const filterName = typeof opts.filterName === 'string' && opts.filterName.trim()
+      ? opts.filterName.trim()
+      : 'Text'
     const res = await dialog.showSaveDialog(win!, {
       defaultPath: opts.defaultName,
-      filters: [{ name: 'Text', extensions: ['sql', 'txt', 'csv'] }]
+      filters: [{ name: filterName, extensions }]
     })
     if (res.canceled || !res.filePath) return null
     const { writeFileSync } = await import('node:fs')
