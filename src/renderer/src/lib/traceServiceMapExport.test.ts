@@ -57,9 +57,23 @@ describe('service map Excalidraw export', () => {
         strokeColor: '#516666',
         backgroundColor: '#202b2a',
         textColor: '#fff9f1',
+      }, {
+        id: 'worker',
+        label: 'Worker',
+        x: 200,
+        y: 20,
+        width: 120,
+        height: 42,
+        strokeColor: '#516666',
+        backgroundColor: '#202b2a',
+        textColor: '#fff9f1',
       }],
       [{
         id: 'api-worker',
+        sourceId: 'api',
+        targetId: 'worker',
+        sourceFixedPoint: [1, 0.5],
+        targetFixedPoint: [0, 0.5],
         points: [{ x: 130, y: 41 }, { x: 200, y: 41 }],
         strokeColor: '#617f7f',
         strokeWidth: 2,
@@ -73,8 +87,28 @@ describe('service map Excalidraw export', () => {
     expect(scene.elements.map((element: { type: string }) => element.type)).toEqual([
       'rectangle',
       'text',
+      'rectangle',
+      'text',
       'arrow',
     ])
+    const source = scene.elements.find((element: { id: string }) => element.id === 'node:api')
+    const sourceText = scene.elements.find((element: { id: string }) => element.id === 'text:api')
+    const target = scene.elements.find((element: { id: string }) => element.id === 'node:worker')
+    const arrow = scene.elements.find((element: { id: string }) => element.id === 'edge:api-worker')
+    expect(source.boundElements).toContainEqual({ id: 'text:api', type: 'text' })
+    expect(source.boundElements).toContainEqual({ id: 'edge:api-worker', type: 'arrow' })
+    expect(target.boundElements).toContainEqual({ id: 'edge:api-worker', type: 'arrow' })
+    expect(sourceText.containerId).toBe('node:api')
+    expect(arrow.startBinding).toEqual({
+      elementId: 'node:api',
+      fixedPoint: [1, 0.5],
+      mode: 'orbit',
+    })
+    expect(arrow.endBinding).toEqual({
+      elementId: 'node:worker',
+      fixedPoint: [0, 0.5],
+      mode: 'orbit',
+    })
     expect(scene.appState.viewBackgroundColor).toBe('#17201f')
   })
 })
