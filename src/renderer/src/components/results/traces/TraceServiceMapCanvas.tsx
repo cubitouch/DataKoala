@@ -179,6 +179,10 @@ export function TraceServiceMapCanvas({
           const midX = (start.x + end.x) / 2
           return [{
             id: edge.key,
+            sourceId: edge.source,
+            targetId: edge.target,
+            sourceFixedPoint: (leftToRight ? [1, 0.5] : [0, 0.5]) as [number, number],
+            targetFixedPoint: (leftToRight ? [0, 0.5] : [1, 0.5]) as [number, number],
             points: [start, { x: midX, y: start.y }, { x: midX, y: end.y }, end],
             strokeColor: String(model.attr('line/stroke') ?? colors.mute),
             strokeWidth: Number(model.attr('line/strokeWidth') ?? 1.5),
