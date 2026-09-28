@@ -1,0 +1,12 @@
+node_modules/
+pnpm-lock.yaml
+dist/
+out/
+coverage/
+release/
+visual-preview/
+docs-site/dist/
+docs-site/public/screenshots/
+resources/duckdb-extensions/*/*.duckdb_extension
+resources/duckdb-extensions/*/*.duckdb_extension.sha256
+src/main/testdata/gcx-prometheus/malformed.json
