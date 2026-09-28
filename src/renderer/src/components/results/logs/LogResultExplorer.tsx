@@ -1,10 +1,11 @@
+import { HighlightedText } from '@components/ui/HighlightedText'
 import { TextInput } from '@components/ui/TextInput'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { LokiFilterSource, LokiLogRow, LokiParserKind } from '@shared/loki'
 import styles from './LogResultExplorer.module.css'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
-import { createLogTextSearch } from '@lib/logTextSearch'
+import { createTextSearch } from '@lib/textSearch'
 
 const shortTimestamp = (timestampMs: number) => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false, timeZone: 'UTC' }).format(timestampMs)
 const dedicatedKeys = new Set(['message', 'msg', 'body', 'severity', 'level', 'traceid', 'spanid'])
@@ -25,8 +26,8 @@ export function LogResultExplorer({ rows, truncated, limit, selectionKey, onFilt
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const parent = useRef<HTMLDivElement>(null)
-  const textSearch = useMemo(() => createLogTextSearch(search), [search])
-  const highlight = (text: string) => textSearch.segments(text).map((segment, index) => segment.matched ? <mark className={styles.searchMatch} key={index}>{segment.text}</mark> : segment.text)
+  const textSearch = useMemo(() => createTextSearch(search), [search])
+  const highlight = (text: string) => <HighlightedText text={text} search={textSearch} />
   const visible = useMemo(() => search ? rows.filter((row) => textSearch.matches(effectiveLogMessage(row)) || textSearch.matches(row.line) || textSearch.matches(JSON.stringify([row.labels, row.structuredMetadata, row.parsedFields]))) : rows, [rows, search, textSearch])
   const selected = visible.find((row) => row.id === selectedId) ?? null
   const virtual = useVirtualizer({ count: visible.length, getScrollElement: () => parent.current, estimateSize: () => 42, overscan: 8 })

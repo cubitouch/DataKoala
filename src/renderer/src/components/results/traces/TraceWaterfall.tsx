@@ -1,3 +1,5 @@
+import { HighlightedText } from '@components/ui/HighlightedText'
+import type { createTextSearch } from '@lib/textSearch'
 import { useMemo } from 'react'
 import { buildTraceTimelineScale, type TraceRow, type VisibleTraceSpan } from '@lib/traceViewer'
 import styles from './TraceWaterfall.module.css'
@@ -13,6 +15,8 @@ interface RenderedTimelineGap {
 }
 
 export interface TraceWaterfallProps {
+  textSearch?: ReturnType<typeof createTextSearch>
+  searchMatches?: Set<string>
   visibleTree: VisibleTraceSpan[]
   timelineSpans: TraceRow[]
   selectedSpanId: string
@@ -37,7 +41,7 @@ export function TimelineGapOverlay({ gaps }: { gaps: RenderedTimelineGap[] }) {
   </div>
 }
 
-export function TraceWaterfall({ visibleTree, timelineSpans, selectedSpanId, collapsed, filteredSpanCount, totalSpanCount, traceStart, traceDuration, compressIdleGaps, hasInspector, onSelectSpan, onToggleCollapse }: TraceWaterfallProps) {
+export function TraceWaterfall({ textSearch, searchMatches, visibleTree, timelineSpans, selectedSpanId, collapsed, filteredSpanCount, totalSpanCount, traceStart, traceDuration, compressIdleGaps, hasInspector, onSelectSpan, onToggleCollapse }: TraceWaterfallProps) {
   const renderedTree = visibleTree.slice(0, MAX_RENDERED_SPANS)
   const timelineScale = useMemo(() => buildTraceTimelineScale(timelineSpans, compressIdleGaps), [timelineSpans, compressIdleGaps])
   const gaps = useMemo(() => timelineScale.gaps.map((gap, index) => {
@@ -65,10 +69,10 @@ export function TraceWaterfall({ visibleTree, timelineSpans, selectedSpanId, col
         const offset = timelineScale.offsetPercent(traceNumber(span.startTimeMs))
         const width = Math.max(0, Math.min(timelineScale.widthPercent(traceNumber(span.startTimeMs), traceNumber(span.durationMs)), 100 - offset))
         const selected = selectedSpanId === spanId
-        return <div key={spanId} className={`${styles.spanRow} ${selected ? styles.selected : ''}`} data-span-id={spanId}>
+        return <div key={spanId} className={`${styles.spanRow} ${selected ? styles.selected : ''}`} data-span-id={spanId} data-search-match={searchMatches ? searchMatches.has(spanId) : undefined}>
           <div className={styles.spanLabel}><span className={styles.treeGuides} aria-hidden="true">{Array.from({ length: depth }, (_, index) => <span key={index} />)}</span>
-            {hasChildren ? <button type="button" className={styles.caret} aria-label={`${collapsed.has(spanId) ? 'Expand' : 'Collapse'} ${traceText(span.name) || spanId}`} aria-expanded={!collapsed.has(spanId)} onClick={() => onToggleCollapse(spanId)}>{collapsed.has(spanId) ? '▸' : '▾'}</button> : <span className={styles.leafDot} aria-hidden="true">•</span>}
-            <button type="button" className={styles.spanIdentity} onClick={() => onSelectSpan(spanId)} aria-label={`${traceText(span.service) || 'unknown'} ${traceText(span.name) || spanId}`} aria-pressed={selected}><strong>{traceText(span.service) || 'unknown'}</strong><span>{traceText(span.name) || spanId}</span></button>
+            {hasChildren ? <button type="button" className={styles.caret} disabled={Boolean(searchMatches)} title={searchMatches ? 'Matching branches stay expanded while searching' : undefined} aria-label={`${collapsed.has(spanId) ? 'Expand' : 'Collapse'} ${traceText(span.name) || spanId}`} aria-expanded={!collapsed.has(spanId)} onClick={() => onToggleCollapse(spanId)}>{collapsed.has(spanId) ? '▸' : '▾'}</button> : <span className={styles.leafDot} aria-hidden="true">•</span>}
+            <button type="button" className={styles.spanIdentity} onClick={() => onSelectSpan(spanId)} aria-label={`${traceText(span.service) || 'unknown'} ${traceText(span.name) || spanId}`} aria-pressed={selected}><strong><HighlightedText text={traceText(span.service) || 'unknown'} search={textSearch} /></strong><span><HighlightedText text={traceText(span.name) || spanId} search={textSearch} /></span></button>
           </div>
           <button type="button" className={styles.timeline} onClick={() => onSelectSpan(spanId)} aria-label={`Select ${traceText(span.service)} ${traceText(span.name)}, starts +${tracePeriodLabel(Math.max(0, traceNumber(span.startTimeMs) - traceStart))}, lasts ${traceDurationLabel(traceNumber(span.durationMs))}`}>
             <span className={`${styles.bar} ${traceText(span.status).toUpperCase().includes('ERROR') ? styles.errorBar : ''}`} style={{ left: `${offset}%`, width: `${width}%`, minWidth: '1px' }}><span>{traceDurationLabel(traceNumber(span.durationMs))}</span></span>

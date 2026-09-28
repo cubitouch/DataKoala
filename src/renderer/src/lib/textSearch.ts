@@ -1,5 +1,5 @@
-/** Literal, case-insensitive loaded-log search. Whitespace is significant. */
-export function createLogTextSearch(search: string) {
+/** Literal, case-insensitive text search. Whitespace is significant. */
+export function createTextSearch(search: string) {
   const term = search.toLowerCase()
   const matches = (text: string) => text.toLowerCase().includes(term)
   const segments = (text: string): { text: string; matched: boolean }[] => {
