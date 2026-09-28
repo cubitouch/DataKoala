@@ -18,10 +18,11 @@ export function MultiCombobox({ id, label, mode, labelVisibility, hint, warning,
   const filtered = useMemo(() => options.filter((option) => matchesSearch(optionText(option), query)), [options, query])
   const enabled = useMemo(() => filtered.filter((option) => !option.disabled), [filtered]); const active = filtered.find((option) => option.value === activeValue && !option.disabled) ?? enabled[0]
   const optionByValue = useMemo(() => new Map(options.map((option) => [option.value, option])), [options])
+  const activeOptionValue = active?.value
   const selectedOptions = values.map((value) => optionByValue.get(value) ?? (allowCustomValue ? { value, label: value, subtitle: 'Manually entered' } : undefined)).filter((option): option is ComboboxOption => Boolean(option))
   useEffect(() => { if (!open) { setQuery(''); setActiveValue(null); return }; setActiveValue((current) => filtered.some((option) => option.value === current && !option.disabled) ? current : (enabled[0]?.value ?? null)) }, [open, filtered, enabled])
   useEffect(() => { if (open) onOpen?.(); if (open && searchable) searchRef.current?.focus() }, [open, searchable, onOpen])
-  useEffect(() => { if (active) document.getElementById(optionId(reactId, active.value))?.scrollIntoView({ block: 'nearest' }) }, [active?.value, reactId])
+  useEffect(() => { if (activeOptionValue !== undefined) document.getElementById(optionId(reactId, activeOptionValue))?.scrollIntoView({ block: 'nearest' }) }, [activeOptionValue, reactId])
   const toggle = (option = active) => { if (!option || option.disabled) return; onChange(values.includes(option.value) ? values.filter((value) => value !== option.value) : [...values, option.value]) }
   const remove = (value: string) => onChange(values.filter((existing) => existing !== value))
   const move = (direction: 1 | -1) => { if (!enabled.length) return; const index = active ? enabled.findIndex((option) => option.value === active.value) : -1; setActiveValue(enabled[(index + direction + enabled.length) % enabled.length].value) }
