@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type AriaAttributes, type AriaRole, type ReactNode, type ButtonHTMLAttributes, type RefObject } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type AriaAttributes, type AriaRole, type ReactNode, type ButtonHTMLAttributes, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import styles from './Popover.module.css'
 
@@ -60,7 +60,9 @@ export interface PopoverProps {
 export function Popover({ trigger, children, ariaLabel, open: controlledOpen, defaultOpen = false, onOpenChange, disabled = false, invalidationKey, className = '', contentClassName = '', triggerClassName = '', preferredWidth, maxHeight = 280, focusOptionsOnKeyboardOpen = true, popupType, contentRole, triggerButtonProps, triggerRef: externalTriggerRef }: PopoverProps) {
   const id = useId()
   const parentOverlay = useContext(PopoverContext)
-  const ancestors = parentOverlay ? [...parentOverlay.ancestors, parentOverlay.id] : []
+  const parentAncestors = parentOverlay?.ancestors
+  const parentId = parentOverlay?.id
+  const ancestors = useMemo(() => parentAncestors && parentId ? [...parentAncestors, parentId] : [], [parentAncestors, parentId])
   const internalTriggerRef = useRef<HTMLButtonElement>(null)
   const triggerRef = externalTriggerRef ?? internalTriggerRef
   const contentRef = useRef<HTMLDivElement>(null)
@@ -87,7 +89,7 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
       return distance < bestDistance ? element : best
     }, null)
     ;(nearest ?? document.body).focus()
-  }, [])
+  }, [triggerRef])
 
   const position = useCallback(() => {
     const anchor = triggerRef.current
@@ -104,7 +106,7 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
     const width = Math.min(targetWidth, window.innerWidth - margin * 2)
     const left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin))
     setStyle({ position: 'fixed', left, top: placeAbove ? undefined : rect.bottom + gap, bottom: placeAbove ? window.innerHeight - rect.top + gap : undefined, width, maxHeight: height, visibility: 'visible' })
-  }, [maxHeight, preferredWidth])
+  }, [maxHeight, preferredWidth, triggerRef])
 
   useLayoutEffect(() => { if (isOpen) position() }, [isOpen, position, children])
   useEffect(() => {
@@ -113,7 +115,7 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
     const onOtherOpen = (other: OverlayIdentity) => { if (other.id !== id && !other.ancestors.includes(id)) close('coordination') }
     const unsubscribe = overlayCoordinator.subscribe(onOtherOpen)
     return () => { unsubscribe(); overlayCoordinator.close(id) }
-  }, [ancestors.join('\0'), close, id, isOpen])
+  }, [ancestors, close, id, isOpen])
   useEffect(() => {
     if (!isOpen) return
     const onPointerDown = (event: PointerEvent) => {
@@ -138,7 +140,7 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
       window.removeEventListener('resize', onResize)
       window.removeEventListener('scroll', onResize, true)
     }
-  }, [close, isOpen, position])
+  }, [close, id, isOpen, position, triggerRef])
   useEffect(() => { if (disabled && isOpen) { focusNearTrigger(); close('disabled') } }, [close, disabled, focusNearTrigger, isOpen])
   const previousInvalidation = useRef(invalidationKey)
   useEffect(() => {
@@ -146,7 +148,7 @@ export function Popover({ trigger, children, ariaLabel, open: controlledOpen, de
       previousInvalidation.current = invalidationKey
       if (isOpen) { close('invalidated'); if (!disabled) triggerRef.current?.focus() }
     }
-  }, [close, disabled, invalidationKey, isOpen])
+  }, [close, disabled, invalidationKey, isOpen, triggerRef])
   useEffect(() => {
     if (!isOpen || !keyboardOpen.current || !focusOptionsOnKeyboardOpen) return
     const option = contentRef.current?.querySelector<HTMLElement>('[role="option"][aria-selected="true"]:not([aria-disabled="true"])')
