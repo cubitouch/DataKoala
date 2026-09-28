@@ -19,6 +19,10 @@ export interface ServiceMapExcalidrawNode {
 
 export interface ServiceMapExcalidrawEdge {
   id: string
+  sourceId: string
+  targetId: string
+  sourceFixedPoint: [number, number]
+  targetFixedPoint: [number, number]
   points: Array<{ x: number; y: number }>
   strokeColor: string
   strokeWidth: number
@@ -125,8 +129,29 @@ export function createServiceMapExcalidraw(
 ): string {
   const elements: Array<Record<string, unknown>> = []
 
+  const boundArrowIdsByNode = new Map<string, string[]>()
+  for (const edge of edges) {
+    const arrowId = `edge:${edge.id}`
+    boundArrowIdsByNode.set(edge.sourceId, [
+      ...(boundArrowIdsByNode.get(edge.sourceId) ?? []),
+      arrowId,
+    ])
+    boundArrowIdsByNode.set(edge.targetId, [
+      ...(boundArrowIdsByNode.get(edge.targetId) ?? []),
+      arrowId,
+    ])
+  }
+
   for (const node of nodes) {
     const rectangleId = `node:${node.id}`
+    const textId = `text:${node.id}`
+    const boundElements = [
+      { id: textId, type: 'text' },
+      ...(boundArrowIdsByNode.get(node.id) ?? []).map((id) => ({
+        id,
+        type: 'arrow',
+      })),
+    ]
     elements.push({
       ...excalidrawBase(
         rectangleId,
@@ -140,6 +165,7 @@ export function createServiceMapExcalidraw(
       backgroundColor: node.backgroundColor,
       strokeWidth: 1.5,
       roundness: { type: 3 },
+      boundElements,
     })
 
     const lines = Math.max(1, node.label.split('\n').length)
@@ -148,7 +174,7 @@ export function createServiceMapExcalidraw(
     const textHeight = fontSize * lineHeight * lines
     elements.push({
       ...excalidrawBase(
-        `text:${node.id}`,
+        textId,
         'text',
         node.x + 8,
         node.y + Math.max(0, (node.height - textHeight) / 2),
@@ -162,7 +188,7 @@ export function createServiceMapExcalidraw(
       fontFamily: 2,
       textAlign: 'center',
       verticalAlign: 'middle',
-      containerId: null,
+      containerId: rectangleId,
       originalText: node.label,
       autoResize: false,
       lineHeight,
@@ -192,8 +218,16 @@ export function createServiceMapExcalidraw(
       strokeStyle: edge.strokeStyle,
       points: relativePoints,
       lastCommittedPoint: null,
-      startBinding: null,
-      endBinding: null,
+      startBinding: {
+        elementId: `node:${edge.sourceId}`,
+        fixedPoint: edge.sourceFixedPoint,
+        mode: 'orbit',
+      },
+      endBinding: {
+        elementId: `node:${edge.targetId}`,
+        fixedPoint: edge.targetFixedPoint,
+        mode: 'orbit',
+      },
       startArrowhead: null,
       endArrowhead: 'arrow',
       elbowed: false,
