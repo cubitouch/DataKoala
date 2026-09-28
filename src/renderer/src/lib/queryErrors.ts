@@ -17,7 +17,7 @@ export function queryErrorMessage(error: unknown): string {
   } while (message !== previous)
 
   if (/^BigQuery is read-only: only one SELECT statement is allowed(?: \(received [^)]+\))?\.?$/.test(message)) {
-    return 'BigQuery connections are read-only. Run a single SELECT statement only; scripts and write statements are not supported.'
+    return 'BigQuery connections are read-only. Use SELECT queries or DECLARE/SET scripts ending with a SELECT; write statements are not supported.'
   }
   return message || fallbackMessage
 }

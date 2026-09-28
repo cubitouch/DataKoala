@@ -1,6 +1,7 @@
 import { BigQuery, BigQueryDate, BigQueryDatetime, BigQueryInt, BigQueryTime, BigQueryTimestamp, Geography } from '@google-cloud/bigquery'
 import { DATA_SOURCE_CAPABILITIES, type BigQueryProfile, type ColumnMeta, type ConnectResult, type DataSourceProfile, type LogicalType, type QueryResult, type TestResult } from '../../shared/types.ts'
 import type { DataColumn, DataRelation, DataSourceAdapter, DataSourceSession, QueryRequest } from '../data-source.ts'
+import { assertReadOnlyBigQueryScript } from './bigquery-script.ts'
 
 const ROW_LIMIT = 10_000
 const DATASET_RELATION_CONCURRENCY = 5
@@ -143,9 +144,12 @@ class BigQuerySession implements DataSourceSession {
     const [dryJob] = await this.client.createQueryJob({ ...common, dryRun: true })
     const dryMetadata = dryJob.metadata
     const statementType = dryMetadata.statistics?.query?.statementType
-    if (statementType !== 'SELECT') throw new Error(`BigQuery is read-only: only one SELECT statement is allowed (received ${statementType || 'a script or unsupported statement'}).`)
+    if (statementType === 'SCRIPT') assertReadOnlyBigQueryScript(request.sql)
+    else if (statementType !== 'SELECT') throw new Error('BigQuery connections are read-only. Use SELECT queries or DECLARE/SET scripts ending with a SELECT; write statements are not supported.')
     const started = Date.now()
     const [job] = await this.client.createQueryJob(common)
+    // For a script, BigQuery returns the last executed statement's rows/schema.
+    // The script guard requires that statement to be a read-only query.
     const [rows, nextQuery, apiResponse] = await job.getQueryResults({ maxResults: ROW_LIMIT + 1, autoPaginate: false })
     const [metadata] = await job.getMetadata()
     const query = metadata.statistics?.query || {}; const schema = apiResponse?.schema?.fields || []

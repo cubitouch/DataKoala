@@ -15,7 +15,7 @@ describe('queryErrorMessage', () => {
 
   it.each(['SCRIPT', 'INSERT', 'a script or unsupported statement'])('makes BigQuery %s validation actionable', (statementType) => {
     const raw = new Error(`Error invoking remote method 'query:run': Error: BigQuery is read-only: only one SELECT statement is allowed (received ${statementType}).`)
-    expect(queryErrorMessage(raw)).toBe('BigQuery connections are read-only. Run a single SELECT statement only; scripts and write statements are not supported.')
+    expect(queryErrorMessage(raw)).toBe('BigQuery connections are read-only. Use SELECT queries or DECLARE/SET scripts ending with a SELECT; write statements are not supported.')
   })
 
   it.each([undefined, null, {}, 42, '', new Error(''), "Error invoking remote method 'query:run': Error: "])('has a fallback for empty or unknown errors', (error) => {
