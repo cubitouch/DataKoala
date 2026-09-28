@@ -2,36 +2,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-vi.mock('echarts-for-react', async () => {
-  const ReactModule = await import('react')
-  type GraphData = { id?: string; name?: string }
-  type GraphSeries = { data?: GraphData[] }
-  type ChartProps = { option?: { series?: GraphSeries[] }; onEvents?: { click?: (value: unknown) => void } }
-  return {
-    default: class MockECharts extends ReactModule.Component {
-      getEchartsInstance() { return { resize: vi.fn() } }
-      render() {
-        const props = this.props as ChartProps
-        const nodes = props.option?.series?.[0]?.data ?? []
-        return ReactModule.createElement('div', { 'data-testid': 'service-map-chart' }, ...nodes.map((node) => ReactModule.createElement('button', {
-          type: 'button',
-          key: node.id,
-          'data-node-id': node.id,
-          'aria-label': `Graph node ${String(node.name ?? node.id ?? '')}`,
-          onClick: () => props.onEvents?.click?.({ dataType: 'node', data: { id: node.id } })
-        }, node.name)))
-      }
-    }
-  }
-})
-
 import { TraceServiceMap } from './TraceServiceMap'
 import type { TraceCohortAggregate, TraceCohortEdge, TraceCohortNode, TraceCohortTraceSummary } from '@lib/traceCohort'
 
 function node(id: string, rootTraceCount = 0, namespace?: string): TraceCohortNode {
   return {
     id,
-    label: id.includes('/') ? id.split('/').at(-1) ?? id : id,
+    label: id.includes('/') ? (id.split('/').at(-1) ?? id) : id,
     ...(namespace ? { namespace } : {}),
     traceCount: 10,
     traceRate: 1,
@@ -85,12 +62,7 @@ const aggregate: TraceCohortAggregate = {
   baselineTraceCount: 5,
   slowTraceCount: 2,
   nodes: [node('root', 10), node('inventory'), node('kafka'), node('worker'), node('warehouse')],
-  edges: [
-    edge('root', 'inventory', 'sync', 1),
-    edge('root', 'kafka', 'async', 2),
-    edge('kafka', 'worker', 'async', 3),
-    edge('worker', 'warehouse', 'sync', 4)
-  ]
+  edges: [edge('root', 'inventory', 'sync', 1), edge('root', 'kafka', 'async', 2), edge('kafka', 'worker', 'async', 3), edge('worker', 'warehouse', 'sync', 4)]
 }
 
 const trace: TraceCohortTraceSummary = {
@@ -121,17 +93,19 @@ function groupedAggregate(): TraceCohortAggregate {
 }
 
 function renderMap(value: TraceCohortAggregate = aggregate, traces: TraceCohortTraceSummary[] = []) {
-  return render(<TraceServiceMap
-    aggregate={value}
-    traces={traces}
-    progress={{ status: 'ready', completed: 10, total: 10, failed: 0 }}
-    searchTraceCount={10}
-    sampleLimit={100}
-    onSampleLimitChange={vi.fn()}
-    onRetry={vi.fn()}
-    onStop={vi.fn()}
-    onOpenTrace={vi.fn()}
-  />)
+  return render(
+    <TraceServiceMap
+      aggregate={value}
+      traces={traces}
+      progress={{ status: 'ready', completed: 10, total: 10, failed: 0 }}
+      searchTraceCount={10}
+      sampleLimit={100}
+      onSampleLimitChange={vi.fn()}
+      onRetry={vi.fn()}
+      onStop={vi.fn()}
+      onOpenTrace={vi.fn()}
+    />
+  )
 }
 
 afterEach(cleanup)
@@ -142,7 +116,11 @@ describe('TraceServiceMap controls', () => {
     const map = document.querySelector('[data-trace-service-map]')!
     expect(map.getAttribute('data-branch-scope')).toBe('all')
 
-    fireEvent.click(screen.getByRole('combobox', { name: 'Branch scope: Entire transaction' }))
+    fireEvent.click(
+      screen.getByRole('combobox', {
+        name: 'Branch scope: Entire transaction'
+      })
+    )
     fireEvent.click(await screen.findByRole('option', { name: 'Main transaction' }))
     expect(map.getAttribute('data-branch-scope')).toBe('main')
     expect(screen.getByText('2/5')).toBeTruthy()
@@ -162,7 +140,11 @@ describe('TraceServiceMap controls', () => {
     await waitFor(() => expect(graph.getAttribute('data-service-map-graph-fullscreen')).toBe('true'))
     expect(graph.style.top).toBe('40px')
     expect(screen.getByRole('button', { name: 'Exit service map full screen' })).toBeTruthy()
-    expect(screen.getByRole('combobox', { name: 'Branch scope: Entire transaction' })).toBeTruthy()
+    expect(
+      screen.getByRole('combobox', {
+        name: 'Branch scope: Entire transaction'
+      })
+    ).toBeTruthy()
     expect(document.querySelector('aside[aria-label="Full screen service map bottlenecks"]')).toBeTruthy()
 
     fireEvent.keyDown(window, { key: 'Escape' })
