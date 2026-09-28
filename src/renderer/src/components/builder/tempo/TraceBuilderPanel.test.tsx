@@ -11,7 +11,7 @@ vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value, ...props }: { value: string; 'aria-label'?: string }) => <textarea aria-label={props['aria-label']} value={value} readOnly />
 }))
 vi.mock('@components/ui/combobox', () => ({
-  Combobox: ({ label, value }: { label: string; value: string }) => <button type="button" aria-label={`${label}: ${value}`}>{value}</button>,
+  Combobox: ({ label, value, options, onChange }: { label: string; value: string; options: Array<{ value: string }>; onChange?: (value: string) => void }) => <button type="button" aria-label={`${label}: ${value}`} onClick={() => onChange?.(options[(options.findIndex((option) => option.value === value) + 1) % options.length].value)}>{value}</button>,
   MultiCombobox: ({ label, values, options, onChange }: { label: string; values: string[]; options: Array<{ value: string }>; onChange: (values: string[]) => void }) => <button type="button" aria-label={`${label}: ${values.join(', ')}`} onClick={() => onChange(values.length ? [] : options.slice(0, 1).map((option) => option.value))}>{values.join(', ')}</button>
 }))
 
@@ -112,9 +112,8 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     expect(screen.queryByText('Match')).toBeNull()
     expect(screen.queryByText('Values')).toBeNull()
     expect(screen.getByRole('button', { name: 'resource.cloud.region values: eu-west-1, eu-west-3' })).toBeTruthy()
-    expect(screen.getAllByRole('group', { name: /match mode/ })).toHaveLength(2)
-    expect(screen.getAllByRole('button', { name: 'Include' })[0].getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getAllByRole('button', { name: 'Exclude' })[1].getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'resource.cloud.region match mode: include' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'span.http.route match mode: exclude' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Any' })).toBeNull()
     expect(screen.queryByText('Operator')).toBeNull()
     expect(screen.getByText('2 active')).toBeTruthy()
@@ -131,5 +130,18 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Attributes:' }))
     expect(onChange).toHaveBeenCalledWith({ advancedFilters: [{ attribute: 'resource.env', scope: 'resource', mode: 'include', values: [] }] })
     expect(screen.queryByText(/active$/)).toBeNull()
+  })
+
+  it('uses a scalar editor, preserves values across operators, and counts active comparisons', () => {
+    const onChange = vi.fn()
+    const filter = { attribute: 'span.http.status_code', scope: 'span' as const, mode: 'compare' as const, operator: '>' as const, value: '500' }
+    render(<TraceBuilderPanel value={{ ...EMPTY_TRACE_BUILDER, advancedFilters: [filter] }} traceql="{}" schemas={[]} metadataStatus="loaded" metadataError={null} messagingSystems={[]} messagingSystemsLoading={false} messagingSystemsError={null} onChange={onChange} onOpenTraceql={vi.fn()} />)
+    expect(screen.getByLabelText('span.http.status_code value')).toBeTruthy()
+    expect(screen.getByText('1 active')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('span.http.status_code value'), { target: { value: '600' } })
+    expect(onChange).toHaveBeenCalledWith({ advancedFilters: [{ ...filter, value: '600' }] })
+    onChange.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'span.http.status_code match mode: >' }))
+    expect(onChange).toHaveBeenCalledWith({ advancedFilters: [{ ...filter, operator: '>=' }] })
   })
 })

@@ -3,12 +3,10 @@ export type TraceSpanKind = 'any' | 'server' | 'client' | 'producer' | 'consumer
 export type TraceProtocol = 'any' | 'http' | 'rpc' | 'messaging' | 'database'
 export type TraceSampleSize = '100' | '250' | '500' | 'all'
 export type TraceAttributeFilterMode = 'include' | 'exclude'
-export interface TraceAttributeFilter {
-  attribute: string
-  scope: 'resource' | 'span'
-  mode: TraceAttributeFilterMode
-  values: string[]
-}
+export type TraceAttributeFilterOperator = '>' | '>=' | '<' | '<=' | '=~' | '!~'
+export type TraceAttributeFilter =
+  | { attribute: string; scope: 'resource' | 'span'; mode: TraceAttributeFilterMode; values: string[] }
+  | { attribute: string; scope: 'resource' | 'span'; mode: 'compare'; operator: TraceAttributeFilterOperator; value: string }
 
 export interface TraceBuilderState {
   serviceNamespace: string
@@ -73,23 +71,29 @@ const PROTOCOL_DETAIL_FIELDS = {
 
 type ProtocolDetailField = typeof PROTOCOL_DETAIL_FIELDS[keyof typeof PROTOCOL_DETAIL_FIELDS][number]
 
+function cloneAdvancedFilter(filter: TraceAttributeFilter): TraceAttributeFilter {
+  return filter.mode === 'compare' ? { ...filter } : { ...filter, values: [...filter.values] }
+}
+
 function normalizedAdvancedFilters(filters: TraceAttributeFilter[]): TraceAttributeFilter[] {
   const normalized: TraceAttributeFilter[] = []
   const positions = new Map<string, number>()
   for (const filter of filters) {
     const attribute = filter.attribute.trim()
     if (!attribute) continue
-    const values = [...new Set(filter.values.map((value) => value.trim()).filter(Boolean))]
-    const next = { ...filter, attribute, values }
+    const next: TraceAttributeFilter = filter.mode === 'compare'
+      ? { ...filter, attribute, value: filter.value.trim() }
+      : { ...filter, attribute, values: [...new Set(filter.values.map((value) => value.trim()).filter(Boolean))] }
     const identity = `${filter.scope}\0${attribute}`
     const position = positions.get(identity)
     if (position === undefined) {
       positions.set(identity, normalized.length)
       normalized.push(next)
-    } else if (normalized[position].mode === next.mode) {
+    } else if (normalized[position].mode === next.mode && next.mode !== 'compare') {
+      const previous = normalized[position]
       normalized[position] = {
         ...next,
-        values: [...new Set([...normalized[position].values, ...next.values])]
+        values: [...new Set([...(previous.mode === 'compare' ? [] : previous.values), ...next.values])]
       }
     } else {
       normalized[position] = next
@@ -125,11 +129,11 @@ export function mergeTraceBuilderState(current: TraceBuilderState, incoming: Tra
   const currentFilters = normalizedAdvancedFilters(current.advancedFilters)
   const incomingFilters = normalizedAdvancedFilters(incoming.advancedFilters)
   const positions = new Map(currentFilters.map((filter, index) => [`${filter.scope}\0${filter.attribute}`, index]))
-  next.advancedFilters = currentFilters.map((filter) => ({ ...filter, values: [...filter.values] }))
+  next.advancedFilters = currentFilters.map(cloneAdvancedFilter)
   for (const filter of incomingFilters) {
     const identity = `${filter.scope}\0${filter.attribute}`
     const position = positions.get(identity)
-    const replacement = { ...filter, values: [...filter.values] }
+    const replacement = cloneAdvancedFilter(filter)
     if (position === undefined) {
       positions.set(identity, next.advancedFilters.length)
       next.advancedFilters.push(replacement)
@@ -236,16 +240,24 @@ const SEMANTIC_KEYS = new Set([
   'span.messaging.operation.type', 'span.messaging.operation', 'span.db.system.name', 'span.db.system', 'span.db.operation.name', 'span.db.operation'
 ])
 
+type ParsedAttributeOperator = '=' | '!=' | TraceAttributeFilterOperator
+
 function genericPredicates(query: string): TraceAttributeFilter[] {
-  const pattern = /(?:^|[\s{(&|])((resource|span)\.[A-Za-z_][\w.-]*)\s*(=|!=)\s*("(?:\\.|[^"\\])*")/g
-  const predicates = new Map<string, Array<{ attribute: string; scope: 'resource' | 'span'; operator: '=' | '!='; value: string; start: number; end: number }>>()
+  const pattern = /(?:^|[\s{(&|])((resource|span)\.[A-Za-z_][\w.-]*)\s*(>=|<=|=~|!~|!=|>|<|=)\s*("(?:\\.|[^"\\])*"|[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:ns|us|ms|s|m|h)?)/g
+  const predicates = new Map<string, Array<{ attribute: string; scope: 'resource' | 'span'; operator: ParsedAttributeOperator; value: string; start: number; end: number }>>()
   for (const match of query.matchAll(pattern)) {
     if (SEMANTIC_KEYS.has(match[1])) continue
-    let value: string
-    try { value = JSON.parse(match[4]) } catch { continue }
+    const operator = match[3] as ParsedAttributeOperator
+    let value = match[4]
+    if (value.startsWith('"')) {
+      try {
+        const parsed = JSON.parse(value)
+        value = operator === '>' || operator === '>=' || operator === '<' || operator === '<=' ? JSON.stringify(parsed) : parsed
+      } catch { continue }
+    }
     const start = (match.index ?? 0) + match[0].indexOf(match[1])
     const items = predicates.get(match[1]) ?? []
-    items.push({ attribute: match[1], scope: match[2] as 'resource' | 'span', operator: match[3] as '=' | '!=', value, start, end: (match.index ?? 0) + match[0].length })
+    items.push({ attribute: match[1], scope: match[2] as 'resource' | 'span', operator, value, start, end: (match.index ?? 0) + match[0].length })
     predicates.set(match[1], items)
   }
   const allItems = [...predicates.values()].flat().sort((left, right) => left.start - right.start)
@@ -302,9 +314,11 @@ function genericPredicates(query: string): TraceAttributeFilter[] {
   for (const [attribute, items] of predicates) {
     if (items.length === 1) {
       const item = items[0]
-      filters.push({ attribute, scope: item.scope, mode: item.operator === '=' ? 'include' : 'exclude', values: [item.value] })
+      if (item.operator === '=' || item.operator === '!=') filters.push({ attribute, scope: item.scope, mode: item.operator === '=' ? 'include' : 'exclude', values: [item.value] })
+      else filters.push({ attribute, scope: item.scope, mode: 'compare', operator: item.operator, value: item.value })
       continue
     }
+    if (items.some((item) => item.operator !== '=' && item.operator !== '!=')) continue
     if (!items.every((item) => item.operator === items[0].operator)) continue
     const expectedJoin = items[0].operator === '=' ? /^\s*\|\|\s*$/ : /^\s*&&\s*$/
     if (!items.slice(1).every((item, index) => expectedJoin.test(query.slice(items[index].end, item.start)))) continue
@@ -386,6 +400,36 @@ const either = (keys: string[], value: string) => keys.length === 1
   ? equal(keys[0], value)
   : `(${keys.map((key) => equal(key, value)).join(' || ')})`
 const existsAny = (keys: string[]) => `(${keys.map((key) => `${key} != nil`).join(' || ')})`
+const ATTRIBUTE_IDENTIFIER = /^(?:resource|span)\.[A-Za-z_][\w.-]*$/
+const NUMBER_LITERAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/
+const DURATION_LITERAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:ns|us|ms|s|m|h)$/
+
+function scalarLiteral(value: string): string {
+  const trimmed = value.trim()
+  if (NUMBER_LITERAL.test(trimmed) || DURATION_LITERAL.test(trimmed)) return trimmed
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (typeof parsed === 'string') return JSON.stringify(parsed)
+    } catch { /* Fall through and safely quote the complete input. */ }
+  }
+  return JSON.stringify(trimmed)
+}
+
+function advancedFilterCondition(filter: TraceAttributeFilter): string | null {
+  const attribute = filter.attribute.trim()
+  if (!ATTRIBUTE_IDENTIFIER.test(attribute)) return null
+  if (filter.mode === 'compare') {
+    const value = filter.value.trim()
+    if (!value) return null
+    const literal = filter.operator === '=~' || filter.operator === '!~' ? quoted(value) : scalarLiteral(value)
+    return `${attribute} ${filter.operator} ${literal}`
+  }
+  const values = [...new Set(filter.values.map((value) => value.trim()).filter(Boolean))]
+  if (!values.length) return null
+  const predicates = values.map((value) => `${attribute} ${filter.mode === 'include' ? '=' : '!='} ${quoted(value)}`)
+  return filter.mode === 'include' && predicates.length > 1 ? `(${predicates.join(' || ')})` : predicates.join(' && ')
+}
 
 export function buildTraceql(builder: TraceBuilderState): string {
   const conditions: string[] = []
@@ -421,11 +465,8 @@ export function buildTraceql(builder: TraceBuilderState): string {
 
   if (builder.spanName.trim()) conditions.push(equal('span:name', builder.spanName))
   for (const filter of builder.advancedFilters) {
-    const attribute = filter.attribute.trim()
-    const values = [...new Set(filter.values.map((value) => value.trim()).filter(Boolean))]
-    if (!/^(?:resource|span)\.[A-Za-z_][\w.-]*$/.test(attribute) || !values.length) continue
-    const predicates = values.map((value) => `${attribute} ${filter.mode === 'include' ? '=' : '!='} ${quoted(value)}`)
-    conditions.push(filter.mode === 'include' && predicates.length > 1 ? `(${predicates.join(' || ')})` : predicates.join(' && '))
+    const condition = advancedFilterCondition(filter)
+    if (condition) conditions.push(condition)
   }
   if (builder.status !== 'any') conditions.push(`span:status = ${builder.status}`)
   const rawDuration = builder.minDurationMs.trim()

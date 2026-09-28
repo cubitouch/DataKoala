@@ -107,6 +107,28 @@ test('builds and parses faceted attribute predicates', () => {
   assert.deepEqual(parsed.advancedFilters, [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }])
 })
 
+test.each([
+  ['>', '500'], ['>=', '500'], ['<', '500'], ['<=', '500'], ['=~', 'v2-.*'], ['!~', 'legacy-.*']
+] as const)('builds and round trips comparison filter %s', (operator, value) => {
+  const state = builder({ advancedFilters: [{ attribute: operator.includes('~') ? 'resource.service.version' : 'span.http.status_code', scope: operator.includes('~') ? 'resource' : 'span', mode: 'compare', operator, value }] })
+  const query = buildTraceql(state)
+  assert.match(query, new RegExp(` ${operator.replace('~', '\\~')} `))
+  assert.deepEqual(traceBuilderFromTraceql(query).advancedFilters, state.advancedFilters)
+})
+
+test('formats comparison scalar literals safely and ignores incomplete filters', () => {
+  assert.match(buildTraceql(builder({ advancedFilters: [{ attribute: 'span.custom_duration', scope: 'span', mode: 'compare', operator: '>', value: '300ms' }] })), /span\.custom_duration > 300ms/)
+  assert.match(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.service.version', scope: 'resource', mode: 'compare', operator: '>', value: 'legacy "beta"' }] })), /resource\.service\.version > "legacy \\"beta\\""/)
+  assert.match(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.service.version', scope: 'resource', mode: 'compare', operator: '>', value: '"500"' }] })), /> "500"/)
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'span.custom', scope: 'span', mode: 'compare', operator: '>', value: ' ' }] })), '{ span:duration > 300ms }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'invalid; true', scope: 'span', mode: 'compare', operator: '>', value: '500' }] })), '{ span:duration > 300ms }')
+})
+
+test('does not import mixed comparison boolean structures', () => {
+  assert.deepEqual(traceBuilderFromTraceql('{ span.http.status_code > 500 || span.http.status_code < 200 }').advancedFilters, [])
+  assert.deepEqual(traceBuilderFromTraceql('{ span.http.status_code >= 500 && span.http.status_code < 600 }').advancedFilters, [])
+})
+
 test('does not import boolean structures whose facet semantics cannot be preserved', () => {
   assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region = "eu-west-1" && resource.cloud.region = "eu-west-3" }').advancedFilters, [])
   assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region != "eu-west-1" || resource.cloud.region != "eu-west-3" }').advancedFilters, [])
