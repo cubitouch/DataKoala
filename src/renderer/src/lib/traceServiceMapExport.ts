@@ -230,7 +230,10 @@ export function createServiceMapExcalidraw(
       },
       startArrowhead: null,
       endArrowhead: 'arrow',
-      elbowed: false,
+      elbowed: true,
+      fixedSegments: null,
+      startIsSpecial: false,
+      endIsSpecial: false,
     })
   }
 
