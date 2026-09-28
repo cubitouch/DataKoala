@@ -110,6 +110,10 @@ describe('service map Excalidraw export', () => {
       fixedPoint: [0, 0.5],
       mode: 'orbit',
     })
+    expect(arrow.elbowed).toBe(true)
+    expect(arrow.fixedSegments).toBeNull()
+    expect(arrow.startIsSpecial).toBe(false)
+    expect(arrow.endIsSpecial).toBe(false)
     expect(scene.appState.viewBackgroundColor).toBe('#17201f')
 
     const clipboard = JSON.parse(createServiceMapExcalidrawClipboard(exported))
