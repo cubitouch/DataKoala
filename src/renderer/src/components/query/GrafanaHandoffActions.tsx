@@ -44,9 +44,12 @@ export function GrafanaHandoffActions({ profile, query, range }: { profile?: Obs
   const configuredUrl = grafanaUrlFor(profile, query, range)
   const needsResolution = Boolean(profile && query.trim() && !configuredUrl)
   const [resolution, setResolution] = useState<ResolutionState>({ status: 'idle' })
+  const signal = profile?.kind
+  const context = profile?.transport.context
+  const datasourceUid = profile?.grafana?.datasourceUid || profile?.transport.datasourceUid
 
   useEffect(() => {
-    if (!needsResolution || !profile) {
+    if (!needsResolution || !signal) {
       setResolution({ status: 'idle' })
       return
     }
@@ -58,26 +61,16 @@ export function GrafanaHandoffActions({ profile, query, range }: { profile?: Obs
     }
     setResolution({ status: 'loading' })
     resolver({
-      signal: profile.kind,
-      context: profile.transport.context,
-      datasourceUid: profile.grafana?.datasourceUid || profile.transport.datasourceUid
+      signal,
+      context,
+      datasourceUid
     }).then((value) => {
       if (active) setResolution({ status: 'ready', value })
     }).catch((error: unknown) => {
       if (active) setResolution({ status: 'error', message: error instanceof Error ? error.message : String(error) })
     })
     return () => { active = false }
-  }, [
-    needsResolution,
-    profile?.id,
-    profile?.kind,
-    profile?.transport.context,
-    profile?.transport.datasourceUid,
-    profile?.grafana?.baseUrl,
-    profile?.grafana?.datasourceUid,
-    profile?.grafana?.datasourceType,
-    profile?.grafana?.orgId
-  ])
+  }, [context, datasourceUid, needsResolution, signal])
 
   const url = configuredUrl ?? (resolution.status === 'ready' ? grafanaUrlFor(profile, query, range, resolution.value) : null)
   const hint = url

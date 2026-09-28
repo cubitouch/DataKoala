@@ -9,17 +9,22 @@ interface MockChartProps {
   onEvents: Record<string, (value: unknown) => void>
 }
 
-const chart = vi.hoisted(() => ({
-  dispatchAction: vi.fn(),
-  props: null as MockChartProps | null
-}))
+const chart = vi.hoisted(() => {
+  const dispatchAction = vi.fn()
+  return {
+    dispatchAction,
+    instance: { dispatchAction },
+    props: null as MockChartProps | null
+  }
+})
 
 vi.mock('echarts-for-react', () => ({
   default: forwardRef(function MockECharts(props: NonNullable<typeof chart.props>, ref) {
-    const instance = { dispatchAction: chart.dispatchAction }
+    const { onChartReady } = props
+    const instance = chart.instance
     chart.props = props
-    useImperativeHandle(ref, () => ({ getEchartsInstance: () => instance }))
-    useEffect(() => { props.onChartReady(instance) }, [])
+    useImperativeHandle(ref, () => ({ getEchartsInstance: () => instance }), [instance])
+    useEffect(() => { onChartReady(instance) }, [instance, onChartReady])
     return <div data-testid="echarts" />
   })
 }))

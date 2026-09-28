@@ -30,7 +30,12 @@ function JsonCellExplorerContent({ titleId, columnLabel, rowNumber, value, onClo
 
 export function JsonCellExplorer({ columnLabel, rowNumber, value, open, onOpenChange, invalidationKey }: { columnLabel: string; rowNumber: number; value: unknown; open: boolean; onOpenChange: (open: boolean) => void; invalidationKey: unknown }) {
   const titleId = useId(), trigger = useRef<HTMLButtonElement>(null)
-  useEffect(() => { if (open) onOpenChange(false) }, [invalidationKey])
+  const previousInvalidationKey = useRef(invalidationKey)
+  useEffect(() => {
+    const invalidated = !Object.is(previousInvalidationKey.current, invalidationKey)
+    previousInvalidationKey.current = invalidationKey
+    if (invalidated && open) onOpenChange(false)
+  }, [invalidationKey, onOpenChange, open])
   return <><button ref={trigger} type="button" className={styles.trigger} aria-label={`Explore JSON in ${columnLabel}, row ${rowNumber}`} aria-expanded={open} onClick={() => onOpenChange(!open)}><span aria-hidden="true">⌕</span></button>
     <Modal open={open} onClose={() => onOpenChange(false)} labelledBy={titleId} returnFocusRef={trigger}><JsonCellExplorerContent titleId={titleId} columnLabel={columnLabel} rowNumber={rowNumber} value={value} onClose={() => onOpenChange(false)} /></Modal></>
 }
