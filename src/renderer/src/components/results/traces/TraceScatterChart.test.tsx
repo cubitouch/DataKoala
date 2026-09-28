@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { forwardRef, useEffect, useImperativeHandle } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -9,17 +9,22 @@ interface MockChartProps {
   onEvents: Record<string, (value: unknown) => void>
 }
 
-const chart = vi.hoisted(() => ({
-  dispatchAction: vi.fn(),
-  props: null as MockChartProps | null
-}))
+const chart = vi.hoisted(() => {
+  const dispatchAction = vi.fn()
+  return {
+    dispatchAction,
+    instance: { dispatchAction },
+    props: null as MockChartProps | null
+  }
+})
 
 vi.mock('echarts-for-react', () => ({
   default: forwardRef(function MockECharts(props: NonNullable<typeof chart.props>, ref) {
-    const instance = { dispatchAction: chart.dispatchAction }
+    const instance = chart.instance
+    const onChartReadyRef = useRef(props.onChartReady)
     chart.props = props
-    useImperativeHandle(ref, () => ({ getEchartsInstance: () => instance }))
-    useEffect(() => { props.onChartReady(instance) }, [])
+    useImperativeHandle(ref, () => ({ getEchartsInstance: () => instance }), [instance])
+    useEffect(() => { onChartReadyRef.current(instance) }, [instance])
     return <div data-testid="echarts" />
   })
 }))

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TextInput } from '@components/ui/TextInput'
 import { useStore } from '@store/useStore'
 import styles from './QueryTabs.module.css'
@@ -26,11 +26,11 @@ export function QueryTabs({ className }: QueryTabsProps) {
     useStore.setState({ activeTabId: id })
   }
 
-  const close = (id: string) => {
+  const close = useCallback((id: string) => {
     const closing = tabs.find((tab) => tab.id === id)
     if (closing?.running && !window.confirm('This query is still running. Close the tab and stop waiting for its result?')) return
     closeTab(id)
-  }
+  }, [closeTab, tabs])
 
   const beginRename = (id: string, title: string) => {
     setRenamingId(id)
@@ -54,7 +54,7 @@ export function QueryTabs({ className }: QueryTabsProps) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [tabs, activeTabId])
+  }, [close, createTab])
 
   return <div className={`${styles.root}${className ? ` ${className}` : ''}`} role="tablist" aria-label="Query tabs">
       {tabs.map((tab) => {
