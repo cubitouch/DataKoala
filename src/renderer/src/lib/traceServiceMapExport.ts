@@ -251,6 +251,26 @@ export function createServiceMapExcalidraw(
   )
 }
 
+export function createServiceMapExcalidrawClipboard(
+  sceneJson: string,
+): string {
+  const scene = JSON.parse(sceneJson) as {
+    elements?: unknown
+    files?: unknown
+  }
+  if (!Array.isArray(scene.elements)) {
+    throw new Error('Invalid Excalidraw service-map scene')
+  }
+  return JSON.stringify({
+    type: 'excalidraw/clipboard',
+    elements: scene.elements,
+    files:
+      scene.files && typeof scene.files === 'object'
+        ? scene.files
+        : undefined,
+  })
+}
+
 export async function rasterizeServiceMapSvg(
   svg: string,
   preferredScale = 2,

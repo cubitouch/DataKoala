@@ -9,6 +9,7 @@ import { projectTraceServiceMap } from '@lib/traceServiceMapProjection'
 import { scopeTraceServiceMap, type TraceServiceMapScope } from '@lib/traceServiceMapScope'
 import { api } from '@lib/api'
 import { copyChartPng } from '@lib/chartImage'
+import { createServiceMapExcalidrawClipboard } from '@lib/traceServiceMapExport'
 import { TraceServiceMapCanvas, type TraceServiceMapCanvasHandle } from './TraceServiceMapCanvas'
 import styles from './TraceServiceMap.module.css'
 
@@ -149,7 +150,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
   const [serviceSearch, setServiceSearch] = useState('')
   const [graphFullscreen, setGraphFullscreen] = useState(false)
   const [renderedGraphKey, setRenderedGraphKey] = useState('')
-  const [exporting, setExporting] = useState<'copy' | 'figma' | 'svg' | 'excalidraw' | null>(null)
+  const [exporting, setExporting] = useState<'copy' | 'figma' | 'svg' | 'excalidraw-copy' | 'excalidraw' | null>(null)
   const canvasRef = useRef<TraceServiceMapCanvasHandle>(null)
   const didAutoGroup = useRef(false)
   const colors = useMemo(palette, [])
@@ -298,6 +299,24 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       })
     } catch (error) {
       console.error('[service-map] Could not export SVG', error)
+    } finally {
+      setExporting(null)
+    }
+  }
+  const copyForExcalidraw = async () => {
+    if (exporting) return
+    setExporting('excalidraw-copy')
+    try {
+      const payload = createServiceMapExcalidrawClipboard(
+        canvasRef.current!.excalidraw()
+      )
+      const result = await api.clipboardExcalidraw.write(payload)
+      notify(result.ok
+        ? { message: 'Diagram copied to clipboard for Excalidraw' }
+        : { message: 'Could not copy Excalidraw diagram', tone: 'error' })
+    } catch (error) {
+      console.error('[service-map] Could not copy Excalidraw scene', error)
+      notify({ message: 'Could not copy Excalidraw diagram', tone: 'error' })
     } finally {
       setExporting(null)
     }
@@ -640,6 +659,9 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
               </button>
               <button type="button" className={styles.fullscreenButton} onClick={exportSvg} disabled={Boolean(exporting)}>
                 Export SVG
+              </button>
+              <button type="button" className={styles.fullscreenButton} onClick={copyForExcalidraw} disabled={Boolean(exporting)}>
+                Copy for Excalidraw
               </button>
               <button type="button" className={styles.fullscreenButton} onClick={exportExcalidraw} disabled={Boolean(exporting)}>
                 Export Excalidraw

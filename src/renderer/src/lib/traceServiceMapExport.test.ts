@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createServiceMapExcalidraw,
+  createServiceMapExcalidrawClipboard,
   createServiceMapSvg,
 } from './traceServiceMapExport'
 
@@ -110,5 +111,10 @@ describe('service map Excalidraw export', () => {
       mode: 'orbit',
     })
     expect(scene.appState.viewBackgroundColor).toBe('#17201f')
+
+    const clipboard = JSON.parse(createServiceMapExcalidrawClipboard(exported))
+    expect(clipboard.type).toBe('excalidraw/clipboard')
+    expect(clipboard.elements).toEqual(scene.elements)
+    expect(clipboard.files).toEqual({})
   })
 })

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ClipboardItem, ipcMain, dialog, clipboard, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, clipboard, nativeImage, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import * as db from './db'
@@ -564,23 +564,29 @@ function registerIpc(): void {
     const svg = value.trim()
     if (!/^<svg[\s>]/i.test(svg) || svg.length > 20_000_000) return { ok: false as const }
     try {
-      const svgBlob = new Blob([svg], { type: 'image/svg+xml' })
-      const formats: Record<string, Blob | string> = {
-        'image/svg+xml': svgBlob,
-        'text/html': svg
-      }
-      if (process.platform === 'darwin') {
-        formats['electron application/osclipboard;format="public.svg-image"'] =
-          new Blob([svg], { type: 'image/svg+xml' })
-      }
-      await clipboard.write([new ClipboardItem(formats)])
-      const hasSvg = await clipboard.has('image/svg+xml')
-      const hasNativeSvg =
-        process.platform !== 'darwin' ||
-        await clipboard.has('electron application/osclipboard;format="public.svg-image"')
-      return { ok: hasSvg && hasNativeSvg }
+      // Figma's "Copy as SVG" workflow consumes SVG source from the text
+      // clipboard. Avoid native/custom MIME formats here: Chromium's platform
+      // clipboard bridge can reject or down-convert them on macOS.
+      await clipboard.writeText(svg)
+      return { ok: (await clipboard.readText()) === svg }
     } catch (error) {
       console.error('[clipboard] Could not write service-map SVG', error)
+      return { ok: false as const }
+    }
+  })
+  ipcMain.handle(IPC.CLIPBOARD_WRITE_EXCALIDRAW, async (_event, value: unknown) => {
+    if (typeof value !== 'string' || value.length > 20_000_000) return { ok: false as const }
+    try {
+      const parsed = JSON.parse(value) as { type?: unknown; elements?: unknown }
+      if (parsed.type !== 'excalidraw/clipboard' || !Array.isArray(parsed.elements)) {
+        return { ok: false as const }
+      }
+      // Excalidraw's own copy implementation falls back to text/plain JSON
+      // using the excalidraw/clipboard envelope when no ClipboardEvent exists.
+      await clipboard.writeText(value)
+      return { ok: (await clipboard.readText()) === value }
+    } catch (error) {
+      console.error('[clipboard] Could not write Excalidraw scene', error)
       return { ok: false as const }
     }
   })
