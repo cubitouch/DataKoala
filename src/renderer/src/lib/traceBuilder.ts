@@ -252,7 +252,8 @@ function genericPredicates(query: string): TraceAttributeFilter[] {
     if (value.startsWith('"')) {
       try {
         const parsed = JSON.parse(value)
-        value = operator === '>' || operator === '>=' || operator === '<' || operator === '<=' ? JSON.stringify(parsed) : parsed
+        const relational = operator === '>' || operator === '>=' || operator === '<' || operator === '<='
+        value = relational && (NUMBER_LITERAL.test(parsed) || DURATION_LITERAL.test(parsed)) ? JSON.stringify(parsed) : parsed
       } catch { continue }
     }
     const start = (match.index ?? 0) + match[0].indexOf(match[1])

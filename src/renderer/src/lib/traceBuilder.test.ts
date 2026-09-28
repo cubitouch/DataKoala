@@ -124,6 +124,14 @@ test('formats comparison scalar literals safely and ignores incomplete filters',
   assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'invalid; true', scope: 'span', mode: 'compare', operator: '>', value: '500' }] })), '{ span:duration > 300ms }')
 })
 
+test('round trips relational string literals without changing their Builder value', () => {
+  const ordinaryString = builder({ advancedFilters: [{ attribute: 'resource.service.version', scope: 'resource', mode: 'compare', operator: '>', value: 'legacy' }] })
+  const numericString = builder({ advancedFilters: [{ attribute: 'resource.service.version', scope: 'resource', mode: 'compare', operator: '>=', value: '"500"' }] })
+
+  assert.deepEqual(traceBuilderFromTraceql(buildTraceql(ordinaryString)).advancedFilters, ordinaryString.advancedFilters)
+  assert.deepEqual(traceBuilderFromTraceql(buildTraceql(numericString)).advancedFilters, numericString.advancedFilters)
+})
+
 test('does not import mixed comparison boolean structures', () => {
   assert.deepEqual(traceBuilderFromTraceql('{ span.http.status_code > 500 || span.http.status_code < 200 }').advancedFilters, [])
   assert.deepEqual(traceBuilderFromTraceql('{ span.http.status_code >= 500 && span.http.status_code < 600 }').advancedFilters, [])
