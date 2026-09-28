@@ -1,9 +1,69 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { StrictMode } from 'react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+
+vi.hoisted(() => {
+  // JointJS detects SVG support while its module is evaluated. jsdom omits the
+  // legacy SVGAngle constructor even though its SVG DOM is otherwise usable.
+  Object.defineProperty(window, 'SVGAngle', { configurable: true, value: class SVGAngle {} })
+  const matrix = () => {
+    const value = {
+      a: 1,
+      b: 0,
+      c: 0,
+      d: 1,
+      e: 0,
+      f: 0,
+      multiply: () => value,
+      inverse: () => value,
+      translate: (x: number, y: number) => {
+        value.e += x
+        value.f += y
+        return value
+      },
+      scale: () => value,
+      scaleNonUniform: () => value,
+      rotate: () => value,
+      skewX: () => value,
+      skewY: () => value
+    }
+    return value
+  }
+  Object.assign(SVGSVGElement.prototype, {
+    createSVGMatrix: matrix,
+    createSVGTransform: () => ({ matrix: matrix(), setMatrix() {}, setTranslate() {}, setScale() {}, setRotate() {} }),
+    createSVGTransformFromMatrix: (value: unknown) => ({ matrix: value }),
+    createSVGPoint: () => ({
+      x: 0,
+      y: 0,
+      matrixTransform() {
+        return this
+      }
+    })
+  })
+  Object.assign(SVGElement.prototype, {
+    checkVisibility: () => true,
+    getBBox: () => ({ x: 0, y: 0, width: 100, height: 40 }),
+    getScreenCTM: matrix
+  })
+  document.elementFromPoint = () => (globalThis as typeof globalThis & { __jointTestTarget?: Element }).__jointTestTarget ?? null
+})
 
 import { TraceServiceMap } from './TraceServiceMap'
 import type { TraceCohortAggregate, TraceCohortEdge, TraceCohortNode, TraceCohortTraceSummary } from '@lib/traceCohort'
+
+beforeAll(() => {
+  class TestResizeObserver implements ResizeObserver {
+    constructor(private readonly callback: ResizeObserverCallback) {}
+    observe(target: Element) {
+      this.callback([{ target, contentRect: { width: 800, height: 500 } } as ResizeObserverEntry], this)
+    }
+    unobserve() {}
+    disconnect() {}
+  }
+  vi.stubGlobal('ResizeObserver', TestResizeObserver)
+})
 
 function node(id: string, rootTraceCount = 0, namespace?: string): TraceCohortNode {
   return {
@@ -92,8 +152,8 @@ function groupedAggregate(): TraceCohortAggregate {
   }
 }
 
-function renderMap(value: TraceCohortAggregate = aggregate, traces: TraceCohortTraceSummary[] = []) {
-  return render(
+function serviceMap(value: TraceCohortAggregate = aggregate, traces: TraceCohortTraceSummary[] = []) {
+  return (
     <TraceServiceMap
       aggregate={value}
       traces={traces}
@@ -108,9 +168,39 @@ function renderMap(value: TraceCohortAggregate = aggregate, traces: TraceCohortT
   )
 }
 
+function renderMap(value: TraceCohortAggregate = aggregate, traces: TraceCohortTraceSummary[] = []) {
+  return render(serviceMap(value, traces))
+}
+
 afterEach(cleanup)
 
+function clickGraphCell(element: Element) {
+  ;(globalThis as typeof globalThis & { __jointTestTarget?: Element }).__jointTestTarget = element
+  fireEvent.mouseDown(element, { clientX: 20, clientY: 20 })
+  fireEvent.mouseUp(element, { clientX: 20, clientY: 20 })
+  fireEvent.click(element, { clientX: 20, clientY: 20 })
+}
+
 describe('TraceServiceMap controls', () => {
+  it('keeps the React host connected and renders a JointJS paper through the StrictMode effect cycle', async () => {
+    const view = render(<StrictMode>{serviceMap()}</StrictMode>)
+
+    const host = await waitFor(() => {
+      const current = document.querySelector('[data-joint-service-map]')
+      expect(current?.isConnected).toBe(true)
+      expect(current?.querySelector(`.${'joint-paper'}`)).toBeTruthy()
+      expect(current?.querySelectorAll('[data-service-map-node]').length).toBe(5)
+      return current!
+    })
+
+    view.rerender(<StrictMode>{serviceMap()}</StrictMode>)
+    await waitFor(() => {
+      expect(host.isConnected).toBe(true)
+      expect(host.querySelector('.joint-paper')).toBeTruthy()
+      expect(host.querySelectorAll('[data-service-map-node]').length).toBe(5)
+    })
+  })
+
   it('switches between entire, main and async branch scopes without re-analysis', async () => {
     renderMap()
     const map = document.querySelector('[data-trace-service-map]')!
@@ -168,13 +258,18 @@ describe('TraceServiceMap controls', () => {
 
   it('shows service details and unselects a service when it is clicked again', async () => {
     renderMap(aggregate, [trace])
-    fireEvent.click(screen.getByRole('button', { name: 'Graph node root' }))
+    const rootNode = await waitFor(() => {
+      const current = document.querySelector('[data-service-map-node="root"]')
+      expect(current).toBeTruthy()
+      return current!
+    })
+    clickGraphCell(rootNode)
     expect(screen.getByRole('heading', { name: 'root' })).toBeTruthy()
     expect(screen.getByText('Trace coverage')).toBeTruthy()
     expect(screen.getByText('Upstream')).toBeTruthy()
     expect(screen.getByText('Downstream')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Graph node root' }))
+    clickGraphCell(rootNode)
     expect(screen.getByRole('heading', { name: 'Bottleneck candidates' })).toBeTruthy()
   })
 
@@ -185,10 +280,10 @@ describe('TraceServiceMap controls', () => {
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Service grouping: No grouping' }))
     fireEvent.click(await screen.findByRole('option', { name: 'Namespace / system' }))
-    expect(document.querySelector('[data-node-id="group:system-a"]')).toBeTruthy()
-    expect(document.querySelector('[data-node-id="system-a/worker"]')).toBeFalsy()
+    await waitFor(() => expect(document.querySelector('[data-service-map-node="group:system-a"]')).toBeTruthy())
+    expect(document.querySelector('[data-service-map-node="system-a/worker"]')).toBeFalsy()
 
-    fireEvent.click(document.querySelector('[data-node-id="group:system-a"]') as HTMLElement)
-    await waitFor(() => expect(document.querySelector('[data-node-id="system-a/worker"]')).toBeTruthy())
+    clickGraphCell(document.querySelector('[data-service-map-node="group:system-a"]') as HTMLElement)
+    await waitFor(() => expect(document.querySelector('[data-service-map-node="system-a/worker"]')).toBeTruthy())
   })
 })

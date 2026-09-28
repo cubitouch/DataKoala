@@ -121,11 +121,16 @@ export function TraceServiceMapCanvas({
   )
 
   useEffect(() => {
-    const element = host.current
-    if (!element) return
+    const hostElement = host.current
+    if (!hostElement) return
+    // JointJS View#remove() removes the view's `el`. Keep that lifecycle wholly
+    // inside this React-owned host so StrictMode cleanup cannot detach the host.
+    const paperElement = document.createElement('div')
+    paperElement.className = styles.jointPaper
+    hostElement.appendChild(paperElement)
     const graph = new dia.Graph({}, { cellNamespace: shapes })
     const paper = new dia.Paper({
-      el: element,
+      el: paperElement,
       model: graph,
       cellViewNamespace: shapes,
       async: true,
@@ -226,7 +231,7 @@ export function TraceServiceMapCanvas({
     )
     const show = (html: string, event: dia.Event) => {
       const pointer = event as unknown as MouseEvent
-      const rect = element.getBoundingClientRect()
+      const rect = hostElement.getBoundingClientRect()
       setTooltip({
         html,
         x: pointer.clientX - rect.left + 12,
@@ -255,7 +260,7 @@ export function TraceServiceMapCanvas({
         tx: translation.tx,
         ty: translation.ty,
       }
-      element.classList.add(styles.panning)
+      hostElement.classList.add(styles.panning)
     })
     const move = (event: PointerEvent) => {
       if (origin)
@@ -266,7 +271,7 @@ export function TraceServiceMapCanvas({
     }
     const up = () => {
       origin = null
-      element.classList.remove(styles.panning)
+      hostElement.classList.remove(styles.panning)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
@@ -283,10 +288,25 @@ export function TraceServiceMapCanvas({
       })
       paper.scaleUniformAtPoint(next, local)
     }
-    element.addEventListener('wheel', wheel, { passive: false })
+    hostElement.addEventListener('wheel', wheel, { passive: false })
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (
+        !entry ||
+        entry.contentRect.width <= 0 ||
+        entry.contentRect.height <= 0
+      )
+        return
+      // Updating dimensions leaves scale and translation untouched, preserving
+      // the viewport selected by the user across resizes and fullscreen changes.
+      paper.setDimensions(entry.contentRect.width, entry.contentRect.height)
+    })
+    resizeObserver.observe(hostElement)
+    let disposed = false
     paper.unfreeze({
       batchSize: 100,
       afterRender: () => {
+        if (disposed) return
         fit()
         onReady()
       },
@@ -294,10 +314,12 @@ export function TraceServiceMapCanvas({
     return () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
-      element.removeEventListener('wheel', wheel)
+      hostElement.removeEventListener('wheel', wheel)
+      resizeObserver.disconnect()
+      disposed = true
       paper.remove()
-      graphRef.current = null
-      paperRef.current = null
+      if (graphRef.current === graph) graphRef.current = null
+      if (paperRef.current === paper) paperRef.current = null
     }
     // Rebuild only when the projected graph changes; selection/search styles update below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
