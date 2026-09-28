@@ -81,7 +81,7 @@ function orderLogRows(rows: LokiLogRow[]): LokiLogRow[] {
       row,
       index,
       timestampNs: BigInt(row.timestampNs),
-      tieBreakKey: JSON.stringify(stableOrderValue({ line: row.line, labels: row.labels, structuredMetadata: row.structuredMetadata, parsedFields: row.parsedFields }))
+      tieBreakKey: JSON.stringify(stableOrderValue({ line: row.line, labels: row.labels, structuredMetadata: row.structuredMetadata, parsedFields: row.parsedFields })) ?? ''
     }))
     .sort((left, right) => {
       if (left.timestampNs !== right.timestampNs) return left.timestampNs > right.timestampNs ? -1 : 1
