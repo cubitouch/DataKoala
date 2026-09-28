@@ -1,10 +1,9 @@
 import { TextInput } from '@components/ui/TextInput'
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import type { DatabaseSchemaNode } from '@shared/types'
 import type { TempoAttribute } from '@shared/tempo'
 import type { MetadataStatus } from '@store/useStore'
 import {
-  traceBuilderFromTraceql,
   type TraceAttributeFilter,
   type TraceAttributeFilterOperator,
   type TraceBuilderState,
@@ -124,11 +123,6 @@ export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, met
     if (choice === 'include' || choice === 'exclude') replaceFilter({ attribute: filter.attribute, scope: filter.scope, mode: choice, values: filter.mode === 'compare' && filter.value.trim() ? [filter.value] : filter.mode === 'compare' ? [] : filter.values })
     else replaceFilter({ attribute: filter.attribute, scope: filter.scope, mode: 'compare', operator: choice, value: filter.mode === 'compare' ? filter.value : filter.values[0] ?? '' })
   }
-
-  useEffect(() => {
-    const parsed = traceBuilderFromTraceql(traceql)
-    if (JSON.stringify(parsed) !== JSON.stringify(value)) onChange(parsed)
-  }, [traceql])
 
   const changeNamespace = (serviceNamespace: string) => {
     const allowedServices = new Set(serviceRelations

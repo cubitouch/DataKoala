@@ -81,24 +81,21 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     expect(disclosure.open).toBe(true)
   })
 
-  it('reconciles builder fields when TraceQL changes externally', async () => {
+  it('keeps an Include filter selected when its last value is cleared', () => {
     const onChange = vi.fn()
-    const common = {
-      schemas: [],
-      metadataStatus: 'loaded' as const,
-      metadataError: null,
-      messagingSystems: [],
-      messagingSystemsLoading: false,
-      messagingSystemsError: null,
-      onChange,
-      onOpenTraceql: vi.fn()
-    }
-    const { rerender } = render(<TraceBuilderPanel value={EMPTY_TRACE_BUILDER} traceql="{}" {...common} />)
-    onChange.mockClear()
+    const filter = { attribute: 'resource.cloud.region', scope: 'resource' as const, mode: 'include' as const, values: ['eu-west-1'] }
+    const props = { traceql: '{ resource.cloud.region = "eu-west-1" }', schemas: [], metadataStatus: 'loaded' as const, metadataError: null, messagingSystems: [], messagingSystemsLoading: false, messagingSystemsError: null, onChange, onOpenTraceql: vi.fn() }
+    const { rerender } = render(<TraceBuilderPanel value={{ ...EMPTY_TRACE_BUILDER, advancedFilters: [filter] }} {...props} />)
 
-    rerender(<TraceBuilderPanel value={EMPTY_TRACE_BUILDER} traceql={'{ resource.service.name = "checkout-api" }'} {...common} />)
+    fireEvent.click(screen.getByRole('button', { name: 'resource.cloud.region values: eu-west-1' }))
+    const cleared = { ...filter, values: [] }
+    expect(onChange).toHaveBeenCalledOnce()
+    expect(onChange).toHaveBeenCalledWith({ advancedFilters: [cleared] })
 
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ service: 'checkout-api' })))
+    rerender(<TraceBuilderPanel value={{ ...EMPTY_TRACE_BUILDER, advancedFilters: [cleared] }} {...props} traceql="{ span:duration > 300ms }" />)
+    expect(screen.getByText('cloud.region')).toBeTruthy()
+    expect(screen.queryByText(/active$/)).toBeNull()
+    expect(onChange).toHaveBeenCalledOnce()
   })
 
   it('renders one facet for each selected attribute without raw operators', () => {
@@ -143,5 +140,23 @@ describe('TraceBuilderPanel generated TraceQL', () => {
     onChange.mockClear()
     fireEvent.click(screen.getByRole('button', { name: 'span.http.status_code match mode: >' }))
     expect(onChange).toHaveBeenCalledWith({ advancedFilters: [{ ...filter, operator: '>=' }] })
+  })
+
+  it('keeps a comparison filter selected when its scalar value is cleared', () => {
+    const onChange = vi.fn()
+    const filter = { attribute: 'span.http.status_code', scope: 'span' as const, mode: 'compare' as const, operator: '>=' as const, value: '500' }
+    const props = { traceql: '{ span.http.status_code >= 500 }', schemas: [], metadataStatus: 'loaded' as const, metadataError: null, messagingSystems: [], messagingSystemsLoading: false, messagingSystemsError: null, onChange, onOpenTraceql: vi.fn() }
+    const { rerender } = render(<TraceBuilderPanel value={{ ...EMPTY_TRACE_BUILDER, advancedFilters: [filter] }} {...props} />)
+
+    fireEvent.change(screen.getByLabelText('span.http.status_code value'), { target: { value: '' } })
+    const cleared = { ...filter, value: '' }
+    expect(onChange).toHaveBeenCalledOnce()
+    expect(onChange).toHaveBeenCalledWith({ advancedFilters: [cleared] })
+
+    rerender(<TraceBuilderPanel value={{ ...EMPTY_TRACE_BUILDER, advancedFilters: [cleared] }} {...props} traceql="{ span:duration > 300ms }" />)
+    expect(screen.getByText('http.status_code')).toBeTruthy()
+    expect(screen.getByLabelText('span.http.status_code value')).toBeTruthy()
+    expect(screen.queryByText(/active$/)).toBeNull()
+    expect(onChange).toHaveBeenCalledOnce()
   })
 })
