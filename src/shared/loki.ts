@@ -35,7 +35,9 @@ export type LokiLineOperator = '|=' | '!=' | '|~' | '!~'
 export interface LokiLabelMatcher { label: string; operator: LokiLabelOperator; value: string; values?: string[] }
 export interface LokiLineFilter { operator: LokiLineOperator; value: string }
 export interface LokiFieldFilter { field: string; operator: LokiLabelOperator; value: string }
-export interface LokiParserStage { kind: 'json' | 'logfmt' | 'pattern' | 'regexp'; expression?: string }
+export type LokiParserKind = 'json' | 'logfmt' | 'pattern' | 'regexp'
+export interface LokiParserStage { kind: LokiParserKind; expression?: string }
+export type LokiFilterSource = 'label' | 'structured-metadata' | 'parsed-field'
 export interface LokiBuilderState {
   labelMatchers: LokiLabelMatcher[]
   lineFilters: LokiLineFilter[]

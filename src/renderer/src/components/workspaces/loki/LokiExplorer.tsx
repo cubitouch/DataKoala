@@ -1,6 +1,6 @@
 import { TextInput } from '@components/ui/TextInput'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { LokiLogResult, LokiQueryResult } from '@shared/loki'
+import type { LokiFilterSource, LokiLogResult, LokiParserKind, LokiQueryResult } from '@shared/loki'
 import { DEFAULT_LOKI_BUILDER } from '@shared/loki'
 import { buildLokiQuery, logqlResultKind } from '@shared/loki-builder'
 import { CHART_SERIES_HARD_LIMIT, CHART_SERIES_SOFT_LIMIT } from '@shared/chartLimits'
@@ -154,9 +154,9 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   useEffect(() => setPatternScope(null), [result])
   const selectRange = (selected: LokiTrendRange) => setLokiState({ lokiRangeHistory: [...session.lokiRangeHistory, range], lokiTimeRange: customRange(selected) })
   const restoreRange = (reset = false) => { const history = session.lokiRangeHistory; const prior = reset ? history[0] : history.at(-1); if (prior) setLokiState({ lokiTimeRange: prior, lokiRangeHistory: reset ? [] : history.slice(0, -1) }) }
-  const resultFilter = (kind: 'label' | 'field', key: string, value: string, exclude: boolean) => {
-    if (kind === 'label') setLokiState({ lokiBuilder: { ...builder, labelMatchers: [...builder.labelMatchers.filter((matcher) => matcher.label !== key), { label: key, operator: exclude ? '!=' : '=', value }] } })
-    else setLokiState({ lokiBuilder: { ...builder, fieldFilters: [...builder.fieldFilters.filter((filter) => filter.field !== key), { field: key, operator: exclude ? '!=' : '=', value }] } })
+  const resultFilter = (source: LokiFilterSource, key: string, value: string, exclude: boolean, parser?: LokiParserKind) => {
+    if (source === 'label') setLokiState({ lokiBuilder: { ...builder, labelMatchers: [...builder.labelMatchers.filter((matcher) => matcher.label !== key), { label: key, operator: exclude ? '!=' : '=', value }] } })
+    else setLokiState({ lokiBuilder: { ...builder, parsers: parser && !builder.parsers.some((stage) => stage.kind === parser) ? [...builder.parsers, { kind: parser }] : builder.parsers, fieldFilters: [...builder.fieldFilters.filter((filter) => filter.field !== key), { field: key, operator: exclude ? '!=' : '=', value }] } })
     setMode('builder')
   }
   const format = async () => { if (!canLoadMetadata) return; const original = query; try { setSql(await api.connections.loki.formatQuery(connectionId, original)) } catch (caught) { setError(`Formatting failed; query was not changed. ${caught instanceof Error ? caught.message : String(caught)}`) } }
