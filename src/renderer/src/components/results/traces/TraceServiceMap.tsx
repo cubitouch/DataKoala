@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { TITLEBAR_HEIGHT } from '@shared/layoutDimensions'
@@ -326,9 +326,9 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
     }, setFinishedRevision)
   }, [graph.edges.length, graph.nodes.length, renderRevision])
 
-  const markRendered = () => {
+  const markRendered = useCallback(() => {
     if (readiness.current.finishRevision(renderRevision)) setFinishedRevision(renderRevision)
-  }
+  }, [renderRevision])
 
   const events = useMemo(() => ({
     click: (value: unknown) => {
@@ -354,7 +354,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       }
     },
     finished: markRendered
-  }), [groupedGraph.edgeById, groupedGraph.nodeById, renderRevision])
+  }), [groupedGraph.edgeById, groupedGraph.nodeById, markRendered])
 
   const progressPercent = progress.total ? Math.round((progress.completed / progress.total) * 100) : 0
   const sampled = searchTraceCount > progress.total && progress.total > 0

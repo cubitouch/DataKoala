@@ -1,5 +1,5 @@
 import { TextInput } from '@components/ui/TextInput'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { lokiLabelValues } from '@lib/lokiMetadata'
 import { matchesSearch } from '@lib/matchesSearch'
 import { useLokiLabelsResource } from '@lib/useLokiLabelsResource'
@@ -34,28 +34,33 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
   if (lifecycleKey.current !== currentLifecycleKey) { lifecycleKey.current = currentLifecycleKey; revision.current++ }
   const resource = useLokiLabelsResource(connectionId, connectionGeneration, session.id, session.lokiTimeRange, canLoadMetadata, metadataRevision)
   const { labels, status, error, bounds } = resource
-  useEffect(() => {
-    revision.current++; setValueStatus({})
-    if (canLoadMetadata) { setValues({}); setExpanded(new Set()) }
-  }, [connectionId, connectionGeneration, session.id, canLoadMetadata, JSON.stringify(session.lokiTimeRange)])
-  useEffect(() => {
-    if (!metadataRevision || !canLoadMetadata) return
-    revision.current++
-    for (const label of expanded) void loadValues(label, true)
-  }, [metadataRevision])
+  const lokiTimeRangeKey = JSON.stringify(session.lokiTimeRange)
   const addLabel = (label: string, value?: string) => {
     const current = session.lokiBuilder.labelMatchers.filter((matcher, index, all) => all.findIndex((item) => item.label === matcher.label) === index)
     const existing = current.find((matcher) => matcher.label === label)
     const next = existing ? current.map((matcher) => matcher.label === label ? { ...matcher, ...(value !== undefined ? { value, values: [value] } : {}) } : matcher) : [...current, { label, operator: '=' as const, value: value ?? '', values: value === undefined ? [] : [value] }]
     setLokiState({ lokiBuilder: { ...session.lokiBuilder, labelMatchers: next } }, session.id); setMode('builder', session.id)
   }
-  const loadValues = async (label: string, retry = false) => {
+  const loadValues = useCallback(async (label: string, retry = false) => {
     if (!canLoadMetadata || valueStatus[label] === 'loading' || (!retry && values[label])) return
     const request = revision.current, tabId = session.id
     setValueStatus((current) => ({ ...current, [label]: 'loading' }))
     try { const next = visibleLokiMetadata(await lokiLabelValues(connectionId, label, bounds)); if (!available.current || request !== revision.current || useStore.getState().activeTabId !== tabId) return; setValues((current) => ({ ...current, [label]: next })); setValueStatus((current) => { const copy = { ...current }; delete copy[label]; return copy }) }
     catch { if (available.current && request === revision.current && useStore.getState().activeTabId === tabId) setValueStatus((current) => ({ ...current, [label]: 'error' })) }
-  }
+  }, [bounds, canLoadMetadata, connectionId, session.id, valueStatus, values])
+  useEffect(() => {
+    revision.current++; setValueStatus({})
+    if (canLoadMetadata) { setValues({}); setExpanded(new Set()) }
+  }, [connectionId, connectionGeneration, session.id, canLoadMetadata, lokiTimeRangeKey])
+  const lastProcessedMetadataRevision = useRef('')
+  useEffect(() => {
+    if (!metadataRevision || !canLoadMetadata) return
+    const revisionKey = `${connectionId}\0${connectionGeneration}\0${session.id}\0${metadataRevision}`
+    if (lastProcessedMetadataRevision.current === revisionKey) return
+    lastProcessedMetadataRevision.current = revisionKey
+    revision.current++
+    for (const label of expanded) void loadValues(label, true)
+  }, [canLoadMetadata, connectionGeneration, connectionId, expanded, loadValues, metadataRevision, session.id])
   const toggle = (label: string) => {
     if (!canLoadMetadata) return
     const opening = !expanded.has(label)

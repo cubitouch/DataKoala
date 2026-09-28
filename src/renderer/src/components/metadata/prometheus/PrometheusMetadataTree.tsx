@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
 import { api } from '@lib/api'
 import { matchesSearch } from '@lib/matchesSearch'
@@ -31,10 +31,10 @@ export function PrometheusMetadataTree(props: Props) {
   const valueRequests = useRef(new Set<string>())
   const metrics = new Map<string, DatabaseRelationNode>()
   const labelsById = new Map<string, { metric: DatabaseRelationNode; label: string }>()
-  const metricKey = (metric: DatabaseRelationNode) => `${props.connectionId}\0${metric.qualifiedName}`
-  const valueKey = (metric: DatabaseRelationNode, label: string) => `${metricKey(metric)}\0${label}`
+  const metricKey = useCallback((metric: DatabaseRelationNode) => `${props.connectionId}\0${metric.qualifiedName}`, [props.connectionId])
+  const valueKey = useCallback((metric: DatabaseRelationNode, label: string) => `${metricKey(metric)}\0${label}`, [metricKey])
 
-  const loadLabels = async (metric: DatabaseRelationNode, retry = false) => {
+  const loadLabels = useCallback(async (metric: DatabaseRelationNode, retry = false) => {
     const key = metricKey(metric)
     if (labelRequests.current.has(key) || (!retry && labels[key]?.data)) return
     labelRequests.current.add(key)
@@ -42,12 +42,13 @@ export function PrometheusMetadataTree(props: Props) {
     try {
       const data = await api.connections.prometheus.labelsForMetric(props.connectionId, metric.name)
       setLabels((old) => ({ ...old, [key]: { data } }))
+      return data
     } catch (error) {
       setLabels((old) => ({ ...old, [key]: { ...old[key], loading: false, error: message(error) } }))
     } finally { labelRequests.current.delete(key) }
-  }
+  }, [labels, metricKey, props.connectionId])
 
-  const loadValues = async (metric: DatabaseRelationNode, label: string, retry = false) => {
+  const loadValues = useCallback(async (metric: DatabaseRelationNode, label: string, retry = false) => {
     const key = valueKey(metric, label)
     if (valueRequests.current.has(key) || (!retry && values[key]?.data)) return
     valueRequests.current.add(key)
@@ -58,7 +59,7 @@ export function PrometheusMetadataTree(props: Props) {
     } catch (error) {
       setValues((old) => ({ ...old, [key]: { ...old[key], loading: false, error: message(error) } }))
     } finally { valueRequests.current.delete(key) }
-  }
+  }, [props.connectionId, valueKey, values])
 
   useEffect(() => {
     for (const schema of props.schemas) {
@@ -70,18 +71,21 @@ export function PrometheusMetadataTree(props: Props) {
         }
       }
     }
-  }, [props.connectionId, props.expanded, props.schemas])
+  }, [labels, loadLabels, metricKey, props.expanded, props.schemas])
 
+  const lastProcessedRevision = useRef('')
   useEffect(() => {
     if (!props.revision) return
+    const revisionKey = `${props.connectionId}\0${props.revision}`
+    if (lastProcessedRevision.current === revisionKey) return
+    lastProcessedRevision.current = revisionKey
     for (const schema of props.schemas) for (const metric of schema.relations) {
       if (!props.expanded.has(`relation:${metric.qualifiedName}`)) continue
-      void loadLabels(metric, true).then(() => {
-        const currentLabels = labels[metricKey(metric)]?.data ?? []
+      void loadLabels(metric, true).then((currentLabels = []) => {
         for (const label of currentLabels) if (openLabels.has(valueKey(metric, label))) void loadValues(metric, label, true)
       })
     }
-  }, [props.revision])
+  }, [loadLabels, loadValues, openLabels, props.connectionId, props.expanded, props.revision, props.schemas, valueKey])
 
   const visibleMetrics = props.schemas
     .flatMap((schema) => schema.relations)

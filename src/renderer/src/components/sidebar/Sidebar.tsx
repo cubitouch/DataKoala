@@ -1,6 +1,6 @@
 import { TextInput } from '@components/ui/TextInput'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { DataSourceProfile, DatabaseColumnNode, DatabaseRelationNode } from '@shared/types'
+import type { DataSourceProfile, DatabaseColumnNode, DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
 import { api } from '@lib/api'
 import { ensureRelationColumns } from '@lib/relationColumns'
 import { loadConnectionMetadata } from '@lib/connectionMetadata'
@@ -20,6 +20,7 @@ import { PrometheusMetadataTree } from '@components/metadata/prometheus/Promethe
 import styles from './Sidebar.module.css'
 
 const cx = (...classes: Array<string | false | undefined>) => classes.filter(Boolean).join(' ')
+const EMPTY_SCHEMAS: DatabaseSchemaNode[] = []
 
 const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'service' ? 'service' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
 function traceqlForService(relation: DatabaseRelationNode): string {
@@ -59,7 +60,7 @@ export function Sidebar() {
   const currentSql = useStore((s) => selectActiveSession(s).sql)
   const metadataByProfileId = useStore((s) => s.metadataByProfileId)
   const metadata = activeTabConnectionId ? metadataByProfileId[activeTabConnectionId] : undefined
-  const schemas = metadata?.schemas ?? []
+  const schemas = metadata?.schemas ?? EMPTY_SCHEMAS
   const metadataStatus = metadata?.status ?? 'idle'
   const metadataError = metadata?.error ?? null
   const metadataRevision = metadata?.revision ?? 0
@@ -86,7 +87,7 @@ export function Sidebar() {
     (connected && activeId === activeTabConnectionId)
   ))
 
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     setProfiles(await api.connections.list())
     const live = await api.connections.listLive?.()
     if (live?.length) useStore.setState((state) => ({
@@ -95,8 +96,8 @@ export function Sidebar() {
         ...Object.fromEntries(live.map((session) => [session.id, { status: 'connected' as const, generation: session.generation, error: null, serverVersion: session.serverVersion ?? null }]))
       }
     }))
-  }
-  useEffect(() => { void loadProfiles() }, [])
+  }, [setProfiles])
+  useEffect(() => { void loadProfiles() }, [loadProfiles])
 
   useEffect(() => {
     if (metadataStatus !== 'loaded' || expanded.size || !schemas.length) return
@@ -157,7 +158,7 @@ export function Sidebar() {
     return next
   })
 
-  const reconcileSelectedBuilderColumns = (requested: DatabaseRelationNode, columns: DatabaseColumnNode[]) => {
+  const reconcileSelectedBuilderColumns = useCallback((requested: DatabaseRelationNode, columns: DatabaseColumnNode[]) => {
     const state = useStore.getState()
     const session = selectSession(state, activeTabId)
     if (!session || !session.builder.table || relationIdentity(session.builder.table) !== relationIdentity(requested)) return
@@ -168,9 +169,9 @@ export function Sidebar() {
     const sourceY = session.builderVisualization.aggregation === 'count' ? null : session.builderVisualization.valueColumn
     const nextY = sourceY && columns.some((column) => column.name === sourceY) ? sourceY : null
     if (nextX !== sourceX || nextY !== sourceY) state.setVisualization('builder', { xColumn: nextX, valueColumn: nextY }, activeTabId)
-  }
+  }, [activeTabId])
 
-  const loadRelationColumns = async (relation: DatabaseRelationNode) => {
+  const loadRelationColumns = useCallback(async (relation: DatabaseRelationNode) => {
     if (relation.columnsStatus === 'loaded' && relation.columns) {
       reconcileSelectedBuilderColumns(relation, relation.columns)
       return
@@ -180,7 +181,7 @@ export function Sidebar() {
     if (!requestProfileId) return
     const columns = await ensureRelationColumns(requestProfileId, relation, relation.columnsStatus === 'error')
     if (columns) reconcileSelectedBuilderColumns(relation, columns)
-  }
+  }, [activeTabId, reconcileSelectedBuilderColumns])
 
   const expandRelation = async (relation: DatabaseRelationNode) => {
     if (relation.kind === 'service') return
@@ -190,14 +191,18 @@ export function Sidebar() {
     await loadRelationColumns(relation)
   }
 
+  const lastProcessedMetadataRevision = useRef('')
   useEffect(() => {
     if (!metadataRevision || !activeTabConnectionId || activeTabSourceKind === 'prometheus' || activeTabSourceKind === 'tempo' || activeTabSourceKind === 'loki') return
+    const revisionKey = `${activeTabConnectionId}\0${metadataRevision}`
+    if (lastProcessedMetadataRevision.current === revisionKey) return
+    lastProcessedMetadataRevision.current = revisionKey
     const selected = builderTable ? `${builderTable.schema}.${builderTable.name}` : null
     for (const schema of schemas) for (const relation of schema.relations) {
       if (expanded.has(`relation:${relation.qualifiedName}`) || relation.qualifiedName === selected) void loadRelationColumns(relation)
     }
   // A revision denotes a successful replacement; expansion and selection intentionally survive it.
-  }, [metadataRevision])
+  }, [activeTabConnectionId, activeTabSourceKind, builderTable, expanded, loadRelationColumns, metadataRevision, schemas])
 
   const visibleSchemas = useMemo(() => {
     if (!filter.trim()) return schemas
