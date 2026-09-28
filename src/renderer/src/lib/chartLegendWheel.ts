@@ -14,7 +14,7 @@ export function clampLegendScrollIndex(index: number, seriesCount: number): numb
 /** Converts wheel/trackpad movement into gradual item-sized legend steps. */
 export function advanceLegendWheel(state: LegendWheelState, delta: number, seriesCount: number): LegendWheelState {
   if (seriesCount <= 1 || !Number.isFinite(delta) || delta === 0) return { index: clampLegendScrollIndex(state.index, seriesCount), accumulatedDelta: state.accumulatedDelta }
-  let accumulatedDelta = state.accumulatedDelta + delta
+  const accumulatedDelta = state.accumulatedDelta + delta
   if (Math.abs(accumulatedDelta) < LEGEND_WHEEL_DELTA_THRESHOLD) return { index: clampLegendScrollIndex(state.index, seriesCount), accumulatedDelta }
   const direction = accumulatedDelta > 0 ? 1 : -1
   const index = clampLegendScrollIndex(state.index + direction, seriesCount)

@@ -99,7 +99,7 @@ test('merged constraints survive a TraceQL round trip', () => {
 test('builds and parses faceted attribute predicates', () => {
   assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })), '{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") && span:duration > 300ms }')
   assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'exclude', values: ['staging', 'test'] }] })), '{ resource.deployment.environment.name != "staging" && resource.deployment.environment.name != "test" && span:duration > 300ms }')
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'span.custom', scope: 'span', mode: 'include', values: ['a"b'] }] })), '{ span.custom = "a\\\"b" && span:duration > 300ms }')
+  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'span.custom', scope: 'span', mode: 'include', values: ['a"b'] }] })), '{ span.custom = "a\\"b" && span:duration > 300ms }')
   assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: [] }] })), '{ span:duration > 300ms }')
   assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'invalid; true', scope: 'span', mode: 'include', values: ['x'] }] })), '{ span:duration > 300ms }')
   const parsed = traceBuilderFromTraceql('{ resource.service.name = "checkout" && (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')

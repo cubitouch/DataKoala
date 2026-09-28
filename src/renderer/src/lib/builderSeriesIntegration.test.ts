@@ -26,7 +26,7 @@ const visual: VisualizationConfiguration = { view: 'line', xColumn: 'time_bucket
 
 test('independent SQL columns feed a visual tuple and client tuple filter', () => {
   const query = generateBuilderQuery({ ...builder, timeRange: { kind: 'rolling', amount: 24, unit: 'hour' } })
-  assert.match(query.sql, /"country",\n  "device",/)
+  assert.match(query.sql, /"country",\n {2}"device",/)
   assert.doesNotMatch(query.sql, /concat_ws|AS "series"|::text/)
   assert.match(query.sql, /GROUP BY 1, 2, 3/)
   const effective = deriveEffectiveVisualization(result, visual, 'builder', builder.seriesColumns)

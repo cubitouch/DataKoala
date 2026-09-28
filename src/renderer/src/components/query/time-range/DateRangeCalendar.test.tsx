@@ -66,6 +66,6 @@ describe('DateRangeCalendar visual exclusive end dates', () => {
     function View() { const [value, setValue] = useState<CustomTimeRangeValue>({ startDate: '2026-07-01', startTime: '00:00', endDate: null, endTime: '00:00', recurringWindows: [] }); return <><DateRangeCalendar value={value} onChange={setValue}/><output aria-label="value">{JSON.stringify(value)}</output></> }
     render(<View />)
     fireEvent.click(screen.getByRole('gridcell', { name: '2026-07-31' }))
-    expect(screen.getByLabelText('value').textContent).toContain('\"endDate\":\"2026-08-01\"')
+    expect(screen.getByLabelText('value').textContent).toContain('"endDate":"2026-08-01"')
   })
 })

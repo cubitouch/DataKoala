@@ -6,7 +6,7 @@ import type { QueryCodeEditorHandle } from './QueryCodeEditor'
 
 const captured: { props?: Record<string, unknown>; dispatch?: ReturnType<typeof vi.fn>; focus?: ReturnType<typeof vi.fn> } = {}
 vi.mock('@uiw/react-codemirror', () => ({
-  default: forwardRef((props: Record<string, unknown>, ref) => {
+  default: forwardRef(function CodeMirrorMock(props: Record<string, unknown>, ref) {
     captured.props = props
     captured.dispatch = vi.fn()
     captured.focus = vi.fn()
