@@ -14,6 +14,7 @@ import type {
   TraceServiceMapViewNode,
 } from '@lib/traceServiceMapGrouping'
 import {
+  createServiceMapExcalidraw,
   createServiceMapSvg,
   rasterizeServiceMapSvg,
   type DiagramBounds,
@@ -35,6 +36,7 @@ export interface TraceServiceMapCanvasHandle {
   fit(): void
   svg(): string
   png(): Promise<string>
+  excalidraw(): string
 }
 interface Props {
   nodes: TraceServiceMapViewNode[]
@@ -100,6 +102,19 @@ export function TraceServiceMapCanvas({
       minScale: 0.25,
       maxScale: 1.25,
     })
+  const renderedBounds = (): DiagramBounds => {
+    const paper = paperRef.current
+    if (!paper) return boundsRef.current
+    const area = paper.getContentArea()
+    const bounds = {
+      x: area.x,
+      y: area.y,
+      width: Math.max(1, area.width),
+      height: Math.max(1, area.height),
+    }
+    boundsRef.current = bounds
+    return bounds
+  }
   useImperativeHandle(
     canvasRef,
     () => ({
@@ -107,14 +122,60 @@ export function TraceServiceMapCanvas({
       svg: () => {
         const svg = host.current?.querySelector('svg')
         if (!svg) throw new Error('Service map is not available')
-        return createServiceMapSvg(svg, boundsRef.current, colors.bg, PADDING)
+        return createServiceMapSvg(svg, renderedBounds(), colors.bg, PADDING)
       },
       png: async () => {
         const svg = host.current?.querySelector('svg')
         if (!svg) throw new Error('Service map is not available')
         return rasterizeServiceMapSvg(
-          createServiceMapSvg(svg, boundsRef.current, colors.bg, PADDING),
+          createServiceMapSvg(svg, renderedBounds(), colors.bg, PADDING),
         )
+      },
+      excalidraw: () => {
+        const graph = graphRef.current
+        if (!graph) throw new Error('Service map is not available')
+        const sceneNodes = nodes.map((node) => {
+          const model = graph.getCell(node.id) as dia.Element | undefined
+          if (!model) throw new Error(`Service map node ${node.id} is not available`)
+          const position = model.position()
+          const size = model.size()
+          return {
+            id: node.id,
+            label: node.label,
+            x: position.x,
+            y: position.y,
+            width: size.width,
+            height: size.height,
+            strokeColor: String(model.attr('body/stroke') ?? colors.border),
+            backgroundColor: String(model.attr('body/fill') ?? colors.bg2),
+            textColor: String(model.attr('label/fill') ?? colors.text),
+          }
+        })
+        const nodeById = new Map(sceneNodes.map((node) => [node.id, node]))
+        const sceneEdges = edges.flatMap((edge) => {
+          const source = nodeById.get(edge.source)
+          const target = nodeById.get(edge.target)
+          const model = graph.getCell(edge.key) as dia.Link | undefined
+          if (!source || !target || !model) return []
+          const leftToRight = source.x <= target.x
+          const start = {
+            x: leftToRight ? source.x + source.width : source.x,
+            y: source.y + source.height / 2,
+          }
+          const end = {
+            x: leftToRight ? target.x : target.x + target.width,
+            y: target.y + target.height / 2,
+          }
+          const midX = (start.x + end.x) / 2
+          return [{
+            id: edge.key,
+            points: [start, { x: midX, y: start.y }, { x: midX, y: end.y }, end],
+            strokeColor: String(model.attr('line/stroke') ?? colors.mute),
+            strokeWidth: Number(model.attr('line/strokeWidth') ?? 1.5),
+            strokeStyle: edge.kind === 'async' ? 'dashed' as const : edge.kind === 'mixed' ? 'dotted' as const : 'solid' as const,
+          }]
+        })
+        return createServiceMapExcalidraw(sceneNodes, sceneEdges, colors.bg)
       },
     }),
     [colors.bg],
@@ -213,7 +274,7 @@ export function TraceServiceMapCanvas({
       rankSep: 110,
       marginX: PADDING,
       marginY: PADDING,
-      setVertices: true,
+      setVertices: false,
     })
     const box = graph.getBBox()!
     boundsRef.current = {
@@ -307,6 +368,7 @@ export function TraceServiceMapCanvas({
       batchSize: 100,
       afterRender: () => {
         if (disposed) return
+        renderedBounds()
         fit()
         onReady()
       },

@@ -4,7 +4,29 @@ export interface DiagramBounds {
   width: number
   height: number
 }
+
+export interface ServiceMapExcalidrawNode {
+  id: string
+  label: string
+  x: number
+  y: number
+  width: number
+  height: number
+  strokeColor: string
+  backgroundColor: string
+  textColor: string
+}
+
+export interface ServiceMapExcalidrawEdge {
+  id: string
+  points: Array<{ x: number; y: number }>
+  strokeColor: string
+  strokeWidth: number
+  strokeStyle: 'solid' | 'dashed' | 'dotted'
+}
+
 const MAX_RASTER_PIXELS = 24_000_000
+const MAX_SVG_DISPLAY_DIMENSION = 4096
 
 export function createServiceMapSvg(
   source: SVGSVGElement,
@@ -13,27 +35,186 @@ export function createServiceMapSvg(
   padding = 32,
 ): string {
   const clone = source.cloneNode(true) as SVGSVGElement
-  const width = Math.ceil(bounds.width + padding * 2)
-  const height = Math.ceil(bounds.height + padding * 2)
+  const viewWidth = Math.max(1, Math.ceil(bounds.width + padding * 2))
+  const viewHeight = Math.max(1, Math.ceil(bounds.height + padding * 2))
+  const displayScale = Math.min(
+    1,
+    MAX_SVG_DISPLAY_DIMENSION / Math.max(viewWidth, viewHeight),
+  )
+  const displayWidth = Math.max(1, Math.round(viewWidth * displayScale))
+  const displayHeight = Math.max(1, Math.round(viewHeight * displayScale))
+
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-  clone.setAttribute('width', String(width))
-  clone.setAttribute('height', String(height))
-  clone.setAttribute('viewBox', `0 0 ${width} ${height}`)
+  clone.setAttribute('width', String(displayWidth))
+  clone.setAttribute('height', String(displayHeight))
+  clone.setAttribute('viewBox', `0 0 ${viewWidth} ${viewHeight}`)
+  clone.setAttribute('preserveAspectRatio', 'xMinYMin meet')
   clone.removeAttribute('style')
+
   const viewport = clone.querySelector('.joint-viewport')
   viewport?.setAttribute(
     'transform',
     `translate(${padding - bounds.x},${padding - bounds.y})`,
   )
+
   const backdrop = document.createElementNS(
     'http://www.w3.org/2000/svg',
     'rect',
   )
-  backdrop.setAttribute('width', '100%')
-  backdrop.setAttribute('height', '100%')
+  backdrop.setAttribute('x', '0')
+  backdrop.setAttribute('y', '0')
+  backdrop.setAttribute('width', String(viewWidth))
+  backdrop.setAttribute('height', String(viewHeight))
   backdrop.setAttribute('fill', background)
   clone.insertBefore(backdrop, clone.firstChild)
+
   return new XMLSerializer().serializeToString(clone)
+}
+
+function stableSeed(value: string): number {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return Math.max(1, hash >>> 0)
+}
+
+function excalidrawBase(
+  id: string,
+  type: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  return {
+    id,
+    type,
+    x,
+    y,
+    width,
+    height,
+    angle: 0,
+    strokeColor: '#1e1e1e',
+    backgroundColor: 'transparent',
+    fillStyle: 'solid',
+    strokeWidth: 1,
+    strokeStyle: 'solid',
+    roughness: 0,
+    opacity: 100,
+    groupIds: [],
+    frameId: null,
+    roundness: null,
+    seed: stableSeed(id),
+    version: 1,
+    versionNonce: stableSeed(`${id}:version`),
+    isDeleted: false,
+    boundElements: null,
+    updated: 0,
+    link: null,
+    locked: false,
+    created: null,
+  }
+}
+
+export function createServiceMapExcalidraw(
+  nodes: ServiceMapExcalidrawNode[],
+  edges: ServiceMapExcalidrawEdge[],
+  background: string,
+): string {
+  const elements: Array<Record<string, unknown>> = []
+
+  for (const node of nodes) {
+    const rectangleId = `node:${node.id}`
+    elements.push({
+      ...excalidrawBase(
+        rectangleId,
+        'rectangle',
+        node.x,
+        node.y,
+        node.width,
+        node.height,
+      ),
+      strokeColor: node.strokeColor,
+      backgroundColor: node.backgroundColor,
+      strokeWidth: 1.5,
+      roundness: { type: 3 },
+    })
+
+    const lines = Math.max(1, node.label.split('\n').length)
+    const fontSize = 14
+    const lineHeight = 1.25
+    const textHeight = fontSize * lineHeight * lines
+    elements.push({
+      ...excalidrawBase(
+        `text:${node.id}`,
+        'text',
+        node.x + 8,
+        node.y + Math.max(0, (node.height - textHeight) / 2),
+        Math.max(1, node.width - 16),
+        textHeight,
+      ),
+      strokeColor: node.textColor,
+      backgroundColor: 'transparent',
+      text: node.label,
+      fontSize,
+      fontFamily: 2,
+      textAlign: 'center',
+      verticalAlign: 'middle',
+      containerId: null,
+      originalText: node.label,
+      autoResize: false,
+      lineHeight,
+    })
+  }
+
+  for (const edge of edges) {
+    if (edge.points.length < 2) continue
+    const first = edge.points[0]
+    const relativePoints = edge.points.map((point) => [
+      point.x - first.x,
+      point.y - first.y,
+    ])
+    const xs = relativePoints.map(([x]) => x)
+    const ys = relativePoints.map(([, y]) => y)
+    elements.push({
+      ...excalidrawBase(
+        `edge:${edge.id}`,
+        'arrow',
+        first.x,
+        first.y,
+        Math.max(...xs) - Math.min(...xs),
+        Math.max(...ys) - Math.min(...ys),
+      ),
+      strokeColor: edge.strokeColor,
+      strokeWidth: Math.max(1, Math.min(4, edge.strokeWidth)),
+      strokeStyle: edge.strokeStyle,
+      points: relativePoints,
+      lastCommittedPoint: null,
+      startBinding: null,
+      endBinding: null,
+      startArrowhead: null,
+      endArrowhead: 'arrow',
+      elbowed: false,
+    })
+  }
+
+  return JSON.stringify(
+    {
+      type: 'excalidraw',
+      version: 2,
+      source: 'https://datakoala.dev',
+      elements,
+      appState: {
+        gridSize: 20,
+        viewBackgroundColor: background,
+      },
+      files: {},
+    },
+    null,
+    2,
+  )
 }
 
 export async function rasterizeServiceMapSvg(
@@ -44,8 +225,8 @@ export async function rasterizeServiceMapSvg(
     svg,
     'image/svg+xml',
   ).documentElement
-  const width = Number(parsed.getAttribute('width')) || 1,
-    height = Number(parsed.getAttribute('height')) || 1
+  const width = Number(parsed.getAttribute('width')) || 1
+  const height = Number(parsed.getAttribute('height')) || 1
   const scale = Math.min(
     preferredScale,
     Math.sqrt(MAX_RASTER_PIXELS / (width * height)),
@@ -60,7 +241,8 @@ export async function rasterizeServiceMapSvg(
   try {
     await new Promise<void>((resolve, reject) => {
       image.onload = () => resolve()
-      image.onerror = () => reject(new Error('Could not rasterize service map'))
+      image.onerror = () =>
+        reject(new Error('Could not rasterize service map'))
       image.src = url
     })
     const context = canvas.getContext('2d')

@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { createServiceMapSvg } from './traceServiceMapExport'
+import {
+  createServiceMapExcalidraw,
+  createServiceMapSvg,
+} from './traceServiceMapExport'
 
 describe('service map SVG export', () => {
   it('normalizes the whole content bounds independently of the viewport transform', () => {
@@ -18,9 +21,60 @@ describe('service map SVG export', () => {
     expect(exported).toContain('width="560"')
     expect(exported).toContain('height="300"')
     expect(exported).toContain('viewBox="0 0 560 300"')
+    expect(exported).toContain('preserveAspectRatio="xMinYMin meet"')
     expect(exported).toContain('transform="translate(20,10)"')
     expect(exported).toContain('data-service-map-node="a"')
     expect(exported).toContain('data-service-map-edge="a-b"')
     expect(exported).not.toContain('matrix(3,0,0,3,-900,-400)')
+  })
+
+  it('caps the imported display size without sacrificing vector viewBox detail', () => {
+    const source = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    source.innerHTML = '<g class="joint-viewport"><rect width="10000" height="4000" /></g>'
+    const exported = createServiceMapSvg(
+      source,
+      { x: 0, y: 0, width: 10000, height: 4000 },
+      '#17201f',
+      32,
+    )
+    const parsed = new DOMParser().parseFromString(exported, 'image/svg+xml').documentElement
+    expect(Number(parsed.getAttribute('width'))).toBeLessThanOrEqual(4096)
+    expect(Number(parsed.getAttribute('height'))).toBeLessThanOrEqual(4096)
+    expect(parsed.getAttribute('viewBox')).toBe('0 0 10064 4064')
+  })
+})
+
+describe('service map Excalidraw export', () => {
+  it('exports editable rectangles, labels and arrows as a native scene', () => {
+    const exported = createServiceMapExcalidraw(
+      [{
+        id: 'api',
+        label: 'API',
+        x: 10,
+        y: 20,
+        width: 120,
+        height: 42,
+        strokeColor: '#516666',
+        backgroundColor: '#202b2a',
+        textColor: '#fff9f1',
+      }],
+      [{
+        id: 'api-worker',
+        points: [{ x: 130, y: 41 }, { x: 200, y: 41 }],
+        strokeColor: '#617f7f',
+        strokeWidth: 2,
+        strokeStyle: 'solid',
+      }],
+      '#17201f',
+    )
+    const scene = JSON.parse(exported)
+    expect(scene.type).toBe('excalidraw')
+    expect(scene.version).toBe(2)
+    expect(scene.elements.map((element: { type: string }) => element.type)).toEqual([
+      'rectangle',
+      'text',
+      'arrow',
+    ])
+    expect(scene.appState.viewBackgroundColor).toBe('#17201f')
   })
 })
