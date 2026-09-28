@@ -9,7 +9,6 @@ import { projectTraceServiceMap } from '@lib/traceServiceMapProjection'
 import { scopeTraceServiceMap, type TraceServiceMapScope } from '@lib/traceServiceMapScope'
 import { api } from '@lib/api'
 import { copyChartPng } from '@lib/chartImage'
-import { notifyChartCopyResult } from '@lib/chartCopyNotification'
 import { TraceServiceMapCanvas, type TraceServiceMapCanvasHandle } from './TraceServiceMapCanvas'
 import styles from './TraceServiceMap.module.css'
 
@@ -209,6 +208,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
   const downstreamEdges = selectedNode ? incidentEdges.filter((edge) => edge.source === selectedNode.id) : []
 
   const graphKey = `${graph.nodes.map((node) => node.id).join('|')}::${graph.edges.map((edge) => edge.key).join('|')}`
+  const graphFitKey = `${branchScope}::${grouping}::${scopedGraph.nodes.map((node) => node.id).join('|')}::${scopedGraph.edges.map((edge) => edge.key).join('|')}`
   const slowEdgeKeys = useMemo(() => new Set(aggregate.edges.filter(edgeHasSlowUplift).map((edge) => edge.key)), [aggregate.edges])
   const nodeTooltip = (node: TraceServiceMapViewNode) => {
     if (node.viewKind === 'group') return [`<strong>${escapeHtml(node.groupKey ?? 'Namespace')}</strong>`, `${node.memberIds.length} services`, 'Click to expand this namespace.'].join('<br/>')
@@ -260,10 +260,13 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
     if (exporting) return
     setExporting('copy')
     try {
-      notifyChartCopyResult(await copyChartPng(await canvasRef.current!.png(), api.clipboardImage))
+      const ok = await copyChartPng(await canvasRef.current!.png(), api.clipboardImage)
+      notify(ok
+        ? { message: 'Image copied to clipboard' }
+        : { message: 'Could not copy image', tone: 'error' })
     } catch (error) {
       console.error('[service-map] Could not copy image', error)
-      notifyChartCopyResult(false)
+      notify({ message: 'Could not copy image', tone: 'error' })
     } finally {
       setExporting(null)
     }
@@ -274,7 +277,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
     try {
       const result = await api.clipboardSvg.write(canvasRef.current!.svg())
       notify(result.ok
-        ? { message: 'SVG copied for Figma' }
+        ? { message: 'SVG copied to clipboard for Figma' }
         : { message: 'Could not copy SVG', tone: 'error' })
     } catch (error) {
       console.error('[service-map] Could not copy SVG for Figma', error)
@@ -658,6 +661,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
                   nodes={graph.nodes}
                   edges={graph.edges}
                   colors={colors}
+                  fitKey={graphFitKey}
                   selectedNodeId={selection?.kind === 'node' ? selection.key : undefined}
                   selectedEdgeKey={selection?.kind === 'edge' ? selection.key : undefined}
                   matchingNodeIds={matchingViewNodeIds}
