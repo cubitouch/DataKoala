@@ -564,14 +564,21 @@ function registerIpc(): void {
     const svg = value.trim()
     if (!/^<svg[\s>]/i.test(svg) || svg.length > 20_000_000) return { ok: false as const }
     try {
-      await clipboard.write([
-        new ClipboardItem({
-          'image/svg+xml': new Blob([svg], { type: 'image/svg+xml' }),
-          'text/html': svg,
-          'text/plain': svg
-        })
-      ])
-      return { ok: true as const }
+      const svgBlob = new Blob([svg], { type: 'image/svg+xml' })
+      const formats: Record<string, Blob | string> = {
+        'image/svg+xml': svgBlob,
+        'text/html': svg
+      }
+      if (process.platform === 'darwin') {
+        formats['electron application/osclipboard;format="public.svg-image"'] =
+          new Blob([svg], { type: 'image/svg+xml' })
+      }
+      await clipboard.write([new ClipboardItem(formats)])
+      const hasSvg = await clipboard.has('image/svg+xml')
+      const hasNativeSvg =
+        process.platform !== 'darwin' ||
+        await clipboard.has('electron application/osclipboard;format="public.svg-image"')
+      return { ok: hasSvg && hasNativeSvg }
     } catch (error) {
       console.error('[clipboard] Could not write service-map SVG', error)
       return { ok: false as const }
