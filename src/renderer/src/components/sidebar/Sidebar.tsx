@@ -148,7 +148,13 @@ export function Sidebar() {
   }
 
   const toggle = (id: string) => setExpanded((old) => {
-    const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next
+    const next = new Set(old)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    return next
   })
 
   const reconcileSelectedBuilderColumns = (requested: DatabaseRelationNode, columns: DatabaseColumnNode[]) => {

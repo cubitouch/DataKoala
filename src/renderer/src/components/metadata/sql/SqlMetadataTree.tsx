@@ -49,7 +49,14 @@ export function SqlMetadataTree(props: Props) {
     })
   }))
   return <MetadataTree ariaLabel="Database objects" nodes={nodes} filter={props.filter}
-    onToggle={(node) => { const relation = relations.get(node.id); relation ? props.onToggleRelation(relation) : props.onToggleSchema(node.id) }}
+    onToggle={(node) => {
+      const relation = relations.get(node.id)
+      if (relation) {
+        props.onToggleRelation(relation)
+      } else {
+        props.onToggleSchema(node.id)
+      }
+    }}
     onActivate={(node) => { const relation = relations.get(node.id); if (relation) props.onActivateRelation(relation) }}
     onRetry={(node) => { const relation = relations.get(node.id); if (relation) props.onRetryRelation(relation) }} />
 }
