@@ -77,7 +77,9 @@
     "lint:ts": "eslint --max-warnings=0 \"src/**/*.{ts,tsx}\" \"docs-site/**/*.{ts,tsx}\" \"*.ts\"",
     "lint:ts:fix": "pnpm lint:ts --fix",
     "lint:css": "stylelint \"src/**/*.css\" \"docs-site/**/*.css\"",
-    "lint:css:fix": "pnpm lint:css --fix"
+    "lint:css:fix": "pnpm lint:css --fix",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write ."
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -125,6 +127,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "stylelint": "^16.24.0",
     "stylelint-config-standard": "^39.0.0",
-    "typescript-eslint": "^8.44.1"
+    "typescript-eslint": "^8.44.1",
+    "prettier": "^3.9.9"
   }
 }

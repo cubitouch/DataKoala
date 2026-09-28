@@ -141,6 +141,10 @@ pnpm build          # bundle main + preload + renderer into out/
 pnpm typecheck      # tsc across the node, web and test projects
 pnpm test           # Node tests (+ e2e tests, which skip if no database is up)
 pnpm test:ui        # Vitest / Testing Library renderer tests
+pnpm lint           # check TypeScript and CSS lint rules
+pnpm lint:fix       # apply available lint fixes
+pnpm format         # check formatting with Prettier
+pnpm format:fix     # apply Prettier formatting
 ```
 
 ### Testing against a real Postgres
