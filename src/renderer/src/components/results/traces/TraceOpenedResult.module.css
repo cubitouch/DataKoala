@@ -34,3 +34,22 @@
 @media (max-width: 760px) {
   .inspectionArea.withDetails { display: flex; flex-direction: column; overflow: auto; }
 }
+
+.search-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-toolbar > :first-child {
+  flex: 0 1 360px;
+  min-width: 0;
+}
+
+.search-toolbar > span {
+  color: var(--text-mute);
+  font-size: 11px;
+}

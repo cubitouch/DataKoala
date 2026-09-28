@@ -6,9 +6,3 @@
 @media(max-width:900px){.logSummary{grid-template-columns:76px 58px minmax(0,1fr) 16px}.logInspector{width:44%;min-width:260px}.fieldRow{grid-template-columns:90px minmax(80px,1fr)}.fieldActions{opacity:1;pointer-events:auto}}
 .traceIdentifiers{display:grid;gap:7px;margin:10px 0 14px}.traceIdentifiers>div{display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;align-items:center}.traceIdentifiers dt{color:var(--text-mute);font-size:11px}.traceIdentifiers dd{display:flex;align-items:center;min-width:0;gap:6px;margin:0}.traceIdentifiers code{overflow-wrap:anywhere}.traceIdentifiers button{border:0;background:transparent;color:var(--accent);cursor:pointer;font-size:11px}
 .iconAction svg,.fieldActions svg,.traceIdentifiers button svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
-
-.searchMatch {
-  color: inherit;
-  background: color-mix(in srgb, #e5bd35 38%, var(--bg));
-  border-radius: 2px;
-}

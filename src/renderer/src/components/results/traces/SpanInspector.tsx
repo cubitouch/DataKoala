@@ -1,8 +1,12 @@
+import { HighlightedText } from '@components/ui/HighlightedText'
+import type { createTextSearch } from '@lib/textSearch'
 import type { TraceRow } from '@lib/traceViewer'
 import styles from './SpanInspector.module.css'
 import { traceDurationLabel, traceNumber, traceText } from './tracePresentation'
 
 interface SpanInspectorProps {
+  textSearch?: ReturnType<typeof createTextSearch>
+  searching?: boolean
   span: TraceRow
   traceStart: number
   onClose: () => void
@@ -35,10 +39,10 @@ function valueLabel(value: unknown): string {
   return String(value)
 }
 
-function AttributeList({ values, empty = 'No attributes' }: { values: Record<string, unknown>; empty?: string }) {
+function AttributeList({ values, textSearch, empty = 'No attributes' }: { values: Record<string, unknown>; textSearch?: ReturnType<typeof createTextSearch>; empty?: string }) {
   const entries = Object.entries(values).sort(([left], [right]) => left.localeCompare(right))
   if (!entries.length) return <div className={styles.attributeEmpty}>{empty}</div>
-  return <dl className={styles.attributeList}>{entries.map(([key, value]) => <div key={key}><dt>{key}</dt><dd title={valueLabel(value)}>{valueLabel(value)}</dd></div>)}</dl>
+  return <dl className={styles.attributeList}>{entries.map(([key, value]) => <div key={key}><dt><HighlightedText text={key} search={textSearch} /></dt><dd title={valueLabel(value)}><HighlightedText text={valueLabel(value)} search={textSearch} /></dd></div>)}</dl>
 }
 
 function semanticGroups(attributes: Record<string, unknown>) {
@@ -65,7 +69,8 @@ function semanticGroups(attributes: Record<string, unknown>) {
   return groups
 }
 
-export function SpanInspector({ span, traceStart, onClose }: SpanInspectorProps) {
+export function SpanInspector({ textSearch, searching = false, span, traceStart, onClose }: SpanInspectorProps) {
+  const highlight = (value: string) => <HighlightedText text={value} search={textSearch} />
   const attributes = jsonRecord(span.attributes)
   const resource = jsonRecord(span.resourceAttributes)
   const events = jsonArray(span.events).filter((event) => event && typeof event === 'object') as Record<string, unknown>[]
@@ -74,24 +79,24 @@ export function SpanInspector({ span, traceStart, onClose }: SpanInspectorProps)
   const status = text(span.status) || 'UNSET'
   return <aside className={styles.details} aria-label="Selected span details">
     <header className={styles.detailsHeader}>
-      <div><strong>{text(span.service) || 'unknown service'}</strong><span>{text(span.name) || text(span.spanId)}</span></div>
+      <div><strong>{highlight(text(span.service) || 'unknown service')}</strong><span>{highlight(text(span.name) || text(span.spanId))}</span></div>
       <div className={styles.detailsActions}>
-        <span className={`${styles.statusBadge} ${status.toUpperCase().includes('ERROR') ? styles.statusError : ''}`}>{status}</span>
+        <span className={`${styles.statusBadge} ${status.toUpperCase().includes('ERROR') ? styles.statusError : ''}`}>{highlight(status)}</span>
         <button type="button" className={styles.detailsClose} aria-label="Close span details" title="Close span details" onClick={onClose}>×</button>
       </div>
     </header>
     <div className={styles.detailSummary}>
       <div><span>Duration</span><strong>{durationLabel(number(span.durationMs))}</strong></div>
       <div><span>Start</span><strong>+{durationLabel(Math.max(0, number(span.startTimeMs) - traceStart))}</strong></div>
-      <div><span>Kind</span><strong>{text(span.kind) || 'UNSPECIFIED'}</strong></div>
-      <div><span>Scope</span><strong>{text(span.scopeName) || '—'}</strong></div>
+      <div><span>Kind</span><strong>{highlight(text(span.kind) || 'UNSPECIFIED')}</strong></div>
+      <div><span>Scope</span><strong>{highlight(text(span.scopeName) || '—')}</strong></div>
     </div>
-    {text(span.statusMessage) && <div className={styles.statusMessage}>{text(span.statusMessage)}</div>}
-    <details open><summary>Identity</summary><AttributeList values={{ 'trace.id': text(span.traceId), 'span.id': text(span.spanId), 'parent.span.id': text(span.parentSpanId) || '—' }} /></details>
-    {Object.keys(resource).length > 0 && <details open><summary>Resource</summary><AttributeList values={resource} /></details>}
-    {groups.map((group) => <details key={group.title} open={group.title === 'HTTP & network' || group.title === 'Database' || group.title === 'Messaging' || group.title === 'Error'}><summary>{group.title}</summary><AttributeList values={group.values} /></details>)}
-    {events.length > 0 && <details open><summary>Events <span>{events.length}</span></summary><div className={styles.eventList}>{events.map((event, index) => <div key={`${text(event.name)}-${index}`}><strong>{text(event.name) || `Event ${index + 1}`}</strong><AttributeList values={jsonRecord(event.attributes)} empty="No event attributes" /></div>)}</div></details>}
-    {links.length > 0 && <details open><summary>Links <span>{links.length}</span></summary><div className={styles.linkList}>{links.map((link, index) => <div key={`${text(link.traceId)}-${text(link.spanId)}-${index}`}><code>{text(link.traceId) || 'same trace'} / {text(link.spanId) || 'unknown span'}</code><AttributeList values={jsonRecord(link.attributes)} empty="No link attributes" /></div>)}</div></details>}
-    <details><summary>Raw span data</summary><pre>{JSON.stringify(span, null, 2)}</pre></details>
+    {text(span.statusMessage) && <div className={styles.statusMessage}>{highlight(text(span.statusMessage))}</div>}
+    <details open><summary>Identity</summary><AttributeList textSearch={textSearch} values={{ 'trace.id': text(span.traceId), 'span.id': text(span.spanId), 'parent.span.id': text(span.parentSpanId) || '—' }} /></details>
+    {Object.keys(resource).length > 0 && <details open><summary>Resource</summary><AttributeList textSearch={textSearch} values={resource} /></details>}
+    {groups.map((group) => <details key={group.title} open={searching || group.title === 'HTTP & network' || group.title === 'Database' || group.title === 'Messaging' || group.title === 'Error'}><summary>{group.title}</summary><AttributeList textSearch={textSearch} values={group.values} /></details>)}
+    {events.length > 0 && <details open><summary>Events <span>{events.length}</span></summary><div className={styles.eventList}>{events.map((event, index) => <div key={`${text(event.name)}-${index}`}><strong>{highlight(text(event.name) || `Event ${index + 1}`)}</strong><AttributeList textSearch={textSearch} values={jsonRecord(event.attributes)} empty="No event attributes" /></div>)}</div></details>}
+    {links.length > 0 && <details open><summary>Links <span>{links.length}</span></summary><div className={styles.linkList}>{links.map((link, index) => <div key={`${text(link.traceId)}-${text(link.spanId)}-${index}`}><code>{highlight(text(link.traceId) || 'same trace')} / {highlight(text(link.spanId) || 'unknown span')}</code><AttributeList textSearch={textSearch} values={jsonRecord(link.attributes)} empty="No link attributes" /></div>)}</div></details>}
+    <details><summary>Raw span data</summary><pre>{highlight(JSON.stringify(span, null, 2))}</pre></details>
   </aside>
 }
