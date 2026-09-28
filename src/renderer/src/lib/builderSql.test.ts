@@ -70,7 +70,7 @@ test('origin by type keeps X and Series as independent dimensions', () => {
 test('generates a month bucket with a real series source column', () => {
   const sql = generateBuilderSql({ table: { schema: 'public', name: 'orders' }, timeColumn: 'created_at', timeBucket: 'month', seriesColumns: ['status'] })
   assert.match(sql, /date_trunc\('month'/)
-  assert.match(sql, /\n  "status",\n/)
+  assert.match(sql, /\n {2}"status",\n/)
   assert.doesNotMatch(sql, /AS "series"|concat_ws|::text/)
   assert.match(sql, /GROUP BY 1, 2\nORDER BY 1 ASC NULLS LAST, 2 ASC NULLS LAST;/)
 })
@@ -107,13 +107,13 @@ test('quotes schema, table and column identifiers including uppercase and quotes
   const sql = generateBuilderSql({ table: { schema: 'My"Schema', name: 'Order Items' }, timeColumn: 'Created"At', timeBucket: 'year', seriesColumns: ['Type"Name'] })
   assert.match(sql, /FROM "My""Schema"\."Order Items"/)
   assert.match(sql, /"Created""At" IS NOT NULL/)
-  assert.match(sql, /\n  "Type""Name",\n/)
+  assert.match(sql, /\n {2}"Type""Name",\n/)
   assert.doesNotMatch(sql, /AS "series"/)
 })
 
 test('preserves multiple selected series columns independently', () => {
   const sql = generateBuilderSql({ table: { schema: 'public', name: 'orders' }, timeColumn: 'at', timeBucket: 'day', seriesColumns: ['status', 'country'] })
-  assert.match(sql, /\n  "status",\n  "country",\n/)
+  assert.match(sql, /\n {2}"status",\n {2}"country",\n/)
   assert.match(sql, /GROUP BY 1, 2, 3\nORDER BY 1 ASC NULLS LAST, 2 ASC NULLS LAST, 3 ASC NULLS LAST;/)
   assert.doesNotMatch(sql, /concat_ws|AS "series"|::text/)
 })
