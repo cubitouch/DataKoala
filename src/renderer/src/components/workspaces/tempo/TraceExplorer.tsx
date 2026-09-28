@@ -319,13 +319,21 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
 
   const toggleCollapse = (spanId: string) => setCollapsed((current) => {
     const next = new Set(current)
-    next.has(spanId) ? next.delete(spanId) : next.add(spanId)
+    if (next.has(spanId)) {
+      next.delete(spanId)
+    } else {
+      next.add(spanId)
+    }
     return next
   })
 
   const toggleSpanKind = (kind: string) => setHiddenSpanKinds((current) => {
     const next = new Set(current)
-    next.has(kind) ? next.delete(kind) : next.add(kind)
+    if (next.has(kind)) {
+      next.delete(kind)
+    } else {
+      next.add(kind)
+    }
     return next
   })
 

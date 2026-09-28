@@ -59,7 +59,15 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
   const toggle = (label: string) => {
     if (!canLoadMetadata) return
     const opening = !expanded.has(label)
-    setExpanded((current) => { const next = new Set(current); next.has(label) ? next.delete(label) : next.add(label); return next })
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (next.has(label)) {
+        next.delete(label)
+      } else {
+        next.add(label)
+      }
+      return next
+    })
     if (opening) void loadValues(label)
   }
   const filteredLabels = labels.filter((label) => matchesSearch(label, filter) || values[label]?.some((value) => matchesSearch(value, filter)))

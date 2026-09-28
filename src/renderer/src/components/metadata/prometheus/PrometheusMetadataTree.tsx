@@ -140,7 +140,15 @@ export function PrometheusMetadataTree(props: Props) {
       const label = labelsById.get(node.id)
       if (label) {
         const key = valueKey(label.metric, label.label)
-        setOpenLabels((old) => { const next = new Set(old); next.has(key) ? next.delete(key) : next.add(key); return next })
+        setOpenLabels((old) => {
+          const next = new Set(old)
+          if (next.has(key)) {
+            next.delete(key)
+          } else {
+            next.add(key)
+          }
+          return next
+        })
         if (!openLabels.has(key)) void loadValues(label.metric, label.label)
         return
       }
