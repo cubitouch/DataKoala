@@ -177,8 +177,7 @@ export function TraceServiceMapCanvas({
         })
         return createServiceMapExcalidraw(sceneNodes, sceneEdges, colors.bg)
       },
-    }),
-    [colors.bg],
+    })
   )
 
   useEffect(() => {
