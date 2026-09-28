@@ -34,7 +34,7 @@ function load(resource: Resource, connectionId: string) {
 }
 export function useLokiLabelsResource(connectionId: string, generation: number, tabId: string, range: BuilderTimeRange, enabled = true, refreshRevision = 0) {
   const key = semanticKey(connectionId, generation, tabId, range)
-  const resource = useMemo(() => resourceFor(key, range), [key, connectionId])
+  const resource = useMemo(() => resourceFor(key, range), [key, range])
   const snapshot = useSyncExternalStore((listener) => { resource.listeners.add(listener); return () => resource.listeners.delete(listener) }, () => resource.snapshot, () => resource.snapshot)
   useEffect(() => {
     if (enabled) {
