@@ -42,6 +42,7 @@ interface Props {
   nodes: TraceServiceMapViewNode[]
   edges: TraceServiceMapViewEdge[]
   colors: ServiceMapPalette
+  fitKey: string
   selectedNodeId?: string
   selectedEdgeKey?: string
   matchingNodeIds: Set<string>
@@ -72,6 +73,7 @@ export function TraceServiceMapCanvas({
   nodes,
   edges,
   colors,
+  fitKey,
   selectedNodeId,
   selectedEdgeKey,
   matchingNodeIds,
@@ -89,6 +91,14 @@ export function TraceServiceMapCanvas({
   const paperRef = useRef<dia.Paper | null>(null)
   const graphRef = useRef<dia.Graph | null>(null)
   const boundsRef = useRef<DiagramBounds>({ x: 0, y: 0, width: 1, height: 1 })
+  const lastAutoFitKeyRef = useRef<string | null>(null)
+  const viewportRef = useRef<{
+    fitKey: string
+    sx: number
+    sy: number
+    tx: number
+    ty: number
+  } | null>(null)
   const [tooltip, setTooltip] = useState<{
     html: string
     x: number
@@ -366,7 +376,14 @@ export function TraceServiceMapCanvas({
     paper.once('render:done', () => {
       if (disposed) return
       renderedBounds()
-      fit()
+      const viewport = viewportRef.current
+      if (lastAutoFitKeyRef.current === fitKey && viewport?.fitKey === fitKey) {
+        paper.scale(viewport.sx, viewport.sy)
+        paper.translate(viewport.tx, viewport.ty)
+      } else {
+        fit()
+        lastAutoFitKeyRef.current = fitKey
+      }
       onReady()
     })
     paper.unfreeze({ batchSize: 100 })
@@ -375,6 +392,15 @@ export function TraceServiceMapCanvas({
       window.removeEventListener('pointerup', up)
       hostElement.removeEventListener('wheel', wheel)
       resizeObserver.disconnect()
+      const scale = paper.scale()
+      const translation = paper.translate()
+      viewportRef.current = {
+        fitKey,
+        sx: scale.sx,
+        sy: scale.sy,
+        tx: translation.tx,
+        ty: translation.ty,
+      }
       disposed = true
       paper.remove()
       if (graphRef.current === graph) graphRef.current = null
@@ -382,7 +408,7 @@ export function TraceServiceMapCanvas({
     }
     // Rebuild only when the projected graph changes; selection/search styles update below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graphKey])
+  }, [fitKey, graphKey])
 
   useEffect(() => {
     const graph = graphRef.current
