@@ -229,6 +229,26 @@ describe('LokiExplorer execution', () => {
     expect(useStore.getState().tabs[0].sqlVisualization.view).toBe('line')
   })
 
+  it('renders scrambled Loki log results newest-first at the workspace boundary', async () => {
+    const at = (id: string, iso: string) => {
+      const row = logRow(id, id)
+      const timestampMs = Date.parse(iso)
+      return { ...row, timestampMs, timestampNs: String(BigInt(timestampMs) * 1_000_000n) }
+    }
+    const logRows = [
+      at('middle', '2026-01-01T14:28:47.141Z'),
+      at('newest', '2026-01-01T14:31:50.632Z'),
+      at('oldest', '2026-01-01T14:26:27.095Z')
+    ]
+    mocks.runLoki.mockResolvedValue({ ...logs, logRows, rows: logRows, rowCount: logRows.length })
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+
+    const timestamps = Array.from(document.querySelectorAll('article time')).map((time) => time.textContent)
+    expect(timestamps).toEqual(['14:31:50.632', '14:28:47.141', '14:26:27.095'])
+  })
+
   it('renders log tables in the generic explorer without duplicating Loki’s picker', async () => {
     mocks.runLoki.mockResolvedValue(logs)
     render(<LokiExplorer connectionId="loki" />)
