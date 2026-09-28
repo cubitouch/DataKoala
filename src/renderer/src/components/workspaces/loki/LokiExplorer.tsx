@@ -1,7 +1,7 @@
 import { TextInput } from '@components/ui/TextInput'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { LokiFilterSource, LokiLogResult, LokiParserKind, LokiQueryResult } from '@shared/loki'
-import { DEFAULT_LOKI_BUILDER } from '@shared/loki'
+import { DEFAULT_LOKI_BUILDER, sortLokiLogRowsNewestFirst } from '@shared/loki'
 import { buildLokiQuery, logqlResultKind } from '@shared/loki-builder'
 import { CHART_SERIES_HARD_LIMIT, CHART_SERIES_SOFT_LIMIT } from '@shared/chartLimits'
 import { buildLokiTrendExpressions } from '@shared/loki-trend'
@@ -165,7 +165,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const onRemoveResultFilter = useCallback((id: string) => removeResultFilter('sql', id, session.id), [removeResultFilter, session.id])
   const onClearResultFilters = useCallback(() => clearResultFilters('sql', session.id), [clearResultFilters, session.id])
   const onMetricVisualizationChange = useCallback((next: VisualizationConfiguration) => setVisualization('sql', next, session.id), [setVisualization, session.id])
-  const filteredLogRows = useMemo(() => result?.resultKind === 'logs' ? applyResultFilters(result.logRows, session.sqlResultFilters) as LokiLogResult['logRows'] : [], [result, session.sqlResultFilters])
+  const filteredLogRows = useMemo(() => result?.resultKind === 'logs' ? applyResultFilters(sortLokiLogRowsNewestFirst(result.logRows), session.sqlResultFilters) as LokiLogResult['logRows'] : [], [result, session.sqlResultFilters])
   const scopedLogRows = useMemo(() => patternScope ? filteredLogRows.filter(({ id }) => patternScope.memberIds.has(id)) : filteredLogRows, [filteredLogRows, patternScope])
   const scopedResult = useMemo(() => result?.resultKind === 'logs' ? { ...result, rows: scopedLogRows, logRows: scopedLogRows, rowCount: scopedLogRows.length } : result, [result, scopedLogRows])
 

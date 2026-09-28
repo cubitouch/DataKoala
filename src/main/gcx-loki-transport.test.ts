@@ -83,6 +83,46 @@ test('missing and malformed raw identifiers are ignored safely', () => {
   }
 })
 
+test('orders log entries newest-first across streams before applying the limit', () => {
+  const base = 1_750_000_000_000_000_000n
+  const result = normalizeLokiQuery({ status: 'success', data: { resultType: 'streams', result: [
+    { stream: { app: 'checkout', instance: 'a' }, values: [
+      { timestamp: String(base + 1n), line: 'oldest' },
+      { timestamp: String(base + 4n), line: 'newest' }
+    ] },
+    { stream: { app: 'checkout', instance: 'b' }, values: [
+      { timestamp: String(base + 3n), line: 'second-newest' },
+      { timestamp: String(base + 2n), line: 'second-oldest' }
+    ] }
+  ] } }, { limit: 3 })
+
+  assert.equal(result.resultKind, 'logs')
+  if (result.resultKind !== 'logs') return
+  assert.deepEqual(result.logRows.map(({ line }) => line), ['newest', 'second-newest', 'second-oldest'])
+  assert.equal(result.execution?.truncated, true)
+  assert.equal(result.notice, 'Showing the newest 3 log entries; more results are available.')
+})
+
+test('uses deterministic content ordering when Loki entries share a timestamp', () => {
+  const timestamp = '1750000000000000000'
+  const forward = normalizeLokiQuery({ status: 'success', data: { resultType: 'streams', result: [
+    { stream: { instance: 'z' }, values: [{ timestamp, line: 'same' }] },
+    { stream: { instance: 'a' }, values: [{ timestamp, line: 'same' }] },
+    { stream: { instance: 'm' }, values: [{ timestamp, line: 'same' }] }
+  ] } }, { limit: 10 })
+  const reverse = normalizeLokiQuery({ status: 'success', data: { resultType: 'streams', result: [
+    { stream: { instance: 'm' }, values: [{ timestamp, line: 'same' }] },
+    { stream: { instance: 'a' }, values: [{ timestamp, line: 'same' }] },
+    { stream: { instance: 'z' }, values: [{ timestamp, line: 'same' }] }
+  ] } }, { limit: 10 })
+
+  assert.equal(forward.resultKind, 'logs')
+  assert.equal(reverse.resultKind, 'logs')
+  if (forward.resultKind !== 'logs' || reverse.resultKind !== 'logs') return
+  assert.deepEqual(forward.logRows.map(({ labels }) => labels.instance), ['a', 'm', 'z'])
+  assert.deepEqual(reverse.logRows.map(({ labels }) => labels.instance), ['a', 'm', 'z'])
+})
+
 test('requests limit plus one and reports truncation', async () => {
   let argv: string[] = []
   const entries = [1, 2, 3].map((value) => ({ timestamp: `${1_750_000_000_000_000_000n + BigInt(value)}`, line: String(value) }))

@@ -25,6 +25,27 @@ export interface LokiLogResult extends QueryResult {
   resultKind: 'logs'
   logRows: LokiLogRow[]
 }
+
+function stableLogOrderValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableLogOrderValue)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, stableLogOrderValue(item)]))
+  return value
+}
+
+export function sortLokiLogRowsNewestFirst(rows: LokiLogRow[]): LokiLogRow[] {
+  return rows
+    .map((row, index) => ({
+      row,
+      index,
+      timestampNs: BigInt(row.timestampNs),
+      tieBreakKey: JSON.stringify(stableLogOrderValue({ line: row.line, labels: row.labels, structuredMetadata: row.structuredMetadata, parsedFields: row.parsedFields })) ?? ''
+    }))
+    .sort((left, right) => {
+      if (left.timestampNs !== right.timestampNs) return left.timestampNs > right.timestampNs ? -1 : 1
+      return left.tieBreakKey.localeCompare(right.tieBreakKey) || left.index - right.index
+    })
+    .map(({ row }) => row)
+}
 export interface LokiMetricResult extends QueryResult { resultKind: 'metrics' }
 export type LokiQueryResult = LokiLogResult | LokiMetricResult
 export interface LokiDatasourceOption { uid: string; name: string; type: string }
