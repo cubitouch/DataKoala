@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Sidebar } from '@components/sidebar/Sidebar'
 import { QueryEditor } from '@components/query/QueryEditor'
 import { ExplainPane } from '@components/query/sql/ExplainPane'
@@ -59,18 +59,18 @@ export function App() {
   const tempoWorkspace = tabProfile?.kind === 'tempo' && !querySurfaceBlocked
   const lokiWorkspace = tabProfile?.kind === 'loki' && !querySurfaceBlocked
 
-  const currentSidebarBounds = () => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth)
-  const currentEditorBounds = () => editorBounds(mainRef.current?.clientHeight ?? window.innerHeight - TITLEBAR_HEIGHT)
-  const applySidebarWidth = (value: number) => {
+  const currentSidebarBounds = useCallback(() => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth), [])
+  const currentEditorBounds = useCallback(() => editorBounds(mainRef.current?.clientHeight ?? window.innerHeight - TITLEBAR_HEIGHT), [])
+  const applySidebarWidth = useCallback((value: number) => {
     const next = clampDimension(value, currentSidebarBounds())
     workspaceRef.current?.style.setProperty('--sidebar-width', `${next}px`)
     return next
-  }
-  const applyEditorHeight = (value: number) => {
+  }, [currentSidebarBounds])
+  const applyEditorHeight = useCallback((value: number) => {
     const next = clampDimension(value, currentEditorBounds())
     mainRef.current?.style.setProperty('--editor-height', `${next}px`)
     return next
-  }
+  }, [currentEditorBounds])
 
   useEffect(() => {
     const restoreSafeDimensions = () => {
@@ -88,7 +88,7 @@ export function App() {
     restoreSafeDimensions()
     window.addEventListener('resize', restoreSafeDimensions)
     return () => window.removeEventListener('resize', restoreSafeDimensions)
-  }, [sidebarWidth, editorHeight])
+  }, [sidebarWidth, editorHeight, applySidebarWidth, applyEditorHeight])
 
   useEffect(() => () => activeResize.current?.finish(), [])
 
