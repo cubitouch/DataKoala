@@ -204,7 +204,7 @@ export function createServiceMapExcalidraw(
     {
       type: 'excalidraw',
       version: 2,
-      source: 'https://datakoala.dev',
+      source: 'https://excalidraw.com',
       elements,
       appState: {
         gridSize: 20,
