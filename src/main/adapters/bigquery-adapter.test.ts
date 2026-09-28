@@ -191,7 +191,7 @@ test('all-dataset relation enumeration uses bounded concurrency', async () => {
 
 test('rejects non-SELECT dry-run statement types before execution', async () => {
   const fake = client('INSERT'); const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
-  await assert.rejects(() => connected.session!.query({ sql: 'INSERT INTO x VALUES (1)' }), /only one SELECT/)
+  await assert.rejects(() => connected.session!.query({ sql: 'INSERT INTO x VALUES (1)' }), /write statements are not supported/)
   assert.equal(fake.calls.length, 1)
 })
 
@@ -200,6 +200,30 @@ test('caps renderer-bound rows and reports truncation', async () => {
   const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
   const result = await connected.session!.query({ sql: 'SELECT n FROM t' })
   assert.equal(result.rows.length, 10_000); assert.equal(result.execution?.truncated, true)
+})
+
+test('runs an allowed script intact and returns the final query result with existing limits/options', async () => {
+  const fake = client('SCRIPT', [{ exact: '123.456' }], 'next-page')
+  const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
+  const sql = 'DECLARE x INT64 DEFAULT 1; SET x = ?; SELECT 0 AS earlier; SELECT x AS exact;'
+  const result = await connected.session!.query({ sql, parameters: [2] })
+  assert.equal(fake.calls.length, 2)
+  assert.equal(fake.calls.every((call) => call.query === sql), true)
+  assert.deepEqual(fake.calls[1], { query: sql, params: [2], useLegacySql: false, location: 'US', defaultDataset: { projectId: 'data', datasetId: 'analytics' }, maximumBytesBilled: '1073741824' })
+  assert.deepEqual(result.rows, [{ exact: '123.456' }])
+  assert.equal(result.columns[0].name, 'exact')
+  assert.equal(result.execution?.truncated, true)
+  assert.equal(fake.dryRunGetMetadataCalls(), 0)
+})
+
+test('never submits an execution job for disallowed SCRIPT contents', async () => {
+  for (const sql of ['DECLARE x INT64; DELETE FROM t; SELECT x;', 'SELECT 1; CALL p(); SELECT 2;', 'DECLARE x INT64; SET x = 1;']) {
+    const fake = client('SCRIPT')
+    const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
+    await assert.rejects(() => connected.session!.query({ sql }), /read-only/)
+    assert.equal(fake.calls.length, 1)
+    assert.equal(fake.calls[0].dryRun, true)
+  }
 })
 
 test('reports truncation when BigQuery returns a next page below the local row cap', async () => {
