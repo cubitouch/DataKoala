@@ -1,5 +1,5 @@
 import type { ColumnMeta } from '../shared/types.ts'
-import type { LokiDatasourceOption, LokiLogRow, LokiMetadataRequest, LokiQueryRequest, LokiQueryResult, LokiResultKind } from '../shared/loki.ts'
+import { sortLokiLogRowsNewestFirst, type LokiDatasourceOption, type LokiLogRow, type LokiMetadataRequest, type LokiQueryRequest, type LokiQueryResult, type LokiResultKind } from '../shared/loki.ts'
 import { normalizeGcxQuery } from './gcx-prometheus-transport.ts'
 import { gcxError, parseGcxJson, runGcxCommand, sanitizeGcxError, type GcxCommandRunner } from './gcx-command.ts'
 import { logqlResultKind } from '../shared/loki-builder.ts'
@@ -70,26 +70,6 @@ function rawMessageIdentifiers(line: string): { traceId?: string; spanId?: strin
   return { traceId: traceId ?? identifierOf('trace', logfmt), spanId: spanId ?? identifierOf('span', logfmt) }
 }
 
-function stableOrderValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(stableOrderValue)
-  if (isRecord(value)) return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, stableOrderValue(item)]))
-  return value
-}
-function orderLogRows(rows: LokiLogRow[]): LokiLogRow[] {
-  return rows
-    .map((row, index) => ({
-      row,
-      index,
-      timestampNs: BigInt(row.timestampNs),
-      tieBreakKey: JSON.stringify(stableOrderValue({ line: row.line, labels: row.labels, structuredMetadata: row.structuredMetadata, parsedFields: row.parsedFields })) ?? ''
-    }))
-    .sort((left, right) => {
-      if (left.timestampNs !== right.timestampNs) return left.timestampNs > right.timestampNs ? -1 : 1
-      return left.tieBreakKey.localeCompare(right.tieBreakKey) || left.index - right.index
-    })
-    .map(({ row }) => row)
-}
-
 export function normalizeLokiQuery(raw: unknown, request: Pick<LokiQueryRequest, 'limit'>, durationMs = 0, expectedKind?: LokiResultKind): LokiQueryResult {
   if (!isRecord(raw)) throw new Error('gcx returned valid JSON, but the Loki response was not an object.')
   if (raw.status === 'error') throw new Error(sanitizeGcxError(String(raw.error ?? 'Loki rejected the query.')))
@@ -135,7 +115,7 @@ export function normalizeLokiQuery(raw: unknown, request: Pick<LokiQueryRequest,
       rows.push({ id: `${timestampNs}:${rows.length}`, timestampNs, timestampMs, line, labels, structuredMetadata, parsedFields, severity: severityOf(parsedFields, structuredMetadata, payload, labels), traceId, spanId })
     }
   }
-  const orderedRows = orderLogRows(rows)
+  const orderedRows = sortLokiLogRowsNewestFirst(rows)
   const truncated = orderedRows.length > request.limit
   const logRows = orderedRows.slice(0, request.limit)
   return {
