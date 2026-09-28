@@ -190,7 +190,7 @@ describe('LokiExplorer execution', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Include attempt' }))
     expect(useStore.getState().tabs[0].lokiBuilder).toEqual({ labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'retry' }], parsers: [{ kind: 'json' }], fieldFilters: [{ field: 'attempt', operator: '=', value: '3' }] })
     fireEvent.click(screen.getByText('Advanced filters'))
-    expect(screen.getByRole('combobox', { name: 'Parser 1' })).toBeTruthy()
+    expect(screen.getByRole('combobox', { name: /Parser 1/ })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Exclude attempt' }))
     expect(useStore.getState().tabs[0].lokiBuilder.parsers).toEqual([{ kind: 'json' }])
     expect(useStore.getState().tabs[0].lokiBuilder.fieldFilters).toEqual([{ field: 'attempt', operator: '!=', value: '3' }])
