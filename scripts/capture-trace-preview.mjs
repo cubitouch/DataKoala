@@ -242,7 +242,7 @@ async function showServiceMap(win) {
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Service map')
     button?.click()
   })()`)
-  await waitFor(win, `document.querySelector('[data-trace-service-map] canvas') && document.body.innerText.includes('Bottleneck candidates') && document.body.innerText.includes('service-03') && document.body.innerText.includes('slow traces')`, 'Tempo cohort service map and bottleneck candidates')
+  await waitFor(win, `document.querySelector('[data-trace-service-map] [data-joint-service-map] svg') && document.body.innerText.includes('Bottleneck candidates') && document.body.innerText.includes('service-03') && document.body.innerText.includes('slow traces')`, 'Tempo cohort service map and bottleneck candidates')
   await sleep(500)
 }
 
@@ -258,7 +258,7 @@ async function showDenseServiceMap(win) {
   await waitFor(win, `(() => {
     const map = document.querySelector('[data-trace-service-map]')
     const text = map?.innerText ?? ''
-    return Boolean(map?.querySelector('canvas')) && map?.getAttribute('data-service-map-grouping') === 'namespace' && text.includes('Bottleneck candidates') && text.includes('5 collapsed namespaces') && text.includes('60')
+    return Boolean(map?.querySelector('[data-joint-service-map] svg')) && map?.getAttribute('data-service-map-grouping') === 'namespace' && text.includes('Bottleneck candidates') && text.includes('5 collapsed namespaces') && text.includes('60')
   })()`, 'dense grouped 60-service Tempo map')
   await sleep(700)
 }

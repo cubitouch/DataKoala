@@ -38,8 +38,8 @@ describe('service map SVG export', () => {
       '#17201f',
       32,
     )
-    const width = Number(exported.match(/<svg[^>]*\\swidth="([^"]+)"/)?.[1])
-    const height = Number(exported.match(/<svg[^>]*\\sheight="([^"]+)"/)?.[1])
+    const width = Number(exported.match(/<svg[^>]*\swidth="([^"]+)"/)?.[1])
+    const height = Number(exported.match(/<svg[^>]*\sheight="([^"]+)"/)?.[1])
     expect(width).toBeGreaterThan(0)
     expect(height).toBeGreaterThan(0)
     expect(width).toBeLessThanOrEqual(4096)
