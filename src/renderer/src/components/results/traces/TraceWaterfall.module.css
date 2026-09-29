@@ -185,3 +185,7 @@
     border-bottom: 1px solid var(--border);
   }
 }
+
+[data-search-match="true"] { box-shadow: inset 3px 0 #e5bd35; }
+
+[data-search-match="false"] button[aria-pressed] { opacity: 0.65; }

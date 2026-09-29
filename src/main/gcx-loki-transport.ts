@@ -1,5 +1,5 @@
 import type { ColumnMeta } from '../shared/types.ts'
-import type { LokiDatasourceOption, LokiLogRow, LokiMetadataRequest, LokiQueryRequest, LokiQueryResult, LokiResultKind } from '../shared/loki.ts'
+import { sortLokiLogRowsNewestFirst, type LokiDatasourceOption, type LokiLogRow, type LokiMetadataRequest, type LokiQueryRequest, type LokiQueryResult, type LokiResultKind } from '../shared/loki.ts'
 import { normalizeGcxQuery } from './gcx-prometheus-transport.ts'
 import { gcxError, parseGcxJson, runGcxCommand, sanitizeGcxError, type GcxCommandRunner } from './gcx-command.ts'
 import { logqlResultKind } from '../shared/loki-builder.ts'
@@ -115,13 +115,14 @@ export function normalizeLokiQuery(raw: unknown, request: Pick<LokiQueryRequest,
       rows.push({ id: `${timestampNs}:${rows.length}`, timestampNs, timestampMs, line, labels, structuredMetadata, parsedFields, severity: severityOf(parsedFields, structuredMetadata, payload, labels), traceId, spanId })
     }
   }
-  const truncated = rows.length > request.limit
-  const logRows = rows.slice(0, request.limit)
+  const orderedRows = sortLokiLogRowsNewestFirst(rows)
+  const truncated = orderedRows.length > request.limit
+  const logRows = orderedRows.slice(0, request.limit)
   return {
     resultKind: 'logs', logRows,
     columns: [column('timestampMs', 'timestamp'), column('line', 'string'), column('labels', 'json'), column('structuredMetadata', 'json'), column('parsedFields', 'json')],
     rows: logRows, rowCount: logRows.length, durationMs,
-    notice: truncated ? `Showing the first ${request.limit} log entries; more results are available.` : undefined,
+    notice: truncated ? `Showing the newest ${request.limit} log entries; more results are available.` : undefined,
     execution: { provider: 'loki', durationMs, rowCount: logRows.length, truncated, notice: truncated ? `Result limited to ${request.limit} entries.` : undefined }
   }
 }

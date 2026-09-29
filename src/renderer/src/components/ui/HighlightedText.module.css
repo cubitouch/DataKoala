@@ -1,0 +1,5 @@
+.match {
+  color: inherit;
+  background: color-mix(in srgb, #e5bd35 38%, var(--bg));
+  border-radius: 2px;
+}
