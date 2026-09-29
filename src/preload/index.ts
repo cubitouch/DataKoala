@@ -123,7 +123,12 @@ const api = {
       ipcRenderer.invoke(IPC.QUERY_EXPLAIN, id, sql, analyze)
   },
   export: {
-    saveText: (opts: { defaultName: string; content: string }): Promise<string | null> =>
+    saveText: (opts: {
+      defaultName: string
+      content: string
+      extensions?: string[]
+      filterName?: string
+    }): Promise<string | null> =>
       ipcRenderer.invoke('export:save-text', opts),
     saveBinary: (opts: {
       defaultName: string
@@ -134,6 +139,10 @@ const api = {
   clipboardImage: {
     writePng: (dataUrl: string): Promise<{ ok: true } | { ok: false }> =>
       ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_PNG, dataUrl)
+  },
+  clipboardExcalidraw: {
+    write: (scene: string): Promise<{ ok: true } | { ok: false }> =>
+      ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_EXCALIDRAW, scene)
   }
 }
 

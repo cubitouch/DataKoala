@@ -296,3 +296,21 @@
   .graphLegendFullscreen { right: 10px; bottom: 258px; }
   .insights { flex: 0 0 auto; overflow: visible; }
 }
+.jointCanvas { position: relative; width: 100%; height: 100%; overflow: hidden; cursor: grab; background: var(--bg); }
+.jointPaper { width: 100%; height: 100%; }
+.jointCanvas svg { display: block; width: 100%; height: 100%; }
+.panning { cursor: grabbing; }
+.graphTooltip {
+  position: absolute;
+  z-index: 9;
+  max-width: 310px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--text);
+  box-shadow: 0 5px 18px rgb(0 0 0 / 28%);
+  font-size: 10px;
+  line-height: 1.45;
+  pointer-events: none;
+}
