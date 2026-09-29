@@ -377,20 +377,24 @@ export function TraceServiceMapCanvas({
     })
     resizeObserver.observe(hostElement)
     let disposed = false
-    paper.once('render:done', () => {
-      if (disposed) return
-      renderedBounds()
-      const viewport = viewportRef.current
-      if (lastAutoFitKeyRef.current === fitKey && viewport?.fitKey === fitKey) {
-        paper.scale(viewport.sx, viewport.sy)
-        paper.translate(viewport.tx, viewport.ty)
-      } else {
-        fit()
-        lastAutoFitKeyRef.current = fitKey
-      }
-      onReady()
+    let initialRenderHandled = false
+    paper.unfreeze({
+      batchSize: 100,
+      afterRender: () => {
+        if (disposed || initialRenderHandled) return
+        initialRenderHandled = true
+        renderedBounds()
+        const viewport = viewportRef.current
+        if (lastAutoFitKeyRef.current === fitKey && viewport?.fitKey === fitKey) {
+          paper.scale(viewport.sx, viewport.sy)
+          paper.translate(viewport.tx, viewport.ty)
+        } else {
+          fit()
+          lastAutoFitKeyRef.current = fitKey
+        }
+        onReady()
+      },
     })
-    paper.unfreeze({ batchSize: 100 })
     return () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)

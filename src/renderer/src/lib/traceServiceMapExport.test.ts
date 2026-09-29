@@ -38,10 +38,13 @@ describe('service map SVG export', () => {
       '#17201f',
       32,
     )
-    const parsed = new DOMParser().parseFromString(exported, 'image/svg+xml').documentElement
-    expect(Number(parsed.getAttribute('width'))).toBeLessThanOrEqual(4096)
-    expect(Number(parsed.getAttribute('height'))).toBeLessThanOrEqual(4096)
-    expect(parsed.getAttribute('viewBox')).toBe('0 0 10064 4064')
+    const width = Number(exported.match(/<svg[^>]*\\swidth="([^"]+)"/)?.[1])
+    const height = Number(exported.match(/<svg[^>]*\\sheight="([^"]+)"/)?.[1])
+    expect(width).toBeGreaterThan(0)
+    expect(height).toBeGreaterThan(0)
+    expect(width).toBeLessThanOrEqual(4096)
+    expect(height).toBeLessThanOrEqual(4096)
+    expect(exported).toContain('viewBox="0 0 10064 4064"')
   })
 })
 
