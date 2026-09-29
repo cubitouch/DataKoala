@@ -67,7 +67,7 @@ async function runDenseSearch(win) {
   await waitFor(win, `(() => {
     const map = document.querySelector('[data-trace-service-map]')
     const text = map?.innerText ?? ''
-    return Boolean(map?.querySelector('canvas')) && text.includes('60') && text.includes('108') && text.includes('Re-analyze') && !text.includes('Analyzing traces…')
+    return Boolean(map?.querySelector('[data-joint-service-map] svg')) && text.includes('60') && text.includes('108') && text.includes('Re-analyze') && !text.includes('Analyzing traces…')
   })()`, 'fully analyzed dense service map')
 }
 
