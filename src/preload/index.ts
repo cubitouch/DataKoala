@@ -140,10 +140,6 @@ const api = {
     writePng: (dataUrl: string): Promise<{ ok: true } | { ok: false }> =>
       ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_PNG, dataUrl)
   },
-  clipboardSvg: {
-    write: (svg: string): Promise<{ ok: true } | { ok: false }> =>
-      ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_SVG, svg)
-  },
   clipboardExcalidraw: {
     write: (scene: string): Promise<{ ok: true } | { ok: false }> =>
       ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_EXCALIDRAW, scene)

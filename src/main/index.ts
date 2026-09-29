@@ -559,21 +559,6 @@ function registerIpc(): void {
     writeImage: (image) => clipboard.writeImage(image as Electron.NativeImage),
     logError: (error) => console.error('[clipboard] Could not write chart PNG', error)
   }))
-  ipcMain.handle(IPC.CLIPBOARD_WRITE_SVG, async (_event, value: unknown) => {
-    if (typeof value !== 'string') return { ok: false as const }
-    const svg = value.trim()
-    if (!/^<svg[\s>]/i.test(svg) || svg.length > 20_000_000) return { ok: false as const }
-    try {
-      // Figma's "Copy as SVG" workflow consumes SVG source from the text
-      // clipboard. Avoid native/custom MIME formats here: Chromium's platform
-      // clipboard bridge can reject or down-convert them on macOS.
-      await clipboard.writeText(svg)
-      return { ok: (await clipboard.readText()) === svg }
-    } catch (error) {
-      console.error('[clipboard] Could not write service-map SVG', error)
-      return { ok: false as const }
-    }
-  })
   ipcMain.handle(IPC.CLIPBOARD_WRITE_EXCALIDRAW, async (_event, value: unknown) => {
     if (typeof value !== 'string' || value.length > 20_000_000) return { ok: false as const }
     try {
