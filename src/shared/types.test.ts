@@ -80,7 +80,6 @@ test('handles an empty result set without throwing', () => {
   assert.deepEqual(pickDefaultChartFields([]), { xField: '', yField: '' })
 })
 
-
 test('non-SQL datasource languages stay outside SQL dialects', () => {
   assert.deepEqual(queryLanguageForSourceKind('prometheus'), { kind: 'promql' })
   assert.deepEqual(queryLanguageForSourceKind('tempo'), { kind: 'traceql' })
