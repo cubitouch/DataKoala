@@ -1,5 +1,5 @@
 import { TextInput } from '@components/ui/TextInput'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { LokiBuilderState, LokiLabelMatcher, LokiLabelOperator, LokiParserKind } from '@shared/loki'
 import type { LokiMetadataRequest } from '@shared/loki'
 import { lokiLabelValues } from '@lib/lokiMetadata'
@@ -19,25 +19,27 @@ function ValueControl({ matcher, matchers, connectionId, connectionGeneration, c
   const request = useRef(0), available = useRef(canLoadMetadata)
   available.current = canLoadMetadata
   const selected = [...new Set(matcher.values ?? (matcher.value ? [matcher.value] : []))]
+  const { start, end } = bounds
+  const selector = useMemo(() => selectorWithoutMatcher(matchers, matcher.label), [matchers, matcher.label])
+  const invalidateRequest = useCallback(() => { request.current += 1 }, [])
   const load = useCallback(async () => {
     if (!canLoadMetadata) return
     const current = ++request.current
     setLoading(true); setError(null)
     try {
-      const selector = selectorWithoutMatcher(matchers, matcher.label)
-      const found = [...new Set(await lokiLabelValues(connectionId, matcher.label, { ...bounds, ...(selector ? { selector } : {}) }))].sort()
+      const found = [...new Set(await lokiLabelValues(connectionId, matcher.label, { start, end, ...(selector ? { selector } : {}) }))].sort()
       if (available.current && current === request.current) setValues(found)
     } catch (e) {
       if (available.current && current === request.current) setError(e instanceof Error ? e.message : String(e))
     } finally {
       if (available.current && current === request.current) setLoading(false)
     }
-  }, [canLoadMetadata, connectionId, connectionGeneration, matcher.label, JSON.stringify(bounds), JSON.stringify(matchers.filter((item) => item.label !== matcher.label))])
+  }, [canLoadMetadata, connectionId, matcher.label, selector, start, end])
   useEffect(() => {
     if (canLoadMetadata) void load()
-    else { request.current++; setLoading(false); setError(null) }
-    return () => { request.current++ }
-  }, [load, canLoadMetadata])
+    else { invalidateRequest(); setLoading(false); setError(null) }
+    return invalidateRequest
+  }, [load, canLoadMetadata, connectionGeneration, invalidateRequest])
   const options = [...new Set([...selected, ...values])].map((value) => ({ value, label: value }))
   return <FormField><MultiCombobox label={`${matcher.label} values`} values={selected} options={options} onChange={onChange} searchable showChips allowCustomValue loading={canLoadMetadata && loading} error={canLoadMetadata ? error : null} disabled={!canLoadMetadata} placeholder={canLoadMetadata ? 'Choose one or more values' : 'Metadata unavailable'} emptyMessage="No values found. Enter a custom value." invalidationKey={matcher.label} /></FormField>
 }

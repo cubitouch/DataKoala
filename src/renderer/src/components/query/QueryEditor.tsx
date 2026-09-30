@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { sql as sqlExtension } from '@codemirror/lang-sql'
 import { PromQLExtension } from '@prometheus-io/codemirror-promql'
 import { selectActiveSession, selectSession, useStore } from '@store/useStore'
 import { api } from '@lib/api'
 import { ensureConnectionForTab } from '@lib/tabConnection'
 import { CopySqlButton } from './CopySqlButton'
-import { DATA_SOURCE_CAPABILITIES, queryLanguageForSourceKind, type QueryResult } from '@shared/types'
+import { DATA_SOURCE_CAPABILITIES, queryLanguageForSourceKind, type DatabaseSchemaNode, type QueryResult } from '@shared/types'
 import { formatSql } from '@lib/formatSql'
 import { ModeSwitch } from './ModeSwitch'
 import { queryResultFilters, wrapSqlWithResultFilters } from '@lib/resultFilters'
@@ -26,6 +26,9 @@ import { QueryToolbar } from './QueryToolbar'
 import { QueryCodeEditor, type QueryCodeEditorHandle } from './QueryCodeEditor'
 import { GrafanaHandoffActions } from './GrafanaHandoffActions'
 
+const EMPTY_SCHEMAS: DatabaseSchemaNode[] = []
+const stillBoundTo = (requestTabId: string, profileId: string) => selectSession(useStore.getState(), requestTabId)?.connectionProfileId === profileId
+
 export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) {
   const tabId = useStore((s) => s.activeTabId)
   const sql = useStore((s) => selectActiveSession(s).sql)
@@ -45,7 +48,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const dialect = language.kind === 'sql' ? language.dialect : 'postgres'
   const metadata = useStore((s) => tabConnectionId ? s.metadataByProfileId[tabConnectionId] : undefined)
   const metadataRefreshing = metadata?.refreshing ?? false
-  const schemas = metadata?.schemas ?? []
+  const schemas = metadata?.schemas ?? EMPTY_SCHEMAS
   const selectedBuilderMetric = schemas.flatMap((schema) => schema.relations).find((relation) => relation.kind === 'metric' && relation.name === promqlBuilder.metric)
   const selectedBuilderMetricType = selectedBuilderMetric?.details?.kind === 'metric' ? selectedBuilderMetric.details.type : undefined
   const builderHistogramKind = resolvePromqlHistogramKind(
@@ -84,9 +87,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
       }) })
     ]
   }, [language.kind, dialect, schemas, tabConnectionId])
-  const stillBoundTo = (requestTabId: string, profileId: string) => selectSession(useStore.getState(), requestTabId)?.connectionProfileId === profileId
-
-  const run = async () => {
+  const run = useCallback(async () => {
     if (connecting || metadataRefreshing) return
     const requestTabId = tabId
     const requestSql = sql
@@ -136,13 +137,13 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
     } catch (e) {
       if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(null, e instanceof Error ? e.message : String(e), requestTabId)
     }
-  }
+  }, [connecting, metadataRefreshing, tabId, sql, filters, setResult, tabConnectionId, startQuery, language.kind, dialect, builderMode, setVisualization, completeQuery])
 
   useEffect(() => {
     const previous = initialFilterRevision.current.get(tabId)
     if (previous !== undefined && filterRevision !== previous && result && !running) void run()
     initialFilterRevision.current.set(tabId, filterRevision)
-  }, [tabId, filterRevision])
+  }, [tabId, filterRevision, result, running, run])
 
   const explain = async (mode: 'explain' | 'analyze') => {
     if (activeExplainRequest || !tabConnectionId || connecting) return

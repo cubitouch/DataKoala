@@ -18,6 +18,9 @@ const histogramKindOverrides: { value: PromqlHistogramKindOverride; label: strin
 const rangeCalculations = new Set<PromqlCalculation>(['rate', 'increase', ...histogramCalculations])
 const calculationLabels: Record<PromqlCalculation, string> = { raw: 'Raw', rate: 'Rate', increase: 'Increase', 'observation-rate': 'Observation rate', 'histogram-average': 'Average', 'histogram-sum': 'Sum of observations', percentile: 'Percentile' }
 const titleCase = (value: string) => value === 'avg' ? 'Average' : value === 'min' ? 'Minimum' : value === 'max' ? 'Maximum' : value[0].toUpperCase() + value.slice(1)
+const invalidateFormatRequest = (request: { current: number }, expected: number) => {
+  if (request.current === expected) request.current += 1
+}
 
 export function PromqlBuilderPanel() {
   const tabId = useStore((state) => state.activeTabId)
@@ -67,10 +70,10 @@ export function PromqlBuilderPanel() {
   canLoadMetadataRef.current = canLoadMetadata
   const metricOptions = metrics.map((metric) => ({ value: metric.name, label: metric.name, subtitle: metric.details?.kind === 'metric' ? metric.details.type : undefined }))
   const labelOptions = labels.filter((label) => label !== '__name__').sort((left, right) => left.localeCompare(right)).map((label) => ({ value: label, label }))
-  const activeLabels = [...new Set([...builder.groupBy, ...builder.filterBy])]
+  const activeLabels = useMemo(() => [...new Set([...builder.groupBy, ...builder.filterBy])], [builder.groupBy, builder.filterBy])
   const loadingMetrics = metadata?.status === 'loading'
 
-  const apply = (patch: Partial<typeof builder>) => {
+  const apply = useCallback((patch: Partial<typeof builder>) => {
     const next = { ...builder, ...patch }
     const nextHistogramKind = !canLoadMetadata || loadingLabels
       ? histogramKind
@@ -78,7 +81,7 @@ export function PromqlBuilderPanel() {
     setBuilder(patch, tabId)
     const generated = buildPromql(next, nextHistogramKind)
     if (generated) setSql(generated, tabId)
-  }
+  }, [builder, canLoadMetadata, loadingLabels, histogramKind, detectedHistogramKind, setBuilder, tabId, setSql])
   const loadValues = useCallback((label: string) => {
     if (!canLoadMetadata || !profileId || !builder.metric || !label || values[label] || loadingValues[label]) return
     const lifecycle = metadataLifecycle.current.generation
@@ -102,6 +105,7 @@ export function PromqlBuilderPanel() {
       .catch((error) => { if (canLoadMetadataRef.current && lifecycle === metadataLifecycle.current.generation && request === labelRequest.current) setLabelError(prometheusMetadataError(error).message) })
       .finally(() => { if (lifecycle === metadataLifecycle.current.generation && request === labelRequest.current) setLoadingLabels(false) })
   }, [canLoadMetadata, profileId, builder.metric, connectionGeneration])
+  const invalidateLabelRequest = useCallback(() => { labelRequest.current += 1 }, [])
   const selectMetric = (metric: string) => {
     if (metric === builder.metric) return
     const target = metrics.find((candidate) => candidate.name === metric)
@@ -113,13 +117,13 @@ export function PromqlBuilderPanel() {
     setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({}); setLabelError(null)
   }
   useEffect(() => {
-    labelRequest.current++
+    invalidateLabelRequest()
     valueRequests.current = {}
     if (canLoadMetadata) setLabels([])
     setValues({}); setLoadingValues({}); setValueErrors({}); setLabelError(null); setLoadingLabels(false)
     loadLabels()
-    return () => { labelRequest.current++ }
-  }, [profileId, builder.metric, connectionGeneration, canLoadMetadata])
+    return invalidateLabelRequest
+  }, [profileId, builder.metric, connectionGeneration, canLoadMetadata, loadLabels, invalidateLabelRequest])
   const changeDimensions = (kind: 'groupBy' | 'filterBy', nextLabels: string[]) => {
     const other = kind === 'groupBy' ? builder.filterBy : builder.groupBy
     const nextActive = [...new Set([...nextLabels, ...other])]
@@ -130,7 +134,7 @@ export function PromqlBuilderPanel() {
     added.forEach(loadValues)
   }
   const loadedValueLabels = Object.keys(values).sort().join('\0')
-  useEffect(() => { activeLabels.forEach(loadValues) }, [profileId, builder.metric, connectionGeneration, canLoadMetadata, activeLabels.join('\0'), loadedValueLabels])
+  useEffect(() => { activeLabels.forEach(loadValues) }, [profileId, builder.metric, connectionGeneration, canLoadMetadata, activeLabels, loadedValueLabels, loadValues])
   useEffect(() => {
     if (!calculationsForPromqlHistogramKind(histogramKind).includes(builder.calculation)) {
       apply({ calculation: 'raw', aggregation: 'none' })
@@ -143,7 +147,7 @@ export function PromqlBuilderPanel() {
     }
     previousHistogramKind.current = histogramKind
     if (import.meta.env.DEV && builder.metric && !loadingLabels) console.debug(`[prometheus:builder] selectedMetric=${builder.metric} metadataType=${metadataType ?? 'unknown'} labels=${JSON.stringify(labels)} detectedHistogramKind=${detectedHistogramKind} histogramKind=${histogramKind}`)
-  }, [histogramKind, builder.metric, loadingLabels])
+  }, [histogramKind, builder, loadingLabels, apply, setSql, tabId, metadataType, labels, detectedHistogramKind])
   const changeCalculation = (calculation: PromqlCalculation) => {
     const aggregation: PromqlAggregation = isHistogramCalculation(calculation) ? 'sum' : calculation === 'rate' || calculation === 'increase' ? 'sum' : builder.aggregation
     apply({ calculation, aggregation, groupBy: calculation === 'raw' && aggregation === 'none' ? [] : builder.groupBy })
@@ -170,7 +174,7 @@ export function PromqlBuilderPanel() {
     }, 120)
     return () => {
       window.clearTimeout(timer)
-      if (request === formatRequest.current) formatRequest.current++
+      invalidateFormatRequest(formatRequest, request)
     }
   }, [canLoadMetadata, profileId, generated])
   const availableCalculations = calculationsForPromqlHistogramKind(histogramKind)
