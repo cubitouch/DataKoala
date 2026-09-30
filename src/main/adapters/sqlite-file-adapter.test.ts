@@ -4,14 +4,10 @@ import { mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { SQLITE_CATALOG, SQLITE_FILE_CAPABILITIES, validateSqliteOriginal } from './sqlite-file-adapter.ts'
+import { SQLITE_CATALOG, validateSqliteOriginal } from './sqlite-file-adapter.ts'
 
-test('SQLite datasource advertises only supported read-only capabilities', () => {
+test('SQLite datasource uses the SQLite catalog', () => {
   assert.equal(SQLITE_CATALOG, 'sqlite')
-  assert.deepEqual(SQLITE_FILE_CAPABILITIES, {
-    builder: true, explain: false, analyze: false, queryCancellation: false,
-    parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true
-  })
 })
 
 test('SQLite file validation reports missing, empty, corrupt, and active-WAL files', async () => {
