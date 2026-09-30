@@ -2,14 +2,9 @@ import { extname, basename } from 'node:path'
 import { realpath } from 'node:fs/promises'
 import { DuckDBInstance, StatementType, type DuckDBConnection, type DuckDBResultReader, type DuckDBValue } from '@duckdb/node-api'
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
-import type { ColumnMeta, DataSourceCapabilities, DataSourceProfile, LocalFilesProfile, LogicalType, QueryResult } from '../../shared/types.ts'
+import { DATA_SOURCE_CAPABILITIES, type ColumnMeta, type DataSourceProfile, type LocalFilesProfile, type LogicalType, type QueryResult } from '../../shared/types.ts'
 
 export const MAX_LOCAL_FILE_RESULT_ROWS = 10_000
-
-export const LOCAL_FILES_CAPABILITIES: DataSourceCapabilities = {
-  builder: true, explain: false, analyze: false, queryCancellation: false,
-  parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true
-}
 
 /** Runtime smoke seam: proves Electron can load the host DuckDB addon and query it. */
 export async function smokeDuckDB(): Promise<unknown> {
@@ -171,7 +166,7 @@ export class LocalFilesAdapter implements DataSourceAdapter {
       const { instance, connection } = await open(files)
       const session: DataSourceSession = {
         info: { profileId: files.id, provider: 'local-files', serverVersion: 'DuckDB' },
-        capabilities: LOCAL_FILES_CAPABILITIES,
+        capabilities: DATA_SOURCE_CAPABILITIES['local-files'],
         query: async ({ sql, parameters = [] }) => {
           await assertDuckDBReadOnlyQuery(connection, sql)
           return boundedUserQuery(connection, sql, parameters)
