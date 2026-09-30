@@ -5,7 +5,6 @@ import { assertReadOnlyBigQueryScript } from './bigquery-script.ts'
 
 const ROW_LIMIT = 10_000
 const DATASET_RELATION_CONCURRENCY = 5
-const capabilities = DATA_SOURCE_CAPABILITIES.bigquery
 const EXACT_DECIMAL_TYPES = new Set(['NUMERIC', 'BIGNUMERIC', 'DECIMAL', 'BIGDECIMAL'])
 
 export interface BigQueryClientLike {
@@ -104,7 +103,7 @@ export function normalizeBigQueryRow(row: Record<string, any>, schema: any[]): R
 
 class BigQuerySession implements DataSourceSession {
   readonly info
-  readonly capabilities = capabilities
+  readonly capabilities = DATA_SOURCE_CAPABILITIES.bigquery
   private readonly client: BigQueryClientLike
   private readonly p: BigQueryProfile
   constructor(client: BigQueryClientLike, p: BigQueryProfile) {
@@ -185,4 +184,4 @@ export class BigQueryAdapter implements DataSourceAdapter {
   }
 }
 
-export const __testing = { friendlyError, capabilities, effectiveDataProject, mapWithConcurrency, parseNamespace, DATASET_RELATION_CONCURRENCY, ROW_LIMIT }
+export const __testing = { friendlyError, effectiveDataProject, mapWithConcurrency, parseNamespace, DATASET_RELATION_CONCURRENCY, ROW_LIMIT }
