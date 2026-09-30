@@ -173,25 +173,19 @@ export interface QueryResult {
 }
 
 export interface DataSourceCapabilities {
-  builder: boolean
   explain: boolean
   analyze: boolean
-  queryCancellation: boolean
-  parameterizedQueries: boolean
-  costEstimate: boolean
-  serverReadOnly: boolean
-  schemaAutocomplete: boolean
 }
 
-/** The product capability matrix used by adapters and renderer controls alike. */
+/** Generic product capabilities consumed across datasource-specific boundaries. */
 export const DATA_SOURCE_CAPABILITIES: Record<DataSourceKind, DataSourceCapabilities> = {
-  postgres: { builder: true, explain: true, analyze: true, queryCancellation: false, parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true },
-  'local-files': { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true },
-  'sqlite-file': { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true },
-  bigquery: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: true, costEstimate: true, serverReadOnly: false, schemaAutocomplete: true },
-  prometheus: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false },
-  tempo: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false },
-  loki: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false }
+  postgres: { explain: true, analyze: true },
+  'local-files': { explain: false, analyze: false },
+  'sqlite-file': { explain: false, analyze: false },
+  bigquery: { explain: false, analyze: false },
+  prometheus: { explain: false, analyze: false },
+  tempo: { explain: false, analyze: false },
+  loki: { explain: false, analyze: false }
 }
 
 export interface SourceInfo { label?: string; version?: string }

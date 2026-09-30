@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isTimeType, isNumericType, pickDefaultChartFields } from './types.ts'
+import { isTimeType, isNumericType, pickDefaultChartFields, queryLanguageForSourceKind, sqlDialectForSourceKind } from './types.ts'
 import type { ColumnMeta } from './types.ts'
 
 const col = (name: string, dataTypeName: string): ColumnMeta => ({ name, dataTypeName, dataTypeID: 0 })
@@ -78,4 +78,14 @@ test('handles an all-numeric result by using one for X and another for Y', () =>
 
 test('handles an empty result set without throwing', () => {
   assert.deepEqual(pickDefaultChartFields([]), { xField: '', yField: '' })
+})
+
+test('non-SQL datasource languages stay outside SQL dialects', () => {
+  assert.deepEqual(queryLanguageForSourceKind('prometheus'), { kind: 'promql' })
+  assert.deepEqual(queryLanguageForSourceKind('tempo'), { kind: 'traceql' })
+  assert.deepEqual(queryLanguageForSourceKind('loki'), { kind: 'logql' })
+
+  assert.throws(() => sqlDialectForSourceKind('prometheus'), /does not use a SQL dialect/)
+  assert.throws(() => sqlDialectForSourceKind('tempo'), /does not use a SQL dialect/)
+  assert.throws(() => sqlDialectForSourceKind('loki'), /does not use a SQL dialect/)
 })

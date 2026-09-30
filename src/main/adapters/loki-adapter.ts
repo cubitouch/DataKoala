@@ -1,5 +1,5 @@
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
-import type { LokiProfile } from '../../shared/types.ts'
+import { DATA_SOURCE_CAPABILITIES, type LokiProfile } from '../../shared/types.ts'
 import type { LokiMetadataRequest } from '../../shared/loki.ts'
 import { GcxLokiTransport, type LokiTransport } from '../gcx-loki-transport.ts'
 
@@ -17,7 +17,7 @@ export class LokiAdapter implements DataSourceAdapter {
     const transport = this.createTransport(profile.transport.context, profile.transport.datasourceUid)
     const session: DataSourceSession = {
       info: { profileId: profile.id, provider: 'loki' },
-      capabilities: { builder: true, explain: false, analyze: false, queryCancellation: false, parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false },
+      capabilities: DATA_SOURCE_CAPABILITIES.loki,
       query: ({ sql, loki }) => { if (!loki) throw new Error('Loki queries require a time range, step, and result limit.'); return transport.query({ expression: sql, ...loki }) },
       lokiLabels: (request: LokiMetadataRequest) => transport.labels(request),
       lokiLabelValues: (label: string, request: LokiMetadataRequest) => transport.labelValues(label, request),

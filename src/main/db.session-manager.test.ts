@@ -12,8 +12,7 @@ const profile = (id: string): BigQueryProfile => ({
 function fakeSession(id: string, closed: string[]): DataSourceSession {
   return {
     info: { profileId: id, provider: 'bigquery' },
-    capabilities: { builder: false, explain: false, analyze: false, queryCancellation: true,
-      parameterizedQueries: true, costEstimate: true, serverReadOnly: true, schemaAutocomplete: true },
+    capabilities: { explain: false, analyze: false },
     async query() { return { columns: [], rows: [], rowCount: 0, durationMs: 0 } },
     async listNamespaces() { return [] },
     async listRelations() { return [] },

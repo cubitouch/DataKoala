@@ -1,14 +1,9 @@
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
-import type { DataSourceCapabilities, TempoProfile } from '../../shared/types.ts'
+import { DATA_SOURCE_CAPABILITIES, type TempoProfile } from '../../shared/types.ts'
 import type { TempoTransport } from '../gcx-tempo-transport.ts'
 import { SamplingGcxTempoTransport } from '../gcx-tempo-sampling-transport.ts'
 import { performance } from 'node:perf_hooks'
 import { tempoPerformanceLog } from '../tempo-performance.ts'
-
-const capabilities: DataSourceCapabilities = {
-  builder: true, explain: false, analyze: false, queryCancellation: false,
-  parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false
-}
 
 const DEFAULT_SERVICE_NAMESPACE = 'Services'
 
@@ -82,7 +77,7 @@ export class TempoAdapter implements DataSourceAdapter {
       const sessionStarted = performance.now()
       const session: DataSourceSession = {
         info: { profileId: profile.id, provider: 'tempo' },
-        capabilities,
+        capabilities: DATA_SOURCE_CAPABILITIES.tempo,
         query: ({ sql, tempo }) => transport.query(sql, tempo),
         listNamespaces: async () => [...new Set((await loadServices()).map((service) => service.namespace || DEFAULT_SERVICE_NAMESPACE))]
           .sort((left, right) => {

@@ -1,14 +1,9 @@
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
-import type { DataSourceCapabilities, PrometheusProfile } from '../../shared/types.ts'
+import { DATA_SOURCE_CAPABILITIES, type PrometheusProfile } from '../../shared/types.ts'
 import { discoverPrometheus } from '../prometheus-discovery.ts'
 import type { PrometheusDiscoveryResult } from '../../shared/prometheus.ts'
 import { GcxPrometheusTransport } from '../gcx-prometheus-transport.ts'
 import type { PrometheusTransport } from '../prometheus-transport.ts'
-
-const capabilities: DataSourceCapabilities = {
-  builder: true, explain: false, analyze: false, queryCancellation: false,
-  parameterizedQueries: false, costEstimate: false, serverReadOnly: true, schemaAutocomplete: false
-}
 
 export class PrometheusAdapter implements DataSourceAdapter {
   readonly kind = 'prometheus' as const
@@ -38,7 +33,7 @@ export class PrometheusAdapter implements DataSourceAdapter {
     let relations = toRelations(discovery)
     const transport = this.createTransport(profile.transport.context, profile.transport.datasourceUid)
     const session: DataSourceSession = {
-      info: { profileId: profile.id, provider: 'prometheus' }, capabilities,
+      info: { profileId: profile.id, provider: 'prometheus' }, capabilities: DATA_SOURCE_CAPABILITIES.prometheus,
       query: ({ sql, prometheus }) => {
         if (!prometheus) throw new Error('Prometheus queries require a time range and resolution.')
         return transport.query({ expression: sql, ...prometheus })

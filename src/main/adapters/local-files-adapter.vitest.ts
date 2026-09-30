@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { DuckDBInstance } from '@duckdb/node-api'
-import { LOCAL_FILES_CAPABILITIES, LocalFilesAdapter, MAX_LOCAL_FILE_RESULT_ROWS, defaultFileAlias, smokeDuckDB, validateFiles } from './local-files-adapter.ts'
+import { LocalFilesAdapter, MAX_LOCAL_FILE_RESULT_ROWS, defaultFileAlias, smokeDuckDB, validateFiles } from './local-files-adapter.ts'
 import type { LocalFilesProfile } from '../../shared/types.ts'
 import { generateBuilderQuery } from '../../renderer/src/lib/builderSql.ts'
 import { createResultFilter, type BuilderFilterProvenance } from '../../renderer/src/lib/resultFilters.ts'
@@ -16,8 +16,6 @@ const localDate = (value: Date) => `${value.getFullYear()}-${pad2(value.getMonth
 const localTime = (value: Date) => `${pad2(value.getHours())}:${pad2(value.getMinutes())}`
 
 test('local file aliases are safe and duplicate aliases are rejected', () => {
-  assert.equal(LOCAL_FILES_CAPABILITIES.builder, true)
-  assert.equal(LOCAL_FILES_CAPABILITIES.parameterizedQueries, true)
   assert.equal(defaultFileAlias('/tmp/2026 sales-data.csv'), '_2026_sales_data')
   const profile: LocalFilesProfile = { kind: 'local-files', version: 1, id: 'files', name: 'files', readonly: true,
     files: [{ path: '/tmp/a.csv', alias: 'sales' }, { path: '/tmp/b.csv', alias: 'SALES' }] }
