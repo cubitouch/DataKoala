@@ -1,17 +1,6 @@
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
-import type { DataSourceCapabilities, DataSourceProfile, PostgresProfile } from '../../shared/types.ts'
+import { DATA_SOURCE_CAPABILITIES, type DataSourceProfile, type PostgresProfile } from '../../shared/types.ts'
 import { testConnection, connect as connectPostgres, runQuery, listObjects, describeTable, explainQuery, disconnect, disconnectAll, onConnectionStateChanged as onPostgresStateChanged } from './postgres.ts'
-
-export const POSTGRES_CAPABILITIES: DataSourceCapabilities = {
-  builder: true,
-  explain: true,
-  analyze: true,
-  queryCancellation: false,
-  parameterizedQueries: true,
-  costEstimate: false,
-  serverReadOnly: true,
-  schemaAutocomplete: true
-}
 
 function postgresProfile(profile: DataSourceProfile): PostgresProfile {
   if (profile.kind !== 'postgres') throw new Error(`PostgreSQL adapter cannot open ${profile.kind}`)
@@ -36,7 +25,7 @@ export class PostgresAdapter implements DataSourceAdapter {
     if (!result.ok) return { result }
     const session: DataSourceSession = {
       info: { profileId: pgProfile.id, provider: 'postgres', serverVersion: result.serverVersion },
-      capabilities: POSTGRES_CAPABILITIES,
+      capabilities: DATA_SOURCE_CAPABILITIES.postgres,
       query: ({ sql, parameters = [] }) => runQuery(pgProfile.id, sql, parameters),
       listNamespaces: async () => {
         const relations = await listObjects(pgProfile.id)
