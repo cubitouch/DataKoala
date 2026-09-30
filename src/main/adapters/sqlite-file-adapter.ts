@@ -3,14 +3,10 @@ import { access, open as openFile, realpath, stat } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 import { DuckDBInstance, type DuckDBConnection, type DuckDBValue } from '@duckdb/node-api'
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
-import type { DataSourceCapabilities, DataSourceProfile, QueryResult, SqliteFileProfile } from '../../shared/types.ts'
+import { DATA_SOURCE_CAPABILITIES, type DataSourceProfile, type QueryResult, type SqliteFileProfile } from '../../shared/types.ts'
 import { MAX_LOCAL_FILE_RESULT_ROWS, assertDuckDBReadOnlyQuery, queryResultFromDuckDBReader, quoteIdentifier, quoteLiteral } from './local-files-adapter.ts'
 
 export const SQLITE_CATALOG = 'sqlite'
-export const SQLITE_FILE_CAPABILITIES: DataSourceCapabilities = {
-  builder: true, explain: false, analyze: false, queryCancellation: false,
-  parameterizedQueries: true, costEstimate: false, serverReadOnly: true, schemaAutocomplete: true
-}
 
 function sqliteProfile(profile: DataSourceProfile): SqliteFileProfile {
   if (profile.kind !== 'sqlite-file') throw new Error(`SQLite adapter cannot open ${profile.kind}`)
@@ -97,7 +93,7 @@ export class SqliteFileAdapter implements DataSourceAdapter {
       const opened = await openDatabase(sqlite); const { connection, instance } = opened
       const session: DataSourceSession = {
         info: { profileId: sqlite.id, provider: 'sqlite-file', serverVersion: 'DuckDB + SQLite' },
-        capabilities: SQLITE_FILE_CAPABILITIES,
+        capabilities: DATA_SOURCE_CAPABILITIES['sqlite-file'],
         query: async ({ sql, parameters = [] }) => { await assertDuckDBReadOnlyQuery(connection, sql, 'SQLite connections'); return boundedQuery(connection, sql, parameters) },
         listNamespaces: async () => [{ name: SQLITE_CATALOG }],
         listRelations: async () => {
