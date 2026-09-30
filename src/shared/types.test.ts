@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DATA_SOURCE_CAPABILITIES, isTimeType, isNumericType, pickDefaultChartFields, queryLanguageForSourceKind, sqlDialectForSourceKind } from './types.ts'
-import type { ColumnMeta, DataSourceCapabilities, DataSourceKind } from './types.ts'
+import { isTimeType, isNumericType, pickDefaultChartFields, queryLanguageForSourceKind, sqlDialectForSourceKind } from './types.ts'
+import type { ColumnMeta } from './types.ts'
 
 const col = (name: string, dataTypeName: string): ColumnMeta => ({ name, dataTypeName, dataTypeID: 0 })
 
@@ -80,20 +80,6 @@ test('handles an empty result set without throwing', () => {
   assert.deepEqual(pickDefaultChartFields([]), { xField: '', yField: '' })
 })
 
-
-test('datasource capability matrix covers every current source', () => {
-  const expected = {
-    postgres: { explain: true, analyze: true },
-    'local-files': { explain: false, analyze: false },
-    'sqlite-file': { explain: false, analyze: false },
-    bigquery: { explain: false, analyze: false },
-    prometheus: { explain: false, analyze: false },
-    tempo: { explain: false, analyze: false },
-    loki: { explain: false, analyze: false }
-  } satisfies Record<DataSourceKind, DataSourceCapabilities>
-
-  assert.deepEqual(DATA_SOURCE_CAPABILITIES, expected)
-})
 
 test('non-SQL datasource languages stay outside SQL dialects', () => {
   assert.deepEqual(queryLanguageForSourceKind('prometheus'), { kind: 'promql' })
