@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { isNumericType, sqlDialectForSourceKind, type DatabaseColumnNode, type QueryResult } from '@shared/types'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { isNumericType, sqlDialectForSourceKind, type DatabaseColumnNode, type DatabaseSchemaNode, type QueryResult } from '@shared/types'
 import { api } from '@lib/api'
 import { BUILDER_AGGREGATIONS, generateBuilderQuery, isBuilderTemporalDataType, isBuilderTimeBucketSupported, materializeSqlParameters, TIME_BUCKETS } from '@lib/builderSql'
 import { canLoadRelationColumns, relationIdentity, relationsForSchema, selectionPatchForColumns } from '@lib/builderRelations'
@@ -27,6 +27,7 @@ const isTimeColumn = (column: DatabaseColumnNode) => isBuilderTemporalDataType(c
 const aggregationLabel = (aggregation: Aggregation) => aggregation === 'average' ? 'Average' : aggregation === 'minimum' ? 'Minimum' : aggregation === 'maximum' ? 'Maximum' : aggregation === 'count' ? 'Count' : 'Sum'
 
 const aggregationOptions: ComboboxOption[] = BUILDER_AGGREGATIONS.map((aggregation) => ({ value: aggregation, label: aggregationLabel(aggregation) }))
+const EMPTY_SCHEMAS: DatabaseSchemaNode[] = []
 
 export function BuilderPanel() {
   const tabId = useStore((state) => state.activeTabId)
@@ -48,7 +49,7 @@ export function BuilderPanel() {
   const setHasRun = useStore((state) => state.setBuilderHasRun)
   const metadata = useStore((state) => tabConnectionId ? state.metadataByProfileId[tabConnectionId] : undefined)
   const metadataRefreshing = metadata?.refreshing ?? false
-  const schemas = metadata?.schemas ?? []
+  const schemas = metadata?.schemas ?? EMPTY_SCHEMAS
   const metadataStatus = metadata?.status ?? 'idle'
   const storeMetadataError = metadata?.error ?? null
   const setRelationColumns = useStore((state) => state.setRelationColumns)
@@ -70,7 +71,7 @@ export function BuilderPanel() {
     (connected && activeId === tabConnectionId)
   ))
   const documentationCapture = Boolean(window.datakoala?.smokeMode && (window as unknown as Record<string, unknown>).__datakoalaDocumentationCapture)
-  const stillBoundTo = (requestTabId: string, profileId: string) => selectSession(useStore.getState(), requestTabId)?.connectionProfileId === profileId
+  const stillBoundTo = useCallback((requestTabId: string, profileId: string) => selectSession(useStore.getState(), requestTabId)?.connectionProfileId === profileId, [])
 
   useEffect(() => {
     // Documentation capture deliberately demonstrates Sum(count). The legacy
@@ -83,10 +84,10 @@ export function BuilderPanel() {
       ...(legacyX ? { xColumn: builder.timeColumn } : {}),
       ...(legacyCount ? { valueColumn: null, aggregation: 'count' as const } : {})
     }, tabId)
-  }, [tabId, builder.timeColumn, builderVisualization.xColumn, builderVisualization.valueColumn, builderVisualization.aggregation, setVisualization])
+  }, [tabId, builder.timeColumn, builderVisualization.xColumn, builderVisualization.valueColumn, builderVisualization.aggregation, setVisualization, documentationCapture])
 
-  const selectedRelation = builder.table ? relationsForSchema(schemas, builder.table.schema)
-    .find((relation) => relationIdentity(relation) === relationIdentity(builder.table!)) : undefined
+  const selectedRelation = useMemo(() => builder.table ? relationsForSchema(schemas, builder.table.schema)
+    .find((relation) => relationIdentity(relation) === relationIdentity(builder.table!)) : undefined, [schemas, builder.table])
   const columns = selectedRelation?.columns ?? []
   const temporalColumns = columns.filter(isTimeColumn)
   const selectedX = builderVisualization.xColumn === 'time_bucket' ? builder.timeColumn : builderVisualization.xColumn
@@ -124,9 +125,9 @@ export function BuilderPanel() {
         ...(sourceY && !nextY ? { aggregation: 'count' as const } : {})
       }, tabId)
     }
-  }, [tabId, selectedRelation?.qualifiedName, selectedRelation?.columnsStatus, selectedRelation?.columns])
+  }, [tabId, selectedRelation])
 
-  const loadColumns = async (relation: typeof selectedRelation, explicitRetry = false) => {
+  const loadColumns = useCallback(async (relation: typeof selectedRelation, explicitRetry = false) => {
     if (!relation || relation.columnsStatus === 'loaded' || !canLoadRelationColumns(relation.columnsStatus, explicitRetry)) return
     const requestTabId = tabId
     const requestProfileId = await ensureConnectionForTab(requestTabId)
@@ -161,11 +162,11 @@ export function BuilderPanel() {
       const session = selectSession(useStore.getState(), requestTabId)
       if (session?.connectionProfileId === requestProfileId && relationIdentity(session.builder.table ?? { schema: '', name: '' }) === relationIdentity(requested)) setMetadataError(String(error))
     }
-  }
+  }, [tabId, stillBoundTo, setRelationColumns])
   useEffect(() => {
     if (metadataStatus !== 'loaded' || !tabConnected || !selectedRelation || selectedRelation.columnsStatus !== 'idle') return
     void loadColumns(selectedRelation)
-  }, [tabId, metadataStatus, tabConnected, selectedRelation?.qualifiedName, selectedRelation?.columnsStatus])
+  }, [metadataStatus, tabConnected, selectedRelation, loadColumns])
 
   const generatedQuery = useMemo(() => configurationComplete && builder.table && selectedX ? generateBuilderQuery({
     dialect: sqlDialectForSourceKind(connectionKind ?? 'postgres'),
@@ -185,6 +186,7 @@ export function BuilderPanel() {
   const formatterDialect = formatterDialectForSql(sqlDialectForSourceKind(connectionKind ?? 'postgres'))
   const formattedGeneratedSql = useMemo(() => generatedSql ? formatSqlOrOriginal(generatedSql, formatterDialect) : '', [generatedSql, formatterDialect])
 
+  const effectiveTimeRangeKey = JSON.stringify(effectiveTimeRange)
   useEffect(() => {
     if (builder.table?.schema) setSelectedSchema(builder.table.schema)
     else setSelectedSchema('')
@@ -383,9 +385,9 @@ export function BuilderPanel() {
   useEffect(() => {
     probeGuard.current.invalidate()
     setSeriesProbe(null)
-  }, [tabConnectionId, builder.table?.schema, builder.table?.name, builder.timeColumn, selectedX, builder.timeBucket, JSON.stringify(effectiveTimeRange)])
+  }, [tabConnectionId, builder.table?.schema, builder.table?.name, builder.timeColumn, selectedX, builder.timeBucket, effectiveTimeRangeKey])
   useEffect(() => () => probeGuard.current.invalidate(), [])
-  const run = async () => {
+  const run = useCallback(async () => {
     if (!generatedSql || !tabConnectionId || connecting || metadataRefreshing) return
     const requestTabId = tabId
     const requestQuery = generatedQuery
@@ -401,14 +403,14 @@ export function BuilderPanel() {
     } catch (error) {
       if (queryRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(null, error instanceof Error ? error.message : String(error), requestTabId)
     }
-  }
+  }, [generatedSql, tabConnectionId, connecting, metadataRefreshing, tabId, generatedQuery, stillBoundTo, startQuery, setHasRun, completeQuery])
+  const executionKey = generatedQuery ? JSON.stringify([generatedQuery.sql, generatedQuery.parameters]) : null
   useEffect(() => {
-    const execution = generatedQuery ? JSON.stringify([generatedQuery.sql, generatedQuery.parameters]) : null
     const previous = previousExecution.current.get(tabId)
     const session = selectSession(useStore.getState(), tabId)
-    if (previous !== undefined && execution !== previous && session?.builderHasRun && execution) void run()
-    if (execution) previousExecution.current.set(tabId, execution)
-  }, [tabId, generatedQuery?.sql, JSON.stringify(generatedQuery?.parameters ?? [])])
+    if (previous !== undefined && executionKey !== previous && session?.builderHasRun && executionKey) void run()
+    if (executionKey) previousExecution.current.set(tabId, executionKey)
+  }, [tabId, executionKey, run])
   useEffect(() => {
     if (!filterNotice) return
     const timer = window.setTimeout(() => clearFilterNotice(filterNotice.id, tabId), 3000)
