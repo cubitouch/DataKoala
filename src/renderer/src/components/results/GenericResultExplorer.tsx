@@ -147,7 +147,10 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   const activeBuilderTimeBucket = mode === 'builder' && effectiveConfiguration.xColumn === 'time_bucket' ? timeBucket : undefined
   const seriesIdentities = useMemo(() => chart?.series.map((series) => series.name) ?? [], [chart])
   useEffect(() => legendWheel.current.setSeriesCount(seriesIdentities.length), [seriesIdentities.length])
-  useEffect(() => updateSeriesVisibility((previous) => reconcileSeriesVisibility(previous, seriesIdentities)), [seriesIdentities, updateSeriesVisibility])
+  useEffect(() => {
+    const next = reconcileSeriesVisibility(seriesVisibility, seriesIdentities)
+    if (next !== seriesVisibility) onSeriesVisibilityChange(next)
+  }, [seriesIdentities, seriesVisibility, onSeriesVisibilityChange])
   const logPresentation = useMemo(() => effectiveConfiguration.valueAxisScale === 'log' ? prepareLogScaleSeries(chart?.series ?? [], seriesVisibility) : null, [chart, seriesVisibility, effectiveConfiguration.valueAxisScale])
   const update = (patch: Partial<VisualizationConfiguration>) => {
     onConfigurationChange({ ...configuration, ...patch })
