@@ -192,26 +192,30 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
     return () => { current = false }
   }, [connected, connectionGeneration, connectionId, metadataRevision, mode])
 
-  const advancedDiscoveryBaseContext = buildTraceql({ ...builder, advancedFilters: [] })
+  const advancedDiscoveryRequests = useMemo(() => builder.advancedFilters.map((filter) => ({
+    attribute: filter.attribute,
+    context: buildTraceql({
+      ...builder,
+      advancedFilters: builder.advancedFilters.filter((candidate) => candidate.attribute !== filter.attribute)
+    })
+  })), [builder])
   useEffect(() => {
-    const filters = builder.advancedFilters
-    if (!connected || mode !== 'builder' || !filters.length) { setAdvancedValues({}); setAdvancedValuesLoading({}); setAdvancedValuesError({}); return }
+    if (!connected || mode !== 'builder' || !advancedDiscoveryRequests.length) { setAdvancedValues({}); setAdvancedValuesLoading({}); setAdvancedValuesError({}); return }
     let current = true
-    const selected = new Set(filters.map((filter) => filter.attribute))
+    const selected = new Set(advancedDiscoveryRequests.map((request) => request.attribute))
     setAdvancedValues((values) => Object.fromEntries(Object.entries(values).filter(([attribute]) => selected.has(attribute))))
     setAdvancedValuesError({})
-    setAdvancedValuesLoading(Object.fromEntries(filters.map((filter) => [filter.attribute, true])))
+    setAdvancedValuesLoading(Object.fromEntries(advancedDiscoveryRequests.map((request) => [request.attribute, true])))
     const timer = window.setTimeout(() => {
-      for (const filter of filters) {
-        const context = buildTraceql({ ...builder, advancedFilters: filters.filter((candidate) => candidate.attribute !== filter.attribute) })
-        void tempoAttributeValues(connectionId, connectionGeneration, filter.attribute, context === '{ }' ? undefined : context).then(
-          (items) => { if (current) setAdvancedValues((values) => ({ ...values, [filter.attribute]: items })) },
-          (reason: unknown) => { if (current) setAdvancedValuesError((errors) => ({ ...errors, [filter.attribute]: reason instanceof Error ? reason.message : String(reason) })) }
-        ).finally(() => { if (current) setAdvancedValuesLoading((loading) => ({ ...loading, [filter.attribute]: false })) })
+      for (const request of advancedDiscoveryRequests) {
+        void tempoAttributeValues(connectionId, connectionGeneration, request.attribute, request.context === '{ }' ? undefined : request.context).then(
+          (items) => { if (current) setAdvancedValues((values) => ({ ...values, [request.attribute]: items })) },
+          (reason: unknown) => { if (current) setAdvancedValuesError((errors) => ({ ...errors, [request.attribute]: reason instanceof Error ? reason.message : String(reason) })) }
+        ).finally(() => { if (current) setAdvancedValuesLoading((loading) => ({ ...loading, [request.attribute]: false })) })
       }
     }, 200)
     return () => { current = false; window.clearTimeout(timer) }
-  }, [advancedDiscoveryBaseContext, builder.advancedFilters, connected, connectionGeneration, connectionId, metadataRevision, mode])
+  }, [advancedDiscoveryRequests, connected, connectionGeneration, connectionId, metadataRevision, mode])
 
   const updateBuilder = (patch: Partial<TraceBuilderState>) => {
     const next = { ...builder, ...patch }
@@ -301,7 +305,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
       const trace = text((value as { data?: { traceId?: unknown } })?.data?.traceId)
       if (trace) void openTrace({ candidate: trace, searchRows })
     }
-  }), [connectionId, searchRows])
+  }), [openTrace, searchRows])
 
   const exploreSimilar = (source: TraceRow) => {
     const incoming = traceBuilderFromSpan(source)

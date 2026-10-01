@@ -124,11 +124,17 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   const selectedSeriesValues = useMemo(() => effectiveConfiguration.seriesColumns?.length
     ? effectiveConfiguration.seriesColumns
     : effectiveConfiguration.seriesColumn ? [effectiveConfiguration.seriesColumn] : [], [effectiveConfiguration.seriesColumn, effectiveConfiguration.seriesColumns])
-  const availableHierarchyDimensions = dimensionControls === 'external' && mode === 'builder' ? externalSeriesColumns : selectedSeriesValues
-  const hierarchyDimensions = reconcileHierarchyDimensions(effectiveConfiguration.hierarchyDimensions, availableHierarchyDimensions)
-  const hierarchyStats = useMemo(() => hierarchyCardinalities(filteredResult?.rows ?? [], hierarchyDimensions), [filteredResult, hierarchyDimensions.join('\0')])
-  const suggestedHierarchyDimensions = useMemo(() => suggestHierarchyDimensions(filteredResult?.rows ?? [], hierarchyDimensions), [filteredResult, hierarchyDimensions.join('\0')])
-  const hierarchy = useMemo(() => buildHierarchy({ rows: filteredResult?.rows ?? [], dimensions: hierarchyDimensions, valueColumn: effectiveConfiguration.valueColumn, aggregation: effectiveConfiguration.aggregation }), [filteredResult, hierarchyDimensions.join('\0'), effectiveConfiguration.valueColumn, effectiveConfiguration.aggregation])
+  const availableHierarchyDimensions = useMemo(
+    () => dimensionControls === 'external' && mode === 'builder' ? externalSeriesColumns : selectedSeriesValues,
+    [dimensionControls, mode, externalSeriesColumns, selectedSeriesValues]
+  )
+  const hierarchyDimensions = useMemo(
+    () => reconcileHierarchyDimensions(effectiveConfiguration.hierarchyDimensions, availableHierarchyDimensions),
+    [effectiveConfiguration.hierarchyDimensions, availableHierarchyDimensions]
+  )
+  const hierarchyStats = useMemo(() => hierarchyCardinalities(filteredResult?.rows ?? [], hierarchyDimensions), [filteredResult, hierarchyDimensions])
+  const suggestedHierarchyDimensions = useMemo(() => suggestHierarchyDimensions(filteredResult?.rows ?? [], hierarchyDimensions), [filteredResult, hierarchyDimensions])
+  const hierarchy = useMemo(() => buildHierarchy({ rows: filteredResult?.rows ?? [], dimensions: hierarchyDimensions, valueColumn: effectiveConfiguration.valueColumn, aggregation: effectiveConfiguration.aggregation }), [filteredResult, hierarchyDimensions, effectiveConfiguration.valueColumn, effectiveConfiguration.aggregation])
   const chart = useMemo(() => filteredResult ? pivotRowsForChart(filteredResult, effectiveConfiguration) : null, [filteredResult, effectiveConfiguration])
   const anomalyEligibility = useMemo(() => chartAnomalyEligibility(chart, effectiveConfiguration.view, filteredResult?.columns.find((column) => column.name === effectiveConfiguration.xColumn)), [chart, effectiveConfiguration.view, effectiveConfiguration.xColumn, filteredResult])
   const anomalies = useMemo(() => effectiveConfiguration.anomalyDetectionEnabled && anomalyEligibility.available && chart
@@ -139,9 +145,12 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
     [chartTimeDomain, activeFilters, effectiveConfiguration.xColumn]
   )
   const activeBuilderTimeBucket = mode === 'builder' && effectiveConfiguration.xColumn === 'time_bucket' ? timeBucket : undefined
-  const seriesIdentities = chart?.series.map((series) => series.name) ?? []
+  const seriesIdentities = useMemo(() => chart?.series.map((series) => series.name) ?? [], [chart])
   useEffect(() => legendWheel.current.setSeriesCount(seriesIdentities.length), [seriesIdentities.length])
-  useEffect(() => updateSeriesVisibility((previous) => reconcileSeriesVisibility(previous, seriesIdentities)), [seriesIdentities.join('\0'), updateSeriesVisibility])
+  useEffect(() => {
+    const next = reconcileSeriesVisibility(seriesVisibility, seriesIdentities)
+    if (next !== seriesVisibility) onSeriesVisibilityChange(next)
+  }, [seriesIdentities, seriesVisibility, onSeriesVisibilityChange])
   const logPresentation = useMemo(() => effectiveConfiguration.valueAxisScale === 'log' ? prepareLogScaleSeries(chart?.series ?? [], seriesVisibility) : null, [chart, seriesVisibility, effectiveConfiguration.valueAxisScale])
   const update = (patch: Partial<VisualizationConfiguration>) => {
     onConfigurationChange({ ...configuration, ...patch })
@@ -187,7 +196,7 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
     // Deterministic real-renderer captures should never sample ECharts mid-transition.
     // smokeMode is exposed only by the controlled Electron preview/smoke process.
     animation: window.datakoala?.smokeMode ? false : animationPolicy.current.shouldAnimate(chartFingerprint)
-  } : null, [chartFingerprint])
+  } : null, [chartFingerprint, option])
   const chartRevision = useMemo(createChartRevision, [chartFingerprint])
   useEffect(() => {
     if (!renderedOption) return
