@@ -353,6 +353,26 @@ describe('LokiExplorer execution', () => {
     await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
   })
 
+  it('retries a failed log-volume request after leaving and returning to Chart', async () => {
+    const run = mocks.runLoki
+      .mockResolvedValueOnce(logs)
+      .mockRejectedValueOnce(new Error('trend unavailable'))
+      .mockResolvedValueOnce(metric)
+    render(<LokiExplorer connectionId="loki" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('Log volume unavailable: Log volume query failed: trend unavailable')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+  })
+
   it('restores a completed Loki result and selected view after the workspace remounts', () => {
     const tab = createQuerySession(1, { id: 'restored-result', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
     tab.result = patternLogs()

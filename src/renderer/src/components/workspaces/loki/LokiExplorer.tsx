@@ -172,7 +172,11 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   }, [metadataRefreshing, session.id, expression, mode, builderDisabledReason, range, resultView, loadTrend, groupBy, connectionId, limit, isCurrentTab, trendRefreshKey])
   useEffect(() => { if (previousRangeKey.current === rangeKey) return; previousRangeKey.current = rangeKey; if (hasRun.current) void run() }, [rangeKey, run])
   useEffect(() => {
-    if (!hasRun.current || !isLokiChartView(resultView) || result?.resultKind !== 'logs' || !expression.trim()) return
+    if (!isLokiChartView(resultView)) {
+      lastProcessedTrendKey.current = null
+      return
+    }
+    if (!hasRun.current || result?.resultKind !== 'logs' || !expression.trim()) return
     if (lastProcessedTrendKey.current === trendRefreshKey) return
     lastProcessedTrendKey.current = trendRefreshKey
     void loadTrend(session.id, expression, range, groupBy)
