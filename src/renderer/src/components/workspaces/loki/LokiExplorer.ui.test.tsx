@@ -330,6 +330,29 @@ describe('LokiExplorer execution', () => {
     await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
   })
 
+  it('reloads log volume after a List-mode run invalidates an earlier chart trend', async () => {
+    const run = mocks.runLoki
+      .mockResolvedValueOnce(logs)
+      .mockResolvedValueOnce(metric)
+      .mockResolvedValueOnce(logs)
+      .mockResolvedValueOnce(metric)
+    render(<LokiExplorer connectionId="loki" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(3))
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(4))
+    await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+  })
+
   it('restores a completed Loki result and selected view after the workspace remounts', () => {
     const tab = createQuerySession(1, { id: 'restored-result', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
     tab.result = patternLogs()

@@ -156,7 +156,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     let kind: 'logs' | 'metrics'
     try { kind = logqlResultKind(expression) } catch (caught) { return setError(caught instanceof Error ? caught.message : String(caught)) }
     const current = ++revision.current
-    trendRevision.current++; trendCacheKey.current = null; setTrend(null)
+    trendRevision.current++; trendCacheKey.current = null; lastProcessedTrendKey.current = null; setTrend(null)
     hasRun.current = true; setLoading(true); setError(null); setTrendError(null); setWarning(null)
     const bounds = prometheusRangeBounds(range), step = interval(bounds.start, bounds.end)
     try {
