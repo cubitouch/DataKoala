@@ -84,6 +84,8 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const revision = useRef(0), trendRevision = useRef(0), hasRun = useRef(Boolean(session.result)), mounted = useRef(true)
   const trendCacheKey = useRef<string | null>(null)
   const rangeKey = JSON.stringify(range), previousRangeKey = useRef(rangeKey)
+  const trendRefreshKey = JSON.stringify([session.id, resultView, groupBy, rangeKey])
+  const lastProcessedTrendKey = useRef<string | null>(null)
   const fallbackMatcher = labelResource.status === 'loaded' && labelResource.labels.includes('service_name')
     ? serviceNameFallback
     : undefined
@@ -96,18 +98,35 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const builderDisabledReason = mode === 'builder' && !generated && labelResource.status !== 'loading'
     ? (generation.error?.includes('safe fallback selector') ? unfilteredUnavailable : generation.error)
     : null
-  const isCurrentTab = (tabId: string) => mounted.current && useStore.getState().activeTabId === tabId
+  const isCurrentTab = useCallback((tabId: string) => mounted.current && useStore.getState().activeTabId === tabId, [])
+  const deactivate = useCallback(() => {
+    mounted.current = false
+    revision.current += 1
+    trendRevision.current += 1
+  }, [])
   const clearLokiTransientState = () => { revision.current++; trendRevision.current++; hasRun.current = false; trendCacheKey.current = null; setTrend(null); setError(null); setWarning(null); setTrendError(null); setLoading(false); setPatternScope(null) }
   const clearResults = () => { clearLokiTransientState(); clearActiveResults() }
   const resetQuery = () => { clearResults(); setSql(''); setLokiState({ lokiBuilder: { ...DEFAULT_LOKI_BUILDER, labelMatchers: [], lineFilters: [], parsers: [], fieldFilters: [] }, lokiTimeRange: defaultRange, lokiResultLimit: 1000, lokiGroupBy: [], lokiRangeHistory: [], lokiResultView: 'list' }) }
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; revision.current++; trendRevision.current++ } }, [])
-  useLayoutEffect(() => { revision.current++; trendRevision.current++; hasRun.current = Boolean(session.result); previousRangeKey.current = rangeKey; setTrend(null); setTrendError(null); setError(null); setWarning(null); setLoading(false) }, [session.id])
+  useEffect(() => { mounted.current = true; return deactivate }, [deactivate])
+  useLayoutEffect(() => {
+    const currentSession = selectActiveSession(useStore.getState())
+    revision.current++
+    trendRevision.current++
+    hasRun.current = Boolean(currentSession.result)
+    previousRangeKey.current = JSON.stringify(currentSession.lokiTimeRange)
+    lastProcessedTrendKey.current = null
+    setTrend(null)
+    setTrendError(null)
+    setError(null)
+    setWarning(null)
+    setLoading(false)
+  }, [session.id])
   useEffect(() => {
     if (!isLokiChartView(resultView)) return
     setTrendVisualization((current) => ({ ...current, view: resultView, xColumn: 'timestamp', valueColumn: 'value', aggregation: 'sum', seriesColumn: groupBy.length === 1 ? groupBy[0] : null, seriesColumns: groupBy.length > 1 ? groupBy : [], hierarchyDimensions: groupBy }))
-  }, [resultView, groupBy.join('\0'), session.id])
+  }, [resultView, groupBy, session.id])
 
-  const loadTrend = async (tabId: string, queryExpression: string, queryRange: BuilderTimeRange, queryGroupBy: string[]) => {
+  const loadTrend = useCallback(async (tabId: string, queryExpression: string, queryRange: BuilderTimeRange, queryGroupBy: string[]) => {
     let kind: 'logs' | 'metrics'
     try { kind = logqlResultKind(queryExpression) } catch { return }
     if (kind !== 'logs') return
@@ -129,8 +148,8 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
       if (current !== trendRevision.current || !isCurrentTab(tabId)) return
       trendCacheKey.current = key; setTrend(volume)
     } catch (caught) { if (current === trendRevision.current && isCurrentTab(tabId)) setTrendError(caught instanceof Error ? caught.message : String(caught)) }
-  }
-  const run = async () => {
+  }, [connectionId, isCurrentTab, trend])
+  const run = useCallback(async () => {
     if (metadataRefreshing) return
     const tabId = session.id
     if (!expression.trim()) return setError(mode === 'builder' ? (builderDisabledReason ?? 'The Builder query is not ready to run.') : 'Enter a LogQL query.')
@@ -141,16 +160,23 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     hasRun.current = true; setLoading(true); setError(null); setTrendError(null); setWarning(null)
     const bounds = prometheusRangeBounds(range), step = interval(bounds.start, bounds.end)
     try {
-      const chartRequest = kind === 'logs' && isLokiChartView(resultView) ? loadTrend(tabId, expression, range, groupBy) : Promise.resolve()
+      const shouldLoadTrend = kind === 'logs' && isLokiChartView(resultView)
+      if (shouldLoadTrend) lastProcessedTrendKey.current = trendRefreshKey
+      const chartRequest = shouldLoadTrend ? loadTrend(tabId, expression, range, groupBy) : Promise.resolve()
       const main = await api.query.runLoki(connectionId, { expression, ...bounds, step, limit })
       await chartRequest
       if (current !== revision.current || !isCurrentTab(tabId)) return
       useStore.getState().completeQuery(main, null, tabId)
     } catch (caught) { if (current === revision.current && isCurrentTab(tabId)) setError(caught instanceof Error ? caught.message : String(caught)) }
     finally { if (current === revision.current && isCurrentTab(tabId)) setLoading(false) }
-  }
-  useEffect(() => { if (previousRangeKey.current === rangeKey) return; previousRangeKey.current = rangeKey; if (hasRun.current) void run() }, [rangeKey])
-  useEffect(() => { if (hasRun.current && isLokiChartView(resultView) && result?.resultKind === 'logs' && expression.trim()) void loadTrend(session.id, expression, range, groupBy) }, [resultView, groupBy.join('\0'), rangeKey])
+  }, [metadataRefreshing, session.id, expression, mode, builderDisabledReason, range, resultView, loadTrend, groupBy, connectionId, limit, isCurrentTab, trendRefreshKey])
+  useEffect(() => { if (previousRangeKey.current === rangeKey) return; previousRangeKey.current = rangeKey; if (hasRun.current) void run() }, [rangeKey, run])
+  useEffect(() => {
+    if (!hasRun.current || !isLokiChartView(resultView) || result?.resultKind !== 'logs' || !expression.trim()) return
+    if (lastProcessedTrendKey.current === trendRefreshKey) return
+    lastProcessedTrendKey.current = trendRefreshKey
+    void loadTrend(session.id, expression, range, groupBy)
+  }, [resultView, result?.resultKind, expression, trendRefreshKey, loadTrend, session.id, range, groupBy])
   useEffect(() => setPatternScope(null), [result])
   const selectRange = (selected: LokiTrendRange) => setLokiState({ lokiRangeHistory: [...session.lokiRangeHistory, range], lokiTimeRange: customRange(selected) })
   const restoreRange = (reset = false) => { const history = session.lokiRangeHistory; const prior = reset ? history[0] : history.at(-1); if (prior) setLokiState({ lokiTimeRange: prior, lokiRangeHistory: reset ? [] : history.slice(0, -1) }) }

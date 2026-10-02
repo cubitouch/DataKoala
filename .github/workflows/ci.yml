@@ -48,6 +48,9 @@ jobs:
       - name: Check renderer import boundaries
         run: pnpm lint:imports
 
+      - name: Lint TypeScript and React
+        run: pnpm lint:ts
+
       - name: Typecheck
         run: pnpm typecheck
 
