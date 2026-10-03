@@ -328,6 +328,12 @@ describe('LokiExplorer execution', () => {
     expect(screen.queryByRole('textbox', { name: 'Search loaded logs' })).toBeNull()
     expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
     await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Area' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Bar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    expect(run).toHaveBeenCalledTimes(2)
+    expect(useStore.getState().tabs[0].lokiResultView).toBe('line')
   })
 
   it('reloads log volume after a List-mode run invalidates an earlier chart trend', async () => {
