@@ -115,6 +115,9 @@ describe('LokiExplorer execution', () => {
     expect(useStore.getState().tabs[0].sql).toBe(raw)
     fireEvent.click(screen.getByRole('button', { name: 'Builder' }))
     expect(useStore.getState().tabs[0].sql).toBe(raw)
+    await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledTimes(2))
+    fireEvent.click(screen.getByText('Generated LogQL'))
+    await waitFor(() => expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toBe(formatted))
 
     fireEvent.click(screen.getByRole('button', { name: 'Open in LogQL mode' }))
     expect(useStore.getState().tabs[0].queryMode).toBe('sql')
