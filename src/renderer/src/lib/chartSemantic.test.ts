@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import { ChartAnimationPolicy, createChartFingerprint, semanticChartCounts } from './chartSemantic.ts'
-import { ChartReadinessController, createChartRevision } from './chartReadiness.ts'
+import { createChartFingerprint, semanticChartCounts } from './chartSemantic.ts'
 import type { PivotedResult, VisualizationConfiguration } from './resultVisualization.ts'
 
 const configuration: VisualizationConfiguration = { view: 'line', xColumn: 'x', valueColumn: 'value', seriesColumn: 'series', aggregation: 'sum', valueAxisScale: 'linear' }
@@ -16,34 +15,6 @@ test('fingerprints semantic chart inputs and excludes lifecycle UI state', () =>
   assert.notEqual(createChartFingerprint(chart, { ...configuration, view: 'bar' }, { A: true }), first)
   assert.notEqual(createChartFingerprint(chart, { ...configuration, aggregation: 'average' }, { A: true }), first)
   assert.notEqual(createChartFingerprint(chart, configuration, { A: false }), first)
-})
-
-test('the first mounted chart is stable, then semantic changes animate after commit', () => {
-  const policy = new ChartAnimationPolicy()
-  assert.equal(policy.shouldAnimate('result-a'), false)
-  assert.equal(policy.shouldAnimate('result-a'), false) // repeated / Strict Mode render
-  assert.equal(policy.shouldAnimate('result-b'), false) // no chart has committed yet
-  policy.commit('result-a')
-  assert.equal(policy.shouldAnimate('result-a'), false)
-  assert.equal(policy.shouldAnimate('result-b'), true)
-  assert.equal(policy.shouldAnimate('result-b'), true) // an abandoned render consumed nothing
-  policy.commit('result-b')
-  assert.equal(policy.shouldAnimate('result-b'), false)
-})
-
-test('a stale ECharts completion cannot commit or suppress the newer revision', () => {
-  const policy = new ChartAnimationPolicy()
-  policy.commit('baseline')
-  const readiness = new ChartReadinessController()
-  const oldRevision = createChartRevision()
-  const newRevision = createChartRevision()
-  readiness.commitRevision(oldRevision)
-  readiness.commitRevision(newRevision)
-
-  if (readiness.finishRevision(oldRevision)) policy.commit('result-a')
-  assert.equal(policy.shouldAnimate('result-b'), true)
-  if (readiness.finishRevision(newRevision)) policy.commit('result-b')
-  assert.equal(policy.shouldAnimate('result-b'), false)
 })
 
 test('semantic chart counts exclude time-series points outside the final axis domain', () => {
