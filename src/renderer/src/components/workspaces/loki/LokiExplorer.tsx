@@ -123,26 +123,27 @@ export function LokiExplorer({ connectionId, resizeHandle }: LokiExplorerProps) 
   useEffect(() => { mounted.current = true; return deactivate }, [deactivate])
   useEffect(() => {
     const request = ++generatedFormatRevision.current
-    if (!generated.trim() || !canLoadMetadata) {
+    if (mode !== 'builder' || !generated.trim() || !canLoadMetadata) {
       setFormattedGenerated(null)
       return
     }
     const timer = window.setTimeout(() => {
-      void api.connections.loki.formatQuery(connectionId, generated)
-        .then((formatted) => {
+      void (async () => {
+        try {
+          const formatted = await api.connections.loki.formatQuery(connectionId, generated)
           if (request !== generatedFormatRevision.current || !mounted.current) return
           setFormattedGenerated({ connectionId, source: generated, query: formatted.trim() ? formatted : generated })
-        })
-        .catch(() => {
+        } catch {
           if (request !== generatedFormatRevision.current || !mounted.current) return
           setFormattedGenerated({ connectionId, source: generated, query: generated })
-        })
+        }
+      })()
     }, 160)
     return () => {
       window.clearTimeout(timer)
       if (generatedFormatRevision.current === request) generatedFormatRevision.current += 1
     }
-  }, [canLoadMetadata, connectionId, generated])
+  }, [canLoadMetadata, connectionId, generated, mode])
   useLayoutEffect(() => {
     const currentSession = selectActiveSession(useStore.getState())
     revision.current++
