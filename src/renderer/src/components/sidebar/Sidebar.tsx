@@ -90,10 +90,35 @@ export function Sidebar() {
   const loadProfiles = useCallback(async () => {
     setProfiles(await api.connections.list())
     const live = await api.connections.listLive?.()
-    if (live?.length) useStore.setState((state) => ({
+    if (!live?.length) return
+    const hydrationSessions = live.filter((session) => {
+      const metadata = useStore.getState().metadataByProfileId[session.id]
+      return !metadata || metadata.status === 'idle'
+    })
+    useStore.setState((state) => ({
       connectionStateByProfileId: {
         ...state.connectionStateByProfileId,
         ...Object.fromEntries(live.map((session) => [session.id, { status: 'connected' as const, generation: session.generation, error: null, serverVersion: session.serverVersion ?? null }]))
+      },
+      metadataByProfileId: {
+        ...state.metadataByProfileId,
+        ...Object.fromEntries(hydrationSessions.map((session) => [session.id, { schemas: [], status: 'loading' as const, error: null, isStale: false }]))
+      }
+    }))
+    await Promise.all(hydrationSessions.map(async (session) => {
+      try {
+        const schemas = await loadConnectionMetadata(session.id)
+        useStore.setState((state) => {
+          const connection = state.connectionStateByProfileId[session.id]
+          if (connection?.generation !== session.generation || (connection.status !== 'connected' && connection.status !== 'idle')) return {}
+          return { metadataByProfileId: { ...state.metadataByProfileId, [session.id]: { schemas, status: 'loaded', error: null, isStale: false } } }
+        })
+      } catch (error) {
+        useStore.setState((state) => {
+          const connection = state.connectionStateByProfileId[session.id]
+          if (connection?.generation !== session.generation || (connection.status !== 'connected' && connection.status !== 'idle')) return {}
+          return { metadataByProfileId: { ...state.metadataByProfileId, [session.id]: { schemas: [], status: 'error', error: error instanceof Error ? error.message : String(error), isStale: false } } }
+        })
       }
     }))
   }, [setProfiles])
@@ -286,7 +311,7 @@ export function Sidebar() {
     {activeTabSourceKind !== 'loki' && (tabConnected || schemas.length > 0) && <section className={styles.objectsSection}>
       <h3>Objects</h3>
       {!tabConnected && schemas.length > 0 && <div className={styles.objectStatus} role="status">Cached metadata — reconnects when needed.</div>}
-      {!metadataRefreshing && metadataStatus === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-label="Loading database objects" /> Loading database objects…</div>}
+      {metadataStatus === 'loading' && <div className={styles.objectStatus} role="status"><span className={styles.spinner} aria-label="Loading database objects" /> Loading database objects…</div>}
       {!metadataRefreshing && metadataStatus === 'error' && <div className={styles.objectError} role="alert">Could not load objects.<small>{metadataError}</small><button onClick={() => void retryObjects()}>Retry</button></div>}
       {metadataStatus === 'loaded' && <>
         <div className={styles.objectFilter}><TextInput value={filter} onValueChange={setFilter} placeholder="Filter objects…" label={objectFilterLabel} labelVisibility="sr-only" /></div>
