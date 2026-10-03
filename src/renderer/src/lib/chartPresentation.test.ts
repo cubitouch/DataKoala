@@ -165,6 +165,41 @@ test('temporal presentation preserves the explicit selected domain around canoni
   assert.deepEqual((options.series as Array<{ data: unknown[] }>)[0].data, [[Date.parse(labels[0]), 2], [Date.parse(labels[1]), 4]])
 })
 
+test('bucketed temporal charts keep a leading partial bucket inside the selected rolling domain', () => {
+  const labels = [
+    '2026-09-26T00:00:00Z',
+    '2026-09-27T00:00:00Z',
+    '2026-09-28T00:00:00Z'
+  ]
+  const timeDomain = {
+    min: Date.parse('2026-09-26T16:15:00Z'),
+    max: Date.parse('2026-10-03T16:15:00Z')
+  }
+
+  for (const view of ['line', 'area', 'bar'] as const) {
+    const options = buildChartPresentationOptions({
+      labels,
+      series: [{ name: 'Orders', data: [12, 39, 47] }],
+      view,
+      hasSeriesColumn: false,
+      mode: 'builder',
+      timeBucket: 'day',
+      timeDomain
+    })
+    const axis = options.xAxis as { min?: number; max?: number; axisLabel: { showMinLabel?: boolean } }
+    const data = (options.series as Array<{ data: Array<[number, number]> }>)[0].data
+
+    assert.equal(axis.min, timeDomain.min)
+    assert.equal(axis.max, timeDomain.max)
+    assert.equal(axis.axisLabel.showMinLabel, true)
+    assert.deepEqual(data, [
+      [timeDomain.min, 12],
+      [Date.parse(labels[1]), 39],
+      [Date.parse(labels[2]), 47]
+    ])
+  }
+})
+
 test('temporal anomaly mark points use the corresponding series millisecond coordinate', () => {
   const labels = ['2026-09-22T00:00:00Z', '2026-09-23T00:00:00Z']
   const options = buildChartPresentationOptions({
