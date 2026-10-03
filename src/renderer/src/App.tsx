@@ -58,6 +58,7 @@ export function App() {
   const querySurfaceBlocked = queryProfileLoading
   const tempoWorkspace = tabProfile?.kind === 'tempo' && !querySurfaceBlocked
   const lokiWorkspace = tabProfile?.kind === 'loki' && !querySurfaceBlocked
+  const usesSqlSplitLayout = !querySurfaceBlocked && !tempoWorkspace && !lokiWorkspace && (effectiveMode === 'sql' || mode === 'builder')
 
   const currentSidebarBounds = useCallback(() => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth), [])
   const currentEditorBounds = useCallback(() => editorBounds(mainRef.current?.clientHeight ?? window.innerHeight - TITLEBAR_HEIGHT), [])
@@ -161,12 +162,13 @@ export function App() {
           aria-valuemin={SIDEBAR_MIN} aria-valuemax={Math.max(SIDEBAR_MIN, currentSidebarBounds().max)} aria-valuenow={Math.round(sidebarWidth)}
           tabIndex={0} onPointerDown={beginResize('sidebar')} onKeyDown={resizeWithKeyboard('sidebar')} />
         <div className={`main-shell ${styles.mainShell}`}>
-          <div key={activeTabId} className={`main ${styles.main} ${effectiveMode === 'sql' && !querySurfaceBlocked && !tempoWorkspace ? `sql-layout ${styles.sqlLayout}` : ''}`} ref={mainRef}
+          <div key={activeTabId} className={`main ${styles.main} ${usesSqlSplitLayout ? `sql-layout ${styles.sqlLayout}` : ''}`} ref={mainRef}
             style={{ '--editor-height': `${editorHeight}px` } as React.CSSProperties}>
             {queryProfileLoading ? <div className={`query-unavailable ${styles.queryUnavailable}`} role="status" aria-label="Loading connection…">Loading datasource…</div>
               : tempoWorkspace ? <TraceExplorer connectionId={tabConnectionId!} resizeHandle={editorResizeHandle('Resize Tempo query and results')} />
                 : lokiWorkspace ? <LokiExplorer connectionId={tabConnectionId!} />
-                : <>{effectiveMode === 'sql' ? <><QueryEditor builderMode={prometheusBuilder} />{editorResizeHandle('Resize query editor')}</> : <BuilderPanel />}
+                : <>{effectiveMode === 'sql' ? <QueryEditor builderMode={prometheusBuilder} /> : <BuilderPanel />}
+                {editorResizeHandle('Resize query and results')}
                 <ResultExplorer mode={effectiveMode} dimensionControls={effectiveMode === 'builder' ? 'external' : 'result'} hasRun={effectiveMode === 'sql' || builderHasRun}/></>}
           </div>
         </div>

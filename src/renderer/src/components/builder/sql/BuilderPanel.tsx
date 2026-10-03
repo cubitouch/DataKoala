@@ -18,6 +18,7 @@ import styles from './BuilderPanel.module.css'
 import { formatterDialect as formatterDialectForSql } from '@lib/sqlDialect'
 import { ensureRelationColumns } from '@lib/relationColumns'
 import { QueryUtilityActions } from '@components/query/QueryUtilityActions'
+import { QueryToolbar } from '@components/query/QueryToolbar'
 import { GeneratedQueryPanel } from '@components/query/GeneratedQueryPanel'
 import { BuilderForm } from '@components/builder/BuilderForm'
 import { BuilderRow } from '@components/builder/BuilderRow'
@@ -427,7 +428,12 @@ export function BuilderPanel() {
   }
 
   return <div className="editor-pane builder-pane" data-builder-panel="" onKeyDown={onKeyDown}>
-    <div className="editor-head"><ModeSwitch /><div className="spacer"/><QueryUtilityActions /><div className="query-toolbar-group builder-copy-action"><CopySqlButton sql={generatedSql} /></div><div className="query-toolbar-group execution-group"><button className="btn primary" onClick={run} disabled={metadataRefreshing || !generatedSql || !tabConnectionId || connecting || running || Boolean(rangeError)}>{running ? 'Running…' : connecting ? 'Connecting…' : 'Run query'}</button></div></div>
+    <QueryToolbar
+      mode={<ModeSwitch />}
+      utilities={<QueryUtilityActions />}
+      editorActions={<CopySqlButton sql={formattedGeneratedSql} />}
+      execution={<button className="btn primary" onClick={run} disabled={metadataRefreshing || !generatedSql || !tabConnectionId || connecting || running || Boolean(rangeError)}>{running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}</button>}
+    />
     <BuilderForm className={styles.form} data-builder-form="">
       <BuilderRow className={`${styles.row} ${styles.contextRow}`} data-builder-control-row="context">
         <FormField data-builder-field=""><Combobox label="Schema" value={selectedSchema} options={schemaOptions} onChange={chooseSchema} placeholder="Select a schema…" searchable emptyMessage="No matching schemas" loading={metadataStatus === 'loading'} error={metadataStatus === 'error' ? (storeMetadataError ?? 'Could not load schemas') : null} disabled={!tabConnectionId || metadataStatus === 'loading'} /></FormField>
