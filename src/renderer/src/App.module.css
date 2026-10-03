@@ -20,7 +20,11 @@
   -webkit-app-region: drag;
 }
 
-.logo { flex: 0 0 auto; font-weight: 600; letter-spacing: .3px; }
+.logo {
+  flex: 0 0 auto;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
 .queryTabs {
   -webkit-app-region: no-drag;
   flex: 0 1 auto;
@@ -28,9 +32,18 @@
   height: 100%;
   scrollbar-width: none;
 }
-.queryTabs::-webkit-scrollbar { display: none; }
-.dragSpace { flex: 1 1 28px; min-width: 28px; height: 100%; }
-.connectionStatus { -webkit-app-region: no-drag; flex: 0 1 auto; }
+.queryTabs::-webkit-scrollbar {
+  display: none;
+}
+.dragSpace {
+  flex: 1 1 28px;
+  min-width: 28px;
+  height: 100%;
+}
+.connectionStatus {
+  -webkit-app-region: no-drag;
+  flex: 0 1 auto;
+}
 
 .workspace {
   flex: 1;
@@ -62,7 +75,10 @@
 }
 
 .sqlLayout {
-  grid-template-rows: minmax(0, var(--editor-height, 300px)) 8px minmax(160px, 1fr);
+  grid-template-rows: minmax(0, var(--editor-height, 300px)) 8px minmax(
+      160px,
+      1fr
+    );
 }
 
 .resizer {
@@ -102,7 +118,7 @@
 
 .resizer:hover::after,
 .resizer:focus-visible::after {
-  opacity: .8;
+  opacity: 0.8;
 }
 
 .resizer:focus-visible {
@@ -124,6 +140,10 @@
 }
 
 @media (max-width: 899px) {
-  .titlebar { gap: 6px; }
-  .connectionStatus { flex-basis: 180px; }
+  .titlebar {
+    gap: 6px;
+  }
+  .connectionStatus {
+    flex-basis: 180px;
+  }
 }

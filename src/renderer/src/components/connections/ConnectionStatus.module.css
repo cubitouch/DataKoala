@@ -11,7 +11,23 @@
   color: var(--text-dim);
   font-size: 11px;
 }
-.dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--text-mute); }
-.connected .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
-.error .dot { background: var(--red); }
-.label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--text-mute);
+}
+.connected .dot {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+.error .dot {
+  background: var(--red);
+}
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

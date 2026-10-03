@@ -36,7 +36,7 @@
 }
 
 .button.active,
-.button[aria-pressed="true"] {
+.button[aria-pressed='true'] {
   color: #fff;
   background: var(--bg-4);
   border-color: var(--accent);
@@ -62,10 +62,14 @@
 
 .fill {
   fill: currentColor;
-  opacity: .2;
+  opacity: 0.2;
 }
 
 @container result-pane (max-width: 760px) {
-  .viewLabel { display: none; }
-  .button { padding-inline: 8px; }
+  .viewLabel {
+    display: none;
+  }
+  .button {
+    padding-inline: 8px;
+  }
 }
