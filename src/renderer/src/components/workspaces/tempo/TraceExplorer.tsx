@@ -119,7 +119,11 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const cohortAnalysis = useTraceCohortAnalysis(connectionId, searchRows)
   const loading: 'search' | 'trace' | null = searching ? 'search' : traceLoading ? 'trace' : null
   const builderTraceql = useMemo(() => buildTraceql(builder), [builder])
-  const activeTraceql = mode === 'builder' ? builderTraceql : traceql
+  const formattedBuilderTraceql = useMemo(() => {
+    const result = formatTraceql(builderTraceql)
+    return result.ok ? result.query : builderTraceql
+  }, [builderTraceql])
+  const activeTraceql = mode === 'builder' ? formattedBuilderTraceql : traceql
 
   function resetForSearch() {
     cohortAnalysis.reset()
@@ -218,11 +222,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   }, [advancedDiscoveryRequests, connected, connectionGeneration, connectionId, metadataRevision, mode])
 
   const updateBuilder = (patch: Partial<TraceBuilderState>) => {
-    const next = { ...builder, ...patch }
-    const raw = buildTraceql(next)
-    const formatted = formatTraceql(raw)
-    setTempoState({ tempoBuilder: next }, tabId)
-    setSql(formatted.ok ? formatted.query : raw, tabId)
+    setTempoState({ tempoBuilder: { ...builder, ...patch } }, tabId)
   }
 
   const submitTraceId = (event: FormEvent) => { event.preventDefault(); if (!metadataRefreshing) void openTrace({ candidate: traceId, searchRows }) }
@@ -310,9 +310,10 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
   const exploreSimilar = (source: TraceRow) => {
     const incoming = traceBuilderFromSpan(source)
     const next = mergeTraceBuilderState(builder, incoming)
-    const query = buildTraceql(next)
+    const generated = buildTraceql(next)
+    const formatted = formatTraceql(generated)
+    const query = formatted.ok ? formatted.query : generated
     setTempoState({ tempoBuilder: next }, tabId)
-    setSql(query, tabId)
     setQueryMode('builder', tabId)
     resetTrace()
     setSelectedSpanId('')
@@ -401,7 +402,7 @@ export function TraceExplorer({ connectionId, resizeHandle }: TraceExplorerProps
             execution={<button className="btn primary" type="submit" data-tempo-run-query disabled={metadataRefreshing || loading !== null || !activeTraceql.trim()}>{loading === 'search' ? 'Running…' : 'Run'}</button>}
           />
           {mode === 'builder'
-            ? <TraceBuilderPanel value={builder} traceql={builderTraceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} attributes={attributes} attributesLoading={attributesLoading} attributesError={attributesError} attributeValues={advancedValues} attributeValuesLoading={advancedValuesLoading} attributeValuesError={advancedValuesError} onChange={updateBuilder} onOpenTraceql={() => { setSql(builderTraceql, tabId); setQueryMode('sql', tabId) }} />
+            ? <TraceBuilderPanel value={builder} traceql={formattedBuilderTraceql} schemas={metadata?.schemas ?? []} metadataStatus={metadata?.status ?? 'idle'} metadataError={metadata?.error ?? null} messagingSystems={messagingSystems} messagingSystemsLoading={messagingSystemsLoading} messagingSystemsError={messagingSystemsError} attributes={attributes} attributesLoading={attributesLoading} attributesError={attributesError} attributeValues={advancedValues} attributeValuesLoading={advancedValuesLoading} attributeValuesError={advancedValuesError} onChange={updateBuilder} onOpenTraceql={() => { setSql(formattedBuilderTraceql, tabId); setQueryMode('sql', tabId) }} />
             : <QueryCodeEditor ref={traceqlEditorRef} className={styles.traceqlField} value={traceql} minHeight="66px" extensions={traceqlExtensions} onChange={(value) => setSql(value, tabId)} aria-label="TraceQL editor" placeholder={'{ resource.service.name = "checkout-api" && duration > 300ms }'} />}
         </form>
       </div>
