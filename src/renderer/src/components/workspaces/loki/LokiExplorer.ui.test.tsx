@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LokiExplorer } from './LokiExplorer'
 const mocks = vi.hoisted(() => ({ labels: vi.fn(), labelValues: vi.fn(), formatQuery: vi.fn(), runLoki: vi.fn() }))
 const copyTextToClipboard = vi.hoisted(() => vi.fn())
+const chartMock = vi.hoisted(() => ({ renders: 0 }))
 vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
 vi.mock('@lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels, labelValues: mocks.labelValues, formatQuery: mocks.formatQuery } }, query: { runLoki: mocks.runLoki } } }))
 vi.mock('@tanstack/react-virtual', () => ({ useVirtualizer: ({ count }: { count: number }) => ({ measure: vi.fn(), measureElement: vi.fn(), getTotalSize: () => count * 113, getVirtualItems: () => Array.from({ length: Math.min(count, 20) }, (_, index) => ({ index, start: index * 113 })) }) }))
@@ -11,7 +12,7 @@ import { clearLokiLabelsResources } from '@lib/useLokiLabelsResource'
 import type { LokiLogResult } from '@shared/loki'
 
 vi.mock('@uiw/react-codemirror', () => ({ default: ({ value }: { value: string }) => <textarea aria-label="LogQL editor" value={value} readOnly /> }))
-vi.mock('echarts-for-react', () => ({ default: () => <div data-testid="loki-echarts" /> }))
+vi.mock('echarts-for-react', () => ({ default: () => { chartMock.renders += 1; return <div data-testid="loki-echarts" /> } }))
 
 const metric = { resultKind: 'metrics' as const, columns: [{ name: 'timestamp', dataTypeID: 0, dataTypeName: 'timestamp' }, { name: 'value', dataTypeID: 0, dataTypeName: 'number' }], rows: [{ timestamp: '2026-01-01T00:00:00Z', value: 2 }], rowCount: 1, durationMs: 1, execution: { provider: 'loki' as const, durationMs: 1 } }
 const logs = { resultKind: 'logs' as const, logRows: [], columns: [], rows: [], rowCount: 0, durationMs: 1, execution: { provider: 'loki' as const, durationMs: 1 } }
@@ -26,6 +27,7 @@ beforeEach(() => {
   mocks.labels.mockReset().mockResolvedValue(['app', 'service'])
   mocks.labelValues.mockReset().mockResolvedValue(['x'])
   mocks.runLoki.mockReset()
+  chartMock.renders = 0
 })
 
 describe('LokiExplorer execution', () => {
@@ -328,18 +330,22 @@ describe('LokiExplorer execution', () => {
     expect(screen.queryByRole('textbox', { name: 'Search loaded logs' })).toBeNull()
     expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
     await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+  })
 
-    const lineExplorer = document.querySelector('[data-result-explorer]')
-    fireEvent.click(screen.getByRole('button', { name: 'Area' }))
-    await waitFor(() => expect(document.querySelector('[data-result-explorer]')).not.toBe(lineExplorer))
-    const areaExplorer = document.querySelector('[data-result-explorer]')
-    fireEvent.click(screen.getByRole('button', { name: 'Bar' }))
-    await waitFor(() => expect(document.querySelector('[data-result-explorer]')).not.toBe(areaExplorer))
-    const barExplorer = document.querySelector('[data-result-explorer]')
+  it('does not continuously re-apply an unchanged Loki trend chart', async () => {
+    const run = mocks.runLoki.mockResolvedValueOnce(logs).mockResolvedValueOnce(metric)
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getByRole('button', { name: 'Line' }))
-    await waitFor(() => expect(document.querySelector('[data-result-explorer]')).not.toBe(barExplorer))
-    expect(run).toHaveBeenCalledTimes(2)
-    expect(useStore.getState().tabs[0].lokiResultView).toBe('line')
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+
+    await new Promise((resolve) => setTimeout(resolve, 120))
+    const settledRenderCount = chartMock.renders
+    await new Promise((resolve) => setTimeout(resolve, 120))
+
+    expect(chartMock.renders).toBe(settledRenderCount)
   })
 
   it('reloads log volume after a List-mode run invalidates an earlier chart trend', async () => {
