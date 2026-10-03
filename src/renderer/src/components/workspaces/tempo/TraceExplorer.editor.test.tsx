@@ -33,6 +33,7 @@ describe('TraceExplorer TraceQL editor', () => {
     patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'sql', sql: traceql, tempoBuilder: traceBuilderFromTraceql(traceql) })
     useStore.setState({ profiles: [{ id: 'tempo-1', name: 'Tempo', kind: 'tempo', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test', datasourceUid: 'tempo-main' }, grafana: { baseUrl: 'https://grafana.example', datasourceType: 'tempo' } }] })
     notify.mockReset()
+    copyTextToClipboard.mockReset()
     vi.mocked(api.query.run).mockReset()
   })
   afterEach(cleanup)
@@ -73,44 +74,59 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(api.query.run).not.toHaveBeenCalled()
   })
 
-  it('executes and opens the Builder-generated TraceQL instead of stale manual SQL', async () => {
-    patchActiveTestSession({ queryMode: 'builder', sql: 'select now();', tempoBuilder: traceBuilderFromTraceql('') })
+  it('executes, copies, hands off, and opens the formatted Builder TraceQL without mutating raw TraceQL', async () => {
+    const manualTraceql = '{ resource.service.name = "manual-do-not-run" }'
+    patchActiveTestSession({ queryMode: 'builder', sql: manualTraceql, tempoBuilder: traceBuilderFromTraceql('') })
     vi.mocked(api.query.run).mockResolvedValue({
       columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' }],
       rows: [], rowCount: 0, durationMs: 1
     })
     render(<TraceExplorer connectionId="tempo-1" />)
 
-    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe('{ span:duration > 300ms }')
-    expect((screen.getByRole('button', { name: 'Copy TraceQL to clipboard' }) as HTMLButtonElement).disabled).toBe(false)
+    const generated = buildTraceql(traceBuilderFromTraceql(''))
+    const formatted = formatTraceql(generated)
+    const expected = formatted.ok ? formatted.query : generated
+    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe(expected)
+    const copy = screen.getByRole('button', { name: 'Copy TraceQL to clipboard' }) as HTMLButtonElement
+    expect(copy.disabled).toBe(false)
+    fireEvent.click(copy)
+    await waitFor(() => expect(copyTextToClipboard).toHaveBeenCalledWith(expected))
+    expect(activeTestSession().sql).toBe(manualTraceql)
+
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(api.query.run).toHaveBeenCalled())
-    expect(vi.mocked(api.query.run).mock.calls[0]?.[1]).toBe('{ span:duration > 300ms }')
-    expect(vi.mocked(api.query.run).mock.calls[0]?.[1]).not.toContain('select now()')
+    expect(vi.mocked(api.query.run).mock.calls[0]?.[1]).toBe(expected)
+    expect(activeTestSession().sql).toBe(manualTraceql)
+
     fireEvent.click(screen.getByRole('button', { name: 'Grafana handoff' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Copy Grafana link' }))
     const pane = JSON.parse(new URL(copyTextToClipboard.mock.calls.at(-1)![0]).searchParams.get('panes')!)
-    expect(pane.datakoala.queries[0].query).toBe('{ span:duration > 300ms }')
+    expect(pane.datakoala.queries[0].query).toBe(expected)
+    expect(activeTestSession().sql).toBe(manualTraceql)
 
     fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
     await waitFor(() => expect(activeTestSession().queryMode).toBe('sql'))
-    expect(activeTestSession().sql).toBe('{ span:duration > 300ms }')
+    expect(activeTestSession().sql).toBe(expected)
   })
 
-  it('stores automatically formatted TraceQL after Builder edits', async () => {
-    patchActiveTestSession({ queryMode: 'builder', sql: '{ }', tempoBuilder: traceBuilderFromTraceql('{ }') })
+  it('formats generated TraceQL after Builder edits without changing raw TraceQL', async () => {
+    const manualTraceql = '{ resource.service.name = "manual-query" }'
+    patchActiveTestSession({ queryMode: 'builder', sql: manualTraceql, tempoBuilder: traceBuilderFromTraceql('{ }') })
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Add facet' }))
     const generated = '{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") && span:duration > 300ms }'
     const expected = formatTraceql(generated)
     expect(expected.ok).toBe(true)
-    await waitFor(() => expect(activeTestSession().sql).toBe(expected.ok ? expected.query : ''))
-    expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe(generated)
+    if (!expected.ok) return
+    expect(expected.query).not.toBe(generated)
+    await waitFor(() => expect(screen.getByTestId('trace-builder').querySelector('output')?.textContent).toBe(expected.query))
+    expect(activeTestSession().sql).toBe(manualTraceql)
     expect(notify).not.toHaveBeenCalledWith(expect.objectContaining({ message: 'Formatted' }))
   })
 
   it('preserves incomplete selected facets while other facet values change', async () => {
-    patchActiveTestSession({ queryMode: 'builder', sql: '{ }', tempoBuilder: traceBuilderFromTraceql('{ }') })
+    const manualTraceql = '{ resource.service.name = "manual-query" }'
+    patchActiveTestSession({ queryMode: 'builder', sql: manualTraceql, tempoBuilder: traceBuilderFromTraceql('{ }') })
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Select A and B' }))
     expect(screen.getByTestId('selected-facets').textContent).toBe('resource.a:|span.b:')
@@ -118,8 +134,65 @@ describe('TraceExplorer TraceQL editor', () => {
     await waitFor(() => expect(screen.getByTestId('selected-facets').textContent).toBe('resource.a:one|span.b:'))
     fireEvent.click(screen.getByRole('button', { name: 'Set B' }))
     await waitFor(() => expect(screen.getByTestId('selected-facets').textContent).toBe('resource.a:one|span.b:two'))
-    expect(activeTestSession().sql).toContain('resource.a = "one"')
-    expect(activeTestSession().sql).toContain('span.b = "two"')
+    const generated = screen.getByTestId('trace-builder').querySelector('output')?.textContent ?? ''
+    expect(generated).toContain('resource.a = "one"')
+    expect(generated).toContain('span.b = "two"')
+    expect(activeTestSession().sql).toBe(manualTraceql)
+  })
+
+
+  it('keeps raw TraceQL when Explore similar switches to Builder and runs the generated query', async () => {
+    const manualTraceql = '{ resource.service.name = "manual-query" }'
+    const traceId = '00000000000000000000000000000001'
+    const source = {
+      traceId,
+      spanId: 'root',
+      parentSpanId: '',
+      serviceNamespace: 'payments',
+      service: 'checkout',
+      name: 'GET /orders',
+      kind: 'SERVER',
+      status: 'OK',
+      startTimeMs: 1_000,
+      durationMs: 20,
+      attributes: { 'http.request.method': 'GET', 'http.route': '/orders' },
+      resourceAttributes: { 'service.namespace': 'payments' }
+    }
+    patchActiveTestSession({ queryMode: 'sql', sql: manualTraceql, tempoBuilder: traceBuilderFromTraceql('{ }') })
+    vi.mocked(api.query.run)
+      .mockResolvedValueOnce({
+        columns: [{ name: 'spanId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' }],
+        rows: [source],
+        rowCount: 1,
+        durationMs: 1
+      })
+      .mockResolvedValueOnce({
+        columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text', logicalType: 'string' }],
+        rows: [],
+        rowCount: 0,
+        durationMs: 1
+      })
+    render(<TraceExplorer connectionId="tempo-1" />)
+
+    fireEvent.change(screen.getByLabelText('Trace ID'), { target: { value: traceId } })
+    fireEvent.click(screen.getByRole('button', { name: 'Open trace' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Explore similar traces' })).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Explore similar traces' }))
+    await waitFor(() => expect(vi.mocked(api.query.run)).toHaveBeenCalledTimes(2))
+
+    expect(activeTestSession().queryMode).toBe('builder')
+    expect(activeTestSession().tempoBuilder).toMatchObject({
+      serviceNamespace: 'payments',
+      service: 'checkout',
+      protocol: 'http',
+      httpMethod: 'GET',
+      endpoint: '/orders'
+    })
+    const generated = buildTraceql(activeTestSession().tempoBuilder)
+    const formatted = formatTraceql(generated)
+    expect(vi.mocked(api.query.run).mock.calls[1]?.[1]).toBe(formatted.ok ? formatted.query : generated)
+    expect(activeTestSession().sql).toBe(manualTraceql)
   })
 
   it('keeps the primary action named Run for exhaustive searches', () => {
@@ -136,7 +209,9 @@ describe('TraceExplorer TraceQL editor', () => {
     render(<TraceExplorer connectionId="tempo-1" />)
     fireEvent.click(screen.getByRole('button', { name: 'Open in TraceQL mode' }))
     await waitFor(() => expect(activeTestSession().queryMode).toBe('sql'))
-    expect(activeTestSession().sql).toBe(buildTraceql(traceBuilderFromTraceql(generated)))
+    const builderQuery = buildTraceql(traceBuilderFromTraceql(generated))
+    const formatted = formatTraceql(builderQuery)
+    expect(activeTestSession().sql).toBe(formatted.ok ? formatted.query : builderQuery)
     expect(screen.getByRole('button', { name: 'TraceQL' }).getAttribute('aria-pressed')).toBe('true')
   })
 
