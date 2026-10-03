@@ -55,7 +55,6 @@ export interface GenericResultExplorerProps {
   timeBucket?: 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
   chartTimeDomain?: { min: number; max: number } | null
   hidePicker?: boolean
-  animate?: boolean
   onConfigurationChange: (configuration: VisualizationConfiguration) => void
   onSeriesVisibilityChange: (visibility: Record<string, boolean>) => void
   onAddFilter: (filter: ResultFilter) => void
@@ -68,7 +67,7 @@ export interface GenericResultExplorerProps {
   onReconnect?: () => void
   onTemporalRangeSelected?: (range: { startMs: number; endMs: number }) => void
 }
-export function GenericResultExplorer({ mode, dimensionControls = 'result', hasRun = true, result, resultRevision, running, error, isResultStale, reconnecting = false, configuration, seriesVisibility, activeFilters, externalSeriesColumns = [], timeBucket, chartTimeDomain = null, hidePicker = false, animate = true, onConfigurationChange, onSeriesVisibilityChange, onAddFilter, onRemoveFilter, onClearFilters, onToggleFilterExecution, canPromoteTableFilter, canPromoteChartFilter, canDemoteFilter, onReconnect, onTemporalRangeSelected }: GenericResultExplorerProps) {
+export function GenericResultExplorer({ mode, dimensionControls = 'result', hasRun = true, result, resultRevision, running, error, isResultStale, reconnecting = false, configuration, seriesVisibility, activeFilters, externalSeriesColumns = [], timeBucket, chartTimeDomain = null, hidePicker = false, onConfigurationChange, onSeriesVisibilityChange, onAddFilter, onRemoveFilter, onClearFilters, onToggleFilterExecution, canPromoteTableFilter, canPromoteChartFilter, canDemoteFilter, onReconnect, onTemporalRangeSelected }: GenericResultExplorerProps) {
   const updateSeriesVisibility = useCallback((next: Record<string, boolean> | ((current: Record<string, boolean>) => Record<string, boolean>)) => {
     onSeriesVisibilityChange(typeof next === 'function' ? next(seriesVisibility) : next)
   }, [seriesVisibility, onSeriesVisibilityChange])
@@ -194,11 +193,10 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   )
   const renderedOption = useMemo(() => option ? {
     ...option,
-    // Loki synthetic trends opt out because ECharts can leave line/area paths partially
-    // painted across their async result/view lifecycle. Other result explorers keep
-    // their existing transitions.
-    animation: window.datakoala?.smokeMode ? false : animate && animationPolicy.current.shouldAnimate(chartFingerprint)
-  } : null, [animate, chartFingerprint, option])
+    // Deterministic real-renderer captures should never sample ECharts mid-transition.
+    // smokeMode is exposed only by the controlled Electron preview/smoke process.
+    animation: window.datakoala?.smokeMode ? false : animationPolicy.current.shouldAnimate(chartFingerprint)
+  } : null, [chartFingerprint, option])
   const chartRevision = useMemo(createChartRevision, [chartFingerprint])
   useEffect(() => {
     if (!renderedOption) return
