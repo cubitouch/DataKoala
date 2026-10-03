@@ -27,10 +27,19 @@
 
 .traceqlField :global(.cm-editor) {
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--bg);
   color: var(--text);
+  font:
+    12px/1.45 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
 }
 
 .traceqlField :global(.cm-editor.cm-focused) {
@@ -97,18 +106,6 @@
   overflow: hidden;
 }
 
-.traceqlField :global(.cm-editor) {
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  font:
-    12px/1.45 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    monospace;
-}
 
 .traceqlField :global(.cm-scroller) {
   min-width: 0;
