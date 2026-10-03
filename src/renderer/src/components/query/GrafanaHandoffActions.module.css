@@ -6,10 +6,12 @@
   white-space: nowrap;
   font-size: 11px;
 }
+
 .menu {
   display: grid;
   gap: 2px;
 }
+
 .menu button {
   width: 100%;
   padding: 7px 8px;
@@ -22,6 +24,7 @@
   text-align: left;
   cursor: pointer;
 }
+
 .menu button:hover,
 .menu button:focus-visible {
   background: var(--bg-4);

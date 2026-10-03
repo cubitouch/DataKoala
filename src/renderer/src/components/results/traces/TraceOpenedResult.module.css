@@ -27,17 +27,18 @@
 .inspectionArea.withDetails {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 34%);
 }
+
 .waterfallOnly {
   grid-template-columns: minmax(0, 1fr);
 }
 
-@media (max-width: 960px) {
+@media (width <= 960px) {
   .inspectionArea.withDetails {
     grid-template-columns: minmax(0, 1fr) minmax(250px, 40%);
   }
 }
 
-@media (max-width: 760px) {
+@media (width <= 760px) {
   .inspectionArea.withDetails {
     display: flex;
     flex-direction: column;

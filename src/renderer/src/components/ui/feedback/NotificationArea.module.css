@@ -10,7 +10,7 @@
   border-radius: 8px;
   font-size: 12px;
   z-index: 60;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 40%);
 }
 
 .error {

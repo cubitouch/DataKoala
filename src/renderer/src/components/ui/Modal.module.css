@@ -8,6 +8,7 @@
   background: #05070bb8;
   backdrop-filter: blur(2px);
 }
+
 .dialog {
   display: flex;
   flex-direction: column;

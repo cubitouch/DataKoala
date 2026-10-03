@@ -2,6 +2,7 @@
   position: relative;
   z-index: 2;
 }
+
 .summary {
   display: block;
   width: 22px;
@@ -13,15 +14,18 @@
   line-height: 20px;
   opacity: 0;
 }
+
 .summary::-webkit-details-marker {
   display: none;
 }
+
 :global([data-result-cell]:hover) .summary,
 .menu[open] .summary,
 .summary:focus-visible {
   opacity: 1;
   background: var(--bg-4);
 }
+
 .items {
   position: absolute;
   top: 24px;
@@ -31,8 +35,9 @@
   background: var(--bg-4);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 40%);
 }
+
 .items button {
   display: block;
   width: 100%;
@@ -45,7 +50,8 @@
   cursor: pointer;
   white-space: nowrap;
 }
+
 .items button:hover,
 .items button:focus-visible {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(255 255 255 / 8%);
 }

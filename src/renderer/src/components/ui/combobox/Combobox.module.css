@@ -1,6 +1,7 @@
 .errorTrigger {
-  border-color: rgba(248, 113, 113, 0.65);
+  border-color: rgb(248 113 113 / 65%);
 }
+
 .triggerContent {
   min-width: 0;
   flex: 1;
@@ -9,14 +10,17 @@
   gap: 7px;
   overflow: hidden;
 }
+
 .triggerText {
   min-width: 0;
   display: block;
   text-align: left;
 }
+
 .placeholder {
   color: var(--text-mute);
 }
+
 .triggerLabel,
 .triggerSubtitle {
   display: block;
@@ -25,11 +29,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .triggerSubtitle {
   color: var(--text-mute);
   font-size: 10px;
   line-height: 1.2;
 }
+
 .triggerAvatar,
 .optionAvatar,
 .chip img {
@@ -39,6 +45,7 @@
   border-radius: 50%;
   object-fit: cover;
 }
+
 .triggerIcon,
 .optionIcon {
   width: 18px;
@@ -48,6 +55,7 @@
   align-items: center;
   justify-content: center;
 }
+
 .errorDot {
   width: 15px;
   height: 15px;
@@ -55,17 +63,19 @@
   display: inline-grid;
   place-items: center;
   border-radius: 50%;
-  background: rgba(248, 113, 113, 0.16);
+  background: rgb(248 113 113 / 16%);
   color: var(--red);
   font-size: 10px;
   font-weight: 700;
 }
+
 .menu {
   max-height: min(360px, calc(100vh - 48px));
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 5px;
 }
+
 .searchWrap {
   position: sticky;
   top: 0;
@@ -80,6 +90,7 @@
   background: var(--bg-2);
   color: var(--text-mute);
 }
+
 .option {
   display: flex;
   align-items: center;
@@ -92,36 +103,43 @@
   font-size: 12px;
   line-height: 1.22;
 }
+
 .option:hover,
 .option[data-active='true'] {
   background: var(--bg-4);
   color: var(--text);
   outline: 1px solid var(--border-hi);
 }
+
 .option[aria-selected='true'] {
   background: color-mix(in srgb, var(--accent) 14%, var(--bg-3));
   color: var(--text);
 }
+
 .option[aria-disabled='true'] {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
 .optionMain {
   min-width: 0;
   flex: 1;
   display: grid;
   gap: 2px;
 }
+
 .optionLabel,
 .optionSubtitle {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .optionSubtitle {
   color: var(--text-mute);
   font-size: 10px;
 }
+
 .optionCheck {
   width: 14px;
   flex: none;
@@ -129,11 +147,13 @@
   text-align: center;
   font-weight: 700;
 }
+
 .state {
   padding: 8px;
   color: var(--text-mute);
   font-size: 12px;
 }
+
 .custom {
   width: 100%;
   padding: 7px;
@@ -144,17 +164,20 @@
   text-align: left;
   cursor: pointer;
 }
+
 .custom:hover,
 .custom:focus-visible {
   background: var(--bg-4);
   outline: 1px solid var(--border-hi);
 }
+
 .chips {
   display: flex;
   gap: 4px;
   min-width: 0;
   overflow: hidden;
 }
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -169,20 +192,24 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .chipLabel {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .chipRemove {
   color: var(--text-mute);
   cursor: pointer;
 }
+
 .chipRemove:hover,
 .chipRemove:focus-visible {
   color: var(--text);
   outline: none;
 }
+
 .clear {
   width: 100%;
   margin-bottom: 4px;
@@ -196,6 +223,7 @@
   font-size: 12px;
   cursor: pointer;
 }
+
 .clear:hover,
 .clear:focus-visible {
   background: var(--bg-4);

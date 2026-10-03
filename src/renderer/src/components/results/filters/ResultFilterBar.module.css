@@ -8,10 +8,12 @@
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
+
 .heading {
   color: var(--text-mute);
   font-size: 11px;
 }
+
 .clear {
   border: 0;
   background: transparent;

@@ -7,8 +7,9 @@
   background: var(--bg-4);
   border: 1px solid var(--border);
   border-radius: 7px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 50%);
 }
+
 .popover button {
   display: block;
   width: 100%;
@@ -20,8 +21,9 @@
   text-align: left;
   cursor: pointer;
 }
+
 .popover button:hover,
 .popover button:focus-visible {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgb(255 255 255 / 8%);
   outline: none;
 }
