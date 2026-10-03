@@ -106,7 +106,6 @@
   overflow: hidden;
 }
 
-
 .traceqlField :global(.cm-scroller) {
   min-width: 0;
   max-width: 100%;
