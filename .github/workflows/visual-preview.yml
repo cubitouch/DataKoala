@@ -10,6 +10,8 @@ permissions:
 
 env:
   PREVIEW_FILES: |-
+    ai-settings.png
+    ai-query-proposal.png
     sql-default.png
     prometheus-toolbar.png
     prometheus-toolbar-narrow.png
@@ -87,6 +89,9 @@ jobs:
 
       - name: Capture fullscreen Tempo service map
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-service-map-fullscreen-preview.mjs
+
+      - name: Capture AI settings and proposal previews (mocked provider)
+        run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x1000x24' pnpm exec electron --no-sandbox scripts/capture-ai-preview.mjs
 
       - name: Validate preview image set
         shell: bash
@@ -197,6 +202,8 @@ jobs:
               'builder-categorical-numeric.png': 'Builder — categorical X and numeric Y',
               'builder-count-without-y.png': 'Builder — Count without a Y axis',
               'builder-narrow.png': 'Builder — narrow responsive layout',
+              'ai-settings.png': 'AI settings — encrypted key and OpenRouter model selection',
+              'ai-query-proposal.png': 'Ask AI — grounded PostgreSQL proposal before explicit application',
               'table.png': 'Filtered results table'
             }
             const files = process.env.PREVIEW_FILES.split(/\r?\n/).filter(Boolean)

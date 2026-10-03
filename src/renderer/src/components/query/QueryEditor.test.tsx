@@ -252,6 +252,7 @@ describe('PromQL execution', () => {
     expect(screen.queryByLabelText('PromQL range start')).toBeNull()
     expect(screen.queryByText('From')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Explain' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Ask AI' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Explain Analyze' })).toBeNull()
     expect(screen.queryByText('⌘↵ run')).toBeNull()
     expect(screen.getByRole('button', { name: 'Run' }).title).toContain(
@@ -513,6 +514,7 @@ describe('QueryEditor Explain loading states', () => {
     patchActiveTestSession({ connectionProfileId: 'bq', sql: 'select 1' })
     const view = render(<QueryEditor />)
     expect(screen.queryByRole('button', { name: 'Explain' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Ask AI' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Explain Analyze' })).toBeNull()
     useStore.setState((state) => ({
       tabs: state.tabs.map((tab) => ({ ...tab, connectionProfileId: 'pg' })),
@@ -521,6 +523,9 @@ describe('QueryEditor Explain loading states', () => {
     view.rerender(<QueryEditor />)
     expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Explain Analyze' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Ask AI' })).toBeTruthy()
+    view.rerender(<QueryEditor builderMode />)
+    expect(screen.queryByRole('button', { name: 'Ask AI' })).toBeNull()
     expect(explain).not.toHaveBeenCalled()
   })
   it('keeps SQL formatting local', async () => {

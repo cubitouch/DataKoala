@@ -1,4 +1,11 @@
 export const IPC = {
+  AI_SETTINGS_GET: 'ai:settings:get',
+  AI_SETTINGS_SAVE: 'ai:settings:save',
+  AI_KEY_REMOVE: 'ai:key:remove',
+  AI_MODELS: 'ai:models',
+  AI_TEST: 'ai:test',
+  AI_PROPOSE: 'ai:propose',
+  AI_CANCEL: 'ai:cancel',
   CONNECTION_TEST: 'connection:test',
   CONNECTION_CONNECT: 'connection:connect',
   CONNECTION_RECONNECT: 'connection:reconnect',
