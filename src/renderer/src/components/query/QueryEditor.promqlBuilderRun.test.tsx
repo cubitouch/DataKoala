@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const { labelsForMetric, labelValues, promqlAsExtension, formatQuery, runQuery } = vi.hoisted(() => ({
   labelsForMetric: vi.fn(),
@@ -31,6 +31,7 @@ vi.mock('@components/ui/feedback/NotificationArea', () => ({ notify: vi.fn() }))
 
 import { QueryEditor } from './QueryEditor'
 import { activeTestSession, patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
+import { useStore } from '@store/useStore'
 
 function arrange(metric: string, metadataType: string | undefined, sql: string) {
   const id = 'prom-builder-run'
@@ -132,6 +133,39 @@ describe('PromQL Builder Run availability', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(runQuery).toHaveBeenCalled())
     expect(runQuery.mock.calls[0][1]).toBe(generated)
+    expect(activeTestSession().sql).toBe('stale_manual_promql')
+  })
+
+  it('does not reuse a Builder query after the same tab changes Prometheus connection', async () => {
+    arrange('up_a', 'gauge', 'stale_manual_promql')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('disabled')).toBe(false))
+
+    act(() => useStore.setState((state) => ({
+      profiles: [...state.profiles, { id: 'prom-builder-b', name: 'Metrics B', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx', datasourceUid: 'prom-b' } }],
+      activeProfileId: 'prom-builder-b',
+      tabs: state.tabs.map((tab) => tab.id === state.activeTabId
+        ? { ...tab, connectionProfileId: 'prom-builder-b', promqlBuilder: { ...tab.promqlBuilder, metric: '' } }
+        : tab)
+    })))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('disabled')).toBe(true))
+    expect(screen.getByRole('button', { name: 'Copy SQL to clipboard' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.getByRole('button', { name: 'Grafana handoff' }).hasAttribute('disabled')).toBe(true)
+    expect(runQuery).not.toHaveBeenCalled()
+
+    act(() => useStore.setState((state) => ({
+      metadataByProfileId: {
+        ...state.metadataByProfileId,
+        'prom-builder-b': { schemas: [{ name: 'Prometheus', isSystem: false, relations: [{ schema: 'Prometheus', name: 'up_b', qualifiedName: 'up_b', kind: 'metric', columnsStatus: 'idle' }] }], status: 'loaded', error: null, isStale: false }
+      },
+      tabs: state.tabs.map((tab) => tab.id === state.activeTabId
+        ? { ...tab, promqlBuilder: { ...tab.promqlBuilder, metric: 'up_b', calculation: 'raw', aggregation: 'none' } }
+        : tab)
+    })))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('disabled')).toBe(false))
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(runQuery).toHaveBeenCalledWith('prom-builder-b', 'up_b', [], expect.anything()))
     expect(activeTestSession().sql).toBe('stale_manual_promql')
   })
 

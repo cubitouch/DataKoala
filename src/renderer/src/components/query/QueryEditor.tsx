@@ -60,9 +60,13 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const activeExplainRequest = useStore((s) => selectActiveSession(s).activeExplainRequest)
   const setActiveExplainRequest = useStore((s) => s.setActiveExplainRequest)
   const [formatting, setFormatting] = useState(false)
-  const [reportedBuilderQuery, setReportedBuilderQuery] = useState<{ tabId: string; state: PromqlBuilderQueryState } | null>(null)
-  const handleBuilderQueryStateChange = useCallback((state: PromqlBuilderQueryState) => setReportedBuilderQuery({ tabId, state }), [tabId])
-  const builderQueryState = reportedBuilderQuery?.tabId === tabId ? reportedBuilderQuery.state : null
+  const [reportedBuilderQuery, setReportedBuilderQuery] = useState<{ tabId: string; connectionId: string | null; state: PromqlBuilderQueryState } | null>(null)
+  const handleBuilderQueryStateChange = useCallback((state: PromqlBuilderQueryState) => {
+    setReportedBuilderQuery({ tabId, connectionId: tabConnectionId, state })
+  }, [tabId, tabConnectionId])
+  const builderQueryState = reportedBuilderQuery?.tabId === tabId && reportedBuilderQuery.connectionId === tabConnectionId
+    ? reportedBuilderQuery.state
+    : null
   const effectiveExecutionQuery = builderMode ? (builderQueryState?.generated ?? '') : sql
   const effectiveDisplayQuery = builderMode ? (builderQueryState?.displayed ?? builderQueryState?.generated ?? '') : sql
   const editorRef = useRef<QueryCodeEditorHandle>(null)
