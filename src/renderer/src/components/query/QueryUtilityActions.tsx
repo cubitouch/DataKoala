@@ -1,31 +1,27 @@
+import { useId, useRef, useState } from 'react'
+import { Modal } from '@components/ui/Modal'
 import { selectActiveSession, useStore } from '@store/useStore'
 import styles from './QueryUtilityActions.module.css'
 import { PresetManagerAction } from './PresetManagerAction'
 
 /** Secondary, tab-scoped actions shared by editor and Builder toolbars. */
 interface QueryUtilityActionsProps {
-  hasResults?: boolean
-  onClearResults?: () => void
-  onResetQuery?: () => void
+  busy?: boolean
+  onBeforeReset?: () => void
   onPresetLoaded?: () => void
 }
 
 export function QueryUtilityActions({
-  hasResults: hasResultsOverride,
-  onClearResults,
-  onResetQuery,
+  busy = false,
+  onBeforeReset,
   onPresetLoaded,
 }: QueryUtilityActionsProps = {}) {
   const active = useStore(selectActiveSession)
-  const clearResults = useStore((state) => state.clearActiveResults)
   const resetQuery = useStore((state) => state.resetActiveQuery)
-  const defaultHasResults = Boolean(
-    active.result ||
-    active.queryError ||
-    active.explainText ||
-    active.sqlResultFilters.some((filter) => filter.execution !== 'query') ||
-    active.builderResultFilters.some((filter) => filter.execution !== 'query'),
-  )
+  const [resetTabId, setResetTabId] = useState<string | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const titleId = useId()
+  const close = () => setResetTabId(null)
 
   return (
     <div
@@ -34,27 +30,52 @@ export function QueryUtilityActions({
     >
       <PresetManagerAction onPresetLoaded={onPresetLoaded} />
       <button
+        ref={triggerRef}
         type="button"
         className="btn ghost"
         aria-label="Reset query"
-        onClick={() => {
-          if (window.confirm(`Reset ${active.title} to a fresh query?`))
-            (onResetQuery ?? resetQuery)()
-        }}
-        title="Reset the current tab's query and Builder state."
+        disabled={active.running || busy}
+        onClick={() => setResetTabId(active.id)}
+        title="Clear the current tab's query, Builder state, and results."
       >
         Reset
       </button>
-      <button
-        type="button"
-        className="btn ghost"
-        aria-label="Clear results"
-        onClick={onClearResults ?? clearResults}
-        disabled={!(hasResultsOverride ?? defaultHasResults)}
-        title="Clear the current result without changing the query."
+      <Modal
+        open={resetTabId === active.id}
+        onClose={close}
+        labelledBy={titleId}
+        returnFocusRef={triggerRef}
+        dialogClassName={styles.resetDialog}
       >
-        Clear
-      </button>
+        <h2 id={titleId}>Reset exploration?</h2>
+        <p>
+          This will clear the query, Builder state, and current results in “
+          {active.title}”. Your connection and time range will be kept.
+        </p>
+        <div className={styles.dialogActions}>
+          <button type="button" className="btn ghost" onClick={close}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn danger"
+            disabled={active.running || busy}
+            onClick={() => {
+              if (
+                busy ||
+                useStore.getState().activeTabId !== resetTabId ||
+                selectActiveSession(useStore.getState()).running
+              )
+                return
+              onBeforeReset?.()
+              resetQuery()
+              close()
+            }}
+          >
+            Reset exploration
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }

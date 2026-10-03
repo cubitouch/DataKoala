@@ -76,7 +76,11 @@ vi.mock('./ModeSwitch', () => ({
 
 import { QueryEditor } from './QueryEditor'
 import { ExplainPane } from '@components/query/sql/ExplainPane'
-import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
+import {
+  activeTestSession,
+  patchActiveTestSession,
+  resetTestStore,
+} from '@test/sessionTestUtils'
 import { useStore } from '@store/useStore'
 
 const deferred = <T,>() => {
@@ -540,6 +544,40 @@ describe('QueryEditor Explain loading states', () => {
     expect(screen.getByRole('button', { name: 'Explain Analyze' })).toBeTruthy()
     expect(screen.queryByRole('combobox', { name: /Resolution:/ })).toBeNull()
   })
+  it.each([
+    ['Explain', 'success'],
+    ['Explain', 'failure'],
+    ['Explain Analyze', 'success'],
+    ['Explain Analyze', 'failure'],
+  ] as const)(
+    'blocks Reset during %s and restores it after %s',
+    async (action, outcome) => {
+      const request = deferred<{ text: string }>()
+      explain.mockReturnValueOnce(request.promise)
+      renderExplainUi()
+      const reset = screen.getByRole('button', { name: 'Reset query' })
+      expect(reset.hasAttribute('disabled')).toBe(false)
+
+      fireEvent.click(screen.getByRole('button', { name: action }))
+      await waitFor(() => expect(explain).toHaveBeenCalledTimes(1))
+      expect(activeTestSession().running).toBe(false)
+      expect(reset.hasAttribute('disabled')).toBe(true)
+      fireEvent.click(reset)
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(activeTestSession().sql).toBe('select 1;')
+      expect(activeTestSession().explainText).toBe('previous plan')
+
+      if (outcome === 'success') request.resolve({ text: 'new plan' })
+      else request.reject(new Error('explain failed'))
+      await waitFor(() => expect(reset.hasAttribute('disabled')).toBe(false))
+      fireEvent.click(reset)
+      fireEvent.click(screen.getByRole('button', { name: 'Reset exploration' }))
+      expect(activeTestSession().sql).toBe('')
+      expect(activeTestSession().explainText).toBeNull()
+      expect(activeTestSession().showExplain).toBe(false)
+    },
+  )
+
   it('shows Explaining, disables both buttons, preserves the previous plan, and ends after success', async () => {
     const request = deferred<{ text: string }>()
     explain.mockReturnValueOnce(request.promise)

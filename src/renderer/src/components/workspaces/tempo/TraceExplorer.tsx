@@ -20,7 +20,6 @@ import {
   buildTraceql,
   mergeTraceBuilderState,
   traceBuilderFromSpan,
-  traceBuilderFromTraceql,
   type TraceBuilderState,
   type TraceSampleSize,
 } from '@lib/traceBuilder'
@@ -32,7 +31,6 @@ import { notify } from '@components/ui/feedback/NotificationArea'
 import { ModeSwitch } from '@components/query/ModeSwitch'
 import { QueryUtilityActions } from '@components/query/QueryUtilityActions'
 import { CopySqlButton } from '@components/query/CopySqlButton'
-import { defaultQueryTextForDatasource } from '@lib/queryDefaults'
 import { useTraceCohortAnalysis } from '@lib/useTraceCohortAnalysis'
 import { QueryToolbar } from '@components/query/QueryToolbar'
 import {
@@ -42,11 +40,7 @@ import {
 import { TraceSearchList } from '@components/results/traces/TraceSearchList'
 import { TraceOpenedResult } from '@components/results/traces/TraceOpenedResult'
 import { TraceSearchResults } from '@components/results/traces/TraceSearchResults'
-import {
-  DEFAULT_TRACE_RANGE,
-  DEFAULT_TRACE_SAMPLE_SIZE,
-  type TraceResultView,
-} from '@lib/tempoQueryState'
+import type { TraceResultView } from '@lib/tempoQueryState'
 import {
   traceDateTimeLabel,
   traceDurationLabel,
@@ -128,7 +122,6 @@ export function TraceExplorer({
   const setSql = useStore((state) => state.setSql)
   const setQueryMode = useStore((state) => state.setQueryMode)
   const setTempoState = useStore((state) => state.setTempoState)
-  const clearActiveResults = useStore((state) => state.clearActiveResults)
   const [traceId, setTraceId] = useState('')
   const [selectedSpanId, setSelectedSpanId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -569,26 +562,6 @@ export function TraceExplorer({
     setError('')
     setCohortHint('')
   }
-  const clearTempoResults = () => {
-    clearTempoTransientState()
-    clearActiveResults()
-    setTempoState({ tempoResultView: 'list' }, tabId)
-  }
-
-  const resetTempoQuery = () => {
-    const freshTraceql = defaultQueryTextForDatasource('tempo')
-    setSql(freshTraceql, tabId)
-    setTempoState(
-      {
-        tempoBuilder: traceBuilderFromTraceql(freshTraceql),
-        tempoTimeRange: { ...DEFAULT_TRACE_RANGE },
-        tempoSampleSize: DEFAULT_TRACE_SAMPLE_SIZE,
-      },
-      tabId,
-    )
-    setQueryMode('builder', tabId)
-    clearTempoResults()
-  }
 
   return (
     <section
@@ -658,16 +631,8 @@ export function TraceExplorer({
             }
             utilities={
               <QueryUtilityActions
-                hasResults={Boolean(
-                  searchRows.length ||
-                  spans.length ||
-                  searchNotice ||
-                  searchProgress ||
-                  error ||
-                  cohortHint,
-                )}
-                onClearResults={clearTempoResults}
-                onResetQuery={resetTempoQuery}
+                busy={loading !== null}
+                onBeforeReset={clearTempoTransientState}
                 onPresetLoaded={clearTempoTransientState}
               />
             }
