@@ -19,8 +19,6 @@ import type { LokiDatasourceOption, LokiMetadataRequest, LokiQueryRequest, LokiQ
 import type { ResolveGrafanaHandoffRequest, ResolvedGrafanaHandoff } from '@shared/grafanaExplore'
 
 let queryProgressSequence = 0
-const smokeMode = process.env.DATAKOALA_SMOKE === '1' || !!process.env.DATAKOALA_REPRO
-const testHarnessMode = smokeMode || process.env.DATAKOALA_CHART_REGRESSION === '1'
 
 function nextQueryProgressRequestId(): string {
   queryProgressSequence += 1
@@ -29,10 +27,8 @@ function nextQueryProgressRequestId(): string {
 
 const api = {
   external: { openUrl: (url: string): Promise<void> => ipcRenderer.invoke(IPC.EXTERNAL_OPEN_URL, url) },
-  /** Deterministic preview/smoke mode; chart animations are disabled in this mode. */
-  smokeMode,
-  /** Test seam without changing production chart animation behaviour. */
-  testHarnessMode,
+  /** True only when the app is launched by a test/repro harness. */
+  smokeMode: process.env.DATAKOALA_SMOKE === '1' || !!process.env.DATAKOALA_REPRO,
   /** Narrow opt-in flag; no arbitrary environment values cross the context bridge. */
   tempoPerformanceEnabled: process.env.DATAKOALA_TEMPO_PERF === '1',
   connections: {
