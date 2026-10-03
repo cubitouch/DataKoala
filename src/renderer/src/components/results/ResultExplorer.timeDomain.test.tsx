@@ -69,7 +69,7 @@ afterEach(() => {
   captured.chartTimeDomain = null
 })
 
-it('refreshes a rolling chart domain when a new query result revision is committed', () => {
+it('refreshes a rolling chart domain when a new query result is committed', () => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-10-03T17:00:00Z'))
   arrange({ kind: 'rolling', amount: 7, unit: 'day' })
@@ -90,7 +90,7 @@ it('refreshes a rolling chart domain when a new query result revision is committ
   })
 })
 
-it('keeps a custom chart domain fixed when result revisions change', () => {
+it('keeps a custom chart domain fixed when query results change', () => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-10-03T17:00:00Z'))
   arrange({
