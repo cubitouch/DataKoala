@@ -1,3 +1,4 @@
+import { AiSettingsAction } from '@components/ai/AiSettingsAction'
 import { TextInput } from '@components/ui/TextInput'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
@@ -609,6 +610,7 @@ export function Sidebar() {
       >
         + new connection
       </button>
+      <AiSettingsAction />
       {!tabConnected &&
         connectionError &&
         activeId === activeTabConnectionId && (

@@ -1,0 +1,46 @@
+.dialog {
+  padding: 20px;
+  overflow-y: auto;
+  width: min(760px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.notice {
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.8;
+}
+
+.prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prompt textarea {
+  resize: vertical;
+  min-height: 80px;
+  padding: 10px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.context {
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}

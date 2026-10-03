@@ -1,3 +1,11 @@
+import type {
+  AiResult,
+  AiSettingsSummary,
+  AiSettingsInput,
+  AiModel,
+  AiQueryProposalRequest,
+  AiQueryProposal,
+} from '@shared/ai'
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipc-channels'
 import type {
@@ -55,6 +63,29 @@ function nextQueryProgressRequestId(): string {
 }
 
 const api = {
+  ai: {
+    settings: {
+      get: (): Promise<AiResult<AiSettingsSummary>> =>
+        ipcRenderer.invoke(IPC.AI_SETTINGS_GET),
+      save: (input: AiSettingsInput): Promise<AiResult<AiSettingsSummary>> =>
+        ipcRenderer.invoke(IPC.AI_SETTINGS_SAVE, input),
+      removeApiKey: (): Promise<AiResult<AiSettingsSummary>> =>
+        ipcRenderer.invoke(IPC.AI_KEY_REMOVE),
+    },
+    listModels: (requestId: string): Promise<AiResult<AiModel[]>> =>
+      ipcRenderer.invoke(IPC.AI_MODELS, requestId),
+    test: (
+      requestId: string,
+      input: AiSettingsInput,
+    ): Promise<AiResult<void>> =>
+      ipcRenderer.invoke(IPC.AI_TEST, requestId, input),
+    proposeQuery: (
+      request: AiQueryProposalRequest,
+    ): Promise<AiResult<AiQueryProposal>> =>
+      ipcRenderer.invoke(IPC.AI_PROPOSE, request),
+    cancel: (requestId: string): Promise<AiResult<void>> =>
+      ipcRenderer.invoke(IPC.AI_CANCEL, requestId),
+  },
   external: {
     openUrl: (url: string): Promise<void> =>
       ipcRenderer.invoke(IPC.EXTERNAL_OPEN_URL, url),

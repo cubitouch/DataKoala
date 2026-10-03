@@ -1,3 +1,4 @@
+import { registerAiIpc } from './ai/ipc'
 import {
   app,
   BrowserWindow,
@@ -285,6 +286,7 @@ function createWindow(): void {
 
 app.setName('DataKoala')
 app.whenReady().then(async () => {
+  registerAiIpc()
   if (process.env.DATAKOALA_SQLITE_SMOKE) {
     const profile: SqliteFileProfile = {
       kind: 'sqlite-file',

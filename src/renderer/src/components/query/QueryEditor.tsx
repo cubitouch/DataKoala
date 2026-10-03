@@ -1,3 +1,4 @@
+import { AiQueryAction } from '@components/ai/AiQueryAction'
 import {
   useCallback,
   useEffect,
@@ -455,6 +456,7 @@ export function QueryEditor({
         utilities={<QueryUtilityActions busy={isAnyExplainLoading} />}
         editorActions={
           <div className={styles.editorActions}>
+            {connectionKind === 'postgres' && !builderMode && <AiQueryAction />}
             {!builderMode && (
               <button
                 className="btn ghost"
