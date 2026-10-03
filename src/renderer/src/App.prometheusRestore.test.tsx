@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DataSourceProfile } from '@shared/types'
@@ -11,7 +10,12 @@ vi.mock('./lib/api', () => ({ api: {
   connections: {
     list: mocks.list,
     onStateChanged: vi.fn(() => () => undefined),
-    connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), listObjects: vi.fn(async () => [])
+    connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), listObjects: vi.fn(async () => []),
+    loki: {
+      labels: vi.fn(async () => ['app']),
+      labelValues: vi.fn(async () => ['x']),
+      formatQuery: vi.fn(async (_connectionId: string, query: string) => query)
+    }
   },
   query: { run: vi.fn(), explain: vi.fn() },
   export: { saveText: vi.fn() }
@@ -20,7 +24,6 @@ vi.mock('@components/query/QueryEditor', () => ({ QueryEditor: () => { mocks.que
 vi.mock('@components/builder/sql/BuilderPanel', () => ({ BuilderPanel: () => <div>Builder mounted</div> }))
 vi.mock('./components/results/ResultExplorer', () => ({ ResultExplorer: () => <div>Results mounted</div> }))
 vi.mock('@components/query/sql/ExplainPane', () => ({ ExplainPane: () => null }))
-vi.mock('@components/workspaces/loki/LokiExplorer', () => ({ LokiExplorer: ({ resizeHandle }: { resizeHandle?: ReactNode }) => <div data-testid="loki-workspace">{resizeHandle}</div> }))
 
 import { App } from './App'
 
@@ -114,7 +117,7 @@ describe('Prometheus workspace restoration', () => {
     mocks.list.mockResolvedValue([loki])
     const { container } = render(<App />)
 
-    expect(screen.getByTestId('loki-workspace')).toBeTruthy()
+    expect(screen.getByRole('main', { name: 'Loki explorer' })).toBeTruthy()
     const separator = screen.getByRole('separator', { name: 'Resize Loki query and results' })
     expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
     expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
