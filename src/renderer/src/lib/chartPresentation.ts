@@ -162,15 +162,14 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
   }
   const precision = input.mode === 'builder' ? input.timeBucket as TimeDisplayPrecision : inferTimeDisplayPrecision(input.labels)
   const temporal = Boolean(precision && input.labels.length && input.labels.every((label) => dateValue(label)))
+  const temporalXValues = temporal ? input.labels.map((label) => dateValue(label)!.getTime()) : []
   const domain = temporal ? input.timeDomain : undefined
-  const temporalBarOutsideDomain = Boolean(temporal && input.view === 'bar' && domain && !input.labels.some((label) => {
-    const time = dateValue(label)?.getTime()
-    return time !== undefined && time !== null && time >= domain.min && time <= domain.max
-  }))
+  const temporalBarOutsideDomain = Boolean(temporal && input.view === 'bar' && domain && !temporalXValues.some((time) => time >= domain.min && time <= domain.max))
   const formatLabel = precision ? (value: unknown) => formatTimeBucketLabel(value, precision) : (value: unknown) => String(value)
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
   const hasMultipleSeries = renderedSeries.length > 1
   return {
+    useUTC: true,
     backgroundColor: 'transparent',
     color: DATAKOALA_CHART_COLORS,
     tooltip: {
@@ -242,14 +241,14 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     series: renderedSeries.map((series) => ({
       ...series, missing: undefined,
       type: input.view === 'area' ? 'line' : input.view,
-      data: temporal ? series.data.map((value, index) => [input.labels[index], value]) : series.data,
+      data: temporal ? series.data.map((value, index) => [temporalXValues[index], value]) : series.data,
       stack: (input.view === 'bar' || input.view === 'area') && input.hasSeriesColumn ? 'total' : undefined,
       areaStyle: input.view === 'area' ? { opacity: 0.3 } : undefined,
       smooth: input.view === 'line' || input.view === 'area', connectNulls: false, showSymbol: input.view === 'line', symbolSize: input.view === 'scatter' ? 8 : 6,
       markPoint: input.view === 'line' ? {
         silent: true, symbol: 'circle', symbolSize: 13,
         label: { show: false }, itemStyle: { color: 'transparent', borderColor: '#f59e0b', borderWidth: 3 },
-        data: (input.anomalies ?? []).filter((anomaly) => anomaly.seriesName === series.name && (input.valueAxisScale !== 'log' || anomaly.value > 0)).map((anomaly) => ({ coord: [temporal ? input.labels[anomaly.dataIndex] : anomaly.dataIndex, anomaly.value], name: 'Anomaly' }))
+        data: (input.anomalies ?? []).filter((anomaly) => anomaly.seriesName === series.name && (input.valueAxisScale !== 'log' || anomaly.value > 0)).map((anomaly) => ({ coord: [temporal ? temporalXValues[anomaly.dataIndex] : anomaly.dataIndex, anomaly.value], name: 'Anomaly' }))
       } : undefined
     }))
   }

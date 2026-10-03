@@ -25,6 +25,8 @@ test('formats numeric ECharts time-axis values as dates', () => {
   const value = Date.parse('2026-08-21T06:43:00Z')
   assert.equal(formatTimeBucketLabel(value, 'minute'), '21 Aug, 06:43')
   assert.equal(formatTimeBucketLabel(value, 'hour'), '21 Aug, 06:00')
+  const formatter = buildChartTooltipFormatter((axisValue) => formatTimeBucketLabel(axisValue, 'day'))
+  assert.match(formatter([{ axisValue: value, seriesName: 'Orders', value: [value, 3] }]), /21 Aug/)
 })
 
 test('invalid dates retain their original display value', () => {
@@ -132,6 +134,53 @@ test('temporal bar disables ECharts containShape only when all data lies outside
   assert.equal((live.xAxis as { containShape?: boolean }).containShape, undefined)
 })
 
+test('temporal line, area, and bar presentations share canonical UTC millisecond coordinates', () => {
+  const labels = Array.from({ length: 9 }, (_, index) => `2026-09-${String(index + 22).padStart(2, '0')}T00:00:00Z`)
+  const values = labels.map((_, index) => index + 1)
+  const expected = labels.map((label, index) => [Date.parse(label), values[index]])
+  const coordinates = new Map<string, number[]>()
+
+  for (const view of ['line', 'area', 'bar'] as const) {
+    const options = buildChartPresentationOptions({ labels, series: [{ name: 'Orders', data: values }], view, hasSeriesColumn: false, mode: 'sql' })
+    assert.equal(options.useUTC, true)
+    assert.equal((options.xAxis as { type: string }).type, 'time')
+    const data = (options.series as Array<{ data: Array<[number, number]> }>)[0].data
+    assert.deepEqual(data, expected)
+    coordinates.set(view, data.map(([x]) => x))
+  }
+
+  assert.deepEqual(coordinates.get('line'), coordinates.get('area'))
+  assert.deepEqual(coordinates.get('line'), coordinates.get('bar'))
+})
+
+test('temporal presentation preserves the explicit selected domain around canonical data coordinates', () => {
+  const labels = ['2026-09-22T00:00:00Z', '2026-09-30T00:00:00Z']
+  const timeDomain = { min: Date.parse('2026-09-21T00:00:00Z'), max: Date.parse('2026-10-01T00:00:00Z') }
+  const options = buildChartPresentationOptions({ labels, series: [{ name: 'Orders', data: [2, 4] }], view: 'line', hasSeriesColumn: false, mode: 'sql', timeDomain })
+  const axis = options.xAxis as { type: string; min?: number; max?: number }
+
+  assert.equal(axis.type, 'time')
+  assert.equal(axis.min, timeDomain.min)
+  assert.equal(axis.max, timeDomain.max)
+  assert.deepEqual((options.series as Array<{ data: unknown[] }>)[0].data, [[Date.parse(labels[0]), 2], [Date.parse(labels[1]), 4]])
+})
+
+test('temporal anomaly mark points use the corresponding series millisecond coordinate', () => {
+  const labels = ['2026-09-22T00:00:00Z', '2026-09-23T00:00:00Z']
+  const options = buildChartPresentationOptions({
+    labels,
+    series: [{ name: 'Orders', data: [2, 9] }],
+    view: 'line',
+    hasSeriesColumn: false,
+    mode: 'sql',
+    anomalies: [{ seriesName: 'Orders', dataIndex: 1, value: 9, median: 2, mad: 0, direction: 'above' }]
+  })
+  const series = (options.series as Array<{ data: Array<[number, number]>; markPoint: { data: Array<{ coord: [number, number] }> } }>)[0]
+
+  assert.equal(series.markPoint.data[0].coord[0], series.data[1][0])
+  assert.equal(series.markPoint.data[0].coord[0], Date.parse(labels[1]))
+})
+
 test('tooltip marks and retains the hovered series without becoming scrollable', () => {
   const rows = Array.from({ length: 14 }, (_, index) => ({ seriesName: `series-${index}`, value: index === 13 ? 0 : index, color: '#fff', axisValue: 'x' }))
   const formatter = buildChartTooltipFormatter(String, 'series-13')
@@ -174,7 +223,7 @@ test('temporal scatter uses real time coordinates and explicit selected-period b
   assert.equal(axis.max, timeDomain.max)
   assert.equal(axis.containShape, undefined)
   assert.equal(axis.axisLabel.formatter(Date.parse('2026-01-04T12:00:00Z')), '04 Jan')
-  assert.deepEqual((temporal.series as Array<{ data: unknown[] }>)[0].data, [[temporalLabels[0], 2], [temporalLabels[1], 4]])
+  assert.deepEqual((temporal.series as Array<{ data: unknown[] }>)[0].data, [[Date.parse(temporalLabels[0]), 2], [Date.parse(temporalLabels[1]), 4]])
 })
 
 test('categorical scatter retains category semantics', () => {
