@@ -17,7 +17,7 @@ import { isolateSeries, reconcileSeriesVisibility, showAllSeries } from '@lib/ch
 import { prepareLogScaleSeries } from '@lib/chartAxisScale'
 import { hasLegendModifier, LegendModifierBridge } from '@lib/legendModifierBridge'
 import { ChartEventBridgeLifecycle } from '@lib/chartEventBridgeLifecycle'
-import { ChartAnimationPolicy, createChartFingerprint, semanticChartCounts } from '@lib/chartSemantic'
+import { createChartFingerprint, semanticChartCounts } from '@lib/chartSemantic'
 import { ChartApplicationController, type AppliedChart, type ChartRevisionOrigin } from '@lib/chartApplication'
 import { QUERY_LOADING_DELAY_MS } from '@lib/loadingIndicator'
 import { chartActionsReady, shouldKeepChartMounted } from '@lib/chartQueryLifecycle'
@@ -91,7 +91,6 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readiness = useRef(new ChartReadinessController())
-  const animationPolicy = useRef(new ChartAnimationPolicy())
 
   useEffect(() => () => {
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
@@ -193,10 +192,11 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   )
   const renderedOption = useMemo(() => option ? {
     ...option,
-    // Deterministic real-renderer captures should never sample ECharts mid-transition.
-    // smokeMode is exposed only by the controlled Electron preview/smoke process.
-    animation: window.datakoala?.smokeMode ? false : animationPolicy.current.shouldAnimate(chartFingerprint)
-  } : null, [chartFingerprint, option])
+    // ECharts animations can be interrupted by React/layout updates and leave line/area
+    // paths only partially painted (symbols are already at their final coordinates).
+    // Result exploration values clarity and deterministic rendering over transitions.
+    animation: false
+  } : null, [option])
   const chartRevision = useMemo(createChartRevision, [chartFingerprint])
   useEffect(() => {
     if (!renderedOption) return
@@ -350,7 +350,6 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
       if (import.meta.env.DEV) console.debug('[chart-application] ignored stale finished event', { token: appliedChart?.token })
       return
     }
-    animationPolicy.current.commit(appliedChart.fingerprint)
     setRenderedRevision(appliedChart.revision)
     if (import.meta.env.DEV) console.debug('[chart-application] finished', { token: appliedChart.token, fingerprint: appliedChart.fingerprint })
   }
