@@ -17,7 +17,7 @@ import { isolateSeries, reconcileSeriesVisibility, showAllSeries } from '@lib/ch
 import { prepareLogScaleSeries } from '@lib/chartAxisScale'
 import { hasLegendModifier, LegendModifierBridge } from '@lib/legendModifierBridge'
 import { ChartEventBridgeLifecycle } from '@lib/chartEventBridgeLifecycle'
-import { createChartFingerprint, semanticChartCounts } from '@lib/chartSemantic'
+import { ChartAnimationPolicy, createChartFingerprint, semanticChartCounts } from '@lib/chartSemantic'
 import { ChartApplicationController, type AppliedChart, type ChartRevisionOrigin } from '@lib/chartApplication'
 import { QUERY_LOADING_DELAY_MS } from '@lib/loadingIndicator'
 import { chartActionsReady, shouldKeepChartMounted } from '@lib/chartQueryLifecycle'
@@ -55,6 +55,7 @@ export interface GenericResultExplorerProps {
   timeBucket?: 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
   chartTimeDomain?: { min: number; max: number } | null
   hidePicker?: boolean
+  animate?: boolean
   onConfigurationChange: (configuration: VisualizationConfiguration) => void
   onSeriesVisibilityChange: (visibility: Record<string, boolean>) => void
   onAddFilter: (filter: ResultFilter) => void
@@ -67,7 +68,7 @@ export interface GenericResultExplorerProps {
   onReconnect?: () => void
   onTemporalRangeSelected?: (range: { startMs: number; endMs: number }) => void
 }
-export function GenericResultExplorer({ mode, dimensionControls = 'result', hasRun = true, result, resultRevision, running, error, isResultStale, reconnecting = false, configuration, seriesVisibility, activeFilters, externalSeriesColumns = [], timeBucket, chartTimeDomain = null, hidePicker = false, onConfigurationChange, onSeriesVisibilityChange, onAddFilter, onRemoveFilter, onClearFilters, onToggleFilterExecution, canPromoteTableFilter, canPromoteChartFilter, canDemoteFilter, onReconnect, onTemporalRangeSelected }: GenericResultExplorerProps) {
+export function GenericResultExplorer({ mode, dimensionControls = 'result', hasRun = true, result, resultRevision, running, error, isResultStale, reconnecting = false, configuration, seriesVisibility, activeFilters, externalSeriesColumns = [], timeBucket, chartTimeDomain = null, hidePicker = false, animate = true, onConfigurationChange, onSeriesVisibilityChange, onAddFilter, onRemoveFilter, onClearFilters, onToggleFilterExecution, canPromoteTableFilter, canPromoteChartFilter, canDemoteFilter, onReconnect, onTemporalRangeSelected }: GenericResultExplorerProps) {
   const updateSeriesVisibility = useCallback((next: Record<string, boolean> | ((current: Record<string, boolean>) => Record<string, boolean>)) => {
     onSeriesVisibilityChange(typeof next === 'function' ? next(seriesVisibility) : next)
   }, [seriesVisibility, onSeriesVisibilityChange])
@@ -91,6 +92,7 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readiness = useRef(new ChartReadinessController())
+  const animationPolicy = useRef(new ChartAnimationPolicy())
 
   useEffect(() => () => {
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
@@ -192,11 +194,11 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   )
   const renderedOption = useMemo(() => option ? {
     ...option,
-    // ECharts animations can be interrupted by React/layout updates and leave line/area
-    // paths only partially painted (symbols are already at their final coordinates).
-    // Result exploration values clarity and deterministic rendering over transitions.
-    animation: false
-  } : null, [option])
+    // Loki synthetic trends opt out because ECharts can leave line/area paths partially
+    // painted across their async result/view lifecycle. Other result explorers keep
+    // their existing transitions.
+    animation: window.datakoala?.smokeMode ? false : animate && animationPolicy.current.shouldAnimate(chartFingerprint)
+  } : null, [animate, chartFingerprint, option])
   const chartRevision = useMemo(createChartRevision, [chartFingerprint])
   useEffect(() => {
     if (!renderedOption) return
@@ -350,6 +352,7 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
       if (import.meta.env.DEV) console.debug('[chart-application] ignored stale finished event', { token: appliedChart?.token })
       return
     }
+    animationPolicy.current.commit(appliedChart.fingerprint)
     setRenderedRevision(appliedChart.revision)
     if (import.meta.env.DEV) console.debug('[chart-application] finished', { token: appliedChart.token, fingerprint: appliedChart.fingerprint })
   }
