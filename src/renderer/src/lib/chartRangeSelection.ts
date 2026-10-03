@@ -47,6 +47,24 @@ export function effectiveChartTimeDomain(
   return intersection.min < intersection.max ? intersection : chartTimeDomain
 }
 
+/**
+ * Keeps an explicit picker/filter domain as the minimum visible span while
+ * expanding it to include temporal values actually returned by the current
+ * query. Without an explicit domain, ECharts remains data-driven.
+ */
+export function expandChartTimeDomainToValues(
+  chartTimeDomain: ChartTimeDomain | null | undefined,
+  values: readonly unknown[]
+): ChartTimeDomain | null | undefined {
+  if (!chartTimeDomain || !values.length) return chartTimeDomain
+  const timestamps = values.map(timestamp).filter((value): value is number => value !== null)
+  if (!timestamps.length) return chartTimeDomain
+  return {
+    min: Math.min(chartTimeDomain.min, ...timestamps),
+    max: Math.max(chartTimeDomain.max, ...timestamps)
+  }
+}
+
 export function isTemporalChartValues(values: readonly unknown[]): boolean {
   return values.length > 0 && values.every((value) => timestamp(value) !== null)
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import { chartTimeSelectionRange, effectiveChartTimeDomain, isTemporalChartValues } from './chartRangeSelection.ts'
+import { chartTimeSelectionRange, effectiveChartTimeDomain, expandChartTimeDomainToValues, isTemporalChartValues } from './chartRangeSelection.ts'
 import { createResultFilter, createResultRangeFilter } from './resultFilters.ts'
 
 const ms = (value: string) => Date.parse(value)
@@ -49,6 +49,29 @@ test('ignores notRange and scalar filters', () => {
 
 test('ignores malformed range bounds', () => {
   assert.deepEqual(effectiveChartTimeDomain(picker, [range('created_at', 'not-a-date', '2026-08-03')], 'created_at'), picker)
+})
+
+test('expands an explicit picker domain to include returned temporal data on either side', () => {
+  assert.deepEqual(expandChartTimeDomainToValues(picker, [
+    '2026-07-31T00:00:00Z',
+    '2026-08-05T00:00:00Z',
+    '2026-08-11T00:00:00Z'
+  ]), {
+    min: ms('2026-07-31T00:00:00Z'),
+    max: ms('2026-08-11T00:00:00Z')
+  })
+})
+
+test('keeps the selected domain when returned temporal data is already inside it', () => {
+  assert.deepEqual(expandChartTimeDomainToValues(picker, [
+    '2026-08-03T00:00:00Z',
+    '2026-08-07T00:00:00Z'
+  ]), picker)
+})
+
+test('does not pin charts without an explicit selected domain', () => {
+  assert.equal(expandChartTimeDomainToValues(null, ['2026-08-03T00:00:00Z']), null)
+  assert.equal(expandChartTimeDomainToValues(undefined, ['2026-08-03T00:00:00Z']), undefined)
 })
 
 test('recognizes temporal chart values only when every X value is date-like', () => {

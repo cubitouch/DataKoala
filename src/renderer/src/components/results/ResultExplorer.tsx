@@ -36,7 +36,7 @@ export function ResultExplorer({ mode, dimensionControls = 'result', hasRun = tr
   const activeTimeRange = datasourceKind === 'prometheus'
     ? session.prometheusTimeRange
     : mode === 'builder' && effectiveConfiguration.xColumn === 'time_bucket' ? session.builder.timeRange : undefined
-  const chartTimeDomain = useMemo(() => activeTimeRange ? timeRangeChartDomain(activeTimeRange) : null, [activeTimeRange])
+  const chartTimeDomain = useMemo(() => result && activeTimeRange ? timeRangeChartDomain(activeTimeRange) : null, [activeTimeRange, result])
 
   const handleConfigurationChange = useCallback((next: VisualizationConfiguration) => {
     setVisualization(mode, next, tabId)

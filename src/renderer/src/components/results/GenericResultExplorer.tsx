@@ -4,7 +4,7 @@ import type EChartsReact from 'echarts-for-react'
 import { api } from '@lib/api'
 import { buildChartPresentationOptions } from '@lib/chartPresentation'
 import { chartSeriesResultFilters, timeBucketRange, type ChartPointContext } from '@lib/chartPointFilters'
-import { chartTimeSelectionRange, effectiveChartTimeDomain, isTemporalChartValues } from '@lib/chartRangeSelection'
+import { chartTimeSelectionRange, effectiveChartTimeDomain, expandChartTimeDomainToValues, isTemporalChartValues } from '@lib/chartRangeSelection'
 import { createResultFilter, createResultRangeFilter, filterQueryResult, type ResultFilter } from '@lib/resultFilters'
 import { decodeBuilderSeriesTuple, deriveEffectiveVisualization, numericColumns, pivotRowsForChart, reconcileHierarchyDimensions, visualizationConfigurationsEqual, type ValueAxisScale, type VisualizationConfiguration } from '@lib/resultVisualization'
 import { ResultsTable } from './ResultsTable'
@@ -140,9 +140,13 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   const anomalies = useMemo(() => effectiveConfiguration.anomalyDetectionEnabled && anomalyEligibility.available && chart
     ? detectChartAnomalies(chart.series, DEFAULT_ANOMALY_OPTIONS) : [], [chart, effectiveConfiguration.anomalyDetectionEnabled, anomalyEligibility.available])
   const temporalRangeSelectionEnabled = Boolean(chart?.renderable && effectiveConfiguration.xColumn && isTemporalChartValues(chart.xValues))
-  const effectiveTimeDomain = useMemo(
+  const filteredTimeDomain = useMemo(
     () => effectiveChartTimeDomain(chartTimeDomain, activeFilters, effectiveConfiguration.xColumn),
     [chartTimeDomain, activeFilters, effectiveConfiguration.xColumn]
+  )
+  const effectiveTimeDomain = useMemo(
+    () => isResultStale ? filteredTimeDomain : expandChartTimeDomainToValues(filteredTimeDomain, chart?.xValues ?? []),
+    [filteredTimeDomain, chart, isResultStale]
   )
   const activeBuilderTimeBucket = mode === 'builder' && effectiveConfiguration.xColumn === 'time_bucket' ? timeBucket : undefined
   const seriesIdentities = useMemo(() => chart?.series.map((series) => series.name) ?? [], [chart])
