@@ -166,7 +166,7 @@ export function App() {
             style={{ '--editor-height': `${editorHeight}px` } as React.CSSProperties}>
             {queryProfileLoading ? <div className={`query-unavailable ${styles.queryUnavailable}`} role="status" aria-label="Loading connection…">Loading datasource…</div>
               : tempoWorkspace ? <TraceExplorer connectionId={tabConnectionId!} resizeHandle={editorResizeHandle('Resize Tempo query and results')} />
-                : lokiWorkspace ? <LokiExplorer connectionId={tabConnectionId!} />
+                : lokiWorkspace ? <LokiExplorer connectionId={tabConnectionId!} resizeHandle={editorResizeHandle('Resize Loki query and results')} />
                 : <>{effectiveMode === 'sql' ? <QueryEditor builderMode={prometheusBuilder} /> : <BuilderPanel />}
                 {editorResizeHandle('Resize query and results')}
                 <ResultExplorer mode={effectiveMode} dimensionControls={effectiveMode === 'builder' ? 'external' : 'result'} hasRun={effectiveMode === 'sql' || builderHasRun}/></>}

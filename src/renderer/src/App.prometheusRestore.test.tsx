@@ -10,7 +10,12 @@ vi.mock('./lib/api', () => ({ api: {
   connections: {
     list: mocks.list,
     onStateChanged: vi.fn(() => () => undefined),
-    connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), listObjects: vi.fn(async () => [])
+    connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), listObjects: vi.fn(async () => []),
+    loki: {
+      labels: vi.fn(async () => ['app']),
+      labelValues: vi.fn(async () => ['x']),
+      formatQuery: vi.fn(async (_connectionId: string, query: string) => query)
+    }
   },
   query: { run: vi.fn(), explain: vi.fn() },
   export: { saveText: vi.fn() }
@@ -29,6 +34,10 @@ const prometheus: DataSourceProfile = {
 const postgres: DataSourceProfile = {
   id: 'pg-1', name: 'Postgres', version: 1, kind: 'postgres', readonly: true,
   host: 'localhost', port: 5432, database: 'app', user: 'app', password: '', ssl: false
+}
+const loki: DataSourceProfile = {
+  id: 'loki-1', name: 'Production logs', version: 1, kind: 'loki', readonly: true,
+  transport: { kind: 'gcx', context: 'test', datasourceUid: 'loki-main' }
 }
 
 function persistedWorkspaceStorage(): { getItem(key: string): string | null; setItem(key: string, value: string): void } {
@@ -100,6 +109,19 @@ describe('Prometheus workspace restoration', () => {
     const separator = screen.getByRole('separator', { name: 'Resize query and results' })
     expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
     expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
+  })
+
+  it('passes the shared query/results separator into the Loki workspace', () => {
+    resetTestStore({ profiles: [loki], activeProfileId: loki.id, connected: true, connectionStatus: 'connected' })
+    patchActiveTestSession({ connectionProfileId: loki.id, queryMode: 'builder' })
+    mocks.list.mockResolvedValue([loki])
+    const { container } = render(<App />)
+
+    expect(screen.getByRole('main', { name: 'Loki explorer' })).toBeTruthy()
+    const separator = screen.getByRole('separator', { name: 'Resize Loki query and results' })
+    expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
+    expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
+    expect(container.querySelector('.main')?.className).not.toContain('sql-layout')
   })
 
   it('uses the shared SQL query/results separator for SQL Builder', async () => {

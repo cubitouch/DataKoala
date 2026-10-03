@@ -46,6 +46,7 @@ async function seedWorkspace(win) {
     })
   })()`)
   await waitFor(win, `document.querySelector('main') && document.body.innerText.includes('Production logs') && document.body.innerText.includes('Generated LogQL') && document.body.innerText.includes('checkout-api')`, 'initialized Loki workspace')
+  await waitFor(win, `document.querySelector('[aria-label="Resize Loki query and results"]')`, 'Loki query/results resize handle')
 }
 
 app.whenReady().then(async () => {
