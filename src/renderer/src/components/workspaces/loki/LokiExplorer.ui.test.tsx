@@ -348,6 +348,26 @@ describe('LokiExplorer execution', () => {
     expect(chartMock.renders).toBe(settledRenderCount)
   })
 
+  it('publishes Loki logs before a slower synthetic trend finishes', async () => {
+    let resolveTrend!: (value: typeof metric) => void
+    const deferredTrend = new Promise<typeof metric>((resolve) => { resolveTrend = resolve })
+    mocks.runLoki.mockImplementation(async (_id, request: { expression: string }) =>
+      request.expression.includes('count_over_time') ? deferredTrend : logs)
+
+    const tab = createQuerySession(1, { id: 'slow-trend', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
+    tab.lokiResultView = 'line'
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(useStore.getState().tabs[0].result).toEqual(logs))
+    expect(screen.getByRole('button', { name: 'Run' })).toBeTruthy()
+    expect(screen.getByText('Loading log volume…')).toBeTruthy()
+
+    resolveTrend(metric)
+    await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+  })
+
   it('reloads log volume after a List-mode run invalidates an earlier chart trend', async () => {
     const run = mocks.runLoki
       .mockResolvedValueOnce(logs)
