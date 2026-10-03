@@ -4,7 +4,6 @@ import { prepareLogScaleSeries, type ValueAxisScale } from './chartAxisScale.ts'
 import type { ChartAnomaly } from './chartAnomalies.ts'
 import type { HierarchyNode } from './chartHierarchy.ts'
 import { timeBucketRange } from './chartPointFilters.ts'
-import type { TimeBucket } from '@store/useStore'
 
 export type TimeDisplayPrecision = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
 
@@ -166,7 +165,7 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
   const temporal = Boolean(precision && input.labels.length && input.labels.every((label) => dateValue(label)))
   const temporalXValues = temporal ? input.labels.map((label) => dateValue(label)!.getTime()) : []
   const domain = temporal ? input.timeDomain : undefined
-  const bucket = input.timeBucket as TimeBucket | undefined
+  const bucket = input.timeBucket as Parameters<typeof timeBucketRange>[1] | undefined
   const presentationXValues = temporal && domain && bucket
     ? input.labels.map((label, index) => {
         const range = timeBucketRange(label, bucket)
