@@ -247,7 +247,7 @@ describe('LokiExplorer execution', () => {
   })
 
   it('keeps parsed JSON actions in the pipeline and exposes them in Advanced filters', () => {
-    const tab = createQuerySession(1, { id: 'json-filter', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
+    const tab = createQuerySession(1, { id: 'json-filter', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="manual-do-not-touch"}' })
     const parsed = { ...logRow('json', JSON.stringify({ message: 'Retrying', attempt: 3 })), parsedFields: { attempt: 3 } }
     tab.result = { ...logs, logRows: [parsed], rows: [parsed], rowCount: 1 } as LokiLogResult
     tab.resultRevision = 1
@@ -263,6 +263,7 @@ describe('LokiExplorer execution', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Exclude attempt' }))
     expect(useStore.getState().tabs[0].lokiBuilder.parsers).toEqual([{ kind: 'json' }])
     expect(useStore.getState().tabs[0].lokiBuilder.fieldFilters).toEqual([{ field: 'attempt', operator: '!=', value: '3' }])
+    expect(useStore.getState().tabs[0].sql).toBe('{app="manual-do-not-touch"}')
   })
 
   it('edits and removes advanced filters without changing indexed labels', () => {
