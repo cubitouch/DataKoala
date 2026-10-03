@@ -6,19 +6,8 @@ import type { HierarchyNode } from './chartHierarchy.ts'
 
 export type TimeDisplayPrecision = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
 
-const DATAKOALA_CHART_COLORS = ['#f5cf33', '#62b8c5', '#ef8a62', '#8c9be8', '#70c486', '#df74a8', '#5fa7e0', '#d3a557', '#a783d5', '#48b5a2', '#c4c95c', '#e27b76']
-export const CHART_LEGEND_WIDTH = 180
-export const CHART_LEGEND_GAP = 16
-export const CHART_LEGEND_RIGHT = 12
-const CHART_LEGEND_MARKER_WIDTH = 25
-const CHART_LEGEND_TEXT_GAP = 8
-export const CHART_LEGEND_TEXT_WIDTH = CHART_LEGEND_WIDTH - CHART_LEGEND_MARKER_WIDTH - CHART_LEGEND_TEXT_GAP
-const CHART_GRID_RIGHT_WITH_LEGEND = CHART_LEGEND_WIDTH + CHART_LEGEND_GAP + CHART_LEGEND_RIGHT
-const CHART_GRID_RIGHT_COMPACT = 24
-const CHART_GRID_TOP = 20
-const CHART_GRID_TOP_WITH_HORIZONTAL_LEGEND = 42
-export const CHART_NARROW_WIDTH = 620
-const CHART_LEGEND_VERTICAL_INSET = 16
+import { CHART_COLORS, chartSeriesColor } from './chartLegend.ts'
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const two = (value: number) => String(value).padStart(2, '0')
 
@@ -139,7 +128,7 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     const total = (input.hierarchy ?? []).reduce((sum, node) => sum + node.value, 0)
     return {
       backgroundColor: 'transparent',
-      color: DATAKOALA_CHART_COLORS,
+      color: CHART_COLORS,
       tooltip: {
         trigger: 'item', confine: true,
         formatter: (param: { treePathInfo?: Array<{ name: string }>; name?: string; value?: unknown }) => {
@@ -167,11 +156,10 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
   const temporalBarOutsideDomain = Boolean(temporal && input.view === 'bar' && domain && !temporalXValues.some((time) => time >= domain.min && time <= domain.max))
   const formatLabel = precision ? (value: unknown) => formatTimeBucketLabel(value, precision) : (value: unknown) => String(value)
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
-  const hasMultipleSeries = renderedSeries.length > 1
   return {
     useUTC: true,
     backgroundColor: 'transparent',
-    color: DATAKOALA_CHART_COLORS,
+    color: CHART_COLORS,
     tooltip: {
       trigger: 'axis', confine: true, axisPointer: {
         type: 'cross', lineStyle: { color: '#697184', width: 1, type: 'dashed' }, crossStyle: {
@@ -200,28 +188,9 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
       textStyle: { color: '#f2f4f8', fontSize: 12, lineHeight: 16 },
       extraCssText: 'box-sizing:border-box;max-width:min(300px,calc(100% - 16px));max-height:calc(100% - 16px);padding:8px 10px;overflow:hidden;overflow-wrap:anywhere;white-space:normal;box-shadow:0 5px 14px rgba(0,0,0,.3);border-radius:6px;'
     },
-    legend: {
-      show: hasMultipleSeries,
-      orient: 'vertical', type: 'scroll', top: CHART_LEGEND_VERTICAL_INSET, bottom: CHART_LEGEND_VERTICAL_INSET,
-      right: CHART_LEGEND_RIGHT, width: CHART_LEGEND_WIDTH, itemWidth: CHART_LEGEND_MARKER_WIDTH, selected: input.visibility,
-      tooltip: { show: true },
-      textStyle: { color: '#9aa0b0', width: CHART_LEGEND_TEXT_WIDTH, overflow: 'truncate', ellipsis: '…' }
-    },
-    grid: { left: 50, right: hasMultipleSeries ? CHART_GRID_RIGHT_WITH_LEGEND : CHART_GRID_RIGHT_COMPACT, top: CHART_GRID_TOP, bottom: 45 },
-    // Keep the plot useful when reserving a fixed-width side legend would consume
-    // too much of a narrow chart. ECharts applies this without React resize state.
-    ...(hasMultipleSeries ? {
-      media: [{
-        query: { maxWidth: CHART_NARROW_WIDTH },
-        option: {
-          legend: {
-            orient: 'horizontal', top: 4, bottom: 'auto', left: 8, right: 8, width: 'auto', itemWidth: CHART_LEGEND_MARKER_WIDTH,
-            textStyle: { color: '#9aa0b0', width: CHART_LEGEND_TEXT_WIDTH, overflow: 'truncate', ellipsis: '…' }
-          },
-          grid: { left: 50, right: CHART_GRID_RIGHT_COMPACT, top: CHART_GRID_TOP_WITH_HORIZONTAL_LEGEND, bottom: 45 }
-        }
-      }]
-    } : {}),
+    // Hidden legend retains ECharts selection filtering; HTML owns its presentation.
+    legend: { show: false, selected: input.visibility },
+    grid: { left: 50, right: 24, top: 20, bottom: 45 },
     xAxis: temporal
       ? {
           type: 'time',
@@ -238,8 +207,10 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
       toolbox: { show: false },
       brush: { toolbox: [], xAxisIndex: 'all', brushMode: 'single', transformable: false, throttleType: 'debounce', throttleDelay: 0 }
     } : {}),
-    series: renderedSeries.map((series) => ({
+    series: renderedSeries.map((series, index) => ({
       ...series, missing: undefined,
+      itemStyle: { color: chartSeriesColor(index) },
+      lineStyle: { color: chartSeriesColor(index) },
       type: input.view === 'area' ? 'line' : input.view,
       data: temporal ? series.data.map((value, index) => [temporalXValues[index], value]) : series.data,
       stack: (input.view === 'bar' || input.view === 'area') && input.hasSeriesColumn ? 'total' : undefined,

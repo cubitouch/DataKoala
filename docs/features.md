@@ -163,8 +163,8 @@ Chart configuration includes:
 - optional single or multiple Series dimensions;
 - linear and logarithmic value axes;
 - deterministic category and Series ordering;
-- interactive legends;
-- one-click Series isolation;
+- native scrollable legends beside wide charts, with a compact horizontal row below narrow charts;
+- Series toggles, modifier-click isolation, keyboard-accessible isolate buttons, and Show all;
 - bounded, scrollable tooltips;
 - safeguards for excessive points or high-cardinality Series.
 
@@ -197,7 +197,7 @@ The current workflow can export or copy:
 - chart images directly to the system clipboard;
 - formatted JSON values from the result explorer.
 
-PNG capture preserves chart and legend state while excluding transient hover tooltips and crosshairs.
+PNG capture preserves chart and legend state while excluding transient hover tooltips and crosshairs. Multi-series exports include the complete legend, including labels outside the current scroll viewport, with wrapped labels and the same series colors. Single-series charts stay compact.
 
 ## Persistent desktop workspace
 

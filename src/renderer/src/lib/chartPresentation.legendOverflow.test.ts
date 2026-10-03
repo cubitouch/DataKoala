@@ -1,31 +1,28 @@
-import assert from 'node:assert/strict'
-import { test } from 'vitest'
-import {
-  buildChartPresentationOptions,
-  CHART_LEGEND_GAP,
-  CHART_LEGEND_TEXT_WIDTH,
-  CHART_LEGEND_WIDTH
-} from './chartPresentation.ts'
+import { expect, test } from 'vitest'
+import { chartLegendEntries } from './chartLegend'
+import { buildChartPresentationOptions } from './chartPresentation'
 
-test('multi-series legend labels stay inside the reserved right-side footprint', () => {
-  const options = buildChartPresentationOptions({
-    labels: ['2026-08-30T00:00:00Z'],
-    series: [
-      { name: 'currency="EUR" · country_code="FR" · deliberately_long_series_label', data: [120] },
-      { name: 'currency="GBP" · country_code="GB" · deliberately_long_series_label', data: [80] }
-    ],
-    view: 'line',
-    hasSeriesColumn: true,
-    mode: 'sql'
-  })
-
-  const legend = options.legend as { width: number; right: number; itemWidth: number; textStyle: { width: number; overflow: string; ellipsis: string } }
-  const grid = options.grid as { right: number }
-
-  assert.equal(legend.width, CHART_LEGEND_WIDTH)
-  assert.equal(legend.textStyle.width, CHART_LEGEND_TEXT_WIDTH)
-  assert.equal(legend.textStyle.overflow, 'truncate')
-  assert.equal(legend.textStyle.ellipsis, '…')
-  assert.ok(legend.itemWidth + legend.textStyle.width < legend.width, 'marker and truncated text must fit inside the legend box')
-  assert.ok(grid.right >= legend.right + legend.width + CHART_LEGEND_GAP, 'plot grid must end before the legend starts')
+test('HTML/export colors match explicit chart colors including hidden series and palette cycling', () => {
+  const identities = Array.from({ length: 25 }, (_, i) => `service-${i}`)
+  const legend = chartLegendEntries(identities)
+  for (const mode of ['sql', 'builder'] as const) {
+    const options = buildChartPresentationOptions({
+      labels: ['x'],
+      series: identities.map((name) => ({ name, data: [2] })),
+      view: 'line',
+      hasSeriesColumn: true,
+      mode,
+      visibility: { 'service-0': false },
+    })
+    const series = options.series as Array<{
+      itemStyle: { color: string }
+      lineStyle: { color: string }
+    }>
+    expect(series.map((s) => s.itemStyle.color)).toEqual(
+      legend.map((s) => s.color),
+    )
+    expect(series.map((s) => s.lineStyle.color)).toEqual(
+      legend.map((s) => s.color),
+    )
+  }
 })

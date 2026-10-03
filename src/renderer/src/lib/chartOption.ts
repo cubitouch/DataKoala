@@ -16,19 +16,10 @@ import { buildChartData } from './data.ts'
  *    missing an early category has all its later points shifted left.
  */
 
-export const CHART_COLORS = ['#f5cf33', '#62b8c5', '#ef8a62', '#8c9be8', '#70c486', '#df74a8', '#5fa7e0', '#d3a557', '#a783d5', '#48b5a2', '#c4c95c', '#e27b76']
+import { CHART_COLORS, chartSeriesColor } from './chartLegend.ts'
 
 const AXIS_LINE = { lineStyle: { color: '#516666' } }
 const AXIS_LABEL = { color: '#809ca0' }
-const CHART_LEGEND_WIDTH = 180
-const CHART_LEGEND_GAP = 16
-const CHART_LEGEND_RIGHT = 12
-const CHART_GRID_RIGHT_WITH_LEGEND = CHART_LEGEND_WIDTH + CHART_LEGEND_GAP + CHART_LEGEND_RIGHT
-const CHART_GRID_RIGHT_COMPACT = 20
-const CHART_GRID_TOP = 20
-const CHART_GRID_TOP_WITH_HORIZONTAL_LEGEND = 34
-const CHART_NARROW_WIDTH = 620
-const CHART_LEGEND_VERTICAL_INSET = 16
 
 export interface BuiltOption {
   option: Record<string, unknown>
@@ -78,7 +69,7 @@ export function buildEChartsOption(
 
   const usePairs = isTimeAxis || isScatter
 
-  const series = [...grouped.entries()].map(([name, pts]) => {
+  const series = [...grouped.entries()].map(([name, pts], index) => {
     let data: unknown[]
     if (usePairs) {
       // Carry x explicitly; required for time and scatter axes.
@@ -91,6 +82,8 @@ export function buildEChartsOption(
     return {
       name: name === SINGLE_SERIES ? cfg.yField : name,
       type: echartsType,
+      itemStyle: { color: chartSeriesColor(index) },
+      lineStyle: { color: chartSeriesColor(index) },
       data,
       smooth: cfg.type === 'line' || cfg.type === 'area',
       areaStyle: cfg.type === 'area' ? { opacity: 0.15 } : undefined,
@@ -107,36 +100,17 @@ export function buildEChartsOption(
   // Only a category axis consumes `data`; setting it on a time axis is misleading.
   if (!isTimeAxis) xAxis.data = categories
 
-  const hasMultipleSeries = grouped.size > 1
 
   return {
     option: {
       backgroundColor: 'transparent',
       animationDuration: 300,
-      grid: { left: 64, right: hasMultipleSeries ? CHART_GRID_RIGHT_WITH_LEGEND : CHART_GRID_RIGHT_COMPACT, top: CHART_GRID_TOP, bottom: 44 },
+      grid: { left: 64, right: 20, top: 20, bottom: 44 },
       tooltip: {
         trigger: isScatter ? 'item' : 'axis',
         axisPointer: { type: cfg.type === 'bar' ? 'shadow' : 'line' }
       },
-      legend: {
-        show: hasMultipleSeries,
-        orient: 'vertical', type: 'scroll', top: CHART_LEGEND_VERTICAL_INSET, bottom: CHART_LEGEND_VERTICAL_INSET,
-        right: CHART_LEGEND_RIGHT, width: CHART_LEGEND_WIDTH,
-        tooltip: { show: true },
-        textStyle: { ...AXIS_LABEL, width: CHART_LEGEND_WIDTH, overflow: 'truncate', ellipsis: '…' }
-      },
-      ...(hasMultipleSeries ? {
-        media: [{
-          query: { maxWidth: CHART_NARROW_WIDTH },
-          option: {
-            legend: {
-              orient: 'horizontal', top: 0, bottom: 'auto', left: 8, right: 8, width: 'auto',
-              textStyle: { ...AXIS_LABEL, width: CHART_LEGEND_WIDTH, overflow: 'truncate', ellipsis: '…' }
-            },
-            grid: { left: 64, right: CHART_GRID_RIGHT_COMPACT, top: CHART_GRID_TOP_WITH_HORIZONTAL_LEGEND, bottom: 44 }
-          }
-        }]
-      } : {}),
+      legend: { show: false },
       xAxis,
       yAxis: {
         type: 'value',

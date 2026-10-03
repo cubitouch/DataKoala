@@ -3,7 +3,6 @@ import { test } from 'vitest'
 import {
   buildChartPresentationOptions,
   buildChartTooltipFormatter,
-  CHART_LEGEND_TEXT_WIDTH,
   formatChartNumber,
   formatTimeBucketLabel,
   inferTimeDisplayPrecision,
@@ -81,35 +80,15 @@ test('presentation keeps line series unstacked and only stacks broken-down bars'
   assert.match(tooltip.formatter([{ axisValue: base.labels[0], seriesName: 'Orders', value: 1 }]), /02 Aug/)
 })
 
-test('multi-series presentation uses a bounded right legend with a narrow fallback', () => {
+test('HTML legend owns layout while the hidden ECharts legend filters selected series', () => {
   const visibility = { Alpha: true, Beta: false }
   const options = buildChartPresentationOptions({
-    labels: ['x'],
-    series: [{ name: 'Alpha', data: [1] }, { name: 'Beta', data: [2] }],
+    labels: ['x'], series: [{ name: 'Alpha', data: [1] }, { name: 'Beta', data: [2] }],
     view: 'line', hasSeriesColumn: true, mode: 'sql', visibility
   })
-  const legend = options.legend as Record<string, unknown>
-  const grid = options.grid as Record<string, number>
-  assert.equal(legend.orient, 'vertical')
-  assert.equal(legend.type, 'scroll')
-  assert.equal(typeof legend.right, 'number')
-  assert.equal(typeof legend.top, 'number')
-  assert.equal(typeof legend.bottom, 'number')
-  assert.deepEqual(legend.selected, visibility)
-  assert.ok((legend.width as number) >= 160)
-  assert.equal((legend.tooltip as { show: boolean }).show, true)
-  assert.deepEqual(legend.textStyle, { color: '#9aa0b0', width: CHART_LEGEND_TEXT_WIDTH, overflow: 'truncate', ellipsis: '…' })
-  assert.ok(grid.right >= 200)
-  assert.ok(grid.top < 42)
-
-  const media = options.media as Array<{ query: { maxWidth: number }; option: { legend: Record<string, unknown>; grid: Record<string, number> } }>
-  assert.ok(media[0].query.maxWidth > grid.right * 2)
-  assert.equal(media[0].option.legend.orient, 'horizontal')
-  assert.equal(media[0].option.legend.type, undefined, 'the fallback retains the base scroll legend type')
-  assert.ok(media[0].option.grid.right < grid.right)
-  assert.ok(media[0].option.grid.top > grid.top)
-
-  assert.deepEqual((options.series as Array<{ name: string }>).map(({ name }) => name), ['Alpha', 'Beta'])
+  assert.deepEqual(options.legend, { show: false, selected: visibility })
+  assert.equal((options.grid as { right: number }).right, 24)
+  assert.equal(options.media, undefined)
 })
 
 test('single-series presentation hides the legend and keeps a compact plot grid', () => {

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { documentationScreenshots, syntheticSources } from './fixtures.mjs'
 import { assertCompactObjectFilter, assertPreviewReady, assertVisibleSeriesField } from './assertions.mjs'
@@ -193,6 +193,56 @@ async function assertCanonicalCaptureState(win, description) {
   if (errors.length) throw new Error(`${description} contains unexpected application errors: ${JSON.stringify(errors)}`)
   const transient = await win.webContents.executeJavaScript(`Boolean(document.getElementById('_visual-preview-tooltip'))`)
   if (transient) throw new Error(`${description} contains leaked preview-only DOM`)
+}
+
+async function verifyHtmlLegend(win, narrow = false) {
+  await waitForRendererState(win, `document.querySelector('[data-chart-legend] button[aria-pressed]')`, 'HTML legend')
+  await waitForRendererState(win, `(() => { const legend = document.querySelector('[data-chart-legend]').getBoundingClientRect(); const plot = document.querySelector('[data-result-chart-canvas] canvas')?.getBoundingClientRect(); return plot && (${narrow} ? legend.top >= plot.bottom - 1 : legend.left >= plot.right - 1) })()`, 'chart resize beside HTML legend')
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const legend = document.querySelector('[data-chart-legend]')
+    const plot = document.querySelector('[data-result-chart-canvas] canvas')
+    const legendBounds = legend.getBoundingClientRect(), plotBounds = plot.getBoundingClientRect()
+    const toggles = [...legend.querySelectorAll('button[aria-pressed]')]
+    const before = toggles.map(button => button.getAttribute('aria-pressed')).join(',')
+    if (${narrow}) legend.scrollLeft = legend.scrollWidth
+    else legend.scrollTop = legend.scrollHeight
+    legend.dispatchEvent(new Event('scroll'))
+    const scrolled = ${narrow} ? legend.scrollLeft > 0 : legend.scrollTop > 0
+    const unchanged = before === toggles.map(button => button.getAttribute('aria-pressed')).join(',')
+    legend.scrollTop = 0
+    legend.scrollLeft = 0
+    return {
+      count: toggles.length, overflow: ${narrow} ? getComputedStyle(legend).overflowX : getComputedStyle(legend).overflowY, scrolled, unchanged,
+      right: legendBounds.left >= plotBounds.right,
+      below: legendBounds.top >= plotBounds.bottom,
+      legendHeight: legendBounds.height, plotWidth: plotBounds.width
+    }
+  })()`)
+  if (report.count < 20 || report.overflow !== 'auto' || !report.scrolled || !report.unchanged ||
+    (narrow ? !report.below || report.legendHeight > 50 : !report.right)) {
+    throw new Error(`HTML legend layout/scroll regression: ${JSON.stringify(report)}`)
+  }
+}
+
+async function verifyLegendExport(win) {
+  let copied, exported
+  ipcMain.handle('clipboard:write-png', (_event, data) => { copied = nativeImage.createFromDataURL(data); return { ok: true } })
+  ipcMain.handle('export:save-binary', (_event, options) => { exported = nativeImage.createFromBuffer(Buffer.from(options.base64, 'base64')); return '/preview/chart.png' })
+  try {
+    for (const label of ['Copy chart', 'Export PNG']) {
+      await waitForRendererState(win, `[...document.querySelectorAll('button')].some(b => b.textContent === '${label}' && !b.disabled)`, label + ' ready')
+      await win.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find(b => b.textContent === '${label}').click()`)
+      for (let attempt = 0; attempt < 60 && !(label === 'Copy chart' ? copied : exported); attempt++) await sleep(100)
+    }
+    const plot = await win.webContents.executeJavaScript(`(() => { const r = document.querySelector('[data-result-chart-canvas] canvas').getBoundingClientRect(); return { width: r.width, height: r.height } })()`)
+    for (const image of [copied, exported]) {
+      const size = image?.getSize()
+      if (!size || size.width < (plot.width + 280) * 2 || size.height < 24 * 28 * 2) throw new Error('Chart PNG must include the entire 24-series legend')
+    }
+  } finally {
+    ipcMain.removeHandler('clipboard:write-png')
+    ipcMain.removeHandler('export:save-binary')
+  }
 }
 
 async function seedPreviewData(win) {
@@ -1056,7 +1106,10 @@ app.whenReady().then(async () => {
     await assertCompactObjectFilter(win, 'Filter database objects')
     await assertVisibleSeriesField(win)
     await verifyCompactAxisScale(win)
+    await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().clearResultFilters('sql')`)
     await capture(win, 'sql-default.png')
+    await verifyHtmlLegend(win)
+    await verifyLegendExport(win)
 
     await configurePrometheusToolbar(win)
     await seedPrometheusPreviewResult(win, 'status', ['200', '500'])
@@ -1099,6 +1152,9 @@ app.whenReady().then(async () => {
     win.setSize(1000, 640)
     await sleep(350)
     await verifyResponsiveChartPicker(win)
+    await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setVisualization('sql', { seriesColumn: 'series', seriesColumns: [] })`)
+    await verifyHtmlLegend(win, true)
+    await assertPreviewReady(win, 'sql-narrow-short-tooltip.png')
     await showChartTooltip(win, 'sql-narrow-short-tooltip.png')
 
     win.setSize(1440, 900)

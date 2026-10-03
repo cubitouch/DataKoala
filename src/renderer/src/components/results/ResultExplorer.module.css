@@ -6,8 +6,15 @@
 .visualizationControl { min-width: 130px; }
 .chart { width: 100%; max-width: 100%; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg-2); }
 .chartActions { min-height: 38px; flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.chartCanvas { position: relative; contain: layout paint; width: 100%; max-width: 100%; min-width: 0; flex: 1; min-height: 0; padding: 6px 10px 10px; }
-.chartCanvas > div { width: 100% !important; max-width: 100%; min-width: 0; }
+.chartCanvas { position: relative; contain: layout paint; width: 100%; max-width: 100%; min-width: 0; flex: 1; min-height: 0; padding: 6px 10px 10px; display: flex; gap: 16px; }
+.plot { flex: 1; min-width: 0; min-height: 0; }
+.chartCanvas > [data-chart-legend] { flex: 0 0 200px; }
+/* The single responsive policy for interactive chart legends. */
+@container result-pane (max-width: 620px) {
+  .chartCanvas { flex-direction: column; gap: 4px; }
+  .chartCanvas > [data-chart-legend] { flex: 0 0 44px; display: flex; overflow: auto hidden; scrollbar-gutter: auto; }
+  .chartCanvas > [data-chart-legend] > div { flex: 0 0 200px; }
+}
 .chartCanvas > .runningOverlay { position: absolute; inset: 6px 10px 10px; width: auto !important; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 42%, transparent); color: var(--text); font-size: 12px; font-weight: 600; pointer-events: none; }
 .stats { font-size: 11px; color: var(--text-mute); font-family: var(--mono); }
 .spacer { flex: 1; }
