@@ -97,5 +97,21 @@ describe('Prometheus workspace restoration', () => {
     await waitFor(() => expect(screen.getByText('SQL editor mounted')).toBeTruthy())
     expect(screen.queryByText('Prometheus query support is coming')).toBeNull()
     expect(container.querySelector('.titlebar > [role="status"]')?.textContent).toContain('Postgres · PostgreSQL')
+    const separator = screen.getByRole('separator', { name: 'Resize query and results' })
+    expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
+    expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
+  })
+
+  it('uses the shared SQL query/results separator for SQL Builder', async () => {
+    resetTestStore({ profiles: [postgres], activeProfileId: postgres.id, connected: true, connectionStatus: 'connected' })
+    patchActiveTestSession({ connectionProfileId: postgres.id, queryMode: 'builder' })
+    mocks.list.mockResolvedValue([postgres])
+    const { container } = render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Builder mounted')).toBeTruthy())
+    const separator = screen.getByRole('separator', { name: 'Resize query and results' })
+    expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
+    expect(container.querySelector('.main')?.className).toContain('sql-layout')
+    expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
   })
 })
