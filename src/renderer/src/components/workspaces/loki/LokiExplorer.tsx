@@ -4,7 +4,7 @@ import type { LokiFilterSource, LokiLogResult, LokiParserKind, LokiQueryResult }
 import { DEFAULT_LOKI_BUILDER, sortLokiLogRowsNewestFirst } from '@shared/loki'
 import { buildLokiQuery, logqlResultKind } from '@shared/loki-builder'
 import { CHART_SERIES_HARD_LIMIT, CHART_SERIES_SOFT_LIMIT } from '@shared/chartLimits'
-import { buildLokiTrendExpressions } from '@shared/loki-trend'
+import { buildLokiTrendExpressions, lokiTrendStep } from '@shared/loki-trend'
 import type { BuilderTimeRange } from '@lib/builderTimeRange'
 import { prometheusRangeBounds } from '@lib/prometheusTimeRange'
 import { logql } from '@lib/logqlLanguage'
@@ -34,11 +34,6 @@ const unfilteredUnavailable = 'An unfiltered query isn’t available for this Lo
 // Loki owns its chart dimensions, so provide one stable empty adapter value rather than
 // falling through to the component's per-render [] default.
 const EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS: string[] = []
-function interval(start: string, end: string): string {
-  const targetSeconds = Math.max(1, (Date.parse(end) - Date.parse(start)) / 250_000)
-  const choices = [1, 5, 10, 30, 60, 300, 900, 3600, 10_800, 21_600, 86_400]
-  return `${choices.find((item) => item >= targetSeconds) ?? 86_400}s`
-}
 interface LokiTrendRange { startMs: number; endMs: number }
 type LokiChartView = 'bar' | 'line' | 'area' | 'scatter' | 'treemap' | 'sunburst'
 const isLokiChartView = (view: ChartPickerView): view is LokiChartView => ['bar', 'line', 'area', 'scatter', 'treemap', 'sunburst'].includes(view)
@@ -134,7 +129,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     let kind: 'logs' | 'metrics'
     try { kind = logqlResultKind(queryExpression) } catch { return }
     if (kind !== 'logs') return
-    const bounds = prometheusRangeBounds(queryRange), step = interval(bounds.start, bounds.end)
+    const bounds = prometheusRangeBounds(queryRange), step = lokiTrendStep(bounds.start, bounds.end)
     const key = JSON.stringify([tabId, connectionId, queryExpression, bounds, queryGroupBy])
     if (trendCacheKey.current === key && trend) return
     const current = ++trendRevision.current
@@ -162,7 +157,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     const current = ++revision.current
     trendRevision.current++; trendCacheKey.current = null; lastProcessedTrendKey.current = null; setTrend(null)
     hasRun.current = true; setLoading(true); setError(null); setTrendError(null); setWarning(null)
-    const bounds = prometheusRangeBounds(range), step = interval(bounds.start, bounds.end)
+    const bounds = prometheusRangeBounds(range), step = lokiTrendStep(bounds.start, bounds.end)
     try {
       const shouldLoadTrend = kind === 'logs' && isLokiChartView(resultView)
       if (shouldLoadTrend) lastProcessedTrendKey.current = trendRefreshKey
