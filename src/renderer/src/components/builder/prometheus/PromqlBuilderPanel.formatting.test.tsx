@@ -70,3 +70,19 @@ it('previews and opens the official formatted generated PromQL', async () => {
   expect(activeTestSession().sql).toBe(formatted)
   expect(activeTestSession().running).toBe(false)
 })
+
+it('reports the formatted query state without changing raw PromQL', async () => {
+  const formatted = 'histogram_quantile(\n  0.95,\n  sum by (le) (rate(request_duration_seconds_bucket[5m]))\n)'
+  const onQueryStateChange = vi.fn()
+  formatQuery.mockResolvedValue(formatted)
+  patchActiveTestSession({ sql: 'manual_query_that_must_survive' })
+
+  render(<PromqlBuilderPanel onQueryStateChange={onQueryStateChange} />)
+
+  await waitFor(() => expect(onQueryStateChange).toHaveBeenLastCalledWith(expect.objectContaining({
+    generated: expect.stringContaining('histogram_quantile'),
+    displayed: formatted,
+    validation: null
+  })))
+  expect(activeTestSession().sql).toBe('manual_query_that_must_survive')
+})

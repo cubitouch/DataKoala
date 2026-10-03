@@ -9,7 +9,8 @@ const profiles: DataSourceProfile[] = [
   { kind: 'local-files', version: 1, id: 'files', name: 'Exports', files: [{ path: '/tmp/export.csv', alias: 'export' }], readonly: true },
   { kind: 'sqlite-file', version: 1, id: 'sqlite', name: 'Archive', path: '/tmp/archive.sqlite', readonly: true },
   { kind: 'loki', version: 1, id: 'loki', name: 'Production logs', transport: { kind: 'gcx', context: 'production' }, readonly: true },
-  { kind: 'tempo', version: 1, id: 'tempo', name: 'Production traces', transport: { kind: 'gcx', context: 'production' }, readonly: true }
+  { kind: 'tempo', version: 1, id: 'tempo', name: 'Production traces', transport: { kind: 'gcx', context: 'production' }, readonly: true },
+  { kind: 'prometheus', version: 1, id: 'prom', name: 'Metrics', transport: { kind: 'gcx' }, readonly: true }
 ]
 
 vi.mock('@lib/api', () => ({ api: { connections: {
@@ -215,6 +216,23 @@ it('selecting a Tempo service seeds the structured Builder and clears stale serv
     advancedFilters: []
   })
   expect(session.sql).toBe('{ resource.service.namespace = "payments" && resource.service.name = "payment-service" }')
+})
+
+it('selecting a Prometheus metric updates Builder state without replacing raw PromQL', async () => {
+  const tab = createQuerySession(1, { id: 'prom-builder-tab', connectionProfileId: 'prom' })
+  tab.sql = 'manual_query_that_must_survive'
+  useStore.setState({
+    profiles, tabs: [tab], activeTabId: tab.id, activeProfileId: 'prom', connected: true,
+    metadataByProfileId: { prom: { schemas: [{ name: 'Prometheus', isSystem: false, relations: [
+      { schema: 'Prometheus', name: 'up', qualifiedName: 'up', kind: 'metric', columnsStatus: 'idle' }
+    ] }], status: 'loaded', error: null, isStale: false } }
+  })
+  render(<Sidebar />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Select up for Builder' }))
+
+  expect(useStore.getState().tabs[0].promqlBuilder.metric).toBe('up')
+  expect(useStore.getState().tabs[0].sql).toBe('manual_query_that_must_survive')
 })
 
 it('filters Tempo services with multiple partial tokens', async () => {

@@ -7,7 +7,7 @@ import { loadConnectionMetadata } from '@lib/connectionMetadata'
 import { matchesSearch } from '@lib/matchesSearch'
 import { relationIdentity, selectionPatchForColumns } from '@lib/builderRelations'
 import { isBuilderTemporalDataType } from '@lib/builderSql'
-import { buildPromql, reconcilePromqlBuilderForMetric } from '@lib/promqlBuilder'
+import { reconcilePromqlBuilderForMetric } from '@lib/promqlBuilder'
 import { defaultTempoBuilder } from '@lib/tempoQueryState'
 import { bindTabConnection, ensureConnectionForTab } from '@lib/tabConnection'
 import { selectActiveSession, selectSession, useStore } from '@store/useStore'
@@ -252,10 +252,8 @@ export function Sidebar() {
     if (relation.kind === 'metric') {
       if (promqlBuilder.metric === relation.name) return
       const metadataType = relation.details?.kind === 'metric' ? relation.details.type : undefined
-      const { builder: next, histogramKind } = reconcilePromqlBuilderForMetric(promqlBuilder, relation.name, metadataType)
+      const { builder: next } = reconcilePromqlBuilderForMetric(promqlBuilder, relation.name, metadataType)
       setPromqlBuilder(next, activeTabId)
-      const generated = buildPromql(next, histogramKind)
-      if (generated) setSql(generated, activeTabId)
       return
     }
     if (builderTable && relationIdentity(builderTable) === relationIdentity(relation)) {
