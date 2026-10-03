@@ -22,9 +22,9 @@ export function refreshConnectionMetadata(profileId: string, store: StoreAccess)
   const generation = connection?.generation ?? initial.connectionGeneration
   store.setState((state) => {
     const old = state.metadataByProfileId[profileId]
-    return { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: old
+    return { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: old?.status === 'loaded'
       ? { ...old, refreshing: true, refreshError: null }
-      : { schemas: [], status: 'loading' as const, error: null, isStale: false, refreshing: true, refreshError: null }
+      : { ...(old ?? { schemas: [], isStale: false }), status: 'loading' as const, error: null, refreshing: true, refreshError: null }
     } }
   })
   const promise = (async () => {

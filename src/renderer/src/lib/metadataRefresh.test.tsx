@@ -62,7 +62,10 @@ it('creates missing renderer metadata when refreshing a restored live session', 
 
 it('reports a missing-state refresh failure and permits recovery', async () => {
   restoredConnectedState()
-  mocks.refresh.mockRejectedValueOnce(new Error('discovery unavailable')).mockResolvedValueOnce(undefined)
+  let finishRetry!: () => void
+  mocks.refresh
+    .mockRejectedValueOnce(new Error('discovery unavailable'))
+    .mockReturnValueOnce(new Promise<void>((resolve) => { finishRetry = resolve }))
   mocks.listObjects.mockResolvedValue([{ schema: 'public', name: 'orders', kind: 'r' }])
 
   await useStore.getState().refreshMetadata('profile-a')
@@ -70,7 +73,10 @@ it('reports a missing-state refresh failure and permits recovery', async () => {
     schemas: [], status: 'error', error: 'discovery unavailable', refreshing: false, refreshError: null
   })
 
-  await useStore.getState().refreshMetadata('profile-a')
+  const retry = useStore.getState().refreshMetadata('profile-a')
+  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({ status: 'loading', refreshing: true, error: null })
+  finishRetry()
+  await retry
   expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({ status: 'loaded', refreshing: false, revision: 1 })
 })
 
