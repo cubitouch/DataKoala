@@ -57,18 +57,3 @@ export function semanticChartCounts(option: Record<string, unknown> | null): Sem
     items: visibleSeries.reduce((count, item) => count + (Array.isArray(item.data) ? item.data.filter(visible).length : 0), 0)
   }
 }
-
-/**
- * Render-time checks are pure; only a committed chart lifecycle may advance this policy.
- * The first mounted chart paints without animation so ECharts cannot be caught mid-transition
- * by an initial container resize. Once a chart has committed, semantic changes may animate.
- */
-export class ChartAnimationPolicy {
-  private committed: string | null = null
-  shouldAnimate(fingerprint: string): boolean {
-    return this.committed !== null && fingerprint !== this.committed
-  }
-  commit(fingerprint: string): void {
-    this.committed = fingerprint
-  }
-}
