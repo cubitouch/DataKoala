@@ -23,13 +23,6 @@ const cx = (...classes: Array<string | false | undefined>) => classes.filter(Boo
 const EMPTY_SCHEMAS: DatabaseSchemaNode[] = []
 
 const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'service' ? 'service' : kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
-function traceqlForService(relation: DatabaseRelationNode): string {
-  const namespace = relation.details?.kind === 'service' ? relation.details.serviceNamespace : undefined
-  const service = `resource.service.name = ${JSON.stringify(relation.name)}`
-  return namespace
-    ? `{ resource.service.namespace = ${JSON.stringify(namespace)} && ${service} }`
-    : `{ ${service} }`
-}
 
 function RelationName({ relation, current, onClick }: { relation: DatabaseRelationNode; current: boolean; onClick: () => void }) {
   const isService = relation.kind === 'service'
@@ -57,7 +50,7 @@ export function Sidebar() {
   const activeTabId = useStore((s) => s.activeTabId)
   const activeTabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const activeTabSourceKind = useStore((s) => s.profiles.find((profile) => profile.id === selectActiveSession(s).connectionProfileId)?.kind)
-  const currentSql = useStore((s) => selectActiveSession(s).sql)
+  const tempoBuilder = useStore((s) => selectActiveSession(s).tempoBuilder)
   const metadataByProfileId = useStore((s) => s.metadataByProfileId)
   const metadata = activeTabConnectionId ? metadataByProfileId[activeTabConnectionId] : undefined
   const schemas = metadata?.schemas ?? EMPTY_SCHEMAS
@@ -73,7 +66,6 @@ export function Sidebar() {
   const setPromqlBuilder = useStore((s) => s.setPromqlBuilder)
   const setTempoState = useStore((s) => s.setTempoState)
   const setQueryMode = useStore((s) => s.setQueryMode)
-  const setSql = useStore((s) => s.setSql)
   const [editing, setEditing] = useState<DataSourceProfile | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<DataSourceProfile | null>(null)
@@ -242,11 +234,9 @@ export function Sidebar() {
 
   const selectForBuilder = (relation: DatabaseRelationNode) => {
     if (relation.kind === 'service') {
-      const generated = traceqlForService(relation)
       const serviceNamespace = relation.details?.kind === 'service' ? relation.details.serviceNamespace ?? '' : ''
       setTempoState({ tempoBuilder: { ...defaultTempoBuilder(), serviceNamespace, service: relation.name } }, activeTabId)
       setQueryMode('builder', activeTabId)
-      setSql(generated, activeTabId)
       return
     }
     if (relation.kind === 'metric') {
@@ -334,8 +324,9 @@ export function Sidebar() {
                 const relationId = `relation:${relation.qualifiedName}`
                 const leaf = relation.kind === 'service'
                 const relationOpen = leaf ? false : filtering || expanded.has(relationId)
+                const serviceNamespace = relation.details?.kind === 'service' ? relation.details.serviceNamespace ?? '' : ''
                 const current = relation.kind === 'service'
-                    ? currentSql === traceqlForService(relation)
+                    ? tempoBuilder.service === relation.name && tempoBuilder.serviceNamespace === serviceNamespace
                     : builderTable?.schema === relation.schema && builderTable.name === relation.name
                 return <div key={relationId} role="treeitem" aria-expanded={leaf ? undefined : relationOpen}>
                   <div className={cx(styles.treeRow, styles.relationRow)}>

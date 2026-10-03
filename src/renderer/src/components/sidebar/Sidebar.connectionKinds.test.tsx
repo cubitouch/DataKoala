@@ -182,6 +182,7 @@ it('retains compact progress feedback during an active connection attempt', asyn
 
 it('selecting a Tempo service seeds the structured Builder and clears stale service-specific filters', async () => {
   const tab = createQuerySession(1, { id: 'tempo-builder-tab', connectionProfileId: 'tempo' })
+  tab.sql = '{ resource.service.name = "manual-query" }'
   tab.tempoBuilder = {
     ...tab.tempoBuilder,
     serviceNamespace: 'old',
@@ -215,7 +216,7 @@ it('selecting a Tempo service seeds the structured Builder and clears stale serv
     minDurationMs: '',
     advancedFilters: []
   })
-  expect(session.sql).toBe('{ resource.service.namespace = "payments" && resource.service.name = "payment-service" }')
+  expect(session.sql).toBe('{ resource.service.name = "manual-query" }')
 })
 
 it('selecting a Prometheus metric updates Builder state without replacing raw PromQL', async () => {
