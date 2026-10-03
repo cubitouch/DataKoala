@@ -13,12 +13,17 @@
   min-width: 0;
   background: var(--bg-2);
   container-type: inline-size;
-  overflow: auto;
 }
 
 [data-builder-panel] > :global(.editor-head) {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .row {
