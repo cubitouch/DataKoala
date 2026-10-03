@@ -171,6 +171,12 @@ describe('Prometheus workspace restoration', () => {
 
     expect(screen.getByText('SQL editor mounted')).toBeTruthy()
     expect(screen.getByText('Results mounted')).toBeTruthy()
+    const separator = screen.getByRole('separator', {
+      name: 'Resize query and results',
+    })
+    expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
+    expect(separator.tabIndex).toBe(0)
+    expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
     expect(screen.queryByText('Builder mounted')).toBeNull()
     expect(
       container.querySelector('.titlebar > [role="status"]')?.textContent,
@@ -203,6 +209,7 @@ describe('Prometheus workspace restoration', () => {
       name: 'Resize query and results',
     })
     expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
+    expect(separator.tabIndex).toBe(0)
     expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
   })
 
@@ -225,6 +232,7 @@ describe('Prometheus workspace restoration', () => {
       name: 'Resize Loki query and results',
     })
     expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
+    expect(separator.tabIndex).toBe(0)
     expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
     expect(container.querySelector('.main')?.className).not.toContain(
       'sql-layout',
@@ -252,6 +260,7 @@ describe('Prometheus workspace restoration', () => {
       name: 'Resize query and results',
     })
     expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
+    expect(separator.tabIndex).toBe(0)
     expect(container.querySelector('.main')?.className).toContain('sql-layout')
     expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
   })

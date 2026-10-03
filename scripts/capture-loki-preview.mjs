@@ -10,6 +10,7 @@ import {
 } from './visual-preview/loki-fixtures.mjs'
 import {
   assertCompactObjectFilter,
+  assertEditorResizeHandle,
   assertFieldRowGeometry,
   assertPreviewReady,
   assertVisibleSeriesField,
@@ -75,6 +76,7 @@ async function seedWorkspace(win) {
     `document.querySelector('[aria-label="Resize Loki query and results"]')`,
     'Loki query/results resize handle',
   )
+  await assertEditorResizeHandle(win)
 }
 
 app.whenReady().then(async () => {

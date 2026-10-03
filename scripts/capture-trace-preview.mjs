@@ -13,6 +13,7 @@ import {
 } from './visual-preview/trace-dense-fixtures.mjs'
 import {
   assertCompactObjectFilter,
+  assertEditorResizeHandle,
   assertFieldRowGeometry,
   assertPreviewReady,
 } from './visual-preview/assertions.mjs'
@@ -215,6 +216,7 @@ async function seedTraceWorkspace(win) {
     `document.querySelector('[aria-label="Resize Tempo query and results"]')`,
     'Tempo query/results resize handle',
   )
+  await assertEditorResizeHandle(win)
 }
 
 async function validateBuilderIndependence(win) {

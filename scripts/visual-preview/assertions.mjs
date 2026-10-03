@@ -1,3 +1,24 @@
+export async function assertEditorResizeHandle(win) {
+  const report = await win.webContents.executeJavaScript(`(() => {
+    const handles = document.querySelectorAll('.editor-resizer')
+    const handle = handles[0]
+    const bounds = handle?.getBoundingClientRect()
+    return {
+      count: handles.length,
+      height: bounds?.height,
+      width: bounds?.width,
+      role: handle?.getAttribute('role'),
+      orientation: handle?.getAttribute('aria-orientation'),
+      tabIndex: handle?.tabIndex
+    }
+  })()`)
+  if (report.count !== 1 || report.height < 8 || report.height > 9 ||
+      !(report.width > 0) || report.role !== 'separator' ||
+      report.orientation !== 'horizontal' || report.tabIndex !== 0) {
+    throw new Error(`Expected one focusable horizontal separator with an 8px hit target: ${JSON.stringify(report)}`)
+  }
+}
+
 export async function assertCompactObjectFilter(win, expectedLabel) {
   const report = await win.webContents.executeJavaScript(`(() => {
     const input = [...document.querySelectorAll('input[placeholder="Filter objects…"]')]
