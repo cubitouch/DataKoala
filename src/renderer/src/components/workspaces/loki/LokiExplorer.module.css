@@ -16,7 +16,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-bottom: 1px solid var(--border);
 }
 
 .queryToolbar {
