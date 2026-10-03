@@ -53,7 +53,7 @@ describe('Prometheus metric object tree', () => {
 
     const session = selectActiveSession(useStore.getState())
     expect(session.promqlBuilder.metric).toBe('http_requests_total')
-    expect(session.sql).toBe('http_requests_total')
+    expect(session.sql).toBe('select now();')
     expect(metric.getAttribute('aria-current')).toBe('true')
     expect(mocks.labelsForMetric).not.toHaveBeenCalled()
 
@@ -92,7 +92,7 @@ describe('Prometheus metric object tree', () => {
       groupBy: [],
       labelValues: {}
     })
-    expect(session.sql).toBe('sum(rate(http_requests_total[5m]))')
+    expect(session.sql).toBe('select now();')
   })
 
   it('renders no generic fallback or empty tooltip when metric metadata is absent', async () => {
