@@ -1,8 +1,25 @@
 export type ConnectionId = string
 
-export type ConnectionLifecycleState = 'connecting' | 'connected' | 'idle' | 'reconnecting' | 'disconnecting' | 'disconnected' | 'failed'
-export type ConnectionErrorCode = 'CONNECTION_LOST' | 'NOT_CONNECTED' | 'RECONNECTING' | 'RECONNECT_FAILED' | 'QUERY_CANCELLED_BY_DISCONNECT'
-export type ConnectionFailureKind = 'transient' | 'authentication' | 'configuration' | 'server-unavailable' | 'unknown'
+export type ConnectionLifecycleState =
+  | 'connecting'
+  | 'connected'
+  | 'idle'
+  | 'reconnecting'
+  | 'disconnecting'
+  | 'disconnected'
+  | 'failed'
+export type ConnectionErrorCode =
+  | 'CONNECTION_LOST'
+  | 'NOT_CONNECTED'
+  | 'RECONNECTING'
+  | 'RECONNECT_FAILED'
+  | 'QUERY_CANCELLED_BY_DISCONNECT'
+export type ConnectionFailureKind =
+  | 'transient'
+  | 'authentication'
+  | 'configuration'
+  | 'server-unavailable'
+  | 'unknown'
 
 export interface ConnectionStateEvent {
   profileId: ConnectionId
@@ -19,11 +36,26 @@ export interface ConnectionStateEvent {
   activeOperationAffected?: boolean
 }
 
-export type DataSourceKind = 'postgres' | 'local-files' | 'sqlite-file' | 'bigquery' | 'prometheus' | 'tempo' | 'loki'
-export type QueryEngine = 'postgres' | 'duckdb' | 'bigquery' | 'prometheus' | 'tempo' | 'loki'
+export type DataSourceKind =
+  | 'postgres'
+  | 'local-files'
+  | 'sqlite-file'
+  | 'bigquery'
+  | 'prometheus'
+  | 'tempo'
+  | 'loki'
+export type QueryEngine =
+  'postgres' | 'duckdb' | 'bigquery' | 'prometheus' | 'tempo' | 'loki'
 export type SqlDialect = 'postgres' | 'duckdb' | 'google-sql'
-export type QueryLanguage = { kind: 'sql'; dialect: SqlDialect } | { kind: 'promql' } | { kind: 'traceql' } | { kind: 'logql' }
-type SqlDataSourceKind = Exclude<DataSourceKind, 'prometheus' | 'tempo' | 'loki'>
+export type QueryLanguage =
+  | { kind: 'sql'; dialect: SqlDialect }
+  | { kind: 'promql' }
+  | { kind: 'traceql' }
+  | { kind: 'logql' }
+type SqlDataSourceKind = Exclude<
+  DataSourceKind,
+  'prometheus' | 'tempo' | 'loki'
+>
 
 export interface DataSourceDescriptor {
   sourceKind: DataSourceKind
@@ -31,21 +63,39 @@ export interface DataSourceDescriptor {
   dialect: SqlDialect
 }
 
-export const DATA_SOURCE_DESCRIPTORS: Record<SqlDataSourceKind, DataSourceDescriptor> = {
+export const DATA_SOURCE_DESCRIPTORS: Record<
+  SqlDataSourceKind,
+  DataSourceDescriptor
+> = {
   postgres: { sourceKind: 'postgres', engine: 'postgres', dialect: 'postgres' },
-  'local-files': { sourceKind: 'local-files', engine: 'duckdb', dialect: 'duckdb' },
-  'sqlite-file': { sourceKind: 'sqlite-file', engine: 'duckdb', dialect: 'duckdb' },
-  bigquery: { sourceKind: 'bigquery', engine: 'bigquery', dialect: 'google-sql' }
+  'local-files': {
+    sourceKind: 'local-files',
+    engine: 'duckdb',
+    dialect: 'duckdb',
+  },
+  'sqlite-file': {
+    sourceKind: 'sqlite-file',
+    engine: 'duckdb',
+    dialect: 'duckdb',
+  },
+  bigquery: {
+    sourceKind: 'bigquery',
+    engine: 'bigquery',
+    dialect: 'google-sql',
+  },
 }
 
 export function sqlDialectForSourceKind(kind: DataSourceKind): SqlDialect {
-  if (kind === 'prometheus') throw new Error('Prometheus does not use a SQL dialect.')
+  if (kind === 'prometheus')
+    throw new Error('Prometheus does not use a SQL dialect.')
   if (kind === 'tempo') throw new Error('Tempo does not use a SQL dialect.')
   if (kind === 'loki') throw new Error('Loki does not use a SQL dialect.')
   return DATA_SOURCE_DESCRIPTORS[kind].dialect
 }
 
-export function queryLanguageForSourceKind(kind: DataSourceKind): QueryLanguage {
+export function queryLanguageForSourceKind(
+  kind: DataSourceKind,
+): QueryLanguage {
   if (kind === 'prometheus') return { kind: 'promql' }
   if (kind === 'tempo') return { kind: 'traceql' }
   if (kind === 'loki') return { kind: 'logql' }
@@ -132,11 +182,28 @@ export interface LokiProfile extends ProfileBase {
   grafana?: GrafanaHandoffConfig
 }
 
-export type DataSourceProfile = PostgresProfile | LocalFilesProfile | SqliteFileProfile | BigQueryProfile | PrometheusProfile | TempoProfile | LokiProfile
+export type DataSourceProfile =
+  | PostgresProfile
+  | LocalFilesProfile
+  | SqliteFileProfile
+  | BigQueryProfile
+  | PrometheusProfile
+  | TempoProfile
+  | LokiProfile
 /** @deprecated Prefer the discriminated DataSourceProfile union. */
 export type ConnectionProfile = PostgresProfile
 
-export type LogicalType = 'number' | 'string' | 'boolean' | 'date' | 'timestamp' | 'json' | 'binary' | 'list' | 'struct' | 'unknown'
+export type LogicalType =
+  | 'number'
+  | 'string'
+  | 'boolean'
+  | 'date'
+  | 'timestamp'
+  | 'json'
+  | 'binary'
+  | 'list'
+  | 'struct'
+  | 'unknown'
 
 export interface ColumnMeta {
   name: string
@@ -178,19 +245,34 @@ export interface DataSourceCapabilities {
 }
 
 /** Generic product capabilities consumed across datasource-specific boundaries. */
-export const DATA_SOURCE_CAPABILITIES: Record<DataSourceKind, DataSourceCapabilities> = {
+export const DATA_SOURCE_CAPABILITIES: Record<
+  DataSourceKind,
+  DataSourceCapabilities
+> = {
   postgres: { explain: true, analyze: true },
   'local-files': { explain: false, analyze: false },
   'sqlite-file': { explain: false, analyze: false },
   bigquery: { explain: false, analyze: false },
   prometheus: { explain: false, analyze: false },
   tempo: { explain: false, analyze: false },
-  loki: { explain: false, analyze: false }
+  loki: { explain: false, analyze: false },
 }
 
-export interface SourceInfo { label?: string; version?: string }
-export type TestResult = { ok: true; sourceInfo?: SourceInfo; serverVersion?: string } | { ok: false; error: string }
-export type ConnectResult = { ok: true; generation: number; sourceInfo?: SourceInfo; serverVersion?: string } | { ok: false; error: string }
+export interface SourceInfo {
+  label?: string
+  version?: string
+}
+export type TestResult =
+  | { ok: true; sourceInfo?: SourceInfo; serverVersion?: string }
+  | { ok: false; error: string }
+export type ConnectResult =
+  | {
+      ok: true
+      generation: number
+      sourceInfo?: SourceInfo
+      serverVersion?: string
+    }
+  | { ok: false; error: string }
 
 export interface ExplainNode {
   plan: string
@@ -213,15 +295,17 @@ export interface TableInfo {
   details?: DataObjectDetails
 }
 
-export type DataObjectDetails = {
-  kind: 'metric'
-  type?: string
-  help?: string
-  unit?: string
-} | {
-  kind: 'service'
-  serviceNamespace?: string
-}
+export type DataObjectDetails =
+  | {
+      kind: 'metric'
+      type?: string
+      help?: string
+      unit?: string
+    }
+  | {
+      kind: 'service'
+      serviceNamespace?: string
+    }
 
 export interface DatabaseColumnNode {
   name: string
@@ -256,7 +340,7 @@ export const TIME_TYPE_NAMES = new Set([
   'timestamp_ns',
   'timestamp with time zone',
   'timestamp without time zone',
-  'datetime'
+  'datetime',
 ])
 
 export function isTimeType(typeName: string): boolean {
@@ -293,7 +377,7 @@ export const NUMERIC_TYPE_NAMES = new Set([
   'double',
   'int64',
   'float64',
-  'bignumeric'
+  'bignumeric',
 ])
 
 export function isNumericType(typeName: string): boolean {
@@ -307,7 +391,10 @@ export function isNumericType(typeName: string): boolean {
  * and a genuinely numeric column for Y. Returns empty strings when there is no
  * reasonable choice, so the UI can prompt instead of rendering an empty chart.
  */
-export function pickDefaultChartFields(columns: ColumnMeta[]): { xField: string; yField: string } {
+export function pickDefaultChartFields(columns: ColumnMeta[]): {
+  xField: string
+  yField: string
+} {
   if (columns.length === 0) return { xField: '', yField: '' }
   const numeric = columns.filter((c) => isNumericType(c.dataTypeName))
   const time = columns.find((c) => isTimeType(c.dataTypeName))

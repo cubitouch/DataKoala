@@ -20,7 +20,10 @@ describe('copyTextToClipboard', () => {
   it('falls back to a temporary textarea when Clipboard API is unavailable', async () => {
     vi.stubGlobal('navigator', {})
     const execCommand = vi.fn().mockReturnValue(true)
-    Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true })
+    Object.defineProperty(document, 'execCommand', {
+      value: execCommand,
+      configurable: true,
+    })
 
     await copyTextToClipboard('select 2;')
 

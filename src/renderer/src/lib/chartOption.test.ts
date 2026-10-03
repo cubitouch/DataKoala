@@ -4,12 +4,19 @@ import { buildEChartsOption } from './chartOption.ts'
 import type { QueryResult } from '@shared/types.ts'
 import type { ChartConfig } from '@store/useStore.ts'
 
-function mk(rows: Record<string, unknown>[], cols: [string, string][]): QueryResult {
+function mk(
+  rows: Record<string, unknown>[],
+  cols: [string, string][],
+): QueryResult {
   return {
-    columns: cols.map(([name, dataTypeName]) => ({ name, dataTypeName, dataTypeID: 0 })),
+    columns: cols.map(([name, dataTypeName]) => ({
+      name,
+      dataTypeName,
+      dataTypeID: 0,
+    })),
     rows,
     rowCount: rows.length,
-    durationMs: 1
+    durationMs: 1,
   }
 }
 
@@ -20,7 +27,7 @@ const cfg = (over: Partial<ChartConfig> = {}): ChartConfig => ({
   aggregation: 'sum',
   seriesField: undefined,
   timeBucket: undefined,
-  ...over
+  ...over,
 })
 
 /** The user's real query shape: date_trunc'd month plus a count. */
@@ -28,12 +35,12 @@ const monthly = mk(
   [
     { day: new Date('2023-06-01T00:00:00Z'), total: 720 },
     { day: new Date('2023-07-01T00:00:00Z'), total: 744 },
-    { day: new Date('2023-08-01T00:00:00Z'), total: 744 }
+    { day: new Date('2023-08-01T00:00:00Z'), total: 744 },
   ],
   [
     ['day', 'timestamptz'],
-    ['total', 'int8']
-  ]
+    ['total', 'int8'],
+  ],
 )
 
 test('a timestamptz X axis produces a time axis', () => {
@@ -48,7 +55,10 @@ test('a time axis carries [x, y] pairs, not bare values', () => {
   const b = buildEChartsOption(monthly, cfg({ type: 'line' }))!
   const series = (b.option.series as { data: unknown[] }[])[0]
   for (const point of series.data) {
-    assert.ok(Array.isArray(point), `expected an [x, y] pair, got ${JSON.stringify(point)}`)
+    assert.ok(
+      Array.isArray(point),
+      `expected an [x, y] pair, got ${JSON.stringify(point)}`,
+    )
     assert.equal((point as unknown[]).length, 2)
   }
   const first = series.data[0] as [string, number]
@@ -66,15 +76,17 @@ test('timestamps stay in chronological order', () => {
     [
       { day: new Date('2023-08-01T00:00:00Z'), total: 3 },
       { day: new Date('2023-06-01T00:00:00Z'), total: 1 },
-      { day: new Date('2023-07-01T00:00:00Z'), total: 2 }
+      { day: new Date('2023-07-01T00:00:00Z'), total: 2 },
     ],
     [
       ['day', 'timestamptz'],
-      ['total', 'int8']
-    ]
+      ['total', 'int8'],
+    ],
   )
   const b = buildEChartsOption(shuffled, cfg({ type: 'line' }))!
-  const ys = (b.option.series as { data: [string, number][] }[])[0].data.map((p) => p[1])
+  const ys = (b.option.series as { data: [string, number][] }[])[0].data.map(
+    (p) => p[1],
+  )
   assert.deepEqual(ys, [1, 2, 3])
 })
 
@@ -82,12 +94,12 @@ test('a text X axis produces a category axis with data', () => {
   const r = mk(
     [
       { region: 'eu', total: 5 },
-      { region: 'us', total: 7 }
+      { region: 'us', total: 7 },
     ],
     [
       ['region', 'text'],
-      ['total', 'numeric']
-    ]
+      ['total', 'numeric'],
+    ],
   )
   const b = buildEChartsOption(r, cfg({ xField: 'region' }))!
   assert.equal(b.meta.isTimeAxis, false)
@@ -104,17 +116,20 @@ test('a series field yields one series per distinct value', () => {
     [
       { region: 'eu', total: 1, day: '2024-01-01' },
       { region: 'us', total: 2, day: '2024-01-01' },
-      { region: 'eu', total: 4, day: '2024-01-02' }
+      { region: 'eu', total: 4, day: '2024-01-02' },
     ],
     [
       ['day', 'text'],
       ['region', 'text'],
-      ['total', 'numeric']
-    ]
+      ['total', 'numeric'],
+    ],
   )
   const b = buildEChartsOption(r, cfg({ seriesField: 'region' }))!
   assert.deepEqual(b.meta.seriesNames.sort(), ['eu', 'us'])
-  assert.ok(!b.meta.seriesNames.includes('(null)'), 'series names should not collapse to (null)')
+  assert.ok(
+    !b.meta.seriesNames.includes('(null)'),
+    'series names should not collapse to (null)',
+  )
 })
 
 test('category series are padded so they cannot drift out of alignment', () => {
@@ -126,13 +141,13 @@ test('category series are padded so they cannot drift out of alignment', () => {
       { day: '2024-01-01', region: 'us', total: 10 },
       { day: '2024-01-02', region: 'eu', total: 2 },
       { day: '2024-01-03', region: 'eu', total: 3 },
-      { day: '2024-01-03', region: 'us', total: 30 }
+      { day: '2024-01-03', region: 'us', total: 30 },
     ],
     [
       ['day', 'text'],
       ['region', 'text'],
-      ['total', 'numeric']
-    ]
+      ['total', 'numeric'],
+    ],
   )
   const b = buildEChartsOption(r, cfg({ seriesField: 'region' }))!
   const x = (b.option.xAxis as { data: string[] }).data
@@ -140,7 +155,11 @@ test('category series are padded so they cannot drift out of alignment', () => {
 
   const series = b.option.series as { name: string; data: (number | null)[] }[]
   for (const s of series) {
-    assert.equal(s.data.length, x.length, `series ${s.name} is not aligned to the category axis`)
+    assert.equal(
+      s.data.length,
+      x.length,
+      `series ${s.name} is not aligned to the category axis`,
+    )
   }
   const us = series.find((s) => s.name === 'us')!
   // The gap must be an explicit null at the right index, not a missing element.
@@ -153,14 +172,17 @@ test('scatter charts always use [x, y] pairs', () => {
   const r = mk(
     [
       { a: 1, b: 2 },
-      { a: 3, b: 4 }
+      { a: 3, b: 4 },
     ],
     [
       ['a', 'numeric'],
-      ['b', 'numeric']
-    ]
+      ['b', 'numeric'],
+    ],
   )
-  const b = buildEChartsOption(r, cfg({ type: 'scatter', xField: 'a', yField: 'b' }))!
+  const b = buildEChartsOption(
+    r,
+    cfg({ type: 'scatter', xField: 'a', yField: 'b' }),
+  )!
   for (const p of (b.option.series as { data: unknown[] }[])[0].data) {
     assert.ok(Array.isArray(p))
   }
@@ -184,13 +206,13 @@ test('canvas options leave legend presentation to HTML', () => {
   const r = mk(
     [
       { day: '2024-01-01', region: 'eu', total: 1 },
-      { day: '2024-01-01', region: 'us', total: 2 }
+      { day: '2024-01-01', region: 'us', total: 2 },
     ],
     [
       ['day', 'text'],
       ['region', 'text'],
-      ['total', 'numeric']
-    ]
+      ['total', 'numeric'],
+    ],
   )
   const multi = buildEChartsOption(r, cfg({ seriesField: 'region' }))!
   const legend = multi.option.legend as Record<string, unknown>
@@ -212,10 +234,13 @@ test('returns null instead of an empty chart when there is nothing to plot', () 
   assert.equal(buildEChartsOption(monthly, cfg({ xField: '' })), null)
   assert.equal(buildEChartsOption(monthly, cfg({ yField: '' })), null)
   // A Y column that is entirely non-numeric yields no plottable rows.
-  const textY = mk([{ day: '2024-01-01', total: 'abc' }], [
-    ['day', 'text'],
-    ['total', 'text']
-  ])
+  const textY = mk(
+    [{ day: '2024-01-01', total: 'abc' }],
+    [
+      ['day', 'text'],
+      ['total', 'text'],
+    ],
+  )
   assert.equal(buildEChartsOption(textY, cfg()), null)
 })
 
@@ -224,15 +249,18 @@ test('aggregation is applied per series, not globally', () => {
     [
       { day: 'd1', region: 'eu', total: 10 },
       { day: 'd1', region: 'eu', total: 20 },
-      { day: 'd1', region: 'us', total: 100 }
+      { day: 'd1', region: 'us', total: 100 },
     ],
     [
       ['day', 'text'],
       ['region', 'text'],
-      ['total', 'numeric']
-    ]
+      ['total', 'numeric'],
+    ],
   )
-  const b = buildEChartsOption(r, cfg({ seriesField: 'region', aggregation: 'sum' }))!
+  const b = buildEChartsOption(
+    r,
+    cfg({ seriesField: 'region', aggregation: 'sum' }),
+  )!
   const series = b.option.series as { name: string; data: (number | null)[] }[]
   assert.deepEqual(series.find((s) => s.name === 'eu')!.data, [30])
   assert.deepEqual(series.find((s) => s.name === 'us')!.data, [100])

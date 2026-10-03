@@ -11,7 +11,7 @@ for (const [query, expected] of [
   ['PAY WORKER', true],
   ['  pay   worker  ', true],
   ['pay missing', false],
-  ['', true]
+  ['', true],
 ] as const) {
   test(`matches ${JSON.stringify(query)} as ${expected}`, () => {
     assert.equal(matchesSearch(candidate, query), expected)
@@ -19,9 +19,15 @@ for (const [query, expected] of [
 }
 
 test('matches tokens across normalized searchable text', () => {
-  assert.equal(matchesSearch('orders table · demo_shop sales_fact', 'ord demo fact'), true)
+  assert.equal(
+    matchesSearch('orders table · demo_shop sales_fact', 'ord demo fact'),
+    true,
+  )
 })
 
 test('normalizes surrounding, repeated, and mixed whitespace', () => {
-  assert.equal(normalizeSearchText('  Payment\t Service\nWorker '), 'payment service worker')
+  assert.equal(
+    normalizeSearchText('  Payment\t Service\nWorker '),
+    'payment service worker',
+  )
 })

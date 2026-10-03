@@ -10,7 +10,9 @@ export const api: typeof bridge = bridge && {
     run: (...args) => withQueryErrors(() => bridge.query.run(...args)),
     runLoki: (...args) => withQueryErrors(() => bridge.query.runLoki(...args)),
     explain: (...args) => withQueryErrors(() => bridge.query.explain(...args)),
-    probeSeriesCardinality: (...args) => withQueryErrors(() => bridge.query.probeSeriesCardinality(...args)),
-    seriesStatistics: (...args) => withQueryErrors(() => bridge.query.seriesStatistics(...args))
-  }
+    probeSeriesCardinality: (...args) =>
+      withQueryErrors(() => bridge.query.probeSeriesCardinality(...args)),
+    seriesStatistics: (...args) =>
+      withQueryErrors(() => bridge.query.seriesStatistics(...args)),
+  },
 }

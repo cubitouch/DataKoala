@@ -1,32 +1,144 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LokiExplorer } from './LokiExplorer'
-const mocks = vi.hoisted(() => ({ labels: vi.fn(), labelValues: vi.fn(), formatQuery: vi.fn(), runLoki: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  labels: vi.fn(),
+  labelValues: vi.fn(),
+  formatQuery: vi.fn(),
+  runLoki: vi.fn(),
+}))
 const copyTextToClipboard = vi.hoisted(() => vi.fn())
 const chartMock = vi.hoisted(() => ({ renders: 0 }))
 vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
-vi.mock('@lib/api', () => ({ api: { connections: { loki: { labels: mocks.labels, labelValues: mocks.labelValues, formatQuery: mocks.formatQuery } }, query: { runLoki: mocks.runLoki } } }))
-vi.mock('@tanstack/react-virtual', () => ({ useVirtualizer: ({ count }: { count: number }) => ({ measure: vi.fn(), measureElement: vi.fn(), getTotalSize: () => count * 113, getVirtualItems: () => Array.from({ length: Math.min(count, 20) }, (_, index) => ({ index, start: index * 113 })) }) }))
+vi.mock('@lib/api', () => ({
+  api: {
+    connections: {
+      loki: {
+        labels: mocks.labels,
+        labelValues: mocks.labelValues,
+        formatQuery: mocks.formatQuery,
+      },
+    },
+    query: { runLoki: mocks.runLoki },
+  },
+}))
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    measure: vi.fn(),
+    measureElement: vi.fn(),
+    getTotalSize: () => count * 113,
+    getVirtualItems: () =>
+      Array.from({ length: Math.min(count, 20) }, (_, index) => ({
+        index,
+        start: index * 113,
+      })),
+  }),
+}))
 import { createQuerySession, useStore } from '@store/useStore'
 import { clearLokiLabelsResources } from '@lib/useLokiLabelsResource'
 import type { LokiLogResult } from '@shared/loki'
 
-vi.mock('@uiw/react-codemirror', () => ({ default: ({ value }: { value: string }) => <textarea aria-label="LogQL editor" value={value} readOnly /> }))
-vi.mock('echarts-for-react', () => ({ default: () => { chartMock.renders += 1; return <div data-testid="loki-echarts" /> } }))
+vi.mock('@uiw/react-codemirror', () => ({
+  default: ({ value }: { value: string }) => (
+    <textarea aria-label="LogQL editor" value={value} readOnly />
+  ),
+}))
+vi.mock('echarts-for-react', () => ({
+  default: () => {
+    chartMock.renders += 1
+    return <div data-testid="loki-echarts" />
+  },
+}))
 
-const metric = { resultKind: 'metrics' as const, columns: [{ name: 'timestamp', dataTypeID: 0, dataTypeName: 'timestamp' }, { name: 'value', dataTypeID: 0, dataTypeName: 'number' }], rows: [{ timestamp: '2026-01-01T00:00:00Z', value: 2 }], rowCount: 1, durationMs: 1, execution: { provider: 'loki' as const, durationMs: 1 } }
-const logs = { resultKind: 'logs' as const, logRows: [], columns: [], rows: [], rowCount: 0, durationMs: 1, execution: { provider: 'loki' as const, durationMs: 1 } }
-const logRow = (id: string, line: string, severity = 'INFO') => ({ id, timestampNs: `${Date.parse('2026-01-01T00:00:00Z') * 1_000_000}`, timestampMs: Date.parse('2026-01-01T00:00:00Z'), line, labels: { app: 'x' }, structuredMetadata: {}, parsedFields: {}, severity })
-const patternLogs = (suffix = '') => { const logRows = [logRow(`one${suffix}`, 'Request 123 completed'), logRow(`two${suffix}`, 'Request 456 completed', 'ERROR'), logRow(`three${suffix}`, 'Worker started normally')]; return { ...logs, logRows, rows: logRows, rowCount: logRows.length, columns: [{ name: 'line', dataTypeID: 0, dataTypeName: 'text' }] } }
+const metric = {
+  resultKind: 'metrics' as const,
+  columns: [
+    { name: 'timestamp', dataTypeID: 0, dataTypeName: 'timestamp' },
+    { name: 'value', dataTypeID: 0, dataTypeName: 'number' },
+  ],
+  rows: [{ timestamp: '2026-01-01T00:00:00Z', value: 2 }],
+  rowCount: 1,
+  durationMs: 1,
+  execution: { provider: 'loki' as const, durationMs: 1 },
+}
+const logs = {
+  resultKind: 'logs' as const,
+  logRows: [],
+  columns: [],
+  rows: [],
+  rowCount: 0,
+  durationMs: 1,
+  execution: { provider: 'loki' as const, durationMs: 1 },
+}
+const logRow = (id: string, line: string, severity = 'INFO') => ({
+  id,
+  timestampNs: `${Date.parse('2026-01-01T00:00:00Z') * 1_000_000}`,
+  timestampMs: Date.parse('2026-01-01T00:00:00Z'),
+  line,
+  labels: { app: 'x' },
+  structuredMetadata: {},
+  parsedFields: {},
+  severity,
+})
+const patternLogs = (suffix = '') => {
+  const logRows = [
+    logRow(`one${suffix}`, 'Request 123 completed'),
+    logRow(`two${suffix}`, 'Request 456 completed', 'ERROR'),
+    logRow(`three${suffix}`, 'Worker started normally'),
+  ]
+  return {
+    ...logs,
+    logRows,
+    rows: logRows,
+    rowCount: logRows.length,
+    columns: [{ name: 'line', dataTypeID: 0, dataTypeName: 'text' }],
+  }
+}
 
-afterEach(() => { cleanup(); clearLokiLabelsResources() })
+afterEach(() => {
+  cleanup()
+  clearLokiLabelsResources()
+})
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn()
-  const tab = createQuerySession(1, { id: 'loki-tab', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
-  useStore.setState({ tabs: [tab], activeTabId: tab.id, activeProfileId: 'loki', connected: true, connectionStatus: 'connected', connectionGeneration: 1, metadataByProfileId: {}, profiles: [{ id: 'loki', name: 'Production logs', kind: 'loki', version: 1, readonly: true, transport: { kind: 'gcx', context: 'test', datasourceUid: 'loki-main' }, grafana: { baseUrl: 'https://grafana.example', datasourceType: 'loki' } }] })
+  const tab = createQuerySession(1, {
+    id: 'loki-tab',
+    connectionProfileId: 'loki',
+    queryMode: 'sql',
+    sql: '{app="x"}',
+  })
+  useStore.setState({
+    tabs: [tab],
+    activeTabId: tab.id,
+    activeProfileId: 'loki',
+    connected: true,
+    connectionStatus: 'connected',
+    connectionGeneration: 1,
+    metadataByProfileId: {},
+    profiles: [
+      {
+        id: 'loki',
+        name: 'Production logs',
+        kind: 'loki',
+        version: 1,
+        readonly: true,
+        transport: { kind: 'gcx', context: 'test', datasourceUid: 'loki-main' },
+        grafana: { baseUrl: 'https://grafana.example', datasourceType: 'loki' },
+      },
+    ],
+  })
   mocks.labels.mockReset().mockResolvedValue(['app', 'service'])
   mocks.labelValues.mockReset().mockResolvedValue(['x'])
-  mocks.formatQuery.mockReset().mockImplementation(async (_connectionId, query) => query)
+  mocks.formatQuery
+    .mockReset()
+    .mockImplementation(async (_connectionId, query) => query)
   mocks.runLoki.mockReset()
   copyTextToClipboard.mockReset()
   chartMock.renders = 0
@@ -34,41 +146,74 @@ beforeEach(() => {
 
 describe('LokiExplorer execution', () => {
   it('disables and guards Loki execution while metadata refreshes', () => {
-    useStore.setState({ metadataByProfileId: { loki: { schemas: [], status: 'loaded', error: null, isStale: false, refreshing: true } } })
+    useStore.setState({
+      metadataByProfileId: {
+        loki: {
+          schemas: [],
+          status: 'loaded',
+          error: null,
+          isStale: false,
+          refreshing: true,
+        },
+      },
+    })
     render(<LokiExplorer connectionId="loki" />)
     const run = screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement
     expect(run.disabled).toBe(true)
     fireEvent.click(run)
-    fireEvent.keyDown(screen.getByLabelText('LogQL editor'), { key: 'Enter', metaKey: true })
+    fireEvent.keyDown(screen.getByLabelText('LogQL editor'), {
+      key: 'Enter',
+      metaKey: true,
+    })
     expect(mocks.runLoki).not.toHaveBeenCalled()
   })
 
   it('runs an empty Builder through the service_name fallback with bounded time and limit', async () => {
     mocks.labels.mockResolvedValue(['app', 'service_name'])
     mocks.runLoki.mockResolvedValue(logs)
-    const tab = createQuerySession(1, { id: 'empty-builder', connectionProfileId: 'loki', queryMode: 'builder' })
+    const tab = createQuerySession(1, {
+      id: 'empty-builder',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
     tab.lokiResultLimit = 2000
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
 
     const run = await screen.findByRole('button', { name: 'Run' })
     await waitFor(() => expect(run.hasAttribute('disabled')).toBe(false))
-    expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toBe('{service_name=~".+"}')
+    expect(
+      (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
+    ).toBe('{service_name=~".+"}')
     fireEvent.click(run)
 
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
     const request = mocks.runLoki.mock.calls[0][1]
-    expect(request).toMatchObject({ expression: '{service_name=~".+"}', limit: 2000 })
+    expect(request).toMatchObject({
+      expression: '{service_name=~".+"}',
+      limit: 2000,
+    })
     expect(Date.parse(request.start)).not.toBeNaN()
     expect(Date.parse(request.end)).not.toBeNaN()
-    expect(Date.parse(request.end) - Date.parse(request.start)).toBe(60 * 60 * 1000)
+    expect(Date.parse(request.end) - Date.parse(request.start)).toBe(
+      60 * 60 * 1000,
+    )
   })
 
   it('keeps a completed Builder selector instead of adding the fallback', async () => {
     mocks.labels.mockResolvedValue(['app', 'service_name'])
     mocks.runLoki.mockResolvedValue(logs)
-    const tab = createQuerySession(1, { id: 'filtered-builder', connectionProfileId: 'loki', queryMode: 'builder' })
-    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [], parsers: [], fieldFilters: [] }
+    const tab = createQuerySession(1, {
+      id: 'filtered-builder',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [],
+      parsers: [],
+      fieldFilters: [],
+    }
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
     await waitFor(() => expect(mocks.labels).toHaveBeenCalled())
@@ -77,7 +222,11 @@ describe('LokiExplorer execution', () => {
     expect(mocks.runLoki.mock.calls[0][1].expression).toBe('{app="x"}')
     fireEvent.click(screen.getByRole('button', { name: 'Grafana handoff' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Copy Grafana link' }))
-    const pane = JSON.parse(new URL(copyTextToClipboard.mock.calls.at(-1)![0]).searchParams.get('panes')!)
+    const pane = JSON.parse(
+      new URL(copyTextToClipboard.mock.calls.at(-1)![0]).searchParams.get(
+        'panes',
+      )!,
+    )
     expect(pane.datakoala.queries[0].expr).toBe('{app="x"}')
   })
 
@@ -86,23 +235,52 @@ describe('LokiExplorer execution', () => {
     mocks.runLoki.mockResolvedValue(logs)
     const raw = '{app="manual-do-not-touch"}'
     const formatted = '{app="x"}\n|= "timeout"'
-    mocks.formatQuery.mockImplementation(async (_connectionId, query) => query.includes('timeout') ? formatted : query)
-    const tab = createQuerySession(1, { id: 'formatted-builder', connectionProfileId: 'loki', queryMode: 'builder', sql: raw })
-    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: [] }
+    mocks.formatQuery.mockImplementation(async (_connectionId, query) =>
+      query.includes('timeout') ? formatted : query,
+    )
+    const tab = createQuerySession(1, {
+      id: 'formatted-builder',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+      sql: raw,
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [{ operator: '|=', value: 'timeout' }],
+      parsers: [],
+      fieldFilters: [],
+    }
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
 
-    await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledWith('loki', '{app="x"} |= "timeout"'))
+    await waitFor(() =>
+      expect(mocks.formatQuery).toHaveBeenCalledWith(
+        'loki',
+        '{app="x"} |= "timeout"',
+      ),
+    )
     fireEvent.click(screen.getByText('Generated LogQL'))
-    await waitFor(() => expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toBe(formatted))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
+      ).toBe(formatted),
+    )
     expect(useStore.getState().tabs[0].sql).toBe(raw)
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Copy LogQL to clipboard' })[0])
-    await waitFor(() => expect(copyTextToClipboard).toHaveBeenLastCalledWith(formatted))
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Copy LogQL to clipboard' })[0],
+    )
+    await waitFor(() =>
+      expect(copyTextToClipboard).toHaveBeenLastCalledWith(formatted),
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Grafana handoff' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Copy Grafana link' }))
-    const pane = JSON.parse(new URL(copyTextToClipboard.mock.calls.at(-1)![0]).searchParams.get('panes')!)
+    const pane = JSON.parse(
+      new URL(copyTextToClipboard.mock.calls.at(-1)![0]).searchParams.get(
+        'panes',
+      )!,
+    )
     expect(pane.datakoala.queries[0].expr).toBe(formatted)
 
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
@@ -117,7 +295,11 @@ describe('LokiExplorer execution', () => {
     expect(useStore.getState().tabs[0].sql).toBe(raw)
     await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledTimes(2))
     fireEvent.click(screen.getByText('Generated LogQL'))
-    await waitFor(() => expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toBe(formatted))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
+      ).toBe(formatted),
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Open in LogQL mode' }))
     expect(useStore.getState().tabs[0].queryMode).toBe('sql')
@@ -130,15 +312,29 @@ describe('LokiExplorer execution', () => {
     mocks.runLoki.mockResolvedValue(logs)
     const raw = '{app="manual-do-not-touch"}'
     const generated = '{app="x"} |= "timeout"'
-    const tab = createQuerySession(1, { id: 'format-fallback', connectionProfileId: 'loki', queryMode: 'builder', sql: raw })
-    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: [] }
+    const tab = createQuerySession(1, {
+      id: 'format-fallback',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+      sql: raw,
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [{ operator: '|=', value: 'timeout' }],
+      parsers: [],
+      fieldFilters: [],
+    }
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
 
     await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalled())
     fireEvent.click(screen.getByText('Generated LogQL'))
-    expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toBe(generated)
-    expect(screen.getByRole('button', { name: 'Run' }).hasAttribute('disabled')).toBe(false)
+    expect(
+      (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
+    ).toBe(generated)
+    expect(
+      screen.getByRole('button', { name: 'Run' }).hasAttribute('disabled'),
+    ).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
 
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
@@ -149,8 +345,12 @@ describe('LokiExplorer execution', () => {
   it('ignores a stale formatted Builder response after the Builder changes', async () => {
     let resolveFirst!: (value: string) => void
     let resolveSecond!: (value: string) => void
-    const first = new Promise<string>((resolve) => { resolveFirst = resolve })
-    const second = new Promise<string>((resolve) => { resolveSecond = resolve })
+    const first = new Promise<string>((resolve) => {
+      resolveFirst = resolve
+    })
+    const second = new Promise<string>((resolve) => {
+      resolveSecond = resolve
+    })
     const firstFormatted = '{app="x"}\n|= "timeout"'
     const secondFormatted = '{app="x"}\n|= "retry"'
     mocks.labels.mockResolvedValue(['app', 'service_name'])
@@ -160,21 +360,55 @@ describe('LokiExplorer execution', () => {
       return query
     })
     mocks.runLoki.mockResolvedValue(logs)
-    const tab = createQuerySession(1, { id: 'stale-format', connectionProfileId: 'loki', queryMode: 'builder', sql: '{app="manual-do-not-touch"}' })
-    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: [] }
+    const tab = createQuerySession(1, {
+      id: 'stale-format',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+      sql: '{app="manual-do-not-touch"}',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [{ operator: '|=', value: 'timeout' }],
+      parsers: [],
+      fieldFilters: [],
+    }
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
 
-    await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledWith('loki', '{app="x"} |= "timeout"'))
-    fireEvent.change(screen.getByLabelText('Line contains'), { target: { value: 'retry' } })
-    await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledWith('loki', '{app="x"} |= "retry"'))
+    await waitFor(() =>
+      expect(mocks.formatQuery).toHaveBeenCalledWith(
+        'loki',
+        '{app="x"} |= "timeout"',
+      ),
+    )
+    fireEvent.change(screen.getByLabelText('Line contains'), {
+      target: { value: 'retry' },
+    })
+    await waitFor(() =>
+      expect(mocks.formatQuery).toHaveBeenCalledWith(
+        'loki',
+        '{app="x"} |= "retry"',
+      ),
+    )
 
-    await act(async () => { resolveSecond(secondFormatted); await second })
+    await act(async () => {
+      resolveSecond(secondFormatted)
+      await second
+    })
     fireEvent.click(screen.getByText('Generated LogQL'))
-    await waitFor(() => expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toBe(secondFormatted))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
+      ).toBe(secondFormatted),
+    )
 
-    await act(async () => { resolveFirst(firstFormatted); await first })
-    expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toBe(secondFormatted)
+    await act(async () => {
+      resolveFirst(firstFormatted)
+      await first
+    })
+    expect(
+      (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
+    ).toBe(secondFormatted)
 
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
@@ -184,12 +418,18 @@ describe('LokiExplorer execution', () => {
 
   it('explains why an empty Builder cannot run without a safe metadata anchor', async () => {
     mocks.labels.mockResolvedValue(['app'])
-    const tab = createQuerySession(1, { id: 'unsupported-empty-builder', connectionProfileId: 'loki', queryMode: 'builder' })
+    const tab = createQuerySession(1, {
+      id: 'unsupported-empty-builder',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
     await waitFor(() => expect(mocks.labels).toHaveBeenCalled())
     const reason = await screen.findByRole('status')
-    expect(reason.textContent).toContain('An unfiltered query isn’t available for this Loki datasource')
+    expect(reason.textContent).toContain(
+      'An unfiltered query isn’t available for this Loki datasource',
+    )
     const run = screen.getByRole('button', { name: 'Run' })
     expect(run.hasAttribute('disabled')).toBe(true)
     expect(run.getAttribute('aria-describedby')).toBe(reason.id)
@@ -207,68 +447,159 @@ describe('LokiExplorer execution', () => {
   })
 
   it('keeps saved Builder metadata controls unavailable without requests while disconnected', () => {
-    const tab = createQuerySession(1, { id: 'disconnected-builder', connectionProfileId: 'loki', queryMode: 'builder' })
-    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'saved', values: ['saved'] }], lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: [] }
+    const tab = createQuerySession(1, {
+      id: 'disconnected-builder',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [
+        { label: 'app', operator: '=', value: 'saved', values: ['saved'] },
+      ],
+      lineFilters: [{ operator: '|=', value: 'timeout' }],
+      parsers: [],
+      fieldFilters: [],
+    }
     tab.lokiGroupBy = ['app']
-    useStore.setState({ tabs: [tab], activeTabId: tab.id, connected: false, connectionStatus: 'reconnecting', connectionGeneration: 2 })
+    useStore.setState({
+      tabs: [tab],
+      activeTabId: tab.id,
+      connected: false,
+      connectionStatus: 'reconnecting',
+      connectionGeneration: 2,
+    })
     render(<LokiExplorer connectionId="loki" />)
     expect(mocks.labels).not.toHaveBeenCalled()
     expect(mocks.labelValues).not.toHaveBeenCalled()
     expect(screen.queryByText(/This profile is not connected/)).toBeNull()
     expect(screen.queryByRole('button', { name: /retry/i })).toBeNull()
-    expect(screen.getByRole('combobox', { name: /Filter by/ }).hasAttribute('disabled')).toBe(true)
-    expect(screen.getByRole('combobox', { name: /Group by/ }).hasAttribute('disabled')).toBe(true)
-    expect(screen.getByRole('combobox', { name: /app values/ }).hasAttribute('disabled')).toBe(true)
+    expect(
+      screen
+        .getByRole('combobox', { name: /Filter by/ })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    expect(
+      screen
+        .getByRole('combobox', { name: /Group by/ })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    expect(
+      screen
+        .getByRole('combobox', { name: /app values/ })
+        .hasAttribute('disabled'),
+    ).toBe(true)
     expect(useStore.getState().tabs[0].lokiBuilder).toEqual(tab.lokiBuilder)
     expect(useStore.getState().tabs[0].lokiGroupBy).toEqual(['app'])
   })
 
   it('ignores a Builder value failure after disconnect and reloads metadata on reconnect', async () => {
     let rejectValue!: (reason: unknown) => void
-    const pendingValue = new Promise<string[]>((_, reject) => { rejectValue = reject })
-    mocks.labelValues.mockReturnValueOnce(pendingValue).mockResolvedValueOnce(['fresh'])
-    const tab = createQuerySession(1, { id: 'value-race', connectionProfileId: 'loki', queryMode: 'builder' })
-    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'saved', values: ['saved'] }], lineFilters: [], parsers: [], fieldFilters: [] }
+    const pendingValue = new Promise<string[]>((_, reject) => {
+      rejectValue = reject
+    })
+    mocks.labelValues
+      .mockReturnValueOnce(pendingValue)
+      .mockResolvedValueOnce(['fresh'])
+    const tab = createQuerySession(1, {
+      id: 'value-race',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [
+        { label: 'app', operator: '=', value: 'saved', values: ['saved'] },
+      ],
+      lineFilters: [],
+      parsers: [],
+      fieldFilters: [],
+    }
     tab.lokiGroupBy = ['app']
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
     await waitFor(() => expect(mocks.labelValues).toHaveBeenCalledTimes(1))
-    act(() => useStore.setState({ connected: false, connectionStatus: 'reconnecting', connectionGeneration: 2 }))
-    await act(async () => { rejectValue(new Error('This profile is not connected')); await pendingValue.catch(() => undefined) })
+    act(() =>
+      useStore.setState({
+        connected: false,
+        connectionStatus: 'reconnecting',
+        connectionGeneration: 2,
+      }),
+    )
+    await act(async () => {
+      rejectValue(new Error('This profile is not connected'))
+      await pendingValue.catch(() => undefined)
+    })
     expect(screen.queryByText(/This profile is not connected/)).toBeNull()
     expect(screen.queryByRole('button', { name: /retry/i })).toBeNull()
-    expect(screen.getByRole('combobox', { name: /app values/ }).hasAttribute('disabled')).toBe(true)
+    expect(
+      screen
+        .getByRole('combobox', { name: /app values/ })
+        .hasAttribute('disabled'),
+    ).toBe(true)
 
-    act(() => useStore.setState({ connected: true, connectionStatus: 'connected', connectionGeneration: 3 }))
+    act(() =>
+      useStore.setState({
+        connected: true,
+        connectionStatus: 'connected',
+        connectionGeneration: 3,
+      }),
+    )
     await waitFor(() => expect(mocks.labels).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(mocks.labelValues).toHaveBeenCalledTimes(2))
-    expect(screen.getByRole('combobox', { name: /app values/ }).hasAttribute('disabled')).toBe(false)
+    expect(
+      screen
+        .getByRole('combobox', { name: /app values/ })
+        .hasAttribute('disabled'),
+    ).toBe(false)
     expect(useStore.getState().tabs[0].lokiBuilder).toEqual(tab.lokiBuilder)
     expect(useStore.getState().tabs[0].lokiGroupBy).toEqual(['app'])
   })
 
   it('uses the standard toolbar and a collapsed themed Builder query disclosure', async () => {
-    const tab = createQuerySession(1, { id: 'builder-tab', connectionProfileId: 'loki', queryMode: 'builder' })
-    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: [] }
+    const tab = createQuerySession(1, {
+      id: 'builder-tab',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [{ operator: '|=', value: 'timeout' }],
+      parsers: [],
+      fieldFilters: [],
+    }
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     const { container } = render(<LokiExplorer connectionId="loki" />)
     await waitFor(() => expect(mocks.labels).toHaveBeenCalled())
     expect(container.querySelector('[data-query-toolbar]')).toBeTruthy()
-    expect(screen.getAllByRole('button').map((button) => button.textContent)).toContain('LogQL')
-    expect(screen.getByRole('button', { name: 'Run' }).closest('.execution-group')).toBeTruthy()
-    expect(screen.getByText('Generated LogQL').closest('details')?.hasAttribute('open')).toBe(false)
+    expect(
+      screen.getAllByRole('button').map((button) => button.textContent),
+    ).toContain('LogQL')
+    expect(
+      screen.getByRole('button', { name: 'Run' }).closest('.execution-group'),
+    ).toBeTruthy()
+    expect(
+      screen
+        .getByText('Generated LogQL')
+        .closest('details')
+        ?.hasAttribute('open'),
+    ).toBe(false)
     expect(screen.queryByText('Stream filters')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Refresh metadata' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Refresh metadata' }),
+    ).toBeNull()
     expect(screen.queryByText('Advanced match operators')).toBeNull()
     const labelPicker = screen.getByRole('combobox', { name: /Filter by/ })
     expect(labelPicker).toBeTruthy()
     expect(screen.getByRole('combobox', { name: /app values/ })).toBeTruthy()
     fireEvent.click(labelPicker)
     fireEvent.click(await screen.findByRole('option', { name: 'service' }))
-    const serviceValues = screen.getByRole('combobox', { name: /service values/ })
+    const serviceValues = screen.getByRole('combobox', {
+      name: /service values/,
+    })
     fireEvent.click(serviceValues)
     fireEvent.click(await screen.findByRole('option', { name: 'x' }))
-    fireEvent.change(screen.getByLabelText('Line contains'), { target: { value: 'timeout' } })
+    fireEvent.change(screen.getByLabelText('Line contains'), {
+      target: { value: 'timeout' },
+    })
     fireEvent.click(screen.getByRole('combobox', { name: /Filter by/ }))
     const groupBy = screen.getByRole('combobox', { name: /Group by/ })
     fireEvent.click(groupBy)
@@ -276,42 +607,88 @@ describe('LokiExplorer execution', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'service' }))
     expect(useStore.getState().tabs[0].lokiGroupBy).toEqual(['app', 'service'])
     fireEvent.click(screen.getByText('Generated LogQL'))
-    const generated = (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value
+    const generated = (
+      screen.getByLabelText('LogQL editor') as HTMLTextAreaElement
+    ).value
     expect(generated).toContain('app="x"')
     expect(generated).toContain('service="x"')
     expect(generated).toContain('|= "timeout"')
   })
 
   it('keeps parsed JSON actions in the pipeline and exposes them in Advanced filters', () => {
-    const tab = createQuerySession(1, { id: 'json-filter', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="manual-do-not-touch"}' })
-    const parsed = { ...logRow('json', JSON.stringify({ message: 'Retrying', attempt: 3 })), parsedFields: { attempt: 3 } }
-    tab.result = { ...logs, logRows: [parsed], rows: [parsed], rowCount: 1 } as LokiLogResult
+    const tab = createQuerySession(1, {
+      id: 'json-filter',
+      connectionProfileId: 'loki',
+      queryMode: 'sql',
+      sql: '{app="manual-do-not-touch"}',
+    })
+    const parsed = {
+      ...logRow('json', JSON.stringify({ message: 'Retrying', attempt: 3 })),
+      parsedFields: { attempt: 3 },
+    }
+    tab.result = {
+      ...logs,
+      logRows: [parsed],
+      rows: [parsed],
+      rowCount: 1,
+    } as LokiLogResult
     tab.resultRevision = 1
-    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'retry' }], parsers: [], fieldFilters: [] }
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [{ operator: '|=', value: 'retry' }],
+      parsers: [],
+      fieldFilters: [],
+    }
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
     fireEvent.click(screen.getByRole('button', { name: /Retrying/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Include attempt' }))
     fireEvent.click(screen.getByRole('button', { name: 'Include attempt' }))
-    expect(useStore.getState().tabs[0].lokiBuilder).toEqual({ labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'retry' }], parsers: [{ kind: 'json' }], fieldFilters: [{ field: 'attempt', operator: '=', value: '3' }] })
+    expect(useStore.getState().tabs[0].lokiBuilder).toEqual({
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [{ operator: '|=', value: 'retry' }],
+      parsers: [{ kind: 'json' }],
+      fieldFilters: [{ field: 'attempt', operator: '=', value: '3' }],
+    })
     fireEvent.click(screen.getByText('Advanced filters'))
     expect(screen.getByRole('combobox', { name: /Parser 1/ })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Exclude attempt' }))
-    expect(useStore.getState().tabs[0].lokiBuilder.parsers).toEqual([{ kind: 'json' }])
-    expect(useStore.getState().tabs[0].lokiBuilder.fieldFilters).toEqual([{ field: 'attempt', operator: '!=', value: '3' }])
+    expect(useStore.getState().tabs[0].lokiBuilder.parsers).toEqual([
+      { kind: 'json' },
+    ])
+    expect(useStore.getState().tabs[0].lokiBuilder.fieldFilters).toEqual([
+      { field: 'attempt', operator: '!=', value: '3' },
+    ])
     expect(useStore.getState().tabs[0].sql).toBe('{app="manual-do-not-touch"}')
   })
 
   it('edits and removes advanced filters without changing indexed labels', () => {
-    const tab = createQuerySession(1, { id: 'advanced-builder', connectionProfileId: 'loki', queryMode: 'builder' })
-    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [], parsers: [{ kind: 'json' }], fieldFilters: [{ field: 'attempt', operator: '=', value: '3' }] }
+    const tab = createQuerySession(1, {
+      id: 'advanced-builder',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [],
+      parsers: [{ kind: 'json' }],
+      fieldFilters: [{ field: 'attempt', operator: '=', value: '3' }],
+    }
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
     fireEvent.click(screen.getByText('Advanced filters'))
-    fireEvent.change(screen.getByLabelText('Field 1 value'), { target: { value: '4' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Remove field filter 1' }))
+    fireEvent.change(screen.getByLabelText('Field 1 value'), {
+      target: { value: '4' },
+    })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove field filter 1' }),
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Remove parser 1' }))
-    expect(useStore.getState().tabs[0].lokiBuilder).toMatchObject({ labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], parsers: [], fieldFilters: [] })
+    expect(useStore.getState().tabs[0].lokiBuilder).toMatchObject({
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      parsers: [],
+      fieldFilters: [],
+    })
   })
 
   it('renders Limit as a complete numeric field without squeezing its input', () => {
@@ -339,19 +716,30 @@ describe('LokiExplorer execution', () => {
     const at = (id: string, iso: string) => {
       const row = logRow(id, id)
       const timestampMs = Date.parse(iso)
-      return { ...row, timestampMs, timestampNs: String(BigInt(timestampMs) * 1_000_000n) }
+      return {
+        ...row,
+        timestampMs,
+        timestampNs: String(BigInt(timestampMs) * 1_000_000n),
+      }
     }
     const logRows = [
       at('middle', '2026-01-01T14:28:47.141Z'),
       at('newest', '2026-01-01T14:31:50.632Z'),
-      at('oldest', '2026-01-01T14:26:27.095Z')
+      at('oldest', '2026-01-01T14:26:27.095Z'),
     ]
-    mocks.runLoki.mockResolvedValue({ ...logs, logRows, rows: logRows, rowCount: logRows.length })
+    mocks.runLoki.mockResolvedValue({
+      ...logs,
+      logRows,
+      rows: logRows,
+      rowCount: logRows.length,
+    })
     render(<LokiExplorer connectionId="loki" />)
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
 
-    const timestamps = Array.from(document.querySelectorAll('article time')).map((time) => time.textContent)
+    const timestamps = Array.from(
+      document.querySelectorAll('article time'),
+    ).map((time) => time.textContent)
     expect(timestamps).toEqual(['14:31:50.632', '14:28:47.141', '14:26:27.095'])
   })
 
@@ -362,7 +750,9 @@ describe('LokiExplorer execution', () => {
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getByRole('button', { name: 'Table' }))
     expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
-    expect(screen.getAllByRole('toolbar', { name: 'Result view' })).toHaveLength(1)
+    expect(
+      screen.getAllByRole('toolbar', { name: 'Result view' }),
+    ).toHaveLength(1)
     expect(useStore.getState().tabs[0].lokiResultView).toBe('table')
   })
 
@@ -373,12 +763,20 @@ describe('LokiExplorer execution', () => {
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
     expect(screen.getByRole('button', { name: 'Patterns' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
-    expect(await screen.findByText('2 patterns across 3 loaded logs')).toBeTruthy()
+    expect(
+      await screen.findByText('2 patterns across 3 loaded logs'),
+    ).toBeTruthy()
     expect(mocks.runLoki).toHaveBeenCalledTimes(1)
-    const requestPattern = screen.getByRole('button', { name: /Request.*<number>.*completed/ })
-    const requestCard = requestPattern.closest('[data-pattern-card]') as HTMLElement
+    const requestPattern = screen.getByRole('button', {
+      name: /Request.*<number>.*completed/,
+    })
+    const requestCard = requestPattern.closest(
+      '[data-pattern-card]',
+    ) as HTMLElement
     fireEvent.click(requestPattern)
-    const requestViewLogs = Array.from(requestCard.querySelectorAll('button')).find((button) => button.textContent === 'View logs') as HTMLButtonElement
+    const requestViewLogs = Array.from(
+      requestCard.querySelectorAll('button'),
+    ).find((button) => button.textContent === 'View logs') as HTMLButtonElement
     fireEvent.click(requestViewLogs)
     expect(useStore.getState().tabs[0].lokiResultView).toBe('list')
     expect(await screen.findByText(/Showing 2 logs matching/)).toBeTruthy()
@@ -400,44 +798,79 @@ describe('LokiExplorer execution', () => {
   })
 
   it('invalidates a selected pattern when a new query result arrives', async () => {
-    mocks.runLoki.mockResolvedValueOnce(patternLogs()).mockResolvedValueOnce(patternLogs('-new'))
+    mocks.runLoki
+      .mockResolvedValueOnce(patternLogs())
+      .mockResolvedValueOnce(patternLogs('-new'))
     render(<LokiExplorer connectionId="loki" />)
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await screen.findByRole('button', { name: 'Patterns' })
     fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
-    const requestPattern = await screen.findByRole('button', { name: /Request.*<number>.*completed/ })
-    const requestCard = requestPattern.closest('[data-pattern-card]') as HTMLElement
+    const requestPattern = await screen.findByRole('button', {
+      name: /Request.*<number>.*completed/,
+    })
+    const requestCard = requestPattern.closest(
+      '[data-pattern-card]',
+    ) as HTMLElement
     fireEvent.click(requestPattern)
-    const requestViewLogs = Array.from(requestCard.querySelectorAll('button')).find((button) => button.textContent === 'View logs') as HTMLButtonElement
+    const requestViewLogs = Array.from(
+      requestCard.querySelectorAll('button'),
+    ).find((button) => button.textContent === 'View logs') as HTMLButtonElement
     fireEvent.click(requestViewLogs)
-    expect(await screen.findByRole('button', { name: 'Clear pattern' })).toBeTruthy()
+    expect(
+      await screen.findByRole('button', { name: 'Clear pattern' }),
+    ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Clear pattern' })).toBeNull())
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Clear pattern' }),
+      ).toBeNull(),
+    )
     expect(screen.getByText(/^3 loaded/)).toBeTruthy()
   })
 
   it('loads and renders log volume only when Chart is selected', async () => {
-    const run = mocks.runLoki.mockResolvedValueOnce(logs).mockResolvedValueOnce(metric)
+    const run = mocks.runLoki
+      .mockResolvedValueOnce(logs)
+      .mockResolvedValueOnce(metric)
     render(<LokiExplorer connectionId="loki" />)
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
     const picker = screen.getByRole('toolbar', { name: 'Result view' })
-    for (const view of ['List', 'Table', 'Patterns', 'Bar', 'Line', 'Area', 'Scatter', 'Treemap', 'Sunburst']) expect(screen.getByRole('button', { name: view })).toBeTruthy()
-    expect(screen.getAllByRole('toolbar', { name: 'Result view' })).toHaveLength(1)
-    expect(screen.getByRole('textbox', { name: 'Search loaded logs' })).toBeTruthy()
+    for (const view of [
+      'List',
+      'Table',
+      'Patterns',
+      'Bar',
+      'Line',
+      'Area',
+      'Scatter',
+      'Treemap',
+      'Sunburst',
+    ])
+      expect(screen.getByRole('button', { name: view })).toBeTruthy()
+    expect(
+      screen.getAllByRole('toolbar', { name: 'Result view' }),
+    ).toHaveLength(1)
+    expect(
+      screen.getByRole('textbox', { name: 'Search loaded logs' }),
+    ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
     expect(run).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: 'Line' }))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
     expect(screen.getByRole('toolbar', { name: 'Result view' })).toBe(picker)
-    expect(screen.queryByRole('textbox', { name: 'Search loaded logs' })).toBeNull()
+    expect(
+      screen.queryByRole('textbox', { name: 'Search loaded logs' }),
+    ).toBeNull()
     expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
     await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
   })
 
   it('does not continuously re-apply an unchanged Loki trend chart', async () => {
-    const run = mocks.runLoki.mockResolvedValueOnce(logs).mockResolvedValueOnce(metric)
+    const run = mocks.runLoki
+      .mockResolvedValueOnce(logs)
+      .mockResolvedValueOnce(metric)
     render(<LokiExplorer connectionId="loki" />)
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
@@ -454,17 +887,28 @@ describe('LokiExplorer execution', () => {
 
   it('publishes Loki logs before a slower synthetic trend finishes', async () => {
     let resolveTrend!: (value: typeof metric) => void
-    const deferredTrend = new Promise<typeof metric>((resolve) => { resolveTrend = resolve })
-    mocks.runLoki.mockImplementation(async (_id, request: { expression: string }) =>
-      request.expression.includes('count_over_time') ? deferredTrend : logs)
+    const deferredTrend = new Promise<typeof metric>((resolve) => {
+      resolveTrend = resolve
+    })
+    mocks.runLoki.mockImplementation(
+      async (_id, request: { expression: string }) =>
+        request.expression.includes('count_over_time') ? deferredTrend : logs,
+    )
 
-    const tab = createQuerySession(1, { id: 'slow-trend', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
+    const tab = createQuerySession(1, {
+      id: 'slow-trend',
+      connectionProfileId: 'loki',
+      queryMode: 'sql',
+      sql: '{app="x"}',
+    })
     tab.lokiResultView = 'line'
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
-    await waitFor(() => expect(useStore.getState().tabs[0].result).toEqual(logs))
+    await waitFor(() =>
+      expect(useStore.getState().tabs[0].result).toEqual(logs),
+    )
     expect(screen.getByRole('button', { name: 'Run' })).toBeTruthy()
     expect(screen.getByText('Loading log volume…')).toBeTruthy()
 
@@ -506,7 +950,11 @@ describe('LokiExplorer execution', () => {
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getByRole('button', { name: 'Line' }))
     await waitFor(() => expect(run).toHaveBeenCalledTimes(2))
-    expect(await screen.findByText('Log volume unavailable: Log volume query failed: trend unavailable')).toBeTruthy()
+    expect(
+      await screen.findByText(
+        'Log volume unavailable: Log volume query failed: trend unavailable',
+      ),
+    ).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'List' }))
     fireEvent.click(screen.getByRole('button', { name: 'Line' }))
@@ -516,29 +964,59 @@ describe('LokiExplorer execution', () => {
   })
 
   it('restores a completed Loki result and selected view after the workspace remounts', () => {
-    const tab = createQuerySession(1, { id: 'restored-result', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="x"}' })
+    const tab = createQuerySession(1, {
+      id: 'restored-result',
+      connectionProfileId: 'loki',
+      queryMode: 'sql',
+      sql: '{app="x"}',
+    })
     tab.result = patternLogs()
     tab.resultRevision = 1
     tab.lokiResultView = 'table'
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
 
     const first = render(<LokiExplorer connectionId="loki" />)
-    expect(screen.getByRole('button', { name: 'Table' }).getAttribute('aria-pressed')).toBe('true')
+    expect(
+      screen
+        .getByRole('button', { name: 'Table' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true')
     expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
     first.unmount()
 
     render(<LokiExplorer connectionId="loki" />)
-    expect(screen.getByRole('button', { name: 'Table' }).getAttribute('aria-pressed')).toBe('true')
+    expect(
+      screen
+        .getByRole('button', { name: 'Table' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true')
     expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
     expect(mocks.runLoki).not.toHaveBeenCalled()
   })
 
   it('does not deliver a deferred tab A query into tab B', async () => {
     let resolveQuery!: (value: typeof metric) => void
-    const deferred = new Promise<typeof metric>((resolve) => { resolveQuery = resolve })
-    const tabA = createQuerySession(1, { id: 'tab-a', connectionProfileId: 'loki', queryMode: 'sql', sql: 'sum(count_over_time({app="a"}[1m]))' })
-    const tabB = createQuerySession(2, { id: 'tab-b', connectionProfileId: 'loki', queryMode: 'sql', sql: '{app="b"}' })
-    const sentinel = { columns: [], rows: [{ tab: 'b' }], rowCount: 1, durationMs: 0 }
+    const deferred = new Promise<typeof metric>((resolve) => {
+      resolveQuery = resolve
+    })
+    const tabA = createQuerySession(1, {
+      id: 'tab-a',
+      connectionProfileId: 'loki',
+      queryMode: 'sql',
+      sql: 'sum(count_over_time({app="a"}[1m]))',
+    })
+    const tabB = createQuerySession(2, {
+      id: 'tab-b',
+      connectionProfileId: 'loki',
+      queryMode: 'sql',
+      sql: '{app="b"}',
+    })
+    const sentinel = {
+      columns: [],
+      rows: [{ tab: 'b' }],
+      rowCount: 1,
+      durationMs: 0,
+    }
     tabB.result = sentinel
     useStore.setState({ tabs: [tabA, tabB], activeTabId: tabA.id })
     mocks.runLoki.mockReturnValue(deferred)
@@ -546,8 +1024,13 @@ describe('LokiExplorer execution', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
     act(() => useStore.setState({ activeTabId: tabB.id }))
-    await act(async () => { resolveQuery(metric); await deferred })
-    expect(useStore.getState().tabs.find(({ id }) => id === tabB.id)?.result).toBe(sentinel)
+    await act(async () => {
+      resolveQuery(metric)
+      await deferred
+    })
+    expect(
+      useStore.getState().tabs.find(({ id }) => id === tabB.id)?.result,
+    ).toBe(sentinel)
     expect(screen.queryByLabelText('Log volume trend')).toBeNull()
   })
 })

@@ -14,15 +14,25 @@ export interface DisconnectableState {
   disconnectedAt?: number | null
 }
 
-export function unexpectedDisconnectPatch(state: DisconnectableState, event: ConnectionStateEvent): Partial<DisconnectableState> | null {
-  if (event.profileId !== state.activeProfileId || event.generation < state.connectionGeneration) return null
-  if (event.state !== 'failed' && event.state !== 'disconnected') return { connectionGeneration: event.generation }
+export function unexpectedDisconnectPatch(
+  state: DisconnectableState,
+  event: ConnectionStateEvent,
+): Partial<DisconnectableState> | null {
+  if (
+    event.profileId !== state.activeProfileId ||
+    event.generation < state.connectionGeneration
+  )
+    return null
+  if (event.state !== 'failed' && event.state !== 'disconnected')
+    return { connectionGeneration: event.generation }
   return {
-    connectionGeneration: event.generation, connected: false, running: false,
+    connectionGeneration: event.generation,
+    connected: false,
+    running: false,
     connectionError: event.expected ? null : event.message,
     pendingResult: null,
     isResultStale: Boolean(state.result),
     isMetadataStale: true,
-    disconnectedAt: event.timestamp
+    disconnectedAt: event.timestamp,
   }
 }

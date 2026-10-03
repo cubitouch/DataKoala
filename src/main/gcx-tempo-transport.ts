@@ -1,10 +1,23 @@
 import { performance } from 'node:perf_hooks'
 import type { ColumnMeta, QueryResult } from '../shared/types.ts'
-import type { TempoAttribute, TempoQueryContext, TempoQueryRequest } from '../shared/tempo.ts'
-import { runGcxCommand, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
-import { createTempoPerformance, tempoPerformanceLog } from './tempo-performance.ts'
+import type {
+  TempoAttribute,
+  TempoQueryContext,
+  TempoQueryRequest,
+} from '../shared/tempo.ts'
+import {
+  runGcxCommand,
+  type GcxCommandRunner,
+} from './gcx-prometheus-transport.ts'
+import {
+  createTempoPerformance,
+  tempoPerformanceLog,
+} from './tempo-performance.ts'
 
-export interface TempoService { name: string; namespace?: string }
+export interface TempoService {
+  name: string
+  namespace?: string
+}
 export interface TempoTransport {
   query(value: string, request?: TempoQueryRequest): Promise<QueryResult>
   search(expression: string, request?: TempoQueryRequest): Promise<QueryResult>
@@ -19,15 +32,20 @@ const TRACE_ID = /^[0-9a-f]{32}$/i
 const SEARCH_LIMIT = 20
 const DEFAULT_SEARCH_SINCE = '1h'
 const STATUS_CONCURRENCY = 4
-const SERVICE_DISCOVERY_QUERY = '{} | count_over_time() by (resource.service.namespace, resource.service.name)'
+const SERVICE_DISCOVERY_QUERY =
+  '{} | count_over_time() by (resource.service.namespace, resource.service.name)'
 const SERVICE_DISCOVERY_SINCE = '24h'
 
-const column = (name: string, dataTypeName: string, logicalType: ColumnMeta['logicalType']): ColumnMeta => ({
+const column = (
+  name: string,
+  dataTypeName: string,
+  logicalType: ColumnMeta['logicalType'],
+): ColumnMeta => ({
   name,
   logicalType,
   nativeType: dataTypeName,
   dataTypeID: 0,
-  dataTypeName
+  dataTypeName,
 })
 
 const searchColumns: ColumnMeta[] = [
@@ -37,7 +55,7 @@ const searchColumns: ColumnMeta[] = [
   column('startTimeMs', 'float8', 'number'),
   column('durationMs', 'float8', 'number'),
   column('matchedSpans', 'int4', 'number'),
-  column('status', 'text', 'string')
+  column('status', 'text', 'string'),
 ]
 
 const spanColumns: ColumnMeta[] = [
@@ -56,7 +74,7 @@ const spanColumns: ColumnMeta[] = [
   column('resourceAttributes', 'json', 'json'),
   column('attributes', 'json', 'json'),
   column('events', 'json', 'json'),
-  column('links', 'json', 'json')
+  column('links', 'json', 'json'),
 ]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -64,21 +82,48 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function parseJson(value: string, command: string): unknown {
-  try { return JSON.parse(value) }
-  catch { throw new Error(`gcx returned malformed JSON for ${command}. Update gcx and try again.`) }
+  try {
+    return JSON.parse(value)
+  } catch {
+    throw new Error(
+      `gcx returned malformed JSON for ${command}. Update gcx and try again.`,
+    )
+  }
 }
 
 function tempoError(error: unknown): Error {
-  const value = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string }
-  if (value?.code === 'ENOENT') return new Error('gcx is not installed. Install gcx, then try again.')
-  const detail = `${value?.stderr ?? ''} ${value?.stdout ?? ''} ${value?.message ?? ''}`.toLowerCase()
-  if (/expired|token.*expir|session.*expir/.test(detail)) return new Error('gcx authentication has expired. Run gcx login, then try again.')
-  if (/not authenticated|not logged|no.*context|login required|unauthenticated/.test(detail)) return new Error('gcx is installed but no authenticated context is available. Run gcx login, then try again.')
-  if (/forbidden|permission|not permitted|access denied|status.?403/.test(detail)) return new Error('Trace access is not permitted for this account.')
-  const raw = `${value?.stderr ?? ''} ${value?.stdout ?? ''}`.trim()
+  const value = error as NodeJS.ErrnoException & {
+    stderr?: string
+    stdout?: string
+  }
+  if (value?.code === 'ENOENT')
+    return new Error('gcx is not installed. Install gcx, then try again.')
+  const detail =
+    `${value?.stderr ?? ''} ${value?.stdout ?? ''} ${value?.message ?? ''}`.toLowerCase()
+  if (/expired|token.*expir|session.*expir/.test(detail))
+    return new Error(
+      'gcx authentication has expired. Run gcx login, then try again.',
+    )
+  if (
+    /not authenticated|not logged|no.*context|login required|unauthenticated/.test(
+      detail,
+    )
+  )
+    return new Error(
+      'gcx is installed but no authenticated context is available. Run gcx login, then try again.',
+    )
+  if (
+    /forbidden|permission|not permitted|access denied|status.?403/.test(detail)
+  )
+    return new Error('Trace access is not permitted for this account.')
+  const raw = `${value?.stderr ?? ''} ${value?.stdout ?? ''}`
+    .trim()
     .replace(/(authorization\s*[:=]\s*)(?:bearer\s+)?\S+/gi, '$1[redacted]')
     .replace(/(token|password|secret)\s*[:=]\s*\S+/gi, '$1=[redacted]')
-  return new Error(raw || 'gcx could not complete the Tempo operation. Check the selected context and run gcx login if needed.')
+  return new Error(
+    raw ||
+      'gcx could not complete the Tempo operation. Check the selected context and run gcx login if needed.',
+  )
 }
 
 function asString(value: unknown): string {
@@ -95,9 +140,17 @@ function asNumber(value: unknown): number {
 }
 
 function nanosToMs(value: unknown): number {
-  if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'bigint') return 0
-  try { return Number(BigInt(value) / 1_000_000n) }
-  catch { return asNumber(value) / 1_000_000 }
+  if (
+    typeof value !== 'string' &&
+    typeof value !== 'number' &&
+    typeof value !== 'bigint'
+  )
+    return 0
+  try {
+    return Number(BigInt(value) / 1_000_000n)
+  } catch {
+    return asNumber(value) / 1_000_000
+  }
 }
 
 function microsToMs(value: unknown): number {
@@ -109,8 +162,10 @@ function decodeOtelValue(value: unknown): unknown {
   for (const key of ['stringValue', 'boolValue', 'intValue', 'doubleValue']) {
     if (key in value) return value[key]
   }
-  if (isRecord(value.arrayValue) && Array.isArray(value.arrayValue.values)) return value.arrayValue.values.map(decodeOtelValue)
-  if (isRecord(value.kvlistValue) && Array.isArray(value.kvlistValue.values)) return attributesToRecord(value.kvlistValue.values)
+  if (isRecord(value.arrayValue) && Array.isArray(value.arrayValue.values))
+    return value.arrayValue.values.map(decodeOtelValue)
+  if (isRecord(value.kvlistValue) && Array.isArray(value.kvlistValue.values))
+    return attributesToRecord(value.kvlistValue.values)
   if ('value' in value) return decodeOtelValue(value.value)
   return value
 }
@@ -128,7 +183,11 @@ function attributesToRecord(value: unknown): Record<string, unknown> {
 
 function otelKind(value: unknown): string {
   if (typeof value === 'string') return value.replace(/^SPAN_KIND_/, '')
-  return ['UNSPECIFIED', 'INTERNAL', 'SERVER', 'CLIENT', 'PRODUCER', 'CONSUMER'][asNumber(value)] ?? asString(value)
+  return (
+    ['UNSPECIFIED', 'INTERNAL', 'SERVER', 'CLIENT', 'PRODUCER', 'CONSUMER'][
+      asNumber(value)
+    ] ?? asString(value)
+  )
 }
 
 function otelStatus(value: unknown): string {
@@ -154,36 +213,57 @@ function matchedSpanCount(trace: Record<string, unknown>): number {
 
 function tempoSearchTraces(raw: unknown): Record<string, unknown>[] {
   const payload = isRecord(raw) && isRecord(raw.data) ? raw.data : raw
-  const traces = isRecord(payload) && Array.isArray(payload.traces)
-    ? payload.traces
-    : Array.isArray(payload) ? payload : []
+  const traces =
+    isRecord(payload) && Array.isArray(payload.traces)
+      ? payload.traces
+      : Array.isArray(payload)
+        ? payload
+        : []
   return traces.filter(isRecord)
 }
 
 function normalizedSearchStatus(trace: Record<string, unknown>): string {
-  const direct = asString(trace.status ?? trace.rootStatus ?? trace.traceStatus).toLowerCase()
+  const direct = asString(
+    trace.status ?? trace.rootStatus ?? trace.traceStatus,
+  ).toLowerCase()
   if (direct.includes('error')) return 'error'
   if (direct.includes('ok') || direct.includes('success')) return 'ok'
   return 'unknown'
 }
 
-export function normalizeTempoSearch(raw: unknown, durationMs = 0, rangeLabel = `last ${DEFAULT_SEARCH_SINCE}`): QueryResult {
-  const rows = tempoSearchTraces(raw).map((trace) => ({
-    traceId: asString(trace.traceID ?? trace.traceId ?? trace.trace_id),
-    rootService: asString(trace.rootServiceName ?? trace.rootService ?? trace.serviceName),
-    rootOperation: asString(trace.rootTraceName ?? trace.rootOperation ?? trace.name),
-    startTimeMs: trace.startTimeUnixNano !== undefined ? nanosToMs(trace.startTimeUnixNano) : asNumber(trace.startTimeMs),
-    durationMs: trace.durationNanos !== undefined ? nanosToMs(trace.durationNanos) : asNumber(trace.durationMs ?? trace.duration),
-    matchedSpans: matchedSpanCount(trace),
-    status: normalizedSearchStatus(trace)
-  })).filter((row) => row.traceId)
+export function normalizeTempoSearch(
+  raw: unknown,
+  durationMs = 0,
+  rangeLabel = `last ${DEFAULT_SEARCH_SINCE}`,
+): QueryResult {
+  const rows = tempoSearchTraces(raw)
+    .map((trace) => ({
+      traceId: asString(trace.traceID ?? trace.traceId ?? trace.trace_id),
+      rootService: asString(
+        trace.rootServiceName ?? trace.rootService ?? trace.serviceName,
+      ),
+      rootOperation: asString(
+        trace.rootTraceName ?? trace.rootOperation ?? trace.name,
+      ),
+      startTimeMs:
+        trace.startTimeUnixNano !== undefined
+          ? nanosToMs(trace.startTimeUnixNano)
+          : asNumber(trace.startTimeMs),
+      durationMs:
+        trace.durationNanos !== undefined
+          ? nanosToMs(trace.durationNanos)
+          : asNumber(trace.durationMs ?? trace.duration),
+      matchedSpans: matchedSpanCount(trace),
+      status: normalizedSearchStatus(trace),
+    }))
+    .filter((row) => row.traceId)
   return {
     columns: searchColumns,
     rows,
     rowCount: rows.length,
     durationMs,
     notice: `Tempo search · ${rangeLabel}`,
-    execution: { provider: 'tempo', durationMs, rowCount: rows.length }
+    execution: { provider: 'tempo', durationMs, rowCount: rows.length },
   }
 }
 
@@ -192,7 +272,7 @@ function normalizeEvents(value: unknown): unknown[] {
   return value.filter(isRecord).map((event) => ({
     name: asString(event.name),
     timeUnixNano: asString(event.timeUnixNano ?? event.timeUnixNanos),
-    attributes: attributesToRecord(event.attributes)
+    attributes: attributesToRecord(event.attributes),
   }))
 }
 
@@ -202,37 +282,54 @@ function normalizeLinks(value: unknown): unknown[] {
     traceId: asString(link.traceId ?? link.traceID),
     spanId: asString(link.spanId ?? link.spanID),
     traceState: asString(link.traceState),
-    attributes: attributesToRecord(link.attributes)
+    attributes: attributesToRecord(link.attributes),
   }))
 }
 
-function normalizeOtelSpans(payload: Record<string, unknown>): Record<string, unknown>[] {
+function normalizeOtelSpans(
+  payload: Record<string, unknown>,
+): Record<string, unknown>[] {
   const batches = Array.isArray(payload.batches)
     ? payload.batches
-    : Array.isArray(payload.resourceSpans) ? payload.resourceSpans : []
+    : Array.isArray(payload.resourceSpans)
+      ? payload.resourceSpans
+      : []
   const rows: Record<string, unknown>[] = []
   for (const batch of batches) {
     if (!isRecord(batch)) continue
-    const resource = isRecord(batch.resource) ? attributesToRecord(batch.resource.attributes) : {}
+    const resource = isRecord(batch.resource)
+      ? attributesToRecord(batch.resource.attributes)
+      : {}
     const service = asString(resource['service.name'])
     const serviceNamespace = asString(resource['service.namespace'])
     const scopes = Array.isArray(batch.scopeSpans)
       ? batch.scopeSpans
-      : Array.isArray(batch.instrumentationLibrarySpans) ? batch.instrumentationLibrarySpans : []
+      : Array.isArray(batch.instrumentationLibrarySpans)
+        ? batch.instrumentationLibrarySpans
+        : []
     for (const scope of scopes) {
       if (!isRecord(scope) || !Array.isArray(scope.spans)) continue
-      const scopeInfo = isRecord(scope.scope) ? scope.scope : isRecord(scope.instrumentationLibrary) ? scope.instrumentationLibrary : {}
+      const scopeInfo = isRecord(scope.scope)
+        ? scope.scope
+        : isRecord(scope.instrumentationLibrary)
+          ? scope.instrumentationLibrary
+          : {}
       for (const span of scope.spans) {
         if (!isRecord(span)) continue
         const attributes = attributesToRecord(span.attributes)
-        const startTimeMs = nanosToMs(span.startTimeUnixNano ?? span.startTimeUnixNanos)
-        const endTimeMs = nanosToMs(span.endTimeUnixNano ?? span.endTimeUnixNanos)
+        const startTimeMs = nanosToMs(
+          span.startTimeUnixNano ?? span.startTimeUnixNanos,
+        )
+        const endTimeMs = nanosToMs(
+          span.endTimeUnixNano ?? span.endTimeUnixNanos,
+        )
         rows.push({
           traceId: asString(span.traceId ?? span.traceID),
           spanId: asString(span.spanId ?? span.spanID),
           parentSpanId: asString(span.parentSpanId ?? span.parentSpanID),
           service: service || asString(attributes['service.name']),
-          serviceNamespace: serviceNamespace || asString(attributes['service.namespace']),
+          serviceNamespace:
+            serviceNamespace || asString(attributes['service.namespace']),
           name: asString(span.name),
           startTimeMs,
           durationMs: endTimeMs >= startTimeMs ? endTimeMs - startTimeMs : 0,
@@ -243,7 +340,7 @@ function normalizeOtelSpans(payload: Record<string, unknown>): Record<string, un
           resourceAttributes: JSON.stringify(resource),
           attributes: JSON.stringify(attributes),
           events: JSON.stringify(normalizeEvents(span.events)),
-          links: JSON.stringify(normalizeLinks(span.links))
+          links: JSON.stringify(normalizeLinks(span.links)),
         })
       }
     }
@@ -251,7 +348,9 @@ function normalizeOtelSpans(payload: Record<string, unknown>): Record<string, un
   return rows
 }
 
-function normalizeJaegerSpans(payload: Record<string, unknown>): Record<string, unknown>[] {
+function normalizeJaegerSpans(
+  payload: Record<string, unknown>,
+): Record<string, unknown>[] {
   if (!Array.isArray(payload.data)) return []
   const rows: Record<string, unknown>[] = []
   for (const trace of payload.data) {
@@ -259,11 +358,18 @@ function normalizeJaegerSpans(payload: Record<string, unknown>): Record<string, 
     const processes = isRecord(trace.processes) ? trace.processes : {}
     for (const span of trace.spans) {
       if (!isRecord(span)) continue
-      const process = isRecord(processes[asString(span.processID)]) ? processes[asString(span.processID)] as Record<string, unknown> : {}
+      const process = isRecord(processes[asString(span.processID)])
+        ? (processes[asString(span.processID)] as Record<string, unknown>)
+        : {}
       const tags = attributesToRecord(span.tags)
       const resource = attributesToRecord(process.tags)
-      const refs = Array.isArray(span.references) ? span.references.filter(isRecord) : []
-      const parent = refs.find((ref) => asString(ref.refType).toUpperCase().includes('CHILD')) ?? refs[0]
+      const refs = Array.isArray(span.references)
+        ? span.references.filter(isRecord)
+        : []
+      const parent =
+        refs.find((ref) =>
+          asString(ref.refType).toUpperCase().includes('CHILD'),
+        ) ?? refs[0]
       rows.push({
         traceId: asString(span.traceID ?? trace.traceID),
         spanId: asString(span.spanID),
@@ -280,26 +386,51 @@ function normalizeJaegerSpans(payload: Record<string, unknown>): Record<string, 
         resourceAttributes: JSON.stringify(resource),
         attributes: JSON.stringify(tags),
         events: JSON.stringify([]),
-        links: JSON.stringify(refs.filter((ref) => ref !== parent).map((ref) => ({ traceId: asString(ref.traceID), spanId: asString(ref.spanID), refType: asString(ref.refType) })))
+        links: JSON.stringify(
+          refs
+            .filter((ref) => ref !== parent)
+            .map((ref) => ({
+              traceId: asString(ref.traceID),
+              spanId: asString(ref.spanID),
+              refType: asString(ref.refType),
+            })),
+        ),
       })
     }
   }
   return rows
 }
 
-function normalizeDirectSpans(payload: Record<string, unknown>): Record<string, unknown>[] {
+function normalizeDirectSpans(
+  payload: Record<string, unknown>,
+): Record<string, unknown>[] {
   if (!Array.isArray(payload.spans)) return []
   return payload.spans.filter(isRecord).map((span) => {
     const attributes = attributesToRecord(span.attributes ?? span.tags)
-    const resource = attributesToRecord(span.resourceAttributes ?? (isRecord(span.resource) ? span.resource.attributes : undefined))
-    const startTimeMs = span.startTimeUnixNano !== undefined ? nanosToMs(span.startTimeUnixNano) : asNumber(span.startTimeMs)
-    const durationMs = span.durationNanos !== undefined ? nanosToMs(span.durationNanos) : asNumber(span.durationMs)
+    const resource = attributesToRecord(
+      span.resourceAttributes ??
+        (isRecord(span.resource) ? span.resource.attributes : undefined),
+    )
+    const startTimeMs =
+      span.startTimeUnixNano !== undefined
+        ? nanosToMs(span.startTimeUnixNano)
+        : asNumber(span.startTimeMs)
+    const durationMs =
+      span.durationNanos !== undefined
+        ? nanosToMs(span.durationNanos)
+        : asNumber(span.durationMs)
     return {
       traceId: asString(span.traceId ?? span.traceID),
       spanId: asString(span.spanId ?? span.spanID),
       parentSpanId: asString(span.parentSpanId ?? span.parentSpanID),
-      service: asString(span.serviceName ?? resource['service.name'] ?? attributes['service.name']),
-      serviceNamespace: asString(resource['service.namespace'] ?? attributes['service.namespace']),
+      service: asString(
+        span.serviceName ??
+          resource['service.name'] ??
+          attributes['service.name'],
+      ),
+      serviceNamespace: asString(
+        resource['service.namespace'] ?? attributes['service.namespace'],
+      ),
       name: asString(span.name ?? span.operationName),
       startTimeMs,
       durationMs,
@@ -310,7 +441,7 @@ function normalizeDirectSpans(payload: Record<string, unknown>): Record<string, 
       resourceAttributes: JSON.stringify(resource),
       attributes: JSON.stringify(attributes),
       events: JSON.stringify(normalizeEvents(span.events)),
-      links: JSON.stringify(normalizeLinks(span.links))
+      links: JSON.stringify(normalizeLinks(span.links)),
     }
   })
 }
@@ -318,22 +449,53 @@ function normalizeDirectSpans(payload: Record<string, unknown>): Record<string, 
 export function normalizeTempoTrace(raw: unknown, durationMs = 0): QueryResult {
   let payload = raw
   if (isRecord(payload) && isRecord(payload.trace)) payload = payload.trace
-  if (isRecord(payload) && isRecord(payload.data) && !Array.isArray(payload.data)) payload = payload.data
-  if (!isRecord(payload)) throw new Error('gcx returned valid JSON, but the Tempo trace response is not an object.')
+  if (
+    isRecord(payload) &&
+    isRecord(payload.data) &&
+    !Array.isArray(payload.data)
+  )
+    payload = payload.data
+  if (!isRecord(payload))
+    throw new Error(
+      'gcx returned valid JSON, but the Tempo trace response is not an object.',
+    )
   const otelRows = normalizeOtelSpans(payload)
   const jaegerRows = otelRows.length === 0 ? normalizeJaegerSpans(payload) : []
-  const rows = otelRows.length > 0 ? otelRows : jaegerRows.length > 0 ? jaegerRows : normalizeDirectSpans(payload)
-  if (rows.length === 0) throw new Error('gcx returned a Tempo trace, but DataKoala could not find any spans in the response.')
-  rows.sort((left, right) => asNumber(left.startTimeMs) - asNumber(right.startTimeMs))
-  return { columns: spanColumns, rows, rowCount: rows.length, durationMs, execution: { provider: 'tempo', durationMs, rowCount: rows.length } }
+  const rows =
+    otelRows.length > 0
+      ? otelRows
+      : jaegerRows.length > 0
+        ? jaegerRows
+        : normalizeDirectSpans(payload)
+  if (rows.length === 0)
+    throw new Error(
+      'gcx returned a Tempo trace, but DataKoala could not find any spans in the response.',
+    )
+  rows.sort(
+    (left, right) => asNumber(left.startTimeMs) - asNumber(right.startTimeMs),
+  )
+  return {
+    columns: spanColumns,
+    rows,
+    rowCount: rows.length,
+    durationMs,
+    execution: { provider: 'tempo', durationMs, rowCount: rows.length },
+  }
 }
 
-function collectService(services: Map<string, TempoService>, name: unknown, namespace?: unknown) {
+function collectService(
+  services: Map<string, TempoService>,
+  name: unknown,
+  namespace?: unknown,
+) {
   const serviceName = asString(name).trim()
   const serviceNamespace = asString(namespace).trim()
   if (!serviceName) return
   const key = `${serviceNamespace}\u0000${serviceName}`
-  services.set(key, { name: serviceName, ...(serviceNamespace ? { namespace: serviceNamespace } : {}) })
+  services.set(key, {
+    name: serviceName,
+    ...(serviceNamespace ? { namespace: serviceNamespace } : {}),
+  })
 }
 
 function tempoMetricLabel(labels: unknown, key: string): string {
@@ -348,7 +510,9 @@ function tempoMetricLabel(labels: unknown, key: string): string {
 export function normalizeTempoServiceMetrics(raw: unknown): TempoService[] {
   const payload = isRecord(raw) && isRecord(raw.data) ? raw.data : raw
   if (!isRecord(payload) || !Array.isArray(payload.series)) {
-    throw new Error('gcx returned valid JSON, but the Tempo service metrics response has no series.')
+    throw new Error(
+      'gcx returned valid JSON, but the Tempo service metrics response has no series.',
+    )
   }
   const services = new Map<string, TempoService>()
   for (const series of payload.series) {
@@ -356,10 +520,14 @@ export function normalizeTempoServiceMetrics(raw: unknown): TempoService[] {
     collectService(
       services,
       tempoMetricLabel(series.labels, 'resource.service.name'),
-      tempoMetricLabel(series.labels, 'resource.service.namespace')
+      tempoMetricLabel(series.labels, 'resource.service.namespace'),
     )
   }
-  return [...services.values()].sort((left, right) => `${left.namespace ?? ''}/${left.name}`.localeCompare(`${right.namespace ?? ''}/${right.name}`))
+  return [...services.values()].sort((left, right) =>
+    `${left.namespace ?? ''}/${left.name}`.localeCompare(
+      `${right.namespace ?? ''}/${right.name}`,
+    ),
+  )
 }
 
 export function normalizeTempoLabelValues(raw: unknown): string[] {
@@ -367,58 +535,101 @@ export function normalizeTempoLabelValues(raw: unknown): string[] {
   if (isRecord(payload) && 'tagValues' in payload) payload = payload.tagValues
   const values: unknown[] = []
   if (Array.isArray(payload)) {
-    for (const item of payload) values.push(isRecord(item) && 'value' in item ? item.value : item)
+    for (const item of payload)
+      values.push(isRecord(item) && 'value' in item ? item.value : item)
   } else if (isRecord(payload)) {
     for (const group of Object.values(payload)) {
-      if (Array.isArray(group)) values.push(...group.map((item) => isRecord(item) && 'value' in item ? item.value : item))
+      if (Array.isArray(group))
+        values.push(
+          ...group.map((item) =>
+            isRecord(item) && 'value' in item ? item.value : item,
+          ),
+        )
     }
   }
-  return [...new Set(values.map(asString).map((value) => value.trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right))
+  return [
+    ...new Set(
+      values
+        .map(asString)
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ].sort((left, right) => left.localeCompare(right))
 }
 
 export function normalizeTempoAttributes(raw: unknown): TempoAttribute[] {
   const payload = isRecord(raw) && isRecord(raw.data) ? raw.data : raw
-  const scopes = isRecord(payload) && 'scopes' in payload ? payload.scopes : payload
+  const scopes =
+    isRecord(payload) && 'scopes' in payload ? payload.scopes : payload
   const found = new Map<string, TempoAttribute>()
   for (const scope of ['resource', 'span'] as const) {
-    const group = isRecord(scopes) ? scopes[scope] : Array.isArray(scopes)
-      ? scopes.find((item) => isRecord(item) && asString(item.scope ?? item.name).toLowerCase() === scope) : undefined
-    const values = Array.isArray(group) ? group : isRecord(group)
-      ? (Array.isArray(group.tags) ? group.tags : Array.isArray(group.names) ? group.names : []) : []
+    const group = isRecord(scopes)
+      ? scopes[scope]
+      : Array.isArray(scopes)
+        ? scopes.find(
+            (item) =>
+              isRecord(item) &&
+              asString(item.scope ?? item.name).toLowerCase() === scope,
+          )
+        : undefined
+    const values = Array.isArray(group)
+      ? group
+      : isRecord(group)
+        ? Array.isArray(group.tags)
+          ? group.tags
+          : Array.isArray(group.names)
+            ? group.names
+            : []
+        : []
     for (const item of values) {
-      const rawName = asString(isRecord(item) ? item.name ?? item.tag ?? item.value : item).trim()
+      const rawName = asString(
+        isRecord(item) ? (item.name ?? item.tag ?? item.value) : item,
+      ).trim()
       const name = rawName.replace(new RegExp(`^${scope}[.:]`), '')
       if (!name) continue
       const traceql = `${scope}.${name}`
       found.set(traceql, { scope, name, traceql })
     }
   }
-  return [...found.values()].sort((left, right) => left.traceql.localeCompare(right.traceql))
+  return [...found.values()].sort((left, right) =>
+    left.traceql.localeCompare(right.traceql),
+  )
 }
 
 function searchRangeArgs(request?: TempoQueryRequest): string[] {
-  return request ? ['--from', request.start, '--to', request.end] : ['--since', DEFAULT_SEARCH_SINCE]
+  return request
+    ? ['--from', request.start, '--to', request.end]
+    : ['--since', DEFAULT_SEARCH_SINCE]
 }
 
 function searchRangeLabel(request?: TempoQueryRequest): string {
   if (!request) return `last ${DEFAULT_SEARCH_SINCE}`
   const format = (value: string) => {
     const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toISOString().replace('.000Z', 'Z')
+    return Number.isNaN(date.getTime())
+      ? value
+      : date.toISOString().replace('.000Z', 'Z')
   }
   return `${format(request.start)} → ${format(request.end)}`
 }
 
-async function mapConcurrent<T, R>(values: T[], concurrency: number, mapper: (value: T) => Promise<R>): Promise<R[]> {
+async function mapConcurrent<T, R>(
+  values: T[],
+  concurrency: number,
+  mapper: (value: T) => Promise<R>,
+): Promise<R[]> {
   const output = new Array<R>(values.length)
   let nextIndex = 0
-  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
-    while (true) {
-      const index = nextIndex++
-      if (index >= values.length) return
-      output[index] = await mapper(values[index])
-    }
-  })
+  const workers = Array.from(
+    { length: Math.min(concurrency, values.length) },
+    async () => {
+      while (true) {
+        const index = nextIndex++
+        if (index >= values.length) return
+        output[index] = await mapper(values[index])
+      }
+    },
+  )
   await Promise.all(workers)
   return output
 }
@@ -428,7 +639,11 @@ export class GcxTempoTransport implements TempoTransport {
   private readonly datasourceUid?: string
   private readonly run: GcxCommandRunner
 
-  constructor(context?: string, run: GcxCommandRunner = runGcxCommand, datasourceUid?: string) {
+  constructor(
+    context?: string,
+    run: GcxCommandRunner = runGcxCommand,
+    datasourceUid?: string,
+  ) {
     this.context = context
     this.run = run
     this.datasourceUid = datasourceUid
@@ -437,45 +652,80 @@ export class GcxTempoTransport implements TempoTransport {
   private commonArgs(): string[] {
     return [
       ...(this.context ? ['--context', this.context] : []),
-      ...(this.datasourceUid ? ['--datasource', this.datasourceUid] : [])
+      ...(this.datasourceUid ? ['--datasource', this.datasourceUid] : []),
     ]
   }
 
-  async query(value: string, request?: TempoQueryRequest): Promise<QueryResult> {
+  async query(
+    value: string,
+    request?: TempoQueryRequest,
+  ): Promise<QueryResult> {
     const query = value.trim()
     if (!query) throw new Error('Enter a TraceQL query or trace ID.')
-    return TRACE_ID.test(query) ? this.get(query, request) : this.search(query, request)
+    return TRACE_ID.test(query)
+      ? this.get(query, request)
+      : this.search(query, request)
   }
 
   async probe(): Promise<void> {
     try {
-      parseJson((await this.run(['traces', 'labels', ...this.commonArgs(), '-o', 'json'])).stdout, 'traces labels')
+      parseJson(
+        (
+          await this.run([
+            'traces',
+            'labels',
+            ...this.commonArgs(),
+            '-o',
+            'json',
+          ])
+        ).stdout,
+        'traces labels',
+      )
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
+      if (error instanceof Error && error.message.startsWith('gcx returned'))
+        throw error
       throw tempoError(error)
     }
   }
 
   async attributeValues(attribute: string, query?: string): Promise<string[]> {
     const args = [
-      'traces', 'tags', ...this.commonArgs(), '--label', attribute,
+      'traces',
+      'tags',
+      ...this.commonArgs(),
+      '--label',
+      attribute,
       ...(query ? ['--query', query] : []),
-      '-o', 'json'
+      '-o',
+      'json',
     ]
     try {
-      return normalizeTempoLabelValues(parseJson((await this.run(args)).stdout, `traces tags ${attribute}`))
+      return normalizeTempoLabelValues(
+        parseJson((await this.run(args)).stdout, `traces tags ${attribute}`),
+      )
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
+      if (error instanceof Error && error.message.startsWith('gcx returned'))
+        throw error
       throw tempoError(error)
     }
   }
 
   async attributeNames(query?: string): Promise<TempoAttribute[]> {
-    const args = ['traces', 'labels', ...this.commonArgs(), ...(query ? ['--query', query] : []), '-o', 'json']
+    const args = [
+      'traces',
+      'labels',
+      ...this.commonArgs(),
+      ...(query ? ['--query', query] : []),
+      '-o',
+      'json',
+    ]
     try {
-      return normalizeTempoAttributes(parseJson((await this.run(args)).stdout, 'traces labels'))
+      return normalizeTempoAttributes(
+        parseJson((await this.run(args)).stdout, 'traces labels'),
+      )
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
+      if (error instanceof Error && error.message.startsWith('gcx returned'))
+        throw error
       throw tempoError(error)
     }
   }
@@ -484,87 +734,152 @@ export class GcxTempoTransport implements TempoTransport {
     const discoveryStarted = performance.now()
     tempoPerformanceLog('metadata.services.discovery.started', {
       strategy: 'traceql_metrics',
-      window: SERVICE_DISCOVERY_SINCE
+      window: SERVICE_DISCOVERY_SINCE,
     })
     try {
       const args = [
-        'traces', 'metrics', SERVICE_DISCOVERY_QUERY,
+        'traces',
+        'metrics',
+        SERVICE_DISCOVERY_QUERY,
         ...this.commonArgs(),
-        '--instant', '--since', SERVICE_DISCOVERY_SINCE,
-        '-o', 'json'
+        '--instant',
+        '--since',
+        SERVICE_DISCOVERY_SINCE,
+        '-o',
+        'json',
       ]
       const services = normalizeTempoServiceMetrics(
-        parseJson((await this.run(args)).stdout, 'traces service discovery metrics')
+        parseJson(
+          (await this.run(args)).stdout,
+          'traces service discovery metrics',
+        ),
       )
-      const namespaces = new Set(services.map((service) => service.namespace).filter(Boolean))
+      const namespaces = new Set(
+        services.map((service) => service.namespace).filter(Boolean),
+      )
       tempoPerformanceLog('metadata.services.discovery.completed', {
         durationMs: performance.now() - discoveryStarted,
         serviceCount: services.length,
         namespaceCount: namespaces.size,
         strategy: 'traceql_metrics',
-        window: SERVICE_DISCOVERY_SINCE
+        window: SERVICE_DISCOVERY_SINCE,
       })
       return services
     } catch (error) {
       tempoPerformanceLog('metadata.services.discovery.failed', {
         durationMs: performance.now() - discoveryStarted,
         strategy: 'traceql_metrics',
-        window: SERVICE_DISCOVERY_SINCE
+        window: SERVICE_DISCOVERY_SINCE,
       })
-      if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
+      if (error instanceof Error && error.message.startsWith('gcx returned'))
+        throw error
       throw tempoError(error)
     }
   }
 
-  private async enrichSearchStatuses(result: QueryResult): Promise<QueryResult> {
-    const rows = await mapConcurrent(result.rows, STATUS_CONCURRENCY, async (row) => {
-      if (asString(row.status) !== 'unknown') return row
-      const traceId = asString(row.traceId)
-      if (!TRACE_ID.test(traceId)) return row
-      try {
-        const trace = await this.get(traceId)
-        const hasError = trace.rows.some((span) => asString(span.status).toUpperCase().includes('ERROR'))
-        return { ...row, status: hasError ? 'error' : 'ok' }
-      } catch {
-        return row
-      }
-    })
+  private async enrichSearchStatuses(
+    result: QueryResult,
+  ): Promise<QueryResult> {
+    const rows = await mapConcurrent(
+      result.rows,
+      STATUS_CONCURRENCY,
+      async (row) => {
+        if (asString(row.status) !== 'unknown') return row
+        const traceId = asString(row.traceId)
+        if (!TRACE_ID.test(traceId)) return row
+        try {
+          const trace = await this.get(traceId)
+          const hasError = trace.rows.some((span) =>
+            asString(span.status).toUpperCase().includes('ERROR'),
+          )
+          return { ...row, status: hasError ? 'error' : 'ok' }
+        } catch {
+          return row
+        }
+      },
+    )
     return { ...result, rows }
   }
 
-  async search(expression: string, request?: TempoQueryRequest): Promise<QueryResult> {
+  async search(
+    expression: string,
+    request?: TempoQueryRequest,
+  ): Promise<QueryResult> {
     const started = Date.now()
     try {
-      const args = ['traces', 'query', expression, ...this.commonArgs(), ...searchRangeArgs(request), '--limit', String(SEARCH_LIMIT), '-o', 'json']
-      const normalized = normalizeTempoSearch(parseJson((await this.run(args)).stdout, 'traces query'), Date.now() - started, searchRangeLabel(request))
-      return request?.includeStatus ? this.enrichSearchStatuses(normalized) : normalized
+      const args = [
+        'traces',
+        'query',
+        expression,
+        ...this.commonArgs(),
+        ...searchRangeArgs(request),
+        '--limit',
+        String(SEARCH_LIMIT),
+        '-o',
+        'json',
+      ]
+      const normalized = normalizeTempoSearch(
+        parseJson((await this.run(args)).stdout, 'traces query'),
+        Date.now() - started,
+        searchRangeLabel(request),
+      )
+      return request?.includeStatus
+        ? this.enrichSearchStatuses(normalized)
+        : normalized
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
+      if (error instanceof Error && error.message.startsWith('gcx returned'))
+        throw error
       throw tempoError(error)
     }
   }
 
-  async get(traceId: string, request?: TempoQueryRequest): Promise<QueryResult> {
+  async get(
+    traceId: string,
+    request?: TempoQueryRequest,
+  ): Promise<QueryResult> {
     const started = Date.now()
-    const perf = (request as TempoQueryContext | undefined)?.performance ?? createTempoPerformance(request?.diagnosticRequestId, 'trace.get')
+    const perf =
+      (request as TempoQueryContext | undefined)?.performance ??
+      createTempoPerformance(request?.diagnosticRequestId, 'trace.get')
     try {
-      const args = ['traces', 'get', traceId, ...this.commonArgs(), ...(request ? ['--from', request.start, '--to', request.end] : []), '-o', 'json']
+      const args = [
+        'traces',
+        'get',
+        traceId,
+        ...this.commonArgs(),
+        ...(request ? ['--from', request.start, '--to', request.end] : []),
+        '-o',
+        'json',
+      ]
       const gcxStarted = perf?.now() ?? 0
       const response = await this.run(args)
       const gcxWallMs = perf ? perf.now() - gcxStarted : 0
       const parseStarted = perf?.now()
       const raw = parseJson(response.stdout, 'traces get')
-      if (parseStarted !== undefined) perf?.recordParse(perf.now() - parseStarted)
-      perf?.recordGcx({ phase: 'traces.get', gcxWallMs, stdout: response.stdout, raw })
+      if (parseStarted !== undefined)
+        perf?.recordParse(perf.now() - parseStarted)
+      perf?.recordGcx({
+        phase: 'traces.get',
+        gcxWallMs,
+        stdout: response.stdout,
+        raw,
+      })
       const normalizeStarted = perf?.now()
       let result = normalizeTempoTrace(raw, Date.now() - started)
-      if (normalizeStarted !== undefined) perf?.recordNormalize(perf.now() - normalizeStarted)
-      if (perf) result = { ...result, execution: { ...result.execution!, requestId: perf.requestId } }
-      const boundedTraceLookup = args.includes('--from') && args.includes('--to')
+      if (normalizeStarted !== undefined)
+        perf?.recordNormalize(perf.now() - normalizeStarted)
+      if (perf)
+        result = {
+          ...result,
+          execution: { ...result.execution!, requestId: perf.requestId },
+        }
+      const boundedTraceLookup =
+        args.includes('--from') && args.includes('--to')
       perf?.complete({ spanCount: result.rows.length, boundedTraceLookup })
       return result
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith('gcx returned')) throw error
+      if (error instanceof Error && error.message.startsWith('gcx returned'))
+        throw error
       throw tempoError(error)
     }
   }

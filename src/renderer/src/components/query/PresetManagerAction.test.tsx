@@ -3,56 +3,134 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { DataSourceProfile } from '@shared/types'
 import { createQuerySession, useStore } from '@store/useStore'
-import { createPresetFromSession, ExplorationPresetRepository, type PresetStorage } from '@lib/explorationPresets'
+import {
+  createPresetFromSession,
+  ExplorationPresetRepository,
+  type PresetStorage,
+} from '@lib/explorationPresets'
 import { resetTestStore } from '@test/sessionTestUtils'
 
 const { notify } = vi.hoisted(() => ({ notify: vi.fn() }))
 vi.mock('@components/ui/feedback/NotificationArea', () => ({ notify }))
 
-import { PresetManagerAction, type PresetManagerRepository } from './PresetManagerAction'
+import {
+  PresetManagerAction,
+  type PresetManagerRepository,
+} from './PresetManagerAction'
 
-const sqlProfile: DataSourceProfile = { id: 'sql-b', name: 'Warehouse B', kind: 'postgres', version: 1, readonly: false, host: 'localhost', port: 5432, database: 'app', user: 'user', password: '', ssl: false }
+const sqlProfile: DataSourceProfile = {
+  id: 'sql-b',
+  name: 'Warehouse B',
+  kind: 'postgres',
+  version: 1,
+  readonly: false,
+  host: 'localhost',
+  port: 5432,
+  database: 'app',
+  user: 'user',
+  password: '',
+  ssl: false,
+}
 
 class MemoryStorage implements PresetStorage {
   private values = new Map<string, string>()
-  getItem(key: string) { return this.values.get(key) ?? null }
-  setItem(key: string, value: string) { this.values.set(key, value) }
+  getItem(key: string) {
+    return this.values.get(key) ?? null
+  }
+  setItem(key: string, value: string) {
+    this.values.set(key, value)
+  }
 }
 
 function openDialog() {
   fireEvent.click(screen.getByRole('button', { name: 'Manage saved presets' }))
   return screen.getByRole('dialog', { name: 'Presets' })
 }
-function seed(repository: ExplorationPresetRepository, name: string, connectionProfileId = sqlProfile.id, timestamp = 1) {
+function seed(
+  repository: ExplorationPresetRepository,
+  name: string,
+  connectionProfileId = sqlProfile.id,
+  timestamp = 1,
+) {
   const profile = { ...sqlProfile, id: connectionProfileId }
-  const session = createQuerySession(timestamp, { connectionProfileId, sql: `select '${name}'` })
-  repository.create(createPresetFromSession({ name, profile, session, id: `${connectionProfileId}-${name}`, now: () => timestamp }))
+  const session = createQuerySession(timestamp, {
+    connectionProfileId,
+    sql: `select '${name}'`,
+  })
+  repository.create(
+    createPresetFromSession({
+      name,
+      profile,
+      session,
+      id: `${connectionProfileId}-${name}`,
+      now: () => timestamp,
+    }),
+  )
 }
-function renderManager(repository: PresetManagerRepository, session = createQuerySession(1, { connectionProfileId: sqlProfile.id, sql: 'select 42' }), profile = sqlProfile) {
-  return render(<PresetManagerAction repository={repository} session={session} profile={profile} />)
+function renderManager(
+  repository: PresetManagerRepository,
+  session = createQuerySession(1, {
+    connectionProfileId: sqlProfile.id,
+    sql: 'select 42',
+  }),
+  profile = sqlProfile,
+) {
+  return render(
+    <PresetManagerAction
+      repository={repository}
+      session={session}
+      profile={profile}
+    />,
+  )
 }
 
 describe('PresetManagerAction', () => {
-  beforeEach(() => { notify.mockReset(); resetTestStore() })
-  afterEach(() => { cleanup(); resetTestStore(); vi.restoreAllMocks() })
+  beforeEach(() => {
+    notify.mockReset()
+    resetTestStore()
+  })
+  afterEach(() => {
+    cleanup()
+    resetTestStore()
+    vi.restoreAllMocks()
+  })
 
   it('is enabled for an attached profile, opens focused, and saves a trimmed name without closing', () => {
     const repository = new ExplorationPresetRepository(new MemoryStorage())
-    const session = createQuerySession(1, { connectionProfileId: sqlProfile.id, sql: 'select * from checkout_errors' })
+    const session = createQuerySession(1, {
+      connectionProfileId: sqlProfile.id,
+      sql: 'select * from checkout_errors',
+    })
     renderManager(repository, session)
-    const action = screen.getByRole('button', { name: 'Manage saved presets' }) as HTMLButtonElement
+    const action = screen.getByRole('button', {
+      name: 'Manage saved presets',
+    }) as HTMLButtonElement
     expect(action.disabled).toBe(false)
     expect(action.textContent).toBe('Presets')
     openDialog()
     const input = screen.getByRole('textbox', { name: 'Preset name' })
     expect(document.activeElement).toBe(input)
-    expect(screen.getByText('No saved presets for this connection yet.')).toBeTruthy()
+    expect(
+      screen.getByText('No saved presets for this connection yet.'),
+    ).toBeTruthy()
     fireEvent.change(input, { target: { value: '   ' } })
-    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
     fireEvent.change(input, { target: { value: '  Checkout errors  ' } })
     fireEvent.submit(input.closest('form')!)
-    expect(repository.listForConnection(sqlProfile.id)).toEqual([expect.objectContaining({ name: 'Checkout errors', payload: expect.objectContaining({ sql: 'select * from checkout_errors' }) })])
-    expect(notify).toHaveBeenCalledWith({ message: 'Saved preset “Checkout errors”.' })
+    expect(repository.listForConnection(sqlProfile.id)).toEqual([
+      expect.objectContaining({
+        name: 'Checkout errors',
+        payload: expect.objectContaining({
+          sql: 'select * from checkout_errors',
+        }),
+      }),
+    ])
+    expect(notify).toHaveBeenCalledWith({
+      message: 'Saved preset “Checkout errors”.',
+    })
     expect(screen.getByRole('dialog', { name: 'Presets' })).toBeTruthy()
     expect(screen.getByText('Checkout errors')).toBeTruthy()
     expect((input as HTMLInputElement).value).toBe('')
@@ -60,32 +138,70 @@ describe('PresetManagerAction', () => {
 
   it('keeps the entered name and session unchanged when saving fails', () => {
     const base = new ExplorationPresetRepository(new MemoryStorage())
-    const repository: PresetManagerRepository = { ...base, create: () => { throw new Error('quota exceeded') }, listForConnection: base.listForConnection.bind(base), rename: base.rename.bind(base), delete: base.delete.bind(base) }
-    const session = createQuerySession(1, { connectionProfileId: sqlProfile.id, queryMode: 'builder', sql: 'select count(*) from orders' })
-    Object.assign(session, { running: true, queryError: 'old error', resultRevision: 9, seriesVisibility: { failed: false } })
+    const repository: PresetManagerRepository = {
+      ...base,
+      create: () => {
+        throw new Error('quota exceeded')
+      },
+      listForConnection: base.listForConnection.bind(base),
+      rename: base.rename.bind(base),
+      delete: base.delete.bind(base),
+    }
+    const session = createQuerySession(1, {
+      connectionProfileId: sqlProfile.id,
+      queryMode: 'builder',
+      sql: 'select count(*) from orders',
+    })
+    Object.assign(session, {
+      running: true,
+      queryError: 'old error',
+      resultRevision: 9,
+      seriesVisibility: { failed: false },
+    })
     const before = structuredClone(session)
     renderManager(repository, session)
     openDialog()
-    fireEvent.change(screen.getByRole('textbox', { name: 'Preset name' }), { target: { value: 'Retry me' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Preset name' }), {
+      target: { value: 'Retry me' },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-    expect(notify).toHaveBeenCalledWith({ message: 'Could not save preset: quota exceeded', tone: 'error' })
-    expect((screen.getByRole('textbox', { name: 'Preset name' }) as HTMLInputElement).value).toBe('Retry me')
+    expect(notify).toHaveBeenCalledWith({
+      message: 'Could not save preset: quota exceeded',
+      tone: 'error',
+    })
+    expect(
+      (screen.getByRole('textbox', { name: 'Preset name' }) as HTMLInputElement)
+        .value,
+    ).toBe('Retry me')
     expect(session).toEqual(before)
   })
 
   it('lists only the active tab connection, orders recent presets first, and ignores stale global profile state', () => {
     const repository = new ExplorationPresetRepository(new MemoryStorage())
     const profileA = { ...sqlProfile, id: 'production', name: 'Production' }
-    const tabA = createQuerySession(1, { id: 'tab-a', connectionProfileId: profileA.id })
-    const tabB = createQuerySession(2, { id: 'tab-b', connectionProfileId: sqlProfile.id })
+    const tabA = createQuerySession(1, {
+      id: 'tab-a',
+      connectionProfileId: profileA.id,
+    })
+    const tabB = createQuerySession(2, {
+      id: 'tab-b',
+      connectionProfileId: sqlProfile.id,
+    })
     seed(repository, 'Prod errors', profileA.id, 20)
     seed(repository, 'Older staging', sqlProfile.id, 10)
     seed(repository, 'Staging errors', sqlProfile.id, 30)
-    resetTestStore({ profiles: [profileA, sqlProfile], tabs: [tabA, tabB], activeTabId: tabB.id, activeProfileId: profileA.id })
+    resetTestStore({
+      profiles: [profileA, sqlProfile],
+      tabs: [tabA, tabB],
+      activeTabId: tabB.id,
+      activeProfileId: profileA.id,
+    })
     render(<PresetManagerAction repository={repository} />)
     openDialog()
     expect(screen.queryByText('Prod errors')).toBeNull()
-    const names = screen.getAllByRole('listitem').map((row) => row.querySelector('span')?.textContent)
+    const names = screen
+      .getAllByRole('listitem')
+      .map((row) => row.querySelector('span')?.textContent)
     expect(names).toEqual(['Staging errors', 'Older staging'])
   })
 
@@ -98,50 +214,108 @@ describe('PresetManagerAction', () => {
   })
 
   it('renames with trimming, rejects blank names, and cancel does not persist', () => {
-    const repository = new ExplorationPresetRepository(new MemoryStorage(), () => 50)
+    const repository = new ExplorationPresetRepository(
+      new MemoryStorage(),
+      () => 50,
+    )
     seed(repository, 'Checkout errors')
     renderManager(repository)
     openDialog()
-    fireEvent.click(screen.getByRole('button', { name: 'Rename preset Checkout errors' }))
-    const edit = screen.getByRole('textbox', { name: 'Rename Checkout errors' }) as HTMLInputElement
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Rename preset Checkout errors' }),
+    )
+    const edit = screen.getByRole('textbox', {
+      name: 'Rename Checkout errors',
+    }) as HTMLInputElement
     expect(edit.value).toBe('Checkout errors')
     fireEvent.change(edit, { target: { value: '   ' } })
-    expect((screen.getAllByRole('button', { name: 'Save' }).at(-1) as HTMLButtonElement).disabled).toBe(true)
+    expect(
+      (
+        screen
+          .getAllByRole('button', { name: 'Save' })
+          .at(-1) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
     fireEvent.change(edit, { target: { value: 'Do not keep' } })
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(repository.listForConnection(sqlProfile.id)[0].name).toBe('Checkout errors')
-    fireEvent.click(screen.getByRole('button', { name: 'Rename preset Checkout errors' }))
-    fireEvent.change(screen.getByRole('textbox', { name: 'Rename Checkout errors' }), { target: { value: '  Checkout failures  ' } })
-    fireEvent.submit(screen.getByRole('textbox', { name: 'Rename Checkout errors' }).closest('form')!)
-    expect(repository.listForConnection(sqlProfile.id)[0].name).toBe('Checkout failures')
+    expect(repository.listForConnection(sqlProfile.id)[0].name).toBe(
+      'Checkout errors',
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Rename preset Checkout errors' }),
+    )
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Rename Checkout errors' }),
+      { target: { value: '  Checkout failures  ' } },
+    )
+    fireEvent.submit(
+      screen
+        .getByRole('textbox', { name: 'Rename Checkout errors' })
+        .closest('form')!,
+    )
+    expect(repository.listForConnection(sqlProfile.id)[0].name).toBe(
+      'Checkout failures',
+    )
     expect(screen.getByText('Checkout failures')).toBeTruthy()
-    expect(notify).toHaveBeenCalledWith({ message: 'Renamed preset to “Checkout failures”.' })
+    expect(notify).toHaveBeenCalledWith({
+      message: 'Renamed preset to “Checkout failures”.',
+    })
   })
 
   it('keeps rename edit state and value available when persistence fails', () => {
     const base = new ExplorationPresetRepository(new MemoryStorage())
     seed(base, 'Original')
-    const repository: PresetManagerRepository = { create: base.create.bind(base), listForConnection: base.listForConnection.bind(base), rename: () => { throw new Error('blocked') }, delete: base.delete.bind(base) }
+    const repository: PresetManagerRepository = {
+      create: base.create.bind(base),
+      listForConnection: base.listForConnection.bind(base),
+      rename: () => {
+        throw new Error('blocked')
+      },
+      delete: base.delete.bind(base),
+    }
     renderManager(repository)
     openDialog()
-    fireEvent.click(screen.getByRole('button', { name: 'Rename preset Original' }))
-    fireEvent.change(screen.getByRole('textbox', { name: 'Rename Original' }), { target: { value: 'Retry rename' } })
-    fireEvent.submit(screen.getByRole('textbox', { name: 'Rename Original' }).closest('form')!)
-    expect(notify).toHaveBeenCalledWith({ message: 'Could not rename preset: blocked', tone: 'error' })
-    expect((screen.getByRole('textbox', { name: 'Rename Original' }) as HTMLInputElement).value).toBe('Retry rename')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Rename preset Original' }),
+    )
+    fireEvent.change(screen.getByRole('textbox', { name: 'Rename Original' }), {
+      target: { value: 'Retry rename' },
+    })
+    fireEvent.submit(
+      screen.getByRole('textbox', { name: 'Rename Original' }).closest('form')!,
+    )
+    expect(notify).toHaveBeenCalledWith({
+      message: 'Could not rename preset: blocked',
+      tone: 'error',
+    })
+    expect(
+      (
+        screen.getByRole('textbox', {
+          name: 'Rename Original',
+        }) as HTMLInputElement
+      ).value,
+    ).toBe('Retry rename')
   })
 
   it('requires delete confirmation, removes only the confirmed preset, and handles a missing preset', () => {
     const repository = new ExplorationPresetRepository(new MemoryStorage())
     seed(repository, 'Keep')
     seed(repository, 'Remove', sqlProfile.id, 2)
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true).mockReturnValueOnce(true)
+    const confirm = vi
+      .spyOn(window, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(true)
     renderManager(repository)
     openDialog()
-    fireEvent.click(screen.getByRole('button', { name: 'Delete preset Remove' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete preset Remove' }),
+    )
     expect(confirm).toHaveBeenCalledWith('Delete preset “Remove”?')
     expect(screen.getByText('Remove')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Delete preset Remove' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete preset Remove' }),
+    )
     expect(screen.queryByText('Remove')).toBeNull()
     expect(screen.getByText('Keep')).toBeTruthy()
     expect(notify).toHaveBeenCalledWith({ message: 'Deleted preset “Remove”.' })
@@ -153,27 +327,60 @@ describe('PresetManagerAction', () => {
   it('reports delete and read failures without hiding a persisted row or crashing the workspace', () => {
     const base = new ExplorationPresetRepository(new MemoryStorage())
     seed(base, 'Visible')
-    const repository: PresetManagerRepository = { create: base.create.bind(base), listForConnection: base.listForConnection.bind(base), rename: base.rename.bind(base), delete: () => { throw new Error('storage denied') } }
+    const repository: PresetManagerRepository = {
+      create: base.create.bind(base),
+      listForConnection: base.listForConnection.bind(base),
+      rename: base.rename.bind(base),
+      delete: () => {
+        throw new Error('storage denied')
+      },
+    }
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderManager(repository)
     openDialog()
-    fireEvent.click(screen.getByRole('button', { name: 'Delete preset Visible' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete preset Visible' }),
+    )
     expect(screen.getByText('Visible')).toBeTruthy()
-    expect(notify).toHaveBeenCalledWith({ message: 'Could not delete preset: storage denied', tone: 'error' })
+    expect(notify).toHaveBeenCalledWith({
+      message: 'Could not delete preset: storage denied',
+      tone: 'error',
+    })
     cleanup()
-    const readFailure: PresetManagerRepository = { ...repository, listForConnection: () => { throw new Error('read denied') } }
+    const readFailure: PresetManagerRepository = {
+      ...repository,
+      listForConnection: () => {
+        throw new Error('read denied')
+      },
+    }
     renderManager(readFailure)
     openDialog()
-    expect(screen.getByRole('alert').textContent).toContain('Could not read saved presets')
-    expect(screen.queryByText('No saved presets for this connection yet.')).toBeNull()
+    expect(screen.getByRole('alert').textContent).toContain(
+      'Could not read saved presets',
+    )
+    expect(
+      screen.queryByText('No saved presets for this connection yet.'),
+    ).toBeNull()
   })
 
   it('does not mutate the session or invoke query lifecycle actions while managing presets', () => {
     const repository = new ExplorationPresetRepository(new MemoryStorage())
     seed(repository, 'Safe')
-    const session = createQuerySession(1, { connectionProfileId: sqlProfile.id, sql: 'select safely' })
-    const startQuery = vi.fn(), completeQuery = vi.fn(), setResult = vi.fn()
-    resetTestStore({ profiles: [sqlProfile], tabs: [session], activeTabId: session.id, startQuery, completeQuery, setResult })
+    const session = createQuerySession(1, {
+      connectionProfileId: sqlProfile.id,
+      sql: 'select safely',
+    })
+    const startQuery = vi.fn(),
+      completeQuery = vi.fn(),
+      setResult = vi.fn()
+    resetTestStore({
+      profiles: [sqlProfile],
+      tabs: [session],
+      activeTabId: session.id,
+      startQuery,
+      completeQuery,
+      setResult,
+    })
     const before = structuredClone(useStore.getState().tabs)
     vi.spyOn(window, 'confirm').mockReturnValue(false)
     render(<PresetManagerAction repository={repository} />)
@@ -189,39 +396,115 @@ describe('PresetManagerAction', () => {
 
   it('loads a preset into the current tab, clears runtime state, and does not execute it', () => {
     const repository = new ExplorationPresetRepository(new MemoryStorage())
-    const source = createQuerySession(1, { connectionProfileId: sqlProfile.id, queryMode: 'sql', sql: "select * from orders where status = 'failed'" })
+    const source = createQuerySession(1, {
+      connectionProfileId: sqlProfile.id,
+      queryMode: 'sql',
+      sql: "select * from orders where status = 'failed'",
+    })
     source.sqlVisualization = { ...source.sqlVisualization, view: 'bar' }
-    repository.create(createPresetFromSession({ name: 'Checkout errors', profile: sqlProfile, session: source, id: 'load-me' }))
-    const target = createQuerySession(2, { id: 'target-tab', title: 'Keep this title', connectionProfileId: sqlProfile.id, queryMode: 'builder', sql: 'old query' })
-    Object.assign(target, { running: false, queryError: 'old error', result: { columns: [], rows: [], rowCount: 0 }, pendingResult: { columns: [], rows: [], rowCount: 0 }, resultRevision: 8, lastSuccessfulResultRevision: 7, isResultStale: true, builderHasRun: true, explainText: 'plan', showExplain: true, activeExplainRequest: 'explain', seriesVisibility: { failed: false }, lokiRangeHistory: [{ kind: 'rolling', amount: 7, unit: 'day' }] })
-    const startQuery = vi.fn(), completeQuery = vi.fn(), setResult = vi.fn(), onPresetLoaded = vi.fn()
-    resetTestStore({ profiles: [sqlProfile], tabs: [target], activeTabId: target.id, startQuery, completeQuery, setResult })
-    render(<PresetManagerAction repository={repository} onPresetLoaded={onPresetLoaded} />)
+    repository.create(
+      createPresetFromSession({
+        name: 'Checkout errors',
+        profile: sqlProfile,
+        session: source,
+        id: 'load-me',
+      }),
+    )
+    const target = createQuerySession(2, {
+      id: 'target-tab',
+      title: 'Keep this title',
+      connectionProfileId: sqlProfile.id,
+      queryMode: 'builder',
+      sql: 'old query',
+    })
+    Object.assign(target, {
+      running: false,
+      queryError: 'old error',
+      result: { columns: [], rows: [], rowCount: 0 },
+      pendingResult: { columns: [], rows: [], rowCount: 0 },
+      resultRevision: 8,
+      lastSuccessfulResultRevision: 7,
+      isResultStale: true,
+      builderHasRun: true,
+      explainText: 'plan',
+      showExplain: true,
+      activeExplainRequest: 'explain',
+      seriesVisibility: { failed: false },
+      lokiRangeHistory: [{ kind: 'rolling', amount: 7, unit: 'day' }],
+    })
+    const startQuery = vi.fn(),
+      completeQuery = vi.fn(),
+      setResult = vi.fn(),
+      onPresetLoaded = vi.fn()
+    resetTestStore({
+      profiles: [sqlProfile],
+      tabs: [target],
+      activeTabId: target.id,
+      startQuery,
+      completeQuery,
+      setResult,
+    })
+    render(
+      <PresetManagerAction
+        repository={repository}
+        onPresetLoaded={onPresetLoaded}
+      />,
+    )
     openDialog()
-    fireEvent.click(screen.getByRole('button', { name: 'Load preset Checkout errors' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Load preset Checkout errors' }),
+    )
     expect(screen.queryByRole('dialog', { name: 'Presets' })).toBeNull()
-    expect(useStore.getState().tabs[0]).toEqual(expect.objectContaining({
-      id: 'target-tab', title: 'Keep this title', connectionProfileId: sqlProfile.id,
-      queryMode: 'sql', sql: source.sql, sqlVisualization: source.sqlVisualization,
-      manualQueryPristine: false, running: false, queryError: null, result: null, pendingResult: null,
-      resultRevision: 0, lastSuccessfulResultRevision: 0, isResultStale: false, builderHasRun: false,
-      explainText: null, showExplain: false, activeExplainRequest: null, seriesVisibility: {}, lokiRangeHistory: []
-    }))
+    expect(useStore.getState().tabs[0]).toEqual(
+      expect.objectContaining({
+        id: 'target-tab',
+        title: 'Keep this title',
+        connectionProfileId: sqlProfile.id,
+        queryMode: 'sql',
+        sql: source.sql,
+        sqlVisualization: source.sqlVisualization,
+        manualQueryPristine: false,
+        running: false,
+        queryError: null,
+        result: null,
+        pendingResult: null,
+        resultRevision: 0,
+        lastSuccessfulResultRevision: 0,
+        isResultStale: false,
+        builderHasRun: false,
+        explainText: null,
+        showExplain: false,
+        activeExplainRequest: null,
+        seriesVisibility: {},
+        lokiRangeHistory: [],
+      }),
+    )
     expect(onPresetLoaded).toHaveBeenCalledOnce()
-    expect(notify).toHaveBeenCalledWith({ message: 'Loaded preset “Checkout errors”.' })
-    expect(startQuery).not.toHaveBeenCalled(); expect(completeQuery).not.toHaveBeenCalled(); expect(setResult).not.toHaveBeenCalled()
+    expect(notify).toHaveBeenCalledWith({
+      message: 'Loaded preset “Checkout errors”.',
+    })
+    expect(startQuery).not.toHaveBeenCalled()
+    expect(completeQuery).not.toHaveBeenCalled()
+    expect(setResult).not.toHaveBeenCalled()
   })
 
   it('disables loading while a query is running', () => {
     const repository = new ExplorationPresetRepository(new MemoryStorage())
     seed(repository, 'Wait')
-    const session = createQuerySession(1, { connectionProfileId: sqlProfile.id, sql: 'keep me' })
+    const session = createQuerySession(1, {
+      connectionProfileId: sqlProfile.id,
+      sql: 'keep me',
+    })
     session.running = true
     renderManager(repository, session)
     openDialog()
-    const load = screen.getByRole('button', { name: 'Load preset Wait' }) as HTMLButtonElement
+    const load = screen.getByRole('button', {
+      name: 'Load preset Wait',
+    }) as HTMLButtonElement
     expect(load.disabled).toBe(true)
-    expect(load.title).toBe('Wait for the current query to finish before loading a preset.')
+    expect(load.title).toBe(
+      'Wait for the current query to finish before loading a preset.',
+    )
     fireEvent.click(load)
     expect(screen.getByRole('dialog', { name: 'Presets' })).toBeTruthy()
     expect(session.sql).toBe('keep me')

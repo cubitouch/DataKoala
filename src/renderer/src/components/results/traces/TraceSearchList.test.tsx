@@ -7,14 +7,39 @@ afterEach(cleanup)
 
 describe('TraceSearchList', () => {
   const rows = [
-    { traceId: 'ok-trace', status: 'OK', rootService: 'checkout', rootOperation: 'POST /orders', durationMs: 1250, startTimeMs: 0, matchedSpans: 3 },
-    { traceId: 'error-trace', status: 'ERROR', rootService: 'payments', durationMs: 25, startTimeMs: 0 },
-    { traceId: 'unknown-trace', status: 'UNSET', durationMs: 0.5, startTimeMs: 0 }
+    {
+      traceId: 'ok-trace',
+      status: 'OK',
+      rootService: 'checkout',
+      rootOperation: 'POST /orders',
+      durationMs: 1250,
+      startTimeMs: 0,
+      matchedSpans: 3,
+    },
+    {
+      traceId: 'error-trace',
+      status: 'ERROR',
+      rootService: 'payments',
+      durationMs: 25,
+      startTimeMs: 0,
+    },
+    {
+      traceId: 'unknown-trace',
+      status: 'UNSET',
+      durationMs: 0.5,
+      startTimeMs: 0,
+    },
   ]
 
   it('presents trace status and opens the selected trace', () => {
     const onOpenTrace = vi.fn()
-    render(<TraceSearchList rows={rows} disabled={false} onOpenTrace={onOpenTrace} />)
+    render(
+      <TraceSearchList
+        rows={rows}
+        disabled={false}
+        onOpenTrace={onOpenTrace}
+      />,
+    )
 
     expect(screen.getByLabelText('Successful trace')).toBeTruthy()
     expect(screen.getByLabelText('Error trace')).toBeTruthy()
@@ -29,6 +54,7 @@ describe('TraceSearchList', () => {
   it('disables every result while another operation is running', () => {
     render(<TraceSearchList rows={rows} disabled onOpenTrace={vi.fn()} />)
 
-    for (const result of screen.getAllByRole('button')) expect((result as HTMLButtonElement).disabled).toBe(true)
+    for (const result of screen.getAllByRole('button'))
+      expect((result as HTMLButtonElement).disabled).toBe(true)
   })
 })

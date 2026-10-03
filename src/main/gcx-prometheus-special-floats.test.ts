@@ -7,15 +7,17 @@ test('normalizes Prometheus special float sample strings', () => {
     status: 'success',
     data: {
       resultType: 'matrix',
-      result: [{
-        metric: { consumer: 'example' },
-        values: [
-          [1_700_000_000, 'NaN'],
-          [1_700_000_001, '+Inf'],
-          [1_700_000_002, '-Inf']
-        ]
-      }]
-    }
+      result: [
+        {
+          metric: { consumer: 'example' },
+          values: [
+            [1_700_000_000, 'NaN'],
+            [1_700_000_001, '+Inf'],
+            [1_700_000_002, '-Inf'],
+          ],
+        },
+      ],
+    },
   })
 
   assert.equal(result.rowCount, 3)
@@ -26,11 +28,15 @@ test('normalizes Prometheus special float sample strings', () => {
 })
 
 test('still rejects genuinely non-numeric Prometheus sample strings', () => {
-  assert.throws(() => normalizeGcxQuery({
-    status: 'success',
-    data: {
-      resultType: 'matrix',
-      result: [{ metric: {}, values: [[1_700_000_000, 'not-a-number']] }]
-    }
-  }), /non-numeric range sample value/)
+  assert.throws(
+    () =>
+      normalizeGcxQuery({
+        status: 'success',
+        data: {
+          resultType: 'matrix',
+          result: [{ metric: {}, values: [[1_700_000_000, 'not-a-number']] }],
+        },
+      }),
+    /non-numeric range sample value/,
+  )
 })

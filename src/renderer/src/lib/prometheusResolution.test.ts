@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import { isPrometheusStepSafe, prometheusAutoStep } from './prometheusResolution.ts'
+import {
+  isPrometheusStepSafe,
+  prometheusAutoStep,
+} from './prometheusResolution.ts'
 
-const bounds = (seconds: number) => ({ start: new Date(0).toISOString(), end: new Date(seconds * 1_000).toISOString() })
+const bounds = (seconds: number) => ({
+  start: new Date(0).toISOString(),
+  end: new Date(seconds * 1_000).toISOString(),
+})
 
 test('automatic Prometheus resolution rounds up to friendly intervals', () => {
   assert.equal(prometheusAutoStep(bounds(3_600)), '15s')

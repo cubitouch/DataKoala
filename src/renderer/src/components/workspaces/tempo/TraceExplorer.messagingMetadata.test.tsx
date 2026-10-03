@@ -1,23 +1,40 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { attributeValues, attributes } = vi.hoisted(() => ({ attributeValues: vi.fn(), attributes: vi.fn() }))
-vi.mock('@lib/api', () => ({ api: {
-  tempoPerformanceEnabled: false,
-  connections: { tempo: { attributeValues, attributes } },
-  query: { run: vi.fn() }
-} }))
+const { attributeValues, attributes } = vi.hoisted(() => ({
+  attributeValues: vi.fn(),
+  attributes: vi.fn(),
+}))
+vi.mock('@lib/api', () => ({
+  api: {
+    tempoPerformanceEnabled: false,
+    connections: { tempo: { attributeValues, attributes } },
+    query: { run: vi.fn() },
+  },
+}))
 
 import { TraceExplorer } from './TraceExplorer'
 import { resetTempoMetadataCache } from '@lib/tempoMetadata'
-import { patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
+import {
+  patchActiveTestSession,
+  resetTestStore,
+  setActiveTestMetadata,
+} from '@test/sessionTestUtils'
 import { useStore } from '@store/useStore'
 import { traceBuilderFromTraceql } from '@lib/traceBuilder'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>((done) => { resolve = done })
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
   return { promise, resolve }
 }
 
@@ -29,7 +46,12 @@ describe('Trace Explorer messaging metadata', () => {
     attributes.mockReset().mockResolvedValue([])
     resetTestStore({ connected: true, connectionGeneration: 7 })
     const traceql = '{ span.messaging.system != nil }'
-    patchActiveTestSession({ connectionProfileId: 'tempo-1', queryMode: 'builder', sql: traceql, tempoBuilder: traceBuilderFromTraceql(traceql) })
+    patchActiveTestSession({
+      connectionProfileId: 'tempo-1',
+      queryMode: 'builder',
+      sql: traceql,
+      tempoBuilder: traceBuilderFromTraceql(traceql),
+    })
     setActiveTestMetadata([], 'loaded', null, 'tempo-1')
   })
   afterEach(cleanup)
@@ -38,25 +60,44 @@ describe('Trace Explorer messaging metadata', () => {
     const metadata = deferred<string[]>()
     attributeValues.mockReturnValueOnce(metadata.promise)
     render(<TraceExplorer connectionId="tempo-1" />)
-    await waitFor(() => expect(attributeValues).toHaveBeenCalledWith('tempo-1', 'span.messaging.system'))
+    await waitFor(() =>
+      expect(attributeValues).toHaveBeenCalledWith(
+        'tempo-1',
+        'span.messaging.system',
+      ),
+    )
     expect(attributeValues).toHaveBeenCalledTimes(1)
     expect(screen.queryByText('Search results')).toBeNull()
     fireEvent.click(screen.getByRole('combobox', { name: /Messaging system/ }))
-    const input = screen.getByRole('textbox', { name: 'Search Messaging system' })
+    const input = screen.getByRole('textbox', {
+      name: 'Search Messaging system',
+    })
     fireEvent.change(input, { target: { value: 'custom-broker' } })
     fireEvent.click(screen.getByText(/Use “custom-broker”/))
-    expect(screen.getByRole('combobox', { name: /Messaging system: custom-broker/ })).toBeTruthy()
+    expect(
+      screen.getByRole('combobox', { name: /Messaging system: custom-broker/ }),
+    ).toBeTruthy()
 
     metadata.resolve(['rabbitmq', 'kafka'])
-    await waitFor(() => expect(screen.getByRole('combobox', { name: /Messaging system: custom-broker/ })).toBeTruthy())
-    fireEvent.click(screen.getByRole('combobox', { name: /Messaging system: custom-broker/ }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', {
+          name: /Messaging system: custom-broker/,
+        }),
+      ).toBeTruthy(),
+    )
+    fireEvent.click(
+      screen.getByRole('combobox', { name: /Messaging system: custom-broker/ }),
+    )
     expect(await screen.findByText('kafka')).toBeTruthy()
     expect(screen.getAllByText('custom-broker').length).toBeGreaterThan(0)
   })
 
   it('does not let a late response from an old connection generation overwrite current values', async () => {
     const oldMetadata = deferred<string[]>()
-    attributeValues.mockReturnValueOnce(oldMetadata.promise).mockResolvedValueOnce(['nats'])
+    attributeValues
+      .mockReturnValueOnce(oldMetadata.promise)
+      .mockResolvedValueOnce(['nats'])
     const view = render(<TraceExplorer connectionId="tempo-1" />)
     await waitFor(() => expect(attributeValues).toHaveBeenCalledTimes(1))
     useStore.setState({ connectionGeneration: 8 })

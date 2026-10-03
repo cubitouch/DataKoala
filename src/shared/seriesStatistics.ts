@@ -17,14 +17,30 @@ WHERE s.schemaname = $1
   AND s.tablename = $2
   AND s.attname = $3;`
 
-export function interpretSeriesStatistics(row: Record<string, unknown> | undefined): SeriesStatisticsResult {
+export function interpretSeriesStatistics(
+  row: Record<string, unknown> | undefined,
+): SeriesStatisticsResult {
   if (!row) return { available: false, source: 'pg_stats' }
-  if (row.n_distinct === null || row.n_distinct === undefined || row.n_distinct === '' ||
-      row.reltuples === null || row.reltuples === undefined || row.reltuples === '') return { available: false, source: 'pg_stats' }
+  if (
+    row.n_distinct === null ||
+    row.n_distinct === undefined ||
+    row.n_distinct === '' ||
+    row.reltuples === null ||
+    row.reltuples === undefined ||
+    row.reltuples === ''
+  )
+    return { available: false, source: 'pg_stats' }
   const nDistinct = Number(row.n_distinct)
   const reltuples = Number(row.reltuples)
-  if (!Number.isFinite(nDistinct) || !Number.isFinite(reltuples) || reltuples < 0) return { available: false, source: 'pg_stats' }
-  const estimatedDistinct = nDistinct >= 0 ? nDistinct : Math.abs(nDistinct) * reltuples
-  if (!Number.isFinite(estimatedDistinct) || estimatedDistinct < 0) return { available: false, source: 'pg_stats' }
+  if (
+    !Number.isFinite(nDistinct) ||
+    !Number.isFinite(reltuples) ||
+    reltuples < 0
+  )
+    return { available: false, source: 'pg_stats' }
+  const estimatedDistinct =
+    nDistinct >= 0 ? nDistinct : Math.abs(nDistinct) * reltuples
+  if (!Number.isFinite(estimatedDistinct) || estimatedDistinct < 0)
+    return { available: false, source: 'pg_stats' }
   return { available: true, estimatedDistinct, source: 'pg_stats' }
 }

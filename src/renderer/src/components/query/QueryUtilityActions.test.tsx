@@ -2,17 +2,30 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryUtilityActions } from './QueryUtilityActions'
-import { activeTestSession, patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
+import {
+  activeTestSession,
+  patchActiveTestSession,
+  resetTestStore,
+} from '@test/sessionTestUtils'
 
 describe('QueryUtilityActions', () => {
-  afterEach(() => { cleanup(); resetTestStore(); vi.restoreAllMocks() })
+  afterEach(() => {
+    cleanup()
+    resetTestStore()
+    vi.restoreAllMocks()
+  })
 
   it('clears only the current result and describes the action', () => {
-    patchActiveTestSession({ sql: 'select 1', result: { columns: [], rows: [], rowCount: 0, durationMs: 1 } })
+    patchActiveTestSession({
+      sql: 'select 1',
+      result: { columns: [], rows: [], rowCount: 0, durationMs: 1 },
+    })
     render(<QueryUtilityActions />)
     const clear = screen.getByRole('button', { name: 'Clear results' })
     expect(clear.textContent).toBe('Clear')
-    expect(clear.title).toBe('Clear the current result without changing the query.')
+    expect(clear.title).toBe(
+      'Clear the current result without changing the query.',
+    )
     fireEvent.click(clear)
     expect(activeTestSession().result).toBeNull()
     expect(activeTestSession().sql).toBe('select 1')
@@ -26,7 +39,9 @@ describe('QueryUtilityActions', () => {
     expect(reset.textContent).toBe('Reset')
     expect(reset.title).toBe("Reset the current tab's query and Builder state.")
     fireEvent.click(reset)
-    expect(window.confirm).toHaveBeenCalledWith('Reset Metrics to a fresh query?')
+    expect(window.confirm).toHaveBeenCalledWith(
+      'Reset Metrics to a fresh query?',
+    )
     expect(activeTestSession().sql).toBe('select now();')
   })
 
@@ -35,7 +50,13 @@ describe('QueryUtilityActions', () => {
     const reset = vi.fn()
     patchActiveTestSession({ title: 'Traces', sql: '{ duration > 300ms }' })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    render(<QueryUtilityActions hasResults onClearResults={clear} onResetQuery={reset} />)
+    render(
+      <QueryUtilityActions
+        hasResults
+        onClearResults={clear}
+        onResetQuery={reset}
+      />,
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Clear results' }))
     fireEvent.click(screen.getByRole('button', { name: 'Reset query' }))
     expect(clear).toHaveBeenCalledOnce()

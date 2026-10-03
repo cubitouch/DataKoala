@@ -8,7 +8,11 @@ import { __testing, connect, disconnectAll } from './db.ts'
 class FakeClient extends EventEmitter {
   releases: boolean[] = []
 
-  async query(): Promise<{ rows: { server_version: string }[]; fields: []; rowCount: number }> {
+  async query(): Promise<{
+    rows: { server_version: string }[]
+    fields: []
+    rowCount: number
+  }> {
     return { rows: [{ server_version: '16.4' }], fields: [], rowCount: 1 }
   }
 
@@ -41,7 +45,9 @@ class DeferredPool extends FakePool {
   private resolveConnect: ((client: PoolClient) => void) | null = null
 
   override connect(): Promise<PoolClient> {
-    return new Promise((resolve) => { this.resolveConnect = resolve })
+    return new Promise((resolve) => {
+      this.resolveConnect = resolve
+    })
   }
 
   resolve(): void {
@@ -60,7 +66,7 @@ const profile = (id: string): ConnectionProfile => ({
   user: 'postgres',
   password: '',
   ssl: false,
-  readonly: true
+  readonly: true,
 })
 
 const usePools = (...fakePools: FakePool[]): void => {
@@ -109,7 +115,11 @@ test('disconnectAll invalidates and closes an in-flight connection attempt', asy
   usePools(pending)
 
   const connection = connect(profile('pending'))
-  for (let turn = 0; turn < 10 && __testing.activePoolIds().length === 0; turn++) {
+  for (
+    let turn = 0;
+    turn < 10 && __testing.activePoolIds().length === 0;
+    turn++
+  ) {
     await Promise.resolve()
   }
   assert.deepEqual(__testing.activePoolIds(), ['pending'])

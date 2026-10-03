@@ -7,7 +7,7 @@ const resultA: QueryResult = {
   columns: [{ name: 'value', dataTypeID: 23, dataTypeName: 'int4' }],
   rows: [{ value: 1 }],
   rowCount: 1,
-  durationMs: 4
+  durationMs: 4,
 }
 
 const promotedFilter: ResultFilter = {
@@ -26,12 +26,16 @@ const promotedFilter: ResultFilter = {
     timeBucket: 'day',
     sourceKind: 'single-column',
     targetKind: 'source-column',
-    displayLabel: 'country'
-  }
+    displayLabel: 'country',
+  },
 }
 
 const clientFilter: ResultFilter = {
-  id: 'device-mobile', column: 'device', operator: 'equals', value: 'mobile', execution: 'client'
+  id: 'device-mobile',
+  column: 'device',
+  operator: 'equals',
+  value: 'mobile',
+  execution: 'client',
 }
 
 async function setup() {
@@ -44,9 +48,9 @@ async function setup() {
         disconnect: vi.fn(async () => undefined),
         list: vi.fn(async () => []),
         listObjects: vi.fn(async () => []),
-        describeTable: vi.fn(async () => [])
-      }
-    }
+        describeTable: vi.fn(async () => []),
+      },
+    },
   })
   return import('./useStore')
 }
@@ -60,26 +64,44 @@ describe('query session model', () => {
     const second = createQuerySession()
     expect(first.tempoBuilder).toEqual(second.tempoBuilder)
     expect(first.tempoBuilder).not.toBe(second.tempoBuilder)
-    expect(first.tempoBuilder.advancedFilters).not.toBe(second.tempoBuilder.advancedFilters)
+    expect(first.tempoBuilder.advancedFilters).not.toBe(
+      second.tempoBuilder.advancedFilters,
+    )
 
     const a = useStore.getState().activeTabId
     const b = useStore.getState().createTab()
-    useStore.getState().setTempoState({
-      tempoBuilder: { ...first.tempoBuilder, service: 'checkout' },
-      tempoTimeRange: { kind: 'rolling', amount: 6, unit: 'hour' },
-      tempoSampleSize: '500',
-      tempoResultView: 'scatter'
-    }, a)
-    useStore.getState().setTempoState({
-      tempoBuilder: { ...second.tempoBuilder, service: 'payments' },
-      tempoTimeRange: { kind: 'rolling', amount: 30, unit: 'minute' },
-      tempoSampleSize: '100',
-      tempoResultView: 'service-map'
-    }, b)
+    useStore.getState().setTempoState(
+      {
+        tempoBuilder: { ...first.tempoBuilder, service: 'checkout' },
+        tempoTimeRange: { kind: 'rolling', amount: 6, unit: 'hour' },
+        tempoSampleSize: '500',
+        tempoResultView: 'scatter',
+      },
+      a,
+    )
+    useStore.getState().setTempoState(
+      {
+        tempoBuilder: { ...second.tempoBuilder, service: 'payments' },
+        tempoTimeRange: { kind: 'rolling', amount: 30, unit: 'minute' },
+        tempoSampleSize: '100',
+        tempoResultView: 'service-map',
+      },
+      b,
+    )
 
     const state = useStore.getState()
-    expect(selectSession(state, a)).toMatchObject({ tempoBuilder: { service: 'checkout' }, tempoTimeRange: { amount: 6, unit: 'hour' }, tempoSampleSize: '500', tempoResultView: 'scatter' })
-    expect(selectSession(state, b)).toMatchObject({ tempoBuilder: { service: 'payments' }, tempoTimeRange: { amount: 30, unit: 'minute' }, tempoSampleSize: '100', tempoResultView: 'service-map' })
+    expect(selectSession(state, a)).toMatchObject({
+      tempoBuilder: { service: 'checkout' },
+      tempoTimeRange: { amount: 6, unit: 'hour' },
+      tempoSampleSize: '500',
+      tempoResultView: 'scatter',
+    })
+    expect(selectSession(state, b)).toMatchObject({
+      tempoBuilder: { service: 'payments' },
+      tempoTimeRange: { amount: 30, unit: 'minute' },
+      tempoSampleSize: '100',
+      tempoResultView: 'service-map',
+    })
     expect(selectSession(state, a)?.sql).toBe('select now();')
   })
 
@@ -87,8 +109,23 @@ describe('query session model', () => {
     const { useStore, selectSession } = await setup()
     const a = useStore.getState().activeTabId
     useStore.getState().setSql('select from_a;', a)
-    useStore.getState().setBuilder({ table: { schema: 'public', name: 'events' }, timeColumn: 'created_at', seriesColumns: ['country'] }, a)
-    useStore.getState().setVisualization('sql', { view: 'bar', xColumn: 'value', valueColumn: 'value' }, a)
+    useStore
+      .getState()
+      .setBuilder(
+        {
+          table: { schema: 'public', name: 'events' },
+          timeColumn: 'created_at',
+          seriesColumns: ['country'],
+        },
+        a,
+      )
+    useStore
+      .getState()
+      .setVisualization(
+        'sql',
+        { view: 'bar', xColumn: 'value', valueColumn: 'value' },
+        a,
+      )
     useStore.getState().addResultFilter('builder', promotedFilter, a)
     useStore.getState().completeQuery(resultA, null, a)
 
@@ -103,11 +140,20 @@ describe('query session model', () => {
       sql: 'select from_a;',
       queryMode: 'builder',
       result: resultA,
-      builder: { table: { schema: 'public', name: 'events' }, timeColumn: 'created_at', seriesColumns: ['country'] },
-      sqlVisualization: { view: 'bar', xColumn: 'value' }
+      builder: {
+        table: { schema: 'public', name: 'events' },
+        timeColumn: 'created_at',
+        seriesColumns: ['country'],
+      },
+      sqlVisualization: { view: 'bar', xColumn: 'value' },
     })
     expect(selectSession(state, a)?.builderResultFilters).toHaveLength(1)
-    expect(selectSession(state, b)).toMatchObject({ sql: 'select from_b;', queryMode: 'sql', result: null, builder: { timeBucket: 'hour' } })
+    expect(selectSession(state, b)).toMatchObject({
+      sql: 'select from_b;',
+      queryMode: 'sql',
+      result: null,
+      builder: { timeBucket: 'hour' },
+    })
     expect(selectSession(state, b)?.builderResultFilters).toEqual([])
   })
 
@@ -132,18 +178,31 @@ describe('query session model', () => {
     const { useStore, selectActiveSession } = await setup()
     const id = useStore.getState().activeTabId
     useStore.getState().setSql('select keep_me;', id)
-    useStore.getState().setBuilder({ table: { schema: 'public', name: 'events' }, timeColumn: 'created_at', seriesColumns: ['country'] }, id)
+    useStore
+      .getState()
+      .setBuilder(
+        {
+          table: { schema: 'public', name: 'events' },
+          timeColumn: 'created_at',
+          seriesColumns: ['country'],
+        },
+        id,
+      )
     useStore.setState((state) => ({
-      tabs: state.tabs.map((tab) => tab.id === id ? {
-        ...tab,
-        result: resultA,
-        queryError: 'boom',
-        explainText: 'plan',
-        showExplain: true,
-        builderResultFilters: [promotedFilter, clientFilter],
-        sqlResultFilters: [clientFilter],
-        seriesVisibility: { FR: false }
-      } : tab)
+      tabs: state.tabs.map((tab) =>
+        tab.id === id
+          ? {
+              ...tab,
+              result: resultA,
+              queryError: 'boom',
+              explainText: 'plan',
+              showExplain: true,
+              builderResultFilters: [promotedFilter, clientFilter],
+              sqlResultFilters: [clientFilter],
+              seriesVisibility: { FR: false },
+            }
+          : tab,
+      ),
     }))
 
     useStore.getState().clearActiveResults()
@@ -164,16 +223,25 @@ describe('query session model', () => {
     useStore.setState((state) => ({
       profiles: [],
       activeProfileId: 'profile-a',
-      tabs: state.tabs.map((tab) => tab.id === id ? {
-        ...tab,
-        title: 'Revenue investigation',
-        connectionProfileId: 'profile-a',
-        queryMode: 'sql',
-        sql: 'select revenue;',
-        result: resultA,
-        builderResultFilters: [promotedFilter],
-        builder: { table: { schema: 'public', name: 'events' }, timeColumn: 'created_at', timeBucket: 'hour', seriesColumns: ['country'] }
-      } : tab)
+      tabs: state.tabs.map((tab) =>
+        tab.id === id
+          ? {
+              ...tab,
+              title: 'Revenue investigation',
+              connectionProfileId: 'profile-a',
+              queryMode: 'sql',
+              sql: 'select revenue;',
+              result: resultA,
+              builderResultFilters: [promotedFilter],
+              builder: {
+                table: { schema: 'public', name: 'events' },
+                timeColumn: 'created_at',
+                timeBucket: 'hour',
+                seriesColumns: ['country'],
+              },
+            }
+          : tab,
+      ),
     }))
 
     useStore.getState().resetActiveQuery()
@@ -185,33 +253,87 @@ describe('query session model', () => {
     expect(active.sql).toBe('select now();')
     expect(active.result).toBeNull()
     expect(active.builder.table).toBeNull()
-    expect(active.builder.timeRange).toEqual({ kind: 'rolling', amount: 7, unit: 'day' })
+    expect(active.builder.timeRange).toEqual({
+      kind: 'rolling',
+      amount: 7,
+      unit: 'day',
+    })
     expect(active.builderResultFilters).toEqual([])
     expect(active.sqlVisualization.view).toBe('table')
   })
 
   it('keeps loaded SQL Builder query filters but clears leftover filters for non-SQL presets', async () => {
     const { createQuerySession, selectActiveSession, useStore } = await setup()
-    const postgres: DataSourceProfile = { id: 'postgres-a', name: 'Postgres', kind: 'postgres', version: 1, readonly: false, host: 'localhost', port: 5432, database: 'app', user: 'user', password: '', ssl: false }
-    const prometheus: DataSourceProfile = { id: 'prometheus-a', name: 'Prometheus', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }
-    const sqlTarget = createQuerySession(1, { id: 'sql-tab', connectionProfileId: postgres.id })
-    const prometheusTarget = createQuerySession(2, { id: 'prometheus-tab', connectionProfileId: prometheus.id })
+    const postgres: DataSourceProfile = {
+      id: 'postgres-a',
+      name: 'Postgres',
+      kind: 'postgres',
+      version: 1,
+      readonly: false,
+      host: 'localhost',
+      port: 5432,
+      database: 'app',
+      user: 'user',
+      password: '',
+      ssl: false,
+    }
+    const prometheus: DataSourceProfile = {
+      id: 'prometheus-a',
+      name: 'Prometheus',
+      kind: 'prometheus',
+      version: 1,
+      readonly: true,
+      transport: { kind: 'gcx' },
+    }
+    const sqlTarget = createQuerySession(1, {
+      id: 'sql-tab',
+      connectionProfileId: postgres.id,
+    })
+    const prometheusTarget = createQuerySession(2, {
+      id: 'prometheus-tab',
+      connectionProfileId: prometheus.id,
+    })
     sqlTarget.builderResultFilters = [clientFilter]
     prometheusTarget.builderResultFilters = [promotedFilter]
-    useStore.setState({ profiles: [postgres, prometheus], tabs: [sqlTarget, prometheusTarget], activeTabId: sqlTarget.id })
+    useStore.setState({
+      profiles: [postgres, prometheus],
+      tabs: [sqlTarget, prometheusTarget],
+      activeTabId: sqlTarget.id,
+    })
 
-    useStore.getState().commitLoadedPreset({ ...sqlTarget, builderResultFilters: [clientFilter, promotedFilter] }, sqlTarget.id)
-    useStore.getState().commitLoadedPreset({ ...prometheusTarget, builderResultFilters: [promotedFilter] }, prometheusTarget.id)
+    useStore
+      .getState()
+      .commitLoadedPreset(
+        { ...sqlTarget, builderResultFilters: [clientFilter, promotedFilter] },
+        sqlTarget.id,
+      )
+    useStore
+      .getState()
+      .commitLoadedPreset(
+        { ...prometheusTarget, builderResultFilters: [promotedFilter] },
+        prometheusTarget.id,
+      )
 
-    expect(useStore.getState().tabs.find((tab) => tab.id === sqlTarget.id)?.builderResultFilters).toEqual([promotedFilter])
+    expect(
+      useStore.getState().tabs.find((tab) => tab.id === sqlTarget.id)
+        ?.builderResultFilters,
+    ).toEqual([promotedFilter])
     useStore.setState({ activeTabId: prometheusTarget.id })
-    expect(selectActiveSession(useStore.getState()).builderResultFilters).toEqual([])
+    expect(
+      selectActiveSession(useStore.getState()).builderResultFilters,
+    ).toEqual([])
   })
 
   it('closing the final tab always leaves one fresh tab and keeps its connection association', async () => {
     const { useStore, selectActiveSession } = await setup()
     const original = useStore.getState().activeTabId
-    useStore.setState((state) => ({ tabs: state.tabs.map((tab) => ({ ...tab, connectionProfileId: 'profile-a', sql: 'select disposable;' })) }))
+    useStore.setState((state) => ({
+      tabs: state.tabs.map((tab) => ({
+        ...tab,
+        connectionProfileId: 'profile-a',
+        sql: 'select disposable;',
+      })),
+    }))
 
     useStore.getState().closeTab(original)
     const state = useStore.getState()

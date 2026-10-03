@@ -12,7 +12,5 @@
     "!src/renderer/src/test/**",
     "!src/**/*.vitest.ts"
   ],
-  "include": [
-    "files"
-  ]
+  "include": ["files"]
 }

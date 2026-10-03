@@ -1,48 +1,97 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DataSourceProfile } from '@shared/types'
-import { activeTestSession, patchActiveTestSession, resetTestStore } from './test/sessionTestUtils'
-import { restoreWorkspaceDraft, serializeWorkspaceDraft, WORKSPACE_STORAGE_KEY } from './lib/workspacePersistence'
+import {
+  activeTestSession,
+  patchActiveTestSession,
+  resetTestStore,
+} from './test/sessionTestUtils'
+import {
+  restoreWorkspaceDraft,
+  serializeWorkspaceDraft,
+  WORKSPACE_STORAGE_KEY,
+} from './lib/workspacePersistence'
 import { useStore } from './store/useStore'
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), queryEditorRenders: 0 }))
-vi.mock('./lib/api', () => ({ api: {
-  connections: {
-    list: mocks.list,
-    onStateChanged: vi.fn(() => () => undefined),
-    connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), listObjects: vi.fn(async () => []),
-    loki: {
-      labels: vi.fn(async () => ['app']),
-      labelValues: vi.fn(async () => ['x']),
-      formatQuery: vi.fn(async (_connectionId: string, query: string) => query)
-    }
+vi.mock('./lib/api', () => ({
+  api: {
+    connections: {
+      list: mocks.list,
+      onStateChanged: vi.fn(() => () => undefined),
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      remove: vi.fn(),
+      listObjects: vi.fn(async () => []),
+      loki: {
+        labels: vi.fn(async () => ['app']),
+        labelValues: vi.fn(async () => ['x']),
+        formatQuery: vi.fn(
+          async (_connectionId: string, query: string) => query,
+        ),
+      },
+    },
+    query: { run: vi.fn(), explain: vi.fn() },
+    export: { saveText: vi.fn() },
   },
-  query: { run: vi.fn(), explain: vi.fn() },
-  export: { saveText: vi.fn() }
-} }))
-vi.mock('@components/query/QueryEditor', () => ({ QueryEditor: () => { mocks.queryEditorRenders += 1; return <div>SQL editor mounted</div> } }))
-vi.mock('@components/builder/sql/BuilderPanel', () => ({ BuilderPanel: () => <div>Builder mounted</div> }))
-vi.mock('./components/results/ResultExplorer', () => ({ ResultExplorer: () => <div>Results mounted</div> }))
-vi.mock('@components/query/sql/ExplainPane', () => ({ ExplainPane: () => null }))
+}))
+vi.mock('@components/query/QueryEditor', () => ({
+  QueryEditor: () => {
+    mocks.queryEditorRenders += 1
+    return <div>SQL editor mounted</div>
+  },
+}))
+vi.mock('@components/builder/sql/BuilderPanel', () => ({
+  BuilderPanel: () => <div>Builder mounted</div>,
+}))
+vi.mock('./components/results/ResultExplorer', () => ({
+  ResultExplorer: () => <div>Results mounted</div>,
+}))
+vi.mock('@components/query/sql/ExplainPane', () => ({
+  ExplainPane: () => null,
+}))
 
 import { App } from './App'
 
 const prometheus: DataSourceProfile = {
-  id: 'prom-1', name: 'Cloud metrics', version: 1, kind: 'prometheus', readonly: true,
-  transport: { kind: 'gcx' }
+  id: 'prom-1',
+  name: 'Cloud metrics',
+  version: 1,
+  kind: 'prometheus',
+  readonly: true,
+  transport: { kind: 'gcx' },
 }
 const postgres: DataSourceProfile = {
-  id: 'pg-1', name: 'Postgres', version: 1, kind: 'postgres', readonly: true,
-  host: 'localhost', port: 5432, database: 'app', user: 'app', password: '', ssl: false
+  id: 'pg-1',
+  name: 'Postgres',
+  version: 1,
+  kind: 'postgres',
+  readonly: true,
+  host: 'localhost',
+  port: 5432,
+  database: 'app',
+  user: 'app',
+  password: '',
+  ssl: false,
 }
 const loki: DataSourceProfile = {
-  id: 'loki-1', name: 'Production logs', version: 1, kind: 'loki', readonly: true,
-  transport: { kind: 'gcx', context: 'test', datasourceUid: 'loki-main' }
+  id: 'loki-1',
+  name: 'Production logs',
+  version: 1,
+  kind: 'loki',
+  readonly: true,
+  transport: { kind: 'gcx', context: 'test', datasourceUid: 'loki-main' },
 }
 
-function persistedWorkspaceStorage(): { getItem(key: string): string | null; setItem(key: string, value: string): void } {
+function persistedWorkspaceStorage(): {
+  getItem(key: string): string | null
+  setItem(key: string, value: string): void
+} {
   const saved = serializeWorkspaceDraft(useStore.getState())
-  return { getItem: (key) => key === WORKSPACE_STORAGE_KEY ? saved : null, setItem: vi.fn() }
+  return {
+    getItem: (key) => (key === WORKSPACE_STORAGE_KEY ? saved : null),
+    setItem: vi.fn(),
+  }
 }
 
 beforeEach(() => {
@@ -51,27 +100,49 @@ beforeEach(() => {
   mocks.queryEditorRenders = 0
   mocks.list.mockReset()
 })
-afterEach(() => { cleanup(); resetTestStore() })
+afterEach(() => {
+  cleanup()
+  resetTestStore()
+})
 
 describe('Prometheus workspace restoration', () => {
   it('restores a Prometheus-bound tab, loads its saved profile, and keeps the app shell alive while disconnected', async () => {
-    patchActiveTestSession({ connectionProfileId: prometheus.id, queryMode: 'sql', sql: 'stale SQL must not initialize an editor' })
+    patchActiveTestSession({
+      connectionProfileId: prometheus.id,
+      queryMode: 'sql',
+      sql: 'stale SQL must not initialize an editor',
+    })
     const storage = persistedWorkspaceStorage()
 
     resetTestStore()
-    expect(restoreWorkspaceDraft((patch) => useStore.setState(patch), storage)).toBeTruthy()
+    expect(
+      restoreWorkspaceDraft((patch) => useStore.setState(patch), storage),
+    ).toBeTruthy()
     let resolveProfiles!: (profiles: DataSourceProfile[]) => void
-    mocks.list.mockReturnValue(new Promise<DataSourceProfile[]>((resolve) => { resolveProfiles = resolve }))
+    mocks.list.mockReturnValue(
+      new Promise<DataSourceProfile[]>((resolve) => {
+        resolveProfiles = resolve
+      }),
+    )
     const { container } = render(<App />)
 
-    expect(screen.getByRole('status', { name: 'Loading connection…' })).toBeTruthy()
+    expect(
+      screen.getByRole('status', { name: 'Loading connection…' }),
+    ).toBeTruthy()
     const titlebar = container.querySelector('.titlebar')!
     const tablist = screen.getByRole('tablist', { name: 'Query tabs' })
     const status = titlebar.querySelector('[role="status"]')!
     const dragSpace = screen.getByTestId('titlebar-drag-space')
-    expect(Array.from(titlebar.children)).toEqual([titlebar.children[0], tablist, dragSpace, status])
+    expect(Array.from(titlebar.children)).toEqual([
+      titlebar.children[0],
+      tablist,
+      dragSpace,
+      status,
+    ])
     expect(tablist.className.split(' ')).toHaveLength(2)
-    expect(container.querySelector('.titlebar')?.textContent).not.toContain('slice & dice your data')
+    expect(container.querySelector('.titlebar')?.textContent).not.toContain(
+      'slice & dice your data',
+    )
     expect(container.querySelector('.main-shell [role="tablist"]')).toBeNull()
     const initialEditorRenders = mocks.queryEditorRenders
     expect(initialEditorRenders).toBe(0)
@@ -85,53 +156,101 @@ describe('Prometheus workspace restoration', () => {
   })
 
   it('renders the PromQL query surface for an already-active Prometheus connection', () => {
-    resetTestStore({ profiles: [prometheus], activeProfileId: prometheus.id, connected: true, connectionStatus: 'connected' })
-    patchActiveTestSession({ connectionProfileId: prometheus.id, queryMode: 'builder' })
+    resetTestStore({
+      profiles: [prometheus],
+      activeProfileId: prometheus.id,
+      connected: true,
+      connectionStatus: 'connected',
+    })
+    patchActiveTestSession({
+      connectionProfileId: prometheus.id,
+      queryMode: 'builder',
+    })
     mocks.list.mockResolvedValue([prometheus])
     const { container } = render(<App />)
 
     expect(screen.getByText('SQL editor mounted')).toBeTruthy()
     expect(screen.getByText('Results mounted')).toBeTruthy()
     expect(screen.queryByText('Builder mounted')).toBeNull()
-    expect(container.querySelector('.titlebar > [role="status"]')?.textContent).toContain('Cloud metrics · Prometheus')
+    expect(
+      container.querySelector('.titlebar > [role="status"]')?.textContent,
+    ).toContain('Cloud metrics · Prometheus')
     expect(container.querySelector('.editor-head > .conn-pill')).toBeNull()
   })
 
   it('continues to initialize the SQL editor when another datasource is active', async () => {
-    resetTestStore({ profiles: [prometheus, postgres], activeProfileId: postgres.id, connected: true, connectionStatus: 'connected' })
-    patchActiveTestSession({ connectionProfileId: postgres.id, queryMode: 'sql' })
+    resetTestStore({
+      profiles: [prometheus, postgres],
+      activeProfileId: postgres.id,
+      connected: true,
+      connectionStatus: 'connected',
+    })
+    patchActiveTestSession({
+      connectionProfileId: postgres.id,
+      queryMode: 'sql',
+    })
     mocks.list.mockResolvedValue([prometheus, postgres])
     const { container } = render(<App />)
 
-    await waitFor(() => expect(screen.getByText('SQL editor mounted')).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText('SQL editor mounted')).toBeTruthy(),
+    )
     expect(screen.queryByText('Prometheus query support is coming')).toBeNull()
-    expect(container.querySelector('.titlebar > [role="status"]')?.textContent).toContain('Postgres · PostgreSQL')
-    const separator = screen.getByRole('separator', { name: 'Resize query and results' })
+    expect(
+      container.querySelector('.titlebar > [role="status"]')?.textContent,
+    ).toContain('Postgres · PostgreSQL')
+    const separator = screen.getByRole('separator', {
+      name: 'Resize query and results',
+    })
     expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
     expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
   })
 
   it('passes the shared query/results separator into the Loki workspace', () => {
-    resetTestStore({ profiles: [loki], activeProfileId: loki.id, connected: true, connectionStatus: 'connected' })
-    patchActiveTestSession({ connectionProfileId: loki.id, queryMode: 'builder' })
+    resetTestStore({
+      profiles: [loki],
+      activeProfileId: loki.id,
+      connected: true,
+      connectionStatus: 'connected',
+    })
+    patchActiveTestSession({
+      connectionProfileId: loki.id,
+      queryMode: 'builder',
+    })
     mocks.list.mockResolvedValue([loki])
     const { container } = render(<App />)
 
     expect(screen.getByRole('main', { name: 'Loki explorer' })).toBeTruthy()
-    const separator = screen.getByRole('separator', { name: 'Resize Loki query and results' })
+    const separator = screen.getByRole('separator', {
+      name: 'Resize Loki query and results',
+    })
     expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
     expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
-    expect(container.querySelector('.main')?.className).not.toContain('sql-layout')
+    expect(container.querySelector('.main')?.className).not.toContain(
+      'sql-layout',
+    )
   })
 
   it('uses the shared SQL query/results separator for SQL Builder', async () => {
-    resetTestStore({ profiles: [postgres], activeProfileId: postgres.id, connected: true, connectionStatus: 'connected' })
-    patchActiveTestSession({ connectionProfileId: postgres.id, queryMode: 'builder' })
+    resetTestStore({
+      profiles: [postgres],
+      activeProfileId: postgres.id,
+      connected: true,
+      connectionStatus: 'connected',
+    })
+    patchActiveTestSession({
+      connectionProfileId: postgres.id,
+      queryMode: 'builder',
+    })
     mocks.list.mockResolvedValue([postgres])
     const { container } = render(<App />)
 
-    await waitFor(() => expect(screen.getByText('Builder mounted')).toBeTruthy())
-    const separator = screen.getByRole('separator', { name: 'Resize query and results' })
+    await waitFor(() =>
+      expect(screen.getByText('Builder mounted')).toBeTruthy(),
+    )
+    const separator = screen.getByRole('separator', {
+      name: 'Resize query and results',
+    })
     expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
     expect(container.querySelector('.main')?.className).toContain('sql-layout')
     expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)

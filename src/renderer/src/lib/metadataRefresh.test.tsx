@@ -1,43 +1,105 @@
 import { afterEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ refresh: vi.fn(), listObjects: vi.fn() }))
-vi.mock('./api', () => ({ api: { connections: {
-  refreshMetadata: mocks.refresh,
-  listObjects: mocks.listObjects
-} } }))
+vi.mock('./api', () => ({
+  api: {
+    connections: {
+      refreshMetadata: mocks.refresh,
+      listObjects: mocks.listObjects,
+    },
+  },
+}))
 
 import { createQuerySession, useStore } from '@store/useStore'
 
-const oldSchemas = [{ name: 'public', isSystem: false, relations: [{ schema: 'public', name: 'old_table', qualifiedName: 'public.old_table', kind: 'r' as const, columnsStatus: 'idle' as const }] }]
+const oldSchemas = [
+  {
+    name: 'public',
+    isSystem: false,
+    relations: [
+      {
+        schema: 'public',
+        name: 'old_table',
+        qualifiedName: 'public.old_table',
+        kind: 'r' as const,
+        columnsStatus: 'idle' as const,
+      },
+    ],
+  },
+]
 
 function connectedState() {
-  const tab = createQuerySession(1, { connectionProfileId: 'profile-a', sql: 'select 42' })
-  useStore.setState({
-    ...useStore.getInitialState(), activeProfileId: 'profile-a', connected: true, connectionGeneration: 7,
-    tabs: [{ ...tab, result: { columns: [], rows: [], rowCount: 0, durationMs: 1 } }], activeTabId: tab.id,
-    metadataByProfileId: { 'profile-a': { schemas: oldSchemas, status: 'loaded', error: null, isStale: false } }
-  }, true)
+  const tab = createQuerySession(1, {
+    connectionProfileId: 'profile-a',
+    sql: 'select 42',
+  })
+  useStore.setState(
+    {
+      ...useStore.getInitialState(),
+      activeProfileId: 'profile-a',
+      connected: true,
+      connectionGeneration: 7,
+      tabs: [
+        {
+          ...tab,
+          result: { columns: [], rows: [], rowCount: 0, durationMs: 1 },
+        },
+      ],
+      activeTabId: tab.id,
+      metadataByProfileId: {
+        'profile-a': {
+          schemas: oldSchemas,
+          status: 'loaded',
+          error: null,
+          isStale: false,
+        },
+      },
+    },
+    true,
+  )
 }
 
 function restoredConnectedState() {
-  const tab = createQuerySession(1, { connectionProfileId: 'profile-a', sql: 'select 42' })
-  useStore.setState({
-    ...useStore.getInitialState(), tabs: [tab], activeTabId: tab.id,
-    connectionStateByProfileId: { 'profile-a': { status: 'connected', generation: 7, error: null, serverVersion: null } },
-    metadataByProfileId: {}
-  }, true)
+  const tab = createQuerySession(1, {
+    connectionProfileId: 'profile-a',
+    sql: 'select 42',
+  })
+  useStore.setState(
+    {
+      ...useStore.getInitialState(),
+      tabs: [tab],
+      activeTabId: tab.id,
+      connectionStateByProfileId: {
+        'profile-a': {
+          status: 'connected',
+          generation: 7,
+          error: null,
+          serverVersion: null,
+        },
+      },
+      metadataByProfileId: {},
+    },
+    true,
+  )
 }
 
-afterEach(() => { vi.clearAllMocks(); connectedState() })
+afterEach(() => {
+  vi.clearAllMocks()
+  connectedState()
+})
 
 it('atomically replaces top-level metadata while leaving editor, result, and session state unchanged', async () => {
   connectedState()
   mocks.refresh.mockResolvedValue(undefined)
-  mocks.listObjects.mockResolvedValue([{ schema: 'public', name: 'new_table', kind: 'r' }])
+  mocks.listObjects.mockResolvedValue([
+    { schema: 'public', name: 'new_table', kind: 'r' },
+  ])
   const before = useStore.getState().tabs[0]
   await useStore.getState().refreshMetadata('profile-a')
   const state = useStore.getState()
-  expect(state.metadataByProfileId['profile-a'].schemas[0].relations[0].name).toBe('new_table')
+  expect(
+    state.metadataByProfileId['profile-a'].schemas[0].relations[0].name,
+  ).toBe('new_table')
   expect(state.metadataByProfileId['profile-a'].revision).toBe(1)
   expect(state.tabs[0]).toEqual(before)
   expect(state.connected).toBe(true)
@@ -47,16 +109,23 @@ it('atomically replaces top-level metadata while leaving editor, result, and ses
 it('creates missing renderer metadata when refreshing a restored live session', async () => {
   restoredConnectedState()
   mocks.refresh.mockResolvedValue(undefined)
-  mocks.listObjects.mockResolvedValue([{ schema: 'public', name: 'orders', kind: 'r' }])
+  mocks.listObjects.mockResolvedValue([
+    { schema: 'public', name: 'orders', kind: 'r' },
+  ])
 
   const pending = useStore.getState().refreshMetadata('profile-a')
-  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({ status: 'loading', refreshing: true })
+  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+    status: 'loading',
+    refreshing: true,
+  })
   await pending
 
   expect(mocks.listObjects).toHaveBeenCalledWith('profile-a')
   expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
-    status: 'loaded', refreshing: false, revision: 1,
-    schemas: [{ name: 'public', relations: [{ name: 'orders' }] }]
+    status: 'loaded',
+    refreshing: false,
+    revision: 1,
+    schemas: [{ name: 'public', relations: [{ name: 'orders' }] }],
   })
 })
 
@@ -65,36 +134,71 @@ it('reports a missing-state refresh failure and permits recovery', async () => {
   let finishRetry!: () => void
   mocks.refresh
     .mockRejectedValueOnce(new Error('discovery unavailable'))
-    .mockReturnValueOnce(new Promise<void>((resolve) => { finishRetry = resolve }))
-  mocks.listObjects.mockResolvedValue([{ schema: 'public', name: 'orders', kind: 'r' }])
+    .mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishRetry = resolve
+      }),
+    )
+  mocks.listObjects.mockResolvedValue([
+    { schema: 'public', name: 'orders', kind: 'r' },
+  ])
 
   await useStore.getState().refreshMetadata('profile-a')
   expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
-    schemas: [], status: 'error', error: 'discovery unavailable', refreshing: false, refreshError: null
+    schemas: [],
+    status: 'error',
+    error: 'discovery unavailable',
+    refreshing: false,
+    refreshError: null,
   })
 
   const retry = useStore.getState().refreshMetadata('profile-a')
-  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({ status: 'loading', refreshing: true, error: null })
+  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+    status: 'loading',
+    refreshing: true,
+    error: null,
+  })
   finishRetry()
   await retry
-  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({ status: 'loaded', refreshing: false, revision: 1 })
+  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+    status: 'loaded',
+    refreshing: false,
+    revision: 1,
+  })
 })
 
 it('keeps previous metadata after failure and permits a retry', async () => {
   connectedState()
-  mocks.refresh.mockRejectedValueOnce(new Error('discovery unavailable')).mockResolvedValueOnce(undefined)
-  mocks.listObjects.mockResolvedValue([{ schema: 'public', name: 'new_table', kind: 'r' }])
+  mocks.refresh
+    .mockRejectedValueOnce(new Error('discovery unavailable'))
+    .mockResolvedValueOnce(undefined)
+  mocks.listObjects.mockResolvedValue([
+    { schema: 'public', name: 'new_table', kind: 'r' },
+  ])
   await useStore.getState().refreshMetadata('profile-a')
-  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({ schemas: oldSchemas, refreshing: false, refreshError: 'discovery unavailable' })
-  expect(useStore.getState().metadataByProfileId['profile-a'].revision).toBeUndefined()
+  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+    schemas: oldSchemas,
+    refreshing: false,
+    refreshError: 'discovery unavailable',
+  })
+  expect(
+    useStore.getState().metadataByProfileId['profile-a'].revision,
+  ).toBeUndefined()
   await useStore.getState().refreshMetadata('profile-a')
-  expect(useStore.getState().metadataByProfileId['profile-a'].schemas[0].relations[0].name).toBe('new_table')
+  expect(
+    useStore.getState().metadataByProfileId['profile-a'].schemas[0].relations[0]
+      .name,
+  ).toBe('new_table')
 })
 
 it('deduplicates concurrent refreshes for one profile', async () => {
   connectedState()
   let resolve!: () => void
-  mocks.refresh.mockReturnValue(new Promise<void>((done) => { resolve = done }))
+  mocks.refresh.mockReturnValue(
+    new Promise<void>((done) => {
+      resolve = done
+    }),
+  )
   mocks.listObjects.mockResolvedValue([])
   const first = useStore.getState().refreshMetadata('profile-a')
   const second = useStore.getState().refreshMetadata('profile-a')
@@ -106,14 +210,22 @@ it('deduplicates concurrent refreshes for one profile', async () => {
 
 it('discards metadata that resolves after the live connection generation changes', async () => {
   connectedState()
-  let resolveObjects!: (objects: Array<{ schema: string; name: string; kind: 'r' }>) => void
+  let resolveObjects!: (
+    objects: Array<{ schema: string; name: string; kind: 'r' }>,
+  ) => void
   mocks.refresh.mockResolvedValue(undefined)
-  mocks.listObjects.mockReturnValue(new Promise((done) => { resolveObjects = done }))
+  mocks.listObjects.mockReturnValue(
+    new Promise((done) => {
+      resolveObjects = done
+    }),
+  )
   const pending = useStore.getState().refreshMetadata('profile-a')
   await vi.waitFor(() => expect(mocks.listObjects).toHaveBeenCalled())
   useStore.setState({ activeProfileId: 'profile-b', connectionGeneration: 8 })
   resolveObjects([{ schema: 'public', name: 'stale_table', kind: 'r' }])
   await pending
-  expect(useStore.getState().metadataByProfileId['profile-a'].schemas).toEqual(oldSchemas)
+  expect(useStore.getState().metadataByProfileId['profile-a'].schemas).toEqual(
+    oldSchemas,
+  )
   expect(useStore.getState().metadataByProfileId['profile-b']).toBeUndefined()
 })

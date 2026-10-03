@@ -1,7 +1,10 @@
 import type { ChartSeries } from './resultVisualization.ts'
 
 export type ValueAxisScale = 'linear' | 'log'
-export interface LogScaleValidity { valid: boolean; reason?: string }
+export interface LogScaleValidity {
+  valid: boolean
+  reason?: string
+}
 export interface LogScalePresentation {
   series: ChartSeries[]
   omittedCount: number
@@ -12,10 +15,23 @@ export interface LogScalePresentation {
  * Kept for callers that only need to know whether any positive value can be
  * plotted. Non-positive values no longer make Log unavailable.
  */
-export function validateLogScale(series: readonly ChartSeries[], visibility: Readonly<Record<string, boolean>> = {}): LogScaleValidity {
+export function validateLogScale(
+  series: readonly ChartSeries[],
+  visibility: Readonly<Record<string, boolean>> = {},
+): LogScaleValidity {
   const visible = series.filter((item) => visibility[item.name] !== false)
-  const positive = visible.some((item) => item.data.some((value) => typeof value === 'number' && Number.isFinite(value) && value > 0))
-  return positive ? { valid: true } : { valid: true, reason: 'No strictly positive visible values are available to plot.' }
+  const positive = visible.some((item) =>
+    item.data.some(
+      (value) =>
+        typeof value === 'number' && Number.isFinite(value) && value > 0,
+    ),
+  )
+  return positive
+    ? { valid: true }
+    : {
+        valid: true,
+        reason: 'No strictly positive visible values are available to plot.',
+      }
 }
 
 /**
@@ -25,7 +41,7 @@ export function validateLogScale(series: readonly ChartSeries[], visibility: Rea
  */
 export function prepareLogScaleSeries(
   series: readonly ChartSeries[],
-  visibility: Readonly<Record<string, boolean>> = {}
+  visibility: Readonly<Record<string, boolean>> = {},
 ): LogScalePresentation {
   let omittedCount = 0
   let positiveCount = 0
@@ -37,9 +53,10 @@ export function prepareLogScaleSeries(
         if (visibility[item.name] !== false) positiveCount++
         return value
       }
-      if (visibility[item.name] !== false && !item.missing?.[index]) omittedCount++
+      if (visibility[item.name] !== false && !item.missing?.[index])
+        omittedCount++
       return null
-    })
+    }),
   }))
   return { series: prepared, omittedCount, positiveCount }
 }

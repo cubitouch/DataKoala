@@ -4,24 +4,36 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
-const outputDir = resolve(process.env.DATAKOALA_PREVIEW_OUTPUT ?? outputArgument ?? 'visual-preview')
+const outputArgument = process.argv
+  .slice(2)
+  .find((argument) => !argument.endsWith('.mjs'))
+const outputDir = resolve(
+  process.env.DATAKOALA_PREVIEW_OUTPUT ?? outputArgument ?? 'visual-preview',
+)
 
 process.env.DATAKOALA_SMOKE = '1'
 
-const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
+const sleep = (ms) =>
+  new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 
 async function waitFor(win, expression, description, attempts = 80) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    if (await win.webContents.executeJavaScript(`Boolean(${expression})`)) return
+    if (await win.webContents.executeJavaScript(`Boolean(${expression})`))
+      return
     await sleep(100)
   }
-  const body = await win.webContents.executeJavaScript(`(document.body.innerText || '').slice(0, 1600)`)
-  throw new Error(`Timed out waiting for ${description}. Renderer text: ${body}`)
+  const body = await win.webContents.executeJavaScript(
+    `(document.body.innerText || '').slice(0, 1600)`,
+  )
+  throw new Error(
+    `Timed out waiting for ${description}. Renderer text: ${body}`,
+  )
 }
 
 async function capture(win, filename) {
-  await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+  await win.webContents.executeJavaScript(
+    `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
+  )
   await sleep(500)
   const image = await win.webContents.capturePage()
   const path = resolve(outputDir, filename)
@@ -130,7 +142,9 @@ async function seedSqlWorkspace(win, view) {
 
   if (report?.error) throw new Error(report.error)
   if (report?.rows !== 60 || report?.series !== 5 || report?.range !== 'all') {
-    throw new Error(`Unexpected SQL documentation fixture: ${JSON.stringify(report)}`)
+    throw new Error(
+      `Unexpected SQL documentation fixture: ${JSON.stringify(report)}`,
+    )
   }
 }
 
@@ -139,19 +153,29 @@ async function expandDocumentationRelation(win) {
     const schema = document.querySelector('[role="tree"] > [role="treeitem"]')
     if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('button')?.click()
   })()`)
-  await waitFor(win, `document.body.innerText.includes('monthly_market_activity')`, 'analytics relation tree')
+  await waitFor(
+    win,
+    `document.body.innerText.includes('monthly_market_activity')`,
+    'analytics relation tree',
+  )
   await win.webContents.executeJavaScript(`(() => {
     const relationButton = document.querySelector('[role="tree"] button[aria-label="Select analytics.monthly_market_activity for Builder"]')
     const relation = relationButton?.closest('[role="treeitem"]')
     if (relation?.getAttribute('aria-expanded') === 'false') relation.querySelector('button[aria-label^="Expand"], button[aria-label^="Collapse"]')?.click()
   })()`)
-  await waitFor(win, `document.body.innerText.includes('time_bucket') && document.body.innerText.includes('series') && document.body.innerText.includes('count')`, 'monthly market activity columns')
+  await waitFor(
+    win,
+    `document.body.innerText.includes('time_bucket') && document.body.innerText.includes('series') && document.body.innerText.includes('count')`,
+    'monthly market activity columns',
+  )
 }
 
 async function assertVisibleChart(win, view) {
-  await waitFor(win,
+  await waitFor(
+    win,
     `document.querySelector('[data-result-chart-canvas] canvas') && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === '${view}' && document.body.innerText.includes('All time')`,
-    `rendered ${view} documentation chart`)
+    `rendered ${view} documentation chart`,
+  )
 
   const report = await win.webContents.executeJavaScript(`(() => {
     const state = window.__datakoalaStore.getState()
@@ -165,14 +189,27 @@ async function assertVisibleChart(win, view) {
     }
   })()`)
 
-  if (report.view !== view || report.rows !== 60 || report.series !== 5 || report.range !== 'all' || report.empty) {
-    throw new Error(`${view} documentation chart assertion failed: ${JSON.stringify(report)}`)
+  if (
+    report.view !== view ||
+    report.rows !== 60 ||
+    report.series !== 5 ||
+    report.range !== 'all' ||
+    report.empty
+  ) {
+    throw new Error(
+      `${view} documentation chart assertion failed: ${JSON.stringify(report)}`,
+    )
   }
 }
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
-  ipcMain.handle('query:run', async () => ({ columns: [], rows: [], rowCount: 0, durationMs: 0 }))
+  ipcMain.handle('query:run', async () => ({
+    columns: [],
+    rows: [],
+    rowCount: 0,
+    durationMs: 0,
+  }))
 
   const win = new BrowserWindow({
     width: 1440,
@@ -183,22 +220,30 @@ app.whenReady().then(async () => {
       preload: resolve(root, 'out/preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
-    }
+      sandbox: false,
+    },
   })
 
   try {
     await mkdir(outputDir, { recursive: true })
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
-    await waitFor(win, `document.getElementById('root')?.children.length && window.__datakoalaStore`, 'renderer and store')
-    await win.webContents.executeJavaScript(`window.__datakoalaDocumentationCapture = true`)
+    await waitFor(
+      win,
+      `document.getElementById('root')?.children.length && window.__datakoalaStore`,
+      'renderer and store',
+    )
+    await win.webContents.executeJavaScript(
+      `window.__datakoalaDocumentationCapture = true`,
+    )
 
     await seedSqlWorkspace(win, 'line')
     await expandDocumentationRelation(win)
     await assertVisibleChart(win, 'Line')
     await capture(win, 'docs-overview.png')
 
-    await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setVisualization('builder', { view: 'bar' })`)
+    await win.webContents.executeJavaScript(
+      `window.__datakoalaStore.getState().setVisualization('builder', { view: 'bar' })`,
+    )
     await assertVisibleChart(win, 'Bar')
     await capture(win, 'docs-builder.png')
 

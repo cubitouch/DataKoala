@@ -1,17 +1,26 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseConnectionString, buildConnectionString, DEFAULT_PORT } from './connString.ts'
+import {
+  parseConnectionString,
+  buildConnectionString,
+  DEFAULT_PORT,
+} from './connString.ts'
 
 function ok(raw: string) {
   const r = parseConnectionString(raw)
-  assert.ok(r.ok, `expected parse to succeed for ${raw}, got: ${r.ok ? '' : r.error}`)
+  assert.ok(
+    r.ok,
+    `expected parse to succeed for ${raw}, got: ${r.ok ? '' : r.error}`,
+  )
   return r
 }
 
 test('parses the Teleport-style URI with an encoded @ in the username', () => {
   // The real motivating case: the username itself contains an "@" as %40, and
   // there is no password at all.
-  const r = ok('postgres://demo-reader%40proxy-test.example@localhost:55432/demo_shop')
+  const r = ok(
+    'postgres://demo-reader%40proxy-test.example@localhost:55432/demo_shop',
+  )
   assert.equal(r.value.user, 'demo-reader@proxy-test.example')
   assert.equal(r.value.password, '')
   assert.equal(r.value.host, 'localhost')
@@ -20,7 +29,7 @@ test('parses the Teleport-style URI with an encoded @ in the username', () => {
   assert.equal(r.value.ssl, false)
   assert.ok(
     r.warnings.some((w) => /passwordless/i.test(w)),
-    'should warn that no password was found'
+    'should warn that no password was found',
   )
 })
 
@@ -83,7 +92,9 @@ test('strips paste artefacts: quotes, a psql prefix, and wrapped newlines', () =
 })
 
 test('parses libpq keyword/value strings', () => {
-  const r = ok('host=localhost port=55432 dbname=demo_shop user=alice sslmode=require')
+  const r = ok(
+    'host=localhost port=55432 dbname=demo_shop user=alice sslmode=require',
+  )
   assert.equal(r.value.host, 'localhost')
   assert.equal(r.value.port, 55432)
   assert.equal(r.value.database, 'demo_shop')
@@ -116,13 +127,18 @@ test('rejects out-of-range ports', () => {
 })
 
 test('round-trips through buildConnectionString, preserving the encoded username', () => {
-  const original = 'postgres://demo-reader%40proxy-test.example@localhost:55432/demo_shop'
+  const original =
+    'postgres://demo-reader%40proxy-test.example@localhost:55432/demo_shop'
   const first = ok(original)
   const rebuilt = buildConnectionString(first.value)
   // The @ in the username must come back out encoded, or re-parsing would break.
   assert.match(rebuilt, /demo-reader%40proxy-test\.example@localhost:55432/)
   const second = ok(rebuilt)
-  assert.deepEqual(second.value, first.value, 'parse -> build -> parse must be stable')
+  assert.deepEqual(
+    second.value,
+    first.value,
+    'parse -> build -> parse must be stable',
+  )
 })
 
 test('round-trips passwords with reserved characters', () => {
@@ -134,7 +150,10 @@ test('round-trips passwords with reserved characters', () => {
 test('masking hides the password but keeps the string shape', () => {
   const r = ok('postgresql://user:supersecret@h:5432/d')
   const masked = buildConnectionString(r.value, { maskPassword: true })
-  assert.ok(!masked.includes('supersecret'), 'password leaked into masked string')
+  assert.ok(
+    !masked.includes('supersecret'),
+    'password leaked into masked string',
+  )
   assert.match(masked, /user:\*\*\*\*@h:5432/)
 })
 

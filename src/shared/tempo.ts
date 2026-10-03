@@ -30,7 +30,9 @@ export interface TempoSearchProgress {
   rows: Record<string, unknown>[]
 }
 
-export type TempoSearchProgressListener = (progress: TempoSearchProgress) => void
+export type TempoSearchProgressListener = (
+  progress: TempoSearchProgress,
+) => void
 
 /** Main-process-only context. Do not send the callback across Electron IPC. */
 export interface TempoQueryContext extends TempoQueryRequest {

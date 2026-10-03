@@ -5,7 +5,10 @@ import { createGracefulShutdown } from './gracefulShutdown.ts'
 const deferred = () => {
   let resolve!: () => void
   let reject!: (error: unknown) => void
-  const promise = new Promise<void>((res, rej) => { resolve = res; reject = rej })
+  const promise = new Promise<void>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
   return { promise, resolve, reject }
 }
 
@@ -17,10 +20,19 @@ test('before-quit waits for database cleanup exactly once before retrying quit',
   let quitCalls = 0
   let prevented = 0
   const handler = createGracefulShutdown(
-    () => { disconnectCalls++; return cleanup.promise },
-    () => { quitCalls++ }
+    () => {
+      disconnectCalls++
+      return cleanup.promise
+    },
+    () => {
+      quitCalls++
+    },
   )
-  const event = { preventDefault: () => { prevented++ } }
+  const event = {
+    preventDefault: () => {
+      prevented++
+    },
+  }
 
   handler(event)
   handler(event)
@@ -45,12 +57,22 @@ test('cleanup failure is reported but does not trap the app in a non-quitting st
   let quitCalls = 0
   let prevented = 0
   const handler = createGracefulShutdown(
-    async () => { throw error },
-    () => { quitCalls++ },
-    (caught) => { reported.push(caught) }
+    async () => {
+      throw error
+    },
+    () => {
+      quitCalls++
+    },
+    (caught) => {
+      reported.push(caught)
+    },
   )
 
-  handler({ preventDefault: () => { prevented++ } })
+  handler({
+    preventDefault: () => {
+      prevented++
+    },
+  })
   await nextTurn()
 
   assert.equal(prevented, 1)

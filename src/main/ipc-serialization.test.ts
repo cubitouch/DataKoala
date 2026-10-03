@@ -12,7 +12,9 @@ class IntervalLike {
     this.hours = hours
   }
 
-  format(): string { return `${this.days} days ${this.hours} hours` }
+  format(): string {
+    return `${this.days} days ${this.hours} hours`
+  }
 }
 
 test('toIpcSafeValue strips custom prototypes recursively while preserving clone-native values', () => {
@@ -23,7 +25,7 @@ test('toIpcSafeValue strips custom prototypes recursively while preserving clone
     timestamp,
     interval: new IntervalLike(2, 3),
     nested: [new IntervalLike(0, 4)],
-    bytes
+    bytes,
   }
 
   const safe = toIpcSafeValue(value) as Record<string, unknown>
@@ -42,7 +44,7 @@ test('toIpcSafeQueryResult normalizes every row without changing result metadata
     rows: [{ elapsed: new IntervalLike(1, 6) }],
     rowCount: 1,
     durationMs: 9,
-    execution: { provider: 'postgres', durationMs: 9, rowCount: 1 }
+    execution: { provider: 'postgres', durationMs: 9, rowCount: 1 },
   }
 
   const safe = toIpcSafeQueryResult(result)

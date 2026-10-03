@@ -1,8 +1,16 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  EDITOR_MIN, MIN_WINDOW_HEIGHT, RESULTS_MIN, SPLITTER_SIZE, TITLEBAR_HEIGHT,
-  clampDimension, editorBounds, keyboardDimension, parseStoredDimension, sidebarBounds
+  EDITOR_MIN,
+  MIN_WINDOW_HEIGHT,
+  RESULTS_MIN,
+  SPLITTER_SIZE,
+  TITLEBAR_HEIGHT,
+  clampDimension,
+  editorBounds,
+  keyboardDimension,
+  parseStoredDimension,
+  sidebarBounds,
 } from './layoutDimensions.ts'
 
 test('persisted dimensions accept finite numbers and reject invalid values', () => {
@@ -20,10 +28,22 @@ test('dimensions clamp at both bounds', () => {
 })
 
 test('keyboard resizing uses directional arrows and respects bounds', () => {
-  assert.equal(keyboardDimension(200, 'ArrowRight', 'sidebar', { min: 180, max: 208 }), 208)
-  assert.equal(keyboardDimension(200, 'ArrowLeft', 'sidebar', { min: 180, max: 520 }), 184)
-  assert.equal(keyboardDimension(200, 'ArrowDown', 'editor', { min: 180, max: 400 }), 216)
-  assert.equal(keyboardDimension(200, 'Enter', 'editor', { min: 180, max: 400 }), null)
+  assert.equal(
+    keyboardDimension(200, 'ArrowRight', 'sidebar', { min: 180, max: 208 }),
+    208,
+  )
+  assert.equal(
+    keyboardDimension(200, 'ArrowLeft', 'sidebar', { min: 180, max: 520 }),
+    184,
+  )
+  assert.equal(
+    keyboardDimension(200, 'ArrowDown', 'editor', { min: 180, max: 400 }),
+    216,
+  )
+  assert.equal(
+    keyboardDimension(200, 'Enter', 'editor', { min: 180, max: 400 }),
+    null,
+  )
 })
 
 test('the enforced minimum window retains both pane minimums', () => {

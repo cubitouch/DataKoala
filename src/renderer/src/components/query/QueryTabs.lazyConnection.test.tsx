@@ -2,7 +2,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
-const { connect, disconnect } = vi.hoisted(() => ({ connect: vi.fn(), disconnect: vi.fn() }))
+const { connect, disconnect } = vi.hoisted(() => ({
+  connect: vi.fn(),
+  disconnect: vi.fn(),
+}))
 vi.mock('@lib/api', () => ({
   api: {
     connections: {
@@ -10,9 +13,9 @@ vi.mock('@lib/api', () => ({
       disconnect,
       list: vi.fn(async () => []),
       listObjects: vi.fn(async () => []),
-      describeTable: vi.fn(async () => [])
-    }
-  }
+      describeTable: vi.fn(async () => []),
+    },
+  },
 }))
 
 import { QueryTabs } from './QueryTabs'
@@ -27,8 +30,16 @@ describe('QueryTabs lazy connection switching', () => {
   })
 
   it('switches tabs locally without disconnecting or connecting database pools', () => {
-    const a = createQuerySession(1, { id: 'tab-a', title: 'A query', connectionProfileId: 'profile-a' })
-    const b = createQuerySession(2, { id: 'tab-b', title: 'B query', connectionProfileId: 'profile-b' })
+    const a = createQuerySession(1, {
+      id: 'tab-a',
+      title: 'A query',
+      connectionProfileId: 'profile-a',
+    })
+    const b = createQuerySession(2, {
+      id: 'tab-b',
+      title: 'B query',
+      connectionProfileId: 'profile-b',
+    })
     resetTestStore({
       tabs: [a, b],
       activeTabId: a.id,
@@ -36,9 +47,33 @@ describe('QueryTabs lazy connection switching', () => {
       connected: true,
       connectionStatus: 'connected',
       profiles: [
-        { kind: 'postgres', version: 1, id: 'profile-a', name: 'Database A', host: 'a', port: 5432, database: 'a', user: 'reader', password: '', ssl: false, readonly: true },
-        { kind: 'postgres', version: 1, id: 'profile-b', name: 'Database B', host: 'b', port: 5432, database: 'b', user: 'reader', password: '', ssl: false, readonly: true }
-      ]
+        {
+          kind: 'postgres',
+          version: 1,
+          id: 'profile-a',
+          name: 'Database A',
+          host: 'a',
+          port: 5432,
+          database: 'a',
+          user: 'reader',
+          password: '',
+          ssl: false,
+          readonly: true,
+        },
+        {
+          kind: 'postgres',
+          version: 1,
+          id: 'profile-b',
+          name: 'Database B',
+          host: 'b',
+          port: 5432,
+          database: 'b',
+          user: 'reader',
+          password: '',
+          ssl: false,
+          readonly: true,
+        },
+      ],
     })
 
     render(<QueryTabs />)
@@ -69,14 +104,40 @@ describe('QueryTabs lazy connection switching', () => {
     const a = createQuerySession(1, { id: 'tab-a', title: 'A query' })
     resetTestStore({ tabs: [a], activeTabId: a.id })
     render(<QueryTabs className="titlebar-placement" />)
-    expect(screen.getByRole('tablist', { name: 'Query tabs' }).classList.contains('titlebar-placement')).toBe(true)
+    expect(
+      screen
+        .getByRole('tablist', { name: 'Query tabs' })
+        .classList.contains('titlebar-placement'),
+    ).toBe(true)
   })
 
   it('renders active, running, connection, and rename semantics', () => {
-    const a = { ...createQuerySession(1, { id: 'tab-a', title: 'Original', connectionProfileId: 'profile-a' }), running: true }
+    const a = {
+      ...createQuerySession(1, {
+        id: 'tab-a',
+        title: 'Original',
+        connectionProfileId: 'profile-a',
+      }),
+      running: true,
+    }
     resetTestStore({
-      tabs: [a], activeTabId: a.id,
-      profiles: [{ kind: 'postgres', version: 1, id: 'profile-a', name: 'Database A', host: 'a', port: 5432, database: 'a', user: 'reader', password: '', ssl: false, readonly: true }]
+      tabs: [a],
+      activeTabId: a.id,
+      profiles: [
+        {
+          kind: 'postgres',
+          version: 1,
+          id: 'profile-a',
+          name: 'Database A',
+          host: 'a',
+          port: 5432,
+          database: 'a',
+          user: 'reader',
+          password: '',
+          ssl: false,
+          readonly: true,
+        },
+      ],
     })
     render(<QueryTabs />)
     expect(screen.getByRole('tab', { selected: true })).toBeTruthy()

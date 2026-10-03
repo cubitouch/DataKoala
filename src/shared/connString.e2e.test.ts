@@ -38,7 +38,7 @@ function toPoolConfig(v: {
     password: v.password === '' ? undefined : v.password,
     ssl: v.ssl ? { rejectUnauthorized: false } : false,
     max: 1,
-    connectionTimeoutMillis: 4000
+    connectionTimeoutMillis: 4000,
   }
 }
 
@@ -50,14 +50,17 @@ before(async () => {
     user: 'postgres',
     password: 'testpw',
     max: 1,
-    connectionTimeoutMillis: 3000
+    connectionTimeoutMillis: 3000,
   })
   try {
     const c = await probe.connect()
     c.release()
     reachable = true
   } catch (e) {
-    console.log('SKIP: test database not reachable —', e instanceof Error ? e.message : e)
+    console.log(
+      'SKIP: test database not reachable —',
+      e instanceof Error ? e.message : e,
+    )
   }
   await probe.end()
 })
@@ -68,11 +71,15 @@ after(async () => {
 
 test('a password-bearing connection string parses and connects', async (t) => {
   if (!reachable) return t.skip('no database')
-  const r = parseConnectionString(`postgres://postgres:testpw@${HOST}:${PORT}/${DB}`)
+  const r = parseConnectionString(
+    `postgres://postgres:testpw@${HOST}:${PORT}/${DB}`,
+  )
   assert.ok(r.ok, r.ok ? '' : r.error)
   const pool = new pg.Pool(toPoolConfig(r.value))
   pools.push(pool)
-  const res = await pool.query('select current_user as u, count(*)::int as n from orders')
+  const res = await pool.query(
+    'select current_user as u, count(*)::int as n from orders',
+  )
   assert.equal(res.rows[0].u, 'postgres')
   assert.equal(res.rows[0].n, 20001)
 })
@@ -82,7 +89,11 @@ test('the proxy-style string (encoded @ in user, no password) connects', async (
   const raw = `postgres://${encodeURIComponent(SPECIAL_ROLE)}@${HOST}:${PORT}/${DB}`
   const r = parseConnectionString(raw)
   assert.ok(r.ok, r.ok ? '' : r.error)
-  assert.equal(r.value.user, SPECIAL_ROLE, 'the @ in the username must survive parsing')
+  assert.equal(
+    r.value.user,
+    SPECIAL_ROLE,
+    'the @ in the username must survive parsing',
+  )
   assert.equal(r.value.password, '')
 
   const pool = new pg.Pool(toPoolConfig(r.value))
@@ -111,7 +122,7 @@ test('an empty password is omitted, not sent as an empty string', async (t) => {
     database: DB,
     user: SPECIAL_ROLE,
     password: '',
-    ssl: false
+    ssl: false,
   })
   // If this were '' rather than undefined, pg would attempt an empty-password
   // auth exchange instead of letting trust/proxy auth through.
@@ -120,7 +131,9 @@ test('an empty password is omitted, not sent as an empty string', async (t) => {
 
 test('a wrong password fails rather than silently succeeding', async (t) => {
   if (!reachable) return t.skip('no database')
-  const r = parseConnectionString(`postgres://postgres:definitely-wrong@${HOST}:${PORT}/${DB}`)
+  const r = parseConnectionString(
+    `postgres://postgres:definitely-wrong@${HOST}:${PORT}/${DB}`,
+  )
   assert.ok(r.ok)
   const pool = new pg.Pool(toPoolConfig(r.value))
   pools.push(pool)

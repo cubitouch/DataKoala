@@ -31,7 +31,8 @@ describe('service map SVG export', () => {
 
   it('caps the imported display size without sacrificing vector viewBox detail', () => {
     const source = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    source.innerHTML = '<g class="joint-viewport"><rect width="10000" height="4000" /></g>'
+    source.innerHTML =
+      '<g class="joint-viewport"><rect width="10000" height="4000" /></g>'
     const exported = createServiceMapSvg(
       source,
       { x: 0, y: 0, width: 10000, height: 4000 },
@@ -51,57 +52,78 @@ describe('service map SVG export', () => {
 describe('service map Excalidraw export', () => {
   it('exports editable rectangles, labels and arrows as a native scene', () => {
     const exported = createServiceMapExcalidraw(
-      [{
-        id: 'api',
-        label: 'API',
-        x: 10,
-        y: 20,
-        width: 120,
-        height: 42,
-        strokeColor: '#516666',
-        backgroundColor: '#202b2a',
-        textColor: '#fff9f1',
-      }, {
-        id: 'worker',
-        label: 'Worker',
-        x: 200,
-        y: 20,
-        width: 120,
-        height: 42,
-        strokeColor: '#516666',
-        backgroundColor: '#202b2a',
-        textColor: '#fff9f1',
-      }],
-      [{
-        id: 'api-worker',
-        sourceId: 'api',
-        targetId: 'worker',
-        sourceFixedPoint: [1, 0.5],
-        targetFixedPoint: [0, 0.5],
-        points: [{ x: 130, y: 41 }, { x: 200, y: 41 }],
-        strokeColor: '#617f7f',
-        strokeWidth: 2,
-        strokeStyle: 'solid',
-      }],
+      [
+        {
+          id: 'api',
+          label: 'API',
+          x: 10,
+          y: 20,
+          width: 120,
+          height: 42,
+          strokeColor: '#516666',
+          backgroundColor: '#202b2a',
+          textColor: '#fff9f1',
+        },
+        {
+          id: 'worker',
+          label: 'Worker',
+          x: 200,
+          y: 20,
+          width: 120,
+          height: 42,
+          strokeColor: '#516666',
+          backgroundColor: '#202b2a',
+          textColor: '#fff9f1',
+        },
+      ],
+      [
+        {
+          id: 'api-worker',
+          sourceId: 'api',
+          targetId: 'worker',
+          sourceFixedPoint: [1, 0.5],
+          targetFixedPoint: [0, 0.5],
+          points: [
+            { x: 130, y: 41 },
+            { x: 200, y: 41 },
+          ],
+          strokeColor: '#617f7f',
+          strokeWidth: 2,
+          strokeStyle: 'solid',
+        },
+      ],
       '#17201f',
     )
     const scene = JSON.parse(exported)
     expect(scene.type).toBe('excalidraw')
     expect(scene.version).toBe(2)
-    expect(scene.elements.map((element: { type: string }) => element.type)).toEqual([
-      'rectangle',
-      'text',
-      'rectangle',
-      'text',
-      'arrow',
-    ])
-    const source = scene.elements.find((element: { id: string }) => element.id === 'node:api')
-    const sourceText = scene.elements.find((element: { id: string }) => element.id === 'text:api')
-    const target = scene.elements.find((element: { id: string }) => element.id === 'node:worker')
-    const arrow = scene.elements.find((element: { id: string }) => element.id === 'edge:api-worker')
-    expect(source.boundElements).toContainEqual({ id: 'text:api', type: 'text' })
-    expect(source.boundElements).toContainEqual({ id: 'edge:api-worker', type: 'arrow' })
-    expect(target.boundElements).toContainEqual({ id: 'edge:api-worker', type: 'arrow' })
+    expect(
+      scene.elements.map((element: { type: string }) => element.type),
+    ).toEqual(['rectangle', 'text', 'rectangle', 'text', 'arrow'])
+    const source = scene.elements.find(
+      (element: { id: string }) => element.id === 'node:api',
+    )
+    const sourceText = scene.elements.find(
+      (element: { id: string }) => element.id === 'text:api',
+    )
+    const target = scene.elements.find(
+      (element: { id: string }) => element.id === 'node:worker',
+    )
+    const arrow = scene.elements.find(
+      (element: { id: string }) => element.id === 'edge:api-worker',
+    )
+    expect(source.boundElements).toContainEqual({
+      id: 'text:api',
+      type: 'text',
+    })
+    expect(source.boundElements).toContainEqual({
+      id: 'edge:api-worker',
+      type: 'arrow',
+    })
+    expect(target.boundElements).toContainEqual({
+      id: 'edge:api-worker',
+      type: 'arrow',
+    })
     expect(sourceText.containerId).toBe('node:api')
     expect(arrow.startBinding).toEqual({
       elementId: 'node:api',

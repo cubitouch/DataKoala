@@ -1,4 +1,12 @@
-import { app, BrowserWindow, ipcMain, dialog, clipboard, nativeImage, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  clipboard,
+  nativeImage,
+  shell,
+} from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import * as db from './db'
@@ -6,8 +14,15 @@ import { connectionProfiles } from './connections-store'
 import { IPC } from '@shared/ipc-channels'
 import { CHART_SERIES_HARD_LIMIT } from '@shared/chartLimits'
 import { buildSeriesCardinalityProbe } from '@shared/seriesCardinality'
-import { interpretSeriesStatistics, SERIES_STATISTICS_SQL } from '@shared/seriesStatistics'
-import { validateConnectionId, validateSeriesCardinalityRequest, validateSeriesStatisticsRequest } from '@shared/seriesCardinalityValidation'
+import {
+  interpretSeriesStatistics,
+  SERIES_STATISTICS_SQL,
+} from '@shared/seriesStatistics'
+import {
+  validateConnectionId,
+  validateSeriesCardinalityRequest,
+  validateSeriesStatisticsRequest,
+} from '@shared/seriesCardinalityValidation'
 import type { ConnectionProfile, DataSourceProfile } from '@shared/types'
 import { MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH } from '@shared/layoutDimensions'
 import { writePngDataUrl } from './clipboard-image'
@@ -17,7 +32,10 @@ import type { SqliteFileProfile } from '@shared/types'
 import { bigQueryDiscovery } from './bigquery-discovery'
 import { discoverPrometheus } from './prometheus-discovery'
 import { GcxPrometheusTransport } from './gcx-prometheus-transport'
-import type { PrometheusTransportConfig, TempoTransportConfig } from '@shared/types'
+import type {
+  PrometheusTransportConfig,
+  TempoTransportConfig,
+} from '@shared/types'
 import type { LokiTransportConfig } from '@shared/types'
 import type { LokiMetadataRequest, LokiQueryRequest } from '@shared/loki'
 import { GcxLokiTransport } from './gcx-loki-transport'
@@ -32,7 +50,10 @@ process.env.APP_ROOT = resolve(__dirname, '../..')
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
-const handleBeforeQuit = createGracefulShutdown(() => db.disconnectAll(), () => app.quit())
+const handleBeforeQuit = createGracefulShutdown(
+  () => db.disconnectAll(),
+  () => app.quit(),
+)
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -48,8 +69,8 @@ function createWindow(): void {
       preload: resolve(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
-    }
+      sandbox: false,
+    },
   })
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -84,14 +105,21 @@ function createWindow(): void {
         })()`)
         const r = JSON.parse(report)
         console.log('SMOKE_REPORT', JSON.stringify(r, null, 2))
-        const okKeys = ['mounted', 'hasTitlebar', 'hasSidebar', 'hasBuilder', 'bridge'] as const
+        const okKeys = [
+          'mounted',
+          'hasTitlebar',
+          'hasSidebar',
+          'hasBuilder',
+          'bridge',
+        ] as const
         const missing = okKeys.filter((k) => !r[k])
         if (missing.length) {
           console.log('SMOKE_FAIL missing: ' + missing.join(', '))
           return app.exit(1)
         }
 
-        const chartReport = await win.webContents.executeJavaScript(`(async () => {
+        const chartReport = await win.webContents
+          .executeJavaScript(`(async () => {
           const store = window.__datakoalaStore
           if (!store) return JSON.stringify({ error: 'store test seam missing' })
           store.getState().setQueryMode('sql')
@@ -143,15 +171,23 @@ function createWindow(): void {
           return app.exit(1)
         }
         if (c.canvasW < 50 || c.canvasH < 50) {
-          console.log(`SMOKE_FAIL chart canvas has no size (${c.canvasW}x${c.canvasH})`)
+          console.log(
+            `SMOKE_FAIL chart canvas has no size (${c.canvasW}x${c.canvasH})`,
+          )
           return app.exit(1)
         }
         if (c.pngPrefix !== 'data:image/png;base64,') {
-          console.log('SMOKE_FAIL chart did not export a PNG, got: ' + c.pngPrefix)
+          console.log(
+            'SMOKE_FAIL chart did not export a PNG, got: ' + c.pngPrefix,
+          )
           return app.exit(1)
         }
         if (c.pngBytes < 1000) {
-          console.log('SMOKE_FAIL exported PNG suspiciously small: ' + c.pngBytes + ' bytes')
+          console.log(
+            'SMOKE_FAIL exported PNG suspiciously small: ' +
+              c.pngBytes +
+              ' bytes',
+          )
           return app.exit(1)
         }
         if (c.tableRows !== 20) {
@@ -159,7 +195,8 @@ function createWindow(): void {
           return app.exit(1)
         }
 
-        const connReport = await win.webContents.executeJavaScript(`(async () => {
+        const connReport = await win.webContents
+          .executeJavaScript(`(async () => {
           const click = (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true }))
           const addBtn = [...document.querySelectorAll('.btn-add')][0]
           if (!addBtn) return JSON.stringify({ error: 'no "new connection" button' })
@@ -207,11 +244,13 @@ function createWindow(): void {
           ['host', cn.host, 'localhost'],
           ['port', cn.port, '55432'],
           ['database', cn.database, 'demo_shop'],
-          ['user', cn.user, expectUser]
+          ['user', cn.user, expectUser],
         ]
         for (const [field, got, want] of connChecks) {
           if (got !== want) {
-            console.log(`SMOKE_FAIL paste filled ${field}="${got}", expected "${want}"`)
+            console.log(
+              `SMOKE_FAIL paste filled ${field}="${got}", expected "${want}"`,
+            )
             return app.exit(1)
           }
         }
@@ -220,17 +259,24 @@ function createWindow(): void {
           return app.exit(1)
         }
         if (!cn.warnings.some((w: string) => /passwordless/i.test(w))) {
-          console.log('SMOKE_FAIL expected a passwordless warning, got: ' + JSON.stringify(cn.warnings))
+          console.log(
+            'SMOKE_FAIL expected a passwordless warning, got: ' +
+              JSON.stringify(cn.warnings),
+          )
           return app.exit(1)
         }
         if (!cn.preview.includes('demo-reader%40proxy-test.example')) {
-          console.log('SMOKE_FAIL preview did not re-encode the username: ' + cn.preview)
+          console.log(
+            'SMOKE_FAIL preview did not re-encode the username: ' + cn.preview,
+          )
           return app.exit(1)
         }
         console.log('SMOKE_OK')
         app.exit(0)
       } catch (e) {
-        console.log('SMOKE_FAIL ' + (e instanceof Error ? e.message : String(e)))
+        console.log(
+          'SMOKE_FAIL ' + (e instanceof Error ? e.message : String(e)),
+        )
         app.exit(1)
       }
     })
@@ -240,26 +286,42 @@ function createWindow(): void {
 app.setName('DataKoala')
 app.whenReady().then(async () => {
   if (process.env.DATAKOALA_SQLITE_SMOKE) {
-    const profile: SqliteFileProfile = { kind: 'sqlite-file', version: 1, id: 'sqlite-smoke', name: 'SQLite smoke', path: process.env.DATAKOALA_SQLITE_SMOKE, readonly: true }
+    const profile: SqliteFileProfile = {
+      kind: 'sqlite-file',
+      version: 1,
+      id: 'sqlite-smoke',
+      name: 'SQLite smoke',
+      path: process.env.DATAKOALA_SQLITE_SMOKE,
+      readonly: true,
+    }
     try {
       const connected = await db.connect(profile)
       if (!connected.ok) throw new Error(connected.error)
       const objects = await db.listObjects(profile.id)
-      const result = await db.runQuery(profile.id, 'SELECT COUNT(*) AS count FROM sqlite.smoke_data')
-      if (!objects.some((object) => object.name === 'smoke_data') || Number(result.rows[0]?.count) !== 2) throw new Error('SQLite smoke fixture was not browsable/queryable')
+      const result = await db.runQuery(
+        profile.id,
+        'SELECT COUNT(*) AS count FROM sqlite.smoke_data',
+      )
+      if (
+        !objects.some((object) => object.name === 'smoke_data') ||
+        Number(result.rows[0]?.count) !== 2
+      )
+        throw new Error('SQLite smoke fixture was not browsable/queryable')
       await db.disconnectAll()
       console.log('SQLITE_ELECTRON_SMOKE_OK')
       app.exit(0)
     } catch (error) {
       console.error('SQLITE_ELECTRON_SMOKE_FAIL', error)
-      await db.disconnectAll(); app.exit(1)
+      await db.disconnectAll()
+      app.exit(1)
     }
     return
   }
   if (process.env.DATAKOALA_DUCKDB_SMOKE === '1') {
     try {
       const answer = await smokeDuckDB()
-      if (answer !== 42) throw new Error(`expected 42, received ${String(answer)}`)
+      if (answer !== 42)
+        throw new Error(`expected 42, received ${String(answer)}`)
       console.log('DUCKDB_SMOKE_OK SELECT 42')
       app.exit(0)
     } catch (error) {
@@ -281,7 +343,8 @@ app.whenReady().then(async () => {
   }
 
   db.onConnectionStateChanged((event) => {
-    if (!isQuitting) mainWindow?.webContents.send(IPC.CONNECTION_STATE_CHANGED, event)
+    if (!isQuitting)
+      mainWindow?.webContents.send(IPC.CONNECTION_STATE_CHANGED, event)
   })
   if (process.env.DATAKOALA_DB_SMOKE) {
     await runDbSmoke(process.env.DATAKOALA_DB_SMOKE)
@@ -319,13 +382,15 @@ function attachRepro(conn: string): void {
   if (!allowed.test(target.hostname) || target.port !== testPort) {
     console.log(
       `REPRO_FAIL refusing to run: target ${target.hostname}:${target.port} is not the throwaway ` +
-        `test database (expected localhost:${testPort}). Set DATAKOALA_TEST_PORT to override.`
+        `test database (expected localhost:${testPort}). Set DATAKOALA_TEST_PORT to override.`,
     )
     return app.exit(1)
   }
   const reproProfileName = `datakoala-repro-${Date.now()}`
 
-  win.webContents.on('console-message', (_e, _lvl, message) => console.log('[renderer]', message))
+  win.webContents.on('console-message', (_e, _lvl, message) =>
+    console.log('[renderer]', message),
+  )
   win.webContents.on('did-finish-load', async () => {
     try {
       const script = `(async () => {
@@ -439,7 +504,8 @@ function attachRepro(conn: string): void {
       const r = JSON.parse(report)
       try {
         for (const p of connectionProfiles.list()) {
-          if (p.name.startsWith('datakoala-repro-')) connectionProfiles.remove(p.id)
+          if (p.name.startsWith('datakoala-repro-'))
+            connectionProfiles.remove(p.id)
         }
         console.log('[repro] cleaned up throwaway profiles')
       } catch {
@@ -477,32 +543,53 @@ async function runDbSmoke(conn: string): Promise<void> {
       user: decodeURIComponent(u.username),
       password: decodeURIComponent(u.password),
       ssl: false,
-      readonly: true
+      readonly: true,
     }
     const c = await db.connect(profile)
     if (!c.ok) return fail('connect: ' + c.error)
     log('connected, server', c.serverVersion)
     const objs = await db.listObjects('smoke')
-    log('listObjects ->', objs.length, 'objects:', objs.map((o) => `${o.schema}.${o.name}`).join(', '))
-    if (!objs.some((o) => o.name === 'orders')) return fail('listObjects did not find the orders table')
+    log(
+      'listObjects ->',
+      objs.length,
+      'objects:',
+      objs.map((o) => `${o.schema}.${o.name}`).join(', '),
+    )
+    if (!objs.some((o) => o.name === 'orders'))
+      return fail('listObjects did not find the orders table')
     const cols = await db.describeTable('smoke', 'public', 'orders')
-    log('describeTable ->', cols.map((x) => `${x.name}:${x.dataTypeName}`).join(', '))
-    if (!cols.some((x) => x.name === 'created_at')) return fail('describeTable missing created_at')
+    log(
+      'describeTable ->',
+      cols.map((x) => `${x.name}:${x.dataTypeName}`).join(', '),
+    )
+    if (!cols.some((x) => x.name === 'created_at'))
+      return fail('describeTable missing created_at')
     const q = await db.runQuery(
       'smoke',
-      "select date_trunc('day', created_at) as day, region, sum(amount) as total from orders group by 1,2 order by 1,2"
+      "select date_trunc('day', created_at) as day, region, sum(amount) as total from orders group by 1,2 order by 1,2",
     )
     log('runQuery ->', q.rowCount, 'rows in', q.durationMs + 'ms')
-    log('columns:', q.columns.map((x) => `${x.name}:${x.dataTypeName}`).join(', '))
+    log(
+      'columns:',
+      q.columns.map((x) => `${x.name}:${x.dataTypeName}`).join(', '),
+    )
     log('first row:', JSON.stringify(q.rows[0]))
     if (q.rowCount === 0) return fail('runQuery returned no rows')
     const dayCol = q.columns.find((x) => x.name === 'day')
     if (dayCol?.dataTypeName !== 'timestamptz') {
-      return fail(`expected day column typed timestamptz, got ${dayCol?.dataTypeName}`)
+      return fail(
+        `expected day column typed timestamptz, got ${dayCol?.dataTypeName}`,
+      )
     }
-    if (!(q.rows[0].day instanceof Date)) return fail('day value did not deserialize to a Date')
-    const ex = await db.explainQuery('smoke', 'select count(*) from orders', false)
-    if (!/aggregate|scan/i.test(ex.text)) return fail('explain output looks wrong: ' + ex.text.slice(0, 120))
+    if (!(q.rows[0].day instanceof Date))
+      return fail('day value did not deserialize to a Date')
+    const ex = await db.explainQuery(
+      'smoke',
+      'select count(*) from orders',
+      false,
+    )
+    if (!/aggregate|scan/i.test(ex.text))
+      return fail('explain output looks wrong: ' + ex.text.slice(0, 120))
     log('explain ok, first line:', ex.text.split('\n')[0])
     let blocked = false
     let blockedMsg = ''
@@ -517,18 +604,35 @@ async function runDbSmoke(conn: string): Promise<void> {
     let serverBlocked = false
     let serverMsg = ''
     try {
-      await db.runQuery('smoke', 'with d as (delete from orders where id = 1 returning id) select count(*) from d')
+      await db.runQuery(
+        'smoke',
+        'with d as (delete from orders where id = 1 returning id) select count(*) from d',
+      )
     } catch (e) {
       serverBlocked = true
       serverMsg = e instanceof Error ? e.message : String(e)
     }
-    if (!serverBlocked) return fail('server-side read-only did NOT block a data-modifying CTE')
-    if (!/read-only/i.test(serverMsg)) return fail('CTE blocked but not by read-only enforcement: ' + serverMsg)
+    if (!serverBlocked)
+      return fail('server-side read-only did NOT block a data-modifying CTE')
+    if (!/read-only/i.test(serverMsg))
+      return fail('CTE blocked but not by read-only enforcement: ' + serverMsg)
     log('data-modifying CTE blocked by Postgres:', serverMsg)
-    const tricky = await db.runQuery('smoke', "select 'update' as word, count(*) as n from orders group by 1")
-    log('tricky select ->', tricky.rowCount, 'rows', JSON.stringify(tricky.rows[0]))
-    if (tricky.rowCount !== 1) return fail('tricky select returned unexpected row count')
-    const commented = await db.runQuery('smoke', '-- leading comment\nselect count(*) as n from orders')
+    const tricky = await db.runQuery(
+      'smoke',
+      "select 'update' as word, count(*) as n from orders group by 1",
+    )
+    log(
+      'tricky select ->',
+      tricky.rowCount,
+      'rows',
+      JSON.stringify(tricky.rows[0]),
+    )
+    if (tricky.rowCount !== 1)
+      return fail('tricky select returned unexpected row count')
+    const commented = await db.runQuery(
+      'smoke',
+      '-- leading comment\nselect count(*) as n from orders',
+    )
     log('comment-led select ->', JSON.stringify(commented.rows[0]))
     if (Number(commented.rows[0].n) !== 20001) {
       return fail('expected 20001 seeded rows, got ' + commented.rows[0].n)
@@ -552,154 +656,298 @@ app.on('before-quit', (event) => {
 })
 
 function registerIpc(): void {
-  ipcMain.handle(IPC.EXTERNAL_OPEN_URL, (_event, url: unknown) => shell.openExternal(validateExternalUrl(url)))
-  ipcMain.handle(IPC.GCX_RESOLVE_GRAFANA_HANDOFF, (_event, request: ResolveGrafanaHandoffRequest) => resolveGcxGrafanaHandoff(request))
-  ipcMain.handle(IPC.CLIPBOARD_WRITE_PNG, (_event, dataUrl: unknown) => writePngDataUrl(dataUrl, {
-    createFromBuffer: (buffer) => nativeImage.createFromBuffer(buffer),
-    writeImage: (image) => clipboard.writeImage(image as Electron.NativeImage),
-    logError: (error) => console.error('[clipboard] Could not write chart PNG', error)
-  }))
-  ipcMain.handle(IPC.CLIPBOARD_WRITE_EXCALIDRAW, async (_event, value: unknown) => {
-    if (typeof value !== 'string' || value.length > 20_000_000) return { ok: false as const }
-    try {
-      const parsed = JSON.parse(value) as { type?: unknown; elements?: unknown }
-      if (parsed.type !== 'excalidraw/clipboard' || !Array.isArray(parsed.elements)) {
+  ipcMain.handle(IPC.EXTERNAL_OPEN_URL, (_event, url: unknown) =>
+    shell.openExternal(validateExternalUrl(url)),
+  )
+  ipcMain.handle(
+    IPC.GCX_RESOLVE_GRAFANA_HANDOFF,
+    (_event, request: ResolveGrafanaHandoffRequest) =>
+      resolveGcxGrafanaHandoff(request),
+  )
+  ipcMain.handle(IPC.CLIPBOARD_WRITE_PNG, (_event, dataUrl: unknown) =>
+    writePngDataUrl(dataUrl, {
+      createFromBuffer: (buffer) => nativeImage.createFromBuffer(buffer),
+      writeImage: (image) =>
+        clipboard.writeImage(image as Electron.NativeImage),
+      logError: (error) =>
+        console.error('[clipboard] Could not write chart PNG', error),
+    }),
+  )
+  ipcMain.handle(
+    IPC.CLIPBOARD_WRITE_EXCALIDRAW,
+    async (_event, value: unknown) => {
+      if (typeof value !== 'string' || value.length > 20_000_000)
+        return { ok: false as const }
+      try {
+        const parsed = JSON.parse(value) as {
+          type?: unknown
+          elements?: unknown
+        }
+        if (
+          parsed.type !== 'excalidraw/clipboard' ||
+          !Array.isArray(parsed.elements)
+        ) {
+          return { ok: false as const }
+        }
+        // Excalidraw's own copy implementation falls back to text/plain JSON
+        // using the excalidraw/clipboard envelope when no ClipboardEvent exists.
+        await clipboard.writeText(value)
+        return { ok: (await clipboard.readText()) === value }
+      } catch (error) {
+        console.error('[clipboard] Could not write Excalidraw scene', error)
         return { ok: false as const }
       }
-      // Excalidraw's own copy implementation falls back to text/plain JSON
-      // using the excalidraw/clipboard envelope when no ClipboardEvent exists.
-      await clipboard.writeText(value)
-      return { ok: (await clipboard.readText()) === value }
-    } catch (error) {
-      console.error('[clipboard] Could not write Excalidraw scene', error)
-      return { ok: false as const }
-    }
-  })
-  ipcMain.handle(IPC.CONNECTION_TEST, (_e, profile: DataSourceProfile) => db.testConnection(profile))
-  ipcMain.handle(IPC.BIGQUERY_DISCOVER_PROJECTS, () => bigQueryDiscovery.discoverProjects())
-  ipcMain.handle(IPC.BIGQUERY_DISCOVER_DEFAULTS, () => bigQueryDiscovery.discoverDefaults())
-  ipcMain.handle(IPC.PROMETHEUS_DISCOVER, (_e, transport: PrometheusTransportConfig) => discoverPrometheus(transport))
-  ipcMain.handle(IPC.PROMETHEUS_DISCOVER_DATASOURCES, (_e, transport: PrometheusTransportConfig) => new GcxPrometheusTransport(transport.context).datasources())
-  ipcMain.handle(IPC.PROMETHEUS_METRIC_LABELS, (_e, id: string, metricName: string) => db.labelsForMetric(id, metricName))
-  ipcMain.handle(IPC.PROMETHEUS_LABEL_VALUES, (_e, id: string, metricName: string, labelName: string) => db.labelValues(id, metricName, labelName))
-  ipcMain.handle(IPC.TEMPO_ATTRIBUTE_VALUES, (_e, id: string, attribute: string, query?: string) => db.tempoAttributeValues(id, attribute, query))
-  ipcMain.handle(IPC.TEMPO_ATTRIBUTES, (_e, id: string, query?: string) => db.tempoAttributes(id, query))
-  ipcMain.handle(IPC.TEMPO_DISCOVER_DATASOURCES, (_e, transport: TempoTransportConfig) => discoverTempoDatasources(transport.context))
-  ipcMain.handle(IPC.LOKI_DISCOVER, (_e, transport: LokiTransportConfig) => new GcxLokiTransport(transport.context).datasources())
-  ipcMain.handle(IPC.LOKI_LABELS, (_e, id: string, request: LokiMetadataRequest) => db.lokiLabels(id, request))
-  ipcMain.handle(IPC.LOKI_LABEL_VALUES, (_e, id: string, label: string, request: LokiMetadataRequest) => db.lokiLabelValues(id, label, request))
-  ipcMain.handle(IPC.LOKI_FORMAT_QUERY, (_e, id: string, query: string) => db.formatLokiQuery(id, query))
-  ipcMain.handle(IPC.QUERY_RUN_LOKI, (_e, id: string, request: LokiQueryRequest) => db.runLokiQuery(id, request))
-  ipcMain.handle(IPC.PROMETHEUS_FORMAT_QUERY, (_e, id: unknown, query: unknown) => {
-    if (typeof id !== 'string' || !id.trim()) throw new Error('A connection ID is required to format PromQL.')
-    if (typeof query !== 'string' || !query.trim()) throw new Error('A PromQL query is required to format PromQL.')
-    return db.formatPrometheusQuery(id, query)
-  })
+    },
+  )
+  ipcMain.handle(IPC.CONNECTION_TEST, (_e, profile: DataSourceProfile) =>
+    db.testConnection(profile),
+  )
+  ipcMain.handle(IPC.BIGQUERY_DISCOVER_PROJECTS, () =>
+    bigQueryDiscovery.discoverProjects(),
+  )
+  ipcMain.handle(IPC.BIGQUERY_DISCOVER_DEFAULTS, () =>
+    bigQueryDiscovery.discoverDefaults(),
+  )
+  ipcMain.handle(
+    IPC.PROMETHEUS_DISCOVER,
+    (_e, transport: PrometheusTransportConfig) => discoverPrometheus(transport),
+  )
+  ipcMain.handle(
+    IPC.PROMETHEUS_DISCOVER_DATASOURCES,
+    (_e, transport: PrometheusTransportConfig) =>
+      new GcxPrometheusTransport(transport.context).datasources(),
+  )
+  ipcMain.handle(
+    IPC.PROMETHEUS_METRIC_LABELS,
+    (_e, id: string, metricName: string) => db.labelsForMetric(id, metricName),
+  )
+  ipcMain.handle(
+    IPC.PROMETHEUS_LABEL_VALUES,
+    (_e, id: string, metricName: string, labelName: string) =>
+      db.labelValues(id, metricName, labelName),
+  )
+  ipcMain.handle(
+    IPC.TEMPO_ATTRIBUTE_VALUES,
+    (_e, id: string, attribute: string, query?: string) =>
+      db.tempoAttributeValues(id, attribute, query),
+  )
+  ipcMain.handle(IPC.TEMPO_ATTRIBUTES, (_e, id: string, query?: string) =>
+    db.tempoAttributes(id, query),
+  )
+  ipcMain.handle(
+    IPC.TEMPO_DISCOVER_DATASOURCES,
+    (_e, transport: TempoTransportConfig) =>
+      discoverTempoDatasources(transport.context),
+  )
+  ipcMain.handle(IPC.LOKI_DISCOVER, (_e, transport: LokiTransportConfig) =>
+    new GcxLokiTransport(transport.context).datasources(),
+  )
+  ipcMain.handle(
+    IPC.LOKI_LABELS,
+    (_e, id: string, request: LokiMetadataRequest) =>
+      db.lokiLabels(id, request),
+  )
+  ipcMain.handle(
+    IPC.LOKI_LABEL_VALUES,
+    (_e, id: string, label: string, request: LokiMetadataRequest) =>
+      db.lokiLabelValues(id, label, request),
+  )
+  ipcMain.handle(IPC.LOKI_FORMAT_QUERY, (_e, id: string, query: string) =>
+    db.formatLokiQuery(id, query),
+  )
+  ipcMain.handle(
+    IPC.QUERY_RUN_LOKI,
+    (_e, id: string, request: LokiQueryRequest) => db.runLokiQuery(id, request),
+  )
+  ipcMain.handle(
+    IPC.PROMETHEUS_FORMAT_QUERY,
+    (_e, id: unknown, query: unknown) => {
+      if (typeof id !== 'string' || !id.trim())
+        throw new Error('A connection ID is required to format PromQL.')
+      if (typeof query !== 'string' || !query.trim())
+        throw new Error('A PromQL query is required to format PromQL.')
+      return db.formatPrometheusQuery(id, query)
+    },
+  )
   ipcMain.handle(IPC.BIGQUERY_LIST_DATASETS, (_e, projectId: unknown) => {
-    if (typeof projectId !== 'string' || !projectId.trim()) throw new Error('A BigQuery project ID is required.')
+    if (typeof projectId !== 'string' || !projectId.trim())
+      throw new Error('A BigQuery project ID is required.')
     return bigQueryDiscovery.listDatasets(projectId.trim())
   })
-  ipcMain.handle(IPC.CONNECTION_CONNECT, async (_e, profile: DataSourceProfile) => {
-    const saved = profile.id ? connectionProfiles.get(profile.id) : undefined
-    const toUse = saved ?? connectionProfiles.upsert(profile)
-    const res = await db.connect(toUse)
-    return { ...res, id: toUse.id }
-  })
-  ipcMain.handle(IPC.CONNECTION_RECONNECT, async (_e, profile: DataSourceProfile) => {
-    const saved = profile.id ? connectionProfiles.get(profile.id) : undefined
-    const toUse = saved ?? connectionProfiles.upsert(profile)
-    const res = await db.reconnect(toUse)
-    return { ...res, id: toUse.id }
-  })
-  ipcMain.handle(IPC.CONNECTION_DISCONNECT, (_e, id: string, generation?: number) => db.disconnect(id, generation))
+  ipcMain.handle(
+    IPC.CONNECTION_CONNECT,
+    async (_e, profile: DataSourceProfile) => {
+      const saved = profile.id ? connectionProfiles.get(profile.id) : undefined
+      const toUse = saved ?? connectionProfiles.upsert(profile)
+      const res = await db.connect(toUse)
+      return { ...res, id: toUse.id }
+    },
+  )
+  ipcMain.handle(
+    IPC.CONNECTION_RECONNECT,
+    async (_e, profile: DataSourceProfile) => {
+      const saved = profile.id ? connectionProfiles.get(profile.id) : undefined
+      const toUse = saved ?? connectionProfiles.upsert(profile)
+      const res = await db.reconnect(toUse)
+      return { ...res, id: toUse.id }
+    },
+  )
+  ipcMain.handle(
+    IPC.CONNECTION_DISCONNECT,
+    (_e, id: string, generation?: number) => db.disconnect(id, generation),
+  )
   ipcMain.handle('connections:list', () => connectionProfiles.list())
   ipcMain.handle('connections:live', () => db.listLiveSessions())
-  ipcMain.handle('connections:upsert', (_e, profile: DataSourceProfile) => connectionProfiles.upsert(profile))
+  ipcMain.handle('connections:upsert', (_e, profile: DataSourceProfile) =>
+    connectionProfiles.upsert(profile),
+  )
   ipcMain.handle(IPC.CONNECTION_CHOOSE_FILES, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
-      title: 'Choose data files', properties: ['openFile', 'multiSelections'],
+      title: 'Choose data files',
+      properties: ['openFile', 'multiSelections'],
       filters: [
-        { name: 'Tabular data', extensions: ['csv', 'tsv', 'parquet', 'json', 'jsonl', 'ndjson', 'txt'] },
-        { name: 'All files', extensions: ['*'] }
-      ]
+        {
+          name: 'Tabular data',
+          extensions: [
+            'csv',
+            'tsv',
+            'parquet',
+            'json',
+            'jsonl',
+            'ndjson',
+            'txt',
+          ],
+        },
+        { name: 'All files', extensions: ['*'] },
+      ],
     })
     return result.canceled ? [] : result.filePaths
   })
   ipcMain.handle(IPC.CONNECTION_CHOOSE_SQLITE_FILE, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
-      title: 'Choose SQLite database', properties: ['openFile'],
+      title: 'Choose SQLite database',
+      properties: ['openFile'],
       filters: [
         { name: 'SQLite database', extensions: ['sqlite', 'sqlite3', 'db'] },
-        { name: 'All files', extensions: ['*'] }
-      ]
+        { name: 'All files', extensions: ['*'] },
+      ],
     })
-    return result.canceled ? null : result.filePaths[0] ?? null
+    return result.canceled ? null : (result.filePaths[0] ?? null)
   })
   ipcMain.handle('connections:remove', (_e, id: string) => {
     db.disconnect(id).catch(() => {})
     connectionProfiles.remove(id)
     return true
   })
-  ipcMain.handle(IPC.CONNECTION_LIST_OBJECTS, (_e, id: string) => db.listObjects(id))
-  ipcMain.handle(IPC.CONNECTION_REFRESH_METADATA, (_e, id: string) => db.refreshMetadata(id))
+  ipcMain.handle(IPC.CONNECTION_LIST_OBJECTS, (_e, id: string) =>
+    db.listObjects(id),
+  )
+  ipcMain.handle(IPC.CONNECTION_REFRESH_METADATA, (_e, id: string) =>
+    db.refreshMetadata(id),
+  )
   ipcMain.handle(
     IPC.CONNECTION_DESCRIBE_TABLE,
-    (_e, id: string, schema: string, table: string) => db.describeTable(id, schema, table)
+    (_e, id: string, schema: string, table: string) =>
+      db.describeTable(id, schema, table),
   )
-  ipcMain.handle(IPC.QUERY_RUN, (_e, id: string, sql: string, parameters: unknown[] = [], prometheus?: { start: string; end: string; step: string }) => db.runQuery(id, sql, parameters, prometheus))
-  ipcMain.handle(IPC.QUERY_PROBE_SERIES_CARDINALITY, async (_e, id: unknown, request: unknown) => {
-    const validId = validateConnectionId(id)
-    const probe = buildSeriesCardinalityProbe(validateSeriesCardinalityRequest(request), db.queryDialect(validId))
-    const result = await db.runQuery(validId, probe.sql, probe.parameters)
-    const distinctCount = Number(result.rows[0]?.count ?? 0)
-    return { distinctCount, exceedsHardLimit: distinctCount > CHART_SERIES_HARD_LIMIT }
-  })
-  ipcMain.handle(IPC.QUERY_SERIES_STATISTICS, async (_e, id: unknown, request: unknown) => {
-    const validId = validateConnectionId(id)
-    const validRequest = validateSeriesStatisticsRequest(request)
-    try {
-      const result = await db.runQuery(validId, SERIES_STATISTICS_SQL, [validRequest.schema, validRequest.table, validRequest.column])
-      return interpretSeriesStatistics(result.rows[0])
-    } catch {
-      return { available: false, source: 'pg_stats' as const }
-    }
-  })
-  ipcMain.handle(IPC.QUERY_EXPLAIN, (_e, id: string, sql: string, analyze: boolean) => db.explainQuery(id, sql, analyze))
-  ipcMain.handle('export:save-text', async (_e, opts: {
-    defaultName: string
-    content: string
-    extensions?: string[]
-    filterName?: string
-  }) => {
-    const win = BrowserWindow.getFocusedWindow()
-    const requestedExtensions = Array.isArray(opts.extensions)
-      ? opts.extensions.filter((extension) => typeof extension === 'string' && /^[a-z0-9]+$/i.test(extension))
-      : []
-    const extensions = requestedExtensions.length ? requestedExtensions : ['sql', 'txt', 'csv']
-    const filterName = typeof opts.filterName === 'string' && opts.filterName.trim()
-      ? opts.filterName.trim()
-      : 'Text'
-    const res = await dialog.showSaveDialog(win!, {
-      defaultPath: opts.defaultName,
-      filters: [{ name: filterName, extensions }]
-    })
-    if (res.canceled || !res.filePath) return null
-    const { writeFileSync } = await import('node:fs')
-    writeFileSync(res.filePath, opts.content, 'utf8')
-    return res.filePath
-  })
+  ipcMain.handle(
+    IPC.QUERY_RUN,
+    (
+      _e,
+      id: string,
+      sql: string,
+      parameters: unknown[] = [],
+      prometheus?: { start: string; end: string; step: string },
+    ) => db.runQuery(id, sql, parameters, prometheus),
+  )
+  ipcMain.handle(
+    IPC.QUERY_PROBE_SERIES_CARDINALITY,
+    async (_e, id: unknown, request: unknown) => {
+      const validId = validateConnectionId(id)
+      const probe = buildSeriesCardinalityProbe(
+        validateSeriesCardinalityRequest(request),
+        db.queryDialect(validId),
+      )
+      const result = await db.runQuery(validId, probe.sql, probe.parameters)
+      const distinctCount = Number(result.rows[0]?.count ?? 0)
+      return {
+        distinctCount,
+        exceedsHardLimit: distinctCount > CHART_SERIES_HARD_LIMIT,
+      }
+    },
+  )
+  ipcMain.handle(
+    IPC.QUERY_SERIES_STATISTICS,
+    async (_e, id: unknown, request: unknown) => {
+      const validId = validateConnectionId(id)
+      const validRequest = validateSeriesStatisticsRequest(request)
+      try {
+        const result = await db.runQuery(validId, SERIES_STATISTICS_SQL, [
+          validRequest.schema,
+          validRequest.table,
+          validRequest.column,
+        ])
+        return interpretSeriesStatistics(result.rows[0])
+      } catch {
+        return { available: false, source: 'pg_stats' as const }
+      }
+    },
+  )
+  ipcMain.handle(
+    IPC.QUERY_EXPLAIN,
+    (_e, id: string, sql: string, analyze: boolean) =>
+      db.explainQuery(id, sql, analyze),
+  )
+  ipcMain.handle(
+    'export:save-text',
+    async (
+      _e,
+      opts: {
+        defaultName: string
+        content: string
+        extensions?: string[]
+        filterName?: string
+      },
+    ) => {
+      const win = BrowserWindow.getFocusedWindow()
+      const requestedExtensions = Array.isArray(opts.extensions)
+        ? opts.extensions.filter(
+            (extension) =>
+              typeof extension === 'string' && /^[a-z0-9]+$/i.test(extension),
+          )
+        : []
+      const extensions = requestedExtensions.length
+        ? requestedExtensions
+        : ['sql', 'txt', 'csv']
+      const filterName =
+        typeof opts.filterName === 'string' && opts.filterName.trim()
+          ? opts.filterName.trim()
+          : 'Text'
+      const res = await dialog.showSaveDialog(win!, {
+        defaultPath: opts.defaultName,
+        filters: [{ name: filterName, extensions }],
+      })
+      if (res.canceled || !res.filePath) return null
+      const { writeFileSync } = await import('node:fs')
+      writeFileSync(res.filePath, opts.content, 'utf8')
+      return res.filePath
+    },
+  )
   ipcMain.handle(
     'export:save-binary',
-    async (_e, opts: { defaultName: string; base64: string; extensions?: string[] }) => {
+    async (
+      _e,
+      opts: { defaultName: string; base64: string; extensions?: string[] },
+    ) => {
       const win = BrowserWindow.getFocusedWindow()
       const res = await dialog.showSaveDialog(win!, {
         defaultPath: opts.defaultName,
-        filters: [{ name: 'Image', extensions: opts.extensions ?? ['png'] }]
+        filters: [{ name: 'Image', extensions: opts.extensions ?? ['png'] }],
       })
       if (res.canceled || !res.filePath) return null
       const { writeFileSync } = await import('node:fs')
       writeFileSync(res.filePath, Buffer.from(opts.base64, 'base64'))
       return res.filePath
-    }
+    },
   )
 }

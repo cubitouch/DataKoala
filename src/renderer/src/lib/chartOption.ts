@@ -36,24 +36,32 @@ const SINGLE_SERIES = '__default__'
 
 export function buildEChartsOption(
   result: QueryResult | null,
-  cfg: ChartConfig
+  cfg: ChartConfig,
 ): BuiltOption | null {
   if (!result || !cfg.xField || !cfg.yField) return null
   const rows = buildChartData(result, cfg)
   if (!rows.length) return null
 
   const isTimeAxis = result.columns.some(
-    (c) => c.name === cfg.xField && isTimeType(c.dataTypeName)
+    (c) => c.name === cfg.xField && isTimeType(c.dataTypeName),
   )
   const isScatter = cfg.type === 'scatter'
-  const echartsType = isScatter ? 'scatter' : cfg.type === 'area' ? 'line' : cfg.type
+  const echartsType = isScatter
+    ? 'scatter'
+    : cfg.type === 'area'
+      ? 'line'
+      : cfg.type
 
   // Group into series, preserving first-seen order.
   const grouped = new Map<string, { x: string; y: number }[]>()
   for (const r of rows) {
-    const name = cfg.seriesField ? String(r[cfg.seriesField] ?? '(null)') : SINGLE_SERIES
+    const name = cfg.seriesField
+      ? String(r[cfg.seriesField] ?? '(null)')
+      : SINGLE_SERIES
     if (!grouped.has(name)) grouped.set(name, [])
-    grouped.get(name)!.push({ x: String(r[cfg.xField]), y: Number(r[cfg.yField]) })
+    grouped
+      .get(name)!
+      .push({ x: String(r[cfg.xField]), y: Number(r[cfg.yField]) })
   }
 
   // Categories, in the sorted order buildChartData already established.
@@ -88,18 +96,17 @@ export function buildEChartsOption(
       smooth: cfg.type === 'line' || cfg.type === 'area',
       areaStyle: cfg.type === 'area' ? { opacity: 0.15 } : undefined,
       showSymbol: !isScatter && pts.length > 40 ? false : true,
-      emphasis: { focus: 'series' as const }
+      emphasis: { focus: 'series' as const },
     }
   })
 
   const xAxis: Record<string, unknown> = {
     type: isTimeAxis ? 'time' : 'category',
     axisLine: AXIS_LINE,
-    axisLabel: AXIS_LABEL
+    axisLabel: AXIS_LABEL,
   }
   // Only a category axis consumes `data`; setting it on a time axis is misleading.
   if (!isTimeAxis) xAxis.data = categories
-
 
   return {
     option: {
@@ -108,7 +115,7 @@ export function buildEChartsOption(
       grid: { left: 64, right: 20, top: 20, bottom: 44 },
       tooltip: {
         trigger: isScatter ? 'item' : 'axis',
-        axisPointer: { type: cfg.type === 'bar' ? 'shadow' : 'line' }
+        axisPointer: { type: cfg.type === 'bar' ? 'shadow' : 'line' },
       },
       legend: { show: false },
       xAxis,
@@ -116,16 +123,16 @@ export function buildEChartsOption(
         type: 'value',
         axisLine: AXIS_LINE,
         splitLine: { lineStyle: { color: '#2a3736' } },
-        axisLabel: AXIS_LABEL
+        axisLabel: AXIS_LABEL,
       },
       series,
-      color: CHART_COLORS
+      color: CHART_COLORS,
     },
     meta: {
       isTimeAxis,
       seriesNames: [...grouped.keys()],
       categoryCount: categories.length,
-      pointCount: rows.length
-    }
+      pointCount: rows.length,
+    },
   }
 }

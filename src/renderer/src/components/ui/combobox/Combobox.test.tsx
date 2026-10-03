@@ -11,31 +11,73 @@ afterEach(cleanup)
 
 const options = [
   { value: 'public', label: 'public', subtitle: 'schema' },
-  { value: 'orders', label: 'orders', subtitle: 'table · demo_shop', keywords: ['sales_fact'] },
+  {
+    value: 'orders',
+    label: 'orders',
+    subtitle: 'table · demo_shop',
+    keywords: ['sales_fact'],
+  },
   { value: 'disabled', label: 'Disabled', disabled: true },
   { value: 'analytics', label: 'monthly_sales', subtitle: 'view · analytics' },
   { value: 'payment-service', label: 'payment-service' },
-  { value: 'payment-service-worker', label: 'payment-service-worker' }
+  { value: 'payment-service-worker', label: 'payment-service-worker' },
 ]
 function Single({ searchable = false }: { searchable?: boolean }) {
   const [value, setValue] = useState('')
-  return <Combobox label="Table or view" value={value} onChange={setValue} options={options} placeholder="Select a table or view…" searchable={searchable} />
+  return (
+    <Combobox
+      label="Table or view"
+      value={value}
+      onChange={setValue}
+      options={options}
+      placeholder="Select a table or view…"
+      searchable={searchable}
+    />
+  )
 }
 
 describe('Combobox', () => {
   it('owns visible normal/inline labels for single and multi controls', () => {
-    render(<><Combobox label="Status" value="" options={options} onChange={() => {}} /><MultiCombobox label="Group by" mode="inline" values={[]} options={options} onChange={() => {}} /></>)
+    render(
+      <>
+        <Combobox
+          label="Status"
+          value=""
+          options={options}
+          onChange={() => {}}
+        />
+        <MultiCombobox
+          label="Group by"
+          mode="inline"
+          values={[]}
+          options={options}
+          onChange={() => {}}
+        />
+      </>,
+    )
     expect(screen.getByRole('combobox', { name: /Status:/ })).toBeTruthy()
     const statusLabel = screen.getByText('Status').closest('[data-field-label]')
     expect(statusLabel?.tagName).toBe('SPAN')
     expect(statusLabel?.hasAttribute('aria-label')).toBe(false)
     expect(statusLabel?.closest(`.${fieldStyles.normal}`) !== null).toBe(true)
     expect(screen.getByRole('combobox', { name: /Group by:/ })).toBeTruthy()
-    expect(screen.getByText('Group by').closest(`.${fieldStyles.inline}`) !== null).toBe(true)
+    expect(
+      screen.getByText('Group by').closest(`.${fieldStyles.inline}`) !== null,
+    ).toBe(true)
   })
   it('applies its locally owned error border state to the trigger', () => {
-    render(<Combobox label="State" value="" options={[]} onChange={() => {}} error="Broken" />)
-    expect(screen.getByRole('combobox').classList.contains(styles.errorTrigger)).toBe(true)
+    render(
+      <Combobox
+        label="State"
+        value=""
+        options={[]}
+        onChange={() => {}}
+        error="Broken"
+      />,
+    )
+    expect(
+      screen.getByRole('combobox').classList.contains(styles.errorTrigger),
+    ).toBe(true)
     fireEvent.click(screen.getByRole('combobox'))
     expect(screen.getByRole('alert').textContent).toContain('Broken')
   })
@@ -53,7 +95,17 @@ describe('Combobox', () => {
   })
 
   it('returns focus to the combobox instance that committed selection', async () => {
-    render(<><Combobox label="First" value="" onChange={() => {}} options={[{ value: 'one', label: 'One' }]} /><Single /></>)
+    render(
+      <>
+        <Combobox
+          label="First"
+          value=""
+          onChange={() => {}}
+          options={[{ value: 'one', label: 'One' }]}
+        />
+        <Single />
+      </>,
+    )
     const [first, second] = screen.getAllByRole('combobox')
     fireEvent.click(second)
     fireEvent.click(screen.getByRole('option', { name: /orders, table/ }))
@@ -78,10 +130,18 @@ describe('Combobox', () => {
     fireEvent.keyDown(trigger, { key: 'ArrowDown' })
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'ArrowDown' })
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'ArrowDown' })
-    expect(screen.getByRole('option', { name: /monthly_sales/ }).getAttribute('data-active')).toBe('true')
+    expect(
+      screen
+        .getByRole('option', { name: /monthly_sales/ })
+        .getAttribute('data-active'),
+    ).toBe('true')
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Enter' })
     fireEvent.click(trigger)
-    expect(screen.getByRole('option', { name: /monthly_sales/ }).getAttribute('aria-selected')).toBe('true')
+    expect(
+      screen
+        .getByRole('option', { name: /monthly_sales/ })
+        .getAttribute('aria-selected'),
+    ).toBe('true')
   })
 
   it('filters by label, subtitle, and keywords case-insensitively, shows empty state, and clears search after close', () => {
@@ -98,7 +158,9 @@ describe('Combobox', () => {
     fireEvent.change(input, { target: { value: 'sales_fact' } })
     expect(screen.getByRole('option', { name: /orders/ })).toBeTruthy()
     fireEvent.change(input, { target: { value: 'pay worker' } })
-    expect(screen.getByRole('option', { name: 'payment-service-worker' })).toBeTruthy()
+    expect(
+      screen.getByRole('option', { name: 'payment-service-worker' }),
+    ).toBeTruthy()
     expect(screen.queryByRole('option', { name: 'payment-service' })).toBeNull()
     fireEvent.change(input, { target: { value: 'nope' } })
     expect(screen.getByText('No matching options')).toBeTruthy()
@@ -112,80 +174,217 @@ describe('Combobox', () => {
     const trigger = screen.getByRole('combobox')
     fireEvent.click(trigger)
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'End' })
-    expect(screen.getByRole('option', { name: 'payment-service-worker' }).getAttribute('data-active')).toBe('true')
+    expect(
+      screen
+        .getByRole('option', { name: 'payment-service-worker' })
+        .getAttribute('data-active'),
+    ).toBe('true')
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Home' })
-    expect(screen.getByRole('option', { name: /public/ }).getAttribute('data-active')).toBe('true')
+    expect(
+      screen
+        .getByRole('option', { name: /public/ })
+        .getAttribute('data-active'),
+    ).toBe('true')
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'm' })
-    expect(screen.getByRole('option', { name: /monthly_sales/ }).getAttribute('data-active')).toBe('true')
+    expect(
+      screen
+        .getByRole('option', { name: /monthly_sales/ })
+        .getAttribute('data-active'),
+    ).toBe('true')
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' })
     expect(screen.queryByRole('listbox')).toBeNull()
-    rerender(<Combobox label="State" value="" options={[]} onChange={() => {}} loading />)
+    rerender(
+      <Combobox
+        label="State"
+        value=""
+        options={[]}
+        onChange={() => {}}
+        loading
+      />,
+    )
     fireEvent.click(screen.getByRole('combobox'))
     expect(screen.getByRole('status').textContent).toContain('Loading')
-    rerender(<Combobox label="State" value="" options={[]} onChange={() => {}} error="Broken" />)
+    rerender(
+      <Combobox
+        label="State"
+        value=""
+        options={[]}
+        onChange={() => {}}
+        error="Broken"
+      />,
+    )
     expect(screen.getByRole('alert').textContent).toContain('Broken')
-    rerender(<Combobox label="State" value="" options={[]} onChange={() => {}} disabled />)
-    expect((screen.getByRole('combobox') as HTMLButtonElement).disabled).toBe(true)
+    rerender(
+      <Combobox
+        label="State"
+        value=""
+        options={[]}
+        onChange={() => {}}
+        disabled
+      />,
+    )
+    expect((screen.getByRole('combobox') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
   })
 })
 
 describe('MultiCombobox', () => {
   it('filters searchable options using multiple partial tokens', () => {
-    render(<MultiCombobox label="Services" values={[]} onChange={() => {}} options={options} searchable />)
+    render(
+      <MultiCombobox
+        label="Services"
+        values={[]}
+        onChange={() => {}}
+        options={options}
+        searchable
+      />,
+    )
     fireEvent.click(screen.getByRole('combobox'))
     const input = screen.getByRole('textbox', { name: /Search Services/ })
     fireEvent.change(input, { target: { value: 'worker pay' } })
-    expect(screen.getByRole('option', { name: 'payment-service-worker' })).toBeTruthy()
+    expect(
+      screen.getByRole('option', { name: 'payment-service-worker' }),
+    ).toBeTruthy()
     expect(screen.queryByRole('option', { name: 'payment-service' })).toBeNull()
   })
 
   it('selects multiple values, keeps open, renders/removes chips, avoids duplicates, and exposes multi-select semantics', () => {
-    function View() { const [values, setValues] = useState<string[]>([]); return <MultiCombobox label="Columns" values={values} onChange={setValues} options={options} showChips /> }
+    function View() {
+      const [values, setValues] = useState<string[]>([])
+      return (
+        <MultiCombobox
+          label="Columns"
+          values={values}
+          onChange={setValues}
+          options={options}
+          showChips
+        />
+      )
+    }
     render(<View />)
     fireEvent.click(screen.getByRole('combobox'))
-    expect(screen.getByRole('listbox').getAttribute('aria-multiselectable')).toBe('true')
+    expect(
+      screen.getByRole('listbox').getAttribute('aria-multiselectable'),
+    ).toBe('true')
     fireEvent.click(screen.getByRole('option', { name: /public/ }))
     fireEvent.click(screen.getByRole('option', { name: /orders/ }))
     expect(screen.getByRole('listbox')).toBeTruthy()
     fireEvent.click(screen.getByRole('option', { name: /public/ }))
-    expect(screen.getByRole('option', { name: /public/ }).getAttribute('aria-selected')).toBe('false')
+    expect(
+      screen
+        .getByRole('option', { name: /public/ })
+        .getAttribute('aria-selected'),
+    ).toBe('false')
     fireEvent.click(screen.getByRole('option', { name: /orders/ }))
-    expect(screen.getByRole('option', { name: /orders/ }).getAttribute('aria-selected')).toBe('false')
+    expect(
+      screen
+        .getByRole('option', { name: /orders/ })
+        .getAttribute('aria-selected'),
+    ).toBe('false')
   })
 
   it('does not nest focusable chip controls inside the combobox trigger', () => {
-    function View() { const [values, setValues] = useState<string[]>(['public', 'orders']); return <MultiCombobox label="Columns" values={values} onChange={setValues} options={options} showChips /> }
+    function View() {
+      const [values, setValues] = useState<string[]>(['public', 'orders'])
+      return (
+        <MultiCombobox
+          label="Columns"
+          values={values}
+          onChange={setValues}
+          options={options}
+          showChips
+        />
+      )
+    }
     render(<View />)
     const trigger = screen.getByRole('combobox')
     expect(trigger.querySelector('[role="button"]')).toBeNull()
-    expect(trigger.querySelector('button, a, input, select, textarea, [tabindex]:not([tabindex="-1"])')).toBeNull()
+    expect(
+      trigger.querySelector(
+        'button, a, input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      ),
+    ).toBeNull()
   })
 
   it('keeps selected chips in value order and ArrowUp opens on the last enabled option', () => {
-    function View() { const [values, setValues] = useState<string[]>(['analytics', 'public']); return <MultiCombobox label="Columns" values={values} onChange={setValues} options={options} showChips /> }
+    function View() {
+      const [values, setValues] = useState<string[]>(['analytics', 'public'])
+      return (
+        <MultiCombobox
+          label="Columns"
+          values={values}
+          onChange={setValues}
+          options={options}
+          showChips
+        />
+      )
+    }
     const view = render(<View />)
-    expect(Array.from(view.container.querySelectorAll('[data-combobox-chip]')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['monthly_sales', 'public'])
+    expect(
+      Array.from(view.container.querySelectorAll('[data-combobox-chip]')).map(
+        (chip) => chip.textContent?.replace('×', ''),
+      ),
+    ).toEqual(['monthly_sales', 'public'])
     fireEvent.keyDown(screen.getByRole('combobox'), { key: 'ArrowUp' })
-    expect(screen.getByRole('option', { name: 'payment-service-worker' }).getAttribute('data-active')).toBe('true')
+    expect(
+      screen
+        .getByRole('option', { name: 'payment-service-worker' })
+        .getAttribute('data-active'),
+    ).toBe('true')
   })
 
   it('removes the last value with Backspace when search is empty', () => {
-    function View() { const [values, setValues] = useState<string[]>(['public', 'orders']); return <MultiCombobox label="Columns" values={values} onChange={setValues} options={options} showChips /> }
+    function View() {
+      const [values, setValues] = useState<string[]>(['public', 'orders'])
+      return (
+        <MultiCombobox
+          label="Columns"
+          values={values}
+          onChange={setValues}
+          options={options}
+          showChips
+        />
+      )
+    }
     render(<View />)
     fireEvent.click(screen.getByRole('combobox'))
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Backspace' })
-    expect(screen.getByRole('option', { name: /orders/ }).getAttribute('aria-selected')).toBe('false')
+    expect(
+      screen
+        .getByRole('option', { name: /orders/ })
+        .getAttribute('aria-selected'),
+    ).toBe('false')
   })
 })
 
 // Chip removal is pointer-only because chips live inside the trigger button.
 it('removes exactly one chip on click without toggling the menu', () => {
-  function View() { const [values, setValues] = useState<string[]>(['public', 'orders', 'analytics']); return <MultiCombobox label="Columns" values={values} onChange={setValues} options={options} showChips /> }
+  function View() {
+    const [values, setValues] = useState<string[]>([
+      'public',
+      'orders',
+      'analytics',
+    ])
+    return (
+      <MultiCombobox
+        label="Columns"
+        values={values}
+        onChange={setValues}
+        options={options}
+        showChips
+      />
+    )
+  }
   const view = render(<View />)
   const trigger = screen.getByRole('combobox')
   fireEvent.click(view.container.querySelectorAll('[data-combobox-chip]')[1])
-  expect(Array.from(view.container.querySelectorAll('[data-combobox-chip]')).map((chip) => chip.textContent?.replace('×', ''))).toEqual(['public', 'monthly_sales'])
+  expect(
+    Array.from(view.container.querySelectorAll('[data-combobox-chip]')).map(
+      (chip) => chip.textContent?.replace('×', ''),
+    ),
+  ).toEqual(['public', 'monthly_sales'])
   expect(screen.queryByRole('listbox')).toBeNull()
   expect(trigger.getAttribute('aria-expanded')).toBe('false')
 })

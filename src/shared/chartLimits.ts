@@ -9,11 +9,32 @@ export const MAX_SERIES_PROBE_COLUMNS = 16
 export const MAX_SERIES_PROBE_PREDICATES = 32
 
 export type CardinalityProbePredicate =
-  | { column: string; operator: 'equals' | 'notEquals'; value: string | number | boolean | null }
+  | {
+      column: string
+      operator: 'equals' | 'notEquals'
+      value: string | number | boolean | null
+    }
   | { column: string; operator: 'isNull' | 'isNotNull' }
-  | { column: string; operator: 'range'; startInclusive: string; endExclusive: string; temporalType?: 'date' | 'datetime' | 'timestamp' }
-  | { column: string; operator: 'gte' | 'lt'; value: string; temporalType?: 'date' | 'datetime' | 'timestamp' }
-  | { column: string; operator: 'rolling'; amount: 1 | 3 | 6 | 7 | 12 | 15 | 24 | 30; unit: 'minute' | 'hour' | 'day' | 'month'; temporalType?: 'date' | 'datetime' | 'timestamp' }
+  | {
+      column: string
+      operator: 'range'
+      startInclusive: string
+      endExclusive: string
+      temporalType?: 'date' | 'datetime' | 'timestamp'
+    }
+  | {
+      column: string
+      operator: 'gte' | 'lt'
+      value: string
+      temporalType?: 'date' | 'datetime' | 'timestamp'
+    }
+  | {
+      column: string
+      operator: 'rolling'
+      amount: 1 | 3 | 6 | 7 | 12 | 15 | 24 | 30
+      unit: 'minute' | 'hour' | 'day' | 'month'
+      temporalType?: 'date' | 'datetime' | 'timestamp'
+    }
 
 export interface SeriesCardinalityProbeRequest {
   schema: string
@@ -29,7 +50,11 @@ export interface SeriesCardinalityProbeResult {
   exceedsHardLimit: boolean
 }
 
-export interface SeriesStatisticsRequest { schema: string; table: string; column: string }
+export interface SeriesStatisticsRequest {
+  schema: string
+  table: string
+  column: string
+}
 export interface SeriesStatisticsResult {
   available: boolean
   estimatedDistinct?: number

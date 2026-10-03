@@ -169,15 +169,15 @@ DATAKOALA_TEST_DB=postgresql://user:pass@host:5432/db pnpm smoke:db
 
 ### Test layers
 
-| Layer | Command | What it proves |
-| --- | --- | --- |
-| Node tests | `pnpm test` | Core SQL/Builder logic, adapters, persistence and PostgreSQL e2e when the test DB is available |
-| UI tests | `pnpm test:ui` | Renderer component behaviour in JSDOM |
-| Renderer smoke | `pnpm smoke` | Electron boots, React mounts, preload bridge exists, chart/export path works |
-| DB smoke | `pnpm smoke:db` | Real PostgreSQL adapter: connect, introspect, query, explain and read-only enforcement |
-| Flow smoke | `pnpm smoke:flow` | Real UI connection → query → result flow |
-| DuckDB smoke | `pnpm smoke:duckdb` | Embedded DuckDB native binding loads in Electron |
-| SQLite smoke | `pnpm smoke:sqlite` / `pnpm smoke:sqlite:electron` | SQLite adapter and Electron runtime path |
+| Layer          | Command                                            | What it proves                                                                                 |
+| -------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Node tests     | `pnpm test`                                        | Core SQL/Builder logic, adapters, persistence and PostgreSQL e2e when the test DB is available |
+| UI tests       | `pnpm test:ui`                                     | Renderer component behaviour in JSDOM                                                          |
+| Renderer smoke | `pnpm smoke`                                       | Electron boots, React mounts, preload bridge exists, chart/export path works                   |
+| DB smoke       | `pnpm smoke:db`                                    | Real PostgreSQL adapter: connect, introspect, query, explain and read-only enforcement         |
+| Flow smoke     | `pnpm smoke:flow`                                  | Real UI connection → query → result flow                                                       |
+| DuckDB smoke   | `pnpm smoke:duckdb`                                | Embedded DuckDB native binding loads in Electron                                               |
+| SQLite smoke   | `pnpm smoke:sqlite` / `pnpm smoke:sqlite:electron` | SQLite adapter and Electron runtime path                                                       |
 
 `pnpm verify` runs typecheck, Node tests, build, renderer smoke, DB smoke and flow smoke in sequence. Additional UI/DuckDB/SQLite/package checks are run separately in CI.
 

@@ -12,9 +12,11 @@ export const PRESET_ADAPTERS = {
   bigquery: sqlPresetAdapter,
   prometheus: prometheusPresetAdapter,
   loki: lokiPresetAdapter,
-  tempo: tempoPresetAdapter
+  tempo: tempoPresetAdapter,
 } satisfies Record<DataSourceKind, ExplorationPresetAdapter<unknown>>
 
-export function presetAdapterForSourceKind(kind: DataSourceKind): ExplorationPresetAdapter<unknown> {
+export function presetAdapterForSourceKind(
+  kind: DataSourceKind,
+): ExplorationPresetAdapter<unknown> {
   return PRESET_ADAPTERS[kind] as ExplorationPresetAdapter<unknown>
 }

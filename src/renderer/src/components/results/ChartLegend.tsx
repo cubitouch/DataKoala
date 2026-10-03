@@ -46,7 +46,10 @@ function ChartLegendItem({
       const tooltip = tooltipRef.current?.getBoundingClientRect()
       if (!trigger || !tooltip) return
       const gutter = 8
-      const maxWidth = Math.min(360, Math.max(160, window.innerWidth - gutter * 2))
+      const maxWidth = Math.min(
+        360,
+        Math.max(160, window.innerWidth - gutter * 2),
+      )
       const width = Math.min(tooltip.width, maxWidth)
       const height = tooltip.height
       const left = Math.min(

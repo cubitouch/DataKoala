@@ -4,10 +4,16 @@ import { ProgressiveGcxTempoTransport } from './gcx-tempo-progressive-transport.
 import {
   normalizeTempoSearch,
   type TempoService,
-  type TempoTransport
+  type TempoTransport,
 } from './gcx-tempo-transport.ts'
-import { runGcxCommand, type GcxCommandRunner } from './gcx-prometheus-transport.ts'
-import { applyTempoSearchStatuses, ensureTempoSearchStatusSelection } from './tempo-search-status.ts'
+import {
+  runGcxCommand,
+  type GcxCommandRunner,
+} from './gcx-prometheus-transport.ts'
+import {
+  applyTempoSearchStatuses,
+  ensureTempoSearchStatusSelection,
+} from './tempo-search-status.ts'
 import { enrichTempoRootStatuses } from './tempo-root-status.ts'
 import { createTempoPerformance } from './tempo-performance.ts'
 
@@ -29,36 +35,57 @@ function iso(milliseconds: number): string {
 }
 
 function parseJson(value: string): unknown {
-  try { return JSON.parse(value) }
-  catch { throw new Error('gcx returned malformed JSON for traces query. Update gcx and try again.') }
+  try {
+    return JSON.parse(value)
+  } catch {
+    throw new Error(
+      'gcx returned malformed JSON for traces query. Update gcx and try again.',
+    )
+  }
 }
 
-function rangeBounds(request: TempoQueryRequest): { startMs: number; endMs: number } {
+function rangeBounds(request: TempoQueryRequest): {
+  startMs: number
+  endMs: number
+} {
   const startMs = new Date(request.start).getTime()
   const endMs = new Date(request.end).getTime()
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) throw new Error('Tempo trace search requires valid start and end times.')
-  if (endMs <= startMs) throw new Error('Tempo trace search end time must be after its start time.')
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs))
+    throw new Error('Tempo trace search requires valid start and end times.')
+  if (endMs <= startMs)
+    throw new Error('Tempo trace search end time must be after its start time.')
   return { startMs, endMs }
 }
 
-function providerRangeBounds(startMs: number, endMs: number): { startMs: number; endMs: number } {
-  const providerStartMs = Math.floor(startMs / PROVIDER_TIME_PRECISION_MS) * PROVIDER_TIME_PRECISION_MS
-  let providerEndMs = Math.ceil(endMs / PROVIDER_TIME_PRECISION_MS) * PROVIDER_TIME_PRECISION_MS
-  if (providerEndMs <= providerStartMs) providerEndMs = providerStartMs + PROVIDER_TIME_PRECISION_MS
+function providerRangeBounds(
+  startMs: number,
+  endMs: number,
+): { startMs: number; endMs: number } {
+  const providerStartMs =
+    Math.floor(startMs / PROVIDER_TIME_PRECISION_MS) *
+    PROVIDER_TIME_PRECISION_MS
+  let providerEndMs =
+    Math.ceil(endMs / PROVIDER_TIME_PRECISION_MS) * PROVIDER_TIME_PRECISION_MS
+  if (providerEndMs <= providerStartMs)
+    providerEndMs = providerStartMs + PROVIDER_TIME_PRECISION_MS
   return { startMs: providerStartMs, endMs: providerEndMs }
 }
 
 function rangeLabel(request: TempoQueryRequest): string {
   const format = (value: string) => {
     const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toISOString().replace('.000Z', 'Z')
+    return Number.isNaN(date.getTime())
+      ? value
+      : date.toISOString().replace('.000Z', 'Z')
   }
   return `${format(request.start)} → ${format(request.end)}`
 }
 
 function sampleSize(value: number): number {
-  if (!Number.isFinite(value) || value <= 0 || !Number.isInteger(value)) throw new Error('Tempo trace sample size must be a positive integer.')
-  if (value > MAX_SAMPLE_SIZE) throw new Error(`Tempo trace sample size cannot exceed ${MAX_SAMPLE_SIZE}.`)
+  if (!Number.isFinite(value) || value <= 0 || !Number.isInteger(value))
+    throw new Error('Tempo trace sample size must be a positive integer.')
+  if (value > MAX_SAMPLE_SIZE)
+    throw new Error(`Tempo trace sample size cannot exceed ${MAX_SAMPLE_SIZE}.`)
   return value
 }
 
@@ -81,46 +108,70 @@ export class SamplingGcxTempoTransport implements TempoTransport {
   constructor(
     context?: string,
     run: GcxCommandRunner = runGcxCommand,
-    datasourceUid?: string
+    datasourceUid?: string,
   ) {
     this.context = context
     this.datasourceUid = datasourceUid
     this.run = run
-    this.exhaustive = new ProgressiveGcxTempoTransport(context, run, datasourceUid)
+    this.exhaustive = new ProgressiveGcxTempoTransport(
+      context,
+      run,
+      datasourceUid,
+    )
   }
 
   private commonArgs(): string[] {
     return [
       ...(this.context ? ['--context', this.context] : []),
-      ...(this.datasourceUid ? ['--datasource', this.datasourceUid] : [])
+      ...(this.datasourceUid ? ['--datasource', this.datasourceUid] : []),
     ]
   }
 
-  async query(value: string, request?: TempoQueryRequest): Promise<QueryResult> {
+  async query(
+    value: string,
+    request?: TempoQueryRequest,
+  ): Promise<QueryResult> {
     const query = value.trim()
     if (!query) throw new Error('Enter a TraceQL query or trace ID.')
-    return TRACE_ID.test(query) ? this.get(query, request) : this.search(query, request)
+    return TRACE_ID.test(query)
+      ? this.get(query, request)
+      : this.search(query, request)
   }
 
-  async search(expression: string, request?: TempoQueryRequest): Promise<QueryResult> {
+  async search(
+    expression: string,
+    request?: TempoQueryRequest,
+  ): Promise<QueryResult> {
     const query = expression.trim()
     if (!query) throw new Error('Enter a TraceQL query.')
-    if (request?.sampleSize === undefined) return this.exhaustive.search(query, request)
+    if (request?.sampleSize === undefined)
+      return this.exhaustive.search(query, request)
 
     const limit = sampleSize(request.sampleSize)
     const context = request as TempoQueryContext
-    const perf = context.performance ?? createTempoPerformance(request.diagnosticRequestId, 'search.sample')
+    const perf =
+      context.performance ??
+      createTempoPerformance(request.diagnosticRequestId, 'search.sample')
     const started = Date.now()
     const exactBounds = rangeBounds(request)
-    const providerBounds = providerRangeBounds(exactBounds.startMs, exactBounds.endMs)
+    const providerBounds = providerRangeBounds(
+      exactBounds.startMs,
+      exactBounds.endMs,
+    )
     const providerExpression = ensureTempoSearchStatusSelection(query)
     const args = [
-      'traces', 'query', providerExpression,
+      'traces',
+      'query',
+      providerExpression,
       ...this.commonArgs(),
-      '--from', iso(providerBounds.startMs),
-      '--to', iso(providerBounds.endMs),
-      '--limit', String(limit),
-      '-o', 'json'
+      '--from',
+      iso(providerBounds.startMs),
+      '--to',
+      iso(providerBounds.endMs),
+      '--limit',
+      String(limit),
+      '-o',
+      'json',
     ]
     const gcxStarted = perf?.now() ?? 0
     const response = await this.run(args)
@@ -128,19 +179,35 @@ export class SamplingGcxTempoTransport implements TempoTransport {
     const parseStarted = perf?.now()
     const raw = parseJson(response.stdout)
     if (parseStarted !== undefined) perf?.recordParse(perf.now() - parseStarted)
-    perf?.recordGcx({ phase: 'traces.query', gcxWallMs, stdout: response.stdout, raw })
+    perf?.recordGcx({
+      phase: 'traces.query',
+      gcxWallMs,
+      stdout: response.stdout,
+      raw,
+    })
     const normalizeStarted = perf?.now()
     const normalized = applyTempoSearchStatuses(
-      normalizeTempoSearch(raw, 0, `${iso(providerBounds.startMs)} → ${iso(providerBounds.endMs)}`),
-      raw
+      normalizeTempoSearch(
+        raw,
+        0,
+        `${iso(providerBounds.startMs)} → ${iso(providerBounds.endMs)}`,
+      ),
+      raw,
     )
     const rows = normalized.rows
       .filter((row) => {
         const startTimeMs = number(row.startTimeMs)
-        return startTimeMs >= exactBounds.startMs && startTimeMs <= exactBounds.endMs
+        return (
+          startTimeMs >= exactBounds.startMs && startTimeMs <= exactBounds.endMs
+        )
       })
-      .sort((left, right) => number(right.startTimeMs) - number(left.startTimeMs) || text(left.traceId).localeCompare(text(right.traceId)))
-    if (normalizeStarted !== undefined) perf?.recordNormalize(perf.now() - normalizeStarted)
+      .sort(
+        (left, right) =>
+          number(right.startTimeMs) - number(left.startTimeMs) ||
+          text(left.traceId).localeCompare(text(right.traceId)),
+      )
+    if (normalizeStarted !== undefined)
+      perf?.recordNormalize(perf.now() - normalizeStarted)
     const durationMs = Date.now() - started
     let result: QueryResult = {
       ...normalized,
@@ -148,7 +215,12 @@ export class SamplingGcxTempoTransport implements TempoTransport {
       rowCount: rows.length,
       durationMs,
       notice: `Tempo search · ${rangeLabel(request)} · ${rows.length} returned · 1 search query`,
-      execution: { provider: 'tempo', durationMs, rowCount: rows.length, ...(perf ? { requestId: perf.requestId } : {}) }
+      execution: {
+        provider: 'tempo',
+        durationMs,
+        rowCount: rows.length,
+        ...(perf ? { requestId: perf.requestId } : {}),
+      },
     }
 
     if (context.onProgress) {
@@ -161,43 +233,61 @@ export class SamplingGcxTempoTransport implements TempoTransport {
           pendingChunks: 0,
           queriesCompleted: 1,
           tracesFound: rows.length,
-          rows
+          rows,
         })
-      } catch { /* progress reporting must never fail the query */ }
+      } catch {
+        /* progress reporting must never fail the query */
+      }
     }
 
     // Resolve the actual root-span outcome by default. `includeStatus: false` remains an
     // escape hatch for callers that explicitly want summary-only behavior.
     if (request.includeStatus !== false && rows.length > 0) {
       const enrichmentStarted = perf?.now()
-      const enrichment = await enrichTempoRootStatuses(result, request, this.run, {
-        context: this.context,
-        datasourceUid: this.datasourceUid,
-        performance: perf,
-        onProgress: (progress) => {
-          if (!context.onProgress) return
-          try {
-            context.onProgress({
-              provider: 'tempo',
-              coveredMs: 0,
-              totalMs: exactBounds.endMs - exactBounds.startMs,
-              completedChunks: 1,
-              pendingChunks: 0,
-              queriesCompleted: 1 + progress.queriesCompleted,
-              tracesFound: rows.length,
-              rows: progress.rows
-            })
-          } catch { /* progress reporting must never fail the query */ }
-        }
-      })
-      if (enrichmentStarted !== undefined) perf?.recordRootStatus(perf.now() - enrichmentStarted, enrichment.queriesCompleted)
+      const enrichment = await enrichTempoRootStatuses(
+        result,
+        request,
+        this.run,
+        {
+          context: this.context,
+          datasourceUid: this.datasourceUid,
+          performance: perf,
+          onProgress: (progress) => {
+            if (!context.onProgress) return
+            try {
+              context.onProgress({
+                provider: 'tempo',
+                coveredMs: 0,
+                totalMs: exactBounds.endMs - exactBounds.startMs,
+                completedChunks: 1,
+                pendingChunks: 0,
+                queriesCompleted: 1 + progress.queriesCompleted,
+                tracesFound: rows.length,
+                rows: progress.rows,
+              })
+            } catch {
+              /* progress reporting must never fail the query */
+            }
+          },
+        },
+      )
+      if (enrichmentStarted !== undefined)
+        perf?.recordRootStatus(
+          perf.now() - enrichmentStarted,
+          enrichment.queriesCompleted,
+        )
       result = enrichment.result
       const enrichedDurationMs = Date.now() - started
       result = {
         ...result,
         durationMs: enrichedDurationMs,
         notice: `${result.notice} · ${enrichment.queriesCompleted} root-status ${enrichment.queriesCompleted === 1 ? 'query' : 'queries'}`,
-        execution: { provider: 'tempo', durationMs: enrichedDurationMs, rowCount: result.rows.length, ...(perf ? { requestId: perf.requestId } : {}) }
+        execution: {
+          provider: 'tempo',
+          durationMs: enrichedDurationMs,
+          rowCount: result.rows.length,
+          ...(perf ? { requestId: perf.requestId } : {}),
+        },
       }
     }
 
@@ -205,9 +295,19 @@ export class SamplingGcxTempoTransport implements TempoTransport {
     return result
   }
 
-  get(traceId: string, request?: TempoQueryRequest): Promise<QueryResult> { return this.exhaustive.get(traceId, request) }
-  probe(): Promise<void> { return this.exhaustive.probe() }
-  services(): Promise<TempoService[]> { return this.exhaustive.services() }
-  attributeValues(attribute: string, query?: string): Promise<string[]> { return this.exhaustive.attributeValues(attribute, query) }
-  attributeNames(query?: string) { return this.exhaustive.attributeNames(query) }
+  get(traceId: string, request?: TempoQueryRequest): Promise<QueryResult> {
+    return this.exhaustive.get(traceId, request)
+  }
+  probe(): Promise<void> {
+    return this.exhaustive.probe()
+  }
+  services(): Promise<TempoService[]> {
+    return this.exhaustive.services()
+  }
+  attributeValues(attribute: string, query?: string): Promise<string[]> {
+    return this.exhaustive.attributeValues(attribute, query)
+  }
+  attributeNames(query?: string) {
+    return this.exhaustive.attributeNames(query)
+  }
 }

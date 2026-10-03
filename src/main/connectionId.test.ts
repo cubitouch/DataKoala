@@ -59,16 +59,18 @@ test('the migration path assigns ids to previously-broken stored profiles', () =
   const stored = [
     { id: '', name: 'broken one' },
     { id: 'good-id', name: 'fine' },
-    { name: 'missing entirely' }
+    { name: 'missing entirely' },
   ]
   let counter = 0
   const repaired = stored.map((p) => ({
     ...p,
-    id: isUsableId((p as { id?: string }).id) ? (p as { id: string }).id : `uuid-${++counter}`
+    id: isUsableId((p as { id?: string }).id)
+      ? (p as { id: string }).id
+      : `uuid-${++counter}`,
   }))
   assert.deepEqual(
     repaired.map((p) => p.id),
-    ['uuid-1', 'good-id', 'uuid-2']
+    ['uuid-1', 'good-id', 'uuid-2'],
   )
   // And they must all be distinct, or the Map would collapse them.
   assert.equal(new Set(repaired.map((p) => p.id)).size, 3)
@@ -93,7 +95,10 @@ test('saving several new profiles does not collapse them onto one key', () => {
 
   assert.notEqual(first, second, 'two new profiles must not share an id')
   assert.equal(store.size, 2, 'the second save overwrote the first')
-  assert.deepEqual([...store.values()].map((p) => p.name).sort(), ['prod', 'staging'])
+  assert.deepEqual([...store.values()].map((p) => p.name).sort(), [
+    'prod',
+    'staging',
+  ])
 })
 
 test('re-saving an existing profile updates in place instead of duplicating', () => {

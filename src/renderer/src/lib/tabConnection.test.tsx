@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ConnectionProfile, DataSourceProfile, QueryResult } from '@shared/types'
+import type {
+  ConnectionProfile,
+  DataSourceProfile,
+  QueryResult,
+} from '@shared/types'
 
 const { connect, disconnect, listObjects } = vi.hoisted(() => ({
   connect: vi.fn(),
   disconnect: vi.fn(async () => undefined),
-  listObjects: vi.fn(async () => [])
+  listObjects: vi.fn(async () => []),
 }))
 vi.mock('./api', () => ({
   api: {
@@ -13,9 +17,9 @@ vi.mock('./api', () => ({
       connect,
       disconnect,
       list: vi.fn(async () => []),
-      listObjects
-    }
-  }
+      listObjects,
+    },
+  },
 }))
 
 import { bindTabConnection, ensureConnectionForTab } from './tabConnection'
@@ -24,17 +28,63 @@ import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 import { defaultQueryTextForDatasource } from './queryDefaults'
 
 const profiles: ConnectionProfile[] = [
-  { kind: 'postgres', version: 1, id: 'profile-a', name: 'A', host: 'a', port: 5432, database: 'a', user: 'reader', password: '', ssl: false, readonly: true },
-  { kind: 'postgres', version: 1, id: 'profile-b', name: 'B', host: 'b', port: 5432, database: 'b', user: 'reader', password: '', ssl: false, readonly: true }
+  {
+    kind: 'postgres',
+    version: 1,
+    id: 'profile-a',
+    name: 'A',
+    host: 'a',
+    port: 5432,
+    database: 'a',
+    user: 'reader',
+    password: '',
+    ssl: false,
+    readonly: true,
+  },
+  {
+    kind: 'postgres',
+    version: 1,
+    id: 'profile-b',
+    name: 'B',
+    host: 'b',
+    port: 5432,
+    database: 'b',
+    user: 'reader',
+    password: '',
+    ssl: false,
+    readonly: true,
+  },
 ]
-const prometheusProfile: DataSourceProfile = { kind: 'prometheus', version: 1, id: 'prometheus', name: 'Metrics', readonly: true, transport: { kind: 'gcx' } }
-const tempoProfile: DataSourceProfile = { kind: 'tempo', version: 1, id: 'tempo', name: 'Traces', readonly: true, transport: { kind: 'gcx' } }
+const prometheusProfile: DataSourceProfile = {
+  kind: 'prometheus',
+  version: 1,
+  id: 'prometheus',
+  name: 'Metrics',
+  readonly: true,
+  transport: { kind: 'gcx' },
+}
+const tempoProfile: DataSourceProfile = {
+  kind: 'tempo',
+  version: 1,
+  id: 'tempo',
+  name: 'Traces',
+  readonly: true,
+  transport: { kind: 'gcx' },
+}
 const result: QueryResult = {
-  columns: [{ name: 'value', dataTypeID: 23, dataTypeName: 'int4' }], rows: [{ value: 1 }], rowCount: 1, durationMs: 1
+  columns: [{ name: 'value', dataTypeID: 23, dataTypeName: 'int4' }],
+  rows: [{ value: 1 }],
+  rowCount: 1,
+  durationMs: 1,
 }
 
 beforeEach(() => {
-  connect.mockImplementation(async (profile: ConnectionProfile) => ({ ok: true as const, id: profile.id, generation: 2, serverVersion: '16' }))
+  connect.mockImplementation(async (profile: ConnectionProfile) => ({
+    ok: true as const,
+    id: profile.id,
+    generation: 2,
+    serverVersion: '16',
+  }))
 })
 afterEach(() => {
   resetTestStore()
@@ -46,12 +96,17 @@ describe('tab connection lifecycle', () => {
     resetTestStore({ profiles: [prometheusProfile] })
     const id = useStore.getState().activeTabId
     bindTabConnection(id, prometheusProfile.id)
-    expect(selectSession(useStore.getState(), id)).toMatchObject({ queryMode: 'builder', sql: 'up' })
+    expect(selectSession(useStore.getState(), id)).toMatchObject({
+      queryMode: 'builder',
+      sql: 'up',
+    })
 
     useStore.getState().setSql('rate(custom_total[5m])', id)
     bindTabConnection(id, null)
     bindTabConnection(id, prometheusProfile.id)
-    expect(selectSession(useStore.getState(), id)?.sql).toBe('rate(custom_total[5m])')
+    expect(selectSession(useStore.getState(), id)?.sql).toBe(
+      'rate(custom_total[5m])',
+    )
   })
 
   it('resets edited plain queries only when the datasource query language changes', () => {
@@ -61,7 +116,10 @@ describe('tab connection lifecycle', () => {
     bindTabConnection(id, prometheusProfile.id)
     useStore.getState().setSql('rate(custom_total[5m])', id)
     bindTabConnection(id, profiles[0].id)
-    expect(selectSession(useStore.getState(), id)).toMatchObject({ queryMode: 'builder', sql: 'select now();' })
+    expect(selectSession(useStore.getState(), id)).toMatchObject({
+      queryMode: 'builder',
+      sql: 'select now();',
+    })
 
     useStore.getState().setSql('select keep_me;', id)
     bindTabConnection(id, profiles[1].id)
@@ -71,11 +129,18 @@ describe('tab connection lifecycle', () => {
     expect(selectSession(useStore.getState(), id)?.sql).toBe('up')
     useStore.getState().setSql('sum(rate(requests_total[5m]))', id)
     bindTabConnection(id, tempoProfile.id)
-    expect(selectSession(useStore.getState(), id)?.sql).toBe(defaultQueryTextForDatasource('tempo'))
+    expect(selectSession(useStore.getState(), id)?.sql).toBe(
+      defaultQueryTextForDatasource('tempo'),
+    )
   })
 
   it('rebinding a tab clears result-derived state but preserves editable work and promoted Builder predicates', () => {
-    resetTestStore({ profiles, activeProfileId: 'profile-a', connected: true, connectionStatus: 'connected' })
+    resetTestStore({
+      profiles,
+      activeProfileId: 'profile-a',
+      connected: true,
+      connectionStatus: 'connected',
+    })
     patchActiveTestSession({
       connectionProfileId: 'profile-a',
       sql: 'select keep_me;',
@@ -83,12 +148,32 @@ describe('tab connection lifecycle', () => {
       pendingResult: result,
       builderHasRun: true,
       explainText: 'old plan',
-      sqlResultFilters: [{ id: 'local', column: 'value', operator: 'equals', value: 1, execution: 'client' }],
-      builderResultFilters: [
-        { id: 'promoted', column: 'country', operator: 'equals', value: 'FR', execution: 'query' },
-        { id: 'client', column: 'device', operator: 'equals', value: 'mobile', execution: 'client' }
+      sqlResultFilters: [
+        {
+          id: 'local',
+          column: 'value',
+          operator: 'equals',
+          value: 1,
+          execution: 'client',
+        },
       ],
-      seriesVisibility: { FR: false }
+      builderResultFilters: [
+        {
+          id: 'promoted',
+          column: 'country',
+          operator: 'equals',
+          value: 'FR',
+          execution: 'query',
+        },
+        {
+          id: 'client',
+          column: 'device',
+          operator: 'equals',
+          value: 'mobile',
+          execution: 'client',
+        },
+      ],
+      seriesVisibility: { FR: false },
     })
 
     const id = useStore.getState().activeTabId
@@ -101,13 +186,28 @@ describe('tab connection lifecycle', () => {
     expect(session.builderHasRun).toBe(false)
     expect(session.explainText).toBeNull()
     expect(session.sqlResultFilters).toEqual([])
-    expect(session.builderResultFilters.map((filter) => filter.id)).toEqual(['promoted'])
+    expect(session.builderResultFilters.map((filter) => filter.id)).toEqual([
+      'promoted',
+    ])
     expect(session.seriesVisibility).toEqual({})
   })
 
   it('connects the requested profile without disconnecting another live profile', async () => {
-    resetTestStore({ profiles, activeProfileId: 'profile-a', connected: true, connectionStatus: 'connected', connectionGeneration: 1,
-      connectionStateByProfileId: { 'profile-a': { status: 'connected', generation: 1, error: null, serverVersion: '16' } } })
+    resetTestStore({
+      profiles,
+      activeProfileId: 'profile-a',
+      connected: true,
+      connectionStatus: 'connected',
+      connectionGeneration: 1,
+      connectionStateByProfileId: {
+        'profile-a': {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: '16',
+        },
+      },
+    })
     const id = useStore.getState().activeTabId
     patchActiveTestSession({ connectionProfileId: 'profile-b' })
 
@@ -116,13 +216,22 @@ describe('tab connection lifecycle', () => {
     expect(profileId).toBe('profile-b')
     expect(disconnect).not.toHaveBeenCalled()
     expect(connect).toHaveBeenCalledWith(profiles[1])
-    expect(useStore.getState().connectionStateByProfileId['profile-a']?.status).toBe('connected')
-    expect(useStore.getState().connectionStateByProfileId['profile-b']?.status).toBe('connected')
+    expect(
+      useStore.getState().connectionStateByProfileId['profile-a']?.status,
+    ).toBe('connected')
+    expect(
+      useStore.getState().connectionStateByProfileId['profile-b']?.status,
+    ).toBe('connected')
     expect(useStore.getState().connected).toBe(true)
   })
 
   it('reuses an already-live matching pool without reconnecting', async () => {
-    resetTestStore({ profiles, activeProfileId: 'profile-a', connected: true, connectionStatus: 'connected' })
+    resetTestStore({
+      profiles,
+      activeProfileId: 'profile-a',
+      connected: true,
+      connectionStatus: 'connected',
+    })
     const id = useStore.getState().activeTabId
     patchActiveTestSession({ connectionProfileId: 'profile-a' })
 

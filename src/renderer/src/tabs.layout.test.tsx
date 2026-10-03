@@ -1,9 +1,15 @@
 import { expect, test } from 'vitest'
 import { readFileSync } from 'node:fs'
 
-const tabsCss = readFileSync('src/renderer/src/components/query/QueryTabs.module.css', 'utf8')
+const tabsCss = readFileSync(
+  'src/renderer/src/components/query/QueryTabs.module.css',
+  'utf8',
+)
 const appCss = readFileSync('src/renderer/src/App.module.css', 'utf8')
-const utilityCss = readFileSync('src/renderer/src/components/query/QueryUtilityActions.module.css', 'utf8')
+const utilityCss = readFileSync(
+  'src/renderer/src/components/query/QueryUtilityActions.module.css',
+  'utf8',
+)
 const shellCss = readFileSync('src/renderer/src/styles.css', 'utf8')
 
 function rule(css: string, selector: string): string {
@@ -24,10 +30,18 @@ test('the titlebar owns tab-strip placement and leaves unused space draggable', 
   expect(titlebarTabs).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
   expect(titlebarTabs).toMatch(/scrollbar-width:\s*none\s*;/)
   const componentRoot = rule(tabsCss, '.root')
-  expect(componentRoot).toMatch(/(?:overflow-x:\s*auto\s*;|overflow:\s*auto\s+hidden\s*;)/)
-  expect(componentRoot).toMatch(/(?:overflow-y:\s*hidden\s*;|overflow:\s*auto\s+hidden\s*;)/)
-  expect(componentRoot).not.toMatch(/(?:^|;)\s*flex(?:-grow|-shrink|-basis)?\s*:/)
-  expect(rule(appCss, '.queryTabs::-webkit-scrollbar')).toMatch(/display:\s*none\s*;/)
+  expect(componentRoot).toMatch(
+    /(?:overflow-x:\s*auto\s*;|overflow:\s*auto\s+hidden\s*;)/,
+  )
+  expect(componentRoot).toMatch(
+    /(?:overflow-y:\s*hidden\s*;|overflow:\s*auto\s+hidden\s*;)/,
+  )
+  expect(componentRoot).not.toMatch(
+    /(?:^|;)\s*flex(?:-grow|-shrink|-basis)?\s*:/,
+  )
+  expect(rule(appCss, '.queryTabs::-webkit-scrollbar')).toMatch(
+    /display:\s*none\s*;/,
+  )
   expect(rule(appCss, '.dragSpace')).toMatch(/flex:\s*1\s+1\s+28px\s*;/)
   expect(rule(appCss, '.dragSpace')).toMatch(/min-width:\s*28px\s*;/)
 })
@@ -35,7 +49,9 @@ test('the titlebar owns tab-strip placement and leaves unused space draggable', 
 test('tab and add controls remain outside the draggable app region', () => {
   expect(rule(tabsCss, '.tab')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
   expect(rule(tabsCss, '.main')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
-  expect(rule(tabsCss, '.close, .add')).toMatch(/-webkit-app-region:\s*no-drag\s*;/)
+  expect(rule(tabsCss, '.close, .add')).toMatch(
+    /-webkit-app-region:\s*no-drag\s*;/,
+  )
 })
 
 test('query utility actions retain their compact narrow-toolbar sizing', () => {

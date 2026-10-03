@@ -1,21 +1,36 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 
 const { labelsForMetric, labelValues, formatQuery } = vi.hoisted(() => ({
   labelsForMetric: vi.fn(),
   labelValues: vi.fn(),
-  formatQuery: vi.fn()
+  formatQuery: vi.fn(),
 }))
 vi.mock('@lib/api', () => ({
-  api: { connections: { prometheus: { labelsForMetric, labelValues, formatQuery } } }
+  api: {
+    connections: { prometheus: { labelsForMetric, labelValues, formatQuery } },
+  },
 }))
 vi.mock('@uiw/react-codemirror', () => ({
-  default: ({ value, ...props }: { value: string; 'aria-label'?: string }) => <textarea aria-label={props['aria-label']} value={value} readOnly />
+  default: ({ value, ...props }: { value: string; 'aria-label'?: string }) => (
+    <textarea aria-label={props['aria-label']} value={value} readOnly />
+  ),
 }))
 
 import { PromqlBuilderPanel } from './PromqlBuilderPanel'
-import { activeTestSession, patchActiveTestSession, resetTestStore, setActiveTestMetadata } from '@test/sessionTestUtils'
+import {
+  activeTestSession,
+  patchActiveTestSession,
+  resetTestStore,
+  setActiveTestMetadata,
+} from '@test/sessionTestUtils'
 
 const profileId = 'prom-formatting'
 
@@ -26,8 +41,19 @@ beforeEach(() => {
   formatQuery.mockReset()
 
   resetTestStore({
-    activeProfileId: profileId, connected: true, connectionStatus: 'connected',
-    profiles: [{ id: profileId, name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }]
+    activeProfileId: profileId,
+    connected: true,
+    connectionStatus: 'connected',
+    profiles: [
+      {
+        id: profileId,
+        name: 'Metrics',
+        kind: 'prometheus',
+        version: 1,
+        readonly: true,
+        transport: { kind: 'gcx' },
+      },
+    ],
   })
   patchActiveTestSession({
     connectionProfileId: profileId,
@@ -42,28 +68,55 @@ beforeEach(() => {
       aggregation: 'sum',
       window: '5m',
       percentile: 0.95,
-      histogramKindOverride: 'auto'
-    }
+      histogramKindOverride: 'auto',
+    },
   })
-  setActiveTestMetadata([{ name: 'Prometheus', isSystem: false, relations: [{
-    schema: 'Prometheus',
-    name: 'request_duration_seconds_bucket',
-    qualifiedName: 'request_duration_seconds_bucket',
-    kind: 'metric',
-    columnsStatus: 'idle'
-  }] }], 'loaded', null, profileId)
+  setActiveTestMetadata(
+    [
+      {
+        name: 'Prometheus',
+        isSystem: false,
+        relations: [
+          {
+            schema: 'Prometheus',
+            name: 'request_duration_seconds_bucket',
+            qualifiedName: 'request_duration_seconds_bucket',
+            kind: 'metric',
+            columnsStatus: 'idle',
+          },
+        ],
+      },
+    ],
+    'loaded',
+    null,
+    profileId,
+  )
 })
 
-afterEach(() => { cleanup(); resetTestStore() })
+afterEach(() => {
+  cleanup()
+  resetTestStore()
+})
 
 it('previews and opens the official formatted generated PromQL', async () => {
-  const formatted = 'histogram_quantile(\n  0.95,\n  sum by (le) (rate(request_duration_seconds_bucket[5m]))\n)'
+  const formatted =
+    'histogram_quantile(\n  0.95,\n  sum by (le) (rate(request_duration_seconds_bucket[5m]))\n)'
   formatQuery.mockResolvedValue(formatted)
 
   render(<PromqlBuilderPanel />)
 
-  await waitFor(() => expect(formatQuery).toHaveBeenCalledWith(profileId, expect.stringContaining('histogram_quantile')))
-  await waitFor(() => expect((screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement).value).toBe(formatted))
+  await waitFor(() =>
+    expect(formatQuery).toHaveBeenCalledWith(
+      profileId,
+      expect.stringContaining('histogram_quantile'),
+    ),
+  )
+  await waitFor(() =>
+    expect(
+      (screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement)
+        .value,
+    ).toBe(formatted),
+  )
 
   fireEvent.click(screen.getByRole('button', { name: 'Open in PromQL mode' }))
   expect(activeTestSession().queryMode).toBe('sql')
@@ -72,17 +125,22 @@ it('previews and opens the official formatted generated PromQL', async () => {
 })
 
 it('reports the formatted query state without changing raw PromQL', async () => {
-  const formatted = 'histogram_quantile(\n  0.95,\n  sum by (le) (rate(request_duration_seconds_bucket[5m]))\n)'
+  const formatted =
+    'histogram_quantile(\n  0.95,\n  sum by (le) (rate(request_duration_seconds_bucket[5m]))\n)'
   const onQueryStateChange = vi.fn()
   formatQuery.mockResolvedValue(formatted)
   patchActiveTestSession({ sql: 'manual_query_that_must_survive' })
 
   render(<PromqlBuilderPanel onQueryStateChange={onQueryStateChange} />)
 
-  await waitFor(() => expect(onQueryStateChange).toHaveBeenLastCalledWith(expect.objectContaining({
-    generated: expect.stringContaining('histogram_quantile'),
-    displayed: formatted,
-    validation: null
-  })))
+  await waitFor(() =>
+    expect(onQueryStateChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        generated: expect.stringContaining('histogram_quantile'),
+        displayed: formatted,
+        validation: null,
+      }),
+    ),
+  )
   expect(activeTestSession().sql).toBe('manual_query_that_must_survive')
 })

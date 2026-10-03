@@ -4,12 +4,19 @@ import { buildChartData, resultToCsv } from './data.ts'
 import type { QueryResult } from '@shared/types.ts'
 import type { ChartConfig } from '@store/useStore.ts'
 
-function mkResult(rows: Record<string, unknown>[], cols: [string, string][]): QueryResult {
+function mkResult(
+  rows: Record<string, unknown>[],
+  cols: [string, string][],
+): QueryResult {
   return {
-    columns: cols.map(([name, dataTypeName]) => ({ name, dataTypeID: 0, dataTypeName })),
+    columns: cols.map(([name, dataTypeName]) => ({
+      name,
+      dataTypeID: 0,
+      dataTypeName,
+    })),
     rows,
     rowCount: rows.length,
-    durationMs: 1
+    durationMs: 1,
   }
 }
 
@@ -19,7 +26,7 @@ const baseCfg: ChartConfig = {
   yField: 'amount',
   aggregation: 'sum',
   seriesField: undefined,
-  timeBucket: undefined
+  timeBucket: undefined,
 }
 
 test('sum aggregation groups rows by the x field', () => {
@@ -27,9 +34,12 @@ test('sum aggregation groups rows by the x field', () => {
     [
       { region: 'eu', amount: 10 },
       { region: 'eu', amount: 5 },
-      { region: 'us', amount: 3 }
+      { region: 'us', amount: 3 },
     ],
-    [['region', 'text'], ['amount', 'numeric']]
+    [
+      ['region', 'text'],
+      ['amount', 'numeric'],
+    ],
   )
   const out = buildChartData(r, baseCfg)
   assert.equal(out.length, 2)
@@ -44,14 +54,29 @@ test('avg / min / max / count aggregations compute correctly', () => {
     [
       { region: 'eu', amount: 10 },
       { region: 'eu', amount: 20 },
-      { region: 'eu', amount: 30 }
+      { region: 'eu', amount: 30 },
     ],
-    [['region', 'text'], ['amount', 'numeric']]
+    [
+      ['region', 'text'],
+      ['amount', 'numeric'],
+    ],
   )
-  assert.equal(buildChartData(r, { ...baseCfg, aggregation: 'avg' })[0].amount, 20)
-  assert.equal(buildChartData(r, { ...baseCfg, aggregation: 'min' })[0].amount, 10)
-  assert.equal(buildChartData(r, { ...baseCfg, aggregation: 'max' })[0].amount, 30)
-  assert.equal(buildChartData(r, { ...baseCfg, aggregation: 'count' })[0].amount, 3)
+  assert.equal(
+    buildChartData(r, { ...baseCfg, aggregation: 'avg' })[0].amount,
+    20,
+  )
+  assert.equal(
+    buildChartData(r, { ...baseCfg, aggregation: 'min' })[0].amount,
+    10,
+  )
+  assert.equal(
+    buildChartData(r, { ...baseCfg, aggregation: 'max' })[0].amount,
+    30,
+  )
+  assert.equal(
+    buildChartData(r, { ...baseCfg, aggregation: 'count' })[0].amount,
+    3,
+  )
 })
 
 test('numeric strings from Postgres are coerced, not concatenated', () => {
@@ -59,9 +84,12 @@ test('numeric strings from Postgres are coerced, not concatenated', () => {
   const r = mkResult(
     [
       { region: 'eu', amount: '10' },
-      { region: 'eu', amount: '5' }
+      { region: 'eu', amount: '5' },
     ],
-    [['region', 'text'], ['amount', 'numeric']]
+    [
+      ['region', 'text'],
+      ['amount', 'numeric'],
+    ],
   )
   assert.equal(buildChartData(r, baseCfg)[0].amount, 15)
 })
@@ -72,9 +100,12 @@ test('rows with non-numeric y values are skipped rather than poisoning the total
       { region: 'eu', amount: 10 },
       { region: 'eu', amount: null },
       { region: 'eu', amount: 'not-a-number' },
-      { region: 'eu', amount: 5 }
+      { region: 'eu', amount: 5 },
     ],
-    [['region', 'text'], ['amount', 'numeric']]
+    [
+      ['region', 'text'],
+      ['amount', 'numeric'],
+    ],
   )
   assert.equal(buildChartData(r, baseCfg)[0].amount, 15)
 })
@@ -84,11 +115,19 @@ test('a series field splits rows into separate series AND is preserved on each r
     [
       { day: '2024-01-01', region: 'eu', amount: 1 },
       { day: '2024-01-01', region: 'us', amount: 2 },
-      { day: '2024-01-02', region: 'eu', amount: 4 }
+      { day: '2024-01-02', region: 'eu', amount: 4 },
     ],
-    [['day', 'timestamptz'], ['region', 'text'], ['amount', 'numeric']]
+    [
+      ['day', 'timestamptz'],
+      ['region', 'text'],
+      ['amount', 'numeric'],
+    ],
   )
-  const out = buildChartData(r, { ...baseCfg, xField: 'day', seriesField: 'region' })
+  const out = buildChartData(r, {
+    ...baseCfg,
+    xField: 'day',
+    seriesField: 'region',
+  })
   // eu/2024-01-01, us/2024-01-01, eu/2024-01-02 must stay distinct.
   assert.equal(out.length, 3)
   // Regression: asserting only on length let a real bug through — the series column
@@ -96,25 +135,46 @@ test('a series field splits rows into separate series AND is preserved on each r
   assert.deepEqual(
     out.map((x) => x.region).sort(),
     ['eu', 'eu', 'us'],
-    'the series field must be carried onto each aggregated row'
+    'the series field must be carried onto each aggregated row',
   )
   for (const row of out) {
-    assert.ok(row.region !== undefined, 'series value missing from an output row')
+    assert.ok(
+      row.region !== undefined,
+      'series value missing from an output row',
+    )
   }
 })
 
 test('the series field is not written over the x or y column', () => {
   const r = mkResult(
     [{ region: 'eu', amount: 5 }],
-    [['region', 'text'], ['amount', 'numeric']]
+    [
+      ['region', 'text'],
+      ['amount', 'numeric'],
+    ],
   )
   // seriesField === yField would otherwise clobber the aggregate.
-  const out = buildChartData(r, { ...baseCfg, xField: 'region', yField: 'amount', seriesField: 'amount' })
-  assert.equal(out[0].amount, 5, 'aggregate value was overwritten by the series value')
+  const out = buildChartData(r, {
+    ...baseCfg,
+    xField: 'region',
+    yField: 'amount',
+    seriesField: 'amount',
+  })
+  assert.equal(
+    out[0].amount,
+    5,
+    'aggregate value was overwritten by the series value',
+  )
 })
 
 test('internal accumulator fields do not leak into the output', () => {
-  const r = mkResult([{ region: 'eu', amount: 1 }], [['region', 'text'], ['amount', 'numeric']])
+  const r = mkResult(
+    [{ region: 'eu', amount: 1 }],
+    [
+      ['region', 'text'],
+      ['amount', 'numeric'],
+    ],
+  )
   const out = buildChartData(r, baseCfg)
   for (const k of ['_count', '_sum', '_min', '_max']) {
     assert.ok(!(k in out[0]), `internal field ${k} leaked into chart data`)
@@ -126,16 +186,28 @@ test('x values sort naturally (10 after 9, not after 1)', () => {
     [
       { region: '10', amount: 1 },
       { region: '9', amount: 1 },
-      { region: '1', amount: 1 }
+      { region: '1', amount: 1 },
     ],
-    [['region', 'text'], ['amount', 'numeric']]
+    [
+      ['region', 'text'],
+      ['amount', 'numeric'],
+    ],
   )
   const out = buildChartData(r, baseCfg)
-  assert.deepEqual(out.map((x) => x.region), ['1', '9', '10'])
+  assert.deepEqual(
+    out.map((x) => x.region),
+    ['1', '9', '10'],
+  )
 })
 
 test('missing x or y config yields no data instead of throwing', () => {
-  const r = mkResult([{ region: 'eu', amount: 1 }], [['region', 'text'], ['amount', 'numeric']])
+  const r = mkResult(
+    [{ region: 'eu', amount: 1 }],
+    [
+      ['region', 'text'],
+      ['amount', 'numeric'],
+    ],
+  )
   assert.deepEqual(buildChartData(r, { ...baseCfg, xField: '' }), [])
   assert.deepEqual(buildChartData(r, { ...baseCfg, yField: '' }), [])
 })
@@ -143,20 +215,31 @@ test('missing x or y config yields no data instead of throwing', () => {
 test('CSV export quotes commas, quotes and newlines correctly', () => {
   const r = mkResult(
     [{ a: 'has,comma', b: 'has"quote', c: 'has\nnewline' }],
-    [['a', 'text'], ['b', 'text'], ['c', 'text']]
+    [
+      ['a', 'text'],
+      ['b', 'text'],
+      ['c', 'text'],
+    ],
   )
   const csv = resultToCsv(r)
   const [header, body] = csv.split('\n')
   assert.equal(header, 'a,b,c')
   // RFC4180: wrap in quotes, and double any embedded quote.
-  assert.ok(body.startsWith('"has,comma","has""quote"'), `unexpected CSV body: ${body}`)
+  assert.ok(
+    body.startsWith('"has,comma","has""quote"'),
+    `unexpected CSV body: ${body}`,
+  )
   assert.ok(csv.includes('"has\nnewline"'))
 })
 
 test('CSV export renders nulls as empty and dates as ISO', () => {
   const r = mkResult(
     [{ a: null, b: undefined, c: new Date('2024-01-02T03:04:05Z') }],
-    [['a', 'text'], ['b', 'text'], ['c', 'timestamptz']]
+    [
+      ['a', 'text'],
+      ['b', 'text'],
+      ['c', 'timestamptz'],
+    ],
   )
   const csv = resultToCsv(r)
   assert.equal(csv.split('\n')[1], ',,2024-01-02T03:04:05.000Z')
@@ -166,11 +249,16 @@ test('CSV export preserves duplicate headers and their distinct values', () => {
   const result: QueryResult = {
     columns: [
       { name: 'id', dataTypeID: 25, dataTypeName: 'text' },
-      { name: 'id', key: '__datakoala_column_1', dataTypeID: 25, dataTypeName: 'text' }
+      {
+        name: 'id',
+        key: '__datakoala_column_1',
+        dataTypeID: 25,
+        dataTypeName: 'text',
+      },
     ],
     rows: [{ id: 'A', __datakoala_column_1: 'B' }],
     rowCount: 1,
-    durationMs: 1
+    durationMs: 1,
   }
 
   assert.equal(resultToCsv(result), 'id,id\nA,B')

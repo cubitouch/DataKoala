@@ -10,33 +10,51 @@ const traceId = '0123456789abcdef0123456789abcdef'
 
 function searchPayload(status = 'error') {
   return {
-    stdout: JSON.stringify({ traces: [{
-      traceID: traceId,
-      rootServiceName: 'checkout',
-      rootTraceName: 'POST /checkout',
-      startTimeMs: Date.parse(start) + 1_000,
-      durationMs: 420,
-      spanSets: [{ spans: [{
-        spanID: 'a',
-        startTimeUnixNano: String(BigInt(Date.parse(start) + 1_000) * 1_000_000n),
-        attributes: { 'span:status': status }
-      }] }]
-    }] }),
-    stderr: ''
+    stdout: JSON.stringify({
+      traces: [
+        {
+          traceID: traceId,
+          rootServiceName: 'checkout',
+          rootTraceName: 'POST /checkout',
+          startTimeMs: Date.parse(start) + 1_000,
+          durationMs: 420,
+          spanSets: [
+            {
+              spans: [
+                {
+                  spanID: 'a',
+                  startTimeUnixNano: String(
+                    BigInt(Date.parse(start) + 1_000) * 1_000_000n,
+                  ),
+                  attributes: { 'span:status': status },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+    stderr: '',
   }
 }
 
 function rootMembershipPayload(matches: boolean) {
   return {
-    stdout: JSON.stringify({ traces: matches ? [{
-      traceID: traceId,
-      rootServiceName: 'checkout',
-      rootTraceName: 'POST /checkout',
-      startTimeMs: Date.parse(start) + 1_000,
-      durationMs: 420,
-      spanSets: [{ spans: [{ spanID: 'root' }] }]
-    }] : [] }),
-    stderr: ''
+    stdout: JSON.stringify({
+      traces: matches
+        ? [
+            {
+              traceID: traceId,
+              rootServiceName: 'checkout',
+              rootTraceName: 'POST /checkout',
+              startTimeMs: Date.parse(start) + 1_000,
+              durationMs: 420,
+              spanSets: [{ spans: [{ spanID: 'root' }] }],
+            },
+          ]
+        : [],
+    }),
+    stderr: '',
   }
 }
 
@@ -45,17 +63,22 @@ test('sampled Tempo search resolves root status by default without full trace ge
   const progress: TempoSearchProgress[] = []
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
-    if (args[2]?.includes('!>>') && args[2].includes('span:status = error')) return rootMembershipPayload(false)
+    if (args[2]?.includes('!>>') && args[2].includes('span:status = error'))
+      return rootMembershipPayload(false)
     return searchPayload('error')
   }
   const request: TempoQueryContext = {
     start,
     end,
     sampleSize: 250,
-    onProgress: (update) => progress.push(update)
+    onProgress: (update) => progress.push(update),
   }
 
-  const result = await new SamplingGcxTempoTransport('production', run, 'tempo-uid').search('{ true }', request)
+  const result = await new SamplingGcxTempoTransport(
+    'production',
+    run,
+    'tempo-uid',
+  ).search('{ true }', request)
 
   assert.equal(calls.length, 2)
   assert.equal(calls[0][0], 'traces')
@@ -74,12 +97,18 @@ test('sampled Tempo search resolves root status by default without full trace ge
   assert.match(calls[1][2], /span:status = error/)
   assert.doesNotMatch(calls[1][2], /select\(/)
   assert.equal(calls[1][calls[1].indexOf('--limit') + 1], '1')
-  assert.equal(calls.some((args) => args[2]?.includes('span:status = ok')), false)
+  assert.equal(
+    calls.some((args) => args[2]?.includes('span:status = ok')),
+    false,
+  )
   assert.equal(calls.filter((args) => args[1] === 'get').length, 0)
 
   assert.equal(result.rowCount, 1)
   assert.equal(result.rows[0].status, 'ok')
-  assert.match(result.notice ?? '', /1 returned · 1 search query · 1 root-status query/)
+  assert.match(
+    result.notice ?? '',
+    /1 returned · 1 search query · 1 root-status query/,
+  )
   assert.doesNotMatch(result.notice ?? '', /sample up to|max \d+ traces/)
   assert.equal(progress.length, 2)
   assert.equal(progress[0].coveredMs, 0)
@@ -100,12 +129,15 @@ test('sampled Tempo search can explicitly skip root status enrichment', async ()
     return searchPayload()
   }
 
-  const result = await new SamplingGcxTempoTransport(undefined, run).search('{ true }', {
-    start,
-    end,
-    sampleSize: 100,
-    includeStatus: false
-  })
+  const result = await new SamplingGcxTempoTransport(undefined, run).search(
+    '{ true }',
+    {
+      start,
+      end,
+      sampleSize: 100,
+      includeStatus: false,
+    },
+  )
 
   assert.equal(calls.length, 1)
   assert.equal(result.rows[0].status, 'error')
@@ -118,11 +150,17 @@ test('omitting a sample size preserves exhaustive complete-period pagination', a
     return searchPayload()
   }
 
-  const result = await new SamplingGcxTempoTransport(undefined, run).search('{ true }', { start, end, includeStatus: false })
+  const result = await new SamplingGcxTempoTransport(undefined, run).search(
+    '{ true }',
+    { start, end, includeStatus: false },
+  )
 
   assert.equal(calls.length, 1)
   assert.equal(calls[0][calls[0].indexOf('--limit') + 1], '100')
-  assert.match(result.notice ?? '', /complete period · 1 traces · 1 search query/)
+  assert.match(
+    result.notice ?? '',
+    /complete period · 1 traces · 1 search query/,
+  )
 })
 
 test('sample size validation rejects invalid budgets before querying Tempo', async () => {
@@ -133,8 +171,13 @@ test('sample size validation rejects invalid budgets before querying Tempo', asy
   }
 
   await assert.rejects(
-    () => new SamplingGcxTempoTransport(undefined, run).search('{ true }', { start, end, sampleSize: 0 }),
-    /positive integer/
+    () =>
+      new SamplingGcxTempoTransport(undefined, run).search('{ true }', {
+        start,
+        end,
+        sampleSize: 0,
+      }),
+    /positive integer/,
   )
   assert.equal(called, false)
 })

@@ -1,4 +1,8 @@
-import type { TraceCohortEdge, TraceCohortEdgeKind, TraceCohortNode } from './traceCohort.ts'
+import type {
+  TraceCohortEdge,
+  TraceCohortEdgeKind,
+  TraceCohortNode,
+} from './traceCohort.ts'
 
 export type TraceServiceMapGrouping = 'none' | 'namespace'
 
@@ -29,32 +33,49 @@ function namespaceKey(namespace: string): string {
   return `group:${namespace}`
 }
 
-function mergeKind(left: TraceCohortEdgeKind, right: TraceCohortEdgeKind): TraceCohortEdgeKind {
+function mergeKind(
+  left: TraceCohortEdgeKind,
+  right: TraceCohortEdgeKind,
+): TraceCohortEdgeKind {
   return left === right ? left : 'mixed'
 }
 
-function groupNode(namespace: string, members: TraceCohortNode[]): TraceServiceMapViewNode {
+function groupNode(
+  namespace: string,
+  members: TraceCohortNode[],
+): TraceServiceMapViewNode {
   const traceCount = Math.max(0, ...members.map((node) => node.traceCount))
-  const errorTraceCount = Math.max(0, ...members.map((node) => node.errorTraceCount))
+  const errorTraceCount = Math.max(
+    0,
+    ...members.map((node) => node.errorTraceCount),
+  )
   return {
     id: namespaceKey(namespace),
     label: `${namespace}\n${members.length} service${members.length === 1 ? '' : 's'}`,
     ...(namespace !== UNGROUPED_NAMESPACE ? { namespace } : {}),
     traceCount,
     traceRate: Math.max(0, ...members.map((node) => node.traceRate)),
-    rootTraceCount: members.reduce((total, node) => total + node.rootTraceCount, 0),
+    rootTraceCount: members.reduce(
+      (total, node) => total + node.rootTraceCount,
+      0,
+    ),
     spanCount: members.reduce((total, node) => total + node.spanCount, 0),
     errorTraceCount,
     errorRate: Math.max(0, ...members.map((node) => node.errorRate)),
     incidentImpact: Math.max(0, ...members.map((node) => node.incidentImpact)),
     viewKind: 'group',
     memberIds: members.map((node) => node.id),
-    groupKey: namespace
+    groupKey: namespace,
   }
 }
 
 function serviceNode(node: TraceCohortNode): TraceServiceMapViewNode {
-  return { ...node, viewKind: 'service', memberIds: [node.id], groupKey: namespaceFor(node) }
+  return {
+    ...node,
+    viewKind: 'service',
+    memberIds: [node.id],
+    groupKey: namespaceFor(node),
+  }
 }
 
 function aggregateEdge(
@@ -62,7 +83,7 @@ function aggregateEdge(
   edge: TraceCohortEdge,
   source: TraceServiceMapViewNode,
   target: TraceServiceMapViewNode,
-  cohortTraceCount: number
+  cohortTraceCount: number,
 ): TraceServiceMapViewEdge {
   if (!current) {
     return {
@@ -72,28 +93,44 @@ function aggregateEdge(
       target: target.id,
       sourceLabel: source.label.replaceAll('\n', ' · '),
       targetLabel: target.label.replaceAll('\n', ' · '),
-      memberEdgeKeys: [edge.key]
+      memberEdgeKeys: [edge.key],
     }
   }
 
   const traceIds = [...new Set([...current.traceIds, ...edge.traceIds])]
-  const slowTraceIds = [...new Set([...current.slowTraceIds, ...edge.slowTraceIds])]
-  const traceCount = traceIds.length || Math.max(current.traceCount, edge.traceCount)
+  const slowTraceIds = [
+    ...new Set([...current.slowTraceIds, ...edge.slowTraceIds]),
+  ]
+  const traceCount =
+    traceIds.length || Math.max(current.traceCount, edge.traceCount)
   const callCount = current.callCount + edge.callCount
-  const errorTraceCount = Math.min(traceCount, current.errorTraceCount + edge.errorTraceCount)
-  const baselineObservedTraceCount = Math.max(current.baselineObservedTraceCount, edge.baselineObservedTraceCount)
-  const slowObservedTraceCount = Math.max(current.slowObservedTraceCount, edge.slowObservedTraceCount)
+  const errorTraceCount = Math.min(
+    traceCount,
+    current.errorTraceCount + edge.errorTraceCount,
+  )
+  const baselineObservedTraceCount = Math.max(
+    current.baselineObservedTraceCount,
+    edge.baselineObservedTraceCount,
+  )
+  const slowObservedTraceCount = Math.max(
+    current.slowObservedTraceCount,
+    edge.slowObservedTraceCount,
+  )
 
   return {
     ...current,
     kind: mergeKind(current.kind, edge.kind),
     traceCount,
-    traceRate: cohortTraceCount ? traceCount / cohortTraceCount : Math.max(current.traceRate, edge.traceRate),
+    traceRate: cohortTraceCount
+      ? traceCount / cohortTraceCount
+      : Math.max(current.traceRate, edge.traceRate),
     callCount,
     callsPerAffectedTrace: traceCount ? callCount / traceCount : 0,
     errorCount: current.errorCount + edge.errorCount,
     errorTraceCount,
-    errorRate: traceCount ? errorTraceCount / traceCount : Math.max(current.errorRate, edge.errorRate),
+    errorRate: traceCount
+      ? errorTraceCount / traceCount
+      : Math.max(current.errorRate, edge.errorRate),
     p50Ms: Math.max(current.p50Ms, edge.p50Ms),
     p95Ms: Math.max(current.p95Ms, edge.p95Ms),
     baselineMedianMs: Math.max(current.baselineMedianMs, edge.baselineMedianMs),
@@ -101,15 +138,19 @@ function aggregateEdge(
     slowDeltaMs: Math.max(current.slowDeltaMs, edge.slowDeltaMs),
     baselineObservedTraceCount,
     slowObservedTraceCount,
-    latencyComparisonAvailable: current.latencyComparisonAvailable || edge.latencyComparisonAvailable,
-    baselinePresenceRate: Math.max(current.baselinePresenceRate, edge.baselinePresenceRate),
+    latencyComparisonAvailable:
+      current.latencyComparisonAvailable || edge.latencyComparisonAvailable,
+    baselinePresenceRate: Math.max(
+      current.baselinePresenceRate,
+      edge.baselinePresenceRate,
+    ),
     slowPresenceRate: Math.max(current.slowPresenceRate, edge.slowPresenceRate),
     slowPresenceLift: Math.max(current.slowPresenceLift, edge.slowPresenceLift),
     impact: current.impact + edge.impact,
     rank: Math.min(current.rank, edge.rank),
     traceIds,
     slowTraceIds,
-    memberEdgeKeys: [...current.memberEdgeKeys, edge.key]
+    memberEdgeKeys: [...current.memberEdgeKeys, edge.key],
   }
 }
 
@@ -118,16 +159,19 @@ export function groupTraceServiceMap(
   edges: TraceCohortEdge[],
   grouping: TraceServiceMapGrouping,
   expandedGroups: ReadonlySet<string>,
-  cohortTraceCount: number
+  cohortTraceCount: number,
 ): TraceServiceMapGroupedView {
   if (grouping === 'none') {
     const viewNodes = nodes.map(serviceNode)
-    const viewEdges = edges.map((edge) => ({ ...edge, memberEdgeKeys: [edge.key] }))
+    const viewEdges = edges.map((edge) => ({
+      ...edge,
+      memberEdgeKeys: [edge.key],
+    }))
     return {
       nodes: viewNodes,
       edges: viewEdges,
       nodeById: new Map(viewNodes.map((node) => [node.id, node])),
-      edgeById: new Map(viewEdges.map((edge) => [edge.key, edge]))
+      edgeById: new Map(viewEdges.map((edge) => [edge.key, edge])),
     }
   }
 
@@ -141,7 +185,9 @@ export function groupTraceServiceMap(
 
   const viewNodes: TraceServiceMapViewNode[] = []
   const endpointByService = new Map<string, string>()
-  for (const [namespace, members] of [...nodesByNamespace.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [namespace, members] of [...nodesByNamespace.entries()].sort(
+    ([left], [right]) => left.localeCompare(right),
+  )) {
     if (expandedGroups.has(namespace)) {
       for (const member of members) {
         const viewNode = serviceNode(member)
@@ -151,7 +197,8 @@ export function groupTraceServiceMap(
     } else {
       const viewNode = groupNode(namespace, members)
       viewNodes.push(viewNode)
-      for (const member of members) endpointByService.set(member.id, viewNode.id)
+      for (const member of members)
+        endpointByService.set(member.id, viewNode.id)
     }
   }
 
@@ -165,17 +212,31 @@ export function groupTraceServiceMap(
     const target = nodeById.get(targetId)
     if (!source || !target) continue
     const key = `view:${sourceId}->${targetId}`
-    groupedEdges.set(key, aggregateEdge(groupedEdges.get(key), edge, source, target, cohortTraceCount))
+    groupedEdges.set(
+      key,
+      aggregateEdge(
+        groupedEdges.get(key),
+        edge,
+        source,
+        target,
+        cohortTraceCount,
+      ),
+    )
   }
 
   const viewEdges = [...groupedEdges.values()]
-    .sort((left, right) => right.impact - left.impact || left.rank - right.rank || left.key.localeCompare(right.key))
+    .sort(
+      (left, right) =>
+        right.impact - left.impact ||
+        left.rank - right.rank ||
+        left.key.localeCompare(right.key),
+    )
     .map((edge, index) => ({ ...edge, rank: index + 1 }))
 
   return {
     nodes: viewNodes,
     edges: viewEdges,
     nodeById,
-    edgeById: new Map(viewEdges.map((edge) => [edge.key, edge]))
+    edgeById: new Map(viewEdges.map((edge) => [edge.key, edge])),
   }
 }

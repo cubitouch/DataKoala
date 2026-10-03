@@ -1,14 +1,29 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react'
 import { sql as sqlExtension } from '@codemirror/lang-sql'
 import { PromQLExtension } from '@prometheus-io/codemirror-promql'
 import { selectActiveSession, selectSession, useStore } from '@store/useStore'
 import { api } from '@lib/api'
 import { ensureConnectionForTab } from '@lib/tabConnection'
 import { CopySqlButton } from './CopySqlButton'
-import { DATA_SOURCE_CAPABILITIES, queryLanguageForSourceKind, type DatabaseSchemaNode, type QueryResult } from '@shared/types'
+import {
+  DATA_SOURCE_CAPABILITIES,
+  queryLanguageForSourceKind,
+  type DatabaseSchemaNode,
+  type QueryResult,
+} from '@shared/types'
 import { formatSql } from '@lib/formatSql'
 import { ModeSwitch } from './ModeSwitch'
-import { queryResultFilters, wrapSqlWithResultFilters } from '@lib/resultFilters'
+import {
+  queryResultFilters,
+  wrapSqlWithResultFilters,
+} from '@lib/resultFilters'
 import { codeMirrorDialect, formatterDialect } from '@lib/sqlDialect'
 import { buildSqlCompletionSchema } from '@lib/sqlCompletionSchema'
 import { sqlAliasCompletionSource } from '@lib/sqlAliasCompletion'
@@ -16,8 +31,15 @@ import { ensureRelationColumns } from '@lib/relationColumns'
 import { TimeRangeField } from './time-range/TimeRangeField'
 import { QueryUtilityActions } from './QueryUtilityActions'
 import { prometheusRangeBounds } from '@lib/prometheusTimeRange'
-import { effectivePrometheusStep, isPrometheusStepSafe, PROMETHEUS_MANUAL_STEPS } from '@lib/prometheusResolution'
-import { PromqlBuilderPanel, type PromqlBuilderQueryState } from '@components/builder/prometheus/PromqlBuilderPanel'
+import {
+  effectivePrometheusStep,
+  isPrometheusStepSafe,
+  PROMETHEUS_MANUAL_STEPS,
+} from '@lib/prometheusResolution'
+import {
+  PromqlBuilderPanel,
+  type PromqlBuilderQueryState,
+} from '@components/builder/prometheus/PromqlBuilderPanel'
 import { Combobox } from '@components/ui/combobox'
 import { notify } from '@components/ui/feedback/NotificationArea'
 import styles from './QueryEditor.module.css'
@@ -26,25 +48,46 @@ import { QueryCodeEditor, type QueryCodeEditorHandle } from './QueryCodeEditor'
 import { GrafanaHandoffActions } from './GrafanaHandoffActions'
 
 const EMPTY_SCHEMAS: DatabaseSchemaNode[] = []
-const stillBoundTo = (requestTabId: string, profileId: string) => selectSession(useStore.getState(), requestTabId)?.connectionProfileId === profileId
+const stillBoundTo = (requestTabId: string, profileId: string) =>
+  selectSession(useStore.getState(), requestTabId)?.connectionProfileId ===
+  profileId
 
-export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) {
+export function QueryEditor({
+  builderMode = false,
+}: {
+  builderMode?: boolean
+}) {
   const tabId = useStore((s) => s.activeTabId)
   const sql = useStore((s) => selectActiveSession(s).sql)
   const setSql = useStore((s) => s.setSql)
-  const prometheusTimeRange = useStore((s) => selectActiveSession(s).prometheusTimeRange)
+  const prometheusTimeRange = useStore(
+    (s) => selectActiveSession(s).prometheusTimeRange,
+  )
   const prometheusStep = useStore((s) => selectActiveSession(s).prometheusStep)
   const setPrometheusQueryOptions = useStore((s) => s.setPrometheusQueryOptions)
-  const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
-  const connectionKind = useStore((s) => s.profiles.find((profile) => profile.id === tabConnectionId)?.kind)
-  const prometheusProfile = useStore((s) => s.profiles.find((profile) => profile.id === tabConnectionId && profile.kind === 'prometheus'))
+  const tabConnectionId = useStore(
+    (s) => selectActiveSession(s).connectionProfileId,
+  )
+  const connectionKind = useStore(
+    (s) => s.profiles.find((profile) => profile.id === tabConnectionId)?.kind,
+  )
+  const prometheusProfile = useStore((s) =>
+    s.profiles.find(
+      (profile) =>
+        profile.id === tabConnectionId && profile.kind === 'prometheus',
+    ),
+  )
   const prometheusDatasourceUid = useStore((s) => {
     const profile = s.profiles.find((item) => item.id === tabConnectionId)
-    return profile?.kind === 'prometheus' ? profile.transport.datasourceUid : undefined
+    return profile?.kind === 'prometheus'
+      ? profile.transport.datasourceUid
+      : undefined
   })
   const language = queryLanguageForSourceKind(connectionKind ?? 'postgres')
   const dialect = language.kind === 'sql' ? language.dialect : 'postgres'
-  const metadata = useStore((s) => tabConnectionId ? s.metadataByProfileId[tabConnectionId] : undefined)
+  const metadata = useStore((s) =>
+    tabConnectionId ? s.metadataByProfileId[tabConnectionId] : undefined,
+  )
   const metadataRefreshing = metadata?.refreshing ?? false
   const schemas = metadata?.schemas ?? EMPTY_SCHEMAS
   const connecting = useStore((s) => s.connecting)
@@ -57,21 +100,38 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const result = useStore((s) => selectActiveSession(s).result)
   const setExplain = useStore((s) => s.setExplain)
   const setShowExplain = useStore((s) => s.setShowExplain)
-  const activeExplainRequest = useStore((s) => selectActiveSession(s).activeExplainRequest)
+  const activeExplainRequest = useStore(
+    (s) => selectActiveSession(s).activeExplainRequest,
+  )
   const setActiveExplainRequest = useStore((s) => s.setActiveExplainRequest)
   const [formatting, setFormatting] = useState(false)
-  const [reportedBuilderQuery, setReportedBuilderQuery] = useState<{ tabId: string; connectionId: string | null; state: PromqlBuilderQueryState } | null>(null)
-  const handleBuilderQueryStateChange = useCallback((state: PromqlBuilderQueryState) => {
-    setReportedBuilderQuery({ tabId, connectionId: tabConnectionId, state })
-  }, [tabId, tabConnectionId])
-  const builderQueryState = reportedBuilderQuery?.tabId === tabId && reportedBuilderQuery.connectionId === tabConnectionId
-    ? reportedBuilderQuery.state
-    : null
-  const effectiveExecutionQuery = builderMode ? (builderQueryState?.generated ?? '') : sql
-  const effectiveDisplayQuery = builderMode ? (builderQueryState?.displayed ?? builderQueryState?.generated ?? '') : sql
+  const [reportedBuilderQuery, setReportedBuilderQuery] = useState<{
+    tabId: string
+    connectionId: string | null
+    state: PromqlBuilderQueryState
+  } | null>(null)
+  const handleBuilderQueryStateChange = useCallback(
+    (state: PromqlBuilderQueryState) => {
+      setReportedBuilderQuery({ tabId, connectionId: tabConnectionId, state })
+    },
+    [tabId, tabConnectionId],
+  )
+  const builderQueryState =
+    reportedBuilderQuery?.tabId === tabId &&
+    reportedBuilderQuery.connectionId === tabConnectionId
+      ? reportedBuilderQuery.state
+      : null
+  const effectiveExecutionQuery = builderMode
+    ? (builderQueryState?.generated ?? '')
+    : sql
+  const effectiveDisplayQuery = builderMode
+    ? (builderQueryState?.displayed ?? builderQueryState?.generated ?? '')
+    : sql
   const editorRef = useRef<QueryCodeEditorHandle>(null)
   const filters = useStore((s) => selectActiveSession(s).sqlResultFilters)
-  const filterRevision = useStore((s) => selectActiveSession(s).queryFilterRevision.sql)
+  const filterRevision = useStore(
+    (s) => selectActiveSession(s).queryFilterRevision.sql,
+  )
   const initialFilterRevision = useRef(new Map<string, number>())
   const runRevisions = useRef(new Map<string, number>())
 
@@ -80,12 +140,28 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
     const editorDialect = codeMirrorDialect(dialect)
     const completion = buildSqlCompletionSchema(schemas, dialect)
     return [
-      sqlExtension({ dialect: editorDialect, schema: completion.schema, defaultSchema: completion.defaultSchema, upperCaseKeywords: true }),
-      editorDialect.language.data.of({ autocomplete: sqlAliasCompletionSource(schemas, dialect, async (relation) => {
-        const state = useStore.getState()
-        if (!tabConnectionId || state.activeProfileId !== tabConnectionId || !state.connected) return undefined
-        return ensureRelationColumns(tabConnectionId, relation)
-      }) })
+      sqlExtension({
+        dialect: editorDialect,
+        schema: completion.schema,
+        defaultSchema: completion.defaultSchema,
+        upperCaseKeywords: true,
+      }),
+      editorDialect.language.data.of({
+        autocomplete: sqlAliasCompletionSource(
+          schemas,
+          dialect,
+          async (relation) => {
+            const state = useStore.getState()
+            if (
+              !tabConnectionId ||
+              state.activeProfileId !== tabConnectionId ||
+              !state.connected
+            )
+              return undefined
+            return ensureRelationColumns(tabConnectionId, relation)
+          },
+        ),
+      }),
     ]
   }, [language.kind, dialect, schemas, tabConnectionId])
   const run = useCallback(async () => {
@@ -98,7 +174,11 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
       return
     }
     if (!tabConnectionId) {
-      setResult(null, 'Not connected. Pick a connection in the sidebar first.', requestTabId)
+      setResult(
+        null,
+        'Not connected. Pick a connection in the sidebar first.',
+        requestTabId,
+      )
       return
     }
     const requestProfileId = await ensureConnectionForTab(requestTabId)
@@ -112,37 +192,104 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
     runRevisions.current.set(requestTabId, revision)
     startQuery(requestTabId)
     try {
-      const promoted = language.kind === 'sql' ? queryResultFilters(requestFilters) : []
-      const execution = promoted.length ? wrapSqlWithResultFilters(requestSql, promoted, dialect) : { sql: requestSql, parameters: [] }
-      if (!execution) throw new Error('This SQL cannot safely be wrapped; move query filters back to the client.')
+      const promoted =
+        language.kind === 'sql' ? queryResultFilters(requestFilters) : []
+      const execution = promoted.length
+        ? wrapSqlWithResultFilters(requestSql, promoted, dialect)
+        : { sql: requestSql, parameters: [] }
+      if (!execution)
+        throw new Error(
+          'This SQL cannot safely be wrapped; move query filters back to the client.',
+        )
       const requestSession = selectSession(useStore.getState(), requestTabId)
-      const promBounds = language.kind === 'promql' && requestSession ? prometheusRangeBounds(requestSession.prometheusTimeRange) : undefined
-      const effectiveStep = promBounds && requestSession ? effectivePrometheusStep(promBounds, requestSession.prometheusStep) : undefined
-      if (promBounds && requestSession?.prometheusStep !== 'auto' && effectiveStep && !isPrometheusStepSafe(promBounds, effectiveStep)) {
-        throw new Error('Too many data points for this Resolution — use Auto, increase the Resolution, or reduce the time range.')
+      const promBounds =
+        language.kind === 'promql' && requestSession
+          ? prometheusRangeBounds(requestSession.prometheusTimeRange)
+          : undefined
+      const effectiveStep =
+        promBounds && requestSession
+          ? effectivePrometheusStep(promBounds, requestSession.prometheusStep)
+          : undefined
+      if (
+        promBounds &&
+        requestSession?.prometheusStep !== 'auto' &&
+        effectiveStep &&
+        !isPrometheusStepSafe(promBounds, effectiveStep)
+      ) {
+        throw new Error(
+          'Too many data points for this Resolution — use Auto, increase the Resolution, or reduce the time range.',
+        )
       }
-      const promRange = promBounds && effectiveStep ? { ...promBounds, step: effectiveStep } : undefined
-      const res: QueryResult = await api.query.run(requestProfileId, execution.sql, execution.parameters, promRange)
+      const promRange =
+        promBounds && effectiveStep
+          ? { ...promBounds, step: effectiveStep }
+          : undefined
+      const res: QueryResult = await api.query.run(
+        requestProfileId,
+        execution.sql,
+        execution.parameters,
+        promRange,
+      )
       if (language.kind === 'promql') {
-        const seriesColumns = builderMode ? (requestSession?.promqlBuilder.groupBy ?? []) : []
-        setVisualization('sql', {
-          ...(requestSession?.lastSuccessfulResultRevision === 0 ? { view: 'line' as const } : {}),
-          xColumn: 'timestamp',
-          valueColumn: 'value',
-          seriesColumn: seriesColumns.length === 1 ? seriesColumns[0] : null,
-          seriesColumns: seriesColumns.length > 1 ? seriesColumns : [],
-          aggregation: 'sum'
-        }, requestTabId)
+        const seriesColumns = builderMode
+          ? (requestSession?.promqlBuilder.groupBy ?? [])
+          : []
+        setVisualization(
+          'sql',
+          {
+            ...(requestSession?.lastSuccessfulResultRevision === 0
+              ? { view: 'line' as const }
+              : {}),
+            xColumn: 'timestamp',
+            valueColumn: 'value',
+            seriesColumn: seriesColumns.length === 1 ? seriesColumns[0] : null,
+            seriesColumns: seriesColumns.length > 1 ? seriesColumns : [],
+            aggregation: 'sum',
+          },
+          requestTabId,
+        )
       }
-      if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(res, null, requestTabId)
+      if (
+        runRevisions.current.get(requestTabId) === revision &&
+        stillBoundTo(requestTabId, requestProfileId)
+      )
+        completeQuery(res, null, requestTabId)
     } catch (e) {
-      if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(null, e instanceof Error ? e.message : String(e), requestTabId)
+      if (
+        runRevisions.current.get(requestTabId) === revision &&
+        stillBoundTo(requestTabId, requestProfileId)
+      )
+        completeQuery(
+          null,
+          e instanceof Error ? e.message : String(e),
+          requestTabId,
+        )
     }
-  }, [connecting, metadataRefreshing, tabId, effectiveExecutionQuery, filters, setResult, tabConnectionId, startQuery, language.kind, dialect, builderMode, setVisualization, completeQuery])
+  }, [
+    connecting,
+    metadataRefreshing,
+    tabId,
+    effectiveExecutionQuery,
+    filters,
+    setResult,
+    tabConnectionId,
+    startQuery,
+    language.kind,
+    dialect,
+    builderMode,
+    setVisualization,
+    completeQuery,
+  ])
 
   useEffect(() => {
     const previous = initialFilterRevision.current.get(tabId)
-    if (previous !== undefined && filterRevision !== previous && result && !running) void run()
+    if (
+      previous !== undefined &&
+      filterRevision !== previous &&
+      result &&
+      !running
+    )
+      void run()
     initialFilterRevision.current.set(tabId, filterRevision)
   }, [tabId, filterRevision, result, running, run])
 
@@ -158,10 +305,16 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
       return
     }
     try {
-      const res = await api.query.explain(requestProfileId, requestSql, mode === 'analyze')
-      if (stillBoundTo(requestTabId, requestProfileId)) setExplain(res.text, requestTabId)
+      const res = await api.query.explain(
+        requestProfileId,
+        requestSql,
+        mode === 'analyze',
+      )
+      if (stillBoundTo(requestTabId, requestProfileId))
+        setExplain(res.text, requestTabId)
     } catch (e) {
-      if (stillBoundTo(requestTabId, requestProfileId)) setExplain(e instanceof Error ? e.message : String(e), requestTabId)
+      if (stillBoundTo(requestTabId, requestProfileId))
+        setExplain(e instanceof Error ? e.message : String(e), requestTabId)
     } finally {
       setActiveExplainRequest(null, requestTabId)
     }
@@ -171,7 +324,9 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const isAnalyzeLoading = activeExplainRequest === 'analyze'
   const isAnyExplainLoading = activeExplainRequest !== null
   const canUseDatabase = Boolean(tabConnectionId) && !connecting
-  const canFormatPromql = language.kind !== 'promql' || Boolean(tabConnectionId && connected && prometheusDatasourceUid?.trim())
+  const canFormatPromql =
+    language.kind !== 'promql' ||
+    Boolean(tabConnectionId && connected && prometheusDatasourceUid?.trim())
   const capabilities = DATA_SOURCE_CAPABILITIES[connectionKind ?? 'postgres']
   const canExplain = canUseDatabase && capabilities.explain
   const canAnalyze = canUseDatabase && capabilities.analyze
@@ -180,7 +335,16 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
     const active = useStore.getState().activeTabId === requestTabId
     if (!active || !editorRef.current?.replaceDocumentAndFocus(formatted)) {
       setSql(formatted, requestTabId)
-      if (active) requestAnimationFrame(() => document.querySelector<HTMLElement>(language.kind === 'promql' ? '[aria-label="PromQL editor"]' : '[aria-label="SQL editor"]')?.focus())
+      if (active)
+        requestAnimationFrame(() =>
+          document
+            .querySelector<HTMLElement>(
+              language.kind === 'promql'
+                ? '[aria-label="PromQL editor"]'
+                : '[aria-label="SQL editor"]',
+            )
+            ?.focus(),
+        )
     }
   }
 
@@ -192,12 +356,23 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
       if (!canFormatPromql || !tabConnectionId) return
       setFormatting(true)
       try {
-        const formatted = await api.connections.prometheus.formatQuery(tabConnectionId, originalQuery)
-        if (selectSession(useStore.getState(), requestTabId)?.sql !== originalQuery) return
+        const formatted = await api.connections.prometheus.formatQuery(
+          tabConnectionId,
+          originalQuery,
+        )
+        if (
+          selectSession(useStore.getState(), requestTabId)?.sql !==
+          originalQuery
+        )
+          return
         applyFormattedQuery(formatted, requestTabId)
         notify({ message: 'Formatted', duration: 2600 })
       } catch (error) {
-        notify({ message: error instanceof Error ? error.message : 'Could not format PromQL', duration: 3200 })
+        notify({
+          message:
+            error instanceof Error ? error.message : 'Could not format PromQL',
+          duration: 3200,
+        })
       } finally {
         setFormatting(false)
       }
@@ -226,30 +401,136 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   }
 
   return (
-    <div className={`editor-pane ${styles.pane}`} data-query-editor onKeyDown={onKey}>
-      <QueryToolbar className={styles.head}
+    <div
+      className={`editor-pane ${styles.pane}`}
+      data-query-editor
+      onKeyDown={onKey}
+    >
+      <QueryToolbar
+        className={styles.head}
         mode={<ModeSwitch />}
-        options={language.kind === 'promql' ? <div className={styles.timeGroup} aria-label="Prometheus time controls"><TimeRangeField labelVisibility="sr-only" value={prometheusTimeRange} onChange={(value) => setPrometheusQueryOptions({ prometheusTimeRange: value }, tabId)} /><div className={`promql-step ${styles.promqlStep}`}><Combobox label="Resolution" mode="inline" hint="Auto targets about 1,200 points per series. Choose a fixed interval for manual control." value={prometheusStep} options={[{ value: 'auto', label: `Auto (${effectivePrometheusStep(prometheusRangeBounds(prometheusTimeRange), 'auto')})` }, ...PROMETHEUS_MANUAL_STEPS.map((value) => ({ value, label: value }))]} onChange={(value) => setPrometheusQueryOptions({ prometheusStep: value as typeof prometheusStep }, tabId)} /></div></div> : undefined}
+        options={
+          language.kind === 'promql' ? (
+            <div
+              className={styles.timeGroup}
+              aria-label="Prometheus time controls"
+            >
+              <TimeRangeField
+                labelVisibility="sr-only"
+                value={prometheusTimeRange}
+                onChange={(value) =>
+                  setPrometheusQueryOptions(
+                    { prometheusTimeRange: value },
+                    tabId,
+                  )
+                }
+              />
+              <div className={`promql-step ${styles.promqlStep}`}>
+                <Combobox
+                  label="Resolution"
+                  mode="inline"
+                  hint="Auto targets about 1,200 points per series. Choose a fixed interval for manual control."
+                  value={prometheusStep}
+                  options={[
+                    {
+                      value: 'auto',
+                      label: `Auto (${effectivePrometheusStep(prometheusRangeBounds(prometheusTimeRange), 'auto')})`,
+                    },
+                    ...PROMETHEUS_MANUAL_STEPS.map((value) => ({
+                      value,
+                      label: value,
+                    })),
+                  ]}
+                  onChange={(value) =>
+                    setPrometheusQueryOptions(
+                      { prometheusStep: value as typeof prometheusStep },
+                      tabId,
+                    )
+                  }
+                />
+              </div>
+            </div>
+          ) : undefined
+        }
         utilities={<QueryUtilityActions />}
-        editorActions={<div className={styles.editorActions}>{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
-          {formatting ? 'Formatting…' : 'Format'}
-        </button>}
-        <CopySqlButton sql={effectiveDisplayQuery} />
-        {language.kind === 'promql' && <GrafanaHandoffActions profile={prometheusProfile?.kind === 'prometheus' ? prometheusProfile : undefined} query={effectiveDisplayQuery} range={prometheusTimeRange} />}
-        {language.kind === 'sql' && capabilities.explain && <button className={`btn ghost explain-action ${styles.explainAction}`} onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
-          {isExplainLoading && <span className="spinner" aria-hidden="true" />}
-          {isExplainLoading ? 'Explaining…' : 'Explain'}
-        </button>}
-        {language.kind === 'sql' && capabilities.analyze && <button className={`btn ghost explain-action analyze ${styles.explainAction} ${styles.analyzeAction}`} onClick={() => explain('analyze')} disabled={isAnyExplainLoading || !canAnalyze} aria-busy={isAnalyzeLoading}>
-          {isAnalyzeLoading && <span className="spinner" aria-hidden="true" />}
-          {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
-        </button>}</div>}
-        execution={<button className="btn primary" onClick={run} disabled={metadataRefreshing || !canUseDatabase || running || (builderMode && (!builderQueryState?.generated || Boolean(builderQueryState.validation)))} title="Run (Ctrl/Command+Enter)">
-          {running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}
-        </button>}
+        editorActions={
+          <div className={styles.editorActions}>
+            {!builderMode && (
+              <button
+                className="btn ghost"
+                onClick={() => void doFormat()}
+                title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`}
+                disabled={!sql.trim() || formatting || !canFormatPromql}
+                aria-busy={formatting}
+              >
+                {formatting ? 'Formatting…' : 'Format'}
+              </button>
+            )}
+            <CopySqlButton sql={effectiveDisplayQuery} />
+            {language.kind === 'promql' && (
+              <GrafanaHandoffActions
+                profile={
+                  prometheusProfile?.kind === 'prometheus'
+                    ? prometheusProfile
+                    : undefined
+                }
+                query={effectiveDisplayQuery}
+                range={prometheusTimeRange}
+              />
+            )}
+            {language.kind === 'sql' && capabilities.explain && (
+              <button
+                className={`btn ghost explain-action ${styles.explainAction}`}
+                onClick={() => explain('explain')}
+                disabled={isAnyExplainLoading || !canExplain}
+                aria-busy={isExplainLoading}
+              >
+                {isExplainLoading && (
+                  <span className="spinner" aria-hidden="true" />
+                )}
+                {isExplainLoading ? 'Explaining…' : 'Explain'}
+              </button>
+            )}
+            {language.kind === 'sql' && capabilities.analyze && (
+              <button
+                className={`btn ghost explain-action analyze ${styles.explainAction} ${styles.analyzeAction}`}
+                onClick={() => explain('analyze')}
+                disabled={isAnyExplainLoading || !canAnalyze}
+                aria-busy={isAnalyzeLoading}
+              >
+                {isAnalyzeLoading && (
+                  <span className="spinner" aria-hidden="true" />
+                )}
+                {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
+              </button>
+            )}
+          </div>
+        }
+        execution={
+          <button
+            className="btn primary"
+            onClick={run}
+            disabled={
+              metadataRefreshing ||
+              !canUseDatabase ||
+              running ||
+              (builderMode &&
+                (!builderQueryState?.generated ||
+                  Boolean(builderQueryState.validation)))
+            }
+            title="Run (Ctrl/Command+Enter)"
+          >
+            {running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}
+          </button>
+        }
       />
 
-      {builderMode ? <PromqlBuilderPanel onQueryStateChange={handleBuilderQueryStateChange} /> : <QueryCodeEditor
+      {builderMode ? (
+        <PromqlBuilderPanel
+          onQueryStateChange={handleBuilderQueryStateChange}
+        />
+      ) : (
+        <QueryCodeEditor
           ref={editorRef}
           className={`cm-wrap ${styles.editor}`}
           value={sql}
@@ -257,9 +538,11 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
           extensions={extensions}
           onChange={(value) => setSql(value, tabId)}
           editable={!isAnyExplainLoading}
-          aria-label={language.kind === 'promql' ? 'PromQL editor' : 'SQL editor'}
-        />}
-
+          aria-label={
+            language.kind === 'promql' ? 'PromQL editor' : 'SQL editor'
+          }
+        />
+      )}
     </div>
   )
 }

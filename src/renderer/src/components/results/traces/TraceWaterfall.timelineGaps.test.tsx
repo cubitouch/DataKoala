@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MAX_RENDERED_SPANS, TimelineGapOverlay, TraceWaterfall, type TraceWaterfallProps } from './TraceWaterfall'
+import {
+  MAX_RENDERED_SPANS,
+  TimelineGapOverlay,
+  TraceWaterfall,
+  type TraceWaterfallProps,
+} from './TraceWaterfall'
 
 describe('TimelineGapOverlay', () => {
   afterEach(cleanup)
@@ -11,7 +16,7 @@ describe('TimelineGapOverlay', () => {
       key: String(index),
       left: index * 20,
       width: 1,
-      durationMs: 1_000
+      durationMs: 1_000,
     }))
     const { container } = render(<TimelineGapOverlay gaps={gaps} />)
 
@@ -25,14 +30,32 @@ describe('TimelineGapOverlay', () => {
   })
 })
 
-const root = { spanId: 'root', parentSpanId: '', service: 'api', name: 'request', startTimeMs: 0, durationMs: 100, status: 'OK' }
-const child = { spanId: 'child', parentSpanId: 'root', service: 'db', name: 'query', startTimeMs: 20, durationMs: 40, status: 'ERROR' }
+const root = {
+  spanId: 'root',
+  parentSpanId: '',
+  service: 'api',
+  name: 'request',
+  startTimeMs: 0,
+  durationMs: 100,
+  status: 'OK',
+}
+const child = {
+  spanId: 'child',
+  parentSpanId: 'root',
+  service: 'db',
+  name: 'query',
+  startTimeMs: 20,
+  durationMs: 40,
+  status: 'ERROR',
+}
 
-function waterfallProps(overrides: Partial<TraceWaterfallProps> = {}): TraceWaterfallProps {
+function waterfallProps(
+  overrides: Partial<TraceWaterfallProps> = {},
+): TraceWaterfallProps {
   return {
     visibleTree: [
       { row: root, id: 'root', depth: 0, hasChildren: true },
-      { row: child, id: 'child', depth: 1, hasChildren: false }
+      { row: child, id: 'child', depth: 1, hasChildren: false },
     ],
     timelineSpans: [root, child],
     selectedSpanId: 'child',
@@ -45,7 +68,7 @@ function waterfallProps(overrides: Partial<TraceWaterfallProps> = {}): TraceWate
     hasInspector: true,
     onSelectSpan: vi.fn(),
     onToggleCollapse: vi.fn(),
-    ...overrides
+    ...overrides,
   }
 }
 
@@ -66,23 +89,59 @@ describe('TraceWaterfall', () => {
     const props = waterfallProps()
     const { container, getByRole } = render(<TraceWaterfall {...props} />)
 
-    expect(container.querySelector('[data-span-id="child"]')?.className).toContain('selected')
+    expect(
+      container.querySelector('[data-span-id="child"]')?.className,
+    ).toContain('selected')
     fireEvent.click(getByRole('button', { name: 'Collapse request' }))
     expect(props.onToggleCollapse).toHaveBeenCalledWith('root')
   })
 
   it('preserves the filtered-empty state', () => {
-    const { getByText, container } = render(<TraceWaterfall {...waterfallProps({ visibleTree: [], timelineSpans: [], filteredSpanCount: 0 })} />)
+    const { getByText, container } = render(
+      <TraceWaterfall
+        {...waterfallProps({
+          visibleTree: [],
+          timelineSpans: [],
+          filteredSpanCount: 0,
+        })}
+      />,
+    )
 
     expect(getByText('No spans match the current trace filters.')).toBeTruthy()
-    expect(container.querySelector('[data-trace-waterfall]')?.getAttribute('data-visual-items')).toBe('0')
+    expect(
+      container
+        .querySelector('[data-trace-waterfall]')
+        ?.getAttribute('data-visual-items'),
+    ).toBe('0')
   })
 
   it('caps rendering at the configured row limit', () => {
-    const visibleTree = Array.from({ length: MAX_RENDERED_SPANS + 1 }, (_, index) => ({ row: { ...child, spanId: `span-${index}` }, id: `span-${index}`, depth: 0, hasChildren: false }))
-    const { container } = render(<TraceWaterfall {...waterfallProps({ visibleTree, filteredSpanCount: MAX_RENDERED_SPANS + 1, totalSpanCount: MAX_RENDERED_SPANS + 1 })} />)
+    const visibleTree = Array.from(
+      { length: MAX_RENDERED_SPANS + 1 },
+      (_, index) => ({
+        row: { ...child, spanId: `span-${index}` },
+        id: `span-${index}`,
+        depth: 0,
+        hasChildren: false,
+      }),
+    )
+    const { container } = render(
+      <TraceWaterfall
+        {...waterfallProps({
+          visibleTree,
+          filteredSpanCount: MAX_RENDERED_SPANS + 1,
+          totalSpanCount: MAX_RENDERED_SPANS + 1,
+        })}
+      />,
+    )
 
-    expect(container.querySelectorAll('[data-span-id]')).toHaveLength(MAX_RENDERED_SPANS)
-    expect(container.querySelector('[data-trace-waterfall]')?.getAttribute('data-visual-items')).toBe(String(MAX_RENDERED_SPANS))
+    expect(container.querySelectorAll('[data-span-id]')).toHaveLength(
+      MAX_RENDERED_SPANS,
+    )
+    expect(
+      container
+        .querySelector('[data-trace-waterfall]')
+        ?.getAttribute('data-visual-items'),
+    ).toBe(String(MAX_RENDERED_SPANS))
   })
 })

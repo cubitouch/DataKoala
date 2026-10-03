@@ -29,32 +29,68 @@ function languageExtensions(language: GeneratedQueryLanguage) {
   return []
 }
 
-export function GeneratedQueryPanel({ language, value, onOpenInEditor, emptyState, validation, supplementary, className }: GeneratedQueryPanelProps) {
+export function GeneratedQueryPanel({
+  language,
+  value,
+  onOpenInEditor,
+  emptyState,
+  validation,
+  supplementary,
+  className,
+}: GeneratedQueryPanelProps) {
   const query = value ?? ''
   const hasQuery = query.trim().length > 0
   const canOpen = hasQuery && !validation
 
-  const section = <CollapsibleSection title={`Generated ${language}`} contentPadding="none" actions={<>
-        <CopySqlButton sql={query} language={language} />
-        {onOpenInEditor && <button
-          className="btn ghost"
-          type="button"
-          disabled={!canOpen}
-          onClick={() => { if (canOpen) onOpenInEditor() }}
-        >Open in {language} mode</button>}
-      </>}>
-    {validation ? <div className={`${styles.feedback} inline-error`} role="status">{validation}</div> : hasQuery ? <>
-      <CodeMirror
-        value={query}
-        height="150px"
-        theme={oneDark}
-        extensions={languageExtensions(language)}
-        editable={false}
-        aria-label={`Generated ${language} query`}
-        basicSetup={{ lineNumbers: true, foldGutter: false }}
-      />
-      {supplementary && <div className={styles.supplementary}>{supplementary}</div>}
-    </> : <div className={styles.feedback}>{emptyState}</div>}
-  </CollapsibleSection>
-  return <div className={className} data-generated-query-panel>{section}</div>
+  const section = (
+    <CollapsibleSection
+      title={`Generated ${language}`}
+      contentPadding="none"
+      actions={
+        <>
+          <CopySqlButton sql={query} language={language} />
+          {onOpenInEditor && (
+            <button
+              className="btn ghost"
+              type="button"
+              disabled={!canOpen}
+              onClick={() => {
+                if (canOpen) onOpenInEditor()
+              }}
+            >
+              Open in {language} mode
+            </button>
+          )}
+        </>
+      }
+    >
+      {validation ? (
+        <div className={`${styles.feedback} inline-error`} role="status">
+          {validation}
+        </div>
+      ) : hasQuery ? (
+        <>
+          <CodeMirror
+            value={query}
+            height="150px"
+            theme={oneDark}
+            extensions={languageExtensions(language)}
+            editable={false}
+            aria-label={`Generated ${language} query`}
+            basicSetup={{ lineNumbers: true, foldGutter: false }}
+          />
+          {supplementary && (
+            <div className={styles.supplementary}>{supplementary}</div>
+          )}
+        </>
+      ) : (
+        <div className={styles.feedback}>{emptyState}</div>
+      )}
+    </CollapsibleSection>
+  )
+  return (
+    <div className={className} data-generated-query-panel>
+      {section}
+    </div>
+  )
 }

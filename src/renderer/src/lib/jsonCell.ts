@@ -1,19 +1,36 @@
 import type { ColumnMeta } from '@shared/types'
 
-export type JsonExplorerValue = null | boolean | number | string | JsonExplorerValue[] | { [key: string]: JsonExplorerValue }
-export type NormalizedJsonCell = { status: 'valid'; value: JsonExplorerValue; formatted: string } | { status: 'invalid'; raw: string; message: string }
+export type JsonExplorerValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonExplorerValue[]
+  | { [key: string]: JsonExplorerValue }
+export type NormalizedJsonCell =
+  | { status: 'valid'; value: JsonExplorerValue; formatted: string }
+  | { status: 'invalid'; raw: string; message: string }
 
 const INVALID_MESSAGE = 'This JSON value could not be formatted.'
 const JSON_TYPE_OIDS = new Set([114, 3802])
 
-export function normalizePostgresTypeName(typeName: string | null | undefined): string {
-  return String(typeName ?? '').trim().toLowerCase().replace(/^pg_catalog\./, '')
+export function normalizePostgresTypeName(
+  typeName: string | null | undefined,
+): string {
+  return String(typeName ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/^pg_catalog\./, '')
 }
 
-export function isJsonColumnType(column: Pick<ColumnMeta, 'dataTypeName' | 'dataTypeID'> | null | undefined): boolean {
+export function isJsonColumnType(
+  column: Pick<ColumnMeta, 'dataTypeName' | 'dataTypeID'> | null | undefined,
+): boolean {
   if (!column) return false
   const type = normalizePostgresTypeName(column.dataTypeName)
-  return type === 'json' || type === 'jsonb' || JSON_TYPE_OIDS.has(column.dataTypeID)
+  return (
+    type === 'json' || type === 'jsonb' || JSON_TYPE_OIDS.has(column.dataTypeID)
+  )
 }
 
 function rawRepresentation(value: unknown): string {
@@ -27,14 +44,27 @@ function rawRepresentation(value: unknown): string {
 }
 
 function invalid(value: unknown): NormalizedJsonCell {
-  return { status: 'invalid', raw: rawRepresentation(value), message: INVALID_MESSAGE }
+  return {
+    status: 'invalid',
+    raw: rawRepresentation(value),
+    message: INVALID_MESSAGE,
+  }
 }
 
 export function normalizeJsonCellValue(value: unknown): NormalizedJsonCell {
   let parsed = value
   if (typeof value === 'string') {
-    try { parsed = JSON.parse(value) } catch { return invalid(value) }
-  } else if (value === undefined || typeof value === 'bigint' || typeof value === 'symbol' || typeof value === 'function') {
+    try {
+      parsed = JSON.parse(value)
+    } catch {
+      return invalid(value)
+    }
+  } else if (
+    value === undefined ||
+    typeof value === 'bigint' ||
+    typeof value === 'symbol' ||
+    typeof value === 'function'
+  ) {
     return invalid(value)
   }
 

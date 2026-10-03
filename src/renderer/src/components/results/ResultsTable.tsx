@@ -28,7 +28,14 @@ type ColumnWidths = {
 
 function renderCell(v: unknown): { text: string; cls: string } {
   if (v === null || v === undefined) return { text: '␀', cls: styles.null }
-  if (v instanceof Date) return { text: v.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ''), cls: styles.time }
+  if (v instanceof Date)
+    return {
+      text: v
+        .toISOString()
+        .replace('T', ' ')
+        .replace(/\.\d+Z$/, ''),
+      cls: styles.time,
+    }
   if (typeof v === 'boolean') return { text: v ? 'true' : 'false', cls: '' }
   if (typeof v === 'object') return { text: JSON.stringify(v), cls: '' }
   return { text: String(v), cls: '' }
@@ -47,21 +54,45 @@ export interface ResultsTableProps {
   onClearFilters: () => void
   onToggleFilterExecution?: (id: string) => void
   canPromoteFilter?: (filter: ResultFilter) => boolean
-  canDemoteFilter?: (filter: ResultFilter) => { allowed: boolean; reason?: string }
+  canDemoteFilter?: (filter: ResultFilter) => {
+    allowed: boolean
+    reason?: string
+  }
 }
 
-export function ResultsTable({ mode, rawResult: result, filteredResult, activeFilters, resultRevision = 0, running, error, onAddFilter, onRemoveFilter, onClearFilters, onToggleFilterExecution, canPromoteFilter, canDemoteFilter }: ResultsTableProps) {
-
+export function ResultsTable({
+  mode,
+  rawResult: result,
+  filteredResult,
+  activeFilters,
+  resultRevision = 0,
+  running,
+  error,
+  onAddFilter,
+  onRemoveFilter,
+  onClearFilters,
+  onToggleFilterExecution,
+  canPromoteFilter,
+  canDemoteFilter,
+}: ResultsTableProps) {
   const [sortCol, setSortCol] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
   const [filter, setFilter] = useState('')
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(600)
-  const [jsonTarget, setJsonTarget] = useState<{ resultRevision: number; rowId: number; columnKey: string } | null>(null)
+  const [jsonTarget, setJsonTarget] = useState<{
+    resultRevision: number
+    rowId: number
+    columnKey: string
+  } | null>(null)
   const [columnWidths, setColumnWidths] = useState<ColumnWidths | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const headerRefs = useRef(new Map<string, HTMLTableCellElement>())
-  const resizeRef = useRef<{ columnKey: string; startX: number; startWidth: number } | null>(null)
+  const resizeRef = useRef<{
+    columnKey: string
+    startX: number
+    startWidth: number
+  } | null>(null)
   const rowIds = useRef(new WeakMap<object, number>())
   const nextRowId = useRef(1)
 
@@ -81,12 +112,15 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
     setScrollTop(0)
     if (scrollRef.current) scrollRef.current.scrollTop = 0
   }, [mode, resultRevision, result])
-  useEffect(() => { setJsonTarget(null) }, [sortCol, sortDir, filter, activeFilters])
+  useEffect(() => {
+    setJsonTarget(null)
+  }, [sortCol, sortDir, filter, activeFilters])
 
   useLayoutEffect(() => {
     const element = scrollRef.current
     if (!element) return
-    const updateHeight = () => setViewportHeight(Math.max(element.clientHeight, ROW_HEIGHT))
+    const updateHeight = () =>
+      setViewportHeight(Math.max(element.clientHeight, ROW_HEIGHT))
     updateHeight()
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(updateHeight)
@@ -99,7 +133,13 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
     let r = filteredResult.rows
     if (filter.trim()) {
       const f = filter.toLowerCase()
-      r = r.filter((row) => result.columns.some((c) => String(resultCellValue(row, c) ?? '').toLowerCase().includes(f)))
+      r = r.filter((row) =>
+        result.columns.some((c) =>
+          String(resultCellValue(row, c) ?? '')
+            .toLowerCase()
+            .includes(f),
+        ),
+      )
     }
     if (sortCol && sortDir) {
       r = [...r].sort((a, b) => {
@@ -107,21 +147,30 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
         const bv = b[sortCol]
         if (av === null || av === undefined) return 1
         if (bv === null || bv === undefined) return -1
-        if (av instanceof Date && bv instanceof Date) return av.getTime() - bv.getTime()
+        if (av instanceof Date && bv instanceof Date)
+          return av.getTime() - bv.getTime()
         if (typeof av === 'number' && typeof bv === 'number') return av - bv
-        return String(av).localeCompare(String(bv), undefined, { numeric: true })
+        return String(av).localeCompare(String(bv), undefined, {
+          numeric: true,
+        })
       })
       if (sortDir === 'desc') r.reverse()
     }
     return r
   }, [result, filteredResult, filter, sortCol, sortDir])
 
-  const visibleStart = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - ROW_OVERSCAN)
+  const visibleStart = Math.max(
+    0,
+    Math.floor(scrollTop / ROW_HEIGHT) - ROW_OVERSCAN,
+  )
   const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + ROW_OVERSCAN * 2
   const visibleEnd = Math.min(rows.length, visibleStart + visibleCount)
   const visibleRows = rows.slice(visibleStart, visibleEnd)
   const topSpacerHeight = visibleStart * ROW_HEIGHT
-  const bottomSpacerHeight = Math.max(0, (rows.length - visibleEnd) * ROW_HEIGHT)
+  const bottomSpacerHeight = Math.max(
+    0,
+    (rows.length - visibleEnd) * ROW_HEIGHT,
+  )
 
   useEffect(() => {
     setJsonTarget(null)
@@ -140,17 +189,30 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
     } else setSortDir('asc')
   }
 
-  const startColumnResize = (event: React.PointerEvent<HTMLSpanElement>, columnKey: string) => {
+  const startColumnResize = (
+    event: React.PointerEvent<HTMLSpanElement>,
+    columnKey: string,
+  ) => {
     event.preventDefault()
     event.stopPropagation()
     if (!result) return
 
-    const snappedWidths = Object.fromEntries(result.columns.map((column) => {
-      const key = resultColumnKey(column)
-      return [key, headerRefs.current.get(key)?.getBoundingClientRect().width ?? MIN_COLUMN_WIDTH]
-    }))
+    const snappedWidths = Object.fromEntries(
+      result.columns.map((column) => {
+        const key = resultColumnKey(column)
+        return [
+          key,
+          headerRefs.current.get(key)?.getBoundingClientRect().width ??
+            MIN_COLUMN_WIDTH,
+        ]
+      }),
+    )
     setColumnWidths({ result, resultRevision, mode, widths: snappedWidths })
-    resizeRef.current = { columnKey, startX: event.clientX, startWidth: snappedWidths[columnKey] }
+    resizeRef.current = {
+      columnKey,
+      startX: event.clientX,
+      startWidth: snappedWidths[columnKey],
+    }
     event.currentTarget.setPointerCapture?.(event.pointerId)
   }
 
@@ -159,39 +221,90 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
     if (!resize) return
     event.preventDefault()
     event.stopPropagation()
-    const width = Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, resize.startWidth + event.clientX - resize.startX))
-    setColumnWidths((current) => current ? { ...current, widths: { ...current.widths, [resize.columnKey]: width } } : current)
+    const width = Math.min(
+      MAX_COLUMN_WIDTH,
+      Math.max(
+        MIN_COLUMN_WIDTH,
+        resize.startWidth + event.clientX - resize.startX,
+      ),
+    )
+    setColumnWidths((current) =>
+      current
+        ? {
+            ...current,
+            widths: { ...current.widths, [resize.columnKey]: width },
+          }
+        : current,
+    )
   }
 
   const finishColumnResize = (event: React.PointerEvent<HTMLSpanElement>) => {
     event.stopPropagation()
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId)
     resizeRef.current = null
   }
 
   const exportCsv = async () => {
     if (!result) return
     const csv = resultToCsv({ ...result, rows, rowCount: rows.length })
-    await api.export.saveText({ defaultName: 'datakoala_results.csv', content: csv })
+    await api.export.saveText({
+      defaultName: 'datakoala_results.csv',
+      content: csv,
+    })
   }
 
-  if (running) return <div className={styles.pane} data-result-table-pane><div className={styles.empty}>Running query…</div></div>
-  if (error) return <div className={styles.pane} data-result-table-pane><div className={styles.error} role="alert">{error}</div></div>
-  if (!result) return <div className={styles.pane} data-result-table-pane><div className={styles.empty}>Run a query to see results.</div></div>
+  if (running)
+    return (
+      <div className={styles.pane} data-result-table-pane>
+        <div className={styles.empty}>Running query…</div>
+      </div>
+    )
+  if (error)
+    return (
+      <div className={styles.pane} data-result-table-pane>
+        <div className={styles.error} role="alert">
+          {error}
+        </div>
+      </div>
+    )
+  if (!result)
+    return (
+      <div className={styles.pane} data-result-table-pane>
+        <div className={styles.empty}>Run a query to see results.</div>
+      </div>
+    )
 
-  const activeColumnWidths = columnWidths?.result === result && columnWidths.resultRevision === resultRevision && columnWidths.mode === mode
-    ? columnWidths.widths
-    : null
+  const activeColumnWidths =
+    columnWidths?.result === result &&
+    columnWidths.resultRevision === resultRevision &&
+    columnWidths.mode === mode
+      ? columnWidths.widths
+      : null
 
   return (
     <div className={styles.pane} data-result-table-pane>
       <div className={styles.toolbar} data-result-toolbar>
         <span className={styles.stats}>
-          {activeFilters.length || filter.trim() ? `${rows.length} of ${result.rowCount}` : result.rowCount} rows · {result.columns.length} cols · {result.durationMs} ms
+          {activeFilters.length || filter.trim()
+            ? `${rows.length} of ${result.rowCount}`
+            : result.rowCount}{' '}
+          rows · {result.columns.length} cols · {result.durationMs} ms
         </span>
-        <div className={styles.filterInput}><TextInput mode="inline" labelVisibility="sr-only" label="Filter rows" placeholder="filter rows…" value={filter} onValueChange={setFilter} /></div>
+        <div className={styles.filterInput}>
+          <TextInput
+            mode="inline"
+            labelVisibility="sr-only"
+            label="Filter rows"
+            placeholder="filter rows…"
+            value={filter}
+            onValueChange={setFilter}
+          />
+        </div>
         <div className={styles.spacer} />
-        <button className="btn ghost" onClick={exportCsv}>Export CSV</button>
+        <button className="btn ghost" onClick={exportCsv}>
+          Export CSV
+        </button>
       </div>
       <ResultFilterBar
         filters={activeFilters}
@@ -201,79 +314,168 @@ export function ResultsTable({ mode, rawResult: result, filteredResult, activeFi
         canPromote={canPromoteFilter}
         canDemote={canDemoteFilter}
       />
-      <div className={styles.scroll} ref={scrollRef} data-result-scroll onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
-        {result.rows.length === 0 ? <div className={styles.empty}>Query returned no rows.</div> : rows.length === 0 ? <div className={styles.empty}>
-          {activeFilters.length ? 'No rows match the active filters.' : 'No rows match the row search.'}
-        </div> : <table
-          className={`${styles.table}${activeColumnWidths ? ` ${styles.resizedTable}` : ''}`}
-          style={activeColumnWidths ? { width: Object.values(activeColumnWidths).reduce((total, width) => total + width, 0), tableLayout: 'fixed' } : undefined}
-        >
-          {activeColumnWidths && <colgroup>
-            {result.columns.map((column) => <col key={resultColumnKey(column)} style={{ width: activeColumnWidths[resultColumnKey(column)] }} />)}
-          </colgroup>}
-          <thead>
-            <tr>
-              {result.columns.map((c) => (
-                <th
-                  key={resultColumnKey(c)}
-                  ref={(element) => {
-                    const key = resultColumnKey(c)
-                    if (element) headerRefs.current.set(key, element)
-                    else headerRefs.current.delete(key)
-                  }}
-                  onClick={() => toggleSort(resultColumnKey(c))}
-                >
-                  {c.name} {sortCol === resultColumnKey(c) ? (sortDir === 'asc' ? '▲' : sortDir === 'desc' ? '▼' : '') : ''}
-                  <span className={styles.timeHint}>
-                    {isTimeType(c.dataTypeName) ? '⏱' : ''}
-                  </span>
-                  <span
-                    className={styles.resizeHandle}
-                    role="separator"
-                    aria-orientation="vertical"
-                    aria-label={`Resize ${c.name} column`}
-                    onClick={(event) => event.stopPropagation()}
-                    onPointerDown={(event) => startColumnResize(event, resultColumnKey(c))}
-                    onPointerMove={resizeColumn}
-                    onPointerUp={finishColumnResize}
-                    onPointerCancel={finishColumnResize}
+      <div
+        className={styles.scroll}
+        ref={scrollRef}
+        data-result-scroll
+        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+      >
+        {result.rows.length === 0 ? (
+          <div className={styles.empty}>Query returned no rows.</div>
+        ) : rows.length === 0 ? (
+          <div className={styles.empty}>
+            {activeFilters.length
+              ? 'No rows match the active filters.'
+              : 'No rows match the row search.'}
+          </div>
+        ) : (
+          <table
+            className={`${styles.table}${activeColumnWidths ? ` ${styles.resizedTable}` : ''}`}
+            style={
+              activeColumnWidths
+                ? {
+                    width: Object.values(activeColumnWidths).reduce(
+                      (total, width) => total + width,
+                      0,
+                    ),
+                    tableLayout: 'fixed',
+                  }
+                : undefined
+            }
+          >
+            {activeColumnWidths && (
+              <colgroup>
+                {result.columns.map((column) => (
+                  <col
+                    key={resultColumnKey(column)}
+                    style={{
+                      width: activeColumnWidths[resultColumnKey(column)],
+                    }}
                   />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {topSpacerHeight > 0 && <tr aria-hidden="true"><td className={styles.virtualSpacer} colSpan={result.columns.length} style={{ height: topSpacerHeight }} /></tr>}
-            {visibleRows.map((row, visibleIndex) => {
-              const rowIndex = visibleStart + visibleIndex
-              const rowId = getRowId(row)
-              return <tr key={rowId} className={styles.dataRow} data-result-row-index={rowIndex}>
-                {result.columns.map((c) => {
-                  const columnKey = resultColumnKey(c)
-                  const value = resultCellValue(row, c)
-                  const cell = renderCell(value)
-                  return (
-                    <td key={columnKey} className={cell.cls} title={cell.text} data-result-cell>
-                      <span className={styles.cellValue}>{cell.text}</span>
-                      <div className={styles.cellActions}>
-                        <CellFilterMenu column={c.name} value={value} nativeType={c.nativeType ?? c.dataTypeName} onAdd={onAddFilter} />
-                        {mode === 'sql' && value != null && (isJsonColumnType(c) || mayContainJsonDocument(value)) && <JsonCellExplorer
-                          columnLabel={c.name}
-                          rowNumber={rowIndex + 1}
-                          value={value}
-                          open={jsonTarget?.resultRevision === resultRevision && jsonTarget.rowId === rowId && jsonTarget.columnKey === columnKey}
-                          onOpenChange={(open) => setJsonTarget(open ? { resultRevision, rowId, columnKey } : null)}
-                          invalidationKey={`${mode}:${resultRevision}:${rowId}:${columnKey}`}
-                        />}
-                      </div>
-                    </td>
-                  )
-                })}
+                ))}
+              </colgroup>
+            )}
+            <thead>
+              <tr>
+                {result.columns.map((c) => (
+                  <th
+                    key={resultColumnKey(c)}
+                    ref={(element) => {
+                      const key = resultColumnKey(c)
+                      if (element) headerRefs.current.set(key, element)
+                      else headerRefs.current.delete(key)
+                    }}
+                    onClick={() => toggleSort(resultColumnKey(c))}
+                  >
+                    {c.name}{' '}
+                    {sortCol === resultColumnKey(c)
+                      ? sortDir === 'asc'
+                        ? '▲'
+                        : sortDir === 'desc'
+                          ? '▼'
+                          : ''
+                      : ''}
+                    <span className={styles.timeHint}>
+                      {isTimeType(c.dataTypeName) ? '⏱' : ''}
+                    </span>
+                    <span
+                      className={styles.resizeHandle}
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label={`Resize ${c.name} column`}
+                      onClick={(event) => event.stopPropagation()}
+                      onPointerDown={(event) =>
+                        startColumnResize(event, resultColumnKey(c))
+                      }
+                      onPointerMove={resizeColumn}
+                      onPointerUp={finishColumnResize}
+                      onPointerCancel={finishColumnResize}
+                    />
+                  </th>
+                ))}
               </tr>
-            })}
-            {bottomSpacerHeight > 0 && <tr aria-hidden="true"><td className={styles.virtualSpacer} colSpan={result.columns.length} style={{ height: bottomSpacerHeight }} /></tr>}
-          </tbody>
-        </table>}
+            </thead>
+            <tbody>
+              {topSpacerHeight > 0 && (
+                <tr aria-hidden="true">
+                  <td
+                    className={styles.virtualSpacer}
+                    colSpan={result.columns.length}
+                    style={{ height: topSpacerHeight }}
+                  />
+                </tr>
+              )}
+              {visibleRows.map((row, visibleIndex) => {
+                const rowIndex = visibleStart + visibleIndex
+                const rowId = getRowId(row)
+                return (
+                  <tr
+                    key={rowId}
+                    className={styles.dataRow}
+                    data-result-row-index={rowIndex}
+                  >
+                    {result.columns.map((c) => {
+                      const columnKey = resultColumnKey(c)
+                      const value = resultCellValue(row, c)
+                      const cell = renderCell(value)
+                      return (
+                        <td
+                          key={columnKey}
+                          className={cell.cls}
+                          title={cell.text}
+                          data-result-cell
+                        >
+                          <span className={styles.cellValue}>{cell.text}</span>
+                          <div className={styles.cellActions}>
+                            <CellFilterMenu
+                              column={c.name}
+                              value={value}
+                              nativeType={c.nativeType ?? c.dataTypeName}
+                              onAdd={onAddFilter}
+                            />
+                            {mode === 'sql' &&
+                              value != null &&
+                              (isJsonColumnType(c) ||
+                                mayContainJsonDocument(value)) && (
+                                <JsonCellExplorer
+                                  columnLabel={c.name}
+                                  rowNumber={rowIndex + 1}
+                                  value={value}
+                                  open={
+                                    jsonTarget?.resultRevision ===
+                                      resultRevision &&
+                                    jsonTarget.rowId === rowId &&
+                                    jsonTarget.columnKey === columnKey
+                                  }
+                                  onOpenChange={(open) =>
+                                    setJsonTarget(
+                                      open
+                                        ? { resultRevision, rowId, columnKey }
+                                        : null,
+                                    )
+                                  }
+                                  invalidationKey={`${mode}:${resultRevision}:${rowId}:${columnKey}`}
+                                />
+                              )}
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+              {bottomSpacerHeight > 0 && (
+                <tr aria-hidden="true">
+                  <td
+                    className={styles.virtualSpacer}
+                    colSpan={result.columns.length}
+                    style={{ height: bottomSpacerHeight }}
+                  />
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )

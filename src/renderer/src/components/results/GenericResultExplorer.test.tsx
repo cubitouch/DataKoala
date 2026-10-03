@@ -3,10 +3,17 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
-vi.mock('echarts-for-react', () => ({ default: () => <div data-testid="chart" /> }))
-vi.mock('@lib/api', () => ({ api: { clipboardImage: vi.fn(), export: { saveBinary: vi.fn() } } }))
+vi.mock('echarts-for-react', () => ({
+  default: () => <div data-testid="chart" />,
+}))
+vi.mock('@lib/api', () => ({
+  api: { clipboardImage: vi.fn(), export: { saveBinary: vi.fn() } },
+}))
 
-import { GenericResultExplorer, type GenericResultExplorerProps } from './GenericResultExplorer'
+import {
+  GenericResultExplorer,
+  type GenericResultExplorerProps,
+} from './GenericResultExplorer'
 import { createResultFilter } from '@lib/resultFilters'
 import type { VisualizationConfiguration } from '@lib/resultVisualization'
 import type { QueryResult } from '@shared/types'
@@ -14,30 +21,61 @@ import type { QueryResult } from '@shared/types'
 const result: QueryResult = {
   columns: [
     { name: 'category', dataTypeID: 0, dataTypeName: 'text' },
-    { name: 'value', dataTypeID: 0, dataTypeName: 'integer' }
+    { name: 'value', dataTypeID: 0, dataTypeName: 'integer' },
   ],
-  rows: [{ category: 'A', value: 2 }], rowCount: 1, durationMs: 3
+  rows: [{ category: 'A', value: 2 }],
+  rowCount: 1,
+  durationMs: 3,
 }
-const configuration: VisualizationConfiguration = { view: 'table', xColumn: 'category', valueColumn: 'value', aggregation: 'sum', seriesColumn: null, seriesColumns: [], valueAxisScale: 'linear' }
-const props = (overrides: Partial<GenericResultExplorerProps> = {}): GenericResultExplorerProps => ({
-  mode: 'sql', result, resultRevision: 1, running: false, error: null, isResultStale: false,
-  configuration, seriesVisibility: {}, activeFilters: [], onConfigurationChange: vi.fn(),
-  onSeriesVisibilityChange: vi.fn(), onAddFilter: vi.fn(), onRemoveFilter: vi.fn(), onClearFilters: vi.fn(),
-  ...overrides
+const configuration: VisualizationConfiguration = {
+  view: 'table',
+  xColumn: 'category',
+  valueColumn: 'value',
+  aggregation: 'sum',
+  seriesColumn: null,
+  seriesColumns: [],
+  valueAxisScale: 'linear',
+}
+const props = (
+  overrides: Partial<GenericResultExplorerProps> = {},
+): GenericResultExplorerProps => ({
+  mode: 'sql',
+  result,
+  resultRevision: 1,
+  running: false,
+  error: null,
+  isResultStale: false,
+  configuration,
+  seriesVisibility: {},
+  activeFilters: [],
+  onConfigurationChange: vi.fn(),
+  onSeriesVisibilityChange: vi.fn(),
+  onAddFilter: vi.fn(),
+  onRemoveFilter: vi.fn(),
+  onClearFilters: vi.fn(),
+  ...overrides,
 })
 
 afterEach(cleanup)
 
 describe('GenericResultExplorer controlled presentation', () => {
   it('shows the initial empty state without a session', () => {
-    render(<GenericResultExplorer {...props({ hasRun: false, result: null })} />)
+    render(
+      <GenericResultExplorer {...props({ hasRun: false, result: null })} />,
+    )
     expect(screen.getByText('Run a query to view its results.')).toBeTruthy()
   })
 
   it('renders controlled errors and stale reconnect state', () => {
     const onReconnect = vi.fn()
-    render(<GenericResultExplorer {...props({ error: 'query failed', isResultStale: true, onReconnect })} />)
-    expect(screen.getByRole('status').textContent).toContain('showing results from the last successful query')
+    render(
+      <GenericResultExplorer
+        {...props({ error: 'query failed', isResultStale: true, onReconnect })}
+      />,
+    )
+    expect(screen.getByRole('status').textContent).toContain(
+      'showing results from the last successful query',
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }))
     expect(onReconnect).toHaveBeenCalledOnce()
     expect(screen.getByRole('alert').textContent).toContain('query failed')
@@ -48,14 +86,23 @@ describe('GenericResultExplorer controlled presentation', () => {
     render(<GenericResultExplorer {...props({ onConfigurationChange })} />)
     expect(screen.queryByRole('button', { name: 'Patterns' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Bar' }))
-    expect(onConfigurationChange).toHaveBeenCalledWith({ ...configuration, view: 'bar' })
+    expect(onConfigurationChange).toHaveBeenCalledWith({
+      ...configuration,
+      view: 'bar',
+    })
   })
 
   it('wires table and chart promotion predicates independently', () => {
     const filter = createResultFilter('category', 'equals', 'A')
     const canPromoteTableFilter = vi.fn(() => true)
     const canPromoteChartFilter = vi.fn(() => false)
-    const shared = { mode: 'builder' as const, activeFilters: [filter], onToggleFilterExecution: vi.fn(), canPromoteTableFilter, canPromoteChartFilter }
+    const shared = {
+      mode: 'builder' as const,
+      activeFilters: [filter],
+      onToggleFilterExecution: vi.fn(),
+      canPromoteTableFilter,
+      canPromoteChartFilter,
+    }
 
     const table = render(<GenericResultExplorer {...props({ ...shared })} />)
     expect(screen.getByRole('button', { name: 'Apply to SQL' })).toBeTruthy()
@@ -63,7 +110,14 @@ describe('GenericResultExplorer controlled presentation', () => {
     expect(canPromoteChartFilter).not.toHaveBeenCalled()
     table.unmount()
 
-    render(<GenericResultExplorer {...props({ ...shared, configuration: { ...configuration, view: 'bar' } })} />)
+    render(
+      <GenericResultExplorer
+        {...props({
+          ...shared,
+          configuration: { ...configuration, view: 'bar' },
+        })}
+      />,
+    )
     expect(screen.queryByRole('button', { name: 'Apply to SQL' })).toBeNull()
     expect(canPromoteChartFilter).toHaveBeenCalledWith(filter)
   })
@@ -76,10 +130,35 @@ describe('GenericResultExplorer controlled presentation', () => {
 })
 for (const mode of ['sql', 'builder'] as const) {
   it(`connects the HTML legend to shared visibility and Show all in ${mode} mode`, async () => {
-    const groupedResult = { ...result, columns: [...result.columns, { name: 'service', dataTypeID: 0, dataTypeName: 'text' }], rows: [{ category: 'A', value: 2, service: 'Alpha' }, { category: 'A', value: 3, service: 'Beta' }], rowCount: 2 }
+    const groupedResult = {
+      ...result,
+      columns: [
+        ...result.columns,
+        { name: 'service', dataTypeID: 0, dataTypeName: 'text' },
+      ],
+      rows: [
+        { category: 'A', value: 2, service: 'Alpha' },
+        { category: 'A', value: 3, service: 'Beta' },
+      ],
+      rowCount: 2,
+    }
     function Harness() {
       const [visibility, setVisibility] = useState<Record<string, boolean>>({})
-      return <GenericResultExplorer {...props({ mode, result: groupedResult, configuration: { ...configuration, view: 'line', seriesColumn: 'service' }, seriesVisibility: visibility, onSeriesVisibilityChange: setVisibility })} />
+      return (
+        <GenericResultExplorer
+          {...props({
+            mode,
+            result: groupedResult,
+            configuration: {
+              ...configuration,
+              view: 'line',
+              seriesColumn: 'service',
+            },
+            seriesVisibility: visibility,
+            onSeriesVisibilityChange: setVisibility,
+          })}
+        />
+      )
     }
     render(<Harness />)
     const alpha = await screen.findByRole('button', { name: 'Alpha' })

@@ -35,10 +35,9 @@
 }
 
 .advancedRow {
-  grid-template-columns: minmax(150px, 1fr) minmax(100px, 0.6fr) minmax(
-      150px,
-      1fr
-    ) auto;
+  grid-template-columns:
+    minmax(150px, 1fr) minmax(100px, 0.6fr) minmax(150px, 1fr)
+    auto;
 
   --builder-row-align: end;
 }

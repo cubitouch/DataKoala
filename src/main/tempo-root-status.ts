@@ -45,48 +45,75 @@ function canonicalTraceId(value: unknown): string | null {
 
 function traceRows(raw: unknown): Record<string, unknown>[] {
   const payload = isRecord(raw) && isRecord(raw.data) ? raw.data : raw
-  const traces = isRecord(payload) && Array.isArray(payload.traces)
-    ? payload.traces
-    : Array.isArray(payload) ? payload : []
+  const traces =
+    isRecord(payload) && Array.isArray(payload.traces)
+      ? payload.traces
+      : Array.isArray(payload)
+        ? payload
+        : []
   return traces.filter(isRecord)
 }
 
 function traceIdsFromSearch(raw: unknown): Set<string> {
   const traceIds = new Set<string>()
   for (const trace of traceRows(raw)) {
-    const traceId = canonicalTraceId(trace.traceID ?? trace.traceId ?? trace.trace_id)
+    const traceId = canonicalTraceId(
+      trace.traceID ?? trace.traceId ?? trace.trace_id,
+    )
     if (traceId) traceIds.add(traceId)
   }
   return traceIds
 }
 
 function parseJson(value: string): unknown {
-  try { return JSON.parse(value) }
-  catch { throw new Error('gcx returned malformed JSON while resolving Tempo root statuses.') }
+  try {
+    return JSON.parse(value)
+  } catch {
+    throw new Error(
+      'gcx returned malformed JSON while resolving Tempo root statuses.',
+    )
+  }
 }
 
-function providerRange(request: TempoQueryRequest): { start: string; end: string } {
+function providerRange(request: TempoQueryRequest): {
+  start: string
+  end: string
+} {
   const exactStart = new Date(request.start).getTime()
   const exactEnd = new Date(request.end).getTime()
-  if (!Number.isFinite(exactStart) || !Number.isFinite(exactEnd) || exactEnd <= exactStart) {
-    throw new Error('Tempo root status lookup requires a valid search time range.')
+  if (
+    !Number.isFinite(exactStart) ||
+    !Number.isFinite(exactEnd) ||
+    exactEnd <= exactStart
+  ) {
+    throw new Error(
+      'Tempo root status lookup requires a valid search time range.',
+    )
   }
-  const startMs = Math.floor(exactStart / PROVIDER_TIME_PRECISION_MS) * PROVIDER_TIME_PRECISION_MS
-  let endMs = Math.ceil(exactEnd / PROVIDER_TIME_PRECISION_MS) * PROVIDER_TIME_PRECISION_MS
+  const startMs =
+    Math.floor(exactStart / PROVIDER_TIME_PRECISION_MS) *
+    PROVIDER_TIME_PRECISION_MS
+  let endMs =
+    Math.ceil(exactEnd / PROVIDER_TIME_PRECISION_MS) *
+    PROVIDER_TIME_PRECISION_MS
   if (endMs <= startMs) endMs = startMs + PROVIDER_TIME_PRECISION_MS
-  return { start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString() }
+  return {
+    start: new Date(startMs).toISOString(),
+    end: new Date(endMs).toISOString(),
+  }
 }
 
 function batches<T>(values: T[], size: number): T[][] {
   const output: T[][] = []
-  for (let index = 0; index < values.length; index += size) output.push(values.slice(index, index + size))
+  for (let index = 0; index < values.length; index += size)
+    output.push(values.slice(index, index + size))
   return output
 }
 
 function commonArgs(options: TempoRootStatusOptions): string[] {
   return [
     ...(options.context ? ['--context', options.context] : []),
-    ...(options.datasourceUid ? ['--datasource', options.datasourceUid] : [])
+    ...(options.datasourceUid ? ['--datasource', options.datasourceUid] : []),
   ]
 }
 
@@ -102,14 +129,13 @@ function rootErrorQuery(traceIds: string[]): string {
 }
 
 type RootErrorLookupResult =
-  | { ok: true; errorTraceIds: Set<string> }
-  | { ok: false }
+  { ok: true; errorTraceIds: Set<string> } | { ok: false }
 
 export async function enrichTempoRootStatuses(
   result: QueryResult,
   request: TempoQueryRequest,
   run: GcxCommandRunner,
-  options: TempoRootStatusOptions = {}
+  options: TempoRootStatusOptions = {},
 ): Promise<{ result: QueryResult; queriesCompleted: number; checked: number }> {
   const rowsById = new Map<string, Record<string, unknown>>()
   const targets: RootStatusTarget[] = []
@@ -124,35 +150,61 @@ export async function enrichTempoRootStatuses(
     return { result, queriesCompleted: 0, checked: 0 }
   }
 
-  const batchSize = Math.max(1, Math.min(MAX_BATCH_SIZE, Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE)))
+  const batchSize = Math.max(
+    1,
+    Math.min(
+      MAX_BATCH_SIZE,
+      Math.floor(options.batchSize ?? DEFAULT_BATCH_SIZE),
+    ),
+  )
   const range = providerRange(request)
   let checked = 0
   let queriesCompleted = 0
 
-
   for (const targetBatch of batches(targets, batchSize)) {
     const batchNumber = Math.floor(checked / batchSize) + 1
-    const resolveRootErrors = async (candidates: RootStatusTarget[]): Promise<RootErrorLookupResult> => {
+    const resolveRootErrors = async (
+      candidates: RootStatusTarget[],
+    ): Promise<RootErrorLookupResult> => {
       const queryNumber = queriesCompleted + 1
       try {
         const args = [
-          'traces', 'query', rootErrorQuery(candidates.map((target) => target.providerTraceId)),
+          'traces',
+          'query',
+          rootErrorQuery(candidates.map((target) => target.providerTraceId)),
           ...commonArgs(options),
-          '--from', range.start,
-          '--to', range.end,
-          '--limit', String(candidates.length),
-          '-o', 'json'
+          '--from',
+          range.start,
+          '--to',
+          range.end,
+          '--limit',
+          String(candidates.length),
+          '-o',
+          'json',
         ]
         const gcxStarted = options.performance?.now() ?? 0
         const response = await run(args)
-        const gcxWallMs = options.performance ? options.performance.now() - gcxStarted : 0
+        const gcxWallMs = options.performance
+          ? options.performance.now() - gcxStarted
+          : 0
         const parseStarted = options.performance?.now()
         const parsed = parseJson(response.stdout)
-        if (parseStarted !== undefined) options.performance?.recordParse(options.performance.now() - parseStarted)
-        options.performance?.recordGcx({ phase: 'root-status.error', gcxWallMs, stdout: response.stdout, raw: parsed })
+        if (parseStarted !== undefined)
+          options.performance?.recordParse(
+            options.performance.now() - parseStarted,
+          )
+        options.performance?.recordGcx({
+          phase: 'root-status.error',
+          gcxWallMs,
+          stdout: response.stdout,
+          raw: parsed,
+        })
         const normalizeStarted = options.performance?.now()
         const matchedIds = traceIdsFromSearch(parsed)
-        if (normalizeStarted !== undefined) options.performance?.recordNormalize(options.performance.now() - normalizeStarted)
+        if (normalizeStarted !== undefined)
+          options.performance?.recordNormalize(
+            options.performance.now() - normalizeStarted,
+          )
         return { ok: true, errorTraceIds: matchedIds }
       } catch (reason) {
         console.warn('[tempo-status] root predicate failed', {
@@ -160,7 +212,7 @@ export async function enrichTempoRootStatuses(
           query: queryNumber,
           status: 'error',
           targets: candidates.length,
-          error: reason instanceof Error ? reason.message : String(reason)
+          error: reason instanceof Error ? reason.message : String(reason),
         })
         return { ok: false }
       } finally {
@@ -179,18 +231,26 @@ export async function enrichTempoRootStatuses(
       // explicit OpenTelemetry OK and UNSET root statuses. A failed lookup must
       // preserve the previous status rather than manufacturing false successes.
       const rootStatus: TempoRootStatus | undefined = errorLookup.ok
-        ? (errorLookup.errorTraceIds.has(target.canonicalTraceId) ? 'error' : 'ok')
+        ? errorLookup.errorTraceIds.has(target.canonicalTraceId)
+          ? 'error'
+          : 'ok'
         : undefined
-      const next = rootStatus === undefined ? row : { ...row, status: rootStatus }
+      const next =
+        rootStatus === undefined ? row : { ...row, status: rootStatus }
       rowsById.set(target.canonicalTraceId, next)
       changed.push(next)
     }
     try {
-      options.onProgress?.({ rows: changed, checked, total: targets.length, queriesCompleted })
+      options.onProgress?.({
+        rows: changed,
+        checked,
+        total: targets.length,
+        queriesCompleted,
+      })
     } catch (reason) {
       console.warn('[tempo-status] progress callback failed', {
         batch: batchNumber,
-        error: reason instanceof Error ? reason.message : String(reason)
+        error: reason instanceof Error ? reason.message : String(reason),
       })
     }
   }
@@ -201,6 +261,6 @@ export async function enrichTempoRootStatuses(
   return {
     result: { ...result, rows, rowCount: rows.length },
     queriesCompleted,
-    checked
+    checked,
   }
 }

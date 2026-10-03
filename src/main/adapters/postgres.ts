@@ -1,12 +1,25 @@
 import { Pool } from 'pg'
 import type { PoolClient, PoolConfig, QueryResult as PgQueryResult } from 'pg'
-import type { ConnectionId, ConnectionProfile, QueryResult, ColumnMeta, ConnectionStateEvent, ConnectionErrorCode } from '../../shared/types'
+import type {
+  ConnectionId,
+  ConnectionProfile,
+  QueryResult,
+  ColumnMeta,
+  ConnectionStateEvent,
+  ConnectionErrorCode,
+} from '../../shared/types'
 
 interface ManagedPool {
   pool: Pool
   profile: ConnectionProfile
   generation: number
-  state: 'connecting' | 'connected' | 'idle' | 'disconnecting' | 'disconnected' | 'failed'
+  state:
+    | 'connecting'
+    | 'connected'
+    | 'idle'
+    | 'disconnecting'
+    | 'disconnected'
+    | 'failed'
   terminalHandled: boolean
   activeQueries: number
   checkedOut: Set<PoolClient>
@@ -29,48 +42,104 @@ export class DatabaseConnectionError extends Error {
   }
 }
 
-export function onConnectionStateChanged(listener: (event: ConnectionStateEvent) => void): void {
+export function onConnectionStateChanged(
+  listener: (event: ConnectionStateEvent) => void,
+): void {
   stateListener = listener
 }
 
 function safeRelease(client: PoolClient, destroy = false): void {
-  try { client.release(destroy) } catch { /* cleanup is best effort */ }
+  try {
+    client.release(destroy)
+  } catch {
+    /* cleanup is best effort */
+  }
 }
 
 function reasonOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error || 'Connection terminated unexpectedly')
+  return error instanceof Error
+    ? error.message
+    : String(error || 'Connection terminated unexpectedly')
 }
 
-function emitUsableState(managed: ManagedPool, state: 'idle' | 'connected', source: string): void {
-  stateListener({ profileId: managed.profile.id, state, expected: false, code: null,
-    message: state === 'idle' ? 'Idle' : 'Connected', generation: managed.generation,
-    timestamp: Date.now(), recoverable: true, recoverability: 'transient', source,
-    activeOperationAffected: false })
+function emitUsableState(
+  managed: ManagedPool,
+  state: 'idle' | 'connected',
+  source: string,
+): void {
+  stateListener({
+    profileId: managed.profile.id,
+    state,
+    expected: false,
+    code: null,
+    message: state === 'idle' ? 'Idle' : 'Connected',
+    generation: managed.generation,
+    timestamp: Date.now(),
+    recoverable: true,
+    recoverability: 'transient',
+    source,
+    activeOperationAffected: false,
+  })
 }
 
 /** Converges pool/client error and end events into one generation-scoped transition. */
-function handleUnexpectedDisconnect(id: ConnectionId, generation: number, error: unknown, source: string,
-  code: ConnectionErrorCode = 'CONNECTION_LOST'): void {
+function handleUnexpectedDisconnect(
+  id: ConnectionId,
+  generation: number,
+  error: unknown,
+  source: string,
+  code: ConnectionErrorCode = 'CONNECTION_LOST',
+): void {
   const managed = pools.get(id)
-  if (!managed || managed.generation !== generation || managed.terminalHandled || managed.state === 'disconnecting') return
+  if (
+    !managed ||
+    managed.generation !== generation ||
+    managed.terminalHandled ||
+    managed.state === 'disconnecting'
+  )
+    return
   managed.terminalHandled = true
   managed.state = 'failed'
   const detail = reasonOf(error)
   pools.delete(id)
   console.error('[database] unexpected disconnect', {
-    profileId: id, generation, source, activeQuery: managed.activeQueries > 0,
-    error: { name: error instanceof Error ? error.name : 'Error', code: error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined, message: detail }
+    profileId: id,
+    generation,
+    source,
+    activeQuery: managed.activeQueries > 0,
+    error: {
+      name: error instanceof Error ? error.name : 'Error',
+      code:
+        error && typeof error === 'object' && 'code' in error
+          ? String(error.code)
+          : undefined,
+      message: detail,
+    },
   })
   for (const client of managed.checkedOut) safeRelease(client, true)
   managed.checkedOut.clear()
   void managed.pool.end().catch(() => undefined)
   try {
-    stateListener({ profileId: id, state: 'failed', expected: false,
-      message: `Disconnected — ${detail}`, code, technicalDetail: detail,
-      generation, timestamp: Date.now(), recoverable: true, recoverability: 'transient', source,
-      activeOperationAffected: managed.activeQueries > 0 })
+    stateListener({
+      profileId: id,
+      state: 'failed',
+      expected: false,
+      message: `Disconnected — ${detail}`,
+      code,
+      technicalDetail: detail,
+      generation,
+      timestamp: Date.now(),
+      recoverable: true,
+      recoverability: 'transient',
+      source,
+      activeOperationAffected: managed.activeQueries > 0,
+    })
   } catch (notifyError) {
-    console.error('[database] connection-state listener failed', { profileId: id, generation, message: reasonOf(notifyError) })
+    console.error('[database] connection-state listener failed', {
+      profileId: id,
+      generation,
+      message: reasonOf(notifyError),
+    })
   }
 }
 
@@ -81,10 +150,17 @@ function attachClientLifecycle(managed: ManagedPool, client: PoolClient): void {
     // A released client remains an EventEmitter. Its later socket failure belongs
     // to the pool, not to an operation, and node-postgres will evict it.
     if (!managed.checkedOut.has(client)) return
-    handleUnexpectedDisconnect(managed.profile.id, managed.generation, error, source)
+    handleUnexpectedDisconnect(
+      managed.profile.id,
+      managed.generation,
+      error,
+      source,
+    )
   }
   client.on('error', (error) => handle(error, 'client:active-query-error'))
-  client.on('end', () => handle(new Error('Connection terminated unexpectedly'), 'client:end'))
+  client.on('end', () =>
+    handle(new Error('Connection terminated unexpectedly'), 'client:end'),
+  )
 }
 
 /**
@@ -96,7 +172,17 @@ function attachClientLifecycle(managed: ManagedPool, client: PoolClient): void {
  * deliberately inspects ONLY the leading keyword, so words like "update" appearing
  * inside string literals or identifiers can never trigger a false positive.
  */
-const READ_ONLY_STARTERS = new Set(['select', 'with', 'explain', 'show', 'table', 'values', 'fetch', 'close', 'declare'])
+const READ_ONLY_STARTERS = new Set([
+  'select',
+  'with',
+  'explain',
+  'show',
+  'table',
+  'values',
+  'fetch',
+  'close',
+  'declare',
+])
 
 function leadingKeyword(sql: string): string {
   // Drop leading comments and whitespace, then read the first bare word.
@@ -125,7 +211,7 @@ function assertReadonly(p: ConnectionProfile, sql: string): void {
   if (kw && !READ_ONLY_STARTERS.has(kw)) {
     throw new Error(
       `Connection is read-only, so "${kw.toUpperCase()}" is not allowed. ` +
-        'Toggle "read-only" off in the connection profile if you really mean to write.'
+        'Toggle "read-only" off in the connection profile if you really mean to write.',
     )
   }
 }
@@ -156,19 +242,29 @@ function buildPoolConfig(profile: ConnectionProfile, max: number): PoolConfig {
     idleTimeoutMillis: 30000,
     // Authoritative read-only enforcement, applied at connection startup so there
     // is no window where a write could slip through.
-    ...(profile.readonly ? { options: '-c default_transaction_read_only=on' } : {})
+    ...(profile.readonly
+      ? { options: '-c default_transaction_read_only=on' }
+      : {}),
   }
 }
 
-export async function testConnection(profile: ConnectionProfile): Promise<{ ok: true; serverVersion: string } | { ok: false; error: string }> {
-  const pool = createPool({ ...buildPoolConfig(profile, 1), idleTimeoutMillis: 1000 })
+export async function testConnection(
+  profile: ConnectionProfile,
+): Promise<{ ok: true; serverVersion: string } | { ok: false; error: string }> {
+  const pool = createPool({
+    ...buildPoolConfig(profile, 1),
+    idleTimeoutMillis: 1000,
+  })
   pool.on('error', () => undefined)
   let client: PoolClient | undefined
   try {
     client = await pool.connect()
     client.on('error', () => undefined)
     const v = await client.query('SHOW server_version')
-    return { ok: true, serverVersion: String(v.rows[0]?.server_version ?? 'unknown') }
+    return {
+      ok: true,
+      serverVersion: String(v.rows[0]?.server_version ?? 'unknown'),
+    }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   } finally {
@@ -181,7 +277,12 @@ async function closeAllPools(): Promise<void> {
   await Promise.allSettled([...pools.keys()].map((id) => disconnect(id)))
 }
 
-export async function connect(profile: ConnectionProfile): Promise<{ ok: true; serverVersion: string; generation: number } | { ok: false; error: string }> {
+export async function connect(
+  profile: ConnectionProfile,
+): Promise<
+  | { ok: true; serverVersion: string; generation: number }
+  | { ok: false; error: string }
+> {
   const intent = ++connectionIntent
   connectionIntents.set(profile.id, intent)
   await disconnect(profile.id)
@@ -191,9 +292,17 @@ export async function connect(profile: ConnectionProfile): Promise<{ ok: true; s
   const pool = createPool({
     ...buildPoolConfig(profile, 4),
     statement_timeout: 30000,
-    query_timeout: 30000
+    query_timeout: 30000,
   })
-  const managed: ManagedPool = { pool, profile, generation: ++nextGeneration, state: 'connecting', terminalHandled: false, activeQueries: 0, checkedOut: new Set() }
+  const managed: ManagedPool = {
+    pool,
+    profile,
+    generation: ++nextGeneration,
+    state: 'connecting',
+    terminalHandled: false,
+    activeQueries: 0,
+    checkedOut: new Set(),
+  }
   // Track connecting pools as well as established pools so a profile switch or app
   // shutdown can close an in-flight attempt instead of waiting for it to finish.
   pools.set(profile.id, managed)
@@ -202,12 +311,27 @@ export async function connect(profile: ConnectionProfile): Promise<{ ok: true; s
     // A separate idle socket may fail while another client is healthy and active;
     // in that case the profile remains Connected. Idle is emitted only for the
     // first idle-client-loss transition with no operation in progress.
-    if (pools.get(profile.id)?.generation !== managed.generation || managed.activeQueries > 0 || managed.state === 'idle') return
+    if (
+      pools.get(profile.id)?.generation !== managed.generation ||
+      managed.activeQueries > 0 ||
+      managed.state === 'idle'
+    )
+      return
     // node-postgres reserves this event for an idle client. The pool evicts that
     // client itself; losing an unused socket is not a profile-wide disconnect.
-    console.debug('[database] connection lifecycle', { profileId: profile.id, generation: managed.generation,
-      event: 'idle-client-lost', managedState: managed.state, activeQueries: managed.activeQueries,
-      pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount }, message: reasonOf(error) })
+    console.debug('[database] connection lifecycle', {
+      profileId: profile.id,
+      generation: managed.generation,
+      event: 'idle-client-lost',
+      managedState: managed.state,
+      activeQueries: managed.activeQueries,
+      pool: {
+        total: pool.totalCount,
+        idle: pool.idleCount,
+        waiting: pool.waitingCount,
+      },
+      message: reasonOf(error),
+    })
     if (client) observedClients.add(client)
     managed.state = 'idle'
     emitUsableState(managed, 'idle', 'pool:idle-client-error')
@@ -217,15 +341,29 @@ export async function connect(profile: ConnectionProfile): Promise<{ ok: true; s
     client = await pool.connect()
     attachClientLifecycle(managed, client)
     const v = await client.query('SHOW server_version')
-    if (connectionIntents.get(profile.id) !== intent || pools.get(profile.id)?.generation !== managed.generation) {
-      throw new DatabaseConnectionError('CONNECTION_LOST', 'This connection attempt was superseded by a newer connection.')
+    if (
+      connectionIntents.get(profile.id) !== intent ||
+      pools.get(profile.id)?.generation !== managed.generation
+    ) {
+      throw new DatabaseConnectionError(
+        'CONNECTION_LOST',
+        'This connection attempt was superseded by a newer connection.',
+      )
     }
     managed.state = 'connected'
-    return { ok: true, serverVersion: String(v.rows[0]?.server_version ?? 'unknown'), generation: managed.generation }
+    return {
+      ok: true,
+      serverVersion: String(v.rows[0]?.server_version ?? 'unknown'),
+      generation: managed.generation,
+    }
   } catch (e) {
-    if (client) { safeRelease(client, true); client = undefined }
+    if (client) {
+      safeRelease(client, true)
+      client = undefined
+    }
     await pool.end().catch(() => undefined)
-    if (pools.get(profile.id)?.generation === managed.generation) pools.delete(profile.id)
+    if (pools.get(profile.id)?.generation === managed.generation)
+      pools.delete(profile.id)
     return { ok: false, error: reasonOf(e) }
   } finally {
     // Validation must not permanently reserve one of the pool's sockets.
@@ -233,7 +371,10 @@ export async function connect(profile: ConnectionProfile): Promise<{ ok: true; s
   }
 }
 
-export async function disconnect(id: ConnectionId, generation?: number): Promise<void> {
+export async function disconnect(
+  id: ConnectionId,
+  generation?: number,
+): Promise<void> {
   const m = pools.get(id)
   if (!m || (generation !== undefined && m.generation !== generation)) return
   connectionIntents.delete(id)
@@ -244,7 +385,9 @@ export async function disconnect(id: ConnectionId, generation?: number): Promise
     for (const client of m.checkedOut) safeRelease(client, true)
     m.checkedOut.clear()
     await m.pool.end()
-  } catch { /* an already broken pool is still disconnected */ }
+  } catch {
+    /* an already broken pool is still disconnected */
+  }
   m.state = 'disconnected'
 }
 
@@ -257,11 +400,18 @@ export async function disconnectAll(): Promise<void> {
 
 function getPool(id: ConnectionId): ManagedPool {
   const m = pools.get(id)
-  if (!m || (m.state !== 'connected' && m.state !== 'idle')) throw new DatabaseConnectionError('NOT_CONNECTED', 'This profile is not connected.')
+  if (!m || (m.state !== 'connected' && m.state !== 'idle'))
+    throw new DatabaseConnectionError(
+      'NOT_CONNECTED',
+      'This profile is not connected.',
+    )
   return m
 }
 
-async function withClient<T>(id: ConnectionId, operation: (client: PoolClient) => Promise<T>): Promise<T> {
+async function withClient<T>(
+  id: ConnectionId,
+  operation: (client: PoolClient) => Promise<T>,
+): Promise<T> {
   const managed = getPool(id)
   const generation = managed.generation
   let client: PoolClient | undefined
@@ -270,26 +420,50 @@ async function withClient<T>(id: ConnectionId, operation: (client: PoolClient) =
     try {
       client = await managed.pool.connect()
     } catch (error) {
-      handleUnexpectedDisconnect(id, generation, error, 'pool:connect-failed', 'RECONNECT_FAILED')
+      handleUnexpectedDisconnect(
+        id,
+        generation,
+        error,
+        'pool:connect-failed',
+        'RECONNECT_FAILED',
+      )
       throw new DatabaseConnectionError('RECONNECT_FAILED', reasonOf(error))
     }
     managed.checkedOut.add(client)
     attachClientLifecycle(managed, client)
     if (managed.state === 'idle') {
       managed.state = 'connected'
-      console.debug('[database] connection lifecycle', { profileId: id, generation,
-        event: 'idle-client-recovered', managedState: managed.state, activeQueries: managed.activeQueries,
-        pool: { total: managed.pool.totalCount, idle: managed.pool.idleCount, waiting: managed.pool.waitingCount } })
+      console.debug('[database] connection lifecycle', {
+        profileId: id,
+        generation,
+        event: 'idle-client-recovered',
+        managedState: managed.state,
+        activeQueries: managed.activeQueries,
+        pool: {
+          total: managed.pool.totalCount,
+          idle: managed.pool.idleCount,
+          waiting: managed.pool.waitingCount,
+        },
+      })
       emitUsableState(managed, 'connected', 'pool:client-acquired')
     }
     const value = await operation(client)
-    if (pools.get(id)?.generation !== generation || managed.state !== 'connected') {
-      throw new DatabaseConnectionError('CONNECTION_LOST', 'The connection was lost before the operation completed.')
+    if (
+      pools.get(id)?.generation !== generation ||
+      managed.state !== 'connected'
+    ) {
+      throw new DatabaseConnectionError(
+        'CONNECTION_LOST',
+        'The connection was lost before the operation completed.',
+      )
     }
     return value
   } catch (error) {
     if (error instanceof DatabaseConnectionError) throw error
-    if (pools.get(id)?.generation !== generation || managed.state === 'failed') {
+    if (
+      pools.get(id)?.generation !== generation ||
+      managed.state === 'failed'
+    ) {
       throw new DatabaseConnectionError('CONNECTION_LOST', reasonOf(error))
     }
     throw error
@@ -297,19 +471,36 @@ async function withClient<T>(id: ConnectionId, operation: (client: PoolClient) =
     if (managed.activeQueries > 0) managed.activeQueries--
     if (client) {
       managed.checkedOut.delete(client)
-      safeRelease(client, managed.state === 'failed' || managed.state === 'disconnecting')
+      safeRelease(
+        client,
+        managed.state === 'failed' || managed.state === 'disconnecting',
+      )
     }
   }
 }
 
 /** Narrow dependency seam and read-only diagnostics for lifecycle tests. */
 export const __testing = {
-  setPoolFactory(factory: (config: PoolConfig) => Pool): void { createPool = factory },
-  snapshot(id: ConnectionId): { generation: number; state: ManagedPool['state']; activeQueries: number } | undefined {
-    const managed = pools.get(id)
-    return managed ? { generation: managed.generation, state: managed.state, activeQueries: managed.activeQueries } : undefined
+  setPoolFactory(factory: (config: PoolConfig) => Pool): void {
+    createPool = factory
   },
-  activePoolIds(): ConnectionId[] { return [...pools.keys()] },
+  snapshot(
+    id: ConnectionId,
+  ):
+    | { generation: number; state: ManagedPool['state']; activeQueries: number }
+    | undefined {
+    const managed = pools.get(id)
+    return managed
+      ? {
+          generation: managed.generation,
+          state: managed.state,
+          activeQueries: managed.activeQueries,
+        }
+      : undefined
+  },
+  activePoolIds(): ConnectionId[] {
+    return [...pools.keys()]
+  },
   async reset(): Promise<void> {
     await disconnectAll()
     nextGeneration = 0
@@ -317,7 +508,7 @@ export const __testing = {
     connectionIntents.clear()
     createPool = (config) => new Pool(config)
     stateListener = () => undefined
-  }
+  },
 }
 
 interface PostgresField {
@@ -329,17 +520,23 @@ function toColumnMeta(fields: readonly PostgresField[]): ColumnMeta[] {
   return fields.map((f) => ({
     name: f.name,
     dataTypeID: f.dataTypeID,
-    dataTypeName: f.dataTypeID in OID_NAMES ? OID_NAMES[f.dataTypeID] : guessTypeName(f.dataTypeID),
+    dataTypeName:
+      f.dataTypeID in OID_NAMES
+        ? OID_NAMES[f.dataTypeID]
+        : guessTypeName(f.dataTypeID),
     logicalType: logicalTypeForOid(f.dataTypeID),
-    nativeType: f.dataTypeID in OID_NAMES ? OID_NAMES[f.dataTypeID] : guessTypeName(f.dataTypeID),
-    nativeTypeId: f.dataTypeID
+    nativeType:
+      f.dataTypeID in OID_NAMES
+        ? OID_NAMES[f.dataTypeID]
+        : guessTypeName(f.dataTypeID),
+    nativeTypeId: f.dataTypeID,
   }))
 }
 
 /** Convert pg array-mode output without losing columns that share a name. */
 export function normalizePostgresResult(
   fields: readonly PostgresField[],
-  positionalRows: readonly (readonly unknown[])[]
+  positionalRows: readonly (readonly unknown[])[],
 ): Pick<QueryResult, 'columns' | 'rows' | 'rowCount'> {
   const reservedKeys = new Set(fields.map((field) => field.name))
   const assignedKeys = new Set<string>()
@@ -355,9 +552,14 @@ export function normalizePostgresResult(
     assignedKeys.add(key)
     return key === column.name ? column : { ...column, key }
   })
-  const rows = positionalRows.map((values) => Object.fromEntries(
-    columns.map((column, index) => [column.key ?? column.name, values[index]])
-  ))
+  const rows = positionalRows.map((values) =>
+    Object.fromEntries(
+      columns.map((column, index) => [
+        column.key ?? column.name,
+        values[index],
+      ]),
+    ),
+  )
   return { columns, rows, rowCount: rows.length }
 }
 
@@ -397,7 +599,7 @@ const OID_NAMES: Record<number, string> = {
   1043: 'varchar',
   790: 'money',
   700: 'float4',
-  701: 'float8'
+  701: 'float8',
 }
 
 function guessTypeName(oid: number): string {
@@ -405,12 +607,20 @@ function guessTypeName(oid: number): string {
   return `oid:${oid}`
 }
 
-export async function runQuery(id: ConnectionId, sql: string, parameters: unknown[] = []): Promise<QueryResult> {
+export async function runQuery(
+  id: ConnectionId,
+  sql: string,
+  parameters: unknown[] = [],
+): Promise<QueryResult> {
   const m = getPool(id)
   assertReadonly(m.profile, sql)
   return withClient(id, async (client) => {
     const start = performance.now()
-    const r: PgQueryResult<unknown[]> = await client.query({ text: sql, values: parameters, rowMode: 'array' })
+    const r: PgQueryResult<unknown[]> = await client.query({
+      text: sql,
+      values: parameters,
+      rowMode: 'array',
+    })
     const durationMs = Math.round(performance.now() - start)
     const normalized = normalizePostgresResult(r.fields, r.rows)
     return {
@@ -418,12 +628,18 @@ export async function runQuery(id: ConnectionId, sql: string, parameters: unknow
       rows: normalized.rows,
       rowCount: r.rowCount ?? r.rows.length,
       durationMs,
-      execution: { provider: 'postgres', durationMs, rowCount: r.rowCount ?? r.rows.length }
+      execution: {
+        provider: 'postgres',
+        durationMs,
+        rowCount: r.rowCount ?? r.rows.length,
+      },
     }
   })
 }
 
-export async function listObjects(id: ConnectionId): Promise<{ schema: string; name: string; kind: 'r' | 'v' | 'm' }[]> {
+export async function listObjects(
+  id: ConnectionId,
+): Promise<{ schema: string; name: string; kind: 'r' | 'v' | 'm' }[]> {
   return withClient(id, async (client) => {
     const r = await client.query<{
       schema: string
@@ -432,12 +648,17 @@ export async function listObjects(id: ConnectionId): Promise<{ schema: string; n
     }>(
       `select table_schema as schema, table_name as name, table_type
        from information_schema.tables
-       order by table_schema, table_name`
+       order by table_schema, table_name`,
     )
     return r.rows.map((row) => ({
       schema: row.schema,
       name: row.name,
-      kind: row.table_type === 'VIEW' ? 'v' : row.table_type === 'FOREIGN' ? 'v' : 'r'
+      kind:
+        row.table_type === 'VIEW'
+          ? 'v'
+          : row.table_type === 'FOREIGN'
+            ? 'v'
+            : 'r',
     }))
   })
 }
@@ -445,7 +666,7 @@ export async function listObjects(id: ConnectionId): Promise<{ schema: string; n
 export async function describeTable(
   id: ConnectionId,
   schema: string,
-  table: string
+  table: string,
 ): Promise<{ name: string; dataTypeName: string; nullable: boolean }[]> {
   return withClient(id, async (client) => {
     const r = await client.query(
@@ -453,12 +674,12 @@ export async function describeTable(
        from information_schema.columns
        where table_schema = $1 and table_name = $2
        order by ordinal_position`,
-      [schema, table]
+      [schema, table],
     )
     return r.rows.map((row: Record<string, string>) => ({
       name: row.column_name,
       dataTypeName: row.data_type,
-      nullable: row.is_nullable === 'YES'
+      nullable: row.is_nullable === 'YES',
     }))
   })
 }
@@ -466,15 +687,19 @@ export async function describeTable(
 export async function explainQuery(
   id: ConnectionId,
   sql: string,
-  analyze: boolean
+  analyze: boolean,
 ): Promise<{ text: string }> {
   const m = getPool(id)
   assertReadonly(m.profile, sql)
   return withClient(id, async (client) => {
-    const prefix = analyze ? 'EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)' : 'EXPLAIN (FORMAT TEXT)'
+    const prefix = analyze
+      ? 'EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)'
+      : 'EXPLAIN (FORMAT TEXT)'
     // Guard against LIMIT-less long ANALYZE: we wrap subselect-style statements.
     const r = await client.query({ text: `${prefix} ${sql}` })
-    const text = r.rows.map((row: Record<string, string>) => Object.values(row)[0]).join('\n')
+    const text = r.rows
+      .map((row: Record<string, string>) => Object.values(row)[0])
+      .join('\n')
     return { text }
   })
 }

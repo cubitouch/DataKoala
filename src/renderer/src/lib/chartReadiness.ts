@@ -36,11 +36,12 @@ export function finishChartRevisionAfterPaint(
   isApplied: () => boolean,
   onFinished: (revision: ChartRevision) => void,
   scheduleFrame: FrameScheduler = requestAnimationFrame,
-  cancelFrame: FrameCanceller = cancelAnimationFrame
+  cancelFrame: FrameCanceller = cancelAnimationFrame,
 ): () => void {
   let handle = scheduleFrame(() => {
     handle = scheduleFrame(() => {
-      if (isApplied() && readiness.finishRevision(revision)) onFinished(revision)
+      if (isApplied() && readiness.finishRevision(revision))
+        onFinished(revision)
     })
   })
   return () => cancelFrame(handle)

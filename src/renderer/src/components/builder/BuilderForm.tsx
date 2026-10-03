@@ -6,6 +6,15 @@ export type BuilderFormProps = HTMLAttributes<HTMLElement> & {
   children: ReactNode
 }
 
-export function BuilderForm({ as: Element = 'div', className, ...props }: BuilderFormProps) {
-  return <Element className={[styles.form, className].filter(Boolean).join(' ')} {...props} />
+export function BuilderForm({
+  as: Element = 'div',
+  className,
+  ...props
+}: BuilderFormProps) {
+  return (
+    <Element
+      className={[styles.form, className].filter(Boolean).join(' ')}
+      {...props}
+    />
+  )
 }

@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { BuilderTimeRange } from '@lib/builderTimeRange'
-import type { GrafanaSignal, GrafanaRange, ResolvedGrafanaHandoff } from '@shared/grafanaExplore'
+import type {
+  GrafanaSignal,
+  GrafanaRange,
+  ResolvedGrafanaHandoff,
+} from '@shared/grafanaExplore'
 import { buildGrafanaExploreUrl, grafanaRange } from '@shared/grafanaExplore'
 import type { DataSourceProfile } from '@shared/types'
 import { copyTextToClipboard } from '@lib/clipboardText'
@@ -19,12 +23,16 @@ export function grafanaUrlFor(
   profile: ObservabilityProfile | undefined,
   query: string,
   range: BuilderTimeRange | GrafanaRange,
-  resolved?: ResolvedGrafanaHandoff
+  resolved?: ResolvedGrafanaHandoff,
 ): string | null {
   if (!profile || !query.trim()) return null
   const baseUrl = profile.grafana?.baseUrl || resolved?.baseUrl
-  const datasourceUid = profile.grafana?.datasourceUid || profile.transport.datasourceUid || resolved?.datasourceUid
-  const datasourceType = profile.grafana?.datasourceType || resolved?.datasourceType
+  const datasourceUid =
+    profile.grafana?.datasourceUid ||
+    profile.transport.datasourceUid ||
+    resolved?.datasourceUid
+  const datasourceType =
+    profile.grafana?.datasourceType || resolved?.datasourceType
   if (!baseUrl || !datasourceUid || !datasourceType) return null
   try {
     const converted = 'from' in range ? range : grafanaRange(range)
@@ -35,18 +43,31 @@ export function grafanaUrlFor(
       datasourceType,
       signal: profile.kind,
       query,
-      range: converted
+      range: converted,
     })
-  } catch { return null }
+  } catch {
+    return null
+  }
 }
 
-export function GrafanaHandoffActions({ profile, query, range }: { profile?: ObservabilityProfile; query: string; range: BuilderTimeRange | GrafanaRange }) {
+export function GrafanaHandoffActions({
+  profile,
+  query,
+  range,
+}: {
+  profile?: ObservabilityProfile
+  query: string
+  range: BuilderTimeRange | GrafanaRange
+}) {
   const configuredUrl = grafanaUrlFor(profile, query, range)
   const needsResolution = Boolean(profile && query.trim() && !configuredUrl)
-  const [resolution, setResolution] = useState<ResolutionState>({ status: 'idle' })
+  const [resolution, setResolution] = useState<ResolutionState>({
+    status: 'idle',
+  })
   const signal = profile?.kind
   const context = profile?.transport.context
-  const datasourceUid = profile?.grafana?.datasourceUid || profile?.transport.datasourceUid
+  const datasourceUid =
+    profile?.grafana?.datasourceUid || profile?.transport.datasourceUid
 
   useEffect(() => {
     if (!needsResolution || !signal) {
@@ -56,23 +77,38 @@ export function GrafanaHandoffActions({ profile, query, range }: { profile?: Obs
     let active = true
     const resolver = api.connections.grafana?.resolveHandoff
     if (!resolver) {
-      setResolution({ status: 'error', message: 'Grafana handoff resolution is unavailable.' })
+      setResolution({
+        status: 'error',
+        message: 'Grafana handoff resolution is unavailable.',
+      })
       return
     }
     setResolution({ status: 'loading' })
     resolver({
       signal,
       context,
-      datasourceUid
-    }).then((value) => {
-      if (active) setResolution({ status: 'ready', value })
-    }).catch((error: unknown) => {
-      if (active) setResolution({ status: 'error', message: error instanceof Error ? error.message : String(error) })
+      datasourceUid,
     })
-    return () => { active = false }
+      .then((value) => {
+        if (active) setResolution({ status: 'ready', value })
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setResolution({
+            status: 'error',
+            message: error instanceof Error ? error.message : String(error),
+          })
+      })
+    return () => {
+      active = false
+    }
   }, [context, datasourceUid, needsResolution, signal])
 
-  const url = configuredUrl ?? (resolution.status === 'ready' ? grafanaUrlFor(profile, query, range, resolution.value) : null)
+  const url =
+    configuredUrl ??
+    (resolution.status === 'ready'
+      ? grafanaUrlFor(profile, query, range, resolution.value)
+      : null)
   const hint = url
     ? 'Open this query and time range in Grafana Explore'
     : resolution.status === 'loading'
@@ -81,9 +117,25 @@ export function GrafanaHandoffActions({ profile, query, range }: { profile?: Obs
         ? `Grafana handoff unavailable: ${resolution.message}`
         : 'Grafana handoff is unavailable for this query'
 
-  return <Popover ariaLabel="Grafana handoff" trigger={<><span>Grafana</span><PopoverChevron /></>} disabled={!url} popupType="menu" contentRole="menu" preferredWidth={190} triggerClassName={styles.trigger} triggerButtonProps={{ title: hint }}>
-    {url && <GrafanaMenu url={url} />}
-  </Popover>
+  return (
+    <Popover
+      ariaLabel="Grafana handoff"
+      trigger={
+        <>
+          <span>Grafana</span>
+          <PopoverChevron />
+        </>
+      }
+      disabled={!url}
+      popupType="menu"
+      contentRole="menu"
+      preferredWidth={190}
+      triggerClassName={styles.trigger}
+      triggerButtonProps={{ title: hint }}
+    >
+      {url && <GrafanaMenu url={url} />}
+    </Popover>
+  )
 }
 
 function GrafanaMenu({ url }: { url: string }) {
@@ -96,14 +148,30 @@ function GrafanaMenu({ url }: { url: string }) {
       notify({ message: 'Grafana link copied' })
     } catch (error) {
       notify({
-        message: error instanceof Error && error.message ? `Could not copy Grafana link: ${error.message}` : 'Could not copy Grafana link',
-        tone: 'error'
+        message:
+          error instanceof Error && error.message
+            ? `Could not copy Grafana link: ${error.message}`
+            : 'Could not copy Grafana link',
+        tone: 'error',
       })
     }
   }
 
-  return <div className={styles.menu}>
-    <button type="button" role="menuitem" onClick={() => { popover?.close(); void api.external.openUrl(url) }}>Open in Grafana ↗</button>
-    <button type="button" role="menuitem" onClick={handleCopy}>Copy Grafana link</button>
-  </div>
+  return (
+    <div className={styles.menu}>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          popover?.close()
+          void api.external.openUrl(url)
+        }}
+      >
+        Open in Grafana ↗
+      </button>
+      <button type="button" role="menuitem" onClick={handleCopy}>
+        Copy Grafana link
+      </button>
+    </div>
+  )
 }

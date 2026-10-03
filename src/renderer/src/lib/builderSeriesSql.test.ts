@@ -9,12 +9,15 @@ test('Builder selects, groups, and orders multiple Series columns independently'
     timeColumnDataType: 'timestamptz',
     timeBucket: 'minute',
     timeRange: { kind: 'rolling', amount: 1, unit: 'hour' },
-    seriesColumns: ['origin', 'type']
+    seriesColumns: ['origin', 'type'],
   })
   assert.match(query.sql, /"origin",\n {2}"type",\n {2}COUNT\(\*\) AS "count"/)
   assert.doesNotMatch(query.sql, /concat_ws|::text|AS "series"/)
   assert.match(query.sql, /GROUP BY 1, 2, 3/)
-  assert.match(query.sql, /ORDER BY 1 ASC NULLS LAST, 2 ASC NULLS LAST, 3 ASC NULLS LAST/)
+  assert.match(
+    query.sql,
+    /ORDER BY 1 ASC NULLS LAST, 2 ASC NULLS LAST, 3 ASC NULLS LAST/,
+  )
 })
 
 test('Builder preserves a single Series source column without aliasing it to synthetic series', () => {
@@ -22,7 +25,7 @@ test('Builder preserves a single Series source column without aliasing it to syn
     table: { schema: 'public', name: 'events' },
     timeColumn: 'created_at',
     timeBucket: 'day',
-    seriesColumns: ['country']
+    seriesColumns: ['country'],
   })
   assert.match(query.sql, /"country",\n {2}COUNT\(\*\) AS "count"/)
   assert.doesNotMatch(query.sql, /AS "series"/)
@@ -35,7 +38,7 @@ test('Builder quotes every Series identifier independently', () => {
     table: { schema: 'public', name: 'events' },
     timeColumn: 'created at',
     timeBucket: 'hour',
-    seriesColumns: ['order', 'device type']
+    seriesColumns: ['order', 'device type'],
   })
   assert.match(query.sql, /"order",\n {2}"device type",/)
   assert.doesNotMatch(query.sql, /concat_ws|AS "series"/)

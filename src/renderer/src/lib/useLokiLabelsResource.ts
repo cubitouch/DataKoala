@@ -9,33 +9,93 @@ export interface LokiLabelsSnapshot {
   error: string | null
   bounds: { start: string; end: string }
 }
-interface Resource { snapshot: LokiLabelsSnapshot; listeners: Set<() => void>; request: number; refreshRevision: number; promise?: Promise<void> }
+interface Resource {
+  snapshot: LokiLabelsSnapshot
+  listeners: Set<() => void>
+  request: number
+  refreshRevision: number
+  promise?: Promise<void>
+}
 const resources = new Map<string, Resource>()
-const semanticKey = (connectionId: string, generation: number, tabId: string, range: BuilderTimeRange) => JSON.stringify([connectionId, generation, tabId, range])
-const visibleLabels = (labels: string[]) => [...new Set(labels)].filter((label) => label && !label.startsWith('__')).sort()
+const semanticKey = (
+  connectionId: string,
+  generation: number,
+  tabId: string,
+  range: BuilderTimeRange,
+) => JSON.stringify([connectionId, generation, tabId, range])
+const visibleLabels = (labels: string[]) =>
+  [...new Set(labels)]
+    .filter((label) => label && !label.startsWith('__'))
+    .sort()
 function resourceFor(key: string, range: BuilderTimeRange): Resource {
   const previous = resources.get(key)
   if (previous) return previous
-  const resource: Resource = { snapshot: { status: 'loading', labels: [], error: null, bounds: prometheusRangeBounds(range) }, listeners: new Set(), request: 0, refreshRevision: 0 }
+  const resource: Resource = {
+    snapshot: {
+      status: 'loading',
+      labels: [],
+      error: null,
+      bounds: prometheusRangeBounds(range),
+    },
+    listeners: new Set(),
+    request: 0,
+    refreshRevision: 0,
+  }
   resources.set(key, resource)
   return resource
 }
-function emit(resource: Resource) { for (const listener of resource.listeners) listener() }
+function emit(resource: Resource) {
+  for (const listener of resource.listeners) listener()
+}
 function load(resource: Resource, connectionId: string) {
   if (resource.promise) return resource.promise
   const request = ++resource.request
-  resource.snapshot = { ...resource.snapshot, status: 'loading', error: null }; emit(resource)
-  resource.promise = lokiLabels(connectionId, resource.snapshot.bounds).then((labels) => {
-    if (request === resource.request) resource.snapshot = { ...resource.snapshot, status: 'loaded', labels: visibleLabels(labels), error: null }
-  }, (error) => {
-    if (request === resource.request) resource.snapshot = { ...resource.snapshot, status: 'error', error: error instanceof Error ? error.message : String(error) }
-  }).finally(() => { if (request === resource.request) resource.promise = undefined; emit(resource) })
+  resource.snapshot = { ...resource.snapshot, status: 'loading', error: null }
+  emit(resource)
+  resource.promise = lokiLabels(connectionId, resource.snapshot.bounds)
+    .then(
+      (labels) => {
+        if (request === resource.request)
+          resource.snapshot = {
+            ...resource.snapshot,
+            status: 'loaded',
+            labels: visibleLabels(labels),
+            error: null,
+          }
+      },
+      (error) => {
+        if (request === resource.request)
+          resource.snapshot = {
+            ...resource.snapshot,
+            status: 'error',
+            error: error instanceof Error ? error.message : String(error),
+          }
+      },
+    )
+    .finally(() => {
+      if (request === resource.request) resource.promise = undefined
+      emit(resource)
+    })
   return resource.promise
 }
-export function useLokiLabelsResource(connectionId: string, generation: number, tabId: string, range: BuilderTimeRange, enabled = true, refreshRevision = 0) {
+export function useLokiLabelsResource(
+  connectionId: string,
+  generation: number,
+  tabId: string,
+  range: BuilderTimeRange,
+  enabled = true,
+  refreshRevision = 0,
+) {
   const key = semanticKey(connectionId, generation, tabId, range)
   const resource = useMemo(() => resourceFor(key, range), [key, range])
-  const snapshot = useSyncExternalStore((listener) => { resource.listeners.add(listener); return () => resource.listeners.delete(listener) }, () => resource.snapshot, () => resource.snapshot)
+  const snapshot = useSyncExternalStore(
+    (listener) => {
+      resource.listeners.add(listener)
+      return () => resource.listeners.delete(listener)
+    },
+    () => resource.snapshot,
+    () => resource.snapshot,
+  )
   useEffect(() => {
     if (enabled) {
       if (refreshRevision > resource.refreshRevision) {
@@ -44,17 +104,28 @@ export function useLokiLabelsResource(connectionId: string, generation: number, 
         resource.promise = undefined
       }
       void load(resource, connectionId)
-    }
-    else {
+    } else {
       resource.request++
       resource.promise = undefined
-      resource.snapshot = { ...resource.snapshot, status: 'loaded', error: null }
+      resource.snapshot = {
+        ...resource.snapshot,
+        status: 'loaded',
+        error: null,
+      }
       emit(resource)
     }
   }, [resource, connectionId, enabled, refreshRevision])
-  return { ...snapshot, enabled, retry: () => {
-    if (!enabled) return Promise.resolve()
-    resource.request++; resource.promise = undefined; return load(resource, connectionId)
-  } }
+  return {
+    ...snapshot,
+    enabled,
+    retry: () => {
+      if (!enabled) return Promise.resolve()
+      resource.request++
+      resource.promise = undefined
+      return load(resource, connectionId)
+    },
+  }
 }
-export function clearLokiLabelsResources() { resources.clear() }
+export function clearLokiLabelsResources() {
+  resources.clear()
+}
