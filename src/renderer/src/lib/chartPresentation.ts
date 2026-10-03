@@ -3,6 +3,8 @@ import { summarizeTooltipRows } from './chartTooltip.ts'
 import { prepareLogScaleSeries, type ValueAxisScale } from './chartAxisScale.ts'
 import type { ChartAnomaly } from './chartAnomalies.ts'
 import type { HierarchyNode } from './chartHierarchy.ts'
+import { timeBucketRange } from './chartPointFilters.ts'
+import type { TimeBucket } from '@store/useStore'
 
 export type TimeDisplayPrecision = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
 
@@ -164,7 +166,17 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
   const temporal = Boolean(precision && input.labels.length && input.labels.every((label) => dateValue(label)))
   const temporalXValues = temporal ? input.labels.map((label) => dateValue(label)!.getTime()) : []
   const domain = temporal ? input.timeDomain : undefined
-  const temporalBarOutsideDomain = Boolean(temporal && input.view === 'bar' && domain && !temporalXValues.some((time) => time >= domain.min && time <= domain.max))
+  const bucket = input.timeBucket as TimeBucket | undefined
+  const presentationXValues = temporal && domain && bucket
+    ? input.labels.map((label, index) => {
+        const range = timeBucketRange(label, bucket)
+        if (!range) return temporalXValues[index]
+        const start = Date.parse(range.startInclusive)
+        const end = Date.parse(range.endExclusive)
+        return end > domain.min && start < domain.max ? Math.max(start, domain.min) : temporalXValues[index]
+      })
+    : temporalXValues
+  const temporalBarOutsideDomain = Boolean(temporal && input.view === 'bar' && domain && !presentationXValues.some((time) => time >= domain.min && time <= domain.max))
   const formatLabel = precision ? (value: unknown) => formatTimeBucketLabel(value, precision) : (value: unknown) => String(value)
   const renderedSeries = input.valueAxisScale === 'log' ? prepareLogScaleSeries(input.series, input.visibility).series : input.series
   const hasMultipleSeries = renderedSeries.length > 1
@@ -230,7 +242,7 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
           // default. When every bar lies outside a bounded domain (for example while
           // a previous result is stale), its inferred band can collapse visible ticks.
           ...(temporalBarOutsideDomain ? { containShape: false } : {}),
-          axisLabel: { color: '#9aa0b0', formatter: formatLabel }
+          axisLabel: { color: '#9aa0b0', formatter: formatLabel, showMinLabel: true }
         }
       : { type: 'category', data: input.labels, axisLabel: { color: '#9aa0b0', formatter: formatLabel } },
     yAxis: { type: input.valueAxisScale === 'log' ? 'log' : 'value', axisLabel: { color: '#9aa0b0', formatter: formatChartNumber } },
@@ -241,14 +253,14 @@ export function buildChartPresentationOptions(input: PresentationInput): Record<
     series: renderedSeries.map((series) => ({
       ...series, missing: undefined,
       type: input.view === 'area' ? 'line' : input.view,
-      data: temporal ? series.data.map((value, index) => [temporalXValues[index], value]) : series.data,
+      data: temporal ? series.data.map((value, index) => [presentationXValues[index], value]) : series.data,
       stack: (input.view === 'bar' || input.view === 'area') && input.hasSeriesColumn ? 'total' : undefined,
       areaStyle: input.view === 'area' ? { opacity: 0.3 } : undefined,
       smooth: input.view === 'line' || input.view === 'area', connectNulls: false, showSymbol: input.view === 'line', symbolSize: input.view === 'scatter' ? 8 : 6,
       markPoint: input.view === 'line' ? {
         silent: true, symbol: 'circle', symbolSize: 13,
         label: { show: false }, itemStyle: { color: 'transparent', borderColor: '#f59e0b', borderWidth: 3 },
-        data: (input.anomalies ?? []).filter((anomaly) => anomaly.seriesName === series.name && (input.valueAxisScale !== 'log' || anomaly.value > 0)).map((anomaly) => ({ coord: [temporal ? temporalXValues[anomaly.dataIndex] : anomaly.dataIndex, anomaly.value], name: 'Anomaly' }))
+        data: (input.anomalies ?? []).filter((anomaly) => anomaly.seriesName === series.name && (input.valueAxisScale !== 'log' || anomaly.value > 0)).map((anomaly) => ({ coord: [temporal ? presentationXValues[anomaly.dataIndex] : anomaly.dataIndex, anomaly.value], name: 'Anomaly' }))
       } : undefined
     }))
   }
