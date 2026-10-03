@@ -22,7 +22,13 @@ const invalidateFormatRequest = (request: { current: number }, expected: number)
   if (request.current === expected) request.current += 1
 }
 
-export function PromqlBuilderPanel() {
+export type PromqlBuilderQueryState = {
+  generated: string
+  displayed: string
+  validation: string | null
+}
+
+export function PromqlBuilderPanel({ onQueryStateChange }: { onQueryStateChange?: (state: PromqlBuilderQueryState) => void }) {
   const tabId = useStore((state) => state.activeTabId)
   const session = useStore(selectActiveSession)
   const profileId = session.connectionProfileId
@@ -57,7 +63,6 @@ export function PromqlBuilderPanel() {
   const lastKnownHistogramKind = useRef(resolvedHistogramKind)
   const histogramKind = !canLoadMetadata || loadingLabels ? lastKnownHistogramKind.current : resolvedHistogramKind
   if (canLoadMetadata && !loadingLabels) lastKnownHistogramKind.current = resolvedHistogramKind
-  const previousHistogramKind = useRef(histogramKind)
   const labelRequest = useRef(0)
   const valueRequests = useRef<Record<string, number>>({})
   const metadataLifecycle = useRef({ key: '', generation: 0 })
@@ -74,14 +79,8 @@ export function PromqlBuilderPanel() {
   const loadingMetrics = metadata?.status === 'loading'
 
   const apply = useCallback((patch: Partial<typeof builder>) => {
-    const next = { ...builder, ...patch }
-    const nextHistogramKind = !canLoadMetadata || loadingLabels
-      ? histogramKind
-      : resolvePromqlHistogramKind(detectedHistogramKind, next.histogramKindOverride ?? 'auto')
     setBuilder(patch, tabId)
-    const generated = buildPromql(next, nextHistogramKind)
-    if (generated) setSql(generated, tabId)
-  }, [builder, canLoadMetadata, loadingLabels, histogramKind, detectedHistogramKind, setBuilder, tabId, setSql])
+  }, [setBuilder, tabId])
   const loadValues = useCallback((label: string) => {
     if (!canLoadMetadata || !profileId || !builder.metric || !label || values[label] || loadingValues[label]) return
     const lifecycle = metadataLifecycle.current.generation
@@ -110,10 +109,8 @@ export function PromqlBuilderPanel() {
     if (metric === builder.metric) return
     const target = metrics.find((candidate) => candidate.name === metric)
     const targetType = target?.details?.kind === 'metric' ? target.details.type : undefined
-    const { builder: next, histogramKind: targetKind } = reconcilePromqlBuilderForMetric(builder, metric, targetType)
+    const { builder: next } = reconcilePromqlBuilderForMetric(builder, metric, targetType)
     setBuilder(next, tabId)
-    const generated = buildPromql(next, targetKind)
-    if (generated) setSql(generated, tabId)
     setLabels([]); setValues({}); setLoadingValues({}); setValueErrors({}); setLabelError(null)
   }
   useEffect(() => {
@@ -138,16 +135,10 @@ export function PromqlBuilderPanel() {
   useEffect(() => {
     if (!calculationsForPromqlHistogramKind(histogramKind).includes(builder.calculation)) {
       apply({ calculation: 'raw', aggregation: 'none' })
-      previousHistogramKind.current = histogramKind
       return
     }
-    if (previousHistogramKind.current !== histogramKind && isHistogramCalculation(builder.calculation)) {
-      const generated = buildPromql(builder, histogramKind)
-      if (generated) setSql(generated, tabId)
-    }
-    previousHistogramKind.current = histogramKind
     if (import.meta.env.DEV && builder.metric && !loadingLabels) console.debug(`[prometheus:builder] selectedMetric=${builder.metric} metadataType=${metadataType ?? 'unknown'} labels=${JSON.stringify(labels)} detectedHistogramKind=${detectedHistogramKind} histogramKind=${histogramKind}`)
-  }, [histogramKind, builder, loadingLabels, apply, setSql, tabId, metadataType, labels, detectedHistogramKind])
+  }, [histogramKind, builder, loadingLabels, apply, metadataType, labels, detectedHistogramKind])
   const changeCalculation = (calculation: PromqlCalculation) => {
     const aggregation: PromqlAggregation = isHistogramCalculation(calculation) ? 'sum' : calculation === 'rate' || calculation === 'increase' ? 'sum' : builder.aggregation
     apply({ calculation, aggregation, groupBy: calculation === 'raw' && aggregation === 'none' ? [] : builder.groupBy })
@@ -160,6 +151,9 @@ export function PromqlBuilderPanel() {
   const validation = validatePromqlBuilder(builder, histogramKind)
   const generated = buildPromql(builder, histogramKind)
   const displayedGenerated = formattedGenerated.source === generated ? formattedGenerated.query : generated
+  useEffect(() => {
+    onQueryStateChange?.({ generated, displayed: displayedGenerated, validation })
+  }, [generated, displayedGenerated, validation, onQueryStateChange])
   useEffect(() => {
     const request = ++formatRequest.current
     const formatQuery = api.connections.prometheus.formatQuery

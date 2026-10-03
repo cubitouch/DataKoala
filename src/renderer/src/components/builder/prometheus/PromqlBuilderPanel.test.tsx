@@ -17,7 +17,7 @@ let sequence = 0
 function arrange(metric = 'request_duration_seconds_bucket', metricType?: string) {
   const id = `prom-builder-${++sequence}`
   resetTestStore({ activeProfileId: id, connected: true, connectionStatus: 'connected', profiles: [{ id, name: 'Metrics', kind: 'prometheus', version: 1, readonly: true, transport: { kind: 'gcx' } }] })
-  patchActiveTestSession({ connectionProfileId: id, queryMode: 'builder', sql: '', promqlBuilder: { metric, filterBy: [], groupBy: [], labelValues: {}, calculation: 'percentile', aggregation: 'sum', window: '5m', percentile: 0.95, histogramKindOverride: 'auto' } })
+  patchActiveTestSession({ connectionProfileId: id, queryMode: 'builder', sql: 'manual_query_that_must_survive', promqlBuilder: { metric, filterBy: [], groupBy: [], labelValues: {}, calculation: 'percentile', aggregation: 'sum', window: '5m', percentile: 0.95, histogramKindOverride: 'auto' } })
   setActiveTestMetadata([{ name: 'Prometheus', isSystem: false, relations: [metric, 'other_total', 'other_bucket'].filter((name, index, all) => all.indexOf(name) === index).map((name) => ({ schema: 'Prometheus', name, qualifiedName: name, kind: 'metric' as const, columnsStatus: 'idle' as const, ...(name === metric && metricType ? { details: { kind: 'metric' as const, type: metricType } } : {}) })) }], 'loaded', null, id)
   return render(<PromqlBuilderPanel />)
 }
@@ -96,7 +96,8 @@ describe('PromQL Builder controls', () => {
     fireEvent.click(screen.getByRole('combobox', { name: 'Rate window: 5m' }))
     fireEvent.click(await screen.findByRole('option', { name: '10m' }))
     expect(activeTestSession().promqlBuilder.window).toBe('10m')
-    expect(activeTestSession().sql).toContain('[10m]')
+    expect((screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement).value).toContain('[10m]')
+    expect(activeTestSession().sql).toBe('manual_query_that_must_survive')
     expect(activeTestSession().running).toBe(false)
   })
 
@@ -137,12 +138,14 @@ describe('PromQL Builder controls', () => {
     fireEvent.click(screen.getByRole('combobox', { name: /Metric: requests_total/ }))
     fireEvent.click(await screen.findByRole('option', { name: 'other_total' }))
     expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'rate', aggregation: 'avg', histogramKindOverride: 'auto' })
+    expect(activeTestSession().sql).toBe('manual_query_that_must_survive')
 
     patchActiveTestSession({ promqlBuilder: { ...activeTestSession().promqlBuilder, metric: 'other_bucket', calculation: 'percentile', aggregation: 'sum', histogramKindOverride: 'classic' } })
     cleanup(); render(<PromqlBuilderPanel />)
     fireEvent.click(screen.getByRole('combobox', { name: /Metric: other_bucket/ }))
     fireEvent.click(await screen.findByRole('option', { name: 'other_total' }))
     expect(activeTestSession().promqlBuilder).toMatchObject({ calculation: 'percentile', aggregation: 'sum', histogramKindOverride: 'auto' })
+    expect(activeTestSession().sql).toBe('manual_query_that_must_survive')
     expect(await screen.findByRole('combobox', { name: 'Histogram representation: Auto' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Open in PromQL mode' }).hasAttribute('disabled')).toBe(true)
   })
@@ -162,12 +165,13 @@ describe('PromQL Builder controls', () => {
 
     fireEvent.click(representation)
     fireEvent.click(await screen.findByRole('option', { name: 'Native histogram' }))
-    await waitFor(() => expect(activeTestSession().sql).toContain('sum(\n    rate(mystery_metric[5m])'))
-    expect(activeTestSession().sql).not.toContain('sum by (le)')
+    await waitFor(() => expect((screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement).value).toContain('sum(\n    rate(mystery_metric[5m])'))
+    expect(activeTestSession().sql).toBe('manual_query_that_must_survive')
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Histogram representation: Native histogram' }))
     fireEvent.click(await screen.findByRole('option', { name: 'Classic histogram' }))
-    await waitFor(() => expect(activeTestSession().sql).toContain('sum by (le)'))
+    await waitFor(() => expect((screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement).value).toContain('sum by (le)'))
+    expect(activeTestSession().sql).toBe('manual_query_that_must_survive')
   })
 
   it('hides histogram-only calculations for metadata-known non-histograms', async () => {
@@ -193,7 +197,8 @@ describe('PromQL Builder controls', () => {
     fireEvent.click(screen.getByRole('option', { name: 'Observation rate' }))
     expect(screen.queryByRole('combobox', { name: /Aggregation/ })).toBeNull()
     expect(screen.getByRole('combobox', { name: /Rate window: 5m/ })).toBeTruthy()
-    expect(activeTestSession().sql).toBe('histogram_count(\n  rate(my_metric[5m])\n)')
+    expect((screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement).value).toBe('histogram_count(\n  rate(my_metric[5m])\n)')
+    expect(activeTestSession().sql).toBe('manual_query_that_must_survive')
     expect(activeTestSession().running).toBe(false)
   })
 

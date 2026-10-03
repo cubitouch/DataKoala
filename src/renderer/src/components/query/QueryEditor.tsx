@@ -17,8 +17,7 @@ import { TimeRangeField } from './time-range/TimeRangeField'
 import { QueryUtilityActions } from './QueryUtilityActions'
 import { prometheusRangeBounds } from '@lib/prometheusTimeRange'
 import { effectivePrometheusStep, isPrometheusStepSafe, PROMETHEUS_MANUAL_STEPS } from '@lib/prometheusResolution'
-import { PromqlBuilderPanel } from '@components/builder/prometheus/PromqlBuilderPanel'
-import { detectPromqlHistogramKind, resolvePromqlHistogramKind, validatePromqlBuilder } from '@lib/promqlBuilder'
+import { PromqlBuilderPanel, type PromqlBuilderQueryState } from '@components/builder/prometheus/PromqlBuilderPanel'
 import { Combobox } from '@components/ui/combobox'
 import { notify } from '@components/ui/feedback/NotificationArea'
 import styles from './QueryEditor.module.css'
@@ -35,7 +34,6 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const setSql = useStore((s) => s.setSql)
   const prometheusTimeRange = useStore((s) => selectActiveSession(s).prometheusTimeRange)
   const prometheusStep = useStore((s) => selectActiveSession(s).prometheusStep)
-  const promqlBuilder = useStore((s) => selectActiveSession(s).promqlBuilder)
   const setPrometheusQueryOptions = useStore((s) => s.setPrometheusQueryOptions)
   const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
   const connectionKind = useStore((s) => s.profiles.find((profile) => profile.id === tabConnectionId)?.kind)
@@ -49,12 +47,6 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const metadata = useStore((s) => tabConnectionId ? s.metadataByProfileId[tabConnectionId] : undefined)
   const metadataRefreshing = metadata?.refreshing ?? false
   const schemas = metadata?.schemas ?? EMPTY_SCHEMAS
-  const selectedBuilderMetric = schemas.flatMap((schema) => schema.relations).find((relation) => relation.kind === 'metric' && relation.name === promqlBuilder.metric)
-  const selectedBuilderMetricType = selectedBuilderMetric?.details?.kind === 'metric' ? selectedBuilderMetric.details.type : undefined
-  const builderHistogramKind = resolvePromqlHistogramKind(
-    detectPromqlHistogramKind({ metric: promqlBuilder.metric, labels: [], metadataType: selectedBuilderMetricType }),
-    promqlBuilder.histogramKindOverride ?? 'auto'
-  )
   const connecting = useStore((s) => s.connecting)
   const connected = useStore((s) => s.connected)
   const running = useStore((s) => selectActiveSession(s).running)
@@ -68,6 +60,11 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const activeExplainRequest = useStore((s) => selectActiveSession(s).activeExplainRequest)
   const setActiveExplainRequest = useStore((s) => s.setActiveExplainRequest)
   const [formatting, setFormatting] = useState(false)
+  const [reportedBuilderQuery, setReportedBuilderQuery] = useState<{ tabId: string; state: PromqlBuilderQueryState } | null>(null)
+  const handleBuilderQueryStateChange = useCallback((state: PromqlBuilderQueryState) => setReportedBuilderQuery({ tabId, state }), [tabId])
+  const builderQueryState = reportedBuilderQuery?.tabId === tabId ? reportedBuilderQuery.state : null
+  const effectiveExecutionQuery = builderMode ? (builderQueryState?.generated ?? '') : sql
+  const effectiveDisplayQuery = builderMode ? (builderQueryState?.displayed ?? builderQueryState?.generated ?? '') : sql
   const editorRef = useRef<QueryCodeEditorHandle>(null)
   const filters = useStore((s) => selectActiveSession(s).sqlResultFilters)
   const filterRevision = useStore((s) => selectActiveSession(s).queryFilterRevision.sql)
@@ -90,7 +87,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
   const run = useCallback(async () => {
     if (connecting || metadataRefreshing) return
     const requestTabId = tabId
-    const requestSql = sql
+    const requestSql = effectiveExecutionQuery
     const requestFilters = filters
     if (!requestSql.trim()) {
       setResult(null, 'Nothing to run — the editor is empty.', requestTabId)
@@ -137,7 +134,7 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
     } catch (e) {
       if (runRevisions.current.get(requestTabId) === revision && stillBoundTo(requestTabId, requestProfileId)) completeQuery(null, e instanceof Error ? e.message : String(e), requestTabId)
     }
-  }, [connecting, metadataRefreshing, tabId, sql, filters, setResult, tabConnectionId, startQuery, language.kind, dialect, builderMode, setVisualization, completeQuery])
+  }, [connecting, metadataRefreshing, tabId, effectiveExecutionQuery, filters, setResult, tabConnectionId, startQuery, language.kind, dialect, builderMode, setVisualization, completeQuery])
 
   useEffect(() => {
     const previous = initialFilterRevision.current.get(tabId)
@@ -233,8 +230,8 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
         editorActions={<div className={styles.editorActions}>{!builderMode && <button className="btn ghost" onClick={() => void doFormat()} title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`} disabled={!sql.trim() || formatting || !canFormatPromql} aria-busy={formatting}>
           {formatting ? 'Formatting…' : 'Format'}
         </button>}
-        <CopySqlButton sql={sql} />
-        {language.kind === 'promql' && <GrafanaHandoffActions profile={prometheusProfile?.kind === 'prometheus' ? prometheusProfile : undefined} query={sql} range={prometheusTimeRange} />}
+        <CopySqlButton sql={effectiveDisplayQuery} />
+        {language.kind === 'promql' && <GrafanaHandoffActions profile={prometheusProfile?.kind === 'prometheus' ? prometheusProfile : undefined} query={effectiveDisplayQuery} range={prometheusTimeRange} />}
         {language.kind === 'sql' && capabilities.explain && <button className={`btn ghost explain-action ${styles.explainAction}`} onClick={() => explain('explain')} disabled={isAnyExplainLoading || !canExplain} aria-busy={isExplainLoading}>
           {isExplainLoading && <span className="spinner" aria-hidden="true" />}
           {isExplainLoading ? 'Explaining…' : 'Explain'}
@@ -243,12 +240,12 @@ export function QueryEditor({ builderMode = false }: { builderMode?: boolean }) 
           {isAnalyzeLoading && <span className="spinner" aria-hidden="true" />}
           {isAnalyzeLoading ? 'Analyzing…' : 'Explain Analyze'}
         </button>}</div>}
-        execution={<button className="btn primary" onClick={run} disabled={metadataRefreshing || !canUseDatabase || running || (builderMode && Boolean(validatePromqlBuilder(promqlBuilder, builderHistogramKind)))} title="Run (Ctrl/Command+Enter)">
+        execution={<button className="btn primary" onClick={run} disabled={metadataRefreshing || !canUseDatabase || running || (builderMode && (!builderQueryState?.generated || Boolean(builderQueryState.validation)))} title="Run (Ctrl/Command+Enter)">
           {running ? 'Running…' : connecting ? 'Connecting…' : 'Run'}
         </button>}
       />
 
-      {builderMode ? <PromqlBuilderPanel /> : <QueryCodeEditor
+      {builderMode ? <PromqlBuilderPanel onQueryStateChange={handleBuilderQueryStateChange} /> : <QueryCodeEditor
           ref={editorRef}
           className={`cm-wrap ${styles.editor}`}
           value={sql}
