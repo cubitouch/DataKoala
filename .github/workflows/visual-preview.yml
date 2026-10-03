@@ -82,6 +82,9 @@ jobs:
       - name: Capture application previews
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
 
+      - name: Check animated Loki chart transitions
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm smoke:loki-chart-animation
+
       - name: Capture shared Tempo and Loki previews
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm preview:shared-captures
 
