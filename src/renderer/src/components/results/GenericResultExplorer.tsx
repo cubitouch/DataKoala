@@ -55,7 +55,7 @@ export interface GenericResultExplorerProps {
   timeBucket?: 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
   chartTimeDomain?: { min: number; max: number } | null
   hidePicker?: boolean
-  deferResizeDuringAnimation?: boolean
+  chartInstanceKey?: string
   onConfigurationChange: (configuration: VisualizationConfiguration) => void
   onSeriesVisibilityChange: (visibility: Record<string, boolean>) => void
   onAddFilter: (filter: ResultFilter) => void
@@ -68,7 +68,7 @@ export interface GenericResultExplorerProps {
   onReconnect?: () => void
   onTemporalRangeSelected?: (range: { startMs: number; endMs: number }) => void
 }
-export function GenericResultExplorer({ mode, dimensionControls = 'result', hasRun = true, result, resultRevision, running, error, isResultStale, reconnecting = false, configuration, seriesVisibility, activeFilters, externalSeriesColumns = [], timeBucket, chartTimeDomain = null, hidePicker = false, deferResizeDuringAnimation = false, onConfigurationChange, onSeriesVisibilityChange, onAddFilter, onRemoveFilter, onClearFilters, onToggleFilterExecution, canPromoteTableFilter, canPromoteChartFilter, canDemoteFilter, onReconnect, onTemporalRangeSelected }: GenericResultExplorerProps) {
+export function GenericResultExplorer({ mode, dimensionControls = 'result', hasRun = true, result, resultRevision, running, error, isResultStale, reconnecting = false, configuration, seriesVisibility, activeFilters, externalSeriesColumns = [], timeBucket, chartTimeDomain = null, hidePicker = false, chartInstanceKey, onConfigurationChange, onSeriesVisibilityChange, onAddFilter, onRemoveFilter, onClearFilters, onToggleFilterExecution, canPromoteTableFilter, canPromoteChartFilter, canDemoteFilter, onReconnect, onTemporalRangeSelected }: GenericResultExplorerProps) {
   const updateSeriesVisibility = useCallback((next: Record<string, boolean> | ((current: Record<string, boolean>) => Record<string, boolean>)) => {
     onSeriesVisibilityChange(typeof next === 'function' ? next(seriesVisibility) : next)
   }, [seriesVisibility, onSeriesVisibilityChange])
@@ -82,9 +82,6 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   const chartRevisionRef = useRef<ChartRevision | null>(null)
   const applications = useRef(new ChartApplicationController<Record<string, unknown>>())
   const applicationFrame = useRef<number | null>(null)
-  const resizeObserver = useRef<ResizeObserver | null>(null)
-  const pendingResize = useRef(false)
-  const chartAnimating = useRef(false)
   const [appliedChart, setAppliedChart] = useState<AppliedChart<Record<string, unknown>> | null>(null)
   const previousResultRevision = useRef(resultRevision)
   const previousView = useRef(configuration.view)
@@ -101,8 +98,6 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
     chartEvents.current?.detach()
     legendWheel.current.detach()
-    resizeObserver.current?.disconnect()
-    resizeObserver.current = null
     if (applicationFrame.current !== null) cancelAnimationFrame(applicationFrame.current)
   }, [])
 
@@ -220,15 +215,12 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
       if (!applied) return
       chartRevisionRef.current = applied.revision
       readiness.current.commitRevision(applied.revision)
-      chartAnimating.current = applied.option.animation !== false
       if (import.meta.env.DEV) console.debug('[chart-application] apply', { token: applied.token, fingerprint: applied.fingerprint, animation: applied.option.animation })
       setAppliedChart(applied)
     })
   }, [chartRevision, chartFingerprint, renderedOption, resultRevision, effectiveConfiguration.view, seriesVisibility])
   const hasRenderableChart = Boolean(appliedChart && result?.rows.length && filteredResult?.rows.length)
   const setChartRef = useCallback((instance: EChartsReact | null) => {
-    resizeObserver.current?.disconnect()
-    resizeObserver.current = null
     ref.current = instance
     const echarts = instance?.getEchartsInstance() ?? null
     chartEvents.current?.attach(echarts)
@@ -237,23 +229,7 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
     if (echarts && temporalRangeSelectionEnabled) {
       echarts.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' } })
     }
-    if (echarts && deferResizeDuringAnimation && typeof ResizeObserver !== 'undefined') {
-      let initial = true
-      const observer = new ResizeObserver(() => {
-        if (initial) {
-          initial = false
-          return
-        }
-        if (chartAnimating.current) {
-          pendingResize.current = true
-          return
-        }
-        echarts.resize({ width: 'auto', height: 'auto' })
-      })
-      observer.observe(echarts.getDom())
-      resizeObserver.current = observer
-    }
-  }, [deferResizeDuringAnimation, temporalRangeSelectionEnabled])
+  }, [temporalRangeSelectionEnabled])
   useEffect(() => {
     if (ref.current && appliedChart) readiness.current.commitRevision(appliedChart.revision)
     const echarts = ref.current?.getEchartsInstance()
@@ -375,20 +351,9 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
       if (import.meta.env.DEV) console.debug('[chart-application] ignored stale finished event', { token: appliedChart?.token })
       return
     }
-    chartAnimating.current = false
     animationPolicy.current.commit(appliedChart.fingerprint)
     setRenderedRevision(appliedChart.revision)
-    if (pendingResize.current) {
-      pendingResize.current = false
-      requestAnimationFrame(() => ref.current?.getEchartsInstance().resize({ width: 'auto', height: 'auto' }))
-    }
     if (import.meta.env.DEV) console.debug('[chart-application] finished', { token: appliedChart.token, fingerprint: appliedChart.fingerprint })
-  }
-  const onChartReady = () => {
-    // echarts-for-react calls onChartReady immediately after setOption, before an
-    // animated transition has completed. Treat only non-animated renders as ready;
-    // animated renders complete from ECharts' real `finished` event instead.
-    if (appliedChart?.option.animation === false) onChartFinished()
   }
   const hiddenSeries = seriesIdentities.filter((identity) => seriesVisibility[identity] === false)
   const showChart = shouldKeepChartMounted(effectiveConfiguration.view, Boolean(result))
@@ -418,7 +383,7 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
       <ResultFilterBar filters={activeFilters} onRemove={onRemoveFilter} onClear={onClearFilters} onToggleExecution={onToggleFilterExecution} canPromote={canPromoteChartFilter} canDemote={canDemoteFilter}/>
       {error && <div className={styles.error} role="alert">{error}</div>}
       {effectiveConfiguration.valueAxisScale === 'log' && (logPresentation?.omittedCount ?? 0) > 0 && <div className={styles.warning} role="status">Log scale: {logPresentation!.omittedCount} zero or negative {logPresentation!.omittedCount === 1 ? 'point is' : 'points are'} not plotted.</div>}
-      {!numeric.length && filteredResult?.rows.length ? <div className={styles.empty} data-result-empty>This result does not contain a numeric column that can be used as a Y axis.</div> : !chartReady ? <div className={styles.empty} data-result-empty>{hierarchical ? 'Choose at least one Series dimension and a Y axis to render this hierarchy.' : 'Choose an X axis and Y axis column to render a chart.'}</div> : result.rows.length === 0 ? <div className={styles.empty} data-result-empty>Query returned no rows.</div> : filteredResult?.rows.length === 0 ? <div className={styles.empty} data-result-empty>No rows match the active filters.</div> : !hierarchical && chart && !chart.renderable ? <div className={styles.empty} data-result-empty role="alert">{chart.rejectionReason === 'too-many-series' ? 'Too many series to chart: more than 100.' : 'This chart would contain more than 100,000 points.'}<br/>{activeBuilderTimeBucket ? 'Filter the result, narrow the time range, increase the bucket size, or choose another Series dimension.' : 'Filter the result, reduce Series cardinality, or choose another X axis.'}</div> : !appliedChart ? <div className={styles.chartCanvas} data-result-chart-canvas/> : <><div className={styles.chartCanvas} data-result-chart-canvas data-visual-type={effectiveConfiguration.view} data-visual-finished={chartRendered} data-visual-series={semanticCounts.series} data-visual-items={semanticCounts.items} data-visual-fingerprint={appliedChart.fingerprint} data-visual-expected-fingerprint={chartFingerprint} data-visual-config={semanticConfiguration}><ReactECharts ref={setChartRef} option={appliedChart?.option} onChartReady={onChartReady} theme="dark" notMerge autoResize={!deferResizeDuringAnimation} onEvents={{ click: hierarchical ? () => {} : onChartClick, brushEnd: onBrushEnd, legendselectchanged: onLegendChange, mouseover: onSeriesMouseOver, mouseout: onSeriesMouseOut, finished: onChartFinished }} style={{ height: '100%', width: '100%' }}/>{showRunning && <div className={styles.runningOverlay} role="status">Running…</div>}</div>{chart?.warning && <div className={styles.warning} role="status">{chart.warning} Consider filtering the result or reducing chart cardinality.</div>}</>}
+      {!numeric.length && filteredResult?.rows.length ? <div className={styles.empty} data-result-empty>This result does not contain a numeric column that can be used as a Y axis.</div> : !chartReady ? <div className={styles.empty} data-result-empty>{hierarchical ? 'Choose at least one Series dimension and a Y axis to render this hierarchy.' : 'Choose an X axis and Y axis column to render a chart.'}</div> : result.rows.length === 0 ? <div className={styles.empty} data-result-empty>Query returned no rows.</div> : filteredResult?.rows.length === 0 ? <div className={styles.empty} data-result-empty>No rows match the active filters.</div> : !hierarchical && chart && !chart.renderable ? <div className={styles.empty} data-result-empty role="alert">{chart.rejectionReason === 'too-many-series' ? 'Too many series to chart: more than 100.' : 'This chart would contain more than 100,000 points.'}<br/>{activeBuilderTimeBucket ? 'Filter the result, narrow the time range, increase the bucket size, or choose another Series dimension.' : 'Filter the result, reduce Series cardinality, or choose another X axis.'}</div> : !appliedChart ? <div className={styles.chartCanvas} data-result-chart-canvas/> : <><div className={styles.chartCanvas} data-result-chart-canvas data-visual-type={effectiveConfiguration.view} data-visual-finished={chartRendered} data-visual-series={semanticCounts.series} data-visual-items={semanticCounts.items} data-visual-fingerprint={appliedChart.fingerprint} data-visual-expected-fingerprint={chartFingerprint} data-visual-config={semanticConfiguration}><ReactECharts key={chartInstanceKey} ref={setChartRef} option={appliedChart?.option} onChartReady={onChartFinished} theme="dark" notMerge onEvents={{ click: hierarchical ? () => {} : onChartClick, brushEnd: onBrushEnd, legendselectchanged: onLegendChange, mouseover: onSeriesMouseOver, mouseout: onSeriesMouseOut, finished: onChartFinished }} style={{ height: '100%', width: '100%' }}/>{showRunning && <div className={styles.runningOverlay} role="status">Running…</div>}</div>{chart?.warning && <div className={styles.warning} role="status">{chart.warning} Consider filtering the result or reducing chart cardinality.</div>}</>}
       {copyFeedback && <div className="toast" role="status">{copyFeedback}</div>}
       {pointMenu && <ChartFilterPopover context={pointMenu.context} position={pointMenu.position} onAction={applyPointAction} onDismiss={dismissPointMenu}/>}
     </div>}
