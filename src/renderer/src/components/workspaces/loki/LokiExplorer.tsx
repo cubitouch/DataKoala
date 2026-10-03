@@ -30,6 +30,10 @@ import { GrafanaHandoffActions } from '@components/query/GrafanaHandoffActions'
 const defaultRange: BuilderTimeRange = { kind: 'rolling', amount: 1, unit: 'hour' }
 const serviceNameFallback = { label: 'service_name', operator: '=~' as const, value: '.+' }
 const unfilteredUnavailable = 'An unfiltered query isn’t available for this Loki datasource. Add an indexed-label filter to run the query safely.'
+// GenericResultExplorer memoizes chart derivation by externalSeriesColumns identity.
+// Loki owns its chart dimensions, so provide one stable empty adapter value rather than
+// falling through to the component's per-render [] default.
+const EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS: string[] = []
 function interval(start: string, end: string): string {
   const targetSeconds = Math.max(1, (Date.parse(end) - Date.parse(start)) / 250_000)
   const choices = [1, 5, 10, 30, 60, 300, 900, 3600, 10_800, 21_600, 86_400]
@@ -75,7 +79,6 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
   const labels = [...new Set([...labelResource.labels, ...builder.labelMatchers.map(({ label }) => label).filter((label) => !label.startsWith('__')), ...groupBy])].sort()
   const result = session.result as LokiQueryResult | null
   const [trend, setTrend] = useState<LokiQueryResult | null>(null)
-  const [trendResultRevision, setTrendResultRevision] = useState(0)
   const [trendError, setTrendError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
@@ -117,36 +120,15 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     previousRangeKey.current = JSON.stringify(currentSession.lokiTimeRange)
     lastProcessedTrendKey.current = null
     setTrend(null)
-    setTrendResultRevision(0)
     setTrendError(null)
     setError(null)
     setWarning(null)
     setLoading(false)
   }, [session.id])
-  const trendChartVisualization = useMemo<VisualizationConfiguration>(() => ({
-    ...trendVisualization,
-    // Keep the selected Loki result view as the source of truth. Mirroring it into
-    // trendVisualization in an effect caused a second chart option application after
-    // every Bar/Line/Area switch, which could interrupt ECharts' transition.
-    view: isLokiChartView(resultView) ? resultView : trendVisualization.view
-  }), [trendVisualization, resultView])
   useEffect(() => {
-    const seriesColumn = groupBy.length === 1 ? groupBy[0] : null
-    const seriesColumns = groupBy.length > 1 ? groupBy : []
-    setTrendVisualization((current) => {
-      const sameSeriesColumns = (current.seriesColumns ?? []).length === seriesColumns.length
-        && (current.seriesColumns ?? []).every((column, index) => column === seriesColumns[index])
-      const sameHierarchy = (current.hierarchyDimensions ?? []).length === groupBy.length
-        && (current.hierarchyDimensions ?? []).every((column, index) => column === groupBy[index])
-      if (current.xColumn === 'timestamp'
-        && current.valueColumn === 'value'
-        && current.aggregation === 'sum'
-        && current.seriesColumn === seriesColumn
-        && sameSeriesColumns
-        && sameHierarchy) return current
-      return { ...current, xColumn: 'timestamp', valueColumn: 'value', aggregation: 'sum', seriesColumn, seriesColumns, hierarchyDimensions: groupBy }
-    })
-  }, [groupBy, session.id])
+    if (!isLokiChartView(resultView)) return
+    setTrendVisualization((current) => ({ ...current, view: resultView, xColumn: 'timestamp', valueColumn: 'value', aggregation: 'sum', seriesColumn: groupBy.length === 1 ? groupBy[0] : null, seriesColumns: groupBy.length > 1 ? groupBy : [], hierarchyDimensions: groupBy }))
+  }, [resultView, groupBy, session.id])
 
   const loadTrend = useCallback(async (tabId: string, queryExpression: string, queryRange: BuilderTimeRange, queryGroupBy: string[]) => {
     let kind: 'logs' | 'metrics'
@@ -168,12 +150,7 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
       }
       const volume = await api.query.runLoki(connectionId, { expression: plan.trend, ...bounds, step, limit: CHART_SERIES_HARD_LIMIT }).catch((error) => { throw new Error(`Log volume query failed: ${error instanceof Error ? error.message : String(error)}`) })
       if (current !== trendRevision.current || !isCurrentTab(tabId)) return
-      // The synthetic trend is an independent result. Do not key its chart lifecycle
-      // to session.resultRevision: completing the main log query immediately afterwards
-      // would otherwise re-apply the same ECharts option during its first paint.
-      trendCacheKey.current = key
-      setTrend(volume)
-      setTrendResultRevision((value) => value + 1)
+      trendCacheKey.current = key; setTrend(volume)
     } catch (caught) { if (current === trendRevision.current && isCurrentTab(tabId)) setTrendError(caught instanceof Error ? caught.message : String(caught)) }
   }, [connectionId, isCurrentTab, trend])
   const run = useCallback(async () => {
@@ -244,10 +221,10 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
       <div className={styles.selectedView}>{resultView === 'list'
         ? <LogResultExplorer selectionKey={`${session.id}:${revision.current}`} rows={scopedLogRows} truncated={result.execution?.truncated} limit={limit} onFilter={resultFilter} />
         : resultView === 'patterns' ? <LogPatternExplorer rows={filteredLogRows} onViewLogs={(template, memberIds) => { setPatternScope({ template, memberIds: new Set(memberIds) }); setLokiState({ lokiResultView: 'list' }) }} />
-        : resultView === 'table' ? <GenericResultExplorer mode="sql" dimensionControls="result" hasRun result={scopedResult} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={{ ...trendVisualization, view: 'table' }} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} hidePicker onConfigurationChange={setTrendVisualization} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} />
+        : resultView === 'table' ? <GenericResultExplorer mode="sql" dimensionControls="result" externalSeriesColumns={EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS} hasRun result={scopedResult} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={{ ...trendVisualization, view: 'table' }} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} hidePicker onConfigurationChange={setTrendVisualization} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} />
         : trendError ? <div className={styles.empty}>Log volume unavailable: {trendError}</div>
-          : trend?.resultKind === 'metrics' ? <GenericResultExplorer key={`loki-trend:${trendChartVisualization.view}`} mode="sql" dimensionControls="result" hasRun result={trend} resultRevision={trendResultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={trendChartVisualization} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} hidePicker onConfigurationChange={setTrendVisualization} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} onTemporalRangeSelected={selectRange} />
+          : trend?.resultKind === 'metrics' ? <GenericResultExplorer mode="sql" dimensionControls="result" externalSeriesColumns={EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS} hasRun result={trend} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={trendVisualization} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} hidePicker onConfigurationChange={setTrendVisualization} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} onTemporalRangeSelected={selectRange} />
             : <div className={styles.empty}>Loading log volume…</div>}</div>
-    </> : result?.resultKind === 'metrics' ? <GenericResultExplorer mode="sql" dimensionControls="result" hasRun result={session.result} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={session.sqlVisualization} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} onConfigurationChange={onMetricVisualizationChange} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} /> : !loading && <div className={styles.empty}>Run a LogQL investigation to see results.</div>}</section>
+    </> : result?.resultKind === 'metrics' ? <GenericResultExplorer mode="sql" dimensionControls="result" externalSeriesColumns={EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS} hasRun result={session.result} resultRevision={session.resultRevision} running={session.running} error={session.queryError} isResultStale={session.isResultStale} reconnecting={connectionStatus === 'reconnecting'} configuration={session.sqlVisualization} seriesVisibility={session.seriesVisibility} activeFilters={session.sqlResultFilters} onConfigurationChange={onMetricVisualizationChange} onSeriesVisibilityChange={onSeriesVisibilityChange} onAddFilter={onAddResultFilter} onRemoveFilter={onRemoveResultFilter} onClearFilters={onClearResultFilters} onReconnect={() => void reconnectActiveProfile()} /> : !loading && <div className={styles.empty}>Run a LogQL investigation to see results.</div>}</section>
   </main>
 }
