@@ -188,7 +188,7 @@ it('preserves a label-detected classic histogram interpretation across disconnec
     .mockResolvedValueOnce(['service', 'le', '__name__'])
     .mockReturnValueOnce(reconnectLabels.promise)
   patchActiveTestSession({
-    sql: '',
+    sql: 'manual_query_that_must_survive',
     promqlBuilder: {
       ...useStore.getState().tabs[0].promqlBuilder,
       metric: 'request_latency',
@@ -204,9 +204,11 @@ it('preserves a label-detected classic histogram interpretation across disconnec
   }] }], 'loaded', null, profileId)
 
   render(<PromqlBuilderPanel />)
-  await waitFor(() => expect(useStore.getState().tabs[0].sql).toContain('sum by (service, le)'))
+  const generatedQuery = () => (screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement).value
+  await waitFor(() => expect(generatedQuery()).toContain('sum by (service, le)'))
   const beforeBuilder = useStore.getState().tabs[0].promqlBuilder
-  const beforeSql = useStore.getState().tabs[0].sql
+  const beforeGenerated = generatedQuery()
+  expect(useStore.getState().tabs[0].sql).toBe('manual_query_that_must_survive')
   expect(screen.queryByRole('combobox', { name: /Histogram representation/ })).toBeNull()
 
   act(() => useStore.setState({ connected: false, connectionStatus: 'reconnecting', connectionGeneration: 2 }))
@@ -215,8 +217,8 @@ it('preserves a label-detected classic histogram interpretation across disconnec
   expect(screen.queryByRole('alert')).toBeNull()
   expect(screen.queryByRole('combobox', { name: /Histogram representation/ })).toBeNull()
   expect(useStore.getState().tabs[0].promqlBuilder).toEqual(beforeBuilder)
-  expect(useStore.getState().tabs[0].sql).toBe(beforeSql)
-  expect((screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement).value).toBe(beforeSql)
+  expect(useStore.getState().tabs[0].sql).toBe('manual_query_that_must_survive')
+  expect(generatedQuery()).toBe(beforeGenerated)
 
   act(() => useStore.setState({ connected: true, connectionStatus: 'connected', connectionGeneration: 3 }))
   await waitFor(() => expect(labelsForMetric).toHaveBeenCalledTimes(2))
@@ -224,10 +226,9 @@ it('preserves a label-detected classic histogram interpretation across disconnec
 
   fireEvent.click(screen.getByRole('combobox', { name: 'Percentile: P95' }))
   fireEvent.click(await screen.findByRole('option', { name: 'P99' }))
-  const loadingSql = useStore.getState().tabs[0].sql
-  expect(loadingSql).toMatch(/histogram_quantile\(\s*0\.99/)
-  expect(loadingSql).toContain('sum by (service, le)')
-  expect((screen.getByLabelText('Generated PromQL query') as HTMLTextAreaElement).value).toBe(loadingSql)
+  await waitFor(() => expect(generatedQuery()).toMatch(/histogram_quantile\(\s*0\.99/))
+  expect(generatedQuery()).toContain('sum by (service, le)')
+  expect(useStore.getState().tabs[0].sql).toBe('manual_query_that_must_survive')
 
   await act(async () => {
     reconnectLabels.resolve(['service', 'le', '__name__'])
@@ -235,5 +236,6 @@ it('preserves a label-detected classic histogram interpretation across disconnec
   })
   await waitFor(() => expect(screen.getByRole('combobox', { name: /Group by:/ }).hasAttribute('disabled')).toBe(false))
   expect(useStore.getState().tabs[0].promqlBuilder).toEqual({ ...beforeBuilder, percentile: 0.99 })
-  expect(useStore.getState().tabs[0].sql).toContain('sum by (service, le)')
+  expect(generatedQuery()).toContain('sum by (service, le)')
+  expect(useStore.getState().tabs[0].sql).toBe('manual_query_that_must_survive')
 })
