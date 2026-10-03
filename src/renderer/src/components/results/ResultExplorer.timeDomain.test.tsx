@@ -81,7 +81,7 @@ it('refreshes a rolling chart domain when a new query result revision is committ
 
   act(() => {
     vi.setSystemTime(new Date('2026-10-03T18:30:00Z'))
-    patchActiveTestSession({ resultRevision: 2 })
+    patchActiveTestSession({ result: { ...result, durationMs: 13 }, resultRevision: 2 })
   })
 
   expect(captured.chartTimeDomain).toEqual({
@@ -110,7 +110,7 @@ it('keeps a custom chart domain fixed when result revisions change', () => {
 
   act(() => {
     vi.setSystemTime(new Date('2026-10-04T09:00:00Z'))
-    patchActiveTestSession({ resultRevision: 2 })
+    patchActiveTestSession({ result: { ...result, durationMs: 13 }, resultRevision: 2 })
   })
 
   expect(captured.chartTimeDomain).toEqual(expected)
