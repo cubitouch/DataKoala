@@ -7,8 +7,11 @@ const utilityCss = readFileSync('src/renderer/src/components/query/QueryUtilityA
 const shellCss = readFileSync('src/renderer/src/styles.css', 'utf8')
 
 function rule(css: string, selector: string): string {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const match = css.match(new RegExp(`${escapedSelector}\\s*\\{([^}]+)\\}`))
+  const selectorPattern = selector
+    .split(',')
+    .map((part) => part.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('\\s*,\\s*')
+  const match = css.match(new RegExp(`${selectorPattern}\\s*\\{([^}]+)\\}`))
   expect(match, `Expected a CSS rule for ${selector}`).toBeTruthy()
   return match![1]
 }
