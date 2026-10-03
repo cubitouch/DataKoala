@@ -3,7 +3,10 @@ import type { DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
 import { api } from '@lib/api'
 import { matchesSearch } from '@lib/matchesSearch'
 import { TextInput } from '@components/ui/TextInput'
-import { MetadataTree, type MetadataTreeNode } from '@components/metadata/MetadataTree'
+import {
+  MetadataTree,
+  type MetadataTreeNode,
+} from '@components/metadata/MetadataTree'
 import styles from './PrometheusMetadataTree.module.css'
 
 const VALUE_LIMIT = 200
@@ -20,7 +23,8 @@ type Props = {
 }
 
 type Load<T> = { data?: T; loading?: boolean; error?: string }
-const message = (error: unknown) => error instanceof Error ? error.message : String(error)
+const message = (error: unknown) =>
+  error instanceof Error ? error.message : String(error)
 
 export function PrometheusMetadataTree(props: Props) {
   const [labels, setLabels] = useState<Record<string, Load<string[]>>>({})
@@ -30,43 +34,90 @@ export function PrometheusMetadataTree(props: Props) {
   const labelRequests = useRef(new Set<string>())
   const valueRequests = useRef(new Set<string>())
   const metrics = new Map<string, DatabaseRelationNode>()
-  const labelsById = new Map<string, { metric: DatabaseRelationNode; label: string }>()
-  const metricKey = useCallback((metric: DatabaseRelationNode) => `${props.connectionId}\0${metric.qualifiedName}`, [props.connectionId])
-  const valueKey = useCallback((metric: DatabaseRelationNode, label: string) => `${metricKey(metric)}\0${label}`, [metricKey])
+  const labelsById = new Map<
+    string,
+    { metric: DatabaseRelationNode; label: string }
+  >()
+  const metricKey = useCallback(
+    (metric: DatabaseRelationNode) =>
+      `${props.connectionId}\0${metric.qualifiedName}`,
+    [props.connectionId],
+  )
+  const valueKey = useCallback(
+    (metric: DatabaseRelationNode, label: string) =>
+      `${metricKey(metric)}\0${label}`,
+    [metricKey],
+  )
 
-  const loadLabels = useCallback(async (metric: DatabaseRelationNode, retry = false) => {
-    const key = metricKey(metric)
-    if (labelRequests.current.has(key) || (!retry && labels[key]?.data)) return
-    labelRequests.current.add(key)
-    setLabels((old) => ({ ...old, [key]: { ...old[key], loading: true, error: undefined } }))
-    try {
-      const data = await api.connections.prometheus.labelsForMetric(props.connectionId, metric.name)
-      setLabels((old) => ({ ...old, [key]: { data } }))
-      return data
-    } catch (error) {
-      setLabels((old) => ({ ...old, [key]: { ...old[key], loading: false, error: message(error) } }))
-    } finally { labelRequests.current.delete(key) }
-  }, [labels, metricKey, props.connectionId])
+  const loadLabels = useCallback(
+    async (metric: DatabaseRelationNode, retry = false) => {
+      const key = metricKey(metric)
+      if (labelRequests.current.has(key) || (!retry && labels[key]?.data))
+        return
+      labelRequests.current.add(key)
+      setLabels((old) => ({
+        ...old,
+        [key]: { ...old[key], loading: true, error: undefined },
+      }))
+      try {
+        const data = await api.connections.prometheus.labelsForMetric(
+          props.connectionId,
+          metric.name,
+        )
+        setLabels((old) => ({ ...old, [key]: { data } }))
+        return data
+      } catch (error) {
+        setLabels((old) => ({
+          ...old,
+          [key]: { ...old[key], loading: false, error: message(error) },
+        }))
+      } finally {
+        labelRequests.current.delete(key)
+      }
+    },
+    [labels, metricKey, props.connectionId],
+  )
 
-  const loadValues = useCallback(async (metric: DatabaseRelationNode, label: string, retry = false) => {
-    const key = valueKey(metric, label)
-    if (valueRequests.current.has(key) || (!retry && values[key]?.data)) return
-    valueRequests.current.add(key)
-    setValues((old) => ({ ...old, [key]: { ...old[key], loading: true, error: undefined } }))
-    try {
-      const data = await api.connections.prometheus.labelValues(props.connectionId, metric.name, label)
-      setValues((old) => ({ ...old, [key]: { data } }))
-    } catch (error) {
-      setValues((old) => ({ ...old, [key]: { ...old[key], loading: false, error: message(error) } }))
-    } finally { valueRequests.current.delete(key) }
-  }, [props.connectionId, valueKey, values])
+  const loadValues = useCallback(
+    async (metric: DatabaseRelationNode, label: string, retry = false) => {
+      const key = valueKey(metric, label)
+      if (valueRequests.current.has(key) || (!retry && values[key]?.data))
+        return
+      valueRequests.current.add(key)
+      setValues((old) => ({
+        ...old,
+        [key]: { ...old[key], loading: true, error: undefined },
+      }))
+      try {
+        const data = await api.connections.prometheus.labelValues(
+          props.connectionId,
+          metric.name,
+          label,
+        )
+        setValues((old) => ({ ...old, [key]: { data } }))
+      } catch (error) {
+        setValues((old) => ({
+          ...old,
+          [key]: { ...old[key], loading: false, error: message(error) },
+        }))
+      } finally {
+        valueRequests.current.delete(key)
+      }
+    },
+    [props.connectionId, valueKey, values],
+  )
 
   useEffect(() => {
     for (const schema of props.schemas) {
       for (const metric of schema.relations) {
         const id = `relation:${metric.qualifiedName}`
         const key = metricKey(metric)
-        if (props.expanded.has(id) && !labels[key]?.data && !labels[key]?.error && !labelRequests.current.has(key)) {
+        if (
+          props.expanded.has(id) &&
+          !labels[key]?.data &&
+          !labels[key]?.error &&
+          !labelRequests.current.has(key)
+        ) {
           void loadLabels(metric)
         }
       }
@@ -79,89 +130,170 @@ export function PrometheusMetadataTree(props: Props) {
     const revisionKey = `${props.connectionId}\0${props.revision}`
     if (lastProcessedRevision.current === revisionKey) return
     lastProcessedRevision.current = revisionKey
-    for (const schema of props.schemas) for (const metric of schema.relations) {
-      if (!props.expanded.has(`relation:${metric.qualifiedName}`)) continue
-      void loadLabels(metric, true).then((currentLabels = []) => {
-        for (const label of currentLabels) if (openLabels.has(valueKey(metric, label))) void loadValues(metric, label, true)
-      })
-    }
-  }, [loadLabels, loadValues, openLabels, props.connectionId, props.expanded, props.revision, props.schemas, valueKey])
+    for (const schema of props.schemas)
+      for (const metric of schema.relations) {
+        if (!props.expanded.has(`relation:${metric.qualifiedName}`)) continue
+        void loadLabels(metric, true).then((currentLabels = []) => {
+          for (const label of currentLabels)
+            if (openLabels.has(valueKey(metric, label)))
+              void loadValues(metric, label, true)
+        })
+      }
+  }, [
+    loadLabels,
+    loadValues,
+    openLabels,
+    props.connectionId,
+    props.expanded,
+    props.revision,
+    props.schemas,
+    valueKey,
+  ])
 
   const visibleMetrics = props.schemas
     .flatMap((schema) => schema.relations)
     .filter((metric) => matchesSearch(metric.name, props.filter))
 
   const nodes: MetadataTreeNode[] = visibleMetrics.map((metric) => {
-      const id = `relation:${metric.qualifiedName}`
-      metrics.set(id, metric)
-      const state = labels[metricKey(metric)]
-      const detail = metric.details?.kind === 'metric' ? metric.details : undefined
-      const children = state?.data?.map((label): MetadataTreeNode => {
+    const id = `relation:${metric.qualifiedName}`
+    metrics.set(id, metric)
+    const state = labels[metricKey(metric)]
+    const detail =
+      metric.details?.kind === 'metric' ? metric.details : undefined
+    const children =
+      state?.data?.map((label): MetadataTreeNode => {
         const labelId = `${id}:label:${label}`
         labelsById.set(labelId, { metric, label })
         const key = valueKey(metric, label)
         const valueState = values[key]
         const filter = filters[key] ?? ''
-        const matching = valueState?.data?.filter((value) => matchesSearch(value, filter)) ?? []
+        const matching =
+          valueState?.data?.filter((value) => matchesSearch(value, filter)) ??
+          []
         const shown = matching.slice(0, VALUE_LIMIT)
         return {
-          id: labelId, label, expandable: true, expanded: openLabels.has(key),
+          id: labelId,
+          label,
+          expandable: true,
+          expanded: openLabels.has(key),
           groupAriaLabel: `${label} values`,
-          status: valueState?.loading ? 'loading' : valueState?.error ? 'error' : 'idle',
-          statusText: valueState?.loading ? 'Loading values…' : valueState?.error ? 'Could not load values — retry' : undefined,
-          beforeChildren: valueState?.data && <>
-            {valueState.data.length > VALUE_LIMIT && <div className={styles.valueFilter}><TextInput label={`Filter values for ${label}`} placeholder="Filter values…" value={filters[key] ?? ''} onValueChange={(text) => setFilters((old) => ({ ...old, [key]: text }))} /></div>}
-            {valueState.data.length === 0 && <div className={styles.status}>No values</div>}
-          </>,
-          children: shown.map((value) => ({ id: `${labelId}:value:${value}`, label: value, tooltip: value })),
-          afterChildren: matching.length > shown.length ? <div className={styles.limit}>Showing {shown.length} of {matching.length} matching values. Refine the filter to see more.</div> : undefined
+          status: valueState?.loading
+            ? 'loading'
+            : valueState?.error
+              ? 'error'
+              : 'idle',
+          statusText: valueState?.loading
+            ? 'Loading values…'
+            : valueState?.error
+              ? 'Could not load values — retry'
+              : undefined,
+          beforeChildren: valueState?.data && (
+            <>
+              {valueState.data.length > VALUE_LIMIT && (
+                <div className={styles.valueFilter}>
+                  <TextInput
+                    label={`Filter values for ${label}`}
+                    placeholder="Filter values…"
+                    value={filters[key] ?? ''}
+                    onValueChange={(text) =>
+                      setFilters((old) => ({ ...old, [key]: text }))
+                    }
+                  />
+                </div>
+              )}
+              {valueState.data.length === 0 && (
+                <div className={styles.status}>No values</div>
+              )}
+            </>
+          ),
+          children: shown.map((value) => ({
+            id: `${labelId}:value:${value}`,
+            label: value,
+            tooltip: value,
+          })),
+          afterChildren:
+            matching.length > shown.length ? (
+              <div className={styles.limit}>
+                Showing {shown.length} of {matching.length} matching values.
+                Refine the filter to see more.
+              </div>
+            ) : undefined,
         }
       }) ?? []
-      if (state?.data && state.data.length === 0) children.push({ id: `${id}:empty`, label: 'No labels' })
-      return {
-        id, label: metric.name, secondaryText: detail?.type, description: detail?.help,
-        ariaLabel: `Select ${metric.name} for Builder`, activatable: true, selected: props.selectedMetric === metric.name,
-        expandable: true, expanded: props.expanded.has(id),
-        groupAriaLabel: `${metric.name} metric metadata`,
-        status: state?.loading ? 'loading' : state?.error ? 'error' : 'idle',
-        statusText: state?.loading ? 'Loading labels…' : state?.error ? 'Could not load labels — retry' : undefined,
-        beforeChildren: <>
-          {detail?.unit && <div className={styles.unit}><strong>Unit</strong><span>{detail.unit}</span></div>}
+    if (state?.data && state.data.length === 0)
+      children.push({ id: `${id}:empty`, label: 'No labels' })
+    return {
+      id,
+      label: metric.name,
+      secondaryText: detail?.type,
+      description: detail?.help,
+      ariaLabel: `Select ${metric.name} for Builder`,
+      activatable: true,
+      selected: props.selectedMetric === metric.name,
+      expandable: true,
+      expanded: props.expanded.has(id),
+      groupAriaLabel: `${metric.name} metric metadata`,
+      status: state?.loading ? 'loading' : state?.error ? 'error' : 'idle',
+      statusText: state?.loading
+        ? 'Loading labels…'
+        : state?.error
+          ? 'Could not load labels — retry'
+          : undefined,
+      beforeChildren: (
+        <>
+          {detail?.unit && (
+            <div className={styles.unit}>
+              <strong>Unit</strong>
+              <span>{detail.unit}</span>
+            </div>
+          )}
           <div className={styles.heading}>Labels</div>
-        </>,
-        children
-      }
-    })
+        </>
+      ),
+      children,
+    }
+  })
 
-  return <MetadataTree ariaLabel="Prometheus metrics" nodes={nodes}
-    onToggle={(node) => {
-      const metric = metrics.get(node.id)
-      if (metric) {
-        if (!props.expanded.has(node.id)) void loadLabels(metric)
-        props.onToggleMetric(metric)
-        return
-      }
-      const label = labelsById.get(node.id)
-      if (label) {
-        const key = valueKey(label.metric, label.label)
-        setOpenLabels((old) => {
-          const next = new Set(old)
-          if (next.has(key)) {
-            next.delete(key)
-          } else {
-            next.add(key)
-          }
-          return next
-        })
-        if (!openLabels.has(key)) void loadValues(label.metric, label.label)
-        return
-      }
-    }}
-    onActivate={(node) => { const metric = metrics.get(node.id); if (metric) props.onActivateMetric(metric) }}
-    onRetry={(node) => {
-      const metric = metrics.get(node.id)
-      if (metric) { void loadLabels(metric, true); return }
-      const label = labelsById.get(node.id)
-      if (label) void loadValues(label.metric, label.label, true)
-    }} />
+  return (
+    <MetadataTree
+      ariaLabel="Prometheus metrics"
+      nodes={nodes}
+      onToggle={(node) => {
+        const metric = metrics.get(node.id)
+        if (metric) {
+          if (!props.expanded.has(node.id)) void loadLabels(metric)
+          props.onToggleMetric(metric)
+          return
+        }
+        const label = labelsById.get(node.id)
+        if (label) {
+          const key = valueKey(label.metric, label.label)
+          setOpenLabels((old) => {
+            const next = new Set(old)
+            if (next.has(key)) {
+              next.delete(key)
+            } else {
+              next.add(key)
+            }
+            return next
+          })
+          if (!openLabels.has(key)) void loadValues(label.metric, label.label)
+          return
+        }
+      }}
+      onActivate={(node) => {
+        const metric = metrics.get(node.id)
+        if (metric) props.onActivateMetric(metric)
+      }}
+      onRetry={(node) => {
+        const metric = metrics.get(node.id)
+        if (metric) {
+          void loadLabels(metric, true)
+          return
+        }
+        const label = labelsById.get(node.id)
+        if (label) void loadValues(label.metric, label.label, true)
+      }}
+    />
+  )
 }

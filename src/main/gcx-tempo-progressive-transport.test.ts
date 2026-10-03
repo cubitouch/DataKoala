@@ -9,42 +9,57 @@ const start = '2026-08-18T00:00:00.000Z'
 const end = '2026-08-18T00:00:08.000Z'
 const startMs = Date.parse(start)
 
-function queryBounds(args: string[]): { from: string; to: string; limit: number } {
+function queryBounds(args: string[]): {
+  from: string
+  to: string
+  limit: number
+} {
   const fromIndex = args.indexOf('--from')
   const toIndex = args.indexOf('--to')
   const limitIndex = args.indexOf('--limit')
   return {
     from: args[fromIndex + 1],
     to: args[toIndex + 1],
-    limit: Number(args[limitIndex + 1])
+    limit: Number(args[limitIndex + 1]),
   }
 }
 
-function searchResponse(rows: Array<{ id: number; startTimeMs: number; status?: string }>) {
+function searchResponse(
+  rows: Array<{ id: number; startTimeMs: number; status?: string }>,
+) {
   return {
-    stdout: JSON.stringify({ traces: rows.map((row) => ({
-      traceID: traceId(row.id),
-      rootServiceName: 'checkout',
-      rootTraceName: 'POST /checkout',
-      startTimeMs: row.startTimeMs,
-      durationMs: 400,
-      ...(row.status ? { status: row.status } : {})
-    })) }),
-    stderr: ''
+    stdout: JSON.stringify({
+      traces: rows.map((row) => ({
+        traceID: traceId(row.id),
+        rootServiceName: 'checkout',
+        rootTraceName: 'POST /checkout',
+        startTimeMs: row.startTimeMs,
+        durationMs: 400,
+        ...(row.status ? { status: row.status } : {}),
+      })),
+    }),
+    stderr: '',
   }
 }
 
 function rootMembershipResponse(id?: number) {
   return {
-    stdout: JSON.stringify({ traces: id === undefined ? [] : [{
-      traceID: traceId(id),
-      rootServiceName: 'checkout',
-      rootTraceName: 'POST /checkout',
-      startTimeMs: startMs + 100,
-      durationMs: 400,
-      spanSets: [{ spans: [{ spanID: 'aaaaaaaaaaaaaaaa' }] }]
-    }] }),
-    stderr: ''
+    stdout: JSON.stringify({
+      traces:
+        id === undefined
+          ? []
+          : [
+              {
+                traceID: traceId(id),
+                rootServiceName: 'checkout',
+                rootTraceName: 'POST /checkout',
+                startTimeMs: startMs + 100,
+                durationMs: 400,
+                spanSets: [{ spans: [{ spanID: 'aaaaaaaaaaaaaaaa' }] }],
+              },
+            ],
+    }),
+    stderr: '',
   }
 }
 
@@ -52,34 +67,85 @@ test('exhaustive Tempo search bisects saturated windows until the whole selected
   const calls: string[][] = []
   const progress: TempoSearchProgress[] = []
   const pages = new Map<string, ReturnType<typeof searchResponse>>([
-    [`${start}|${end}|2`, searchResponse([{ id: 1, startTimeMs: startMs + 1_000 }, { id: 4, startTimeMs: startMs + 7_000 }])],
-    [`${start}|2026-08-18T00:00:04.000Z|2`, searchResponse([{ id: 1, startTimeMs: startMs + 1_000 }, { id: 2, startTimeMs: startMs + 3_000 }])],
-    [`${start}|2026-08-18T00:00:02.000Z|2`, searchResponse([{ id: 1, startTimeMs: startMs + 1_000 }])],
-    [`2026-08-18T00:00:02.000Z|2026-08-18T00:00:04.000Z|2`, searchResponse([{ id: 2, startTimeMs: startMs + 3_000 }])],
-    [`2026-08-18T00:00:04.000Z|${end}|2`, searchResponse([{ id: 3, startTimeMs: startMs + 5_000 }, { id: 4, startTimeMs: startMs + 7_000 }])],
-    [`2026-08-18T00:00:04.000Z|2026-08-18T00:00:06.000Z|2`, searchResponse([{ id: 3, startTimeMs: startMs + 5_000 }])],
-    [`2026-08-18T00:00:06.000Z|${end}|2`, searchResponse([{ id: 4, startTimeMs: startMs + 7_000 }])]
+    [
+      `${start}|${end}|2`,
+      searchResponse([
+        { id: 1, startTimeMs: startMs + 1_000 },
+        { id: 4, startTimeMs: startMs + 7_000 },
+      ]),
+    ],
+    [
+      `${start}|2026-08-18T00:00:04.000Z|2`,
+      searchResponse([
+        { id: 1, startTimeMs: startMs + 1_000 },
+        { id: 2, startTimeMs: startMs + 3_000 },
+      ]),
+    ],
+    [
+      `${start}|2026-08-18T00:00:02.000Z|2`,
+      searchResponse([{ id: 1, startTimeMs: startMs + 1_000 }]),
+    ],
+    [
+      `2026-08-18T00:00:02.000Z|2026-08-18T00:00:04.000Z|2`,
+      searchResponse([{ id: 2, startTimeMs: startMs + 3_000 }]),
+    ],
+    [
+      `2026-08-18T00:00:04.000Z|${end}|2`,
+      searchResponse([
+        { id: 3, startTimeMs: startMs + 5_000 },
+        { id: 4, startTimeMs: startMs + 7_000 },
+      ]),
+    ],
+    [
+      `2026-08-18T00:00:04.000Z|2026-08-18T00:00:06.000Z|2`,
+      searchResponse([{ id: 3, startTimeMs: startMs + 5_000 }]),
+    ],
+    [
+      `2026-08-18T00:00:06.000Z|${end}|2`,
+      searchResponse([{ id: 4, startTimeMs: startMs + 7_000 }]),
+    ],
   ])
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
     const bounds = queryBounds(args)
     const page = pages.get(`${bounds.from}|${bounds.to}|${bounds.limit}`)
-    if (!page) throw new Error(`Unexpected Tempo page ${JSON.stringify(bounds)}`)
+    if (!page)
+      throw new Error(`Unexpected Tempo page ${JSON.stringify(bounds)}`)
     return page
   }
-  const request: TempoQueryContext = { start, end, includeStatus: false, onProgress: (update) => progress.push(update) }
+  const request: TempoQueryContext = {
+    start,
+    end,
+    includeStatus: false,
+    onProgress: (update) => progress.push(update),
+  }
 
-  const result = await new ProgressiveGcxTempoTransport('production', run, undefined, {
-    pageLimit: 2,
-    minSliceMs: 1_000,
-    maxDenseLimit: 8
-  }).search('{ true }', request)
+  const result = await new ProgressiveGcxTempoTransport(
+    'production',
+    run,
+    undefined,
+    {
+      pageLimit: 2,
+      minSliceMs: 1_000,
+      maxDenseLimit: 8,
+    },
+  ).search('{ true }', request)
 
   assert.equal(calls.length, 7)
-  assert.ok(calls.every((args) => args.includes('--context') && args.includes('production')))
-  assert.deepEqual(result.rows.map((row) => row.traceId), [traceId(4), traceId(3), traceId(2), traceId(1)])
+  assert.ok(
+    calls.every(
+      (args) => args.includes('--context') && args.includes('production'),
+    ),
+  )
+  assert.deepEqual(
+    result.rows.map((row) => row.traceId),
+    [traceId(4), traceId(3), traceId(2), traceId(1)],
+  )
   assert.equal(result.rowCount, 4)
-  assert.match(result.notice ?? '', /complete period · 4 traces · 7 search queries/)
+  assert.match(
+    result.notice ?? '',
+    /complete period · 4 traces · 7 search queries/,
+  )
   assert.equal(progress.length, 7)
   assert.equal(progress[0].coveredMs, 0)
   assert.equal(progress[0].totalMs, 8_000)
@@ -95,15 +161,17 @@ test('exhaustive Tempo search bisects saturated windows until the whole selected
     pendingChunks: 0,
     queriesCompleted: 7,
     tracesFound: 4,
-    rows: [{
-      traceId: traceId(4),
-      rootService: 'checkout',
-      rootOperation: 'POST /checkout',
-      startTimeMs: startMs + 7_000,
-      durationMs: 400,
-      matchedSpans: 0,
-      status: 'unknown'
-    }]
+    rows: [
+      {
+        traceId: traceId(4),
+        rootService: 'checkout',
+        rootOperation: 'POST /checkout',
+        startTimeMs: startMs + 7_000,
+        durationMs: 400,
+        matchedSpans: 0,
+        status: 'unknown',
+      },
+    ],
   })
 })
 
@@ -113,23 +181,38 @@ test('a saturated minimum time slice grows its limit until the dense interval is
     const { limit } = queryBounds(args)
     limits.push(limit)
     return limit === 2
-      ? searchResponse([{ id: 1, startTimeMs: startMs + 100 }, { id: 2, startTimeMs: startMs + 200 }])
-      : searchResponse([{ id: 1, startTimeMs: startMs + 100 }, { id: 2, startTimeMs: startMs + 200 }, { id: 3, startTimeMs: startMs + 300 }])
+      ? searchResponse([
+          { id: 1, startTimeMs: startMs + 100 },
+          { id: 2, startTimeMs: startMs + 200 },
+        ])
+      : searchResponse([
+          { id: 1, startTimeMs: startMs + 100 },
+          { id: 2, startTimeMs: startMs + 200 },
+          { id: 3, startTimeMs: startMs + 300 },
+        ])
   }
 
-  const result = await new ProgressiveGcxTempoTransport(undefined, run, undefined, {
-    pageLimit: 2,
-    minSliceMs: 1_000,
-    maxDenseLimit: 8
-  }).search('{ true }', {
+  const result = await new ProgressiveGcxTempoTransport(
+    undefined,
+    run,
+    undefined,
+    {
+      pageLimit: 2,
+      minSliceMs: 1_000,
+      maxDenseLimit: 8,
+    },
+  ).search('{ true }', {
     start,
     end: '2026-08-18T00:00:01.000Z',
-    includeStatus: false
+    includeStatus: false,
   })
 
   assert.deepEqual(limits, [2, 4])
   assert.equal(result.rowCount, 3)
-  assert.match(result.notice ?? '', /complete period · 3 traces · 2 search queries/)
+  assert.match(
+    result.notice ?? '',
+    /complete period · 3 traces · 2 search queries/,
+  )
 })
 
 test('sub-second selected ranges never collapse to equal Tempo start/end seconds', async () => {
@@ -147,30 +230,44 @@ test('sub-second selected ranges never collapse to equal Tempo start/end seconds
     return limit === 2
       ? searchResponse([
           { id: 1, startTimeMs: base + 100 },
-          { id: 2, startTimeMs: base + 300 }
+          { id: 2, startTimeMs: base + 300 },
         ])
       : searchResponse([
           { id: 1, startTimeMs: base + 100 },
           { id: 2, startTimeMs: base + 300 },
-          { id: 3, startTimeMs: base + 900 }
+          { id: 3, startTimeMs: base + 900 },
         ])
   }
   const request: TempoQueryContext = {
     start: exactStart,
     end: exactEnd,
     includeStatus: false,
-    onProgress: (update) => progress.push(update)
+    onProgress: (update) => progress.push(update),
   }
 
-  const result = await new ProgressiveGcxTempoTransport(undefined, run, undefined, {
-    pageLimit: 2,
-    minSliceMs: 1_000,
-    maxDenseLimit: 4
-  }).search('{ true }', request)
+  const result = await new ProgressiveGcxTempoTransport(
+    undefined,
+    run,
+    undefined,
+    {
+      pageLimit: 2,
+      minSliceMs: 1_000,
+      maxDenseLimit: 4,
+    },
+  ).search('{ true }', request)
 
-  assert.deepEqual(calls.map((args) => queryBounds(args).limit), [2, 4])
-  assert.deepEqual(result.rows.map((row) => row.traceId), [traceId(2)])
-  assert.match(result.notice ?? '', /complete period · 1 traces · 2 search queries/)
+  assert.deepEqual(
+    calls.map((args) => queryBounds(args).limit),
+    [2, 4],
+  )
+  assert.deepEqual(
+    result.rows.map((row) => row.traceId),
+    [traceId(2)],
+  )
+  assert.match(
+    result.notice ?? '',
+    /complete period · 1 traces · 2 search queries/,
+  )
   assert.equal(progress.at(-1)?.totalMs, 500)
   assert.equal(progress.at(-1)?.coveredMs, 500)
   assert.equal(progress.at(-1)?.tracesFound, 1)
@@ -181,21 +278,36 @@ test('root status enrichment is automatic, batched, and does not fetch full trac
   const progress: TempoSearchProgress[] = []
   const run: GcxCommandRunner = async (args) => {
     calls.push(args)
-    if (args[2]?.includes('!>>') && args[2].includes('span:status = error')) return rootMembershipResponse()
-    return searchResponse([{ id: 9, startTimeMs: startMs + 100, status: 'error' }])
+    if (args[2]?.includes('!>>') && args[2].includes('span:status = error'))
+      return rootMembershipResponse()
+    return searchResponse([
+      { id: 9, startTimeMs: startMs + 100, status: 'error' },
+    ])
   }
-  const request: TempoQueryContext = { start, end, onProgress: (update) => progress.push(update) }
+  const request: TempoQueryContext = {
+    start,
+    end,
+    onProgress: (update) => progress.push(update),
+  }
 
-  const result = await new ProgressiveGcxTempoTransport(undefined, run, undefined, {
-    pageLimit: 2
-  }).search('{ true }', request)
+  const result = await new ProgressiveGcxTempoTransport(
+    undefined,
+    run,
+    undefined,
+    {
+      pageLimit: 2,
+    },
+  ).search('{ true }', request)
 
   assert.equal(calls.filter((args) => args[1] === 'query').length, 2)
   assert.equal(calls.filter((args) => args[1] === 'get').length, 0)
   assert.match(calls[1][2], /trace:id =~/)
   assert.match(calls[1][2], /!>>/)
   assert.match(calls[1][2], /span:status = error/)
-  assert.equal(calls.some((args) => args[2]?.includes('span:status = ok')), false)
+  assert.equal(
+    calls.some((args) => args[2]?.includes('span:status = ok')),
+    false,
+  )
   assert.equal(result.rows[0].status, 'ok')
   assert.match(result.notice ?? '', /1 search query · 1 root-status query/)
   assert.equal(progress.length, 2)
@@ -206,15 +318,25 @@ test('root status enrichment is automatic, batched, and does not fetch full trac
 test('dense windows fail explicitly rather than silently claiming an incomplete period is complete', async () => {
   const run: GcxCommandRunner = async (args) => {
     const { limit } = queryBounds(args)
-    return searchResponse(Array.from({ length: limit }, (_, index) => ({ id: index + 1, startTimeMs: startMs + index })))
+    return searchResponse(
+      Array.from({ length: limit }, (_, index) => ({
+        id: index + 1,
+        startTimeMs: startMs + index,
+      })),
+    )
   }
 
   await assert.rejects(
-    () => new ProgressiveGcxTempoTransport(undefined, run, undefined, {
-      pageLimit: 2,
-      minSliceMs: 1_000,
-      maxDenseLimit: 4
-    }).search('{ true }', { start, end: '2026-08-18T00:00:01.000Z', includeStatus: false }),
-    /cannot guarantee complete-period results/
+    () =>
+      new ProgressiveGcxTempoTransport(undefined, run, undefined, {
+        pageLimit: 2,
+        minSliceMs: 1_000,
+        maxDenseLimit: 4,
+      }).search('{ true }', {
+        start,
+        end: '2026-08-18T00:00:01.000Z',
+        includeStatus: false,
+      }),
+    /cannot guarantee complete-period results/,
   )
 })

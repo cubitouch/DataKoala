@@ -4,8 +4,15 @@ import { migrateStoredProfile } from './profile-migration.ts'
 
 test('legacy saved connections migrate to versioned PostgreSQL profiles', () => {
   const migrated = migrateStoredProfile({
-    id: 'old', name: 'Old', host: 'localhost', port: 5432, database: 'app',
-    user: 'reader', password: '', ssl: false, readonly: true
+    id: 'old',
+    name: 'Old',
+    host: 'localhost',
+    port: 5432,
+    database: 'app',
+    user: 'reader',
+    password: '',
+    ssl: false,
+    readonly: true,
   })
   assert.equal(migrated.status, 'migrated')
   if (migrated.status !== 'migrated') return
@@ -16,18 +23,38 @@ test('legacy saved connections migrate to versioned PostgreSQL profiles', () => 
 
 test('profiles for unknown future adapters are not reinterpreted as PostgreSQL', () => {
   const stored = { id: 'bq', kind: 'bigquery', version: 1 }
-  assert.deepEqual(migrateStoredProfile(stored), { status: 'unsupported', stored })
+  assert.deepEqual(migrateStoredProfile(stored), {
+    status: 'unsupported',
+    stored,
+  })
 })
 
 test('a future PostgreSQL profile version is quarantined unchanged', () => {
-  const stored = { id: 'future', kind: 'postgres', version: 2, futureOption: true }
-  assert.deepEqual(migrateStoredProfile(stored), { status: 'unsupported', stored })
+  const stored = {
+    id: 'future',
+    kind: 'postgres',
+    version: 2,
+    futureOption: true,
+  }
+  assert.deepEqual(migrateStoredProfile(stored), {
+    status: 'unsupported',
+    stored,
+  })
 })
 
 test('a valid PostgreSQL v1 profile is preserved without migration', () => {
   const stored = {
-    id: 'current', name: 'Current', kind: 'postgres', version: 1, host: 'localhost',
-    port: 5432, database: 'app', user: 'reader', password: '', ssl: false, readonly: true
+    id: 'current',
+    name: 'Current',
+    kind: 'postgres',
+    version: 1,
+    host: 'localhost',
+    port: 5432,
+    database: 'app',
+    user: 'reader',
+    password: '',
+    ssl: false,
+    readonly: true,
   }
   const result = migrateStoredProfile(stored)
   assert.equal(result.status, 'current')
@@ -35,29 +62,64 @@ test('a valid PostgreSQL v1 profile is preserved without migration', () => {
 })
 
 test('BigQuery billing caps persist and an absent legacy cap migrates to uncapped', () => {
-  const capped = { id: 'bq', name: 'BQ', kind: 'bigquery', version: 1, billingProject: 'billing', maximumBytesBilled: '1000', readonly: true }
+  const capped = {
+    id: 'bq',
+    name: 'BQ',
+    kind: 'bigquery',
+    version: 1,
+    billingProject: 'billing',
+    maximumBytesBilled: '1000',
+    readonly: true,
+  }
   const current = migrateStoredProfile(capped)
   assert.equal(current.status, 'current')
-  if (current.status === 'current' && current.profile.kind === 'bigquery') assert.equal(current.profile.maximumBytesBilled, '1000')
+  if (current.status === 'current' && current.profile.kind === 'bigquery')
+    assert.equal(current.profile.maximumBytesBilled, '1000')
 
   const { maximumBytesBilled: _cap, ...legacy } = capped
   const migrated = migrateStoredProfile(legacy)
   assert.equal(migrated.status, 'migrated')
-  if (migrated.status === 'migrated' && migrated.profile.kind === 'bigquery') assert.equal(migrated.profile.maximumBytesBilled, '1073741824')
+  if (migrated.status === 'migrated' && migrated.profile.kind === 'bigquery')
+    assert.equal(migrated.profile.maximumBytesBilled, '1073741824')
 })
 
 test('Tempo gcx profiles persist independently from Prometheus profiles', () => {
-  const stored = { id: 'traces', name: 'Production traces', kind: 'tempo', version: 1, readonly: true, transport: { kind: 'gcx', context: 'production' } }
+  const stored = {
+    id: 'traces',
+    name: 'Production traces',
+    kind: 'tempo',
+    version: 1,
+    readonly: true,
+    transport: { kind: 'gcx', context: 'production' },
+  }
   const result = migrateStoredProfile(stored)
   assert.equal(result.status, 'current')
   if (result.status !== 'current') return
   assert.equal(result.profile.kind, 'tempo')
-  assert.deepEqual(result.profile.transport, { kind: 'gcx', context: 'production' })
+  assert.deepEqual(result.profile.transport, {
+    kind: 'gcx',
+    context: 'production',
+  })
 })
 test('observability Grafana handoff config and Tempo datasource UID remain optional and round-trip', () => {
-  const oldTempo = { kind: 'tempo', version: 1, id: 't1', name: 'Traces', readonly: true, transport: { kind: 'gcx' } }
+  const oldTempo = {
+    kind: 'tempo',
+    version: 1,
+    id: 't1',
+    name: 'Traces',
+    readonly: true,
+    transport: { kind: 'gcx' },
+  }
   assert.equal(migrateStoredProfile(oldTempo).status, 'current')
-  const configured = { ...oldTempo, transport: { kind: 'gcx', datasourceUid: 'tempo-main' }, grafana: { baseUrl: 'https://example.com/grafana', orgId: 4, datasourceType: 'tempo' } }
+  const configured = {
+    ...oldTempo,
+    transport: { kind: 'gcx', datasourceUid: 'tempo-main' },
+    grafana: {
+      baseUrl: 'https://example.com/grafana',
+      orgId: 4,
+      datasourceType: 'tempo',
+    },
+  }
   const result = migrateStoredProfile(configured)
   assert.equal(result.status, 'current')
   if (result.status === 'current') assert.deepEqual(result.profile, configured)

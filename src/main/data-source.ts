@@ -7,17 +7,34 @@ import type {
   ConnectResult,
   ExplainResult,
   QueryResult,
-  TestResult
+  TestResult,
 } from '../shared/types.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
 import type { TempoAttribute, TempoQueryRequest } from '../shared/tempo.ts'
 import type { LokiMetadataRequest, LokiQueryRequest } from '../shared/loki.ts'
 
-export interface DataNamespace { name: string; isSystem?: boolean }
-export interface DataNamespaceRef { name: string }
-export interface DataRelation { namespace: string; name: string; kind: 'table' | 'view' | 'materialized-view' | 'metric' | 'service'; details?: DataObjectDetails }
-export interface DataRelationRef { namespace: string; name: string }
-export interface DataColumn { name: string; nativeType: string; nullable?: boolean }
+export interface DataNamespace {
+  name: string
+  isSystem?: boolean
+}
+export interface DataNamespaceRef {
+  name: string
+}
+export interface DataRelation {
+  namespace: string
+  name: string
+  kind: 'table' | 'view' | 'materialized-view' | 'metric' | 'service'
+  details?: DataObjectDetails
+}
+export interface DataRelationRef {
+  namespace: string
+  name: string
+}
+export interface DataColumn {
+  name: string
+  nativeType: string
+  nullable?: boolean
+}
 export interface QueryRequest {
   sql: string
   parameters?: unknown[]
@@ -25,8 +42,15 @@ export interface QueryRequest {
   tempo?: TempoQueryRequest
   loki?: Omit<LokiQueryRequest, 'expression'>
 }
-export interface QueryEstimate { bytesProcessed?: number; notice?: string }
-export interface SessionInfo { profileId: string; provider: DataSourceKind; serverVersion?: string }
+export interface QueryEstimate {
+  bytesProcessed?: number
+  notice?: string
+}
+export interface SessionInfo {
+  profileId: string
+  provider: DataSourceKind
+  serverVersion?: string
+}
 
 export interface DataSourceSession {
   info: SessionInfo
@@ -40,7 +64,10 @@ export interface DataSourceSession {
   attributeValues?(attribute: string, query?: string): Promise<string[]>
   attributes?(query?: string): Promise<TempoAttribute[]>
   lokiLabels?(request: LokiMetadataRequest): Promise<string[]>
-  lokiLabelValues?(label: string, request: LokiMetadataRequest): Promise<string[]>
+  lokiLabelValues?(
+    label: string,
+    request: LokiMetadataRequest,
+  ): Promise<string[]>
   formatLokiQuery?(query: string): Promise<string>
   explain?(sql: string, analyze?: boolean): Promise<ExplainResult>
   estimateQuery?(sql: string): Promise<QueryEstimate>
@@ -53,28 +80,36 @@ export interface DataSourceSession {
 export interface DataSourceAdapter {
   readonly kind: DataSourceKind
   test(profile: DataSourceProfile): Promise<TestResult>
-  connect(profile: DataSourceProfile): Promise<{ result: ConnectResult; session?: DataSourceSession }>
+  connect(
+    profile: DataSourceProfile,
+  ): Promise<{ result: ConnectResult; session?: DataSourceSession }>
   /** Cancel an in-progress connection for one profile, when the provider supports it. */
   cancelConnect?(profileId: string): Promise<void>
   /** Release adapter-owned work that has not produced a session yet. */
   shutdown?(): Promise<void>
-  onConnectionStateChanged?(listener: (event: ConnectionStateEvent) => void): void
+  onConnectionStateChanged?(
+    listener: (event: ConnectionStateEvent) => void,
+  ): void
 }
 
 export class AdapterRegistry {
   private readonly adapters = new Map<DataSourceKind, DataSourceAdapter>()
 
   register(adapter: DataSourceAdapter): this {
-    if (this.adapters.has(adapter.kind)) throw new Error(`Adapter already registered for ${adapter.kind}`)
+    if (this.adapters.has(adapter.kind))
+      throw new Error(`Adapter already registered for ${adapter.kind}`)
     this.adapters.set(adapter.kind, adapter)
     return this
   }
 
   get(kind: DataSourceKind): DataSourceAdapter {
     const adapter = this.adapters.get(kind)
-    if (!adapter) throw new Error(`No data source adapter is registered for ${kind}`)
+    if (!adapter)
+      throw new Error(`No data source adapter is registered for ${kind}`)
     return adapter
   }
 
-  values(): DataSourceAdapter[] { return [...this.adapters.values()] }
+  values(): DataSourceAdapter[] {
+    return [...this.adapters.values()]
+  }
 }

@@ -7,7 +7,11 @@ interface CopySqlButtonProps {
   language?: string
 }
 
-export function CopySqlButton({ sql, className = 'btn ghost', language = 'SQL' }: CopySqlButtonProps) {
+export function CopySqlButton({
+  sql,
+  className = 'btn ghost',
+  language = 'SQL',
+}: CopySqlButtonProps) {
   const hasSql = sql.trim().length > 0
 
   const handleCopySql = async () => {
@@ -17,19 +21,25 @@ export function CopySqlButton({ sql, className = 'btn ghost', language = 'SQL' }
       await copyTextToClipboard(sql)
       notify({ message: 'Copied to clipboard' })
     } catch (error) {
-      notify({ message: error instanceof Error && error.message ? `Could not copy: ${error.message}` : 'Could not copy to clipboard', tone: 'error' })
+      notify({
+        message:
+          error instanceof Error && error.message
+            ? `Could not copy: ${error.message}`
+            : 'Could not copy to clipboard',
+        tone: 'error',
+      })
     }
   }
 
   return (
-      <button
-        type="button"
-        className={className}
-        onClick={handleCopySql}
-        disabled={!hasSql}
-        aria-label={`Copy ${language} to clipboard`}
-      >
-        Copy
-      </button>
+    <button
+      type="button"
+      className={className}
+      onClick={handleCopySql}
+      disabled={!hasSql}
+      aria-label={`Copy ${language} to clipboard`}
+    >
+      Copy
+    </button>
   )
 }

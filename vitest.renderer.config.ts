@@ -9,16 +9,13 @@ export default defineConfig({
       '@store': resolve(__dirname, 'src/renderer/src/store'),
       '@test': resolve(__dirname, 'src/renderer/src/test'),
       '@renderer': resolve(__dirname, 'src/renderer/src'),
-      '@shared': resolve(__dirname, 'src/shared')
-    }
+      '@shared': resolve(__dirname, 'src/shared'),
+    },
   },
   test: {
-    include: [
-      'src/renderer/src/**/*.test.ts',
-      'src/main/adapters/*.vitest.ts'
-    ],
+    include: ['src/renderer/src/**/*.test.ts', 'src/main/adapters/*.vitest.ts'],
     environment: 'node',
     clearMocks: true,
-    restoreMocks: true
-  }
+    restoreMocks: true,
+  },
 })

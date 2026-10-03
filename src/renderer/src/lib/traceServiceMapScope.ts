@@ -7,10 +7,17 @@ interface ScopedTraceServiceMap {
   edges: TraceCohortEdge[]
 }
 
-function rootNodeIds(nodes: TraceCohortNode[], edges: TraceCohortEdge[]): string[] {
-  const explicit = nodes.filter((node) => node.rootTraceCount > 0).map((node) => node.id)
+function rootNodeIds(
+  nodes: TraceCohortNode[],
+  edges: TraceCohortEdge[],
+): string[] {
+  const explicit = nodes
+    .filter((node) => node.rootTraceCount > 0)
+    .map((node) => node.id)
   const incoming = new Set(edges.map((edge) => edge.target))
-  const inferred = nodes.filter((node) => !incoming.has(node.id)).map((node) => node.id)
+  const inferred = nodes
+    .filter((node) => !incoming.has(node.id))
+    .map((node) => node.id)
   const roots = [...new Set([...explicit, ...inferred])]
   return roots.length ? roots : nodes.slice(0, 1).map((node) => node.id)
 }
@@ -18,7 +25,7 @@ function rootNodeIds(nodes: TraceCohortNode[], edges: TraceCohortEdge[]): string
 export function scopeTraceServiceMap(
   nodes: TraceCohortNode[],
   edges: TraceCohortEdge[],
-  scope: TraceServiceMapScope
+  scope: TraceServiceMapScope,
 ): ScopedTraceServiceMap {
   if (scope === 'all' || !nodes.length) return { nodes, edges }
 
@@ -62,6 +69,6 @@ export function scopeTraceServiceMap(
 
   return {
     nodes: nodes.filter((node) => selectedNodes.has(node.id)),
-    edges: edges.filter((edge) => selectedEdges.has(edge.key))
+    edges: edges.filter((edge) => selectedEdges.has(edge.key)),
   }
 }

@@ -1,5 +1,14 @@
-export interface PrometheusMetricMetadata { name: string; type?: string; help?: string; unit?: string }
-export interface PrometheusDatasourceOption { uid: string; name: string; type: string }
+export interface PrometheusMetricMetadata {
+  name: string
+  type?: string
+  help?: string
+  unit?: string
+}
+export interface PrometheusDatasourceOption {
+  uid: string
+  name: string
+  type: string
+}
 export interface PrometheusDiscoveryResult {
   metricNames: string[]
   metadata: PrometheusMetricMetadata[]

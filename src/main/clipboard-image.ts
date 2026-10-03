@@ -16,15 +16,23 @@ export interface ClipboardImageDependencies {
 /** Validate and write only a real PNG data URL; no text clipboard fallback exists. */
 export function writePngDataUrl(
   dataUrl: unknown,
-  dependencies: ClipboardImageDependencies
+  dependencies: ClipboardImageDependencies,
 ): ClipboardImageResult {
   try {
-    if (typeof dataUrl !== 'string' || dataUrl.length > MAX_PNG_BYTES * 1.4) return { ok: false }
+    if (typeof dataUrl !== 'string' || dataUrl.length > MAX_PNG_BYTES * 1.4)
+      return { ok: false }
     const match = PNG_DATA_URL.exec(dataUrl)
     if (!match) return { ok: false }
     const bytes = Buffer.from(match[1], 'base64')
-    const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-    if (bytes.length < pngSignature.length || bytes.length > MAX_PNG_BYTES || !bytes.subarray(0, 8).equals(pngSignature)) return { ok: false }
+    const pngSignature = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ])
+    if (
+      bytes.length < pngSignature.length ||
+      bytes.length > MAX_PNG_BYTES ||
+      !bytes.subarray(0, 8).equals(pngSignature)
+    )
+      return { ok: false }
     const image = dependencies.createFromBuffer(bytes)
     if (image.isEmpty()) return { ok: false }
     dependencies.writeImage(image)

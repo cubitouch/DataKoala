@@ -52,7 +52,11 @@ function isUsableId(id: unknown): id is string {
 
 function persist(): void {
   try {
-    writeFileSync(storePath(), JSON.stringify([...profiles.values(), ...unsupportedProfiles], null, 2), 'utf8')
+    writeFileSync(
+      storePath(),
+      JSON.stringify([...profiles.values(), ...unsupportedProfiles], null, 2),
+      'utf8',
+    )
   } catch {
     // Best-effort; ignore disk errors.
   }
@@ -67,7 +71,9 @@ export const connectionProfiles = {
     load()
     return profiles.get(id)
   },
-  upsert(profile: Omit<DataSourceProfile, 'id'> & { id?: string }): DataSourceProfile {
+  upsert(
+    profile: Omit<DataSourceProfile, 'id'> & { id?: string },
+  ): DataSourceProfile {
     load()
     // Note: `profile.id ?? randomUUID()` is wrong here — the renderer sends '' for a
     // new profile, and ?? only falls back on null/undefined, so the id stayed empty.
@@ -81,5 +87,5 @@ export const connectionProfiles = {
     load()
     profiles.delete(id)
     persist()
-  }
+  },
 }

@@ -12,8 +12,11 @@ export interface ConnectionDraft {
   readonly: boolean
 }
 
-export type ConnectionDraftField = 'name' | 'host' | 'port' | 'database' | 'user'
-export type ConnectionDraftErrors = Partial<Record<ConnectionDraftField, string>>
+export type ConnectionDraftField =
+  'name' | 'host' | 'port' | 'database' | 'user'
+export type ConnectionDraftErrors = Partial<
+  Record<ConnectionDraftField, string>
+>
 
 export type BuildConnectionProfileResult =
   | { ok: true; profile: ConnectionProfile }
@@ -26,7 +29,7 @@ export function draftFromProfile(profile: ConnectionProfile): ConnectionDraft {
 /** The single normalization and validation boundary used by preview, Test, and Save. */
 export function buildConnectionProfileDraft(
   draft: ConnectionDraft,
-  options: { requireName?: boolean } = {}
+  options: { requireName?: boolean } = {},
 ): BuildConnectionProfileResult {
   const name = draft.name.trim()
   const host = draft.host.trim()
@@ -59,7 +62,7 @@ export function buildConnectionProfileDraft(
       // Passwords are intentionally not trimmed: spaces may be part of a credential.
       password: draft.password,
       ssl: draft.ssl,
-      readonly: draft.readonly
-    }
+      readonly: draft.readonly,
+    },
   }
 }

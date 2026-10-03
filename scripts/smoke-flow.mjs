@@ -11,12 +11,14 @@
 import { spawn } from 'node:child_process'
 
 const CONN =
-  process.env.DATAKOALA_TEST_DB ?? 'postgresql://postgres:testpw@localhost:55432/datakoala_test'
-const electronBin = 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'
+  process.env.DATAKOALA_TEST_DB ??
+  'postgresql://postgres:testpw@localhost:55432/datakoala_test'
+const electronBin =
+  'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'
 
 const child = spawn(electronBin, ['.'], {
   env: { ...process.env, DATAKOALA_REPRO: CONN },
-  stdio: ['ignore', 'pipe', 'pipe']
+  stdio: ['ignore', 'pipe', 'pipe'],
 })
 
 let out = ''
@@ -74,7 +76,8 @@ child.on('exit', () => {
   if (!report) problems.push('no report produced')
   else {
     if (!report.connected) problems.push('did not connect')
-    if (!report.activeProfileId) problems.push('activeProfileId is falsy — Run would silently no-op')
+    if (!report.activeProfileId)
+      problems.push('activeProfileId is falsy — Run would silently no-op')
     if (report.queryError) problems.push('query error: ' + report.queryError)
     if (!report.rowCount) problems.push('query returned no rows')
     if (isDefaultQuery && report.domTableRows !== 25) {
@@ -82,17 +85,21 @@ child.on('exit', () => {
     }
     if (!report.domTableRows) problems.push('no rows rendered in the table')
     if (!report.hasChartCanvas) problems.push('chart canvas did not render')
-    if (report.chart && !report.chart.yField) problems.push('no Y field was auto-selected')
+    if (report.chart && !report.chart.yField)
+      problems.push('no Y field was auto-selected')
     // The Format button must exist and actually reformat.
     if (!report.formatCheck?.found) problems.push('Format button not found')
-    else if (!report.formatCheck.changed) problems.push('Format button did not change the SQL')
+    else if (!report.formatCheck.changed)
+      problems.push('Format button did not change the SQL')
     // A timestamp X axis must be a real time axis carrying [x, y] pairs.
     const p = report.chartProbe
     if (p) {
       if (p.isTimeAxis) {
-        if (p.xAxisType !== 'time') problems.push(`time column gave xAxis.type=${p.xAxisType}`)
+        if (p.xAxisType !== 'time')
+          problems.push(`time column gave xAxis.type=${p.xAxisType}`)
         if (p.xAxisHasData) problems.push('time axis should not set xAxis.data')
-        if (!p.pointsArePairs) problems.push('time axis series must carry [x, y] pairs')
+        if (!p.pointsArePairs)
+          problems.push('time axis series must carry [x, y] pairs')
       } else if (p.xAxisType !== 'category') {
         problems.push(`non-time column gave xAxis.type=${p.xAxisType}`)
       }

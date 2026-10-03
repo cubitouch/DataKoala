@@ -254,9 +254,7 @@ export function createServiceMapExcalidraw(
   )
 }
 
-export function createServiceMapExcalidrawClipboard(
-  sceneJson: string,
-): string {
+export function createServiceMapExcalidrawClipboard(sceneJson: string): string {
   const scene = JSON.parse(sceneJson) as {
     elements?: unknown
     files?: unknown
@@ -268,9 +266,7 @@ export function createServiceMapExcalidrawClipboard(
     type: 'excalidraw/clipboard',
     elements: scene.elements,
     files:
-      scene.files && typeof scene.files === 'object'
-        ? scene.files
-        : undefined,
+      scene.files && typeof scene.files === 'object' ? scene.files : undefined,
   })
 }
 
@@ -298,8 +294,7 @@ export async function rasterizeServiceMapSvg(
   try {
     await new Promise<void>((resolve, reject) => {
       image.onload = () => resolve()
-      image.onerror = () =>
-        reject(new Error('Could not rasterize service map'))
+      image.onerror = () => reject(new Error('Could not rasterize service map'))
       image.src = url
     })
     const context = canvas.getContext('2d')

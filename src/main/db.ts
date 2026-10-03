@@ -2,19 +2,38 @@
  * Provider-neutral main-process facade. IPC continues to call this stable API;
  * provider behavior lives behind adapters and sessions.
  */
-import { sqlDialectForSourceKind, type ConnectionId, type ConnectionStateEvent, type ConnectResult, type DataSourceProfile, type QueryResult } from '../shared/types.ts'
+import {
+  sqlDialectForSourceKind,
+  type ConnectionId,
+  type ConnectionStateEvent,
+  type ConnectResult,
+  type DataSourceProfile,
+  type QueryResult,
+} from '../shared/types.ts'
 import { AdapterRegistry } from './data-source.ts'
 import type { DataSourceSession } from './data-source.ts'
-import { PostgresAdapter, DatabaseConnectionError, __testing } from './adapters/postgres-adapter.ts'
+import {
+  PostgresAdapter,
+  DatabaseConnectionError,
+  __testing,
+} from './adapters/postgres-adapter.ts'
 import { LocalFilesAdapter } from './adapters/local-files-adapter.ts'
 import { SqliteFileAdapter } from './adapters/sqlite-file-adapter.ts'
 import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 import { PrometheusAdapter } from './adapters/prometheus-adapter.ts'
 import { TempoAdapter } from './adapters/tempo-adapter.ts'
 import { LokiAdapter } from './adapters/loki-adapter.ts'
-import type { LokiMetadataRequest, LokiQueryRequest, LokiQueryResult } from '../shared/loki.ts'
+import type {
+  LokiMetadataRequest,
+  LokiQueryRequest,
+  LokiQueryResult,
+} from '../shared/loki.ts'
 import type { PrometheusQueryRequest } from '../shared/prometheus.ts'
-import type { TempoQueryContext, TempoQueryRequest, TempoSearchProgressListener } from '../shared/tempo.ts'
+import type {
+  TempoQueryContext,
+  TempoQueryRequest,
+  TempoSearchProgressListener,
+} from '../shared/tempo.ts'
 import { performance } from 'node:perf_hooks'
 import { formatPromql } from './promql-formatter.ts'
 import { toIpcSafeQueryResult } from './ipc-serialization.ts'
@@ -32,15 +51,23 @@ export const adapterRegistry = new AdapterRegistry()
 
 export class SessionManager {
   private readonly registry: AdapterRegistry
-  private readonly sessions = new Map<ConnectionId, { session: DataSourceSession; result: Extract<ConnectResult, { ok: true }> }>()
-  private readonly pendingConnections = new Map<number, {
-    profileId: ConnectionId
-    adapter: ReturnType<AdapterRegistry['get']>
-  }>()
+  private readonly sessions = new Map<
+    ConnectionId,
+    { session: DataSourceSession; result: Extract<ConnectResult, { ok: true }> }
+  >()
+  private readonly pendingConnections = new Map<
+    number,
+    {
+      profileId: ConnectionId
+      adapter: ReturnType<AdapterRegistry['get']>
+    }
+  >()
   private connectionIntent = 0
   private readonly connectionIntents = new Map<ConnectionId, number>()
 
-  constructor(registry: AdapterRegistry) { this.registry = registry }
+  constructor(registry: AdapterRegistry) {
+    this.registry = registry
+  }
 
   async connect(profile: DataSourceProfile): Promise<ConnectResult> {
     const existing = this.sessions.get(profile.id)
@@ -65,7 +92,10 @@ export class SessionManager {
       }
       result = connected.result
       if (connected.result.ok && connected.session) {
-        this.sessions.set(profile.id, { session: connected.session, result: connected.result })
+        this.sessions.set(profile.id, {
+          session: connected.session,
+          result: connected.result,
+        })
       }
       return result
     } finally {
@@ -75,14 +105,22 @@ export class SessionManager {
 
   async disconnect(id: ConnectionId, generation?: number): Promise<void> {
     if (generation === undefined) {
-      const pending = [...this.pendingConnections.entries()]
-        .filter(([, connection]) => connection.profileId === id)
+      const pending = [...this.pendingConnections.entries()].filter(
+        ([, connection]) => connection.profileId === id,
+      )
       for (const [intent] of pending) this.pendingConnections.delete(intent)
-      if (pending.some(([intent]) => intent === this.connectionIntents.get(id))) this.connectionIntents.delete(id)
-      await Promise.allSettled(pending.map(([, connection]) => connection.adapter.cancelConnect?.(id)))
+      if (pending.some(([intent]) => intent === this.connectionIntents.get(id)))
+        this.connectionIntents.delete(id)
+      await Promise.allSettled(
+        pending.map(([, connection]) => connection.adapter.cancelConnect?.(id)),
+      )
     }
     const current = this.sessions.get(id)
-    if (!current || (generation !== undefined && current.result.generation !== generation)) return
+    if (
+      !current ||
+      (generation !== undefined && current.result.generation !== generation)
+    )
+      return
     this.sessions.delete(id)
     await current.session.close()
   }
@@ -90,7 +128,9 @@ export class SessionManager {
   async disconnectAll(): Promise<void> {
     this.connectionIntents.clear()
     await Promise.all([this.closeSessions(), this.cancelPendingConnections()])
-    await Promise.allSettled(this.registry.values().map((adapter) => adapter.shutdown?.()))
+    await Promise.allSettled(
+      this.registry.values().map((adapter) => adapter.shutdown?.()),
+    )
   }
 
   async reconnect(profile: DataSourceProfile): Promise<ConnectResult> {
@@ -107,8 +147,16 @@ export class SessionManager {
     return this.sessions.get(id)?.session
   }
 
-  listLive(): Array<{ id: ConnectionId; generation: number; serverVersion?: string }> {
-    return [...this.sessions.entries()].map(([id, { result }]) => ({ id, generation: result.generation, serverVersion: result.serverVersion }))
+  listLive(): Array<{
+    id: ConnectionId
+    generation: number
+    serverVersion?: string
+  }> {
+    return [...this.sessions.entries()].map(([id, { result }]) => ({
+      id,
+      generation: result.generation,
+      serverVersion: result.serverVersion,
+    }))
   }
 
   private async closeSessions(): Promise<void> {
@@ -117,12 +165,21 @@ export class SessionManager {
     await Promise.allSettled(active.map(({ session }) => session.close()))
   }
 
-  private async cancelPendingConnections(profileId?: ConnectionId, exceptIntent?: number): Promise<void> {
-    const pending = [...this.pendingConnections.entries()]
-      .filter(([intent, connection]) => intent !== exceptIntent && (profileId === undefined || connection.profileId === profileId))
+  private async cancelPendingConnections(
+    profileId?: ConnectionId,
+    exceptIntent?: number,
+  ): Promise<void> {
+    const pending = [...this.pendingConnections.entries()].filter(
+      ([intent, connection]) =>
+        intent !== exceptIntent &&
+        (profileId === undefined || connection.profileId === profileId),
+    )
     for (const [intent] of pending) this.pendingConnections.delete(intent)
-    await Promise.allSettled(pending.map(([, connection]) =>
-      connection.adapter.cancelConnect?.(connection.profileId)))
+    await Promise.allSettled(
+      pending.map(([, connection]) =>
+        connection.adapter.cancelConnect?.(connection.profileId),
+      ),
+    )
   }
 }
 
@@ -130,9 +187,12 @@ const sessionManager = new SessionManager(adapterRegistry)
 
 export { DatabaseConnectionError, __testing }
 
-export function onConnectionStateChanged(listener: (event: ConnectionStateEvent) => void): void {
+export function onConnectionStateChanged(
+  listener: (event: ConnectionStateEvent) => void,
+): void {
   postgresAdapter.onConnectionStateChanged((event) => {
-    if (event.state === 'failed' || event.state === 'disconnected') sessionManager.forget(event.profileId, event.generation)
+    if (event.state === 'failed' || event.state === 'disconnected')
+      sessionManager.forget(event.profileId, event.generation)
     listener(event)
   })
 }
@@ -141,15 +201,22 @@ export function testConnection(profile: DataSourceProfile) {
   return adapterRegistry.get(profile.kind).test(profile)
 }
 
-export async function connect(profile: DataSourceProfile): Promise<ConnectResult> {
+export async function connect(
+  profile: DataSourceProfile,
+): Promise<ConnectResult> {
   return sessionManager.connect(profile)
 }
 
-export async function reconnect(profile: DataSourceProfile): Promise<ConnectResult> {
+export async function reconnect(
+  profile: DataSourceProfile,
+): Promise<ConnectResult> {
   return sessionManager.reconnect(profile)
 }
 
-export async function disconnect(id: ConnectionId, generation?: number): Promise<void> {
+export async function disconnect(
+  id: ConnectionId,
+  generation?: number,
+): Promise<void> {
   await sessionManager.disconnect(id, generation)
 }
 
@@ -157,17 +224,28 @@ export async function disconnectAll(): Promise<void> {
   await sessionManager.disconnectAll()
 }
 
-export function listLiveSessions(): Array<{ id: ConnectionId; generation: number; serverVersion?: string }> {
+export function listLiveSessions(): Array<{
+  id: ConnectionId
+  generation: number
+  serverVersion?: string
+}> {
   return sessionManager.listLive()
 }
 
 function supersededResult(): ConnectResult {
-  return { ok: false, error: 'This connection attempt was superseded by a newer connection.' }
+  return {
+    ok: false,
+    error: 'This connection attempt was superseded by a newer connection.',
+  }
 }
 
 function session(id: ConnectionId): DataSourceSession {
   const value = sessionManager.get(id)
-  if (!value) throw new DatabaseConnectionError('NOT_CONNECTED', 'This profile is not connected.')
+  if (!value)
+    throw new DatabaseConnectionError(
+      'NOT_CONNECTED',
+      'This profile is not connected.',
+    )
   return value
 }
 
@@ -183,75 +261,119 @@ export async function runQuery(
   sql: string,
   parameters: unknown[] = [],
   prometheus?: Omit<PrometheusQueryRequest, 'expression'>,
-  tempo?: TempoQueryRequest
+  tempo?: TempoQueryRequest,
 ): Promise<QueryResult> {
   const activeSession = session(id)
   // QUERY_RUN predates Tempo and currently exposes the Prometheus range slot through
   // preload. Preserve the shared start/end bounds plus Tempo-only search controls and
   // an opaque progress request ID until query IPC becomes a discriminated provider request.
   const compat = prometheus as QueryIpcCompatibilityRange | undefined
-  const progressRequestId = activeSession.info.provider === 'tempo' && typeof compat?.progressRequestId === 'string'
-    ? compat.progressRequestId.trim()
-    : ''
+  const progressRequestId =
+    activeSession.info.provider === 'tempo' &&
+    typeof compat?.progressRequestId === 'string'
+      ? compat.progressRequestId.trim()
+      : ''
   const progressStarted = performance.now()
   let firstUsefulMainRecorded = false
   const onProgress: TempoSearchProgressListener | undefined = progressRequestId
     ? (progress) => {
         const firstUseful = !firstUsefulMainRecorded && progress.rows.length > 0
         if (firstUseful) firstUsefulMainRecorded = true
-        publishTempoSearchProgress(progressRequestId, progress, performance.now() - progressStarted, firstUseful)
+        publishTempoSearchProgress(
+          progressRequestId,
+          progress,
+          performance.now() - progressStarted,
+          firstUseful,
+        )
       }
     : undefined
-  const tempoRange: TempoQueryContext | undefined = activeSession.info.provider === 'tempo' && !tempo && compat
-    ? {
-        start: compat.start,
-        end: compat.end,
-        ...(typeof compat.sampleSize === 'number' ? { sampleSize: compat.sampleSize } : {}),
-        ...(typeof compat.includeStatus === 'boolean' ? { includeStatus: compat.includeStatus } : {}),
-        ...(typeof compat.diagnosticRequestId === 'string' ? { diagnosticRequestId: compat.diagnosticRequestId } : {}),
-        ...(onProgress ? { onProgress } : {})
-      }
-    : tempo
-      ? { ...tempo, ...(onProgress ? { onProgress } : {}) }
-      : undefined
-  return toIpcSafeQueryResult(await activeSession.query({
-    sql,
-    parameters,
-    prometheus: activeSession.info.provider === 'prometheus' ? prometheus : undefined,
-    tempo: tempoRange
-  }))
+  const tempoRange: TempoQueryContext | undefined =
+    activeSession.info.provider === 'tempo' && !tempo && compat
+      ? {
+          start: compat.start,
+          end: compat.end,
+          ...(typeof compat.sampleSize === 'number'
+            ? { sampleSize: compat.sampleSize }
+            : {}),
+          ...(typeof compat.includeStatus === 'boolean'
+            ? { includeStatus: compat.includeStatus }
+            : {}),
+          ...(typeof compat.diagnosticRequestId === 'string'
+            ? { diagnosticRequestId: compat.diagnosticRequestId }
+            : {}),
+          ...(onProgress ? { onProgress } : {}),
+        }
+      : tempo
+        ? { ...tempo, ...(onProgress ? { onProgress } : {}) }
+        : undefined
+  return toIpcSafeQueryResult(
+    await activeSession.query({
+      sql,
+      parameters,
+      prometheus:
+        activeSession.info.provider === 'prometheus' ? prometheus : undefined,
+      tempo: tempoRange,
+    }),
+  )
 }
 
-export function formatPrometheusQuery(_id: ConnectionId, query: string): Promise<string> {
+export function formatPrometheusQuery(
+  _id: ConnectionId,
+  query: string,
+): Promise<string> {
   return formatPromql(query)
 }
 
-export async function runLokiQuery(id: ConnectionId, request: LokiQueryRequest): Promise<LokiQueryResult> {
+export async function runLokiQuery(
+  id: ConnectionId,
+  request: LokiQueryRequest,
+): Promise<LokiQueryResult> {
   const active = session(id)
-  if (active.info.provider !== 'loki') throw new Error('The selected connection is not a Loki datasource.')
-  return toIpcSafeQueryResult(await active.query({ sql: request.expression, loki: request })) as LokiQueryResult
+  if (active.info.provider !== 'loki')
+    throw new Error('The selected connection is not a Loki datasource.')
+  return toIpcSafeQueryResult(
+    await active.query({ sql: request.expression, loki: request }),
+  ) as LokiQueryResult
 }
-export function lokiLabels(id: ConnectionId, request: LokiMetadataRequest): Promise<string[]> {
+export function lokiLabels(
+  id: ConnectionId,
+  request: LokiMetadataRequest,
+): Promise<string[]> {
   const operation = session(id).lokiLabels
-  if (!operation) throw new Error('Loki label discovery is not supported by this datasource.')
+  if (!operation)
+    throw new Error('Loki label discovery is not supported by this datasource.')
   return operation(request)
 }
-export function lokiLabelValues(id: ConnectionId, label: string, request: LokiMetadataRequest): Promise<string[]> {
+export function lokiLabelValues(
+  id: ConnectionId,
+  label: string,
+  request: LokiMetadataRequest,
+): Promise<string[]> {
   const operation = session(id).lokiLabelValues
-  if (!operation) throw new Error('Loki label value discovery is not supported by this datasource.')
+  if (!operation)
+    throw new Error(
+      'Loki label value discovery is not supported by this datasource.',
+    )
   return operation(label, request)
 }
-export function formatLokiQuery(id: ConnectionId, query: string): Promise<string> {
+export function formatLokiQuery(
+  id: ConnectionId,
+  query: string,
+): Promise<string> {
   const operation = session(id).formatLokiQuery
-  if (!operation) throw new Error('LogQL formatting is not supported by this datasource.')
+  if (!operation)
+    throw new Error('LogQL formatting is not supported by this datasource.')
   return operation(query)
 }
 
 export function queryDialect(id: ConnectionId) {
   const provider = session(id).info.provider
-  if (provider === 'prometheus') throw new Error('Prometheus uses PromQL, not a SQL dialect.')
-  if (provider === 'tempo') throw new Error('Tempo uses TraceQL, not a SQL dialect.')
-  if (provider === 'loki') throw new Error('Loki uses LogQL, not a SQL dialect.')
+  if (provider === 'prometheus')
+    throw new Error('Prometheus uses PromQL, not a SQL dialect.')
+  if (provider === 'tempo')
+    throw new Error('Tempo uses TraceQL, not a SQL dialect.')
+  if (provider === 'loki')
+    throw new Error('Loki uses LogQL, not a SQL dialect.')
   return sqlDialectForSourceKind(provider)
 }
 
@@ -259,12 +381,17 @@ export async function listObjects(id: ConnectionId) {
   return (await session(id).listRelations()).map((relation) => ({
     schema: relation.namespace,
     name: relation.name,
-    kind: relation.kind === 'materialized-view' ? 'm' as const
-      : relation.kind === 'view' ? 'v' as const
-        : relation.kind === 'metric' ? 'metric' as const
-          : relation.kind === 'service' ? 'service' as const
-            : 'r' as const,
-    details: relation.details
+    kind:
+      relation.kind === 'materialized-view'
+        ? ('m' as const)
+        : relation.kind === 'view'
+          ? ('v' as const)
+          : relation.kind === 'metric'
+            ? ('metric' as const)
+            : relation.kind === 'service'
+              ? ('service' as const)
+              : ('r' as const),
+    details: relation.details,
   }))
 }
 
@@ -273,39 +400,72 @@ export async function refreshMetadata(id: ConnectionId): Promise<void> {
   await session(id).refreshMetadata?.()
 }
 
-export async function describeTable(id: ConnectionId, schema: string, table: string) {
-  return (await session(id).describeRelation({ namespace: schema, name: table })).map((column) => ({
+export async function describeTable(
+  id: ConnectionId,
+  schema: string,
+  table: string,
+) {
+  return (
+    await session(id).describeRelation({ namespace: schema, name: table })
+  ).map((column) => ({
     name: column.name,
     dataTypeName: column.nativeType,
-    nullable: column.nullable ?? false
+    nullable: column.nullable ?? false,
   }))
 }
 
-export function labelsForMetric(id: ConnectionId, metricName: string): Promise<string[]> {
+export function labelsForMetric(
+  id: ConnectionId,
+  metricName: string,
+): Promise<string[]> {
   const operation = session(id).labelsForMetric
-  if (!operation) throw new Error('Metric label discovery is not supported by this datasource.')
+  if (!operation)
+    throw new Error(
+      'Metric label discovery is not supported by this datasource.',
+    )
   return operation(metricName)
 }
 
-export function labelValues(id: ConnectionId, metricName: string, labelName: string): Promise<string[]> {
+export function labelValues(
+  id: ConnectionId,
+  metricName: string,
+  labelName: string,
+): Promise<string[]> {
   const operation = session(id).labelValues
-  if (!operation) throw new Error('Metric label discovery is not supported by this datasource.')
+  if (!operation)
+    throw new Error(
+      'Metric label discovery is not supported by this datasource.',
+    )
   return operation(metricName, labelName)
 }
 
-export function tempoAttributeValues(id: ConnectionId, attribute: string, query?: string): Promise<string[]> {
+export function tempoAttributeValues(
+  id: ConnectionId,
+  attribute: string,
+  query?: string,
+): Promise<string[]> {
   const operation = session(id).attributeValues
-  if (!operation) throw new Error('Tempo attribute discovery is not supported by this datasource.')
+  if (!operation)
+    throw new Error(
+      'Tempo attribute discovery is not supported by this datasource.',
+    )
   return operation(attribute, query)
 }
 
 export function tempoAttributes(id: ConnectionId, query?: string) {
   const operation = session(id).attributes
-  if (!operation) throw new Error('Tempo attribute discovery is not supported by this datasource.')
+  if (!operation)
+    throw new Error(
+      'Tempo attribute discovery is not supported by this datasource.',
+    )
   return operation(query)
 }
 
-export async function explainQuery(id: ConnectionId, sql: string, analyze: boolean) {
+export async function explainQuery(
+  id: ConnectionId,
+  sql: string,
+  analyze: boolean,
+) {
   const explain = session(id).explain
   if (!explain) throw new Error('Explain is not supported by this datasource.')
   return explain(sql, analyze)

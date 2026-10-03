@@ -13,7 +13,8 @@ export const IPC = {
   BIGQUERY_LIST_DATASETS: 'connections:bigquery:list-datasets',
   BIGQUERY_DISCOVER_DEFAULTS: 'connections:bigquery:discover-defaults',
   PROMETHEUS_DISCOVER: 'connections:prometheus:discover',
-  PROMETHEUS_DISCOVER_DATASOURCES: 'connections:prometheus:discover-datasources',
+  PROMETHEUS_DISCOVER_DATASOURCES:
+    'connections:prometheus:discover-datasources',
   PROMETHEUS_METRIC_LABELS: 'connections:prometheus:metric-labels',
   PROMETHEUS_LABEL_VALUES: 'connections:prometheus:label-values',
   PROMETHEUS_FORMAT_QUERY: 'connections:prometheus:format-query',
@@ -33,5 +34,5 @@ export const IPC = {
   CLIPBOARD_WRITE_PNG: 'clipboard:write-png',
   CLIPBOARD_WRITE_EXCALIDRAW: 'clipboard:write-excalidraw',
   EXTERNAL_OPEN_URL: 'external:open-url',
-  GCX_RESOLVE_GRAFANA_HANDOFF: 'gcx:resolve-grafana-handoff'
+  GCX_RESOLVE_GRAFANA_HANDOFF: 'gcx:resolve-grafana-handoff',
 } as const

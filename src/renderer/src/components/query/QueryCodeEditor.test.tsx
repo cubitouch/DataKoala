@@ -4,25 +4,57 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Extension } from '@codemirror/state'
 import type { QueryCodeEditorHandle } from './QueryCodeEditor'
 
-const captured: { props?: Record<string, unknown>; dispatch?: ReturnType<typeof vi.fn>; focus?: ReturnType<typeof vi.fn> } = {}
+const captured: {
+  props?: Record<string, unknown>
+  dispatch?: ReturnType<typeof vi.fn>
+  focus?: ReturnType<typeof vi.fn>
+} = {}
 vi.mock('@uiw/react-codemirror', () => ({
-  default: forwardRef(function CodeMirrorMock(props: Record<string, unknown>, ref) {
+  default: forwardRef(function CodeMirrorMock(
+    props: Record<string, unknown>,
+    ref,
+  ) {
     captured.props = props
     captured.dispatch = vi.fn()
     captured.focus = vi.fn()
-    const view = { state: { selection: { main: { anchor: 8, head: 2 } }, doc: { length: 12 } }, dispatch: captured.dispatch, focus: captured.focus }
+    const view = {
+      state: {
+        selection: { main: { anchor: 8, head: 2 } },
+        doc: { length: 12 },
+      },
+      dispatch: captured.dispatch,
+      focus: captured.focus,
+    }
     if (typeof ref === 'function') ref({ view })
     else if (ref) ref.current = { view }
-    return <textarea aria-label={props['aria-label'] as string} placeholder={props.placeholder as string} value={props.value as string} onChange={(event) => (props.onChange as (value: string) => void)(event.target.value)} />
-  })
+    return (
+      <textarea
+        aria-label={props['aria-label'] as string}
+        placeholder={props.placeholder as string}
+        value={props.value as string}
+        onChange={(event) =>
+          (props.onChange as (value: string) => void)(event.target.value)
+        }
+      />
+    )
+  }),
 }))
 
 import { QueryCodeEditor } from './QueryCodeEditor'
 
 describe('QueryCodeEditor', () => {
   it('renders controlled content and forwards changes, extensions, and accessibility props', () => {
-    const onChange = vi.fn(), extensions = [{} as Extension]
-    render(<QueryCodeEditor value="up" onChange={onChange} extensions={extensions} aria-label="PromQL editor" placeholder="metric" />)
+    const onChange = vi.fn(),
+      extensions = [{} as Extension]
+    render(
+      <QueryCodeEditor
+        value="up"
+        onChange={onChange}
+        extensions={extensions}
+        aria-label="PromQL editor"
+        placeholder="metric"
+      />,
+    )
     const editor = screen.getByLabelText('PromQL editor')
     expect((editor as HTMLTextAreaElement).value).toBe('up')
     expect(editor.getAttribute('placeholder')).toBe('metric')
@@ -32,7 +64,16 @@ describe('QueryCodeEditor', () => {
   })
 
   it('forwards the shared editor sizing contract unchanged', () => {
-    render(<QueryCodeEditor value="query" onChange={() => {}} extensions={[]} aria-label="Query editor" minHeight="72px" maxHeight="240px" />)
+    render(
+      <QueryCodeEditor
+        value="query"
+        onChange={() => {}}
+        extensions={[]}
+        aria-label="Query editor"
+        minHeight="72px"
+        maxHeight="240px"
+      />,
+    )
     expect(captured.props?.height).toBeUndefined()
     expect(captured.props?.minHeight).toBe('72px')
     expect(captured.props?.maxHeight).toBe('240px')
@@ -40,11 +81,23 @@ describe('QueryCodeEditor', () => {
 
   it('replaces content, caps the selection, and restores focus through its narrow ref API', () => {
     const ref = createRef<QueryCodeEditorHandle>()
-    render(<QueryCodeEditor ref={ref} value="long content" onChange={() => {}} extensions={[]} aria-label="SQL editor" />)
+    render(
+      <QueryCodeEditor
+        ref={ref}
+        value="long content"
+        onChange={() => {}}
+        extensions={[]}
+        aria-label="SQL editor"
+      />,
+    )
     expect(ref.current?.replaceDocumentAndFocus('sql')).toBe(true)
-    expect(captured.dispatch).toHaveBeenCalledWith(expect.objectContaining({
-      changes: { from: 0, to: 12, insert: 'sql' }, selection: { anchor: 3, head: 2 }, userEvent: 'input.format'
-    }))
+    expect(captured.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: { from: 0, to: 12, insert: 'sql' },
+        selection: { anchor: 3, head: 2 },
+        userEvent: 'input.format',
+      }),
+    )
     expect(captured.focus).toHaveBeenCalled()
   })
 })

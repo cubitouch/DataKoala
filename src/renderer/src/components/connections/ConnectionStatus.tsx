@@ -15,20 +15,32 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
   const connectionStatus = useStore((state) => state.connectionStatus)
   const activeProfile = profiles.find((profile) => profile.id === activeId)
   const activeName = activeProfile?.name
-  const statusText = connectionStatus === 'reconnecting'
-    ? 'Reconnecting…'
-    : connecting
-      ? 'Connecting…'
-      : connected
-        ? `${activeName} · ${activeProfile ? connectionKindLabel(activeProfile.kind) : ''}${serverVersion ? ` ${serverVersion}` : ''}`.trim()
-        : error
-          ? error
-          : connectionStatus === 'idle' ? 'Idle' : activeName ? `${activeName} · disconnected` : 'Disconnected'
+  const statusText =
+    connectionStatus === 'reconnecting'
+      ? 'Reconnecting…'
+      : connecting
+        ? 'Connecting…'
+        : connected
+          ? `${activeName} · ${activeProfile ? connectionKindLabel(activeProfile.kind) : ''}${serverVersion ? ` ${serverVersion}` : ''}`.trim()
+          : error
+            ? error
+            : connectionStatus === 'idle'
+              ? 'Idle'
+              : activeName
+                ? `${activeName} · disconnected`
+                : 'Disconnected'
 
   const stateClass = connected ? styles.connected : error ? styles.error : ''
-  return <div className={[styles.root, stateClass, className].filter(Boolean).join(' ')}
-    role="status" aria-live="polite" title={statusText} data-state={connected ? 'connected' : error ? 'error' : connectionStatus}>
-    <span className={styles.dot} />
-    <span className={styles.label}>{statusText}</span>
-  </div>
+  return (
+    <div
+      className={[styles.root, stateClass, className].filter(Boolean).join(' ')}
+      role="status"
+      aria-live="polite"
+      title={statusText}
+      data-state={connected ? 'connected' : error ? 'error' : connectionStatus}
+    >
+      <span className={styles.dot} />
+      <span className={styles.label}>{statusText}</span>
+    </div>
+  )
 }

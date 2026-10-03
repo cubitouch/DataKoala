@@ -37,30 +37,30 @@ Competing as a general database manager would put DataKoala against mature produ
 
 The benchmark distinguishes shipped functionality from work that is still planned:
 
-| Capability | Status |
-| --- | --- |
-| PostgreSQL connections and SQL querying | Available |
-| Local CSV, TSV/TXT, Parquet and JSON-family files through DuckDB | Available |
-| Builder support for PostgreSQL and local files | Available |
-| Result table and chart exploration | Available |
-| SQLite database files | In progress |
-| Schema-aware CodeMirror completion | Planned |
-| Rolling median/MAD anomaly detection | Available |
-| Excel files | Planned |
-| BigQuery | Longer-term plan |
+| Capability                                                       | Status           |
+| ---------------------------------------------------------------- | ---------------- |
+| PostgreSQL connections and SQL querying                          | Available        |
+| Local CSV, TSV/TXT, Parquet and JSON-family files through DuckDB | Available        |
+| Builder support for PostgreSQL and local files                   | Available        |
+| Result table and chart exploration                               | Available        |
+| SQLite database files                                            | In progress      |
+| Schema-aware CodeMirror completion                               | Planned          |
+| Rolling median/MAD anomaly detection                             | Available        |
+| Excel files                                                      | Planned          |
+| BigQuery                                                         | Longer-term plan |
 
 ## Competitive landscape
 
-| Product | Main overlap | Where it is stronger | Where DataKoala can differentiate |
-| --- | --- | --- | --- |
-| **DbGate** | PostgreSQL and SQLite, SQL editor, visual query designer, charts and tabs | Broad database coverage, mature completion, administration, import/export and AI features | Simpler read-only exploration, direct local-file workflow, purpose-built time-series Builder and anomaly highlighting |
-| **RowLeap** | DuckDB desktop application, CSV/SQLite/Parquet, SQL, charts and saved workspaces | Polished file onboarding, autocomplete and natural-language-to-SQL | PostgreSQL connections, visual Builder, richer chart configuration and anomaly detection |
-| **ColumnLens** | Local DuckDB file analysis, SQL, charts and statistics | Excel/SQLite/DuckDB/S3 support, large-file positioning, scripting and richer file-specific tooling | PostgreSQL, cross-platform support, visual query generation and a unified database-and-file workflow |
-| **DBeaver** | PostgreSQL, SQLite, DuckDB, SQL editing, query builder and result charts | Very broad datasource and administration coverage | A smaller, faster and less intimidating exploration workflow |
-| **DataGrip** | PostgreSQL, SQLite, DuckDB, schema-aware SQL and result charts | Database introspection, completion, refactoring and developer tooling | Visual Builder, local-file onboarding, privacy/read-only positioning and anomaly analysis |
-| **Beekeeper Studio** | Modern desktop client for PostgreSQL, SQLite, DuckDB and BigQuery | Broad connection support, completion, data editing, collaboration and AI shell | Visualization-led analysis and a transparent visual Builder |
-| **DuckDB UI / SQL for Files** | Local DuckDB SQL, file inspection, schema exploration and charts | Almost no setup; browser or DuckDB-native access | PostgreSQL, desktop persistence, visual query construction and more opinionated analytical charts |
-| **Metabase** | Graphical query builder, generated SQL, charts and CSV uploads | Dashboards, drill-through, sharing, permissions and team BI | Local desktop operation, arbitrary-file exploration and no server deployment |
+| Product                       | Main overlap                                                                     | Where it is stronger                                                                               | Where DataKoala can differentiate                                                                                     |
+| ----------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **DbGate**                    | PostgreSQL and SQLite, SQL editor, visual query designer, charts and tabs        | Broad database coverage, mature completion, administration, import/export and AI features          | Simpler read-only exploration, direct local-file workflow, purpose-built time-series Builder and anomaly highlighting |
+| **RowLeap**                   | DuckDB desktop application, CSV/SQLite/Parquet, SQL, charts and saved workspaces | Polished file onboarding, autocomplete and natural-language-to-SQL                                 | PostgreSQL connections, visual Builder, richer chart configuration and anomaly detection                              |
+| **ColumnLens**                | Local DuckDB file analysis, SQL, charts and statistics                           | Excel/SQLite/DuckDB/S3 support, large-file positioning, scripting and richer file-specific tooling | PostgreSQL, cross-platform support, visual query generation and a unified database-and-file workflow                  |
+| **DBeaver**                   | PostgreSQL, SQLite, DuckDB, SQL editing, query builder and result charts         | Very broad datasource and administration coverage                                                  | A smaller, faster and less intimidating exploration workflow                                                          |
+| **DataGrip**                  | PostgreSQL, SQLite, DuckDB, schema-aware SQL and result charts                   | Database introspection, completion, refactoring and developer tooling                              | Visual Builder, local-file onboarding, privacy/read-only positioning and anomaly analysis                             |
+| **Beekeeper Studio**          | Modern desktop client for PostgreSQL, SQLite, DuckDB and BigQuery                | Broad connection support, completion, data editing, collaboration and AI shell                     | Visualization-led analysis and a transparent visual Builder                                                           |
+| **DuckDB UI / SQL for Files** | Local DuckDB SQL, file inspection, schema exploration and charts                 | Almost no setup; browser or DuckDB-native access                                                   | PostgreSQL, desktop persistence, visual query construction and more opinionated analytical charts                     |
+| **Metabase**                  | Graphical query builder, generated SQL, charts and CSV uploads                   | Dashboards, drill-through, sharing, permissions and team BI                                        | Local desktop operation, arbitrary-file exploration and no server deployment                                          |
 
 ### DbGate: closest overall competitor
 

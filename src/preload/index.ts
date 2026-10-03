@@ -6,17 +6,46 @@ import type {
   DataSourceProfile,
   QueryResult,
   TableInfo,
-  TestResult
+  TestResult,
 } from '@shared/types'
-import type { SeriesCardinalityProbeRequest, SeriesCardinalityProbeResult, SeriesStatisticsRequest, SeriesStatisticsResult } from '@shared/chartLimits'
-import type { BigQueryDatasetOption, BigQueryDiscoveryDefaults, BigQueryProjectOption } from '@shared/bigqueryDiscovery'
-import type { PrometheusDatasourceOption, PrometheusDiscoveryResult, PrometheusQueryRequest } from '@shared/prometheus'
-import type { TempoAttribute, TempoQueryRequest, TempoSearchProgress, TempoSearchProgressEnvelope } from '@shared/tempo'
-import type { PrometheusTransportConfig, TempoTransportConfig } from '@shared/types'
+import type {
+  SeriesCardinalityProbeRequest,
+  SeriesCardinalityProbeResult,
+  SeriesStatisticsRequest,
+  SeriesStatisticsResult,
+} from '@shared/chartLimits'
+import type {
+  BigQueryDatasetOption,
+  BigQueryDiscoveryDefaults,
+  BigQueryProjectOption,
+} from '@shared/bigqueryDiscovery'
+import type {
+  PrometheusDatasourceOption,
+  PrometheusDiscoveryResult,
+  PrometheusQueryRequest,
+} from '@shared/prometheus'
+import type {
+  TempoAttribute,
+  TempoQueryRequest,
+  TempoSearchProgress,
+  TempoSearchProgressEnvelope,
+} from '@shared/tempo'
+import type {
+  PrometheusTransportConfig,
+  TempoTransportConfig,
+} from '@shared/types'
 import type { TempoDatasourceOption } from '@shared/tempoDatasource'
 import type { LokiTransportConfig } from '@shared/types'
-import type { LokiDatasourceOption, LokiMetadataRequest, LokiQueryRequest, LokiQueryResult } from '@shared/loki'
-import type { ResolveGrafanaHandoffRequest, ResolvedGrafanaHandoff } from '@shared/grafanaExplore'
+import type {
+  LokiDatasourceOption,
+  LokiMetadataRequest,
+  LokiQueryRequest,
+  LokiQueryResult,
+} from '@shared/loki'
+import type {
+  ResolveGrafanaHandoffRequest,
+  ResolvedGrafanaHandoff,
+} from '@shared/grafanaExplore'
 
 let queryProgressSequence = 0
 
@@ -26,101 +55,189 @@ function nextQueryProgressRequestId(): string {
 }
 
 const api = {
-  external: { openUrl: (url: string): Promise<void> => ipcRenderer.invoke(IPC.EXTERNAL_OPEN_URL, url) },
+  external: {
+    openUrl: (url: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.EXTERNAL_OPEN_URL, url),
+  },
   /** True only when the app is launched by a test/repro harness. */
-  smokeMode: process.env.DATAKOALA_SMOKE === '1' || !!process.env.DATAKOALA_REPRO,
+  smokeMode:
+    process.env.DATAKOALA_SMOKE === '1' || !!process.env.DATAKOALA_REPRO,
   /** Narrow opt-in flag; no arbitrary environment values cross the context bridge. */
   tempoPerformanceEnabled: process.env.DATAKOALA_TEMPO_PERF === '1',
   connections: {
-    list: (): Promise<DataSourceProfile[]> => ipcRenderer.invoke('connections:list'),
-    listLive: (): Promise<Array<{ id: string; generation: number; serverVersion?: string }>> => ipcRenderer.invoke('connections:live'),
+    list: (): Promise<DataSourceProfile[]> =>
+      ipcRenderer.invoke('connections:list'),
+    listLive: (): Promise<
+      Array<{ id: string; generation: number; serverVersion?: string }>
+    > => ipcRenderer.invoke('connections:live'),
     upsert: (p: DataSourceProfile): Promise<DataSourceProfile> =>
       ipcRenderer.invoke('connections:upsert', p),
-    chooseFiles: (): Promise<string[]> => ipcRenderer.invoke(IPC.CONNECTION_CHOOSE_FILES),
-    chooseSqliteFile: (): Promise<string | null> => ipcRenderer.invoke(IPC.CONNECTION_CHOOSE_SQLITE_FILE),
-    remove: (id: string): Promise<boolean> => ipcRenderer.invoke('connections:remove', id),
+    chooseFiles: (): Promise<string[]> =>
+      ipcRenderer.invoke(IPC.CONNECTION_CHOOSE_FILES),
+    chooseSqliteFile: (): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.CONNECTION_CHOOSE_SQLITE_FILE),
+    remove: (id: string): Promise<boolean> =>
+      ipcRenderer.invoke('connections:remove', id),
     test: (p: DataSourceProfile): Promise<TestResult> =>
       ipcRenderer.invoke(IPC.CONNECTION_TEST, p),
-    connect: (
-      p: DataSourceProfile
-    ): Promise<ConnectResult & { id: string }> =>
+    connect: (p: DataSourceProfile): Promise<ConnectResult & { id: string }> =>
       ipcRenderer.invoke(IPC.CONNECTION_CONNECT, p),
-    reconnect: (p: DataSourceProfile): Promise<ConnectResult & { id: string }> =>
+    reconnect: (
+      p: DataSourceProfile,
+    ): Promise<ConnectResult & { id: string }> =>
       ipcRenderer.invoke(IPC.CONNECTION_RECONNECT, p),
-    disconnect: (id: string, generation?: number): Promise<void> => ipcRenderer.invoke(IPC.CONNECTION_DISCONNECT, id, generation),
-    onStateChanged: (listener: (event: ConnectionStateEvent) => void): (() => void) => {
+    disconnect: (id: string, generation?: number): Promise<void> =>
+      ipcRenderer.invoke(IPC.CONNECTION_DISCONNECT, id, generation),
+    onStateChanged: (
+      listener: (event: ConnectionStateEvent) => void,
+    ): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, value: unknown) => {
         if (isConnectionStateEvent(value)) listener(value)
       }
       ipcRenderer.on(IPC.CONNECTION_STATE_CHANGED, handler)
-      return () => ipcRenderer.removeListener(IPC.CONNECTION_STATE_CHANGED, handler)
+      return () =>
+        ipcRenderer.removeListener(IPC.CONNECTION_STATE_CHANGED, handler)
     },
-    listObjects: (id: string): Promise<TableInfo[]> => ipcRenderer.invoke(IPC.CONNECTION_LIST_OBJECTS, id),
-    refreshMetadata: (id: string): Promise<void> => ipcRenderer.invoke(IPC.CONNECTION_REFRESH_METADATA, id),
+    listObjects: (id: string): Promise<TableInfo[]> =>
+      ipcRenderer.invoke(IPC.CONNECTION_LIST_OBJECTS, id),
+    refreshMetadata: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.CONNECTION_REFRESH_METADATA, id),
     describeTable: (id: string, schema: string, table: string) =>
       ipcRenderer.invoke(IPC.CONNECTION_DESCRIBE_TABLE, id, schema, table),
     bigquery: {
-      discoverProjects: (): Promise<BigQueryProjectOption[]> => ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_PROJECTS),
-      listDatasets: (projectId: string): Promise<BigQueryDatasetOption[]> => ipcRenderer.invoke(IPC.BIGQUERY_LIST_DATASETS, projectId),
-      discoverDefaults: (): Promise<BigQueryDiscoveryDefaults> => ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_DEFAULTS)
+      discoverProjects: (): Promise<BigQueryProjectOption[]> =>
+        ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_PROJECTS),
+      listDatasets: (projectId: string): Promise<BigQueryDatasetOption[]> =>
+        ipcRenderer.invoke(IPC.BIGQUERY_LIST_DATASETS, projectId),
+      discoverDefaults: (): Promise<BigQueryDiscoveryDefaults> =>
+        ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_DEFAULTS),
     },
     prometheus: {
-      discover: (transport: PrometheusTransportConfig): Promise<PrometheusDiscoveryResult> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER, transport),
-      discoverDatasources: (transport: Pick<PrometheusTransportConfig, 'kind' | 'context'>): Promise<PrometheusDatasourceOption[]> => ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER_DATASOURCES, transport),
-      labelsForMetric: (id: string, metricName: string): Promise<string[]> => ipcRenderer.invoke(IPC.PROMETHEUS_METRIC_LABELS, id, metricName),
-      labelValues: (id: string, metricName: string, labelName: string): Promise<string[]> => ipcRenderer.invoke(IPC.PROMETHEUS_LABEL_VALUES, id, metricName, labelName),
-      formatQuery: (connectionId: string, query: string): Promise<string> => ipcRenderer.invoke(IPC.PROMETHEUS_FORMAT_QUERY, connectionId, query)
+      discover: (
+        transport: PrometheusTransportConfig,
+      ): Promise<PrometheusDiscoveryResult> =>
+        ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER, transport),
+      discoverDatasources: (
+        transport: Pick<PrometheusTransportConfig, 'kind' | 'context'>,
+      ): Promise<PrometheusDatasourceOption[]> =>
+        ipcRenderer.invoke(IPC.PROMETHEUS_DISCOVER_DATASOURCES, transport),
+      labelsForMetric: (id: string, metricName: string): Promise<string[]> =>
+        ipcRenderer.invoke(IPC.PROMETHEUS_METRIC_LABELS, id, metricName),
+      labelValues: (
+        id: string,
+        metricName: string,
+        labelName: string,
+      ): Promise<string[]> =>
+        ipcRenderer.invoke(
+          IPC.PROMETHEUS_LABEL_VALUES,
+          id,
+          metricName,
+          labelName,
+        ),
+      formatQuery: (connectionId: string, query: string): Promise<string> =>
+        ipcRenderer.invoke(IPC.PROMETHEUS_FORMAT_QUERY, connectionId, query),
     },
     tempo: {
-      discoverDatasources: (transport: TempoTransportConfig): Promise<TempoDatasourceOption[]> => ipcRenderer.invoke(IPC.TEMPO_DISCOVER_DATASOURCES, transport),
-      attributeValues: (id: string, attribute: string, query?: string): Promise<string[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTE_VALUES, id, attribute, query),
-      attributes: (id: string, query?: string): Promise<TempoAttribute[]> => ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTES, id, query)
+      discoverDatasources: (
+        transport: TempoTransportConfig,
+      ): Promise<TempoDatasourceOption[]> =>
+        ipcRenderer.invoke(IPC.TEMPO_DISCOVER_DATASOURCES, transport),
+      attributeValues: (
+        id: string,
+        attribute: string,
+        query?: string,
+      ): Promise<string[]> =>
+        ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTE_VALUES, id, attribute, query),
+      attributes: (id: string, query?: string): Promise<TempoAttribute[]> =>
+        ipcRenderer.invoke(IPC.TEMPO_ATTRIBUTES, id, query),
     },
     grafana: {
-      resolveHandoff: (request: ResolveGrafanaHandoffRequest): Promise<ResolvedGrafanaHandoff> => ipcRenderer.invoke(IPC.GCX_RESOLVE_GRAFANA_HANDOFF, request)
+      resolveHandoff: (
+        request: ResolveGrafanaHandoffRequest,
+      ): Promise<ResolvedGrafanaHandoff> =>
+        ipcRenderer.invoke(IPC.GCX_RESOLVE_GRAFANA_HANDOFF, request),
     },
     loki: {
-      discover: (transport: LokiTransportConfig): Promise<LokiDatasourceOption[]> => ipcRenderer.invoke(IPC.LOKI_DISCOVER, transport),
-      labels: (id: string, request: LokiMetadataRequest): Promise<string[]> => ipcRenderer.invoke(IPC.LOKI_LABELS, id, request),
-      labelValues: (id: string, label: string, request: LokiMetadataRequest): Promise<string[]> => ipcRenderer.invoke(IPC.LOKI_LABEL_VALUES, id, label, request),
-      formatQuery: (id: string, query: string): Promise<string> => ipcRenderer.invoke(IPC.LOKI_FORMAT_QUERY, id, query)
-    }
+      discover: (
+        transport: LokiTransportConfig,
+      ): Promise<LokiDatasourceOption[]> =>
+        ipcRenderer.invoke(IPC.LOKI_DISCOVER, transport),
+      labels: (id: string, request: LokiMetadataRequest): Promise<string[]> =>
+        ipcRenderer.invoke(IPC.LOKI_LABELS, id, request),
+      labelValues: (
+        id: string,
+        label: string,
+        request: LokiMetadataRequest,
+      ): Promise<string[]> =>
+        ipcRenderer.invoke(IPC.LOKI_LABEL_VALUES, id, label, request),
+      formatQuery: (id: string, query: string): Promise<string> =>
+        ipcRenderer.invoke(IPC.LOKI_FORMAT_QUERY, id, query),
+    },
   },
   query: {
-    runLoki: (id: string, request: LokiQueryRequest): Promise<LokiQueryResult> => ipcRenderer.invoke(IPC.QUERY_RUN_LOKI, id, request),
+    runLoki: (
+      id: string,
+      request: LokiQueryRequest,
+    ): Promise<LokiQueryResult> =>
+      ipcRenderer.invoke(IPC.QUERY_RUN_LOKI, id, request),
     run: async (
       id: string,
       sql: string,
       parameters: unknown[] = [],
       request?: Omit<PrometheusQueryRequest, 'expression'> | TempoQueryRequest,
       onProgress?: (progress: TempoSearchProgress, requestId?: string) => void,
-      tempoDiagnostic = false
+      tempoDiagnostic = false,
     ): Promise<QueryResult> => {
-      const requestId = (onProgress || (tempoDiagnostic && api.tempoPerformanceEnabled)) ? nextQueryProgressRequestId() : ''
-      const diagnosticRequest = api.tempoPerformanceEnabled && (onProgress || tempoDiagnostic)
-        ? { ...(request ?? {}), diagnosticRequestId: requestId }
-        : request
-      if (!onProgress) return ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters, diagnosticRequest)
+      const requestId =
+        onProgress || (tempoDiagnostic && api.tempoPerformanceEnabled)
+          ? nextQueryProgressRequestId()
+          : ''
+      const diagnosticRequest =
+        api.tempoPerformanceEnabled && (onProgress || tempoDiagnostic)
+          ? { ...(request ?? {}), diagnosticRequestId: requestId }
+          : request
+      if (!onProgress)
+        return ipcRenderer.invoke(
+          IPC.QUERY_RUN,
+          id,
+          sql,
+          parameters,
+          diagnosticRequest,
+        )
       const handler = (_event: Electron.IpcRendererEvent, value: unknown) => {
-        if (!isTempoSearchProgressEnvelope(value) || value.requestId !== requestId) return
+        if (
+          !isTempoSearchProgressEnvelope(value) ||
+          value.requestId !== requestId
+        )
+          return
         onProgress(value.progress, requestId)
       }
       ipcRenderer.on(IPC.QUERY_PROGRESS, handler)
       try {
         return await ipcRenderer.invoke(IPC.QUERY_RUN, id, sql, parameters, {
           ...(diagnosticRequest ?? {}),
-          progressRequestId: requestId
+          progressRequestId: requestId,
         })
       } finally {
         ipcRenderer.removeListener(IPC.QUERY_PROGRESS, handler)
       }
     },
-    probeSeriesCardinality: (id: string, request: SeriesCardinalityProbeRequest): Promise<SeriesCardinalityProbeResult> =>
+    probeSeriesCardinality: (
+      id: string,
+      request: SeriesCardinalityProbeRequest,
+    ): Promise<SeriesCardinalityProbeResult> =>
       ipcRenderer.invoke(IPC.QUERY_PROBE_SERIES_CARDINALITY, id, request),
-    seriesStatistics: (id: string, request: SeriesStatisticsRequest): Promise<SeriesStatisticsResult> =>
+    seriesStatistics: (
+      id: string,
+      request: SeriesStatisticsRequest,
+    ): Promise<SeriesStatisticsResult> =>
       ipcRenderer.invoke(IPC.QUERY_SERIES_STATISTICS, id, request),
-    explain: (id: string, sql: string, analyze: boolean): Promise<{ text: string }> =>
-      ipcRenderer.invoke(IPC.QUERY_EXPLAIN, id, sql, analyze)
+    explain: (
+      id: string,
+      sql: string,
+      analyze: boolean,
+    ): Promise<{ text: string }> =>
+      ipcRenderer.invoke(IPC.QUERY_EXPLAIN, id, sql, analyze),
   },
   export: {
     saveText: (opts: {
@@ -128,48 +245,97 @@ const api = {
       content: string
       extensions?: string[]
       filterName?: string
-    }): Promise<string | null> =>
-      ipcRenderer.invoke('export:save-text', opts),
+    }): Promise<string | null> => ipcRenderer.invoke('export:save-text', opts),
     saveBinary: (opts: {
       defaultName: string
       base64: string
       extensions?: string[]
-    }): Promise<string | null> => ipcRenderer.invoke('export:save-binary', opts)
+    }): Promise<string | null> =>
+      ipcRenderer.invoke('export:save-binary', opts),
   },
   clipboardImage: {
     writePng: (dataUrl: string): Promise<{ ok: true } | { ok: false }> =>
-      ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_PNG, dataUrl)
+      ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_PNG, dataUrl),
   },
   clipboardExcalidraw: {
     write: (scene: string): Promise<{ ok: true } | { ok: false }> =>
-      ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_EXCALIDRAW, scene)
-  }
+      ipcRenderer.invoke(IPC.CLIPBOARD_WRITE_EXCALIDRAW, scene),
+  },
 }
 
 function isConnectionStateEvent(value: unknown): value is ConnectionStateEvent {
   if (!value || typeof value !== 'object') return false
   const event = value as Record<string, unknown>
-  return typeof event.profileId === 'string' &&
-    ['connecting', 'connected', 'idle', 'reconnecting', 'disconnecting', 'disconnected', 'failed'].includes(String(event.state)) &&
-    typeof event.expected === 'boolean' && typeof event.message === 'string' &&
-    (event.code === null || ['CONNECTION_LOST', 'NOT_CONNECTED', 'RECONNECTING', 'RECONNECT_FAILED', 'QUERY_CANCELLED_BY_DISCONNECT'].includes(String(event.code))) &&
-    typeof event.generation === 'number' && typeof event.timestamp === 'number' && typeof event.recoverable === 'boolean' &&
-    (event.technicalDetail === undefined || typeof event.technicalDetail === 'string') &&
-    (event.recoverability === undefined || ['transient', 'authentication', 'configuration', 'server-unavailable', 'unknown'].includes(String(event.recoverability))) &&
-    (event.source === undefined || ['pool:idle-client-error', 'pool:client-acquired', 'pool:connect-failed', 'client:active-query-error', 'client:end', 'socket:close'].includes(String(event.source))) &&
-    (event.activeOperationAffected === undefined || typeof event.activeOperationAffected === 'boolean')
+  return (
+    typeof event.profileId === 'string' &&
+    [
+      'connecting',
+      'connected',
+      'idle',
+      'reconnecting',
+      'disconnecting',
+      'disconnected',
+      'failed',
+    ].includes(String(event.state)) &&
+    typeof event.expected === 'boolean' &&
+    typeof event.message === 'string' &&
+    (event.code === null ||
+      [
+        'CONNECTION_LOST',
+        'NOT_CONNECTED',
+        'RECONNECTING',
+        'RECONNECT_FAILED',
+        'QUERY_CANCELLED_BY_DISCONNECT',
+      ].includes(String(event.code))) &&
+    typeof event.generation === 'number' &&
+    typeof event.timestamp === 'number' &&
+    typeof event.recoverable === 'boolean' &&
+    (event.technicalDetail === undefined ||
+      typeof event.technicalDetail === 'string') &&
+    (event.recoverability === undefined ||
+      [
+        'transient',
+        'authentication',
+        'configuration',
+        'server-unavailable',
+        'unknown',
+      ].includes(String(event.recoverability))) &&
+    (event.source === undefined ||
+      [
+        'pool:idle-client-error',
+        'pool:client-acquired',
+        'pool:connect-failed',
+        'client:active-query-error',
+        'client:end',
+        'socket:close',
+      ].includes(String(event.source))) &&
+    (event.activeOperationAffected === undefined ||
+      typeof event.activeOperationAffected === 'boolean')
+  )
 }
 
-function isTempoSearchProgressEnvelope(value: unknown): value is TempoSearchProgressEnvelope {
+function isTempoSearchProgressEnvelope(
+  value: unknown,
+): value is TempoSearchProgressEnvelope {
   if (!value || typeof value !== 'object') return false
   const envelope = value as Record<string, unknown>
-  if (typeof envelope.requestId !== 'string' || !envelope.progress || typeof envelope.progress !== 'object') return false
+  if (
+    typeof envelope.requestId !== 'string' ||
+    !envelope.progress ||
+    typeof envelope.progress !== 'object'
+  )
+    return false
   const progress = envelope.progress as Record<string, unknown>
-  return progress.provider === 'tempo' &&
-    typeof progress.coveredMs === 'number' && typeof progress.totalMs === 'number' &&
-    typeof progress.completedChunks === 'number' && typeof progress.pendingChunks === 'number' &&
-    typeof progress.queriesCompleted === 'number' && typeof progress.tracesFound === 'number' &&
+  return (
+    progress.provider === 'tempo' &&
+    typeof progress.coveredMs === 'number' &&
+    typeof progress.totalMs === 'number' &&
+    typeof progress.completedChunks === 'number' &&
+    typeof progress.pendingChunks === 'number' &&
+    typeof progress.queriesCompleted === 'number' &&
+    typeof progress.tracesFound === 'number' &&
     Array.isArray(progress.rows)
+  )
 }
 
 contextBridge.exposeInMainWorld('datakoala', api)

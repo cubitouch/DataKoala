@@ -1,12 +1,30 @@
 export type TraceStatus = 'any' | 'unset' | 'error' | 'ok'
-export type TraceSpanKind = 'any' | 'server' | 'client' | 'producer' | 'consumer' | 'internal' | 'unspecified'
+export type TraceSpanKind =
+  | 'any'
+  | 'server'
+  | 'client'
+  | 'producer'
+  | 'consumer'
+  | 'internal'
+  | 'unspecified'
 export type TraceProtocol = 'any' | 'http' | 'rpc' | 'messaging' | 'database'
 export type TraceSampleSize = '100' | '250' | '500' | 'all'
 export type TraceAttributeFilterMode = 'include' | 'exclude'
 export type TraceAttributeFilterOperator = '>' | '>=' | '<' | '<=' | '=~' | '!~'
 export type TraceAttributeFilter =
-  | { attribute: string; scope: 'resource' | 'span'; mode: TraceAttributeFilterMode; values: string[] }
-  | { attribute: string; scope: 'resource' | 'span'; mode: 'compare'; operator: TraceAttributeFilterOperator; value: string }
+  | {
+      attribute: string
+      scope: 'resource' | 'span'
+      mode: TraceAttributeFilterMode
+      values: string[]
+    }
+  | {
+      attribute: string
+      scope: 'resource' | 'span'
+      mode: 'compare'
+      operator: TraceAttributeFilterOperator
+      value: string
+    }
 
 export interface TraceBuilderState {
   serviceNamespace: string
@@ -59,41 +77,65 @@ export const EMPTY_TRACE_BUILDER: TraceBuilderState = {
   spanName: '',
   advancedFilters: [],
   status: 'any',
-  minDurationMs: ''
+  minDurationMs: '',
 }
 
 const PROTOCOL_DETAIL_FIELDS = {
   http: ['httpMethod', 'endpoint'],
   rpc: ['rpcSystem', 'rpcService', 'rpcMethod'],
   messaging: ['messagingSystem', 'messagingDestination', 'messagingOperation'],
-  database: ['dbSystem', 'dbOperation']
+  database: ['dbSystem', 'dbOperation'],
 } as const
 
-type ProtocolDetailField = typeof PROTOCOL_DETAIL_FIELDS[keyof typeof PROTOCOL_DETAIL_FIELDS][number]
+type ProtocolDetailField =
+  (typeof PROTOCOL_DETAIL_FIELDS)[keyof typeof PROTOCOL_DETAIL_FIELDS][number]
 
-function cloneAdvancedFilter(filter: TraceAttributeFilter): TraceAttributeFilter {
-  return filter.mode === 'compare' ? { ...filter } : { ...filter, values: [...filter.values] }
+function cloneAdvancedFilter(
+  filter: TraceAttributeFilter,
+): TraceAttributeFilter {
+  return filter.mode === 'compare'
+    ? { ...filter }
+    : { ...filter, values: [...filter.values] }
 }
 
-function normalizedAdvancedFilters(filters: TraceAttributeFilter[]): TraceAttributeFilter[] {
+function normalizedAdvancedFilters(
+  filters: TraceAttributeFilter[],
+): TraceAttributeFilter[] {
   const normalized: TraceAttributeFilter[] = []
   const positions = new Map<string, number>()
   for (const filter of filters) {
     const attribute = filter.attribute.trim()
     if (!attribute) continue
-    const next: TraceAttributeFilter = filter.mode === 'compare'
-      ? { ...filter, attribute, value: filter.value.trim() }
-      : { ...filter, attribute, values: [...new Set(filter.values.map((value) => value.trim()).filter(Boolean))] }
+    const next: TraceAttributeFilter =
+      filter.mode === 'compare'
+        ? { ...filter, attribute, value: filter.value.trim() }
+        : {
+            ...filter,
+            attribute,
+            values: [
+              ...new Set(
+                filter.values.map((value) => value.trim()).filter(Boolean),
+              ),
+            ],
+          }
     const identity = `${filter.scope}\0${attribute}`
     const position = positions.get(identity)
     if (position === undefined) {
       positions.set(identity, normalized.length)
       normalized.push(next)
-    } else if (normalized[position].mode === next.mode && next.mode !== 'compare') {
+    } else if (
+      normalized[position].mode === next.mode &&
+      next.mode !== 'compare'
+    ) {
       const previous = normalized[position]
       normalized[position] = {
         ...next,
-        values: [...new Set([...(previous.mode === 'compare' ? [] : previous.values), ...next.values])]
+        values: [
+          ...new Set([
+            ...(previous.mode === 'compare' ? [] : previous.values),
+            ...next.values,
+          ]),
+        ],
       }
     } else {
       normalized[position] = next
@@ -103,9 +145,17 @@ function normalizedAdvancedFilters(filters: TraceAttributeFilter[]): TraceAttrib
 }
 
 /** Merge generated constraints into an existing Builder state without treating defaults as clears. */
-export function mergeTraceBuilderState(current: TraceBuilderState, incoming: TraceBuilderState): TraceBuilderState {
+export function mergeTraceBuilderState(
+  current: TraceBuilderState,
+  incoming: TraceBuilderState,
+): TraceBuilderState {
   const next: TraceBuilderState = { ...current }
-  const stringFields = ['serviceNamespace', 'service', 'spanName', 'minDurationMs'] as const
+  const stringFields = [
+    'serviceNamespace',
+    'service',
+    'spanName',
+    'minDurationMs',
+  ] as const
   for (const field of stringFields) {
     const value = incoming[field].trim()
     if (value) next[field] = value
@@ -128,7 +178,12 @@ export function mergeTraceBuilderState(current: TraceBuilderState, incoming: Tra
 
   const currentFilters = normalizedAdvancedFilters(current.advancedFilters)
   const incomingFilters = normalizedAdvancedFilters(incoming.advancedFilters)
-  const positions = new Map(currentFilters.map((filter, index) => [`${filter.scope}\0${filter.attribute}`, index]))
+  const positions = new Map(
+    currentFilters.map((filter, index) => [
+      `${filter.scope}\0${filter.attribute}`,
+      index,
+    ]),
+  )
   next.advancedFilters = currentFilters.map(cloneAdvancedFilter)
   for (const filter of incomingFilters) {
     const identity = `${filter.scope}\0${filter.attribute}`
@@ -144,23 +199,37 @@ export function mergeTraceBuilderState(current: TraceBuilderState, incoming: Tra
   return next
 }
 
-const HTTP_METHOD = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)(?:\s+(.+))?$/i
-const HTTP_ENDPOINT_KEYS = ['span.http.route', 'span.url.template', 'span.url.path', 'span.http.target']
+const HTTP_METHOD =
+  /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)(?:\s+(.+))?$/i
+const HTTP_ENDPOINT_KEYS = [
+  'span.http.route',
+  'span.url.template',
+  'span.url.path',
+  'span.http.target',
+]
 
 function text(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
 }
 
 function record(value: unknown): Record<string, unknown> {
-  if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>
+  if (value && typeof value === 'object' && !Array.isArray(value))
+    return value as Record<string, unknown>
   if (typeof value !== 'string' || !value.trim()) return {}
   try {
     const parsed = JSON.parse(value)
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}
-  } catch { return {} }
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {}
+  } catch {
+    return {}
+  }
 }
 
-function firstAttribute(attributes: Record<string, unknown>, ...keys: string[]): string {
+function firstAttribute(
+  attributes: Record<string, unknown>,
+  ...keys: string[]
+): string {
   for (const key of keys) {
     const value = text(attributes[key]).trim()
     if (value) return value
@@ -168,38 +237,95 @@ function firstAttribute(attributes: Record<string, unknown>, ...keys: string[]):
   return ''
 }
 
-function hasAttribute(attributes: Record<string, unknown>, keys: string[]): boolean {
-  return keys.some((key) => Object.hasOwn(attributes, key) && attributes[key] !== undefined && attributes[key] !== null)
+function hasAttribute(
+  attributes: Record<string, unknown>,
+  keys: string[],
+): boolean {
+  return keys.some(
+    (key) =>
+      Object.hasOwn(attributes, key) &&
+      attributes[key] !== undefined &&
+      attributes[key] !== null,
+  )
 }
 
 function normalizedSpanKind(value: unknown): TraceSpanKind {
-  const kind = text(value).trim().toLowerCase().replace(/^span_kind_/, '')
-  return ['server', 'client', 'producer', 'consumer', 'internal', 'unspecified'].includes(kind)
-    ? kind as TraceSpanKind
+  const kind = text(value)
+    .trim()
+    .toLowerCase()
+    .replace(/^span_kind_/, '')
+  return [
+    'server',
+    'client',
+    'producer',
+    'consumer',
+    'internal',
+    'unspecified',
+  ].includes(kind)
+    ? (kind as TraceSpanKind)
     : 'any'
 }
 
 function normalizedStatus(value: unknown): TraceStatus {
-  const status = text(value).trim().toLowerCase().replace(/^status_code_/, '')
+  const status = text(value)
+    .trim()
+    .toLowerCase()
+    .replace(/^status_code_/, '')
   if (status.includes('error')) return 'error'
   if (status === 'ok' || status.includes('success')) return 'ok'
   if (status.includes('unset')) return 'unset'
   return 'any'
 }
 
-function protocolFromAttributes(attributes: Record<string, unknown>): TraceProtocol {
-  if (hasAttribute(attributes, ['http.request.method', 'http.method', 'http.route', 'url.template', 'url.path', 'http.target'])) return 'http'
-  if (hasAttribute(attributes, ['rpc.system', 'rpc.service', 'rpc.method'])) return 'rpc'
-  if (hasAttribute(attributes, ['messaging.system', 'messaging.destination.name', 'messaging.destination', 'messaging.operation.type', 'messaging.operation'])) return 'messaging'
-  if (hasAttribute(attributes, ['db.system.name', 'db.system', 'db.operation.name', 'db.operation'])) return 'database'
+function protocolFromAttributes(
+  attributes: Record<string, unknown>,
+): TraceProtocol {
+  if (
+    hasAttribute(attributes, [
+      'http.request.method',
+      'http.method',
+      'http.route',
+      'url.template',
+      'url.path',
+      'http.target',
+    ])
+  )
+    return 'http'
+  if (hasAttribute(attributes, ['rpc.system', 'rpc.service', 'rpc.method']))
+    return 'rpc'
+  if (
+    hasAttribute(attributes, [
+      'messaging.system',
+      'messaging.destination.name',
+      'messaging.destination',
+      'messaging.operation.type',
+      'messaging.operation',
+    ])
+  )
+    return 'messaging'
+  if (
+    hasAttribute(attributes, [
+      'db.system.name',
+      'db.system',
+      'db.operation.name',
+      'db.operation',
+    ])
+  )
+    return 'database'
   return 'any'
 }
 
 function extractQuoted(query: string, key: string): string {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const match = query.match(new RegExp(`(?:^|[\\s{(&|])${escaped}\\s*=\\s*"((?:\\\\.|[^"\\\\])*)"`))
+  const match = query.match(
+    new RegExp(`(?:^|[\\s{(&|])${escaped}\\s*=\\s*"((?:\\\\.|[^"\\\\])*)"`),
+  )
   if (!match) return ''
-  try { return JSON.parse(`"${match[1]}"`) } catch { return match[1] }
+  try {
+    return JSON.parse(`"${match[1]}"`)
+  } catch {
+    return match[1]
+  }
 }
 
 function firstQuoted(query: string, ...keys: string[]): string {
@@ -212,13 +338,23 @@ function firstQuoted(query: string, ...keys: string[]): string {
 
 function hasKey(query: string, key: string): boolean {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`(?:^|[\\s{(&|])${escaped}\\s*(?:=|!=|=~|!~|>|<)`, 'i').test(query)
+  return new RegExp(
+    `(?:^|[\\s{(&|])${escaped}\\s*(?:=|!=|=~|!~|>|<)`,
+    'i',
+  ).test(query)
 }
 
-function enumValue<T extends string>(query: string, keys: string[], values: readonly T[], fallback: T): T {
+function enumValue<T extends string>(
+  query: string,
+  keys: string[],
+  values: readonly T[],
+  fallback: T,
+): T {
   for (const key of keys) {
     const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const match = query.match(new RegExp(`(?:^|[\\s{(&|])${escaped}\\s*=\\s*([a-z]+)`, 'i'))
+    const match = query.match(
+      new RegExp(`(?:^|[\\s{(&|])${escaped}\\s*=\\s*([a-z]+)`, 'i'),
+    )
     const found = match?.[1]?.toLowerCase() as T | undefined
     if (found && values.includes(found)) return found
   }
@@ -226,25 +362,92 @@ function enumValue<T extends string>(query: string, keys: string[], values: read
 }
 
 function detectedProtocol(query: string): TraceProtocol {
-  if (['span.http.request.method', 'span.http.method', 'span.http.route', 'span.url.template', 'span.url.path', 'span.http.target'].some((key) => hasKey(query, key))) return 'http'
-  if (['span.rpc.system', 'span.rpc.service', 'span.rpc.method'].some((key) => hasKey(query, key))) return 'rpc'
-  if (['span.messaging.system', 'span.messaging.destination.name', 'span.messaging.destination', 'span.messaging.operation.type', 'span.messaging.operation'].some((key) => hasKey(query, key))) return 'messaging'
-  if (['span.db.system.name', 'span.db.system', 'span.db.operation.name', 'span.db.operation'].some((key) => hasKey(query, key))) return 'database'
+  if (
+    [
+      'span.http.request.method',
+      'span.http.method',
+      'span.http.route',
+      'span.url.template',
+      'span.url.path',
+      'span.http.target',
+    ].some((key) => hasKey(query, key))
+  )
+    return 'http'
+  if (
+    ['span.rpc.system', 'span.rpc.service', 'span.rpc.method'].some((key) =>
+      hasKey(query, key),
+    )
+  )
+    return 'rpc'
+  if (
+    [
+      'span.messaging.system',
+      'span.messaging.destination.name',
+      'span.messaging.destination',
+      'span.messaging.operation.type',
+      'span.messaging.operation',
+    ].some((key) => hasKey(query, key))
+  )
+    return 'messaging'
+  if (
+    [
+      'span.db.system.name',
+      'span.db.system',
+      'span.db.operation.name',
+      'span.db.operation',
+    ].some((key) => hasKey(query, key))
+  )
+    return 'database'
   return 'any'
 }
 
 const SEMANTIC_KEYS = new Set([
-  'resource.service.namespace', 'resource.service.name', 'span:kind', 'kind', 'span:name', 'name', 'span:status', 'status', 'span:duration', 'duration',
-  'span.http.request.method', 'span.http.method', 'span.http.route', 'span.url.template', 'span.url.path', 'span.http.target',
-  'span.rpc.system', 'span.rpc.service', 'span.rpc.method', 'span.messaging.system', 'span.messaging.destination.name', 'span.messaging.destination',
-  'span.messaging.operation.type', 'span.messaging.operation', 'span.db.system.name', 'span.db.system', 'span.db.operation.name', 'span.db.operation'
+  'resource.service.namespace',
+  'resource.service.name',
+  'span:kind',
+  'kind',
+  'span:name',
+  'name',
+  'span:status',
+  'status',
+  'span:duration',
+  'duration',
+  'span.http.request.method',
+  'span.http.method',
+  'span.http.route',
+  'span.url.template',
+  'span.url.path',
+  'span.http.target',
+  'span.rpc.system',
+  'span.rpc.service',
+  'span.rpc.method',
+  'span.messaging.system',
+  'span.messaging.destination.name',
+  'span.messaging.destination',
+  'span.messaging.operation.type',
+  'span.messaging.operation',
+  'span.db.system.name',
+  'span.db.system',
+  'span.db.operation.name',
+  'span.db.operation',
 ])
 
 type ParsedAttributeOperator = '=' | '!=' | TraceAttributeFilterOperator
 
 function genericPredicates(query: string): TraceAttributeFilter[] {
-  const pattern = /(?:^|[\s{(&|])((resource|span)\.[A-Za-z_][\w.-]*)\s*(>=|<=|=~|!~|!=|>|<|=)\s*("(?:\\.|[^"\\])*"|[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:ns|us|ms|s|m|h)?)/g
-  const predicates = new Map<string, Array<{ attribute: string; scope: 'resource' | 'span'; operator: ParsedAttributeOperator; value: string; start: number; end: number }>>()
+  const pattern =
+    /(?:^|[\s{(&|])((resource|span)\.[A-Za-z_][\w.-]*)\s*(>=|<=|=~|!~|!=|>|<|=)\s*("(?:\\.|[^"\\])*"|[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:ns|us|ms|s|m|h)?)/g
+  const predicates = new Map<
+    string,
+    Array<{
+      attribute: string
+      scope: 'resource' | 'span'
+      operator: ParsedAttributeOperator
+      value: string
+      start: number
+      end: number
+    }>
+  >()
   for (const match of query.matchAll(pattern)) {
     if (SEMANTIC_KEYS.has(match[1])) continue
     const operator = match[3] as ParsedAttributeOperator
@@ -252,16 +455,35 @@ function genericPredicates(query: string): TraceAttributeFilter[] {
     if (value.startsWith('"')) {
       try {
         const parsed = JSON.parse(value)
-        const relational = operator === '>' || operator === '>=' || operator === '<' || operator === '<='
-        value = relational && (NUMBER_LITERAL.test(parsed) || DURATION_LITERAL.test(parsed)) ? JSON.stringify(parsed) : parsed
-      } catch { continue }
+        const relational =
+          operator === '>' ||
+          operator === '>=' ||
+          operator === '<' ||
+          operator === '<='
+        value =
+          relational &&
+          (NUMBER_LITERAL.test(parsed) || DURATION_LITERAL.test(parsed))
+            ? JSON.stringify(parsed)
+            : parsed
+      } catch {
+        continue
+      }
     }
     const start = (match.index ?? 0) + match[0].indexOf(match[1])
     const items = predicates.get(match[1]) ?? []
-    items.push({ attribute: match[1], scope: match[2] as 'resource' | 'span', operator, value, start, end: (match.index ?? 0) + match[0].length })
+    items.push({
+      attribute: match[1],
+      scope: match[2] as 'resource' | 'span',
+      operator,
+      value,
+      start,
+      end: (match.index ?? 0) + match[0].length,
+    })
     predicates.set(match[1], items)
   }
-  const allItems = [...predicates.values()].flat().sort((left, right) => left.start - right.start)
+  const allItems = [...predicates.values()]
+    .flat()
+    .sort((left, right) => left.start - right.start)
   // Builder joins independent fields/facets with AND. Only the parenthesized,
   // same-attribute include group emitted by buildTraceql may safely contain OR.
   const stack: number[] = []
@@ -276,7 +498,10 @@ function genericPredicates(query: string): TraceAttributeFilter[] {
       else if (character === '"') quotedString = false
       continue
     }
-    if (character === '"') { quotedString = true; continue }
+    if (character === '"') {
+      quotedString = true
+      continue
+    }
     if (character === '(') stack.push(index)
     else if (character === ')') {
       const open = stack.pop()
@@ -294,9 +519,18 @@ function genericPredicates(query: string): TraceAttributeFilter[] {
       else if (character === '"') quotedString = false
       continue
     }
-    if (character === '"') { quotedString = true; continue }
-    if (character === '(') { openStack.push(index); continue }
-    if (character === ')') { openStack.pop(); continue }
+    if (character === '"') {
+      quotedString = true
+      continue
+    }
+    if (character === '(') {
+      openStack.push(index)
+      continue
+    }
+    if (character === ')') {
+      openStack.pop()
+      continue
+    }
     if (character !== '|' || query[index + 1] !== '|') continue
     const open = openStack.at(-1)
     if (open === undefined) {
@@ -304,80 +538,181 @@ function genericPredicates(query: string): TraceAttributeFilter[] {
       continue
     }
     const close = pairs.get(open)
-    const involved = close === undefined ? [] : allItems.filter((item) => item.start > open && item.end <= close)
+    const involved =
+      close === undefined
+        ? []
+        : allItems.filter((item) => item.start > open && item.end <= close)
     if (!involved.length) continue
-    const sameGeneratedInclude = involved.every((item) => item.operator === '=' && item.attribute === involved[0].attribute) &&
-      /^\s*$/.test(query.slice(open + 1, involved[0].start)) && /^\s*$/.test(query.slice(involved.at(-1)!.end, close)) &&
-      involved.slice(1).every((item, itemIndex) => /^\s*\|\|\s*$/.test(query.slice(involved[itemIndex].end, item.start)))
+    const sameGeneratedInclude =
+      involved.every(
+        (item) =>
+          item.operator === '=' && item.attribute === involved[0].attribute,
+      ) &&
+      /^\s*$/.test(query.slice(open + 1, involved[0].start)) &&
+      /^\s*$/.test(query.slice(involved.at(-1)!.end, close)) &&
+      involved
+        .slice(1)
+        .every((item, itemIndex) =>
+          /^\s*\|\|\s*$/.test(query.slice(involved[itemIndex].end, item.start)),
+        )
     if (!sameGeneratedInclude) return []
   }
   const filters: TraceAttributeFilter[] = []
   for (const [attribute, items] of predicates) {
     if (items.length === 1) {
       const item = items[0]
-      if (item.operator === '=' || item.operator === '!=') filters.push({ attribute, scope: item.scope, mode: item.operator === '=' ? 'include' : 'exclude', values: [item.value] })
-      else filters.push({ attribute, scope: item.scope, mode: 'compare', operator: item.operator, value: item.value })
+      if (item.operator === '=' || item.operator === '!=')
+        filters.push({
+          attribute,
+          scope: item.scope,
+          mode: item.operator === '=' ? 'include' : 'exclude',
+          values: [item.value],
+        })
+      else
+        filters.push({
+          attribute,
+          scope: item.scope,
+          mode: 'compare',
+          operator: item.operator,
+          value: item.value,
+        })
       continue
     }
-    if (items.some((item) => item.operator !== '=' && item.operator !== '!=')) continue
+    if (items.some((item) => item.operator !== '=' && item.operator !== '!='))
+      continue
     if (!items.every((item) => item.operator === items[0].operator)) continue
-    const expectedJoin = items[0].operator === '=' ? /^\s*\|\|\s*$/ : /^\s*&&\s*$/
-    if (!items.slice(1).every((item, index) => expectedJoin.test(query.slice(items[index].end, item.start)))) continue
+    const expectedJoin =
+      items[0].operator === '=' ? /^\s*\|\|\s*$/ : /^\s*&&\s*$/
+    if (
+      !items
+        .slice(1)
+        .every((item, index) =>
+          expectedJoin.test(query.slice(items[index].end, item.start)),
+        )
+    )
+      continue
     if (items[0].operator === '=') {
       const before = query.slice(0, items[0].start).trimEnd()
       const after = query.slice(items.at(-1)!.end).trimStart()
       if (!before.endsWith('(') || !after.startsWith(')')) continue
     }
-    filters.push({ attribute, scope: items[0].scope, mode: items[0].operator === '=' ? 'include' : 'exclude', values: items.map((item) => item.value) })
+    filters.push({
+      attribute,
+      scope: items[0].scope,
+      mode: items[0].operator === '=' ? 'include' : 'exclude',
+      values: items.map((item) => item.value),
+    })
   }
   return filters
 }
 
 export function traceBuilderFromTraceql(query: string): TraceBuilderState {
-  const duration = query.match(/(?:^|[\s{(&|])(?:span:)?duration\s*>\s*([0-9.]+)ms/i)?.[1] ?? ''
+  const duration =
+    query.match(/(?:^|[\s{(&|])(?:span:)?duration\s*>\s*([0-9.]+)ms/i)?.[1] ??
+    ''
   return {
     ...EMPTY_TRACE_BUILDER,
     advancedFilters: genericPredicates(query),
     serviceNamespace: extractQuoted(query, 'resource.service.namespace'),
     service: extractQuoted(query, 'resource.service.name'),
-    spanKind: enumValue(query, ['span:kind', 'kind'], ['server', 'client', 'producer', 'consumer', 'internal', 'unspecified'] as const, 'any'),
+    spanKind: enumValue(
+      query,
+      ['span:kind', 'kind'],
+      [
+        'server',
+        'client',
+        'producer',
+        'consumer',
+        'internal',
+        'unspecified',
+      ] as const,
+      'any',
+    ),
     protocol: detectedProtocol(query),
-    httpMethod: firstQuoted(query, 'span.http.request.method', 'span.http.method'),
-    endpoint: firstQuoted(query, 'span.http.route', 'span.url.template', 'span.url.path', 'span.http.target'),
+    httpMethod: firstQuoted(
+      query,
+      'span.http.request.method',
+      'span.http.method',
+    ),
+    endpoint: firstQuoted(
+      query,
+      'span.http.route',
+      'span.url.template',
+      'span.url.path',
+      'span.http.target',
+    ),
     rpcSystem: extractQuoted(query, 'span.rpc.system'),
     rpcService: extractQuoted(query, 'span.rpc.service'),
     rpcMethod: extractQuoted(query, 'span.rpc.method'),
     messagingSystem: extractQuoted(query, 'span.messaging.system'),
-    messagingDestination: firstQuoted(query, 'span.messaging.destination.name', 'span.messaging.destination'),
-    messagingOperation: firstQuoted(query, 'span.messaging.operation.type', 'span.messaging.operation'),
+    messagingDestination: firstQuoted(
+      query,
+      'span.messaging.destination.name',
+      'span.messaging.destination',
+    ),
+    messagingOperation: firstQuoted(
+      query,
+      'span.messaging.operation.type',
+      'span.messaging.operation',
+    ),
     dbSystem: firstQuoted(query, 'span.db.system.name', 'span.db.system'),
-    dbOperation: firstQuoted(query, 'span.db.operation.name', 'span.db.operation'),
+    dbOperation: firstQuoted(
+      query,
+      'span.db.operation.name',
+      'span.db.operation',
+    ),
     spanName: firstQuoted(query, 'span:name', 'name'),
-    status: enumValue(query, ['span:status', 'status'], ['unset', 'error', 'ok'] as const, 'any'),
-    minDurationMs: duration
+    status: enumValue(
+      query,
+      ['span:status', 'status'],
+      ['unset', 'error', 'ok'] as const,
+      'any',
+    ),
+    minDurationMs: duration,
   }
 }
 
-export function traceBuilderFromSpan(span: TraceBuilderSpanSeed): TraceBuilderState {
+export function traceBuilderFromSpan(
+  span: TraceBuilderSpanSeed,
+): TraceBuilderState {
   const attributes = record(span.attributes)
   const resource = record(span.resourceAttributes)
   const name = text(span.name).trim()
   const spanKind = normalizedSpanKind(span.kind)
   let protocol = protocolFromAttributes(attributes)
 
-  let httpMethod = firstAttribute(attributes, 'http.request.method', 'http.method')
-  let endpoint = firstAttribute(attributes, 'http.route', 'url.template', 'url.path', 'http.target')
+  let httpMethod = firstAttribute(
+    attributes,
+    'http.request.method',
+    'http.method',
+  )
+  let endpoint = firstAttribute(
+    attributes,
+    'http.route',
+    'url.template',
+    'url.path',
+    'http.target',
+  )
   const nameHttp = name.match(HTTP_METHOD)
-  if (protocol === 'any' && nameHttp && (spanKind === 'server' || spanKind === 'client')) protocol = 'http'
+  if (
+    protocol === 'any' &&
+    nameHttp &&
+    (spanKind === 'server' || spanKind === 'client')
+  )
+    protocol = 'http'
   if (protocol === 'http' && nameHttp) {
     if (!httpMethod) httpMethod = nameHttp[1].toUpperCase()
-    if (!endpoint && nameHttp[2]?.trim().startsWith('/')) endpoint = nameHttp[2].trim()
+    if (!endpoint && nameHttp[2]?.trim().startsWith('/'))
+      endpoint = nameHttp[2].trim()
   }
 
   return {
     ...EMPTY_TRACE_BUILDER,
-    serviceNamespace: text(span.serviceNamespace).trim() || firstAttribute(resource, 'service.namespace'),
-    service: text(span.service).trim() || firstAttribute(resource, 'service.name'),
+    serviceNamespace:
+      text(span.serviceNamespace).trim() ||
+      firstAttribute(resource, 'service.namespace'),
+    service:
+      text(span.service).trim() || firstAttribute(resource, 'service.name'),
     spanKind,
     protocol,
     httpMethod,
@@ -386,33 +721,50 @@ export function traceBuilderFromSpan(span: TraceBuilderSpanSeed): TraceBuilderSt
     rpcService: firstAttribute(attributes, 'rpc.service'),
     rpcMethod: firstAttribute(attributes, 'rpc.method'),
     messagingSystem: firstAttribute(attributes, 'messaging.system'),
-    messagingDestination: firstAttribute(attributes, 'messaging.destination.name', 'messaging.destination'),
-    messagingOperation: firstAttribute(attributes, 'messaging.operation.type', 'messaging.operation'),
+    messagingDestination: firstAttribute(
+      attributes,
+      'messaging.destination.name',
+      'messaging.destination',
+    ),
+    messagingOperation: firstAttribute(
+      attributes,
+      'messaging.operation.type',
+      'messaging.operation',
+    ),
     dbSystem: firstAttribute(attributes, 'db.system.name', 'db.system'),
-    dbOperation: firstAttribute(attributes, 'db.operation.name', 'db.operation'),
+    dbOperation: firstAttribute(
+      attributes,
+      'db.operation.name',
+      'db.operation',
+    ),
     spanName: protocol === 'any' ? name : '',
-    status: normalizedStatus(span.status)
+    status: normalizedStatus(span.status),
   }
 }
 
 const quoted = (value: string) => JSON.stringify(value.trim())
 const equal = (key: string, value: string) => `${key} = ${quoted(value)}`
-const either = (keys: string[], value: string) => keys.length === 1
-  ? equal(keys[0], value)
-  : `(${keys.map((key) => equal(key, value)).join(' || ')})`
-const existsAny = (keys: string[]) => `(${keys.map((key) => `${key} != nil`).join(' || ')})`
+const either = (keys: string[], value: string) =>
+  keys.length === 1
+    ? equal(keys[0], value)
+    : `(${keys.map((key) => equal(key, value)).join(' || ')})`
+const existsAny = (keys: string[]) =>
+  `(${keys.map((key) => `${key} != nil`).join(' || ')})`
 const ATTRIBUTE_IDENTIFIER = /^(?:resource|span)\.[A-Za-z_][\w.-]*$/
 const NUMBER_LITERAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/
 const DURATION_LITERAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:ns|us|ms|s|m|h)$/
 
 function scalarLiteral(value: string): string {
   const trimmed = value.trim()
-  if (NUMBER_LITERAL.test(trimmed) || DURATION_LITERAL.test(trimmed)) return trimmed
+  if (NUMBER_LITERAL.test(trimmed) || DURATION_LITERAL.test(trimmed))
+    return trimmed
   if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
     try {
       const parsed = JSON.parse(trimmed)
       if (typeof parsed === 'string') return JSON.stringify(parsed)
-    } catch { /* Fall through and safely quote the complete input. */ }
+    } catch {
+      /* Fall through and safely quote the complete input. */
+    }
   }
   return JSON.stringify(trimmed)
 }
@@ -423,55 +775,125 @@ function advancedFilterCondition(filter: TraceAttributeFilter): string | null {
   if (filter.mode === 'compare') {
     const value = filter.value.trim()
     if (!value) return null
-    const literal = filter.operator === '=~' || filter.operator === '!~' ? quoted(value) : scalarLiteral(value)
+    const literal =
+      filter.operator === '=~' || filter.operator === '!~'
+        ? quoted(value)
+        : scalarLiteral(value)
     return `${attribute} ${filter.operator} ${literal}`
   }
-  const values = [...new Set(filter.values.map((value) => value.trim()).filter(Boolean))]
+  const values = [
+    ...new Set(filter.values.map((value) => value.trim()).filter(Boolean)),
+  ]
   if (!values.length) return null
-  const predicates = values.map((value) => `${attribute} ${filter.mode === 'include' ? '=' : '!='} ${quoted(value)}`)
-  return filter.mode === 'include' && predicates.length > 1 ? `(${predicates.join(' || ')})` : predicates.join(' && ')
+  const predicates = values.map(
+    (value) =>
+      `${attribute} ${filter.mode === 'include' ? '=' : '!='} ${quoted(value)}`,
+  )
+  return filter.mode === 'include' && predicates.length > 1
+    ? `(${predicates.join(' || ')})`
+    : predicates.join(' && ')
 }
 
 export function buildTraceql(builder: TraceBuilderState): string {
   const conditions: string[] = []
-  if (builder.serviceNamespace.trim()) conditions.push(equal('resource.service.namespace', builder.serviceNamespace))
-  if (builder.service.trim()) conditions.push(equal('resource.service.name', builder.service))
-  if (builder.spanKind !== 'any') conditions.push(`span:kind = ${builder.spanKind}`)
+  if (builder.serviceNamespace.trim())
+    conditions.push(
+      equal('resource.service.namespace', builder.serviceNamespace),
+    )
+  if (builder.service.trim())
+    conditions.push(equal('resource.service.name', builder.service))
+  if (builder.spanKind !== 'any')
+    conditions.push(`span:kind = ${builder.spanKind}`)
 
   if (builder.protocol === 'http') {
-    if (builder.httpMethod.trim()) conditions.push(either(['span.http.request.method', 'span.http.method'], builder.httpMethod))
-    if (builder.endpoint.trim()) conditions.push(either(HTTP_ENDPOINT_KEYS, builder.endpoint))
-    if (!builder.httpMethod.trim() && !builder.endpoint.trim()) conditions.push(existsAny(['span.http.request.method', 'span.http.method', ...HTTP_ENDPOINT_KEYS]))
+    if (builder.httpMethod.trim())
+      conditions.push(
+        either(
+          ['span.http.request.method', 'span.http.method'],
+          builder.httpMethod,
+        ),
+      )
+    if (builder.endpoint.trim())
+      conditions.push(either(HTTP_ENDPOINT_KEYS, builder.endpoint))
+    if (!builder.httpMethod.trim() && !builder.endpoint.trim())
+      conditions.push(
+        existsAny([
+          'span.http.request.method',
+          'span.http.method',
+          ...HTTP_ENDPOINT_KEYS,
+        ]),
+      )
   }
 
   if (builder.protocol === 'rpc') {
-    if (builder.rpcSystem.trim()) conditions.push(equal('span.rpc.system', builder.rpcSystem))
-    if (builder.rpcService.trim()) conditions.push(equal('span.rpc.service', builder.rpcService))
-    if (builder.rpcMethod.trim()) conditions.push(equal('span.rpc.method', builder.rpcMethod))
-    if (!builder.rpcSystem.trim() && !builder.rpcService.trim() && !builder.rpcMethod.trim()) conditions.push('span.rpc.system != nil')
+    if (builder.rpcSystem.trim())
+      conditions.push(equal('span.rpc.system', builder.rpcSystem))
+    if (builder.rpcService.trim())
+      conditions.push(equal('span.rpc.service', builder.rpcService))
+    if (builder.rpcMethod.trim())
+      conditions.push(equal('span.rpc.method', builder.rpcMethod))
+    if (
+      !builder.rpcSystem.trim() &&
+      !builder.rpcService.trim() &&
+      !builder.rpcMethod.trim()
+    )
+      conditions.push('span.rpc.system != nil')
   }
 
   if (builder.protocol === 'messaging') {
-    if (builder.messagingSystem.trim()) conditions.push(equal('span.messaging.system', builder.messagingSystem))
-    if (builder.messagingDestination.trim()) conditions.push(either(['span.messaging.destination.name', 'span.messaging.destination'], builder.messagingDestination))
-    if (builder.messagingOperation.trim()) conditions.push(either(['span.messaging.operation.type', 'span.messaging.operation'], builder.messagingOperation))
-    if (!builder.messagingSystem.trim() && !builder.messagingDestination.trim() && !builder.messagingOperation.trim()) conditions.push('span.messaging.system != nil')
+    if (builder.messagingSystem.trim())
+      conditions.push(equal('span.messaging.system', builder.messagingSystem))
+    if (builder.messagingDestination.trim())
+      conditions.push(
+        either(
+          ['span.messaging.destination.name', 'span.messaging.destination'],
+          builder.messagingDestination,
+        ),
+      )
+    if (builder.messagingOperation.trim())
+      conditions.push(
+        either(
+          ['span.messaging.operation.type', 'span.messaging.operation'],
+          builder.messagingOperation,
+        ),
+      )
+    if (
+      !builder.messagingSystem.trim() &&
+      !builder.messagingDestination.trim() &&
+      !builder.messagingOperation.trim()
+    )
+      conditions.push('span.messaging.system != nil')
   }
 
   if (builder.protocol === 'database') {
-    if (builder.dbSystem.trim()) conditions.push(either(['span.db.system.name', 'span.db.system'], builder.dbSystem))
-    if (builder.dbOperation.trim()) conditions.push(either(['span.db.operation.name', 'span.db.operation'], builder.dbOperation))
-    if (!builder.dbSystem.trim() && !builder.dbOperation.trim()) conditions.push(existsAny(['span.db.system.name', 'span.db.system']))
+    if (builder.dbSystem.trim())
+      conditions.push(
+        either(['span.db.system.name', 'span.db.system'], builder.dbSystem),
+      )
+    if (builder.dbOperation.trim())
+      conditions.push(
+        either(
+          ['span.db.operation.name', 'span.db.operation'],
+          builder.dbOperation,
+        ),
+      )
+    if (!builder.dbSystem.trim() && !builder.dbOperation.trim())
+      conditions.push(existsAny(['span.db.system.name', 'span.db.system']))
   }
 
-  if (builder.spanName.trim()) conditions.push(equal('span:name', builder.spanName))
+  if (builder.spanName.trim())
+    conditions.push(equal('span:name', builder.spanName))
   for (const filter of builder.advancedFilters) {
     const condition = advancedFilterCondition(filter)
     if (condition) conditions.push(condition)
   }
-  if (builder.status !== 'any') conditions.push(`span:status = ${builder.status}`)
+  if (builder.status !== 'any')
+    conditions.push(`span:status = ${builder.status}`)
   const rawDuration = builder.minDurationMs.trim()
-  const duration = rawDuration ? Number(rawDuration) : DEFAULT_TRACE_MIN_DURATION_MS
-  if (Number.isFinite(duration) && duration >= 0) conditions.push(`span:duration > ${duration}ms`)
+  const duration = rawDuration
+    ? Number(rawDuration)
+    : DEFAULT_TRACE_MIN_DURATION_MS
+  if (Number.isFinite(duration) && duration >= 0)
+    conditions.push(`span:duration > ${duration}ms`)
   return conditions.length ? `{ ${conditions.join(' && ')} }` : '{ }'
 }

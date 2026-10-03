@@ -6,7 +6,7 @@ import {
   formatChartNumber,
   formatTimeBucketLabel,
   inferTimeDisplayPrecision,
-  positionChartTooltip
+  positionChartTooltip,
 } from './chartPresentation.ts'
 
 test('formats every builder time bucket deterministically in UTC', () => {
@@ -14,7 +14,10 @@ test('formats every builder time bucket deterministically in UTC', () => {
   assert.equal(formatTimeBucketLabel(value, 'minute'), '02 Aug, 14:37')
   assert.equal(formatTimeBucketLabel(value, 'hour'), '02 Aug, 14:00')
   assert.equal(formatTimeBucketLabel(value, 'day'), '02 Aug')
-  assert.equal(formatTimeBucketLabel('2026-07-28T00:00:00Z', 'week'), 'Week of 28 Jul')
+  assert.equal(
+    formatTimeBucketLabel('2026-07-28T00:00:00Z', 'week'),
+    'Week of 28 Jul',
+  )
   assert.equal(formatTimeBucketLabel(value, 'month'), 'Aug 2026')
   assert.equal(formatTimeBucketLabel(value, 'quarter'), 'Q3 2026')
   assert.equal(formatTimeBucketLabel(value, 'year'), '2026')
@@ -24,8 +27,13 @@ test('formats numeric ECharts time-axis values as dates', () => {
   const value = Date.parse('2026-08-21T06:43:00Z')
   assert.equal(formatTimeBucketLabel(value, 'minute'), '21 Aug, 06:43')
   assert.equal(formatTimeBucketLabel(value, 'hour'), '21 Aug, 06:00')
-  const formatter = buildChartTooltipFormatter((axisValue) => formatTimeBucketLabel(axisValue, 'day'))
-  assert.match(formatter([{ axisValue: value, seriesName: 'Orders', value: [value, 3] }]), /21 Aug/)
+  const formatter = buildChartTooltipFormatter((axisValue) =>
+    formatTimeBucketLabel(axisValue, 'day'),
+  )
+  assert.match(
+    formatter([{ axisValue: value, seriesName: 'Orders', value: [value, 3] }]),
+    /21 Aug/,
+  )
 })
 
 test('invalid dates retain their original display value', () => {
@@ -34,7 +42,10 @@ test('invalid dates retain their original display value', () => {
 })
 
 test('SQL precision inference is conservative and preserves categories', () => {
-  assert.equal(inferTimeDisplayPrecision(['2026-08-01T14:00:00Z', '2026-08-01T15:00:00Z']), 'hour')
+  assert.equal(
+    inferTimeDisplayPrecision(['2026-08-01T14:00:00Z', '2026-08-01T15:00:00Z']),
+    'hour',
+  )
   assert.equal(inferTimeDisplayPrecision(['2025-01-01', '2026-01-01']), 'year')
   assert.equal(inferTimeDisplayPrecision(['east', 'west']), null)
   assert.equal(inferTimeDisplayPrecision(['2026-08-01', 'not-a-date']), null)
@@ -48,8 +59,17 @@ test('chart number formatting handles zero, fractions, nulls, and numeric string
 })
 
 test('tooltip uses the axis formatter and only public display fields', () => {
-  const formatter = buildChartTooltipFormatter((value) => formatTimeBucketLabel(value, 'day'))
-  const html = formatter([{ axisValue: '2026-08-02T00:00:00Z', seriesName: 'Orders', value: 0, data: { internal: true } }])
+  const formatter = buildChartTooltipFormatter((value) =>
+    formatTimeBucketLabel(value, 'day'),
+  )
+  const html = formatter([
+    {
+      axisValue: '2026-08-02T00:00:00Z',
+      seriesName: 'Orders',
+      value: 0,
+      data: { internal: true },
+    },
+  ])
   assert.match(html, /02 Aug/)
   assert.match(html, /Orders/)
   assert.match(html, />0</)
@@ -58,33 +78,76 @@ test('tooltip uses the axis formatter and only public display fields', () => {
 
 test('tooltip positioning stays inside a small chart viewport', () => {
   const sizes = { contentSize: [220, 160], viewSize: [320, 200] }
-  assert.deepEqual(positionChartTooltip([310, 190], null, {} as HTMLElement, null, sizes), [100, 40])
-  assert.deepEqual(positionChartTooltip([0, 0], null, {} as HTMLElement, null, sizes), [12, 12])
+  assert.deepEqual(
+    positionChartTooltip([310, 190], null, {} as HTMLElement, null, sizes),
+    [100, 40],
+  )
+  assert.deepEqual(
+    positionChartTooltip([0, 0], null, {} as HTMLElement, null, sizes),
+    [12, 12],
+  )
 })
 
 test('presentation keeps line series unstacked and only stacks broken-down bars', () => {
-  const base = { labels: ['2026-08-02T00:00:00Z'], series: [{ name: 'Orders', data: [1] }], mode: 'builder' as const, timeBucket: 'day' }
-  const line = buildChartPresentationOptions({ ...base, view: 'line', hasSeriesColumn: true })
+  const base = {
+    labels: ['2026-08-02T00:00:00Z'],
+    series: [{ name: 'Orders', data: [1] }],
+    mode: 'builder' as const,
+    timeBucket: 'day',
+  }
+  const line = buildChartPresentationOptions({
+    ...base,
+    view: 'line',
+    hasSeriesColumn: true,
+  })
   assert.equal((line.series as { stack?: string }[])[0].stack, undefined)
-  const plainBar = buildChartPresentationOptions({ ...base, view: 'bar', hasSeriesColumn: false })
+  const plainBar = buildChartPresentationOptions({
+    ...base,
+    view: 'bar',
+    hasSeriesColumn: false,
+  })
   assert.equal((plainBar.series as { stack?: string }[])[0].stack, undefined)
-  const stackedBar = buildChartPresentationOptions({ ...base, view: 'bar', hasSeriesColumn: true })
+  const stackedBar = buildChartPresentationOptions({
+    ...base,
+    view: 'bar',
+    hasSeriesColumn: true,
+  })
   assert.equal((stackedBar.series as { stack?: string }[])[0].stack, 'total')
-  const axis = stackedBar.xAxis as { containShape?: boolean; axisLabel: { formatter: (value: unknown) => string } }
-  const tooltip = stackedBar.tooltip as { backgroundColor: string; confine: boolean; extraCssText: string; formatter: (value: unknown) => string }
+  const axis = stackedBar.xAxis as {
+    containShape?: boolean
+    axisLabel: { formatter: (value: unknown) => string }
+  }
+  const tooltip = stackedBar.tooltip as {
+    backgroundColor: string
+    confine: boolean
+    extraCssText: string
+    formatter: (value: unknown) => string
+  }
   assert.equal(axis.containShape, undefined)
   assert.equal(axis.axisLabel.formatter(base.labels[0]), '02 Aug')
   assert.equal(tooltip.backgroundColor, '#161922')
   assert.equal(tooltip.confine, true)
   assert.match(tooltip.extraCssText, /width.*max-height.*overflow:hidden/)
-  assert.match(tooltip.formatter([{ axisValue: base.labels[0], seriesName: 'Orders', value: 1 }]), /02 Aug/)
+  assert.match(
+    tooltip.formatter([
+      { axisValue: base.labels[0], seriesName: 'Orders', value: 1 },
+    ]),
+    /02 Aug/,
+  )
 })
 
 test('HTML legend owns layout while the hidden ECharts legend filters selected series', () => {
   const visibility = { Alpha: true, Beta: false }
   const options = buildChartPresentationOptions({
-    labels: ['x'], series: [{ name: 'Alpha', data: [1] }, { name: 'Beta', data: [2] }],
-    view: 'line', hasSeriesColumn: true, mode: 'sql', visibility
+    labels: ['x'],
+    series: [
+      { name: 'Alpha', data: [1] },
+      { name: 'Beta', data: [2] },
+    ],
+    view: 'line',
+    hasSeriesColumn: true,
+    mode: 'sql',
+    visibility,
   })
   assert.deepEqual(options.legend, { show: false, selected: visibility })
   assert.equal((options.grid as { right: number }).right, 24)
@@ -93,8 +156,11 @@ test('HTML legend owns layout while the hidden ECharts legend filters selected s
 
 test('single-series presentation hides the legend and keeps a compact plot grid', () => {
   const options = buildChartPresentationOptions({
-    labels: ['x'], series: [{ name: 'Orders', data: [1] }],
-    view: 'line', hasSeriesColumn: false, mode: 'sql'
+    labels: ['x'],
+    series: [{ name: 'Orders', data: [1] }],
+    view: 'line',
+    hasSeriesColumn: false,
+    mode: 'sql',
   })
   assert.equal((options.legend as { show: boolean }).show, false)
   assert.equal((options.grid as { right: number }).right, 24)
@@ -104,28 +170,67 @@ test('single-series presentation hides the legend and keeps a compact plot grid'
 test('temporal bar disables ECharts containShape only when all data lies outside a bounded domain', () => {
   const labels = ['2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z']
   const series = [{ name: 'Orders', data: [1, 2] }]
-  const staleDomain = { min: Date.parse('2026-08-22T04:00:00Z'), max: Date.parse('2026-08-22T10:00:00Z') }
-  const stale = buildChartPresentationOptions({ labels, series, view: 'bar', hasSeriesColumn: false, mode: 'sql', timeDomain: staleDomain })
+  const staleDomain = {
+    min: Date.parse('2026-08-22T04:00:00Z'),
+    max: Date.parse('2026-08-22T10:00:00Z'),
+  }
+  const stale = buildChartPresentationOptions({
+    labels,
+    series,
+    view: 'bar',
+    hasSeriesColumn: false,
+    mode: 'sql',
+    timeDomain: staleDomain,
+  })
   assert.equal((stale.xAxis as { containShape?: boolean }).containShape, false)
 
-  const liveDomain = { min: Date.parse('2024-12-01T00:00:00Z'), max: Date.parse('2025-03-01T00:00:00Z') }
-  const live = buildChartPresentationOptions({ labels, series, view: 'bar', hasSeriesColumn: false, mode: 'sql', timeDomain: liveDomain })
-  assert.equal((live.xAxis as { containShape?: boolean }).containShape, undefined)
+  const liveDomain = {
+    min: Date.parse('2024-12-01T00:00:00Z'),
+    max: Date.parse('2025-03-01T00:00:00Z'),
+  }
+  const live = buildChartPresentationOptions({
+    labels,
+    series,
+    view: 'bar',
+    hasSeriesColumn: false,
+    mode: 'sql',
+    timeDomain: liveDomain,
+  })
+  assert.equal(
+    (live.xAxis as { containShape?: boolean }).containShape,
+    undefined,
+  )
 })
 
 test('temporal line, area, and bar presentations share canonical UTC millisecond coordinates', () => {
-  const labels = Array.from({ length: 9 }, (_, index) => `2026-09-${String(index + 22).padStart(2, '0')}T00:00:00Z`)
+  const labels = Array.from(
+    { length: 9 },
+    (_, index) => `2026-09-${String(index + 22).padStart(2, '0')}T00:00:00Z`,
+  )
   const values = labels.map((_, index) => index + 1)
-  const expected = labels.map((label, index) => [Date.parse(label), values[index]])
+  const expected = labels.map((label, index) => [
+    Date.parse(label),
+    values[index],
+  ])
   const coordinates = new Map<string, number[]>()
 
   for (const view of ['line', 'area', 'bar'] as const) {
-    const options = buildChartPresentationOptions({ labels, series: [{ name: 'Orders', data: values }], view, hasSeriesColumn: false, mode: 'sql' })
+    const options = buildChartPresentationOptions({
+      labels,
+      series: [{ name: 'Orders', data: values }],
+      view,
+      hasSeriesColumn: false,
+      mode: 'sql',
+    })
     assert.equal(options.useUTC, true)
     assert.equal((options.xAxis as { type: string }).type, 'time')
-    const data = (options.series as Array<{ data: Array<[number, number]> }>)[0].data
+    const data = (options.series as Array<{ data: Array<[number, number]> }>)[0]
+      .data
     assert.deepEqual(data, expected)
-    coordinates.set(view, data.map(([x]) => x))
+    coordinates.set(
+      view,
+      data.map(([x]) => x),
+    )
   }
 
   assert.deepEqual(coordinates.get('line'), coordinates.get('area'))
@@ -134,14 +239,27 @@ test('temporal line, area, and bar presentations share canonical UTC millisecond
 
 test('temporal presentation preserves the explicit selected domain around canonical data coordinates', () => {
   const labels = ['2026-09-22T00:00:00Z', '2026-09-30T00:00:00Z']
-  const timeDomain = { min: Date.parse('2026-09-21T00:00:00Z'), max: Date.parse('2026-10-01T00:00:00Z') }
-  const options = buildChartPresentationOptions({ labels, series: [{ name: 'Orders', data: [2, 4] }], view: 'line', hasSeriesColumn: false, mode: 'sql', timeDomain })
+  const timeDomain = {
+    min: Date.parse('2026-09-21T00:00:00Z'),
+    max: Date.parse('2026-10-01T00:00:00Z'),
+  }
+  const options = buildChartPresentationOptions({
+    labels,
+    series: [{ name: 'Orders', data: [2, 4] }],
+    view: 'line',
+    hasSeriesColumn: false,
+    mode: 'sql',
+    timeDomain,
+  })
   const axis = options.xAxis as { type: string; min?: number; max?: number }
 
   assert.equal(axis.type, 'time')
   assert.equal(axis.min, timeDomain.min)
   assert.equal(axis.max, timeDomain.max)
-  assert.deepEqual((options.series as Array<{ data: unknown[] }>)[0].data, [[Date.parse(labels[0]), 2], [Date.parse(labels[1]), 4]])
+  assert.deepEqual((options.series as Array<{ data: unknown[] }>)[0].data, [
+    [Date.parse(labels[0]), 2],
+    [Date.parse(labels[1]), 4],
+  ])
 })
 
 test('temporal anomaly mark points use the corresponding series millisecond coordinate', () => {
@@ -152,23 +270,55 @@ test('temporal anomaly mark points use the corresponding series millisecond coor
     view: 'line',
     hasSeriesColumn: false,
     mode: 'sql',
-    anomalies: [{ seriesName: 'Orders', dataIndex: 1, value: 9, median: 2, mad: 0, direction: 'above' }]
+    anomalies: [
+      {
+        seriesName: 'Orders',
+        dataIndex: 1,
+        value: 9,
+        median: 2,
+        mad: 0,
+        direction: 'above',
+      },
+    ],
   })
-  const series = (options.series as Array<{ data: Array<[number, number]>; markPoint: { data: Array<{ coord: [number, number] }> } }>)[0]
+  const series = (
+    options.series as Array<{
+      data: Array<[number, number]>
+      markPoint: { data: Array<{ coord: [number, number] }> }
+    }>
+  )[0]
 
   assert.equal(series.markPoint.data[0].coord[0], series.data[1][0])
   assert.equal(series.markPoint.data[0].coord[0], Date.parse(labels[1]))
 })
 
 test('tooltip marks and retains the hovered series without becoming scrollable', () => {
-  const rows = Array.from({ length: 14 }, (_, index) => ({ seriesName: `series-${index}`, value: index === 13 ? 0 : index, color: '#fff', axisValue: 'x' }))
+  const rows = Array.from({ length: 14 }, (_, index) => ({
+    seriesName: `series-${index}`,
+    value: index === 13 ? 0 : index,
+    color: '#fff',
+    axisValue: 'x',
+  }))
   const formatter = buildChartTooltipFormatter(String, 'series-13')
   const html = formatter(rows)
   assert.match(html, /chart-tooltip-row-hovered[^>]*>.*series-13/)
   assert.match(html, /2 more/)
-  const options = buildChartPresentationOptions({ labels: ['x'], series: [], view: 'line', hasSeriesColumn: true, mode: 'sql', hoveredSeriesIdentity: 'series-13' })
-  assert.match((options.tooltip as { extraCssText: string }).extraCssText, /overflow:hidden/)
-  assert.doesNotMatch((options.tooltip as { extraCssText: string }).extraCssText, /overflow:auto/)
+  const options = buildChartPresentationOptions({
+    labels: ['x'],
+    series: [],
+    view: 'line',
+    hasSeriesColumn: true,
+    mode: 'sql',
+    hoveredSeriesIdentity: 'series-13',
+  })
+  assert.match(
+    (options.tooltip as { extraCssText: string }).extraCssText,
+    /overflow:hidden/,
+  )
+  assert.doesNotMatch(
+    (options.tooltip as { extraCssText: string }).extraCssText,
+    /overflow:auto/,
+  )
 })
 
 test('time range selection never exposes the generic ECharts brush toolbox', () => {
@@ -178,14 +328,20 @@ test('time range selection never exposes the generic ECharts brush toolbox', () 
     view: 'line',
     hasSeriesColumn: false,
     mode: 'sql',
-    rangeSelectionEnabled: true
+    rangeSelectionEnabled: true,
   })
   assert.deepEqual(options.toolbox, { show: false })
   assert.deepEqual((options.brush as { toolbox?: unknown[] }).toolbox, [])
 })
 
 test('area presentation stacks Series and uses a filled line renderer', () => {
-  const options = buildChartPresentationOptions({ labels: ['x'], series: [{ name: 'A', data: [2] }], view: 'area', hasSeriesColumn: true, mode: 'sql' })
+  const options = buildChartPresentationOptions({
+    labels: ['x'],
+    series: [{ name: 'A', data: [2] }],
+    view: 'area',
+    hasSeriesColumn: true,
+    mode: 'sql',
+  })
   const series = (options.series as Array<Record<string, unknown>>)[0]
   assert.equal(series.type, 'line')
   assert.equal(series.stack, 'total')
@@ -194,20 +350,51 @@ test('area presentation stacks Series and uses a filled line renderer', () => {
 
 test('temporal scatter uses real time coordinates and explicit selected-period bounds', () => {
   const temporalLabels = ['2026-01-03', '2026-01-06']
-  const timeDomain = { min: Date.parse('2026-01-01T00:00:00Z'), max: Date.parse('2026-01-08T00:00:00Z') }
-  const temporal = buildChartPresentationOptions({ labels: temporalLabels, series: [{ name: 'A', data: [2, 4] }], view: 'scatter', hasSeriesColumn: false, mode: 'sql', timeDomain })
-  const axis = temporal.xAxis as { type: string; min?: number; max?: number; containShape?: boolean; axisLabel: { formatter: (value: unknown) => string } }
+  const timeDomain = {
+    min: Date.parse('2026-01-01T00:00:00Z'),
+    max: Date.parse('2026-01-08T00:00:00Z'),
+  }
+  const temporal = buildChartPresentationOptions({
+    labels: temporalLabels,
+    series: [{ name: 'A', data: [2, 4] }],
+    view: 'scatter',
+    hasSeriesColumn: false,
+    mode: 'sql',
+    timeDomain,
+  })
+  const axis = temporal.xAxis as {
+    type: string
+    min?: number
+    max?: number
+    containShape?: boolean
+    axisLabel: { formatter: (value: unknown) => string }
+  }
   assert.equal(axis.type, 'time')
   assert.equal(axis.min, timeDomain.min)
   assert.equal(axis.max, timeDomain.max)
   assert.equal(axis.containShape, undefined)
-  assert.equal(axis.axisLabel.formatter(Date.parse('2026-01-04T12:00:00Z')), '04 Jan')
-  assert.deepEqual((temporal.series as Array<{ data: unknown[] }>)[0].data, [[Date.parse(temporalLabels[0]), 2], [Date.parse(temporalLabels[1]), 4]])
+  assert.equal(
+    axis.axisLabel.formatter(Date.parse('2026-01-04T12:00:00Z')),
+    '04 Jan',
+  )
+  assert.deepEqual((temporal.series as Array<{ data: unknown[] }>)[0].data, [
+    [Date.parse(temporalLabels[0]), 2],
+    [Date.parse(temporalLabels[1]), 4],
+  ])
 })
 
 test('categorical scatter retains category semantics', () => {
-  for (const labels of [['Alpha', 'Beta'], ['1', '2']]) {
-    const options = buildChartPresentationOptions({ labels, series: [{ name: 'A', data: [2, 4] }], view: 'scatter', hasSeriesColumn: false, mode: 'sql' })
+  for (const labels of [
+    ['Alpha', 'Beta'],
+    ['1', '2'],
+  ]) {
+    const options = buildChartPresentationOptions({
+      labels,
+      series: [{ name: 'A', data: [2, 4] }],
+      view: 'scatter',
+      hasSeriesColumn: false,
+      mode: 'sql',
+    })
     const xAxis = options.xAxis as { type: string; data: string[] }
     assert.equal(xAxis.type, 'category')
     assert.deepEqual(xAxis.data, labels)
@@ -219,14 +406,37 @@ test('categorical scatter retains category semantics', () => {
 })
 
 test('hierarchical presentation shares data and exposes path, value, and share tooltip', () => {
-  const hierarchy = [{ name: 'France', value: 120, children: [{ name: 'Tech', value: 75 }] }]
+  const hierarchy = [
+    { name: 'France', value: 120, children: [{ name: 'Tech', value: 75 }] },
+  ]
   for (const view of ['treemap', 'sunburst'] as const) {
-    const options = buildChartPresentationOptions({ labels: [], series: [], view, hasSeriesColumn: true, mode: 'sql', hierarchy })
+    const options = buildChartPresentationOptions({
+      labels: [],
+      series: [],
+      view,
+      hasSeriesColumn: true,
+      mode: 'sql',
+      hierarchy,
+    })
     const series = (options.series as Array<Record<string, unknown>>)[0]
     assert.equal(series.type, view)
     assert.equal(series.data, hierarchy)
-    const formatter = (options.tooltip as { formatter: (value: unknown) => string }).formatter
-    assert.match(formatter({ treePathInfo: [{ name: 'France' }, { name: 'Tech' }], value: 75 }), /France → Tech/)
-    assert.match(formatter({ treePathInfo: [{ name: 'France' }, { name: 'Tech' }], value: 75 }), /62.5%/)
+    const formatter = (
+      options.tooltip as { formatter: (value: unknown) => string }
+    ).formatter
+    assert.match(
+      formatter({
+        treePathInfo: [{ name: 'France' }, { name: 'Tech' }],
+        value: 75,
+      }),
+      /France → Tech/,
+    )
+    assert.match(
+      formatter({
+        treePathInfo: [{ name: 'France' }, { name: 'Tech' }],
+        value: 75,
+      }),
+      /62.5%/,
+    )
   }
 })

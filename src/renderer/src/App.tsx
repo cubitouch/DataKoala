@@ -10,8 +10,14 @@ import { LokiExplorer } from '@components/workspaces/loki/LokiExplorer'
 import { QueryTabs } from '@components/query/QueryTabs'
 import { ConnectionStatus } from '@components/connections/ConnectionStatus'
 import {
-  EDITOR_MIN, SIDEBAR_MIN, TITLEBAR_HEIGHT,
-  clampDimension, editorBounds, keyboardDimension, parseStoredDimension, sidebarBounds
+  EDITOR_MIN,
+  SIDEBAR_MIN,
+  TITLEBAR_HEIGHT,
+  clampDimension,
+  editorBounds,
+  keyboardDimension,
+  parseStoredDimension,
+  sidebarBounds,
 } from '@shared/layoutDimensions'
 import { api } from './lib/api'
 import type { ConnectionStateEvent } from '@shared/types'
@@ -37,20 +43,37 @@ export function App() {
   const profiles = useStore((s) => s.profiles)
   const activeTabId = useStore((s) => s.activeTabId)
   const mode = useStore((s) => selectActiveSession(s).queryMode)
-  const tabConnectionId = useStore((s) => selectActiveSession(s).connectionProfileId)
+  const tabConnectionId = useStore(
+    (s) => selectActiveSession(s).connectionProfileId,
+  )
   const builderHasRun = useStore((s) => selectActiveSession(s).builderHasRun)
   const workspaceRef = useRef<HTMLDivElement>(null)
   const mainRef = useRef<HTMLDivElement>(null)
   const activeResize = useRef<ActiveResize | null>(null)
-  const [sidebarWidth, setSidebarWidth] = useState(() => clampDimension(parseStoredDimension(storedDimension(SIDEBAR_STORAGE_KEY), 240), sidebarBounds(window.innerWidth)))
-  const [editorHeight, setEditorHeight] = useState(() => clampDimension(parseStoredDimension(storedDimension(EDITOR_STORAGE_KEY), 300), editorBounds(window.innerHeight - TITLEBAR_HEIGHT)))
+  const [sidebarWidth, setSidebarWidth] = useState(() =>
+    clampDimension(
+      parseStoredDimension(storedDimension(SIDEBAR_STORAGE_KEY), 240),
+      sidebarBounds(window.innerWidth),
+    ),
+  )
+  const [editorHeight, setEditorHeight] = useState(() =>
+    clampDimension(
+      parseStoredDimension(storedDimension(EDITOR_STORAGE_KEY), 300),
+      editorBounds(window.innerHeight - TITLEBAR_HEIGHT),
+    ),
+  )
 
-  useEffect(() => api.connections.onStateChanged((event: ConnectionStateEvent) => {
-    useStore.getState().applyConnectionEvent(event)
-  }), [])
+  useEffect(
+    () =>
+      api.connections.onStateChanged((event: ConnectionStateEvent) => {
+        useStore.getState().applyConnectionEvent(event)
+      }),
+    [],
+  )
 
   const tabProfile = profiles.find((profile) => profile.id === tabConnectionId)
-  const prometheusBuilder = tabProfile?.kind === 'prometheus' && mode === 'builder'
+  const prometheusBuilder =
+    tabProfile?.kind === 'prometheus' && mode === 'builder'
   const effectiveMode = prometheusBuilder ? 'sql' : mode
   // A restored tab is available before saved profiles finish loading. Do not
   // guess PostgreSQL during that gap: the profile may be a non-SQL datasource.
@@ -58,20 +81,39 @@ export function App() {
   const querySurfaceBlocked = queryProfileLoading
   const tempoWorkspace = tabProfile?.kind === 'tempo' && !querySurfaceBlocked
   const lokiWorkspace = tabProfile?.kind === 'loki' && !querySurfaceBlocked
-  const usesSqlSplitLayout = !querySurfaceBlocked && !tempoWorkspace && !lokiWorkspace && (effectiveMode === 'sql' || mode === 'builder')
+  const usesSqlSplitLayout =
+    !querySurfaceBlocked &&
+    !tempoWorkspace &&
+    !lokiWorkspace &&
+    (effectiveMode === 'sql' || mode === 'builder')
 
-  const currentSidebarBounds = useCallback(() => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth), [])
-  const currentEditorBounds = useCallback(() => editorBounds(mainRef.current?.clientHeight ?? window.innerHeight - TITLEBAR_HEIGHT), [])
-  const applySidebarWidth = useCallback((value: number) => {
-    const next = clampDimension(value, currentSidebarBounds())
-    workspaceRef.current?.style.setProperty('--sidebar-width', `${next}px`)
-    return next
-  }, [currentSidebarBounds])
-  const applyEditorHeight = useCallback((value: number) => {
-    const next = clampDimension(value, currentEditorBounds())
-    mainRef.current?.style.setProperty('--editor-height', `${next}px`)
-    return next
-  }, [currentEditorBounds])
+  const currentSidebarBounds = useCallback(
+    () => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth),
+    [],
+  )
+  const currentEditorBounds = useCallback(
+    () =>
+      editorBounds(
+        mainRef.current?.clientHeight ?? window.innerHeight - TITLEBAR_HEIGHT,
+      ),
+    [],
+  )
+  const applySidebarWidth = useCallback(
+    (value: number) => {
+      const next = clampDimension(value, currentSidebarBounds())
+      workspaceRef.current?.style.setProperty('--sidebar-width', `${next}px`)
+      return next
+    },
+    [currentSidebarBounds],
+  )
+  const applyEditorHeight = useCallback(
+    (value: number) => {
+      const next = clampDimension(value, currentEditorBounds())
+      mainRef.current?.style.setProperty('--editor-height', `${next}px`)
+      return next
+    },
+    [currentEditorBounds],
+  )
 
   useEffect(() => {
     const restoreSafeDimensions = () => {
@@ -93,83 +135,189 @@ export function App() {
 
   useEffect(() => () => activeResize.current?.finish(), [])
 
-  const beginResize = (axis: 'sidebar' | 'editor') => (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    activeResize.current?.finish()
-    const handle = event.currentTarget
-    const pointerId = event.pointerId
-    const start = axis === 'sidebar' ? event.clientX : event.clientY
-    const initial = axis === 'sidebar' ? sidebarWidth : editorHeight
-    const operation: ActiveResize = { axis, pointerId, handle, lastValid: initial, finish: () => undefined }
-    document.body.classList.add(axis === 'sidebar' ? 'resizing-column' : 'resizing-row')
-    const move = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== pointerId || activeResize.current !== operation) return
-      const delta = (axis === 'sidebar' ? moveEvent.clientX : moveEvent.clientY) - start
-      operation.lastValid = axis === 'sidebar' ? applySidebarWidth(initial + delta) : applyEditorHeight(initial + delta)
+  const beginResize =
+    (axis: 'sidebar' | 'editor') =>
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return
+      event.preventDefault()
+      activeResize.current?.finish()
+      const handle = event.currentTarget
+      const pointerId = event.pointerId
+      const start = axis === 'sidebar' ? event.clientX : event.clientY
+      const initial = axis === 'sidebar' ? sidebarWidth : editorHeight
+      const operation: ActiveResize = {
+        axis,
+        pointerId,
+        handle,
+        lastValid: initial,
+        finish: () => undefined,
+      }
+      document.body.classList.add(
+        axis === 'sidebar' ? 'resizing-column' : 'resizing-row',
+      )
+      const move = (moveEvent: PointerEvent) => {
+        if (
+          moveEvent.pointerId !== pointerId ||
+          activeResize.current !== operation
+        )
+          return
+        const delta =
+          (axis === 'sidebar' ? moveEvent.clientX : moveEvent.clientY) - start
+        operation.lastValid =
+          axis === 'sidebar'
+            ? applySidebarWidth(initial + delta)
+            : applyEditorHeight(initial + delta)
+      }
+      let finished = false
+      const finish = () => {
+        if (finished) return
+        finished = true
+        if (activeResize.current === operation) activeResize.current = null
+        document.body.classList.remove('resizing-column', 'resizing-row')
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', finish)
+        window.removeEventListener('pointercancel', finish)
+        window.removeEventListener('blur', finish)
+        handle.removeEventListener('lostpointercapture', finish)
+        if (handle.hasPointerCapture(pointerId))
+          handle.releasePointerCapture(pointerId)
+        if (axis === 'sidebar') setSidebarWidth(operation.lastValid)
+        else setEditorHeight(operation.lastValid)
+        localStorage.setItem(
+          axis === 'sidebar' ? SIDEBAR_STORAGE_KEY : EDITOR_STORAGE_KEY,
+          String(operation.lastValid),
+        )
+      }
+      operation.finish = finish
+      activeResize.current = operation
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', finish)
+      window.addEventListener('pointercancel', finish)
+      window.addEventListener('blur', finish)
+      handle.addEventListener('lostpointercapture', finish)
+      handle.setPointerCapture(pointerId)
     }
-    let finished = false
-    const finish = () => {
-      if (finished) return
-      finished = true
-      if (activeResize.current === operation) activeResize.current = null
-      document.body.classList.remove('resizing-column', 'resizing-row')
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', finish)
-      window.removeEventListener('pointercancel', finish)
-      window.removeEventListener('blur', finish)
-      handle.removeEventListener('lostpointercapture', finish)
-      if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId)
-      if (axis === 'sidebar') setSidebarWidth(operation.lastValid); else setEditorHeight(operation.lastValid)
-      localStorage.setItem(axis === 'sidebar' ? SIDEBAR_STORAGE_KEY : EDITOR_STORAGE_KEY, String(operation.lastValid))
+
+  const resizeWithKeyboard =
+    (axis: 'sidebar' | 'editor') =>
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const next = keyboardDimension(
+        axis === 'sidebar' ? sidebarWidth : editorHeight,
+        event.key,
+        axis,
+        axis === 'sidebar' ? currentSidebarBounds() : currentEditorBounds(),
+      )
+      if (next === null) return
+      event.preventDefault()
+      if (axis === 'sidebar') {
+        applySidebarWidth(next)
+        setSidebarWidth(next)
+      } else {
+        applyEditorHeight(next)
+        setEditorHeight(next)
+      }
+      localStorage.setItem(
+        axis === 'sidebar' ? SIDEBAR_STORAGE_KEY : EDITOR_STORAGE_KEY,
+        String(next),
+      )
     }
-    operation.finish = finish
-    activeResize.current = operation
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', finish)
-    window.addEventListener('pointercancel', finish)
-    window.addEventListener('blur', finish)
-    handle.addEventListener('lostpointercapture', finish)
-    handle.setPointerCapture(pointerId)
-  }
 
-  const resizeWithKeyboard = (axis: 'sidebar' | 'editor') => (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const next = keyboardDimension(axis === 'sidebar' ? sidebarWidth : editorHeight, event.key, axis,
-      axis === 'sidebar' ? currentSidebarBounds() : currentEditorBounds())
-    if (next === null) return
-    event.preventDefault()
-    if (axis === 'sidebar') { applySidebarWidth(next); setSidebarWidth(next) } else { applyEditorHeight(next); setEditorHeight(next) }
-    localStorage.setItem(axis === 'sidebar' ? SIDEBAR_STORAGE_KEY : EDITOR_STORAGE_KEY, String(next))
-  }
-
-  const editorResizeHandle = (label: string) => <div className={`editor-resizer ${styles.resizer} ${styles.editorResizer}`} role="separator" aria-label={label}
-    aria-orientation="horizontal" aria-valuemin={EDITOR_MIN} aria-valuemax={Math.max(EDITOR_MIN, currentEditorBounds().max)}
-    aria-valuenow={Math.round(editorHeight)} tabIndex={0} onPointerDown={beginResize('editor')}
-    onKeyDown={resizeWithKeyboard('editor')} />
+  const editorResizeHandle = (label: string) => (
+    <div
+      className={`editor-resizer ${styles.resizer} ${styles.editorResizer}`}
+      role="separator"
+      aria-label={label}
+      aria-orientation="horizontal"
+      aria-valuemin={EDITOR_MIN}
+      aria-valuemax={Math.max(EDITOR_MIN, currentEditorBounds().max)}
+      aria-valuenow={Math.round(editorHeight)}
+      tabIndex={0}
+      onPointerDown={beginResize('editor')}
+      onKeyDown={resizeWithKeyboard('editor')}
+    />
+  )
 
   return (
     <div className={`app ${styles.app}`}>
       <div className={`titlebar ${styles.titlebar}`}>
         <span className={styles.logo}>DataKoala</span>
         <QueryTabs className={styles.queryTabs} />
-        <div className={styles.dragSpace} data-testid="titlebar-drag-space" aria-hidden="true" />
+        <div
+          className={styles.dragSpace}
+          data-testid="titlebar-drag-space"
+          aria-hidden="true"
+        />
         <ConnectionStatus className={styles.connectionStatus} />
       </div>
 
-      <div className={`workspace ${styles.workspace}`} ref={workspaceRef} style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+      <div
+        className={`workspace ${styles.workspace}`}
+        ref={workspaceRef}
+        style={
+          { '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties
+        }
+      >
         <Sidebar />
-        <div className={`sidebar-resizer ${styles.resizer} ${styles.sidebarResizer}`} role="separator" aria-label="Resize sidebar" aria-orientation="vertical"
-          aria-valuemin={SIDEBAR_MIN} aria-valuemax={Math.max(SIDEBAR_MIN, currentSidebarBounds().max)} aria-valuenow={Math.round(sidebarWidth)}
-          tabIndex={0} onPointerDown={beginResize('sidebar')} onKeyDown={resizeWithKeyboard('sidebar')} />
+        <div
+          className={`sidebar-resizer ${styles.resizer} ${styles.sidebarResizer}`}
+          role="separator"
+          aria-label="Resize sidebar"
+          aria-orientation="vertical"
+          aria-valuemin={SIDEBAR_MIN}
+          aria-valuemax={Math.max(SIDEBAR_MIN, currentSidebarBounds().max)}
+          aria-valuenow={Math.round(sidebarWidth)}
+          tabIndex={0}
+          onPointerDown={beginResize('sidebar')}
+          onKeyDown={resizeWithKeyboard('sidebar')}
+        />
         <div className={`main-shell ${styles.mainShell}`}>
-          <div key={activeTabId} className={`main ${styles.main} ${usesSqlSplitLayout ? `sql-layout ${styles.sqlLayout}` : ''}`} ref={mainRef}
-            style={{ '--editor-height': `${editorHeight}px` } as React.CSSProperties}>
-            {queryProfileLoading ? <div className={`query-unavailable ${styles.queryUnavailable}`} role="status" aria-label="Loading connection…">Loading datasource…</div>
-              : tempoWorkspace ? <TraceExplorer connectionId={tabConnectionId!} resizeHandle={editorResizeHandle('Resize Tempo query and results')} />
-                : lokiWorkspace ? <LokiExplorer connectionId={tabConnectionId!} resizeHandle={editorResizeHandle('Resize Loki query and results')} />
-                : <>{effectiveMode === 'sql' ? <QueryEditor builderMode={prometheusBuilder} /> : <BuilderPanel />}
+          <div
+            key={activeTabId}
+            className={`main ${styles.main} ${usesSqlSplitLayout ? `sql-layout ${styles.sqlLayout}` : ''}`}
+            ref={mainRef}
+            style={
+              { '--editor-height': `${editorHeight}px` } as React.CSSProperties
+            }
+          >
+            {queryProfileLoading ? (
+              <div
+                className={`query-unavailable ${styles.queryUnavailable}`}
+                role="status"
+                aria-label="Loading connection…"
+              >
+                Loading datasource…
+              </div>
+            ) : tempoWorkspace ? (
+              <TraceExplorer
+                connectionId={tabConnectionId!}
+                resizeHandle={editorResizeHandle(
+                  'Resize Tempo query and results',
+                )}
+              />
+            ) : lokiWorkspace ? (
+              <LokiExplorer
+                connectionId={tabConnectionId!}
+                resizeHandle={editorResizeHandle(
+                  'Resize Loki query and results',
+                )}
+              />
+            ) : (
+              <>
+                {effectiveMode === 'sql' ? (
+                  <QueryEditor builderMode={prometheusBuilder} />
+                ) : (
+                  <BuilderPanel />
+                )}
                 {editorResizeHandle('Resize query and results')}
-                <ResultExplorer mode={effectiveMode} dimensionControls={effectiveMode === 'builder' ? 'external' : 'result'} hasRun={effectiveMode === 'sql' || builderHasRun}/></>}
+                <ResultExplorer
+                  mode={effectiveMode}
+                  dimensionControls={
+                    effectiveMode === 'builder' ? 'external' : 'result'
+                  }
+                  hasRun={effectiveMode === 'sql' || builderHasRun}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>

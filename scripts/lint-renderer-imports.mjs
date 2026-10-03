@@ -12,15 +12,26 @@ const rendererAliases = [
   { directory: path.join(rendererRoot, 'lib'), alias: '@lib' },
   { directory: path.join(rendererRoot, 'store'), alias: '@store' },
   { directory: path.join(rendererRoot, 'test'), alias: '@test' },
-  { directory: rendererRoot, alias: '@renderer' }
+  { directory: rendererRoot, alias: '@renderer' },
 ]
 
 const sourceExtensions = new Set(['.ts', '.tsx'])
-const vitestModuleSpecifierCalls = new Set(['mock', 'doMock', 'unmock', 'importActual', 'importMock'])
+const vitestModuleSpecifierCalls = new Set([
+  'mock',
+  'doMock',
+  'unmock',
+  'importActual',
+  'importMock',
+])
 
 function isWithin(parent, candidate) {
   const relative = path.relative(parent, candidate)
-  return relative === '' || (!relative.startsWith('..' + path.sep) && relative !== '..' && !path.isAbsolute(relative))
+  return (
+    relative === '' ||
+    (!relative.startsWith('..' + path.sep) &&
+      relative !== '..' &&
+      !path.isAbsolute(relative))
+  )
 }
 
 function aliasForTarget(target) {
@@ -89,7 +100,7 @@ async function sourceFiles(directory) {
   for (const entry of entries) {
     const absolute = path.join(directory, entry.name)
     if (entry.isDirectory()) {
-      files.push(...await sourceFiles(absolute))
+      files.push(...(await sourceFiles(absolute)))
     } else if (
       entry.isFile() &&
       sourceExtensions.has(path.extname(entry.name)) &&
@@ -112,7 +123,7 @@ for (const file of files) {
     source,
     ts.ScriptTarget.Latest,
     true,
-    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   )
 
   const replacements = []
@@ -123,7 +134,9 @@ for (const file of files) {
 
     const target = path.resolve(path.dirname(file), specifier)
     const suggested = aliasForTarget(target)
-    const position = sourceFile.getLineAndCharacterOfPosition(literal.getStart(sourceFile))
+    const position = sourceFile.getLineAndCharacterOfPosition(
+      literal.getStart(sourceFile),
+    )
     const relativeFile = path.relative(repositoryRoot, file)
 
     violations.push({
@@ -131,14 +144,14 @@ for (const file of files) {
       line: position.line + 1,
       column: position.character + 1,
       specifier,
-      suggested
+      suggested,
     })
 
     if (fix && suggested) {
       replacements.push({
         start: literal.getStart(sourceFile) + 1,
         end: literal.getEnd() - 1,
-        text: suggested
+        text: suggested,
       })
     }
   }
@@ -146,7 +159,10 @@ for (const file of files) {
   if (fix && replacements.length) {
     let updated = source
     for (const replacement of replacements.sort((a, b) => b.start - a.start)) {
-      updated = updated.slice(0, replacement.start) + replacement.text + updated.slice(replacement.end)
+      updated =
+        updated.slice(0, replacement.start) +
+        replacement.text +
+        updated.slice(replacement.end)
     }
     await writeFile(file, updated)
   }
@@ -159,22 +175,34 @@ if (!violations.length) {
 
 for (const violation of violations) {
   const suggestion = violation.suggested ? ` -> ${violation.suggested}` : ''
-  console.log(`${violation.file}:${violation.line}:${violation.column} ${violation.specifier}${suggestion}`)
+  console.log(
+    `${violation.file}:${violation.line}:${violation.column} ${violation.specifier}${suggestion}`,
+  )
 }
 
 if (fix) {
   const fixable = violations.filter((violation) => violation.suggested).length
   const remaining = violations.length - fixable
-  console.log(`\nRewrote ${fixable} parent-relative import${fixable === 1 ? '' : 's'}.`)
+  console.log(
+    `\nRewrote ${fixable} parent-relative import${fixable === 1 ? '' : 's'}.`,
+  )
   if (remaining) {
-    console.error(`${remaining} import${remaining === 1 ? '' : 's'} could not be mapped to a configured alias.`)
+    console.error(
+      `${remaining} import${remaining === 1 ? '' : 's'} could not be mapped to a configured alias.`,
+    )
     process.exit(1)
   }
   console.log('Run pnpm lint:imports again to verify the result.')
   process.exit(0)
 }
 
-console.error(`\nFound ${violations.length} parent-relative import${violations.length === 1 ? '' : 's'}.`)
-console.error('Use same-folder/child relative imports (./...) or a renderer alias.')
-console.error('Run pnpm lint:imports:fix to rewrite imports that map to a configured alias.')
+console.error(
+  `\nFound ${violations.length} parent-relative import${violations.length === 1 ? '' : 's'}.`,
+)
+console.error(
+  'Use same-folder/child relative imports (./...) or a renderer alias.',
+)
+console.error(
+  'Run pnpm lint:imports:fix to rewrite imports that map to a configured alias.',
+)
 process.exit(1)

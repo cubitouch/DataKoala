@@ -1,43 +1,69 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { QueryResult } from '@shared/types'
 import { ResultsTable } from './ResultsTable'
 import styles from './ResultsTable.module.css'
 
-const resultsTableCss = readFileSync('src/renderer/src/components/results/ResultsTable.module.css', 'utf8')
+const resultsTableCss = readFileSync(
+  'src/renderer/src/components/results/ResultsTable.module.css',
+  'utf8',
+)
 const longValue = `row-0-${'complete-value-'.repeat(40)}`
 
 const saveText = vi.hoisted(() => vi.fn())
 vi.mock('@lib/api', () => ({ api: { export: { saveText } } }))
-const controlledProps = { running: false, error: null, onAddFilter: vi.fn(), onRemoveFilter: vi.fn(), onClearFilters: vi.fn() }
+const controlledProps = {
+  running: false,
+  error: null,
+  onAddFilter: vi.fn(),
+  onRemoveFilter: vi.fn(),
+  onClearFilters: vi.fn(),
+}
 
 const largeResult: QueryResult = {
   columns: [
     { name: 'id', dataTypeID: 23, dataTypeName: 'int4' },
-    { name: 'label', dataTypeID: 25, dataTypeName: 'text' }
+    { name: 'label', dataTypeID: 25, dataTypeName: 'text' },
   ],
-  rows: Array.from({ length: 1500 }, (_, id) => ({ id, label: id === 0 ? longValue : `row-${id}` })),
+  rows: Array.from({ length: 1500 }, (_, id) => ({
+    id,
+    label: id === 0 ? longValue : `row-${id}`,
+  })),
   rowCount: 1500,
-  durationMs: 4
+  durationMs: 4,
 }
 
 function arrange() {
-  return render(<ResultsTable
-    {...controlledProps}
-    mode="sql"
-    rawResult={largeResult}
-    filteredResult={{ ...largeResult, originalRowCount: largeResult.rowCount, filteredRowCount: largeResult.rowCount }}
-    activeFilters={[]}
-    resultRevision={1}
-  />)
+  return render(
+    <ResultsTable
+      {...controlledProps}
+      mode="sql"
+      rawResult={largeResult}
+      filteredResult={{
+        ...largeResult,
+        originalRowCount: largeResult.rowCount,
+        filteredRowCount: largeResult.rowCount,
+      }}
+      activeFilters={[]}
+      resultRevision={1}
+    />,
+  )
 }
 
 afterEach(() => {
   cleanup()
   saveText.mockReset()
-  Object.values(controlledProps).forEach((value) => typeof value === 'function' && value.mockReset())
+  Object.values(controlledProps).forEach(
+    (value) => typeof value === 'function' && value.mockReset(),
+  )
 })
 
 describe('ResultsTable virtualization', () => {
@@ -47,10 +73,22 @@ describe('ResultsTable virtualization', () => {
     const value = screen.getByText(longValue)
     expect(value.classList.contains(styles.cellValue)).toBe(true)
     expect(value.textContent).toBe(longValue)
-    expect(resultsTableCss).toMatch(/\.cellValue\s*\{[^}]*user-select:\s*text\s*;/)
-    expect(resultsTableCss).toMatch(/\.cellActions\s*\{[^}]*user-select:\s*none\s*;/)
-    expect(screen.getByRole('columnheader', { name: /label/ }).classList.contains(styles.cellValue)).toBe(false)
-    expect(screen.getByRole('button', { name: 'Export CSV' }).classList.contains(styles.cellValue)).toBe(false)
+    expect(resultsTableCss).toMatch(
+      /\.cellValue\s*\{[^}]*user-select:\s*text\s*;/,
+    )
+    expect(resultsTableCss).toMatch(
+      /\.cellActions\s*\{[^}]*user-select:\s*none\s*;/,
+    )
+    expect(
+      screen
+        .getByRole('columnheader', { name: /label/ })
+        .classList.contains(styles.cellValue),
+    ).toBe(false)
+    expect(
+      screen
+        .getByRole('button', { name: 'Export CSV' })
+        .classList.contains(styles.cellValue),
+    ).toBe(false)
   })
 
   it('keeps long-value caps until explicit column sizing is activated', () => {
@@ -58,25 +96,44 @@ describe('ResultsTable virtualization', () => {
     arrange()
     const table = document.querySelector('table')
     const header = screen.getByRole('columnheader', { name: /label/ })
-    vi.spyOn(screen.getByRole('columnheader', { name: /id/ }), 'getBoundingClientRect').mockReturnValue({ width: 120 } as DOMRect)
-    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({ width: 240 } as DOMRect)
+    vi.spyOn(
+      screen.getByRole('columnheader', { name: /id/ }),
+      'getBoundingClientRect',
+    ).mockReturnValue({ width: 120 } as DOMRect)
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({
+      width: 240,
+    } as DOMRect)
 
     expect(table?.classList.contains(styles.resizedTable)).toBe(false)
-    expect(resultsTableCss).toMatch(/\.table th,\s*\.table td\s*\{[^}]*max-width:\s*320px/)
+    expect(resultsTableCss).toMatch(
+      /\.table th,\s*\.table td\s*\{[^}]*max-width:\s*320px/,
+    )
     expect(resultsTableCss).toMatch(/\.cellValue\s*\{[^}]*max-width:\s*290px/)
 
-    fireEvent.pointerDown(screen.getByRole('separator', { name: 'Resize label column' }), { pointerId: 1, clientX: 100 })
+    fireEvent.pointerDown(
+      screen.getByRole('separator', { name: 'Resize label column' }),
+      { pointerId: 1, clientX: 100 },
+    )
 
     expect(table?.classList.contains(styles.resizedTable)).toBe(true)
-    expect(resultsTableCss).toMatch(/\.resizedTable th,\s*\.resizedTable td,\s*\.resizedTable \.cellValue\s*\{\s*max-width:\s*none/)
+    expect(resultsTableCss).toMatch(
+      /\.resizedTable th,\s*\.resizedTable td,\s*\.resizedTable \.cellValue\s*\{\s*max-width:\s*none/,
+    )
   })
 
   it('keeps the mounted row count bounded and can navigate beyond row 1,000', () => {
     arrange()
-    expect(screen.getByRole('textbox', { name: 'Filter rows' }).closest('[data-field]')?.getAttribute('data-label-visibility')).toBe('sr-only')
+    expect(
+      screen
+        .getByRole('textbox', { name: 'Filter rows' })
+        .closest('[data-field]')
+        ?.getAttribute('data-label-visibility'),
+    ).toBe('sr-only')
     const scroll = document.querySelector<HTMLElement>('[data-result-scroll]')
     expect(scroll).toBeTruthy()
-    expect(document.querySelectorAll('[data-result-row-index]').length).toBeLessThan(100)
+    expect(
+      document.querySelectorAll('[data-result-row-index]').length,
+    ).toBeLessThan(100)
     expect(screen.queryByText('row-1200')).toBeNull()
 
     if (!scroll) return
@@ -84,7 +141,9 @@ describe('ResultsTable virtualization', () => {
     fireEvent.scroll(scroll)
 
     expect(screen.getByText('row-1200')).toBeTruthy()
-    expect(document.querySelectorAll('[data-result-row-index]').length).toBeLessThan(100)
+    expect(
+      document.querySelectorAll('[data-result-row-index]').length,
+    ).toBeLessThan(100)
     expect(screen.queryByText(/Showing first 1000/)).toBeNull()
   })
 
@@ -92,8 +151,12 @@ describe('ResultsTable virtualization', () => {
     window.PointerEvent = MouseEvent as typeof PointerEvent
     arrange()
     const headers = screen.getAllByRole('columnheader')
-    vi.spyOn(headers[0], 'getBoundingClientRect').mockReturnValue({ width: 120 } as DOMRect)
-    vi.spyOn(headers[1], 'getBoundingClientRect').mockReturnValue({ width: 240 } as DOMRect)
+    vi.spyOn(headers[0], 'getBoundingClientRect').mockReturnValue({
+      width: 120,
+    } as DOMRect)
+    vi.spyOn(headers[1], 'getBoundingClientRect').mockReturnValue({
+      width: 240,
+    } as DOMRect)
     const handle = screen.getByRole('separator', { name: 'Resize id column' })
 
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 100 })
@@ -104,16 +167,22 @@ describe('ResultsTable virtualization', () => {
     expect(columns).toHaveLength(2)
     expect((columns[0] as HTMLElement).style.width).toBe('200px')
     expect((columns[1] as HTMLElement).style.width).toBe('240px')
-    expect(document.querySelector<HTMLTableElement>('table')?.style.width).toBe('440px')
+    expect(document.querySelector<HTMLTableElement>('table')?.style.width).toBe(
+      '440px',
+    )
     expect(headers[0].textContent).not.toContain('▲')
-    expect(document.querySelectorAll('[data-result-row-index]').length).toBeLessThan(100)
+    expect(
+      document.querySelectorAll('[data-result-row-index]').length,
+    ).toBeLessThan(100)
   })
 
   it('clamps resized columns at the minimum and maximum widths', () => {
     window.PointerEvent = MouseEvent as typeof PointerEvent
     arrange()
     const header = screen.getByRole('columnheader', { name: /id/ })
-    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({ width: 160 } as DOMRect)
+    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({
+      width: 160,
+    } as DOMRect)
     const handle = screen.getByRole('separator', { name: 'Resize id column' })
 
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 200 })
@@ -121,7 +190,9 @@ describe('ResultsTable virtualization', () => {
     expect(document.querySelector<HTMLElement>('col')?.style.width).toBe('80px')
 
     fireEvent.pointerMove(handle, { pointerId: 1, clientX: 2000 })
-    expect(document.querySelector<HTMLElement>('col')?.style.width).toBe('720px')
+    expect(document.querySelector<HTMLElement>('col')?.style.width).toBe(
+      '720px',
+    )
     fireEvent.pointerCancel(handle, { pointerId: 1 })
   })
 
@@ -130,9 +201,13 @@ describe('ResultsTable virtualization', () => {
     const idHeader = screen.getByRole('columnheader', { name: /id/ })
     fireEvent.click(idHeader)
     fireEvent.click(idHeader)
-    expect(document.querySelector('[data-result-row-index="0"]')?.textContent).toContain('1499')
+    expect(
+      document.querySelector('[data-result-row-index="0"]')?.textContent,
+    ).toContain('1499')
 
-    fireEvent.change(screen.getByPlaceholderText('filter rows…'), { target: { value: 'row-1499' } })
+    fireEvent.change(screen.getByPlaceholderText('filter rows…'), {
+      target: { value: 'row-1499' },
+    })
     expect(screen.getByText('row-1499')).toBeTruthy()
     expect(screen.getByText(/1 of 1500 rows/)).toBeTruthy()
   })
@@ -152,25 +227,34 @@ describe('ResultsTable duplicate columns', () => {
     const result: QueryResult = {
       columns: [
         { name: 'id', dataTypeID: 25, dataTypeName: 'text' },
-        { name: 'id', key: '__datakoala_column_1', dataTypeID: 25, dataTypeName: 'text' }
+        {
+          name: 'id',
+          key: '__datakoala_column_1',
+          dataTypeID: 25,
+          dataTypeName: 'text',
+        },
       ],
       rows: [{ id: 'A', __datakoala_column_1: 'B' }],
       rowCount: 1,
-      durationMs: 1
+      durationMs: 1,
     }
-    render(<ResultsTable
-      {...controlledProps}
-      mode="sql"
-      rawResult={result}
-      filteredResult={{ ...result, originalRowCount: 1, filteredRowCount: 1 }}
-      activeFilters={[]}
-      resultRevision={1}
-    />)
+    render(
+      <ResultsTable
+        {...controlledProps}
+        mode="sql"
+        rawResult={result}
+        filteredResult={{ ...result, originalRowCount: 1, filteredRowCount: 1 }}
+        activeFilters={[]}
+        resultRevision={1}
+      />,
+    )
 
     expect(screen.getAllByRole('columnheader', { name: /id/ })).toHaveLength(2)
     expect(screen.getByText('A')).toBeTruthy()
     expect(screen.getByText('B')).toBeTruthy()
-    fireEvent.change(screen.getByPlaceholderText('filter rows…'), { target: { value: 'B' } })
+    fireEvent.change(screen.getByPlaceholderText('filter rows…'), {
+      target: { value: 'B' },
+    })
     expect(screen.getByText('B')).toBeTruthy()
   })
 })

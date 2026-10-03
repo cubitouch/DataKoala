@@ -27,22 +27,30 @@ function timestamp(value: unknown): number | null {
 export function effectiveChartTimeDomain(
   chartTimeDomain: ChartTimeDomain | null | undefined,
   filters: readonly ResultFilter[],
-  xColumn: string | null | undefined
+  xColumn: string | null | undefined,
 ): ChartTimeDomain | null | undefined {
   if (!xColumn) return chartTimeDomain
 
   const ranges = filters.flatMap((filter) => {
-    if (filter.column !== xColumn || filter.operator !== 'range' || filter.execution === 'query') return []
+    if (
+      filter.column !== xColumn ||
+      filter.operator !== 'range' ||
+      filter.execution === 'query'
+    )
+      return []
     const min = timestamp(filter.startInclusive)
     const max = timestamp(filter.endExclusive)
     return min !== null && max !== null && min < max ? [{ min, max }] : []
   })
   if (!ranges.length) return chartTimeDomain
 
-  const intersection = ranges.reduce<ChartTimeDomain>((domain, range) => ({
-    min: Math.max(domain.min, range.min),
-    max: Math.min(domain.max, range.max)
-  }), chartTimeDomain ?? ranges[0])
+  const intersection = ranges.reduce<ChartTimeDomain>(
+    (domain, range) => ({
+      min: Math.max(domain.min, range.min),
+      max: Math.min(domain.max, range.max),
+    }),
+    chartTimeDomain ?? ranges[0],
+  )
 
   return intersection.min < intersection.max ? intersection : chartTimeDomain
 }
@@ -54,14 +62,16 @@ export function effectiveChartTimeDomain(
  */
 export function expandChartTimeDomainToValues(
   chartTimeDomain: ChartTimeDomain | null | undefined,
-  values: readonly unknown[]
+  values: readonly unknown[],
 ): ChartTimeDomain | null | undefined {
   if (!chartTimeDomain || !values.length) return chartTimeDomain
-  const timestamps = values.map(timestamp).filter((value): value is number => value !== null)
+  const timestamps = values
+    .map(timestamp)
+    .filter((value): value is number => value !== null)
   if (!timestamps.length) return chartTimeDomain
   return {
     min: Math.min(chartTimeDomain.min, ...timestamps),
-    max: Math.max(chartTimeDomain.max, ...timestamps)
+    max: Math.max(chartTimeDomain.max, ...timestamps),
   }
 }
 
@@ -69,8 +79,17 @@ export function isTemporalChartValues(values: readonly unknown[]): boolean {
   return values.length > 0 && values.every((value) => timestamp(value) !== null)
 }
 
-function selectedIndex(value: unknown, values: readonly unknown[]): number | null {
-  if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < values.length) return value
+function selectedIndex(
+  value: unknown,
+  values: readonly unknown[],
+): number | null {
+  if (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value < values.length
+  )
+    return value
   const target = timestamp(value)
   if (target === null) return null
   const index = values.findIndex((candidate) => timestamp(candidate) === target)
@@ -85,7 +104,7 @@ function selectedIndex(value: unknown, values: readonly unknown[]): number | nul
 export function chartTimeSelectionRange(
   coordRange: readonly unknown[],
   xValues: readonly unknown[],
-  bucket?: TimeBucket
+  bucket?: TimeBucket,
 ): ChartTimeSelectionRange | null {
   if (coordRange.length < 2 || !isTemporalChartValues(xValues)) return null
 
@@ -98,7 +117,10 @@ export function chartTimeSelectionRange(
     if (firstMs === null || lastMs === null || firstMs === lastMs) return null
     const startMs = Math.min(firstMs, lastMs)
     const endMs = Math.max(firstMs, lastMs)
-    return { startInclusive: new Date(startMs).toISOString(), endExclusive: new Date(endMs).toISOString() }
+    return {
+      startInclusive: new Date(startMs).toISOString(),
+      endExclusive: new Date(endMs).toISOString(),
+    }
   }
 
   const startIndex = Math.min(firstIndex, lastIndex)
@@ -110,10 +132,18 @@ export function chartTimeSelectionRange(
   if (bucket) {
     const endBucket = timeBucketRange(xValues[endIndex], bucket)
     if (!endBucket) return null
-    return { startInclusive: new Date(startMs).toISOString(), endExclusive: endBucket.endExclusive }
+    return {
+      startInclusive: new Date(startMs).toISOString(),
+      endExclusive: endBucket.endExclusive,
+    }
   }
 
-  const nextMs = endIndex + 1 < xValues.length ? timestamp(xValues[endIndex + 1]) : null
-  const endExclusiveMs = nextMs !== null && nextMs > selectedEndMs ? nextMs : selectedEndMs + 1
-  return { startInclusive: new Date(startMs).toISOString(), endExclusive: new Date(endExclusiveMs).toISOString() }
+  const nextMs =
+    endIndex + 1 < xValues.length ? timestamp(xValues[endIndex + 1]) : null
+  const endExclusiveMs =
+    nextMs !== null && nextMs > selectedEndMs ? nextMs : selectedEndMs + 1
+  return {
+    startInclusive: new Date(startMs).toISOString(),
+    endExclusive: new Date(endExclusiveMs).toISOString(),
+  }
 }

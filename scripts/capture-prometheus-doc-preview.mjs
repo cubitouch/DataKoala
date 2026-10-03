@@ -4,24 +4,36 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
-const outputDir = resolve(process.env.DATAKOALA_PREVIEW_OUTPUT ?? outputArgument ?? 'visual-preview')
+const outputArgument = process.argv
+  .slice(2)
+  .find((argument) => !argument.endsWith('.mjs'))
+const outputDir = resolve(
+  process.env.DATAKOALA_PREVIEW_OUTPUT ?? outputArgument ?? 'visual-preview',
+)
 
 process.env.DATAKOALA_SMOKE = '1'
 
-const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
+const sleep = (ms) =>
+  new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 
 async function waitFor(win, expression, description, attempts = 80) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    if (await win.webContents.executeJavaScript(`Boolean(${expression})`)) return
+    if (await win.webContents.executeJavaScript(`Boolean(${expression})`))
+      return
     await sleep(100)
   }
-  const body = await win.webContents.executeJavaScript(`(document.body.innerText || '').slice(0, 1600)`)
-  throw new Error(`Timed out waiting for ${description}. Renderer text: ${body}`)
+  const body = await win.webContents.executeJavaScript(
+    `(document.body.innerText || '').slice(0, 1600)`,
+  )
+  throw new Error(
+    `Timed out waiting for ${description}. Renderer text: ${body}`,
+  )
 }
 
 async function capture(win, filename) {
-  await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+  await win.webContents.executeJavaScript(
+    `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
+  )
   await sleep(500)
   const image = await win.webContents.capturePage()
   const path = resolve(outputDir, filename)
@@ -137,27 +149,55 @@ async function seedPrometheusWorkspace(win) {
   })()`)
 
   if (report?.error) throw new Error(report.error)
-  if (report?.rows !== 50) throw new Error(`Unexpected Prometheus preview row count: ${JSON.stringify(report)}`)
+  if (report?.rows !== 50)
+    throw new Error(
+      `Unexpected Prometheus preview row count: ${JSON.stringify(report)}`,
+    )
   const now = Date.now()
-  if (report.firstTimestamp < now - 6 * 60 * 60 * 1000 || report.lastTimestamp > now) {
-    throw new Error(`Prometheus documentation fixture escaped its selected six-hour range: ${JSON.stringify(report)}`)
+  if (
+    report.firstTimestamp < now - 6 * 60 * 60 * 1000 ||
+    report.lastTimestamp > now
+  ) {
+    throw new Error(
+      `Prometheus documentation fixture escaped its selected six-hour range: ${JSON.stringify(report)}`,
+    )
   }
 
-  await waitFor(win,
+  await waitFor(
+    win,
     `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && document.querySelector('.promql-builder-form') && document.body.innerText.includes('http_request_duration_seconds_bucket')`,
-    'configured Prometheus Builder')
-  await waitFor(win,
+    'configured Prometheus Builder',
+  )
+  await waitFor(
+    win,
     `document.querySelector('[data-result-chart-canvas] canvas') && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Line' && document.body.innerText.includes('Last 6 hours')`,
-    'rendered Prometheus line result')
+    'rendered Prometheus line result',
+  )
 
-  await waitFor(win, `document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'Prometheus metric tree')
+  await waitFor(
+    win,
+    `document.body.innerText.includes('http_request_duration_seconds_bucket')`,
+    'Prometheus metric tree',
+  )
 }
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
-  ipcMain.handle('connections:prometheus:metric-labels', async () => ['environment', 'service'])
-  ipcMain.handle('connections:prometheus:label-values', async (_event, _connectionId, _metric, label) => label === 'environment' ? ['production'] : ['api', 'worker'])
-  ipcMain.handle('query:run', async () => ({ columns: [], rows: [], rowCount: 0, durationMs: 0 }))
+  ipcMain.handle('connections:prometheus:metric-labels', async () => [
+    'environment',
+    'service',
+  ])
+  ipcMain.handle(
+    'connections:prometheus:label-values',
+    async (_event, _connectionId, _metric, label) =>
+      label === 'environment' ? ['production'] : ['api', 'worker'],
+  )
+  ipcMain.handle('query:run', async () => ({
+    columns: [],
+    rows: [],
+    rowCount: 0,
+    durationMs: 0,
+  }))
 
   const win = new BrowserWindow({
     width: 1440,
@@ -168,14 +208,18 @@ app.whenReady().then(async () => {
       preload: resolve(root, 'out/preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
-    }
+      sandbox: false,
+    },
   })
 
   try {
     await mkdir(outputDir, { recursive: true })
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
-    await waitFor(win, `document.getElementById('root')?.children.length && window.__datakoalaStore`, 'renderer and store')
+    await waitFor(
+      win,
+      `document.getElementById('root')?.children.length && window.__datakoalaStore`,
+      'renderer and store',
+    )
     await seedPrometheusWorkspace(win)
     await capture(win, 'docs-prometheus.png')
     app.exit(0)

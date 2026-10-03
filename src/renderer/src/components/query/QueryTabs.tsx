@@ -15,7 +15,10 @@ export function QueryTabs({ className }: QueryTabsProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [draftTitle, setDraftTitle] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const profileNames = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.name])), [profiles])
+  const profileNames = useMemo(
+    () => new Map(profiles.map((profile) => [profile.id, profile.name])),
+    [profiles],
+  )
 
   useEffect(() => {
     if (renamingId) inputRef.current?.select()
@@ -26,11 +29,20 @@ export function QueryTabs({ className }: QueryTabsProps) {
     useStore.setState({ activeTabId: id })
   }
 
-  const close = useCallback((id: string) => {
-    const closing = tabs.find((tab) => tab.id === id)
-    if (closing?.running && !window.confirm('This query is still running. Close the tab and stop waiting for its result?')) return
-    closeTab(id)
-  }, [closeTab, tabs])
+  const close = useCallback(
+    (id: string) => {
+      const closing = tabs.find((tab) => tab.id === id)
+      if (
+        closing?.running &&
+        !window.confirm(
+          'This query is still running. Close the tab and stop waiting for its result?',
+        )
+      )
+        return
+      closeTab(id)
+    },
+    [closeTab, tabs],
+  )
 
   const beginRename = (id: string, title: string) => {
     setRenamingId(id)
@@ -56,24 +68,85 @@ export function QueryTabs({ className }: QueryTabsProps) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [close, createTab])
 
-  return <div className={`${styles.root}${className ? ` ${className}` : ''}`} role="tablist" aria-label="Query tabs">
+  return (
+    <div
+      className={`${styles.root}${className ? ` ${className}` : ''}`}
+      role="tablist"
+      aria-label="Query tabs"
+    >
       {tabs.map((tab) => {
         const selected = tab.id === activeTabId
-        const connectionName = tab.connectionProfileId ? profileNames.get(tab.connectionProfileId) : null
-        return <div key={tab.id} className={`${styles.tab} ${selected ? styles.active : ''}`} role="tab" aria-selected={selected}>
-          <button className={styles.main} onClick={() => switchTo(tab.id)} onDoubleClick={() => beginRename(tab.id, tab.title)} title={`${tab.title}${connectionName ? ` — ${connectionName}` : ''}`}>
-            {tab.running && <span className={styles.running} aria-label="Query running" />}
-            {renamingId === tab.id ? <span className={styles.renameInput}><TextInput label="Tab name" labelVisibility="sr-only" mode="inline" ref={inputRef} value={draftTitle}
-              onClick={(event) => event.stopPropagation()} onValueChange={setDraftTitle}
-              onBlur={finishRename} onKeyDown={(event) => {
-                if (event.key === 'Enter') { event.preventDefault(); finishRename() }
-                if (event.key === 'Escape') { event.preventDefault(); setRenamingId(null) }
-              }} /></span> : <span className={styles.title}>{tab.title}</span>}
-            {connectionName && <span className={styles.connection}>{connectionName}</span>}
-          </button>
-          <button className={styles.close} aria-label={`Close ${tab.title}`} title="Close tab (⌘/Ctrl+W)" onClick={(event) => { event.stopPropagation(); close(tab.id) }}>×</button>
-        </div>
+        const connectionName = tab.connectionProfileId
+          ? profileNames.get(tab.connectionProfileId)
+          : null
+        return (
+          <div
+            key={tab.id}
+            className={`${styles.tab} ${selected ? styles.active : ''}`}
+            role="tab"
+            aria-selected={selected}
+          >
+            <button
+              className={styles.main}
+              onClick={() => switchTo(tab.id)}
+              onDoubleClick={() => beginRename(tab.id, tab.title)}
+              title={`${tab.title}${connectionName ? ` — ${connectionName}` : ''}`}
+            >
+              {tab.running && (
+                <span className={styles.running} aria-label="Query running" />
+              )}
+              {renamingId === tab.id ? (
+                <span className={styles.renameInput}>
+                  <TextInput
+                    label="Tab name"
+                    labelVisibility="sr-only"
+                    mode="inline"
+                    ref={inputRef}
+                    value={draftTitle}
+                    onClick={(event) => event.stopPropagation()}
+                    onValueChange={setDraftTitle}
+                    onBlur={finishRename}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        finishRename()
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        setRenamingId(null)
+                      }
+                    }}
+                  />
+                </span>
+              ) : (
+                <span className={styles.title}>{tab.title}</span>
+              )}
+              {connectionName && (
+                <span className={styles.connection}>{connectionName}</span>
+              )}
+            </button>
+            <button
+              className={styles.close}
+              aria-label={`Close ${tab.title}`}
+              title="Close tab (⌘/Ctrl+W)"
+              onClick={(event) => {
+                event.stopPropagation()
+                close(tab.id)
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )
       })}
-      <button className={styles.add} aria-label="New query tab" title="New query tab (⌘/Ctrl+T)" onClick={() => createTab()}>+</button>
-  </div>
+      <button
+        className={styles.add}
+        aria-label="New query tab"
+        title="New query tab (⌘/Ctrl+T)"
+        onClick={() => createTab()}
+      >
+        +
+      </button>
+    </div>
+  )
 }

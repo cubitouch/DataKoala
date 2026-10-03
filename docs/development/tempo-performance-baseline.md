@@ -36,15 +36,15 @@ per invocation; do not interpret sums across overlapping windows as unique work.
 
 ## Recording template
 
-| Scenario | First useful result | Final UI | gcx calls | gcx wall | Parse | Normalize | Root enrichment | Rows/spans | Inspected bytes | Notes |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Sample 250 / 1h | | | | | | | | | | |
-| Sample 100 / 1h | | | | | | | | | | |
-| Sample 500 / 1h | | | | | | | | | | |
-| All / representative range | | | | | | | | | | |
-| Normal trace from search | n/a | | | | | | n/a | | | |
-| Large trace from search | n/a | | | | | | n/a | | | |
-| Direct pasted trace ID | n/a | | | | | | n/a | | | |
+| Scenario                   | First useful result | Final UI | gcx calls | gcx wall | Parse | Normalize | Root enrichment | Rows/spans | Inspected bytes | Notes |
+| -------------------------- | ------------------: | -------: | --------: | -------: | ----: | --------: | --------------: | ---------: | --------------: | ----- |
+| Sample 250 / 1h            |                     |          |           |          |       |           |                 |            |                 |       |
+| Sample 100 / 1h            |                     |          |           |          |       |           |                 |            |                 |       |
+| Sample 500 / 1h            |                     |          |           |          |       |           |                 |            |                 |       |
+| All / representative range |                     |          |           |          |       |           |                 |            |                 |       |
+| Normal trace from search   |                 n/a |          |           |          |       |           |             n/a |            |                 |       |
+| Large trace from search    |                 n/a |          |           |          |       |           |             n/a |            |                 |       |
+| Direct pasted trace ID     |                 n/a |          |           |          |       |           |             n/a |            |                 |       |
 
 For searches also record `inspectedTraces`, `totalBlocks`, `completedJobs`, and
 `totalJobs` where provided.

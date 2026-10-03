@@ -3,14 +3,31 @@ import { TITLEBAR_HEIGHT } from '@shared/layoutDimensions'
 import { Combobox } from '@components/ui/combobox'
 import { TextInput } from '@components/ui/TextInput'
 import { notify } from '@components/ui/feedback/NotificationArea'
-import type { TraceCohortAggregate, TraceCohortAnalysisProgress, TraceCohortEdge, TraceCohortNode, TraceCohortTraceSummary } from '@lib/traceCohort'
-import { groupTraceServiceMap, type TraceServiceMapGrouping, type TraceServiceMapViewEdge, type TraceServiceMapViewNode } from '@lib/traceServiceMapGrouping'
+import type {
+  TraceCohortAggregate,
+  TraceCohortAnalysisProgress,
+  TraceCohortEdge,
+  TraceCohortNode,
+  TraceCohortTraceSummary,
+} from '@lib/traceCohort'
+import {
+  groupTraceServiceMap,
+  type TraceServiceMapGrouping,
+  type TraceServiceMapViewEdge,
+  type TraceServiceMapViewNode,
+} from '@lib/traceServiceMapGrouping'
 import { projectTraceServiceMap } from '@lib/traceServiceMapProjection'
-import { scopeTraceServiceMap, type TraceServiceMapScope } from '@lib/traceServiceMapScope'
+import {
+  scopeTraceServiceMap,
+  type TraceServiceMapScope,
+} from '@lib/traceServiceMapScope'
 import { api } from '@lib/api'
 import { copyChartPng } from '@lib/chartImage'
 import { createServiceMapExcalidrawClipboard } from '@lib/traceServiceMapExport'
-import { TraceServiceMapCanvas, type TraceServiceMapCanvasHandle } from './TraceServiceMapCanvas'
+import {
+  TraceServiceMapCanvas,
+  type TraceServiceMapCanvasHandle,
+} from './TraceServiceMapCanvas'
 import styles from './TraceServiceMap.module.css'
 
 interface TraceServiceMapProps {
@@ -30,26 +47,28 @@ type Selection = { kind: 'edge'; key: string } | { kind: 'node'; key: string }
 const SAMPLE_OPTIONS = [
   { value: '50', label: 'Up to 50 traces' },
   { value: '100', label: 'Up to 100 traces' },
-  { value: '250', label: 'Up to 250 traces' }
+  { value: '250', label: 'Up to 250 traces' },
 ]
 
 const BRANCH_SCOPE_OPTIONS = [
   { value: 'all', label: 'Entire transaction' },
   { value: 'main', label: 'Main transaction' },
-  { value: 'async', label: 'Async branches' }
+  { value: 'async', label: 'Async branches' },
 ]
 
 const GROUPING_OPTIONS = [
   { value: 'none', label: 'No grouping' },
-  { value: 'namespace', label: 'Namespace / system' }
+  { value: 'namespace', label: 'Namespace / system' },
 ]
 
 const DENSE_GRAPH_NODE_THRESHOLD = 24
 const TOP_BOTTLENECK_LIMIT = 10
 
 function durationLabel(milliseconds: number): string {
-  if (milliseconds >= 1_000) return `${(milliseconds / 1_000).toFixed(milliseconds >= 10_000 ? 1 : 2)}s`
-  if (milliseconds >= 1) return `${milliseconds.toFixed(milliseconds >= 100 ? 0 : 1)}ms`
+  if (milliseconds >= 1_000)
+    return `${(milliseconds / 1_000).toFixed(milliseconds >= 10_000 ? 1 : 2)}s`
+  if (milliseconds >= 1)
+    return `${milliseconds.toFixed(milliseconds >= 100 ? 0 : 1)}ms`
   return `${Math.max(0, milliseconds * 1_000).toFixed(0)}µs`
 }
 
@@ -62,7 +81,13 @@ function numberLabel(value: number): string {
 }
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character)
+  return value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[
+        character
+      ] ?? character,
+  )
 }
 
 function palette() {
@@ -76,10 +101,11 @@ function palette() {
       border: '#516666',
       text: '#fff9f1',
       mute: '#617f7f',
-      red: '#f87171'
+      red: '#f87171',
     }
   const root = getComputedStyle(document.documentElement)
-  const read = (name: string, fallback: string) => root.getPropertyValue(name).trim() || fallback
+  const read = (name: string, fallback: string) =>
+    root.getPropertyValue(name).trim() || fallback
   return {
     accent: read('--accent', '#f5cf33'),
     accent2: read('--accent-2', '#ffe0a7'),
@@ -89,7 +115,7 @@ function palette() {
     border: read('--border', '#516666'),
     text: read('--text', '#fff9f1'),
     mute: read('--text-mute', '#617f7f'),
-    red: read('--red', '#f87171')
+    red: read('--red', '#f87171'),
   }
 }
 
@@ -101,96 +127,203 @@ function edgeReason(edge: TraceCohortEdge): string {
   if (edge.latencyComparisonAvailable && edge.slowDeltaMs >= meaningfulDelta) {
     return `Median observed edge time is +${durationLabel(edge.slowDeltaMs)} in slow traces.`
   }
-  if (edge.slowPresenceLift >= 0.2) return `Appears in ${percent(edge.slowPresenceRate)} of slow traces vs ${percent(edge.baselinePresenceRate)} of baseline traces.`
-  if (edge.errorRate >= 0.05) return `${percent(edge.errorRate)} of affected traces contain an error on this edge.`
-  if (edge.callsPerAffectedTrace >= 1.5) return `${numberLabel(edge.callsPerAffectedTrace)} calls per affected trace suggests repeated downstream work.`
+  if (edge.slowPresenceLift >= 0.2)
+    return `Appears in ${percent(edge.slowPresenceRate)} of slow traces vs ${percent(edge.baselinePresenceRate)} of baseline traces.`
+  if (edge.errorRate >= 0.05)
+    return `${percent(edge.errorRate)} of affected traces contain an error on this edge.`
+  if (edge.callsPerAffectedTrace >= 1.5)
+    return `${numberLabel(edge.callsPerAffectedTrace)} calls per affected trace suggests repeated downstream work.`
   return `High observed edge time: p95 ${durationLabel(edge.p95Ms)} across affected traces.`
 }
 
-function traceLabel(trace: TraceCohortTraceSummary, aggregate: TraceCohortAggregate): string {
+function traceLabel(
+  trace: TraceCohortTraceSummary,
+  aggregate: TraceCohortAggregate,
+): string {
   if (trace.durationMs >= aggregate.slowThresholdMs) return 'Slow'
   if (trace.durationMs <= aggregate.baselineThresholdMs) return 'Baseline'
   return 'Middle'
 }
 
-function representativeTraces(edge: TraceCohortEdge, traces: TraceCohortTraceSummary[], aggregate: TraceCohortAggregate): TraceCohortTraceSummary[] {
-  const affected = traces.filter((trace) => edge.traceIds.includes(trace.traceId))
+function representativeTraces(
+  edge: TraceCohortEdge,
+  traces: TraceCohortTraceSummary[],
+  aggregate: TraceCohortAggregate,
+): TraceCohortTraceSummary[] {
+  const affected = traces.filter((trace) =>
+    edge.traceIds.includes(trace.traceId),
+  )
   return representativeTraceSet(affected, aggregate)
 }
 
-function representativeServiceTraces(node: TraceCohortNode, traces: TraceCohortTraceSummary[], aggregate: TraceCohortAggregate): TraceCohortTraceSummary[] {
+function representativeServiceTraces(
+  node: TraceCohortNode,
+  traces: TraceCohortTraceSummary[],
+  aggregate: TraceCohortAggregate,
+): TraceCohortTraceSummary[] {
   return representativeTraceSet(
-    traces.filter((trace) => trace.services.some((service) => service.id === node.id)),
-    aggregate
+    traces.filter((trace) =>
+      trace.services.some((service) => service.id === node.id),
+    ),
+    aggregate,
   )
 }
 
-function representativeTraceSet(affected: TraceCohortTraceSummary[], aggregate: TraceCohortAggregate): TraceCohortTraceSummary[] {
+function representativeTraceSet(
+  affected: TraceCohortTraceSummary[],
+  aggregate: TraceCohortAggregate,
+): TraceCohortTraceSummary[] {
   if (!affected.length) return []
   const selected = new Map<string, TraceCohortTraceSummary>()
-  const slowest = [...affected].sort((left, right) => right.durationMs - left.durationMs)[0]
+  const slowest = [...affected].sort(
+    (left, right) => right.durationMs - left.durationMs,
+  )[0]
   selected.set(slowest.traceId, slowest)
   const errored = affected.find((trace) => trace.status === 'error')
   if (errored) selected.set(errored.traceId, errored)
-  const typical = [...affected].sort((left, right) => Math.abs(left.durationMs - aggregate.p50DurationMs) - Math.abs(right.durationMs - aggregate.p50DurationMs))[0]
+  const typical = [...affected].sort(
+    (left, right) =>
+      Math.abs(left.durationMs - aggregate.p50DurationMs) -
+      Math.abs(right.durationMs - aggregate.p50DurationMs),
+  )[0]
   selected.set(typical.traceId, typical)
   return [...selected.values()].slice(0, 3)
 }
 
 function edgeHasSlowUplift(edge: TraceCohortEdge): boolean {
-  return edge.slowPresenceLift >= 0.2 || (edge.latencyComparisonAvailable && edge.slowDeltaMs >= Math.max(20, edge.p50Ms * 0.25))
+  return (
+    edge.slowPresenceLift >= 0.2 ||
+    (edge.latencyComparisonAvailable &&
+      edge.slowDeltaMs >= Math.max(20, edge.p50Ms * 0.25))
+  )
 }
 
 export function TraceServiceMap(props: TraceServiceMapProps) {
-  const { aggregate, traces, progress, searchTraceCount, sampleLimit, onSampleLimitChange, onRetry, onStop, onOpenTrace } = props
+  const {
+    aggregate,
+    traces,
+    progress,
+    searchTraceCount,
+    sampleLimit,
+    onSampleLimitChange,
+    onRetry,
+    onStop,
+    onOpenTrace,
+  } = props
   const [selection, setSelection] = useState<Selection | null>(null)
   const [branchScope, setBranchScope] = useState<TraceServiceMapScope>('all')
   const [grouping, setGrouping] = useState<TraceServiceMapGrouping>('none')
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    () => new Set(),
+  )
   const [serviceSearch, setServiceSearch] = useState('')
   const [graphFullscreen, setGraphFullscreen] = useState(false)
   const [renderedGraphKey, setRenderedGraphKey] = useState('')
-  const [exporting, setExporting] = useState<'copy' | 'svg' | 'excalidraw-copy' | null>(null)
+  const [exporting, setExporting] = useState<
+    'copy' | 'svg' | 'excalidraw-copy' | null
+  >(null)
   const canvasRef = useRef<TraceServiceMapCanvasHandle>(null)
   const didAutoGroup = useRef(false)
   const colors = useMemo(palette, [])
 
-  const scopedGraph = useMemo(() => scopeTraceServiceMap(aggregate.nodes, aggregate.edges, branchScope), [aggregate.edges, aggregate.nodes, branchScope])
+  const scopedGraph = useMemo(
+    () => scopeTraceServiceMap(aggregate.nodes, aggregate.edges, branchScope),
+    [aggregate.edges, aggregate.nodes, branchScope],
+  )
   const topEdges = scopedGraph.edges.slice(0, TOP_BOTTLENECK_LIMIT)
-  const topEdgeKeys = useMemo(() => new Set(scopedGraph.edges.slice(0, 3).map((edge) => edge.key)), [scopedGraph.edges])
+  const topEdgeKeys = useMemo(
+    () => new Set(scopedGraph.edges.slice(0, 3).map((edge) => edge.key)),
+    [scopedGraph.edges],
+  )
   const groupedGraph = useMemo(
-    () => groupTraceServiceMap(scopedGraph.nodes, scopedGraph.edges, grouping, expandedGroups, aggregate.traceCount),
-    [aggregate.traceCount, expandedGroups, grouping, scopedGraph.edges, scopedGraph.nodes]
+    () =>
+      groupTraceServiceMap(
+        scopedGraph.nodes,
+        scopedGraph.edges,
+        grouping,
+        expandedGroups,
+        aggregate.traceCount,
+      ),
+    [
+      aggregate.traceCount,
+      expandedGroups,
+      grouping,
+      scopedGraph.edges,
+      scopedGraph.nodes,
+    ],
   )
   const graph = useMemo(() => {
-    const projection = projectTraceServiceMap(groupedGraph.nodes, groupedGraph.edges)
+    const projection = projectTraceServiceMap(
+      groupedGraph.nodes,
+      groupedGraph.edges,
+    )
     return {
       ...projection,
-      nodes: projection.nodes.map((node) => groupedGraph.nodeById.get(node.id)).filter((node): node is TraceServiceMapViewNode => Boolean(node)),
-      edges: projection.edges.map((edge) => groupedGraph.edgeById.get(edge.key)).filter((edge): edge is TraceServiceMapViewEdge => Boolean(edge))
+      nodes: projection.nodes
+        .map((node) => groupedGraph.nodeById.get(node.id))
+        .filter((node): node is TraceServiceMapViewNode => Boolean(node)),
+      edges: projection.edges
+        .map((edge) => groupedGraph.edgeById.get(edge.key))
+        .filter((edge): edge is TraceServiceMapViewEdge => Boolean(edge)),
     }
   }, [groupedGraph])
 
   const normalizedSearch = serviceSearch.trim().toLocaleLowerCase()
   const matchingServiceIds = useMemo(
-    () => new Set(scopedGraph.nodes.filter((node) => !normalizedSearch || `${node.label} ${node.namespace ?? ''}`.toLocaleLowerCase().includes(normalizedSearch)).map((node) => node.id)),
-    [normalizedSearch, scopedGraph.nodes]
+    () =>
+      new Set(
+        scopedGraph.nodes
+          .filter(
+            (node) =>
+              !normalizedSearch ||
+              `${node.label} ${node.namespace ?? ''}`
+                .toLocaleLowerCase()
+                .includes(normalizedSearch),
+          )
+          .map((node) => node.id),
+      ),
+    [normalizedSearch, scopedGraph.nodes],
   )
   const matchingViewNodeIds = useMemo(
-    () => new Set(groupedGraph.nodes.filter((node) => !normalizedSearch || node.memberIds.some((id) => matchingServiceIds.has(id))).map((node) => node.id)),
-    [groupedGraph.nodes, matchingServiceIds, normalizedSearch]
+    () =>
+      new Set(
+        groupedGraph.nodes
+          .filter(
+            (node) =>
+              !normalizedSearch ||
+              node.memberIds.some((id) => matchingServiceIds.has(id)),
+          )
+          .map((node) => node.id),
+      ),
+    [groupedGraph.nodes, matchingServiceIds, normalizedSearch],
   )
 
   useEffect(() => {
-    if (didAutoGroup.current || progress.status === 'loading' || !aggregate.nodes.length) return
+    if (
+      didAutoGroup.current ||
+      progress.status === 'loading' ||
+      !aggregate.nodes.length
+    )
+      return
     didAutoGroup.current = true
-    const namespaces = new Set(aggregate.nodes.map((node) => node.namespace?.trim()).filter(Boolean))
-    if (aggregate.nodes.length > DENSE_GRAPH_NODE_THRESHOLD && namespaces.size > 1) setGrouping('namespace')
+    const namespaces = new Set(
+      aggregate.nodes.map((node) => node.namespace?.trim()).filter(Boolean),
+    )
+    if (
+      aggregate.nodes.length > DENSE_GRAPH_NODE_THRESHOLD &&
+      namespaces.size > 1
+    )
+      setGrouping('namespace')
   }, [aggregate.nodes, progress.status])
 
   useEffect(() => {
-    if (selection?.kind === 'edge' && !scopedGraph.edges.some((edge) => edge.key === selection.key)) setSelection(null)
-    if (selection?.kind === 'node' && !groupedGraph.nodeById.has(selection.key)) setSelection(null)
+    if (
+      selection?.kind === 'edge' &&
+      !scopedGraph.edges.some((edge) => edge.key === selection.key)
+    )
+      setSelection(null)
+    if (selection?.kind === 'node' && !groupedGraph.nodeById.has(selection.key))
+      setSelection(null)
   }, [groupedGraph.nodeById, scopedGraph.edges, selection])
 
   useEffect(() => {
@@ -202,69 +335,115 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [graphFullscreen])
 
-  const selectedEdge = selection?.kind === 'edge' ? scopedGraph.edges.find((edge) => edge.key === selection.key) : undefined
-  const selectedNode = selection?.kind === 'node' ? scopedGraph.nodes.find((node) => node.id === selection.key) : undefined
-  const incidentEdges = selectedNode ? scopedGraph.edges.filter((edge) => edge.source === selectedNode.id || edge.target === selectedNode.id).sort((left, right) => left.rank - right.rank) : []
-  const upstreamEdges = selectedNode ? incidentEdges.filter((edge) => edge.target === selectedNode.id) : []
-  const downstreamEdges = selectedNode ? incidentEdges.filter((edge) => edge.source === selectedNode.id) : []
+  const selectedEdge =
+    selection?.kind === 'edge'
+      ? scopedGraph.edges.find((edge) => edge.key === selection.key)
+      : undefined
+  const selectedNode =
+    selection?.kind === 'node'
+      ? scopedGraph.nodes.find((node) => node.id === selection.key)
+      : undefined
+  const incidentEdges = selectedNode
+    ? scopedGraph.edges
+        .filter(
+          (edge) =>
+            edge.source === selectedNode.id || edge.target === selectedNode.id,
+        )
+        .sort((left, right) => left.rank - right.rank)
+    : []
+  const upstreamEdges = selectedNode
+    ? incidentEdges.filter((edge) => edge.target === selectedNode.id)
+    : []
+  const downstreamEdges = selectedNode
+    ? incidentEdges.filter((edge) => edge.source === selectedNode.id)
+    : []
 
   const graphKey = `${graph.nodes.map((node) => node.id).join('|')}::${graph.edges.map((edge) => edge.key).join('|')}`
   const graphFitKey = `${branchScope}::${grouping}::${scopedGraph.nodes.map((node) => node.id).join('|')}::${scopedGraph.edges.map((edge) => edge.key).join('|')}`
-  const slowEdgeKeys = useMemo(() => new Set(aggregate.edges.filter(edgeHasSlowUplift).map((edge) => edge.key)), [aggregate.edges])
+  const slowEdgeKeys = useMemo(
+    () =>
+      new Set(
+        aggregate.edges.filter(edgeHasSlowUplift).map((edge) => edge.key),
+      ),
+    [aggregate.edges],
+  )
   const nodeTooltip = (node: TraceServiceMapViewNode) => {
-    if (node.viewKind === 'group') return [`<strong>${escapeHtml(node.groupKey ?? 'Namespace')}</strong>`, `${node.memberIds.length} services`, 'Click to expand this namespace.'].join('<br/>')
-    const original = aggregate.nodes.find((candidate) => candidate.id === node.id)
+    if (node.viewKind === 'group')
+      return [
+        `<strong>${escapeHtml(node.groupKey ?? 'Namespace')}</strong>`,
+        `${node.memberIds.length} services`,
+        'Click to expand this namespace.',
+      ].join('<br/>')
+    const original = aggregate.nodes.find(
+      (candidate) => candidate.id === node.id,
+    )
     if (!original) return ''
     return [
       `<strong>${escapeHtml(original.label)}</strong>`,
       original.namespace ? escapeHtml(original.namespace) : '',
       `${original.traceCount}/${aggregate.traceCount} traces · ${original.spanCount} spans`,
-      `${percent(original.errorRate)} traces with errors`
+      `${percent(original.errorRate)} traces with errors`,
     ]
       .filter(Boolean)
       .join('<br/>')
   }
   const edgeTooltip = (edge: TraceServiceMapViewEdge) => {
     if (edge.memberEdgeKeys.length === 1) {
-      const original = aggregate.edges.find((candidate) => candidate.key === edge.memberEdgeKeys[0])
+      const original = aggregate.edges.find(
+        (candidate) => candidate.key === edge.memberEdgeKeys[0],
+      )
       if (original)
         return [
           `<strong>${escapeHtml(original.sourceLabel)} → ${escapeHtml(original.targetLabel)}</strong>`,
           `${original.traceCount}/${aggregate.traceCount} traces · ${original.callCount} calls`,
           `observed p50 ${durationLabel(original.p50Ms)} · p95 ${durationLabel(original.p95Ms)}`,
-          edgeReason(original)
+          edgeReason(original),
         ].join('<br/>')
     }
     return [
       `<strong>${escapeHtml(edge.sourceLabel)} → ${escapeHtml(edge.targetLabel)}</strong>`,
       `${edge.memberEdgeKeys.length} underlying service connections`,
       `${edge.traceCount}/${aggregate.traceCount} traces · ${edge.callCount} calls`,
-      'Expand the namespace boxes to inspect individual services.'
+      'Expand the namespace boxes to inspect individual services.',
     ].join('<br/>')
   }
   const clickNode = (key: string) => {
     const node = groupedGraph.nodeById.get(key)
     if (!node) return
     if (node.viewKind === 'group') {
-      if (node.groupKey) setExpandedGroups((current) => new Set(current).add(node.groupKey!))
+      if (node.groupKey)
+        setExpandedGroups((current) => new Set(current).add(node.groupKey!))
       return
     }
-    setSelection((current) => (current?.kind === 'node' && current.key === key ? null : { kind: 'node', key }))
+    setSelection((current) =>
+      current?.kind === 'node' && current.key === key
+        ? null
+        : { kind: 'node', key },
+    )
   }
   const clickEdge = (key: string) => {
     const edge = groupedGraph.edgeById.get(key)
     if (!edge || edge.memberEdgeKeys.length !== 1) return
     const originalKey = edge.memberEdgeKeys[0]
-    setSelection((current) => (current?.kind === 'edge' && current.key === originalKey ? null : { kind: 'edge', key: originalKey }))
+    setSelection((current) =>
+      current?.kind === 'edge' && current.key === originalKey
+        ? null
+        : { kind: 'edge', key: originalKey },
+    )
   }
   const copyImage = async () => {
     if (exporting) return
     setExporting('copy')
     try {
-      const ok = await copyChartPng(await canvasRef.current!.png(), api.clipboardImage)
-      notify(ok
-        ? { message: 'Image copied to clipboard' }
-        : { message: 'Could not copy image', tone: 'error' })
+      const ok = await copyChartPng(
+        await canvasRef.current!.png(),
+        api.clipboardImage,
+      )
+      notify(
+        ok
+          ? { message: 'Image copied to clipboard' }
+          : { message: 'Could not copy image', tone: 'error' },
+      )
     } catch (error) {
       console.error('[service-map] Could not copy image', error)
       notify({ message: 'Could not copy image', tone: 'error' })
@@ -280,7 +459,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
         defaultName: 'datakoala_service_map.svg',
         content: canvasRef.current!.svg(),
         extensions: ['svg'],
-        filterName: 'SVG'
+        filterName: 'SVG',
       })
     } catch (error) {
       console.error('[service-map] Could not export SVG', error)
@@ -293,12 +472,14 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
     setExporting('excalidraw-copy')
     try {
       const payload = createServiceMapExcalidrawClipboard(
-        canvasRef.current!.excalidraw()
+        canvasRef.current!.excalidraw(),
       )
       const result = await api.clipboardExcalidraw.write(payload)
-      notify(result.ok
-        ? { message: 'Diagram copied to clipboard for Excalidraw' }
-        : { message: 'Could not copy Excalidraw diagram', tone: 'error' })
+      notify(
+        result.ok
+          ? { message: 'Diagram copied to clipboard for Excalidraw' }
+          : { message: 'Could not copy Excalidraw diagram', tone: 'error' },
+      )
     } catch (error) {
       console.error('[service-map] Could not copy Excalidraw scene', error)
       notify({ message: 'Could not copy Excalidraw diagram', tone: 'error' })
@@ -307,11 +488,17 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
     }
   }
 
-  const progressPercent = progress.total ? Math.round((progress.completed / progress.total) * 100) : 0
+  const progressPercent = progress.total
+    ? Math.round((progress.completed / progress.total) * 100)
+    : 0
   const sampled = searchTraceCount > progress.total && progress.total > 0
-  const graphIsProjected = graph.omittedNodeCount > 0 || graph.omittedEdgeCount > 0
+  const graphIsProjected =
+    graph.omittedNodeCount > 0 || graph.omittedEdgeCount > 0
   const scopeActive = branchScope !== 'all'
-  const collapsedGroups = grouping === 'namespace' ? groupedGraph.nodes.filter((node) => node.viewKind === 'group').length : 0
+  const collapsedGroups =
+    grouping === 'namespace'
+      ? groupedGraph.nodes.filter((node) => node.viewKind === 'group').length
+      : 0
   const scopeEmptyMessage =
     branchScope === 'main'
       ? 'No synchronous service path was found from the transaction root.'
@@ -321,14 +508,24 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
 
   const bottleneckList = (fullscreen = false) =>
     topEdges.length ? (
-      <div className={`${styles.candidateList} ${fullscreen ? styles.fullscreenCandidateList : ''}`} data-service-map-bottleneck-list aria-label="Service map bottleneck candidates">
+      <div
+        className={`${styles.candidateList} ${fullscreen ? styles.fullscreenCandidateList : ''}`}
+        data-service-map-bottleneck-list
+        aria-label="Service map bottleneck candidates"
+      >
         {topEdges.map((edge, index) => (
           <button
             key={edge.key}
             type="button"
             data-service-map-bottleneck
             className={index === 0 ? styles.primaryCandidate : ''}
-            onClick={() => setSelection((current) => (current?.kind === 'edge' && current.key === edge.key ? null : { kind: 'edge', key: edge.key }))}
+            onClick={() =>
+              setSelection((current) =>
+                current?.kind === 'edge' && current.key === edge.key
+                  ? null
+                  : { kind: 'edge', key: edge.key },
+              )
+            }
           >
             <span className={styles.candidateRank}>#{index + 1}</span>
             <span className={styles.candidateBody}>
@@ -337,17 +534,25 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
               </strong>
               <small>{edgeReason(edge)}</small>
             </span>
-            <span className={styles.candidateMetric}>obs p95 {durationLabel(edge.p95Ms)}</span>
+            <span className={styles.candidateMetric}>
+              obs p95 {durationLabel(edge.p95Ms)}
+            </span>
           </button>
         ))}
       </div>
     ) : (
-      <div className={styles.empty}>No cross-service edges in this branch scope.</div>
+      <div className={styles.empty}>
+        No cross-service edges in this branch scope.
+      </div>
     )
 
   const traceButtons = (items: TraceCohortTraceSummary[]) =>
     items.map((trace) => (
-      <button key={trace.traceId} type="button" onClick={() => onOpenTrace(trace.traceId)}>
+      <button
+        key={trace.traceId}
+        type="button"
+        onClick={() => onOpenTrace(trace.traceId)}
+      >
         <span>
           <strong>{traceLabel(trace, aggregate)}</strong>
           <code>{trace.traceId.slice(0, 10)}…</code>
@@ -361,7 +566,11 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       <div className={styles.edgeList}>
         <h4>{title}</h4>
         {edges.slice(0, 8).map((edge) => (
-          <button key={edge.key} type="button" onClick={() => setSelection({ kind: 'edge', key: edge.key })}>
+          <button
+            key={edge.key}
+            type="button"
+            onClick={() => setSelection({ kind: 'edge', key: edge.key })}
+          >
             <span>
               {edge.sourceLabel} → {edge.targetLabel}
             </span>
@@ -374,7 +583,11 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
   const insightsContent = (fullscreen = false) =>
     selectedEdge ? (
       <>
-        <button type="button" className={styles.backButton} onClick={() => setSelection(null)}>
+        <button
+          type="button"
+          className={styles.backButton}
+          onClick={() => setSelection(null)}
+        >
           ← Bottleneck candidates
         </button>
         <div className={styles.insightTitle}>
@@ -395,8 +608,17 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
           </div>
           <div>
             <dt>Slow delta</dt>
-            <dd className={selectedEdge.latencyComparisonAvailable && selectedEdge.slowDeltaMs > 0 ? styles.metricWarn : ''}>
-              {selectedEdge.latencyComparisonAvailable ? `${selectedEdge.slowDeltaMs >= 0 ? '+' : '−'}${durationLabel(Math.abs(selectedEdge.slowDeltaMs))}` : '—'}
+            <dd
+              className={
+                selectedEdge.latencyComparisonAvailable &&
+                selectedEdge.slowDeltaMs > 0
+                  ? styles.metricWarn
+                  : ''
+              }
+            >
+              {selectedEdge.latencyComparisonAvailable
+                ? `${selectedEdge.slowDeltaMs >= 0 ? '+' : '−'}${durationLabel(Math.abs(selectedEdge.slowDeltaMs))}`
+                : '—'}
             </dd>
           </div>
           <div>
@@ -415,16 +637,26 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
         <div className={styles.comparison}>
           <div>
             <span>Baseline observed median</span>
-            <strong>{selectedEdge.baselineObservedTraceCount ? durationLabel(selectedEdge.baselineMedianMs) : '—'}</strong>
+            <strong>
+              {selectedEdge.baselineObservedTraceCount
+                ? durationLabel(selectedEdge.baselineMedianMs)
+                : '—'}
+            </strong>
             <small>
-              {selectedEdge.baselineObservedTraceCount}/{aggregate.baselineTraceCount} contain edge
+              {selectedEdge.baselineObservedTraceCount}/
+              {aggregate.baselineTraceCount} contain edge
             </small>
           </div>
           <div>
             <span>Slow observed median</span>
-            <strong>{selectedEdge.slowObservedTraceCount ? durationLabel(selectedEdge.slowMedianMs) : '—'}</strong>
+            <strong>
+              {selectedEdge.slowObservedTraceCount
+                ? durationLabel(selectedEdge.slowMedianMs)
+                : '—'}
+            </strong>
             <small>
-              {selectedEdge.slowObservedTraceCount}/{aggregate.slowTraceCount} contain edge
+              {selectedEdge.slowObservedTraceCount}/{aggregate.slowTraceCount}{' '}
+              contain edge
             </small>
           </div>
         </div>
@@ -435,14 +667,19 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       </>
     ) : selectedNode ? (
       <>
-        <button type="button" className={styles.backButton} onClick={() => setSelection(null)}>
+        <button
+          type="button"
+          className={styles.backButton}
+          onClick={() => setSelection(null)}
+        >
           ← Bottleneck candidates
         </button>
         <div className={styles.insightTitle}>
           <span>Service</span>
           <h3>{selectedNode.label}</h3>
           <p>
-            {selectedNode.namespace ? `${selectedNode.namespace} · ` : ''}Seen in {selectedNode.traceCount}/{aggregate.traceCount} analyzed traces.
+            {selectedNode.namespace ? `${selectedNode.namespace} · ` : ''}Seen
+            in {selectedNode.traceCount}/{aggregate.traceCount} analyzed traces.
           </p>
         </div>
         <dl className={styles.metricGrid}>
@@ -475,7 +712,9 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
         {connectionList('Downstream connections', downstreamEdges)}
         <div className={styles.representatives}>
           <h4>Representative traces</h4>
-          {traceButtons(representativeServiceTraces(selectedNode, traces, aggregate))}
+          {traceButtons(
+            representativeServiceTraces(selectedNode, traces, aggregate),
+          )}
         </div>
       </>
     ) : (
@@ -483,12 +722,20 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
         <div className={styles.insightTitle}>
           <span>Cohort analysis</span>
           <h3>Bottleneck candidates</h3>
-          <p>Top bottlenecks are treated as candidates until critical-path contribution is available. Slow traces are the slowest 20%; baseline traces are the fastest 50%.</p>
+          <p>
+            Top bottlenecks are treated as candidates until critical-path
+            contribution is available. Slow traces are the slowest 20%; baseline
+            traces are the fastest 50%.
+          </p>
         </div>
         {bottleneckList(fullscreen)}
         <p className={styles.methodNote}>
-          Ranking combines observed tail time, slow-vs-baseline latency change, errors, repeated calls and slow-trace presence. Edge latency is cumulative observed child-span time per affected trace;
-          traces without the edge are excluded from latency medians and compared separately via presence. Parallel work may overlap, so this is not critical-path time.
+          Ranking combines observed tail time, slow-vs-baseline latency change,
+          errors, repeated calls and slow-trace presence. Edge latency is
+          cumulative observed child-span time per affected trace; traces without
+          the edge are excluded from latency medians and compared separately via
+          presence. Parallel work may overlap, so this is not critical-path
+          time.
         </p>
       </>
     )
@@ -500,7 +747,9 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       data-branch-scope={branchScope}
       data-service-map-grouping={grouping}
       data-visual-type="graph"
-      data-visual-finished={renderedGraphKey === graphKey && progress.status !== 'loading'}
+      data-visual-finished={
+        renderedGraphKey === graphKey && progress.status !== 'loading'
+      }
       data-visual-nodes={graph.nodes.length}
       data-visual-edges={graph.edges.length}
     >
@@ -525,11 +774,19 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
             </div>
             <div>
               <dt>Services</dt>
-              <dd>{scopeActive ? `${scopedGraph.nodes.length}/${aggregate.nodes.length}` : aggregate.nodes.length}</dd>
+              <dd>
+                {scopeActive
+                  ? `${scopedGraph.nodes.length}/${aggregate.nodes.length}`
+                  : aggregate.nodes.length}
+              </dd>
             </div>
             <div>
               <dt>Edges</dt>
-              <dd>{scopeActive ? `${scopedGraph.edges.length}/${aggregate.edges.length}` : aggregate.edges.length}</dd>
+              <dd>
+                {scopeActive
+                  ? `${scopedGraph.edges.length}/${aggregate.edges.length}`
+                  : aggregate.edges.length}
+              </dd>
             </div>
           </dl>
         )}
@@ -563,31 +820,55 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
           <div>
             <strong>Analyzing traces…</strong>
             <span>
-              {progress.completed}/{progress.total} fetched · {progressPercent}%{progress.failed ? ` · ${progress.failed} failed` : ''}
+              {progress.completed}/{progress.total} fetched · {progressPercent}%
+              {progress.failed ? ` · ${progress.failed} failed` : ''}
             </span>
           </div>
-          <progress value={progress.completed} max={Math.max(1, progress.total)} />
+          <progress
+            value={progress.completed}
+            max={Math.max(1, progress.total)}
+          />
         </div>
       )}
       {progress.status === 'partial' && (
         <div className={styles.notice}>
-          Analysis is partial after {progress.completed}/{progress.total} fetches. The map uses the traces that loaded successfully.
+          Analysis is partial after {progress.completed}/{progress.total}{' '}
+          fetches. The map uses the traces that loaded successfully.
         </div>
       )}
-      {progress.status === 'error' && <div className={styles.notice}>DataKoala could not load enough full traces to build the service map. Try a smaller sample or narrower time range.</div>}
+      {progress.status === 'error' && (
+        <div className={styles.notice}>
+          DataKoala could not load enough full traces to build the service map.
+          Try a smaller sample or narrower time range.
+        </div>
+      )}
 
       {aggregate.traceCount === 0 ? (
-        <div className={styles.empty}>{progress.status === 'loading' ? 'Waiting for the first complete traces…' : 'Analyze this Tempo cohort to build a service map.'}</div>
+        <div className={styles.empty}>
+          {progress.status === 'loading'
+            ? 'Waiting for the first complete traces…'
+            : 'Analyze this Tempo cohort to build a service map.'}
+        </div>
       ) : (
         <div className={styles.analysisGrid}>
           <div
             className={`${styles.graphPane} ${graphFullscreen ? styles.graphPaneFullscreen : ''}`}
-            data-service-map-graph-fullscreen={graphFullscreen ? 'true' : 'false'}
+            data-service-map-graph-fullscreen={
+              graphFullscreen ? 'true' : 'false'
+            }
             style={graphFullscreen ? { top: TITLEBAR_HEIGHT } : undefined}
           >
             <div className={styles.graphControls}>
               <div className={styles.searchInput}>
-                <TextInput label="Find service in map" labelVisibility="sr-only" mode="inline" type="search" placeholder="Find service…" value={serviceSearch} onValueChange={setServiceSearch} />
+                <TextInput
+                  label="Find service in map"
+                  labelVisibility="sr-only"
+                  mode="inline"
+                  type="search"
+                  placeholder="Find service…"
+                  value={serviceSearch}
+                  onValueChange={setServiceSearch}
+                />
               </div>
               <div className={styles.groupingSelect}>
                 <Combobox
@@ -603,7 +884,12 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
                 />
               </div>
               {grouping === 'namespace' && expandedGroups.size > 0 && (
-                <button type="button" className={styles.fullscreenButton} onClick={() => setExpandedGroups(new Set())} aria-label="Collapse all namespace groups">
+                <button
+                  type="button"
+                  className={styles.fullscreenButton}
+                  onClick={() => setExpandedGroups(new Set())}
+                  aria-label="Collapse all namespace groups"
+                >
                   Collapse groups
                 </button>
               )}
@@ -614,19 +900,40 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
                   mode="inline"
                   value={branchScope}
                   options={BRANCH_SCOPE_OPTIONS}
-                  onChange={(value) => setBranchScope(value as TraceServiceMapScope)}
+                  onChange={(value) =>
+                    setBranchScope(value as TraceServiceMapScope)
+                  }
                 />
               </div>
-              <button type="button" className={styles.fullscreenButton} onClick={() => canvasRef.current?.fit()}>
+              <button
+                type="button"
+                className={styles.fullscreenButton}
+                onClick={() => canvasRef.current?.fit()}
+              >
                 Fit
               </button>
-              <button type="button" className={styles.fullscreenButton} onClick={copyImage} disabled={Boolean(exporting)}>
+              <button
+                type="button"
+                className={styles.fullscreenButton}
+                onClick={copyImage}
+                disabled={Boolean(exporting)}
+              >
                 Copy image
               </button>
-              <button type="button" className={styles.fullscreenButton} onClick={exportSvg} disabled={Boolean(exporting)}>
+              <button
+                type="button"
+                className={styles.fullscreenButton}
+                onClick={exportSvg}
+                disabled={Boolean(exporting)}
+              >
                 Export SVG
               </button>
-              <button type="button" className={styles.fullscreenButton} onClick={copyForExcalidraw} disabled={Boolean(exporting)}>
+              <button
+                type="button"
+                className={styles.fullscreenButton}
+                onClick={copyForExcalidraw}
+                disabled={Boolean(exporting)}
+              >
                 Copy for Excalidraw
               </button>
               <button
@@ -634,12 +941,18 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
                 className={styles.fullscreenButton}
                 data-service-map-fullscreen
                 onClick={() => setGraphFullscreen((value) => !value)}
-                aria-label={graphFullscreen ? 'Exit service map full screen' : 'Open service map full screen'}
+                aria-label={
+                  graphFullscreen
+                    ? 'Exit service map full screen'
+                    : 'Open service map full screen'
+                }
               >
                 {graphFullscreen ? 'Exit full screen' : 'Full screen'}
               </button>
             </div>
-            <div className={`${styles.chartArea} ${graphFullscreen ? styles.chartAreaFullscreen : ''}`}>
+            <div
+              className={`${styles.chartArea} ${graphFullscreen ? styles.chartAreaFullscreen : ''}`}
+            >
               {graph.edges.length ? (
                 <TraceServiceMapCanvas
                   canvasRef={canvasRef}
@@ -647,8 +960,12 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
                   edges={graph.edges}
                   colors={colors}
                   fitKey={graphFitKey}
-                  selectedNodeId={selection?.kind === 'node' ? selection.key : undefined}
-                  selectedEdgeKey={selection?.kind === 'edge' ? selection.key : undefined}
+                  selectedNodeId={
+                    selection?.kind === 'node' ? selection.key : undefined
+                  }
+                  selectedEdgeKey={
+                    selection?.kind === 'edge' ? selection.key : undefined
+                  }
                   matchingNodeIds={matchingViewNodeIds}
                   searching={Boolean(normalizedSearch)}
                   topEdgeKeys={topEdgeKeys}
@@ -664,11 +981,16 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
               )}
             </div>
             {graphFullscreen && (
-              <aside className={styles.fullscreenInsights} aria-label="Full screen service map bottlenecks">
+              <aside
+                className={styles.fullscreenInsights}
+                aria-label="Full screen service map bottlenecks"
+              >
                 {insightsContent(true)}
               </aside>
             )}
-            <div className={`${styles.graphLegend} ${graphFullscreen ? styles.graphLegendFullscreen : ''}`}>
+            <div
+              className={`${styles.graphLegend} ${graphFullscreen ? styles.graphLegendFullscreen : ''}`}
+            >
               <span>
                 <i className={styles.solidLine} /> synchronous
               </span>
@@ -683,13 +1005,23 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
               </span>
               <span>edge width = cohort coverage</span>
               <span>Drag to pan · wheel to zoom</span>
-              {branchScope === 'main' && <span>Async boundaries and their downstream work are hidden</span>}
-              {branchScope === 'async' && <span>Includes downstream work after the first async boundary</span>}
+              {branchScope === 'main' && (
+                <span>
+                  Async boundaries and their downstream work are hidden
+                </span>
+              )}
+              {branchScope === 'async' && (
+                <span>
+                  Includes downstream work after the first async boundary
+                </span>
+              )}
               {grouping === 'namespace' && (
                 <span>
                   {collapsedGroups} collapsed namespace
                   {collapsedGroups === 1 ? '' : 's'}
-                  {expandedGroups.size ? ` · ${expandedGroups.size} expanded` : ''}
+                  {expandedGroups.size
+                    ? ` · ${expandedGroups.size} expanded`
+                    : ''}
                 </span>
               )}
               {normalizedSearch && (
@@ -700,12 +1032,16 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
               )}
               {graphIsProjected && (
                 <span title="The candidate ranking still uses every analyzed service and edge in the selected branch scope.">
-                  Showing {graph.nodes.length}/{groupedGraph.nodes.length} graph nodes · {graph.edges.length}/{groupedGraph.edges.length} edges
+                  Showing {graph.nodes.length}/{groupedGraph.nodes.length} graph
+                  nodes · {graph.edges.length}/{groupedGraph.edges.length} edges
                 </span>
               )}
             </div>
           </div>
-          <aside className={styles.insights} aria-label="Service map bottleneck analysis">
+          <aside
+            className={styles.insights}
+            aria-label="Service map bottleneck analysis"
+          >
             {insightsContent()}
           </aside>
         </div>

@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import { ChartReadinessController, createChartRevision, finishChartRevisionAfterPaint, type ChartRevision } from './chartReadiness.ts'
+import {
+  ChartReadinessController,
+  createChartRevision,
+  finishChartRevisionAfterPaint,
+  type ChartRevision,
+} from './chartReadiness.ts'
 
 function frames() {
   const callbacks: FrameRequestCallback[] = []
   return {
     callbacks,
-    schedule: (callback: FrameRequestCallback) => (callbacks.push(callback), callbacks.length),
+    schedule: (callback: FrameRequestCallback) => (
+      callbacks.push(callback),
+      callbacks.length
+    ),
     cancel: () => {},
-    run: () => callbacks.shift()?.(0)
+    run: () => callbacks.shift()?.(0),
   }
 }
 
@@ -18,7 +26,16 @@ test('an applied current revision becomes ready after two render frames without 
   const scheduler = frames()
   let finished: ChartRevision | null = null
   readiness.commitRevision(revision)
-  finishChartRevisionAfterPaint(readiness, revision, () => true, (value) => { finished = value }, scheduler.schedule, scheduler.cancel)
+  finishChartRevisionAfterPaint(
+    readiness,
+    revision,
+    () => true,
+    (value) => {
+      finished = value
+    },
+    scheduler.schedule,
+    scheduler.cancel,
+  )
   scheduler.run()
   assert.equal(finished, null)
   scheduler.run()
@@ -32,11 +49,31 @@ test('post-paint readiness rejects stale revisions and options not yet applied',
   const scheduler = frames()
   let finishes = 0
   readiness.commitRevision(revisionA)
-  finishChartRevisionAfterPaint(readiness, revisionA, () => true, () => { finishes += 1 }, scheduler.schedule, scheduler.cancel)
+  finishChartRevisionAfterPaint(
+    readiness,
+    revisionA,
+    () => true,
+    () => {
+      finishes += 1
+    },
+    scheduler.schedule,
+    scheduler.cancel,
+  )
   readiness.commitRevision(revisionB)
-  scheduler.run(); scheduler.run()
-  finishChartRevisionAfterPaint(readiness, revisionB, () => false, () => { finishes += 1 }, scheduler.schedule, scheduler.cancel)
-  scheduler.run(); scheduler.run()
+  scheduler.run()
+  scheduler.run()
+  finishChartRevisionAfterPaint(
+    readiness,
+    revisionB,
+    () => false,
+    () => {
+      finishes += 1
+    },
+    scheduler.schedule,
+    scheduler.cancel,
+  )
+  scheduler.run()
+  scheduler.run()
   assert.equal(finishes, 0)
 })
 

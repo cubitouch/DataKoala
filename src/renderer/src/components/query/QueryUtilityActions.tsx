@@ -10,20 +10,51 @@ interface QueryUtilityActionsProps {
   onPresetLoaded?: () => void
 }
 
-export function QueryUtilityActions({ hasResults: hasResultsOverride, onClearResults, onResetQuery, onPresetLoaded }: QueryUtilityActionsProps = {}) {
+export function QueryUtilityActions({
+  hasResults: hasResultsOverride,
+  onClearResults,
+  onResetQuery,
+  onPresetLoaded,
+}: QueryUtilityActionsProps = {}) {
   const active = useStore(selectActiveSession)
   const clearResults = useStore((state) => state.clearActiveResults)
   const resetQuery = useStore((state) => state.resetActiveQuery)
-  const defaultHasResults = Boolean(active.result || active.queryError || active.explainText
-    || active.sqlResultFilters.some((filter) => filter.execution !== 'query')
-    || active.builderResultFilters.some((filter) => filter.execution !== 'query'))
+  const defaultHasResults = Boolean(
+    active.result ||
+    active.queryError ||
+    active.explainText ||
+    active.sqlResultFilters.some((filter) => filter.execution !== 'query') ||
+    active.builderResultFilters.some((filter) => filter.execution !== 'query'),
+  )
 
-  return <div className={`query-utility-actions ${styles.root}`} aria-label="Query utilities">
-    <PresetManagerAction onPresetLoaded={onPresetLoaded} />
-    <button type="button" className="btn ghost" aria-label="Reset query" onClick={() => {
-      if (window.confirm(`Reset ${active.title} to a fresh query?`)) (onResetQuery ?? resetQuery)()
-    }} title="Reset the current tab's query and Builder state.">Reset</button>
-    <button type="button" className="btn ghost" aria-label="Clear results" onClick={onClearResults ?? clearResults} disabled={!(hasResultsOverride ?? defaultHasResults)}
-      title="Clear the current result without changing the query.">Clear</button>
-  </div>
+  return (
+    <div
+      className={`query-utility-actions ${styles.root}`}
+      aria-label="Query utilities"
+    >
+      <PresetManagerAction onPresetLoaded={onPresetLoaded} />
+      <button
+        type="button"
+        className="btn ghost"
+        aria-label="Reset query"
+        onClick={() => {
+          if (window.confirm(`Reset ${active.title} to a fresh query?`))
+            (onResetQuery ?? resetQuery)()
+        }}
+        title="Reset the current tab's query and Builder state."
+      >
+        Reset
+      </button>
+      <button
+        type="button"
+        className="btn ghost"
+        aria-label="Clear results"
+        onClick={onClearResults ?? clearResults}
+        disabled={!(hasResultsOverride ?? defaultHasResults)}
+        title="Clear the current result without changing the query."
+      >
+        Clear
+      </button>
+    </div>
+  )
 }

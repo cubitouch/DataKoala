@@ -8,25 +8,33 @@ export const EDITOR_MIN = 180
 export const RESULTS_MIN = 160
 export const SPLITTER_SIZE = 8
 
-export interface DimensionBounds { min: number; max: number }
+export interface DimensionBounds {
+  min: number
+  max: number
+}
 
-export const parseStoredDimension = (raw: string | null, fallback: number): number => {
+export const parseStoredDimension = (
+  raw: string | null,
+  fallback: number,
+): number => {
   if (raw === null || raw.trim() === '') return fallback
   const value = Number(raw)
   return Number.isFinite(value) ? value : fallback
 }
 
-export const clampDimension = (value: number, { min, max }: DimensionBounds): number =>
-  Math.min(Math.max(value, min), Math.max(min, max))
+export const clampDimension = (
+  value: number,
+  { min, max }: DimensionBounds,
+): number => Math.min(Math.max(value, min), Math.max(min, max))
 
 export const sidebarBounds = (workspaceWidth: number): DimensionBounds => ({
   min: SIDEBAR_MIN,
-  max: Math.min(SIDEBAR_MAX, workspaceWidth - MAIN_MIN_WIDTH - SPLITTER_SIZE)
+  max: Math.min(SIDEBAR_MAX, workspaceWidth - MAIN_MIN_WIDTH - SPLITTER_SIZE),
 })
 
 export const editorBounds = (mainHeight: number): DimensionBounds => ({
   min: EDITOR_MIN,
-  max: mainHeight - RESULTS_MIN - SPLITTER_SIZE
+  max: mainHeight - RESULTS_MIN - SPLITTER_SIZE,
 })
 
 export const keyboardDimension = (
@@ -34,7 +42,7 @@ export const keyboardDimension = (
   key: string,
   axis: 'sidebar' | 'editor',
   bounds: DimensionBounds,
-  step = 16
+  step = 16,
 ): number | null => {
   const decrement = axis === 'sidebar' ? 'ArrowLeft' : 'ArrowUp'
   const increment = axis === 'sidebar' ? 'ArrowRight' : 'ArrowDown'

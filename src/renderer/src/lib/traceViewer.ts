@@ -27,7 +27,14 @@ export interface TraceTimelineScale {
   widthPercent: (startMs: number, durationMs: number) => number
 }
 
-const SPAN_KIND_ORDER = ['SERVER', 'CLIENT', 'PRODUCER', 'CONSUMER', 'INTERNAL', 'UNSPECIFIED']
+const SPAN_KIND_ORDER = [
+  'SERVER',
+  'CLIENT',
+  'PRODUCER',
+  'CONSUMER',
+  'INTERNAL',
+  'UNSPECIFIED',
+]
 const ASYNC_SPAN_KINDS = new Set(['PRODUCER', 'CONSUMER'])
 const MIN_IDLE_GAP_THRESHOLD_MS = 20
 const MAX_IDLE_GAP_THRESHOLD_MS = 500
@@ -49,22 +56,30 @@ export function canonicalTraceId(value: unknown): string | null {
 
 export function traceResultStatus(row: TraceRow): TraceResultStatus {
   const value = text(row.status).trim().toLowerCase()
-  if (value.includes('error') || value === 'failed' || value === 'failure') return 'error'
+  if (value.includes('error') || value === 'failed' || value === 'failure')
+    return 'error'
   if (value === 'ok' || value.includes('success')) return 'ok'
   return 'unknown'
 }
 
 export function openedTraceStatus(rows: TraceRow[]): TraceResultStatus {
   if (!rows.length) return 'unknown'
-  const sorted = [...rows].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs))
+  const sorted = [...rows].sort(
+    (left, right) => number(left.startTimeMs) - number(right.startTimeMs),
+  )
   const root = sorted.find((row) => !text(row.parentSpanId)) ?? sorted[0]
   const rootStatus = traceResultStatus(root)
   if (rootStatus !== 'unknown') return rootStatus
-  return sorted.some((row) => traceResultStatus(row) === 'error') ? 'error' : 'unknown'
+  return sorted.some((row) => traceResultStatus(row) === 'error')
+    ? 'error'
+    : 'unknown'
 }
 
 export function traceSpanKind(row: TraceRow): string {
-  const kind = text(row.kind).trim().replace(/^SPAN_KIND_/i, '').toUpperCase()
+  const kind = text(row.kind)
+    .trim()
+    .replace(/^SPAN_KIND_/i, '')
+    .toUpperCase()
   return kind || 'UNSPECIFIED'
 }
 
@@ -123,7 +138,9 @@ function median(values: number[]): number {
   if (!values.length) return 0
   const sorted = [...values].sort((left, right) => left - right)
   const middle = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle]
 }
 
 /**
@@ -136,7 +153,10 @@ function median(values: number[]): number {
  * between activity islands is compressed, and callers can expose the returned gaps
  * as visual break markers so the transformed scale is never mistaken for wall time.
  */
-export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = true): TraceTimelineScale {
+export function buildTraceTimelineScale(
+  rows: TraceRow[],
+  compressIdleGaps = true,
+): TraceTimelineScale {
   if (!rows.length) {
     return {
       startMs: 0,
@@ -146,21 +166,28 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
       gaps: [],
       offsetPercent: () => 0,
       timeAtPercent: () => 0,
-      widthPercent: () => 0
+      widthPercent: () => 0,
     }
   }
 
   const starts = rows.map((row) => number(row.startTimeMs))
-  const ends = rows.map((row) => number(row.startTimeMs) + Math.max(0, number(row.durationMs)))
+  const ends = rows.map(
+    (row) => number(row.startTimeMs) + Math.max(0, number(row.durationMs)),
+  )
   const startMs = Math.min(...starts)
   const endMs = Math.max(...ends)
   const wallDurationMs = Math.max(0, endMs - startMs)
 
   if (!compressIdleGaps || wallDurationMs <= 0) {
-    const percent = (timeMs: number) => wallDurationMs > 0
-      ? Math.max(0, Math.min(100, ((timeMs - startMs) / wallDurationMs) * 100))
-      : 0
-    const timeAtPercent = (value: number) => startMs + (Math.max(0, Math.min(100, value)) / 100) * wallDurationMs
+    const percent = (timeMs: number) =>
+      wallDurationMs > 0
+        ? Math.max(
+            0,
+            Math.min(100, ((timeMs - startMs) / wallDurationMs) * 100),
+          )
+        : 0
+    const timeAtPercent = (value: number) =>
+      startMs + (Math.max(0, Math.min(100, value)) / 100) * wallDurationMs
     return {
       startMs,
       endMs,
@@ -169,11 +196,17 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
       gaps: [],
       offsetPercent: percent,
       timeAtPercent,
-      widthPercent: (spanStartMs, durationMs) => Math.max(0, percent(spanStartMs + Math.max(0, durationMs)) - percent(spanStartMs))
+      widthPercent: (spanStartMs, durationMs) =>
+        Math.max(
+          0,
+          percent(spanStartMs + Math.max(0, durationMs)) - percent(spanStartMs),
+        ),
     }
   }
 
-  const parentIds = new Set(rows.map((row) => text(row.parentSpanId)).filter(Boolean))
+  const parentIds = new Set(
+    rows.map((row) => text(row.parentSpanId)).filter(Boolean),
+  )
   const leaves = rows.filter((row) => !parentIds.has(text(row.spanId)))
   const activityRows = leaves.length ? leaves : rows
   const intervals = activityRows
@@ -190,10 +223,15 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
     else previous.end = Math.max(previous.end, interval.end)
   }
 
-  const positiveDurations = activityRows.map((row) => number(row.durationMs)).filter((duration) => duration > 0)
+  const positiveDurations = activityRows
+    .map((row) => number(row.durationMs))
+    .filter((duration) => duration > 0)
   const thresholdMs = Math.max(
     MIN_IDLE_GAP_THRESHOLD_MS,
-    Math.min(MAX_IDLE_GAP_THRESHOLD_MS, Math.max(MIN_IDLE_GAP_THRESHOLD_MS, median(positiveDurations) * 2))
+    Math.min(
+      MAX_IDLE_GAP_THRESHOLD_MS,
+      Math.max(MIN_IDLE_GAP_THRESHOLD_MS, median(positiveDurations) * 2),
+    ),
   )
   const gapMinimumMs = thresholdMs * 4
   const gaps: TraceTimelineGap[] = []
@@ -203,16 +241,25 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
     if (durationMs <= gapMinimumMs) return
     const ratio = Math.max(1, durationMs / thresholdMs)
     const displayDurationMs = thresholdMs * (1 + Math.log10(ratio))
-    gaps.push({ startMs: gapStart, endMs: gapEnd, durationMs, displayDurationMs })
+    gaps.push({
+      startMs: gapStart,
+      endMs: gapEnd,
+      durationMs,
+      displayDurationMs,
+    })
   }
 
   if (merged.length) {
     addGap(startMs, merged[0].start)
-    for (let index = 1; index < merged.length; index += 1) addGap(merged[index - 1].end, merged[index].start)
+    for (let index = 1; index < merged.length; index += 1)
+      addGap(merged[index - 1].end, merged[index].start)
     addGap(merged[merged.length - 1].end, endMs)
   }
 
-  const removedMs = gaps.reduce((total, gap) => total + gap.durationMs - gap.displayDurationMs, 0)
+  const removedMs = gaps.reduce(
+    (total, gap) => total + gap.durationMs - gap.displayDurationMs,
+    0,
+  )
   const displayDurationMs = Math.max(0, wallDurationMs - removedMs)
   const project = (timeMs: number): number => {
     const clamped = Math.max(startMs, Math.min(endMs, timeMs))
@@ -231,9 +278,10 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
     }
     return clamped - startMs - removedBefore
   }
-  const offsetPercent = (timeMs: number) => displayDurationMs > 0
-    ? Math.max(0, Math.min(100, (project(timeMs) / displayDurationMs) * 100))
-    : 0
+  const offsetPercent = (timeMs: number) =>
+    displayDurationMs > 0
+      ? Math.max(0, Math.min(100, (project(timeMs) / displayDurationMs) * 100))
+      : 0
   const timeAtPercent = (value: number) => {
     if (displayDurationMs <= 0) return startMs
     const target = (Math.max(0, Math.min(100, value)) / 100) * displayDurationMs
@@ -258,23 +306,33 @@ export function buildTraceTimelineScale(rows: TraceRow[], compressIdleGaps = tru
     gaps,
     offsetPercent,
     timeAtPercent,
-    widthPercent: (spanStartMs, durationMs) => Math.max(
-      0,
-      offsetPercent(spanStartMs + Math.max(0, durationMs)) - offsetPercent(spanStartMs)
-    )
+    widthPercent: (spanStartMs, durationMs) =>
+      Math.max(
+        0,
+        offsetPercent(spanStartMs + Math.max(0, durationMs)) -
+          offsetPercent(spanStartMs),
+      ),
   }
 }
 
-export function visibleSpanCount(rows: TraceRow[], hiddenKinds: Set<string>): number {
-  return rows.reduce((count, row) => count + (hiddenKinds.has(traceSpanKind(row)) ? 0 : 1), 0)
+export function visibleSpanCount(
+  rows: TraceRow[],
+  hiddenKinds: Set<string>,
+): number {
+  return rows.reduce(
+    (count, row) => count + (hiddenKinds.has(traceSpanKind(row)) ? 0 : 1),
+    0,
+  )
 }
 
 export function buildVisibleTraceTree(
   rows: TraceRow[],
   collapsed: Set<string>,
-  hiddenKinds: Set<string>
+  hiddenKinds: Set<string>,
 ): VisibleTraceSpan[] {
-  const sorted = [...rows].sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs))
+  const sorted = [...rows].sort(
+    (left, right) => number(left.startTimeMs) - number(right.startTimeMs),
+  )
   const byId = new Map<string, TraceRow>()
   for (const row of sorted) {
     const id = text(row.spanId)
@@ -289,9 +347,14 @@ export function buildVisibleTraceTree(
     list.push(row)
     children.set(parent, list)
   }
-  for (const list of children.values()) list.sort((left, right) => number(left.startTimeMs) - number(right.startTimeMs))
+  for (const list of children.values())
+    list.sort(
+      (left, right) => number(left.startTimeMs) - number(right.startTimeMs),
+    )
 
-  const roots = sorted.filter((row) => !text(row.parentSpanId) || !byId.has(text(row.parentSpanId)))
+  const roots = sorted.filter(
+    (row) => !text(row.parentSpanId) || !byId.has(text(row.parentSpanId)),
+  )
   const visibleDescendantMemo = new Map<string, boolean>()
   const checking = new Set<string>()
   const hasVisibleDescendant = (id: string): boolean => {
@@ -301,7 +364,10 @@ export function buildVisibleTraceTree(
     checking.add(id)
     const result = (children.get(id) ?? []).some((child) => {
       const childId = text(child.spanId)
-      return !hiddenKinds.has(traceSpanKind(child)) || (!!childId && hasVisibleDescendant(childId))
+      return (
+        !hiddenKinds.has(traceSpanKind(child)) ||
+        (!!childId && hasVisibleDescendant(childId))
+      )
     })
     checking.delete(id)
     visibleDescendantMemo.set(id, result)
@@ -326,7 +392,12 @@ export function buildVisibleTraceTree(
     const childRows = children.get(id) ?? []
 
     if (!hidden) {
-      output.push({ row, id, depth: Math.min(depth, 16), hasChildren: hasVisibleDescendant(id) })
+      output.push({
+        row,
+        id,
+        depth: Math.min(depth, 16),
+        hasChildren: hasVisibleDescendant(id),
+      })
       if (collapsed.has(id)) {
         markDescendantsVisited(id)
         return

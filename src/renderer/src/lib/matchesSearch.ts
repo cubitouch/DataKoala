@@ -1,4 +1,5 @@
-export const normalizeSearchText = (value: string) => value.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+export const normalizeSearchText = (value: string) =>
+  value.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
 
 export function matchesSearch(value: string, query: string): boolean {
   const normalizedQuery = normalizeSearchText(query)

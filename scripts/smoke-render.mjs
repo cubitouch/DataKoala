@@ -7,11 +7,12 @@
  */
 import { spawn } from 'node:child_process'
 
-const electronBin = 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'
+const electronBin =
+  'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'
 
 const child = spawn(electronBin, ['.'], {
   env: { ...process.env, DATAKOALA_SMOKE: '1' },
-  stdio: ['ignore', 'pipe', 'pipe']
+  stdio: ['ignore', 'pipe', 'pipe'],
 })
 
 let out = ''

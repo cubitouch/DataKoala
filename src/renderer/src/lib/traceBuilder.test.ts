@@ -1,15 +1,37 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
-import { buildTraceql, EMPTY_TRACE_BUILDER, mergeTraceBuilderState, traceBuilderFromSpan, traceBuilderFromTraceql, type TraceBuilderState } from './traceBuilder.ts'
+import {
+  buildTraceql,
+  EMPTY_TRACE_BUILDER,
+  mergeTraceBuilderState,
+  traceBuilderFromSpan,
+  traceBuilderFromTraceql,
+  type TraceBuilderState,
+} from './traceBuilder.ts'
 
-const builder = (patch: Partial<TraceBuilderState>): TraceBuilderState => ({ ...EMPTY_TRACE_BUILDER, ...patch })
+const builder = (patch: Partial<TraceBuilderState>): TraceBuilderState => ({
+  ...EMPTY_TRACE_BUILDER,
+  ...patch,
+})
 
 test('empty trace builder applies the default 300ms duration threshold', () => {
   assert.equal(buildTraceql(EMPTY_TRACE_BUILDER), '{ span:duration > 300ms }')
-  assert.equal(buildTraceql(builder({ minDurationMs: '' })), '{ span:duration > 300ms }')
-  assert.equal(buildTraceql(builder({ minDurationMs: '   ' })), '{ span:duration > 300ms }')
-  assert.equal(buildTraceql(builder({ minDurationMs: '500' })), '{ span:duration > 500ms }')
-  assert.equal(buildTraceql(builder({ minDurationMs: '0' })), '{ span:duration > 0ms }')
+  assert.equal(
+    buildTraceql(builder({ minDurationMs: '' })),
+    '{ span:duration > 300ms }',
+  )
+  assert.equal(
+    buildTraceql(builder({ minDurationMs: '   ' })),
+    '{ span:duration > 300ms }',
+  )
+  assert.equal(
+    buildTraceql(builder({ minDurationMs: '500' })),
+    '{ span:duration > 500ms }',
+  )
+  assert.equal(
+    buildTraceql(builder({ minDurationMs: '0' })),
+    '{ span:duration > 0ms }',
+  )
   assert.equal(buildTraceql(builder({ minDurationMs: 'invalid' })), '{ }')
 })
 
@@ -21,11 +43,24 @@ test('merges generated structured constraints while preserving absent and advanc
     status: 'ok',
     minDurationMs: '250',
     advancedFilters: [
-      { attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'include', values: ['production'] },
-      { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1'] }
-    ]
+      {
+        attribute: 'resource.deployment.environment.name',
+        scope: 'resource',
+        mode: 'include',
+        values: ['production'],
+      },
+      {
+        attribute: 'resource.cloud.region',
+        scope: 'resource',
+        mode: 'include',
+        values: ['eu-west-1'],
+      },
+    ],
   })
-  const merged = mergeTraceBuilderState(current, builder({ service: 'payments', spanKind: 'server', status: 'error' }))
+  const merged = mergeTraceBuilderState(
+    current,
+    builder({ service: 'payments', spanKind: 'server', status: 'error' }),
+  )
 
   assert.equal(merged.service, 'payments')
   assert.equal(merged.spanKind, 'server')
@@ -36,22 +71,66 @@ test('merges generated structured constraints while preserving absent and advanc
 })
 
 test('incoming advanced filters replace semantic conflicts, normalize values, and merge idempotently', () => {
-  const current = builder({ advancedFilters: [
-    { attribute: ' resource.deployment.environment.name ', scope: 'resource', mode: 'include', values: [' production ', 'production'] },
-    { attribute: 'span.custom', scope: 'span', mode: 'include', values: ['keep'] },
-    { attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'include', values: ['production'] }
-  ] })
-  const incoming = builder({ advancedFilters: [
-    { attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'exclude', values: [' staging ', 'staging'] },
-    { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: [' eu-west-1 ', 'eu-west-1'] }
-  ] })
+  const current = builder({
+    advancedFilters: [
+      {
+        attribute: ' resource.deployment.environment.name ',
+        scope: 'resource',
+        mode: 'include',
+        values: [' production ', 'production'],
+      },
+      {
+        attribute: 'span.custom',
+        scope: 'span',
+        mode: 'include',
+        values: ['keep'],
+      },
+      {
+        attribute: 'resource.deployment.environment.name',
+        scope: 'resource',
+        mode: 'include',
+        values: ['production'],
+      },
+    ],
+  })
+  const incoming = builder({
+    advancedFilters: [
+      {
+        attribute: 'resource.deployment.environment.name',
+        scope: 'resource',
+        mode: 'exclude',
+        values: [' staging ', 'staging'],
+      },
+      {
+        attribute: 'resource.cloud.region',
+        scope: 'resource',
+        mode: 'include',
+        values: [' eu-west-1 ', 'eu-west-1'],
+      },
+    ],
+  })
   const once = mergeTraceBuilderState(current, incoming)
   const twice = mergeTraceBuilderState(once, incoming)
 
   assert.deepEqual(once.advancedFilters, [
-    { attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'exclude', values: ['staging'] },
-    { attribute: 'span.custom', scope: 'span', mode: 'include', values: ['keep'] },
-    { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1'] }
+    {
+      attribute: 'resource.deployment.environment.name',
+      scope: 'resource',
+      mode: 'exclude',
+      values: ['staging'],
+    },
+    {
+      attribute: 'span.custom',
+      scope: 'span',
+      mode: 'include',
+      values: ['keep'],
+    },
+    {
+      attribute: 'resource.cloud.region',
+      scope: 'resource',
+      mode: 'include',
+      values: ['eu-west-1'],
+    },
   ])
   assert.deepEqual(twice, once)
   const query = buildTraceql(twice)
@@ -60,19 +139,38 @@ test('incoming advanced filters replace semantic conflicts, normalize values, an
 })
 
 test('reconciles protocol details without retaining fields from an inactive protocol', () => {
-  const http = builder({ protocol: 'http', httpMethod: 'GET', endpoint: '/orders' })
+  const http = builder({
+    protocol: 'http',
+    httpMethod: 'GET',
+    endpoint: '/orders',
+  })
   assert.deepEqual(
-    mergeTraceBuilderState(http, builder({ protocol: 'http', httpMethod: 'POST' })),
-    builder({ protocol: 'http', httpMethod: 'POST', endpoint: '/orders' })
+    mergeTraceBuilderState(
+      http,
+      builder({ protocol: 'http', httpMethod: 'POST' }),
+    ),
+    builder({ protocol: 'http', httpMethod: 'POST', endpoint: '/orders' }),
   )
   assert.deepEqual(
-    mergeTraceBuilderState(http, builder({ protocol: 'rpc', rpcSystem: 'grpc', rpcMethod: 'ListOrders' })),
-    builder({ protocol: 'rpc', rpcSystem: 'grpc', rpcMethod: 'ListOrders' })
+    mergeTraceBuilderState(
+      http,
+      builder({ protocol: 'rpc', rpcSystem: 'grpc', rpcMethod: 'ListOrders' }),
+    ),
+    builder({ protocol: 'rpc', rpcSystem: 'grpc', rpcMethod: 'ListOrders' }),
   )
-  assert.deepEqual(mergeTraceBuilderState(http, builder({ protocol: 'any', rpcSystem: 'grpc' })), http)
+  assert.deepEqual(
+    mergeTraceBuilderState(
+      http,
+      builder({ protocol: 'any', rpcSystem: 'grpc' }),
+    ),
+    http,
+  )
   assert.equal(
-    mergeTraceBuilderState(builder({ spanName: 'POST /example' }), builder({ protocol: 'http', spanName: '' })).spanName,
-    'POST /example'
+    mergeTraceBuilderState(
+      builder({ spanName: 'POST /example' }),
+      builder({ protocol: 'http', spanName: '' }),
+    ).spanName,
+    'POST /example',
   )
 })
 
@@ -82,9 +180,24 @@ test('merged constraints survive a TraceQL round trip', () => {
     minDurationMs: '100',
     protocol: 'http',
     endpoint: '/checkout',
-    advancedFilters: [{ attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'include', values: ['production'] }]
+    advancedFilters: [
+      {
+        attribute: 'resource.deployment.environment.name',
+        scope: 'resource',
+        mode: 'include',
+        values: ['production'],
+      },
+    ],
   })
-  const merged = mergeTraceBuilderState(current, builder({ service: 'payments', protocol: 'http', httpMethod: 'POST', status: 'error' }))
+  const merged = mergeTraceBuilderState(
+    current,
+    builder({
+      service: 'payments',
+      protocol: 'http',
+      httpMethod: 'POST',
+      status: 'error',
+    }),
+  )
   const reparsed = traceBuilderFromTraceql(buildTraceql(merged))
 
   assert.equal(reparsed.service, 'payments')
@@ -97,72 +210,340 @@ test('merged constraints survive a TraceQL round trip', () => {
 })
 
 test('builds and parses faceted attribute predicates', () => {
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }] })), '{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") && span:duration > 300ms }')
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.deployment.environment.name', scope: 'resource', mode: 'exclude', values: ['staging', 'test'] }] })), '{ resource.deployment.environment.name != "staging" && resource.deployment.environment.name != "test" && span:duration > 300ms }')
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'span.custom', scope: 'span', mode: 'include', values: ['a"b'] }] })), '{ span.custom = "a\\"b" && span:duration > 300ms }')
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: [] }] })), '{ span:duration > 300ms }')
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'invalid; true', scope: 'span', mode: 'include', values: ['x'] }] })), '{ span:duration > 300ms }')
-  const parsed = traceBuilderFromTraceql('{ resource.service.name = "checkout" && (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }')
+  assert.equal(
+    buildTraceql(
+      builder({
+        advancedFilters: [
+          {
+            attribute: 'resource.cloud.region',
+            scope: 'resource',
+            mode: 'include',
+            values: ['eu-west-1', 'eu-west-3'],
+          },
+        ],
+      }),
+    ),
+    '{ (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") && span:duration > 300ms }',
+  )
+  assert.equal(
+    buildTraceql(
+      builder({
+        advancedFilters: [
+          {
+            attribute: 'resource.deployment.environment.name',
+            scope: 'resource',
+            mode: 'exclude',
+            values: ['staging', 'test'],
+          },
+        ],
+      }),
+    ),
+    '{ resource.deployment.environment.name != "staging" && resource.deployment.environment.name != "test" && span:duration > 300ms }',
+  )
+  assert.equal(
+    buildTraceql(
+      builder({
+        advancedFilters: [
+          {
+            attribute: 'span.custom',
+            scope: 'span',
+            mode: 'include',
+            values: ['a"b'],
+          },
+        ],
+      }),
+    ),
+    '{ span.custom = "a\\"b" && span:duration > 300ms }',
+  )
+  assert.equal(
+    buildTraceql(
+      builder({
+        advancedFilters: [
+          {
+            attribute: 'resource.cloud.region',
+            scope: 'resource',
+            mode: 'include',
+            values: [],
+          },
+        ],
+      }),
+    ),
+    '{ span:duration > 300ms }',
+  )
+  assert.equal(
+    buildTraceql(
+      builder({
+        advancedFilters: [
+          {
+            attribute: 'invalid; true',
+            scope: 'span',
+            mode: 'include',
+            values: ['x'],
+          },
+        ],
+      }),
+    ),
+    '{ span:duration > 300ms }',
+  )
+  const parsed = traceBuilderFromTraceql(
+    '{ resource.service.name = "checkout" && (resource.cloud.region = "eu-west-1" || resource.cloud.region = "eu-west-3") }',
+  )
   assert.equal(parsed.service, 'checkout')
-  assert.deepEqual(parsed.advancedFilters, [{ attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1', 'eu-west-3'] }])
+  assert.deepEqual(parsed.advancedFilters, [
+    {
+      attribute: 'resource.cloud.region',
+      scope: 'resource',
+      mode: 'include',
+      values: ['eu-west-1', 'eu-west-3'],
+    },
+  ])
 })
 
 test.each([
-  ['>', '500'], ['>=', '500'], ['<', '500'], ['<=', '500'], ['=~', 'v2-.*'], ['!~', 'legacy-.*']
-] as const)('builds and round trips comparison filter %s', (operator, value) => {
-  const state = builder({ advancedFilters: [{ attribute: operator.includes('~') ? 'resource.service.version' : 'span.http.status_code', scope: operator.includes('~') ? 'resource' : 'span', mode: 'compare', operator, value }] })
-  const query = buildTraceql(state)
-  assert.match(query, new RegExp(` ${operator.replace('~', '\\~')} `))
-  assert.deepEqual(traceBuilderFromTraceql(query).advancedFilters, state.advancedFilters)
-})
+  ['>', '500'],
+  ['>=', '500'],
+  ['<', '500'],
+  ['<=', '500'],
+  ['=~', 'v2-.*'],
+  ['!~', 'legacy-.*'],
+] as const)(
+  'builds and round trips comparison filter %s',
+  (operator, value) => {
+    const state = builder({
+      advancedFilters: [
+        {
+          attribute: operator.includes('~')
+            ? 'resource.service.version'
+            : 'span.http.status_code',
+          scope: operator.includes('~') ? 'resource' : 'span',
+          mode: 'compare',
+          operator,
+          value,
+        },
+      ],
+    })
+    const query = buildTraceql(state)
+    assert.match(query, new RegExp(` ${operator.replace('~', '\\~')} `))
+    assert.deepEqual(
+      traceBuilderFromTraceql(query).advancedFilters,
+      state.advancedFilters,
+    )
+  },
+)
 
 test('formats comparison scalar literals safely and ignores incomplete filters', () => {
-  assert.match(buildTraceql(builder({ advancedFilters: [{ attribute: 'span.custom_duration', scope: 'span', mode: 'compare', operator: '>', value: '300ms' }] })), /span\.custom_duration > 300ms/)
-  assert.match(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.service.version', scope: 'resource', mode: 'compare', operator: '>', value: 'legacy "beta"' }] })), /resource\.service\.version > "legacy \\"beta\\""/)
-  assert.match(buildTraceql(builder({ advancedFilters: [{ attribute: 'resource.service.version', scope: 'resource', mode: 'compare', operator: '>', value: '"500"' }] })), /> "500"/)
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'span.custom', scope: 'span', mode: 'compare', operator: '>', value: ' ' }] })), '{ span:duration > 300ms }')
-  assert.equal(buildTraceql(builder({ advancedFilters: [{ attribute: 'invalid; true', scope: 'span', mode: 'compare', operator: '>', value: '500' }] })), '{ span:duration > 300ms }')
+  assert.match(
+    buildTraceql(
+      builder({
+        advancedFilters: [
+          {
+            attribute: 'span.custom_duration',
+            scope: 'span',
+            mode: 'compare',
+            operator: '>',
+            value: '300ms',
+          },
+        ],
+      }),
+    ),
+    /span\.custom_duration > 300ms/,
+  )
+  assert.match(
+    buildTraceql(
+      builder({
+        advancedFilters: [
+          {
+            attribute: 'resource.service.version',
+            scope: 'resource',
+            mode: 'compare',
+            operator: '>',
+            value: 'legacy "beta"',
+          },
+        ],
+      }),
+    ),
+    /resource\.service\.version > "legacy \\"beta\\""/,
+  )
+  assert.match(
+    buildTraceql(
+      builder({
+        advancedFilters: [
+          {
+            attribute: 'resource.service.version',
+            scope: 'resource',
+            mode: 'compare',
+            operator: '>',
+            value: '"500"',
+          },
+        ],
+      }),
+    ),
+    /> "500"/,
+  )
+  assert.equal(
+    buildTraceql(
+      builder({
+        advancedFilters: [
+          {
+            attribute: 'span.custom',
+            scope: 'span',
+            mode: 'compare',
+            operator: '>',
+            value: ' ',
+          },
+        ],
+      }),
+    ),
+    '{ span:duration > 300ms }',
+  )
+  assert.equal(
+    buildTraceql(
+      builder({
+        advancedFilters: [
+          {
+            attribute: 'invalid; true',
+            scope: 'span',
+            mode: 'compare',
+            operator: '>',
+            value: '500',
+          },
+        ],
+      }),
+    ),
+    '{ span:duration > 300ms }',
+  )
 })
 
 test('round trips relational string literals without changing their Builder value', () => {
-  const ordinaryString = builder({ advancedFilters: [{ attribute: 'resource.service.version', scope: 'resource', mode: 'compare', operator: '>', value: 'legacy' }] })
-  const numericString = builder({ advancedFilters: [{ attribute: 'resource.service.version', scope: 'resource', mode: 'compare', operator: '>=', value: '"500"' }] })
+  const ordinaryString = builder({
+    advancedFilters: [
+      {
+        attribute: 'resource.service.version',
+        scope: 'resource',
+        mode: 'compare',
+        operator: '>',
+        value: 'legacy',
+      },
+    ],
+  })
+  const numericString = builder({
+    advancedFilters: [
+      {
+        attribute: 'resource.service.version',
+        scope: 'resource',
+        mode: 'compare',
+        operator: '>=',
+        value: '"500"',
+      },
+    ],
+  })
 
-  assert.deepEqual(traceBuilderFromTraceql(buildTraceql(ordinaryString)).advancedFilters, ordinaryString.advancedFilters)
-  assert.deepEqual(traceBuilderFromTraceql(buildTraceql(numericString)).advancedFilters, numericString.advancedFilters)
+  assert.deepEqual(
+    traceBuilderFromTraceql(buildTraceql(ordinaryString)).advancedFilters,
+    ordinaryString.advancedFilters,
+  )
+  assert.deepEqual(
+    traceBuilderFromTraceql(buildTraceql(numericString)).advancedFilters,
+    numericString.advancedFilters,
+  )
 })
 
 test('does not import mixed comparison boolean structures', () => {
-  assert.deepEqual(traceBuilderFromTraceql('{ span.http.status_code > 500 || span.http.status_code < 200 }').advancedFilters, [])
-  assert.deepEqual(traceBuilderFromTraceql('{ span.http.status_code >= 500 && span.http.status_code < 600 }').advancedFilters, [])
+  assert.deepEqual(
+    traceBuilderFromTraceql(
+      '{ span.http.status_code > 500 || span.http.status_code < 200 }',
+    ).advancedFilters,
+    [],
+  )
+  assert.deepEqual(
+    traceBuilderFromTraceql(
+      '{ span.http.status_code >= 500 && span.http.status_code < 600 }',
+    ).advancedFilters,
+    [],
+  )
 })
 
 test('does not import boolean structures whose facet semantics cannot be preserved', () => {
-  assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region = "eu-west-1" && resource.cloud.region = "eu-west-3" }').advancedFilters, [])
-  assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region != "eu-west-1" || resource.cloud.region != "eu-west-3" }').advancedFilters, [])
-  assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region = "eu-west-1" }').advancedFilters, [
-    { attribute: 'resource.cloud.region', scope: 'resource', mode: 'include', values: ['eu-west-1'] }
-  ])
-  assert.deepEqual(traceBuilderFromTraceql('{ resource.cloud.region = "eu-west-1" || span.custom = "foo" }').advancedFilters, [])
-  assert.deepEqual(traceBuilderFromTraceql('{ resource.service.name = "checkout" || resource.cloud.region = "eu-west-1" }').advancedFilters, [])
-  assert.deepEqual(traceBuilderFromTraceql('{ (resource.service.name = "checkout" || resource.cloud.region = "eu-west-1") && span:status = error }').advancedFilters, [])
+  assert.deepEqual(
+    traceBuilderFromTraceql(
+      '{ resource.cloud.region = "eu-west-1" && resource.cloud.region = "eu-west-3" }',
+    ).advancedFilters,
+    [],
+  )
+  assert.deepEqual(
+    traceBuilderFromTraceql(
+      '{ resource.cloud.region != "eu-west-1" || resource.cloud.region != "eu-west-3" }',
+    ).advancedFilters,
+    [],
+  )
+  assert.deepEqual(
+    traceBuilderFromTraceql('{ resource.cloud.region = "eu-west-1" }')
+      .advancedFilters,
+    [
+      {
+        attribute: 'resource.cloud.region',
+        scope: 'resource',
+        mode: 'include',
+        values: ['eu-west-1'],
+      },
+    ],
+  )
+  assert.deepEqual(
+    traceBuilderFromTraceql(
+      '{ resource.cloud.region = "eu-west-1" || span.custom = "foo" }',
+    ).advancedFilters,
+    [],
+  )
+  assert.deepEqual(
+    traceBuilderFromTraceql(
+      '{ resource.service.name = "checkout" || resource.cloud.region = "eu-west-1" }',
+    ).advancedFilters,
+    [],
+  )
+  assert.deepEqual(
+    traceBuilderFromTraceql(
+      '{ (resource.service.name = "checkout" || resource.cloud.region = "eu-west-1") && span:status = error }',
+    ).advancedFilters,
+    [],
+  )
 })
 
 test('builds service, kind, status and duration filters with scoped intrinsics', () => {
   assert.equal(
-    buildTraceql(builder({ serviceNamespace: 'commerce', service: 'checkout-api', spanKind: 'server', status: 'error', minDurationMs: '300' })),
-    '{ resource.service.namespace = "commerce" && resource.service.name = "checkout-api" && span:kind = server && span:status = error && span:duration > 300ms }'
+    buildTraceql(
+      builder({
+        serviceNamespace: 'commerce',
+        service: 'checkout-api',
+        spanKind: 'server',
+        status: 'error',
+        minDurationMs: '300',
+      }),
+    ),
+    '{ resource.service.namespace = "commerce" && resource.service.name = "checkout-api" && span:kind = server && span:status = error && span:duration > 300ms }',
   )
 })
 
 test('HTTP controls separate method from route and tolerate semantic-convention aliases', () => {
   assert.equal(
-    buildTraceql(builder({ spanKind: 'server', protocol: 'http', httpMethod: 'POST', endpoint: '/checkout' })),
-    '{ span:kind = server && (span.http.request.method = "POST" || span.http.method = "POST") && (span.http.route = "/checkout" || span.url.template = "/checkout" || span.url.path = "/checkout" || span.http.target = "/checkout") && span:duration > 300ms }'
+    buildTraceql(
+      builder({
+        spanKind: 'server',
+        protocol: 'http',
+        httpMethod: 'POST',
+        endpoint: '/checkout',
+      }),
+    ),
+    '{ span:kind = server && (span.http.request.method = "POST" || span.http.method = "POST") && (span.http.route = "/checkout" || span.url.template = "/checkout" || span.url.path = "/checkout" || span.http.target = "/checkout") && span:duration > 300ms }',
   )
   assert.equal(
-    buildTraceql(builder({ spanKind: 'client', protocol: 'http', endpoint: '/payments/{id}' })),
-    '{ span:kind = client && (span.http.route = "/payments/{id}" || span.url.template = "/payments/{id}" || span.url.path = "/payments/{id}" || span.http.target = "/payments/{id}") && span:duration > 300ms }'
+    buildTraceql(
+      builder({
+        spanKind: 'client',
+        protocol: 'http',
+        endpoint: '/payments/{id}',
+      }),
+    ),
+    '{ span:kind = client && (span.http.route = "/payments/{id}" || span.url.template = "/payments/{id}" || span.url.path = "/payments/{id}" || span.http.target = "/payments/{id}") && span:duration > 300ms }',
   )
 })
 
@@ -173,7 +554,10 @@ test('server Explore similar queries preserve url.path-only root spans', () => {
     kind: 'SERVER',
     name: 'POST /checkout/42',
     status: 'UNSET',
-    attributes: JSON.stringify({ 'http.request.method': 'POST', 'url.path': '/checkout/42' })
+    attributes: JSON.stringify({
+      'http.request.method': 'POST',
+      'url.path': '/checkout/42',
+    }),
   })
   const query = buildTraceql(seeded)
 
@@ -184,35 +568,80 @@ test('server Explore similar queries preserve url.path-only root spans', () => {
 })
 
 test('protocol-only filters still narrow the search', () => {
-  assert.match(buildTraceql(builder({ protocol: 'http' })), /span\.http\.request\.method != nil/)
-  assert.match(buildTraceql(builder({ protocol: 'http' })), /span\.url\.path != nil/)
-  assert.equal(buildTraceql(builder({ protocol: 'rpc' })), '{ span.rpc.system != nil && span:duration > 300ms }')
-  assert.equal(buildTraceql(builder({ protocol: 'messaging' })), '{ span.messaging.system != nil && span:duration > 300ms }')
-  assert.match(buildTraceql(builder({ protocol: 'database' })), /span\.db\.system\.name != nil/)
+  assert.match(
+    buildTraceql(builder({ protocol: 'http' })),
+    /span\.http\.request\.method != nil/,
+  )
+  assert.match(
+    buildTraceql(builder({ protocol: 'http' })),
+    /span\.url\.path != nil/,
+  )
+  assert.equal(
+    buildTraceql(builder({ protocol: 'rpc' })),
+    '{ span.rpc.system != nil && span:duration > 300ms }',
+  )
+  assert.equal(
+    buildTraceql(builder({ protocol: 'messaging' })),
+    '{ span.messaging.system != nil && span:duration > 300ms }',
+  )
+  assert.match(
+    buildTraceql(builder({ protocol: 'database' })),
+    /span\.db\.system\.name != nil/,
+  )
 })
 
 test('builds RPC, messaging and database semantic-convention filters', () => {
   assert.equal(
-    buildTraceql(builder({ protocol: 'rpc', rpcSystem: 'grpc', rpcService: 'CartService', rpcMethod: 'Checkout' })),
-    '{ span.rpc.system = "grpc" && span.rpc.service = "CartService" && span.rpc.method = "Checkout" && span:duration > 300ms }'
+    buildTraceql(
+      builder({
+        protocol: 'rpc',
+        rpcSystem: 'grpc',
+        rpcService: 'CartService',
+        rpcMethod: 'Checkout',
+      }),
+    ),
+    '{ span.rpc.system = "grpc" && span.rpc.service = "CartService" && span.rpc.method = "Checkout" && span:duration > 300ms }',
   )
   assert.equal(
-    buildTraceql(builder({ protocol: 'messaging', messagingSystem: 'kafka', messagingDestination: 'orders', messagingOperation: 'publish' })),
-    '{ span.messaging.system = "kafka" && (span.messaging.destination.name = "orders" || span.messaging.destination = "orders") && (span.messaging.operation.type = "publish" || span.messaging.operation = "publish") && span:duration > 300ms }'
+    buildTraceql(
+      builder({
+        protocol: 'messaging',
+        messagingSystem: 'kafka',
+        messagingDestination: 'orders',
+        messagingOperation: 'publish',
+      }),
+    ),
+    '{ span.messaging.system = "kafka" && (span.messaging.destination.name = "orders" || span.messaging.destination = "orders") && (span.messaging.operation.type = "publish" || span.messaging.operation = "publish") && span:duration > 300ms }',
   )
   assert.equal(
-    buildTraceql(builder({ protocol: 'database', dbSystem: 'postgresql', dbOperation: 'SELECT' })),
-    '{ (span.db.system.name = "postgresql" || span.db.system = "postgresql") && (span.db.operation.name = "SELECT" || span.db.operation = "SELECT") && span:duration > 300ms }'
+    buildTraceql(
+      builder({
+        protocol: 'database',
+        dbSystem: 'postgresql',
+        dbOperation: 'SELECT',
+      }),
+    ),
+    '{ (span.db.system.name = "postgresql" || span.db.system = "postgresql") && (span.db.operation.name = "SELECT" || span.db.operation = "SELECT") && span:duration > 300ms }',
   )
 })
 
 test('parses existing unscoped builder queries and new structured fields', () => {
   assert.deepEqual(
-    traceBuilderFromTraceql('{ resource.service.namespace = "commerce" && resource.service.name = "checkout-api" && name = "POST /checkout" && status = error && duration > 300ms }'),
-    builder({ serviceNamespace: 'commerce', service: 'checkout-api', spanName: 'POST /checkout', status: 'error', minDurationMs: '300' })
+    traceBuilderFromTraceql(
+      '{ resource.service.namespace = "commerce" && resource.service.name = "checkout-api" && name = "POST /checkout" && status = error && duration > 300ms }',
+    ),
+    builder({
+      serviceNamespace: 'commerce',
+      service: 'checkout-api',
+      spanName: 'POST /checkout',
+      status: 'error',
+      minDurationMs: '300',
+    }),
   )
 
-  const parsed = traceBuilderFromTraceql('{ span:kind = server && span.http.request.method = "GET" && span.http.route = "/orders/{id}" && span:status = ok }')
+  const parsed = traceBuilderFromTraceql(
+    '{ span:kind = server && span.http.request.method = "GET" && span.http.route = "/orders/{id}" && span:status = ok }',
+  )
   assert.equal(parsed.spanKind, 'server')
   assert.equal(parsed.protocol, 'http')
   assert.equal(parsed.httpMethod, 'GET')
@@ -227,43 +656,99 @@ test('seeds Explore similar from HTTP span semantic attributes instead of the ad
     kind: 'SERVER',
     name: 'POST',
     status: 'OK',
-    attributes: JSON.stringify({ 'http.request.method': 'POST', 'http.route': '/checkout' })
+    attributes: JSON.stringify({
+      'http.request.method': 'POST',
+      'http.route': '/checkout',
+    }),
   })
 
-  assert.deepEqual(seeded, builder({
-    serviceNamespace: 'commerce',
-    service: 'checkout-api',
-    spanKind: 'server',
-    protocol: 'http',
-    httpMethod: 'POST',
-    endpoint: '/checkout',
-    status: 'ok'
-  }))
+  assert.deepEqual(
+    seeded,
+    builder({
+      serviceNamespace: 'commerce',
+      service: 'checkout-api',
+      spanKind: 'server',
+      protocol: 'http',
+      httpMethod: 'POST',
+      endpoint: '/checkout',
+      status: 'ok',
+    }),
+  )
   assert.equal(seeded.spanName, '')
 })
 
 test('seeds Explore similar from RPC, messaging and database semantic attributes', () => {
   assert.deepEqual(
-    traceBuilderFromSpan({ kind: 'CLIENT', name: 'CartService/Checkout', attributes: { 'rpc.system': 'grpc', 'rpc.service': 'CartService', 'rpc.method': 'Checkout' } }),
-    builder({ spanKind: 'client', protocol: 'rpc', rpcSystem: 'grpc', rpcService: 'CartService', rpcMethod: 'Checkout' })
+    traceBuilderFromSpan({
+      kind: 'CLIENT',
+      name: 'CartService/Checkout',
+      attributes: {
+        'rpc.system': 'grpc',
+        'rpc.service': 'CartService',
+        'rpc.method': 'Checkout',
+      },
+    }),
+    builder({
+      spanKind: 'client',
+      protocol: 'rpc',
+      rpcSystem: 'grpc',
+      rpcService: 'CartService',
+      rpcMethod: 'Checkout',
+    }),
   )
   assert.deepEqual(
-    traceBuilderFromSpan({ kind: 'PRODUCER', name: 'orders publish', attributes: { 'messaging.system': 'kafka', 'messaging.destination.name': 'orders', 'messaging.operation.type': 'publish' } }),
-    builder({ spanKind: 'producer', protocol: 'messaging', messagingSystem: 'kafka', messagingDestination: 'orders', messagingOperation: 'publish' })
+    traceBuilderFromSpan({
+      kind: 'PRODUCER',
+      name: 'orders publish',
+      attributes: {
+        'messaging.system': 'kafka',
+        'messaging.destination.name': 'orders',
+        'messaging.operation.type': 'publish',
+      },
+    }),
+    builder({
+      spanKind: 'producer',
+      protocol: 'messaging',
+      messagingSystem: 'kafka',
+      messagingDestination: 'orders',
+      messagingOperation: 'publish',
+    }),
   )
   assert.deepEqual(
-    traceBuilderFromSpan({ kind: 'CLIENT', name: 'SELECT inventory', attributes: { 'db.system.name': 'postgresql', 'db.operation.name': 'SELECT' } }),
-    builder({ spanKind: 'client', protocol: 'database', dbSystem: 'postgresql', dbOperation: 'SELECT' })
+    traceBuilderFromSpan({
+      kind: 'CLIENT',
+      name: 'SELECT inventory',
+      attributes: {
+        'db.system.name': 'postgresql',
+        'db.operation.name': 'SELECT',
+      },
+    }),
+    builder({
+      spanKind: 'client',
+      protocol: 'database',
+      dbSystem: 'postgresql',
+      dbOperation: 'SELECT',
+    }),
   )
 })
 
 test('uses an HTTP-looking span name as a structured fallback and preserves genuinely custom names as advanced', () => {
   assert.deepEqual(
-    traceBuilderFromSpan({ kind: 'SERVER', name: 'POST /checkout', status: 'UNSET' }),
-    builder({ spanKind: 'server', protocol: 'http', httpMethod: 'POST', endpoint: '/checkout', status: 'unset' })
+    traceBuilderFromSpan({
+      kind: 'SERVER',
+      name: 'POST /checkout',
+      status: 'UNSET',
+    }),
+    builder({
+      spanKind: 'server',
+      protocol: 'http',
+      httpMethod: 'POST',
+      endpoint: '/checkout',
+      status: 'unset',
+    }),
   )
   assert.deepEqual(
     traceBuilderFromSpan({ kind: 'INTERNAL', name: 'refresh inventory cache' }),
-    builder({ spanKind: 'internal', spanName: 'refresh inventory cache' })
+    builder({ spanKind: 'internal', spanName: 'refresh inventory cache' }),
   )
 })

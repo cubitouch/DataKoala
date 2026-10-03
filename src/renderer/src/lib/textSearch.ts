@@ -13,7 +13,8 @@ export function createTextSearch(search: string) {
       let start = 0
       for (const character of text) {
         const end = start + character.length
-        for (let i = 0; i < character.toLowerCase().length; i++) offsets.push({ start, end })
+        for (let i = 0; i < character.toLowerCase().length; i++)
+          offsets.push({ start, end })
         start = end
       }
     }
@@ -23,12 +24,18 @@ export function createTextSearch(search: string) {
     while (index !== -1) {
       const start = offsets[index]?.start ?? index
       const end = offsets[index + term.length - 1]?.end ?? index + term.length
-      if (start > cursor) result.push({ text: text.slice(cursor, start), matched: false })
-      if (end > cursor) result.push({ text: text.slice(Math.max(cursor, start), end), matched: true })
+      if (start > cursor)
+        result.push({ text: text.slice(cursor, start), matched: false })
+      if (end > cursor)
+        result.push({
+          text: text.slice(Math.max(cursor, start), end),
+          matched: true,
+        })
       cursor = end
       index = normalized.indexOf(term, index + term.length)
     }
-    if (cursor < text.length) result.push({ text: text.slice(cursor), matched: false })
+    if (cursor < text.length)
+      result.push({ text: text.slice(cursor), matched: false })
     return result
   }
   return { matches, segments }

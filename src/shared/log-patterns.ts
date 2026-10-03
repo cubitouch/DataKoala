@@ -1,6 +1,27 @@
-export interface LogPatternRecord { id: string; message: string; timestampMs: number; severity?: string }
-export interface LogPatternSegment { text: string; variable: boolean; values: string[] }
-export interface LogPatternCluster { id: string; template: string; segments: LogPatternSegment[]; memberIds: string[]; count: number; percentage: number; severities: Record<string, number>; firstTimestampMs: number; lastTimestampMs: number; examples: LogPatternRecord[]; variables: Array<{ placeholder: string; values: string[] }> }
+export interface LogPatternRecord {
+  id: string
+  message: string
+  timestampMs: number
+  severity?: string
+}
+export interface LogPatternSegment {
+  text: string
+  variable: boolean
+  values: string[]
+}
+export interface LogPatternCluster {
+  id: string
+  template: string
+  segments: LogPatternSegment[]
+  memberIds: string[]
+  count: number
+  percentage: number
+  severities: Record<string, number>
+  firstTimestampMs: number
+  lastTimestampMs: number
+  examples: LogPatternRecord[]
+  variables: Array<{ placeholder: string; values: string[] }>
+}
 
 export const LOG_PATTERN_LIMITS = Object.freeze({
   maxMessageCharacters: 8192,
@@ -9,18 +30,22 @@ export const LOG_PATTERN_LIMITS = Object.freeze({
   maxStructuredDepth: 8,
   maxSemanticKeys: 10,
   maxCandidateClusters: 32,
-  maxVariableRatio: .4,
-  minStableTokens: 3
+  maxVariableRatio: 0.4,
+  minStableTokens: 3,
 })
 
-const timestamp = /^(?:\d{4}-\d\d-\d\d[T ][0-9:.+-]+Z?|\d\d:\d\d:\d\d(?:\.\d+)?)$/i
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const timestamp =
+  /^(?:\d{4}-\d\d-\d\d[T ][0-9:.+-]+Z?|\d\d:\d\d:\d\d(?:\.\d+)?)$/i
+const uuid =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const ipv4 = /^(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?$/
 const ipv6 = /^(?:[0-9a-f]{0,4}:){2,}[0-9a-f]{0,4}(?::\d+)?$/i
 const field = /^([a-z_][a-z0-9_.-]*=)(.+)$/i
 const nullableValue = /^(?:null|none|nil)$/i
 
-function isNullableValue(value: string): boolean { return nullableValue.test(stripMatchingQuotes(value.trim())) }
+function isNullableValue(value: string): boolean {
+  return nullableValue.test(stripMatchingQuotes(value.trim()))
+}
 
 function normalizedValue(value: string): string | null {
   if (isNullableValue(value)) return '<value>'
@@ -30,8 +55,10 @@ function normalizedValue(value: string): string | null {
   if (/^[a-z][a-z\d+.-]*:\/\//i.test(value)) return '<url>'
   if (/^(?:\.?\.?\/|\/|[a-z]:\\)[^\s]+/i.test(value)) return '<path>'
   if (/^\d+(?:\.\d+)?(?:ns|us|µs|ms|s|m|h|d)$/i.test(value)) return '<duration>'
-  if (/^\d+(?:\.\d+)?(?:b|kb|mb|gb|tb|kib|mib|gib|tib)$/i.test(value)) return '<size>'
-  if (/^(?:[0-9a-f]{12,}|sha(?:1|256|512):[0-9a-f]+)$/i.test(value)) return '<hash>'
+  if (/^\d+(?:\.\d+)?(?:b|kb|mb|gb|tb|kib|mib|gib|tib)$/i.test(value))
+    return '<size>'
+  if (/^(?:[0-9a-f]{12,}|sha(?:1|256|512):[0-9a-f]+)$/i.test(value))
+    return '<hash>'
   if (/^[+-]?(?:\d+(?:\.\d+)?|0x[0-9a-f]+)$/i.test(value)) return '<number>'
   if (/^(?=.*[a-z])(?=.*\d)[a-z0-9_.:-]{4,}$/i.test(value)) return '<value>'
   return null
@@ -51,12 +78,18 @@ interface Token {
 }
 
 function stripMatchingQuotes(value: string): string {
-  return value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) ? value.slice(1, -1) : value
+  return value.length >= 2 &&
+    ((value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'")))
+    ? value.slice(1, -1)
+    : value
 }
 
 function token(raw: string): Token {
   const match = raw.match(/^([^\p{L}\p{N}/\\]*)(.*?)([^\p{L}\p{N}/\\]*)$/u)
-  const prefix = match?.[1] ?? '', core = match?.[2] ?? raw, suffix = match?.[3] ?? ''
+  const prefix = match?.[1] ?? '',
+    core = match?.[2] ?? raw,
+    suffix = match?.[3] ?? ''
   const fieldMatch = core.match(field)
   if (fieldMatch) {
     const fieldPrefix = fieldMatch[1]
@@ -71,38 +104,75 @@ function token(raw: string): Token {
       fieldValueRaw,
       nullable: isNullableValue(fieldValueRaw),
       display: placeholder ? prefix + fieldPrefix + placeholder + suffix : raw,
-      normalized: placeholder ? 'field:' + fieldKey + '=' + placeholder : core.toLowerCase(),
-      variable: Boolean(placeholder)
+      normalized: placeholder
+        ? 'field:' + fieldKey + '=' + placeholder
+        : core.toLowerCase(),
+      variable: Boolean(placeholder),
     }
   }
   const placeholder = normalizedValue(core)
-  return { raw, prefix, suffix, display: placeholder ? prefix + placeholder + suffix : raw, normalized: placeholder ?? core.toLowerCase(), variable: Boolean(placeholder) }
+  return {
+    raw,
+    prefix,
+    suffix,
+    display: placeholder ? prefix + placeholder + suffix : raw,
+    normalized: placeholder ?? core.toLowerCase(),
+    variable: Boolean(placeholder),
+  }
 }
 
+interface StructuredEntry {
+  path: string
+  rawValue: string
+}
 
-interface StructuredEntry { path: string; rawValue: string }
-
-function scanTopLevel(value: string, delimiter: ',' | ':' | '='): number[] | null {
+function scanTopLevel(
+  value: string,
+  delimiter: ',' | ':' | '=',
+): number[] | null {
   const positions: number[] = []
   let quote: '"' | "'" | null = null
   let escaped = false
-  let braces = 0, brackets = 0, parentheses = 0
+  let braces = 0,
+    brackets = 0,
+    parentheses = 0
   for (let index = 0; index < value.length; index++) {
     const char = value[index]
     if (quote) {
-      if (escaped) { escaped = false; continue }
-      if (char === '\\') { escaped = true; continue }
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
       if (char === quote) quote = null
       continue
     }
-    if (char === '"' || char === "'") { quote = char; continue }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
     if (char === '{') braces += 1
-    else if (char === '}') { braces -= 1; if (braces < 0) return null }
-    else if (char === '[') brackets += 1
-    else if (char === ']') { brackets -= 1; if (brackets < 0) return null }
-    else if (char === '(') parentheses += 1
-    else if (char === ')') { parentheses -= 1; if (parentheses < 0) return null }
-    else if (char === delimiter && braces === 0 && brackets === 0 && parentheses === 0) positions.push(index)
+    else if (char === '}') {
+      braces -= 1
+      if (braces < 0) return null
+    } else if (char === '[') brackets += 1
+    else if (char === ']') {
+      brackets -= 1
+      if (brackets < 0) return null
+    } else if (char === '(') parentheses += 1
+    else if (char === ')') {
+      parentheses -= 1
+      if (parentheses < 0) return null
+    } else if (
+      char === delimiter &&
+      braces === 0 &&
+      brackets === 0 &&
+      parentheses === 0
+    )
+      positions.push(index)
   }
   return quote || braces || brackets || parentheses ? null : positions
 }
@@ -133,13 +203,26 @@ function topLevelEquals(value: string): number | null {
 function structuredKey(raw: string): string | null {
   const trimmed = raw.trim()
   const unquoted = stripMatchingQuotes(trimmed)
-  if (!unquoted || (unquoted === trimmed && !/^[a-z_][a-z0-9_.-]*$/i.test(unquoted))) return null
+  if (
+    !unquoted ||
+    (unquoted === trimmed && !/^[a-z_][a-z0-9_.-]*$/i.test(unquoted))
+  )
+    return null
   return unquoted
 }
 
-function parseStructuredObject(value: string, prefix = '', depth = 0): StructuredEntry[] | null {
+function parseStructuredObject(
+  value: string,
+  prefix = '',
+  depth = 0,
+): StructuredEntry[] | null {
   const trimmed = value.trim()
-  if (depth > LOG_PATTERN_LIMITS.maxStructuredDepth || !trimmed.startsWith('{') || !trimmed.endsWith('}')) return null
+  if (
+    depth > LOG_PATTERN_LIMITS.maxStructuredDepth ||
+    !trimmed.startsWith('{') ||
+    !trimmed.endsWith('}')
+  )
+    return null
   const body = trimmed.slice(1, -1).trim()
   if (!body) return []
   const parts = splitTopLevel(body)
@@ -179,29 +262,43 @@ function structuredToken(entry: StructuredEntry): Token {
     nullable: isNullableValue(rawValue),
     display: entry.path + '=<value>',
     normalized: 'field:' + fieldKey + '=<value>',
-    variable: true
+    variable: true,
   }
 }
 
-function selectStructuredEntries(entries: StructuredEntry[], budget: number): StructuredEntry[] {
-  const sorted = [...entries].sort((left, right) => left.path.localeCompare(right.path))
+function selectStructuredEntries(
+  entries: StructuredEntry[],
+  budget: number,
+): StructuredEntry[] {
+  const sorted = [...entries].sort((left, right) =>
+    left.path.localeCompare(right.path),
+  )
   if (sorted.length <= budget) return sorted
-  const headCount = Math.floor(budget * .75)
+  const headCount = Math.floor(budget * 0.75)
   const tailCount = budget - headCount
   return [...sorted.slice(0, headCount), ...sorted.slice(-tailCount)]
 }
 
-function structuredObjectTokens(message: string, budget: number = LOG_PATTERN_LIMITS.maxTokens): Token[] | null {
+function structuredObjectTokens(
+  message: string,
+  budget: number = LOG_PATTERN_LIMITS.maxTokens,
+): Token[] | null {
   const entries = parseStructuredObject(message)
   if (!entries) return null
   if (!entries.length) return [token('{}')]
-  return selectStructuredEntries(entries, Math.max(1, budget)).map(structuredToken)
+  return selectStructuredEntries(entries, Math.max(1, budget)).map(
+    structuredToken,
+  )
 }
 
+interface StructuredConstructor {
+  className: string
+  entries: StructuredEntry[]
+}
 
-interface StructuredConstructor { className: string; entries: StructuredEntry[] }
-
-function parseStructuredConstructor(value: string): StructuredConstructor | null {
+function parseStructuredConstructor(
+  value: string,
+): StructuredConstructor | null {
   const trimmed = value.trim()
   const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_.]*)\(([\s\S]*)\)$/)
   if (!match) return null
@@ -233,19 +330,26 @@ function structuralTypeToken(className: string): Token {
     display: className,
     normalized: 'type:' + className.toLowerCase(),
     variable: false,
-    structural: true
+    structural: true,
   }
 }
 
-function structuredConstructorTokens(value: string, budget: number = LOG_PATTERN_LIMITS.maxTokens): Token[] | null {
+function structuredConstructorTokens(
+  value: string,
+  budget: number = LOG_PATTERN_LIMITS.maxTokens,
+): Token[] | null {
   const parsed = parseStructuredConstructor(value)
   if (!parsed) return null
   const fieldBudget = Math.max(0, budget - 1)
-  const fields = fieldBudget ? selectStructuredEntries(parsed.entries, fieldBudget).map(structuredToken) : []
+  const fields = fieldBudget
+    ? selectStructuredEntries(parsed.entries, fieldBudget).map(structuredToken)
+    : []
   return [structuralTypeToken(parsed.className), ...fields]
 }
 
-function trailingStructuredConstructor(message: string): { prefix: string; constructor: string } | null {
+function trailingStructuredConstructor(
+  message: string,
+): { prefix: string; constructor: string } | null {
   const source = message.trimEnd()
   if (!source.endsWith(')')) return null
   let quote: '"' | "'" | null = null
@@ -255,12 +359,21 @@ function trailingStructuredConstructor(message: string): { prefix: string; const
   for (let index = 0; index < source.length; index++) {
     const char = source[index]
     if (quote) {
-      if (escaped) { escaped = false; continue }
-      if (char === '\\') { escaped = true; continue }
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
       if (char === quote) quote = null
       continue
     }
-    if (char === '"' || char === "'") { quote = char; continue }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
     if (char === '(') {
       if (depth === 0) start = index
       depth += 1
@@ -283,8 +396,9 @@ function trailingStructuredConstructor(message: string): { prefix: string; const
   return null
 }
 
-
-function trailingStructuredObject(message: string): { prefix: string; object: string } | null {
+function trailingStructuredObject(
+  message: string,
+): { prefix: string; object: string } | null {
   const source = message.trimEnd()
   let quote: '"' | "'" | null = null
   let escaped = false
@@ -293,12 +407,21 @@ function trailingStructuredObject(message: string): { prefix: string; object: st
   for (let index = 0; index < source.length; index++) {
     const char = source[index]
     if (quote) {
-      if (escaped) { escaped = false; continue }
-      if (char === '\\') { escaped = true; continue }
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
       if (char === quote) quote = null
       continue
     }
-    if (char === '"' || char === "'") { quote = char; continue }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
     if (char === '{') {
       if (depth === 0) start = index
       depth += 1
@@ -308,16 +431,22 @@ function trailingStructuredObject(message: string): { prefix: string; object: st
     depth -= 1
     if (depth < 0) return null
     if (depth === 0 && start >= 0 && index === source.length - 1) {
-      return { prefix: source.slice(0, start).trim(), object: source.slice(start, index + 1) }
+      return {
+        prefix: source.slice(0, start).trim(),
+        object: source.slice(start, index + 1),
+      }
     }
   }
   return null
 }
 
-function plainTokens(message: string, budget: number = LOG_PATTERN_LIMITS.maxTokens): Token[] {
+function plainTokens(
+  message: string,
+  budget: number = LOG_PATTERN_LIMITS.maxTokens,
+): Token[] {
   const words = message.match(/\S+/g) ?? []
   if (words.length <= budget) return words.map(token)
-  const headCount = Math.floor(budget * .75)
+  const headCount = Math.floor(budget * 0.75)
   const tailCount = budget - headCount
   return [...words.slice(0, headCount), ...words.slice(-tailCount)].map(token)
 }
@@ -325,23 +454,42 @@ function plainTokens(message: string, budget: number = LOG_PATTERN_LIMITS.maxTok
 function structuredMessageTokens(message: string): Token[] | null {
   const trailingObject = trailingStructuredObject(message)
   if (trailingObject) {
-    const prefixTokens = trailingObject.prefix ? plainTokens(trailingObject.prefix, Math.min(32, LOG_PATTERN_LIMITS.maxTokens - 1)) : []
-    const structured = structuredObjectTokens(trailingObject.object, LOG_PATTERN_LIMITS.maxTokens - prefixTokens.length)
+    const prefixTokens = trailingObject.prefix
+      ? plainTokens(
+          trailingObject.prefix,
+          Math.min(32, LOG_PATTERN_LIMITS.maxTokens - 1),
+        )
+      : []
+    const structured = structuredObjectTokens(
+      trailingObject.object,
+      LOG_PATTERN_LIMITS.maxTokens - prefixTokens.length,
+    )
     if (structured) return [...prefixTokens, ...structured]
   }
 
   const trailingConstructor = trailingStructuredConstructor(message)
   if (!trailingConstructor) return null
-  const prefixTokens = trailingConstructor.prefix ? plainTokens(trailingConstructor.prefix, Math.min(32, LOG_PATTERN_LIMITS.maxTokens - 1)) : []
-  const structured = structuredConstructorTokens(trailingConstructor.constructor, LOG_PATTERN_LIMITS.maxTokens - prefixTokens.length)
+  const prefixTokens = trailingConstructor.prefix
+    ? plainTokens(
+        trailingConstructor.prefix,
+        Math.min(32, LOG_PATTERN_LIMITS.maxTokens - 1),
+      )
+    : []
+  const structured = structuredConstructorTokens(
+    trailingConstructor.constructor,
+    LOG_PATTERN_LIMITS.maxTokens - prefixTokens.length,
+  )
   return structured ? [...prefixTokens, ...structured] : null
 }
 
 function tokenize(message: string): Token[] {
   const maxCharacters = LOG_PATTERN_LIMITS.maxMessageCharacters
-  const source = message.length <= maxCharacters
-    ? message
-    : message.slice(0, Math.floor(maxCharacters * .75)) + ' ' + message.slice(-Math.floor(maxCharacters * .25))
+  const source =
+    message.length <= maxCharacters
+      ? message
+      : message.slice(0, Math.floor(maxCharacters * 0.75)) +
+        ' ' +
+        message.slice(-Math.floor(maxCharacters * 0.25))
   const structured = structuredMessageTokens(source)
   if (structured) return structured
   return plainTokens(source)
@@ -366,12 +514,17 @@ function tokenSequenceHash(tokens: Token[]): string {
   return (hash >>> 0).toString(36)
 }
 
-function hashId(text: string): string { return 'pattern-' + hashText(text).toString(36) }
+function hashId(text: string): string {
+  return 'pattern-' + hashText(text).toString(36)
+}
 
 function semanticKey(item: Token): string | null {
   if (item.fieldKey) return 'field:' + item.fieldKey
   if (item.variable) return null
-  const normalized = item.normalized.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+  const normalized = item.normalized.replace(
+    /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,
+    '',
+  )
   return normalized.length >= 2 ? 'token:' + normalized : null
 }
 
@@ -390,12 +543,17 @@ function semanticKeys(tokens: Token[]): string[] {
 
 function compactSignatures(tokens: Token[]): string[] {
   const keys = semanticKeys(tokens)
-  if (keys.length < 2) return keys.map((key) => 'single:' + hashText(key).toString(36))
+  if (keys.length < 2)
+    return keys.map((key) => 'single:' + hashText(key).toString(36))
   const signatures: string[] = []
   for (let left = 0; left < keys.length; left++) {
     for (let right = left + 1; right < keys.length; right++) {
-      const first = hashText(keys[left]).toString(36), second = hashText(keys[right]).toString(36)
-      signatures.push('pair:' + (first < second ? first + ':' + second : second + ':' + first))
+      const first = hashText(keys[left]).toString(36),
+        second = hashText(keys[right]).toString(36)
+      signatures.push(
+        'pair:' +
+          (first < second ? first + ':' + second : second + ':' + first),
+      )
     }
   }
   return signatures
@@ -417,11 +575,17 @@ interface Match {
   score: number
 }
 
-const typedPlaceholder = (item: Token) => item.variable && item.normalized !== '<value>' && !item.normalized.endsWith('=<value>')
-const broadVariable = (item: Token) => item.normalized === '<value>' || item.normalized.endsWith('=<value>')
+const typedPlaceholder = (item: Token) =>
+  item.variable &&
+  item.normalized !== '<value>' &&
+  !item.normalized.endsWith('=<value>')
+const broadVariable = (item: Token) =>
+  item.normalized === '<value>' || item.normalized.endsWith('=<value>')
 
 function sameField(template: Token, item: Token): boolean {
-  return Boolean(template.fieldKey && item.fieldKey && template.fieldKey === item.fieldKey)
+  return Boolean(
+    template.fieldKey && item.fieldKey && template.fieldKey === item.fieldKey,
+  )
 }
 
 function compatibleVariable(template: Token, item: Token): boolean {
@@ -435,15 +599,22 @@ function compatibleVariable(template: Token, item: Token): boolean {
   return template.normalized === item.normalized
 }
 
-function matchingCandidate(candidate: Working, incoming: Token[]): Match | null {
+function matchingCandidate(
+  candidate: Working,
+  incoming: Token[],
+): Match | null {
   if (candidate.tokens.length !== incoming.length) return null
   const differences: number[] = []
   let nullableFieldDifferences = 0
   let stable = 0
 
   for (let index = 0; index < incoming.length; index++) {
-    const template = candidate.tokens[index], item = incoming[index]
-    if (template.normalized === item.normalized || compatibleVariable(template, item)) {
+    const template = candidate.tokens[index],
+      item = incoming[index]
+    if (
+      template.normalized === item.normalized ||
+      compatibleVariable(template, item)
+    ) {
       if (!broadVariable(template)) stable += 1
       continue
     }
@@ -462,32 +633,56 @@ function matchingCandidate(candidate: Working, incoming: Token[]): Match | null 
     differences.push(index)
   }
 
-  if (!differences.length) return { differences, score: stable + incoming.length }
-  if (incoming.length < 6 && nullableFieldDifferences !== differences.length) return null
-  const maxDifferences = Math.max(1, Math.floor(incoming.length * LOG_PATTERN_LIMITS.maxVariableRatio))
-  if (differences.length > maxDifferences || stable < LOG_PATTERN_LIMITS.minStableTokens) return null
+  if (!differences.length)
+    return { differences, score: stable + incoming.length }
+  if (incoming.length < 6 && nullableFieldDifferences !== differences.length)
+    return null
+  const maxDifferences = Math.max(
+    1,
+    Math.floor(incoming.length * LOG_PATTERN_LIMITS.maxVariableRatio),
+  )
+  if (
+    differences.length > maxDifferences ||
+    stable < LOG_PATTERN_LIMITS.minStableTokens
+  )
+    return null
 
   const similarity = stable / incoming.length
   if (similarity < 1 - LOG_PATTERN_LIMITS.maxVariableRatio) return null
   return { differences, score: stable * 4 - differences.length }
 }
 
-function addIndex(index: Map<string, number[]>, key: string, clusterIndex: number): void {
+function addIndex(
+  index: Map<string, number[]>,
+  key: string,
+  clusterIndex: number,
+): void {
   const bucket = index.get(key)
-  if (!bucket) { index.set(key, [clusterIndex]); return }
+  if (!bucket) {
+    index.set(key, [clusterIndex])
+    return
+  }
   if (!bucket.includes(clusterIndex)) bucket.push(clusterIndex)
 }
 
 function addSample(samples: string[], value: string): void {
-  if (!value || samples.includes(value) || samples.length >= LOG_PATTERN_LIMITS.maxVariableSamples) return
+  if (
+    !value ||
+    samples.includes(value) ||
+    samples.length >= LOG_PATTERN_LIMITS.maxVariableSamples
+  )
+    return
   samples.push(value)
 }
 
-function sampleValue(item: Token): string { return item.fieldValueRaw ?? item.raw }
+function sampleValue(item: Token): string {
+  return item.fieldValueRaw ?? item.raw
+}
 
 function generalize(template: Token, item: Token): void {
   if (sameField(template, item)) {
-    template.display = template.prefix + (template.fieldKey ?? '') + '=<value>' + template.suffix
+    template.display =
+      template.prefix + (template.fieldKey ?? '') + '=<value>' + template.suffix
     template.normalized = 'field:' + template.fieldKey + '=<value>'
     template.variable = true
     template.nullable = template.nullable || item.nullable
@@ -498,12 +693,24 @@ function generalize(template: Token, item: Token): void {
   template.variable = true
 }
 
-function addRecord(cluster: Working, record: LogPatternRecord, incoming: Token[]): void {
+function addRecord(
+  cluster: Working,
+  record: LogPatternRecord,
+  incoming: Token[],
+): void {
   cluster.memberIds.push(record.id)
   cluster.count += 1
-  cluster.firstTimestampMs = Math.min(cluster.firstTimestampMs, record.timestampMs)
-  cluster.lastTimestampMs = Math.max(cluster.lastTimestampMs, record.timestampMs)
-  if (record.severity) cluster.severities[record.severity] = (cluster.severities[record.severity] ?? 0) + 1
+  cluster.firstTimestampMs = Math.min(
+    cluster.firstTimestampMs,
+    record.timestampMs,
+  )
+  cluster.lastTimestampMs = Math.max(
+    cluster.lastTimestampMs,
+    record.timestampMs,
+  )
+  if (record.severity)
+    cluster.severities[record.severity] =
+      (cluster.severities[record.severity] ?? 0) + 1
   if (cluster.examples.length < 3) cluster.examples.push(record)
   incoming.forEach((item, index) => {
     if (!cluster.tokens[index].variable) return
@@ -522,7 +729,7 @@ function createWorking(incoming: Token[]): Working {
     lastTimestampMs: Number.NEGATIVE_INFINITY,
     severities: {},
     examples: [],
-    values: new Map()
+    values: new Map(),
   }
 }
 
@@ -534,14 +741,17 @@ function createWorking(incoming: Token[]): Working {
  * several learned variable positions while keeping typed placeholders and the leading
  * semantic token conservative.
  */
-export function clusterLogPatterns(records: LogPatternRecord[]): LogPatternCluster[] {
+export function clusterLogPatterns(
+  records: LogPatternRecord[],
+): LogPatternCluster[] {
   const clusters: Working[] = []
   const exactIndex = new Map<string, number[]>()
   const signatureIndex = new Map<string, number[]>()
 
   for (const record of records) {
     const incoming = tokenize(record.message)
-    const exactKey = incoming.length.toString(36) + ':' + tokenSequenceHash(incoming)
+    const exactKey =
+      incoming.length.toString(36) + ':' + tokenSequenceHash(incoming)
     const exactCandidates = exactIndex.get(exactKey) ?? []
     const votes = new Map<number, number>()
 
@@ -551,19 +761,22 @@ export function clusterLogPatterns(records: LogPatternRecord[]): LogPatternClust
       }
     }
 
-    const candidates = [...new Set([
-      ...exactCandidates,
-      ...[...votes.entries()]
-        .sort((left, right) => right[1] - left[1])
-        .slice(0, LOG_PATTERN_LIMITS.maxCandidateClusters)
-        .map(([candidateIndex]) => candidateIndex)
-    ])]
+    const candidates = [
+      ...new Set([
+        ...exactCandidates,
+        ...[...votes.entries()]
+          .sort((left, right) => right[1] - left[1])
+          .slice(0, LOG_PATTERN_LIMITS.maxCandidateClusters)
+          .map(([candidateIndex]) => candidateIndex),
+      ]),
+    ]
 
     let selected: number | undefined
     let selectedMatch: Match | null = null
     for (const candidateIndex of candidates) {
       const match = matchingCandidate(clusters[candidateIndex], incoming)
-      if (!match || (selectedMatch && match.score <= selectedMatch.score)) continue
+      if (!match || (selectedMatch && match.score <= selectedMatch.score))
+        continue
       selected = candidateIndex
       selectedMatch = match
     }
@@ -572,7 +785,8 @@ export function clusterLogPatterns(records: LogPatternRecord[]): LogPatternClust
       selected = clusters.length
       clusters.push(createWorking(incoming))
       addIndex(exactIndex, exactKey, selected)
-      for (const signature of compactSignatures(incoming)) addIndex(signatureIndex, signature, selected)
+      for (const signature of compactSignatures(incoming))
+        addIndex(signatureIndex, signature, selected)
       selectedMatch = { differences: [], score: incoming.length }
     } else {
       addIndex(exactIndex, exactKey, selected)
@@ -580,7 +794,8 @@ export function clusterLogPatterns(records: LogPatternRecord[]): LogPatternClust
 
     const cluster = clusters[selected]
     for (const differingIndex of selectedMatch.differences) {
-      const template = cluster.tokens[differingIndex], item = incoming[differingIndex]
+      const template = cluster.tokens[differingIndex],
+        item = incoming[differingIndex]
       const samples = cluster.values.get(differingIndex) ?? []
       addSample(samples, sampleValue(template))
       addSample(samples, sampleValue(item))
@@ -591,21 +806,32 @@ export function clusterLogPatterns(records: LogPatternRecord[]): LogPatternClust
   }
 
   const total = records.length
-  return clusters.map((cluster) => {
-    const template = cluster.tokens.map(({ display }) => display).join(' ')
-    const segments = cluster.tokens.map((item, index) => ({ text: item.display, variable: item.variable, values: [...(cluster.values.get(index) ?? [])] }))
-    return {
-      id: hashId(template),
-      template,
-      segments,
-      memberIds: cluster.memberIds,
-      count: cluster.count,
-      percentage: total ? cluster.count / total * 100 : 0,
-      severities: cluster.severities,
-      firstTimestampMs: cluster.firstTimestampMs,
-      lastTimestampMs: cluster.lastTimestampMs,
-      examples: cluster.examples,
-      variables: segments.filter(({ variable }) => variable).map(({ text, values }) => ({ placeholder: text, values }))
-    }
-  }).sort((left, right) => right.count - left.count || left.template.localeCompare(right.template))
+  return clusters
+    .map((cluster) => {
+      const template = cluster.tokens.map(({ display }) => display).join(' ')
+      const segments = cluster.tokens.map((item, index) => ({
+        text: item.display,
+        variable: item.variable,
+        values: [...(cluster.values.get(index) ?? [])],
+      }))
+      return {
+        id: hashId(template),
+        template,
+        segments,
+        memberIds: cluster.memberIds,
+        count: cluster.count,
+        percentage: total ? (cluster.count / total) * 100 : 0,
+        severities: cluster.severities,
+        firstTimestampMs: cluster.firstTimestampMs,
+        lastTimestampMs: cluster.lastTimestampMs,
+        examples: cluster.examples,
+        variables: segments
+          .filter(({ variable }) => variable)
+          .map(({ text, values }) => ({ placeholder: text, values })),
+      }
+    })
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.template.localeCompare(right.template),
+    )
 }

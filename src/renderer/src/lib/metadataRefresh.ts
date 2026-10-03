@@ -12,20 +12,40 @@ type StoreAccess = {
   setState: (update: (state: AppState) => Partial<AppState>) => void
 }
 
-export function refreshConnectionMetadata(profileId: string, store: StoreAccess): Promise<void> {
+export function refreshConnectionMetadata(
+  profileId: string,
+  store: StoreAccess,
+): Promise<void> {
   const joined = inFlight.get(profileId)
   if (joined) return joined
   const initial = store.getState()
   const connection = initial.connectionStateByProfileId[profileId]
-  const legacyActive = initial.activeProfileId === profileId && initial.connected
-  if (connection?.status !== 'connected' && connection?.status !== 'idle' && !legacyActive) return Promise.resolve()
+  const legacyActive =
+    initial.activeProfileId === profileId && initial.connected
+  if (
+    connection?.status !== 'connected' &&
+    connection?.status !== 'idle' &&
+    !legacyActive
+  )
+    return Promise.resolve()
   const generation = connection?.generation ?? initial.connectionGeneration
   store.setState((state) => {
     const old = state.metadataByProfileId[profileId]
-    return { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: old?.status === 'loaded'
-      ? { ...old, refreshing: true, refreshError: null }
-      : { ...(old ?? { schemas: [], isStale: false }), status: 'loading' as const, error: null, refreshing: true, refreshError: null }
-    } }
+    return {
+      metadataByProfileId: {
+        ...state.metadataByProfileId,
+        [profileId]:
+          old?.status === 'loaded'
+            ? { ...old, refreshing: true, refreshError: null }
+            : {
+                ...(old ?? { schemas: [], isStale: false }),
+                status: 'loading' as const,
+                error: null,
+                refreshing: true,
+                refreshError: null,
+              },
+      },
+    }
   })
   const promise = (async () => {
     try {
@@ -33,14 +53,37 @@ export function refreshConnectionMetadata(profileId: string, store: StoreAccess)
       const schemas = await loadConnectionMetadata(profileId)
       const current = store.getState()
       const currentConnection = current.connectionStateByProfileId[profileId]
-      if (currentConnection && (currentConnection.generation !== generation || (currentConnection.status !== 'connected' && currentConnection.status !== 'idle'))) return
-      if (!currentConnection && (current.activeProfileId !== profileId || current.connectionGeneration !== generation || !current.connected)) return
+      if (
+        currentConnection &&
+        (currentConnection.generation !== generation ||
+          (currentConnection.status !== 'connected' &&
+            currentConnection.status !== 'idle'))
+      )
+        return
+      if (
+        !currentConnection &&
+        (current.activeProfileId !== profileId ||
+          current.connectionGeneration !== generation ||
+          !current.connected)
+      )
+        return
       store.setState((state) => {
         const old = state.metadataByProfileId[profileId]
-        return { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: {
-          ...(old ?? { schemas: [] }), schemas, status: 'loaded' as const, error: null, isStale: false,
-          refreshing: false, refreshError: null, revision: (old?.revision ?? 0) + 1
-        } } }
+        return {
+          metadataByProfileId: {
+            ...state.metadataByProfileId,
+            [profileId]: {
+              ...(old ?? { schemas: [] }),
+              schemas,
+              status: 'loaded' as const,
+              error: null,
+              isStale: false,
+              refreshing: false,
+              refreshError: null,
+              revision: (old?.revision ?? 0) + 1,
+            },
+          },
+        }
       })
       invalidateTempoMetadata(profileId)
       invalidateLokiMetadata(profileId)
@@ -49,13 +92,36 @@ export function refreshConnectionMetadata(profileId: string, store: StoreAccess)
       store.setState((state) => {
         const old = state.metadataByProfileId[profileId]
         const latest = state.connectionStateByProfileId[profileId]
-        if ((latest ? latest.generation !== generation || (latest.status !== 'connected' && latest.status !== 'idle') : state.activeProfileId !== profileId || state.connectionGeneration !== generation || !state.connected)) return {}
-        const metadata = old?.status === 'loaded'
-          ? { ...old, refreshing: false, refreshError: message }
-          : { schemas: [], status: 'error' as const, error: message, isStale: false, refreshing: false, refreshError: null }
-        return { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: metadata } }
+        if (
+          latest
+            ? latest.generation !== generation ||
+              (latest.status !== 'connected' && latest.status !== 'idle')
+            : state.activeProfileId !== profileId ||
+              state.connectionGeneration !== generation ||
+              !state.connected
+        )
+          return {}
+        const metadata =
+          old?.status === 'loaded'
+            ? { ...old, refreshing: false, refreshError: message }
+            : {
+                schemas: [],
+                status: 'error' as const,
+                error: message,
+                isStale: false,
+                refreshing: false,
+                refreshError: null,
+              }
+        return {
+          metadataByProfileId: {
+            ...state.metadataByProfileId,
+            [profileId]: metadata,
+          },
+        }
       })
-    } finally { inFlight.delete(profileId) }
+    } finally {
+      inFlight.delete(profileId)
+    }
   })()
   inFlight.set(profileId, promise)
   return promise

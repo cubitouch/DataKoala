@@ -3,7 +3,10 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { useStore } from './store/useStore'
 import { buildEChartsOption } from './lib/chartOption'
-import { restoreWorkspaceDraft, startWorkspacePersistence } from './lib/workspacePersistence'
+import {
+  restoreWorkspaceDraft,
+  startWorkspacePersistence,
+} from './lib/workspacePersistence'
 import './styles.css'
 
 // Hydrate editable query sessions before React mounts. Persistence stores saved
@@ -13,7 +16,7 @@ if (!window.datakoala?.smokeMode) {
   restoreWorkspaceDraft((patch) => useStore.setState(patch))
   startWorkspacePersistence(
     () => useStore.getState(),
-    (listener) => useStore.subscribe((state) => listener(state))
+    (listener) => useStore.subscribe((state) => listener(state)),
   )
 }
 
@@ -28,5 +31,5 @@ if (window.datakoala?.smokeMode) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
-  </StrictMode>
+  </StrictMode>,
 )

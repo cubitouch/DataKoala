@@ -14,12 +14,15 @@
  */
 import { spawn } from 'node:child_process'
 
-const CONN = process.env.DATAKOALA_TEST_DB ?? 'postgresql://postgres:testpw@localhost:55432/datakoala_test'
-const electronBin = 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'
+const CONN =
+  process.env.DATAKOALA_TEST_DB ??
+  'postgresql://postgres:testpw@localhost:55432/datakoala_test'
+const electronBin =
+  'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'
 
 const child = spawn(electronBin, ['.'], {
   env: { ...process.env, DATAKOALA_DB_SMOKE: CONN },
-  stdio: ['ignore', 'pipe', 'pipe']
+  stdio: ['ignore', 'pipe', 'pipe'],
 })
 
 let out = ''
@@ -43,7 +46,7 @@ child.on('exit', (code, sig) => {
     out
       .split('\n')
       .filter((l) => l.trim())
-      .join('\n')
+      .join('\n'),
   )
   const cleanedErr = err
     .split('\n')

@@ -7,7 +7,7 @@ const rendererAliases = {
   '@lib': resolve(__dirname, 'src/renderer/src/lib'),
   '@store': resolve(__dirname, 'src/renderer/src/store'),
   '@renderer': resolve(__dirname, 'src/renderer/src'),
-  '@shared': resolve(__dirname, 'src/shared')
+  '@shared': resolve(__dirname, 'src/shared'),
 }
 
 export default defineConfig({
@@ -20,31 +20,36 @@ export default defineConfig({
         // DuckDB chooses its native addon from process.platform/process.arch at
         // runtime. Bundling this package makes Rollup inline every platform branch
         // and can leave a hard-coded binding for the build host in the output.
-        external: ['pg-native', '@duckdb/node-api']
-      }
+        external: ['pg-native', '@duckdb/node-api'],
+      },
     },
     resolve: {
-      alias: { '@main': resolve(__dirname, 'src/main'), '@shared': resolve(__dirname, 'src/shared') }
-    }
+      alias: {
+        '@main': resolve(__dirname, 'src/main'),
+        '@shared': resolve(__dirname, 'src/shared'),
+      },
+    },
   },
   preload: {
     build: {
       rollupOptions: {
-        input: { index: resolve(__dirname, 'src/preload/index.ts') }
-      }
+        input: { index: resolve(__dirname, 'src/preload/index.ts') },
+      },
     },
     resolve: {
-      alias: { '@shared': resolve(__dirname, 'src/shared') }
-    }
+      alias: { '@shared': resolve(__dirname, 'src/shared') },
+    },
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
     resolve: {
-      alias: rendererAliases
+      alias: rendererAliases,
     },
     build: {
-      rollupOptions: { input: { index: resolve(__dirname, 'src/renderer/index.html') } }
+      rollupOptions: {
+        input: { index: resolve(__dirname, 'src/renderer/index.html') },
+      },
     },
-    plugins: [react()]
-  }
+    plugins: [react()],
+  },
 })

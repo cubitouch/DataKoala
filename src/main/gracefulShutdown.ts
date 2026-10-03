@@ -10,7 +10,8 @@ export interface BeforeQuitEventLike {
 export function createGracefulShutdown(
   disconnectAll: () => Promise<void>,
   quit: () => void,
-  reportError: (error: unknown) => void = (error) => console.error('[app] database shutdown cleanup failed', error)
+  reportError: (error: unknown) => void = (error) =>
+    console.error('[app] database shutdown cleanup failed', error),
 ): (event: BeforeQuitEventLike) => void {
   let cleanup: Promise<void> | null = null
   let readyToQuit = false

@@ -15,12 +15,18 @@ export interface FormatResult {
   error?: string
 }
 
-export function formatSqlOrOriginal(input: string, dialect: 'postgresql' | 'bigquery' | 'duckdb' = 'postgresql'): string {
+export function formatSqlOrOriginal(
+  input: string,
+  dialect: 'postgresql' | 'bigquery' | 'duckdb' = 'postgresql',
+): string {
   const result = formatSql(input, dialect)
   return result.ok ? result.sql : input
 }
 
-export function formatSql(input: string, dialect: 'postgresql' | 'bigquery' | 'duckdb' = 'postgresql'): FormatResult {
+export function formatSql(
+  input: string,
+  dialect: 'postgresql' | 'bigquery' | 'duckdb' = 'postgresql',
+): FormatResult {
   const trimmed = input.trim()
   if (!trimmed) return { ok: false, sql: input, error: 'Nothing to format.' }
   try {
@@ -35,12 +41,16 @@ export function formatSql(input: string, dialect: 'postgresql' | 'bigquery' | 'd
       expressionWidth: 80,
       linesBetweenQueries: 1,
       tabWidth: 2,
-      useTabs: false
+      useTabs: false,
     })
     return { ok: true, sql: compactSqlFormatterOutput(sql) }
   } catch (e) {
     // Unparseable SQL must be left exactly as the user typed it.
-    return { ok: false, sql: input, error: e instanceof Error ? e.message : String(e) }
+    return {
+      ok: false,
+      sql: input,
+      error: e instanceof Error ? e.message : String(e),
+    }
   }
 }
 
@@ -49,12 +59,19 @@ function compactSqlFormatterOutput(sql: string): string {
   const compacted: string[] = []
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i]
-    if ((line === 'FROM' || line === 'WHERE') && lines[i + 1]?.startsWith('  ') && !lines[i + 1].endsWith(',')) {
+    if (
+      (line === 'FROM' || line === 'WHERE') &&
+      lines[i + 1]?.startsWith('  ') &&
+      !lines[i + 1].endsWith(',')
+    ) {
       compacted.push(`${line} ${lines[i + 1].slice(2)}`)
       i += 1
       continue
     }
-    if ((line === 'GROUP BY' || line === 'ORDER BY') && isSimpleIndentedCommaList(lines, i + 1)) {
+    if (
+      (line === 'GROUP BY' || line === 'ORDER BY') &&
+      isSimpleIndentedCommaList(lines, i + 1)
+    ) {
       const items: string[] = []
       i += 1
       while (i < lines.length && lines[i].startsWith('  ')) {

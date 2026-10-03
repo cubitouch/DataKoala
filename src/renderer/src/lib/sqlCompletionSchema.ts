@@ -11,10 +11,14 @@ interface MutableNamespace {
 }
 
 /** Converts the store cache only. This function has no access to IPC or adapters. */
-export function buildSqlCompletionSchema(schemas: DatabaseSchemaNode[], dialect: SqlDialect): SqlCompletionSchema {
+export function buildSqlCompletionSchema(
+  schemas: DatabaseSchemaNode[],
+  dialect: SqlDialect,
+): SqlCompletionSchema {
   const root: MutableNamespace = {}
   for (const namespace of schemas) {
-    const parts = dialect === 'google-sql' ? namespace.name.split('.') : [namespace.name]
+    const parts =
+      dialect === 'google-sql' ? namespace.name.split('.') : [namespace.name]
     let target = root
     for (const part of parts) {
       const existing = target[part]
@@ -28,5 +32,11 @@ export function buildSqlCompletionSchema(schemas: DatabaseSchemaNode[], dialect:
       target[relation.name] = []
     }
   }
-  return { schema: root as SQLNamespace, defaultSchema: dialect === 'duckdb' && schemas.some((item) => item.name === 'main') ? 'main' : undefined }
+  return {
+    schema: root as SQLNamespace,
+    defaultSchema:
+      dialect === 'duckdb' && schemas.some((item) => item.name === 'main')
+        ? 'main'
+        : undefined,
+  }
 }

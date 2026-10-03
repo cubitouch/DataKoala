@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { NotificationArea, notify } from '@components/ui/feedback/NotificationArea'
+import {
+  NotificationArea,
+  notify,
+} from '@components/ui/feedback/NotificationArea'
 import { selectActiveSession, useStore } from '@store/useStore'
 import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 
@@ -48,8 +51,19 @@ describe('NotificationArea', () => {
 
   it('surfaces Builder filter-removal notices through the notification area and consumes the inline notice', () => {
     render(<NotificationArea />)
-    act(() => patchActiveTestSession({ builderFilterNotice: { id: 7, message: 'Removed filter because it was removed from the Series.' } }))
-    expect(screen.getByRole('status').textContent).toBe('Removed filter because it was removed from the Series.')
-    expect(selectActiveSession(useStore.getState()).builderFilterNotice).toBeNull()
+    act(() =>
+      patchActiveTestSession({
+        builderFilterNotice: {
+          id: 7,
+          message: 'Removed filter because it was removed from the Series.',
+        },
+      }),
+    )
+    expect(screen.getByRole('status').textContent).toBe(
+      'Removed filter because it was removed from the Series.',
+    )
+    expect(
+      selectActiveSession(useStore.getState()).builderFilterNotice,
+    ).toBeNull()
   })
 })

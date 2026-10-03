@@ -39,20 +39,37 @@ function statusValue(value: unknown): SearchStatus {
   }
   const normalized = text(value).trim().toLowerCase()
   if (!normalized) return 'unknown'
-  if (normalized === '2' || normalized.includes('error') || normalized === 'failed' || normalized === 'failure') return 'error'
-  if (normalized === '1' || normalized.includes('status_code_ok') || normalized === 'ok' || normalized === 'success') return 'ok'
+  if (
+    normalized === '2' ||
+    normalized.includes('error') ||
+    normalized === 'failed' ||
+    normalized === 'failure'
+  )
+    return 'error'
+  if (
+    normalized === '1' ||
+    normalized.includes('status_code_ok') ||
+    normalized === 'ok' ||
+    normalized === 'success'
+  )
+    return 'ok'
   return 'unknown'
 }
 
 function traceRows(raw: unknown): Record<string, unknown>[] {
   const payload = isRecord(raw) && isRecord(raw.data) ? raw.data : raw
-  const traces = isRecord(payload) && Array.isArray(payload.traces)
-    ? payload.traces
-    : Array.isArray(payload) ? payload : []
+  const traces =
+    isRecord(payload) && Array.isArray(payload.traces)
+      ? payload.traces
+      : Array.isArray(payload)
+        ? payload
+        : []
   return traces.filter(isRecord)
 }
 
-function matchingSpans(trace: Record<string, unknown>): Record<string, unknown>[] {
+function matchingSpans(
+  trace: Record<string, unknown>,
+): Record<string, unknown>[] {
   const spanSets = trace.spanSets ?? trace.spanSet
   const sets = Array.isArray(spanSets) ? spanSets : spanSets ? [spanSets] : []
   const spans: Record<string, unknown>[] = []
@@ -72,12 +89,15 @@ function spanStatus(span: Record<string, unknown>): SearchStatus {
     const status = statusValue(values[key])
     if (status !== 'unknown') return status
   }
-  if (values.error === true || text(values.error).toLowerCase() === 'true') return 'error'
+  if (values.error === true || text(values.error).toLowerCase() === 'true')
+    return 'error'
   return 'unknown'
 }
 
 function summaryStatus(trace: Record<string, unknown>): SearchStatus {
-  const direct = statusValue(trace.status ?? trace.rootStatus ?? trace.traceStatus)
+  const direct = statusValue(
+    trace.status ?? trace.rootStatus ?? trace.traceStatus,
+  )
   if (direct !== 'unknown') return direct
 
   // Search span sets are only the spans selected by TraceQL, not the complete trace.
@@ -96,11 +116,19 @@ export function ensureTempoSearchStatusSelection(expression: string): string {
   if (/select\s*\([^)]*(?:span:status|\bstatus\b)/i.test(query)) return query
   // TraceQL metrics expressions return time series rather than trace summaries; the
   // trace explorer cannot annotate those with span selection fields.
-  if (/\|\s*(?:rate|count_over_time|quantile_over_time|histogram_over_time|compare)\s*\(/i.test(query)) return query
+  if (
+    /\|\s*(?:rate|count_over_time|quantile_over_time|histogram_over_time|compare)\s*\(/i.test(
+      query,
+    )
+  )
+    return query
   return `${query} | select(span:status)`
 }
 
-export function applyTempoSearchStatuses(result: QueryResult, raw: unknown): QueryResult {
+export function applyTempoSearchStatuses(
+  result: QueryResult,
+  raw: unknown,
+): QueryResult {
   const statuses = new Map<string, SearchStatus>()
   for (const trace of traceRows(raw)) {
     const traceId = text(trace.traceID ?? trace.traceId ?? trace.trace_id)
@@ -113,6 +141,6 @@ export function applyTempoSearchStatuses(result: QueryResult, raw: unknown): Que
     rows: result.rows.map((row) => {
       const status = statuses.get(text(row.traceId)) ?? 'unknown'
       return status === 'unknown' ? row : { ...row, status }
-    })
+    }),
   }
 }

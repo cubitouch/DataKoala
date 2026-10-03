@@ -4,24 +4,51 @@ import { MetadataTree, type MetadataTreeNode } from './MetadataTree'
 
 afterEach(cleanup)
 
-const nodes: MetadataTreeNode[] = [{
-  id: 'parent', label: 'Parent', expandable: true, expanded: true, activatable: true,
-  children: [{ id: 'child', label: 'Child', secondaryText: 'special type', activatable: true }]
-}]
+const nodes: MetadataTreeNode[] = [
+  {
+    id: 'parent',
+    label: 'Parent',
+    expandable: true,
+    expanded: true,
+    activatable: true,
+    children: [
+      {
+        id: 'child',
+        label: 'Child',
+        secondaryText: 'special type',
+        activatable: true,
+      },
+    ],
+  },
+]
 
 describe('MetadataTree', () => {
   it('renders nested nodes recursively and hides descendants when controlled closed', () => {
-    const { rerender } = render(<MetadataTree ariaLabel="Things" nodes={nodes} />)
+    const { rerender } = render(
+      <MetadataTree ariaLabel="Things" nodes={nodes} />,
+    )
     expect(screen.getByRole('tree', { name: 'Things' })).toBeTruthy()
     expect(screen.getByText('Child')).toBeTruthy()
-    rerender(<MetadataTree ariaLabel="Things" nodes={[{ ...nodes[0], expanded: false }]} />)
+    rerender(
+      <MetadataTree
+        ariaLabel="Things"
+        nodes={[{ ...nodes[0], expanded: false }]}
+      />,
+    )
     expect(screen.queryByText('Child')).toBeNull()
   })
 
   it('surfaces toggle and activation callbacks', () => {
     const onToggle = vi.fn()
     const onActivate = vi.fn()
-    render(<MetadataTree ariaLabel="Things" nodes={nodes} onToggle={onToggle} onActivate={onActivate} />)
+    render(
+      <MetadataTree
+        ariaLabel="Things"
+        nodes={nodes}
+        onToggle={onToggle}
+        onActivate={onActivate}
+      />,
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Collapse Parent' }))
     fireEvent.click(screen.getByRole('button', { name: 'Child' }))
     expect(onToggle).toHaveBeenCalledWith(nodes[0])
@@ -31,28 +58,53 @@ describe('MetadataTree', () => {
   it('toggles an expandable non-activatable node from its label', () => {
     const onToggle = vi.fn()
     const parent = { ...nodes[0], activatable: false }
-    render(<MetadataTree ariaLabel="Things" nodes={[parent]} onToggle={onToggle} />)
+    render(
+      <MetadataTree ariaLabel="Things" nodes={[parent]} onToggle={onToggle} />,
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Parent' }))
     expect(onToggle).toHaveBeenCalledWith(parent)
   })
 
   it('keeps matching ancestors visible while filtering without changing controlled expansion', () => {
-    const { rerender } = render(<MetadataTree ariaLabel="Things" nodes={[{ ...nodes[0], expanded: false }]} filter="special" />)
+    const { rerender } = render(
+      <MetadataTree
+        ariaLabel="Things"
+        nodes={[{ ...nodes[0], expanded: false }]}
+        filter="special"
+      />,
+    )
     expect(screen.getByText('Parent')).toBeTruthy()
     expect(screen.getByText('Child')).toBeTruthy()
-    rerender(<MetadataTree ariaLabel="Things" nodes={[{ ...nodes[0], expanded: false }]} filter="" />)
+    rerender(
+      <MetadataTree
+        ariaLabel="Things"
+        nodes={[{ ...nodes[0], expanded: false }]}
+        filter=""
+      />,
+    )
     expect(screen.queryByText('Child')).toBeNull()
   })
 
   it('keeps matching descendants visible for multi-token partial filters', () => {
-    const serviceNodes: MetadataTreeNode[] = [{
-      id: 'services', label: 'Services', expandable: true, expanded: false,
-      children: [
-        { id: 'payment', label: 'payment-service' },
-        { id: 'worker', label: 'payment-service-worker' }
-      ]
-    }]
-    render(<MetadataTree ariaLabel="Services" nodes={serviceNodes} filter="pay worker" />)
+    const serviceNodes: MetadataTreeNode[] = [
+      {
+        id: 'services',
+        label: 'Services',
+        expandable: true,
+        expanded: false,
+        children: [
+          { id: 'payment', label: 'payment-service' },
+          { id: 'worker', label: 'payment-service-worker' },
+        ],
+      },
+    ]
+    render(
+      <MetadataTree
+        ariaLabel="Services"
+        nodes={serviceNodes}
+        filter="pay worker"
+      />,
+    )
     expect(screen.getByText('Services')).toBeTruthy()
     expect(screen.getByText('payment-service-worker')).toBeTruthy()
     expect(screen.queryByText('payment-service')).toBeNull()
@@ -61,20 +113,54 @@ describe('MetadataTree', () => {
   it('renders loading and error states and surfaces retry', () => {
     const onRetry = vi.fn()
     const statusNodes: MetadataTreeNode[] = [
-      { id: 'loading', label: 'Loading parent', expandable: true, expanded: true, status: 'loading', statusText: 'Loading children…' },
-      { id: 'error', label: 'Error parent', expandable: true, expanded: true, status: 'error', statusText: 'Failed — retry' }
+      {
+        id: 'loading',
+        label: 'Loading parent',
+        expandable: true,
+        expanded: true,
+        status: 'loading',
+        statusText: 'Loading children…',
+      },
+      {
+        id: 'error',
+        label: 'Error parent',
+        expandable: true,
+        expanded: true,
+        status: 'error',
+        statusText: 'Failed — retry',
+      },
     ]
-    render(<MetadataTree ariaLabel="Things" nodes={statusNodes} onRetry={onRetry} />)
+    render(
+      <MetadataTree ariaLabel="Things" nodes={statusNodes} onRetry={onRetry} />,
+    )
     expect(screen.getByRole('status').textContent).toBe('Loading children…')
     fireEvent.click(screen.getByRole('button', { name: 'Failed — retry' }))
     expect(onRetry).toHaveBeenCalledWith(statusNodes[1])
   })
 
   it('renders accessible descriptions and supplementary expanded content', () => {
-    render(<MetadataTree ariaLabel="Things" nodes={[{ id: 'described', label: 'Described', activatable: true, expandable: true, expanded: true,
-      description: 'Helpful details', beforeChildren: <span>Before</span>, afterChildren: <span>After</span> }]} onActivate={() => {}} />)
+    render(
+      <MetadataTree
+        ariaLabel="Things"
+        nodes={[
+          {
+            id: 'described',
+            label: 'Described',
+            activatable: true,
+            expandable: true,
+            expanded: true,
+            description: 'Helpful details',
+            beforeChildren: <span>Before</span>,
+            afterChildren: <span>After</span>,
+          },
+        ]}
+        onActivate={() => {}}
+      />,
+    )
     const button = screen.getByRole('button', { name: 'Described' })
-    expect(button.getAttribute('aria-describedby')).toBe(screen.getByRole('tooltip', { name: 'Helpful details' }).id)
+    expect(button.getAttribute('aria-describedby')).toBe(
+      screen.getByRole('tooltip', { name: 'Helpful details' }).id,
+    )
     expect(screen.getByText('Before')).toBeTruthy()
     expect(screen.getByText('After')).toBeTruthy()
   })
@@ -82,7 +168,14 @@ describe('MetadataTree', () => {
   it('uses native disabled semantics and blocks node interaction', () => {
     const onToggle = vi.fn()
     const onActivate = vi.fn()
-    render(<MetadataTree ariaLabel="Things" nodes={[{ ...nodes[0], disabled: true }]} onToggle={onToggle} onActivate={onActivate} />)
+    render(
+      <MetadataTree
+        ariaLabel="Things"
+        nodes={[{ ...nodes[0], disabled: true }]}
+        onToggle={onToggle}
+        onActivate={onActivate}
+      />,
+    )
     const toggle = screen.getByRole('button', { name: 'Collapse Parent' })
     const activate = screen.getByRole('button', { name: 'Parent' })
     expect(toggle.hasAttribute('disabled')).toBe(true)

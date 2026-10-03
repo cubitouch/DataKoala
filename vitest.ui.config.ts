@@ -11,16 +11,16 @@ export default defineConfig({
       '@store': resolve(__dirname, 'src/renderer/src/store'),
       '@test': resolve(__dirname, 'src/renderer/src/test'),
       '@renderer': resolve(__dirname, 'src/renderer/src'),
-      '@shared': resolve(__dirname, 'src/shared')
-    }
+      '@shared': resolve(__dirname, 'src/shared'),
+    },
   },
   test: {
     include: [
       'src/renderer/src/**/*.ui.test.{ts,tsx}',
-      'src/renderer/src/**/*.test.tsx'
+      'src/renderer/src/**/*.test.tsx',
     ],
     environment: 'jsdom',
     clearMocks: true,
-    restoreMocks: true
-  }
+    restoreMocks: true,
+  },
 })

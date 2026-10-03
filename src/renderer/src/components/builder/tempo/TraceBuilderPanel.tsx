@@ -9,9 +9,13 @@ import {
   type TraceBuilderState,
   type TraceProtocol,
   type TraceSpanKind,
-  type TraceStatus
+  type TraceStatus,
 } from '@lib/traceBuilder'
-import { Combobox, MultiCombobox, type ComboboxOption } from '@components/ui/combobox'
+import {
+  Combobox,
+  MultiCombobox,
+  type ComboboxOption,
+} from '@components/ui/combobox'
 import { GeneratedQueryPanel } from '@components/query/GeneratedQueryPanel'
 import { CollapsibleSection } from '@components/ui/CollapsibleSection'
 import { BuilderForm } from '@components/builder/BuilderForm'
@@ -43,9 +47,13 @@ const spanKindOptions: ComboboxOption[] = [
   { value: 'server', label: 'Server', subtitle: 'Incoming request' },
   { value: 'client', label: 'Client', subtitle: 'Outgoing request' },
   { value: 'producer', label: 'Producer', subtitle: 'Publishes a message' },
-  { value: 'consumer', label: 'Consumer', subtitle: 'Receives or processes a message' },
+  {
+    value: 'consumer',
+    label: 'Consumer',
+    subtitle: 'Receives or processes a message',
+  },
   { value: 'internal', label: 'Internal', subtitle: 'In-process work' },
-  { value: 'unspecified', label: 'Unspecified' }
+  { value: 'unspecified', label: 'Unspecified' },
 ]
 
 const protocolOptions: ComboboxOption[] = [
@@ -53,25 +61,35 @@ const protocolOptions: ComboboxOption[] = [
   { value: 'http', label: 'HTTP / network' },
   { value: 'rpc', label: 'RPC / gRPC' },
   { value: 'messaging', label: 'Messaging' },
-  { value: 'database', label: 'Database' }
+  { value: 'database', label: 'Database' },
 ]
 
 const httpMethodOptions: ComboboxOption[] = [
   { value: '', label: 'Any method' },
-  ...['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'CONNECT', 'TRACE'].map((method) => ({ value: method, label: method }))
+  ...[
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'HEAD',
+    'OPTIONS',
+    'CONNECT',
+    'TRACE',
+  ].map((method) => ({ value: method, label: method })),
 ]
 
 const statusOptions: ComboboxOption[] = [
   { value: 'any', label: 'Any status' },
   { value: 'unset', label: 'Unset' },
   { value: 'ok', label: 'OK' },
-  { value: 'error', label: 'Error' }
+  { value: 'error', label: 'Error' },
 ]
 
 const rpcSystemOptions: ComboboxOption[] = [
   { value: '', label: 'Any RPC system' },
   { value: 'grpc', label: 'gRPC' },
-  { value: 'jsonrpc', label: 'JSON-RPC' }
+  { value: 'jsonrpc', label: 'JSON-RPC' },
 ]
 
 const messagingOperationOptions: ComboboxOption[] = [
@@ -79,109 +97,530 @@ const messagingOperationOptions: ComboboxOption[] = [
   { value: 'publish', label: 'Publish' },
   { value: 'receive', label: 'Receive' },
   { value: 'process', label: 'Process' },
-  { value: 'settle', label: 'Settle' }
+  { value: 'settle', label: 'Settle' },
 ]
 
 const dbSystemOptions: ComboboxOption[] = [
   { value: '', label: 'Any database' },
-  ...['postgresql', 'mysql', 'sqlite', 'mongodb', 'redis', 'elasticsearch'].map((system) => ({ value: system, label: system }))
+  ...['postgresql', 'mysql', 'sqlite', 'mongodb', 'redis', 'elasticsearch'].map(
+    (system) => ({ value: system, label: system }),
+  ),
 ]
 type FilterChoice = 'include' | 'exclude' | TraceAttributeFilterOperator
 const filterModes: Array<{ value: FilterChoice; label: string }> = [
-  { value: 'include', label: 'Include (=)' }, { value: 'exclude', label: 'Exclude (!=)' },
-  { value: '>', label: 'Greater than (>)' }, { value: '>=', label: 'Greater than or equal (>=)' },
-  { value: '<', label: 'Less than (<)' }, { value: '<=', label: 'Less than or equal (<=)' },
-  { value: '=~', label: 'Matches regex (=~)' }, { value: '!~', label: 'Does not match regex (!~)' }
+  { value: 'include', label: 'Include (=)' },
+  { value: 'exclude', label: 'Exclude (!=)' },
+  { value: '>', label: 'Greater than (>)' },
+  { value: '>=', label: 'Greater than or equal (>=)' },
+  { value: '<', label: 'Less than (<)' },
+  { value: '<=', label: 'Less than or equal (<=)' },
+  { value: '=~', label: 'Matches regex (=~)' },
+  { value: '!~', label: 'Does not match regex (!~)' },
 ]
 const MAX_ATTRIBUTE_VALUES = 250
 
-export function TraceBuilderPanel({ value, traceql, schemas, metadataStatus, metadataError, messagingSystems, messagingSystemsLoading, messagingSystemsError, attributes = [], attributesLoading = false, attributesError = null, attributeValues = {}, attributeValuesLoading = {}, attributeValuesError = {}, onChange, onOpenTraceql }: TraceBuilderPanelProps) {
-  const serviceRelations = useMemo(() => schemas.flatMap((schema) => schema.relations).filter((relation) => relation.kind === 'service'), [schemas])
+export function TraceBuilderPanel({
+  value,
+  traceql,
+  schemas,
+  metadataStatus,
+  metadataError,
+  messagingSystems,
+  messagingSystemsLoading,
+  messagingSystemsError,
+  attributes = [],
+  attributesLoading = false,
+  attributesError = null,
+  attributeValues = {},
+  attributeValuesLoading = {},
+  attributeValuesError = {},
+  onChange,
+  onOpenTraceql,
+}: TraceBuilderPanelProps) {
+  const serviceRelations = useMemo(
+    () =>
+      schemas
+        .flatMap((schema) => schema.relations)
+        .filter((relation) => relation.kind === 'service'),
+    [schemas],
+  )
   const namespaceOptions = useMemo<ComboboxOption[]>(() => {
-    const namespaces = [...new Set(serviceRelations.flatMap((relation) => relation.details?.kind === 'service' && relation.details.serviceNamespace ? [relation.details.serviceNamespace] : []))].sort((left, right) => left.localeCompare(right))
-    return [{ value: '', label: 'Any namespace' }, ...namespaces.map((namespace) => ({ value: namespace, label: namespace }))]
+    const namespaces = [
+      ...new Set(
+        serviceRelations.flatMap((relation) =>
+          relation.details?.kind === 'service' &&
+          relation.details.serviceNamespace
+            ? [relation.details.serviceNamespace]
+            : [],
+        ),
+      ),
+    ].sort((left, right) => left.localeCompare(right))
+    return [
+      { value: '', label: 'Any namespace' },
+      ...namespaces.map((namespace) => ({
+        value: namespace,
+        label: namespace,
+      })),
+    ]
   }, [serviceRelations])
   const serviceOptions = useMemo<ComboboxOption[]>(() => {
-    const names = [...new Set(serviceRelations
-      .filter((relation) => !value.serviceNamespace || relation.details?.kind === 'service' && relation.details.serviceNamespace === value.serviceNamespace)
-      .map((relation) => relation.name))].sort((left, right) => left.localeCompare(right))
-    return [{ value: '', label: 'Any service' }, ...names.map((service) => ({ value: service, label: service }))]
+    const names = [
+      ...new Set(
+        serviceRelations
+          .filter(
+            (relation) =>
+              !value.serviceNamespace ||
+              (relation.details?.kind === 'service' &&
+                relation.details.serviceNamespace === value.serviceNamespace),
+          )
+          .map((relation) => relation.name),
+      ),
+    ].sort((left, right) => left.localeCompare(right))
+    return [
+      { value: '', label: 'Any service' },
+      ...names.map((service) => ({ value: service, label: service })),
+    ]
   }, [serviceRelations, value.serviceNamespace])
   const metadataLoading = metadataStatus === 'loading'
   const metadataMessage = metadataError || null
   const messagingSystemOptions = useMemo<ComboboxOption[]>(() => {
     const systems = new Set(messagingSystems)
     if (value.messagingSystem) systems.add(value.messagingSystem)
-    return [{ value: '', label: 'Any messaging system' }, ...[...systems].sort((left, right) => left.localeCompare(right)).map((system) => ({ value: system, label: system }))]
+    return [
+      { value: '', label: 'Any messaging system' },
+      ...[...systems]
+        .sort((left, right) => left.localeCompare(right))
+        .map((system) => ({ value: system, label: system })),
+    ]
   }, [messagingSystems, value.messagingSystem])
-  const attributeOptions = useMemo<ComboboxOption[]>(() => attributes.map((attribute) => ({ value: attribute.traceql, label: attribute.traceql, subtitle: `${attribute.scope === 'resource' ? 'Resource' : 'Span'} attribute`, keywords: [attribute.name, attribute.scope] })), [attributes])
-  const selectedAttributes = value.advancedFilters.map((filter) => filter.attribute)
-  const activeAdvancedFilterCount = value.advancedFilters.filter((filter) => filter.mode === 'compare' ? filter.value.trim() : filter.values.some((item) => item.trim())).length + (value.spanName.trim() ? 1 : 0)
-  const changeAttributes = (selected: string[]) => onChange({ advancedFilters: selected.map((attribute) => value.advancedFilters.find((filter) => filter.attribute === attribute) ?? { attribute, scope: attributes.find((item) => item.traceql === attribute)?.scope ?? (attribute.startsWith('resource.') ? 'resource' : 'span'), mode: 'include', values: [] }) })
-  const replaceFilter = (replacement: TraceAttributeFilter) => onChange({ advancedFilters: value.advancedFilters.map((filter) => filter.attribute === replacement.attribute ? replacement : filter) })
-  const changeFilterMode = (filter: TraceAttributeFilter, choice: FilterChoice) => {
-    if (choice === 'include' || choice === 'exclude') replaceFilter({ attribute: filter.attribute, scope: filter.scope, mode: choice, values: filter.mode === 'compare' && filter.value.trim() ? [filter.value] : filter.mode === 'compare' ? [] : filter.values })
-    else replaceFilter({ attribute: filter.attribute, scope: filter.scope, mode: 'compare', operator: choice, value: filter.mode === 'compare' ? filter.value : filter.values[0] ?? '' })
+  const attributeOptions = useMemo<ComboboxOption[]>(
+    () =>
+      attributes.map((attribute) => ({
+        value: attribute.traceql,
+        label: attribute.traceql,
+        subtitle: `${attribute.scope === 'resource' ? 'Resource' : 'Span'} attribute`,
+        keywords: [attribute.name, attribute.scope],
+      })),
+    [attributes],
+  )
+  const selectedAttributes = value.advancedFilters.map(
+    (filter) => filter.attribute,
+  )
+  const activeAdvancedFilterCount =
+    value.advancedFilters.filter((filter) =>
+      filter.mode === 'compare'
+        ? filter.value.trim()
+        : filter.values.some((item) => item.trim()),
+    ).length + (value.spanName.trim() ? 1 : 0)
+  const changeAttributes = (selected: string[]) =>
+    onChange({
+      advancedFilters: selected.map(
+        (attribute) =>
+          value.advancedFilters.find(
+            (filter) => filter.attribute === attribute,
+          ) ?? {
+            attribute,
+            scope:
+              attributes.find((item) => item.traceql === attribute)?.scope ??
+              (attribute.startsWith('resource.') ? 'resource' : 'span'),
+            mode: 'include',
+            values: [],
+          },
+      ),
+    })
+  const replaceFilter = (replacement: TraceAttributeFilter) =>
+    onChange({
+      advancedFilters: value.advancedFilters.map((filter) =>
+        filter.attribute === replacement.attribute ? replacement : filter,
+      ),
+    })
+  const changeFilterMode = (
+    filter: TraceAttributeFilter,
+    choice: FilterChoice,
+  ) => {
+    if (choice === 'include' || choice === 'exclude')
+      replaceFilter({
+        attribute: filter.attribute,
+        scope: filter.scope,
+        mode: choice,
+        values:
+          filter.mode === 'compare' && filter.value.trim()
+            ? [filter.value]
+            : filter.mode === 'compare'
+              ? []
+              : filter.values,
+      })
+    else
+      replaceFilter({
+        attribute: filter.attribute,
+        scope: filter.scope,
+        mode: 'compare',
+        operator: choice,
+        value:
+          filter.mode === 'compare' ? filter.value : (filter.values[0] ?? ''),
+      })
   }
 
   const changeNamespace = (serviceNamespace: string) => {
-    const allowedServices = new Set(serviceRelations
-      .filter((relation) => !serviceNamespace || relation.details?.kind === 'service' && relation.details.serviceNamespace === serviceNamespace)
-      .map((relation) => relation.name))
-    onChange({ serviceNamespace, ...(value.service && !allowedServices.has(value.service) ? { service: '' } : {}) })
+    const allowedServices = new Set(
+      serviceRelations
+        .filter(
+          (relation) =>
+            !serviceNamespace ||
+            (relation.details?.kind === 'service' &&
+              relation.details.serviceNamespace === serviceNamespace),
+        )
+        .map((relation) => relation.name),
+    )
+    onChange({
+      serviceNamespace,
+      ...(value.service && !allowedServices.has(value.service)
+        ? { service: '' }
+        : {}),
+    })
   }
 
-  return <BuilderForm className={styles.root} data-tempo-builder="" data-builder-form="">
-    <BuilderRow className={styles.coreRow} data-tempo-builder-row="core">
-      <FormField data-builder-field=""><Combobox label="Namespace" value={value.serviceNamespace} options={namespaceOptions} onChange={changeNamespace} searchable allowCustomValue loading={metadataLoading} error={metadataMessage} placeholder="Any namespace" emptyMessage="No namespaces found" /></FormField>
-      <FormField data-builder-field=""><Combobox label="Service" value={value.service} options={serviceOptions} onChange={(service) => onChange({ service })} searchable allowCustomValue loading={metadataLoading} error={metadataMessage} placeholder="Any service" emptyMessage="No services found" invalidationKey={value.serviceNamespace} /></FormField>
-      <FormField data-builder-field=""><Combobox label="Span kind" value={value.spanKind} options={spanKindOptions} onChange={(spanKind) => onChange({ spanKind: spanKind as TraceSpanKind })} /></FormField>
-      <FormField data-builder-field=""><Combobox label="Protocol or subsystem" value={value.protocol} options={protocolOptions} onChange={(protocol) => onChange({ protocol: protocol as TraceProtocol })} /></FormField>
-      <FormField data-builder-field=""><Combobox label="Status" value={value.status} options={statusOptions} onChange={(status) => onChange({ status: status as TraceStatus })} /></FormField>
-      <FormField data-builder-field=""><TextInput label="Min duration (ms)" type="number" min="0" step="1" value={value.minDurationMs} onValueChange={(text) => onChange({ minDurationMs: text })} placeholder="300" /></FormField>
-    </BuilderRow>
+  return (
+    <BuilderForm
+      className={styles.root}
+      data-tempo-builder=""
+      data-builder-form=""
+    >
+      <BuilderRow className={styles.coreRow} data-tempo-builder-row="core">
+        <FormField data-builder-field="">
+          <Combobox
+            label="Namespace"
+            value={value.serviceNamespace}
+            options={namespaceOptions}
+            onChange={changeNamespace}
+            searchable
+            allowCustomValue
+            loading={metadataLoading}
+            error={metadataMessage}
+            placeholder="Any namespace"
+            emptyMessage="No namespaces found"
+          />
+        </FormField>
+        <FormField data-builder-field="">
+          <Combobox
+            label="Service"
+            value={value.service}
+            options={serviceOptions}
+            onChange={(service) => onChange({ service })}
+            searchable
+            allowCustomValue
+            loading={metadataLoading}
+            error={metadataMessage}
+            placeholder="Any service"
+            emptyMessage="No services found"
+            invalidationKey={value.serviceNamespace}
+          />
+        </FormField>
+        <FormField data-builder-field="">
+          <Combobox
+            label="Span kind"
+            value={value.spanKind}
+            options={spanKindOptions}
+            onChange={(spanKind) =>
+              onChange({ spanKind: spanKind as TraceSpanKind })
+            }
+          />
+        </FormField>
+        <FormField data-builder-field="">
+          <Combobox
+            label="Protocol or subsystem"
+            value={value.protocol}
+            options={protocolOptions}
+            onChange={(protocol) =>
+              onChange({ protocol: protocol as TraceProtocol })
+            }
+          />
+        </FormField>
+        <FormField data-builder-field="">
+          <Combobox
+            label="Status"
+            value={value.status}
+            options={statusOptions}
+            onChange={(status) => onChange({ status: status as TraceStatus })}
+          />
+        </FormField>
+        <FormField data-builder-field="">
+          <TextInput
+            label="Min duration (ms)"
+            type="number"
+            min="0"
+            step="1"
+            value={value.minDurationMs}
+            onValueChange={(text) => onChange({ minDurationMs: text })}
+            placeholder="300"
+          />
+        </FormField>
+      </BuilderRow>
 
-    {value.protocol === 'http' && <BuilderRow className={styles.detailRow} data-tempo-builder-row="detail">
-      <FormField data-builder-field=""><Combobox label="HTTP method" value={value.httpMethod} options={httpMethodOptions} onChange={(httpMethod) => onChange({ httpMethod })} /></FormField>
-      <FormField data-builder-field=""><TextInput label="Route / endpoint" hint={value.spanKind === 'client' ? 'Matches URL template/path for client spans.' : value.spanKind === 'server' ? 'Matches the instrumented HTTP route.' : 'Matches route, URL template or path.'} value={value.endpoint} onValueChange={(text) => onChange({ endpoint: text })} placeholder="/checkout/{id}" /></FormField>
-    </BuilderRow>}
-
-    {value.protocol === 'rpc' && <BuilderRow className={styles.detailRow} data-tempo-builder-row="detail">
-      <FormField data-builder-field=""><Combobox label="RPC system" value={value.rpcSystem} options={rpcSystemOptions} onChange={(rpcSystem) => onChange({ rpcSystem })} searchable allowCustomValue /></FormField>
-      <FormField data-builder-field=""><TextInput label="RPC service" value={value.rpcService} onValueChange={(text) => onChange({ rpcService: text })} placeholder="CartService" /></FormField>
-      <FormField data-builder-field=""><TextInput label="RPC method" value={value.rpcMethod} onValueChange={(text) => onChange({ rpcMethod: text })} placeholder="Checkout" /></FormField>
-    </BuilderRow>}
-
-    {value.protocol === 'messaging' && <BuilderRow className={styles.detailRow} data-tempo-builder-row="detail">
-      <FormField data-builder-field=""><Combobox label="Messaging system" value={value.messagingSystem} options={messagingSystemOptions} onChange={(messagingSystem) => onChange({ messagingSystem })} searchable allowCustomValue loading={messagingSystemsLoading} error={messagingSystemsError} loadingMessage="Loading messaging systems…" emptyMessage="No messaging systems found. Type a custom value." placeholder="Any messaging system" /></FormField>
-      <FormField data-builder-field=""><TextInput label="Destination / topic" value={value.messagingDestination} onValueChange={(text) => onChange({ messagingDestination: text })} placeholder="orders" /></FormField>
-      <FormField data-builder-field=""><Combobox label="Messaging operation" value={value.messagingOperation} options={messagingOperationOptions} onChange={(messagingOperation) => onChange({ messagingOperation })} searchable allowCustomValue /></FormField>
-    </BuilderRow>}
-
-    {value.protocol === 'database' && <BuilderRow className={styles.detailRow} data-tempo-builder-row="detail">
-      <FormField data-builder-field=""><Combobox label="Database system" value={value.dbSystem} options={dbSystemOptions} onChange={(dbSystem) => onChange({ dbSystem })} searchable allowCustomValue /></FormField>
-      <FormField data-builder-field=""><TextInput label="DB operation" value={value.dbOperation} onValueChange={(text) => onChange({ dbOperation: text })} placeholder="SELECT" /></FormField>
-    </BuilderRow>}
-
-    <CollapsibleSection title="Advanced filters" actions={activeAdvancedFilterCount > 0 ? <span className={styles.activeCount}>{activeAdvancedFilterCount} active</span> : undefined}>
-      <div className={styles.advancedContent}>
-      <FormField data-builder-field=""><MultiCombobox label="Attributes" values={selectedAttributes} options={attributeOptions} onChange={changeAttributes} searchable showChips loading={attributesLoading} error={attributesError} loadingMessage="Loading attributes…" emptyMessage="No attributes discovered." placeholder="Select attributes" /></FormField>
-      {value.advancedFilters.length > 0 && <div className={styles.facetTable}>
-        <div className={styles.facets}>{value.advancedFilters.map((filter) => {
-        const discovered = attributeValues[filter.attribute] ?? []
-        const displayed = discovered.slice(0, MAX_ATTRIBUTE_VALUES)
-        return <BuilderRow className={styles.facet} key={filter.attribute}>
-          <div className={styles.facetAttribute} title={filter.attribute}><strong>{filter.attribute.replace(/^(?:resource|span)\./, '')}</strong><small>{filter.scope} attribute</small></div>
-          <div className={styles.facetMode}><Combobox label={`${filter.attribute} match mode`} value={filter.mode === 'compare' ? filter.operator : filter.mode} options={filterModes} onChange={(mode) => changeFilterMode(filter, mode as FilterChoice)} /></div>
-          {filter.mode === 'compare'
-            ? <FormField className={styles.facetValues} data-builder-field=""><TextInput label={`${filter.attribute} value`} value={filter.value} onValueChange={(scalarValue) => replaceFilter({ ...filter, value: scalarValue })} placeholder={filter.operator === '=~' || filter.operator === '!~' ? 'api-.*' : '500 or 300ms'} /></FormField>
-            : <FormField className={styles.facetValues} data-builder-field=""><MultiCombobox label={`${filter.attribute} values`} values={filter.values} options={displayed.map((item) => ({ value: item, label: item }))} onChange={(values) => replaceFilter({ ...filter, values })} searchable showChips allowCustomValue loading={attributeValuesLoading[filter.attribute]} error={attributeValuesError[filter.attribute]} loadingMessage="Loading values…" emptyMessage="No discovered values. Type a custom value." invalidationKey={filter.attribute} hint={discovered.length > MAX_ATTRIBUTE_VALUES ? `Showing the first ${MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.` : undefined} /></FormField>}
+      {value.protocol === 'http' && (
+        <BuilderRow
+          className={styles.detailRow}
+          data-tempo-builder-row="detail"
+        >
+          <FormField data-builder-field="">
+            <Combobox
+              label="HTTP method"
+              value={value.httpMethod}
+              options={httpMethodOptions}
+              onChange={(httpMethod) => onChange({ httpMethod })}
+            />
+          </FormField>
+          <FormField data-builder-field="">
+            <TextInput
+              label="Route / endpoint"
+              hint={
+                value.spanKind === 'client'
+                  ? 'Matches URL template/path for client spans.'
+                  : value.spanKind === 'server'
+                    ? 'Matches the instrumented HTTP route.'
+                    : 'Matches route, URL template or path.'
+              }
+              value={value.endpoint}
+              onValueChange={(text) => onChange({ endpoint: text })}
+              placeholder="/checkout/{id}"
+            />
+          </FormField>
         </BuilderRow>
-      })}</div></div>}
-      <FormField data-builder-field=""><TextInput label="Exact span / operation name" hint="Use this when semantic attributes are missing or the exact span name is the clearest filter." value={value.spanName} onValueChange={(text) => onChange({ spanName: text })} placeholder="POST /checkout" /></FormField>
-      </div>
-    </CollapsibleSection>
+      )}
 
-    <GeneratedQueryPanel language="TraceQL" value={traceql} onOpenInEditor={onOpenTraceql} />
-  </BuilderForm>
+      {value.protocol === 'rpc' && (
+        <BuilderRow
+          className={styles.detailRow}
+          data-tempo-builder-row="detail"
+        >
+          <FormField data-builder-field="">
+            <Combobox
+              label="RPC system"
+              value={value.rpcSystem}
+              options={rpcSystemOptions}
+              onChange={(rpcSystem) => onChange({ rpcSystem })}
+              searchable
+              allowCustomValue
+            />
+          </FormField>
+          <FormField data-builder-field="">
+            <TextInput
+              label="RPC service"
+              value={value.rpcService}
+              onValueChange={(text) => onChange({ rpcService: text })}
+              placeholder="CartService"
+            />
+          </FormField>
+          <FormField data-builder-field="">
+            <TextInput
+              label="RPC method"
+              value={value.rpcMethod}
+              onValueChange={(text) => onChange({ rpcMethod: text })}
+              placeholder="Checkout"
+            />
+          </FormField>
+        </BuilderRow>
+      )}
+
+      {value.protocol === 'messaging' && (
+        <BuilderRow
+          className={styles.detailRow}
+          data-tempo-builder-row="detail"
+        >
+          <FormField data-builder-field="">
+            <Combobox
+              label="Messaging system"
+              value={value.messagingSystem}
+              options={messagingSystemOptions}
+              onChange={(messagingSystem) => onChange({ messagingSystem })}
+              searchable
+              allowCustomValue
+              loading={messagingSystemsLoading}
+              error={messagingSystemsError}
+              loadingMessage="Loading messaging systems…"
+              emptyMessage="No messaging systems found. Type a custom value."
+              placeholder="Any messaging system"
+            />
+          </FormField>
+          <FormField data-builder-field="">
+            <TextInput
+              label="Destination / topic"
+              value={value.messagingDestination}
+              onValueChange={(text) => onChange({ messagingDestination: text })}
+              placeholder="orders"
+            />
+          </FormField>
+          <FormField data-builder-field="">
+            <Combobox
+              label="Messaging operation"
+              value={value.messagingOperation}
+              options={messagingOperationOptions}
+              onChange={(messagingOperation) =>
+                onChange({ messagingOperation })
+              }
+              searchable
+              allowCustomValue
+            />
+          </FormField>
+        </BuilderRow>
+      )}
+
+      {value.protocol === 'database' && (
+        <BuilderRow
+          className={styles.detailRow}
+          data-tempo-builder-row="detail"
+        >
+          <FormField data-builder-field="">
+            <Combobox
+              label="Database system"
+              value={value.dbSystem}
+              options={dbSystemOptions}
+              onChange={(dbSystem) => onChange({ dbSystem })}
+              searchable
+              allowCustomValue
+            />
+          </FormField>
+          <FormField data-builder-field="">
+            <TextInput
+              label="DB operation"
+              value={value.dbOperation}
+              onValueChange={(text) => onChange({ dbOperation: text })}
+              placeholder="SELECT"
+            />
+          </FormField>
+        </BuilderRow>
+      )}
+
+      <CollapsibleSection
+        title="Advanced filters"
+        actions={
+          activeAdvancedFilterCount > 0 ? (
+            <span className={styles.activeCount}>
+              {activeAdvancedFilterCount} active
+            </span>
+          ) : undefined
+        }
+      >
+        <div className={styles.advancedContent}>
+          <FormField data-builder-field="">
+            <MultiCombobox
+              label="Attributes"
+              values={selectedAttributes}
+              options={attributeOptions}
+              onChange={changeAttributes}
+              searchable
+              showChips
+              loading={attributesLoading}
+              error={attributesError}
+              loadingMessage="Loading attributes…"
+              emptyMessage="No attributes discovered."
+              placeholder="Select attributes"
+            />
+          </FormField>
+          {value.advancedFilters.length > 0 && (
+            <div className={styles.facetTable}>
+              <div className={styles.facets}>
+                {value.advancedFilters.map((filter) => {
+                  const discovered = attributeValues[filter.attribute] ?? []
+                  const displayed = discovered.slice(0, MAX_ATTRIBUTE_VALUES)
+                  return (
+                    <BuilderRow className={styles.facet} key={filter.attribute}>
+                      <div
+                        className={styles.facetAttribute}
+                        title={filter.attribute}
+                      >
+                        <strong>
+                          {filter.attribute.replace(/^(?:resource|span)\./, '')}
+                        </strong>
+                        <small>{filter.scope} attribute</small>
+                      </div>
+                      <div className={styles.facetMode}>
+                        <Combobox
+                          label={`${filter.attribute} match mode`}
+                          value={
+                            filter.mode === 'compare'
+                              ? filter.operator
+                              : filter.mode
+                          }
+                          options={filterModes}
+                          onChange={(mode) =>
+                            changeFilterMode(filter, mode as FilterChoice)
+                          }
+                        />
+                      </div>
+                      {filter.mode === 'compare' ? (
+                        <FormField
+                          className={styles.facetValues}
+                          data-builder-field=""
+                        >
+                          <TextInput
+                            label={`${filter.attribute} value`}
+                            value={filter.value}
+                            onValueChange={(scalarValue) =>
+                              replaceFilter({ ...filter, value: scalarValue })
+                            }
+                            placeholder={
+                              filter.operator === '=~' ||
+                              filter.operator === '!~'
+                                ? 'api-.*'
+                                : '500 or 300ms'
+                            }
+                          />
+                        </FormField>
+                      ) : (
+                        <FormField
+                          className={styles.facetValues}
+                          data-builder-field=""
+                        >
+                          <MultiCombobox
+                            label={`${filter.attribute} values`}
+                            values={filter.values}
+                            options={displayed.map((item) => ({
+                              value: item,
+                              label: item,
+                            }))}
+                            onChange={(values) =>
+                              replaceFilter({ ...filter, values })
+                            }
+                            searchable
+                            showChips
+                            allowCustomValue
+                            loading={attributeValuesLoading[filter.attribute]}
+                            error={attributeValuesError[filter.attribute]}
+                            loadingMessage="Loading values…"
+                            emptyMessage="No discovered values. Type a custom value."
+                            invalidationKey={filter.attribute}
+                            hint={
+                              discovered.length > MAX_ATTRIBUTE_VALUES
+                                ? `Showing the first ${MAX_ATTRIBUTE_VALUES} discovered values. Type to use another value.`
+                                : undefined
+                            }
+                          />
+                        </FormField>
+                      )}
+                    </BuilderRow>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          <FormField data-builder-field="">
+            <TextInput
+              label="Exact span / operation name"
+              hint="Use this when semantic attributes are missing or the exact span name is the clearest filter."
+              value={value.spanName}
+              onValueChange={(text) => onChange({ spanName: text })}
+              placeholder="POST /checkout"
+            />
+          </FormField>
+        </div>
+      </CollapsibleSection>
+
+      <GeneratedQueryPanel
+        language="TraceQL"
+        value={traceql}
+        onOpenInEditor={onOpenTraceql}
+      />
+    </BuilderForm>
+  )
 }

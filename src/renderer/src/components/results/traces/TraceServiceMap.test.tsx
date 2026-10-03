@@ -1,12 +1,21 @@
 // @vitest-environment jsdom
 import { StrictMode } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 
 vi.hoisted(() => {
   // JointJS detects SVG support while its module is evaluated. jsdom omits the
   // legacy SVGAngle constructor even though its SVG DOM is otherwise usable.
-  Object.defineProperty(window, 'SVGAngle', { configurable: true, value: class SVGAngle {} })
+  Object.defineProperty(window, 'SVGAngle', {
+    configurable: true,
+    value: class SVGAngle {},
+  })
   const matrix = () => {
     const value = {
       a: 1,
@@ -26,38 +35,59 @@ vi.hoisted(() => {
       scaleNonUniform: () => value,
       rotate: () => value,
       skewX: () => value,
-      skewY: () => value
+      skewY: () => value,
     }
     return value
   }
   Object.assign(SVGSVGElement.prototype, {
     createSVGMatrix: matrix,
-    createSVGTransform: () => ({ matrix: matrix(), setMatrix() {}, setTranslate() {}, setScale() {}, setRotate() {} }),
+    createSVGTransform: () => ({
+      matrix: matrix(),
+      setMatrix() {},
+      setTranslate() {},
+      setScale() {},
+      setRotate() {},
+    }),
     createSVGTransformFromMatrix: (value: unknown) => ({ matrix: value }),
     createSVGPoint: () => ({
       x: 0,
       y: 0,
       matrixTransform() {
         return this
-      }
-    })
+      },
+    }),
   })
   Object.assign(SVGElement.prototype, {
     checkVisibility: () => true,
     getBBox: () => ({ x: 0, y: 0, width: 100, height: 40 }),
-    getScreenCTM: matrix
+    getScreenCTM: matrix,
   })
-  document.elementFromPoint = () => (globalThis as typeof globalThis & { __jointTestTarget?: Element }).__jointTestTarget ?? null
+  document.elementFromPoint = () =>
+    (globalThis as typeof globalThis & { __jointTestTarget?: Element })
+      .__jointTestTarget ?? null
 })
 
 import { TraceServiceMap } from './TraceServiceMap'
-import type { TraceCohortAggregate, TraceCohortEdge, TraceCohortNode, TraceCohortTraceSummary } from '@lib/traceCohort'
+import type {
+  TraceCohortAggregate,
+  TraceCohortEdge,
+  TraceCohortNode,
+  TraceCohortTraceSummary,
+} from '@lib/traceCohort'
 
 beforeAll(() => {
   class TestResizeObserver implements ResizeObserver {
     constructor(private readonly callback: ResizeObserverCallback) {}
     observe(target: Element) {
-      this.callback([{ target, contentRect: { width: 800, height: 500 } } as ResizeObserverEntry], this)
+      this.callback(
+        [
+          {
+            target,
+            contentRect: { width: 800, height: 500 },
+          } as ResizeObserverEntry,
+        ],
+        this,
+      )
     }
     unobserve() {}
     disconnect() {}
@@ -65,7 +95,11 @@ beforeAll(() => {
   vi.stubGlobal('ResizeObserver', TestResizeObserver)
 })
 
-function node(id: string, rootTraceCount = 0, namespace?: string): TraceCohortNode {
+function node(
+  id: string,
+  rootTraceCount = 0,
+  namespace?: string,
+): TraceCohortNode {
   return {
     id,
     label: id.includes('/') ? (id.split('/').at(-1) ?? id) : id,
@@ -76,11 +110,16 @@ function node(id: string, rootTraceCount = 0, namespace?: string): TraceCohortNo
     spanCount: 10,
     errorTraceCount: 0,
     errorRate: 0,
-    incidentImpact: 1
+    incidentImpact: 1,
   }
 }
 
-function edge(source: string, target: string, kind: TraceCohortEdge['kind'], rank: number): TraceCohortEdge {
+function edge(
+  source: string,
+  target: string,
+  kind: TraceCohortEdge['kind'],
+  rank: number,
+): TraceCohortEdge {
   return {
     key: `${source}->${target}`,
     source,
@@ -109,7 +148,7 @@ function edge(source: string, target: string, kind: TraceCohortEdge['kind'], ran
     impact: Math.max(1, 20 - rank),
     rank,
     traceIds: ['trace-1'],
-    slowTraceIds: []
+    slowTraceIds: [],
   }
 }
 
@@ -121,8 +160,19 @@ const aggregate: TraceCohortAggregate = {
   slowThresholdMs: 450,
   baselineTraceCount: 5,
   slowTraceCount: 2,
-  nodes: [node('root', 10), node('inventory'), node('kafka'), node('worker'), node('warehouse')],
-  edges: [edge('root', 'inventory', 'sync', 1), edge('root', 'kafka', 'async', 2), edge('kafka', 'worker', 'async', 3), edge('worker', 'warehouse', 'sync', 4)]
+  nodes: [
+    node('root', 10),
+    node('inventory'),
+    node('kafka'),
+    node('worker'),
+    node('warehouse'),
+  ],
+  edges: [
+    edge('root', 'inventory', 'sync', 1),
+    edge('root', 'kafka', 'async', 2),
+    edge('kafka', 'worker', 'async', 3),
+    edge('worker', 'warehouse', 'sync', 4),
+  ],
 }
 
 const trace: TraceCohortTraceSummary = {
@@ -132,27 +182,44 @@ const trace: TraceCohortTraceSummary = {
   rootServiceId: 'root',
   rootServiceLabel: 'root',
   services: [{ id: 'root', label: 'root', spanCount: 1, errorSpanCount: 0 }],
-  edges: []
+  edges: [],
 }
 
 function aggregateWithEdges(count: number): TraceCohortAggregate {
-  const nodes = [node('root', 10), ...Array.from({ length: count }, (_, index) => node(`service-${index + 1}`))]
+  const nodes = [
+    node('root', 10),
+    ...Array.from({ length: count }, (_, index) =>
+      node(`service-${index + 1}`),
+    ),
+  ]
   return {
     ...aggregate,
     nodes,
-    edges: Array.from({ length: count }, (_, index) => edge('root', `service-${index + 1}`, 'sync', index + 1))
+    edges: Array.from({ length: count }, (_, index) =>
+      edge('root', `service-${index + 1}`, 'sync', index + 1),
+    ),
   }
 }
 
 function groupedAggregate(): TraceCohortAggregate {
   return {
     ...aggregate,
-    nodes: [node('system-a/root', 10, 'system-a'), node('system-a/worker', 0, 'system-a'), node('system-b/api', 0, 'system-b')],
-    edges: [edge('system-a/root', 'system-a/worker', 'sync', 1), edge('system-a/worker', 'system-b/api', 'sync', 2)]
+    nodes: [
+      node('system-a/root', 10, 'system-a'),
+      node('system-a/worker', 0, 'system-a'),
+      node('system-b/api', 0, 'system-b'),
+    ],
+    edges: [
+      edge('system-a/root', 'system-a/worker', 'sync', 1),
+      edge('system-a/worker', 'system-b/api', 'sync', 2),
+    ],
   }
 }
 
-function serviceMap(value: TraceCohortAggregate = aggregate, traces: TraceCohortTraceSummary[] = []) {
+function serviceMap(
+  value: TraceCohortAggregate = aggregate,
+  traces: TraceCohortTraceSummary[] = [],
+) {
   return (
     <TraceServiceMap
       aggregate={value}
@@ -168,14 +235,19 @@ function serviceMap(value: TraceCohortAggregate = aggregate, traces: TraceCohort
   )
 }
 
-function renderMap(value: TraceCohortAggregate = aggregate, traces: TraceCohortTraceSummary[] = []) {
+function renderMap(
+  value: TraceCohortAggregate = aggregate,
+  traces: TraceCohortTraceSummary[] = [],
+) {
   return render(serviceMap(value, traces))
 }
 
 afterEach(cleanup)
 
 function clickGraphCell(element: Element) {
-  ;(globalThis as typeof globalThis & { __jointTestTarget?: Element }).__jointTestTarget = element
+  ;(
+    globalThis as typeof globalThis & { __jointTestTarget?: Element }
+  ).__jointTestTarget = element
   fireEvent.mouseDown(element, { clientX: 20, clientY: 20 })
   fireEvent.mouseUp(element, { clientX: 20, clientY: 20 })
   fireEvent.click(element, { clientX: 20, clientY: 20 })
@@ -189,7 +261,9 @@ describe('TraceServiceMap controls', () => {
       const current = document.querySelector('[data-joint-service-map]')
       expect(current?.isConnected).toBe(true)
       expect(current?.querySelector(`.${'joint-paper'}`)).toBeTruthy()
-      expect(current?.querySelectorAll('[data-service-map-node]').length).toBe(5)
+      expect(current?.querySelectorAll('[data-service-map-node]').length).toBe(
+        5,
+      )
       return current!
     })
 
@@ -208,16 +282,22 @@ describe('TraceServiceMap controls', () => {
 
     fireEvent.click(
       screen.getByRole('combobox', {
-        name: 'Branch scope: Entire transaction'
-      })
+        name: 'Branch scope: Entire transaction',
+      }),
     )
-    fireEvent.click(await screen.findByRole('option', { name: 'Main transaction' }))
+    fireEvent.click(
+      await screen.findByRole('option', { name: 'Main transaction' }),
+    )
     expect(map.getAttribute('data-branch-scope')).toBe('main')
     expect(screen.getByText('2/5')).toBeTruthy()
     expect(screen.getByText('1/4')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('combobox', { name: 'Branch scope: Main transaction' }))
-    fireEvent.click(await screen.findByRole('option', { name: 'Async branches' }))
+    fireEvent.click(
+      screen.getByRole('combobox', { name: 'Branch scope: Main transaction' }),
+    )
+    fireEvent.click(
+      await screen.findByRole('option', { name: 'Async branches' }),
+    )
     expect(map.getAttribute('data-branch-scope')).toBe('async')
     expect(screen.getByText('4/5')).toBeTruthy()
     expect(screen.getByText('3/4')).toBeTruthy()
@@ -225,34 +305,62 @@ describe('TraceServiceMap controls', () => {
 
   it('expands below the titlebar, keeps branch scope and exits with Escape', async () => {
     renderMap()
-    const graph = document.querySelector('[data-service-map-graph-fullscreen]') as HTMLElement
-    fireEvent.click(screen.getByRole('button', { name: 'Open service map full screen' }))
-    await waitFor(() => expect(graph.getAttribute('data-service-map-graph-fullscreen')).toBe('true'))
+    const graph = document.querySelector(
+      '[data-service-map-graph-fullscreen]',
+    ) as HTMLElement
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Open service map full screen' }),
+    )
+    await waitFor(() =>
+      expect(graph.getAttribute('data-service-map-graph-fullscreen')).toBe(
+        'true',
+      ),
+    )
     expect(graph.style.top).toBe('40px')
-    expect(screen.getByRole('button', { name: 'Exit service map full screen' })).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Exit service map full screen' }),
+    ).toBeTruthy()
     expect(
       screen.getByRole('combobox', {
-        name: 'Branch scope: Entire transaction'
-      })
+        name: 'Branch scope: Entire transaction',
+      }),
     ).toBeTruthy()
-    expect(document.querySelector('aside[aria-label="Full screen service map bottlenecks"]')).toBeTruthy()
+    expect(
+      document.querySelector(
+        'aside[aria-label="Full screen service map bottlenecks"]',
+      ),
+    ).toBeTruthy()
 
     fireEvent.keyDown(window, { key: 'Escape' })
-    await waitFor(() => expect(graph.getAttribute('data-service-map-graph-fullscreen')).toBe('false'))
+    await waitFor(() =>
+      expect(graph.getAttribute('data-service-map-graph-fullscreen')).toBe(
+        'false',
+      ),
+    )
   })
 
   it('caps both embedded and fullscreen candidate lists at the scoped Top 10', async () => {
     renderMap(aggregateWithEdges(12))
-    const embedded = document.querySelector('aside[aria-label="Service map bottleneck analysis"]')!
-    expect(embedded.querySelectorAll('[data-service-map-bottleneck]')).toHaveLength(10)
+    const embedded = document.querySelector(
+      'aside[aria-label="Service map bottleneck analysis"]',
+    )!
+    expect(
+      embedded.querySelectorAll('[data-service-map-bottleneck]'),
+    ).toHaveLength(10)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open service map full screen' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Open service map full screen' }),
+    )
     const fullscreen = await waitFor(() => {
-      const panel = document.querySelector('aside[aria-label="Full screen service map bottlenecks"]')
+      const panel = document.querySelector(
+        'aside[aria-label="Full screen service map bottlenecks"]',
+      )
       expect(panel).toBeTruthy()
       return panel!
     })
-    expect(fullscreen.querySelectorAll('[data-service-map-bottleneck]')).toHaveLength(10)
+    expect(
+      fullscreen.querySelectorAll('[data-service-map-bottleneck]'),
+    ).toHaveLength(10)
     expect(fullscreen.textContent).toContain('#10')
   })
 
@@ -270,20 +378,43 @@ describe('TraceServiceMap controls', () => {
     expect(screen.getByText('Downstream')).toBeTruthy()
 
     clickGraphCell(rootNode)
-    expect(screen.getByRole('heading', { name: 'Bottleneck candidates' })).toBeTruthy()
+    expect(
+      screen.getByRole('heading', { name: 'Bottleneck candidates' }),
+    ).toBeTruthy()
   })
 
   it('groups by namespace, expands a namespace box and exposes service search', async () => {
     renderMap(groupedAggregate())
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Find service in map' }), { target: { value: 'worker' } })
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Find service in map' }),
+      { target: { value: 'worker' } },
+    )
     expect(screen.getByDisplayValue('worker')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('combobox', { name: 'Service grouping: No grouping' }))
-    fireEvent.click(await screen.findByRole('option', { name: 'Namespace / system' }))
-    await waitFor(() => expect(document.querySelector('[data-service-map-node="group:system-a"]')).toBeTruthy())
-    expect(document.querySelector('[data-service-map-node="system-a/worker"]')).toBeFalsy()
+    fireEvent.click(
+      screen.getByRole('combobox', { name: 'Service grouping: No grouping' }),
+    )
+    fireEvent.click(
+      await screen.findByRole('option', { name: 'Namespace / system' }),
+    )
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-service-map-node="group:system-a"]'),
+      ).toBeTruthy(),
+    )
+    expect(
+      document.querySelector('[data-service-map-node="system-a/worker"]'),
+    ).toBeFalsy()
 
-    clickGraphCell(document.querySelector('[data-service-map-node="group:system-a"]') as HTMLElement)
-    await waitFor(() => expect(document.querySelector('[data-service-map-node="system-a/worker"]')).toBeTruthy())
+    clickGraphCell(
+      document.querySelector(
+        '[data-service-map-node="group:system-a"]',
+      ) as HTMLElement,
+    )
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-service-map-node="system-a/worker"]'),
+      ).toBeTruthy(),
+    )
   })
 })

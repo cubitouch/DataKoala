@@ -2,31 +2,54 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { previewTraceId, previewTraceResultForId, previewTraceSearchResult } from './visual-preview/trace-fixtures.mjs'
-import { previewDenseTraceResultForId, previewDenseTraceSearchResult } from './visual-preview/trace-dense-fixtures.mjs'
-import { assertCompactObjectFilter, assertFieldRowGeometry, assertPreviewReady } from './visual-preview/assertions.mjs'
+import {
+  previewTraceId,
+  previewTraceResultForId,
+  previewTraceSearchResult,
+} from './visual-preview/trace-fixtures.mjs'
+import {
+  previewDenseTraceResultForId,
+  previewDenseTraceSearchResult,
+} from './visual-preview/trace-dense-fixtures.mjs'
+import {
+  assertCompactObjectFilter,
+  assertFieldRowGeometry,
+  assertPreviewReady,
+} from './visual-preview/assertions.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
-const outputDir = resolve(process.env.DATAKOALA_PREVIEW_OUTPUT ?? outputArgument ?? 'visual-preview')
+const outputArgument = process.argv
+  .slice(2)
+  .find((argument) => !argument.endsWith('.mjs'))
+const outputDir = resolve(
+  process.env.DATAKOALA_PREVIEW_OUTPUT ?? outputArgument ?? 'visual-preview',
+)
 
 process.env.DATAKOALA_SMOKE = '1'
 let densePreview = false
 
-const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
+const sleep = (ms) =>
+  new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 
 async function waitFor(win, expression, description, attempts = 80) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    if (await win.webContents.executeJavaScript(`Boolean(${expression})`)) return
+    if (await win.webContents.executeJavaScript(`Boolean(${expression})`))
+      return
     await sleep(100)
   }
-  const body = await win.webContents.executeJavaScript(`(document.body.innerText || '').slice(0, 1600)`)
-  throw new Error(`Timed out waiting for ${description}. Renderer text: ${body}`)
+  const body = await win.webContents.executeJavaScript(
+    `(document.body.innerText || '').slice(0, 1600)`,
+  )
+  throw new Error(
+    `Timed out waiting for ${description}. Renderer text: ${body}`,
+  )
 }
 
 async function capture(win, filename) {
   await assertPreviewReady(win, filename)
-  await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+  await win.webContents.executeJavaScript(
+    `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
+  )
   await sleep(250)
   const image = await win.webContents.capturePage()
   const path = resolve(outputDir, filename)
@@ -39,8 +62,13 @@ async function validateNarrowQueryToolbar(win) {
     const query = [...document.querySelectorAll('[aria-label="Query mode"] button')].find((button) => button.textContent?.trim() === 'TraceQL')
     query?.click()
   })()`)
-  await waitFor(win, `document.querySelector('[aria-label="TraceQL editor"]') && [...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Format')`, 'Tempo TraceQL mode')
-  const sizing = JSON.parse(await win.webContents.executeJavaScript(`(async () => {
+  await waitFor(
+    win,
+    `document.querySelector('[aria-label="TraceQL editor"]') && [...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Format')`,
+    'Tempo TraceQL mode',
+  )
+  const sizing = JSON.parse(
+    await win.webContents.executeJavaScript(`(async () => {
     const store = window.__datakoalaStore
     const activeTabId = store.getState().activeTabId
     const originalSql = store.getState().tabs.find((tab) => tab.id === activeTabId)?.sql
@@ -76,13 +104,22 @@ async function validateNarrowQueryToolbar(win) {
     const restoredSql = store.getState().tabs.find((tab) => tab.id === activeTabId)?.sql
     const restoredEditorSql = editorQuery()
     return JSON.stringify({ single, multiline, long, singleAgain, originalSql, restoredSql, restoredEditorSql })
-  })()`))
-  if (!sizing.single || !sizing.multiline || !sizing.long || !sizing.singleAgain ||
-      sizing.single.height < 65 || sizing.single.height > 68 ||
-      sizing.multiline.height <= sizing.single.height || sizing.long.height <= sizing.multiline.height ||
-      sizing.long.scrollHeight > sizing.long.clientHeight ||
-      Math.abs(sizing.singleAgain.height - sizing.single.height) > 1 ||
-      sizing.restoredSql !== sizing.originalSql || sizing.restoredEditorSql !== sizing.originalSql) {
+  })()`),
+  )
+  if (
+    !sizing.single ||
+    !sizing.multiline ||
+    !sizing.long ||
+    !sizing.singleAgain ||
+    sizing.single.height < 65 ||
+    sizing.single.height > 68 ||
+    sizing.multiline.height <= sizing.single.height ||
+    sizing.long.height <= sizing.multiline.height ||
+    sizing.long.scrollHeight > sizing.long.clientHeight ||
+    Math.abs(sizing.singleAgain.height - sizing.single.height) > 1 ||
+    sizing.restoredSql !== sizing.originalSql ||
+    sizing.restoredEditorSql !== sizing.originalSql
+  ) {
     throw new Error(`TraceQL auto-grow regression: ${JSON.stringify(sizing)}`)
   }
   win.setSize(900, 900)
@@ -96,13 +133,20 @@ async function validateNarrowQueryToolbar(win) {
     const clipped = !bounds || rects.some((rect) => rect.left < bounds.left || rect.right > bounds.right)
     return { overlaps, clipped, overflow: !bar || bar.scrollWidth > bar.clientWidth }
   })()`)
-  if (layout.overlaps || layout.clipped || layout.overflow) throw new Error(`Narrow Tempo toolbar regression: ${JSON.stringify(layout)}`)
+  if (layout.overlaps || layout.clipped || layout.overflow)
+    throw new Error(
+      `Narrow Tempo toolbar regression: ${JSON.stringify(layout)}`,
+    )
   win.setSize(1440, 900)
   await win.webContents.executeJavaScript(`(() => {
     const builder = [...document.querySelectorAll('[aria-label="Query mode"] button')].find((button) => button.textContent?.trim() === 'Builder')
     builder?.click()
   })()`)
-  await waitFor(win, `document.querySelector('[data-tempo-builder]')`, 'Tempo Builder mode restored')
+  await waitFor(
+    win,
+    `document.querySelector('[data-tempo-builder]')`,
+    'Tempo Builder mode restored',
+  )
 }
 
 async function seedTraceWorkspace(win) {
@@ -161,12 +205,21 @@ async function seedTraceWorkspace(win) {
       } : tab)
     })
   })()`)
-  await waitFor(win, `document.querySelector('section[aria-label="Trace explorer"]') && document.body.innerText.includes('Synthetic traces') && document.body.innerText.includes('service-01')`, 'seeded synthetic Tempo workspace and service tree')
-  await waitFor(win, `document.querySelector('[aria-label="Resize Tempo query and results"]')`, 'Tempo query/results resize handle')
+  await waitFor(
+    win,
+    `document.querySelector('section[aria-label="Trace explorer"]') && document.body.innerText.includes('Synthetic traces') && document.body.innerText.includes('service-01')`,
+    'seeded synthetic Tempo workspace and service tree',
+  )
+  await waitFor(
+    win,
+    `document.querySelector('[aria-label="Resize Tempo query and results"]')`,
+    'Tempo query/results resize handle',
+  )
 }
 
 async function validateBuilderIndependence(win) {
-  const report = JSON.parse(await win.webContents.executeJavaScript(`(() => {
+  const report = JSON.parse(
+    await win.webContents.executeJavaScript(`(() => {
     const builder = document.querySelector('[data-tempo-builder]')
     const control = (name) => builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]')
     const buttonLabel = (name) => control(name)?.querySelector('button')?.getAttribute('aria-label') ?? ''
@@ -185,16 +238,29 @@ async function validateBuilderIndependence(win) {
     descriptor.set.call(exactSpan, 'POST /example')
     exactSpan.dispatchEvent(new Event('input', { bubbles: true }))
     return JSON.stringify({ before })
-  })()`))
+  })()`),
+  )
   if (report.error) throw new Error(report.error)
-  if (report.before.namespace !== 'Namespace: example' || report.before.service !== 'Service: service-01' || report.before.protocol !== 'Protocol or subsystem: Any protocol' || report.before.exactSpan !== '' || report.before.duration !== '300') {
-    throw new Error(`Builder parser cross-wired structured fields: ${JSON.stringify(report.before)}`)
+  if (
+    report.before.namespace !== 'Namespace: example' ||
+    report.before.service !== 'Service: service-01' ||
+    report.before.protocol !== 'Protocol or subsystem: Any protocol' ||
+    report.before.exactSpan !== '' ||
+    report.before.duration !== '300'
+  ) {
+    throw new Error(
+      `Builder parser cross-wired structured fields: ${JSON.stringify(report.before)}`,
+    )
   }
-  await waitFor(win, `(() => {
+  await waitFor(
+    win,
+    `(() => {
     const builder=document.querySelector('[data-tempo-builder]');
     const control=(name)=>builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]');
     return control('Service')?.querySelector('button')?.getAttribute('aria-label') === 'Service: service-01' && control('Exact span / operation name')?.querySelector('input')?.value === 'POST /example';
-  })()`, 'independent Service and advanced operation values')
+  })()`,
+    'independent Service and advanced operation values',
+  )
 }
 
 async function clickRun(win) {
@@ -205,14 +271,18 @@ async function clickRun(win) {
 }
 
 async function searchTraces(win) {
-  await waitFor(win, `(() => {
+  await waitFor(
+    win,
+    `(() => {
     const builder = document.querySelector('[data-tempo-builder]')
     const durationControl = builder?.querySelector('[data-field][data-field-name="Min duration (ms)"]')
     return document.querySelector('[aria-label="Query mode"] button[aria-pressed="true"]')?.textContent?.trim() === 'Builder' &&
       durationControl?.querySelector('input')?.value === '300' &&
       document.body.innerText.includes('Last hour') && document.body.innerText.includes('Sample size') &&
       document.body.innerText.includes('Generated TraceQL')
-  })()`, 'configured trace Builder, time range and sample size')
+  })()`,
+    'configured trace Builder, time range and sample size',
+  )
   const toolbar = await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
     const bar = section?.querySelector('[data-query-toolbar]')
@@ -221,9 +291,18 @@ async function searchTraces(win) {
     const text = document.body.innerText
     return { helperAbsent: !text.includes('returns up to') && !text.includes('choose All') && !/max \d+ traces|sample up to \d+ traces/i.test(text), modeTop: mode?.top, runTop: run?.top, overflow: bar ? bar.scrollWidth > bar.clientWidth : true }
   })()`)
-  if (!toolbar.helperAbsent || toolbar.overflow || Math.abs(toolbar.modeTop - toolbar.runTop) > 2) throw new Error(`Tempo toolbar regression: ${JSON.stringify(toolbar)}`)
+  if (
+    !toolbar.helperAbsent ||
+    toolbar.overflow ||
+    Math.abs(toolbar.modeTop - toolbar.runTop) > 2
+  )
+    throw new Error(`Tempo toolbar regression: ${JSON.stringify(toolbar)}`)
   await clickRun(win)
-  await waitFor(win, `document.body.innerText.includes('5 traces') && document.body.innerText.includes('POST /example') && document.body.innerText.includes('1.48s') && document.body.innerText.includes('16 matched spans') && document.querySelector('[aria-label="Successful trace"]') && document.querySelector('[aria-label="Error trace"]')`, 'synthetic Tempo list results with statuses')
+  await waitFor(
+    win,
+    `document.body.innerText.includes('5 traces') && document.body.innerText.includes('POST /example') && document.body.innerText.includes('1.48s') && document.body.innerText.includes('16 matched spans') && document.querySelector('[aria-label="Successful trace"]') && document.querySelector('[aria-label="Error trace"]')`,
+    'synthetic Tempo list results with statuses',
+  )
 }
 
 async function showScatter(win) {
@@ -232,7 +311,11 @@ async function showScatter(win) {
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Scatter')
     button?.click()
   })()`)
-  await waitFor(win, `document.querySelector('[data-trace-scatter] canvas') && document.querySelector('[aria-label="Trace search result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Scatter'`, 'Tempo scatter results')
+  await waitFor(
+    win,
+    `document.querySelector('[data-trace-scatter] canvas') && document.querySelector('[aria-label="Trace search result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Scatter'`,
+    'Tempo scatter results',
+  )
   await sleep(400)
 }
 
@@ -242,31 +325,47 @@ async function showServiceMap(win) {
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Service map')
     button?.click()
   })()`)
-  await waitFor(win, `document.querySelector('[data-trace-service-map] [data-joint-service-map] svg') && document.body.innerText.includes('Bottleneck candidates') && document.body.innerText.includes('service-03') && document.body.innerText.includes('slow traces')`, 'Tempo cohort service map and bottleneck candidates')
+  await waitFor(
+    win,
+    `document.querySelector('[data-trace-service-map] [data-joint-service-map] svg') && document.body.innerText.includes('Bottleneck candidates') && document.body.innerText.includes('service-03') && document.body.innerText.includes('slow traces')`,
+    'Tempo cohort service map and bottleneck candidates',
+  )
   await sleep(500)
 }
 
 async function showDenseServiceMap(win) {
   densePreview = true
   await clickRun(win)
-  await waitFor(win, `document.body.innerText.includes('20 traces') && document.body.innerText.includes('synthetic-gateway')`, 'dense Tempo search results')
+  await waitFor(
+    win,
+    `document.body.innerText.includes('20 traces') && document.body.innerText.includes('synthetic-gateway')`,
+    'dense Tempo search results',
+  )
   await win.webContents.executeJavaScript(`(() => {
     const group = document.querySelector('[aria-label="Trace search result view"]')
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Service map')
     button?.click()
   })()`)
-  await waitFor(win, `(() => {
+  await waitFor(
+    win,
+    `(() => {
     const map = document.querySelector('[data-trace-service-map]')
     const text = map?.innerText ?? ''
     return Boolean(map?.querySelector('[data-joint-service-map] svg')) && map?.getAttribute('data-service-map-grouping') === 'namespace' && text.includes('Bottleneck candidates') && text.includes('5 collapsed namespaces') && text.includes('60')
-  })()`, 'dense grouped 60-service Tempo map')
+  })()`,
+    'dense grouped 60-service Tempo map',
+  )
   await sleep(700)
 }
 
 async function restoreStandardSearch(win) {
   densePreview = false
   await clickRun(win)
-  await waitFor(win, `document.body.innerText.includes('5 traces') && document.body.innerText.includes('1.48s')`, 'restored standard Tempo search')
+  await waitFor(
+    win,
+    `document.body.innerText.includes('5 traces') && document.body.innerText.includes('1.48s')`,
+    'restored standard Tempo search',
+  )
 }
 
 async function showList(win) {
@@ -275,7 +374,11 @@ async function showList(win) {
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'List')
     button?.click()
   })()`)
-  await waitFor(win, `document.querySelector('[aria-label="Trace search result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'List' && document.body.innerText.includes('16 matched spans')`, 'Tempo list results restored')
+  await waitFor(
+    win,
+    `document.querySelector('[aria-label="Trace search result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'List' && document.body.innerText.includes('16 matched spans')`,
+    'Tempo list results restored',
+  )
 }
 
 async function openPreviewTrace(win) {
@@ -284,7 +387,11 @@ async function openPreviewTrace(win) {
     const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('service-01') && candidate.textContent?.includes('POST /example') && candidate.textContent?.includes('1.48s'))
     button?.click()
   })()`)
-  await waitFor(win, `(() => { const section = document.querySelector('section[aria-label="Trace explorer"]'); const text = section?.innerText ?? ''; return text.includes('Span tree') && text.includes('service-03') && text.includes('Show async branches') && !text.includes('worker-01') && text.includes('Explore similar traces') })()`, 'opened focused synthetic trace waterfall')
+  await waitFor(
+    win,
+    `(() => { const section = document.querySelector('section[aria-label="Trace explorer"]'); const text = section?.innerText ?? ''; return text.includes('Span tree') && text.includes('service-03') && text.includes('Show async branches') && !text.includes('worker-01') && text.includes('Explore similar traces') })()`,
+    'opened focused synthetic trace waterfall',
+  )
 }
 
 async function validateNarrowTraceHeader(win) {
@@ -316,8 +423,20 @@ async function validateNarrowTraceHeader(win) {
     view.style.width = ''
     return report
   })()`)
-  if (!report || report.viewportWidth < 1000 || report.paneWidth > 500 || report.headerDirection !== 'column' || !report.identityUsesTitleWidth || !report.actionsBelowIdentity || !report.actionsInsideTitle || !report.summaryBelowTitle || report.overflow) {
-    throw new Error(`Responsive Tempo trace header failed in a narrow content pane: ${JSON.stringify(report)}`)
+  if (
+    !report ||
+    report.viewportWidth < 1000 ||
+    report.paneWidth > 500 ||
+    report.headerDirection !== 'column' ||
+    !report.identityUsesTitleWidth ||
+    !report.actionsBelowIdentity ||
+    !report.actionsInsideTitle ||
+    !report.summaryBelowTitle ||
+    report.overflow
+  ) {
+    throw new Error(
+      `Responsive Tempo trace header failed in a narrow content pane: ${JSON.stringify(report)}`,
+    )
   }
 }
 
@@ -327,19 +446,31 @@ async function selectHotspotSpan(win) {
     const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.includes('service-03') && candidate.textContent?.includes('POST /dependency-b'))
     button?.click()
   })()`)
-  await waitFor(win, `document.querySelector('aside[aria-label="Selected span details"]') && document.querySelector('button[aria-label="Close span details"]') && document.body.innerText.includes('TimeoutError') && document.body.innerText.includes('HTTP & network') && document.body.innerText.includes('Error')`, 'structured closable synthetic HTTP span inspector')
+  await waitFor(
+    win,
+    `document.querySelector('aside[aria-label="Selected span details"]') && document.querySelector('button[aria-label="Close span details"]') && document.body.innerText.includes('TimeoutError') && document.body.innerText.includes('HTTP & network') && document.body.innerText.includes('Error')`,
+    'structured closable synthetic HTTP span inspector',
+  )
 }
 
 async function validateCloseAndSelectedSpanCohort(win) {
-  await win.webContents.executeJavaScript(`document.querySelector('button[aria-label="Close span details"]')?.click()`)
-  await waitFor(win, `!document.querySelector('aside[aria-label="Selected span details"]')`, 'closed span detail panel')
+  await win.webContents.executeJavaScript(
+    `document.querySelector('button[aria-label="Close span details"]')?.click()`,
+  )
+  await waitFor(
+    win,
+    `!document.querySelector('aside[aria-label="Selected span details"]')`,
+    'closed span detail panel',
+  )
   await selectHotspotSpan(win)
   await win.webContents.executeJavaScript(`(() => {
     const section = document.querySelector('section[aria-label="Trace explorer"]')
     const button = [...(section?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Explore similar traces')
     button?.click()
   })()`)
-  await waitFor(win, `(() => {
+  await waitFor(
+    win,
+    `(() => {
     const builder=document.querySelector('[data-tempo-builder]');
     const control=(name)=>builder?.querySelector('[data-field][data-field-name="' + CSS.escape(name) + '"]');
     const aria=(name)=>control(name)?.querySelector('button')?.getAttribute('aria-label');
@@ -354,18 +485,27 @@ async function validateCloseAndSelectedSpanCohort(win) {
       input('Exact span / operation name') === 'POST /example' &&
       document.body.innerText.includes('5 traces') &&
       document.querySelector('[aria-label="Trace search result view"]');
-  })()`, 'selected synthetic HTTP span cohort seed and automatic search results')
+  })()`,
+    'selected synthetic HTTP span cohort seed and automatic search results',
+  )
 }
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
   ipcMain.handle('connections:prometheus:metric-labels', async () => [])
   ipcMain.handle('connections:prometheus:label-values', async () => [])
-  ipcMain.handle('connections:prometheus:format-query', async (_event, _id, query) => query)
+  ipcMain.handle(
+    'connections:prometheus:format-query',
+    async (_event, _id, query) => query,
+  )
   ipcMain.handle('connections:tempo:attributes', async () => [])
-  ipcMain.handle('query:run', async (_event, _connectionId, query) => densePreview
-    ? previewDenseTraceResultForId(String(query).trim()) ?? previewDenseTraceSearchResult
-    : previewTraceResultForId(String(query).trim()) ?? previewTraceSearchResult)
+  ipcMain.handle('query:run', async (_event, _connectionId, query) =>
+    densePreview
+      ? (previewDenseTraceResultForId(String(query).trim()) ??
+        previewDenseTraceSearchResult)
+      : (previewTraceResultForId(String(query).trim()) ??
+        previewTraceSearchResult),
+  )
 
   const win = new BrowserWindow({
     width: 1440,
@@ -376,18 +516,25 @@ app.whenReady().then(async () => {
       preload: resolve(root, 'out/preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
-    }
+      sandbox: false,
+    },
   })
 
   try {
     await mkdir(outputDir, { recursive: true })
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
-    await waitFor(win, `document.getElementById('root')?.children.length && window.__datakoalaStore`, 'renderer and store')
+    await waitFor(
+      win,
+      `document.getElementById('root')?.children.length && window.__datakoalaStore`,
+      'renderer and store',
+    )
     await seedTraceWorkspace(win)
     await assertCompactObjectFilter(win, 'Filter services')
     await validateBuilderIndependence(win)
-    await assertFieldRowGeometry(win, '[data-tempo-builder]', ['Status', 'Min duration (ms)'])
+    await assertFieldRowGeometry(win, '[data-tempo-builder]', [
+      'Status',
+      'Min duration (ms)',
+    ])
     await capture(win, 'tempo-trace-builder.png')
     await validateNarrowQueryToolbar(win)
     await searchTraces(win)

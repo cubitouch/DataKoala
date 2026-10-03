@@ -1,7 +1,11 @@
 import type { DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
-import { MetadataTree, type MetadataTreeNode } from '@components/metadata/MetadataTree'
+import {
+  MetadataTree,
+  type MetadataTreeNode,
+} from '@components/metadata/MetadataTree'
 
-const typeLabel = (kind: DatabaseRelationNode['kind']) => kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
+const typeLabel = (kind: DatabaseRelationNode['kind']) =>
+  kind === 'v' ? 'view' : kind === 'm' ? 'matview' : 'table'
 
 type Props = {
   schemas: DatabaseSchemaNode[]
@@ -33,30 +37,50 @@ export function SqlMetadataTree(props: Props) {
         tooltip: relation.qualifiedName,
         ariaLabel: `Select ${relation.qualifiedName} for Builder`,
         activatable: true,
-        selected: props.selectedRelation?.schema === relation.schema && props.selectedRelation.name === relation.name,
+        selected:
+          props.selectedRelation?.schema === relation.schema &&
+          props.selectedRelation.name === relation.name,
         expandable: true,
         expanded: props.expanded.has(id),
-        status: relation.columnsStatus === 'loaded' ? 'idle' : relation.columnsStatus,
-        statusText: relation.columnsStatus === 'loading' ? 'Loading columns…' : relation.columnsStatus === 'error' ? 'Could not load columns — retry' : undefined,
+        status:
+          relation.columnsStatus === 'loaded' ? 'idle' : relation.columnsStatus,
+        statusText:
+          relation.columnsStatus === 'loading'
+            ? 'Loading columns…'
+            : relation.columnsStatus === 'error'
+              ? 'Could not load columns — retry'
+              : undefined,
         children: relation.columns?.map((column) => ({
           id: `${id}:column:${column.name}`,
           label: column.name,
           secondaryText: column.dataTypeName,
           tooltip: `${relation.qualifiedName}.${column.name} — ${column.dataTypeName}`,
-          ariaLabel: `${relation.qualifiedName}.${column.name}, ${column.dataTypeName}`
-        }))
+          ariaLabel: `${relation.qualifiedName}.${column.name}, ${column.dataTypeName}`,
+        })),
       }
-    })
+    }),
   }))
-  return <MetadataTree ariaLabel="Database objects" nodes={nodes} filter={props.filter}
-    onToggle={(node) => {
-      const relation = relations.get(node.id)
-      if (relation) {
-        props.onToggleRelation(relation)
-      } else {
-        props.onToggleSchema(node.id)
-      }
-    }}
-    onActivate={(node) => { const relation = relations.get(node.id); if (relation) props.onActivateRelation(relation) }}
-    onRetry={(node) => { const relation = relations.get(node.id); if (relation) props.onRetryRelation(relation) }} />
+  return (
+    <MetadataTree
+      ariaLabel="Database objects"
+      nodes={nodes}
+      filter={props.filter}
+      onToggle={(node) => {
+        const relation = relations.get(node.id)
+        if (relation) {
+          props.onToggleRelation(relation)
+        } else {
+          props.onToggleSchema(node.id)
+        }
+      }}
+      onActivate={(node) => {
+        const relation = relations.get(node.id)
+        if (relation) props.onActivateRelation(relation)
+      }}
+      onRetry={(node) => {
+        const relation = relations.get(node.id)
+        if (relation) props.onRetryRelation(relation)
+      }}
+    />
+  )
 }
