@@ -13,9 +13,8 @@ import { ResultFilterBar } from './filters/ResultFilterBar'
 import { captureChartPng, chartCapturePixelRatio, copyChartPng, exportChartPng, isChartActionDisabled } from '@lib/chartImage'
 import { notifyChartCopyResult } from '@lib/chartCopyNotification'
 import { ChartReadinessController, createChartRevision, type ChartRevision } from '@lib/chartReadiness'
-import { isolateSeries, reconcileSeriesVisibility, showAllSeries } from '@lib/chartVisibility'
+import { isolateSeries, reconcileSeriesVisibility, showAllSeries, toggleSeries } from '@lib/chartVisibility'
 import { prepareLogScaleSeries } from '@lib/chartAxisScale'
-import { hasLegendModifier, LegendModifierBridge } from '@lib/legendModifierBridge'
 import { ChartEventBridgeLifecycle } from '@lib/chartEventBridgeLifecycle'
 import { ChartAnimationPolicy, createChartFingerprint, semanticChartCounts } from '@lib/chartSemantic'
 import { ChartApplicationController, type AppliedChart, type ChartRevisionOrigin } from '@lib/chartApplication'
@@ -27,7 +26,8 @@ import { chartAnomalyEligibility, DEFAULT_ANOMALY_OPTIONS, detectChartAnomalies 
 import { buildHierarchy, hierarchyCardinalities, suggestHierarchyDimensions } from '@lib/chartHierarchy'
 import { ChartPicker } from './ChartPicker'
 import styles from './ResultExplorer.module.css'
-import { ChartLegendWheelLifecycle } from '@lib/chartLegendWheel'
+import { chartLegendEntries } from '@lib/chartLegend'
+import { ChartLegend } from './ChartLegend'
 
 const valueScaleOptions: ComboboxOption[] = [
   { value: 'linear', label: 'Linear' },
@@ -73,10 +73,8 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   }, [seriesVisibility, onSeriesVisibilityChange])
   const [showRunning, setShowRunning] = useState(false)
   const hoveredSeriesIdentity = useRef<string | undefined>(undefined)
-  const legendModifiers = useRef(new LegendModifierBridge())
   const chartEvents = useRef<ChartEventBridgeLifecycle | null>(null)
-  const legendWheel = useRef(new ChartLegendWheelLifecycle())
-  if (!chartEvents.current) chartEvents.current = new ChartEventBridgeLifecycle(legendModifiers.current, () => { hoveredSeriesIdentity.current = undefined })
+  if (!chartEvents.current) chartEvents.current = new ChartEventBridgeLifecycle(() => { hoveredSeriesIdentity.current = undefined })
   const ref = useRef<EChartsReact | null>(null)
   const chartRevisionRef = useRef<ChartRevision | null>(null)
   const applications = useRef(new ChartApplicationController<Record<string, unknown>>())
@@ -96,7 +94,6 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   useEffect(() => () => {
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
     chartEvents.current?.detach()
-    legendWheel.current.detach()
     if (applicationFrame.current !== null) cancelAnimationFrame(applicationFrame.current)
   }, [])
 
@@ -146,7 +143,7 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   )
   const activeBuilderTimeBucket = mode === 'builder' && effectiveConfiguration.xColumn === 'time_bucket' ? timeBucket : undefined
   const seriesIdentities = useMemo(() => chart?.series.map((series) => series.name) ?? [], [chart])
-  useEffect(() => legendWheel.current.setSeriesCount(seriesIdentities.length), [seriesIdentities.length])
+  const legendEntries = useMemo(() => chartLegendEntries(seriesIdentities), [seriesIdentities])
   useEffect(() => {
     const next = reconcileSeriesVisibility(seriesVisibility, seriesIdentities)
     if (next !== seriesVisibility) onSeriesVisibilityChange(next)
@@ -223,7 +220,6 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
     ref.current = instance
     const echarts = instance?.getEchartsInstance() ?? null
     chartEvents.current?.attach(echarts)
-    legendWheel.current.attach(echarts)
     if (echarts && chartRevisionRef.current) readiness.current.commitRevision(chartRevisionRef.current)
     if (echarts && temporalRangeSelectionEnabled) {
       echarts.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' } })
@@ -246,7 +242,7 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
   const image = async (revision: ChartRevision) => {
     const instance = ref.current?.getEchartsInstance()
     if (!instance) throw new Error('Chart is not available')
-    const png = await captureChartPng(instance, chartCapturePixelRatio(window.devicePixelRatio))
+    const png = await captureChartPng(instance, chartCapturePixelRatio(window.devicePixelRatio), hierarchical ? [] : legendEntries, seriesVisibility)
     if (!readiness.current.isCurrentRevision(revision)) throw new Error('Chart changed while capturing')
     return png
   }
@@ -334,11 +330,6 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
     }
     dismissPointMenu()
   }
-  const onLegendChange = (params: { name?: string; selected?: Record<string, boolean> }) => {
-    if (!params.name) return
-    if (hasLegendModifier(legendModifiers.current.consume())) updateSeriesVisibility((current) => isolateSeries(current, seriesIdentities, params.name!))
-    else if (params.selected) updateSeriesVisibility(reconcileSeriesVisibility(params.selected, seriesIdentities))
-  }
   const onSeriesMouseOver = (params: { componentType?: string; seriesName?: string }) => {
     if (params.componentType === 'series' && params.seriesName) hoveredSeriesIdentity.current = params.seriesName
   }
@@ -382,7 +373,7 @@ export function GenericResultExplorer({ mode, dimensionControls = 'result', hasR
       <ResultFilterBar filters={activeFilters} onRemove={onRemoveFilter} onClear={onClearFilters} onToggleExecution={onToggleFilterExecution} canPromote={canPromoteChartFilter} canDemote={canDemoteFilter}/>
       {error && <div className={styles.error} role="alert">{error}</div>}
       {effectiveConfiguration.valueAxisScale === 'log' && (logPresentation?.omittedCount ?? 0) > 0 && <div className={styles.warning} role="status">Log scale: {logPresentation!.omittedCount} zero or negative {logPresentation!.omittedCount === 1 ? 'point is' : 'points are'} not plotted.</div>}
-      {!numeric.length && filteredResult?.rows.length ? <div className={styles.empty} data-result-empty>This result does not contain a numeric column that can be used as a Y axis.</div> : !chartReady ? <div className={styles.empty} data-result-empty>{hierarchical ? 'Choose at least one Series dimension and a Y axis to render this hierarchy.' : 'Choose an X axis and Y axis column to render a chart.'}</div> : result.rows.length === 0 ? <div className={styles.empty} data-result-empty>Query returned no rows.</div> : filteredResult?.rows.length === 0 ? <div className={styles.empty} data-result-empty>No rows match the active filters.</div> : !hierarchical && chart && !chart.renderable ? <div className={styles.empty} data-result-empty role="alert">{chart.rejectionReason === 'too-many-series' ? 'Too many series to chart: more than 100.' : 'This chart would contain more than 100,000 points.'}<br/>{activeBuilderTimeBucket ? 'Filter the result, narrow the time range, increase the bucket size, or choose another Series dimension.' : 'Filter the result, reduce Series cardinality, or choose another X axis.'}</div> : !appliedChart ? <div className={styles.chartCanvas} data-result-chart-canvas/> : <><div className={styles.chartCanvas} data-result-chart-canvas data-visual-type={effectiveConfiguration.view} data-visual-finished={chartRendered} data-visual-series={semanticCounts.series} data-visual-items={semanticCounts.items} data-visual-fingerprint={appliedChart.fingerprint} data-visual-expected-fingerprint={chartFingerprint} data-visual-config={semanticConfiguration}><ReactECharts ref={setChartRef} option={appliedChart?.option} onChartReady={onChartFinished} theme="dark" notMerge onEvents={{ click: hierarchical ? () => {} : onChartClick, brushEnd: onBrushEnd, legendselectchanged: onLegendChange, mouseover: onSeriesMouseOver, mouseout: onSeriesMouseOut, finished: onChartFinished }} style={{ height: '100%', width: '100%' }}/>{showRunning && <div className={styles.runningOverlay} role="status">Running…</div>}</div>{chart?.warning && <div className={styles.warning} role="status">{chart.warning} Consider filtering the result or reducing chart cardinality.</div>}</>}
+      {!numeric.length && filteredResult?.rows.length ? <div className={styles.empty} data-result-empty>This result does not contain a numeric column that can be used as a Y axis.</div> : !chartReady ? <div className={styles.empty} data-result-empty>{hierarchical ? 'Choose at least one Series dimension and a Y axis to render this hierarchy.' : 'Choose an X axis and Y axis column to render a chart.'}</div> : result.rows.length === 0 ? <div className={styles.empty} data-result-empty>Query returned no rows.</div> : filteredResult?.rows.length === 0 ? <div className={styles.empty} data-result-empty>No rows match the active filters.</div> : !hierarchical && chart && !chart.renderable ? <div className={styles.empty} data-result-empty role="alert">{chart.rejectionReason === 'too-many-series' ? 'Too many series to chart: more than 100.' : 'This chart would contain more than 100,000 points.'}<br/>{activeBuilderTimeBucket ? 'Filter the result, narrow the time range, increase the bucket size, or choose another Series dimension.' : 'Filter the result, reduce Series cardinality, or choose another X axis.'}</div> : !appliedChart ? <div className={styles.chartCanvas} data-result-chart-canvas/> : <><div className={styles.chartCanvas} data-result-chart-canvas data-visual-type={effectiveConfiguration.view} data-visual-finished={chartRendered} data-visual-series={semanticCounts.series} data-visual-items={semanticCounts.items} data-visual-fingerprint={appliedChart.fingerprint} data-visual-expected-fingerprint={chartFingerprint} data-visual-config={semanticConfiguration}><div className={styles.plot}><ReactECharts ref={setChartRef} option={appliedChart?.option} onChartReady={onChartFinished} theme="dark" notMerge onEvents={{ click: hierarchical ? () => {} : onChartClick, brushEnd: onBrushEnd, mouseover: onSeriesMouseOver, mouseout: onSeriesMouseOut, finished: onChartFinished }} style={{ height: '100%', width: '100%' }}/></div>{!hierarchical && <ChartLegend series={legendEntries} visibility={seriesVisibility} onToggle={(identity) => updateSeriesVisibility(reconcileSeriesVisibility(toggleSeries(seriesVisibility, identity), seriesIdentities))} onIsolate={(identity) => updateSeriesVisibility(isolateSeries(seriesVisibility, seriesIdentities, identity))} />}{showRunning && <div className={styles.runningOverlay} role="status">Running…</div>}</div>{chart?.warning && <div className={styles.warning} role="status">{chart.warning} Consider filtering the result or reducing chart cardinality.</div>}</>}
       {copyFeedback && <div className="toast" role="status">{copyFeedback}</div>}
       {pointMenu && <ChartFilterPopover context={pointMenu.context} position={pointMenu.position} onAction={applyPointAction} onDismiss={dismissPointMenu}/>}
     </div>}

@@ -1,0 +1,75 @@
+.legend {
+  min-height: 0;
+  overflow: hidden auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-mute) transparent;
+  padding: 4px;
+}
+
+.item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.toggle,
+.isolate {
+  min-width: 0;
+  min-height: 30px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  text-align: left;
+  padding: 5px;
+}
+
+.isolate {
+  flex: none;
+  width: 26px;
+  color: var(--text-mute);
+}
+
+.toggle:hover,
+.isolate:hover {
+  background: var(--bg-3);
+}
+
+.toggle:focus-visible,
+.isolate:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.marker {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.toggle[aria-pressed='false'] {
+  color: var(--text-mute);
+  text-decoration: line-through;
+}
+
+.toggle[aria-pressed='false'] .marker {
+  opacity: 0.35;
+}

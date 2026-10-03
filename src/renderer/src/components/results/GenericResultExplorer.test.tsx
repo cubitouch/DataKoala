@@ -1,3 +1,4 @@
+import { useState } from 'react'
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -73,3 +74,22 @@ describe('GenericResultExplorer controlled presentation', () => {
     expect(screen.getByText('A')).toBeTruthy()
   })
 })
+for (const mode of ['sql', 'builder'] as const) {
+  it(`connects the HTML legend to shared visibility and Show all in ${mode} mode`, async () => {
+    const groupedResult = { ...result, columns: [...result.columns, { name: 'service', dataTypeID: 0, dataTypeName: 'text' }], rows: [{ category: 'A', value: 2, service: 'Alpha' }, { category: 'A', value: 3, service: 'Beta' }], rowCount: 2 }
+    function Harness() {
+      const [visibility, setVisibility] = useState<Record<string, boolean>>({})
+      return <GenericResultExplorer {...props({ mode, result: groupedResult, configuration: { ...configuration, view: 'line', seriesColumn: 'service' }, seriesVisibility: visibility, onSeriesVisibilityChange: setVisibility })} />
+    }
+    render(<Harness />)
+    const alpha = await screen.findByRole('button', { name: 'Alpha' })
+    fireEvent.click(alpha)
+    expect(alpha.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }))
+    expect(alpha.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Isolate Beta' }))
+    expect(alpha.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: 'Isolate Beta' }))
+    expect(alpha.getAttribute('aria-pressed')).toBe('true')
+  })
+}
