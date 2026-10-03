@@ -1,5 +1,6 @@
 .form {
   --builder-form-gap: 12px;
+
   container-type: inline-size;
   padding: 14px 12px;
 }
@@ -29,6 +30,7 @@
 .row {
   --builder-row-gap: 12px;
   --builder-row-align: start;
+
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -73,13 +75,13 @@
   margin: 0 12px 12px;
 }
 
-@media (max-width: 1200px) {
+@media (width <= 1200px) {
   .contextRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 900px) {
+@media (width <= 900px) {
   .row,
   .contextRow {
     grid-template-columns: minmax(0, 1fr);

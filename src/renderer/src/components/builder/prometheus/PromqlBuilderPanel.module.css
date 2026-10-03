@@ -2,39 +2,43 @@
   padding: 14px 12px;
   overflow: auto;
   min-height: 0;
+
   --builder-form-gap: 12px;
 }
 
 .coreRow {
   grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(120px, 1fr));
+
   --builder-row-gap: 12px;
   --builder-row-align: end;
 }
 
 .filterGroupRow {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+
   --builder-row-gap: 12px;
 }
 
 .valuesGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+
   --builder-row-gap: 12px;
 }
 
-@media (max-width: 1050px) {
+@media (width <= 1050px) {
   .coreRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 800px) {
+@media (width <= 800px) {
   .filterGroupRow,
   .valuesGrid {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 520px) {
+@media (width <= 520px) {
   .coreRow {
     grid-template-columns: 1fr;
   }

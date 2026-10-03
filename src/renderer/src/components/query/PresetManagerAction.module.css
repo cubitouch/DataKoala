@@ -2,6 +2,7 @@
   width: min(600px, calc(100vw - 32px));
   min-height: 0;
 }
+
 .content {
   display: flex;
   flex-direction: column;
@@ -9,20 +10,24 @@
   overflow: auto;
   padding: 22px;
 }
+
 .sectionTitle {
   font-size: 14px;
   margin: 0 0 10px;
 }
+
 .saveForm {
   display: flex;
   flex-direction: column;
 }
+
 .formRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 8px;
 }
+
 .list {
   display: flex;
   flex-direction: column;
@@ -31,6 +36,7 @@
   margin: 0;
   padding: 0;
 }
+
 .row {
   display: flex;
   align-items: center;
@@ -38,15 +44,18 @@
   gap: 12px;
   min-height: 34px;
 }
+
 .presetName {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
 .rowActions {
   display: flex;
   flex: 0 0 auto;
   gap: 4px;
 }
+
 .renameForm {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -54,26 +63,32 @@
   gap: 8px;
   width: 100%;
 }
+
 .state {
   margin: 0;
   color: var(--text-muted);
 }
+
 .footer {
   display: flex;
   justify-content: flex-end;
 }
-@media (max-width: 520px) {
+
+@media (width <= 520px) {
   .formRow,
   .renameForm {
     grid-template-columns: 1fr;
   }
+
   .formRow > button {
     justify-self: end;
   }
+
   .row {
     align-items: flex-start;
     flex-direction: column;
   }
+
   .rowActions {
     align-self: flex-end;
   }

@@ -25,6 +25,7 @@
   font-weight: 600;
   letter-spacing: 0.3px;
 }
+
 .queryTabs {
   -webkit-app-region: no-drag;
   flex: 0 1 auto;
@@ -32,14 +33,17 @@
   height: 100%;
   scrollbar-width: none;
 }
+
 .queryTabs::-webkit-scrollbar {
   display: none;
 }
+
 .dragSpace {
   flex: 1 1 28px;
   min-width: 28px;
   height: 100%;
 }
+
 .connectionStatus {
   -webkit-app-region: no-drag;
   flex: 0 1 auto;
@@ -139,10 +143,11 @@
   color: var(--text-mute);
 }
 
-@media (max-width: 899px) {
+@media (width <= 899px) {
   .titlebar {
     gap: 6px;
   }
+
   .connectionStatus {
     flex-basis: 180px;
   }

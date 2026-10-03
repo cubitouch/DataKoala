@@ -53,7 +53,7 @@
   width: 16px;
   height: 16px;
   fill: none;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -61,7 +61,7 @@
 }
 
 .fill {
-  fill: currentColor;
+  fill: currentcolor;
   opacity: 0.2;
 }
 
@@ -69,6 +69,7 @@
   .viewLabel {
     display: none;
   }
+
   .button {
     padding-inline: 8px;
   }

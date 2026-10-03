@@ -8,6 +8,7 @@
   background: var(--bg);
   overflow: hidden;
 }
+
 .queryPanel {
   flex: 0 0 var(--editor-height, 300px);
   min-width: 0;
@@ -17,18 +18,21 @@
   overflow: hidden;
   border-bottom: 1px solid var(--border);
 }
+
 .queryToolbar {
   flex: none;
   gap: 8px;
   padding: 8px 12px;
   background: var(--bg-2);
 }
+
 .queryBody {
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: auto;
 }
+
 .queryOptions {
   display: flex;
   align-items: center;
@@ -36,23 +40,28 @@
   min-width: 0;
   flex-wrap: wrap;
 }
+
 .queryOptions [data-time-range-field] {
   width: clamp(170px, 20vw, 250px);
 }
+
 .rangeHistory {
   display: flex;
   gap: 3px;
 }
+
 .rangeHistory button {
   min-height: 28px;
   padding: 0 7px;
 }
+
 .editorActions {
   display: flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
 }
+
 .editor {
   height: 100%;
   min-height: 0;
@@ -60,10 +69,12 @@
   padding: 10px 14px;
   background: var(--bg-2);
 }
+
 .editor :global(.cm-theme) {
   height: 100%;
   min-height: 0;
 }
+
 .editor :global(.cm-editor) {
   height: 100%;
   min-height: 0;
@@ -71,24 +82,29 @@
   border-radius: 6px;
   font: 12px/1.45 var(--mono);
 }
+
 .editor :global(.cm-editor.cm-focused) {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
+
 .editor :global(.cm-scroller) {
   min-height: 0;
   overflow: auto;
   font-family: var(--mono);
 }
+
 .status {
   padding: 7px 14px;
   border-bottom: 1px solid var(--border);
   color: var(--text-mute);
   font-size: 11px;
 }
+
 .error {
   color: #ff8d8d;
 }
+
 .results {
   min-height: 0;
   flex: 1;
@@ -96,17 +112,20 @@
   flex-direction: column;
   overflow: hidden;
 }
+
 .empty {
   flex: 1;
   display: grid;
   place-items: center;
   color: var(--text-mute);
 }
-@media (max-width: 900px) {
+
+@media (width <= 900px) {
   .queryToolbar > :global(.spacer) {
     display: none;
   }
 }
+
 .resultViewBar {
   display: flex;
   align-items: center;
@@ -115,10 +134,12 @@
   border-bottom: 1px solid var(--border);
   background: var(--bg-2);
 }
+
 .resultViewBar .rangeHistory {
   margin-left: auto;
   margin-right: 12px;
 }
+
 .selectedView {
   display: flex;
   flex: 1;

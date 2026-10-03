@@ -159,10 +159,10 @@ footer span:last-child,
   background:
     linear-gradient(
       180deg,
-      rgba(11, 13, 17, 0.42) 0%,
-      rgba(11, 13, 17, 0.48) 24%,
-      rgba(11, 13, 17, 0.68) 55%,
-      rgba(11, 13, 17, 0.9) 78%,
+      rgb(11 13 17 / 42%) 0%,
+      rgb(11 13 17 / 48%) 24%,
+      rgb(11 13 17 / 68%) 55%,
+      rgb(11 13 17 / 90%) 78%,
       #0b0d11 100%
     ),
     url('/DataKoala/hero-eucalyptus.jpg') center 42% / cover no-repeat;
@@ -180,7 +180,7 @@ footer span:last-child,
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(11, 13, 17, 0.58) 38%,
+    rgb(11 13 17 / 58%) 38%,
     #0b0d11 100%
   );
   pointer-events: none;
@@ -382,7 +382,7 @@ footer {
 
 /* Responsive */
 
-@media (max-width: 760px) {
+@media (width <= 760px) {
   nav,
   main,
   footer {
@@ -416,9 +416,9 @@ footer {
     background:
       linear-gradient(
         180deg,
-        rgba(11, 13, 17, 0.44) 0%,
-        rgba(11, 13, 17, 0.56) 30%,
-        rgba(11, 13, 17, 0.78) 62%,
+        rgb(11 13 17 / 44%) 0%,
+        rgb(11 13 17 / 56%) 30%,
+        rgb(11 13 17 / 78%) 62%,
         #0b0d11 100%
       ),
       url('/DataKoala/hero-eucalyptus.jpg') 54% center / cover no-repeat;
@@ -467,7 +467,7 @@ footer {
   }
 }
 
-@media (max-width: 460px) {
+@media (width <= 460px) {
   .nav-actions .button-primary {
     display: none;
   }

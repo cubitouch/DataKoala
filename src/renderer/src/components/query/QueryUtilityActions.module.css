@@ -5,7 +5,7 @@
   min-width: 0;
 }
 
-@media (max-width: 899px) {
+@media (width <= 899px) {
   .root :global(.btn) {
     padding-inline: 6px;
     font-size: 10px;

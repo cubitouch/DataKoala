@@ -4,19 +4,23 @@
   overflow: auto;
   font-size: 11px;
 }
+
 .withInspector {
   border-right: 1px solid var(--border);
 }
+
 .waterfallHeader,
 .spanRow {
   min-width: 720px;
   display: grid;
   grid-template-columns: minmax(270px, 38%) minmax(440px, 1fr);
 }
+
 .waterfallBody {
   position: relative;
   min-width: 720px;
 }
+
 .timelineGapOverlay {
   position: absolute;
   inset: 0;
@@ -25,23 +29,28 @@
   grid-template-columns: minmax(270px, 38%) minmax(440px, 1fr);
   pointer-events: none;
 }
+
 .withInspector .waterfallHeader,
 .withInspector .spanRow {
   min-width: 0;
   grid-template-columns: minmax(200px, 38%) minmax(0, 1fr);
 }
+
 .withInspector .waterfallBody {
   min-width: 0;
 }
+
 .withInspector .timelineGapOverlay {
   grid-template-columns: minmax(200px, 38%) minmax(0, 1fr);
 }
+
 .timelineGapLayer {
   position: relative;
   grid-column: 2;
   min-width: 0;
   overflow: hidden;
 }
+
 .waterfallHeader {
   position: sticky;
   top: 0;
@@ -51,18 +60,22 @@
   color: var(--text-mute);
   font-weight: 600;
 }
+
 .waterfallHeader > span,
 .waterfallHeader > div {
   padding: 7px 10px;
 }
+
 .waterfallHeader > * + * {
   border-left: 1px solid var(--border);
 }
+
 .timelineHeader {
   min-width: 0;
   display: grid;
   gap: 4px;
 }
+
 .timelineDescription {
   min-width: 0;
   padding: 0;
@@ -70,11 +83,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .timelineTicks {
   position: relative;
   height: 13px;
   font-weight: 400;
 }
+
 .timelineTicks > span {
   position: absolute;
   bottom: 0;
@@ -83,6 +98,7 @@
   font-size: 9px;
   white-space: nowrap;
 }
+
 .spanRow {
   width: 100%;
   min-height: 32px;
@@ -90,10 +106,12 @@
   background: transparent;
   color: inherit;
 }
+
 .spanRow:hover,
 .selected {
   background: var(--bg-2);
 }
+
 .spanLabel {
   position: relative;
   z-index: 2;
@@ -103,16 +121,19 @@
   overflow: hidden;
   border-right: 1px solid var(--border);
 }
+
 .treeGuides {
   flex: 0 0 auto;
   display: flex;
   min-height: 31px;
   padding-left: 5px;
 }
+
 .treeGuides > span {
   width: 14px;
   border-left: 1px solid color-mix(in srgb, var(--border) 80%, var(--text-mute));
 }
+
 .caret,
 .leafDot {
   flex: 0 0 22px;
@@ -124,17 +145,21 @@
   place-items: center;
   padding: 0;
 }
+
 .caret {
   cursor: pointer;
 }
+
 .caret:hover,
 .caret:focus-visible {
   color: var(--text);
   background: var(--bg-3);
 }
+
 .leafDot {
   font-size: 9px;
 }
+
 .spanIdentity {
   flex: 1;
   min-width: 0;
@@ -148,6 +173,7 @@
   text-align: left;
   cursor: pointer;
 }
+
 .spanIdentity strong {
   flex: 0 0 auto;
   max-width: 42%;
@@ -155,6 +181,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .spanIdentity span {
   min-width: 0;
   overflow: hidden;
@@ -162,6 +189,7 @@
   white-space: nowrap;
   color: var(--text-mute);
 }
+
 .timeline {
   position: relative;
   z-index: 2;
@@ -171,10 +199,12 @@
   cursor: pointer;
   overflow: hidden;
 }
+
 .timeline:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+
 .timelineGap {
   position: absolute;
   inset-block: 0;
@@ -188,6 +218,7 @@
   );
   pointer-events: none;
 }
+
 .bar {
   position: absolute;
   top: 7px;
@@ -197,6 +228,7 @@
   background: var(--accent);
   opacity: 0.78;
 }
+
 .bar > span {
   position: absolute;
   left: calc(100% + 5px);
@@ -205,6 +237,7 @@
   color: var(--text-mute);
   font-size: 10px;
 }
+
 .errorBar {
   background: var(--danger, #d95c5c);
 }
@@ -217,7 +250,7 @@
   background: var(--bg-2);
 }
 
-@media (max-width: 760px) {
+@media (width <= 760px) {
   .withInspector {
     flex: 0 0 55%;
     min-height: 260px;
