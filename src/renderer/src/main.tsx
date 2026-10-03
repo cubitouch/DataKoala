@@ -9,7 +9,7 @@ import './styles.css'
 // Hydrate editable query sessions before React mounts. Persistence stores saved
 // profile IDs but never credentials, results or runtime execution state, so restore
 // does not reconnect or replay any query.
-if (!window.datakoala?.smokeMode) {
+if (!window.datakoala?.testHarnessMode) {
   restoreWorkspaceDraft((patch) => useStore.setState(patch))
   startWorkspacePersistence(
     () => useStore.getState(),
@@ -19,7 +19,7 @@ if (!window.datakoala?.smokeMode) {
 
 // Test seam: the smoke harness needs to push a result into the store and inspect the
 // chart option the component builds. Only exposed when launched by that harness.
-if (window.datakoala?.smokeMode) {
+if (window.datakoala?.testHarnessMode) {
   const w = window as unknown as Record<string, unknown>
   w.__datakoalaStore = useStore
   w.__datakoalaBuildOption = buildEChartsOption
