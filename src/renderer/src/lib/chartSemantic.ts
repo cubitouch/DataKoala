@@ -57,3 +57,14 @@ export function semanticChartCounts(option: Record<string, unknown> | null): Sem
     items: visibleSeries.reduce((count, item) => count + (Array.isArray(item.data) ? item.data.filter(visible).length : 0), 0)
   }
 }
+
+/** Render-time checks are pure; only a committed chart lifecycle may advance this policy. */
+export class ChartAnimationPolicy {
+  private committed: string | null = null
+  shouldAnimate(fingerprint: string): boolean {
+    return fingerprint !== this.committed
+  }
+  commit(fingerprint: string): void {
+    this.committed = fingerprint
+  }
+}
