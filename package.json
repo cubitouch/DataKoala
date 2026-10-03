@@ -98,7 +98,7 @@
     "@lezer/lr": "^1.4.10",
     "@prometheus-io/codemirror-promql": "0.313.3",
     "@tanstack/react-virtual": "^3.14.10",
-    "@uiw/react-codemirror": "^4.23.7",
+    "@uiw/react-codemirror": "^4.25.12",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.2",
     "google-auth-library": "11.0.2",
