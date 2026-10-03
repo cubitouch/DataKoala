@@ -42,15 +42,13 @@ describe('Trace Explorer attribute facet metadata', () => {
   beforeEach(() => {
     HTMLElement.prototype.scrollIntoView = vi.fn()
     resetTempoMetadataCache()
-    attributes
-      .mockReset()
-      .mockResolvedValue([
-        {
-          scope: 'resource',
-          name: 'cloud.region',
-          traceql: 'resource.cloud.region',
-        },
-      ])
+    attributes.mockReset().mockResolvedValue([
+      {
+        scope: 'resource',
+        name: 'cloud.region',
+        traceql: 'resource.cloud.region',
+      },
+    ])
     attributeValues.mockReset()
     resetTestStore({ connected: true, connectionGeneration: 7 })
     const traceql =

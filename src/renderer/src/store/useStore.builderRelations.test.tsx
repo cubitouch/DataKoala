@@ -56,15 +56,13 @@ describe('Builder relation selection', () => {
     }
     const session = selectActiveSession(useStore.getState())
     useStore.setState({ tabs: [{ ...session, builder: original }] })
-    useStore
-      .getState()
-      .setBuilder({
-        table: users,
-        timeColumn: null,
-        timeBucket: 'day',
-        timeRange: undefined,
-        seriesColumns: [],
-      })
+    useStore.getState().setBuilder({
+      table: users,
+      timeColumn: null,
+      timeBucket: 'day',
+      timeRange: undefined,
+      seriesColumns: [],
+    })
     const dropdownBuilder = selectActiveSession(useStore.getState()).builder
 
     useStore.setState((state) => ({

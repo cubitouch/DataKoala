@@ -64,22 +64,20 @@ describe('ensureRelationColumns', () => {
       }),
     )
     const request = ensureRelationColumns('p1', relation)
-    useStore
-      .getState()
-      .setMetadata(
-        [
-          {
-            name: 'public',
-            isSystem: false,
-            relations: [
-              { ...relation, name: 'other', qualifiedName: 'public.other' },
-            ],
-          },
-        ],
-        'loaded',
-        null,
-        'p2',
-      )
+    useStore.getState().setMetadata(
+      [
+        {
+          name: 'public',
+          isSystem: false,
+          relations: [
+            { ...relation, name: 'other', qualifiedName: 'public.other' },
+          ],
+        },
+      ],
+      'loaded',
+      null,
+      'p2',
+    )
     useStore.getState().setActive('p2')
     finish([{ name: 'id', dataTypeName: 'integer' }])
     await request

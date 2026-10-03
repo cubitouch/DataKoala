@@ -270,19 +270,17 @@ describe('PromQL execution', () => {
 
   it('uses a coarser Auto server-side step as the range grows', async () => {
     renderPromql()
-    useStore
-      .getState()
-      .setPrometheusQueryOptions({
-        prometheusTimeRange: {
-          kind: 'custom',
-          startDate: '2026-05-01',
-          startTime: '00:00',
-          endDate: '2026-07-30',
-          endTime: '00:00',
-          recurringWindows: [],
-        },
-        prometheusStep: 'auto',
-      })
+    useStore.getState().setPrometheusQueryOptions({
+      prometheusTimeRange: {
+        kind: 'custom',
+        startDate: '2026-05-01',
+        startTime: '00:00',
+        endDate: '2026-07-30',
+        endTime: '00:00',
+        recurringWindows: [],
+      },
+      prometheusStep: 'auto',
+    })
     runQuery.mockResolvedValue({
       columns: [],
       rows: [],
@@ -296,12 +294,10 @@ describe('PromQL execution', () => {
 
   it('blocks an unsafe manual resolution without calling the backend', async () => {
     renderPromql()
-    useStore
-      .getState()
-      .setPrometheusQueryOptions({
-        prometheusTimeRange: { kind: 'rolling', amount: 30, unit: 'day' },
-        prometheusStep: '15s',
-      })
+    useStore.getState().setPrometheusQueryOptions({
+      prometheusTimeRange: { kind: 'rolling', amount: 30, unit: 'day' },
+      prometheusStep: '15s',
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() =>
       expect(useStore.getState().tabs[0].queryError).toMatch(
@@ -444,19 +440,17 @@ describe('PromQL execution', () => {
     fireEvent.change(screen.getByLabelText('PromQL editor'), {
       target: { value: 'up' },
     })
-    useStore
-      .getState()
-      .setPrometheusQueryOptions({
-        prometheusTimeRange: {
-          kind: 'custom',
-          startDate: '2026-08-10',
-          startTime: '12:00',
-          endDate: '2026-08-11',
-          endTime: '13:30',
-          recurringWindows: [],
-        },
-        prometheusStep: '5m',
-      })
+    useStore.getState().setPrometheusQueryOptions({
+      prometheusTimeRange: {
+        kind: 'custom',
+        startDate: '2026-08-10',
+        startTime: '12:00',
+        endDate: '2026-08-11',
+        endTime: '13:30',
+        recurringWindows: [],
+      },
+      prometheusStep: '5m',
+    })
     runQuery.mockResolvedValue({
       columns: [],
       rows: [],

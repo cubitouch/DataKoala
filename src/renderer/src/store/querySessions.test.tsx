@@ -109,16 +109,14 @@ describe('query session model', () => {
     const { useStore, selectSession } = await setup()
     const a = useStore.getState().activeTabId
     useStore.getState().setSql('select from_a;', a)
-    useStore
-      .getState()
-      .setBuilder(
-        {
-          table: { schema: 'public', name: 'events' },
-          timeColumn: 'created_at',
-          seriesColumns: ['country'],
-        },
-        a,
-      )
+    useStore.getState().setBuilder(
+      {
+        table: { schema: 'public', name: 'events' },
+        timeColumn: 'created_at',
+        seriesColumns: ['country'],
+      },
+      a,
+    )
     useStore
       .getState()
       .setVisualization(
@@ -178,16 +176,14 @@ describe('query session model', () => {
     const { useStore, selectActiveSession } = await setup()
     const id = useStore.getState().activeTabId
     useStore.getState().setSql('select keep_me;', id)
-    useStore
-      .getState()
-      .setBuilder(
-        {
-          table: { schema: 'public', name: 'events' },
-          timeColumn: 'created_at',
-          seriesColumns: ['country'],
-        },
-        id,
-      )
+    useStore.getState().setBuilder(
+      {
+        table: { schema: 'public', name: 'events' },
+        timeColumn: 'created_at',
+        seriesColumns: ['country'],
+      },
+      id,
+    )
     useStore.setState((state) => ({
       tabs: state.tabs.map((tab) =>
         tab.id === id

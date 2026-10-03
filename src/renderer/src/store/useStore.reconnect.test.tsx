@@ -156,21 +156,19 @@ describe('profile-scoped reconnect attempts', () => {
           : tab,
       ),
     }))
-    useStore
-      .getState()
-      .applyConnectionEvent({
-        profileId: 'a',
-        generation: 4,
-        state: 'idle',
-        expected: false,
-        code: null,
-        message: 'Idle',
-        timestamp: 1,
-        recoverable: true,
-        recoverability: 'transient',
-        source: 'pool:idle-client-error',
-        activeOperationAffected: false,
-      })
+    useStore.getState().applyConnectionEvent({
+      profileId: 'a',
+      generation: 4,
+      state: 'idle',
+      expected: false,
+      code: null,
+      message: 'Idle',
+      timestamp: 1,
+      recoverable: true,
+      recoverability: 'transient',
+      source: 'pool:idle-client-error',
+      activeOperationAffected: false,
+    })
     expect(useStore.getState()).toMatchObject({
       connected: true,
       connecting: false,

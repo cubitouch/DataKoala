@@ -541,20 +541,18 @@ describe('TraceExplorer TraceQL editor', () => {
       tempoResultView: 'scatter',
     })
     const secondId = useStore.getState().createTab()
-    useStore
-      .getState()
-      .setTempoState(
-        {
-          tempoBuilder: {
-            ...traceBuilderFromTraceql('{ }'),
-            service: 'payments',
-          },
-          tempoTimeRange: { kind: 'rolling', amount: 30, unit: 'minute' },
-          tempoSampleSize: '100',
-          tempoResultView: 'service-map',
+    useStore.getState().setTempoState(
+      {
+        tempoBuilder: {
+          ...traceBuilderFromTraceql('{ }'),
+          service: 'payments',
         },
-        secondId,
-      )
+        tempoTimeRange: { kind: 'rolling', amount: 30, unit: 'minute' },
+        tempoSampleSize: '100',
+        tempoResultView: 'service-map',
+      },
+      secondId,
+    )
     useStore.setState({ activeTabId: firstId })
     render(<TraceExplorer connectionId="tempo-1" />)
 

@@ -200,28 +200,24 @@ export class SqliteFileAdapter implements DataSourceAdapter {
           const r = await connection.runAndReadAll(
             `SELECT table_name, table_type FROM information_schema.tables WHERE table_catalog = ${quoteLiteral(SQLITE_CATALOG)} ORDER BY table_name`,
           )
-          return r
-            .getRowObjectsJson()
-            .map((row) => ({
-              namespace: SQLITE_CATALOG,
-              name: String(row.table_name),
-              kind:
-                String(row.table_type).toUpperCase() === 'VIEW'
-                  ? ('view' as const)
-                  : ('table' as const),
-            }))
+          return r.getRowObjectsJson().map((row) => ({
+            namespace: SQLITE_CATALOG,
+            name: String(row.table_name),
+            kind:
+              String(row.table_type).toUpperCase() === 'VIEW'
+                ? ('view' as const)
+                : ('table' as const),
+          }))
         },
         describeRelation: async ({ name }) => {
           const r = await connection.runAndReadAll(
             `DESCRIBE SELECT * FROM ${quoteIdentifier(SQLITE_CATALOG)}.${quoteIdentifier(name)}`,
           )
-          return r
-            .getRowObjectsJson()
-            .map((row) => ({
-              name: String(row.column_name),
-              nativeType: String(row.column_type),
-              nullable: String(row.null).toUpperCase() !== 'NO',
-            }))
+          return r.getRowObjectsJson().map((row) => ({
+            name: String(row.column_name),
+            nativeType: String(row.column_type),
+            nullable: String(row.null).toUpperCase() !== 'NO',
+          }))
         },
         close: async () => {
           connection.closeSync()
