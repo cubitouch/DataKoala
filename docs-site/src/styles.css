@@ -1,6 +1,13 @@
 :root {
   color-scheme: dark;
-  font-family: "Titillium Web", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    'Titillium Web',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
   color: #e8ebf2;
   background: #0b0d11;
   font-synthesis: none;
@@ -17,8 +24,7 @@ html {
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 50% -10%, #1c2430 0, transparent 34rem),
-    #0b0d11;
+    radial-gradient(circle at 50% -10%, #1c2430 0, transparent 34rem), #0b0d11;
   color: #b8bfcc;
 }
 
@@ -70,7 +76,7 @@ footer span:last-child,
   font-weight: 700;
   color: #fff;
   text-decoration: none;
-  letter-spacing: .01em;
+  letter-spacing: 0.01em;
 }
 
 .brand img {
@@ -94,9 +100,9 @@ footer span:last-child,
   color: #f4f6fa;
   background: #171b22;
   transition:
-    transform .15s ease,
-    border-color .15s ease,
-    background .15s ease;
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .button:hover {
@@ -142,7 +148,7 @@ footer span:last-child,
 }
 
 .hero::before {
-  content: "";
+  content: '';
   position: absolute;
   z-index: -2;
   top: 0;
@@ -153,17 +159,17 @@ footer span:last-child,
   background:
     linear-gradient(
       180deg,
-      rgba(11, 13, 17, .42) 0%,
-      rgba(11, 13, 17, .48) 24%,
-      rgba(11, 13, 17, .68) 55%,
-      rgba(11, 13, 17, .9) 78%,
+      rgba(11, 13, 17, 0.42) 0%,
+      rgba(11, 13, 17, 0.48) 24%,
+      rgba(11, 13, 17, 0.68) 55%,
+      rgba(11, 13, 17, 0.9) 78%,
       #0b0d11 100%
     ),
-    url("/DataKoala/hero-eucalyptus.jpg") center 42% / cover no-repeat;
+    url('/DataKoala/hero-eucalyptus.jpg') center 42% / cover no-repeat;
 }
 
 .hero::after {
-  content: "";
+  content: '';
   position: absolute;
   z-index: -1;
   left: 50%;
@@ -174,7 +180,7 @@ footer span:last-child,
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(11, 13, 17, .58) 38%,
+    rgba(11, 13, 17, 0.58) 38%,
     #0b0d11 100%
   );
   pointer-events: none;
@@ -185,7 +191,7 @@ footer span:last-child,
   color: #a8c1f2;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: .16em;
+  letter-spacing: 0.16em;
 }
 
 .hero h1 {
@@ -194,8 +200,8 @@ footer span:last-child,
   color: #fff;
   font-size: clamp(44px, 6vw, 72px);
   font-weight: 600;
-  line-height: .98;
-  letter-spacing: -.035em;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
   text-shadow: 0 3px 22px #0008;
 }
 
@@ -264,7 +270,7 @@ footer span:last-child,
 
 .feature {
   display: grid;
-  grid-template-columns: minmax(220px, .65fr) minmax(0, 1.7fr);
+  grid-template-columns: minmax(220px, 0.65fr) minmax(0, 1.7fr);
   gap: 55px;
   align-items: center;
   padding: 85px 0;
@@ -272,7 +278,7 @@ footer span:last-child,
 }
 
 .feature.reverse {
-  grid-template-columns: minmax(0, 1.7fr) minmax(220px, .65fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(220px, 0.65fr);
 }
 
 .feature.reverse > div {
@@ -284,7 +290,7 @@ h2 {
   color: #f7f8fa;
   font-size: clamp(30px, 4vw, 44px);
   font-weight: 600;
-  letter-spacing: -.025em;
+  letter-spacing: -0.025em;
 }
 
 .feature p,
@@ -351,7 +357,7 @@ footer {
   height: 2.78cqi;
   display: flex;
   align-items: center;
-  gap: .45cqi;
+  gap: 0.45cqi;
   padding-left: 1.05cqi;
   background: transparent;
   border: 0;
@@ -360,8 +366,8 @@ footer {
 
 .window-bar i {
   display: block;
-  width: .83cqi;
-  height: .83cqi;
+  width: 0.83cqi;
+  height: 0.83cqi;
   border-radius: 50%;
   background: #ff5f57;
 }
@@ -410,12 +416,12 @@ footer {
     background:
       linear-gradient(
         180deg,
-        rgba(11, 13, 17, .44) 0%,
-        rgba(11, 13, 17, .56) 30%,
-        rgba(11, 13, 17, .78) 62%,
+        rgba(11, 13, 17, 0.44) 0%,
+        rgba(11, 13, 17, 0.56) 30%,
+        rgba(11, 13, 17, 0.78) 62%,
         #0b0d11 100%
       ),
-      url("/DataKoala/hero-eucalyptus.jpg") 54% center / cover no-repeat;
+      url('/DataKoala/hero-eucalyptus.jpg') 54% center / cover no-repeat;
   }
 
   .hero::after {

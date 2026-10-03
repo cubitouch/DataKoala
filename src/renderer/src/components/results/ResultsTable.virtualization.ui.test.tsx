@@ -62,13 +62,13 @@ describe('ResultsTable virtualization', () => {
     vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({ width: 240 } as DOMRect)
 
     expect(table?.classList.contains(styles.resizedTable)).toBe(false)
-    expect(resultsTableCss).toMatch(/\.table th, \.table td \{[^}]*max-width:\s*320px/)
-    expect(resultsTableCss).toMatch(/\.cellValue \{[^}]*max-width:\s*290px/)
+    expect(resultsTableCss).toMatch(/\.table th,\s*\.table td\s*\{[^}]*max-width:\s*320px/)
+    expect(resultsTableCss).toMatch(/\.cellValue\s*\{[^}]*max-width:\s*290px/)
 
     fireEvent.pointerDown(screen.getByRole('separator', { name: 'Resize label column' }), { pointerId: 1, clientX: 100 })
 
     expect(table?.classList.contains(styles.resizedTable)).toBe(true)
-    expect(resultsTableCss).toMatch(/\.resizedTable th, \.resizedTable td, \.resizedTable \.cellValue \{\s*max-width:\s*none/)
+    expect(resultsTableCss).toMatch(/\.resizedTable th,\s*\.resizedTable td,\s*\.resizedTable \.cellValue\s*\{\s*max-width:\s*none/)
   })
 
   it('keeps the mounted row count bounded and can navigate beyond row 1,000', () => {
