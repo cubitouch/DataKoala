@@ -166,12 +166,23 @@ export function LokiExplorer({ connectionId }: { connectionId: string }) {
     try {
       const shouldLoadTrend = kind === 'logs' && isLokiChartView(resultView)
       if (shouldLoadTrend) lastProcessedTrendKey.current = trendRefreshKey
-      const chartRequest = shouldLoadTrend ? loadTrend(tabId, expression, range, groupBy) : Promise.resolve()
+      // Start the synthetic volume query alongside the raw log query, but do not make
+      // the primary result lifecycle wait for it. The chart already has an explicit
+      // "Loading log volume…" state while this independent Loki metric query finishes.
+      if (shouldLoadTrend) void loadTrend(tabId, expression, range, groupBy)
       const main = await api.query.runLoki(connectionId, { expression, ...bounds, step, limit })
-      await chartRequest
       if (current !== revision.current || !isCurrentTab(tabId)) return
       useStore.getState().completeQuery(main, null, tabId)
-    } catch (caught) { if (current === revision.current && isCurrentTab(tabId)) setError(caught instanceof Error ? caught.message : String(caught)) }
+    } catch (caught) {
+      if (current === revision.current && isCurrentTab(tabId)) {
+        // Do not allow a trend from a failed main query to become the visible result.
+        trendRevision.current++
+        trendCacheKey.current = null
+        setTrend(null)
+        setTrendError(null)
+        setError(caught instanceof Error ? caught.message : String(caught))
+      }
+    }
     finally { if (current === revision.current && isCurrentTab(tabId)) setLoading(false) }
   }, [metadataRefreshing, session.id, expression, mode, builderDisabledReason, range, resultView, loadTrend, groupBy, connectionId, limit, isCurrentTab, trendRefreshKey])
   useEffect(() => { if (previousRangeKey.current === rangeKey) return; previousRangeKey.current = rangeKey; if (hasRun.current) void run() }, [rangeKey, run])
