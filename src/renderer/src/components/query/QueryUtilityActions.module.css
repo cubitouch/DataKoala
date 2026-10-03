@@ -11,3 +11,27 @@
     font-size: 10px;
   }
 }
+
+.resetDialog {
+  width: min(460px, calc(100vw - 32px));
+  min-height: 0;
+  padding: 20px;
+  gap: 12px;
+}
+
+.resetDialog h2,
+.resetDialog p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.resetDialog p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

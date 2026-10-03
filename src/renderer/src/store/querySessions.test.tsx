@@ -245,8 +245,8 @@ describe('query session model', () => {
     expect(active.id).toBe(id)
     expect(active.title).toBe('Revenue investigation')
     expect(active.connectionProfileId).toBe('profile-a')
-    expect(active.queryMode).toBe('builder')
-    expect(active.sql).toBe('select now();')
+    expect(active.queryMode).toBe('sql')
+    expect(active.sql).toBe('')
     expect(active.result).toBeNull()
     expect(active.builder.table).toBeNull()
     expect(active.builder.timeRange).toEqual({

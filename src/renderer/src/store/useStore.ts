@@ -922,8 +922,22 @@ export const useStore = create<AppState>((set, get) => ({
           id: session.id,
           title: session.title,
           connectionProfileId: session.connectionProfileId,
+          queryMode: session.queryMode,
+          sql: '',
         })
-        return fresh
+        return {
+          ...fresh,
+          builder: {
+            ...fresh.builder,
+            timeRange: session.builder.timeRange ?? fresh.builder.timeRange,
+          },
+          prometheusTimeRange: session.prometheusTimeRange,
+          prometheusStep: session.prometheusStep,
+          lokiTimeRange: session.lokiTimeRange,
+          lokiResultLimit: session.lokiResultLimit,
+          tempoTimeRange: session.tempoTimeRange,
+          tempoSampleSize: session.tempoSampleSize,
+        }
       }),
     ),
   commitLoadedPreset: (nextSession, tabId) =>

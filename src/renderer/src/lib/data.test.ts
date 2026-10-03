@@ -263,3 +263,18 @@ test('CSV export preserves duplicate headers and their distinct values', () => {
 
   assert.equal(resultToCsv(result), 'id,id\nA,B')
 })
+
+test('CSV preserves declared column order and escapes headers, carriage returns and empty cells', () => {
+  const result = mkResult(
+    [{ other: '', 'last,"name': 'line\rbreak', missing: null }],
+    [
+      ['last,"name', 'text'],
+      ['missing', 'text'],
+      ['other', 'text'],
+    ],
+  )
+  assert.equal(
+    resultToCsv(result),
+    '"last,""name",missing,other\n"line\rbreak",,',
+  )
+})

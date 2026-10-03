@@ -14,7 +14,7 @@ import type {
   LokiParserKind,
   LokiQueryResult,
 } from '@shared/loki'
-import { DEFAULT_LOKI_BUILDER, sortLokiLogRowsNewestFirst } from '@shared/loki'
+import { sortLokiLogRowsNewestFirst } from '@shared/loki'
 import { buildLokiQuery, logqlResultKind } from '@shared/loki-builder'
 import {
   CHART_SERIES_HARD_LIMIT,
@@ -46,11 +46,6 @@ import { QueryToolbar } from '@components/query/QueryToolbar'
 import { QueryCodeEditor } from '@components/query/QueryCodeEditor'
 import { GrafanaHandoffActions } from '@components/query/GrafanaHandoffActions'
 
-const defaultRange: BuilderTimeRange = {
-  kind: 'rolling',
-  amount: 1,
-  unit: 'hour',
-}
 const serviceNameFallback = {
   label: 'service_name',
   operator: '=~' as const,
@@ -110,7 +105,6 @@ export function LokiExplorer({
   const setSql = useStore((state) => state.setSql)
   const setMode = useStore((state) => state.setQueryMode)
   const setLokiState = useStore((state) => state.setLokiState)
-  const clearActiveResults = useStore((state) => state.clearActiveResults)
   const connectionStatus = useStore((state) => state.connectionStatus)
   const reconnectActiveProfile = useStore(
     (state) => state.reconnectActiveProfile,
@@ -258,28 +252,6 @@ export function LokiExplorer({
     setTrendError(null)
     setLoading(false)
     setPatternScope(null)
-  }
-  const clearResults = () => {
-    clearLokiTransientState()
-    clearActiveResults()
-  }
-  const resetQuery = () => {
-    clearResults()
-    setSql('')
-    setLokiState({
-      lokiBuilder: {
-        ...DEFAULT_LOKI_BUILDER,
-        labelMatchers: [],
-        lineFilters: [],
-        parsers: [],
-        fieldFilters: [],
-      },
-      lokiTimeRange: defaultRange,
-      lokiResultLimit: 1000,
-      lokiGroupBy: [],
-      lokiRangeHistory: [],
-      lokiResultView: 'list',
-    })
   }
   useEffect(() => {
     mounted.current = true
@@ -686,9 +658,8 @@ export function LokiExplorer({
           }
           utilities={
             <QueryUtilityActions
-              hasResults={Boolean(result || trend || error || warning)}
-              onClearResults={clearResults}
-              onResetQuery={resetQuery}
+              busy={loading}
+              onBeforeReset={clearLokiTransientState}
               onPresetLoaded={clearLokiTransientState}
             />
           }

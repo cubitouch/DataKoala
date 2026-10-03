@@ -2,6 +2,8 @@ import { TextInput } from '@components/ui/TextInput'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { isTimeType, type QueryResult } from '@shared/types'
 import { resultCellValue, resultColumnKey } from '@shared/query-result'
+import { copyTextToClipboard } from '@lib/clipboardText'
+import { notify } from '@components/ui/feedback/NotificationArea'
 import { resultToCsv } from '@lib/data'
 import { api } from '@lib/api'
 import type { FilteredQueryResult, ResultFilter } from '@lib/resultFilters'
@@ -77,6 +79,7 @@ export function ResultsTable({
 }: ResultsTableProps) {
   const [sortCol, setSortCol] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
+  const [copying, setCopying] = useState(false)
   const [filter, setFilter] = useState('')
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(600)
@@ -245,6 +248,25 @@ export function ResultsTable({
     resizeRef.current = null
   }
 
+  const copyCsv = async () => {
+    if (!result || copying) return
+    setCopying(true)
+    try {
+      await copyTextToClipboard(
+        resultToCsv({ ...result, rows, rowCount: rows.length }),
+      )
+      notify({ message: 'Table copied as CSV' })
+    } catch {
+      notify({
+        message:
+          'Could not copy CSV. Check clipboard permissions and try again.',
+        tone: 'error',
+      })
+    } finally {
+      setCopying(false)
+    }
+  }
+
   const exportCsv = async () => {
     if (!result) return
     const csv = resultToCsv({ ...result, rows, rowCount: rows.length })
@@ -302,6 +324,16 @@ export function ResultsTable({
           />
         </div>
         <div className={styles.spacer} />
+        <button
+          type="button"
+          className="btn ghost"
+          aria-label="Copy CSV"
+          title="Copy the filtered and sorted table as CSV"
+          disabled={copying}
+          onClick={() => void copyCsv()}
+        >
+          {copying ? 'Copying…' : 'Copy'}
+        </button>
         <button className="btn ghost" onClick={exportCsv}>
           Export CSV
         </button>
