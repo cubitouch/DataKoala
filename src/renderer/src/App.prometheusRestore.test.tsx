@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DataSourceProfile } from '@shared/types'
@@ -19,6 +20,7 @@ vi.mock('@components/query/QueryEditor', () => ({ QueryEditor: () => { mocks.que
 vi.mock('@components/builder/sql/BuilderPanel', () => ({ BuilderPanel: () => <div>Builder mounted</div> }))
 vi.mock('./components/results/ResultExplorer', () => ({ ResultExplorer: () => <div>Results mounted</div> }))
 vi.mock('@components/query/sql/ExplainPane', () => ({ ExplainPane: () => null }))
+vi.mock('@components/workspaces/loki/LokiExplorer', () => ({ LokiExplorer: ({ resizeHandle }: { resizeHandle?: ReactNode }) => <div data-testid="loki-workspace">{resizeHandle}</div> }))
 
 import { App } from './App'
 
@@ -29,6 +31,10 @@ const prometheus: DataSourceProfile = {
 const postgres: DataSourceProfile = {
   id: 'pg-1', name: 'Postgres', version: 1, kind: 'postgres', readonly: true,
   host: 'localhost', port: 5432, database: 'app', user: 'app', password: '', ssl: false
+}
+const loki: DataSourceProfile = {
+  id: 'loki-1', name: 'Production logs', version: 1, kind: 'loki', readonly: true,
+  transport: { kind: 'gcx', context: 'test', datasourceUid: 'loki-main' }
 }
 
 function persistedWorkspaceStorage(): { getItem(key: string): string | null; setItem(key: string, value: string): void } {
@@ -100,6 +106,19 @@ describe('Prometheus workspace restoration', () => {
     const separator = screen.getByRole('separator', { name: 'Resize query and results' })
     expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
     expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
+  })
+
+  it('passes the shared query/results separator into the Loki workspace', () => {
+    resetTestStore({ profiles: [loki], activeProfileId: loki.id, connected: true, connectionStatus: 'connected' })
+    patchActiveTestSession({ connectionProfileId: loki.id, queryMode: 'builder' })
+    mocks.list.mockResolvedValue([loki])
+    const { container } = render(<App />)
+
+    expect(screen.getByTestId('loki-workspace')).toBeTruthy()
+    const separator = screen.getByRole('separator', { name: 'Resize Loki query and results' })
+    expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
+    expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
+    expect(container.querySelector('.main')?.className).not.toContain('sql-layout')
   })
 
   it('uses the shared SQL query/results separator for SQL Builder', async () => {
