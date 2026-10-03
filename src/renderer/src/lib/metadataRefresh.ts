@@ -22,7 +22,10 @@ export function refreshConnectionMetadata(profileId: string, store: StoreAccess)
   const generation = connection?.generation ?? initial.connectionGeneration
   store.setState((state) => {
     const old = state.metadataByProfileId[profileId]
-    return old ? { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: { ...old, refreshing: true, refreshError: null } } } : {}
+    return { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: old
+      ? { ...old, refreshing: true, refreshError: null }
+      : { schemas: [], status: 'loading' as const, error: null, isStale: false, refreshing: true, refreshError: null }
+    } }
   })
   const promise = (async () => {
     try {
@@ -34,10 +37,9 @@ export function refreshConnectionMetadata(profileId: string, store: StoreAccess)
       if (!currentConnection && (current.activeProfileId !== profileId || current.connectionGeneration !== generation || !current.connected)) return
       store.setState((state) => {
         const old = state.metadataByProfileId[profileId]
-        if (!old) return {}
         return { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: {
-          ...old, schemas, status: 'loaded' as const, error: null, isStale: false,
-          refreshing: false, refreshError: null, revision: (old.revision ?? 0) + 1
+          ...(old ?? { schemas: [] }), schemas, status: 'loaded' as const, error: null, isStale: false,
+          refreshing: false, refreshError: null, revision: (old?.revision ?? 0) + 1
         } } }
       })
       invalidateTempoMetadata(profileId)
@@ -47,8 +49,11 @@ export function refreshConnectionMetadata(profileId: string, store: StoreAccess)
       store.setState((state) => {
         const old = state.metadataByProfileId[profileId]
         const latest = state.connectionStateByProfileId[profileId]
-        if (!old || (latest ? latest.generation !== generation : state.activeProfileId !== profileId || state.connectionGeneration !== generation)) return {}
-        return { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: { ...old, refreshing: false, refreshError: message } } }
+        if ((latest ? latest.generation !== generation || (latest.status !== 'connected' && latest.status !== 'idle') : state.activeProfileId !== profileId || state.connectionGeneration !== generation || !state.connected)) return {}
+        const metadata = old?.status === 'loaded'
+          ? { ...old, refreshing: false, refreshError: message }
+          : { schemas: [], status: 'error' as const, error: message, isStale: false, refreshing: false, refreshError: null }
+        return { metadataByProfileId: { ...state.metadataByProfileId, [profileId]: metadata } }
       })
     } finally { inFlight.delete(profileId) }
   })()

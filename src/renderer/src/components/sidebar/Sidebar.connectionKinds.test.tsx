@@ -13,7 +13,7 @@ const profiles: DataSourceProfile[] = [
 ]
 
 vi.mock('@lib/api', () => ({ api: { connections: {
-  list: vi.fn(async () => profiles), listObjects: vi.fn(async () => []), describeTable: vi.fn(async () => []),
+  list: vi.fn(async () => profiles), listLive: vi.fn(async () => []), listObjects: vi.fn(async () => []), describeTable: vi.fn(async () => []),
   refreshMetadata: vi.fn(async () => {}),
   connect: vi.fn(), disconnect: vi.fn(), remove: vi.fn(), loki: {
     labels: vi.fn(async () => ['service_name', 'namespace', '__stream_shard__']),
@@ -28,6 +28,39 @@ import { resetTestStore } from '@test/sessionTestUtils'
 import { createQuerySession, useStore } from '@store/useStore'
 
 afterEach(() => { cleanup(); resetTestStore(); vi.clearAllMocks() })
+
+it('rehydrates metadata for a restored background live session after renderer reload', async () => {
+  vi.mocked(api.connections.listLive!).mockResolvedValueOnce([{ id: 'pg', generation: 4, serverVersion: '16' }])
+  vi.mocked(api.connections.listObjects).mockResolvedValueOnce([{ schema: 'public', name: 'orders', kind: 'r' }])
+  const postgresTab = createQuerySession(1, { id: 'postgres-tab', connectionProfileId: 'pg' })
+  const otherTab = createQuerySession(2, { id: 'other-tab', connectionProfileId: 'bq' })
+  useStore.setState({ profiles, tabs: [postgresTab, otherTab], activeTabId: otherTab.id, metadataByProfileId: {}, connectionStateByProfileId: {} })
+
+  render(<Sidebar />)
+
+  await waitFor(() => expect(useStore.getState().connectionStateByProfileId.pg).toMatchObject({ status: 'connected', generation: 4 }))
+  await waitFor(() => expect(useStore.getState().metadataByProfileId.pg).toMatchObject({
+    status: 'loaded', schemas: [{ name: 'public', relations: [{ name: 'orders' }] }]
+  }))
+  expect(api.connections.listObjects).toHaveBeenCalledWith('pg')
+  expect(api.connections.connect).not.toHaveBeenCalled()
+
+  useStore.setState({ activeTabId: postgresTab.id })
+  expect(await screen.findByText('orders')).toBeTruthy()
+})
+
+it.each(['loaded', 'loading'] as const)('does not rehydrate live metadata that is already %s', async (status) => {
+  vi.mocked(api.connections.listLive!).mockResolvedValueOnce([{ id: 'pg', generation: 4 }])
+  const tab = createQuerySession(1, { id: 'postgres-tab', connectionProfileId: 'pg' })
+  useStore.setState({
+    profiles, tabs: [tab], activeTabId: tab.id,
+    metadataByProfileId: { pg: { schemas: [], status, error: null, isStale: false } }
+  })
+
+  render(<Sidebar />)
+  await waitFor(() => expect(useStore.getState().connectionStateByProfileId.pg?.generation).toBe(4))
+  expect(api.connections.listObjects).not.toHaveBeenCalled()
+})
 
 it('derives every connection badge from the saved profile kind', async () => {
   render(<Sidebar />)

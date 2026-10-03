@@ -19,6 +19,15 @@ function connectedState() {
   }, true)
 }
 
+function restoredConnectedState() {
+  const tab = createQuerySession(1, { connectionProfileId: 'profile-a', sql: 'select 42' })
+  useStore.setState({
+    ...useStore.getInitialState(), tabs: [tab], activeTabId: tab.id,
+    connectionStateByProfileId: { 'profile-a': { status: 'connected', generation: 7, error: null, serverVersion: null } },
+    metadataByProfileId: {}
+  }, true)
+}
+
 afterEach(() => { vi.clearAllMocks(); connectedState() })
 
 it('atomically replaces top-level metadata while leaving editor, result, and session state unchanged', async () => {
@@ -33,6 +42,36 @@ it('atomically replaces top-level metadata while leaving editor, result, and ses
   expect(state.tabs[0]).toEqual(before)
   expect(state.connected).toBe(true)
   expect(state.connectionGeneration).toBe(7)
+})
+
+it('creates missing renderer metadata when refreshing a restored live session', async () => {
+  restoredConnectedState()
+  mocks.refresh.mockResolvedValue(undefined)
+  mocks.listObjects.mockResolvedValue([{ schema: 'public', name: 'orders', kind: 'r' }])
+
+  const pending = useStore.getState().refreshMetadata('profile-a')
+  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({ status: 'loading', refreshing: true })
+  await pending
+
+  expect(mocks.listObjects).toHaveBeenCalledWith('profile-a')
+  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+    status: 'loaded', refreshing: false, revision: 1,
+    schemas: [{ name: 'public', relations: [{ name: 'orders' }] }]
+  })
+})
+
+it('reports a missing-state refresh failure and permits recovery', async () => {
+  restoredConnectedState()
+  mocks.refresh.mockRejectedValueOnce(new Error('discovery unavailable')).mockResolvedValueOnce(undefined)
+  mocks.listObjects.mockResolvedValue([{ schema: 'public', name: 'orders', kind: 'r' }])
+
+  await useStore.getState().refreshMetadata('profile-a')
+  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+    schemas: [], status: 'error', error: 'discovery unavailable', refreshing: false, refreshError: null
+  })
+
+  await useStore.getState().refreshMetadata('profile-a')
+  expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({ status: 'loaded', refreshing: false, revision: 1 })
 })
 
 it('keeps previous metadata after failure and permits a retry', async () => {
