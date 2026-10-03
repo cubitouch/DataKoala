@@ -146,6 +146,42 @@ describe('LokiExplorer execution', () => {
     expect(useStore.getState().tabs[0].sql).toBe(raw)
   })
 
+  it('ignores a stale formatted Builder response after the Builder changes', async () => {
+    let resolveFirst!: (value: string) => void
+    let resolveSecond!: (value: string) => void
+    const first = new Promise<string>((resolve) => { resolveFirst = resolve })
+    const second = new Promise<string>((resolve) => { resolveSecond = resolve })
+    const firstFormatted = '{app="x"}\n|= "timeout"'
+    const secondFormatted = '{app="x"}\n|= "retry"'
+    mocks.labels.mockResolvedValue(['app', 'service_name'])
+    mocks.formatQuery.mockImplementation(async (_connectionId, query) => {
+      if (query.includes('timeout')) return first
+      if (query.includes('retry')) return second
+      return query
+    })
+    mocks.runLoki.mockResolvedValue(logs)
+    const tab = createQuerySession(1, { id: 'stale-format', connectionProfileId: 'loki', queryMode: 'builder', sql: '{app="manual-do-not-touch"}' })
+    tab.lokiBuilder = { labelMatchers: [{ label: 'app', operator: '=', value: 'x' }], lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: [] }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+
+    await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledWith('loki', '{app="x"} |= "timeout"'))
+    fireEvent.change(screen.getByLabelText('Line contains'), { target: { value: 'retry' } })
+    await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledWith('loki', '{app="x"} |= "retry"'))
+
+    await act(async () => { resolveSecond(secondFormatted); await second })
+    fireEvent.click(screen.getByText('Generated LogQL'))
+    await waitFor(() => expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toBe(secondFormatted))
+
+    await act(async () => { resolveFirst(firstFormatted); await first })
+    expect((screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value).toBe(secondFormatted)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+    expect(mocks.runLoki.mock.calls[0][1].expression).toBe(secondFormatted)
+    expect(useStore.getState().tabs[0].sql).toBe('{app="manual-do-not-touch"}')
+  })
+
   it('explains why an empty Builder cannot run without a safe metadata anchor', async () => {
     mocks.labels.mockResolvedValue(['app'])
     const tab = createQuerySession(1, { id: 'unsupported-empty-builder', connectionProfileId: 'loki', queryMode: 'builder' })
