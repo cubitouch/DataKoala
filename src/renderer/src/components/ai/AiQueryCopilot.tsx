@@ -127,7 +127,7 @@ export function AiQueryCopilot() {
         )}
       </form>
       {ai.error && (
-        <div role="alert" className="inline-error">
+        <div role="alert" className={`inline-error ${styles.copilotMessage}`}>
           {ai.error}
         </div>
       )}
