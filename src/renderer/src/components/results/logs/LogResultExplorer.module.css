@@ -32,6 +32,7 @@
 
 .logScroller {
   overflow: auto;
+  min-width: 0;
   min-height: 150px;
   flex: 1;
 }
@@ -127,23 +128,12 @@
   color: var(--text);
 }
 
-.logSplit {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-}
-
-.logSplit > .logScroller {
-  min-width: 280px;
-}
-
 .logInspector {
-  width: clamp(320px, 36%, 520px);
-  min-width: 300px;
-  border-left: 1px solid var(--border);
+  width: 100%;
   background: var(--bg-2);
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -298,11 +288,6 @@
 @media (width <= 900px) {
   .logSummary {
     grid-template-columns: 76px 58px minmax(0, 1fr) 16px;
-  }
-
-  .logInspector {
-    width: 44%;
-    min-width: 260px;
   }
 
   .fieldRow {
