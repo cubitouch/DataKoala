@@ -626,6 +626,66 @@ export function LokiExplorer({
     [result, scopedLogRows],
   )
 
+  const patternMessagesById = useMemo(
+    () =>
+      new Map(
+        filteredLogRows.map((row) => [row.id, effectiveLogMessage(row)]),
+      ),
+    [filteredLogRows],
+  )
+  const viewPatternLogs = useCallback(
+    (cluster: Parameters<typeof derivePatternLineContainsCandidate>[0]) => {
+      const candidate = derivePatternLineContainsCandidate(
+        cluster,
+        patternMessagesById,
+      )
+      const canUseVisibleBuilderFilter =
+        mode === 'builder' &&
+        !metadataRefreshing &&
+        builder.lineFilters.length <= 1 &&
+        builder.lineFilters.every(({ operator }) => operator === '|=')
+
+      if (candidate && canUseVisibleBuilderFilter) {
+        const nextBuilder = {
+          ...builder,
+          lineFilters: [{ operator: '|=' as const, value: candidate }],
+        }
+        try {
+          const nextExpression = buildLokiQuery(nextBuilder, {
+            fallbackMatcher,
+          })
+          setPatternScope(null)
+          setLokiState({
+            lokiBuilder: nextBuilder,
+            lokiResultView: 'list',
+          })
+          setMode('builder')
+          void executeExpression(nextExpression)
+          return
+        } catch {
+          // If the next Builder query cannot be represented safely, retain the
+          // explicit local member filter below instead of changing query semantics.
+        }
+      }
+
+      setPatternScope({
+        template: cluster.template,
+        memberIds: new Set(cluster.memberIds),
+      })
+      setLokiState({ lokiResultView: 'list' })
+    },
+    [
+      builder,
+      executeExpression,
+      fallbackMatcher,
+      metadataRefreshing,
+      mode,
+      patternMessagesById,
+      setLokiState,
+      setMode,
+    ],
+  )
+
   return (
     <main className={styles.workspace} aria-label="Loki explorer">
       <section className={styles.queryPanel}>
