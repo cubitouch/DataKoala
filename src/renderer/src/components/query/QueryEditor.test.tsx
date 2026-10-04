@@ -16,6 +16,7 @@ const {
   labelValues,
   promqlAsExtension,
   notify,
+  aiSettingsGet,
 } = vi.hoisted(() => ({
   explain: vi.fn(),
   runQuery: vi.fn(),
@@ -24,15 +25,13 @@ const {
   labelValues: vi.fn(),
   promqlAsExtension: vi.fn(() => ({})),
   notify: vi.fn(),
+  aiSettingsGet: vi.fn(),
 }))
 vi.mock('@lib/api', () => ({
   api: {
     ai: {
       settings: {
-        get: vi.fn(async () => ({
-          ok: true,
-          value: { provider: 'openrouter', model: '', hasApiKey: false },
-        })),
+        get: aiSettingsGet,
       },
     },
     connections: { prometheus: { formatQuery, labelsForMetric, labelValues } },
@@ -134,6 +133,11 @@ beforeEach(() => {
   labelValues.mockResolvedValue([])
   promqlAsExtension.mockClear()
   notify.mockReset()
+  aiSettingsGet.mockReset()
+  aiSettingsGet.mockResolvedValue({
+    ok: true,
+    value: { provider: 'openrouter', model: '', hasApiKey: false },
+  })
 })
 
 describe('PromQL execution', () => {
@@ -531,11 +535,48 @@ describe('QueryEditor Explain loading states', () => {
     view.rerender(<QueryEditor />)
     expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Explain Analyze' })).toBeTruthy()
-    expect(screen.getByRole('textbox', { name: 'AI prompt' })).toBeTruthy()
+    expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
     view.rerender(<QueryEditor builderMode />)
     expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
     expect(explain).not.toHaveBeenCalled()
   })
+  it('shows the PostgreSQL AI composer only when AI settings are configured', async () => {
+    aiSettingsGet.mockResolvedValue({
+      ok: true,
+      value: {
+        provider: 'openrouter',
+        model: 'vendor/model',
+        hasApiKey: true,
+      },
+    })
+    resetTestStore({
+      profiles: [
+        {
+          kind: 'postgres',
+          version: 1,
+          id: 'pg',
+          name: 'PG',
+          host: 'localhost',
+          port: 5432,
+          database: 'db',
+          user: 'user',
+          password: '',
+          ssl: false,
+          readonly: true,
+        },
+      ],
+      activeProfileId: 'pg',
+      connected: true,
+      connecting: false,
+      connectionStatus: 'connected',
+    })
+    patchActiveTestSession({ connectionProfileId: 'pg', sql: 'select 1' })
+    render(<QueryEditor />)
+    expect(
+      await screen.findByRole('textbox', { name: 'AI prompt' }),
+    ).toBeTruthy()
+  })
+
   it('keeps SQL formatting local', async () => {
     renderExplainUi()
     fireEvent.change(screen.getByLabelText('SQL editor'), {
