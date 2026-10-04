@@ -142,10 +142,22 @@ app.whenReady().then(async () => {
     )
     if (unchanged !== 'SELECT * FROM public.orders LIMIT 100;')
       throw new Error('Proposal changed SQL before Apply')
+    await click(win, 'View AI details')
+    await wait(
+      win,
+      `document.querySelector('[aria-label="AI response"]')?.textContent.includes('Assumptions') && document.body.innerText.includes('Submitted context')`,
+    )
     await sleep(300)
     await writeFile(
       resolve(output, 'ai-query-proposal.png'),
       (await win.webContents.capturePage()).toPNG(),
+    )
+    await win.webContents.executeJavaScript(
+      `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+    )
+    await wait(
+      win,
+      `!document.querySelector('[aria-label="AI response"]')`,
     )
     await click(win, 'Apply')
     await wait(
