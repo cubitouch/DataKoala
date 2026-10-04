@@ -43,8 +43,8 @@ async function click(win, label) {
     button.click()
   })()`)
 }
-await app.whenReady()
-try {
+app.whenReady().then(async () => {
+  try {
   ipcMain.handle('connections:list', () => [])
   ipcMain.handle('connections:live', () => [])
   ipcMain.handle('connection:describe-table', () => columns)
@@ -168,9 +168,10 @@ try {
   console.log(
     'AI_PREVIEW_OK: settings, proposal, explicit apply; no query execution handler registered',
   )
-  win.destroy()
-  app.exit(0)
-} catch (error) {
-  console.error(error)
-  app.exit(1)
-}
+    win.destroy()
+    app.exit(0)
+  } catch (error) {
+    console.error(error)
+    app.exit(1)
+  }
+})
