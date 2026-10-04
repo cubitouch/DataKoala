@@ -17,6 +17,7 @@ import type {
 import { sortLokiLogRowsNewestFirst } from '@shared/loki'
 import { buildLokiQuery, logqlResultKind } from '@shared/loki-builder'
 import { derivePatternLineContainsCandidate } from '@shared/log-pattern-filter'
+import type { LogPatternCluster } from '@shared/log-patterns'
 import {
   CHART_SERIES_HARD_LIMIT,
   CHART_SERIES_SOFT_LIMIT,
@@ -632,7 +633,7 @@ export function LokiExplorer({
     [filteredLogRows],
   )
   const viewPatternLogs = useCallback(
-    (cluster: Parameters<typeof derivePatternLineContainsCandidate>[0]) => {
+    (cluster: LogPatternCluster) => {
       const candidate = derivePatternLineContainsCandidate(
         cluster,
         patternMessagesById,
