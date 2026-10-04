@@ -481,13 +481,7 @@ export function LokiExplorer({
           : 'Enter a LogQL query.',
       )
     await executeExpression(expression, resultView)
-  }, [
-    expression,
-    mode,
-    builderDisabledReason,
-    executeExpression,
-    resultView,
-  ])
+  }, [expression, mode, builderDisabledReason, executeExpression, resultView])
   useEffect(() => {
     if (previousRangeKey.current === rangeKey) return
     previousRangeKey.current = rangeKey
@@ -563,13 +557,7 @@ export function LokiExplorer({
       })
       setLokiState({ lokiResultView: 'list' })
     },
-    [
-      builder,
-      executeExpression,
-      fallbackMatcher,
-      mode,
-      setLokiState,
-    ],
+    [builder, executeExpression, fallbackMatcher, mode, setLokiState],
   )
   const resultFilter = (
     source: LokiFilterSource,
