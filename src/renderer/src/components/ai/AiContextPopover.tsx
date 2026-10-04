@@ -1,15 +1,63 @@
 import { Popover } from '@components/ui/Popover'
 import {
   AI_PRIVACY_NOTICE,
+  type AiContextRequest,
   type AiQueryContext,
   type AiQueryProposal,
 } from '@shared/ai'
 import styles from './Ai.module.css'
 
+function SchemaMetadata({
+  ariaLabel,
+  title,
+  context,
+  preparing = false,
+}: {
+  ariaLabel: string
+  title: string
+  context: AiQueryContext | null
+  preparing?: boolean
+}) {
+  return (
+    <section aria-label={ariaLabel}>
+      <div className={styles.contextSectionHeading}>
+        <h3>{title}</h3>
+        {context && (
+          <span className={styles.contextCount}>
+            {context.relations.length} relations ·{' '}
+            {context.relations.reduce(
+              (sum, relation) => sum + relation.columns.length,
+              0,
+            )}{' '}
+            columns
+          </span>
+        )}
+      </div>
+      {preparing ? (
+        <p className={styles.notice}>Preparing schema context…</p>
+      ) : !context ? (
+        <p className={styles.notice}>Context is not ready yet.</p>
+      ) : !context.relations.length ? (
+        <p className={styles.notice}>
+          No eligible metadata is loaded. Refresh connection metadata for
+          table-based queries.
+        </p>
+      ) : (
+        context.relations.map((relation) => (
+          <pre
+            key={`${relation.schema}.${relation.name}`}
+          >{`${relation.schema}.${relation.name}\n${relation.columns.map((column) => `  ${column.name} ${column.dataType}`).join('\n')}`}</pre>
+        ))
+      )}
+    </section>
+  )
+}
+
 export function AiContextPopover({
   prompt,
   query,
   context,
+  discovery,
   preparing,
   sent,
   proposal,
@@ -17,6 +65,11 @@ export function AiContextPopover({
   prompt: string
   query: string
   context: AiQueryContext | null
+  discovery: {
+    initialContext: AiQueryContext
+    request: AiContextRequest
+    addedRelations: string[]
+  } | null
   preparing: boolean
   sent: boolean
   proposal: AiQueryProposal | null
@@ -93,43 +146,52 @@ export function AiContextPopover({
             <p className={styles.notice}>Not included — the editor is empty.</p>
           )}
         </section>
-        <section aria-label="Schema metadata">
-          <div className={styles.contextSectionHeading}>
-            <h3>Schema metadata</h3>
-            {context && (
-              <span className={styles.contextCount}>
-                {context.relations.length} relations ·{' '}
-                {context.relations.reduce(
-                  (sum, relation) => sum + relation.columns.length,
-                  0,
-                )}{' '}
-                columns
-              </span>
-            )}
-          </div>
-          {preparing ? (
-            <p className={styles.notice}>Preparing schema context…</p>
-          ) : !context ? (
-            <p className={styles.notice}>Context is not ready yet.</p>
-          ) : !context.relations.length ? (
-            <p className={styles.notice}>
-              No eligible metadata is loaded. Refresh connection metadata for
-              table-based queries.
-            </p>
-          ) : (
-            context.relations.map((relation) => (
-              <pre
-                key={`${relation.schema}.${relation.name}`}
-              >{`${relation.schema}.${relation.name}\n${relation.columns.map((column) => `  ${column.name} ${column.dataType}`).join('\n')}`}</pre>
-            ))
-          )}
-        </section>
+        {discovery ? (
+          <>
+            <SchemaMetadata
+              ariaLabel="Initial schema metadata"
+              title="Initial schema metadata"
+              context={discovery.initialContext}
+            />
+            <section aria-label="Metadata discovery">
+              <h3>Metadata discovery</h3>
+              <p className={styles.notice}>
+                Requested concepts: {discovery.request.searchTerms.join(', ')}
+              </p>
+              <p className={styles.notice}>
+                Reason: {discovery.request.reason}
+              </p>
+              <p className={styles.notice}>
+                Added relations:{' '}
+                {discovery.addedRelations.length
+                  ? discovery.addedRelations.join(', ')
+                  : 'None within the disclosure budget'}
+              </p>
+            </section>
+            <SchemaMetadata
+              ariaLabel="Final schema metadata"
+              title="Final schema metadata"
+              context={context}
+            />
+          </>
+        ) : (
+          <SchemaMetadata
+            ariaLabel="Schema metadata"
+            title="Schema metadata"
+            context={context}
+            preparing={preparing}
+          />
+        )}
       </div>
 
       <aside className={styles.contextInfo}>
         <strong>About this request</strong>
         <p>{AI_PRIVACY_NOTICE} Current SQL may contain sensitive literals.</p>
-        <p>Selection is bounded. Some relations or columns may be omitted.</p>
+        <p>
+          Selection is bounded. Discovery can add metadata once, but the total
+          disclosure remains within the same relation, column, and context
+          limits.
+        </p>
       </aside>
     </Popover>
   )
