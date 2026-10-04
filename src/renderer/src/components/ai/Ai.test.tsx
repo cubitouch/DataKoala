@@ -424,9 +424,7 @@ test('context popover discloses current SQL and metadata before and after genera
   render(<AiQueryCopilot />)
   fireEvent.change(
     await screen.findByRole('textbox', { name: 'AI prompt' }),
-    {
-      target: { value: 'count orders' },
-    },
+    { target: { value: 'count orders' } },
   )
   fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
   await screen.findByText(/public.orders\s+id uuid/)
