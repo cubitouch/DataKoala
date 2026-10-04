@@ -334,7 +334,7 @@ nav {
 .lede {
   max-width: 770px;
   color: #c3c7cf;
-  font-size: clamp(18px, 2vw, 21px);
+  font-size: clamp(16px, 1.7vw, 19px);
   line-height: 1.62;
   letter-spacing: -0.015em;
   text-shadow: none;
