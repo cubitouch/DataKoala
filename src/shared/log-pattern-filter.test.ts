@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
 import { deriveLogPatternLineFilterCandidate } from './log-pattern-filter'
 
 describe('deriveLogPatternLineFilterCandidate', () => {
@@ -15,12 +16,12 @@ describe('deriveLogPatternLineFilterCandidate', () => {
       },
       ['Request a failed after 1ms', 'Request b failed after 2ms'],
     )
-    expect(candidate).toBe('failed after')
-    expect(candidate).not.toContain('<')
+    assert.equal(candidate, 'failed after')
+    assert.doesNotMatch(candidate ?? '', /</)
   })
 
   it('validates candidates against every loaded cluster member', () => {
-    expect(
+    assert.equal(
       deriveLogPatternLineFilterCandidate(
         {
           segments: [
@@ -31,11 +32,12 @@ describe('deriveLogPatternLineFilterCandidate', () => {
         },
         ['Request 123 completed', 'Request 456 completed'],
       ),
-    ).toBe('completed')
+      'completed',
+    )
   })
 
   it('returns null when no useful common literal exists', () => {
-    expect(
+    assert.equal(
       deriveLogPatternLineFilterCandidate(
         {
           segments: [
@@ -46,6 +48,7 @@ describe('deriveLogPatternLineFilterCandidate', () => {
         },
         ['- one :', '- two :'],
       ),
-    ).toBeNull()
+      null,
+    )
   })
 })
