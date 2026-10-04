@@ -111,21 +111,27 @@ it('keeps the chosen inspector width when selecting another log', () => {
     { key: 'ArrowLeft' },
   )
   expect(
-    (screen.getByRole('complementary', {
-      name: 'Selected log details',
-    }) as HTMLElement).style.width,
+    (
+      screen.getByRole('complementary', {
+        name: 'Selected log details',
+      }) as HTMLElement
+    ).style.width,
   ).toBe('414px')
 
-  fireEvent.click(screen.getByRole('button', { name: /Payment retry succeeded/ }))
+  fireEvent.click(
+    screen.getByRole('button', { name: /Payment retry succeeded/ }),
+  )
   expect(
     screen
       .getByRole('button', { name: /Payment retry succeeded/ })
       .getAttribute('aria-selected'),
   ).toBe('true')
   expect(
-    (screen.getByRole('complementary', {
-      name: 'Selected log details',
-    }) as HTMLElement).style.width,
+    (
+      screen.getByRole('complementary', {
+        name: 'Selected log details',
+      }) as HTMLElement
+    ).style.width,
   ).toBe('414px')
 })
 
