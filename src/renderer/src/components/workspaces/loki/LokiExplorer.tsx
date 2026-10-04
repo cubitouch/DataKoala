@@ -628,9 +628,7 @@ export function LokiExplorer({
 
   const patternMessagesById = useMemo(
     () =>
-      new Map(
-        filteredLogRows.map((row) => [row.id, effectiveLogMessage(row)]),
-      ),
+      new Map(filteredLogRows.map((row) => [row.id, effectiveLogMessage(row)])),
     [filteredLogRows],
   )
   const viewPatternLogs = useCallback(

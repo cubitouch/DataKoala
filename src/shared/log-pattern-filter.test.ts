@@ -77,9 +77,7 @@ test('returns null when no useful common literal exists or a member is missing',
     null,
   )
 
-  const literal = cluster([
-    { text: 'failed', variable: false, values: [] },
-  ])
+  const literal = cluster([{ text: 'failed', variable: false, values: [] }])
   assert.equal(
     derivePatternLineContainsCandidate(literal, new Map([['one', 'failed']])),
     null,

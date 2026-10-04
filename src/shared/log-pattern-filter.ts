@@ -15,7 +15,8 @@ export function derivePatternLineContainsCandidate(
     for (let start = 0; start < run.length; start += 1) {
       for (let end = run.length; end > start; end -= 1) {
         const candidate = run.slice(start, end).join(' ').trim()
-        if (candidate && usefulLiteral.test(candidate)) candidates.add(candidate)
+        if (candidate && usefulLiteral.test(candidate))
+          candidates.add(candidate)
       }
     }
     run = []
@@ -31,8 +32,7 @@ export function derivePatternLineContainsCandidate(
   addRunCandidates()
 
   const ordered = [...candidates].sort(
-    (left, right) =>
-      right.length - left.length || left.localeCompare(right),
+    (left, right) => right.length - left.length || left.localeCompare(right),
   )
 
   for (const candidate of ordered) {

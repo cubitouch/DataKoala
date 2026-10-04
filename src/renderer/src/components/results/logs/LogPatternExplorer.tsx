@@ -63,8 +63,7 @@ export function LogPatternExplorer({
     DEFAULT_DETAIL_PANEL_WIDTH,
   )
   const scroller = useRef<HTMLDivElement>(null)
-  const selected =
-    clusters.find((cluster) => cluster.id === selectedId) ?? null
+  const selected = clusters.find((cluster) => cluster.id === selectedId) ?? null
   const virtualizer = useVirtualizer({
     count: clusters.length,
     getScrollElement: () => scroller.current,

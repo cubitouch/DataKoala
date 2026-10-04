@@ -194,107 +194,101 @@ export function LogResultExplorer({
 
   const inspector = selected ? (
     <div className={styles.logInspector}>
-            <header>
+      <header>
+        <div>
+          <strong>Log event</strong>
+          <span>{new Date(selected.timestampMs).toISOString()}</span>
+        </div>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => setSelectedId(null)}
+          aria-label="Close log details"
+        >
+          Close
+        </button>
+      </header>
+      <div className={styles.inspectorBody}>
+        <div className={styles.inspectorSeverity}>
+          <strong data-severity={selected.severity.toUpperCase()}>
+            {selected.severity.toUpperCase()}
+          </strong>
+        </div>
+        <p className={styles.fullLine}>
+          {highlight(effectiveLogMessage(selected))}
+        </p>
+        <div className={styles.logActions}>
+          <button
+            className={styles.iconAction}
+            title="Copy message"
+            aria-label="Copy message"
+            onClick={() =>
+              void navigator.clipboard.writeText(effectiveLogMessage(selected))
+            }
+          >
+            <ActionIcon kind="copy" />
+          </button>
+          <button
+            className={styles.iconAction}
+            title="Copy raw log"
+            aria-label="Copy raw log"
+            onClick={() => void navigator.clipboard.writeText(selected.line)}
+          >
+            <ActionIcon kind="raw" />
+          </button>
+        </div>
+        {(selected.traceId || selected.spanId) && (
+          <dl className={styles.traceIdentifiers}>
+            {selected.traceId && (
               <div>
-                <strong>Log event</strong>
-                <span>{new Date(selected.timestampMs).toISOString()}</span>
+                <dt>Trace ID</dt>
+                <dd>
+                  <code>{highlight(selected.traceId)}</code>
+                  <button
+                    title="Copy Trace ID"
+                    aria-label="Copy Trace ID"
+                    onClick={() =>
+                      void navigator.clipboard.writeText(selected.traceId!)
+                    }
+                  >
+                    <ActionIcon kind="copy" />
+                  </button>
+                </dd>
               </div>
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() => setSelectedId(null)}
-                aria-label="Close log details"
-              >
-                Close
-              </button>
-            </header>
-            <div className={styles.inspectorBody}>
-              <div className={styles.inspectorSeverity}>
-                <strong data-severity={selected.severity.toUpperCase()}>
-                  {selected.severity.toUpperCase()}
-                </strong>
+            )}
+            {selected.spanId && (
+              <div>
+                <dt>Span ID</dt>
+                <dd>
+                  <code>{highlight(selected.spanId)}</code>
+                  <button
+                    title="Copy Span ID"
+                    aria-label="Copy Span ID"
+                    onClick={() =>
+                      void navigator.clipboard.writeText(selected.spanId!)
+                    }
+                  >
+                    <ActionIcon kind="copy" />
+                  </button>
+                </dd>
               </div>
-              <p className={styles.fullLine}>
-                {highlight(effectiveLogMessage(selected))}
-              </p>
-              <div className={styles.logActions}>
-                <button
-                  className={styles.iconAction}
-                  title="Copy message"
-                  aria-label="Copy message"
-                  onClick={() =>
-                    void navigator.clipboard.writeText(
-                      effectiveLogMessage(selected),
-                    )
-                  }
-                >
-                  <ActionIcon kind="copy" />
-                </button>
-                <button
-                  className={styles.iconAction}
-                  title="Copy raw log"
-                  aria-label="Copy raw log"
-                  onClick={() =>
-                    void navigator.clipboard.writeText(selected.line)
-                  }
-                >
-                  <ActionIcon kind="raw" />
-                </button>
-              </div>
-              {(selected.traceId || selected.spanId) && (
-                <dl className={styles.traceIdentifiers}>
-                  {selected.traceId && (
-                    <div>
-                      <dt>Trace ID</dt>
-                      <dd>
-                        <code>{highlight(selected.traceId)}</code>
-                        <button
-                          title="Copy Trace ID"
-                          aria-label="Copy Trace ID"
-                          onClick={() =>
-                            void navigator.clipboard.writeText(
-                              selected.traceId!,
-                            )
-                          }
-                        >
-                          <ActionIcon kind="copy" />
-                        </button>
-                      </dd>
-                    </div>
-                  )}
-                  {selected.spanId && (
-                    <div>
-                      <dt>Span ID</dt>
-                      <dd>
-                        <code>{highlight(selected.spanId)}</code>
-                        <button
-                          title="Copy Span ID"
-                          aria-label="Copy Span ID"
-                          onClick={() =>
-                            void navigator.clipboard.writeText(selected.spanId!)
-                          }
-                        >
-                          <ActionIcon kind="copy" />
-                        </button>
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-              )}
-              <section className={styles.detailSection}>
-                <h3>Indexed labels</h3>
-                {fields(selected.labels, 'label')}
-              </section>
-              <section className={styles.detailSection}>
-                <h3>Structured metadata</h3>
-                {fields(selected.structuredMetadata, 'structured-metadata')}
-              </section>
-              <section className={styles.detailSection}>
-                <h3>Parsed fields</h3>
-                {fields(selected.parsedFields, 'parsed-field')}
-              </section>
-            </div>
-          </div>
+            )}
+          </dl>
+        )}
+        <section className={styles.detailSection}>
+          <h3>Indexed labels</h3>
+          {fields(selected.labels, 'label')}
+        </section>
+        <section className={styles.detailSection}>
+          <h3>Structured metadata</h3>
+          {fields(selected.structuredMetadata, 'structured-metadata')}
+        </section>
+        <section className={styles.detailSection}>
+          <h3>Parsed fields</h3>
+          {fields(selected.parsedFields, 'parsed-field')}
+        </section>
+      </div>
+    </div>
   ) : undefined
 
   return (

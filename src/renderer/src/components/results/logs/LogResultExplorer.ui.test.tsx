@@ -224,7 +224,6 @@ it('highlights searchable metadata without marking inspector headings or actions
   ).toBeNull()
 })
 
-
 it('keeps the resized log inspector width when selecting another log', () => {
   const second = {
     ...row,
@@ -246,7 +245,9 @@ it('keeps the resized log inspector width when selecting another log', () => {
     .querySelector('[data-resizable-detail]')!
     .getAttribute('data-detail-width')
 
-  fireEvent.click(screen.getByRole('button', { name: /Second checkout failure/ }))
+  fireEvent.click(
+    screen.getByRole('button', { name: /Second checkout failure/ }),
+  )
   expect(
     document
       .querySelector('[data-resizable-detail]')!

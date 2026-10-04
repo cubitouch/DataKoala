@@ -84,9 +84,7 @@ export function ResizableDetailPanel({
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
     event.preventDefault()
-    onWidthChange(
-      clampWidth(width + (event.key === 'ArrowLeft' ? 24 : -24)),
-    )
+    onWidthChange(clampWidth(width + (event.key === 'ArrowLeft' ? 24 : -24)))
   }
 
   const clampedWidth = clampWidth(width)
