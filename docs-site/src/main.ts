@@ -7,6 +7,9 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="curr
 
 const shot = (name: string, alt: string) =>
   `<a class="shot" href="./screenshots/${name}.png">
+    <span class="screenshot-chrome" aria-hidden="true">
+      <i></i><i></i><i></i>
+    </span>
     <img src="./screenshots/${name}.png" alt="${alt}" loading="lazy">
   </a>`
 
@@ -59,6 +62,9 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="hero-product">
         <div class="hero-product-glow" aria-hidden="true"></div>
         <a class="product-window" href="./screenshots/docs-overview.png">
+          <span class="screenshot-chrome screenshot-chrome-hero" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
           <img src="./screenshots/docs-overview.png" alt="DataKoala visual Builder configured for monthly market activity with a connected PostgreSQL source and five-series chart">
         </a>
       </div>
