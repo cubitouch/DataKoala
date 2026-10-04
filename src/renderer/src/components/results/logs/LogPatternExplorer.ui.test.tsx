@@ -184,8 +184,9 @@ it('shows level-only inspector badges and keeps View logs beside Close in the he
     (badge) => badge.textContent,
   )
   expect(inspectorSeverities).toEqual(['ERROR', 'INFO'])
-  expect(inspectorSeverities.every((severity) => !/\d/.test(severity ?? '')))
-    .toBe(true)
+  expect(
+    inspectorSeverities.every((severity) => !/\d/.test(severity ?? '')),
+  ).toBe(true)
 
   expect(screen.getByRole('heading', { name: 'Template' })).toBeTruthy()
   expect(screen.getByRole('heading', { name: 'Example messages' })).toBeTruthy()

@@ -10,10 +10,7 @@ import {
   type LogPatternCluster,
 } from '@shared/log-patterns'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
-import {
-  LogRowChevron,
-  LogSeverityBadge,
-} from './LogRowPresentation'
+import { LogRowChevron, LogSeverityBadge } from './LogRowPresentation'
 import { representativeLogSeverity } from './logSeverity'
 import styles from './LogPatternExplorer.module.css'
 

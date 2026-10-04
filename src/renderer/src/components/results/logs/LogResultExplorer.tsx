@@ -1,9 +1,6 @@
 import { HighlightedText } from '@components/ui/HighlightedText'
 import { TextInput } from '@components/ui/TextInput'
-import {
-  LogRowChevron,
-  LogSeverityBadge,
-} from './LogRowPresentation'
+import { LogRowChevron, LogSeverityBadge } from './LogRowPresentation'
 import {
   DEFAULT_DETAIL_PANEL_WIDTH,
   ResizableDetailPanel,

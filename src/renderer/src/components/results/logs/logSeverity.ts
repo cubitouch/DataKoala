@@ -17,8 +17,7 @@ export function representativeLogSeverity(
   return (
     entries.sort(
       (left, right) =>
-        right.count - left.count ||
-        left.severity.localeCompare(right.severity),
+        right.count - left.count || left.severity.localeCompare(right.severity),
     )[0]?.severity ?? null
   )
 }
