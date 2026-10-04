@@ -20,7 +20,10 @@ function literalCandidates(cluster: Pick<LogPatternCluster, 'segments'>) {
   for (const run of runs) {
     for (let size = run.length; size > 0; size -= 1) {
       for (let start = 0; start + size <= run.length; start += 1) {
-        const candidate = run.slice(start, start + size).join(' ').trim()
+        const candidate = run
+          .slice(start, start + size)
+          .join(' ')
+          .trim()
         if (useful(candidate)) candidates.add(candidate)
       }
     }
