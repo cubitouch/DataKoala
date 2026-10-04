@@ -32,11 +32,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Apply Prettier
-        run: pnpm exec prettier --write \
-          src/renderer/src/components/results/logs/LogPatternExplorer.tsx \
-          src/renderer/src/components/results/logs/LogPatternExplorer.ui.test.tsx \
-          src/renderer/src/components/results/logs/LogResultExplorer.tsx \
-          src/renderer/src/components/results/logs/logSeverity.ts
+        run: pnpm exec prettier --write src/renderer/src/components/results/logs/LogPatternExplorer.tsx src/renderer/src/components/results/logs/LogPatternExplorer.ui.test.tsx src/renderer/src/components/results/logs/LogResultExplorer.tsx src/renderer/src/components/results/logs/logSeverity.ts
 
       - name: Commit formatting
         run: |
