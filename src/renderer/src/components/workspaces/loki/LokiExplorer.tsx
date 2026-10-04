@@ -638,11 +638,14 @@ export function LokiExplorer({
         cluster,
         patternMessagesById,
       )
+      const existingLineFilter = builder.lineFilters[0]
       const canUseVisibleBuilderFilter =
         mode === 'builder' &&
         !metadataRefreshing &&
-        builder.lineFilters.length <= 1 &&
-        builder.lineFilters.every(({ operator }) => operator === '|=')
+        (builder.lineFilters.length === 0 ||
+          (builder.lineFilters.length === 1 &&
+            existingLineFilter.operator === '|=' &&
+            candidate?.includes(existingLineFilter.value)))
 
       if (candidate && canUseVisibleBuilderFilter) {
         const nextBuilder = {
