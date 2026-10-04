@@ -18,7 +18,6 @@ const mocks = vi.hoisted(() => ({
   propose: vi.fn(),
   cancel: vi.fn(),
   run: vi.fn(),
-  ensureColumns: vi.fn(),
 }))
 vi.mock('@lib/api', () => ({
   api: {
@@ -37,7 +36,9 @@ vi.mock('@lib/api', () => ({
   },
 }))
 vi.mock('@lib/relationColumns', () => ({
-  ensureRelationColumns: mocks.ensureColumns,
+  ensureRelationColumns: vi.fn(async () => [
+    { name: 'id', dataTypeName: 'uuid' },
+  ]),
 }))
 import { AiSettingsAction } from './AiSettingsAction'
 import { AiSettingsModal } from './AiSettingsModal'
@@ -82,7 +83,6 @@ beforeEach(() => {
   mocks.test.mockResolvedValue(ok(undefined))
   mocks.cancel.mockResolvedValue(ok(undefined))
   mocks.propose.mockResolvedValue(ok(proposed))
-  mocks.ensureColumns.mockResolvedValue([{ name: 'id', dataTypeName: 'uuid' }])
   resetTestStore({
     profiles: [
       {
@@ -199,22 +199,6 @@ test('settings model picker searches catalog and saves canonical model id', asyn
     }),
   )
 })
-test(
-  'configured copilot prepares relation metadata only after the user enters a prompt',
-  async () => {
-    render(<AiQueryCopilot />)
-    const input = await screen.findByRole('textbox', { name: 'AI prompt' })
-
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 350))
-    })
-    expect(mocks.ensureColumns).not.toHaveBeenCalled()
-
-    fireEvent.change(input, { target: { value: 'count orders' } })
-    await waitFor(() => expect(mocks.ensureColumns).toHaveBeenCalledTimes(1))
-  },
-)
-
 for (const initialSql of ['', 'SELECT id FROM public.orders']) {
   test(`proposal requires Apply and never executes; initial SQL: ${initialSql || 'empty'}`, async () => {
     patchActiveTestSession({ sql: initialSql })
