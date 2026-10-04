@@ -17,9 +17,7 @@ export interface Encryption {
 }
 
 export type SecureStorageErrorCode =
-  | 'unavailable'
-  | 'invalid-persistence'
-  | 'encryption'
+  'unavailable' | 'invalid-persistence' | 'encryption'
 
 export class SecureStorageError extends Error {
   code: SecureStorageErrorCode
