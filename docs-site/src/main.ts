@@ -62,11 +62,6 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="hero-product">
         <div class="hero-product-glow" aria-hidden="true"></div>
         <a class="product-window" href="./screenshots/docs-overview.png">
-          <span class="product-window-bar" aria-hidden="true">
-            <span class="traffic-lights"><i></i><i></i><i></i></span>
-            <span class="product-window-title">DataKoala · PostgreSQL</span>
-            <span class="product-window-status">LOCAL</span>
-          </span>
           <img src="./screenshots/docs-overview.png" alt="DataKoala visual Builder configured for monthly market activity with a connected PostgreSQL source and five-series chart">
         </a>
       </div>
@@ -80,8 +75,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <span>SQLite</span>
         <span>CSV / Parquet / JSON</span>
         <span>Prometheus</span>
-        <span>Grafana Loki</span>
-        <span>Grafana Tempo</span>
+        <span>Loki</span>
+        <span>Tempo</span>
       </div>
     </section>
 
@@ -98,7 +93,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
             <span class="card-index">01</span>
             <p class="card-kicker">SQL + VISUAL BUILDER</p>
             <h3>Start where you are comfortable.</h3>
-            <p>Browse metadata, build queries visually, or write SQL directly. The query stays visible and reusable either way.</p>
+            <p>Browse metadata and build queries visually when you want speed, or write SQL directly when you need full control.</p>
           </div>
           ${bentoShot('docs-sql', 'SQL query beside searchable metadata and filtered market activity results')}
         </article>
