@@ -571,15 +571,6 @@ nav {
   transform: scale(1.008);
 }
 
-.bento-card-logs .bento-media img {
-  width: 122%;
-  max-width: none;
-  transform: translateX(-10%);
-}
-
-.bento-card-logs:hover .bento-media img {
-  transform: translateX(-10%) scale(1.008);
-}
 
 .deep-dives {
   padding-top: 142px;
