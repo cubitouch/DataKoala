@@ -699,7 +699,7 @@ export function TraceExplorer({
               ref={traceqlEditorRef}
               className={styles.traceqlField}
               value={traceql}
-              minHeight="66px"
+              height="100%"
               extensions={traceqlExtensions}
               onChange={(value) => setSql(value, tabId)}
               aria-label="TraceQL editor"
