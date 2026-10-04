@@ -82,11 +82,7 @@ export class AiSettingsStore {
   private queue: Promise<unknown> = Promise.resolve()
   private migrating: Promise<void> | null = null
 
-  constructor(
-    directory: string,
-    secrets: SecretStore,
-    encryption: Encryption,
-  ) {
+  constructor(directory: string, secrets: SecretStore, encryption: Encryption) {
     this.directory = directory
     this.secrets = secrets
     this.encryption = encryption
@@ -98,16 +94,8 @@ export class AiSettingsStore {
 
   private async migrateLegacySecret() {
     const legacy = await readOptional(this.legacyPath())
-    if (
-      await this.secrets.has(
-        OPENROUTER_SECRET.owner,
-        OPENROUTER_SECRET.id,
-      )
-    ) {
-      if (
-        legacy !== null &&
-        (await encryptionAvailable(this.encryption))
-      ) {
+    if (await this.secrets.has(OPENROUTER_SECRET.owner, OPENROUTER_SECRET.id)) {
+      if (legacy !== null && (await encryptionAvailable(this.encryption))) {
         const shared = await this.secrets.get(
           OPENROUTER_SECRET.owner,
           OPENROUTER_SECRET.id,
@@ -116,15 +104,10 @@ export class AiSettingsStore {
       }
       return
     }
-    if (legacy === null || !(await encryptionAvailable(this.encryption)))
-      return
+    if (legacy === null || !(await encryptionAvailable(this.encryption))) return
 
     const value = await decryptLegacySecret(legacy, this.encryption)
-    await this.secrets.set(
-      OPENROUTER_SECRET.owner,
-      OPENROUTER_SECRET.id,
-      value,
-    )
+    await this.secrets.set(OPENROUTER_SECRET.owner, OPENROUTER_SECRET.id, value)
     const persisted = await this.secrets.get(
       OPENROUTER_SECRET.owner,
       OPENROUTER_SECRET.id,
@@ -183,9 +166,7 @@ export class AiSettingsStore {
     if (shared !== null) return shared
 
     const legacy = await readOptional(this.legacyPath())
-    return legacy === null
-      ? null
-      : decryptLegacySecret(legacy, this.encryption)
+    return legacy === null ? null : decryptLegacySecret(legacy, this.encryption)
   }
 
   save(input: AiSettingsInput) {
@@ -222,10 +203,7 @@ export class AiSettingsStore {
           // Explicit removal should still be able to clear a legacy secret.
         }
       }
-      await this.secrets.delete(
-        OPENROUTER_SECRET.owner,
-        OPENROUTER_SECRET.id,
-      )
+      await this.secrets.delete(OPENROUTER_SECRET.owner, OPENROUTER_SECRET.id)
       await rm(this.legacyPath(), { force: true })
       return this.get()
     })
