@@ -246,7 +246,9 @@ for (const change of ['query', 'tab', 'connection'] as const) {
         useStore.setState({ activeTabId: state.activeTabId })
       }
     })
-    await act(async () => pending.resolve(ok({ kind: 'proposal', proposal: proposed })))
+    await act(async () =>
+      pending.resolve(ok({ kind: 'proposal', proposal: proposed })),
+    )
     expect(
       (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
         .disabled,
@@ -263,7 +265,9 @@ test('Cancel aborts and ignores a late successful response', async () => {
   expect(mocks.cancel).toHaveBeenCalledWith(
     mocks.propose.mock.calls[0][0].requestId,
   )
-  await act(async () => pending.resolve(ok({ kind: 'proposal', proposal: proposed })))
+  await act(async () =>
+    pending.resolve(ok({ kind: 'proposal', proposal: proposed })),
+  )
   expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
   expect(selectActiveSession(useStore.getState()).sql).toBe('')
 })
@@ -467,14 +471,12 @@ test('saving settings enables an already-mounted hidden copilot', async () => {
 })
 test('cancelled first response cannot replace a newer proposal', async () => {
   const first = deferred<AiResult<AiQueryStep>>()
-  mocks.propose
-    .mockReturnValueOnce(first.promise)
-    .mockResolvedValueOnce(
-      ok({
-        kind: 'proposal',
-        proposal: { ...proposed, explanation: 'Newer proposal' },
-      }),
-    )
+  mocks.propose.mockReturnValueOnce(first.promise).mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: { ...proposed, explanation: 'Newer proposal' },
+    }),
+  )
   render(<AiQueryCopilot />)
   await generate()
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -562,9 +564,9 @@ test('context request adds only matching undisclosed metadata and retries once',
   ).toContain('zy_devices')
   expect(expanded.context.relations).toHaveLength(7)
   expect(expanded.requestId).toBe(initial.requestId)
-  expect(
-    mocks.columns.mock.calls.map((call) => call[1].name),
-  ).not.toContain('zz_unrelated')
+  expect(mocks.columns.mock.calls.map((call) => call[1].name)).not.toContain(
+    'zz_unrelated',
+  )
   expect(
     mocks.columns.mock.calls.filter((call) => call[1].name === 'zy_devices'),
   ).toHaveLength(1)
@@ -580,9 +582,9 @@ test('context request with no local match stops after the first provider call', 
   expect(alert.textContent).toContain('no undisclosed matching relation')
   expect(alert.textContent).toContain('Make the prompt more specific')
   expect(mocks.propose).toHaveBeenCalledTimes(1)
-  expect(
-    mocks.columns.mock.calls.map((call) => call[1].name),
-  ).not.toContain('zz_unrelated')
+  expect(mocks.columns.mock.calls.map((call) => call[1].name)).not.toContain(
+    'zz_unrelated',
+  )
 })
 
 test('a second context request stops cleanly without a third provider call', async () => {
@@ -602,9 +604,8 @@ test('a second context request stops cleanly without a third provider call', asy
 
 test('cancelling during metadata expansion prevents the retry provider call', async () => {
   setDiscoveryMetadata()
-  const deviceColumns = deferred<
-    Array<{ name: string; dataTypeName: string }>
-  >()
+  const deviceColumns =
+    deferred<Array<{ name: string; dataTypeName: string }>>()
   mocks.columns.mockImplementation(
     async (_profileId: string, relation: { name: string }) =>
       relation.name === 'zy_devices'
