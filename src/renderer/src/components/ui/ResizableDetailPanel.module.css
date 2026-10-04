@@ -42,10 +42,11 @@
 }
 
 .separator:hover::after,
-.separator:focus-visible::after {
+.separator:focus-visible::after,
+.separator:active::after {
   left: 3px;
   width: 2px;
-  background: var(--accent);
+  background: var(--text-dim);
 }
 
 .detail {
