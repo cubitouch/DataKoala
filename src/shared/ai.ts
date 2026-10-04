@@ -33,6 +33,13 @@ export interface AiQueryProposal {
   explanation: string
   assumptions: string[]
 }
+export interface AiContextRequest {
+  searchTerms: string[]
+  reason: string
+}
+export type AiQueryStep =
+  | { kind: 'proposal'; proposal: AiQueryProposal }
+  | { kind: 'context-request'; request: AiContextRequest }
 export type AiErrorCode =
   | 'cancelled'
   | 'timeout'
@@ -47,11 +54,17 @@ export type AiResult<T> =
   { ok: true; value: T } | { ok: false; code: AiErrorCode; message: string }
 export const AI_LIMITS = {
   relations: 8,
+  initialRelations: 6,
   columnsPerRelation: 40,
   columns: 200,
+  initialColumns: 140,
   contextCharacters: 24000,
+  initialContextCharacters: 18000,
   prompt: 8000,
   query: 40000,
+  contextRequestTerms: 5,
+  contextRequestTermCharacters: 80,
+  contextRequestReason: 1000,
 } as const
 export const AI_PRIVACY_NOTICE =
   'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query and bounded schema metadata. Database credentials and query result rows are not sent.'

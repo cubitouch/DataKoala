@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@lib/api'
-import { buildAiContext, selectAiRelations } from './context'
+import {
+  appendAiContext,
+  buildAiContext,
+  expandAiRelations,
+  selectAiRelations,
+} from './context'
 import { ensureRelationColumns } from '@lib/relationColumns'
 import { selectActiveSession, useStore } from '@store/useStore'
 import {
   AI_LIMITS,
   isAiConfigured,
+  type AiContextRequest,
   type AiQueryContext,
   type AiQueryProposal,
 } from '@shared/ai'
@@ -20,10 +26,16 @@ const capture = (): Snapshot => {
 }
 const matches = (a: Snapshot, b: Snapshot) =>
   a.tabId === b.tabId && a.profileId === b.profileId && a.query === b.query
+interface AiDiscoveryDetails {
+  initialContext: AiQueryContext
+  request: AiContextRequest
+  addedRelations: string[]
+}
 interface Prepared {
   snapshot: Snapshot
   prompt: string
   context: AiQueryContext
+  discovery?: AiDiscoveryDetails
 }
 interface Review {
   input: Prepared
@@ -46,6 +58,58 @@ async function prepare(snapshot: Snapshot, prompt: string): Promise<Prepared> {
   )
   return { snapshot, prompt, context }
 }
+async function expand(
+  input: Prepared,
+  request: AiContextRequest,
+): Promise<Prepared> {
+  if (!input.snapshot.profileId)
+    throw new Error('No PostgreSQL connection selected.')
+  const schemas =
+    useStore.getState().metadataByProfileId[input.snapshot.profileId]
+      ?.schemas ?? []
+  const candidates = expandAiRelations(
+    schemas,
+    request.searchTerms,
+    input.snapshot.query,
+    input.context.relations,
+  )
+  const requested: Prepared = {
+    ...input,
+    discovery: {
+      initialContext: input.context,
+      request,
+      addedRelations: [],
+    },
+  }
+  if (!candidates.length) return requested
+  const context = await appendAiContext(input.context, candidates, (relation) =>
+    ensureRelationColumns(input.snapshot.profileId!, relation),
+  )
+  const before = new Set(
+    input.context.relations.map(
+      (relation) => `${relation.schema}.${relation.name}`,
+    ),
+  )
+  return {
+    ...input,
+    context,
+    discovery: {
+      ...requested.discovery!,
+      addedRelations: context.relations
+        .filter(
+          (relation) => !before.has(`${relation.schema}.${relation.name}`),
+        )
+        .map((relation) => `${relation.schema}.${relation.name}`),
+    },
+  }
+}
+const requestedConcepts = (request: AiContextRequest) =>
+  request.searchTerms.map((term) => `“${term}”`).join(', ')
+const noMatchMessage = (request: AiContextRequest) =>
+  `AI requested more metadata for ${requestedConcepts(request)} (${request.reason}), but DataKoala found no undisclosed matching relation within the metadata budget. Make the prompt more specific or mention the relevant table.`
+const secondRequestMessage = (request: AiContextRequest) =>
+  `AI still needs more metadata for ${requestedConcepts(request)} (${request.reason}) after one discovery step. DataKoala stops after one expansion. Make the prompt more specific or mention the relevant table or columns.`
+
 export function useAiQueryCopilot() {
   const [prompt, setPrompt] = useState(''),
     [configured, setConfigured] = useState<boolean | null>(null)
@@ -197,25 +261,60 @@ export function useAiQueryCopilot() {
         cancel()
         return
       }
-      setSent(input)
-      active.sent = true
-      const result = await api.ai.proposeQuery({
-        requestId: active.id,
-        prompt: input.prompt,
-        ...(input.snapshot.query.trim()
-          ? { currentQuery: input.snapshot.query }
-          : {}),
-        context: input.context,
-      })
-      if (!mounted.current || flight.current !== active) return
-      if (!result.ok) {
-        if (result.code !== 'cancelled') setError(result.message)
-      } else
+      const callProvider = async (requestInput: Prepared) => {
+        if (!mounted.current || flight.current !== active) return null
+        setSent(requestInput)
+        active.sent = true
+        return api.ai.proposeQuery({
+          requestId: active.id,
+          prompt: requestInput.prompt,
+          ...(requestInput.snapshot.query.trim()
+            ? { currentQuery: requestInput.snapshot.query }
+            : {}),
+          context: requestInput.context,
+        })
+      }
+      const first = await callProvider(input)
+      if (!first || !mounted.current || flight.current !== active) return
+      if (!first.ok) {
+        if (first.code !== 'cancelled') setError(first.message)
+        return
+      }
+      if (first.value.kind === 'proposal') {
         updateReview({
           input,
-          proposal: result.value,
+          proposal: first.value.proposal,
           stale: active.stale || !matches(input.snapshot, capture()),
         })
+        return
+      }
+
+      const expanded = await expand(input, first.value.request)
+      if (!mounted.current || flight.current !== active) return
+      setSent(expanded)
+      if (!expanded.discovery?.addedRelations.length) {
+        setError(noMatchMessage(first.value.request))
+        return
+      }
+
+      // Exactly one local expansion is allowed. Cancellation during discovery
+      // clears flight.current, so this guard prevents the second provider call.
+      if (!mounted.current || flight.current !== active) return
+      const second = await callProvider(expanded)
+      if (!second || !mounted.current || flight.current !== active) return
+      if (!second.ok) {
+        if (second.code !== 'cancelled') setError(second.message)
+        return
+      }
+      if (second.value.kind === 'context-request') {
+        setError(secondRequestMessage(second.value.request))
+        return
+      }
+      updateReview({
+        input: expanded,
+        proposal: second.value.proposal,
+        stale: active.stale || !matches(expanded.snapshot, capture()),
+      })
     } catch {
       if (mounted.current && flight.current === active)
         setError(
