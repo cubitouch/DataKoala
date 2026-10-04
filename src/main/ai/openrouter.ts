@@ -1,7 +1,7 @@
-import {
-  type AiModel,
-  type AiQueryProposalRequest,
-  type AiQueryStep,
+import type {
+  AiModel,
+  AiQueryProposalRequest,
+  AiQueryStep,
 } from '../../shared/ai.ts'
 import { AiError, queryStep, record } from './validation.ts'
 
