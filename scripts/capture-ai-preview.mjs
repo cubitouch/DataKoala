@@ -43,6 +43,34 @@ async function click(win, label) {
     button.click()
   })()`)
 }
+
+async function captureSettingsDialog(win) {
+  const rect = await win.webContents.executeJavaScript(`(() => {
+    const backdrop = document.querySelector('[data-modal-backdrop]')
+    const dialog = document.querySelector('[role="dialog"]')
+    if (!backdrop || !dialog) throw new Error('AI settings dialog is not open')
+
+    backdrop.style.setProperty('backdrop-filter', 'none', 'important')
+    backdrop.style.setProperty('-webkit-backdrop-filter', 'none', 'important')
+
+    const bounds = dialog.getBoundingClientRect()
+    const margin = 20
+    const x = Math.max(0, Math.floor(bounds.left - margin))
+    const y = Math.max(0, Math.floor(bounds.top - margin))
+    return {
+      x,
+      y,
+      width: Math.min(window.innerWidth - x, Math.ceil(bounds.width + margin * 2)),
+      height: Math.min(window.innerHeight - y, Math.ceil(bounds.height + margin * 2)),
+    }
+  })()`)
+
+  const image = await win.webContents.capturePage(rect)
+  const size = image.getSize()
+  if (size.width < 400 || size.height < 260)
+    throw new Error(`AI settings preview crop is unexpectedly small: ${size.width}x${size.height}`)
+  return image.toPNG()
+}
 app.whenReady().then(async () => {
   try {
     ipcMain.handle('connections:list', () => [])
@@ -101,7 +129,7 @@ app.whenReady().then(async () => {
     await sleep(200)
     await writeFile(
       resolve(output, 'ai-settings.png'),
-      (await win.webContents.capturePage()).toPNG(),
+      await captureSettingsDialog(win),
     )
     await click(win, 'Cancel')
     // Enlarge the resizable editor through its real keyboard control for diff review.
