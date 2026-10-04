@@ -5,7 +5,7 @@ import {
   expandAiRelations,
   selectAiRelations,
 } from './context'
-import { AI_LIMITS, type AiQueryContext } from '@shared/ai'
+import { AI_LIMITS } from '@shared/ai'
 import type { DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
 
 const relation = (name: string, schema = 'public'): DatabaseRelationNode => ({
