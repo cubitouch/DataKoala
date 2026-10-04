@@ -29,6 +29,7 @@ import { api } from '@lib/api'
 import { TimeRangeField } from '@components/query/time-range/TimeRangeField'
 import { LogResultExplorer } from '@components/results/logs/LogResultExplorer'
 import { LogPatternExplorer } from '@components/results/logs/LogPatternExplorer'
+import type { LogPatternCluster } from '@shared/log-patterns'
 import { GenericResultExplorer } from '@components/results/GenericResultExplorer'
 import { LokiBuilderPanel } from '@components/builder/loki/LokiBuilderPanel'
 import { ModeSwitch } from '@components/query/ModeSwitch'
@@ -405,74 +406,87 @@ export function LokiExplorer({
     },
     [connectionId, isCurrentTab, trend],
   )
+  const executeExpression = useCallback(
+    async (queryExpression: string, targetView: ChartPickerView) => {
+      if (metadataRefreshing) return
+      const tabId = session.id
+      if (!queryExpression.trim()) return
+      let kind: 'logs' | 'metrics'
+      try {
+        kind = logqlResultKind(queryExpression)
+      } catch (caught) {
+        return setError(
+          caught instanceof Error ? caught.message : String(caught),
+        )
+      }
+      const current = ++revision.current
+      trendRevision.current++
+      trendCacheKey.current = null
+      lastProcessedTrendKey.current = null
+      setTrend(null)
+      hasRun.current = true
+      setLoading(true)
+      setError(null)
+      setTrendError(null)
+      setWarning(null)
+      const bounds = prometheusRangeBounds(range),
+        step = interval(bounds.start, bounds.end)
+      try {
+        const shouldLoadTrend = kind === 'logs' && isLokiChartView(targetView)
+        if (shouldLoadTrend) lastProcessedTrendKey.current = trendRefreshKey
+        // Start the synthetic volume query alongside the raw log query, but do not make
+        // the primary result lifecycle wait for it. The chart already has an explicit
+        // "Loading log volume…" state while this independent Loki metric query finishes.
+        if (shouldLoadTrend)
+          void loadTrend(tabId, queryExpression, range, groupBy)
+        const main = await api.query.runLoki(connectionId, {
+          expression: queryExpression,
+          ...bounds,
+          step,
+          limit,
+        })
+        if (current !== revision.current || !isCurrentTab(tabId)) return
+        useStore.getState().completeQuery(main, null, tabId)
+      } catch (caught) {
+        if (current === revision.current && isCurrentTab(tabId)) {
+          // Do not allow a trend from a failed main query to become the visible result.
+          trendRevision.current++
+          trendCacheKey.current = null
+          setTrend(null)
+          setTrendError(null)
+          setError(caught instanceof Error ? caught.message : String(caught))
+        }
+      } finally {
+        if (current === revision.current && isCurrentTab(tabId))
+          setLoading(false)
+      }
+    },
+    [
+      metadataRefreshing,
+      session.id,
+      range,
+      loadTrend,
+      groupBy,
+      connectionId,
+      limit,
+      isCurrentTab,
+      trendRefreshKey,
+    ],
+  )
   const run = useCallback(async () => {
-    if (metadataRefreshing) return
-    const tabId = session.id
     if (!expression.trim())
       return setError(
         mode === 'builder'
           ? (builderDisabledReason ?? 'The Builder query is not ready to run.')
           : 'Enter a LogQL query.',
       )
-    let kind: 'logs' | 'metrics'
-    try {
-      kind = logqlResultKind(expression)
-    } catch (caught) {
-      return setError(caught instanceof Error ? caught.message : String(caught))
-    }
-    const current = ++revision.current
-    trendRevision.current++
-    trendCacheKey.current = null
-    lastProcessedTrendKey.current = null
-    setTrend(null)
-    hasRun.current = true
-    setLoading(true)
-    setError(null)
-    setTrendError(null)
-    setWarning(null)
-    const bounds = prometheusRangeBounds(range),
-      step = interval(bounds.start, bounds.end)
-    try {
-      const shouldLoadTrend = kind === 'logs' && isLokiChartView(resultView)
-      if (shouldLoadTrend) lastProcessedTrendKey.current = trendRefreshKey
-      // Start the synthetic volume query alongside the raw log query, but do not make
-      // the primary result lifecycle wait for it. The chart already has an explicit
-      // "Loading log volume…" state while this independent Loki metric query finishes.
-      if (shouldLoadTrend) void loadTrend(tabId, expression, range, groupBy)
-      const main = await api.query.runLoki(connectionId, {
-        expression,
-        ...bounds,
-        step,
-        limit,
-      })
-      if (current !== revision.current || !isCurrentTab(tabId)) return
-      useStore.getState().completeQuery(main, null, tabId)
-    } catch (caught) {
-      if (current === revision.current && isCurrentTab(tabId)) {
-        // Do not allow a trend from a failed main query to become the visible result.
-        trendRevision.current++
-        trendCacheKey.current = null
-        setTrend(null)
-        setTrendError(null)
-        setError(caught instanceof Error ? caught.message : String(caught))
-      }
-    } finally {
-      if (current === revision.current && isCurrentTab(tabId)) setLoading(false)
-    }
+    await executeExpression(expression, resultView)
   }, [
-    metadataRefreshing,
-    session.id,
     expression,
     mode,
     builderDisabledReason,
-    range,
+    executeExpression,
     resultView,
-    loadTrend,
-    groupBy,
-    connectionId,
-    limit,
-    isCurrentTab,
-    trendRefreshKey,
   ])
   useEffect(() => {
     if (previousRangeKey.current === rangeKey) return
@@ -514,6 +528,49 @@ export function LokiExplorer({
         lokiRangeHistory: reset ? [] : history.slice(0, -1),
       })
   }
+  const filterPattern = useCallback(
+    async (cluster: LogPatternCluster, lineContains: string | null) => {
+      const visibleLineFilter =
+        builder.lineFilters.length <= 1 &&
+        (!builder.lineFilters[0] || builder.lineFilters[0].operator === '|=')
+      if (mode === 'builder' && lineContains && visibleLineFilter) {
+        const nextBuilder = {
+          ...builder,
+          lineFilters: [{ operator: '|=' as const, value: lineContains }],
+        }
+        let nextExpression: string
+        try {
+          nextExpression = buildLokiQuery(nextBuilder, { fallbackMatcher })
+        } catch {
+          setPatternScope({
+            template: cluster.template,
+            memberIds: new Set(cluster.memberIds),
+          })
+          setLokiState({ lokiResultView: 'list' })
+          return
+        }
+        setPatternScope(null)
+        setLokiState({
+          lokiBuilder: nextBuilder,
+          lokiResultView: 'list',
+        })
+        await executeExpression(nextExpression, 'list')
+        return
+      }
+      setPatternScope({
+        template: cluster.template,
+        memberIds: new Set(cluster.memberIds),
+      })
+      setLokiState({ lokiResultView: 'list' })
+    },
+    [
+      builder,
+      executeExpression,
+      fallbackMatcher,
+      mode,
+      setLokiState,
+    ],
+  )
   const resultFilter = (
     source: LokiFilterSource,
     key: string,
@@ -802,14 +859,14 @@ export function LokiExplorer({
             {patternScope &&
               (resultView === 'list' || resultView === 'table') && (
                 <div className={styles.status} role="status">
-                  Showing {scopedLogRows.length} logs matching{' '}
-                  <code>{patternScope.template}</code>.{' '}
+                  Local pattern filter: <code>{patternScope.template}</code> ·{' '}
+                  {scopedLogRows.length} loaded logs{' '}
                   <button
                     type="button"
                     className="btn ghost"
                     onClick={() => setPatternScope(null)}
                   >
-                    Clear pattern
+                    Clear
                   </button>
                 </div>
               )}
@@ -825,10 +882,9 @@ export function LokiExplorer({
               ) : resultView === 'patterns' ? (
                 <LogPatternExplorer
                   rows={filteredLogRows}
-                  onViewLogs={(template, memberIds) => {
-                    setPatternScope({ template, memberIds: new Set(memberIds) })
-                    setLokiState({ lokiResultView: 'list' })
-                  }}
+                  onFilterPattern={(cluster, lineContains) =>
+                    void filterPattern(cluster, lineContains)
+                  }
                 />
               ) : resultView === 'table' ? (
                 <GenericResultExplorer
