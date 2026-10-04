@@ -118,7 +118,9 @@ it('selects patterns into one resizable inspector and keeps its width', () => {
   })
   fireEvent.click(request)
   expect(request.getAttribute('aria-selected')).toBe('true')
-  expect(screen.getByRole('complementary', { name: 'Pattern details' })).toBeTruthy()
+  expect(
+    screen.getByRole('complementary', { name: 'Pattern details' }),
+  ).toBeTruthy()
   expect(screen.getByText('Example messages')).toBeTruthy()
   expect(screen.getByText('Variable samples')).toBeTruthy()
   expect(screen.getByText('123, 456')).toBeTruthy()
@@ -126,15 +128,20 @@ it('selects patterns into one resizable inspector and keeps its width', () => {
   const split = document.querySelector(
     '[data-resizable-detail-panel]',
   ) as HTMLDivElement
-  Object.defineProperty(split, 'clientWidth', { configurable: true, value: 1000 })
+  Object.defineProperty(split, 'clientWidth', {
+    configurable: true,
+    value: 1000,
+  })
   fireEvent.keyDown(
     screen.getByRole('separator', { name: 'Resize Pattern details' }),
     { key: 'ArrowLeft' },
   )
   expect(
-    (screen.getByRole('complementary', {
-      name: 'Pattern details',
-    }) as HTMLElement).style.width,
+    (
+      screen.getByRole('complementary', {
+        name: 'Pattern details',
+      }) as HTMLElement
+    ).style.width,
   ).toBe('414px')
 
   fireEvent.click(
@@ -142,9 +149,11 @@ it('selects patterns into one resizable inspector and keeps its width', () => {
   )
   expect(screen.getByText('Worker started normally')).toBeTruthy()
   expect(
-    (screen.getByRole('complementary', {
-      name: 'Pattern details',
-    }) as HTMLElement).style.width,
+    (
+      screen.getByRole('complementary', {
+        name: 'Pattern details',
+      }) as HTMLElement
+    ).style.width,
   ).toBe('414px')
 
   fireEvent.click(screen.getByRole('button', { name: 'Close pattern details' }))
