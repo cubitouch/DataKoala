@@ -57,6 +57,20 @@ const rows = Array.from({ length: 600 }, (_, index) => ({
   parsedFields: {},
   severity: index % 2 ? 'INFO' : 'ERROR',
 }))
+const variableRows = [
+  {
+    ...rows[0],
+    id: 'one',
+    line: 'Request 123 completed',
+    severity: 'INFO',
+  },
+  {
+    ...rows[1],
+    id: 'two',
+    line: 'Request 456 completed',
+    severity: 'ERROR',
+  },
+]
 
 it('renders compact virtualized pattern rows without a redundant heading', async () => {
   render(<LogPatternExplorer rows={rows} onViewLogs={vi.fn()} />)
@@ -85,6 +99,30 @@ it('renders compact virtualized pattern rows without a redundant heading', async
   expect(document.querySelectorAll('[data-pattern-row]').length).toBeLessThan(
     30,
   )
+})
+
+it('orders metrics, representative severity, pattern, and chevron like Loki list rows', () => {
+  render(<LogPatternExplorer rows={variableRows} onViewLogs={vi.fn()} />)
+
+  const patternRow = document.querySelector(
+    '[data-pattern-row] button',
+  ) as HTMLButtonElement
+  const children = Array.from(patternRow.children)
+
+  expect(children).toHaveLength(4)
+  expect(children[0].hasAttribute('data-pattern-metrics')).toBe(true)
+  expect(children[0].textContent).toBe('2 logs · 100.0%')
+
+  const severity = children[1].querySelector('[data-log-severity]')
+  expect(severity?.textContent).toBe('ERROR')
+  expect(severity?.textContent).not.toMatch(/\d/)
+
+  expect(children[2].hasAttribute('data-pattern-template')).toBe(true)
+  expect(children[2].textContent).toContain('Request')
+  expect(children[2].textContent).toContain('completed')
+
+  expect(children[3].hasAttribute('data-log-row-chevron')).toBe(true)
+  expect(children[3].textContent).toBe('›')
 })
 
 it('selects patterns into one resizable inspector and keeps its width across selections', () => {
@@ -121,28 +159,33 @@ it('selects patterns into one resizable inspector and keeps its width across sel
   ).toBeNull()
 })
 
-it('shows pattern examples and variable samples in the inspector and filters the selected cluster', () => {
+it('shows level-only inspector badges and keeps View logs beside Close in the header', () => {
   const onViewLogs = vi.fn()
-  const variableRows = [
-    {
-      ...rows[0],
-      id: 'one',
-      line: 'Request 123 completed',
-      severity: 'INFO',
-    },
-    {
-      ...rows[1],
-      id: 'two',
-      line: 'Request 456 completed',
-      severity: 'ERROR',
-    },
-  ]
   render(<LogPatternExplorer rows={variableRows} onViewLogs={onViewLogs} />)
 
   const patternRow = document.querySelector(
     '[data-pattern-row] button',
   ) as HTMLButtonElement
   fireEvent.click(patternRow)
+
+  const inspector = screen.getByRole('complementary', {
+    name: 'Selected pattern details',
+  })
+  const header = inspector.querySelector('header')!
+  const headerButtons = Array.from(
+    header.querySelectorAll('button'),
+    (button) => button.textContent?.trim(),
+  )
+  expect(headerButtons).toEqual(['View logs', 'Close'])
+  expect(screen.getAllByRole('button', { name: 'View logs' })).toHaveLength(1)
+
+  const inspectorSeverities = Array.from(
+    inspector.querySelectorAll('[data-log-severity]'),
+    (badge) => badge.textContent,
+  )
+  expect(inspectorSeverities).toEqual(['ERROR', 'INFO'])
+  expect(inspectorSeverities.every((severity) => !/\d/.test(severity ?? '')))
+    .toBe(true)
 
   expect(screen.getByRole('heading', { name: 'Template' })).toBeTruthy()
   expect(screen.getByRole('heading', { name: 'Example messages' })).toBeTruthy()
