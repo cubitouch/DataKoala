@@ -60,6 +60,11 @@
   flex: none;
 }
 
+.copilot .copilotMessage {
+  margin-top: 8px;
+  padding-inline: 8px;
+}
+
 .context.context {
   padding: 12px;
   overflow-wrap: anywhere;

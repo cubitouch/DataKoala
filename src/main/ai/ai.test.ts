@@ -9,11 +9,31 @@ import type { Encryption, SecretOwner, SecretStore } from '../secrets/store.ts'
 import { AiService } from './service.ts'
 import { OpenRouterProvider } from './openrouter.ts'
 import { proposalRequest } from './validation.ts'
-import type { AiQueryProposalRequest } from '../../shared/ai.ts'
-const valid = {
+import {
+  AI_LIMITS,
+  type AiQueryProposalRequest,
+  type AiQueryStep,
+} from '../../shared/ai.ts'
+
+const proposal = {
   query: 'SELECT count(*) FROM public.orders',
   explanation: 'Counts orders.',
   assumptions: [],
+}
+const proposalWire = {
+  kind: 'proposal',
+  ...proposal,
+  searchTerms: [],
+  reason: '',
+}
+const proposalStep: AiQueryStep = { kind: 'proposal', proposal }
+const contextRequestWire = {
+  kind: 'context-request',
+  query: '',
+  explanation: '',
+  assumptions: [],
+  searchTerms: ['device'],
+  reason: 'The request mentions device but no matching metadata was supplied.',
 }
 const request: AiQueryProposalRequest = {
   requestId: 'req',
@@ -54,7 +74,7 @@ async function writeLegacySecret(directory: string, value: string) {
     { mode: 0o600 },
   )
 }
-const completion = (content: unknown = valid) =>
+const completion = (content: unknown = proposalWire) =>
   Response.json({
     choices: [
       {
@@ -89,14 +109,36 @@ test('OpenRouter models, structured request and proposal parsing use only explic
     { id: 'a', name: 'a' },
     { id: 'z', name: 'Zebra' },
   ])
-  assert.deepEqual(await provider.proposeQuery(request, signal()), valid)
+  assert.deepEqual(await provider.proposeQuery(request, signal()), proposalStep)
   assert.deepEqual(sent?.provider, { require_parameters: true })
   assert.equal((sent?.response_format as { type: string }).type, 'json_schema')
+  const responseFormat = sent?.response_format as {
+    json_schema?: { schema?: Record<string, unknown> }
+  }
+  assert.equal(
+    JSON.stringify(responseFormat.json_schema?.schema).includes('oneOf'),
+    false,
+  )
   assert.equal(sent?.model, 'vendor/model')
   assert.equal(JSON.stringify(sent).includes('test-placeholder'), false)
+  assert.match(JSON.stringify(sent?.messages), /context-request/)
   await provider.test(signal())
   assert.equal(sent?.max_tokens, 256)
 })
+
+test('OpenRouter normalizes a bounded context request into the provider-neutral step', async () => {
+  const provider = new OpenRouterProvider('key', 'model', async () =>
+    completion(contextRequestWire),
+  )
+  assert.deepEqual(await provider.proposeQuery(request, signal()), {
+    kind: 'context-request',
+    request: {
+      searchTerms: ['device'],
+      reason: contextRequestWire.reason,
+    },
+  })
+})
+
 for (const [status, code] of [
   [401, 'authentication'],
   [403, 'authentication'],
@@ -118,14 +160,34 @@ for (const [status, code] of [
     )
   })
 }
+
 for (const content of [
   'not json',
-  { ...valid, query: 1 },
-  { explanation: 'no query', assumptions: [] },
-  { ...valid, assumptions: [1] },
-  { ...valid, extra: 'field' },
+  proposal,
+  { ...proposalWire, query: 1 },
+  { ...proposalWire, assumptions: [1] },
+  { ...proposalWire, extra: 'field' },
+  { ...proposalWire, searchTerms: ['device'] },
+  { ...contextRequestWire, query: 'SELECT * FROM devices' },
+  { ...contextRequestWire, searchTerms: [] },
+  {
+    ...contextRequestWire,
+    searchTerms: Array(AI_LIMITS.contextRequestTerms + 1).fill('device'),
+  },
+  {
+    ...contextRequestWire,
+    searchTerms: ['x'.repeat(AI_LIMITS.contextRequestTermCharacters + 1)],
+  },
+  {
+    ...contextRequestWire,
+    reason: 'x'.repeat(AI_LIMITS.contextRequestReason + 1),
+  },
+  { ...contextRequestWire, searchTerms: ['SELECT * FROM devices'] },
+  { ...contextRequestWire, searchTerms: ['ipc'] },
+  { ...contextRequestWire, searchTerms: ['password'] },
+  { ...contextRequestWire, searchTerms: ['describeTable'] },
 ]) {
-  test(`rejects malformed structured output ${JSON.stringify(content)}`, async () => {
+  test(`rejects malformed structured output ${JSON.stringify(content).slice(0, 120)}`, async () => {
     const provider = new OpenRouterProvider('key', 'model', async () =>
       completion(content),
     )
@@ -134,6 +196,7 @@ for (const content of [
     })
   })
 }
+
 test('malformed outer JSON is normalized', async () => {
   const provider = new OpenRouterProvider(
     'key',
@@ -144,6 +207,7 @@ test('malformed outer JSON is normalized', async () => {
     code: 'invalid-response',
   })
 })
+
 test('settings preserve the model and blank key; tests do not save; removal deletes credentials', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'ai-settings-'))
   try {
@@ -155,7 +219,7 @@ test('settings preserve the model and blank key; tests do not save; removal dele
       test: async () => {
         tested = `${key}:${model}`
       },
-      proposeQuery: async () => valid,
+      proposeQuery: async () => proposalStep,
     }))
     await service.saveSettings({ model: 'old', apiKey: 'saved-key' })
     await service.test(1, 'test', { model: 'new', apiKey: 'draft-key' })
@@ -356,7 +420,7 @@ test('timeout, owner-scoped cancellation, duplicate protection and all completio
     () => ({
       listModels: async () => (hang ? new Promise(() => {}) : []),
       test: async () => {},
-      proposeQuery: async () => valid,
+      proposeQuery: async () => proposalStep,
     }),
     25,
   )
@@ -402,6 +466,7 @@ test('timeout, owner-scoped cancellation, duplicate protection and all completio
     await rm(directory, { recursive: true, force: true })
   }
 })
+
 test('IPC validation allowlists metadata and rejects oversized or unsupported context', () => {
   const clean = proposalRequest({
     ...request,

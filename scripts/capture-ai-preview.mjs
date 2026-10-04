@@ -96,13 +96,16 @@ app.whenReady().then(async () => {
     ipcMain.handle('ai:cancel', () => ok(undefined))
     ipcMain.handle('ai:propose', () =>
       ok({
-        query,
-        explanation:
-          'Aggregates revenue by country for orders created within the last 30 days, with the highest revenue first.',
-        assumptions: [
-          'amount is the order revenue in a consistent currency.',
-          'The date range is relative to the database clock.',
-        ],
+        kind: 'proposal',
+        proposal: {
+          query,
+          explanation:
+            'Aggregates revenue by country for orders created within the last 30 days, with the highest revenue first.',
+          assumptions: [
+            'amount is the order revenue in a consistent currency.',
+            'The date range is relative to the database clock.',
+          ],
+        },
       }),
     )
     const win = new BrowserWindow({
