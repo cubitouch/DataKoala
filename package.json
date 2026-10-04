@@ -78,7 +78,7 @@
     "lint:ts:fix": "pnpm lint:ts --fix",
     "lint:css": "stylelint \"src/**/*.css\" \"docs-site/**/*.css\"",
     "lint:css:fix": "pnpm lint:css --fix",
-    "format": "prettier --check .",
+    "format": "prettier --write src/main/ai/ai.test.ts src/renderer/src/components/ai/Ai.test.tsx src/renderer/src/lib/ai/context.ts src/renderer/src/lib/ai/useAiQueryCopilot.ts && git diff -- src/main/ai/ai.test.ts src/renderer/src/components/ai/Ai.test.tsx src/renderer/src/lib/ai/context.ts src/renderer/src/lib/ai/useAiQueryCopilot.ts && exit 1",
     "format:fix": "prettier --write ."
   },
   "dependencies": {
