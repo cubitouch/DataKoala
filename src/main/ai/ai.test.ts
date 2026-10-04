@@ -167,11 +167,18 @@ test('settings preserve the model and blank key; tests do not save; removal dele
     })
     await service.saveSettings({ model: 'missing-from-catalog', apiKey: '' })
     assert.equal(await secrets.get('ai', 'openrouter-api-key'), 'saved-key')
-    assert.deepEqual(await new AiSettingsStore(directory, secrets, memoryEncryption).get(), {
-      provider: 'openrouter',
-      model: 'missing-from-catalog',
-      hasApiKey: true,
-    })
+    assert.deepEqual(
+      await new AiSettingsStore(
+        directory,
+        secrets,
+        memoryEncryption,
+      ).get(),
+      {
+        provider: 'openrouter',
+        model: 'missing-from-catalog',
+        hasApiKey: true,
+      },
+    )
     assert.equal(
       JSON.stringify(await service.getSettings()).includes('saved-key'),
       false,
@@ -293,7 +300,11 @@ test('unavailable encryption keeps the legacy secret and summary intact', async 
 
 test('timeout, owner-scoped cancellation, duplicate protection and all completion paths clean up requests', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'ai-service-'))
-  const settings = new AiSettingsStore(directory, new MemorySecrets(), memoryEncryption)
+  const settings = new AiSettingsStore(
+    directory,
+    new MemorySecrets(),
+    memoryEncryption,
+  )
   let hang = true
   const service = new AiService(
     settings,
