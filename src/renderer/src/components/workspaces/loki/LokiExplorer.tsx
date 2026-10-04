@@ -16,6 +16,8 @@ import type {
 } from '@shared/loki'
 import { sortLokiLogRowsNewestFirst } from '@shared/loki'
 import { buildLokiQuery, logqlResultKind } from '@shared/loki-builder'
+import { derivePatternLineContainsCandidate } from '@shared/log-pattern-filter'
+import type { LogPatternCluster } from '@shared/log-patterns'
 import {
   CHART_SERIES_HARD_LIMIT,
   CHART_SERIES_SOFT_LIMIT,
@@ -25,6 +27,7 @@ import type { BuilderTimeRange } from '@lib/builderTimeRange'
 import { prometheusRangeBounds } from '@lib/prometheusTimeRange'
 import { logql } from '@lib/logqlLanguage'
 import { useLokiLabelsResource } from '@lib/useLokiLabelsResource'
+import { effectiveLogMessage } from '@lib/lokiLogMessage'
 import { api } from '@lib/api'
 import { TimeRangeField } from '@components/query/time-range/TimeRangeField'
 import { LogResultExplorer } from '@components/results/logs/LogResultExplorer'
@@ -405,74 +408,88 @@ export function LokiExplorer({
     },
     [connectionId, isCurrentTab, trend],
   )
+  const executeExpression = useCallback(
+    async (queryExpression: string) => {
+      if (metadataRefreshing || !queryExpression.trim()) return
+      const tabId = session.id
+      let kind: 'logs' | 'metrics'
+      try {
+        kind = logqlResultKind(queryExpression)
+      } catch (caught) {
+        return setError(
+          caught instanceof Error ? caught.message : String(caught),
+        )
+      }
+      const current = ++revision.current
+      trendRevision.current++
+      trendCacheKey.current = null
+      lastProcessedTrendKey.current = null
+      setTrend(null)
+      hasRun.current = true
+      setLoading(true)
+      setError(null)
+      setTrendError(null)
+      setWarning(null)
+      const bounds = prometheusRangeBounds(range),
+        step = interval(bounds.start, bounds.end)
+      try {
+        const shouldLoadTrend = kind === 'logs' && isLokiChartView(resultView)
+        if (shouldLoadTrend) lastProcessedTrendKey.current = trendRefreshKey
+        // Start the synthetic volume query alongside the raw log query, but do not make
+        // the primary result lifecycle wait for it. The chart already has an explicit
+        // "Loading log volume…" state while this independent Loki metric query finishes.
+        if (shouldLoadTrend)
+          void loadTrend(tabId, queryExpression, range, groupBy)
+        const main = await api.query.runLoki(connectionId, {
+          expression: queryExpression,
+          ...bounds,
+          step,
+          limit,
+        })
+        if (current !== revision.current || !isCurrentTab(tabId)) return
+        useStore.getState().completeQuery(main, null, tabId)
+      } catch (caught) {
+        if (current === revision.current && isCurrentTab(tabId)) {
+          // Do not allow a trend from a failed main query to become the visible result.
+          trendRevision.current++
+          trendCacheKey.current = null
+          setTrend(null)
+          setTrendError(null)
+          setError(caught instanceof Error ? caught.message : String(caught))
+        }
+      } finally {
+        if (current === revision.current && isCurrentTab(tabId))
+          setLoading(false)
+      }
+    },
+    [
+      metadataRefreshing,
+      session.id,
+      range,
+      resultView,
+      loadTrend,
+      groupBy,
+      connectionId,
+      limit,
+      isCurrentTab,
+      trendRefreshKey,
+    ],
+  )
   const run = useCallback(async () => {
     if (metadataRefreshing) return
-    const tabId = session.id
     if (!expression.trim())
       return setError(
         mode === 'builder'
           ? (builderDisabledReason ?? 'The Builder query is not ready to run.')
           : 'Enter a LogQL query.',
       )
-    let kind: 'logs' | 'metrics'
-    try {
-      kind = logqlResultKind(expression)
-    } catch (caught) {
-      return setError(caught instanceof Error ? caught.message : String(caught))
-    }
-    const current = ++revision.current
-    trendRevision.current++
-    trendCacheKey.current = null
-    lastProcessedTrendKey.current = null
-    setTrend(null)
-    hasRun.current = true
-    setLoading(true)
-    setError(null)
-    setTrendError(null)
-    setWarning(null)
-    const bounds = prometheusRangeBounds(range),
-      step = interval(bounds.start, bounds.end)
-    try {
-      const shouldLoadTrend = kind === 'logs' && isLokiChartView(resultView)
-      if (shouldLoadTrend) lastProcessedTrendKey.current = trendRefreshKey
-      // Start the synthetic volume query alongside the raw log query, but do not make
-      // the primary result lifecycle wait for it. The chart already has an explicit
-      // "Loading log volume…" state while this independent Loki metric query finishes.
-      if (shouldLoadTrend) void loadTrend(tabId, expression, range, groupBy)
-      const main = await api.query.runLoki(connectionId, {
-        expression,
-        ...bounds,
-        step,
-        limit,
-      })
-      if (current !== revision.current || !isCurrentTab(tabId)) return
-      useStore.getState().completeQuery(main, null, tabId)
-    } catch (caught) {
-      if (current === revision.current && isCurrentTab(tabId)) {
-        // Do not allow a trend from a failed main query to become the visible result.
-        trendRevision.current++
-        trendCacheKey.current = null
-        setTrend(null)
-        setTrendError(null)
-        setError(caught instanceof Error ? caught.message : String(caught))
-      }
-    } finally {
-      if (current === revision.current && isCurrentTab(tabId)) setLoading(false)
-    }
+    await executeExpression(expression)
   }, [
     metadataRefreshing,
-    session.id,
     expression,
     mode,
     builderDisabledReason,
-    range,
-    resultView,
-    loadTrend,
-    groupBy,
-    connectionId,
-    limit,
-    isCurrentTab,
-    trendRefreshKey,
+    executeExpression,
   ])
   useEffect(() => {
     if (previousRangeKey.current === rangeKey) return
@@ -608,6 +625,67 @@ export function LokiExplorer({
           }
         : result,
     [result, scopedLogRows],
+  )
+
+  const patternMessagesById = useMemo(
+    () =>
+      new Map(filteredLogRows.map((row) => [row.id, effectiveLogMessage(row)])),
+    [filteredLogRows],
+  )
+  const viewPatternLogs = useCallback(
+    (cluster: LogPatternCluster) => {
+      const candidate = derivePatternLineContainsCandidate(
+        cluster,
+        patternMessagesById,
+      )
+      const existingLineFilter = builder.lineFilters[0]
+      const canUseVisibleBuilderFilter =
+        mode === 'builder' &&
+        !metadataRefreshing &&
+        (builder.lineFilters.length === 0 ||
+          (builder.lineFilters.length === 1 &&
+            existingLineFilter.operator === '|=' &&
+            candidate?.includes(existingLineFilter.value)))
+
+      if (candidate && canUseVisibleBuilderFilter) {
+        const nextBuilder = {
+          ...builder,
+          lineFilters: [{ operator: '|=' as const, value: candidate }],
+        }
+        try {
+          const nextExpression = buildLokiQuery(nextBuilder, {
+            fallbackMatcher,
+          })
+          setPatternScope(null)
+          setLokiState({
+            lokiBuilder: nextBuilder,
+            lokiResultView: 'list',
+          })
+          setMode('builder')
+          void executeExpression(nextExpression)
+          return
+        } catch {
+          // If the next Builder query cannot be represented safely, retain the
+          // explicit local member filter below instead of changing query semantics.
+        }
+      }
+
+      setPatternScope({
+        template: cluster.template,
+        memberIds: new Set(cluster.memberIds),
+      })
+      setLokiState({ lokiResultView: 'list' })
+    },
+    [
+      builder,
+      executeExpression,
+      fallbackMatcher,
+      metadataRefreshing,
+      mode,
+      patternMessagesById,
+      setLokiState,
+      setMode,
+    ],
   )
 
   return (
@@ -802,14 +880,14 @@ export function LokiExplorer({
             {patternScope &&
               (resultView === 'list' || resultView === 'table') && (
                 <div className={styles.status} role="status">
-                  Showing {scopedLogRows.length} logs matching{' '}
-                  <code>{patternScope.template}</code>.{' '}
+                  Local pattern filter: <code>{patternScope.template}</code> ·{' '}
+                  {scopedLogRows.length} logs
                   <button
                     type="button"
                     className="btn ghost"
                     onClick={() => setPatternScope(null)}
                   >
-                    Clear pattern
+                    Clear
                   </button>
                 </div>
               )}
@@ -825,10 +903,7 @@ export function LokiExplorer({
               ) : resultView === 'patterns' ? (
                 <LogPatternExplorer
                   rows={filteredLogRows}
-                  onViewLogs={(template, memberIds) => {
-                    setPatternScope({ template, memberIds: new Set(memberIds) })
-                    setLokiState({ lokiResultView: 'list' })
-                  }}
+                  onViewLogs={viewPatternLogs}
                 />
               ) : resultView === 'table' ? (
                 <GenericResultExplorer

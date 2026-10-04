@@ -181,16 +181,16 @@ app.whenReady().then(async () => {
     )
     await waitFor(
       win,
-      `document.querySelector('section[aria-label="Log patterns"] article')`,
+      `document.querySelector('section[aria-label="Log patterns"] [data-pattern-row]')`,
       'rendered Loki patterns',
     )
     await win.webContents.executeJavaScript(
-      `document.querySelector('section[aria-label="Log patterns"] article button')?.click()`,
+      `document.querySelector('section[aria-label="Log patterns"] [data-pattern-row] button')?.click()`,
     )
     await waitFor(
       win,
-      `document.querySelector('section[aria-label="Log patterns"] article button[aria-expanded="true"]') && [...document.querySelectorAll('section[aria-label="Log patterns"] button')].some((button) => button.textContent?.trim() === 'View logs')`,
-      'expanded Loki pattern',
+      `document.querySelector('section[aria-label="Log patterns"] [data-pattern-inspector]') && [...document.querySelectorAll('section[aria-label="Log patterns"] button')].some((button) => button.textContent?.trim() === 'View logs')`,
+      'selected Loki pattern inspector',
     )
     await sleep(400)
     const patternsPath = resolve(outputDir, 'loki-log-patterns.png')

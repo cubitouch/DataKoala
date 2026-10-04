@@ -1,0 +1,58 @@
+.root {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.main {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.detailFrame {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: calc(100% - var(--resizable-detail-min-main));
+  overflow: hidden;
+}
+
+.separator {
+  position: relative;
+  flex: 0 0 9px;
+  width: 9px;
+  min-height: 0;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.separator::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 4px;
+  width: 1px;
+  background: var(--border);
+}
+
+.separator:hover::after,
+.separator:focus-visible::after,
+.separator:active::after {
+  left: 3px;
+  width: 2px;
+  background: var(--text-dim);
+}
+
+.detail {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}

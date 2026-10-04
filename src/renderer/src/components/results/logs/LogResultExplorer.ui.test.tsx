@@ -223,3 +223,37 @@ it('highlights searchable metadata without marking inspector headings or actions
       .querySelector('mark'),
   ).toBeNull()
 })
+
+it('keeps the resized log inspector width when selecting another log', () => {
+  const second = {
+    ...row,
+    id: '2',
+    line: JSON.stringify({ message: 'Second checkout failure' }),
+  }
+  render(
+    <LogResultExplorer rows={[row, second]} limit={100} onFilter={vi.fn()} />,
+  )
+
+  fireEvent.click(
+    screen.getByRole('button', { name: /Payment provider timeout/ }),
+  )
+  const separator = screen.getByRole('separator', {
+    name: 'Resize Selected log details',
+  })
+  fireEvent.keyDown(separator, { key: 'ArrowLeft' })
+  const width = document
+    .querySelector('[data-resizable-detail]')!
+    .getAttribute('data-detail-width')
+
+  fireEvent.click(
+    screen.getByRole('button', { name: /Second checkout failure/ }),
+  )
+  expect(
+    document
+      .querySelector('[data-resizable-detail]')!
+      .getAttribute('data-detail-width'),
+  ).toBe(width)
+  expect(
+    screen.getByRole('complementary', { name: 'Selected log details' }),
+  ).toBeTruthy()
+})

@@ -1,0 +1,41 @@
+.severityBadge {
+  justify-self: start;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.severityBadge[data-severity='ERROR'] {
+  border-color: #ef6464;
+  color: #ff8d8d;
+  background: #ef646418;
+}
+
+.severityBadge[data-severity='WARN'] {
+  border-color: #d99b40;
+  color: #f0b85d;
+  background: #d99b4018;
+}
+
+.severityBadge[data-severity='INFO'] {
+  border-color: #4c8ed9;
+  color: #78aef0;
+  background: #4c8ed918;
+}
+
+.severityBadge[data-severity='DEBUG'] {
+  color: var(--text-mute);
+}
+
+.chevron {
+  justify-self: end;
+  color: var(--text-mute);
+  font: 18px/1 var(--sans);
+  font-style: normal;
+}
+
+button:hover > .chevron {
+  color: var(--text);
+}
