@@ -106,8 +106,7 @@ export function useAiQueryCopilot() {
         .get()
         .then((result) => {
           if (!active) return
-          if (result.ok)
-            setConfigured(isAiConfigured(result.value))
+          if (result.ok) setConfigured(isAiConfigured(result.value))
           else setError(result.message)
         })
         .catch(() => {
