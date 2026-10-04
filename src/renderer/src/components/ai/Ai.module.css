@@ -66,6 +66,12 @@
   font-size: 12px;
 }
 
+.contextTriggerIcon {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+
 .context pre {
   white-space: pre-wrap;
 }
