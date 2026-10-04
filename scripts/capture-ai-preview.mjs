@@ -145,7 +145,11 @@ app.whenReady().then(async () => {
     await click(win, 'View AI details')
     await wait(
       win,
-      `document.querySelector('[aria-label="AI response"]')?.textContent.includes('Assumptions') && document.body.innerText.includes('Submitted context')`,
+      `document.querySelector('button[aria-label="View AI details"]')?.getAttribute('aria-expanded') === 'true'`,
+    )
+    await wait(
+      win,
+      `[...document.querySelectorAll('[data-popover-overlay]')].some((overlay) => overlay.textContent.includes('AI details') && overlay.textContent.includes('Assumptions') && overlay.textContent.includes('Submitted context'))`,
     )
     await sleep(300)
     await writeFile(
@@ -157,7 +161,7 @@ app.whenReady().then(async () => {
     )
     await wait(
       win,
-      `!document.querySelector('[aria-label="AI response"]')`,
+      `document.querySelector('button[aria-label="View AI details"]')?.getAttribute('aria-expanded') === 'false'`,
     )
     await click(win, 'Apply')
     await wait(
