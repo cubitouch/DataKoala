@@ -56,8 +56,7 @@ export function LogPatternExplorer({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [inspectorWidth, setInspectorWidth] = useState(390)
   const scroller = useRef<HTMLDivElement>(null)
-  const selected =
-    clusters.find((cluster) => cluster.id === selectedId) ?? null
+  const selected = clusters.find((cluster) => cluster.id === selectedId) ?? null
   const messagesById = useMemo(
     () =>
       new Map(rows.map((row) => [row.id, effectiveLogMessage(row)] as const)),
