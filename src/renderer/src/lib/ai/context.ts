@@ -71,7 +71,9 @@ function fillFallback(
   limit: number,
 ) {
   const selectedNames = new Set(selected.map(relationKey))
-  const representedSchemas = new Set(selected.map((relation) => relation.schema))
+  const representedSchemas = new Set(
+    selected.map((relation) => relation.schema),
+  )
   const groups = new Map<string, DatabaseRelationNode[]>()
   for (const { relation } of ranked) {
     if (selectedNames.has(relationKey(relation))) continue
