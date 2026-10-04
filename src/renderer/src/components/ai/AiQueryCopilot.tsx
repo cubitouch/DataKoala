@@ -1,26 +1,22 @@
-import { useId, useRef, useState } from 'react'
-import { Modal } from '@components/ui/Modal'
 import { Spinner } from '@components/ui/Spinner'
 import { TextInput } from '@components/ui/TextInput'
 import { useAiQueryCopilot } from '@lib/ai/useAiQueryCopilot'
 import { AI_LIMITS } from '@shared/ai'
-import { AiSettingsModal } from './AiSettingsModal'
 import { AiContextPopover } from './AiContextPopover'
 import { AiQueryDiff } from './AiQueryDiff'
 import styles from './Ai.module.css'
+
 export function AiQueryCopilot() {
-  const [reasoning, setReasoning] = useState(false)
-  const reasoningTitle = useId()
-  const reasoningTrigger = useRef<HTMLButtonElement>(null)
-  const [settings, setSettings] = useState(false)
-  const settingsTrigger = useRef<HTMLButtonElement>(null)
-  const ai = useAiQueryCopilot(settings)
+  const ai = useAiQueryCopilot()
+
+  // AI features are product-gated by saved provider configuration. Keep this
+  // entry point (and future ones) out of the normal workflow until the user has
+  // both a persisted key and model configured in Settings.
+  if (ai.configured !== true) return null
+
   const disabled =
-    ai.busy ||
-    !ai.configured ||
-    !ai.prompt.trim() ||
-    ai.queryTooLong ||
-    !!ai.review
+    ai.busy || !ai.prompt.trim() || ai.queryTooLong || !!ai.review
+
   return (
     <section
       className={styles.copilot}
@@ -80,18 +76,9 @@ export function AiQueryCopilot() {
                 {ai.review && (
                   <>
                     <button
-                      ref={reasoningTrigger}
                       type="button"
                       className="btn ghost"
-                      disabled={ai.busy}
-                      onClick={() => setReasoning(true)}
-                    >
-                      Reasoning
-                    </button>
-                    <button
-                      type="button"
-                      className="btn ghost"
-                      disabled={ai.busy || !ai.configured || ai.queryTooLong}
+                      disabled={ai.busy || ai.queryTooLong}
                       onClick={() => void ai.generate(true)}
                     >
                       Try again
@@ -124,6 +111,7 @@ export function AiQueryCopilot() {
           context={ai.contextInput?.context ?? null}
           preparing={ai.busy ? !ai.contextInput : ai.preparing && !ai.review}
           sent={ai.contextSent}
+          proposal={ai.review?.proposal ?? null}
         />
         {!ai.busy && !ai.review && (
           <button
@@ -137,19 +125,6 @@ export function AiQueryCopilot() {
           </button>
         )}
       </form>
-      {ai.configured === false && (
-        <div className={styles.status}>
-          Configure OpenRouter to use Ask AI.
-          <button
-            ref={settingsTrigger}
-            type="button"
-            className="btn ghost"
-            onClick={() => setSettings(true)}
-          >
-            Open AI settings
-          </button>
-        </div>
-      )}
       {ai.error && (
         <div role="alert" className="inline-error">
           {ai.error}
@@ -176,50 +151,6 @@ export function AiQueryCopilot() {
             )}
           </div>
         </div>
-      )}
-      {reasoning && ai.review && (
-        <Modal
-          open
-          onClose={() => setReasoning(false)}
-          labelledBy={reasoningTitle}
-          returnFocusRef={reasoningTrigger}
-          dialogClassName={styles.dialog}
-        >
-          <h2 id={reasoningTitle}>AI reasoning</h2>
-          <div className={styles.explanation}>
-            <strong>AI explanation</strong>
-            <p>{ai.review.proposal.explanation}</p>
-            {!!ai.review.proposal.assumptions.length && (
-              <>
-                <strong>Assumptions</strong>
-                <ul>
-                  {ai.review.proposal.assumptions.map((a, i) => (
-                    <li key={i}>{a}</li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-          <p className={styles.notice}>
-            Review the proposed SQL before applying it. Run remains a separate
-            action.
-          </p>
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() => setReasoning(false)}
-            >
-              Close
-            </button>
-          </div>
-        </Modal>
-      )}
-      {settings && (
-        <AiSettingsModal
-          returnFocusRef={settingsTrigger}
-          onClose={() => setSettings(false)}
-        />
       )}
     </section>
   )
