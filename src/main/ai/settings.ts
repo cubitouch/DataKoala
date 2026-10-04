@@ -160,10 +160,7 @@ export class AiSettingsStore {
       model,
       hasApiKey:
         legacy !== null ||
-        (await this.secrets.has(
-          OPENROUTER_SECRET.owner,
-          OPENROUTER_SECRET.id,
-        )),
+        (await this.secrets.has(OPENROUTER_SECRET.owner, OPENROUTER_SECRET.id)),
     }
   }
 
