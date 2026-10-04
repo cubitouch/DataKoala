@@ -201,18 +201,21 @@ test('settings model picker searches catalog and saves canonical model id', asyn
     }),
   )
 })
-test('configured copilot prepares relation metadata only after the user enters a prompt', async () => {
-  render(<AiQueryCopilot />)
-  const input = await screen.findByRole('textbox', { name: 'AI prompt' })
+test(
+  'configured copilot prepares relation metadata only after the user enters a prompt',
+  async () => {
+    render(<AiQueryCopilot />)
+    const input = await screen.findByRole('textbox', { name: 'AI prompt' })
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 350))
-  })
-  expect(mocks.ensureColumns).not.toHaveBeenCalled()
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350))
+    })
+    expect(mocks.ensureColumns).not.toHaveBeenCalled()
 
-  fireEvent.change(input, { target: { value: 'count orders' } })
-  await waitFor(() => expect(mocks.ensureColumns).toHaveBeenCalledTimes(1))
-})
+    fireEvent.change(input, { target: { value: 'count orders' } })
+    await waitFor(() => expect(mocks.ensureColumns).toHaveBeenCalledTimes(1))
+  },
+)
 
 for (const initialSql of ['', 'SELECT id FROM public.orders']) {
   test(`proposal requires Apply and never executes; initial SQL: ${initialSql || 'empty'}`, async () => {
