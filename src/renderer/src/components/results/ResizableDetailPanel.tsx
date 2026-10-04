@@ -32,9 +32,11 @@ export function ResizableDetailPanel({
   minMainWidth = 280,
 }: Props) {
   const root = useRef<HTMLDivElement>(null)
-  const drag = useRef<{ pointerId: number; startX: number; width: number } | null>(
-    null,
-  )
+  const drag = useRef<{
+    pointerId: number
+    startX: number
+    width: number
+  } | null>(null)
 
   const clamp = useCallback(
     (next: number) => {
