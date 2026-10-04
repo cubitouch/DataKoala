@@ -127,20 +127,9 @@
   color: var(--text);
 }
 
-.logSplit {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-}
-
-.logSplit > .logScroller {
-  min-width: 280px;
-}
-
 .logInspector {
-  width: clamp(320px, 36%, 520px);
-  min-width: 300px;
-  border-left: 1px solid var(--border);
+  width: 100%;
+  height: 100%;
   background: var(--bg-2);
   display: flex;
   flex-direction: column;
