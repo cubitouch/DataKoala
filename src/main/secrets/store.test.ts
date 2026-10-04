@@ -147,16 +147,20 @@ test('multiple owner/id pairs survive replacement and restart', async () => {
 })
 
 test('concurrent writes cannot discard another secret update', async () => {
-  const { directory, store } = await temporaryStore()
+  const { directory, state, store } = await temporaryStore()
+  const secondStore = new EncryptedSecretStore(
+    directory,
+    fakeEncryption(state),
+  )
   try {
     await Promise.all([
       store.set('ai', 'openrouter-api-key', 'ai-secret'),
-      store.set('datasource', 'postgres-one', 'first-password'),
+      secondStore.set('datasource', 'postgres-one', 'first-password'),
       store.set('datasource', 'postgres-two', 'second-password'),
     ])
 
     assert.equal(
-      await store.get('ai', 'openrouter-api-key'),
+      await secondStore.get('ai', 'openrouter-api-key'),
       'ai-secret',
     )
     assert.equal(
@@ -164,7 +168,7 @@ test('concurrent writes cannot discard another secret update', async () => {
       'first-password',
     )
     assert.equal(
-      await store.get('datasource', 'postgres-two'),
+      await secondStore.get('datasource', 'postgres-two'),
       'second-password',
     )
   } finally {
