@@ -32,37 +32,6 @@ a {
   display: block;
 }
 
-.window-bar {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  left: 0;
-  height: 2.78cqi;
-  display: flex;
-  align-items: center;
-  gap: 0.45cqi;
-  padding-left: 1.05cqi;
-  border: 0;
-  background: transparent;
-  pointer-events: none;
-}
-
-.window-bar i {
-  width: 0.83cqi;
-  height: 0.83cqi;
-  display: block;
-  border-radius: 50%;
-  background: #ff5f57;
-}
-
-.window-bar i:nth-child(2) {
-  background: #febc2e;
-}
-
-.window-bar i:nth-child(3) {
-  background: #28c840;
-}
-
 :root {
   color-scheme: dark;
   font-family:
@@ -626,12 +595,6 @@ nav {
   box-shadow: 0 24px 80px rgb(0 0 0 / 38%);
 }
 
-.window-bar span {
-  margin-left: 0.5cqi;
-  color: rgb(255 255 255 / 32%);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.65cqi;
-}
 
 .principles {
   padding-top: 135px;
