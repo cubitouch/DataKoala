@@ -85,6 +85,46 @@ it('opens a compact selected row in the side inspector without advertising unava
   )
 })
 
+it('keeps the chosen inspector width when selecting another log', () => {
+  const second = {
+    ...row,
+    id: '2',
+    line: JSON.stringify({ message: 'Payment retry succeeded' }),
+    severity: 'INFO',
+  }
+  render(
+    <LogResultExplorer rows={[row, second]} limit={100} onFilter={vi.fn()} />,
+  )
+
+  fireEvent.click(
+    screen.getByRole('button', { name: /Payment provider timeout/ }),
+  )
+  const split = document.querySelector(
+    '[data-resizable-detail-panel]',
+  ) as HTMLDivElement
+  Object.defineProperty(split, 'clientWidth', {
+    configurable: true,
+    value: 1000,
+  })
+  fireEvent.keyDown(
+    screen.getByRole('separator', { name: 'Resize Selected log details' }),
+    { key: 'ArrowLeft' },
+  )
+  expect(
+    (screen.getByRole('complementary', {
+      name: 'Selected log details',
+    }) as HTMLElement).style.width,
+  ).toBe('414px')
+
+  fireEvent.click(screen.getByRole('button', { name: /Payment retry succeeded/ }))
+  expect(screen.getByText('Payment retry succeeded')).toBeTruthy()
+  expect(
+    (screen.getByRole('complementary', {
+      name: 'Selected log details',
+    }) as HTMLElement).style.width,
+  ).toBe('414px')
+})
+
 it('keeps a large result set virtualized', () => {
   const rows = Array.from({ length: 1_000 }, (_, index) => ({
     ...row,
