@@ -1,8 +1,10 @@
 import { AI_LIMITS } from '../../shared/ai.ts'
 import type {
+  AiContextRequest,
   AiErrorCode,
   AiQueryProposal,
   AiQueryProposalRequest,
+  AiQueryStep,
   AiSettingsInput,
 } from '../../shared/ai.ts'
 
@@ -100,26 +102,68 @@ export function proposalRequest(value: unknown): AiQueryProposalRequest {
     context: cleanContext,
   }
 }
-export function proposal(value: unknown): AiQueryProposal {
+function validateProposal(input: Record<string, unknown>): AiQueryProposal {
+  if (
+    !Array.isArray(input.assumptions) ||
+    input.assumptions.length > 30 ||
+    !Array.isArray(input.searchTerms) ||
+    input.searchTerms.length !== 0 ||
+    input.reason !== ''
+  )
+    throw new Error()
+  return {
+    query: textValue(input.query, AI_LIMITS.query),
+    explanation: textValue(input.explanation, 8000, true),
+    assumptions: input.assumptions.map((a) => textValue(a, 2000, true)),
+  }
+}
+function validateContextRequest(
+  input: Record<string, unknown>,
+): AiContextRequest {
+  if (
+    input.query !== '' ||
+    input.explanation !== '' ||
+    !Array.isArray(input.assumptions) ||
+    input.assumptions.length !== 0 ||
+    !Array.isArray(input.searchTerms) ||
+    input.searchTerms.length < 1 ||
+    input.searchTerms.length > AI_LIMITS.contextRequestTerms
+  )
+    throw new Error()
+  return {
+    searchTerms: input.searchTerms.map((term) =>
+      textValue(term, AI_LIMITS.contextRequestTermCharacters),
+    ),
+    reason: textValue(input.reason, AI_LIMITS.contextRequestReason),
+  }
+}
+export function queryStep(value: unknown): AiQueryStep {
   try {
-    const p = record(value)
+    const input = record(value)
     if (
-      Object.keys(p).some(
-        (key) => !['query', 'explanation', 'assumptions'].includes(key),
+      Object.keys(input).some(
+        (key) =>
+          ![
+            'kind',
+            'query',
+            'explanation',
+            'assumptions',
+            'searchTerms',
+            'reason',
+          ].includes(key),
       ) ||
-      !Array.isArray(p.assumptions) ||
-      p.assumptions.length > 30
+      Object.keys(input).length !== 6
     )
       throw new Error()
-    return {
-      query: textValue(p.query, AI_LIMITS.query),
-      explanation: textValue(p.explanation, 8000, true),
-      assumptions: p.assumptions.map((a) => textValue(a, 2000, true)),
-    }
+    if (input.kind === 'proposal')
+      return { kind: 'proposal', proposal: validateProposal(input) }
+    if (input.kind === 'context-request')
+      return { kind: 'context-request', request: validateContextRequest(input) }
+    throw new Error()
   } catch {
     throw new AiError(
       'invalid-response',
-      'The model returned an invalid query proposal. Try again or choose another model.',
+      'The model returned an invalid query step. Try again or choose another model.',
     )
   }
 }
