@@ -10,6 +10,11 @@ import {
   type LogPatternCluster,
 } from '@shared/log-patterns'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
+import {
+  LogRowChevron,
+  LogSeverityBadge,
+} from './LogRowPresentation'
+import { representativeLogSeverity } from './logSeverity'
 import styles from './LogPatternExplorer.module.css'
 
 const clusterCache = new WeakMap<LokiLogRow[], LogPatternCluster[]>()
@@ -91,14 +96,23 @@ export function LogPatternExplorer({
     <div className={styles.inspector} data-pattern-inspector>
       <header>
         <strong>Pattern details</strong>
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={() => setSelectedId(null)}
-          aria-label="Close pattern details"
-        >
-          Close
-        </button>
+        <div className={styles.inspectorActions}>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => onViewLogs(selected)}
+          >
+            View logs
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => setSelectedId(null)}
+            aria-label="Close pattern details"
+          >
+            Close
+          </button>
+        </div>
       </header>
       <div className={styles.inspectorBody}>
         <section>
@@ -120,14 +134,8 @@ export function LogPatternExplorer({
         <section>
           <h3>Severity</h3>
           <div className={styles.severities}>
-            {severityEntries(selected).map(([severity, count]) => (
-              <span
-                key={severity}
-                className={styles.severityBadge}
-                data-severity={severity.toUpperCase()}
-              >
-                {severity.toUpperCase()} {count}
-              </span>
+            {severityEntries(selected).map(([severity]) => (
+              <LogSeverityBadge key={severity} severity={severity} />
             ))}
           </div>
         </section>
@@ -167,13 +175,6 @@ export function LogPatternExplorer({
             </dl>
           </section>
         )}
-        <button
-          type="button"
-          className="btn primary"
-          onClick={() => onViewLogs(selected)}
-        >
-          View logs
-        </button>
       </div>
     </div>
   ) : undefined
@@ -214,27 +215,23 @@ export function LogPatternExplorer({
                       aria-selected={active}
                       onClick={() => setSelectedId(active ? null : cluster.id)}
                     >
+                      <span className={styles.metrics}>
+                        <strong>{cluster.count}</strong> logs ·{' '}
+                        {cluster.percentage.toFixed(1)}%
+                      </span>
+                      <span className={styles.severitySlot}>
+                        {representativeLogSeverity(cluster.severities) && (
+                          <LogSeverityBadge
+                            severity={
+                              representativeLogSeverity(cluster.severities)!
+                            }
+                          />
+                        )}
+                      </span>
                       <code>
                         <PatternTemplate cluster={cluster} />
                       </code>
-                      <span className={styles.rowMeta}>
-                        <span className={styles.rowSeverities}>
-                          {severityEntries(cluster)
-                            .slice(0, 2)
-                            .map(([severity, count]) => (
-                              <span
-                                key={severity}
-                                data-severity={severity.toUpperCase()}
-                              >
-                                {severity.toUpperCase()} {count}
-                              </span>
-                            ))}
-                        </span>
-                        <span className={styles.metrics}>
-                          <strong>{cluster.count}</strong> logs ·{' '}
-                          {cluster.percentage.toFixed(1)}%
-                        </span>
-                      </span>
+                      <LogRowChevron />
                     </button>
                   </article>
                 )
