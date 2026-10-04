@@ -273,7 +273,7 @@ test('unmounting the tab copilot aborts its active request', async () => {
   )
   expect(screen.queryByRole('dialog')).toBeNull()
 })
-test('provider errors remain visible and unconfigured copilot opens shared settings', async () => {
+test('provider errors remain visible and unconfigured copilot stays hidden', async () => {
   mocks.propose.mockResolvedValue({
     ok: false,
     code: 'authentication',
@@ -293,12 +293,13 @@ test('provider errors remain visible and unconfigured copilot opens shared setti
   )
   expect(screen.getByRole('alert').textContent).toBe('Check your API key.')
   cleanup()
+
+  mocks.get.mockClear()
   mocks.get.mockResolvedValue(ok({ ...summary, hasApiKey: false }))
   render(<AiQueryCopilot />)
-  fireEvent.click(
-    await screen.findByRole('button', { name: 'Open AI settings' }),
-  )
-  expect(await screen.findByRole('dialog', { name: 'Settings' })).toBeTruthy()
+  await waitFor(() => expect(mocks.get).toHaveBeenCalled())
+  expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
+  expect(screen.queryByLabelText('SQL AI copilot')).toBeNull()
 })
 
 test('inline composer submits on Enter, reports loading, and prevents parent Run shortcuts', async () => {
@@ -330,7 +331,7 @@ test('inline composer submits on Enter, reports loading, and prevents parent Run
   expect(screen.queryByRole('button', { name: 'Ask' })).toBeNull()
   expect(selectActiveSession(useStore.getState()).sql).toBe('')
 })
-test('diff stays inline and reasoning opens a modal; Reject keeps SQL and prompt', async () => {
+test('diff stays inline and AI details combine reasoning with submitted context; Reject keeps SQL and prompt', async () => {
   patchActiveTestSession({ sql: 'SELECT id FROM public.orders' })
   render(<AiQueryCopilot />)
   await generate()
@@ -346,22 +347,21 @@ test('diff stays inline and reasoning opens a modal; Reject keeps SQL and prompt
       .querySelector('[data-diff-kind="add"]'),
   ).toBeTruthy()
   expect(screen.queryByText(proposed.explanation)).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Reasoning' }))
-  expect(screen.getByRole('dialog', { name: 'AI reasoning' })).toBeTruthy()
-  expect(screen.getByText(proposed.explanation)).toBeTruthy()
-  expect(screen.getByText(proposed.assumptions[0])).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
-  expect(screen.queryByRole('dialog')).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Reasoning' }))
-  fireEvent.keyDown(screen.getByRole('button', { name: 'Close' }), {
-    key: 'Escape',
-  })
-  expect(screen.queryByRole('dialog')).toBeNull()
-  await waitFor(() =>
-    expect(document.activeElement).toBe(
-      screen.getByRole('button', { name: 'Reasoning' }),
-    ),
+
+  fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
+  const response = await screen.findByRole('region', { name: 'AI response' })
+  expect(response.textContent).toContain(proposed.explanation)
+  expect(response.textContent).toContain(proposed.assumptions[0])
+  expect(screen.getByText('Submitted context')).toBeTruthy()
+  expect(screen.getByRole('region', { name: 'Prompt' }).textContent).toContain(
+    'count orders',
   )
+  expect(
+    screen.getByRole('region', { name: 'Current SQL' }).textContent,
+  ).toContain('SELECT id FROM public.orders')
+  expect(screen.queryByRole('dialog', { name: /reasoning/i })).toBeNull()
+  fireEvent.keyDown(document, { key: 'Escape' })
+
   fireEvent.click(screen.getByRole('button', { name: 'Reject' }))
   expect(selectActiveSession(useStore.getState()).sql).toBe(
     'SELECT id FROM public.orders',
@@ -411,9 +411,9 @@ test('Try again keeps previous diff pending, uses latest SQL and replaces only o
   await act(async () =>
     pending.resolve(ok({ ...proposed, explanation: 'Updated proposal' })),
   )
-  fireEvent.click(screen.getByRole('button', { name: 'Reasoning' }))
-  expect(screen.getByText('Updated proposal')).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+  fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
+  expect(await screen.findByText('Updated proposal')).toBeTruthy()
+  fireEvent.keyDown(document, { key: 'Escape' })
   expect(
     (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
       .disabled,
@@ -425,7 +425,7 @@ test('context popover discloses current SQL and metadata before and after genera
   fireEvent.change(screen.getByRole('textbox', { name: 'AI prompt' }), {
     target: { value: 'count orders' },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'View AI context' }))
+  fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
   await screen.findByText(/public.orders\s+id uuid/)
   expect(screen.getByRole('region', { name: 'Current SQL' })).toBeTruthy()
   expect(screen.getByText('About this request')).toBeTruthy()
@@ -438,24 +438,22 @@ test('context popover discloses current SQL and metadata before and after genera
   expect(screen.queryByRole('region', { name: 'Current SQL' })).toBeNull()
   await generate()
   await screen.findByRole('button', { name: 'Apply' })
-  fireEvent.click(screen.getByRole('button', { name: 'View AI context' }))
+  fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
   expect(screen.getByText(/Submitted context/)).toBeTruthy()
   expect(screen.getByRole('region', { name: 'Prompt' }).textContent).toContain(
     'count orders',
   )
 })
 
-test('saving settings from the sidebar enables an already-mounted composer', async () => {
+test('saving settings enables an already-mounted hidden copilot', async () => {
   mocks.get.mockResolvedValue(ok({ ...summary, hasApiKey: false }))
   render(<AiQueryCopilot />)
-  await screen.findByText('Configure OpenRouter to use Ask AI.')
+  await waitFor(() => expect(mocks.get).toHaveBeenCalled())
+  expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
+
   mocks.get.mockResolvedValue(ok(summary))
   act(() => window.dispatchEvent(new Event('datakoala:ai-settings-changed')))
-  await waitFor(() =>
-    expect(
-      screen.queryByText('Configure OpenRouter to use Ask AI.'),
-    ).toBeNull(),
-  )
+  expect(await screen.findByRole('textbox', { name: 'AI prompt' })).toBeTruthy()
   await generate()
   await screen.findByRole('button', { name: 'Apply' })
 })
