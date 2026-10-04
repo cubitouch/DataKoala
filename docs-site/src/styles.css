@@ -332,11 +332,13 @@ nav {
 }
 
 .lede {
-  max-width: 770px;
+  max-width: 720px;
+  margin-inline: auto;
   color: #c3c7cf;
-  font-size: clamp(16px, 1.7vw, 19px);
+  font-size: clamp(15px, 1.5vw, 18px);
   line-height: 1.62;
   letter-spacing: -0.015em;
+  text-align: center;
   text-shadow: none;
 }
 
