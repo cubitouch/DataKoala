@@ -32,6 +32,8 @@ export class SecureStorageError extends Error {
 
 export const SHARED_SECRETS_FILENAME = 'secrets.json'
 
+const accessQueues = new Map<string, Promise<void>>()
+
 type StoredSecrets = {
   version: 1
   secrets: unknown[]
@@ -127,7 +129,6 @@ export async function writeAtomic(
 export class EncryptedSecretStore implements SecretStore {
   private directory: string
   private encryption: Encryption
-  private queue: Promise<unknown> = Promise.resolve()
 
   constructor(directory: string, encryption: Encryption) {
     this.directory = directory
@@ -135,8 +136,17 @@ export class EncryptedSecretStore implements SecretStore {
   }
 
   private serialize<T>(operation: () => Promise<T>): Promise<T> {
-    const next = this.queue.then(operation)
-    this.queue = next.catch(() => {})
+    const path = this.path()
+    const current = accessQueues.get(path) ?? Promise.resolve()
+    const next = current.then(operation)
+    const tail = next.then(
+      () => {},
+      () => {},
+    )
+    accessQueues.set(path, tail)
+    void tail.then(() => {
+      if (accessQueues.get(path) === tail) accessQueues.delete(path)
+    })
     return next
   }
 
