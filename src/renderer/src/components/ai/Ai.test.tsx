@@ -82,9 +82,7 @@ beforeEach(() => {
   mocks.test.mockResolvedValue(ok(undefined))
   mocks.cancel.mockResolvedValue(ok(undefined))
   mocks.propose.mockResolvedValue(ok(proposed))
-  mocks.ensureColumns.mockResolvedValue([
-    { name: 'id', dataTypeName: 'uuid' },
-  ])
+  mocks.ensureColumns.mockResolvedValue([{ name: 'id', dataTypeName: 'uuid' }])
   resetTestStore({
     profiles: [
       {
