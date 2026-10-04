@@ -74,58 +74,11 @@
   font: 11px/1.2 var(--mono);
 }
 
-.logSummary strong,
-.inspectorSeverity strong {
-  justify-self: start;
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 10px;
-  line-height: 14px;
-}
-
-.logSummary strong[data-severity='ERROR'],
-.inspectorSeverity strong[data-severity='ERROR'] {
-  border-color: #ef6464;
-  color: #ff8d8d;
-  background: #ef646418;
-}
-
-.logSummary strong[data-severity='WARN'],
-.inspectorSeverity strong[data-severity='WARN'] {
-  border-color: #d99b40;
-  color: #f0b85d;
-  background: #d99b4018;
-}
-
-.logSummary strong[data-severity='INFO'],
-.inspectorSeverity strong[data-severity='INFO'] {
-  border-color: #4c8ed9;
-  color: #78aef0;
-  background: #4c8ed918;
-}
-
-.logSummary strong[data-severity='DEBUG'],
-.inspectorSeverity strong[data-severity='DEBUG'] {
-  color: var(--text-mute);
-}
-
 .logSummary > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font: 12px/1.35 var(--mono);
-}
-
-.logSummary > i {
-  justify-self: end;
-  color: var(--text-mute);
-  font: 18px/1 var(--sans);
-  font-style: normal;
-}
-
-.logSummary:hover > i {
-  color: var(--text);
 }
 
 .logInspector {
