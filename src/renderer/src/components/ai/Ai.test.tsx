@@ -495,7 +495,6 @@ test('cancelled first response cannot replace a newer proposal', async () => {
   expect(screen.getByText('Newer proposal')).toBeTruthy()
 })
 
-
 function setDiscoveryMetadata(includeDevice = true) {
   const names = [
     'orders',
@@ -555,10 +554,12 @@ test('context request adds only matching undisclosed metadata and retries once',
   const initial = mocks.propose.mock.calls[0][0]
   const expanded = mocks.propose.mock.calls[1][0]
   expect(initial.context.relations).toHaveLength(6)
-  expect(initial.context.relations.map((item: { name: string }) => item.name)).not
-    .toContain('zy_devices')
-  expect(expanded.context.relations.map((item: { name: string }) => item.name))
-    .toContain('zy_devices')
+  expect(
+    initial.context.relations.map((item: { name: string }) => item.name),
+  ).not.toContain('zy_devices')
+  expect(
+    expanded.context.relations.map((item: { name: string }) => item.name),
+  ).toContain('zy_devices')
   expect(expanded.context.relations).toHaveLength(7)
   expect(expanded.requestId).toBe(initial.requestId)
   expect(
