@@ -67,8 +67,11 @@ async function captureSettingsDialog(win) {
 
   const image = await win.webContents.capturePage(rect)
   const size = image.getSize()
-  if (size.width < 400 || size.height < 260)
-    throw new Error(`AI settings preview crop is unexpectedly small: ${size.width}x${size.height}`)
+  if (size.width < 400 || size.height < 260) {
+    throw new Error(
+      `AI settings preview crop is unexpectedly small: ${size.width}x${size.height}`,
+    )
+  }
   return image.toPNG()
 }
 app.whenReady().then(async () => {
