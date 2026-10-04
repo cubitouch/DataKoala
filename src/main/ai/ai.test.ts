@@ -214,6 +214,58 @@ test('legacy OpenRouter secret migrates once and survives restart', async () => 
   }
 })
 
+test('replacement OpenRouter key wins over an in-flight legacy migration', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ai-legacy-race-'))
+  try {
+    await writeLegacySecret(directory, 'legacy-key')
+    const memory = new MemorySecrets()
+    let migrationReached!: () => void
+    let releaseMigration!: () => void
+    const reached = new Promise<void>((resolve) => {
+      migrationReached = resolve
+    })
+    const released = new Promise<void>((resolve) => {
+      releaseMigration = resolve
+    })
+    let pauseFirstHas = true
+    const secrets: SecretStore = {
+      has: async (owner, id) => {
+        const result = await memory.has(owner, id)
+        if (pauseFirstHas) {
+          pauseFirstHas = false
+          migrationReached()
+          await released
+        }
+        return result
+      },
+      get: (owner, id) => memory.get(owner, id),
+      set: (owner, id, value) => memory.set(owner, id, value),
+      delete: (owner, id) => memory.delete(owner, id),
+    }
+    const settings = new AiSettingsStore(directory, secrets, memoryEncryption)
+
+    const migration = settings.get()
+    await reached
+    const replacement = settings.save({
+      model: 'replacement-model',
+      apiKey: 'replacement-key',
+    })
+    releaseMigration()
+
+    await Promise.all([migration, replacement])
+    assert.equal(
+      await memory.get('ai', 'openrouter-api-key'),
+      'replacement-key',
+    )
+    assert.equal(await settings.getApiKey(), 'replacement-key')
+    await assert.rejects(readFile(join(directory, 'ai-secrets.json'), 'utf8'), {
+      code: 'ENOENT',
+    })
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 test('legacy OpenRouter migration never overwrites an existing shared secret', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'ai-legacy-secret-'))
   try {
