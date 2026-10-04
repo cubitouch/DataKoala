@@ -837,6 +837,90 @@ describe('LokiExplorer execution', () => {
     expect(screen.queryByText(/Local pattern filter:/)).toBeNull()
   })
 
+  it('promotes over one existing Line contains filter only when the candidate refines it', async () => {
+    const tab = createQuerySession(1, {
+      id: 'pattern-refining-builder',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [{ operator: '|=', value: 'complete' }],
+      parsers: [],
+      fieldFilters: [],
+    }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    mocks.runLoki
+      .mockResolvedValueOnce(patternLogs())
+      .mockResolvedValueOnce(patternLogs('-filtered'))
+
+    render(<LokiExplorer connectionId="loki" />)
+    await waitFor(() => expect(mocks.labels).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /Request.*<number>.*completed/,
+      }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'View logs' }))
+
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(2))
+    expect(useStore.getState().tabs[0].lokiBuilder.lineFilters).toEqual([
+      { operator: '|=', value: 'completed' },
+    ])
+    expect(mocks.runLoki.mock.calls[0][1].expression).toBe(
+      '{app="x"} |= "complete"',
+    )
+    expect(mocks.runLoki.mock.calls[1][1].expression).toBe(
+      '{app="x"} |= "completed"',
+    )
+    expect(screen.queryByText(/Local pattern filter:/)).toBeNull()
+  })
+
+  it('preserves an unrelated existing Line contains filter and falls back locally', async () => {
+    const tab = createQuerySession(1, {
+      id: 'pattern-unrelated-builder',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [{ operator: '|=', value: 'Request' }],
+      parsers: [],
+      fieldFilters: [],
+    }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    mocks.runLoki.mockResolvedValue(patternLogs())
+
+    render(<LokiExplorer connectionId="loki" />)
+    await waitFor(() => expect(mocks.labels).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /Request.*<number>.*completed/,
+      }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'View logs' }))
+
+    expect(await screen.findByText(/Local pattern filter:/)).toBeTruthy()
+    expect(mocks.runLoki).toHaveBeenCalledTimes(1)
+    expect(mocks.runLoki.mock.calls[0][1].expression).toBe(
+      '{app="x"} |= "Request"',
+    )
+    expect(useStore.getState().tabs[0].lokiBuilder.lineFilters).toEqual([
+      { operator: '|=', value: 'Request' },
+    ])
+    expect(
+      (screen.getByLabelText('Line contains') as HTMLInputElement).value,
+    ).toBe('Request')
+  })
+
   it('falls back locally when Builder line filters cannot be represented by the visible control', async () => {
     const tab = createQuerySession(1, {
       id: 'pattern-unsafe-builder',
