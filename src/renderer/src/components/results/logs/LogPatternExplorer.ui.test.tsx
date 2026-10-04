@@ -147,7 +147,9 @@ it('selects patterns into one resizable inspector and keeps its width', () => {
   fireEvent.click(
     screen.getByRole('option', { name: /Worker.*started.*normally/ }),
   )
-  expect(screen.getByText('Worker started normally')).toBeTruthy()
+  expect(
+    screen.getByRole('complementary', { name: 'Pattern details' }).textContent,
+  ).toContain('Worker started normally')
   expect(
     (
       screen.getByRole('complementary', {
