@@ -65,8 +65,8 @@ async function expand(
   if (!input.snapshot.profileId)
     throw new Error('No PostgreSQL connection selected.')
   const schemas =
-    useStore.getState().metadataByProfileId[input.snapshot.profileId]?.schemas ??
-    []
+    useStore.getState().metadataByProfileId[input.snapshot.profileId]
+      ?.schemas ?? []
   const candidates = expandAiRelations(
     schemas,
     request.searchTerms,
@@ -82,10 +82,8 @@ async function expand(
     },
   }
   if (!candidates.length) return requested
-  const context = await appendAiContext(
-    input.context,
-    candidates,
-    (relation) => ensureRelationColumns(input.snapshot.profileId!, relation),
+  const context = await appendAiContext(input.context, candidates, (relation) =>
+    ensureRelationColumns(input.snapshot.profileId!, relation),
   )
   const before = new Set(
     input.context.relations.map(
