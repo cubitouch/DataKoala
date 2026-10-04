@@ -756,48 +756,113 @@ describe('LokiExplorer execution', () => {
     expect(useStore.getState().tabs[0].lokiResultView).toBe('table')
   })
 
-  it('explores patterns without a trend request and drills into List and Table', async () => {
+  it('uses an explicit removable local pattern filter in raw LogQL mode', async () => {
     mocks.runLoki.mockResolvedValue(patternLogs())
     render(<LokiExplorer connectionId="loki" />)
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
-    expect(screen.getByRole('button', { name: 'Patterns' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
-    expect(
-      await screen.findByText('2 patterns across 3 loaded logs'),
-    ).toBeTruthy()
+    expect(await screen.findByText('2 patterns · 3 loaded logs')).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Patterns' })).toBeNull()
     expect(mocks.runLoki).toHaveBeenCalledTimes(1)
-    const requestPattern = screen.getByRole('button', {
-      name: /Request.*<number>.*completed/,
-    })
-    const requestCard = requestPattern.closest(
-      '[data-pattern-card]',
-    ) as HTMLElement
-    fireEvent.click(requestPattern)
-    const requestViewLogs = Array.from(
-      requestCard.querySelectorAll('button'),
-    ).find((button) => button.textContent === 'View logs') as HTMLButtonElement
-    fireEvent.click(requestViewLogs)
-    expect(useStore.getState().tabs[0].lokiResultView).toBe('list')
-    expect(await screen.findByText(/Showing 2 logs matching/)).toBeTruthy()
-    expect(screen.getByText(/^2 loaded/)).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
-    expect(screen.queryByText(/Showing 2 logs matching/)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'List' }))
-    expect(screen.getByText(/Showing 2 logs matching/)).toBeTruthy()
+    fireEvent.click(
+      screen.getByRole('option', {
+        name: /Request.*<number>.*completed/,
+      }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Filter logs' }))
+    expect(useStore.getState().tabs[0].lokiResultView).toBe('list')
+    expect(await screen.findByText(/Local pattern filter:/)).toBeTruthy()
     expect(screen.getByText(/^2 loaded/)).toBeTruthy()
+    expect(mocks.runLoki).toHaveBeenCalledTimes(1)
 
     fireEvent.click(screen.getByRole('button', { name: 'Table' }))
     expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
-    expect(screen.getByText(/Showing 2 logs matching/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Clear pattern' }))
+    expect(screen.getByText(/Local pattern filter:/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
     fireEvent.click(screen.getByRole('button', { name: 'List' }))
     expect(screen.getByText(/^3 loaded/)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Clear pattern' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull()
   })
 
-  it('invalidates a selected pattern when a new query result arrives', async () => {
+  it('promotes a safe pattern to visible Builder state and executes the exact new query', async () => {
+    const tab = createQuerySession(1, {
+      id: 'pattern-builder',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [],
+      parsers: [],
+      fieldFilters: [],
+    }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    mocks.runLoki.mockResolvedValue(patternLogs())
+    render(<LokiExplorer connectionId="loki" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    fireEvent.click(
+      await screen.findByRole('option', {
+        name: /Request.*<number>.*completed/,
+      }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Filter logs' }))
+
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(2))
+    expect(mocks.runLoki.mock.calls[1][1].expression).toBe(
+      '{app="x"} |= "completed"',
+    )
+    expect(useStore.getState().tabs[0].lokiBuilder.lineFilters).toEqual([
+      { operator: '|=', value: 'completed' },
+    ])
+    expect(useStore.getState().tabs[0].lokiResultView).toBe('list')
+    expect((screen.getByLabelText('Line contains') as HTMLInputElement).value).toBe(
+      'completed',
+    )
+    expect(screen.queryByText(/Local pattern filter:/)).toBeNull()
+  })
+
+  it('falls back locally when Builder line filters cannot be represented by the visible control', async () => {
+    const tab = createQuerySession(1, {
+      id: 'pattern-unsafe-builder',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [
+        { operator: '|=', value: 'Request' },
+        { operator: '!=', value: 'noise' },
+      ],
+      parsers: [],
+      fieldFilters: [],
+    }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    mocks.runLoki.mockResolvedValue(patternLogs())
+    render(<LokiExplorer connectionId="loki" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    fireEvent.click(
+      await screen.findByRole('option', {
+        name: /Request.*<number>.*completed/,
+      }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Filter logs' }))
+
+    expect(await screen.findByText(/Local pattern filter:/)).toBeTruthy()
+    expect(mocks.runLoki).toHaveBeenCalledTimes(1)
+    expect(useStore.getState().tabs[0].lokiBuilder.lineFilters).toEqual(
+      tab.lokiBuilder.lineFilters,
+    )
+  })
+
+  it('invalidates a local pattern filter when a new query result arrives', async () => {
     mocks.runLoki
       .mockResolvedValueOnce(patternLogs())
       .mockResolvedValueOnce(patternLogs('-new'))
@@ -805,26 +870,18 @@ describe('LokiExplorer execution', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await screen.findByRole('button', { name: 'Patterns' })
     fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
-    const requestPattern = await screen.findByRole('button', {
-      name: /Request.*<number>.*completed/,
-    })
-    const requestCard = requestPattern.closest(
-      '[data-pattern-card]',
-    ) as HTMLElement
-    fireEvent.click(requestPattern)
-    const requestViewLogs = Array.from(
-      requestCard.querySelectorAll('button'),
-    ).find((button) => button.textContent === 'View logs') as HTMLButtonElement
-    fireEvent.click(requestViewLogs)
-    expect(
-      await screen.findByRole('button', { name: 'Clear pattern' }),
-    ).toBeTruthy()
+    fireEvent.click(
+      await screen.findByRole('option', {
+        name: /Request.*<number>.*completed/,
+      }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Filter logs' }))
+    expect(await screen.findByRole('button', { name: 'Clear' })).toBeTruthy()
+
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(2))
     await waitFor(() =>
-      expect(
-        screen.queryByRole('button', { name: 'Clear pattern' }),
-      ).toBeNull(),
+      expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull(),
     )
     expect(screen.getByText(/^3 loaded/)).toBeTruthy()
   })
