@@ -91,16 +91,24 @@ body {
   background:
     radial-gradient(
       circle at 50% -15rem,
-      rgb(255 212 59 / 12%),
+      rgb(255 212 59 / 20%),
       transparent 38rem
     ),
-    linear-gradient(rgb(255 255 255 / 2.2%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 2.2%) 1px, transparent 1px),
+    radial-gradient(
+      circle at 1px 1px,
+      rgb(255 255 255 / 4%) 1px,
+      transparent 1.25px
+    ),
+    radial-gradient(
+      circle at 1px 1px,
+      rgb(255 255 255 / 4%) 1px,
+      transparent 1.25px
+    ),
     #090a0c;
   background-size:
     auto,
-    56px 56px,
-    56px 56px,
+    56px 8px,
+    8px 56px,
     auto;
   color: var(--muted);
   -webkit-font-smoothing: antialiased;
