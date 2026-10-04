@@ -1,5 +1,6 @@
 import { HighlightedText } from '@components/ui/HighlightedText'
 import { TextInput } from '@components/ui/TextInput'
+import { ResizableDetailPanel } from '@components/results/ResizableDetailPanel'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { LokiFilterSource, LokiLogRow, LokiParserKind } from '@shared/loki'
@@ -75,6 +76,7 @@ export function LogResultExplorer({
 }: Props) {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [inspectorWidth, setInspectorWidth] = useState(390)
   const parent = useRef<HTMLDivElement>(null)
   const textSearch = useMemo(() => createTextSearch(search), [search])
   const highlight = (text: string) => (
@@ -201,10 +203,9 @@ export function LogResultExplorer({
           {truncated ? ` · limited to ${limit} · more available` : ''}
         </span>
       </div>
-      <div
-        className={styles.logSplit}
-        data-inspector-open={Boolean(selected) || undefined}
-      >
+      <ResizableDetailPanel
+        main={
+          <>
         {!visible.length ? (
           <div className={styles.empty}>No matching log entries.</div>
         ) : (
@@ -247,11 +248,11 @@ export function LogResultExplorer({
             </div>
           </div>
         )}
-        {selected && (
-          <aside
-            className={styles.logInspector}
-            aria-label="Selected log details"
-          >
+          </>
+        }
+        detail={
+          selected ? (
+            <div className={styles.logInspector}>
             <header>
               <div>
                 <strong>Log event</strong>
@@ -352,9 +353,13 @@ export function LogResultExplorer({
                 {fields(selected.parsedFields, 'parsed-field')}
               </section>
             </div>
-          </aside>
-        )}
-      </div>
+            </div>
+          ) : undefined
+        }
+        detailLabel="Selected log details"
+        width={inspectorWidth}
+        onWidthChange={setInspectorWidth}
+      />
     </section>
   )
 }
