@@ -26,41 +26,35 @@ a {
   display: inline-flex;
 }
 
-.screenshot-chrome {
+.window-bar {
   position: absolute;
   z-index: 3;
-  top: 12px;
-  left: 14px;
+  top: 0;
+  left: 0;
+  height: 2.78cqi;
   display: flex;
-  gap: 7px;
-  padding: 7px 8px;
-  border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: 999px;
-  background: rgb(9 10 12 / 72%);
-  box-shadow: 0 4px 14px rgb(0 0 0 / 24%);
-  backdrop-filter: blur(8px);
+  align-items: center;
+  gap: 0.45cqi;
+  padding-left: 1.05cqi;
+  border: 0;
+  background: transparent;
   pointer-events: none;
 }
 
-.screenshot-chrome i {
-  width: 9px;
-  height: 9px;
+.window-bar i {
+  width: 0.83cqi;
+  height: 0.83cqi;
   display: block;
   border-radius: 50%;
   background: #ff5f57;
 }
 
-.screenshot-chrome i:nth-child(2) {
+.window-bar i:nth-child(2) {
   background: #febc2e;
 }
 
-.screenshot-chrome i:nth-child(3) {
+.window-bar i:nth-child(3) {
   background: #28c840;
-}
-
-.screenshot-chrome-hero {
-  top: 14px;
-  left: 16px;
 }
 
 .shot img {
@@ -383,6 +377,8 @@ nav {
 }
 
 .product-window {
+  position: relative;
+  container-type: inline-size;
   display: block;
   overflow: hidden;
   border: 1px solid #373c45;
@@ -553,6 +549,7 @@ nav {
 
 .bento-media {
   position: relative;
+  container-type: inline-size;
   z-index: 1;
   display: block;
   overflow: hidden;
