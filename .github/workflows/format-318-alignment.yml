@@ -1,0 +1,53 @@
+name: Format #318 alignment pass
+
+on:
+  push:
+    branches:
+      - feat/298-loki-pattern-inspector
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: feat/298-loki-pattern-inspector
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply Prettier
+        run: pnpm exec prettier --write \
+          src/renderer/src/components/results/logs/LogPatternExplorer.tsx \
+          src/renderer/src/components/results/logs/LogPatternExplorer.ui.test.tsx \
+          src/renderer/src/components/results/logs/LogResultExplorer.tsx \
+          src/renderer/src/components/results/logs/logSeverity.ts
+
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/renderer/src/components/results/logs/LogPatternExplorer.tsx \
+            src/renderer/src/components/results/logs/LogPatternExplorer.ui.test.tsx \
+            src/renderer/src/components/results/logs/LogResultExplorer.tsx \
+            src/renderer/src/components/results/logs/logSeverity.ts
+          git commit -m "Format #318 alignment pass"
+          git push origin HEAD:feat/298-loki-pattern-inspector
