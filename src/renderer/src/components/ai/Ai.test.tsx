@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   propose: vi.fn(),
   cancel: vi.fn(),
   run: vi.fn(),
+  columns: vi.fn(),
 }))
 vi.mock('@lib/api', () => ({
   api: {
@@ -36,9 +37,7 @@ vi.mock('@lib/api', () => ({
   },
 }))
 vi.mock('@lib/relationColumns', () => ({
-  ensureRelationColumns: vi.fn(async () => [
-    { name: 'id', dataTypeName: 'uuid' },
-  ]),
+  ensureRelationColumns: mocks.columns,
 }))
 import { AiSettingsAction } from './AiSettingsAction'
 import { AiSettingsModal } from './AiSettingsModal'
@@ -53,7 +52,7 @@ import {
   selectActiveSession,
   useStore,
 } from '@store/useStore'
-import type { AiQueryProposal, AiResult } from '@shared/ai'
+import type { AiQueryStep, AiResult } from '@shared/ai'
 const summary = {
   provider: 'openrouter',
   model: 'saved/model',
@@ -82,7 +81,12 @@ beforeEach(() => {
   )
   mocks.test.mockResolvedValue(ok(undefined))
   mocks.cancel.mockResolvedValue(ok(undefined))
-  mocks.propose.mockResolvedValue(ok(proposed))
+  mocks.columns.mockImplementation(async () => [
+    { name: 'id', dataTypeName: 'uuid' },
+  ])
+  mocks.propose.mockResolvedValue(
+    ok({ kind: 'proposal', proposal: proposed } as AiQueryStep),
+  )
   resetTestStore({
     profiles: [
       {
@@ -219,7 +223,7 @@ for (const initialSql of ['', 'SELECT id FROM public.orders']) {
 }
 for (const change of ['query', 'tab', 'connection'] as const) {
   test(`stale ${change} change, even changed back, cannot apply proposal`, async () => {
-    const pending = deferred<AiResult<AiQueryProposal>>()
+    const pending = deferred<AiResult<AiQueryStep>>()
     mocks.propose.mockReturnValue(pending.promise)
     render(<AiQueryCopilot />)
     await generate()
@@ -242,7 +246,7 @@ for (const change of ['query', 'tab', 'connection'] as const) {
         useStore.setState({ activeTabId: state.activeTabId })
       }
     })
-    await act(async () => pending.resolve(ok(proposed)))
+    await act(async () => pending.resolve(ok({ kind: 'proposal', proposal: proposed })))
     expect(
       (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
         .disabled,
@@ -251,7 +255,7 @@ for (const change of ['query', 'tab', 'connection'] as const) {
   })
 }
 test('Cancel aborts and ignores a late successful response', async () => {
-  const pending = deferred<AiResult<AiQueryProposal>>()
+  const pending = deferred<AiResult<AiQueryStep>>()
   mocks.propose.mockReturnValue(pending.promise)
   render(<AiQueryCopilot />)
   await generate()
@@ -259,7 +263,7 @@ test('Cancel aborts and ignores a late successful response', async () => {
   expect(mocks.cancel).toHaveBeenCalledWith(
     mocks.propose.mock.calls[0][0].requestId,
   )
-  await act(async () => pending.resolve(ok(proposed)))
+  await act(async () => pending.resolve(ok({ kind: 'proposal', proposal: proposed })))
   expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
   expect(selectActiveSession(useStore.getState()).sql).toBe('')
 })
@@ -395,7 +399,7 @@ test('Try again keeps previous diff pending, uses latest SQL and replaces only o
   await generate()
   await screen.findByRole('button', { name: 'Apply' })
   act(() => patchActiveTestSession({ sql: 'SELECT id FROM public.orders' }))
-  const pending = deferred<AiResult<AiQueryProposal>>()
+  const pending = deferred<AiResult<AiQueryStep>>()
   mocks.propose.mockReturnValue(pending.promise)
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
   await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(2))
@@ -409,7 +413,7 @@ test('Try again keeps previous diff pending, uses latest SQL and replaces only o
       .disabled,
   ).toBe(true)
   await act(async () =>
-    pending.resolve(ok({ ...proposed, explanation: 'Updated proposal' })),
+    pending.resolve(\n      ok({\n        kind: 'proposal',\n        proposal: { ...proposed, explanation: 'Updated proposal' },\n      }),\n    ),
   )
   fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
   expect(await screen.findByText('Updated proposal')).toBeTruthy()
@@ -457,10 +461,10 @@ test('saving settings enables an already-mounted hidden copilot', async () => {
   await screen.findByRole('button', { name: 'Apply' })
 })
 test('cancelled first response cannot replace a newer proposal', async () => {
-  const first = deferred<AiResult<AiQueryProposal>>()
+  const first = deferred<AiResult<AiQueryStep>>()
   mocks.propose
     .mockReturnValueOnce(first.promise)
-    .mockResolvedValueOnce(ok({ ...proposed, explanation: 'Newer proposal' }))
+    .mockResolvedValueOnce(\n      ok({\n        kind: 'proposal',\n        proposal: { ...proposed, explanation: 'Newer proposal' },\n      }),\n    )
   render(<AiQueryCopilot />)
   await generate()
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -470,7 +474,7 @@ test('cancelled first response cannot replace a newer proposal', async () => {
   )
   await screen.findByText('Newer proposal')
   await act(async () =>
-    first.resolve(ok({ ...proposed, explanation: 'Cancelled proposal' })),
+    first.resolve(\n      ok({\n        kind: 'proposal',\n        proposal: { ...proposed, explanation: 'Cancelled proposal' },\n      }),\n    ),
   )
   expect(screen.queryByText('Cancelled proposal')).toBeNull()
   expect(screen.getByText('Newer proposal')).toBeTruthy()
