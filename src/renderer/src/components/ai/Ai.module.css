@@ -60,7 +60,7 @@
   flex: none;
 }
 
-.copilotMessage {
+.copilot .copilotMessage {
   margin-top: 8px;
   padding-inline: 8px;
 }
