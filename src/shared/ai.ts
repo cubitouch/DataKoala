@@ -55,3 +55,14 @@ export const AI_LIMITS = {
 } as const
 export const AI_PRIVACY_NOTICE =
   'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query and bounded schema metadata. Database credentials and query result rows are not sent.'
+
+/**
+ * Single product-level availability rule for AI features.
+ *
+ * Keep AI entry points hidden until a provider has both a persisted key and
+ * model. Future AI features should use the same rule rather than each
+ * inventing their own notion of "configured".
+ */
+export function isAiConfigured(settings: AiSettingsSummary): boolean {
+  return settings.hasApiKey && settings.model.trim().length > 0
+}
