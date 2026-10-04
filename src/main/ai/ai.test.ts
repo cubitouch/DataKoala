@@ -89,10 +89,7 @@ test('OpenRouter models, structured request and proposal parsing use only explic
     { id: 'a', name: 'a' },
     { id: 'z', name: 'Zebra' },
   ])
-  assert.deepEqual(
-    await provider.proposeQuery(request, signal()),
-    proposalStep,
-  )
+  assert.deepEqual(await provider.proposeQuery(request, signal()), proposalStep)
   assert.deepEqual(sent?.provider, { require_parameters: true })
   assert.equal((sent?.response_format as { type: string }).type, 'json_schema')
   const responseFormat = sent?.response_format as {
