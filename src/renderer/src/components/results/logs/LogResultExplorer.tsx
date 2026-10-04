@@ -206,153 +206,158 @@ export function LogResultExplorer({
       <ResizableDetailPanel
         main={
           <>
-        {!visible.length ? (
-          <div className={styles.empty}>No matching log entries.</div>
-        ) : (
-          <div ref={parent} className={styles.logScroller}>
-            <div
-              style={{ height: virtual.getTotalSize(), position: 'relative' }}
-            >
-              {virtual.getVirtualItems().map((item) => {
-                const row = visible[item.index],
-                  active = row.id === selectedId,
-                  iso = new Date(row.timestampMs).toISOString(),
-                  message = effectiveLogMessage(row)
-                return (
-                  <article
-                    key={row.id}
-                    data-index={item.index}
-                    className={styles.logRow}
-                    style={{ transform: `translateY(${item.start}px)` }}
-                  >
-                    <button
-                      className={styles.logSummary}
-                      aria-label={`${shortTimestamp(row.timestampMs)}, ${row.severity.toUpperCase()}, ${message}`}
-                      aria-selected={active}
-                      onClick={() => setSelectedId(active ? null : row.id)}
-                    >
-                      <time dateTime={iso} title={iso}>
-                        {shortTimestamp(row.timestampMs)}
-                      </time>
-                      <strong data-severity={row.severity.toUpperCase()}>
-                        {row.severity.toUpperCase()}
-                      </strong>
-                      <span>{highlight(message)}</span>
-                      <i aria-hidden="true" title="Open details">
-                        ›
-                      </i>
-                    </button>
-                  </article>
-                )
-              })}
-            </div>
-          </div>
-        )}
+            {!visible.length ? (
+              <div className={styles.empty}>No matching log entries.</div>
+            ) : (
+              <div ref={parent} className={styles.logScroller}>
+                <div
+                  style={{
+                    height: virtual.getTotalSize(),
+                    position: 'relative',
+                  }}
+                >
+                  {virtual.getVirtualItems().map((item) => {
+                    const row = visible[item.index],
+                      active = row.id === selectedId,
+                      iso = new Date(row.timestampMs).toISOString(),
+                      message = effectiveLogMessage(row)
+                    return (
+                      <article
+                        key={row.id}
+                        data-index={item.index}
+                        className={styles.logRow}
+                        style={{ transform: `translateY(${item.start}px)` }}
+                      >
+                        <button
+                          className={styles.logSummary}
+                          aria-label={`${shortTimestamp(row.timestampMs)}, ${row.severity.toUpperCase()}, ${message}`}
+                          aria-selected={active}
+                          onClick={() => setSelectedId(active ? null : row.id)}
+                        >
+                          <time dateTime={iso} title={iso}>
+                            {shortTimestamp(row.timestampMs)}
+                          </time>
+                          <strong data-severity={row.severity.toUpperCase()}>
+                            {row.severity.toUpperCase()}
+                          </strong>
+                          <span>{highlight(message)}</span>
+                          <i aria-hidden="true" title="Open details">
+                            ›
+                          </i>
+                        </button>
+                      </article>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </>
         }
         detail={
           selected ? (
             <div className={styles.logInspector}>
-            <header>
-              <div>
-                <strong>Log event</strong>
-                <span>{new Date(selected.timestampMs).toISOString()}</span>
-              </div>
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() => setSelectedId(null)}
-                aria-label="Close log details"
-              >
-                Close
-              </button>
-            </header>
-            <div className={styles.inspectorBody}>
-              <div className={styles.inspectorSeverity}>
-                <strong data-severity={selected.severity.toUpperCase()}>
-                  {selected.severity.toUpperCase()}
-                </strong>
-              </div>
-              <p className={styles.fullLine}>
-                {highlight(effectiveLogMessage(selected))}
-              </p>
-              <div className={styles.logActions}>
+              <header>
+                <div>
+                  <strong>Log event</strong>
+                  <span>{new Date(selected.timestampMs).toISOString()}</span>
+                </div>
                 <button
-                  className={styles.iconAction}
-                  title="Copy message"
-                  aria-label="Copy message"
-                  onClick={() =>
-                    void navigator.clipboard.writeText(
-                      effectiveLogMessage(selected),
-                    )
-                  }
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => setSelectedId(null)}
+                  aria-label="Close log details"
                 >
-                  <ActionIcon kind="copy" />
+                  Close
                 </button>
-                <button
-                  className={styles.iconAction}
-                  title="Copy raw log"
-                  aria-label="Copy raw log"
-                  onClick={() =>
-                    void navigator.clipboard.writeText(selected.line)
-                  }
-                >
-                  <ActionIcon kind="raw" />
-                </button>
+              </header>
+              <div className={styles.inspectorBody}>
+                <div className={styles.inspectorSeverity}>
+                  <strong data-severity={selected.severity.toUpperCase()}>
+                    {selected.severity.toUpperCase()}
+                  </strong>
+                </div>
+                <p className={styles.fullLine}>
+                  {highlight(effectiveLogMessage(selected))}
+                </p>
+                <div className={styles.logActions}>
+                  <button
+                    className={styles.iconAction}
+                    title="Copy message"
+                    aria-label="Copy message"
+                    onClick={() =>
+                      void navigator.clipboard.writeText(
+                        effectiveLogMessage(selected),
+                      )
+                    }
+                  >
+                    <ActionIcon kind="copy" />
+                  </button>
+                  <button
+                    className={styles.iconAction}
+                    title="Copy raw log"
+                    aria-label="Copy raw log"
+                    onClick={() =>
+                      void navigator.clipboard.writeText(selected.line)
+                    }
+                  >
+                    <ActionIcon kind="raw" />
+                  </button>
+                </div>
+                {(selected.traceId || selected.spanId) && (
+                  <dl className={styles.traceIdentifiers}>
+                    {selected.traceId && (
+                      <div>
+                        <dt>Trace ID</dt>
+                        <dd>
+                          <code>{highlight(selected.traceId)}</code>
+                          <button
+                            title="Copy Trace ID"
+                            aria-label="Copy Trace ID"
+                            onClick={() =>
+                              void navigator.clipboard.writeText(
+                                selected.traceId!,
+                              )
+                            }
+                          >
+                            <ActionIcon kind="copy" />
+                          </button>
+                        </dd>
+                      </div>
+                    )}
+                    {selected.spanId && (
+                      <div>
+                        <dt>Span ID</dt>
+                        <dd>
+                          <code>{highlight(selected.spanId)}</code>
+                          <button
+                            title="Copy Span ID"
+                            aria-label="Copy Span ID"
+                            onClick={() =>
+                              void navigator.clipboard.writeText(
+                                selected.spanId!,
+                              )
+                            }
+                          >
+                            <ActionIcon kind="copy" />
+                          </button>
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                )}
+                <section className={styles.detailSection}>
+                  <h3>Indexed labels</h3>
+                  {fields(selected.labels, 'label')}
+                </section>
+                <section className={styles.detailSection}>
+                  <h3>Structured metadata</h3>
+                  {fields(selected.structuredMetadata, 'structured-metadata')}
+                </section>
+                <section className={styles.detailSection}>
+                  <h3>Parsed fields</h3>
+                  {fields(selected.parsedFields, 'parsed-field')}
+                </section>
               </div>
-              {(selected.traceId || selected.spanId) && (
-                <dl className={styles.traceIdentifiers}>
-                  {selected.traceId && (
-                    <div>
-                      <dt>Trace ID</dt>
-                      <dd>
-                        <code>{highlight(selected.traceId)}</code>
-                        <button
-                          title="Copy Trace ID"
-                          aria-label="Copy Trace ID"
-                          onClick={() =>
-                            void navigator.clipboard.writeText(
-                              selected.traceId!,
-                            )
-                          }
-                        >
-                          <ActionIcon kind="copy" />
-                        </button>
-                      </dd>
-                    </div>
-                  )}
-                  {selected.spanId && (
-                    <div>
-                      <dt>Span ID</dt>
-                      <dd>
-                        <code>{highlight(selected.spanId)}</code>
-                        <button
-                          title="Copy Span ID"
-                          aria-label="Copy Span ID"
-                          onClick={() =>
-                            void navigator.clipboard.writeText(selected.spanId!)
-                          }
-                        >
-                          <ActionIcon kind="copy" />
-                        </button>
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-              )}
-              <section className={styles.detailSection}>
-                <h3>Indexed labels</h3>
-                {fields(selected.labels, 'label')}
-              </section>
-              <section className={styles.detailSection}>
-                <h3>Structured metadata</h3>
-                {fields(selected.structuredMetadata, 'structured-metadata')}
-              </section>
-              <section className={styles.detailSection}>
-                <h3>Parsed fields</h3>
-                {fields(selected.parsedFields, 'parsed-field')}
-              </section>
-            </div>
             </div>
           ) : undefined
         }
