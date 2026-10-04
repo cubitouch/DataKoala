@@ -1,18 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  mkdtemp,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import {
-  EncryptedSecretStore,
-  SHARED_SECRETS_FILENAME,
-} from './store.ts'
+import { EncryptedSecretStore, SHARED_SECRETS_FILENAME } from './store.ts'
 import type { Encryption } from './store.ts'
 
 type EncryptionState = {
@@ -84,10 +75,7 @@ test('secret round trip persists only encrypted bytes with restrictive permissio
   try {
     await store.set('ai', 'openrouter-api-key', 'plain-secret')
     assert.equal(await store.has('ai', 'openrouter-api-key'), true)
-    assert.equal(
-      await store.get('ai', 'openrouter-api-key'),
-      'plain-secret',
-    )
+    assert.equal(await store.get('ai', 'openrouter-api-key'), 'plain-secret')
 
     const path = join(directory, SHARED_SECRETS_FILENAME)
     const stored = await readFile(path, 'utf8')
@@ -125,14 +113,8 @@ test('multiple owner/id pairs survive replacement and restart', async () => {
     await store.set('datasource', 'postgres-two', 'second-password')
     await store.set('datasource', 'postgres-one', 'replacement-password')
 
-    const restarted = new EncryptedSecretStore(
-      directory,
-      fakeEncryption(state),
-    )
-    assert.equal(
-      await restarted.get('ai', 'openrouter-api-key'),
-      'ai-secret',
-    )
+    const restarted = new EncryptedSecretStore(directory, fakeEncryption(state))
+    assert.equal(await restarted.get('ai', 'openrouter-api-key'), 'ai-secret')
     assert.equal(
       await restarted.get('datasource', 'postgres-one'),
       'replacement-password',
@@ -148,10 +130,7 @@ test('multiple owner/id pairs survive replacement and restart', async () => {
 
 test('concurrent writes cannot discard another secret update', async () => {
   const { directory, state, store } = await temporaryStore()
-  const secondStore = new EncryptedSecretStore(
-    directory,
-    fakeEncryption(state),
-  )
+  const secondStore = new EncryptedSecretStore(directory, fakeEncryption(state))
   try {
     await Promise.all([
       store.set('ai', 'openrouter-api-key', 'ai-secret'),
@@ -159,10 +138,7 @@ test('concurrent writes cannot discard another secret update', async () => {
       store.set('datasource', 'postgres-two', 'second-password'),
     ])
 
-    assert.equal(
-      await secondStore.get('ai', 'openrouter-api-key'),
-      'ai-secret',
-    )
+    assert.equal(await secondStore.get('ai', 'openrouter-api-key'), 'ai-secret')
     assert.equal(
       await store.get('datasource', 'postgres-one'),
       'first-password',
@@ -184,10 +160,7 @@ test('reading a secret rewrites ciphertext when re-encryption is requested', asy
     const before = await readFile(path, 'utf8')
 
     state.shouldReEncrypt = true
-    assert.equal(
-      await store.get('ai', 'openrouter-api-key'),
-      'plain-secret',
-    )
+    assert.equal(await store.get('ai', 'openrouter-api-key'), 'plain-secret')
     const after = await readFile(path, 'utf8')
 
     assert.notEqual(after, before)
@@ -210,10 +183,7 @@ test('malformed persistence fails safely without destroying unrelated records', 
     stored.secrets.unshift({ owner: 'datasource', broken: true })
     await writeFile(path, JSON.stringify(stored), { mode: 0o600 })
 
-    assert.equal(
-      await store.get('ai', 'openrouter-api-key'),
-      'ai-secret',
-    )
+    assert.equal(await store.get('ai', 'openrouter-api-key'), 'ai-secret')
     const preserved = JSON.parse(await readFile(path, 'utf8')) as {
       secrets: unknown[]
     }
@@ -234,10 +204,7 @@ test('malformed persistence fails safely without destroying unrelated records', 
     await assert.rejects(store.get('ai', 'openrouter-api-key'), {
       code: 'invalid-persistence',
     })
-    assert.equal(
-      (await readFile(path, 'utf8')).includes('not-base64!'),
-      true,
-    )
+    assert.equal((await readFile(path, 'utf8')).includes('not-base64!'), true)
 
     await writeFile(path, '{malformed', { mode: 0o600 })
     await assert.rejects(store.has('ai', 'openrouter-api-key'), {
