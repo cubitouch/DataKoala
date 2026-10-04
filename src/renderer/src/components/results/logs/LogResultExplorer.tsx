@@ -1,5 +1,9 @@
 import { HighlightedText } from '@components/ui/HighlightedText'
 import { TextInput } from '@components/ui/TextInput'
+import {
+  DEFAULT_DETAIL_PANEL_WIDTH,
+  ResizableDetailPanel,
+} from '@components/ui/ResizableDetailPanel'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { LokiFilterSource, LokiLogRow, LokiParserKind } from '@shared/loki'
@@ -75,6 +79,9 @@ export function LogResultExplorer({
 }: Props) {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [inspectorWidth, setInspectorWidth] = useState(
+    DEFAULT_DETAIL_PANEL_WIDTH,
+  )
   const parent = useRef<HTMLDivElement>(null)
   const textSearch = useMemo(() => createTextSearch(search), [search])
   const highlight = (text: string) => (
@@ -185,73 +192,8 @@ export function LogResultExplorer({
     </dl>
   )
 
-  return (
-    <section className={styles.logs} aria-label="Log results">
-      <div className={styles.resultToolbar}>
-        <TextInput
-          mode="inline"
-          labelVisibility="sr-only"
-          label="Search loaded logs"
-          placeholder="Search loaded logs…"
-          value={search}
-          onValueChange={setSearch}
-        />
-        <span className={styles.loadedCount}>
-          {visible.length} loaded
-          {truncated ? ` · limited to ${limit} · more available` : ''}
-        </span>
-      </div>
-      <div
-        className={styles.logSplit}
-        data-inspector-open={Boolean(selected) || undefined}
-      >
-        {!visible.length ? (
-          <div className={styles.empty}>No matching log entries.</div>
-        ) : (
-          <div ref={parent} className={styles.logScroller}>
-            <div
-              style={{ height: virtual.getTotalSize(), position: 'relative' }}
-            >
-              {virtual.getVirtualItems().map((item) => {
-                const row = visible[item.index],
-                  active = row.id === selectedId,
-                  iso = new Date(row.timestampMs).toISOString(),
-                  message = effectiveLogMessage(row)
-                return (
-                  <article
-                    key={row.id}
-                    data-index={item.index}
-                    className={styles.logRow}
-                    style={{ transform: `translateY(${item.start}px)` }}
-                  >
-                    <button
-                      className={styles.logSummary}
-                      aria-label={`${shortTimestamp(row.timestampMs)}, ${row.severity.toUpperCase()}, ${message}`}
-                      aria-selected={active}
-                      onClick={() => setSelectedId(active ? null : row.id)}
-                    >
-                      <time dateTime={iso} title={iso}>
-                        {shortTimestamp(row.timestampMs)}
-                      </time>
-                      <strong data-severity={row.severity.toUpperCase()}>
-                        {row.severity.toUpperCase()}
-                      </strong>
-                      <span>{highlight(message)}</span>
-                      <i aria-hidden="true" title="Open details">
-                        ›
-                      </i>
-                    </button>
-                  </article>
-                )
-              })}
-            </div>
-          </div>
-        )}
-        {selected && (
-          <aside
-            className={styles.logInspector}
-            aria-label="Selected log details"
-          >
+  const inspector = selected ? (
+    <div className={styles.logInspector}>
             <header>
               <div>
                 <strong>Log event</strong>
@@ -352,9 +294,74 @@ export function LogResultExplorer({
                 {fields(selected.parsedFields, 'parsed-field')}
               </section>
             </div>
-          </aside>
-        )}
+          </div>
+  ) : undefined
+
+  return (
+    <section className={styles.logs} aria-label="Log results">
+      <div className={styles.resultToolbar}>
+        <TextInput
+          mode="inline"
+          labelVisibility="sr-only"
+          label="Search loaded logs"
+          placeholder="Search loaded logs…"
+          value={search}
+          onValueChange={setSearch}
+        />
+        <span className={styles.loadedCount}>
+          {visible.length} loaded
+          {truncated ? ` · limited to ${limit} · more available` : ''}
+        </span>
       </div>
+      <ResizableDetailPanel
+        detailLabel="Selected log details"
+        detail={inspector}
+        width={inspectorWidth}
+        onWidthChange={setInspectorWidth}
+      >
+        {!visible.length ? (
+          <div className={styles.empty}>No matching log entries.</div>
+        ) : (
+          <div ref={parent} className={styles.logScroller}>
+            <div
+              style={{ height: virtual.getTotalSize(), position: 'relative' }}
+            >
+              {virtual.getVirtualItems().map((item) => {
+                const row = visible[item.index],
+                  active = row.id === selectedId,
+                  iso = new Date(row.timestampMs).toISOString(),
+                  message = effectiveLogMessage(row)
+                return (
+                  <article
+                    key={row.id}
+                    data-index={item.index}
+                    className={styles.logRow}
+                    style={{ transform: `translateY(${item.start}px)` }}
+                  >
+                    <button
+                      className={styles.logSummary}
+                      aria-label={`${shortTimestamp(row.timestampMs)}, ${row.severity.toUpperCase()}, ${message}`}
+                      aria-selected={active}
+                      onClick={() => setSelectedId(active ? null : row.id)}
+                    >
+                      <time dateTime={iso} title={iso}>
+                        {shortTimestamp(row.timestampMs)}
+                      </time>
+                      <strong data-severity={row.severity.toUpperCase()}>
+                        {row.severity.toUpperCase()}
+                      </strong>
+                      <span>{highlight(message)}</span>
+                      <i aria-hidden="true" title="Open details">
+                        ›
+                      </i>
+                    </button>
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </ResizableDetailPanel>
     </section>
   )
 }
