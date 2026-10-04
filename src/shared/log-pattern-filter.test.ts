@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { deriveLogPatternLineFilterCandidate } from './log-pattern-filter'
+import { deriveLogPatternLineFilterCandidate } from './log-pattern-filter.ts'
 
 describe('deriveLogPatternLineFilterCandidate', () => {
   it('prefers a useful common literal and never emits placeholders', () => {
