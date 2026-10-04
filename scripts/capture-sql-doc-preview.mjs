@@ -204,6 +204,10 @@ async function assertVisibleChart(win, view) {
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
+  ipcMain.handle('ai:settings:get', () => ({
+    ok: true,
+    value: { provider: 'openrouter', model: '', hasApiKey: false },
+  }))
   ipcMain.handle('query:run', async () => ({
     columns: [],
     rows: [],

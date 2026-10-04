@@ -1,3 +1,4 @@
+import { AiQueryCopilot } from '@components/ai/AiQueryCopilot'
 import {
   useCallback,
   useEffect,
@@ -525,6 +526,9 @@ export function QueryEditor({
         }
       />
 
+      {connectionKind === 'postgres' && !builderMode && (
+        <AiQueryCopilot key={`${tabId}:${tabConnectionId}`} />
+      )}
       {builderMode ? (
         <PromqlBuilderPanel
           onQueryStateChange={handleBuilderQueryStateChange}

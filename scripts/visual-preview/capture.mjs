@@ -1014,6 +1014,7 @@ async function configureLongObjectTree(win) {
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
+  ipcMain.handle('ai:settings:get', () => ({ ok: true, value: { provider: 'openrouter', model: '', hasApiKey: false } }))
   ipcMain.handle('query:run', async (_event, _connectionId, query) => builderFixtureResult(query) ?? ({
     columns: [
       { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },
