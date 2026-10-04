@@ -141,31 +141,44 @@ export class AiSettingsStore {
     return next
   }
 
+  private async tryLegacyMigration() {
+    try {
+      await this.ensureLegacyMigration()
+    } catch {
+      // The legacy encrypted file remains the fallback until migration succeeds.
+    }
+  }
+
   async get(): Promise<AiSettingsSummary> {
-    await this.ensureLegacyMigration()
+    await this.tryLegacyMigration()
     const data = await readOptional(join(this.directory, 'ai-settings.json'))
     const model =
       data === null ? '' : textValue(record(JSON.parse(data)).model, 256, true)
+    const legacy = await readOptional(this.legacyPath())
     return {
       provider: 'openrouter',
       model,
       hasApiKey:
+        legacy !== null ||
         (await this.secrets.has(
           OPENROUTER_SECRET.owner,
           OPENROUTER_SECRET.id,
-        )) || (await readOptional(this.legacyPath())) !== null,
+        )),
     }
   }
 
   async getApiKey(): Promise<string | null> {
-    await this.ensureLegacyMigration()
-    const shared = await this.secrets.get(
-      OPENROUTER_SECRET.owner,
-      OPENROUTER_SECRET.id,
-    )
-    if (shared !== null) return shared
-
+    await this.tryLegacyMigration()
     const legacy = await readOptional(this.legacyPath())
+    try {
+      const shared = await this.secrets.get(
+        OPENROUTER_SECRET.owner,
+        OPENROUTER_SECRET.id,
+      )
+      if (shared !== null) return shared
+    } catch (error) {
+      if (legacy === null) throw error
+    }
     return legacy === null ? null : decryptLegacySecret(legacy, this.encryption)
   }
 
@@ -179,7 +192,7 @@ export class AiSettingsStore {
         )
         await rm(this.legacyPath(), { force: true })
       } else {
-        await this.ensureLegacyMigration()
+        await this.tryLegacyMigration()
       }
       await writeAtomic(
         this.directory,
