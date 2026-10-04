@@ -466,7 +466,9 @@ test('cancelled first response cannot replace a newer proposal', async () => {
   await generate()
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
   fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
-  fireEvent.click(await screen.findByRole('button', { name: 'Reasoning' }))
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'View AI details' }),
+  )
   await screen.findByText('Newer proposal')
   await act(async () =>
     first.resolve(ok({ ...proposed, explanation: 'Cancelled proposal' })),
