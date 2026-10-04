@@ -46,7 +46,9 @@ function SchemaMetadata({
         context.relations.map((relation) => (
           <pre
             key={`${relation.schema}.${relation.name}`}
-          >{`${relation.schema}.${relation.name}\n${relation.columns.map((column) => `  ${column.name} ${column.dataType}`).join('\n')}`}</pre>
+          >{`${relation.schema}.${relation.name}\n${relation.columns
+            .map((column) => `  ${column.name} ${column.dataType}`)
+            .join('\n')}`}</pre>
         ))
       )}
     </section>
