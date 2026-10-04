@@ -12,10 +12,14 @@
 .discoveryPanel {
   grid-row: 1;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-2);
 }
 
 .traceIdBar {
+  flex: none;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -25,11 +29,13 @@
 }
 
 .traceqlField :global(.cm-editor) {
-  min-width: 0;
   width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   max-width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 5px;
+  border: 0;
+  border-radius: 0;
   background: var(--bg);
   color: var(--text);
   font:
@@ -41,14 +47,17 @@
     monospace;
 }
 
-.traceqlField :global(.cm-editor.cm-focused) {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-}
-
 .searchForm {
   min-width: 0;
   container-type: inline-size;
+}
+
+.searchForm:has(.traceqlField) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .queryToolbar {
@@ -90,17 +99,21 @@
 }
 
 .traceqlField {
-  display: grid;
-  gap: 5px;
+  flex: 1;
+  display: block;
   min-width: 0;
+  min-height: 0;
   width: 100%;
   max-width: 100%;
-  padding: 12px 14px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .traceqlField :global(.cm-theme) {
-  min-width: 0;
   width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   max-width: 100%;
   overflow: hidden;
 }
