@@ -5,6 +5,7 @@ import { ensureRelationColumns } from '@lib/relationColumns'
 import { selectActiveSession, useStore } from '@store/useStore'
 import {
   AI_LIMITS,
+  isAiConfigured,
   type AiQueryContext,
   type AiQueryProposal,
 } from '@shared/ai'
@@ -45,7 +46,7 @@ async function prepare(snapshot: Snapshot, prompt: string): Promise<Prepared> {
   )
   return { snapshot, prompt, context }
 }
-export function useAiQueryCopilot(settingsOpen: boolean) {
+export function useAiQueryCopilot() {
   const [prompt, setPrompt] = useState(''),
     [configured, setConfigured] = useState<boolean | null>(null)
   const [prepared, setPrepared] = useState<Prepared | null>(null),
@@ -106,7 +107,7 @@ export function useAiQueryCopilot(settingsOpen: boolean) {
         .then((result) => {
           if (!active) return
           if (result.ok)
-            setConfigured(result.value.hasApiKey && !!result.value.model)
+            setConfigured(isAiConfigured(result.value))
           else setError(result.message)
         })
         .catch(() => {
@@ -119,9 +120,9 @@ export function useAiQueryCopilot(settingsOpen: boolean) {
       active = false
       window.removeEventListener('datakoala:ai-settings-changed', refresh)
     }
-  }, [settingsOpen])
+  }, [])
   useEffect(() => {
-    if (busy || settingsOpen) return
+    if (busy) return
     let active = true
     setPrepared(null)
     if (!configured || !profileId) {
@@ -156,7 +157,6 @@ export function useAiQueryCopilot(settingsOpen: boolean) {
     profileId,
     configured,
     busy,
-    settingsOpen,
     metadataRevision,
     metadataStatus,
   ])
