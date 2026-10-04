@@ -104,7 +104,16 @@ export class AiSettingsStore {
         OPENROUTER_SECRET.id,
       )
     ) {
-      if (legacy !== null) await rm(this.legacyPath(), { force: true })
+      if (
+        legacy !== null &&
+        (await encryptionAvailable(this.encryption))
+      ) {
+        const shared = await this.secrets.get(
+          OPENROUTER_SECRET.owner,
+          OPENROUTER_SECRET.id,
+        )
+        if (shared !== null) await rm(this.legacyPath(), { force: true })
+      }
       return
     }
     if (legacy === null || !(await encryptionAvailable(this.encryption)))
