@@ -249,7 +249,12 @@ test('failed legacy migration leaves the legacy secret untouched', async () => {
       memoryEncryption,
     )
 
-    await assert.rejects(settings.getApiKey())
+    assert.equal(await settings.getApiKey(), 'legacy-key')
+    assert.deepEqual(await settings.save({ model: 'updated', apiKey: '' }), {
+      provider: 'openrouter',
+      model: 'updated',
+      hasApiKey: true,
+    })
     assert.equal(
       (await readFile(join(directory, 'ai-secrets.json'), 'utf8')).includes(
         Buffer.from('legacy-key').toString('base64'),
