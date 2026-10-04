@@ -494,3 +494,200 @@ test('cancelled first response cannot replace a newer proposal', async () => {
   expect(screen.queryByText('Cancelled proposal')).toBeNull()
   expect(screen.getByText('Newer proposal')).toBeTruthy()
 })
+
+
+function setDiscoveryMetadata(includeDevice = true) {
+  const names = [
+    'orders',
+    'alpha',
+    'beta',
+    'delta',
+    'gamma',
+    'omega',
+    ...(includeDevice ? ['zy_devices'] : []),
+    'zz_unrelated',
+  ]
+  setActiveTestMetadata(
+    [
+      {
+        name: 'public',
+        isSystem: false,
+        relations: names.map((name) => ({
+          schema: 'public',
+          name,
+          kind: 'r' as const,
+          qualifiedName: `public.${name}`,
+          columnsStatus: 'idle' as const,
+        })),
+      },
+    ],
+    'loaded',
+    null,
+    'pg',
+  )
+}
+
+const contextRequest = (
+  searchTerms = ['device'],
+  reason = 'Need device metadata to answer the request.',
+): AiQueryStep => ({
+  kind: 'context-request',
+  request: { searchTerms, reason },
+})
+
+test('sufficient initial context uses one provider call only', async () => {
+  render(<AiQueryCopilot />)
+  await generate()
+  await screen.findByRole('button', { name: 'Apply' })
+  expect(mocks.propose).toHaveBeenCalledTimes(1)
+})
+
+test('context request adds only matching undisclosed metadata and retries once', async () => {
+  setDiscoveryMetadata()
+  mocks.propose
+    .mockResolvedValueOnce(ok(contextRequest()))
+    .mockResolvedValueOnce(ok({ kind: 'proposal', proposal: proposed }))
+  render(<AiQueryCopilot />)
+  await generate()
+  await screen.findByRole('button', { name: 'Apply' })
+
+  expect(mocks.propose).toHaveBeenCalledTimes(2)
+  const initial = mocks.propose.mock.calls[0][0]
+  const expanded = mocks.propose.mock.calls[1][0]
+  expect(initial.context.relations).toHaveLength(6)
+  expect(initial.context.relations.map((item: { name: string }) => item.name)).not
+    .toContain('zy_devices')
+  expect(expanded.context.relations.map((item: { name: string }) => item.name))
+    .toContain('zy_devices')
+  expect(expanded.context.relations).toHaveLength(7)
+  expect(expanded.requestId).toBe(initial.requestId)
+  expect(
+    mocks.columns.mock.calls.map((call) => call[1].name),
+  ).not.toContain('zz_unrelated')
+  expect(
+    mocks.columns.mock.calls.filter((call) => call[1].name === 'zy_devices'),
+  ).toHaveLength(1)
+})
+
+test('context request with no local match stops after the first provider call', async () => {
+  setDiscoveryMetadata(false)
+  mocks.propose.mockResolvedValueOnce(ok(contextRequest()))
+  render(<AiQueryCopilot />)
+  await generate()
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toContain('“device”')
+  expect(alert.textContent).toContain('no undisclosed matching relation')
+  expect(alert.textContent).toContain('Make the prompt more specific')
+  expect(mocks.propose).toHaveBeenCalledTimes(1)
+  expect(
+    mocks.columns.mock.calls.map((call) => call[1].name),
+  ).not.toContain('zz_unrelated')
+})
+
+test('a second context request stops cleanly without a third provider call', async () => {
+  setDiscoveryMetadata()
+  mocks.propose
+    .mockResolvedValueOnce(ok(contextRequest()))
+    .mockResolvedValueOnce(
+      ok(contextRequest(['customer'], 'Customer metadata is still missing.')),
+    )
+  render(<AiQueryCopilot />)
+  await generate()
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toContain('after one discovery step')
+  expect(alert.textContent).toContain('stops after one expansion')
+  expect(mocks.propose).toHaveBeenCalledTimes(2)
+})
+
+test('cancelling during metadata expansion prevents the retry provider call', async () => {
+  setDiscoveryMetadata()
+  const deviceColumns = deferred<
+    Array<{ name: string; dataTypeName: string }>
+  >()
+  mocks.columns.mockImplementation(
+    async (_profileId: string, relation: { name: string }) =>
+      relation.name === 'zy_devices'
+        ? deviceColumns.promise
+        : [{ name: 'id', dataTypeName: 'uuid' }],
+  )
+  mocks.propose.mockResolvedValueOnce(ok(contextRequest()))
+  render(<AiQueryCopilot />)
+  await generate()
+  await waitFor(() =>
+    expect(
+      mocks.columns.mock.calls.some((call) => call[1].name === 'zy_devices'),
+    ).toBe(true),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  await act(async () =>
+    deviceColumns.resolve([{ name: 'device_id', dataTypeName: 'uuid' }]),
+  )
+  await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
+  expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+})
+
+for (const change of ['query', 'tab', 'connection'] as const) {
+  test(`discovery final proposal is stale after ${change} changes`, async () => {
+    setDiscoveryMetadata()
+    const second = deferred<AiResult<AiQueryStep>>()
+    mocks.propose
+      .mockResolvedValueOnce(ok(contextRequest()))
+      .mockReturnValueOnce(second.promise)
+    render(<AiQueryCopilot />)
+    await generate()
+    await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(2))
+
+    const state = useStore.getState()
+    act(() => {
+      if (change === 'query') {
+        patchActiveTestSession({ sql: 'new work' })
+        patchActiveTestSession({ sql: '' })
+      }
+      if (change === 'connection') {
+        patchActiveTestSession({ connectionProfileId: 'other' })
+        patchActiveTestSession({ connectionProfileId: 'pg' })
+      }
+      if (change === 'tab') {
+        const other = createQuerySession(2)
+        useStore.setState({
+          tabs: [...state.tabs, other],
+          activeTabId: other.id,
+        })
+        useStore.setState({ activeTabId: state.activeTabId })
+      }
+    })
+    await act(async () =>
+      second.resolve(ok({ kind: 'proposal', proposal: proposed })),
+    )
+    expect(
+      (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+  })
+}
+
+test('AI details exposes initial context, discovery request, added relations and final context', async () => {
+  setDiscoveryMetadata()
+  mocks.propose
+    .mockResolvedValueOnce(ok(contextRequest()))
+    .mockResolvedValueOnce(ok({ kind: 'proposal', proposal: proposed }))
+  render(<AiQueryCopilot />)
+  await generate()
+  await screen.findByRole('button', { name: 'Apply' })
+  fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
+
+  const discovery = await screen.findByRole('region', {
+    name: 'Metadata discovery',
+  })
+  expect(discovery.textContent).toContain('Requested concepts: device')
+  expect(discovery.textContent).toContain(
+    'Need device metadata to answer the request.',
+  )
+  expect(discovery.textContent).toContain('public.zy_devices')
+  expect(
+    screen.getByRole('region', { name: 'Initial schema metadata' }).textContent,
+  ).not.toContain('zy_devices')
+  expect(
+    screen.getByRole('region', { name: 'Final schema metadata' }).textContent,
+  ).toContain('zy_devices')
+})
