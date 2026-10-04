@@ -63,7 +63,7 @@ test('initial selection reserves discovery slots unless current SQL needs them',
   )
 })
 
-test('relation, per-relation, global column and character budgets are enforced', async () => {
+test('initial context reserves column and character headroom for discovery', async () => {
   const data = schemas(
     Array.from({ length: 20 }, (_, i) => relation(`item_${i}`)),
   )
@@ -80,7 +80,7 @@ test('relation, per-relation, global column and character budgets are enforced',
     AI_LIMITS.columnsPerRelation,
   )
   expect(context.relations.flatMap((r) => r.columns)).toHaveLength(
-    AI_LIMITS.columns,
+    AI_LIMITS.initialColumns,
   )
   const huge = await buildAiContext(selected, async () =>
     Array.from({ length: 60 }, () => ({
@@ -89,7 +89,7 @@ test('relation, per-relation, global column and character budgets are enforced',
     })),
   )
   expect(JSON.stringify(huge).length).toBeLessThanOrEqual(
-    AI_LIMITS.contextCharacters,
+    AI_LIMITS.initialContextCharacters,
   )
 })
 
@@ -226,33 +226,45 @@ test('expansion never exceeds the remaining unique relation budget', () => {
   expect(expandAiRelations(data, ['device'], '', disclosed)).toHaveLength(1)
 })
 
-test('appending expansion introspects only candidates and keeps final columns/context bounded', async () => {
-  const base: AiQueryContext = {
-    language: { kind: 'sql', dialect: 'postgres' },
-    relations: Array.from({ length: 6 }, (_, i) => ({
-      schema: 'public',
-      name: `base_${i}`,
-      kind: 'table' as const,
-      columns: Array.from(
-        { length: i < 5 ? AI_LIMITS.columnsPerRelation : 0 },
-        (_, j) => ({ name: `column_${j}`, dataType: 'text' }),
-      ),
+test('wide initial context leaves usable global budget for discovered relation columns', async () => {
+  const initialRelations = Array.from({ length: 6 }, (_, i) =>
+    relation(`base_${i}`),
+  )
+  const initial = await buildAiContext(initialRelations, async () =>
+    Array.from({ length: AI_LIMITS.columnsPerRelation }, (_, i) => ({
+      name: `wide_column_${i}`,
+      dataTypeName: 'text',
     })),
-  }
+  )
+  expect(initial.relations).toHaveLength(AI_LIMITS.initialRelations)
+  expect(initial.relations.flatMap((item) => item.columns)).toHaveLength(
+    AI_LIMITS.initialColumns,
+  )
+  expect(JSON.stringify(initial).length).toBeLessThanOrEqual(
+    AI_LIMITS.initialContextCharacters,
+  )
+
   const loaded: string[] = []
   const context = await appendAiContext(
-    base,
+    initial,
     [relation('devices'), relation('customers')],
     async (item) => {
       loaded.push(item.name)
-      return Array.from({ length: 60 }, (_, i) => ({
-        name: `field_${i}`,
+      return Array.from({ length: AI_LIMITS.columnsPerRelation }, (_, i) => ({
+        name: `${item.name}_field_${i}`,
         dataTypeName: 'text',
       }))
     },
   )
+
   expect(loaded).toEqual(['devices', 'customers'])
   expect(context.relations).toHaveLength(AI_LIMITS.relations)
+  expect(
+    context.relations.find((item) => item.name === 'devices')?.columns,
+  ).toHaveLength(AI_LIMITS.columnsPerRelation)
+  expect(
+    context.relations.find((item) => item.name === 'customers')?.columns.length,
+  ).toBeGreaterThan(0)
   expect(
     context.relations.flatMap((item) => item.columns).length,
   ).toBeLessThanOrEqual(AI_LIMITS.columns)
