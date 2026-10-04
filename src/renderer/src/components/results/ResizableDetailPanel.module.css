@@ -1,0 +1,65 @@
+.root {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.main {
+  min-width: 280px;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.detail {
+  min-width: 0;
+  min-height: 0;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: var(--bg-2);
+}
+
+.separator {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  margin-left: -4px;
+  margin-right: -5px;
+  flex: 0 0 9px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.separator::before {
+  content: '';
+  position: absolute;
+  inset: 0 4px;
+  background: var(--border);
+}
+
+.separator:hover::before,
+.separator:focus-visible::before {
+  inset: 0 3px;
+  background: var(--accent);
+}
+
+.separator span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--text-mute);
+  transform: translate(-50%, -50%);
+  opacity: 0.45;
+}
+
+.separator:hover span,
+.separator:focus-visible span {
+  background: var(--accent);
+  opacity: 0.9;
+}
