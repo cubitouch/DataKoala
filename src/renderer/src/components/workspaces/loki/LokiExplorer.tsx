@@ -878,14 +878,14 @@ export function LokiExplorer({
             {patternScope &&
               (resultView === 'list' || resultView === 'table') && (
                 <div className={styles.status} role="status">
-                  Showing {scopedLogRows.length} logs matching{' '}
-                  <code>{patternScope.template}</code>.{' '}
+                  Local pattern filter: <code>{patternScope.template}</code> ·{' '}
+                  {scopedLogRows.length} logs
                   <button
                     type="button"
                     className="btn ghost"
                     onClick={() => setPatternScope(null)}
                   >
-                    Clear pattern
+                    Clear
                   </button>
                 </div>
               )}
@@ -901,10 +901,7 @@ export function LokiExplorer({
               ) : resultView === 'patterns' ? (
                 <LogPatternExplorer
                   rows={filteredLogRows}
-                  onViewLogs={(template, memberIds) => {
-                    setPatternScope({ template, memberIds: new Set(memberIds) })
-                    setLokiState({ lokiResultView: 'list' })
-                  }}
+                  onViewLogs={viewPatternLogs}
                 />
               ) : resultView === 'table' ? (
                 <GenericResultExplorer
