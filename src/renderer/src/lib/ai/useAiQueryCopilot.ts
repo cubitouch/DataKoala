@@ -26,7 +26,7 @@ const capture = (): Snapshot => {
 }
 const matches = (a: Snapshot, b: Snapshot) =>
   a.tabId === b.tabId && a.profileId === b.profileId && a.query === b.query
-export interface AiDiscoveryDetails {
+interface AiDiscoveryDetails {
   initialContext: AiQueryContext
   request: AiContextRequest
   addedRelations: string[]
