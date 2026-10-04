@@ -1,6 +1,10 @@
 import { HighlightedText } from '@components/ui/HighlightedText'
 import { TextInput } from '@components/ui/TextInput'
 import {
+  LogRowChevron,
+  LogSeverityBadge,
+} from './LogRowPresentation'
+import {
   DEFAULT_DETAIL_PANEL_WIDTH,
   ResizableDetailPanel,
 } from '@components/ui/ResizableDetailPanel'
@@ -210,9 +214,7 @@ export function LogResultExplorer({
       </header>
       <div className={styles.inspectorBody}>
         <div className={styles.inspectorSeverity}>
-          <strong data-severity={selected.severity.toUpperCase()}>
-            {selected.severity.toUpperCase()}
-          </strong>
+          <LogSeverityBadge severity={selected.severity} />
         </div>
         <p className={styles.fullLine}>
           {highlight(effectiveLogMessage(selected))}
@@ -341,13 +343,9 @@ export function LogResultExplorer({
                       <time dateTime={iso} title={iso}>
                         {shortTimestamp(row.timestampMs)}
                       </time>
-                      <strong data-severity={row.severity.toUpperCase()}>
-                        {row.severity.toUpperCase()}
-                      </strong>
+                      <LogSeverityBadge severity={row.severity} />
                       <span>{highlight(message)}</span>
-                      <i aria-hidden="true" title="Open details">
-                        ›
-                      </i>
+                      <LogRowChevron />
                     </button>
                   </article>
                 )
