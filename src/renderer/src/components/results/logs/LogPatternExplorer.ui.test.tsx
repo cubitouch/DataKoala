@@ -25,18 +25,18 @@ vi.mock('@tanstack/react-virtual', async () => {
         const element = getScrollElement()
         if (!element) return
         const scroll = () =>
-          setStart(Math.min(count - 1, Math.floor(element.scrollTop / 113)))
+          setStart(Math.min(count - 1, Math.floor(element.scrollTop / 58)))
         element.addEventListener('scroll', scroll)
         return () => element.removeEventListener('scroll', scroll)
       }, [count, getScrollElement])
       return {
         measure: virtualizerSpies.measure,
         measureElement: virtualizerSpies.measureElement,
-        getTotalSize: () => count * 113,
+        getTotalSize: () => count * 58,
         getVirtualItems: () =>
-          Array.from({ length: Math.min(12, count - start) }, (_, offset) => ({
+          Array.from({ length: Math.min(14, count - start) }, (_, offset) => ({
             index: start + offset,
-            start: (start + offset) * 113,
+            start: (start + offset) * 58,
           })),
       }
     },
@@ -55,94 +55,121 @@ const letters = (value: number) => {
     result = String.fromCharCode(97 + (number % 26)) + result
   return result
 }
-const rows = Array.from({ length: 600 }, (_, index) => ({
-  id: String(index),
-  timestampNs: String(index * 1_000_000),
-  timestampMs: index,
-  line: `Pattern${letters(index)} reports a distinct semantic event`,
+const row = (id: string, line: string, severity = 'INFO') => ({
+  id,
+  timestampNs: String(Number(id.replace(/\D/g, '') || '1') * 1_000_000),
+  timestampMs: Number(id.replace(/\D/g, '') || '1'),
+  line,
   labels: {},
   structuredMetadata: {},
   parsedFields: {},
-  severity: index % 2 ? 'INFO' : 'ERROR',
-}))
+  severity,
+})
+const rows = Array.from({ length: 600 }, (_, index) =>
+  row(
+    String(index),
+    `Pattern${letters(index)} reports a distinct semantic event`,
+    index % 2 ? 'INFO' : 'ERROR',
+  ),
+)
 
-it('virtualizes hundreds of patterns while preserving expansion, scrolling, and drill-down', async () => {
-  const onViewLogs = vi.fn()
-  render(<LogPatternExplorer rows={rows} onViewLogs={onViewLogs} />)
-  expect(screen.getByText('600 patterns across 600 loaded logs')).toBeTruthy()
-  expect(document.querySelectorAll('[data-pattern-card]').length).toBeLessThan(
+it('renders a compact virtualized pattern list without the redundant heading', async () => {
+  render(<LogPatternExplorer rows={rows} onFilterPattern={vi.fn()} />)
+  expect(screen.getByText('600 patterns · 600 loaded logs')).toBeTruthy()
+  expect(screen.queryByRole('heading', { name: 'Patterns' })).toBeNull()
+  expect(document.querySelectorAll('[data-pattern-row]').length).toBeLessThan(
     30,
   )
-
-  const firstCard = document.querySelector('[data-pattern-card]') as HTMLElement
-  const first = firstCard.querySelector(
-    'button[aria-expanded]',
-  ) as HTMLButtonElement
-  const viewLogs = Array.from(firstCard.querySelectorAll('button')).find(
-    (button) => button.textContent === 'View logs',
-  ) as HTMLButtonElement
-  const severity = firstCard.querySelector('[data-severity]') as HTMLElement
-  expect(viewLogs).toBeTruthy()
-  expect(severity.getAttribute('data-severity')).toMatch(/^(INFO|ERROR)$/)
-  fireEvent.click(viewLogs)
-  expect(onViewLogs).toHaveBeenCalledWith(expect.any(String), expect.any(Array))
-
-  fireEvent.click(first)
-  expect(first.getAttribute('aria-expanded')).toBe('true')
-  expect(document.querySelector('[data-pattern-details]')).toBeTruthy()
 
   const scroller = document.querySelector(
     '[data-pattern-scroller]',
   ) as HTMLDivElement
   Object.defineProperty(scroller, 'scrollHeight', {
     configurable: true,
-    value: 600 * 113,
+    value: 600 * 58,
   })
   Object.defineProperty(scroller, 'clientHeight', {
     configurable: true,
     value: 600,
   })
-  scroller.scrollTop = 550 * 113
+  scroller.scrollTop = 550 * 58
   fireEvent.scroll(scroller)
   await waitFor(() =>
     expect(
       Math.max(
-        ...Array.from(document.querySelectorAll('[data-pattern-card]')).map(
-          (card) => Number(card.getAttribute('data-index')),
+        ...Array.from(document.querySelectorAll('[data-pattern-row]')).map(
+          (item) => Number(item.getAttribute('data-index')),
         ),
       ),
     ).toBeGreaterThan(500),
   )
-  expect(document.querySelectorAll('[data-pattern-card]').length).toBeLessThan(
-    30,
-  )
 })
 
-it('remeasures the changed card after expand and collapse without resetting all virtual measurements', async () => {
-  render(<LogPatternExplorer rows={rows.slice(0, 20)} onViewLogs={vi.fn()} />)
-  const first = document.querySelector(
-    '[data-pattern-card] button[aria-expanded]',
-  ) as HTMLButtonElement
-  const card = first.closest('[data-pattern-card]') as HTMLElement
-  expect(card).toBeTruthy()
+it('selects patterns into one resizable inspector and keeps its width', () => {
+  const sample = [
+    row('1', 'Request 123 completed'),
+    row('2', 'Request 456 completed', 'ERROR'),
+    row('3', 'Worker started normally'),
+  ]
+  render(<LogPatternExplorer rows={sample} onFilterPattern={vi.fn()} />)
 
-  const initialMeasureCalls = virtualizerSpies.measureElement.mock.calls.length
-  fireEvent.click(first)
-  await waitFor(() =>
-    expect(virtualizerSpies.measureElement.mock.calls.length).toBeGreaterThan(
-      initialMeasureCalls,
-    ),
+  const request = screen.getByRole('option', {
+    name: /Request.*<number>.*completed/,
+  })
+  fireEvent.click(request)
+  expect(request.getAttribute('aria-selected')).toBe('true')
+  expect(screen.getByRole('complementary', { name: 'Pattern details' })).toBeTruthy()
+  expect(screen.getByText('Example messages')).toBeTruthy()
+  expect(screen.getByText('Variable samples')).toBeTruthy()
+  expect(screen.getByText('123, 456')).toBeTruthy()
+
+  const split = document.querySelector(
+    '[data-resizable-detail-panel]',
+  ) as HTMLDivElement
+  Object.defineProperty(split, 'clientWidth', { configurable: true, value: 1000 })
+  fireEvent.keyDown(
+    screen.getByRole('separator', { name: 'Resize Pattern details' }),
+    { key: 'ArrowLeft' },
   )
-  const expandedMeasureCalls = virtualizerSpies.measureElement.mock.calls.length
+  expect(
+    (screen.getByRole('complementary', {
+      name: 'Pattern details',
+    }) as HTMLElement).style.width,
+  ).toBe('414px')
 
-  fireEvent.click(first)
-  await waitFor(() => expect(first.getAttribute('aria-expanded')).toBe('false'))
-  await waitFor(() =>
-    expect(virtualizerSpies.measureElement.mock.calls.length).toBeGreaterThan(
-      expandedMeasureCalls,
-    ),
+  fireEvent.click(
+    screen.getByRole('option', { name: /Worker started normally/ }),
   )
+  expect(screen.getByText('Worker started normally')).toBeTruthy()
+  expect(
+    (screen.getByRole('complementary', {
+      name: 'Pattern details',
+    }) as HTMLElement).style.width,
+  ).toBe('414px')
 
-  expect(virtualizerSpies.measureElement).toHaveBeenCalledWith(card)
-  expect(virtualizerSpies.measure).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Close pattern details' }))
+  expect(
+    screen.queryByRole('complementary', { name: 'Pattern details' }),
+  ).toBeNull()
+})
+
+it('passes the safe query candidate with the selected cluster', () => {
+  const onFilterPattern = vi.fn()
+  render(
+    <LogPatternExplorer
+      rows={[
+        row('1', 'Request 123 completed'),
+        row('2', 'Request 456 completed'),
+      ]}
+      onFilterPattern={onFilterPattern}
+    />,
+  )
+  fireEvent.click(
+    screen.getByRole('option', { name: /Request.*<number>.*completed/ }),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Filter logs' }))
+  expect(onFilterPattern).toHaveBeenCalledWith(
+    expect.objectContaining({ count: 2 }),
+    'completed',
+  )
 })
