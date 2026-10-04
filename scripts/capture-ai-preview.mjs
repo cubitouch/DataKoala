@@ -44,6 +44,13 @@ async function click(win, label) {
   })()`)
 }
 
+async function settlePaint(win) {
+  await win.webContents.executeJavaScript(
+    `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
+  )
+  await sleep(100)
+}
+
 async function captureSettingsDialog(win) {
   const rect = await win.webContents.executeJavaScript(`(() => {
     const backdrop = document.querySelector('[data-modal-backdrop]')
@@ -101,16 +108,18 @@ app.whenReady().then(async () => {
     const win = new BrowserWindow({
       width: 1440,
       height: 1000,
-      show: false,
+      show: true,
       backgroundColor: '#0f1115',
       webPreferences: {
         preload: resolve('out/preload/index.js'),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
+        backgroundThrottling: false,
       },
     })
     await win.loadFile(resolve('out/renderer/index.html'))
+    await wait(win, `document.visibilityState === 'visible'`)
     await wait(
       win,
       `window.__datakoalaStore && [...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Settings')`,
@@ -129,7 +138,7 @@ app.whenReady().then(async () => {
     )
     await click(win, 'Test connection')
     await wait(win, `document.querySelector('[data-tone="success"]')`)
-    await sleep(200)
+    await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-settings.png'),
       await captureSettingsDialog(win),
@@ -182,7 +191,7 @@ app.whenReady().then(async () => {
       win,
       `[...document.querySelectorAll('[data-popover-overlay]')].some((overlay) => overlay.textContent.includes('AI details') && overlay.textContent.includes('Assumptions') && overlay.textContent.includes('Submitted context'))`,
     )
-    await sleep(300)
+    await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-query-proposal.png'),
       (await win.webContents.capturePage()).toPNG(),
