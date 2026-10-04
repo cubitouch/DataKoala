@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Popover } from '@components/ui/Popover'
+import styles from './Ai.module.css'
 import { AiSettingsModal } from './AiSettingsModal'
 export function AiSettingsAction() {
   const trigger = useRef<HTMLButtonElement>(null)
@@ -8,8 +9,10 @@ export function AiSettingsAction() {
   return (
     <>
       <Popover
-        trigger="⋯"
-        ariaLabel="App settings"
+        trigger="Settings"
+        className={styles.settingsAction}
+        triggerClassName="btn ghost"
+        ariaLabel="Settings"
         triggerRef={trigger}
         open={menu}
         onOpenChange={setMenu}

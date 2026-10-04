@@ -203,7 +203,7 @@ jobs:
               'builder-count-without-y.png': 'Builder — Count without a Y axis',
               'builder-narrow.png': 'Builder — narrow responsive layout',
               'ai-settings.png': 'AI settings — encrypted key and OpenRouter model selection',
-              'ai-query-proposal.png': 'Ask AI — grounded PostgreSQL proposal before explicit application',
+              'ai-query-proposal.png': 'Ask AI — inline composer, SQL diff and explicit Apply',
               'table.png': 'Filtered results table'
             }
             const files = process.env.PREVIEW_FILES.split(/\r?\n/).filter(Boolean)

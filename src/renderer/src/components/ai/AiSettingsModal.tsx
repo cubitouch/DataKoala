@@ -87,6 +87,7 @@ export function AiSettingsModal({
         if (!mounted.current) return
         if (!result.ok) setError(result.message)
         else {
+          window.dispatchEvent(new Event('datakoala:ai-settings-changed'))
           setHasKey(result.value.hasApiKey)
           setKey('')
           if (action === 'save') onClose()
@@ -150,8 +151,21 @@ export function AiSettingsModal({
         Test connection sends a tiny structured completion using these settings.
         It may use OpenRouter credits and does not save changes.
       </p>
-      {error && <div role="alert">{error}</div>}
-      {message && <div role="status">{message}</div>}
+      {error && (
+        <div role="alert" className="inline-error">
+          {error}
+        </div>
+      )}
+      {message && (
+        <div
+          role="status"
+          aria-label="Success"
+          data-tone="success"
+          className={styles.success}
+        >
+          {message}
+        </div>
+      )}
       <div className={styles.actions}>
         {hasKey && (
           <button

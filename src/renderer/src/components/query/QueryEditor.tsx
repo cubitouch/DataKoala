@@ -1,4 +1,4 @@
-import { AiQueryAction } from '@components/ai/AiQueryAction'
+import { AiQueryCopilot } from '@components/ai/AiQueryCopilot'
 import {
   useCallback,
   useEffect,
@@ -456,7 +456,6 @@ export function QueryEditor({
         utilities={<QueryUtilityActions busy={isAnyExplainLoading} />}
         editorActions={
           <div className={styles.editorActions}>
-            {connectionKind === 'postgres' && !builderMode && <AiQueryAction />}
             {!builderMode && (
               <button
                 className="btn ghost"
@@ -527,6 +526,9 @@ export function QueryEditor({
         }
       />
 
+      {connectionKind === 'postgres' && !builderMode && (
+        <AiQueryCopilot key={`${tabId}:${tabConnectionId}`} />
+      )}
       {builderMode ? (
         <PromqlBuilderPanel
           onQueryStateChange={handleBuilderQueryStateChange}

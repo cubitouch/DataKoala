@@ -54,6 +54,7 @@ try {
   ipcMain.handle('ai:models', () =>
     ok([{ id: 'preview/model', name: 'Preview analytical model' }]),
   )
+  ipcMain.handle('ai:test', () => ok(undefined))
   ipcMain.handle('ai:cancel', () => ok(undefined))
   ipcMain.handle('ai:propose', () =>
     ok({
@@ -81,7 +82,7 @@ try {
   await win.loadFile(resolve('out/renderer/index.html'))
   await wait(
     win,
-    `window.__datakoalaStore && document.querySelector('[aria-label="App settings"]')`,
+    `window.__datakoalaStore && document.querySelector('[aria-label="Settings"]')`,
   )
   await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore, state = store.getState(), profile = ${JSON.stringify(profile)}
@@ -90,38 +91,58 @@ try {
       tabs: state.tabs.map((tab) => ({ ...tab, connectionProfileId: profile.id, queryMode: 'sql', sql: 'SELECT * FROM public.orders LIMIT 100;' })) })
   })()`)
   await mkdir(output, { recursive: true })
-  await click(win, 'App settings')
+  await click(win, 'Settings')
   await click(win, 'AI settings…')
   await wait(
     win,
     'document.body.innerText.includes("Preview analytical model")',
   )
+  await click(win, 'Test connection')
+  await wait(win, `document.querySelector('[data-tone="success"]')`)
   await sleep(200)
   await writeFile(
     resolve(output, 'ai-settings.png'),
     (await win.webContents.capturePage()).toPNG(),
   )
   await click(win, 'Cancel')
-  await click(win, 'Ask AI')
-  await wait(win, 'document.querySelector("textarea")')
+  // Enlarge the resizable editor through its real keyboard control for diff review.
+  for (let i = 0; i < 28; i++) {
+    await win.webContents.executeJavaScript(
+      `document.querySelector('.editor-resizer').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))`,
+    )
+    await sleep(20)
+  }
+  await wait(
+    win,
+    `document.querySelector('[data-field-name="AI prompt"] input')`,
+  )
   await win.webContents.executeJavaScript(
-    `(() => { const input = document.querySelector('textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'revenue by country over the last 30 days'); input.dispatchEvent(new Event('input', { bubbles: true })) })()`,
+    `(() => { const input = document.querySelector('[data-field-name="AI prompt"] input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'revenue by country over the last 30 days'); input.dispatchEvent(new Event('input', { bubbles: true })) })()`,
   )
   await wait(
     win,
-    '[...document.querySelectorAll("button")].some((b) => b.textContent === "Generate" && !b.disabled)',
+    '[...document.querySelectorAll("button")].some((b) => b.getAttribute("aria-label") === "Generate query with AI" && !b.disabled)',
   )
-  await click(win, 'Generate')
+  await click(win, 'Generate query with AI')
   await wait(
     win,
-    '[...document.querySelectorAll("button")].some((b) => b.textContent === "Use query")',
+    '[...document.querySelectorAll("button")].some((b) => b.textContent === "Apply")',
   )
+  await wait(
+    win,
+    `document.querySelector('[data-diff-kind="add"]') && document.querySelector('[data-diff-kind="remove"]')`,
+  )
+  const unchanged = await win.webContents.executeJavaScript(
+    'window.__datakoalaStore.getState().tabs[0].sql',
+  )
+  if (unchanged !== 'SELECT * FROM public.orders LIMIT 100;')
+    throw new Error('Proposal changed SQL before Apply')
   await sleep(300)
   await writeFile(
     resolve(output, 'ai-query-proposal.png'),
     (await win.webContents.capturePage()).toPNG(),
   )
-  await click(win, 'Use query')
+  await click(win, 'Apply')
   const applied = await win.webContents.executeJavaScript(
     'window.__datakoalaStore.getState().tabs[0].sql',
   )

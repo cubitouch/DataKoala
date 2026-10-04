@@ -40,7 +40,7 @@ test('fallback, relation, per-relation, global column and character budgets are 
   const data = schemas(
     Array.from({ length: 20 }, (_, i) => relation(`item_${i}`)),
   )
-  expect(selectAiRelations(data, 'unmatched', '')).toHaveLength(3)
+  expect(selectAiRelations(data, 'unmatched', '')).toHaveLength(8)
   const selected = selectAiRelations(data, 'item', '')
   expect(selected).toHaveLength(8)
   const context = await buildAiContext(selected, async () =>
@@ -77,4 +77,69 @@ test('context construction excludes extra credentials and result values and fail
   await expect(
     buildAiContext([relation('orders')], async () => undefined),
   ).rejects.toThrow('Could not load')
+})
+
+const multiSchema = (names: string[]): DatabaseSchemaNode[] =>
+  names.map((name) => ({
+    name,
+    isSystem: false,
+    relations: [relation('second', name), relation('first', name)],
+  }))
+test('generic prompts cover every eligible schema and include the full small catalog', () => {
+  const data: DatabaseSchemaNode[] = [
+    {
+      name: 'public',
+      isSystem: false,
+      relations: [relation('orders'), relation('customers')],
+    },
+    {
+      name: 'billing',
+      isSystem: false,
+      relations: [relation('invoices', 'billing')],
+    },
+    {
+      name: 'analytics',
+      isSystem: false,
+      relations: [relation('events', 'analytics')],
+    },
+    {
+      name: 'pg_catalog',
+      isSystem: true,
+      relations: [relation('pg_class', 'pg_catalog')],
+    },
+  ]
+  const selected = selectAiRelations(data, 'show an overview', '')
+  expect(selected).toHaveLength(4)
+  expect(new Set(selected.slice(0, 3).map((r) => r.schema))).toEqual(
+    new Set(['analytics', 'billing', 'public']),
+  )
+  expect(selectAiRelations(data, 'invoice totals', '')[0].qualifiedName).toBe(
+    'billing.invoices',
+  )
+  expect(
+    selectAiRelations(data, 'invoice totals', 'select * from public.orders')[0]
+      .qualifiedName,
+  ).toBe('public.orders')
+  expect(
+    new Set(selectAiRelations(data, 'invoice totals', '').map((r) => r.schema))
+      .size,
+  ).toBe(3)
+})
+test('round-robin uses distinct schemas first and remains deterministic with more schemas than slots', () => {
+  const data = multiSchema(Array.from({ length: 12 }, (_, i) => `schema_${i}`))
+  const selected = selectAiRelations(data, '', '')
+  expect(selected).toHaveLength(8)
+  expect(new Set(selected.map((r) => r.schema)).size).toBe(8)
+  expect(
+    selectAiRelations(
+      [...data]
+        .reverse()
+        .map((s) => ({ ...s, relations: [...s.relations].reverse() })),
+      '',
+      '',
+    ),
+  ).toEqual(selected)
+  const smaller = selectAiRelations(data.slice(0, 3), '', '')
+  expect(smaller).toHaveLength(6)
+  expect(new Set(smaller.slice(0, 3).map((r) => r.schema)).size).toBe(3)
 })
