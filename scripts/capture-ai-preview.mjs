@@ -121,9 +121,15 @@ try {
   )
   await wait(
     win,
-    '[...document.querySelectorAll("button")].some((b) => b.getAttribute("aria-label") === "Generate query with AI" && !b.disabled)',
+    '[...document.querySelectorAll("button")].some((b) => b.getAttribute("aria-label") === "Ask" && !b.disabled)',
   )
-  await click(win, 'Generate query with AI')
+  const aligned = await win.webContents.executeJavaScript(`(() => {
+    const form = document.querySelector('[aria-label="SQL AI copilot"] form');
+    const height = form.querySelector('input').getBoundingClientRect().height;
+    return [...form.querySelectorAll('button')].every(button => Math.abs(button.getBoundingClientRect().height - height) < 1);
+  })()`)
+  if (!aligned) throw new Error('AI composer control heights do not match')
+  await click(win, 'Ask')
   await wait(
     win,
     '[...document.querySelectorAll("button")].some((b) => b.textContent === "Apply")',
@@ -142,7 +148,17 @@ try {
     resolve(output, 'ai-query-proposal.png'),
     (await win.webContents.capturePage()).toPNG(),
   )
+  await click(win, 'Reasoning')
+  await wait(
+    win,
+    `document.querySelector('[role="dialog"]')?.textContent.includes('Assumptions')`,
+  )
+  await click(win, 'Close')
   await click(win, 'Apply')
+  await wait(
+    win,
+    `document.querySelector('[data-field-name="AI prompt"] input')?.value === ''`,
+  )
   const applied = await win.webContents.executeJavaScript(
     'window.__datakoalaStore.getState().tabs[0].sql',
   )

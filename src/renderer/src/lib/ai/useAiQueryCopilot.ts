@@ -238,6 +238,7 @@ export function useAiQueryCopilot(settingsOpen: boolean) {
       return
     }
     updateReview(null)
+    setPrompt('')
     useStore
       .getState()
       .setSql(current.proposal.query, current.input.snapshot.tabId)

@@ -132,14 +132,12 @@ async function generate() {
     expect(
       (
         screen.getByRole('button', {
-          name: 'Generate query with AI',
+          name: 'Ask',
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(false),
   )
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Generate query with AI' }),
-  )
+  fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
   await waitFor(() => expect(mocks.propose).toHaveBeenCalled())
 }
 test('sidebar menu opens settings and Escape restores focus', async () => {
@@ -284,7 +282,7 @@ test('provider errors remain visible and unconfigured copilot opens shared setti
     expect(
       (
         screen.getByRole('button', {
-          name: 'Generate query with AI',
+          name: 'Ask',
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(false),
@@ -316,7 +314,7 @@ test('inline composer submits on Enter, reports loading, and prevents parent Run
     expect(
       (
         screen.getByRole('button', {
-          name: 'Generate query with AI',
+          name: 'Ask',
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(false),
@@ -326,9 +324,11 @@ test('inline composer submits on Enter, reports loading, and prevents parent Run
   await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
   expect(parentShortcut).not.toHaveBeenCalled()
   expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy()
+  expect((input as HTMLInputElement).disabled).toBe(true)
+  expect(screen.queryByRole('button', { name: 'Ask' })).toBeNull()
   expect(selectActiveSession(useStore.getState()).sql).toBe('')
 })
-test('diff, explanation and assumptions appear inline; Reject keeps SQL and prompt', async () => {
+test('diff stays inline and reasoning opens a modal; Reject keeps SQL and prompt', async () => {
   patchActiveTestSession({ sql: 'SELECT id FROM public.orders' })
   render(<AiQueryCopilot />)
   await generate()
@@ -343,8 +343,23 @@ test('diff, explanation and assumptions appear inline; Reject keeps SQL and prom
       .getByRole('region', { name: 'SQL proposal diff' })
       .querySelector('[data-diff-kind="add"]'),
   ).toBeTruthy()
+  expect(screen.queryByText(proposed.explanation)).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Reasoning' }))
+  expect(screen.getByRole('dialog', { name: 'AI reasoning' })).toBeTruthy()
   expect(screen.getByText(proposed.explanation)).toBeTruthy()
   expect(screen.getByText(proposed.assumptions[0])).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Reasoning' }))
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Close' }), {
+    key: 'Escape',
+  })
+  expect(screen.queryByRole('dialog')).toBeNull()
+  await waitFor(() =>
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Reasoning' }),
+    ),
+  )
   fireEvent.click(screen.getByRole('button', { name: 'Reject' }))
   expect(selectActiveSession(useStore.getState()).sql).toBe(
     'SELECT id FROM public.orders',
@@ -357,12 +372,10 @@ test('diff, explanation and assumptions appear inline; Reject keeps SQL and prom
   fireEvent.change(screen.getByRole('textbox', { name: 'AI prompt' }), {
     target: { value: 'count recent orders' },
   })
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Generate query with AI' }),
-  )
+  fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
   await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(2))
 })
-test('empty editor diff is all additions and Apply retains the prompt', async () => {
+test('empty editor diff is all additions and Apply clears the prompt', async () => {
   render(<AiQueryCopilot />)
   await generate()
   const diff = await screen.findByRole('region', { name: 'SQL proposal diff' })
@@ -373,7 +386,7 @@ test('empty editor diff is all additions and Apply retains the prompt', async ()
   expect(
     (screen.getByRole('textbox', { name: 'AI prompt' }) as HTMLInputElement)
       .value,
-  ).toBe('count orders')
+  ).toBe('')
 })
 test('Try again keeps previous diff pending, uses latest SQL and replaces only on response', async () => {
   render(<AiQueryCopilot />)
@@ -388,7 +401,7 @@ test('Try again keeps previous diff pending, uses latest SQL and replaces only o
     'SELECT id FROM public.orders',
   )
   expect(mocks.propose.mock.calls[1][0].prompt).toBe('count orders')
-  expect(screen.getByText(proposed.explanation)).toBeTruthy()
+  expect(screen.getByRole('region', { name: 'SQL proposal diff' })).toBeTruthy()
   expect(
     (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
       .disabled,
@@ -396,7 +409,9 @@ test('Try again keeps previous diff pending, uses latest SQL and replaces only o
   await act(async () =>
     pending.resolve(ok({ ...proposed, explanation: 'Updated proposal' })),
   )
+  fireEvent.click(screen.getByRole('button', { name: 'Reasoning' }))
   expect(screen.getByText('Updated proposal')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
   expect(
     (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
       .disabled,
@@ -446,9 +461,8 @@ test('cancelled first response cannot replace a newer proposal', async () => {
   render(<AiQueryCopilot />)
   await generate()
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Generate query with AI' }),
-  )
+  fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Reasoning' }))
   await screen.findByText('Newer proposal')
   await act(async () =>
     first.resolve(ok({ ...proposed, explanation: 'Cancelled proposal' })),

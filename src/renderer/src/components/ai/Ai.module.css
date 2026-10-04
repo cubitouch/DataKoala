@@ -43,12 +43,14 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
-.composer > [data-field] {
+.promptSlot {
   flex: 1;
   min-width: 0;
+  display: grid;
+  align-items: center;
 }
 
 .composer > button {
@@ -66,8 +68,7 @@
   white-space: pre-wrap;
 }
 
-.status,
-.reviewHead {
+.status {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -81,16 +82,12 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .reviewBody {
   min-height: 0;
   overflow: auto;
-}
-
-.review .actions {
-  flex: none;
 }
 
 .diff {
@@ -141,6 +138,42 @@
 }
 
 .warning {
+  margin-top: 12px;
   color: var(--amber);
   font-size: 12px;
+}
+
+.promptSlot > [data-field],
+.composerOverlay {
+  grid-area: 1 / 1;
+}
+
+.promptSlot[data-covered='true'] > [data-field] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.composerOverlay {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 31px;
+}
+
+.overlayHeading {
+  padding: 0 8px;
+}
+
+.overlayHeading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer button {
+  box-sizing: border-box;
+  height: 31px;
 }
