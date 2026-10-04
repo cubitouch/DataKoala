@@ -147,12 +147,14 @@ try {
     resolve(output, 'ai-query-proposal.png'),
     (await win.webContents.capturePage()).toPNG(),
   )
-  await click(win, 'Reasoning')
+  await click(win, 'View AI details')
   await wait(
     win,
-    `document.querySelector('[role="dialog"]')?.textContent.includes('Assumptions')`,
+    `document.querySelector('[aria-label="AI response"]')?.textContent.includes('Assumptions') && document.body.innerText.includes('Submitted context')`,
   )
-  await click(win, 'Close')
+  await win.webContents.executeJavaScript(
+    `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+  )
   await click(win, 'Apply')
   await wait(
     win,
