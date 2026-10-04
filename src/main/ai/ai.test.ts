@@ -168,11 +168,7 @@ test('settings preserve the model and blank key; tests do not save; removal dele
     await service.saveSettings({ model: 'missing-from-catalog', apiKey: '' })
     assert.equal(await secrets.get('ai', 'openrouter-api-key'), 'saved-key')
     assert.deepEqual(
-      await new AiSettingsStore(
-        directory,
-        secrets,
-        memoryEncryption,
-      ).get(),
+      await new AiSettingsStore(directory, secrets, memoryEncryption).get(),
       {
         provider: 'openrouter',
         model: 'missing-from-catalog',
@@ -200,11 +196,7 @@ test('legacy OpenRouter secret migrates once and survives restart', async () => 
   try {
     await writeLegacySecret(directory, 'legacy-key')
     const secrets = new EncryptedSecretStore(directory, memoryEncryption)
-    const settings = new AiSettingsStore(
-      directory,
-      secrets,
-      memoryEncryption,
-    )
+    const settings = new AiSettingsStore(directory, secrets, memoryEncryption)
 
     assert.equal(await settings.getApiKey(), 'legacy-key')
     await assert.rejects(readFile(join(directory, 'ai-secrets.json'), 'utf8'), {
@@ -228,11 +220,7 @@ test('legacy OpenRouter migration never overwrites an existing shared secret', a
     await writeLegacySecret(directory, 'legacy-key')
     const secrets = new EncryptedSecretStore(directory, memoryEncryption)
     await secrets.set('ai', 'openrouter-api-key', 'shared-key')
-    const settings = new AiSettingsStore(
-      directory,
-      secrets,
-      memoryEncryption,
-    )
+    const settings = new AiSettingsStore(directory, secrets, memoryEncryption)
 
     assert.equal(await settings.getApiKey(), 'shared-key')
     await assert.rejects(readFile(join(directory, 'ai-secrets.json'), 'utf8'), {
