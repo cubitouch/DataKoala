@@ -201,6 +201,9 @@ export function LogPatternExplorer({
               {virtualizer.getVirtualItems().map((item) => {
                 const cluster = clusters[item.index]
                 const active = cluster.id === selectedId
+                const representativeSeverity = representativeLogSeverity(
+                  cluster.severities,
+                )
                 return (
                   <article
                     data-index={item.index}
@@ -215,20 +218,16 @@ export function LogPatternExplorer({
                       aria-selected={active}
                       onClick={() => setSelectedId(active ? null : cluster.id)}
                     >
-                      <span className={styles.metrics}>
+                      <span className={styles.metrics} data-pattern-metrics>
                         <strong>{cluster.count}</strong> logs ·{' '}
                         {cluster.percentage.toFixed(1)}%
                       </span>
                       <span className={styles.severitySlot}>
-                        {representativeLogSeverity(cluster.severities) && (
-                          <LogSeverityBadge
-                            severity={
-                              representativeLogSeverity(cluster.severities)!
-                            }
-                          />
+                        {representativeSeverity && (
+                          <LogSeverityBadge severity={representativeSeverity} />
                         )}
                       </span>
-                      <code>
+                      <code data-pattern-template>
                         <PatternTemplate cluster={cluster} />
                       </code>
                       <LogRowChevron />
