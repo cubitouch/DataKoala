@@ -9,6 +9,9 @@
 
 .settingsAction {
   margin-top: 8px;
+  width: 100%;
+  text-align: center;
+  justify-content: center;
 }
 
 .success {
@@ -59,7 +62,6 @@
 
 .context {
   padding: 12px;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 12px;
 }
@@ -176,4 +178,97 @@
 .composer button {
   box-sizing: border-box;
   height: 31px;
+}
+
+.settingsDialog {
+  width: min(560px, calc(100vw - 40px));
+  background: var(--bg-2);
+  gap: 16px;
+}
+
+.settingsHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settingsHeader h2 {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.settingsHeader h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.providerIcon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 8px;
+}
+
+.providerIcon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.settingsDialog p {
+  margin: 0;
+}
+
+.contextHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.contextInfo {
+  margin: 16px 0;
+  padding: 12px;
+  border-left: 3px solid var(--border);
+  color: var(--text-dim);
+  background: var(--bg-2);
+  line-height: 1.6;
+}
+
+.contextInfo p {
+  margin: 8px 0 0;
+}
+
+.contextLabel {
+  color: var(--accent);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.contextPayload section {
+  margin-top: 16px;
+}
+
+.contextPayload h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.contextPayload pre {
+  margin: 8px 0 0;
+  padding: 12px;
+  background: var(--bg-4);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font: 12px/1.6 var(--mono);
 }

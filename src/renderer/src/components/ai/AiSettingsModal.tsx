@@ -13,6 +13,7 @@ export function AiSettingsModal({
   returnFocusRef: RefObject<HTMLElement | null>
 }) {
   const titleId = useId()
+  const [editingKey, setEditingKey] = useState(false)
   const [model, setModel] = useState(''),
     [key, setKey] = useState('')
   const [hasKey, setHasKey] = useState(false),
@@ -119,20 +120,35 @@ export function AiSettingsModal({
       onClose={onClose}
       labelledBy={titleId}
       returnFocusRef={returnFocusRef}
-      dialogClassName={styles.dialog}
+      dialogClassName={`${styles.dialog} ${styles.settingsDialog}`}
     >
-      <h2 id={titleId}>AI settings</h2>
-      <div>Provider: OpenRouter</div>
+      <header className={styles.settingsHeader}>
+        <span className={styles.providerIcon} aria-hidden="true">
+          <OpenRouterIcon />
+        </span>
+        <div>
+          <h2 id={titleId}>Settings</h2>
+          <h3>AI settings</h3>
+        </div>
+      </header>
+      <div className={styles.notice}>Provider: OpenRouter</div>
       <TextInput
         label="API key"
         type="password"
-        value={key}
-        onValueChange={setKey}
+        value={key || (hasKey && !editingKey ? '••••••••••••••••' : '')}
+        onFocus={(event) => {
+          if (!key && hasKey) event.currentTarget.select()
+        }}
+        onBlur={() => setEditingKey(false)}
+        onValueChange={(value) => {
+          setEditingKey(true)
+          setKey(value.replace(/•/g, ''))
+        }}
         disabled={busy || !ready}
         autoComplete="off"
         hint={
           hasKey
-            ? 'API key saved. Leave blank to keep it, or enter a replacement.'
+            ? 'API key saved. The dots are a placeholder. Enter a replacement, or leave blank to keep the saved key.'
             : 'Your key is encrypted using operating system credential storage.'
         }
       />
@@ -183,17 +199,26 @@ export function AiSettingsModal({
         >
           {busy ? 'Working…' : 'Test connection'}
         </button>
+        <button className="btn ghost" onClick={onClose}>
+          Cancel
+        </button>
         <button
-          className="btn"
+          className="btn primary"
           disabled={busy || !ready || !model}
           onClick={() => void run('save')}
         >
           Save
         </button>
-        <button className="btn ghost" onClick={onClose}>
-          Cancel
-        </button>
       </div>
     </Modal>
+  )
+}
+
+// Glyph source: https://openrouter.ai/brand/logos/transparent/glyph/svg/glyph-ink.svg
+function OpenRouterIcon() {
+  return (
+    <svg viewBox="0 0 1024 730" fill="currentColor" aria-hidden="true">
+      <path d="M795.893 0C915.776 0 1012.95 97.9963 1012.95 218.88C1012.95 339.764 915.776 437.76 795.893 437.76L1011.2 654.869C1038.55 682.447 1019.18 729.6 980.504 729.6H361.77C161.97 729.6 0 566.273 0 364.8C0 163.327 161.97 0 361.77 0L795.893 0ZM361.77 145.92C241.89 145.92 144.708 243.916 144.708 364.8C144.708 485.684 241.89 583.68 361.77 583.68C481.649 583.68 578.831 485.684 578.831 364.8C578.831 243.916 481.649 145.92 361.77 145.92Z" />
+    </svg>
   )
 }

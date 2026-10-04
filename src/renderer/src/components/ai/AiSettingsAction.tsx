@@ -1,32 +1,19 @@
 import { useRef, useState } from 'react'
-import { Popover } from '@components/ui/Popover'
 import styles from './Ai.module.css'
 import { AiSettingsModal } from './AiSettingsModal'
 export function AiSettingsAction() {
   const trigger = useRef<HTMLButtonElement>(null)
-  const [menu, setMenu] = useState(false),
-    [settings, setSettings] = useState(false)
+  const [settings, setSettings] = useState(false)
   return (
     <>
-      <Popover
-        trigger="Settings"
-        className={styles.settingsAction}
-        triggerClassName="btn ghost"
-        ariaLabel="Settings"
-        triggerRef={trigger}
-        open={menu}
-        onOpenChange={setMenu}
+      <button
+        ref={trigger}
+        type="button"
+        className={`btn ghost ${styles.settingsAction}`}
+        onClick={() => setSettings(true)}
       >
-        <button
-          className="btn ghost"
-          onClick={() => {
-            setMenu(false)
-            setSettings(true)
-          }}
-        >
-          AI settings…
-        </button>
-      </Popover>
+        Settings
+      </button>
       {settings && (
         <AiSettingsModal
           returnFocusRef={trigger}

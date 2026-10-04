@@ -140,14 +140,11 @@ async function generate() {
   fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
   await waitFor(() => expect(mocks.propose).toHaveBeenCalled())
 }
-test('sidebar menu opens settings and Escape restores focus', async () => {
+test('sidebar button opens settings directly and Escape restores focus', async () => {
   render(<AiSettingsAction />)
   const trigger = screen.getByRole('button', { name: 'Settings' })
   fireEvent.click(trigger)
-  fireEvent.click(screen.getByRole('button', { name: 'AI settings…' }))
-  expect(
-    await screen.findByRole('dialog', { name: 'AI settings' }),
-  ).toBeTruthy()
+  expect(await screen.findByRole('dialog', { name: 'Settings' })).toBeTruthy()
   fireEvent.keyDown(document, { key: 'Escape' })
   expect(screen.queryByRole('dialog')).toBeNull()
   await waitFor(() => expect(document.activeElement).toBe(trigger))
@@ -158,9 +155,15 @@ test('settings keep saved keys hidden, preserve missing model, test draft settin
   await screen.findByText(/API key saved/)
   const key = screen.getByLabelText('API key') as HTMLInputElement
   expect(key.type).toBe('password')
-  expect(key.value).toBe('')
+  expect(key.value).toBe('••••••••••••••••')
+  fireEvent.click(screen.getByRole('button', { name: 'Test connection' }))
+  await screen.findByText(/Connection successful/)
+  expect(mocks.test).toHaveBeenLastCalledWith(expect.any(String), {
+    model: 'saved/model',
+    apiKey: '',
+  })
   expect(screen.getAllByText('saved/model').length).toBeGreaterThan(0)
-  fireEvent.change(key, { target: { value: 'draft-placeholder' } })
+  fireEvent.change(key, { target: { value: '••draft-placeholder' } })
   fireEvent.click(screen.getByRole('button', { name: 'Test connection' }))
   await screen.findByText(/Connection successful/)
   expect(
@@ -179,6 +182,7 @@ test('settings keep saved keys hidden, preserve missing model, test draft settin
   fireEvent.click(screen.getByRole('button', { name: 'Remove API key' }))
   await screen.findByText('API key removed.')
   expect(mocks.remove).toHaveBeenCalled()
+  expect(key.value).toBe('')
 })
 test('settings model picker searches catalog and saves canonical model id', async () => {
   render(<AiSettingsModal returnFocusRef={createRef()} onClose={vi.fn()} />)
@@ -294,9 +298,7 @@ test('provider errors remain visible and unconfigured copilot opens shared setti
   fireEvent.click(
     await screen.findByRole('button', { name: 'Open AI settings' }),
   )
-  expect(
-    await screen.findByRole('dialog', { name: 'AI settings' }),
-  ).toBeTruthy()
+  expect(await screen.findByRole('dialog', { name: 'Settings' })).toBeTruthy()
 })
 
 test('inline composer submits on Enter, reports loading, and prevents parent Run shortcuts', async () => {
@@ -425,18 +427,22 @@ test('context popover discloses current SQL and metadata before and after genera
   })
   fireEvent.click(screen.getByRole('button', { name: 'View AI context' }))
   await screen.findByText(/public.orders\s+id uuid/)
-  expect(screen.getByText('Current query: included')).toBeTruthy()
+  expect(screen.getByRole('region', { name: 'Current SQL' })).toBeTruthy()
+  expect(screen.getByText('About this request')).toBeTruthy()
+  expect(screen.getByText('Request content')).toBeTruthy()
   expect(screen.getByText('SELECT id FROM public.orders')).toBeTruthy()
   expect(
     screen.getByText(/Database credentials and query result rows are not sent/),
   ).toBeTruthy()
   fireEvent.keyDown(document, { key: 'Escape' })
-  expect(screen.queryByText('Current query: included')).toBeNull()
+  expect(screen.queryByRole('region', { name: 'Current SQL' })).toBeNull()
   await generate()
   await screen.findByRole('button', { name: 'Apply' })
   fireEvent.click(screen.getByRole('button', { name: 'View AI context' }))
   expect(screen.getByText(/Submitted context/)).toBeTruthy()
-  expect(screen.getByText('Prompt: count orders')).toBeTruthy()
+  expect(screen.getByRole('region', { name: 'Prompt' }).textContent).toContain(
+    'count orders',
+  )
 })
 
 test('saving settings from the sidebar enables an already-mounted composer', async () => {

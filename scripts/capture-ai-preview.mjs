@@ -92,7 +92,6 @@ try {
   })()`)
   await mkdir(output, { recursive: true })
   await click(win, 'Settings')
-  await click(win, 'AI settings…')
   await wait(
     win,
     'document.body.innerText.includes("Preview analytical model")',
