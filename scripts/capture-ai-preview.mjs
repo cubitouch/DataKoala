@@ -82,7 +82,7 @@ app.whenReady().then(async () => {
     await win.loadFile(resolve('out/renderer/index.html'))
     await wait(
       win,
-      `window.__datakoalaStore && document.querySelector('[aria-label="Settings"]')`,
+      `window.__datakoalaStore && [...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Settings')`,
     )
     await win.webContents.executeJavaScript(`(() => {
       const store = window.__datakoalaStore, state = store.getState(), profile = ${JSON.stringify(profile)}
