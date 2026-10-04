@@ -124,7 +124,7 @@ export function useAiQueryCopilot() {
     if (busy) return
     let active = true
     setPrepared(null)
-    if (!configured || !profileId) {
+    if (!configured || !profileId || !prompt.trim()) {
       setPreparing(false)
       return
     }
