@@ -218,6 +218,23 @@ test('malformed persistence fails safely without destroying unrelated records', 
       broken: true,
     })
 
+    const targeted = preserved.secrets.find(
+      (entry) =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        (entry as { owner?: unknown }).owner === 'ai',
+    ) as { encrypted?: unknown } | undefined
+    assert.ok(targeted)
+    targeted.encrypted = 'not-base64!'
+    await writeFile(path, JSON.stringify(preserved), { mode: 0o600 })
+    await assert.rejects(store.get('ai', 'openrouter-api-key'), {
+      code: 'invalid-persistence',
+    })
+    assert.equal(
+      (await readFile(path, 'utf8')).includes('not-base64!'),
+      true,
+    )
+
     await writeFile(path, '{malformed', { mode: 0o600 })
     await assert.rejects(store.has('ai', 'openrouter-api-key'), {
       code: 'invalid-persistence',
