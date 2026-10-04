@@ -820,9 +820,9 @@ describe('LokiExplorer execution', () => {
       { operator: '|=', value: 'completed' },
     ])
     expect(useStore.getState().tabs[0].lokiResultView).toBe('list')
-    expect((screen.getByLabelText('Line contains') as HTMLInputElement).value).toBe(
-      'completed',
-    )
+    expect(
+      (screen.getByLabelText('Line contains') as HTMLInputElement).value,
+    ).toBe('completed')
     expect(screen.queryByText(/Local pattern filter:/)).toBeNull()
   })
 
