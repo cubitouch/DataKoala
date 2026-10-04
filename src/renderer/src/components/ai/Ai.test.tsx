@@ -430,7 +430,7 @@ test('context popover discloses current SQL and metadata before and after genera
   await screen.findByText(/public.orders\s+id uuid/)
   expect(screen.getByRole('region', { name: 'Current SQL' })).toBeTruthy()
   expect(screen.getByText('About this request')).toBeTruthy()
-  expect(screen.getByText('Request content')).toBeTruthy()
+  expect(screen.getByText('Context to send')).toBeTruthy()
   expect(screen.getByText('SELECT id FROM public.orders')).toBeTruthy()
   expect(
     screen.getByText(/Database credentials and query result rows are not sent/),
