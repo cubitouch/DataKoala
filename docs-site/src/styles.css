@@ -26,6 +26,43 @@ a {
   display: inline-flex;
 }
 
+.screenshot-chrome {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 14px;
+  display: flex;
+  gap: 7px;
+  padding: 7px 8px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 999px;
+  background: rgb(9 10 12 / 72%);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 24%);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.screenshot-chrome i {
+  width: 9px;
+  height: 9px;
+  display: block;
+  border-radius: 50%;
+  background: #ff5f57;
+}
+
+.screenshot-chrome i:nth-child(2) {
+  background: #febc2e;
+}
+
+.screenshot-chrome i:nth-child(3) {
+  background: #28c840;
+}
+
+.screenshot-chrome-hero {
+  top: 14px;
+  left: 16px;
+}
+
 .shot img {
   width: 100%;
   height: auto;
