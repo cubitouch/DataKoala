@@ -1,5 +1,4 @@
 import {
-  AI_LIMITS,
   type AiModel,
   type AiQueryProposalRequest,
   type AiQueryStep,
@@ -20,20 +19,9 @@ const schema = {
     kind: { type: 'string', enum: ['proposal', 'context-request'] },
     query: { type: 'string' },
     explanation: { type: 'string' },
-    assumptions: {
-      type: 'array',
-      items: { type: 'string', maxLength: 2000 },
-      maxItems: 30,
-    },
-    searchTerms: {
-      type: 'array',
-      items: {
-        type: 'string',
-        maxLength: AI_LIMITS.contextRequestTermCharacters,
-      },
-      maxItems: AI_LIMITS.contextRequestTerms,
-    },
-    reason: { type: 'string', maxLength: AI_LIMITS.contextRequestReason },
+    assumptions: { type: 'array', items: { type: 'string' } },
+    searchTerms: { type: 'array', items: { type: 'string' } },
+    reason: { type: 'string' },
   },
   required: [
     'kind',
