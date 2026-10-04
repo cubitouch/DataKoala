@@ -253,9 +253,9 @@ test('appending expansion introspects only candidates and keeps final columns/co
   )
   expect(loaded).toEqual(['devices', 'customers'])
   expect(context.relations).toHaveLength(AI_LIMITS.relations)
-  expect(context.relations.flatMap((item) => item.columns).length).toBeLessThanOrEqual(
-    AI_LIMITS.columns,
-  )
+  expect(
+    context.relations.flatMap((item) => item.columns).length,
+  ).toBeLessThanOrEqual(AI_LIMITS.columns)
   expect(JSON.stringify(context).length).toBeLessThanOrEqual(
     AI_LIMITS.contextCharacters,
   )
