@@ -413,7 +413,12 @@ test('Try again keeps previous diff pending, uses latest SQL and replaces only o
       .disabled,
   ).toBe(true)
   await act(async () =>
-    pending.resolve(\n      ok({\n        kind: 'proposal',\n        proposal: { ...proposed, explanation: 'Updated proposal' },\n      }),\n    ),
+    pending.resolve(
+      ok({
+        kind: 'proposal',
+        proposal: { ...proposed, explanation: 'Updated proposal' },
+      }),
+    ),
   )
   fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
   expect(await screen.findByText('Updated proposal')).toBeTruthy()
@@ -464,7 +469,12 @@ test('cancelled first response cannot replace a newer proposal', async () => {
   const first = deferred<AiResult<AiQueryStep>>()
   mocks.propose
     .mockReturnValueOnce(first.promise)
-    .mockResolvedValueOnce(\n      ok({\n        kind: 'proposal',\n        proposal: { ...proposed, explanation: 'Newer proposal' },\n      }),\n    )
+    .mockResolvedValueOnce(
+      ok({
+        kind: 'proposal',
+        proposal: { ...proposed, explanation: 'Newer proposal' },
+      }),
+    )
   render(<AiQueryCopilot />)
   await generate()
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -474,7 +484,12 @@ test('cancelled first response cannot replace a newer proposal', async () => {
   )
   await screen.findByText('Newer proposal')
   await act(async () =>
-    first.resolve(\n      ok({\n        kind: 'proposal',\n        proposal: { ...proposed, explanation: 'Cancelled proposal' },\n      }),\n    ),
+    first.resolve(
+      ok({
+        kind: 'proposal',
+        proposal: { ...proposed, explanation: 'Cancelled proposal' },
+      }),
+    ),
   )
   expect(screen.queryByText('Cancelled proposal')).toBeNull()
   expect(screen.getByText('Newer proposal')).toBeTruthy()
