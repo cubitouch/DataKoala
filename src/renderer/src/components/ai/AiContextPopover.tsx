@@ -139,8 +139,19 @@ function InfoIcon() {
       fill="none"
       aria-hidden="true"
     >
-      <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8 7v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle
+        cx="8"
+        cy="8"
+        r="6.25"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M8 7v4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
       <circle cx="8" cy="4.75" r="0.85" fill="currentColor" />
     </svg>
   )
