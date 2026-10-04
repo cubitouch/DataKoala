@@ -4,48 +4,232 @@ const repo = 'https://github.com/cubitouch/DataKoala'
 const appIcon =
   'https://raw.githubusercontent.com/cubitouch/DataKoala/main/build/icon.png'
 const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-3.059.664-3.705-1.295-3.705-1.295-.5-1.269-1.219-1.606-1.219-1.606-.998-.682.075-.668.075-.668 1.102.078 1.683 1.132 1.683 1.132.98 1.679 2.572 1.194 3.199.913.098-.71.383-1.194.698-1.469-2.442-.278-5.01-1.221-5.01-5.436 0-1.2.428-2.182 1.13-2.952-.114-.278-.49-1.397.107-2.91 0 0 .92-.295 3.013 1.128A10.5 10.5 0 0 1 12 6.821c.935.004 1.876.126 2.755.37 2.091-1.423 3.01-1.128 3.01-1.128.598 1.513.222 2.632.109 2.91.703.77 1.129 1.752 1.129 2.952 0 4.225-2.572 5.155-5.022 5.427.394.34.746 1.01.746 2.037 0 1.47-.013 2.653-.013 3.014 0 .292.2.623.762.518C19.855 20.974 23 16.865 23 12c0-6.077-4.923-11-11-11Z"/></svg>`
+
 const shot = (name: string, alt: string) =>
-  `<a class="shot" href="./screenshots/${name}.png"><span class="window-bar" aria-hidden="true"><i></i><i></i><i></i></span><img src="./screenshots/${name}.png" alt="${alt}" loading="lazy"></a>`
+  `<a class="shot" href="./screenshots/${name}.png">
+    <span class="window-bar" aria-hidden="true">
+      <i></i><i></i><i></i>
+    </span>
+    <img src="./screenshots/${name}.png" alt="${alt}" loading="lazy">
+  </a>`
+
+const bentoShot = (name: string, alt: string) =>
+  `<a class="bento-media" href="./screenshots/${name}.png">
+    <span class="window-bar" aria-hidden="true">
+      <i></i><i></i><i></i>
+    </span>
+    <img src="./screenshots/${name}.png" alt="${alt}" loading="lazy">
+  </a>`
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header><nav><a class="brand" href="./"><img src="${appIcon}" alt="" aria-hidden="true"><span>DataKoala</span></a><div class="nav-actions"><a class="button button-primary" href="#start">Get started</a><a class="button icon-button" href="${repo}" aria-label="View DataKoala on GitHub" title="View source on GitHub">${githubIcon}</a></div></nav></header>
+  <header class="site-header">
+    <nav>
+      <a class="brand" href="./">
+        <span class="brand-mark"><img src="${appIcon}" alt="" aria-hidden="true"></span>
+        <span>DataKoala</span>
+      </a>
+      <div class="nav-links" aria-label="Primary navigation">
+        <a href="#workspace">Product</a>
+        <a href="#why">Why DataKoala</a>
+      </div>
+      <div class="nav-actions">
+        <a class="button button-ghost" href="${repo}">
+          <span class="github-mark" aria-hidden="true">${githubIcon}</span>
+          <span class="nav-source-label">GitHub</span>
+        </a>
+        <a class="button button-primary" href="#start">Try DataKoala</a>
+      </div>
+    </nav>
+  </header>
+
   <main>
     <section class="hero">
-      <p class="eyebrow">LOCAL-FIRST DATA EXPLORATION</p>
-      <h1>Move from data to insight,<br><em>without leaving your desktop.</em></h1>
-      <p class="lede">Explore connected data visually, move into SQL when you need it, and turn results into clear charts.</p>
-      <div class="hero-actions">
-        <a class="button button-primary button-large" href="#start">Get started</a>
-        <a class="button button-secondary button-large" href="${repo}">
-          <span class="github-mark" aria-hidden="true">
-            <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.5 7.5 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
-            </svg>
+      <div class="hero-copy">
+        <p class="eyebrow hero-kicker"><span class="eyebrow-dot"></span>OPEN SOURCE · LOCAL-FIRST · DESKTOP</p>
+        <h1>Explore data <em>without leaving your desktop.</em></h1>
+        <p class="lede">Query databases, metrics, logs, and traces from one focused workspace. Start visually, then drop into SQL, PromQL, LogQL, or TraceQL whenever you want full control.</p>
+        <div class="hero-actions">
+          <a class="button button-primary button-large" href="#start">Try DataKoala <span aria-hidden="true">→</span></a>
+          <a class="button button-secondary button-large" href="${repo}">
+            <span class="github-mark" aria-hidden="true">${githubIcon}</span>
+            <span>View on GitHub</span>
+          </a>
+        </div>
+        <div class="hero-proof" aria-label="DataKoala product principles">
+          <span><i aria-hidden="true"></i>Read-only by default</span>
+          <span><i aria-hidden="true"></i>Data stays at the source</span>
+          <span><i aria-hidden="true"></i>Transparent queries</span>
+        </div>
+      </div>
+
+      <div class="hero-product">
+        <div class="hero-product-glow" aria-hidden="true"></div>
+        <a class="product-window" href="./screenshots/docs-overview.png">
+          <span class="window-bar" aria-hidden="true">
+            <i></i><i></i><i></i>
           </span>
-          <span>View source</span>
+          <img src="./screenshots/docs-overview.png" alt="DataKoala visual Builder configured for monthly market activity with a connected PostgreSQL source and five-series chart">
         </a>
       </div>
-      ${shot('docs-overview', 'DataKoala visual Builder configured for monthly market activity with a connected PostgreSQL source and five-series chart')}
     </section>
-    <section class="feature"><div><p class="eyebrow">SQL WORKSPACE</p><h2>Explore with SQL</h2><p>Write highlighted SQL beside searchable metadata, then inspect, filter, and visualize the result in the same workspace.</p></div>${shot('docs-sql', 'SQL query and filtered market activity results table')}</section>
-    <section class="feature reverse"><div><p class="eyebrow">VISUAL BUILDER</p><h2>Build queries visually</h2><p>Select relations, time buckets, dimensions, aggregations, and filters while DataKoala creates transparent, reusable queries.</p></div>${shot('docs-builder', 'Visual query Builder configured for monthly market activity')}</section>
-    <section class="feature"><div><p class="eyebrow">DATA SOURCES</p><h2>One workspace, varied sources</h2><p>Connect PostgreSQL, BigQuery, read-only SQLite, local CSV/TSV/Parquet/JSON files, Prometheus, Grafana Loki, and Grafana Tempo. Your data remains on your machine and source services.</p></div>${shot('docs-data-sources', 'DataKoala workspace populated with synthetic data-source profiles')}</section>
-    <section class="feature reverse"><div><p class="eyebrow">PROMETHEUS</p><h2>Understand service metrics</h2><p>Browse metrics and compose PromQL from filters, grouping, calculations, and time controls—without depending on a live service for this tour.</p></div>${shot('docs-prometheus', 'PromQL Builder showing a request-duration percentile query')}</section>
-    <section class="feature"><div><p class="eyebrow">LOG EXPLORATION</p><h2>Investigate production logs with Loki</h2><p>Build LogQL from indexed-label metadata, search a virtualized result list, and inspect structured metadata and parsed fields in a dedicated event panel. Trace IDs preserve a clear seam for Tempo correlation.</p></div>${shot('loki-log-list', 'Loki production checkout log list with indexed-label filters and a selected error event inspector')}</section>
-    <section class="feature reverse"><div><p class="eyebrow">LOG PATTERNS</p><h2>Understand recurring messages at a glance</h2><p>Group loaded Loki logs into explainable templates, compare frequency and severity, inspect representative values, and drill back into the matching events.</p></div>${shot('loki-log-patterns', 'Loki log patterns with an expanded cluster, examples, and variable values')}</section>
-    <section class="feature"><div><p class="eyebrow">LOG VOLUME</p><h2>Narrow incidents from the chart</h2><p>Switch to a dedicated volume view, break down the trend by a discovered label, and drag across an error spike to rerun the same investigation over a narrower range.</p></div>${shot('loki-log-chart', 'Loki log-volume chart showing a production incident spike and service breakdown')}</section>
-    <section class="feature reverse"><div><p class="eyebrow">TEMPO SERVICE MAP</p><h2>Find bottlenecks across a trace cohort</h2><p>Turn Tempo search results into a service map, compare synchronous and async branches, group dense graphs by namespace, and inspect ranked bottleneck candidates before drilling into representative traces.</p></div>${shot('tempo-service-map', 'Tempo — synthetic cohort service map and bottlenecks')}</section>
-    <section class="feature"><div><p class="eyebrow">DISTRIBUTED TRACING</p><h2>Follow a trace from request to root cause</h2><p>Search Tempo traces, see root-span success and failure at a glance, then open a proportional waterfall to inspect timing and span details. Filter span kinds, hide delayed async branches, and switch back to wall-clock timing when you need the full causal context.</p></div>${shot('tempo-waterfall', 'Tempo trace waterfall showing checkout spans, timing, status, filters, and a selected payment span')}</section>
-    <section class="feature reverse"><div><p class="eyebrow">VISUALIZATION</p><h2>Make results readable</h2><p>Move beyond basic lines and bars when the data calls for it. Use hierarchy views to break payments down by currency and then country at a glance.</p></div>${shot('docs-visualization', 'Sunburst visualization of synthetic payments grouped by currency and country')}</section>
-    <section class="start" id="start"><p class="eyebrow">EARLY BETA</p><h2>Try DataKoala locally</h2><p>DataKoala is evolving. It requires Node 24, pnpm, and Git.</p><pre><code>git clone https://github.com/cubitouch/DataKoala.git
-cd DataKoala
-corepack enable
-pnpm install --frozen-lockfile
-pnpm dev</code></pre><div class="optional-setup"><h3>Using BigQuery?</h3><p>BigQuery connections use Google Cloud Application Default Credentials. Install the Google Cloud CLI (<code>gcloud</code>), make sure it is available on your <code>PATH</code>, and authenticate before starting DataKoala.</p><pre><code>gcloud --version
-gcloud auth application-default login</code></pre><p>If you work with several Google Cloud projects, you can set the current CLI project explicitly:</p><pre><code>gcloud config set project YOUR_PROJECT_ID</code></pre><p>DataKoala uses credentials provided by the Google Cloud authentication flow and does not store Google Cloud credentials itself.</p></div><div class="optional-setup"><h3>Using Loki, Tempo, or Grafana-backed Prometheus?</h3><p>Loki and Tempo require Grafana's <code>gcx</code> CLI. Grafana and Grafana Cloud-backed Prometheus connections also use <code>gcx</code>. Install it, make sure it is available on your <code>PATH</code>, and authenticate before starting DataKoala.</p><pre><code>brew install grafana/grafana/gcx
-gcx --version
 
-gcx login my-stack --server https://&lt;your-stack&gt;.grafana.net</code></pre><p>If you also use Prometheus, <code>promtool</code> is optional and only used for PromQL formatting:</p><pre><code>brew install prometheus
-promtool --version</code></pre><p>If <code>promtool</code> is outside your <code>PATH</code>:</p><pre><code>DATAKOALA_PROMTOOL_PATH=/path/to/promtool pnpm dev</code></pre></div><p>Found a rough edge? <a href="${repo}/issues">Share feedback in GitHub Issues</a>.</p></section>
+    <section class="source-strip" aria-label="Supported data sources">
+      <p>ONE WORKSPACE FOR YOUR DATA + OBSERVABILITY STACK</p>
+      <div class="source-list">
+        <span>PostgreSQL</span>
+        <span>BigQuery</span>
+        <span>SQLite</span>
+        <span>CSV / Parquet / JSON</span>
+        <span>Prometheus</span>
+        <span>Loki</span>
+        <span>Tempo</span>
+      </div>
+    </section>
+
+    <section class="workspace" id="workspace">
+      <div class="section-heading">
+        <p class="eyebrow">ONE WORKSPACE</p>
+        <h2>Follow the question,<br>not the tool.</h2>
+        <p>Explore structured data and production signals without rebuilding your context every time the investigation moves to another source.</p>
+      </div>
+
+      <div class="bento-grid">
+        <article class="bento-card bento-card-sql">
+          <div class="bento-copy">
+            <span class="card-index">01</span>
+            <p class="card-kicker">SQL + VISUAL BUILDER</p>
+            <h3>Start where you are comfortable.</h3>
+            <p>Browse metadata and build queries visually when you want speed, or write SQL directly when you need full control.</p>
+          </div>
+          ${bentoShot('docs-sql', 'SQL query beside searchable metadata and filtered market activity results')}
+        </article>
+
+        <article class="bento-card bento-card-logs">
+          <div class="bento-copy">
+            <span class="card-index">02</span>
+            <p class="card-kicker">LOKI</p>
+            <h3>Turn noisy logs into a line of inquiry.</h3>
+            <p>Search, filter, inspect structured fields, and keep the event context beside the result.</p>
+          </div>
+          ${bentoShot('loki-log-list', 'Loki production checkout log list with filters and a selected error event inspector')}
+        </article>
+
+        <article class="bento-card bento-card-metrics">
+          <div class="bento-copy">
+            <span class="card-index">03</span>
+            <p class="card-kicker">PROMETHEUS</p>
+            <h3>Understand the shape of a problem.</h3>
+            <p>Compose PromQL from metadata, grouping, calculations, and time controls, then move straight into the result.</p>
+          </div>
+          ${bentoShot('docs-prometheus', 'PromQL Builder showing a request-duration percentile query')}
+        </article>
+
+        <article class="bento-card bento-card-traces">
+          <div class="bento-copy">
+            <span class="card-index">04</span>
+            <p class="card-kicker">TEMPO</p>
+            <h3>Follow the request to the root cause.</h3>
+            <p>Search traces, compare latency and status, then inspect the full waterfall without leaving the workspace.</p>
+          </div>
+          ${bentoShot('tempo-waterfall', 'Tempo trace waterfall showing checkout spans, timing, status, filters, and a selected payment span')}
+        </article>
+      </div>
+    </section>
+
+    <section class="deep-dives">
+      <div class="section-heading section-heading-compact">
+        <p class="eyebrow">GO DEEPER</p>
+        <h2>Keep context as the investigation narrows.</h2>
+      </div>
+
+      <div class="feature">
+        <div class="feature-copy">
+          <p class="eyebrow">LOG PATTERNS</p>
+          <h3>See recurring messages, not a wall of text.</h3>
+          <p>Group loaded Loki logs into explainable templates, compare frequency and severity, inspect representative values, and drill back into matching events.</p>
+        </div>
+        ${shot('loki-log-patterns', 'Loki log patterns with an expanded cluster, examples, and variable values')}
+      </div>
+
+      <div class="feature reverse">
+        <div class="feature-copy">
+          <p class="eyebrow">LOG VOLUME</p>
+          <h3>Move from a spike to the events behind it.</h3>
+          <p>Break down log volume by a discovered label and drag across an interesting window to rerun the same investigation over a narrower range.</p>
+        </div>
+        ${shot('loki-log-chart', 'Loki log-volume chart showing a production incident spike and service breakdown')}
+      </div>
+
+      <div class="feature">
+        <div class="feature-copy">
+          <p class="eyebrow">TEMPO SERVICE MAP</p>
+          <h3>Find bottlenecks across a trace cohort.</h3>
+          <p>Turn Tempo search results into a service map, compare synchronous and async branches, group dense graphs by namespace, and inspect ranked bottleneck candidates.</p>
+        </div>
+        ${shot('tempo-service-map', 'Tempo synthetic cohort service map and bottlenecks')}
+      </div>
+
+      <div class="feature reverse">
+        <div class="feature-copy">
+          <p class="eyebrow">RESULT EXPLORER</p>
+          <h3>Make the answer readable.</h3>
+          <p>Move from tables to lines, bars, scatter plots, treemaps, and hierarchy views without exporting your result into another tool first.</p>
+        </div>
+        ${shot('docs-visualization', 'Sunburst visualization of synthetic payments grouped by currency and country')}
+      </div>
+    </section>
+
+    <section class="principles" id="why">
+      <div class="section-heading">
+        <p class="eyebrow">BUILT FOR THE INVESTIGATOR</p>
+        <h2>Your tools should help you think,<br>not hide what they did.</h2>
+      </div>
+      <div class="principle-grid">
+        <article>
+          <span class="principle-number">01</span>
+          <h3>Local-first</h3>
+          <p>Your data remains on your machine and source services. DataKoala connects to the systems you already use instead of becoming another place to copy data into.</p>
+        </article>
+        <article>
+          <span class="principle-number">02</span>
+          <h3>Transparent</h3>
+          <p>Visual builders produce queries you can inspect and reuse. Drop into raw query mode whenever you need more control.</p>
+        </article>
+        <article>
+          <span class="principle-number">03</span>
+          <h3>Open source</h3>
+          <p>DataKoala is licensed AGPL-3.0-or-later. Inspect the implementation, follow the roadmap, and report the rough edges in public.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="start" id="start">
+      <div class="start-copy">
+        <p class="eyebrow">EARLY BETA</p>
+        <h2>Take it for a spin.</h2>
+        <p>DataKoala currently runs from source and requires Node 24, pnpm, and Git. PostgreSQL, SQLite, and local files need no additional authentication tooling.</p>
+        <div class="start-links">
+          <a href="${repo}#getting-started">Full setup guide <span aria-hidden="true">→</span></a>
+          <a href="${repo}/issues">Share feedback <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+      <div class="terminal" aria-label="DataKoala installation commands">
+        <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span><strong>~/DataKoala</strong></div>
+        <pre><code><span class="prompt">$</span> git clone https://github.com/cubitouch/DataKoala.git
+<span class="prompt">$</span> cd DataKoala
+<span class="prompt">$</span> corepack enable
+<span class="prompt">$</span> pnpm install --frozen-lockfile
+<span class="prompt">$</span> pnpm dev</code></pre>
+      </div>
+    </section>
   </main>
-  <footer><span>DataKoala · AGPL-3.0-or-later</span><span><a href="${repo}">Repository</a><a href="${repo}/blob/main/LICENSE">License</a></span></footer>`
+
+  <footer>
+    <a class="brand footer-brand" href="./">
+      <span class="brand-mark"><img src="${appIcon}" alt="" aria-hidden="true"></span>
+      <span>DataKoala</span>
+    </a>
+    <p>Local-first data exploration for databases, metrics, logs, and traces.</p>
+    <span class="footer-links"><a href="${repo}">Repository</a><a href="${repo}/blob/main/LICENSE">AGPL-3.0-or-later</a></span>
+  </footer>
+`

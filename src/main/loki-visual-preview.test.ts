@@ -60,7 +60,7 @@ test('Loki preview workflow, documentation, and screenshot command stay synchron
   assert.match(workflow, /Loki — production incident log-volume trend/)
   assert.match(
     docs,
-    /shot\('loki-log-list', 'Loki production checkout log list/,
+    /(?:shot|bentoShot)\('loki-log-list', 'Loki production checkout log list/,
   )
   assert.match(docs, /shot\('loki-log-patterns', 'Loki log patterns/)
   assert.match(docs, /shot\('loki-log-chart', 'Loki log-volume chart/)
