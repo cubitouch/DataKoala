@@ -117,7 +117,11 @@ it('keeps the chosen inspector width when selecting another log', () => {
   ).toBe('414px')
 
   fireEvent.click(screen.getByRole('button', { name: /Payment retry succeeded/ }))
-  expect(screen.getByText('Payment retry succeeded')).toBeTruthy()
+  expect(
+    screen
+      .getByRole('button', { name: /Payment retry succeeded/ })
+      .getAttribute('aria-selected'),
+  ).toBe('true')
   expect(
     (screen.getByRole('complementary', {
       name: 'Selected log details',
