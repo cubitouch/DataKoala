@@ -399,6 +399,12 @@ nav {
   text-decoration: none;
 }
 
+.product-window img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 .source-strip {
   padding: 30px 0 38px;
   border-top: 1px solid var(--border-soft);
