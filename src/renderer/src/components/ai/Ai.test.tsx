@@ -310,7 +310,7 @@ test('inline composer submits on Enter, reports loading, and prevents parent Run
       <AiQueryCopilot />
     </div>,
   )
-  const input = screen.getByRole('textbox', { name: 'AI prompt' })
+  const input = await screen.findByRole('textbox', { name: 'AI prompt' })
   expect(screen.queryByRole('dialog')).toBeNull()
   fireEvent.change(input, { target: { value: 'count orders' } })
   await waitFor(() =>
@@ -422,9 +422,12 @@ test('Try again keeps previous diff pending, uses latest SQL and replaces only o
 test('context popover discloses current SQL and metadata before and after generation', async () => {
   patchActiveTestSession({ sql: 'SELECT id FROM public.orders' })
   render(<AiQueryCopilot />)
-  fireEvent.change(screen.getByRole('textbox', { name: 'AI prompt' }), {
-    target: { value: 'count orders' },
-  })
+  fireEvent.change(
+    await screen.findByRole('textbox', { name: 'AI prompt' }),
+    {
+      target: { value: 'count orders' },
+    },
+  )
   fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
   await screen.findByText(/public.orders\s+id uuid/)
   expect(screen.getByRole('region', { name: 'Current SQL' })).toBeTruthy()
