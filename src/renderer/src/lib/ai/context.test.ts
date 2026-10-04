@@ -91,6 +91,22 @@ test('initial context reserves column and character headroom for discovery', asy
   expect(JSON.stringify(huge).length).toBeLessThanOrEqual(
     AI_LIMITS.initialContextCharacters,
   )
+  const expandedHuge = await appendAiContext(
+    huge,
+    [relation('devices')],
+    async () =>
+      Array.from({ length: 10 }, (_, i) => ({
+        name: `device_field_${i}`,
+        dataTypeName: 'text',
+      })),
+  )
+  expect(
+    expandedHuge.relations.find((item) => item.name === 'devices')?.columns
+      .length,
+  ).toBeGreaterThan(0)
+  expect(JSON.stringify(expandedHuge).length).toBeLessThanOrEqual(
+    AI_LIMITS.contextCharacters,
+  )
 })
 
 test('context construction excludes extra credentials and result values and fails on missing columns', async () => {
