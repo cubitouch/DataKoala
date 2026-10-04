@@ -109,6 +109,7 @@ export function AiQueryCopilot() {
           prompt={ai.contextInput?.prompt ?? ai.prompt}
           query={ai.contextInput?.snapshot.query ?? ai.query}
           context={ai.contextInput?.context ?? null}
+          discovery={ai.contextInput?.discovery ?? null}
           preparing={ai.busy ? !ai.contextInput : ai.preparing && !ai.review}
           sent={ai.contextSent}
           proposal={ai.review?.proposal ?? null}
