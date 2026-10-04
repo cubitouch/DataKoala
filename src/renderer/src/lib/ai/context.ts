@@ -154,12 +154,28 @@ export function expandAiRelations(
     .map((item) => item.relation)
 }
 
+interface AiContextBudget {
+  columns: number
+  contextCharacters: number
+}
+
+const globalBudget: AiContextBudget = {
+  columns: AI_LIMITS.columns,
+  contextCharacters: AI_LIMITS.contextCharacters,
+}
+
+const initialBudget: AiContextBudget = {
+  columns: AI_LIMITS.initialColumns,
+  contextCharacters: AI_LIMITS.initialContextCharacters,
+}
+
 export async function appendAiContext(
   base: AiQueryContext,
   relations: DatabaseRelationNode[],
   load: (
     relation: DatabaseRelationNode,
   ) => Promise<DatabaseColumnNode[] | undefined>,
+  budget: AiContextBudget = globalBudget,
 ): Promise<AiQueryContext> {
   const context: AiQueryContext = {
     language: { ...base.language },
@@ -198,19 +214,19 @@ export async function appendAiContext(
       columns: [],
     }
     context.relations.push(next)
-    if (JSON.stringify(context).length > AI_LIMITS.contextCharacters) {
+    if (JSON.stringify(context).length > budget.contextCharacters) {
       context.relations.pop()
       break
     }
     existing.add(relationKey(relation))
     for (const column of columns.slice(0, AI_LIMITS.columnsPerRelation)) {
-      if (count >= AI_LIMITS.columns) break
+      if (count >= budget.columns) break
       next.columns.push({
         name: column.name,
         dataType: column.dataTypeName,
         ...(column.nullable === undefined ? {} : { nullable: column.nullable }),
       })
-      if (JSON.stringify(context).length > AI_LIMITS.contextCharacters) {
+      if (JSON.stringify(context).length > budget.contextCharacters) {
         next.columns.pop()
         break
       }
@@ -230,5 +246,6 @@ export async function buildAiContext(
     { language: { kind: 'sql', dialect: 'postgres' }, relations: [] },
     relations.slice(0, AI_LIMITS.relations),
     load,
+    initialBudget,
   )
 }
