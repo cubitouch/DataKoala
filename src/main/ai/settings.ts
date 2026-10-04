@@ -181,6 +181,7 @@ export class AiSettingsStore {
 
   save(input: AiSettingsInput) {
     return this.serialize(async () => {
+      await this.tryLegacyMigration()
       if (input.apiKey) {
         await this.secrets.set(
           OPENROUTER_SECRET.owner,
@@ -188,8 +189,6 @@ export class AiSettingsStore {
           input.apiKey,
         )
         await rm(this.legacyPath(), { force: true })
-      } else {
-        await this.tryLegacyMigration()
       }
       await writeAtomic(
         this.directory,
