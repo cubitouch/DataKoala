@@ -13,9 +13,7 @@ export interface SecretStore {
 export interface Encryption {
   available(): Promise<boolean>
   encrypt(value: string): Promise<Buffer>
-  decrypt(
-    value: Buffer,
-  ): Promise<{ result: string; shouldReEncrypt: boolean }>
+  decrypt(value: Buffer): Promise<{ result: string; shouldReEncrypt: boolean }>
 }
 
 export type SecureStorageErrorCode =
@@ -67,9 +65,7 @@ function parseStoredSecrets(data: string): StoredSecrets {
   return { version: 1, secrets: root.secrets }
 }
 
-function identity(
-  value: unknown,
-): { owner: string; id: string } | null {
+function identity(value: unknown): { owner: string; id: string } | null {
   const entry = objectRecord(value)
   return entry &&
     typeof entry.owner === 'string' &&
