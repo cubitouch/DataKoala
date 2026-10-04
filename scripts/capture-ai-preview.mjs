@@ -147,14 +147,6 @@ app.whenReady().then(async () => {
       resolve(output, 'ai-query-proposal.png'),
       (await win.webContents.capturePage()).toPNG(),
     )
-    await click(win, 'View AI details')
-    await wait(
-      win,
-      `document.querySelector('[aria-label="AI response"]')?.textContent.includes('Assumptions') && document.body.innerText.includes('Submitted context')`,
-    )
-    await win.webContents.executeJavaScript(
-      `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
-    )
     await click(win, 'Apply')
     await wait(
       win,
