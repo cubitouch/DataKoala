@@ -7,9 +7,6 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="curr
 
 const shot = (name: string, alt: string) =>
   `<a class="shot" href="./screenshots/${name}.png">
-    <span class="window-bar" aria-hidden="true">
-      <i></i><i></i><i></i><span>DataKoala</span>
-    </span>
     <img src="./screenshots/${name}.png" alt="${alt}" loading="lazy">
   </a>`
 
