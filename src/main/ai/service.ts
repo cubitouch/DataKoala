@@ -1,4 +1,5 @@
 import type { AiResult } from '../../shared/ai.ts'
+import { SecureStorageError } from '../secrets/store.ts'
 import { OpenRouterProvider } from './openrouter.ts'
 import type { AiProvider } from './openrouter.ts'
 import { AiSettingsStore } from './settings.ts'
@@ -27,14 +28,19 @@ export class AiService {
     try {
       return { ok: true, value: await operation() }
     } catch (error) {
-      return error instanceof AiError
-        ? { ok: false, code: error.code, message: error.message }
-        : {
-            ok: false,
-            code: 'provider',
-            message:
-              'The AI operation failed. Check AI settings and try again.',
-          }
+      if (error instanceof AiError)
+        return { ok: false, code: error.code, message: error.message }
+      if (error instanceof SecureStorageError)
+        return {
+          ok: false,
+          code: 'configuration',
+          message: error.message,
+        }
+      return {
+        ok: false,
+        code: 'provider',
+        message: 'The AI operation failed. Check AI settings and try again.',
+      }
     }
   }
   getSettings() {
@@ -109,7 +115,7 @@ export class AiService {
   test(owner: number, id: unknown, input: unknown) {
     return this.run(owner, id, async (signal) => {
       const draft = settingsInput(input)
-      const key = draft.apiKey || (await this.settings.secrets.get())
+      const key = draft.apiKey || (await this.settings.getApiKey())
       if (!key)
         throw new AiError(
           'configuration',
@@ -127,7 +133,7 @@ export class AiService {
         request.requestId,
         async (signal) => {
           const settings = await this.settings.get(),
-            key = await this.settings.secrets.get()
+            key = await this.settings.getApiKey()
           if (!settings.model || !key)
             throw new AiError(
               'configuration',

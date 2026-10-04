@@ -1,10 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { AiSettingsStore, EncryptedSecretStore } from './settings.ts'
-import type { SecretStore } from './settings.ts'
+import { AiSettingsStore } from './settings.ts'
+import { EncryptedSecretStore } from '../secrets/store.ts'
+import type { Encryption, SecretOwner, SecretStore } from '../secrets/store.ts'
 import { AiService } from './service.ts'
 import { OpenRouterProvider } from './openrouter.ts'
 import { proposalRequest } from './validation.ts'
@@ -40,19 +41,38 @@ const request: AiQueryProposalRequest = {
   context: { language: { kind: 'sql', dialect: 'postgres' }, relations: [] },
 }
 class MemorySecrets implements SecretStore {
-  value: string | null = null
-  async has() {
-    return this.value !== null
+  private values = new Map<string, string>()
+  private key(owner: SecretOwner, id: string) {
+    return `${owner}:${id}`
   }
-  async get() {
-    return this.value
+  async has(owner: SecretOwner, id: string) {
+    return this.values.has(this.key(owner, id))
   }
-  async set(value: string) {
-    this.value = value
+  async get(owner: SecretOwner, id: string) {
+    return this.values.get(this.key(owner, id)) ?? null
   }
-  async delete() {
-    this.value = null
+  async set(owner: SecretOwner, id: string, value: string) {
+    this.values.set(this.key(owner, id), value)
   }
+  async delete(owner: SecretOwner, id: string) {
+    this.values.delete(this.key(owner, id))
+  }
+}
+const memoryEncryption: Encryption = {
+  available: async () => true,
+  encrypt: async (value) => Buffer.from(value),
+  decrypt: async (value) => ({
+    result: value.toString(),
+    shouldReEncrypt: false,
+  }),
+}
+async function writeLegacySecret(directory: string, value: string) {
+  const encrypted = await memoryEncryption.encrypt(value)
+  await writeFile(
+    join(directory, 'ai-secrets.json'),
+    JSON.stringify({ version: 1, encrypted: encrypted.toString('base64') }),
+    { mode: 0o600 },
+  )
 }
 const completion = (content: unknown = proposalWire) =>
   Response.json({
@@ -192,7 +212,7 @@ test('settings preserve the model and blank key; tests do not save; removal dele
   const directory = await mkdtemp(join(tmpdir(), 'ai-settings-'))
   try {
     const secrets = new MemorySecrets(),
-      settings = new AiSettingsStore(directory, secrets)
+      settings = new AiSettingsStore(directory, secrets, memoryEncryption)
     let tested = ''
     const service = new AiService(settings, (key, model) => ({
       listModels: async () => [],
@@ -210,12 +230,15 @@ test('settings preserve the model and blank key; tests do not save; removal dele
       hasApiKey: true,
     })
     await service.saveSettings({ model: 'missing-from-catalog', apiKey: '' })
-    assert.equal(await secrets.get(), 'saved-key')
-    assert.deepEqual(await new AiSettingsStore(directory, secrets).get(), {
-      provider: 'openrouter',
-      model: 'missing-from-catalog',
-      hasApiKey: true,
-    })
+    assert.equal(await secrets.get('ai', 'openrouter-api-key'), 'saved-key')
+    assert.deepEqual(
+      await new AiSettingsStore(directory, secrets, memoryEncryption).get(),
+      {
+        provider: 'openrouter',
+        model: 'missing-from-catalog',
+        hasApiKey: true,
+      },
+    )
     assert.equal(
       JSON.stringify(await service.getSettings()).includes('saved-key'),
       false,
@@ -227,36 +250,158 @@ test('settings preserve the model and blank key; tests do not save; removal dele
       false,
     )
     await service.removeApiKey()
-    assert.equal(await secrets.get(), null)
+    assert.equal(await secrets.get('ai', 'openrouter-api-key'), null)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+test('legacy OpenRouter secret migrates once and survives restart', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ai-legacy-secret-'))
+  try {
+    await writeLegacySecret(directory, 'legacy-key')
+    const secrets = new EncryptedSecretStore(directory, memoryEncryption)
+    const settings = new AiSettingsStore(directory, secrets, memoryEncryption)
+
+    assert.equal(await settings.getApiKey(), 'legacy-key')
+    await assert.rejects(readFile(join(directory, 'ai-secrets.json'), 'utf8'), {
+      code: 'ENOENT',
+    })
+
+    const restarted = new AiSettingsStore(
+      directory,
+      new EncryptedSecretStore(directory, memoryEncryption),
+      memoryEncryption,
+    )
+    assert.equal(await restarted.getApiKey(), 'legacy-key')
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
 })
 
-test('secret persistence requires encryption and deletion removes the encrypted file', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'ai-secret-'))
-  let available = false,
-    encryptedValue = ''
-  const secrets = new EncryptedSecretStore(directory, {
-    available: async () => available,
-    encrypt: async (value) => {
-      encryptedValue = value
-      return Buffer.from('opaque-ciphertext')
-    },
-    decrypt: async () => ({ result: encryptedValue, shouldReEncrypt: false }),
-  })
+test('replacement OpenRouter key wins over an in-flight legacy migration', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ai-legacy-race-'))
   try {
-    await assert.rejects(secrets.set('placeholder-key'), {
-      code: 'configuration',
+    await writeLegacySecret(directory, 'legacy-key')
+    const memory = new MemorySecrets()
+    let migrationReached!: () => void
+    let releaseMigration!: () => void
+    const reached = new Promise<void>((resolve) => {
+      migrationReached = resolve
     })
-    assert.equal(await secrets.has(), false)
-    available = true
-    await secrets.set('placeholder-key')
-    const stored = await readFile(join(directory, 'ai-secrets.json'), 'utf8')
-    assert.equal(stored.includes('placeholder-key'), false)
-    assert.equal(await secrets.get(), 'placeholder-key')
-    await secrets.delete()
-    assert.equal(await secrets.has(), false)
+    const released = new Promise<void>((resolve) => {
+      releaseMigration = resolve
+    })
+    let pauseFirstHas = true
+    const secrets: SecretStore = {
+      has: async (owner, id) => {
+        const result = await memory.has(owner, id)
+        if (pauseFirstHas) {
+          pauseFirstHas = false
+          migrationReached()
+          await released
+        }
+        return result
+      },
+      get: (owner, id) => memory.get(owner, id),
+      set: (owner, id, value) => memory.set(owner, id, value),
+      delete: (owner, id) => memory.delete(owner, id),
+    }
+    const settings = new AiSettingsStore(directory, secrets, memoryEncryption)
+
+    const migration = settings.get()
+    await reached
+    const replacement = settings.save({
+      model: 'replacement-model',
+      apiKey: 'replacement-key',
+    })
+    releaseMigration()
+
+    await Promise.all([migration, replacement])
+    assert.equal(
+      await memory.get('ai', 'openrouter-api-key'),
+      'replacement-key',
+    )
+    assert.equal(await settings.getApiKey(), 'replacement-key')
+    await assert.rejects(readFile(join(directory, 'ai-secrets.json'), 'utf8'), {
+      code: 'ENOENT',
+    })
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('legacy OpenRouter migration never overwrites an existing shared secret', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ai-legacy-secret-'))
+  try {
+    await writeLegacySecret(directory, 'legacy-key')
+    const secrets = new EncryptedSecretStore(directory, memoryEncryption)
+    await secrets.set('ai', 'openrouter-api-key', 'shared-key')
+    const settings = new AiSettingsStore(directory, secrets, memoryEncryption)
+
+    assert.equal(await settings.getApiKey(), 'shared-key')
+    await assert.rejects(readFile(join(directory, 'ai-secrets.json'), 'utf8'), {
+      code: 'ENOENT',
+    })
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('failed legacy migration leaves the legacy secret untouched', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ai-legacy-secret-'))
+  try {
+    await writeLegacySecret(directory, 'legacy-key')
+    const failingSecrets: SecretStore = {
+      has: async () => false,
+      get: async () => null,
+      set: async () => {
+        throw new Error('write failed')
+      },
+      delete: async () => {},
+    }
+    const settings = new AiSettingsStore(
+      directory,
+      failingSecrets,
+      memoryEncryption,
+    )
+
+    assert.equal(await settings.getApiKey(), 'legacy-key')
+    assert.deepEqual(await settings.save({ model: 'updated', apiKey: '' }), {
+      provider: 'openrouter',
+      model: 'updated',
+      hasApiKey: true,
+    })
+    assert.equal(
+      (await readFile(join(directory, 'ai-secrets.json'), 'utf8')).includes(
+        Buffer.from('legacy-key').toString('base64'),
+      ),
+      true,
+    )
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('unavailable encryption keeps the legacy secret and summary intact', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ai-legacy-secret-'))
+  const unavailable: Encryption = {
+    ...memoryEncryption,
+    available: async () => false,
+  }
+  try {
+    await writeLegacySecret(directory, 'legacy-key')
+    const settings = new AiSettingsStore(
+      directory,
+      new EncryptedSecretStore(directory, unavailable),
+      unavailable,
+    )
+
+    assert.equal((await settings.get()).hasApiKey, true)
+    await assert.rejects(settings.getApiKey(), { code: 'unavailable' })
+    assert.equal(
+      (await readFile(join(directory, 'ai-secrets.json'), 'utf8')).length > 0,
+      true,
+    )
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
@@ -264,7 +409,11 @@ test('secret persistence requires encryption and deletion removes the encrypted 
 
 test('timeout, owner-scoped cancellation, duplicate protection and all completion paths clean up requests', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'ai-service-'))
-  const settings = new AiSettingsStore(directory, new MemorySecrets())
+  const settings = new AiSettingsStore(
+    directory,
+    new MemorySecrets(),
+    memoryEncryption,
+  )
   let hang = true
   const service = new AiService(
     settings,

@@ -1,20 +1,16 @@
-import { app, ipcMain, safeStorage } from 'electron'
+import { app, ipcMain } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
+import { createElectronEncryption } from '../secrets/electron-encryption'
+import { EncryptedSecretStore } from '../secrets/store'
 import { AiService } from './service'
-import { AiSettingsStore, EncryptedSecretStore } from './settings'
+import { AiSettingsStore } from './settings'
+
 export function registerAiIpc() {
-  const secrets = new EncryptedSecretStore(app.getPath('userData'), {
-    available: async () =>
-      (process.platform !== 'linux' ||
-        !['basic_text', 'unknown'].includes(
-          safeStorage.getSelectedStorageBackend(),
-        )) &&
-      (await safeStorage.isAsyncEncryptionAvailable()),
-    encrypt: (value) => safeStorage.encryptStringAsync(value),
-    decrypt: (value) => safeStorage.decryptStringAsync(value),
-  })
+  const directory = app.getPath('userData')
+  const encryption = createElectronEncryption()
+  const secrets = new EncryptedSecretStore(directory, encryption)
   const service = new AiService(
-    new AiSettingsStore(app.getPath('userData'), secrets),
+    new AiSettingsStore(directory, secrets, encryption),
   )
   const owners = new Set<number>()
   const owner = (event: Electron.IpcMainInvokeEvent) => {
