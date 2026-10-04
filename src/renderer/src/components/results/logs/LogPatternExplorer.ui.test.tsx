@@ -138,7 +138,7 @@ it('selects patterns into one resizable inspector and keeps its width', () => {
   ).toBe('414px')
 
   fireEvent.click(
-    screen.getByRole('option', { name: /Worker started normally/ }),
+    screen.getByRole('option', { name: /Worker.*started.*normally/ }),
   )
   expect(screen.getByText('Worker started normally')).toBeTruthy()
   expect(
