@@ -117,6 +117,17 @@ function validateProposal(input: Record<string, unknown>): AiQueryProposal {
     assumptions: input.assumptions.map((a) => textValue(a, 2000, true)),
   }
 }
+const contextSearchTerm = (value: unknown) => {
+  const term = textValue(value, AI_LIMITS.contextRequestTermCharacters)
+  if (
+    !/^[\p{L}\p{N}_. -]+$/u.test(term) ||
+    /\b(select|insert|update|delete|drop|alter|create|grant|revoke|execute|query|sql|ipc|credential|password|secret|token|connection string|datasource|describetable|listobjects)\b/i.test(
+      term,
+    )
+  )
+    throw new Error()
+  return term
+}
 function validateContextRequest(
   input: Record<string, unknown>,
 ): AiContextRequest {
@@ -131,9 +142,7 @@ function validateContextRequest(
   )
     throw new Error()
   return {
-    searchTerms: input.searchTerms.map((term) =>
-      textValue(term, AI_LIMITS.contextRequestTermCharacters),
-    ),
+    searchTerms: input.searchTerms.map(contextSearchTerm),
     reason: textValue(input.reason, AI_LIMITS.contextRequestReason),
   }
 }
