@@ -116,6 +116,8 @@ export interface QuerySession {
   tempoResultView: TraceResultView
   running: boolean
   queryError: string | null
+  /** Runtime-only provenance; deliberately excluded from workspace drafts. */
+  repairableQueryError?: { query: string; error: string } | null
   result: QueryResult | null
   pendingResult: QueryResult | null
   resultRevision: number
@@ -357,6 +359,7 @@ export interface AppState {
     result: QueryResult | null,
     error?: string | null,
     tabId?: string,
+    repairableQuery?: string,
   ) => void
   setRunning: (value: boolean, tabId?: string) => void
   setQueryMode: (mode: QueryMode, tabId?: string) => void
@@ -898,6 +901,7 @@ export const useStore = create<AppState>((set, get) => ({
         ...session,
         running: false,
         queryError: null,
+        repairableQueryError: null,
         result: null,
         pendingResult: null,
         resultRevision: 0,
@@ -988,6 +992,7 @@ export const useStore = create<AppState>((set, get) => ({
           : {
               ...session,
               sql,
+              repairableQueryError: null,
               manualQueryPristine: false,
               sqlResultFilters: session.sqlResultFilters.map((filter) =>
                 filter.execution === 'query'
@@ -1029,9 +1034,10 @@ export const useStore = create<AppState>((set, get) => ({
       patchSession(state, tabId, (session) => ({
         ...session,
         ...startQueryState(session),
+        repairableQueryError: null,
       })),
     ),
-  completeQuery: (result, error, tabId) =>
+  completeQuery: (result, error, tabId, repairableQuery) =>
     set((state) =>
       patchSession(state, tabId, (session) => {
         const next = completeQueryState(session, result, error ?? null)
@@ -1039,10 +1045,18 @@ export const useStore = create<AppState>((set, get) => ({
           ? {
               ...session,
               ...next,
+              repairableQueryError: null,
               isResultStale: false,
               lastSuccessfulResultRevision: session.resultRevision + 1,
             }
-          : { ...session, ...next }
+          : {
+              ...session,
+              ...next,
+              repairableQueryError:
+                error && repairableQuery
+                  ? { query: repairableQuery, error }
+                  : null,
+            }
       }),
     ),
   setRunning: (value, tabId) =>

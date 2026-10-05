@@ -267,6 +267,7 @@ export function useAiQueryCopilot() {
         active.sent = true
         return api.ai.proposeQuery({
           requestId: active.id,
+          intent: 'generate',
           prompt: requestInput.prompt,
           ...(requestInput.snapshot.query.trim()
             ? { currentQuery: requestInput.snapshot.query }

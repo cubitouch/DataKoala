@@ -37,6 +37,7 @@ const contextRequestWire = {
 }
 const request: AiQueryProposalRequest = {
   requestId: 'req',
+  intent: 'generate',
   prompt: 'count orders',
   context: { language: { kind: 'sql', dialect: 'postgres' }, relations: [] },
 }
