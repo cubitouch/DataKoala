@@ -109,6 +109,8 @@ const api = {
       ipcRenderer.invoke(IPC.CONNECTION_CHOOSE_SQLITE_FILE),
     remove: (id: string): Promise<boolean> =>
       ipcRenderer.invoke('connections:remove', id),
+    retryCredentialMigration: (id: string): Promise<DataSourceProfile> =>
+      ipcRenderer.invoke(IPC.CONNECTION_RETRY_CREDENTIAL_MIGRATION, id),
     test: (p: DataSourceProfile): Promise<TestResult> =>
       ipcRenderer.invoke(IPC.CONNECTION_TEST, p),
     connect: (p: DataSourceProfile): Promise<ConnectResult & { id: string }> =>

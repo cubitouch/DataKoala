@@ -16,6 +16,8 @@ export const IPC = {
   CONNECTION_DESCRIBE_TABLE: 'connection:describe-table',
   CONNECTION_CHOOSE_FILES: 'connection:choose-files',
   CONNECTION_CHOOSE_SQLITE_FILE: 'connection:choose-sqlite-file',
+  CONNECTION_RETRY_CREDENTIAL_MIGRATION:
+    'connection:retry-credential-migration',
   BIGQUERY_DISCOVER_PROJECTS: 'connections:bigquery:discover-projects',
   BIGQUERY_LIST_DATASETS: 'connections:bigquery:list-datasets',
   BIGQUERY_DISCOVER_DEFAULTS: 'connections:bigquery:discover-defaults',

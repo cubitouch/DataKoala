@@ -11,7 +11,9 @@ import {
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import * as db from './db'
-import { connectionProfiles } from './connections-store'
+import { ConnectionProfileStore } from './connections-store'
+import { EncryptedSecretStore } from './secrets/store'
+import { createElectronEncryption } from './secrets/electron-encryption'
 import { IPC } from '@shared/ipc-channels'
 import { CHART_SERIES_HARD_LIMIT } from '@shared/chartLimits'
 import { buildSeriesCardinalityProbe } from '@shared/seriesCardinality'
@@ -50,6 +52,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 process.env.APP_ROOT = resolve(__dirname, '../..')
 
 let mainWindow: BrowserWindow | null = null
+const userDataDirectory = app.getPath('userData')
+const connectionProfiles = new ConnectionProfileStore(
+  userDataDirectory,
+  new EncryptedSecretStore(userDataDirectory, createElectronEncryption()),
+)
 let isQuitting = false
 const handleBeforeQuit = createGracefulShutdown(
   () => db.disconnectAll(),
@@ -505,9 +512,9 @@ function attachRepro(conn: string): void {
       console.log('REPRO_REPORT', report)
       const r = JSON.parse(report)
       try {
-        for (const p of connectionProfiles.list()) {
+        for (const p of await connectionProfiles.list()) {
           if (p.name.startsWith('datakoala-repro-'))
-            connectionProfiles.remove(p.id)
+            await connectionProfiles.remove(p.id)
         }
         console.log('[repro] cleaned up throwaway profiles')
       } catch {
@@ -701,8 +708,8 @@ function registerIpc(): void {
       }
     },
   )
-  ipcMain.handle(IPC.CONNECTION_TEST, (_e, profile: DataSourceProfile) =>
-    db.testConnection(profile),
+  ipcMain.handle(IPC.CONNECTION_TEST, async (_e, profile: DataSourceProfile) =>
+    db.testConnection(await connectionProfiles.resolveForConnection(profile)),
   )
   ipcMain.handle(IPC.BIGQUERY_DISCOVER_PROJECTS, () =>
     bigQueryDiscovery.discoverProjects(),
@@ -779,18 +786,26 @@ function registerIpc(): void {
   ipcMain.handle(
     IPC.CONNECTION_CONNECT,
     async (_e, profile: DataSourceProfile) => {
-      const saved = profile.id ? connectionProfiles.get(profile.id) : undefined
-      const toUse = saved ?? connectionProfiles.upsert(profile)
-      const res = await db.connect(toUse)
+      const saved = profile.id
+        ? await connectionProfiles.get(profile.id)
+        : undefined
+      const toUse = saved ?? (await connectionProfiles.upsert(profile))
+      const res = await db.connect(
+        await connectionProfiles.resolveForConnection(toUse),
+      )
       return { ...res, id: toUse.id }
     },
   )
   ipcMain.handle(
     IPC.CONNECTION_RECONNECT,
     async (_e, profile: DataSourceProfile) => {
-      const saved = profile.id ? connectionProfiles.get(profile.id) : undefined
-      const toUse = saved ?? connectionProfiles.upsert(profile)
-      const res = await db.reconnect(toUse)
+      const saved = profile.id
+        ? await connectionProfiles.get(profile.id)
+        : undefined
+      const toUse = saved ?? (await connectionProfiles.upsert(profile))
+      const res = await db.reconnect(
+        await connectionProfiles.resolveForConnection(toUse),
+      )
       return { ...res, id: toUse.id }
     },
   )
@@ -802,6 +817,9 @@ function registerIpc(): void {
   ipcMain.handle('connections:live', () => db.listLiveSessions())
   ipcMain.handle('connections:upsert', (_e, profile: DataSourceProfile) =>
     connectionProfiles.upsert(profile),
+  )
+  ipcMain.handle(IPC.CONNECTION_RETRY_CREDENTIAL_MIGRATION, (_e, id: string) =>
+    connectionProfiles.retryMigration(id),
   )
   ipcMain.handle(IPC.CONNECTION_CHOOSE_FILES, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
@@ -836,9 +854,9 @@ function registerIpc(): void {
     })
     return result.canceled ? null : (result.filePaths[0] ?? null)
   })
-  ipcMain.handle('connections:remove', (_e, id: string) => {
+  ipcMain.handle('connections:remove', async (_e, id: string) => {
     db.disconnect(id).catch(() => {})
-    connectionProfiles.remove(id)
+    await connectionProfiles.remove(id)
     return true
   })
   ipcMain.handle(IPC.CONNECTION_LIST_OBJECTS, (_e, id: string) =>

@@ -78,6 +78,15 @@
   color: var(--text-dim);
 }
 
+.credentialWarning {
+  color: var(--amber);
+  border: 1px solid currentcolor;
+  border-radius: 5px;
+  padding: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
 .connectionTestResult {
   padding: 7px 9px;
   border: 1px solid currentcolor;
