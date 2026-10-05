@@ -17,6 +17,7 @@ const {
   discoverProjects,
   discoverDefaults,
   listDatasets,
+  retryCredentialMigration,
 } = vi.hoisted(() => ({
   testConnection: vi.fn(),
   upsert: vi.fn(),
@@ -25,6 +26,7 @@ const {
   discoverProjects: vi.fn(),
   discoverDefaults: vi.fn(),
   listDatasets: vi.fn(),
+  retryCredentialMigration: vi.fn(),
 }))
 vi.mock('@lib/api', () => ({
   api: {
@@ -33,6 +35,7 @@ vi.mock('@lib/api', () => ({
       upsert,
       chooseSqliteFile,
       chooseFiles,
+      retryCredentialMigration,
       bigquery: { discoverProjects, discoverDefaults, listDatasets },
     },
   },
@@ -48,7 +51,9 @@ const existing: ConnectionProfile = {
   port: 5432,
   database: 'old_db',
   user: 'old_user',
-  password: 'old password',
+  password: '',
+  hasPassword: true,
+  credentialState: 'secure',
   ssl: false,
   readonly: true,
 }
@@ -82,10 +87,28 @@ beforeEach(() => {
   discoverDefaults.mockResolvedValue({})
   listDatasets.mockReset()
   listDatasets.mockResolvedValue([])
+  retryCredentialMigration.mockReset()
 })
 afterEach(cleanup)
 
 describe('ConnectionModal canonical connection draft', () => {
+  it('represents a saved password without putting it in the input', async () => {
+    renderModal(existing)
+    expect(screen.getByLabelText('Password')).toHaveProperty('value', '')
+    expect(screen.getByLabelText('Password')).toHaveProperty(
+      'placeholder',
+      'Saved securely — leave blank to keep',
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove saved password' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ password: '', hasPassword: false }),
+      ),
+    )
+  })
   it('starts with a source picker and preserves drafts across Back', () => {
     renderModal(null, true)
     const postgres = screen.getByRole('radio', { name: /PostgreSQL/ })

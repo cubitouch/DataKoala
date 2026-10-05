@@ -114,7 +114,11 @@ export interface PostgresProfile extends ProfileBase {
   port: number
   database: string
   user: string
+  /** Transient renderer input only. Persisted/listed profiles always contain ''. */
   password: string
+  /** Desired/saved credential presence; blank password preserves it when true. */
+  hasPassword?: boolean
+  credentialState?: 'none' | 'secure' | 'legacy-plaintext'
   ssl: boolean
   /** readonly by default; the app never issues writes. */
   readonly: boolean
