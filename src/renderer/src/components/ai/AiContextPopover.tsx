@@ -56,6 +56,9 @@ function SchemaMetadata({
 }
 
 export function AiContextPopover({
+  operation = 'Ask AI',
+  datasourceError,
+  queryLabel = 'Current SQL',
   prompt,
   query,
   context,
@@ -64,6 +67,9 @@ export function AiContextPopover({
   sent,
   proposal,
 }: {
+  operation?: string
+  datasourceError?: string
+  queryLabel?: string
   prompt: string
   query: string
   context: AiQueryContext | null
@@ -132,6 +138,16 @@ export function AiContextPopover({
         {sent ? 'Submitted context' : 'Context to send'}
       </div>
       <div className={styles.contextPayload}>
+        <section aria-label="Operation">
+          <h3>Operation</h3>
+          <pre>{operation}</pre>
+        </section>
+        {datasourceError !== undefined && (
+          <section aria-label="Sanitized datasource error">
+            <h3>Sanitized datasource error</h3>
+            <pre>{datasourceError}</pre>
+          </section>
+        )}
         <section aria-label="Prompt">
           <h3>Prompt</h3>
           {prompt ? (
@@ -140,8 +156,8 @@ export function AiContextPopover({
             <p className={styles.notice}>Enter a prompt.</p>
           )}
         </section>
-        <section aria-label="Current SQL">
-          <h3>Current SQL</h3>
+        <section aria-label={queryLabel}>
+          <h3>{queryLabel}</h3>
           {query.trim() ? (
             <pre>{query}</pre>
           ) : (

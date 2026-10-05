@@ -42,6 +42,7 @@ vi.mock('@lib/relationColumns', () => ({
 import { AiSettingsAction } from './AiSettingsAction'
 import { AiSettingsModal } from './AiSettingsModal'
 import { AiQueryCopilot } from './AiQueryCopilot'
+import { AiQueryRepair } from './AiQueryRepair'
 import {
   patchActiveTestSession,
   resetTestStore,
@@ -397,6 +398,38 @@ test('empty editor diff is all additions and Apply clears the prompt', async () 
     (screen.getByRole('textbox', { name: 'AI prompt' }) as HTMLInputElement)
       .value,
   ).toBe('')
+})
+
+test('Fix with AI sends sanitized provenance and Apply changes SQL without running it', async () => {
+  const failed = 'SELECT device_id FROM public.orders'
+  const safeError =
+    'ERROR: column orders.device_id does not exist LINE 4 Position: 87 SQLSTATE 42703 password=[REDACTED]'
+  patchActiveTestSession({
+    sql: failed,
+    queryMode: 'sql',
+    queryError: `${safeError} password=hunter2`,
+    repairableQueryError: { query: failed, error: safeError },
+  })
+  render(<AiQueryRepair />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+  await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
+  expect(mocks.propose).toHaveBeenCalledWith(
+    expect.objectContaining({
+      intent: 'repair',
+      currentQuery: failed,
+      error: safeError,
+    }),
+  )
+  expect(mocks.propose.mock.calls[0][0]).not.toHaveProperty('prompt')
+  expect(JSON.stringify(mocks.propose.mock.calls[0][0])).not.toContain(
+    'hunter2',
+  )
+  fireEvent.click(await screen.findByRole('button', { name: 'Apply' }))
+  expect(selectActiveSession(useStore.getState()).sql).toBe(proposed.query)
+  expect(
+    selectActiveSession(useStore.getState()).repairableQueryError,
+  ).toBeNull()
+  expect(mocks.run).not.toHaveBeenCalled()
 })
 test('Try again keeps previous diff pending, uses latest SQL and replaces only on response', async () => {
   render(<AiQueryCopilot />)
