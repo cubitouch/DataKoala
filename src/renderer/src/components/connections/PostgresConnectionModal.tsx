@@ -30,6 +30,8 @@ const blank: ConnectionProfile = {
   database: '',
   user: 'postgres',
   password: '',
+  hasPassword: false,
+  credentialState: 'none',
   ssl: false,
   readonly: true,
 }
@@ -326,8 +328,58 @@ export function PostgresConnectionModal({
             id="connection-password"
             type="password"
             value={draft.password}
-            onValueChange={(text) => set({ password: text })}
+            onValueChange={(text) =>
+              set({
+                password: text,
+                hasPassword: text ? true : draft.hasPassword,
+              })
+            }
+            placeholder={
+              draft.hasPassword ? 'Saved securely — leave blank to keep' : ''
+            }
           />
+          {draft.hasPassword && (
+            <button
+              type="button"
+              className={['btn', 'ghost'].join(' ')}
+              onClick={() =>
+                set({
+                  password: '',
+                  hasPassword: false,
+                  credentialState: 'none',
+                })
+              }
+            >
+              Remove saved password
+            </button>
+          )}
+          {draft.credentialState === 'legacy-plaintext' && (
+            <div className={[styles.credentialWarning].join(' ')} role="alert">
+              This saved password is still stored using the legacy plaintext
+              format because secure OS credential storage is unavailable. You
+              can continue using it for this session, remove it, or retry secure
+              storage.
+              <button
+                type="button"
+                className={['btn', 'ghost'].join(' ')}
+                onClick={async () => {
+                  try {
+                    const updated =
+                      await api.connections.retryCredentialMigration(draft.id)
+                    if (updated.kind === 'postgres')
+                      setDraft(draftFromProfile(updated))
+                  } catch (error) {
+                    setTestState({
+                      status: 'error',
+                      message: failureMessage(error),
+                    })
+                  }
+                }}
+              >
+                Retry secure storage
+              </button>
+            </div>
+          )}
         </div>
         <div className={[styles.row].join(' ')}>
           <Checkbox

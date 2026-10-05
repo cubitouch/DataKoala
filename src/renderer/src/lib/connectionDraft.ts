@@ -8,6 +8,8 @@ export interface ConnectionDraft {
   database: string
   user: string
   password: string
+  hasPassword?: boolean
+  credentialState?: 'none' | 'secure' | 'legacy-plaintext'
   ssl: boolean
   readonly: boolean
 }
@@ -23,7 +25,12 @@ export type BuildConnectionProfileResult =
   | { ok: false; errors: ConnectionDraftErrors }
 
 export function draftFromProfile(profile: ConnectionProfile): ConnectionDraft {
-  return { ...profile, port: String(profile.port) }
+  return {
+    ...profile,
+    port: String(profile.port),
+    hasPassword: profile.hasPassword ?? false,
+    credentialState: profile.credentialState ?? 'none',
+  }
 }
 
 /** The single normalization and validation boundary used by preview, Test, and Save. */
@@ -61,6 +68,12 @@ export function buildConnectionProfileDraft(
       user,
       // Passwords are intentionally not trimmed: spaces may be part of a credential.
       password: draft.password,
+      ...(draft.hasPassword === undefined
+        ? {}
+        : { hasPassword: draft.hasPassword }),
+      ...(draft.credentialState === undefined
+        ? {}
+        : { credentialState: draft.credentialState }),
       ssl: draft.ssl,
       readonly: draft.readonly,
     },
