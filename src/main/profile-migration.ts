@@ -23,7 +23,7 @@ function isPostgresV1(stored: Record<string, unknown>): boolean {
     typeof stored.port === 'number' &&
     typeof stored.database === 'string' &&
     typeof stored.user === 'string' &&
-    typeof stored.password === 'string' &&
+    (stored.password === undefined || typeof stored.password === 'string') &&
     typeof stored.ssl === 'boolean' &&
     typeof stored.readonly === 'boolean'
   )
@@ -122,14 +122,14 @@ export function migrateStoredProfile(
     if (!isPostgresV1(migrated)) return { status: 'unsupported', stored }
     return {
       status: 'migrated',
-      profile: migrated as unknown as DataSourceProfile,
+      profile: { ...migrated, password: '' } as unknown as DataSourceProfile,
       stored: migrated,
     }
   }
   if (isPostgresV1(stored))
     return {
       status: 'current',
-      profile: stored as unknown as DataSourceProfile,
+      profile: { ...stored, password: '' } as unknown as DataSourceProfile,
       stored,
     }
   if (isLocalFilesV1(stored))
