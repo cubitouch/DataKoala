@@ -22,7 +22,9 @@ The same result-table and visualization workflow is shared across PostgreSQL and
 DataKoala supports saved PostgreSQL connection profiles with:
 
 - connection testing before saving;
-- hostname, port, database, username, password and SSL fields;
+- hostname, port, database, username and password fields;
+- explicit PostgreSQL TLS modes with optional custom CA certificates;
+- OS-backed secure storage for saved PostgreSQL passwords;
 - pasted PostgreSQL connection strings;
 - PostgreSQL, JDBC, psql-command and libpq keyword/value formats;
 - passwordless proxy, IAM and pgpass-style connections;
@@ -30,6 +32,11 @@ DataKoala supports saved PostgreSQL connection profiles with:
 - reconnect and unexpected-disconnection handling.
 
 Connections are read-only by default. For PostgreSQL, this is enforced by the database session through default transaction read-only mode rather than by attempting to recognize mutating SQL text. Read-only mode can be disabled explicitly for an individual profile.
+
+
+Saved PostgreSQL passwords are encrypted through Electron's OS-backed secure storage and are resolved only in the main process when a connection is tested or opened. Ordinary profile metadata remains in `connections.json`; renderer-facing profiles expose only credential presence/state and never the persisted password. If secure storage is unavailable, DataKoala refuses to persist a new password rather than falling back to plaintext. Passwordless proxy, IAM, `.pgpass`, and trust-based connections remain supported.
+
+PostgreSQL TLS can be **Disabled**, **Require TLS** (encrypted but certificate not verified), **Verify CA** (CA/chain verification without hostname verification), or **Verify server identity** (CA/chain plus hostname verification). Verify server identity is the recommended secure mode. A blank CA field uses system trusted roots; a populated field supplies a PEM CA certificate/bundle and must not contain private-key material. Pasted `sslmode=disable|require|verify-ca|verify-full` values map to these modes. Libpq `allow` and `prefer` are treated as TLS-required compatibility modes with a warning rather than allowing plaintext fallback.
 
 ### Local files
 
@@ -240,8 +247,6 @@ DataKoala is still an early working prototype. In particular:
 - Excel workbooks are not yet supported;
 - BigQuery is planned but not implemented;
 - CodeMirror currently provides syntax highlighting but not schema/table/column autocomplete;
-- saved PostgreSQL passwords are currently stored in plain JSON inside Electron userData;
-- the SSL toggle encrypts traffic but currently uses rejectUnauthorized false, so it does not verify the server certificate;
 - PostgreSQL statements have a 30-second timeout;
 - packaged and large-file behavior still needs broader cross-platform release testing.
 
