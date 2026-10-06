@@ -14,7 +14,7 @@ const postgres = {
   database: 'app',
   user: 'app',
   password: '',
-  tlsMode: 'disable',
+  tlsMode: 'disable' as const,
   readonly: true,
 }
 
