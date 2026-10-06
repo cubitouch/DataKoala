@@ -264,8 +264,14 @@ app.whenReady().then(async () => {
         hasReviewBar: Boolean(document.querySelector('[aria-label="AI query repair review"]')),
       }
     })()`)
-    if (!repairReview.editorText.includes("SELECT id AS device_id FROM public.orders;"))
-      throw new Error(`Repair proposal is not visible in the SQL editor: ${JSON.stringify(repairReview)}`)
+    if (
+      !repairReview.editorText.includes(
+        'SELECT id AS device_id FROM public.orders;',
+      )
+    )
+      throw new Error(
+        `Repair proposal is not visible in the SQL editor: ${JSON.stringify(repairReview)}`,
+      )
     if (repairReview.storedSql !== failedQuery)
       throw new Error('Repair proposal changed stored SQL before Apply')
     if (repairReview.hasOldDiff)
