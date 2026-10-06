@@ -1,0 +1,33 @@
+name: Prettier diff
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  prettier-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Print Prettier diff
+        run: |
+          pnpm exec prettier --write src/renderer/src/components/query/QueryEditor.tsx src/renderer/src/components/query/QueryEditor.test.tsx
+          git diff -- src/renderer/src/components/query/QueryEditor.tsx src/renderer/src/components/query/QueryEditor.test.tsx
