@@ -813,14 +813,8 @@ function registerIpc(): void {
     IPC.CONNECTION_DISCONNECT,
     (_e, id: string, generation?: number) => db.disconnect(id, generation),
   )
-  ipcMain.handle('connections:list', () => connectionProfiles.list())
+  registerConnectionProfileIpc(ipcMain, connectionProfiles)
   ipcMain.handle('connections:live', () => db.listLiveSessions())
-  ipcMain.handle('connections:upsert', (_e, profile: DataSourceProfile) =>
-    connectionProfiles.upsert(profile),
-  )
-  ipcMain.handle(IPC.CONNECTION_RETRY_CREDENTIAL_MIGRATION, (_e, id: string) =>
-    connectionProfiles.retryMigration(id),
-  )
   ipcMain.handle(IPC.CONNECTION_CHOOSE_FILES, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       title: 'Choose data files',
