@@ -98,6 +98,7 @@ import {
 } from '@test/sessionTestUtils'
 import { useStore } from '@store/useStore'
 import { QueryExecutionError } from '@lib/queryErrors'
+import { serializeWorkspaceDraft } from '@lib/workspacePersistence'
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void
@@ -985,7 +986,9 @@ describe('Fix with AI editor review', () => {
     fireEvent.change(editor, { target: { value: edited } })
     expect(editor.value).toBe(edited)
     expect(activeTestSession().sql).toBe(failed)
-    expect(JSON.stringify(useStore.getState().tabs)).not.toContain(edited)
+    const persisted = serializeWorkspaceDraft(useStore.getState())
+    expect(persisted).toContain(failed)
+    expect(persisted).not.toContain(edited)
 
     fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true })
     expect(runQuery).not.toHaveBeenCalled()
