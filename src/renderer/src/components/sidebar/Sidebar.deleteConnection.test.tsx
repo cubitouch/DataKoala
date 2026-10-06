@@ -11,7 +11,7 @@ import {
 const { profile, remove } = vi.hoisted(() => ({
   profile: {
     kind: 'postgres' as const,
-    version: 1 as const,
+    version: 2 as const,
     id: 'pg',
     name: 'Production Database',
     host: 'localhost',
@@ -19,7 +19,7 @@ const { profile, remove } = vi.hoisted(() => ({
     database: 'app',
     user: 'reader',
     password: '',
-    ssl: false,
+    tlsMode: 'disable',
     readonly: true as const,
   },
   remove: vi.fn(),
