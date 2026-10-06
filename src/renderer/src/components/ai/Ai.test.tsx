@@ -499,6 +499,40 @@ test('empty editor diff is all additions and Apply clears the prompt', async () 
   ).toBe('')
 })
 
+test('unchanged Ask AI proposal shows guidance instead of an empty diff', async () => {
+  const sql = 'SELECT id FROM public.orders'
+  patchActiveTestSession({ sql })
+  mocks.propose.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        ...proposed,
+        query: sql,
+      },
+    } as AiQueryStep),
+  )
+
+  render(<AiQueryCopilot />)
+  await generate()
+
+  const diff = await screen.findByRole('region', { name: 'SQL proposal diff' })
+  expect(screen.getByText('No SQL changes proposed')).toBeTruthy()
+  expect(
+    screen.getByText(
+      /AI didn't propose any SQL changes for this request.*Try adding a little more detail/s,
+    ),
+  ).toBeTruthy()
+  expect(diff.querySelector('[data-diff-kind="add"]')).toBeNull()
+  expect(diff.querySelector('[data-diff-kind="remove"]')).toBeNull()
+  expect(
+    (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true)
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+  expect(selectActiveSession(useStore.getState()).sql).toBe(sql)
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
 test('Fix with AI sends sanitized provenance and Apply changes SQL without running it', async () => {
   const failed = 'SELECT device_id FROM public.orders'
   const safeError =
