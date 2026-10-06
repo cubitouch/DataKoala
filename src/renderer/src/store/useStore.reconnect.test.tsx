@@ -4,7 +4,7 @@ import type { ConnectionProfile } from '@shared/types'
 
 const profiles: ConnectionProfile[] = ['a', 'b'].map((id) => ({
   kind: 'postgres',
-  version: 1,
+  version: 2,
   id,
   name: id.toUpperCase(),
   host: 'localhost',
@@ -12,7 +12,7 @@ const profiles: ConnectionProfile[] = ['a', 'b'].map((id) => ({
   database: 'test',
   user: 'test',
   password: '',
-  ssl: false,
+  tlsMode: 'disable',
   readonly: true,
 }))
 
