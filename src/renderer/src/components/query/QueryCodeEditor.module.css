@@ -1,10 +1,18 @@
 .editor {
+  flex: 1;
   min-width: 0;
+  min-height: 0;
+  border: 0;
+  overflow: auto;
 }
 
 .editor :global(.cm-theme),
 .editor :global(.cm-editor) {
   min-width: 0;
+}
+
+.editor :global(.cm-editor) {
+  height: 100%;
 }
 
 .editor :global(.cm-scroller) {
