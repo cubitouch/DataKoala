@@ -107,7 +107,7 @@ interface ProfileBase {
   name: string
 }
 
-interface ProfileV1Base extends ProfileV1Base {
+interface ProfileV1Base extends ProfileBase {
   version: 1
 }
 
