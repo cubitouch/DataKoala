@@ -132,3 +132,14 @@ test('semantic chart counts include current visible points and exclude null valu
   })
   assert.deepEqual(report, { series: 1, items: 2 })
 })
+
+test('display units change the chart fingerprint', () => {
+  assert.notEqual(
+    createChartFingerprint(chart, configuration, {}),
+    createChartFingerprint(
+      chart,
+      { ...configuration, displayUnit: { family: 'time', unit: 's' } },
+      {},
+    ),
+  )
+})

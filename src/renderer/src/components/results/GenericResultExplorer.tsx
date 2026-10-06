@@ -1,3 +1,4 @@
+import type { DisplayUnit } from '@lib/displayUnit'
 import {
   useCallback,
   useEffect,
@@ -478,6 +479,7 @@ export function GenericResultExplorer({
             timeBucket: activeBuilderTimeBucket,
             timeDomain: effectiveTimeDomain ?? undefined,
             valueAxisScale: effectiveConfiguration.valueAxisScale,
+            displayUnit: effectiveConfiguration.displayUnit,
             visibility: seriesVisibility,
             hoveredSeriesIdentity: () => hoveredSeriesIdentity.current,
             anomalies,
@@ -1065,6 +1067,49 @@ export function GenericResultExplorer({
                   Show all
                 </button>
               )}
+            <div className={styles.axisScale}>
+              <Combobox
+                label="Unit"
+                mode="inline"
+                value={effectiveConfiguration.displayUnit?.family ?? 'number'}
+                options={[
+                  { value: 'number', label: 'Number' },
+                  { value: 'time', label: 'Time' },
+                ]}
+                onChange={(value) =>
+                  update({
+                    displayUnit:
+                      value === 'time'
+                        ? { family: 'time', unit: 'ms' }
+                        : { family: 'number' },
+                  })
+                }
+              />
+            </div>
+            {effectiveConfiguration.displayUnit?.family === 'time' && (
+              <div className={styles.axisScale}>
+                <Combobox
+                  label="Input time unit"
+                  mode="inline"
+                  value={effectiveConfiguration.displayUnit.unit}
+                  options={['ms', 's', 'min', 'h'].map((unit) => ({
+                    value: unit,
+                    label: unit,
+                  }))}
+                  onChange={(value) =>
+                    update({
+                      displayUnit: {
+                        family: 'time',
+                        unit: value as Extract<
+                          DisplayUnit,
+                          { family: 'time' }
+                        >['unit'],
+                      },
+                    })
+                  }
+                />
+              </div>
+            )}
             {!hierarchical && (
               <div className={styles.axisScale}>
                 <Combobox

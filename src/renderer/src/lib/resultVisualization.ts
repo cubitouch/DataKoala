@@ -1,3 +1,4 @@
+import type { DisplayUnit } from './displayUnit.ts'
 import { isNumericType, isTimeType, type QueryResult } from '@shared/types.ts'
 import { orderChartSeries } from './chartSeries.ts'
 import {
@@ -21,6 +22,7 @@ export interface VisualizationConfiguration {
   seriesColumns?: string[]
   /** Presentation-only hierarchy order. It never changes Builder grouping semantics. */
   hierarchyDimensions?: string[]
+  displayUnit?: DisplayUnit
   valueAxisScale?: ValueAxisScale
   anomalyDetectionEnabled?: boolean
 }
@@ -73,6 +75,11 @@ export function visualizationConfigurationsEqual(
     a.seriesColumn === b.seriesColumn &&
     sameStrings(a.seriesColumns, b.seriesColumns) &&
     sameStrings(a.hierarchyDimensions, b.hierarchyDimensions) &&
+    (a.displayUnit?.family ?? 'number') ===
+      (b.displayUnit?.family ?? 'number') &&
+    (a.displayUnit?.family !== 'time' ||
+      (b.displayUnit?.family === 'time' &&
+        a.displayUnit.unit === b.displayUnit.unit)) &&
     (a.valueAxisScale ?? 'linear') === (b.valueAxisScale ?? 'linear') &&
     Boolean(a.anomalyDetectionEnabled) === Boolean(b.anomalyDetectionEnabled)
   )
@@ -227,6 +234,7 @@ export function inferVisualizationConfiguration(
     hierarchyDimensions: previous?.hierarchyDimensions?.filter((name) =>
       names.includes(name),
     ),
+    ...(previous?.displayUnit ? { displayUnit: previous.displayUnit } : {}),
     valueAxisScale: previous?.valueAxisScale ?? 'linear',
     anomalyDetectionEnabled: previous?.anomalyDetectionEnabled ?? false,
   }
