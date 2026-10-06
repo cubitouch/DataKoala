@@ -1,4 +1,6 @@
 import { AiQueryCopilot } from '@components/ai/AiQueryCopilot'
+import { AiQueryRepairReview } from '@components/ai/AiQueryRepairReview'
+import { useAiQueryRepairController } from '@components/ai/AiQueryRepairProvider'
 import {
   useCallback,
   useEffect,
@@ -60,6 +62,7 @@ export function QueryEditor({
   builderMode?: boolean
 }) {
   const tabId = useStore((s) => s.activeTabId)
+  const repair = useAiQueryRepairController()
   const sql = useStore((s) => selectActiveSession(s).sql)
   const setSql = useStore((s) => s.setSql)
   const prometheusTimeRange = useStore(
@@ -538,7 +541,16 @@ export function QueryEditor({
       />
 
       {connectionKind === 'postgres' && !builderMode && (
-        <AiQueryCopilot key={`${tabId}:${tabConnectionId}`} />
+        <>
+          {!repair?.blocked && (
+            <AiQueryCopilot key={`${tabId}:${tabConnectionId}`} />
+          )}
+          <AiQueryRepairReview
+            onApplied={() =>
+              requestAnimationFrame(() => editorRef.current?.focus())
+            }
+          />
+        </>
       )}
       {builderMode ? (
         <PromqlBuilderPanel

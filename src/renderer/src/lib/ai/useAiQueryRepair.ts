@@ -120,17 +120,25 @@ export function useAiQueryRepair() {
         cancel()
       }
       const shown = reviewRef.current
-      if (
-        shown &&
-        !shown.stale &&
-        !failureMatches({
+      if (shown) {
+        const reviewedFailure = {
           query: shown.input.snapshot.query,
           error: shown.input.error,
           tabId: shown.input.snapshot.tabId,
           profileId: shown.input.snapshot.profileId,
-        })
-      )
-        updateReview({ ...shown, stale: true })
+        }
+        if (!failureMatches(reviewedFailure)) {
+          const currentFailure = captureFailure()
+          const isNewRepairableFailure =
+            !!currentFailure &&
+            (currentFailure.query !== reviewedFailure.query ||
+              currentFailure.error !== reviewedFailure.error ||
+              currentFailure.tabId !== reviewedFailure.tabId ||
+              currentFailure.profileId !== reviewedFailure.profileId)
+          if (isNewRepairableFailure) updateReview(null)
+          else if (!shown.stale) updateReview({ ...shown, stale: true })
+        }
+      }
     })
     return () => {
       mounted.current = false
@@ -232,6 +240,7 @@ export function useAiQueryRepair() {
   const apply = () => {
     const current = reviewRef.current
     if (
+      flight.current ||
       !current ||
       current.stale ||
       !failureMatches({

@@ -22,6 +22,7 @@ import {
 import { api } from './lib/api'
 import type { ConnectionStateEvent } from '@shared/types'
 import { NotificationArea } from '@components/ui/feedback/NotificationArea'
+import { AiQueryRepairProvider } from '@components/ai/AiQueryRepairProvider'
 import styles from './App.module.css'
 
 const SIDEBAR_STORAGE_KEY = 'datakoala.layout.v1.sidebarWidth'
@@ -302,7 +303,11 @@ export function App() {
                 )}
               />
             ) : (
-              <>
+              <AiQueryRepairProvider
+                enabled={
+                  tabProfile?.kind === 'postgres' && effectiveMode === 'sql'
+                }
+              >
                 {effectiveMode === 'sql' ? (
                   <QueryEditor builderMode={prometheusBuilder} />
                 ) : (
@@ -316,7 +321,7 @@ export function App() {
                   }
                   hasRun={effectiveMode === 'sql' || builderHasRun}
                 />
-              </>
+              </AiQueryRepairProvider>
             )}
           </div>
         </div>
