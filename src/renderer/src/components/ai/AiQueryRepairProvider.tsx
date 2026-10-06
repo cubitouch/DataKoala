@@ -9,7 +9,7 @@ import { useAiQueryRepair } from '@lib/ai/useAiQueryRepair'
 
 type RepairController = ReturnType<typeof useAiQueryRepair>
 
-export type AiQueryRepairController = RepairController & {
+type AiQueryRepairController = RepairController & {
   draft: string
   setDraft: (value: string) => void
   activeReview: RepairController['review']
