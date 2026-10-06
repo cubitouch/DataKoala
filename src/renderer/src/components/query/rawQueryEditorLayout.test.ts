@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 const components = resolve(process.cwd(), 'src/renderer/src/components')
 
-const readCss = (path: string) => readFileSync(resolve(components, path), 'utf8')
+const readCss = (path: string) =>
+  readFileSync(resolve(components, path), 'utf8')
 
 describe('raw query editor layout', () => {
   it('keeps the Loki editor edge-to-edge inside the resizable query panel', () => {
