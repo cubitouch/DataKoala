@@ -65,6 +65,7 @@ export function QueryEditor({
   const repair = useAiQueryRepairController()
   const repairReview = repair?.activeReview ?? null
   const repairReviewActive = !!repairReview
+  const repairDraftLocked = repairReviewActive && !!repair?.busy
   const sql = useStore((s) => selectActiveSession(s).sql)
   const setSql = useStore((s) => s.setSql)
   const prometheusTimeRange = useStore(
@@ -592,7 +593,7 @@ export function QueryEditor({
               ? repair.setDraft(value)
               : setSql(value, tabId)
           }
-          editable={!isAnyExplainLoading}
+          editable={!isAnyExplainLoading && !repairDraftLocked}
           aria-label={
             language.kind === 'promql' ? 'PromQL editor' : 'SQL editor'
           }
