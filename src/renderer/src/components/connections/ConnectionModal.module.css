@@ -87,6 +87,20 @@
   font-size: 11px;
 }
 
+.tlsWarning {
+  color: var(--amber);
+  border: 1px solid currentcolor;
+  border-radius: 5px;
+  padding: 8px;
+  margin-top: 7px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.caInput {
+  min-height: 104px;
+}
+
 .connectionTestResult {
   padding: 7px 9px;
   border: 1px solid currentcolor;
