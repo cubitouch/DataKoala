@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ConnectionProfile } from '@shared/types'
+import type { ConnectionProfile, PostgresTlsMode } from '@shared/types'
 import {
   parseConnectionString,
   buildConnectionString,
@@ -7,6 +7,7 @@ import {
 } from '@shared/connString'
 import { api } from '@lib/api'
 import { Checkbox } from '@components/ui/Checkbox'
+import { Combobox } from '@components/ui/combobox'
 import { TextInput } from '@components/ui/TextInput'
 import {
   buildConnectionProfileDraft,
@@ -22,7 +23,7 @@ import styles from './ConnectionModal.module.css'
 
 const blank: ConnectionProfile = {
   kind: 'postgres',
-  version: 1,
+  version: 2,
   id: '',
   name: '',
   host: 'localhost',
@@ -32,7 +33,8 @@ const blank: ConnectionProfile = {
   password: '',
   hasPassword: false,
   credentialState: 'none',
-  ssl: false,
+  tlsMode: 'disable',
+  tlsCa: '',
   readonly: true,
 }
 const EXAMPLE = 'postgres://user@localhost:5432/mydb'
@@ -42,7 +44,8 @@ const connectionFields = new Set<keyof ConnectionDraft>([
   'database',
   'user',
   'password',
-  'ssl',
+  'tlsMode',
+  'tlsCa',
 ])
 const fieldOrder: ConnectionDraftField[] = [
   'name',
@@ -50,6 +53,25 @@ const fieldOrder: ConnectionDraftField[] = [
   'port',
   'database',
   'user',
+]
+
+const TLS_MODE_OPTIONS = [
+  { value: 'disable', label: 'Disabled', subtitle: 'No TLS' },
+  {
+    value: 'require',
+    label: 'Require TLS',
+    subtitle: 'Encrypted, certificate not verified',
+  },
+  {
+    value: 'verify-ca',
+    label: 'Verify CA',
+    subtitle: 'Verify certificate authority',
+  },
+  {
+    value: 'verify-full',
+    label: 'Verify server identity',
+    subtitle: 'Verify CA + hostname — recommended',
+  },
 ]
 type TestState =
   | { status: 'idle' }
@@ -136,7 +158,7 @@ export function PostgresConnectionModal({
         database: v.database,
         user: v.user,
         password: v.password,
-        ssl: v.ssl,
+        tlsMode: v.tlsMode,
         name: draft.name || (v.database ? `${v.database} @ ${v.host}` : v.host),
       },
       true,
@@ -381,13 +403,46 @@ export function PostgresConnectionModal({
             </div>
           )}
         </div>
-        <div className={[styles.row].join(' ')}>
-          <Checkbox
-            className={styles.checkbox}
-            checked={draft.ssl}
-            onCheckedChange={(checked) => set({ ssl: checked })}
-            label="Use SSL"
+        <div className={[styles.field].join(' ')}>
+          <Combobox
+            id="connection-tls-mode"
+            label="TLS mode"
+            value={draft.tlsMode}
+            options={TLS_MODE_OPTIONS}
+            onChange={(value) => set({ tlsMode: value as PostgresTlsMode })}
           />
+          {draft.tlsMode === 'require' && (
+            <div className={[styles.tlsWarning].join(' ')} role="alert">
+              The connection is encrypted, but the server certificate is not
+              verified. This compatibility mode does not protect against an
+              active man-in-the-middle attack.
+            </div>
+          )}
+        </div>
+        {(draft.tlsMode === 'verify-ca' ||
+          draft.tlsMode === 'verify-full') && (
+          <div className={[styles.field].join(' ')}>
+            <label htmlFor="connection-tls-ca">CA certificate (optional)</label>
+            <textarea
+              id="connection-tls-ca"
+              className={[styles.connPaste, styles.caInput].join(' ')}
+              value={draft.tlsCa ?? ''}
+              spellCheck={false}
+              autoComplete="off"
+              rows={5}
+              onChange={(e) => set({ tlsCa: e.target.value })}
+              aria-describedby="connection-tls-ca-hint"
+            />
+            <div
+              id="connection-tls-ca-hint"
+              className={[styles.pasteHint].join(' ')}
+            >
+              Leave blank to use system trusted certificate authorities. Paste
+              a PEM CA certificate or CA bundle for private/self-signed servers.
+            </div>
+          </div>
+        )}
+        <div className={[styles.field].join(' ')}>
           <Checkbox
             className={styles.checkbox}
             checked={draft.readonly}
