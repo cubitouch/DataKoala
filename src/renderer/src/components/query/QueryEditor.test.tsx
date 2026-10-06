@@ -854,7 +854,6 @@ describe('QueryEditor Explain loading states', () => {
   })
 })
 
-
 describe('Fix with AI editor review', () => {
   const failed = 'SELECT device_id FROM public.orders'
   const fixed = 'SELECT id AS device_id FROM public.orders'
