@@ -42,11 +42,7 @@ export function AiQueryDiff({
                       : 'Unchanged'
                 }
               >
-                {line.kind === 'add'
-                  ? '+'
-                  : line.kind === 'remove'
-                    ? '−'
-                    : ' '}
+                {line.kind === 'add' ? '+' : line.kind === 'remove' ? '−' : ' '}
               </span>
               <code>{line.text || ' '}</code>
             </div>
