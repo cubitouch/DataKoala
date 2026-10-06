@@ -13,6 +13,7 @@ function RepairFailure({ message }: { message: string }) {
 
 export function AiQueryRepair() {
   const ai = useAiQueryRepairController()
+  if (!ai) return null
 
   if (ai.busy)
     return (
