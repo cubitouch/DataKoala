@@ -30,7 +30,7 @@ import { defaultQueryTextForDatasource } from './queryDefaults'
 const profiles: ConnectionProfile[] = [
   {
     kind: 'postgres',
-    version: 1,
+    version: 2,
     id: 'profile-a',
     name: 'A',
     host: 'a',
@@ -38,12 +38,12 @@ const profiles: ConnectionProfile[] = [
     database: 'a',
     user: 'reader',
     password: '',
-    ssl: false,
+    tlsMode: 'disable',
     readonly: true,
   },
   {
     kind: 'postgres',
-    version: 1,
+    version: 2,
     id: 'profile-b',
     name: 'B',
     host: 'b',
@@ -51,7 +51,7 @@ const profiles: ConnectionProfile[] = [
     database: 'b',
     user: 'reader',
     password: '',
-    ssl: false,
+    tlsMode: 'disable',
     readonly: true,
   },
 ]
