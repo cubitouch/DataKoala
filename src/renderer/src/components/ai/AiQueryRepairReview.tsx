@@ -39,7 +39,7 @@ export function AiQueryRepairReview({ onApplied }: { onApplied: () => void }) {
               <button
                 type="button"
                 className="btn ghost"
-                disabled={ai.busy}
+                disabled={ai.busy || stale}
                 onClick={() => void ai.repair()}
               >
                 Try again
@@ -102,8 +102,8 @@ export function AiQueryRepairReview({ onApplied }: { onApplied: () => void }) {
           />
           {stale && (
             <div role="status" className={styles.warning}>
-              The failed SQL, tab, or connection changed. Generate again
-              against the latest query.
+              The failed SQL, tab, or connection changed. Run the current SQL,
+              then use Fix with AI again if it still fails.
             </div>
           )}
         </div>
