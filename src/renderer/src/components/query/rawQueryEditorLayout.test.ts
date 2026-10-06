@@ -28,8 +28,7 @@ describe('raw query editor layout', () => {
     const discoveryRule =
       css.match(/\.discoveryPanel\s*\{([^}]*)\}/)?.[1] ?? ''
     const rawFormRule =
-      css.match(/\.searchForm:has\(\.traceqlField\)\s*\{([^}]*)\}/)?.[1] ??
-      ''
+      css.match(/\.searchForm:has\(\.traceqlField\)\s*\{([^}]*)\}/)?.[1] ?? ''
     const fieldRule = css.match(/\.traceqlField\s*\{([^}]*)\}/)?.[1] ?? ''
     const themeRule =
       css.match(
