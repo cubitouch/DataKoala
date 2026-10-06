@@ -59,10 +59,5 @@ export function AiQueryRepairProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAiQueryRepairController() {
-  const value = useContext(AiQueryRepairContext)
-  if (!value)
-    throw new Error(
-      'useAiQueryRepairController must be used inside AiQueryRepairProvider',
-    )
-  return value
+  return useContext(AiQueryRepairContext)
 }
