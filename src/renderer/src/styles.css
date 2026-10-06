@@ -245,13 +245,6 @@ section[aria-label='Trace explorer']:has(
   }
 }
 
-/* Keep the plain TraceQL editor visually aligned with the other query editors. */
-section[aria-label='Trace explorer']
-  .cm-editor:has([aria-label='TraceQL editor']) {
-  background: #282c34;
-  color: #abb2bf;
-}
-
 /* Shared native select fallback. */
 select {
   background: var(--bg-4);

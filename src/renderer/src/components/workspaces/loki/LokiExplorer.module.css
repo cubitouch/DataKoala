@@ -34,6 +34,12 @@
   overflow: auto;
 }
 
+.rawQueryBody {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .queryOptions {
   display: flex;
   align-items: center;
@@ -61,38 +67,6 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-}
-
-.editor {
-  height: 100%;
-  min-height: 0;
-  box-sizing: border-box;
-  padding: 10px 14px;
-  background: var(--bg-2);
-}
-
-.editor :global(.cm-theme) {
-  height: 100%;
-  min-height: 0;
-}
-
-.editor :global(.cm-editor) {
-  height: 100%;
-  min-height: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font: 12px/1.45 var(--mono);
-}
-
-.editor :global(.cm-editor.cm-focused) {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-}
-
-.editor :global(.cm-scroller) {
-  min-height: 0;
-  overflow: auto;
-  font-family: var(--mono);
 }
 
 .status {

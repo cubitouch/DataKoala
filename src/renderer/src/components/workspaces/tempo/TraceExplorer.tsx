@@ -596,7 +596,9 @@ export function TraceExplorer({
         </form>
 
         <form
-          className={styles.searchForm}
+          className={`${styles.searchForm}${
+            mode === 'sql' ? ` ${styles.rawSearchForm}` : ''
+          }`}
           onSubmit={submitSearch}
           onKeyDown={onTraceqlKeyDown}
         >
@@ -697,9 +699,8 @@ export function TraceExplorer({
           ) : (
             <QueryCodeEditor
               ref={traceqlEditorRef}
-              className={styles.traceqlField}
               value={traceql}
-              minHeight="66px"
+              height="100%"
               extensions={traceqlExtensions}
               onChange={(value) => setSql(value, tabId)}
               aria-label="TraceQL editor"

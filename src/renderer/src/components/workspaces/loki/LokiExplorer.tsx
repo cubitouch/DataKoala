@@ -776,13 +776,15 @@ export function LokiExplorer({
             </button>
           }
         />
-        <div className={styles.queryBody}>
+        <div
+          className={`${styles.queryBody}${
+            mode === 'logql' ? ` ${styles.rawQueryBody}` : ''
+          }`}
+        >
           {mode === 'logql' ? (
             <QueryCodeEditor
-              className={styles.editor}
               value={query}
               height="100%"
-              minHeight="66px"
               extensions={[logql()]}
               onChange={(value) => setSql(value)}
               aria-label="LogQL editor"
