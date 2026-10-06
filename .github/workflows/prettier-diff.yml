@@ -1,0 +1,23 @@
+name: Prettier diff diagnostic
+
+on:
+  push:
+    branches:
+      - feat/ai-repair-editor-review
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - name: Show Prettier diff
+        run: |
+          pnpm exec prettier --write src/renderer/src/components/ai/AiQueryRepairReview.tsx src/renderer/src/components/query/QueryEditor.test.tsx
+          git diff -- src/renderer/src/components/ai/AiQueryRepairReview.tsx src/renderer/src/components/query/QueryEditor.test.tsx
