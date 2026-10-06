@@ -99,7 +99,6 @@ import {
 } from '@test/sessionTestUtils'
 import { useStore } from '@store/useStore'
 import { QueryExecutionError } from '@lib/queryErrors'
-import { serializeWorkspaceDraft } from '@lib/workspacePersistence'
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void
@@ -946,77 +945,46 @@ describe('Fix with AI editor review', () => {
 
   async function proposeRepair() {
     fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
-    await waitFor(() =>
-      expect(
-        (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
-      ).toBe(fixed),
-    )
+    await screen.findByRole('region', { name: 'SQL proposal diff' })
   }
 
-  it('shows an editable transient repair in CodeMirror and only persists it on Apply', async () => {
+  it('reviews the repair as a diff and only replaces editor SQL on Apply', async () => {
     renderRepairEditor()
     await proposeRepair()
 
     const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
+    expect(editor.value).toBe(failed)
     expect(activeTestSession().sql).toBe(failed)
     expect(
       screen.getByRole('region', { name: 'AI query repair review' }),
     ).toBeTruthy()
     expect(
-      screen.queryByRole('region', { name: 'SQL proposal diff' }),
-    ).toBeNull()
+      screen.getByRole('region', { name: 'SQL proposal diff' }),
+    ).toBeTruthy()
+    expect(screen.getByText('Proposed changes')).toBeTruthy()
     expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
     expect(
       (screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement)
         .disabled,
-    ).toBe(true)
-    expect(
-      (screen.getByRole('button', { name: 'Format' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true)
-    expect(
-      (screen.getByRole('button', { name: 'Explain' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true)
-    expect(
-      (
-        screen.getByRole('button', {
-          name: 'Explain Analyze',
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true)
-
-    fireEvent.change(editor, { target: { value: edited } })
-    expect(editor.value).toBe(edited)
-    expect(activeTestSession().sql).toBe(failed)
-    const persisted = serializeWorkspaceDraft(useStore.getState())
-    expect(persisted).toContain(failed)
-    expect(persisted).not.toContain(edited)
-
-    fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true })
-    expect(runQuery).not.toHaveBeenCalled()
+    ).toBe(false)
 
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
-    expect(activeTestSession().sql).toBe(edited)
+
+    await waitFor(() => expect(activeTestSession().sql).toBe(fixed))
     expect(activeTestSession().repairableQueryError).toBeNull()
     expect(
       (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
-    ).toBe(edited)
+    ).toBe(fixed)
     expect(
       screen.queryByRole('region', { name: 'AI query repair review' }),
     ).toBeNull()
-    expect(
-      (screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(false)
     expect(runQuery).not.toHaveBeenCalled()
   })
 
-  it('Reject discards transient edits and returns to the failed SQL', async () => {
+  it('Reject discards the proposal and keeps the failed SQL', async () => {
     renderRepairEditor()
     await proposeRepair()
-    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
-    fireEvent.change(editor, { target: { value: edited } })
+
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }))
 
     expect(activeTestSession().sql).toBe(failed)
@@ -1027,14 +995,18 @@ describe('Fix with AI editor review', () => {
       query: failed,
       error: safeError,
     })
+    expect(
+      screen.queryByRole('region', { name: 'AI query repair review' }),
+    ).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'Fix with AI' }),
+    ).toBeTruthy()
     expect(runQuery).not.toHaveBeenCalled()
   })
 
-  it('Try again keeps the draft visible while pending and repairs the original failed SQL', async () => {
+  it('Try again keeps the previous diff visible while pending and replaces it on success', async () => {
     renderRepairEditor()
     await proposeRepair()
-    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
-    fireEvent.change(editor, { target: { value: edited } })
 
     const retry = deferred<{
       ok: true
@@ -1054,7 +1026,10 @@ describe('Fix with AI editor review', () => {
     expect(aiPropose.mock.calls[1][0].currentQuery).toBe(failed)
     expect(
       (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
-    ).toBe(edited)
+    ).toBe(failed)
+    expect(
+      screen.getByRole('region', { name: 'SQL proposal diff' }).textContent,
+    ).toContain(fixed)
     expect(
       (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
         .disabled,
@@ -1072,19 +1047,21 @@ describe('Fix with AI editor review', () => {
         },
       },
     })
+
     await waitFor(() =>
       expect(
-        (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
-      ).toBe(replacement),
+        screen.getByRole('region', { name: 'SQL proposal diff' }).textContent,
+      ).toContain(replacement),
     )
     expect(activeTestSession().sql).toBe(failed)
+    expect(
+      (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
+    ).toBe(failed)
   })
 
-  it('locks the repair draft while retrying and unlocks it after Cancel', async () => {
+  it('Cancel during Try again keeps the previous diff available', async () => {
     renderRepairEditor()
     await proposeRepair()
-    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
-    fireEvent.change(editor, { target: { value: edited } })
 
     const retry = deferred<{
       ok: true
@@ -1101,25 +1078,27 @@ describe('Fix with AI editor review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
     await waitFor(() => expect(aiPropose).toHaveBeenCalledTimes(2))
-    expect(editor.disabled).toBe(true)
-    expect(editor.value).toBe(edited)
-
     const review = screen.getByRole('region', {
       name: 'AI query repair review',
     })
     fireEvent.click(within(review).getByRole('button', { name: 'Cancel' }))
 
-    await waitFor(() => expect(editor.disabled).toBe(false))
-    expect(editor.value).toBe(edited)
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    )
+    expect(
+      screen.getByRole('region', { name: 'SQL proposal diff' }).textContent,
+    ).toContain(fixed)
     expect(activeTestSession().sql).toBe(failed)
     expect(aiCancel).toHaveBeenCalledTimes(1)
   })
 
-  it('retry failure preserves the previous valid transient draft', async () => {
+  it('retry failure preserves the previous valid diff', async () => {
     renderRepairEditor()
     await proposeRepair()
-    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
-    fireEvent.change(editor, { target: { value: edited } })
 
     aiPropose.mockResolvedValueOnce({
       ok: false,
@@ -1130,8 +1109,8 @@ describe('Fix with AI editor review', () => {
 
     await screen.findByText(/AI couldn't produce a usable repair this time/)
     expect(
-      (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
-    ).toBe(edited)
+      screen.getByRole('region', { name: 'SQL proposal diff' }).textContent,
+    ).toContain(fixed)
     expect(activeTestSession().sql).toBe(failed)
     expect(
       (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
@@ -1139,22 +1118,24 @@ describe('Fix with AI editor review', () => {
     ).toBe(false)
   })
 
-  it('drops a stale repair review instead of masking newer SQL', async () => {
+  it('keeps a changed SQL editor authoritative and marks the repair stale', async () => {
     renderRepairEditor()
     await proposeRepair()
 
-    const newer = 'SELECT country FROM public.orders'
-    useStore.getState().setSql(newer)
+    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
+    fireEvent.change(editor, { target: { value: edited } })
 
-    await waitFor(() =>
-      expect(
-        (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
-      ).toBe(newer),
+    await screen.findByText(
+      /The failed SQL, tab, or connection changed/,
     )
+    expect(editor.value).toBe(edited)
+    expect(activeTestSession().sql).toBe(edited)
     expect(
-      screen.queryByRole('region', { name: 'AI query repair review' }),
-    ).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
-    expect(activeTestSession().sql).toBe(newer)
+      screen.getByRole('region', { name: 'SQL proposal diff' }),
+    ).toBeTruthy()
+    expect(
+      (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
   })
 })
