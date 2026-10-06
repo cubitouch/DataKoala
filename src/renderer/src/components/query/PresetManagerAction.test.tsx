@@ -22,14 +22,14 @@ const sqlProfile: DataSourceProfile = {
   id: 'sql-b',
   name: 'Warehouse B',
   kind: 'postgres',
-  version: 1,
+  version: 2,
   readonly: false,
   host: 'localhost',
   port: 5432,
   database: 'app',
   user: 'user',
   password: '',
-  ssl: false,
+  tlsMode: 'disable',
 }
 
 class MemoryStorage implements PresetStorage {
