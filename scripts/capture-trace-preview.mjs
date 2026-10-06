@@ -82,11 +82,17 @@ async function validateNarrowQueryToolbar(win) {
     const measure = () => {
       const editor = document.querySelector('[aria-label="TraceQL editor"] .cm-editor')
       const scroller = editor?.querySelector('.cm-scroller')
-      return editor && scroller ? {
+      const form = editor?.closest('form')
+      const toolbar = form?.querySelector('[data-query-toolbar]')
+      if (!editor || !scroller || !form || !toolbar) return null
+      const formRect = form.getBoundingClientRect()
+      const toolbarRect = toolbar.getBoundingClientRect()
+      return {
         height: editor.getBoundingClientRect().height,
+        availableHeight: formRect.bottom - toolbarRect.bottom,
         clientHeight: scroller.clientHeight,
         scrollHeight: scroller.scrollHeight
-      } : null
+      }
     }
     setQuery('{ true }')
     await settle()
@@ -107,21 +113,26 @@ async function validateNarrowQueryToolbar(win) {
     return JSON.stringify({ single, multiline, long, singleAgain, originalSql, restoredSql, restoredEditorSql })
   })()`),
   )
+  const fillsAvailableHeight = (measurement) =>
+    Math.abs(measurement.height - measurement.availableHeight) <= 1
   if (
     !sizing.single ||
     !sizing.multiline ||
     !sizing.long ||
     !sizing.singleAgain ||
     sizing.single.height < 65 ||
-    sizing.single.height > 68 ||
-    sizing.multiline.height <= sizing.single.height ||
-    sizing.long.height <= sizing.multiline.height ||
-    sizing.long.scrollHeight > sizing.long.clientHeight ||
+    !fillsAvailableHeight(sizing.single) ||
+    !fillsAvailableHeight(sizing.multiline) ||
+    !fillsAvailableHeight(sizing.long) ||
+    !fillsAvailableHeight(sizing.singleAgain) ||
+    Math.abs(sizing.multiline.height - sizing.single.height) > 1 ||
+    Math.abs(sizing.long.height - sizing.single.height) > 1 ||
     Math.abs(sizing.singleAgain.height - sizing.single.height) > 1 ||
+    sizing.long.scrollHeight <= sizing.long.clientHeight ||
     sizing.restoredSql !== sizing.originalSql ||
     sizing.restoredEditorSql !== sizing.originalSql
   ) {
-    throw new Error(`TraceQL auto-grow regression: ${JSON.stringify(sizing)}`)
+    throw new Error(`TraceQL fill regression: ${JSON.stringify(sizing)}`)
   }
   win.setSize(900, 900)
   await sleep(300)
