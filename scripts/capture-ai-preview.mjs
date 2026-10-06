@@ -254,7 +254,24 @@ app.whenReady().then(async () => {
       (await win.webContents.capturePage()).toPNG(),
     )
     await click(win, 'Fix with AI')
-    await wait(win, `document.body.innerText.includes('Proposed fix')`)
+    await wait(win, `document.body.innerText.includes('AI proposed fix')`)
+    const repairReview = await win.webContents.executeJavaScript(`(() => {
+      const editor = document.querySelector('[aria-label="SQL editor"] .cm-content') ?? document.querySelector('.cm-content')
+      return {
+        editorText: editor?.textContent ?? '',
+        storedSql: window.__datakoalaStore.getState().tabs[0].sql,
+        hasOldDiff: document.body.innerText.includes('SQL proposal diff'),
+        hasReviewBar: Boolean(document.querySelector('[aria-label="AI query repair review"]')),
+      }
+    })()`)
+    if (!repairReview.editorText.includes("SELECT id AS device_id FROM public.orders;"))
+      throw new Error(`Repair proposal is not visible in the SQL editor: ${JSON.stringify(repairReview)}`)
+    if (repairReview.storedSql !== failedQuery)
+      throw new Error('Repair proposal changed stored SQL before Apply')
+    if (repairReview.hasOldDiff)
+      throw new Error('Repair proposal still renders the old SQL proposal diff')
+    if (!repairReview.hasReviewBar)
+      throw new Error('Repair editor review bar is missing')
     await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-query-repair-proposal.png'),
