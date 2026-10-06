@@ -254,37 +254,47 @@ app.whenReady().then(async () => {
       (await win.webContents.capturePage()).toPNG(),
     )
     await click(win, 'Fix with AI')
-    await wait(win, `document.body.innerText.includes('AI proposed fix')`)
+    await wait(
+      win,
+      `document.querySelector('[aria-label="AI query repair review"]') && document.querySelector('[aria-label="SQL proposal diff"]') && document.querySelector('[data-diff-kind="add"]') && document.querySelector('[data-diff-kind="remove"]')`,
+    )
     const repairReview = await win.webContents.executeJavaScript(`(() => {
       const editor = document.querySelector('[aria-label="SQL editor"] .cm-content') ?? document.querySelector('.cm-content')
+      const diff = document.querySelector('[aria-label="SQL proposal diff"]')
       return {
         editorText: editor?.textContent ?? '',
+        diffText: diff?.textContent ?? '',
         storedSql: window.__datakoalaStore.getState().tabs[0].sql,
-        hasOldDiff: document.body.innerText.includes('SQL proposal diff'),
-        hasReviewBar: Boolean(document.querySelector('[aria-label="AI query repair review"]')),
+        hasReview: Boolean(document.querySelector('[aria-label="AI query repair review"]')),
       }
     })()`)
-    if (
-      !repairReview.editorText.includes(
-        'SELECT id AS device_id FROM public.orders;',
+    if (!repairReview.editorText.includes(failedQuery))
+      throw new Error(
+        `Repair review replaced SQL before Apply: ${JSON.stringify(repairReview)}`,
       )
+    if (
+      !repairReview.diffText.includes(failedQuery) ||
+      !repairReview.diffText.includes(fixedQuery)
     )
       throw new Error(
-        `Repair proposal is not visible in the SQL editor: ${JSON.stringify(repairReview)}`,
+        `Repair diff does not show the failed and proposed SQL: ${JSON.stringify(repairReview)}`,
       )
     if (repairReview.storedSql !== failedQuery)
       throw new Error('Repair proposal changed stored SQL before Apply')
-    if (repairReview.hasOldDiff)
-      throw new Error('Repair proposal still renders the old SQL proposal diff')
-    if (!repairReview.hasReviewBar)
-      throw new Error('Repair editor review bar is missing')
+    if (!repairReview.hasReview)
+      throw new Error('Repair diff review is missing')
     await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-query-repair-proposal.png'),
       (await win.webContents.capturePage()).toPNG(),
     )
+    await click(win, 'Apply')
+    await wait(
+      win,
+      `window.__datakoalaStore.getState().tabs[0].sql === ${JSON.stringify(fixedQuery)}`,
+    )
     console.log(
-      'AI_PREVIEW_OK: settings, generation and repair proposals, explicit apply; no query execution handler registered',
+      'AI_PREVIEW_OK: settings, generation and repair diff proposals, explicit apply; no query execution handler registered',
     )
     win.destroy()
     app.exit(0)
