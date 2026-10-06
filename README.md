@@ -208,8 +208,6 @@ DATAKOALA_TEST_DB=postgresql://user:pass@host:5432/db pnpm smoke:db
 
 - The results table renders the first 1000 rows; use Export CSV for the full set.
 - Promoted SQL-mode result filters wrap a safe single `SELECT`; unsupported statement shapes remain editable and can continue using client-only filters.
-- Passwords are stored in plain JSON under Electron's `userData`. Moving these to the OS keychain is a known todo before this should touch anything sensitive.
-- **PostgreSQL SSL encrypts but does not currently verify certificates.** The `ssl` toggle uses `rejectUnauthorized: false`. `sslmode=verify-ca` / `verify-full` in a pasted string are surfaced as a warning rather than silently presented as verified TLS.
 - PostgreSQL statement timeout is 30s.
 - PostgreSQL connections pass discrete fields to `pg` rather than a re-serialized connection string, so credentials are never round-tripped through percent-encoding.
 
