@@ -41,21 +41,6 @@
   min-width: 132px;
 }
 
-.editor {
-  flex: 1;
-  min-height: 0;
-  border: 0;
-  overflow: auto;
-}
-
-.editor :global(.cm-editor) {
-  height: 100%;
-}
-
-.editor :global(.cm-scroller) {
-  font-family: var(--mono);
-}
-
 @container (max-width: 690px) {
   .head > :global(.spacer) {
     display: none;
