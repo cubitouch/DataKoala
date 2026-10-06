@@ -13,7 +13,7 @@ import type { DataSourceProfile } from '@shared/types'
 const profiles: DataSourceProfile[] = [
   {
     kind: 'postgres',
-    version: 1,
+    version: 2,
     id: 'pg',
     name: 'Orders',
     host: 'db.internal',
@@ -21,7 +21,7 @@ const profiles: DataSourceProfile[] = [
     database: 'orders',
     user: 'reader',
     password: '',
-    ssl: false,
+    tlsMode: 'disable',
     readonly: true,
   },
   {

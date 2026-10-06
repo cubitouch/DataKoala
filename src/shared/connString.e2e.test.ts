@@ -12,6 +12,7 @@ import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import pg from 'pg'
 import { parseConnectionString } from './connString.ts'
+import type { PostgresTlsMode } from './types.ts'
 
 const HOST = process.env.DATAKOALA_TEST_HOST ?? 'localhost'
 const PORT = process.env.DATAKOALA_TEST_PORT ?? '55432'
@@ -28,7 +29,7 @@ function toPoolConfig(v: {
   database: string
   user: string
   password: string
-  ssl: boolean
+  tlsMode: PostgresTlsMode
 }): pg.PoolConfig {
   return {
     host: v.host,
@@ -36,7 +37,14 @@ function toPoolConfig(v: {
     database: v.database,
     user: v.user,
     password: v.password === '' ? undefined : v.password,
-    ssl: v.ssl ? { rejectUnauthorized: false } : false,
+    ssl:
+      v.tlsMode === 'disable'
+        ? false
+        : v.tlsMode === 'require'
+          ? { rejectUnauthorized: false }
+          : v.tlsMode === 'verify-ca'
+            ? { rejectUnauthorized: true, checkServerIdentity: () => undefined }
+            : { rejectUnauthorized: true },
     max: 1,
     connectionTimeoutMillis: 4000,
   }
@@ -122,7 +130,7 @@ test('an empty password is omitted, not sent as an empty string', async (t) => {
     database: DB,
     user: SPECIAL_ROLE,
     password: '',
-    ssl: false,
+    tlsMode: 'disable',
   })
   // If this were '' rather than undefined, pg would attempt an empty-password
   // auth exchange instead of letting trust/proxy auth through.

@@ -310,7 +310,7 @@ async function configureDocumentationSql(win, mode, view) {
   await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
     const state = store.getState()
-    const profile = { id: 'docs-postgres', name: 'Market analytics', kind: 'postgres', version: 1, host: 'localhost', port: 5432, database: 'analytics', user: 'demo', password: '', ssl: false, readonly: true }
+    const profile = { id: 'docs-postgres', name: 'Market analytics', kind: 'postgres', version: 2, host: 'localhost', port: 5432, database: 'analytics', user: 'demo', password: '', tlsMode: 'disable', readonly: true }
     const schemas = [{ name: 'analytics', isSystem: false, relations: [
       { schema: 'analytics', name: 'monthly_market_activity', qualifiedName: 'analytics.monthly_market_activity', kind: 'r', columnsStatus: 'loaded', columns: [
         { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },
@@ -494,7 +494,7 @@ async function configureMode(win, mode) {
     store.getState().setQueryMode('${mode}')
 
     if ('${mode}' === 'sql') {
-      store.getState().setProfiles([{ id: 'preview-postgres', name: 'Preview database', kind: 'postgres', version: 1, readonly: false, host: 'localhost', port: 5432, database: 'preview', user: 'preview', password: '', ssl: false }])
+      store.getState().setProfiles([{ id: 'preview-postgres', name: 'Preview database', kind: 'postgres', version: 2, readonly: false, host: 'localhost', port: 5432, database: 'preview', user: 'preview', password: '', tlsMode: 'disable' }])
       store.getState().setMetadata([{ name: 'analytics', isSystem: false, relations: [{
         schema: 'analytics', name: 'monthly_market_activity', qualifiedName: 'analytics.monthly_market_activity', kind: 'r', columnsStatus: 'loaded', columns: [
           { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },

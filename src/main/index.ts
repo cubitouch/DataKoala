@@ -543,7 +543,7 @@ async function runDbSmoke(conn: string): Promise<void> {
     const u = new URL(conn)
     const profile: ConnectionProfile = {
       kind: 'postgres',
-      version: 1,
+      version: 2,
       id: 'smoke',
       name: 'smoke',
       host: u.hostname,
@@ -551,7 +551,7 @@ async function runDbSmoke(conn: string): Promise<void> {
       database: u.pathname.replace(/^\//, ''),
       user: decodeURIComponent(u.username),
       password: decodeURIComponent(u.password),
-      ssl: false,
+      tlsMode: 'disable',
       readonly: true,
     }
     const c = await db.connect(profile)

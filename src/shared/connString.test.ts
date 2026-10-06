@@ -26,7 +26,7 @@ test('parses the Teleport-style URI with an encoded @ in the username', () => {
   assert.equal(r.value.host, 'localhost')
   assert.equal(r.value.port, 55432)
   assert.equal(r.value.database, 'demo_shop')
-  assert.equal(r.value.ssl, false)
+  assert.equal(r.value.tlsMode, 'disable')
   assert.ok(
     r.warnings.some((w) => /passwordless/i.test(w)),
     'should warn that no password was found',
@@ -50,16 +50,67 @@ test('defaults the port when absent, and warns', () => {
   assert.ok(r.warnings.some((w) => /defaulting to 5432/i.test(w)))
 })
 
-test('maps sslmode to the ssl flag', () => {
-  assert.equal(ok('postgres://u:p@h:1/d?sslmode=require').value.ssl, true)
-  assert.equal(ok('postgres://u:p@h:1/d?sslmode=disable').value.ssl, false)
-  assert.equal(ok('postgres://u:p@h:1/d?sslmode=verify-full').value.ssl, true)
-  assert.equal(ok('postgres://u:p@h:1/d').value.ssl, false)
+test('maps URI sslmode values to exact TLS modes', () => {
+  for (const mode of [
+    'disable',
+    'require',
+    'verify-ca',
+    'verify-full',
+  ] as const) {
+    const r = ok(`postgres://u:p@h:1/d?sslmode=${mode}`)
+    assert.equal(r.value.tlsMode, mode)
+    assert.equal(
+      r.warnings.some((w) =>
+        /not supported|not verified|does not configure/i.test(w),
+      ),
+      false,
+    )
+  }
+  assert.equal(ok('postgres://u:p@h:1/d').value.tlsMode, 'disable')
 })
 
-test('warns that verify-ca/verify-full are not fully honoured', () => {
-  const r = ok('postgres://u:p@h:1/d?sslmode=verify-full')
-  assert.ok(r.warnings.some((w) => /not verified|does not configure/i.test(w)))
+test('maps libpq sslmode values to exact TLS modes', () => {
+  for (const mode of [
+    'disable',
+    'require',
+    'verify-ca',
+    'verify-full',
+  ] as const) {
+    const r = ok(`host=h port=5432 dbname=d user=u password=p sslmode=${mode}`)
+    assert.equal(r.value.tlsMode, mode)
+  }
+})
+
+test('normalizes allow and prefer to require with an explicit fallback warning', () => {
+  for (const mode of ['allow', 'prefer'] as const) {
+    const uri = ok(`postgres://u:p@h:1/d?sslmode=${mode}`)
+    assert.equal(uri.value.tlsMode, 'require')
+    assert.ok(uri.warnings.some((w) => /fallback|require TLS/i.test(w)))
+
+    const kv = ok(`host=h port=5432 dbname=d user=u password=p sslmode=${mode}`)
+    assert.equal(kv.value.tlsMode, 'require')
+    assert.ok(kv.warnings.some((w) => /fallback|require TLS/i.test(w)))
+  }
+})
+
+test('warns about sslrootcert paths without importing them', () => {
+  const uri = ok(
+    'postgres://u:p@h:1/d?sslmode=verify-full&sslrootcert=%2Ftmp%2Froot.crt',
+  )
+  assert.equal(uri.value.tlsMode, 'verify-full')
+  assert.ok(
+    uri.warnings.some((w) =>
+      /sslrootcert file paths are not imported/i.test(w),
+    ),
+  )
+
+  const kv = ok(
+    'host=h port=5432 dbname=d user=u password=p sslmode=verify-ca sslrootcert=/tmp/root.crt',
+  )
+  assert.equal(kv.value.tlsMode, 'verify-ca')
+  assert.ok(
+    kv.warnings.some((w) => /sslrootcert file paths are not imported/i.test(w)),
+  )
 })
 
 test('unbrackets IPv6 hosts', () => {
@@ -99,7 +150,7 @@ test('parses libpq keyword/value strings', () => {
   assert.equal(r.value.port, 55432)
   assert.equal(r.value.database, 'demo_shop')
   assert.equal(r.value.user, 'alice')
-  assert.equal(r.value.ssl, true)
+  assert.equal(r.value.tlsMode, 'require')
 })
 
 test('honours single-quoted values in keyword/value strings', () => {
@@ -160,10 +211,61 @@ test('masking hides the password but keeps the string shape', () => {
 test('omits the userinfo section entirely when there is no user', () => {
   const r = ok('postgres://host:5432/db')
   const built = buildConnectionString(r.value)
-  assert.equal(built, 'postgresql://host:5432/db')
+  assert.equal(built, 'postgresql://host:5432/db?sslmode=disable')
 })
 
 test('re-brackets IPv6 hosts when building', () => {
   const r = ok('postgres://u:p@[::1]:5432/db')
   assert.match(buildConnectionString(r.value), /@\[::1\]:5432/)
+})
+
+test('buildConnectionString emits the exact selected sslmode for every supported mode', () => {
+  for (const mode of [
+    'disable',
+    'require',
+    'verify-ca',
+    'verify-full',
+  ] as const) {
+    const built = buildConnectionString({
+      host: 'db.example',
+      port: 5432,
+      database: 'app',
+      user: 'reader',
+      password: '',
+      tlsMode: mode,
+    })
+    assert.equal(
+      built,
+      `postgresql://reader@db.example:5432/app?sslmode=${mode}`,
+    )
+  }
+})
+
+test('parse -> build -> parse preserves every supported TLS mode', () => {
+  for (const mode of [
+    'disable',
+    'require',
+    'verify-ca',
+    'verify-full',
+  ] as const) {
+    const first = ok(`postgres://u:p@h:5432/d?sslmode=${mode}`)
+    const second = ok(buildConnectionString(first.value))
+    assert.equal(second.value.tlsMode, mode)
+  }
+})
+
+test('generated connection strings never contain CA PEM material', () => {
+  const syntheticCa =
+    '-----BEGIN CERTIFICATE-----\\nSYNTHETIC-TEST-CA\\n-----END CERTIFICATE-----'
+  const built = buildConnectionString({
+    host: 'db.example',
+    port: 5432,
+    database: 'app',
+    user: 'reader',
+    password: '',
+    tlsMode: 'verify-full',
+    tlsCa: syntheticCa,
+  } as Parameters<typeof buildConnectionString>[0] & { tlsCa: string })
+  assert.equal(built.includes('SYNTHETIC-TEST-CA'), false)
+  assert.equal(built.includes('BEGIN%20CERTIFICATE'), false)
 })

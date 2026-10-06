@@ -64,7 +64,7 @@ const prometheus: DataSourceProfile = {
 const postgres: DataSourceProfile = {
   id: 'pg-1',
   name: 'Postgres',
-  version: 1,
+  version: 2,
   kind: 'postgres',
   readonly: true,
   host: 'localhost',
@@ -72,7 +72,7 @@ const postgres: DataSourceProfile = {
   database: 'app',
   user: 'app',
   password: '',
-  ssl: false,
+  tlsMode: 'disable',
 }
 const loki: DataSourceProfile = {
   id: 'loki-1',

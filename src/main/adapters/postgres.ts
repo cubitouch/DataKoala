@@ -216,6 +216,26 @@ function assertReadonly(p: ConnectionProfile, sql: string): void {
   }
 }
 
+function postgresTlsConfig(profile: ConnectionProfile): PoolConfig['ssl'] {
+  switch (profile.tlsMode) {
+    case 'disable':
+      return false
+    case 'require':
+      return { rejectUnauthorized: false }
+    case 'verify-ca':
+      return {
+        rejectUnauthorized: true,
+        ...(profile.tlsCa ? { ca: profile.tlsCa } : {}),
+        checkServerIdentity: () => undefined,
+      }
+    case 'verify-full':
+      return {
+        rejectUnauthorized: true,
+        ...(profile.tlsCa ? { ca: profile.tlsCa } : {}),
+      }
+  }
+}
+
 /**
  * Pool options shared by every connection we open for a profile.
  *
@@ -233,10 +253,7 @@ function buildPoolConfig(profile: ConnectionProfile, max: number): PoolConfig {
     // An empty string would be sent as an empty password; omit it entirely so
     // passwordless auth (proxy, IAM, .pgpass, trust) works as intended.
     password: profile.password === '' ? undefined : profile.password,
-    // `rejectUnauthorized: false` encrypts the connection without verifying the
-    // server certificate. Managed providers and proxies commonly present certs
-    // this app has no CA bundle for; see README for the caveat.
-    ssl: profile.ssl ? { rejectUnauthorized: false } : false,
+    ssl: postgresTlsConfig(profile),
     max,
     connectionTimeoutMillis: 8000,
     idleTimeoutMillis: 30000,
@@ -481,6 +498,8 @@ async function withClient<T>(
 
 /** Narrow dependency seam and read-only diagnostics for lifecycle tests. */
 export const __testing = {
+  postgresTlsConfig,
+  buildPoolConfig,
   setPoolFactory(factory: (config: PoolConfig) => Pool): void {
     createPool = factory
   },

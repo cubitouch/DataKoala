@@ -18,7 +18,7 @@ import type {
 
 const profile = (id: string): ConnectionProfile => ({
   kind: 'postgres',
-  version: 1,
+  version: 2,
   id,
   name: id,
   host: 'localhost',
@@ -26,7 +26,7 @@ const profile = (id: string): ConnectionProfile => ({
   database: 'test',
   user: 'test',
   password: '',
-  ssl: false,
+  tlsMode: 'disable',
   readonly: true,
 })
 

@@ -10,13 +10,13 @@ const profile = {
   id: 'ai-preview',
   name: 'Commerce analytics',
   kind: 'postgres',
-  version: 1,
+  version: 2,
   host: 'localhost',
   port: 5432,
   database: 'demo',
   user: 'demo',
   password: '',
-  ssl: false,
+  tlsMode: 'disable',
   readonly: true,
 }
 const columns = [

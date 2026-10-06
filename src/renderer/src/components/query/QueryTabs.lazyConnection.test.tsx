@@ -49,7 +49,7 @@ describe('QueryTabs lazy connection switching', () => {
       profiles: [
         {
           kind: 'postgres',
-          version: 1,
+          version: 2,
           id: 'profile-a',
           name: 'Database A',
           host: 'a',
@@ -57,12 +57,12 @@ describe('QueryTabs lazy connection switching', () => {
           database: 'a',
           user: 'reader',
           password: '',
-          ssl: false,
+          tlsMode: 'disable',
           readonly: true,
         },
         {
           kind: 'postgres',
-          version: 1,
+          version: 2,
           id: 'profile-b',
           name: 'Database B',
           host: 'b',
@@ -70,7 +70,7 @@ describe('QueryTabs lazy connection switching', () => {
           database: 'b',
           user: 'reader',
           password: '',
-          ssl: false,
+          tlsMode: 'disable',
           readonly: true,
         },
       ],
@@ -126,7 +126,7 @@ describe('QueryTabs lazy connection switching', () => {
       profiles: [
         {
           kind: 'postgres',
-          version: 1,
+          version: 2,
           id: 'profile-a',
           name: 'Database A',
           host: 'a',
@@ -134,7 +134,7 @@ describe('QueryTabs lazy connection switching', () => {
           database: 'a',
           user: 'reader',
           password: '',
-          ssl: false,
+          tlsMode: 'disable',
           readonly: true,
         },
       ],

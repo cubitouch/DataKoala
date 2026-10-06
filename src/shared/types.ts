@@ -105,11 +105,18 @@ export function queryLanguageForSourceKind(
 interface ProfileBase {
   id: ConnectionId
   name: string
+}
+
+interface ProfileV1Base extends ProfileBase {
   version: 1
 }
 
+export type PostgresTlsMode =
+  'disable' | 'require' | 'verify-ca' | 'verify-full'
+
 export interface PostgresProfile extends ProfileBase {
   kind: 'postgres'
+  version: 2
   host: string
   port: number
   database: string
@@ -119,24 +126,26 @@ export interface PostgresProfile extends ProfileBase {
   /** Desired/saved credential presence; blank password preserves it when true. */
   hasPassword?: boolean
   credentialState?: 'none' | 'secure' | 'legacy-plaintext'
-  ssl: boolean
+  tlsMode: PostgresTlsMode
+  /** Optional PEM CA certificate or CA bundle for certificate-verifying TLS modes. */
+  tlsCa?: string
   /** readonly by default; the app never issues writes. */
   readonly: boolean
 }
 
-export interface LocalFilesProfile extends ProfileBase {
+export interface LocalFilesProfile extends ProfileV1Base {
   kind: 'local-files'
   files: { path: string; alias: string }[]
   readonly: true
 }
 
-export interface SqliteFileProfile extends ProfileBase {
+export interface SqliteFileProfile extends ProfileV1Base {
   kind: 'sqlite-file'
   path: string
   readonly: true
 }
 
-export interface BigQueryProfile extends ProfileBase {
+export interface BigQueryProfile extends ProfileV1Base {
   kind: 'bigquery'
   billingProject: string
   location?: string
@@ -165,21 +174,21 @@ export interface GrafanaHandoffConfig {
   datasourceType?: string
 }
 
-export interface PrometheusProfile extends ProfileBase {
+export interface PrometheusProfile extends ProfileV1Base {
   kind: 'prometheus'
   readonly: true
   transport: PrometheusTransportConfig
   grafana?: GrafanaHandoffConfig
 }
 
-export interface TempoProfile extends ProfileBase {
+export interface TempoProfile extends ProfileV1Base {
   kind: 'tempo'
   readonly: true
   transport: TempoTransportConfig
   grafana?: GrafanaHandoffConfig
 }
 
-export interface LokiProfile extends ProfileBase {
+export interface LokiProfile extends ProfileV1Base {
   kind: 'loki'
   readonly: true
   transport: LokiTransportConfig

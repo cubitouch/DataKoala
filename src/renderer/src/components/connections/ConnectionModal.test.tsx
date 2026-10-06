@@ -44,7 +44,7 @@ import { ConnectionModal } from './ConnectionModal'
 
 const existing: ConnectionProfile = {
   kind: 'postgres',
-  version: 1,
+  version: 2,
   id: 'profile-1',
   name: 'Original',
   host: 'old.host',
@@ -54,7 +54,7 @@ const existing: ConnectionProfile = {
   password: '',
   hasPassword: true,
   credentialState: 'secure',
-  ssl: false,
+  tlsMode: 'disable',
   readonly: true,
 }
 const renderModal = (
@@ -201,7 +201,7 @@ describe('ConnectionModal canonical connection draft', () => {
           database: 'reports',
           user: 'alice',
           password: 's ecret',
-          ssl: true,
+          tlsMode: 'require',
         }),
       ),
     )
@@ -220,7 +220,7 @@ describe('ConnectionModal canonical connection draft', () => {
     expect(tested).toEqual(
       expect.objectContaining({
         kind: 'postgres',
-        version: 1,
+        version: 2,
         id: 'profile-1',
         host: 'new.host',
         port: 6543,
@@ -273,6 +273,148 @@ describe('ConnectionModal canonical connection draft', () => {
         expect.objectContaining({ host: 'new.host', password: '' }),
       ),
     )
+  })
+
+  it('shows migrated require mode as compatibility TLS and removes the warning when verification is selected', () => {
+    renderModal({ ...existing, tlsMode: 'require' })
+    expect(
+      screen.getByRole('combobox', { name: /TLS mode:.*Require TLS/i }),
+    ).toBeTruthy()
+    expect(screen.getByText(/server certificate is not verified/i)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('combobox', { name: /TLS mode:/i }))
+    fireEvent.click(
+      screen.getByRole('option', { name: /Verify server identity/i }),
+    )
+    expect(screen.queryByText(/server certificate is not verified/i)).toBeNull()
+    expect(screen.getByLabelText('CA certificate (optional)')).toBeTruthy()
+  })
+
+  it('shows CA input only for certificate-verifying TLS modes', () => {
+    renderModal(existing)
+    const tls = screen.getByRole('combobox', { name: /TLS mode:/i })
+    expect(screen.queryByLabelText('CA certificate (optional)')).toBeNull()
+
+    fireEvent.click(tls)
+    fireEvent.click(screen.getByRole('option', { name: /^Verify CA/i }))
+    expect(screen.getByLabelText('CA certificate (optional)')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('combobox', { name: /TLS mode:/i }))
+    fireEvent.click(screen.getByRole('option', { name: /Require TLS/i }))
+    expect(screen.queryByLabelText('CA certificate (optional)')).toBeNull()
+
+    fireEvent.click(screen.getByRole('combobox', { name: /TLS mode:/i }))
+    fireEvent.click(
+      screen.getByRole('option', { name: /Verify server identity/i }),
+    )
+    expect(screen.getByLabelText('CA certificate (optional)')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('combobox', { name: /TLS mode:/i }))
+    fireEvent.click(screen.getByRole('option', { name: /^Disabled/i }))
+    expect(screen.queryByLabelText('CA certificate (optional)')).toBeNull()
+  })
+
+  it('pasted connection strings replace TLS mode without importing CA paths or clearing CA drafts', () => {
+    const ca =
+      '-----BEGIN CERTIFICATE-----\nSYNTHETIC-TEST-CA\n-----END CERTIFICATE-----'
+    renderModal({ ...existing, tlsMode: 'require', tlsCa: ca })
+    const textarea = screen.getByLabelText('Paste a connection string')
+
+    fireEvent.change(textarea, {
+      target: {
+        value:
+          'postgres://alice:secret@db.example:5432/reports?sslmode=verify-full&sslrootcert=%2Ftmp%2Froot.crt',
+      },
+    })
+    expect(
+      screen.getByRole('combobox', {
+        name: /TLS mode:.*Verify server identity/i,
+      }),
+    ).toBeTruthy()
+    expect(screen.getByLabelText('CA certificate (optional)')).toHaveProperty(
+      'value',
+      ca,
+    )
+    expect(
+      screen.getByText(/sslrootcert file paths are not imported/i),
+    ).toBeTruthy()
+
+    fireEvent.change(textarea, {
+      target: {
+        value: 'postgres://alice:secret@db.example:5432/reports',
+      },
+    })
+    expect(
+      screen.getByRole('combobox', { name: /TLS mode:.*Disabled/i }),
+    ).toBeTruthy()
+    expect(screen.queryByLabelText('CA certificate (optional)')).toBeNull()
+
+    fireEvent.change(textarea, {
+      target: {
+        value:
+          'postgres://alice:secret@db.example:5432/reports?sslmode=verify-ca',
+      },
+    })
+    expect(screen.getByLabelText('CA certificate (optional)')).toHaveProperty(
+      'value',
+      ca,
+    )
+  })
+
+  it('Test and Save receive exact TLS mode and CA while previews never expose CA material', async () => {
+    renderModal(existing)
+    fireEvent.click(screen.getByRole('combobox', { name: /TLS mode:/i }))
+    fireEvent.click(
+      screen.getByRole('option', { name: /Verify server identity/i }),
+    )
+    const ca =
+      '-----BEGIN CERTIFICATE-----\\nSYNTHETIC-TEST-CA\\n-----END CERTIFICATE-----'
+    fireEvent.change(screen.getByLabelText('CA certificate (optional)'), {
+      target: { value: ca },
+    })
+
+    const preview = screen.getByText('Will connect as').parentElement
+    expect(preview?.textContent).toContain('sslmode=verify-full')
+    expect(preview?.textContent).not.toContain('SYNTHETIC-TEST-CA')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    await waitFor(() =>
+      expect(testConnection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          version: 2,
+          tlsMode: 'verify-full',
+          tlsCa: ca,
+        }),
+      ),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          version: 2,
+          tlsMode: 'verify-full',
+          tlsCa: ca,
+        }),
+      ),
+    )
+  })
+
+  it('changing TLS mode or CA clears stale connection-test results', async () => {
+    renderModal(existing)
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    expect(await screen.findByText(/Connected/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('combobox', { name: /TLS mode:/i }))
+    fireEvent.click(screen.getByRole('option', { name: /^Verify CA/i }))
+    expect(screen.queryByText(/Connected/)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    expect(await screen.findByText(/Connected/)).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('CA certificate (optional)'), {
+      target: { value: 'SYNTHETIC-TEST-CA' },
+    })
+    expect(screen.queryByText(/Connected/)).toBeNull()
   })
 
   it('ignores an older test response after an edit and newer test', async () => {

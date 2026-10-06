@@ -6,7 +6,7 @@ import { resetTestStore } from '@test/sessionTestUtils'
 
 const postgres = {
   kind: 'postgres' as const,
-  version: 1 as const,
+  version: 2 as const,
   id: 'pg',
   name: 'A very long production database name',
   host: 'db',
@@ -14,7 +14,7 @@ const postgres = {
   database: 'app',
   user: 'app',
   password: '',
-  ssl: false,
+  tlsMode: 'disable' as const,
   readonly: true,
 }
 

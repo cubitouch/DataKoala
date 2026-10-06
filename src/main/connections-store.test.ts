@@ -32,7 +32,7 @@ class FakeSecrets implements SecretStore {
 
 const postgres = (password = '', hasPassword = false) => ({
   kind: 'postgres' as const,
-  version: 1 as const,
+  version: 2 as const,
   id: 'pg-one',
   name: 'Postgres',
   host: 'localhost',
@@ -41,7 +41,21 @@ const postgres = (password = '', hasPassword = false) => ({
   user: 'reader',
   password,
   hasPassword,
-  ssl: false,
+  tlsMode: 'disable' as const,
+  readonly: true,
+})
+
+const legacyPostgres = (password = '', ssl = false) => ({
+  kind: 'postgres' as const,
+  version: 1 as const,
+  id: 'pg-one',
+  name: 'Postgres',
+  host: 'localhost',
+  port: 5432,
+  database: 'app',
+  user: 'reader',
+  password,
+  ssl,
   readonly: true,
 })
 
@@ -122,12 +136,14 @@ test('legacy migration is verified, sanitized, and survives restart', async () =
   const secrets = new FakeSecrets()
   await writeFile(
     join(directory, 'connections.json'),
-    JSON.stringify([postgres('legacy-test-password')]),
+    JSON.stringify([legacyPostgres('legacy-test-password', true)]),
   )
   try {
     const store = new ConnectionProfileStore(directory, secrets)
     const listed = asPostgres((await store.list())[0])
     assert.equal(listed?.password, '')
+    assert.equal(listed.version, 2)
+    assert.equal(listed.tlsMode, 'require')
     assert.equal(listed?.credentialState, 'secure')
     assert.equal(
       asPostgres(await store.resolveForConnection(listed)).password,
@@ -154,7 +170,7 @@ test('an existing secure secret wins crash recovery without being overwritten', 
   secrets.values.set('datasource/pg-one', 'replacement-password')
   await writeFile(
     join(directory, 'connections.json'),
-    JSON.stringify([postgres('legacy-test-password')]),
+    JSON.stringify([legacyPostgres('legacy-test-password')]),
   )
   try {
     const store = new ConnectionProfileStore(directory, secrets)
@@ -212,7 +228,10 @@ test('retry keeps an authoritative secure credential after unavailable crash rec
   secrets.values.set('datasource/pg-one', 'replacement-password')
   secrets.available = false
   const path = join(directory, 'connections.json')
-  await writeFile(path, JSON.stringify([postgres('legacy-test-password')]))
+  await writeFile(
+    path,
+    JSON.stringify([legacyPostgres('legacy-test-password')]),
+  )
   try {
     const store = new ConnectionProfileStore(directory, secrets)
     const legacy = asPostgres((await store.list())[0])
@@ -243,7 +262,7 @@ test('unavailable migration stays usable in memory and supports retry and remova
   const secrets = new FakeSecrets()
   secrets.available = false
   const path = join(directory, 'connections.json')
-  const original = JSON.stringify([postgres('legacy-test-password')])
+  const original = JSON.stringify([legacyPostgres('legacy-test-password')])
   await writeFile(path, original)
   try {
     const store = new ConnectionProfileStore(directory, secrets)
@@ -293,8 +312,10 @@ test('legacy saved connections migrate to versioned PostgreSQL profiles', () => 
   assert.equal(migrated.status, 'migrated')
   if (migrated.status !== 'migrated') return
   assert.equal(migrated.profile.kind, 'postgres')
-  assert.equal(migrated.profile.version, 1)
+  assert.equal(migrated.profile.version, 2)
   assert.equal(migrated.profile.id, 'old')
+  if (migrated.profile.kind === 'postgres')
+    assert.equal(migrated.profile.tlsMode, 'disable')
 })
 
 test('profiles for unknown future adapters are not reinterpreted as PostgreSQL', () => {
@@ -309,7 +330,7 @@ test('a future PostgreSQL profile version is quarantined unchanged', () => {
   const stored = {
     id: 'future',
     kind: 'postgres',
-    version: 2,
+    version: 3,
     futureOption: true,
   }
   assert.deepEqual(migrateStoredProfile(stored), {
@@ -318,22 +339,46 @@ test('a future PostgreSQL profile version is quarantined unchanged', () => {
   })
 })
 
-test('a valid PostgreSQL v1 profile is preserved without migration', () => {
+test('PostgreSQL v1 ssl false migrates to v2 TLS disabled', () => {
   const stored = {
+    ...legacyPostgres(),
     id: 'current',
     name: 'Current',
-    kind: 'postgres',
-    version: 1,
-    host: 'localhost',
-    port: 5432,
-    database: 'app',
-    user: 'reader',
-    password: '',
     ssl: false,
-    readonly: true,
+  }
+  const result = migrateStoredProfile(stored)
+  assert.equal(result.status, 'migrated')
+  if (result.status !== 'migrated' || result.profile.kind !== 'postgres') return
+  assert.equal(result.profile.version, 2)
+  assert.equal(result.profile.tlsMode, 'disable')
+  assert.equal(Object.hasOwn(result.stored, 'ssl'), false)
+})
+
+test('PostgreSQL v1 ssl true migrates to v2 require compatibility mode', () => {
+  const result = migrateStoredProfile({
+    ...legacyPostgres(),
+    ssl: true,
+  })
+  assert.equal(result.status, 'migrated')
+  if (result.status !== 'migrated' || result.profile.kind !== 'postgres') return
+  assert.equal(result.profile.version, 2)
+  assert.equal(result.profile.tlsMode, 'require')
+  assert.equal(Object.hasOwn(result.stored, 'ssl'), false)
+})
+
+test('a current PostgreSQL v2 profile round-trips unchanged', () => {
+  const stored = {
+    ...postgres(),
+    tlsMode: 'verify-full' as const,
+    tlsCa:
+      '-----BEGIN CERTIFICATE-----\\nSYNTHETIC-TEST-CA\\n-----END CERTIFICATE-----',
   }
   const result = migrateStoredProfile(stored)
   assert.equal(result.status, 'current')
+  if (result.status !== 'current' || result.profile.kind !== 'postgres') return
+  assert.equal(result.profile.version, 2)
+  assert.equal(result.profile.tlsMode, 'verify-full')
+  assert.equal(result.profile.tlsCa, stored.tlsCa)
   assert.equal(result.stored, stored)
 })
 

@@ -21,7 +21,7 @@ vi.mock('@lib/api', () => ({
       list: vi.fn(async () => [
         {
           kind: 'postgres',
-          version: 1,
+          version: 2,
           id: 'profile-a',
           name: 'Database A',
           host: 'a.local',
@@ -29,12 +29,12 @@ vi.mock('@lib/api', () => ({
           database: 'a',
           user: 'reader',
           password: 'secret-a',
-          ssl: false,
+          tlsMode: 'disable',
           readonly: true,
         },
         {
           kind: 'postgres',
-          version: 1,
+          version: 2,
           id: 'profile-b',
           name: 'Database B',
           host: 'b.local',
@@ -42,7 +42,7 @@ vi.mock('@lib/api', () => ({
           database: 'b',
           user: 'reader',
           password: 'secret-b',
-          ssl: false,
+          tlsMode: 'disable',
           readonly: true,
         },
       ]),
@@ -62,7 +62,7 @@ import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 const profiles: ConnectionProfile[] = [
   {
     kind: 'postgres',
-    version: 1,
+    version: 2,
     id: 'profile-a',
     name: 'Database A',
     host: 'a.local',
@@ -70,12 +70,12 @@ const profiles: ConnectionProfile[] = [
     database: 'a',
     user: 'reader',
     password: 'secret-a',
-    ssl: false,
+    tlsMode: 'disable',
     readonly: true,
   },
   {
     kind: 'postgres',
-    version: 1,
+    version: 2,
     id: 'profile-b',
     name: 'Database B',
     host: 'b.local',
@@ -83,7 +83,7 @@ const profiles: ConnectionProfile[] = [
     database: 'b',
     user: 'reader',
     password: 'secret-b',
-    ssl: false,
+    tlsMode: 'disable',
     readonly: true,
   },
 ]
