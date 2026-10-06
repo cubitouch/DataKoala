@@ -1125,9 +1125,7 @@ describe('Fix with AI editor review', () => {
     const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
     fireEvent.change(editor, { target: { value: edited } })
 
-    await screen.findByText(
-      /The failed SQL, tab, or connection changed/,
-    )
+    await screen.findByText(/The failed SQL, tab, or connection changed/)
     expect(editor.value).toBe(edited)
     expect(activeTestSession().sql).toBe(edited)
     expect(
@@ -1135,6 +1133,10 @@ describe('Fix with AI editor review', () => {
     ).toBeTruthy()
     expect(
       (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'Try again' }) as HTMLButtonElement)
         .disabled,
     ).toBe(true)
   })
