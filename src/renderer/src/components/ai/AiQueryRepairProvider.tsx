@@ -20,7 +20,18 @@ export type AiQueryRepairController = RepairController & {
 
 const AiQueryRepairContext = createContext<AiQueryRepairController | null>(null)
 
-export function AiQueryRepairProvider({ children }: { children: ReactNode }) {
+export function AiQueryRepairProvider({
+  children,
+  enabled = true,
+}: {
+  children: ReactNode
+  enabled?: boolean
+}) {
+  if (!enabled) return <>{children}</>
+  return <ActiveAiQueryRepairProvider>{children}</ActiveAiQueryRepairProvider>
+}
+
+function ActiveAiQueryRepairProvider({ children }: { children: ReactNode }) {
   const ai = useAiQueryRepair()
   const [draft, setDraft] = useState('')
 
