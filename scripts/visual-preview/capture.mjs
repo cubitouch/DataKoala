@@ -1015,15 +1015,39 @@ async function configureLongObjectTree(win) {
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
   ipcMain.handle('ai:settings:get', () => ({ ok: true, value: { provider: 'openrouter', model: '', hasApiKey: false } }))
-  ipcMain.handle('query:run', async (_event, _connectionId, query) => builderFixtureResult(query) ?? ({
-    columns: [
-      { name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' },
-      { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' },
-      { name: 'count', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }
-    ],
-    rows: Array.from({ length: 12 }, (_, index) => ({ time_bucket: new Date(Date.UTC(2026, index, 1)), series: index % 2 ? 'France' : 'Germany', count: 900 + index * 125 })),
-    rowCount: 12,
-    durationMs: 12
+  ipcMain.handle('query:run', async (_event, _connectionId, query) => ({
+    ok: true,
+    result:
+      builderFixtureResult(query) ??
+      ({
+        columns: [
+          {
+            name: 'time_bucket',
+            dataTypeID: 1184,
+            dataTypeName: 'timestamptz',
+            logicalType: 'timestamp',
+          },
+          {
+            name: 'series',
+            dataTypeID: 25,
+            dataTypeName: 'text',
+            logicalType: 'string',
+          },
+          {
+            name: 'count',
+            dataTypeID: 20,
+            dataTypeName: 'int8',
+            logicalType: 'number',
+          },
+        ],
+        rows: Array.from({ length: 12 }, (_, index) => ({
+          time_bucket: new Date(Date.UTC(2026, index, 1)),
+          series: index % 2 ? 'France' : 'Germany',
+          count: 900 + index * 125,
+        })),
+        rowCount: 12,
+        durationMs: 12,
+      }),
   }))
   ipcMain.handle('connections:prometheus:metric-labels', async () => ['continent', 'environment', 'service', 'le', '__name__'])
   ipcMain.handle('connections:prometheus:label-values', async (_event, _id, _metric, label) => label === 'environment' ? ['production', 'staging'] : label === 'continent' ? ['Europe', 'Asia'] : ['api', 'worker'])

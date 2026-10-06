@@ -1,4 +1,5 @@
 import { AI_LIMITS } from '../../shared/ai.ts'
+import { sanitizeAiErrorContext } from '../../shared/aiErrorContext.ts'
 import type {
   AiContextRequest,
   AiErrorCode,
@@ -93,12 +94,29 @@ export function proposalRequest(value: unknown): AiQueryProposalRequest {
   )
     throw new AiError('validation', 'AI schema context is too large.')
   // Reconstruct an allowlist: accidental profile/result properties never reach the provider.
+  if (input.intent !== 'generate' && input.intent !== 'repair')
+    throw new AiError('validation', 'Invalid AI request intent.')
+  const intent = input.intent
+  const currentQuery =
+    input.currentQuery === undefined
+      ? undefined
+      : textValue(input.currentQuery, AI_LIMITS.query, intent === 'generate')
+  if (intent === 'generate' && input.error !== undefined)
+    throw new AiError(
+      'validation',
+      'Generation requests cannot include an error.',
+    )
+  if (intent === 'repair' && (input.prompt !== undefined || !currentQuery))
+    throw new AiError('validation', 'Invalid AI repair request.')
   return {
     requestId: requestId(input.requestId),
-    prompt: textValue(input.prompt, AI_LIMITS.prompt),
-    ...(input.currentQuery === undefined
-      ? {}
-      : { currentQuery: textValue(input.currentQuery, AI_LIMITS.query, true) }),
+    intent,
+    ...(intent === 'generate'
+      ? { prompt: textValue(input.prompt, AI_LIMITS.prompt) }
+      : {
+          error: sanitizeAiErrorContext(textValue(input.error, 100_000)),
+        }),
+    ...(currentQuery === undefined ? {} : { currentQuery }),
     context: cleanContext,
   }
 }

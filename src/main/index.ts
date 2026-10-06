@@ -46,6 +46,7 @@ import { validateExternalUrl } from './external-url'
 import { discoverTempoDatasources } from './tempo-datasource-discovery'
 import { resolveGcxGrafanaHandoff } from './gcx-grafana-handoff'
 import type { ResolveGrafanaHandoffRequest } from '@shared/grafanaExplore'
+import { queryFailureKind, queryFailureMessage } from './query-failure'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -878,7 +879,24 @@ function registerIpc(): void {
       sql: string,
       parameters: unknown[] = [],
       prometheus?: { start: string; end: string; step: string },
-    ) => db.runQuery(id, sql, parameters, prometheus),
+    ) => {
+      try {
+        return db
+          .runQuery(id, sql, parameters, prometheus)
+          .then((result) => ({ ok: true as const, result }))
+          .catch((error: unknown) => ({
+            ok: false as const,
+            kind: queryFailureKind(error),
+            message: queryFailureMessage(error),
+          }))
+      } catch (error) {
+        return {
+          ok: false as const,
+          kind: queryFailureKind(error),
+          message: queryFailureMessage(error),
+        }
+      }
+    },
   )
   ipcMain.handle(
     IPC.QUERY_PROBE_SERIES_CARDINALITY,

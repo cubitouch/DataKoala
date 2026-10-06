@@ -146,6 +146,10 @@ const tab = (
     id === 'tab-b' ? ('scatter' as const) : ('service-map' as const),
   running: true,
   queryError: 'runtime-error-secret',
+  repairableQueryError: {
+    query: 'SELECT repair-runtime-secret',
+    error: 'repair-error-runtime-secret',
+  },
   result: {
     columns: [],
     rows: [{ token: 'result-secret' }],
@@ -406,6 +410,8 @@ test('workspace serialization is allow-listed: no credentials, results, client f
     'result-secret',
     'pending-secret',
     'runtime-error-secret',
+    'repair-runtime-secret',
+    'repair-error-runtime-secret',
     'client-device',
     'mobile',
     'explain-secret',
@@ -442,6 +448,7 @@ test('restore rebuilds every tab cold without reconnecting or replaying results'
     assert.equal(restoredTab.result, null)
     assert.equal(restoredTab.pendingResult, null)
     assert.equal(restoredTab.queryError, null)
+    assert.equal(restoredTab.repairableQueryError, null)
     assert.equal(restoredTab.builderHasRun, false)
     assert.deepEqual(restoredTab.sqlResultFilters, [])
     assert.equal(

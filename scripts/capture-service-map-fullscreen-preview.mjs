@@ -155,12 +155,12 @@ app.whenReady().then(async () => {
     async (_event, _id, query) => query,
   )
   ipcMain.handle('connections:tempo:attributes', async () => [])
-  ipcMain.handle(
-    'query:run',
-    async (_event, _connectionId, query) =>
+  ipcMain.handle('query:run', async (_event, _connectionId, query) => ({
+    ok: true,
+    result:
       previewDenseTraceResultForId(String(query).trim()) ??
       previewDenseTraceSearchResult,
-  )
+  }))
 
   const win = new BrowserWindow({
     title: 'DataKoala',

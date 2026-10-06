@@ -27,6 +27,9 @@ const columns = [
 ]
 const query =
   "SELECT country, sum(amount) AS revenue\nFROM public.orders\nWHERE created_at >= now() - interval '30 days'\nGROUP BY country\nORDER BY revenue DESC;"
+const failedQuery = 'SELECT device_id FROM public.orders;'
+const fixedQuery = 'SELECT id AS device_id FROM public.orders;'
+let failNextRepair = true
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 async function wait(win, expression) {
   for (let i = 0; i < 100; i++) {
@@ -94,20 +97,31 @@ app.whenReady().then(async () => {
     )
     ipcMain.handle('ai:test', () => ok(undefined))
     ipcMain.handle('ai:cancel', () => ok(undefined))
-    ipcMain.handle('ai:propose', () =>
-      ok({
+    ipcMain.handle('ai:propose', (_event, request) => {
+      if (request.intent === 'repair' && failNextRepair) {
+        failNextRepair = false
+        return {
+          ok: false,
+          code: 'invalid-response',
+          message:
+            'The model returned an invalid query step. Try again or choose another model.',
+        }
+      }
+      return ok({
         kind: 'proposal',
         proposal: {
-          query,
+          query: request.intent === 'repair' ? fixedQuery : query,
           explanation:
-            'Aggregates revenue by country for orders created within the last 30 days, with the highest revenue first.',
+            request.intent === 'repair'
+              ? 'Replaced the missing device_id column with the available id column while preserving the result name.'
+              : 'Aggregates revenue by country for orders created within the last 30 days, with the highest revenue first.',
           assumptions: [
             'amount is the order revenue in a consistent currency.',
             'The date range is relative to the database clock.',
           ],
         },
-      }),
-    )
+      })
+    })
     const win = new BrowserWindow({
       width: 1440,
       height: 1000,
@@ -216,8 +230,38 @@ app.whenReady().then(async () => {
     )
     if (applied !== query)
       throw new Error('AI preview did not apply the proposal')
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore, state = store.getState()
+      store.setState({ tabs: state.tabs.map((tab) => ({ ...tab, sql: ${JSON.stringify(failedQuery)}, queryError: 'ERROR: column orders.device_id does not exist\\nLINE 1 Position: 8 SQLSTATE 42703', repairableQueryError: { query: ${JSON.stringify(failedQuery)}, error: 'ERROR: column orders.device_id does not exist\\nLINE 1 Position: 8 SQLSTATE 42703 password=[REDACTED]' } })) })
+    })()`)
+    await wait(
+      win,
+      `[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Fix with AI')`,
+    )
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-query-repair-error.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
+    await click(win, 'Fix with AI')
+    await wait(
+      win,
+      `document.body.textContent.includes('AI repair') && document.body.textContent.includes("AI couldn't produce a usable repair this time.") && !document.body.textContent.includes('choose another model') && !document.body.textContent.includes('invalid query step')`,
+    )
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-query-repair-failure.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
+    await click(win, 'Fix with AI')
+    await wait(win, `document.body.innerText.includes('Proposed fix')`)
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-query-repair-proposal.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
     console.log(
-      'AI_PREVIEW_OK: settings, proposal, explicit apply; no query execution handler registered',
+      'AI_PREVIEW_OK: settings, generation and repair proposals, explicit apply; no query execution handler registered',
     )
     win.destroy()
     app.exit(0)

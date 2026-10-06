@@ -12,7 +12,7 @@ import type {
   ConnectResult,
   ConnectionStateEvent,
   DataSourceProfile,
-  QueryResult,
+  QueryRunResponse,
   TableInfo,
   TestResult,
 } from '@shared/types'
@@ -220,7 +220,7 @@ const api = {
       request?: Omit<PrometheusQueryRequest, 'expression'> | TempoQueryRequest,
       onProgress?: (progress: TempoSearchProgress, requestId?: string) => void,
       tempoDiagnostic = false,
-    ): Promise<QueryResult> => {
+    ): Promise<QueryRunResponse> => {
       const requestId =
         onProgress || (tempoDiagnostic && api.tempoPerformanceEnabled)
           ? nextQueryProgressRequestId()

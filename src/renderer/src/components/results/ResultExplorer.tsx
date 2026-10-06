@@ -8,6 +8,7 @@ import {
 } from '@lib/resultVisualization'
 import { selectActiveSession, useStore, type QueryMode } from '@store/useStore'
 import { GenericResultExplorer } from './GenericResultExplorer'
+import { AiQueryRepair } from '@components/ai/AiQueryRepair'
 
 export interface ResultExplorerProps {
   mode: QueryMode
@@ -158,6 +159,11 @@ export function ResultExplorer({
       resultRevision={session.resultRevision}
       running={session.running}
       error={session.queryError}
+      errorAction={
+        datasourceKind === 'postgres' && mode === 'sql' ? (
+          <AiQueryRepair />
+        ) : undefined
+      }
       isResultStale={session.isResultStale}
       reconnecting={connectionStatus === 'reconnecting'}
       configuration={configuration}

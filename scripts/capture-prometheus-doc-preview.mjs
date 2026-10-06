@@ -193,10 +193,13 @@ app.whenReady().then(async () => {
       label === 'environment' ? ['production'] : ['api', 'worker'],
   )
   ipcMain.handle('query:run', async () => ({
-    columns: [],
-    rows: [],
-    rowCount: 0,
-    durationMs: 0,
+    ok: true,
+    result: {
+      columns: [],
+      rows: [],
+      rowCount: 0,
+      durationMs: 0,
+    },
   }))
 
   const win = new BrowserWindow({
