@@ -6,8 +6,8 @@ import styles from './Ai.module.css'
 
 export function AiQueryRepairReview({ onApplied }: { onApplied: () => void }) {
   const ai = useAiQueryRepairController()
-  const review = ai.activeReview
-  if (!review) return null
+  const review = ai?.activeReview
+  if (!ai || !review) return null
 
   const { input, proposal } = review
   const unchanged = ai.draft === input.snapshot.query
