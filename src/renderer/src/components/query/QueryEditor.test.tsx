@@ -17,6 +17,8 @@ const {
   promqlAsExtension,
   notify,
   aiSettingsGet,
+  aiPropose,
+  aiCancel,
 } = vi.hoisted(() => ({
   explain: vi.fn(),
   runQuery: vi.fn(),
@@ -26,6 +28,8 @@ const {
   promqlAsExtension: vi.fn(() => ({})),
   notify: vi.fn(),
   aiSettingsGet: vi.fn(),
+  aiPropose: vi.fn(),
+  aiCancel: vi.fn(),
 }))
 vi.mock('@lib/api', () => ({
   api: {
@@ -33,6 +37,8 @@ vi.mock('@lib/api', () => ({
       settings: {
         get: aiSettingsGet,
       },
+      proposeQuery: aiPropose,
+      cancel: aiCancel,
     },
     connections: { prometheus: { formatQuery, labelsForMetric, labelValues } },
     query: { explain, run: runQuery },
@@ -83,6 +89,8 @@ vi.mock('./ModeSwitch', () => ({
 
 import { QueryEditor } from './QueryEditor'
 import { ExplainPane } from '@components/query/sql/ExplainPane'
+import { AiQueryRepair } from '@components/ai/AiQueryRepair'
+import { AiQueryRepairProvider } from '@components/ai/AiQueryRepairProvider'
 import {
   activeTestSession,
   patchActiveTestSession,
@@ -139,6 +147,9 @@ beforeEach(() => {
     ok: true,
     value: { provider: 'openrouter', model: '', hasApiKey: false },
   })
+  aiPropose.mockReset()
+  aiCancel.mockReset()
+  aiCancel.mockResolvedValue({ ok: true, value: undefined })
 })
 
 describe('PromQL execution', () => {
@@ -839,5 +850,269 @@ describe('QueryEditor Explain loading states', () => {
     expect(
       screen.getByRole('button', { name: 'Explain Analyze' }).className,
     ).toContain('analyze')
+  })
+})
+
+
+describe('Fix with AI editor review', () => {
+  const failed = 'SELECT device_id FROM public.orders'
+  const fixed = 'SELECT id AS device_id FROM public.orders'
+  const edited = 'SELECT id AS device_id, country FROM public.orders'
+  const safeError =
+    'ERROR: column orders.device_id does not exist LINE 1 Position: 8 SQLSTATE 42703'
+
+  function renderRepairEditor() {
+    aiSettingsGet.mockResolvedValue({
+      ok: true,
+      value: {
+        provider: 'openrouter',
+        model: 'vendor/model',
+        hasApiKey: true,
+      },
+    })
+    aiPropose.mockResolvedValue({
+      ok: true,
+      value: {
+        kind: 'proposal',
+        proposal: {
+          query: fixed,
+          explanation: 'Use the available id column.',
+          assumptions: [],
+        },
+      },
+    })
+    resetTestStore({
+      profiles: [
+        {
+          kind: 'postgres',
+          version: 2,
+          id: 'pg',
+          name: 'PG',
+          host: 'localhost',
+          port: 5432,
+          database: 'db',
+          user: 'user',
+          password: '',
+          tlsMode: 'disable',
+          readonly: true,
+        },
+      ],
+      activeProfileId: 'pg',
+      connected: true,
+      connecting: false,
+      connectionStatus: 'connected',
+      metadataByProfileId: {
+        pg: {
+          schemas: [
+            {
+              name: 'public',
+              isSystem: false,
+              relations: [
+                {
+                  schema: 'public',
+                  name: 'orders',
+                  kind: 'r',
+                  qualifiedName: 'public.orders',
+                  columnsStatus: 'loaded',
+                  columns: [
+                    { name: 'id', dataTypeName: 'uuid' },
+                    { name: 'country', dataTypeName: 'text' },
+                  ],
+                },
+              ],
+            },
+          ],
+          status: 'loaded',
+          error: null,
+          isStale: false,
+        },
+      },
+    })
+    patchActiveTestSession({
+      connectionProfileId: 'pg',
+      queryMode: 'sql',
+      sql: failed,
+      queryError: safeError,
+      repairableQueryError: { query: failed, error: safeError },
+    })
+    return render(
+      <AiQueryRepairProvider>
+        <QueryEditor />
+        <AiQueryRepair />
+      </AiQueryRepairProvider>,
+    )
+  }
+
+  async function proposeRepair() {
+    fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+    await waitFor(() =>
+      expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
+        fixed,
+      ),
+    )
+  }
+
+  it('shows an editable transient repair in CodeMirror and only persists it on Apply', async () => {
+    renderRepairEditor()
+    await proposeRepair()
+
+    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
+    expect(activeTestSession().sql).toBe(failed)
+    expect(
+      screen.getByRole('region', { name: 'AI query repair review' }),
+    ).toBeTruthy()
+    expect(screen.queryByRole('region', { name: 'SQL proposal diff' })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
+    expect(
+      (screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'Format' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+    expect(
+      (screen.getByRole('button', { name: 'Explain' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Explain Analyze',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+
+    fireEvent.change(editor, { target: { value: edited } })
+    expect(editor.value).toBe(edited)
+    expect(activeTestSession().sql).toBe(failed)
+    expect(JSON.stringify(useStore.getState().tabs)).not.toContain(edited)
+
+    fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true })
+    expect(runQuery).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(activeTestSession().sql).toBe(edited)
+    expect(
+      activeTestSession().repairableQueryError,
+    ).toBeNull()
+    expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
+      edited,
+    )
+    expect(
+      screen.queryByRole('region', { name: 'AI query repair review' }),
+    ).toBeNull()
+    expect(
+      (screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement).disabled,
+    ).toBe(false)
+    expect(runQuery).not.toHaveBeenCalled()
+  })
+
+  it('Reject discards transient edits and returns to the failed SQL', async () => {
+    renderRepairEditor()
+    await proposeRepair()
+    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
+    fireEvent.change(editor, { target: { value: edited } })
+    fireEvent.click(screen.getByRole('button', { name: 'Reject' }))
+
+    expect(activeTestSession().sql).toBe(failed)
+    expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
+      failed,
+    )
+    expect(activeTestSession().repairableQueryError).toEqual({
+      query: failed,
+      error: safeError,
+    })
+    expect(runQuery).not.toHaveBeenCalled()
+  })
+
+  it('Try again keeps the draft visible while pending and repairs the original failed SQL', async () => {
+    renderRepairEditor()
+    await proposeRepair()
+    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
+    fireEvent.change(editor, { target: { value: edited } })
+
+    const retry = deferred<{
+      ok: true
+      value: {
+        kind: 'proposal'
+        proposal: {
+          query: string
+          explanation: string
+          assumptions: string[]
+        }
+      }
+    }>()
+    aiPropose.mockReturnValueOnce(retry.promise)
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+
+    await waitFor(() => expect(aiPropose).toHaveBeenCalledTimes(2))
+    expect(aiPropose.mock.calls[1][0].currentQuery).toBe(failed)
+    expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
+      edited,
+    )
+    expect(
+      (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+
+    const replacement = 'SELECT id AS device_id, amount FROM public.orders'
+    retry.resolve({
+      ok: true,
+      value: {
+        kind: 'proposal',
+        proposal: {
+          query: replacement,
+          explanation: 'Use id and keep amount.',
+          assumptions: [],
+        },
+      },
+    })
+    await waitFor(() =>
+      expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
+        replacement,
+      ),
+    )
+    expect(activeTestSession().sql).toBe(failed)
+  })
+
+  it('retry failure preserves the previous valid transient draft', async () => {
+    renderRepairEditor()
+    await proposeRepair()
+    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
+    fireEvent.change(editor, { target: { value: edited } })
+
+    aiPropose.mockResolvedValueOnce({
+      ok: false,
+      code: 'invalid-response',
+      message: 'invalid query step',
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+
+    await screen.findByText(/AI couldn't produce a usable repair this time/)
+    expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
+      edited,
+    )
+    expect(activeTestSession().sql).toBe(failed)
+    expect(
+      (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement).disabled,
+    ).toBe(false)
+  })
+
+  it('drops a stale repair review instead of masking newer SQL', async () => {
+    renderRepairEditor()
+    await proposeRepair()
+
+    const newer = 'SELECT country FROM public.orders'
+    useStore.getState().setSql(newer)
+
+    await waitFor(() =>
+      expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
+        newer,
+      ),
+    )
+    expect(
+      screen.queryByRole('region', { name: 'AI query repair review' }),
+    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+    expect(activeTestSession().sql).toBe(newer)
   })
 })
