@@ -264,14 +264,14 @@ describe('query session model', () => {
       id: 'postgres-a',
       name: 'Postgres',
       kind: 'postgres',
-      version: 1,
+      version: 2,
       readonly: false,
       host: 'localhost',
       port: 5432,
       database: 'app',
       user: 'user',
       password: '',
-      ssl: false,
+      tlsMode: 'disable',
     }
     const prometheus: DataSourceProfile = {
       id: 'prometheus-a',
