@@ -10,9 +10,7 @@ function readRendererFile(path: string) {
 
 describe('shared query editor layout', () => {
   it('keeps the canonical layout in QueryCodeEditor', () => {
-    const css = readRendererFile(
-      'components/query/QueryCodeEditor.module.css',
-    )
+    const css = readRendererFile('components/query/QueryCodeEditor.module.css')
 
     expect(css).toContain(`.editor {
   flex: 1;
