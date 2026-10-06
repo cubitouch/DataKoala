@@ -49,10 +49,7 @@ jobs:
         run: pnpm lint:imports
 
       - name: Check formatting
-        run: |
-          pnpm exec prettier --write src/renderer/src/components/ai/AiQueryRepairReview.tsx src/renderer/src/components/query/QueryEditor.test.tsx
-          git diff -- src/renderer/src/components/ai/AiQueryRepairReview.tsx src/renderer/src/components/query/QueryEditor.test.tsx
-          exit 1
+        run: pnpm format
 
       - name: Lint TypeScript and React
         run: pnpm lint:ts
