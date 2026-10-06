@@ -1,4 +1,4 @@
-import type { ConnectionProfile } from '@shared/types'
+import type { ConnectionProfile, PostgresTlsMode } from '@shared/types'
 
 export interface ConnectionDraft {
   id: string
@@ -10,7 +10,8 @@ export interface ConnectionDraft {
   password: string
   hasPassword?: boolean
   credentialState?: 'none' | 'secure' | 'legacy-plaintext'
-  ssl: boolean
+  tlsMode: PostgresTlsMode
+  tlsCa?: string
   readonly: boolean
 }
 
@@ -44,6 +45,7 @@ export function buildConnectionProfileDraft(
   const user = draft.user.trim()
   const portText = draft.port.trim()
   const port = Number(portText)
+  const tlsCa = draft.tlsCa?.trim()
   const errors: ConnectionDraftErrors = {}
 
   if (options.requireName && !name) errors.name = 'Profile name is required'
@@ -59,7 +61,7 @@ export function buildConnectionProfileDraft(
     ok: true,
     profile: {
       kind: 'postgres',
-      version: 1,
+      version: 2,
       id: draft.id,
       name,
       host,
@@ -74,7 +76,8 @@ export function buildConnectionProfileDraft(
       ...(draft.credentialState === undefined
         ? {}
         : { credentialState: draft.credentialState }),
-      ssl: draft.ssl,
+      tlsMode: draft.tlsMode,
+      ...(tlsCa ? { tlsCa } : {}),
       readonly: draft.readonly,
     },
   }
