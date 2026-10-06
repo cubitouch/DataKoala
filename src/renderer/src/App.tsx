@@ -303,7 +303,11 @@ export function App() {
                 )}
               />
             ) : (
-              <AiQueryRepairProvider>
+              <AiQueryRepairProvider
+                enabled={
+                  tabProfile?.kind === 'postgres' && effectiveMode === 'sql'
+                }
+              >
                 {effectiveMode === 'sql' ? (
                   <QueryEditor builderMode={prometheusBuilder} />
                 ) : (
