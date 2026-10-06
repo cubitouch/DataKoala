@@ -479,7 +479,9 @@ export function QueryEditor({
           ) : undefined
         }
         utilities={
-          <QueryUtilityActions busy={isAnyExplainLoading || !!repair?.blocked} />
+          <QueryUtilityActions
+            busy={isAnyExplainLoading || !!repair?.blocked}
+          />
         }
         editorActions={
           <div className={styles.editorActions}>
