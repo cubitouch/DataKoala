@@ -664,7 +664,7 @@ test('invalid repair response uses retry-friendly copy and preserves retry', asy
   ).not.toBeNull()
 
   fireEvent.click(screen.getByRole('button', { name: 'Fix with AI' }))
-  expect(await screen.findByText('AI proposed fix')).toBeTruthy()
+  expect(await screen.findByText('Proposed changes')).toBeTruthy()
 })
 
 test('model repair failure preserves model/settings guidance', async () => {
