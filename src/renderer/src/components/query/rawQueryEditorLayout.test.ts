@@ -12,8 +12,7 @@ describe('raw query editor layout', () => {
     const css = readCss('workspaces/loki/LokiExplorer.module.css')
     const editorRule = css.match(/\.editor\s*\{([^}]*)\}/)?.[1] ?? ''
     const codeMirrorRule =
-      css.match(/\.editor\s+:global\(\.cm-editor\)\s*\{([^}]*)\}/)?.[1] ??
-      ''
+      css.match(/\.editor\s+:global\(\.cm-editor\)\s*\{([^}]*)\}/)?.[1] ?? ''
 
     expect(editorRule).toMatch(/width:\s*100%/)
     expect(editorRule).toMatch(/height:\s*100%/)
