@@ -497,7 +497,7 @@ describe('QueryEditor Explain loading states', () => {
       profiles: [
         {
           kind: 'postgres',
-          version: 1,
+          version: 2,
           id: 'pg',
           name: 'PG',
           host: 'localhost',
@@ -505,7 +505,7 @@ describe('QueryEditor Explain loading states', () => {
           database: 'db',
           user: 'user',
           password: '',
-          ssl: false,
+          tlsMode: 'disable',
           readonly: true,
         },
         {
@@ -553,7 +553,7 @@ describe('QueryEditor Explain loading states', () => {
       profiles: [
         {
           kind: 'postgres',
-          version: 1,
+          version: 2,
           id: 'pg',
           name: 'PG',
           host: 'localhost',
@@ -561,7 +561,7 @@ describe('QueryEditor Explain loading states', () => {
           database: 'db',
           user: 'user',
           password: '',
-          ssl: false,
+          tlsMode: 'disable',
           readonly: true,
         },
       ],
