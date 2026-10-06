@@ -1133,9 +1133,7 @@ describe('Fix with AI editor review', () => {
       .completeQuery(null, nextError, activeTestSession().id, edited)
 
     await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Fix with AI' }),
-      ).toBeTruthy(),
+      expect(screen.getByRole('button', { name: 'Fix with AI' })).toBeTruthy(),
     )
     expect(
       screen.queryByRole('region', { name: 'AI query repair review' }),
