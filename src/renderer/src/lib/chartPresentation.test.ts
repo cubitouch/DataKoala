@@ -53,8 +53,8 @@ test('SQL precision inference is conservative and preserves categories', () => {
 
 test('chart number formatting handles zero, fractions, nulls, and numeric strings', () => {
   assert.equal(formatChartNumber(0), '0')
-  assert.equal(formatChartNumber(12345.678), '12,345.68')
-  assert.equal(formatChartNumber('1000'), '1,000')
+  assert.equal(formatChartNumber(12345.678), '12.3k')
+  assert.equal(formatChartNumber('1000'), '1k')
   assert.equal(formatChartNumber(null), '—')
 })
 

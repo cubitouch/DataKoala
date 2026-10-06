@@ -3,6 +3,7 @@ import { summarizeTooltipRows } from './chartTooltip.ts'
 import { prepareLogScaleSeries, type ValueAxisScale } from './chartAxisScale.ts'
 import type { ChartAnomaly } from './chartAnomalies.ts'
 import type { HierarchyNode } from './chartHierarchy.ts'
+import { formatCompactNumber } from './compactNumber.ts'
 
 export type TimeDisplayPrecision =
   'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
@@ -96,16 +97,7 @@ export function inferTimeDisplayPrecision(
 }
 
 export function formatChartNumber(value: unknown): string {
-  const numeric =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string' && value.trim()
-        ? Number(value)
-        : NaN
-  if (!Number.isFinite(numeric)) return value == null ? '—' : String(value)
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(
-    numeric,
-  )
+  return formatCompactNumber(value)
 }
 
 const escapeHtml = (value: unknown) =>
