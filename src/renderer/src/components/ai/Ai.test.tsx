@@ -144,11 +144,13 @@ async function generate() {
   fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
   await waitFor(() => expect(mocks.propose).toHaveBeenCalled())
 }
-test('sidebar button opens settings directly and Escape restores focus', async () => {
+test('sidebar button opens settings without auto-opening help and Escape restores focus', async () => {
   render(<AiSettingsAction />)
   const trigger = screen.getByRole('button', { name: 'Settings' })
   fireEvent.click(trigger)
-  expect(await screen.findByRole('dialog', { name: 'Settings' })).toBeTruthy()
+  const dialog = await screen.findByRole('dialog', { name: 'Settings' })
+  await waitFor(() => expect(document.activeElement).toBe(dialog))
+  expect(screen.queryByRole('tooltip')).toBeNull()
   fireEvent.keyDown(document, { key: 'Escape' })
   expect(screen.queryByRole('dialog')).toBeNull()
   await waitFor(() => expect(document.activeElement).toBe(trigger))
