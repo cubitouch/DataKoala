@@ -1116,6 +1116,36 @@ describe('Fix with AI editor review', () => {
     ).toBe(false)
   })
 
+  it('restores Fix with AI when edited SQL fails again after a stale review', async () => {
+    renderRepairEditor()
+    await proposeRepair()
+
+    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
+    fireEvent.change(editor, { target: { value: edited } })
+
+    await screen.findByText(/The failed SQL, tab, or connection changed/)
+    expect(screen.queryByRole('button', { name: 'Fix with AI' })).toBeNull()
+
+    const nextError =
+      'ERROR: column orders.country does not exist LINE 1 Position: 25 SQLSTATE 42703'
+    useStore
+      .getState()
+      .completeQuery(null, nextError, activeTestSession().id, edited)
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Fix with AI' }),
+      ).toBeTruthy(),
+    )
+    expect(
+      screen.queryByRole('region', { name: 'AI query repair review' }),
+    ).toBeNull()
+    expect(activeTestSession().repairableQueryError).toEqual({
+      query: edited,
+      error: nextError,
+    })
+  })
+
   it('keeps a changed SQL editor authoritative and marks the repair stale', async () => {
     renderRepairEditor()
     await proposeRepair()
