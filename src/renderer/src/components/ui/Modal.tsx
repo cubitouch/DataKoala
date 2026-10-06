@@ -10,6 +10,7 @@ export function Modal({
   onClose,
   labelledBy,
   returnFocusRef,
+  initialFocus = 'first',
   dialogClassName,
   children,
 }: {
@@ -17,6 +18,7 @@ export function Modal({
   onClose: () => void
   labelledBy: string
   returnFocusRef: React.RefObject<HTMLElement | null>
+  initialFocus?: 'first' | 'dialog'
   dialogClassName?: string
   children: ReactNode
 }) {
@@ -26,11 +28,14 @@ export function Modal({
   useEffect(() => {
     if (!open) return
     const origin = returnFocusRef.current
-    const frame = requestAnimationFrame(() =>
-      (
-        dialog.current?.querySelector<HTMLElement>(focusable) ?? dialog.current
-      )?.focus(),
-    )
+    const frame = requestAnimationFrame(() => {
+      const target =
+        initialFocus === 'dialog'
+          ? dialog.current
+          : (dialog.current?.querySelector<HTMLElement>(focusable) ??
+            dialog.current)
+      target?.focus()
+    })
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
@@ -62,7 +67,7 @@ export function Modal({
       document.removeEventListener('keydown', keydown)
       requestAnimationFrame(() => origin?.focus())
     }
-  }, [open, returnFocusRef])
+  }, [initialFocus, open, returnFocusRef])
   if (!open) return null
   return createPortal(
     <div
