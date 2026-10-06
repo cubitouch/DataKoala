@@ -9,8 +9,7 @@ import type { SecretStore } from './secrets/store.ts'
 import type { DataSourceProfile, PostgresProfile } from '../shared/types.ts'
 
 const IPC_PASSWORD = 'SYNTHETIC_IPC_PASSWORD_DO_NOT_EXPOSE'
-const IPC_LEGACY_PASSWORD =
-  'SYNTHETIC_IPC_LEGACY_PASSWORD_DO_NOT_EXPOSE'
+const IPC_LEGACY_PASSWORD = 'SYNTHETIC_IPC_LEGACY_PASSWORD_DO_NOT_EXPOSE'
 
 class FakeSecrets implements SecretStore {
   values = new Map<string, string>()
