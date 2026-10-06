@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import * as db from './db'
 import { ConnectionProfileStore } from './connections-store'
+import { registerConnectionProfileIpc } from './connection-profile-ipc'
 import { EncryptedSecretStore } from './secrets/store'
 import { createElectronEncryption } from './secrets/electron-encryption'
 import { IPC } from '@shared/ipc-channels'
@@ -814,14 +815,8 @@ function registerIpc(): void {
     IPC.CONNECTION_DISCONNECT,
     (_e, id: string, generation?: number) => db.disconnect(id, generation),
   )
-  ipcMain.handle('connections:list', () => connectionProfiles.list())
+  registerConnectionProfileIpc(ipcMain, connectionProfiles)
   ipcMain.handle('connections:live', () => db.listLiveSessions())
-  ipcMain.handle('connections:upsert', (_e, profile: DataSourceProfile) =>
-    connectionProfiles.upsert(profile),
-  )
-  ipcMain.handle(IPC.CONNECTION_RETRY_CREDENTIAL_MIGRATION, (_e, id: string) =>
-    connectionProfiles.retryMigration(id),
-  )
   ipcMain.handle(IPC.CONNECTION_CHOOSE_FILES, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       title: 'Choose data files',

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { validateVisualReport } from './assertions.mjs'
+import { syntheticSources } from './fixtures.mjs'
 
 const populated = { selector: '[data-chart]', description: 'fixture chart', minSeries: 1, minItems: 1 }
 const current = { type: 'line', finished: true, series: 1, items: 4, fingerprint: 'current', expectedFingerprint: 'current' }
@@ -35,4 +36,12 @@ test('a chart rendered for the previous configuration fails', () => {
 test('the current configuration with visible points passes', () => {
   const expectation = { ...populated, expectedConfig: { view: 'bar', x: 'series' } }
   assert.doesNotThrow(() => validateVisualReport('current.png', expectation, { ...current, type: 'bar', config: { view: 'bar', x: 'series', resultRevision: 7 } }))
+})
+
+test('PostgreSQL visual preview fixtures never embed saved passwords', () => {
+  const postgresProfiles = syntheticSources.filter(
+    (profile) => profile.kind === 'postgres',
+  )
+  assert.ok(postgresProfiles.length > 0)
+  for (const profile of postgresProfiles) assert.equal(profile.password, '')
 })
