@@ -51,13 +51,13 @@ async function seedSqlWorkspace(win, view) {
       id: 'docs-postgres',
       name: 'Market analytics',
       kind: 'postgres',
-      version: 1,
+      version: 2,
       host: 'localhost',
       port: 5432,
       database: 'analytics',
       user: 'demo',
       password: '',
-      ssl: false,
+      tlsMode: 'disable',
       readonly: true
     }
     const schemas = [{ name: 'analytics', isSystem: false, relations: [
