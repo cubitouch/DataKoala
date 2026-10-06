@@ -57,7 +57,7 @@ class DeferredPool extends FakePool {
 
 const profile = (id: string): ConnectionProfile => ({
   kind: 'postgres',
-  version: 1,
+  version: 2,
   id,
   name: id,
   host: 'localhost',
@@ -65,7 +65,7 @@ const profile = (id: string): ConnectionProfile => ({
   database: 'postgres',
   user: 'postgres',
   password: '',
-  ssl: false,
+  tlsMode: 'disable',
   readonly: true,
 })
 
