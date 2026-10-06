@@ -441,7 +441,7 @@ export function PostgresConnectionModal({
             </div>
           </div>
         )}
-        <div className={[styles.field].join(' ')}>
+        <div className={[styles.checkboxField].join(' ')}>
           <Checkbox
             className={styles.checkbox}
             checked={draft.readonly}
