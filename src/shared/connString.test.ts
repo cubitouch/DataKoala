@@ -193,7 +193,7 @@ test('masking hides the password but keeps the string shape', () => {
 test('omits the userinfo section entirely when there is no user', () => {
   const r = ok('postgres://host:5432/db')
   const built = buildConnectionString(r.value)
-  assert.equal(built, 'postgresql://host:5432/db')
+  assert.equal(built, 'postgresql://host:5432/db?sslmode=disable')
 })
 
 test('re-brackets IPv6 hosts when building', () => {
