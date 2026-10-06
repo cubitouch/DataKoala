@@ -338,4 +338,21 @@ describe('query session model', () => {
     expect(selectActiveSession(state).connectionProfileId).toBe('profile-a')
     expect(selectActiveSession(state).sql).toBe('select now();')
   })
+
+  it('stores only sanitized repair provenance while preserving the displayed error', async () => {
+    const { useStore, selectActiveSession } = await setup()
+    const raw =
+      'ERROR: column orders.device_id does not exist password=hunter2 /Users/alice/private.sql'
+    useStore
+      .getState()
+      .completeQuery(null, raw, undefined, 'SELECT device_id FROM orders')
+    const session = selectActiveSession(useStore.getState())
+    expect(session.queryError).toBe(raw)
+    expect(session.repairableQueryError?.error).toContain(
+      'column orders.device_id does not exist',
+    )
+    expect(session.repairableQueryError?.error).not.toMatch(
+      /hunter2|\/Users\/alice/,
+    )
+  })
 })

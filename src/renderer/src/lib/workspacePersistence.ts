@@ -1034,6 +1034,7 @@ function restoredSession(draft: QuerySessionDraft): QuerySession {
     tempoResultView: draft.tempoResultView,
     running: false,
     queryError: null,
+    repairableQueryError: null,
     result: null,
     pendingResult: null,
     resultRevision: 0,

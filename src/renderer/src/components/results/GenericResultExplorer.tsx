@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import ReactECharts from 'echarts-for-react'
 import type EChartsReact from 'echarts-for-react'
 import { api } from '@lib/api'
@@ -115,6 +122,7 @@ export interface GenericResultExplorerProps {
   resultRevision: number
   running: boolean
   error: string | null
+  errorAction?: ReactNode
   isResultStale: boolean
   reconnecting?: boolean
   configuration: VisualizationConfiguration
@@ -147,6 +155,7 @@ export function GenericResultExplorer({
   resultRevision,
   running,
   error,
+  errorAction,
   isResultStale,
   reconnecting = false,
   configuration,
@@ -1026,6 +1035,7 @@ export function GenericResultExplorer({
           resultRevision={resultRevision}
           running={running}
           error={error}
+          errorAction={errorAction}
           onAddFilter={onAddFilter}
           onRemoveFilter={onRemoveFilter}
           onClearFilters={onClearFilters}
@@ -1130,6 +1140,7 @@ export function GenericResultExplorer({
           {error && (
             <div className={styles.error} role="alert">
               {error}
+              {errorAction}
             </div>
           )}
           {effectiveConfiguration.valueAxisScale === 'log' &&

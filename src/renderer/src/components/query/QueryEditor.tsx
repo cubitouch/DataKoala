@@ -192,6 +192,7 @@ export function QueryEditor({
     const revision = (runRevisions.current.get(requestTabId) ?? 0) + 1
     runRevisions.current.set(requestTabId, revision)
     startQuery(requestTabId)
+    let repairableQuery: string | undefined
     try {
       const promoted =
         language.kind === 'sql' ? queryResultFilters(requestFilters) : []
@@ -225,6 +226,13 @@ export function QueryEditor({
         promBounds && effectiveStep
           ? { ...promBounds, step: effectiveStep }
           : undefined
+      if (
+        connectionKind === 'postgres' &&
+        !builderMode &&
+        !promoted.length &&
+        execution.sql === requestSql
+      )
+        repairableQuery = requestSql
       const res: QueryResult = await api.query.run(
         requestProfileId,
         execution.sql,
@@ -264,6 +272,7 @@ export function QueryEditor({
           null,
           e instanceof Error ? e.message : String(e),
           requestTabId,
+          repairableQuery,
         )
     }
   }, [
@@ -280,6 +289,7 @@ export function QueryEditor({
     builderMode,
     setVisualization,
     completeQuery,
+    connectionKind,
   ])
 
   useEffect(() => {

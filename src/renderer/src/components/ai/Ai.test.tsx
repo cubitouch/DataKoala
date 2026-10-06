@@ -42,6 +42,7 @@ vi.mock('@lib/relationColumns', () => ({
 import { AiSettingsAction } from './AiSettingsAction'
 import { AiSettingsModal } from './AiSettingsModal'
 import { AiQueryCopilot } from './AiQueryCopilot'
+import { AiQueryRepair } from './AiQueryRepair'
 import {
   patchActiveTestSession,
   resetTestStore,
@@ -398,6 +399,44 @@ test('empty editor diff is all additions and Apply clears the prompt', async () 
       .value,
   ).toBe('')
 })
+
+test('Fix with AI sends sanitized provenance and Apply changes SQL without running it', async () => {
+  const failed = 'SELECT device_id FROM public.orders'
+  const safeError =
+    'ERROR: column orders.device_id does not exist LINE 4 Position: 87 SQLSTATE 42703 password=[REDACTED]'
+  patchActiveTestSession({
+    sql: failed,
+    queryMode: 'sql',
+    queryError: `${safeError} password=hunter2`,
+    repairableQueryError: { query: failed, error: safeError },
+  })
+  render(<AiQueryRepair />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+  await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
+  expect(mocks.propose).toHaveBeenCalledWith(
+    expect.objectContaining({
+      intent: 'repair',
+      currentQuery: failed,
+      error: safeError,
+    }),
+  )
+  expect(mocks.propose.mock.calls[0][0]).not.toHaveProperty('prompt')
+  expect(JSON.stringify(mocks.propose.mock.calls[0][0])).not.toContain(
+    'hunter2',
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
+  expect(screen.queryByRole('region', { name: 'Prompt' })).toBeNull()
+  expect(
+    screen.getByRole('region', { name: 'Failed SQL' }).textContent,
+  ).toContain(failed)
+  fireEvent.keyDown(document, { key: 'Escape' })
+  fireEvent.click(await screen.findByRole('button', { name: 'Apply' }))
+  expect(selectActiveSession(useStore.getState()).sql).toBe(proposed.query)
+  expect(
+    selectActiveSession(useStore.getState()).repairableQueryError,
+  ).toBeNull()
+  expect(mocks.run).not.toHaveBeenCalled()
+})
 test('Try again keeps previous diff pending, uses latest SQL and replaces only on response', async () => {
   render(<AiQueryCopilot />)
   await generate()
@@ -626,6 +665,45 @@ test('cancelling during metadata expansion prevents the retry provider call', as
   )
   await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
   expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+})
+
+test('cancelling repair during metadata expansion cannot restore late state', async () => {
+  setDiscoveryMetadata()
+  const failed = 'SELECT device_id FROM public.orders'
+  patchActiveTestSession({
+    sql: failed,
+    queryMode: 'sql',
+    queryError: 'ERROR: column orders.device_id does not exist',
+    repairableQueryError: {
+      query: failed,
+      error: 'ERROR: column orders.device_id does not exist',
+    },
+  })
+  const deviceColumns =
+    deferred<Array<{ name: string; dataTypeName: string }>>()
+  mocks.columns.mockImplementation(
+    async (_profileId: string, relation: { name: string }) =>
+      relation.name === 'zy_devices'
+        ? deviceColumns.promise
+        : [{ name: 'id', dataTypeName: 'uuid' }],
+  )
+  mocks.propose.mockResolvedValueOnce(ok(contextRequest()))
+  render(<AiQueryRepair />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+  await waitFor(() =>
+    expect(
+      mocks.columns.mock.calls.some((call) => call[1].name === 'zy_devices'),
+    ).toBe(true),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  await act(async () =>
+    deviceColumns.resolve([{ name: 'device_id', dataTypeName: 'uuid' }]),
+  )
+  await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
+  expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.queryByText(/no undisclosed matching relation/i)).toBeNull()
+  expect(screen.getByRole('button', { name: 'Fix with AI' })).toBeTruthy()
 })
 
 for (const change of ['query', 'tab', 'connection'] as const) {

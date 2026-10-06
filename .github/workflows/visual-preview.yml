@@ -12,6 +12,8 @@ env:
   PREVIEW_FILES: |-
     ai-settings.png
     ai-query-proposal.png
+    ai-query-repair-error.png
+    ai-query-repair-proposal.png
     sql-default.png
     prometheus-toolbar.png
     prometheus-toolbar-narrow.png
@@ -204,6 +206,8 @@ jobs:
               'builder-narrow.png': 'Builder — narrow responsive layout',
               'ai-settings.png': 'AI settings — encrypted key and OpenRouter model selection',
               'ai-query-proposal.png': 'Ask AI — inline composer, SQL diff and explicit Apply',
+              'ai-query-repair-error.png': 'Fix with AI — failed PostgreSQL query action',
+              'ai-query-repair-proposal.png': 'Fix with AI — proposed repair diff and explicit Apply',
               'table.png': 'Filtered results table'
             }
             const files = process.env.PREVIEW_FILES.split(/\r?\n/).filter(Boolean)

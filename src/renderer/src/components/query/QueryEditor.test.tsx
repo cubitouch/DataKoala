@@ -492,6 +492,45 @@ afterEach(() => {
 })
 
 describe('QueryEditor Explain loading states', () => {
+  it('records sanitized provenance only after a PostgreSQL datasource rejection', async () => {
+    resetTestStore({
+      profiles: [
+        {
+          kind: 'postgres',
+          version: 1,
+          id: 'pg',
+          name: 'PG',
+          host: 'localhost',
+          port: 5432,
+          database: 'db',
+          user: 'user',
+          password: '',
+          ssl: false,
+          readonly: true,
+        },
+      ],
+      activeProfileId: 'pg',
+      connected: true,
+      connecting: false,
+      connectionStatus: 'connected',
+    })
+    const sql = 'SELECT device_id FROM orders'
+    patchActiveTestSession({ connectionProfileId: 'pg', sql, queryMode: 'sql' })
+    runQuery.mockRejectedValue(
+      new Error(
+        'ERROR: column orders.device_id does not exist password=hunter2 /Users/alice/private.sql',
+      ),
+    )
+    render(<QueryEditor />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() =>
+      expect(activeTestSession().queryError).toContain('hunter2'),
+    )
+    expect(activeTestSession().repairableQueryError?.query).toBe(sql)
+    expect(activeTestSession().repairableQueryError?.error).not.toMatch(
+      /hunter2|\/Users\/alice/,
+    )
+  })
   it('follows datasource capabilities when the active tab changes', () => {
     resetTestStore({
       profiles: [
