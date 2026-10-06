@@ -20,7 +20,7 @@ export function AiQueryDiff({
         <div className={styles.noDiff} role="status">
           <strong>No SQL changes proposed</strong>
           <span>
-            AI didn't propose any SQL changes for this request. Try adding a
+            AI did not propose any SQL changes for this request. Try adding a
             little more detail about what you want the query to do.
           </span>
         </div>
