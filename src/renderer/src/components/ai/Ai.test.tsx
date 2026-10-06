@@ -519,7 +519,7 @@ test('unchanged Ask AI proposal shows guidance instead of an empty diff', async 
   expect(screen.getByText('No SQL changes proposed')).toBeTruthy()
   expect(
     screen.getByText(
-      /AI didn't propose any SQL changes for this request.*Try adding a little more detail/s,
+      /AI did not propose any SQL changes for this request.*Try adding a little more detail/s,
     ),
   ).toBeTruthy()
   expect(diff.querySelector('[data-diff-kind="add"]')).toBeNull()
