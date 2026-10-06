@@ -120,6 +120,7 @@ export function AiSettingsModal({
       onClose={onClose}
       labelledBy={titleId}
       returnFocusRef={returnFocusRef}
+      initialFocus="dialog"
       dialogClassName={`${styles.dialog} ${styles.settingsDialog}`}
     >
       <header className={styles.settingsHeader}>
