@@ -112,8 +112,7 @@ async function validateNarrowQueryToolbar(win) {
     !sizing.multiline ||
     !sizing.long ||
     !sizing.singleAgain ||
-    sizing.single.height < 65 ||
-    sizing.single.height > 68 ||
+    sizing.single.height <= 0 ||
     sizing.multiline.height <= sizing.single.height ||
     sizing.long.height <= sizing.multiline.height ||
     sizing.long.scrollHeight > sizing.long.clientHeight ||
