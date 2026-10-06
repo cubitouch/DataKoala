@@ -477,6 +477,7 @@ export function GenericResultExplorer({
             mode,
             timeBucket: activeBuilderTimeBucket,
             timeDomain: effectiveTimeDomain ?? undefined,
+            displayUnit: effectiveConfiguration.displayUnit,
             valueAxisScale: effectiveConfiguration.valueAxisScale,
             visibility: seriesVisibility,
             hoveredSeriesIdentity: () => hoveredSeriesIdentity.current,
@@ -1065,6 +1066,47 @@ export function GenericResultExplorer({
                   Show all
                 </button>
               )}
+            <div className={styles.axisScale}>
+              <Combobox
+                label="Unit"
+                mode="inline"
+                value={effectiveConfiguration.displayUnit?.family ?? 'number'}
+                options={[
+                  { value: 'number', label: 'Number' },
+                  { value: 'time', label: 'Time' },
+                ]}
+                onChange={(value) =>
+                  update({
+                    displayUnit:
+                      value === 'time'
+                        ? { family: 'time', unit: 'ms' }
+                        : { family: 'number' },
+                  })
+                }
+              />
+            </div>
+            {effectiveConfiguration.displayUnit?.family === 'time' && (
+              <div className={styles.axisScale}>
+                <Combobox
+                  label="Input time unit"
+                  mode="inline"
+                  value={effectiveConfiguration.displayUnit.unit}
+                  options={['ms', 's', 'min', 'h'].map((value) => ({
+                    value,
+                    label: value,
+                  }))}
+                  onChange={(value) => {
+                    if (
+                      value === 'ms' ||
+                      value === 's' ||
+                      value === 'min' ||
+                      value === 'h'
+                    )
+                      update({ displayUnit: { family: 'time', unit: value } })
+                  }}
+                />
+              </div>
+            )}
             {!hierarchical && (
               <div className={styles.axisScale}>
                 <Combobox

@@ -27,6 +27,7 @@ export function createChartFingerprint(
     configuration.seriesColumn ?? '',
     configuration.aggregation,
     configuration.valueAxisScale ?? 'linear',
+    JSON.stringify(configuration.displayUnit ?? { family: 'number' }),
   ]
   if (chart) {
     parts.push(...chart.labels)

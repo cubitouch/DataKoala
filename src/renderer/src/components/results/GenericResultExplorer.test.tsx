@@ -172,3 +172,34 @@ for (const mode of ['sql', 'builder'] as const) {
     expect(alpha.getAttribute('aria-pressed')).toBe('true')
   })
 }
+
+it('selects time units through presentation state and preserves exact table values', () => {
+  const onConfigurationChange = vi.fn()
+  const current = props({
+    configuration: { ...configuration, view: 'line' },
+    onConfigurationChange,
+  })
+  const { rerender } = render(<GenericResultExplorer {...current} />)
+  fireEvent.click(screen.getByRole('combobox', { name: 'Unit: Number' }))
+  fireEvent.click(screen.getByRole('option', { name: 'Time' }))
+  const withTime = {
+    ...current.configuration,
+    displayUnit: { family: 'time' as const, unit: 'ms' as const },
+  }
+  expect(onConfigurationChange).toHaveBeenLastCalledWith(withTime)
+  rerender(<GenericResultExplorer {...current} configuration={withTime} />)
+  fireEvent.click(screen.getByRole('combobox', { name: 'Input time unit: ms' }))
+  fireEvent.click(screen.getByRole('option', { name: 's' }))
+  expect(onConfigurationChange).toHaveBeenLastCalledWith({
+    ...withTime,
+    displayUnit: { family: 'time', unit: 's' },
+  })
+  rerender(
+    <GenericResultExplorer
+      {...current}
+      configuration={{ ...withTime, view: 'table' }}
+    />,
+  )
+  expect(screen.getByText('2')).toBeTruthy()
+  expect(screen.queryByText('2 ms')).toBeNull()
+})

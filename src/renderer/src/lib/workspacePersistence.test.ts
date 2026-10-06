@@ -679,3 +679,18 @@ test('migrates the legacy single Loki breakdown to ordered Group by state', () =
   const restored = parseWorkspaceDraft(JSON.stringify(raw))
   assert.deepEqual(restored?.tabs[0].lokiGroupBy, ['level'])
 })
+
+test('workspace round-trips display units without requiring metadata in older drafts', () => {
+  const original = state()
+  original.tabs[0].sqlVisualization.displayUnit = {
+    family: 'time',
+    unit: 'min',
+  }
+  const restored = parseWorkspaceDraft(serializeWorkspaceDraft(original))
+  assert.ok(restored)
+  assert.deepEqual(restored.tabs[0].sqlVisualization.displayUnit, {
+    family: 'time',
+    unit: 'min',
+  })
+  assert.equal(restored.tabs[1].sqlVisualization.displayUnit, undefined)
+})

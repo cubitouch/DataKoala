@@ -1,3 +1,4 @@
+import { normalizeDisplayUnit } from './displayUnit.ts'
 import {
   compatibleTimeBucket,
   SEVEN_DAYS,
@@ -530,6 +531,9 @@ function visualization(value: unknown): VisualizationConfiguration | null {
   )
     return null
   return {
+    ...(value.displayUnit !== undefined
+      ? { displayUnit: normalizeDisplayUnit(value.displayUnit) }
+      : {}),
     view: value.view,
     xColumn,
     valueColumn,

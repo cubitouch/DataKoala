@@ -1,3 +1,4 @@
+import { normalizeDisplayUnit, type DisplayUnit } from './displayUnit.ts'
 import { isNumericType, isTimeType, type QueryResult } from '@shared/types.ts'
 import { orderChartSeries } from './chartSeries.ts'
 import {
@@ -21,6 +22,7 @@ export interface VisualizationConfiguration {
   seriesColumns?: string[]
   /** Presentation-only hierarchy order. It never changes Builder grouping semantics. */
   hierarchyDimensions?: string[]
+  displayUnit?: DisplayUnit
   valueAxisScale?: ValueAxisScale
   anomalyDetectionEnabled?: boolean
 }
@@ -66,6 +68,8 @@ export function visualizationConfigurationsEqual(
   b: VisualizationConfiguration,
 ): boolean {
   return (
+    JSON.stringify(normalizeDisplayUnit(a.displayUnit)) ===
+      JSON.stringify(normalizeDisplayUnit(b.displayUnit)) &&
     a.view === b.view &&
     a.xColumn === b.xColumn &&
     a.valueColumn === b.valueColumn &&
@@ -227,6 +231,9 @@ export function inferVisualizationConfiguration(
     hierarchyDimensions: previous?.hierarchyDimensions?.filter((name) =>
       names.includes(name),
     ),
+    ...(previous?.displayUnit
+      ? { displayUnit: normalizeDisplayUnit(previous.displayUnit) }
+      : {}),
     valueAxisScale: previous?.valueAxisScale ?? 'linear',
     anomalyDetectionEnabled: previous?.anomalyDetectionEnabled ?? false,
   }
