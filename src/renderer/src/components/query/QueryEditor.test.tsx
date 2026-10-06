@@ -947,9 +947,9 @@ describe('Fix with AI editor review', () => {
   async function proposeRepair() {
     fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
     await waitFor(() =>
-      expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
-        fixed,
-      ),
+      expect(
+        (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
+      ).toBe(fixed),
     )
   }
 
@@ -962,10 +962,13 @@ describe('Fix with AI editor review', () => {
     expect(
       screen.getByRole('region', { name: 'AI query repair review' }),
     ).toBeTruthy()
-    expect(screen.queryByRole('region', { name: 'SQL proposal diff' })).toBeNull()
+    expect(
+      screen.queryByRole('region', { name: 'SQL proposal diff' }),
+    ).toBeNull()
     expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
     expect(
-      (screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement)
+        .disabled,
     ).toBe(true)
     expect(
       (screen.getByRole('button', { name: 'Format' }) as HTMLButtonElement)
@@ -995,17 +998,16 @@ describe('Fix with AI editor review', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
     expect(activeTestSession().sql).toBe(edited)
+    expect(activeTestSession().repairableQueryError).toBeNull()
     expect(
-      activeTestSession().repairableQueryError,
-    ).toBeNull()
-    expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
-      edited,
-    )
+      (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
+    ).toBe(edited)
     expect(
       screen.queryByRole('region', { name: 'AI query repair review' }),
     ).toBeNull()
     expect(
-      (screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement)
+        .disabled,
     ).toBe(false)
     expect(runQuery).not.toHaveBeenCalled()
   })
@@ -1018,9 +1020,9 @@ describe('Fix with AI editor review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }))
 
     expect(activeTestSession().sql).toBe(failed)
-    expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
-      failed,
-    )
+    expect(
+      (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
+    ).toBe(failed)
     expect(activeTestSession().repairableQueryError).toEqual({
       query: failed,
       error: safeError,
@@ -1050,11 +1052,12 @@ describe('Fix with AI editor review', () => {
 
     await waitFor(() => expect(aiPropose).toHaveBeenCalledTimes(2))
     expect(aiPropose.mock.calls[1][0].currentQuery).toBe(failed)
-    expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
-      edited,
-    )
     expect(
-      (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement).disabled,
+      (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
+    ).toBe(edited)
+    expect(
+      (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+        .disabled,
     ).toBe(true)
 
     const replacement = 'SELECT id AS device_id, amount FROM public.orders'
@@ -1070,9 +1073,9 @@ describe('Fix with AI editor review', () => {
       },
     })
     await waitFor(() =>
-      expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
-        replacement,
-      ),
+      expect(
+        (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
+      ).toBe(replacement),
     )
     expect(activeTestSession().sql).toBe(failed)
   })
@@ -1091,12 +1094,13 @@ describe('Fix with AI editor review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
     await screen.findByText(/AI couldn't produce a usable repair this time/)
-    expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
-      edited,
-    )
+    expect(
+      (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
+    ).toBe(edited)
     expect(activeTestSession().sql).toBe(failed)
     expect(
-      (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+        .disabled,
     ).toBe(false)
   })
 
@@ -1108,9 +1112,9 @@ describe('Fix with AI editor review', () => {
     useStore.getState().setSql(newer)
 
     await waitFor(() =>
-      expect((screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value).toBe(
-        newer,
-      ),
+      expect(
+        (screen.getByLabelText('SQL editor') as HTMLTextAreaElement).value,
+      ).toBe(newer),
     )
     expect(
       screen.queryByRole('region', { name: 'AI query repair review' }),
