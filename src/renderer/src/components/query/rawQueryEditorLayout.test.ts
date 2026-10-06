@@ -20,7 +20,7 @@ function ruleBody(css: string, pattern: RegExp) {
 }
 
 describe('raw query editor layout', () => {
-  it('keeps the Loki editor edge-to-edge inside the resizable query panel', () => {
+  it('fills the Loki raw editor edge to edge', () => {
     const css = readCss('workspaces/loki/LokiExplorer.module.css')
     const editorRule = ruleBody(css, lokiEditor)
     const codeMirrorRule = ruleBody(css, lokiCodeMirror)
@@ -34,7 +34,7 @@ describe('raw query editor layout', () => {
     expect(codeMirrorRule).toMatch(/border-radius:\s*0/)
   })
 
-  it('lets the Tempo raw editor consume the remaining discovery-panel height', () => {
+  it('fills the Tempo raw editor remaining panel height', () => {
     const css = readCss('workspaces/tempo/TraceExplorer.module.css')
     const discoveryRule = ruleBody(css, tempoDiscovery)
     const rawFormRule = ruleBody(css, tempoRawForm)
