@@ -532,7 +532,6 @@ export function QueryEditor({
       ) : (
         <QueryCodeEditor
           ref={editorRef}
-          className={`cm-wrap ${styles.editor}`}
           value={sql}
           height="100%"
           extensions={extensions}
