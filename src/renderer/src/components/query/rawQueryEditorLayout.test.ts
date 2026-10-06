@@ -9,20 +9,24 @@ function readRendererFile(path: string) {
 }
 
 describe('shared query editor layout', () => {
-  it('keeps the SQL and PromQL editor layout in QueryCodeEditor', () => {
+  it('keeps the canonical layout in QueryCodeEditor', () => {
     const css = readRendererFile(
       'components/query/QueryCodeEditor.module.css',
     )
 
-    expect(css).toMatch(/\.editor\s*\{[^}]*flex:\s*1/s)
-    expect(css).toMatch(/\.editor\s*\{[^}]*min-height:\s*0/s)
-    expect(css).toMatch(/\.editor\s*\{[^}]*overflow:\s*auto/s)
-    expect(css).toMatch(
-      /\.editor\s+:global\(\.cm-editor\)\s*\{[^}]*height:\s*100%/s,
-    )
-    expect(css).toMatch(
-      /\.editor\s+:global\(\.cm-scroller\)\s*\{[^}]*font-family:\s*var\(--mono\)/s,
-    )
+    expect(css).toContain(`.editor {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  overflow: auto;
+}`)
+    expect(css).toContain(`.editor :global(.cm-editor) {
+  height: 100%;
+}`)
+    expect(css).toContain(`.editor :global(.cm-scroller) {
+  font-family: var(--mono);
+}`)
   })
 
   it('does not restyle CodeMirror from Loki or Tempo', () => {
@@ -34,9 +38,9 @@ describe('shared query editor layout', () => {
     )
     const globals = readRendererFile('styles.css')
 
-    expect(loki).not.toMatch(/:global\(\.cm-/)
-    expect(tempo).not.toMatch(/:global\(\.cm-/)
-    expect(globals).not.toMatch(/TraceQL editor/)
+    expect(loki).not.toContain(':global(.cm-')
+    expect(tempo).not.toContain(':global(.cm-')
+    expect(globals).not.toContain('TraceQL editor')
   })
 
   it('keeps only raw-workspace container sizing locally', () => {
@@ -47,11 +51,17 @@ describe('shared query editor layout', () => {
       'components/workspaces/tempo/TraceExplorer.module.css',
     )
 
-    expect(loki).toMatch(
-      /\.rawQueryBody\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column[^}]*overflow:\s*hidden/s,
-    )
-    expect(tempo).toMatch(
-      /\.rawSearchForm\s*\{[^}]*flex:\s*1[^}]*min-height:\s*0[^}]*display:\s*flex[^}]*flex-direction:\s*column[^}]*overflow:\s*hidden/s,
-    )
+    expect(loki).toContain(`.rawQueryBody {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}`)
+    expect(tempo).toContain(`.rawSearchForm {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}`)
   })
 })
