@@ -243,9 +243,7 @@ export function useAiQueryRepair() {
       })
     )
       return false
-    useStore
-      .getState()
-      .setSql(query, current.input.snapshot.tabId)
+    useStore.getState().setSql(query, current.input.snapshot.tabId)
     updateReview(null)
     return true
   }
