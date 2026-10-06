@@ -16,6 +16,15 @@ import { useStore } from './store/useStore'
 const mocks = vi.hoisted(() => ({ list: vi.fn(), queryEditorRenders: 0 }))
 vi.mock('./lib/api', () => ({
   api: {
+    ai: {
+      settings: {
+        get: vi.fn(async () => ({
+          ok: true,
+          value: { provider: 'openrouter', model: '', hasApiKey: false },
+        })),
+      },
+      cancel: vi.fn(),
+    },
     connections: {
       list: mocks.list,
       onStateChanged: vi.fn(() => () => undefined),
