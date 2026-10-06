@@ -28,11 +28,7 @@ export function AiQueryRepairReview({ onApplied }: { onApplied: () => void }) {
             </div>
             <div className={styles.actions}>
               {ai.busy && (
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={ai.cancel}
-                >
+                <button type="button" className="btn ghost" onClick={ai.cancel}>
                   Cancel
                 </button>
               )}
@@ -56,9 +52,7 @@ export function AiQueryRepairReview({ onApplied }: { onApplied: () => void }) {
                 type="button"
                 className="btn primary"
                 disabled={
-                  ai.busy ||
-                  stale ||
-                  input.snapshot.query === proposal.query
+                  ai.busy || stale || input.snapshot.query === proposal.query
                 }
                 onClick={() => {
                   if (!ai.apply()) return
@@ -96,10 +90,7 @@ export function AiQueryRepairReview({ onApplied }: { onApplied: () => void }) {
       )}
       <div className={styles.review}>
         <div className={styles.reviewBody}>
-          <AiQueryDiff
-            before={input.snapshot.query}
-            after={proposal.query}
-          />
+          <AiQueryDiff before={input.snapshot.query} after={proposal.query} />
           {stale && (
             <div role="status" className={styles.warning}>
               The failed SQL, tab, or connection changed. Run the current SQL,
