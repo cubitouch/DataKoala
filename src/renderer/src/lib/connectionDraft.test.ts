@@ -14,7 +14,8 @@ const valid: ConnectionDraft = {
   user: ' alice ',
   password: '  secret with spaces  ',
   tlsMode: 'verify-full',
-  tlsCa: '\n  -----BEGIN CERTIFICATE-----\nSYNTHETIC-TEST-CA\n-----END CERTIFICATE-----  \n',
+  tlsCa:
+    '\n  -----BEGIN CERTIFICATE-----\nSYNTHETIC-TEST-CA\n-----END CERTIFICATE-----  \n',
   readonly: false,
 }
 

@@ -51,11 +51,18 @@ test('defaults the port when absent, and warns', () => {
 })
 
 test('maps URI sslmode values to exact TLS modes', () => {
-  for (const mode of ['disable', 'require', 'verify-ca', 'verify-full'] as const) {
+  for (const mode of [
+    'disable',
+    'require',
+    'verify-ca',
+    'verify-full',
+  ] as const) {
     const r = ok(`postgres://u:p@h:1/d?sslmode=${mode}`)
     assert.equal(r.value.tlsMode, mode)
     assert.equal(
-      r.warnings.some((w) => /not supported|not verified|does not configure/i.test(w)),
+      r.warnings.some((w) =>
+        /not supported|not verified|does not configure/i.test(w),
+      ),
       false,
     )
   }
@@ -63,7 +70,12 @@ test('maps URI sslmode values to exact TLS modes', () => {
 })
 
 test('maps libpq sslmode values to exact TLS modes', () => {
-  for (const mode of ['disable', 'require', 'verify-ca', 'verify-full'] as const) {
+  for (const mode of [
+    'disable',
+    'require',
+    'verify-ca',
+    'verify-full',
+  ] as const) {
     const r = ok(`host=h port=5432 dbname=d user=u password=p sslmode=${mode}`)
     assert.equal(r.value.tlsMode, mode)
   }
@@ -86,13 +98,19 @@ test('warns about sslrootcert paths without importing them', () => {
     'postgres://u:p@h:1/d?sslmode=verify-full&sslrootcert=%2Ftmp%2Froot.crt',
   )
   assert.equal(uri.value.tlsMode, 'verify-full')
-  assert.ok(uri.warnings.some((w) => /sslrootcert file paths are not imported/i.test(w)))
+  assert.ok(
+    uri.warnings.some((w) =>
+      /sslrootcert file paths are not imported/i.test(w),
+    ),
+  )
 
   const kv = ok(
     'host=h port=5432 dbname=d user=u password=p sslmode=verify-ca sslrootcert=/tmp/root.crt',
   )
   assert.equal(kv.value.tlsMode, 'verify-ca')
-  assert.ok(kv.warnings.some((w) => /sslrootcert file paths are not imported/i.test(w)))
+  assert.ok(
+    kv.warnings.some((w) => /sslrootcert file paths are not imported/i.test(w)),
+  )
 })
 
 test('unbrackets IPv6 hosts', () => {
@@ -201,9 +219,13 @@ test('re-brackets IPv6 hosts when building', () => {
   assert.match(buildConnectionString(r.value), /@\[::1\]:5432/)
 })
 
-
 test('buildConnectionString emits the exact selected sslmode for every supported mode', () => {
-  for (const mode of ['disable', 'require', 'verify-ca', 'verify-full'] as const) {
+  for (const mode of [
+    'disable',
+    'require',
+    'verify-ca',
+    'verify-full',
+  ] as const) {
     const built = buildConnectionString({
       host: 'db.example',
       port: 5432,
@@ -220,7 +242,12 @@ test('buildConnectionString emits the exact selected sslmode for every supported
 })
 
 test('parse -> build -> parse preserves every supported TLS mode', () => {
-  for (const mode of ['disable', 'require', 'verify-ca', 'verify-full'] as const) {
+  for (const mode of [
+    'disable',
+    'require',
+    'verify-ca',
+    'verify-full',
+  ] as const) {
     const first = ok(`postgres://u:p@h:5432/d?sslmode=${mode}`)
     const second = ok(buildConnectionString(first.value))
     assert.equal(second.value.tlsMode, mode)

@@ -419,8 +419,7 @@ export function PostgresConnectionModal({
             </div>
           )}
         </div>
-        {(draft.tlsMode === 'verify-ca' ||
-          draft.tlsMode === 'verify-full') && (
+        {(draft.tlsMode === 'verify-ca' || draft.tlsMode === 'verify-full') && (
           <div className={[styles.field].join(' ')}>
             <label htmlFor="connection-tls-ca">CA certificate (optional)</label>
             <textarea
@@ -437,8 +436,8 @@ export function PostgresConnectionModal({
               id="connection-tls-ca-hint"
               className={[styles.pasteHint].join(' ')}
             >
-              Leave blank to use system trusted certificate authorities. Paste
-              a PEM CA certificate or CA bundle for private/self-signed servers.
+              Leave blank to use system trusted certificate authorities. Paste a
+              PEM CA certificate or CA bundle for private/self-signed servers.
             </div>
           </div>
         )}

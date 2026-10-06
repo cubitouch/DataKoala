@@ -228,7 +228,10 @@ test('retry keeps an authoritative secure credential after unavailable crash rec
   secrets.values.set('datasource/pg-one', 'replacement-password')
   secrets.available = false
   const path = join(directory, 'connections.json')
-  await writeFile(path, JSON.stringify([legacyPostgres('legacy-test-password')]))
+  await writeFile(
+    path,
+    JSON.stringify([legacyPostgres('legacy-test-password')]),
+  )
   try {
     const store = new ConnectionProfileStore(directory, secrets)
     const legacy = asPostgres((await store.list())[0])
@@ -367,7 +370,8 @@ test('a current PostgreSQL v2 profile round-trips unchanged', () => {
   const stored = {
     ...postgres(),
     tlsMode: 'verify-full' as const,
-    tlsCa: '-----BEGIN CERTIFICATE-----\\nSYNTHETIC-TEST-CA\\n-----END CERTIFICATE-----',
+    tlsCa:
+      '-----BEGIN CERTIFICATE-----\\nSYNTHETIC-TEST-CA\\n-----END CERTIFICATE-----',
   }
   const result = migrateStoredProfile(stored)
   assert.equal(result.status, 'current')

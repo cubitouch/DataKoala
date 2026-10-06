@@ -216,9 +216,7 @@ function assertReadonly(p: ConnectionProfile, sql: string): void {
   }
 }
 
-function postgresTlsConfig(
-  profile: ConnectionProfile,
-): PoolConfig['ssl'] {
+function postgresTlsConfig(profile: ConnectionProfile): PoolConfig['ssl'] {
   switch (profile.tlsMode) {
     case 'disable':
       return false

@@ -64,7 +64,9 @@ function looksLikeUri(s: string): boolean {
 
 function looksLikeKeyValue(s: string): boolean {
   // libpq keyword/value form, e.g. `host=localhost port=5432 dbname=orders`.
-  return /(^|\s)(host|hostaddr|port|dbname|user|password|sslmode|sslrootcert)\s*=/i.test(s)
+  return /(^|\s)(host|hostaddr|port|dbname|user|password|sslmode|sslrootcert)\s*=/i.test(
+    s,
+  )
 }
 
 function tlsModeFromSslMode(

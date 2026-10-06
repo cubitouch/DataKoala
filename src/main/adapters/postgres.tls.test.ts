@@ -1,19 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { PoolConfig } from 'pg'
-import type {
-  ConnectionProfile,
-  PostgresTlsMode,
-} from '../../shared/types.ts'
+import type { ConnectionProfile, PostgresTlsMode } from '../../shared/types.ts'
 import { __testing } from './postgres.ts'
 
 const SYNTHETIC_CA =
   '-----BEGIN CERTIFICATE-----\nSYNTHETIC-TEST-CA\n-----END CERTIFICATE-----'
 
-function profile(
-  tlsMode: PostgresTlsMode,
-  tlsCa?: string,
-): ConnectionProfile {
+function profile(tlsMode: PostgresTlsMode, tlsCa?: string): ConnectionProfile {
   return {
     kind: 'postgres',
     version: 2,

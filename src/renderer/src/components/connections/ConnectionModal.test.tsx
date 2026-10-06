@@ -280,17 +280,13 @@ describe('ConnectionModal canonical connection draft', () => {
     expect(
       screen.getByRole('combobox', { name: /TLS mode:.*Require TLS/i }),
     ).toBeTruthy()
-    expect(
-      screen.getByText(/server certificate is not verified/i),
-    ).toBeTruthy()
+    expect(screen.getByText(/server certificate is not verified/i)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('combobox', { name: /TLS mode:/i }))
     fireEvent.click(
       screen.getByRole('option', { name: /Verify server identity/i }),
     )
-    expect(
-      screen.queryByText(/server certificate is not verified/i),
-    ).toBeNull()
+    expect(screen.queryByText(/server certificate is not verified/i)).toBeNull()
     expect(screen.getByLabelText('CA certificate (optional)')).toBeTruthy()
   })
 

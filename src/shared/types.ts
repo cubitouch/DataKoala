@@ -112,10 +112,7 @@ interface ProfileV1Base extends ProfileBase {
 }
 
 export type PostgresTlsMode =
-  | 'disable'
-  | 'require'
-  | 'verify-ca'
-  | 'verify-full'
+  'disable' | 'require' | 'verify-ca' | 'verify-full'
 
 export interface PostgresProfile extends ProfileBase {
   kind: 'postgres'
