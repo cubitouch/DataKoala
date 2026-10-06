@@ -2,51 +2,56 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const components = resolve(process.cwd(), 'src/renderer/src/components')
+const renderer = resolve(process.cwd(), 'src/renderer/src')
 
-const lokiEditor = /\.editor\s*\{([^}]*)\}/
-const lokiCodeMirror = /\.editor\s+:global\(\.cm-editor\)\s*\{([^}]*)\}/
-const tempoDiscovery = /\.discoveryPanel\s*\{([^}]*)\}/
-const tempoRawForm = /\.searchForm:has\(\.traceqlField\)\s*\{([^}]*)\}/
-const tempoField = /\.traceqlField\s*\{([^}]*)\}/
-const tempoTheme = /\.traceqlField\s+:global\(\.cm-theme\)\s*\{([^}]*)\}/
-
-function readCss(path: string) {
-  return readFileSync(resolve(components, path), 'utf8')
+function readRendererFile(path: string) {
+  return readFileSync(resolve(renderer, path), 'utf8')
 }
 
-function ruleBody(css: string, pattern: RegExp) {
-  return css.match(pattern)?.[1] ?? ''
-}
+describe('shared query editor layout', () => {
+  it('keeps the SQL and PromQL editor layout in QueryCodeEditor', () => {
+    const css = readRendererFile(
+      'components/query/QueryCodeEditor.module.css',
+    )
 
-describe('raw query editor layout', () => {
-  it('fills the Loki raw editor edge to edge', () => {
-    const css = readCss('workspaces/loki/LokiExplorer.module.css')
-    const editorRule = ruleBody(css, lokiEditor)
-    const codeMirrorRule = ruleBody(css, lokiCodeMirror)
-
-    expect(editorRule).toMatch(/width:\s*100%/)
-    expect(editorRule).toMatch(/height:\s*100%/)
-    expect(editorRule).toMatch(/padding:\s*0/)
-    expect(codeMirrorRule).toMatch(/width:\s*100%/)
-    expect(codeMirrorRule).toMatch(/height:\s*100%/)
-    expect(codeMirrorRule).toMatch(/border:\s*0/)
-    expect(codeMirrorRule).toMatch(/border-radius:\s*0/)
+    expect(css).toMatch(/\.editor\s*\{[^}]*flex:\s*1/s)
+    expect(css).toMatch(/\.editor\s*\{[^}]*min-height:\s*0/s)
+    expect(css).toMatch(/\.editor\s*\{[^}]*overflow:\s*auto/s)
+    expect(css).toMatch(
+      /\.editor\s+:global\(\.cm-editor\)\s*\{[^}]*height:\s*100%/s,
+    )
+    expect(css).toMatch(
+      /\.editor\s+:global\(\.cm-scroller\)\s*\{[^}]*font-family:\s*var\(--mono\)/s,
+    )
   })
 
-  it('fills the Tempo raw editor remaining panel height', () => {
-    const css = readCss('workspaces/tempo/TraceExplorer.module.css')
-    const discoveryRule = ruleBody(css, tempoDiscovery)
-    const rawFormRule = ruleBody(css, tempoRawForm)
-    const fieldRule = ruleBody(css, tempoField)
-    const themeRule = ruleBody(css, tempoTheme)
+  it('does not restyle CodeMirror from Loki or Tempo', () => {
+    const loki = readRendererFile(
+      'components/workspaces/loki/LokiExplorer.module.css',
+    )
+    const tempo = readRendererFile(
+      'components/workspaces/tempo/TraceExplorer.module.css',
+    )
+    const globals = readRendererFile('styles.css')
 
-    expect(discoveryRule).toMatch(/display:\s*flex/)
-    expect(discoveryRule).toMatch(/flex-direction:\s*column/)
-    expect(rawFormRule).toMatch(/flex:\s*1/)
-    expect(rawFormRule).toMatch(/min-height:\s*0/)
-    expect(fieldRule).toMatch(/flex:\s*1/)
-    expect(fieldRule).toMatch(/padding:\s*0/)
-    expect(themeRule).toMatch(/height:\s*100%/)
+    expect(loki).not.toMatch(/:global\(\.cm-/)
+    expect(tempo).not.toMatch(/:global\(\.cm-/)
+    expect(globals).not.toMatch(/TraceQL editor/)
+  })
+
+  it('keeps only raw-workspace container sizing locally', () => {
+    const loki = readRendererFile(
+      'components/workspaces/loki/LokiExplorer.module.css',
+    )
+    const tempo = readRendererFile(
+      'components/workspaces/tempo/TraceExplorer.module.css',
+    )
+
+    expect(loki).toMatch(
+      /\.rawQueryBody\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column[^}]*overflow:\s*hidden/s,
+    )
+    expect(tempo).toMatch(
+      /\.rawSearchForm\s*\{[^}]*flex:\s*1[^}]*min-height:\s*0[^}]*display:\s*flex[^}]*flex-direction:\s*column[^}]*overflow:\s*hidden/s,
+    )
   })
 })
