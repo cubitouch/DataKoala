@@ -126,6 +126,29 @@ If `promtool` is installed somewhere outside your `PATH`, set `DATAKOALA_PROMTOO
 DATAKOALA_PROMTOOL_PATH=/path/to/promtool pnpm dev
 ```
 
+### PostgreSQL credentials and TLS
+
+Saved PostgreSQL passwords are persisted through Electron's OS-backed `safeStorage` integration. `connections.json` contains non-secret datasource profile metadata; it is not encrypted and does not contain the saved PostgreSQL password. `secrets.json` contains encrypted secret ciphertext and is written with restrictive file permissions. Renderer-facing profile state receives credential presence/state only: persisted PostgreSQL profiles have an empty `password` field, while the main process resolves the saved password only when testing, connecting, or reconnecting.
+
+DataKoala saves a new password only when Electron reports secure encryption as available. It does not deliberately fall back to plaintext secret persistence. On Linux, the `basic_text` and unknown secure-storage backends are rejected. If secure encryption is unavailable, password persistence fails instead of silently writing plaintext. Passwordless PostgreSQL profiles remain usable with external authentication such as `.pgpass`, IAM/proxy authentication, or trust/passwordless PostgreSQL authentication.
+
+Legacy profiles that still contain a plaintext password are migrated into secure storage when possible. If secure storage is temporarily unavailable, the credential remains usable for the current session, the profile is marked as needing migration, and the UI allows retrying migration or removing the saved password. Plaintext fallback is not a normal persistence mechanism.
+
+PostgreSQL TLS is explicit:
+
+| DataKoala mode | Behavior |
+| --- | --- |
+| Disabled | No TLS |
+| Require TLS | Encrypted, certificate not verified |
+| Verify CA | Certificate chain/CA verified; hostname not verified |
+| Verify server identity | Certificate chain and hostname verified |
+
+**Verify server identity** is the recommended secure mode. **Require TLS** exists for compatibility and does not protect against an active man-in-the-middle attacker that can substitute a certificate.
+
+For certificate-verifying modes, leave the **CA** field blank to use the system trusted certificate authorities. Populate it only when the server requires a custom PEM CA certificate or CA bundle. The field is for CA certificates, not private keys: **do not paste private keys or client private-key material into the CA field.** Custom CA material is connection configuration stored with profile metadata; it is not stored in the OS secret store.
+
+Pasted PostgreSQL connection strings support `sslmode=disable`, `require`, `verify-ca`, and `verify-full`. Libpq `allow` and `prefer` are intentionally normalized to TLS-required compatibility behavior with a warning; DataKoala does not implement libpq's TLS-to-plaintext fallback. `sslrootcert=/path/to/file` does not cause DataKoala to read an arbitrary certificate path from a pasted string. Paste the required PEM CA into the CA field instead.
+
 ## macOS releases
 
 Version tags matching `vX.Y.Z` build separate native macOS releases for Apple Silicon (`arm64`) and Intel (`x64`). The release workflow produces DMG and ZIP artifacts for both architectures, smoke-tests the packaged applications, generates SHA-256 checksums, and creates a **draft GitHub Release** for manual review before publication.
