@@ -4,8 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const components = resolve(process.cwd(), 'src/renderer/src/components')
 
-const readCss = (path: string) =>
-  readFileSync(resolve(components, path), 'utf8')
+const readCss = (path: string) => readFileSync(resolve(components, path), 'utf8')
 
 describe('raw query editor layout', () => {
   it('keeps the Loki editor edge-to-edge inside the resizable query panel', () => {
@@ -29,9 +28,8 @@ describe('raw query editor layout', () => {
     const discoveryRule =
       css.match(/\.discoveryPanel\s*\{([^}]*)\}/)?.[1] ?? ''
     const rawFormRule =
-      css.match(
-        /\.searchForm:has\(\.traceqlField\)\s*\{([^}]*)\}/,
-      )?.[1] ?? ''
+      css.match(/\.searchForm:has\(\.traceqlField\)\s*\{([^}]*)\}/)?.[1] ??
+      ''
     const fieldRule = css.match(/\.traceqlField\s*\{([^}]*)\}/)?.[1] ?? ''
     const themeRule =
       css.match(
