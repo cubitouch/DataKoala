@@ -149,7 +149,7 @@ describe('PromQL execution', () => {
           id: 'prom-1',
           name: 'Metrics',
           kind: 'prometheus',
-          version: 2,
+          version: 1,
           readonly: true,
           transport: { kind: 'gcx', datasourceUid: 'prom-main' },
         },
@@ -636,7 +636,7 @@ describe('QueryEditor Explain loading states', () => {
         },
         {
           kind: 'bigquery',
-          version: 2,
+          version: 1,
           id: 'bq',
           name: 'BQ',
           billingProject: 'billing',
