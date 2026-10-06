@@ -73,11 +73,52 @@
   text-transform: uppercase;
 }
 
-.repairReview {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  width: 100%;
-  margin-top: 2px;
+.repairEditorBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg-2));
+}
+
+.repairEditorCopy {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.repairEditorCopy strong {
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.repairEditorCopy span {
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.repairEditorBar .actions {
+  flex: none;
+  align-items: center;
+}
+
+@container (max-width: 760px) {
+  .repairEditorBar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .repairEditorBar .actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 .notice {
