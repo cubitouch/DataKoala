@@ -43,6 +43,8 @@ import { AiSettingsAction } from './AiSettingsAction'
 import { AiSettingsModal } from './AiSettingsModal'
 import { AiQueryCopilot } from './AiQueryCopilot'
 import { AiQueryRepair } from './AiQueryRepair'
+import { AiQueryRepairProvider } from './AiQueryRepairProvider'
+import { AiQueryRepairReview } from './AiQueryRepairReview'
 import {
   patchActiveTestSession,
   resetTestStore,
@@ -144,6 +146,15 @@ async function generate() {
   )
   fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
   await waitFor(() => expect(mocks.propose).toHaveBeenCalled())
+}
+
+function renderRepair() {
+  return render(
+    <AiQueryRepairProvider>
+      <AiQueryRepair />
+      <AiQueryRepairReview onApplied={() => undefined} />
+    </AiQueryRepairProvider>,
+  )
 }
 test('sidebar button opens settings without auto-opening help and Escape restores focus', async () => {
   render(<AiSettingsAction />)
@@ -543,7 +554,7 @@ test('Fix with AI sends sanitized provenance and Apply changes SQL without runni
     queryError: `${safeError} password=hunter2`,
     repairableQueryError: { query: failed, error: safeError },
   })
-  render(<AiQueryRepair />)
+  renderRepair()
   fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
   await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
   expect(mocks.propose).toHaveBeenCalledWith(
@@ -583,7 +594,7 @@ test('Fix with AI keeps the SQL failure primary before repair starts', async () 
     },
   })
 
-  render(<AiQueryRepair />)
+  renderRepair()
 
   expect(
     await screen.findByRole('button', { name: 'Fix with AI' }),
@@ -605,7 +616,7 @@ test('Fix with AI shows a compact cancellable busy state', async () => {
   const pending = deferred<AiResult<AiQueryStep>>()
   mocks.propose.mockReturnValue(pending.promise)
 
-  render(<AiQueryRepair />)
+  renderRepair()
   fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
 
   expect(await screen.findByText('Fixing with AI…')).toBeTruthy()
@@ -637,7 +648,7 @@ test('invalid repair response uses retry-friendly copy and preserves retry', asy
       ok({ kind: 'proposal', proposal: proposed } as AiQueryStep),
     )
 
-  render(<AiQueryRepair />)
+  renderRepair()
   fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
 
   expect(await screen.findByText('AI repair')).toBeTruthy()
@@ -653,7 +664,7 @@ test('invalid repair response uses retry-friendly copy and preserves retry', asy
   ).not.toBeNull()
 
   fireEvent.click(screen.getByRole('button', { name: 'Fix with AI' }))
-  expect(await screen.findByText('Proposed fix')).toBeTruthy()
+  expect(await screen.findByText('AI proposed fix')).toBeTruthy()
 })
 
 test('model repair failure preserves model/settings guidance', async () => {
@@ -674,7 +685,7 @@ test('model repair failure preserves model/settings guidance', async () => {
       'This model is unavailable or does not support structured output. Choose another model in AI settings.',
   })
 
-  render(<AiQueryRepair />)
+  renderRepair()
   fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
 
   expect(await screen.findByText('AI repair')).toBeTruthy()
@@ -933,7 +944,7 @@ test('cancelling repair during metadata expansion cannot restore late state', as
         : [{ name: 'id', dataTypeName: 'uuid' }],
   )
   mocks.propose.mockResolvedValueOnce(ok(contextRequest()))
-  render(<AiQueryRepair />)
+  renderRepair()
   fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
   await waitFor(() =>
     expect(
