@@ -134,7 +134,7 @@ export function QueryEditor({
   const effectiveDisplayQuery = builderMode
     ? (builderQueryState?.displayed ?? builderQueryState?.generated ?? '')
     : repairReview
-      ? repair?.draft ?? sql
+      ? (repair?.draft ?? sql)
       : sql
   const editorRef = useRef<QueryCodeEditorHandle>(null)
   const filters = useStore((s) => selectActiveSession(s).sqlResultFilters)
@@ -584,7 +584,7 @@ export function QueryEditor({
       ) : (
         <QueryCodeEditor
           ref={editorRef}
-          value={repairReview ? repair?.draft ?? sql : sql}
+          value={repairReview ? (repair?.draft ?? sql) : sql}
           height="100%"
           extensions={extensions}
           onChange={(value) =>
