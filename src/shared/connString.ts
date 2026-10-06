@@ -1,3 +1,5 @@
+import type { PostgresTlsMode } from './types.ts'
+
 /**
  * Postgres connection string parsing and formatting.
  *
@@ -14,7 +16,7 @@ export interface ParsedConnection {
   database: string
   user: string
   password: string
-  ssl: boolean
+  tlsMode: PostgresTlsMode
 }
 
 export interface ParseSuccess {
@@ -35,19 +37,6 @@ export const DEFAULT_PORT = 5432
 
 /** Schemes libpq accepts for URI-style connection strings. */
 const URI_SCHEMES = ['postgres://', 'postgresql://']
-
-/**
- * `sslmode` values that mean "encrypt the connection".
- * `prefer` and `allow` are opportunistic; we treat them as on, since falling back
- * silently to plaintext is worse than failing loudly.
- */
-const SSL_ON_MODES = new Set([
-  'require',
-  'verify-ca',
-  'verify-full',
-  'prefer',
-  'allow',
-])
 
 /** Strip paste artefacts: surrounding whitespace, quotes, and a `psql ` prefix. */
 function tidy(raw: string): string {
@@ -75,25 +64,47 @@ function looksLikeUri(s: string): boolean {
 
 function looksLikeKeyValue(s: string): boolean {
   // libpq keyword/value form, e.g. `host=localhost port=5432 dbname=orders`.
-  return /(^|\s)(host|hostaddr|port|dbname|user|password|sslmode)\s*=/i.test(s)
+  return /(^|\s)(host|hostaddr|port|dbname|user|password|sslmode|sslrootcert)\s*=/i.test(s)
 }
 
-function sslFromMode(mode: string | null, warnings: string[]): boolean {
-  if (!mode) return false
-  const m = mode.toLowerCase()
-  if (m === 'disable') return false
-  if (SSL_ON_MODES.has(m)) {
-    if (m === 'verify-ca' || m === 'verify-full') {
+function tlsModeFromSslMode(
+  mode: string | null,
+  warnings: string[],
+): PostgresTlsMode {
+  if (!mode) return 'disable'
+  switch (mode.toLowerCase()) {
+    case 'disable':
+      return 'disable'
+    case 'require':
+      return 'require'
+    case 'verify-ca':
+      return 'verify-ca'
+    case 'verify-full':
+      return 'verify-full'
+    case 'allow':
+    case 'prefer': {
+      const normalized = mode.toLowerCase()
       warnings.push(
-        `sslmode=${m} requests certificate verification, which this app does not configure yet; the connection will be encrypted but the server certificate is not verified.`,
+        `sslmode=${normalized} allows fallback between encrypted and unencrypted connections in libpq. DataKoala does not perform TLS-to-plaintext fallback, so this connection has been changed to require TLS without certificate verification.`,
       )
+      return 'require'
     }
-    return true
+    default:
+      warnings.push(
+        `Unrecognised sslmode "${mode}"; treating the connection as TLS disabled.`,
+      )
+      return 'disable'
   }
+}
+
+function warnAboutSslRootCert(
+  value: string | null | undefined,
+  warnings: string[],
+): void {
+  if (value === null || value === undefined) return
   warnings.push(
-    `Unrecognised sslmode "${mode}"; treating the connection as non-SSL.`,
+    'sslrootcert file paths are not imported automatically. Paste the CA certificate into the CA certificate field if this connection requires a private CA.',
   )
-  return false
 }
 
 function parseUri(s: string): ParseResult {
@@ -152,7 +163,8 @@ function parseUri(s: string): ParseResult {
 
   // libpq also allows dbname/user/password/host/port as query parameters.
   const q = u.searchParams
-  const ssl = sslFromMode(q.get('sslmode'), warnings)
+  const tlsMode = tlsModeFromSslMode(q.get('sslmode'), warnings)
+  warnAboutSslRootCert(q.get('sslrootcert'), warnings)
   if (!database && q.get('dbname')) database = q.get('dbname')!
   if (!user && q.get('user')) user = q.get('user')!
   if (!password && q.get('password')) password = q.get('password')!
@@ -166,7 +178,7 @@ function parseUri(s: string): ParseResult {
 
   return {
     ok: true,
-    value: { host, port, database, user, password, ssl },
+    value: { host, port, database, user, password, tlsMode },
     warnings,
   }
 }
@@ -214,11 +226,12 @@ function parseKeyValue(s: string): ParseResult {
       'No password found — the server must allow passwordless auth (e.g. a proxy, IAM, or .pgpass).',
     )
   }
-  const ssl = sslFromMode(kv.sslmode ?? null, warnings)
+  const tlsMode = tlsModeFromSslMode(kv.sslmode ?? null, warnings)
+  warnAboutSslRootCert(kv.sslrootcert, warnings)
 
   return {
     ok: true,
-    value: { host, port, database, user, password, ssl },
+    value: { host, port, database, user, password, tlsMode },
     warnings,
   }
 }
@@ -257,6 +270,6 @@ export function buildConnectionString(
   // Re-bracket IPv6 literals.
   const host = p.host.includes(':') ? `[${p.host}]` : p.host
   const db = p.database ? `/${encodeURIComponent(p.database)}` : '/'
-  const query = p.ssl ? '?sslmode=require' : ''
+  const query = `?sslmode=${p.tlsMode}`
   return `postgresql://${userinfo}${host}:${p.port}${db}${query}`
 }
