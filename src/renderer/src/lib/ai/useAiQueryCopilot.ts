@@ -11,7 +11,17 @@ import {
   type AiQuerySnapshot as Snapshot,
 } from './workflow'
 import { selectActiveSession, useStore } from '@store/useStore'
-import { AI_LIMITS, isAiConfigured, type AiQueryProposal } from '@shared/ai'
+import {
+  AI_LIMITS,
+  isAiConfigured,
+  type AiErrorCode,
+  type AiQueryProposal,
+} from '@shared/ai'
+const copilotErrorMessage = (code: AiErrorCode, message: string) =>
+  code === 'invalid-response'
+    ? "AI couldn't produce a usable query from that request. Try adding a little more detail about what you want the query to do."
+    : message
+
 interface Review {
   input: Prepared
   proposal: AiQueryProposal
@@ -191,7 +201,8 @@ export function useAiQueryCopilot() {
       const first = await callProvider(input)
       if (!first || !mounted.current || flight.current !== active) return
       if (!first.ok) {
-        if (first.code !== 'cancelled') setError(first.message)
+        if (first.code !== 'cancelled')
+          setError(copilotErrorMessage(first.code, first.message))
         return
       }
       if (first.value.kind === 'proposal') {
@@ -217,7 +228,8 @@ export function useAiQueryCopilot() {
       const second = await callProvider(expanded)
       if (!second || !mounted.current || flight.current !== active) return
       if (!second.ok) {
-        if (second.code !== 'cancelled') setError(second.message)
+        if (second.code !== 'cancelled')
+          setError(copilotErrorMessage(second.code, second.message))
         return
       }
       if (second.value.kind === 'context-request') {
