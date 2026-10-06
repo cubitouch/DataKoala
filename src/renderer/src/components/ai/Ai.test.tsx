@@ -313,6 +313,103 @@ test('provider errors remain visible and unconfigured copilot stays hidden', asy
   expect(screen.queryByLabelText('SQL AI copilot')).toBeNull()
 })
 
+test('Ask AI uses retry-friendly copy for an invalid structured response', async () => {
+  mocks.propose
+    .mockResolvedValueOnce({
+      ok: false,
+      code: 'invalid-response',
+      message:
+        'The model returned an invalid query step. Try again or choose another model.',
+    })
+    .mockResolvedValueOnce(
+      ok({ kind: 'proposal', proposal: proposed } as AiQueryStep),
+    )
+
+  render(<AiQueryCopilot />)
+  const input = await screen.findByRole('textbox', { name: 'AI prompt' })
+  fireEvent.change(input, { target: { value: 'fix it' } })
+  await waitFor(() =>
+    expect(
+      (screen.getByRole('button', { name: 'Ask' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
+
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toContain(
+    "AI couldn't produce a usable query from that request.",
+  )
+  expect(alert.textContent).toContain(
+    'Try adding a little more detail about what you want the query to do.',
+  )
+  expect(alert.textContent).not.toMatch(/invalid query step/i)
+  expect(alert.textContent).not.toMatch(/choose another model/i)
+  expect((input as HTMLInputElement).value).toBe('fix it')
+  expect(selectActiveSession(useStore.getState()).sql).toBe('')
+  expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+  expect(mocks.run).not.toHaveBeenCalled()
+
+  fireEvent.change(input, {
+    target: { value: 'count all orders grouped by country' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
+  expect(await screen.findByRole('button', { name: 'Apply' })).toBeTruthy()
+  expect((input as HTMLInputElement).value).toBe(
+    'count all orders grouped by country',
+  )
+})
+
+test('Ask AI preserves genuine model/settings guidance', async () => {
+  mocks.propose.mockResolvedValueOnce({
+    ok: false,
+    code: 'model',
+    message:
+      'This model is unavailable or does not support structured output. Choose another model in AI settings.',
+  })
+
+  render(<AiQueryCopilot />)
+  await generate()
+
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toContain(
+    'This model is unavailable or does not support structured output.',
+  )
+  expect(alert.textContent).toContain('Choose another model in AI settings.')
+  expect(alert.textContent).not.toContain(
+    "AI couldn't produce a usable query from that request.",
+  )
+})
+
+test('Ask AI maps invalid response from discovery retry to friendly copy', async () => {
+  setDiscoveryMetadata()
+  mocks.propose
+    .mockResolvedValueOnce(ok(contextRequest()))
+    .mockResolvedValueOnce({
+      ok: false,
+      code: 'invalid-response',
+      message:
+        'The model returned an invalid query step. Try again or choose another model.',
+    })
+
+  render(<AiQueryCopilot />)
+  await generate()
+
+  const alert = await screen.findByRole('alert')
+  expect(mocks.propose).toHaveBeenCalledTimes(2)
+  expect(alert.textContent).toContain(
+    "AI couldn't produce a usable query from that request.",
+  )
+  expect(alert.textContent).toContain(
+    'Try adding a little more detail about what you want the query to do.',
+  )
+  expect(alert.textContent).not.toMatch(/invalid query step/i)
+  expect(alert.textContent).not.toMatch(/choose another model/i)
+  expect(selectActiveSession(useStore.getState()).sql).toBe('')
+  expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
 test('inline composer submits on Enter, reports loading, and prevents parent Run shortcuts', async () => {
   mocks.propose.mockReturnValue(new Promise(() => {}))
   const parentShortcut = vi.fn()
