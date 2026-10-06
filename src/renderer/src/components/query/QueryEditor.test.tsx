@@ -1079,6 +1079,38 @@ describe('Fix with AI editor review', () => {
     expect(activeTestSession().sql).toBe(failed)
   })
 
+  it('locks the repair draft while retrying and unlocks it after Cancel', async () => {
+    renderRepairEditor()
+    await proposeRepair()
+    const editor = screen.getByLabelText('SQL editor') as HTMLTextAreaElement
+    fireEvent.change(editor, { target: { value: edited } })
+
+    const retry = deferred<{
+      ok: true
+      value: {
+        kind: 'proposal'
+        proposal: {
+          query: string
+          explanation: string
+          assumptions: string[]
+        }
+      }
+    }>()
+    aiPropose.mockReturnValueOnce(retry.promise)
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+
+    await waitFor(() => expect(aiPropose).toHaveBeenCalledTimes(2))
+    expect(editor.disabled).toBe(true)
+    expect(editor.value).toBe(edited)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(editor.disabled).toBe(false))
+    expect(editor.value).toBe(edited)
+    expect(activeTestSession().sql).toBe(failed)
+    expect(aiCancel).toHaveBeenCalledTimes(1)
+  })
+
   it('retry failure preserves the previous valid transient draft', async () => {
     renderRepairEditor()
     await proposeRepair()
