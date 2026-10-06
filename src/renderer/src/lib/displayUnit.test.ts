@@ -96,7 +96,9 @@ test('all shared chart views apply units to their numeric presentation only', ()
     })
     const tooltip = options.tooltip as { formatter: (value: unknown) => string }
     if (view === 'treemap' || view === 'sunburst')
-      assert.match(tooltip.formatter({ name: 'A', value: 1250 }), /1,250 ms/)
+      assert.ok(
+        tooltip.formatter({ name: 'A', value: 1250 }).includes(expected),
+      )
     else {
       const axis = options.yAxis as {
         axisLabel: { formatter: (value: unknown) => string }
