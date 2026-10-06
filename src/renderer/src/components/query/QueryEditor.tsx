@@ -63,7 +63,7 @@ export function QueryEditor({
 }) {
   const tabId = useStore((s) => s.activeTabId)
   const repair = useAiQueryRepairController()
-  const repairReview = repair.activeReview
+  const repairReview = repair?.activeReview ?? null
   const repairReviewActive = !!repairReview
   const sql = useStore((s) => selectActiveSession(s).sql)
   const setSql = useStore((s) => s.setSql)
@@ -134,7 +134,7 @@ export function QueryEditor({
   const effectiveDisplayQuery = builderMode
     ? (builderQueryState?.displayed ?? builderQueryState?.generated ?? '')
     : repairReview
-      ? repair.draft
+      ? repair?.draft ?? sql
       : sql
   const editorRef = useRef<QueryCodeEditorHandle>(null)
   const filters = useStore((s) => selectActiveSession(s).sqlResultFilters)
@@ -479,7 +479,7 @@ export function QueryEditor({
           ) : undefined
         }
         utilities={
-          <QueryUtilityActions busy={isAnyExplainLoading || repair.blocked} />
+          <QueryUtilityActions busy={isAnyExplainLoading || !!repair?.blocked} />
         }
         editorActions={
           <div className={styles.editorActions}>
@@ -565,7 +565,7 @@ export function QueryEditor({
 
       {connectionKind === 'postgres' && !builderMode && (
         <>
-          {!repair.blocked && (
+          {!repair?.blocked && (
             <AiQueryCopilot key={`${tabId}:${tabConnectionId}`} />
           )}
           <AiQueryRepairReview
@@ -582,11 +582,13 @@ export function QueryEditor({
       ) : (
         <QueryCodeEditor
           ref={editorRef}
-          value={repairReview ? repair.draft : sql}
+          value={repairReview ? repair?.draft ?? sql : sql}
           height="100%"
           extensions={extensions}
           onChange={(value) =>
-            repairReview ? repair.setDraft(value) : setSql(value, tabId)
+            repairReview && repair
+              ? repair.setDraft(value)
+              : setSql(value, tabId)
           }
           editable={!isAnyExplainLoading}
           aria-label={
