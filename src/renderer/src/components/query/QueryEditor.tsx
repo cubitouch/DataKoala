@@ -63,9 +63,6 @@ export function QueryEditor({
 }) {
   const tabId = useStore((s) => s.activeTabId)
   const repair = useAiQueryRepairController()
-  const repairReview = repair?.activeReview ?? null
-  const repairReviewActive = !!repairReview
-  const repairDraftLocked = repairReviewActive && !!repair?.busy
   const sql = useStore((s) => selectActiveSession(s).sql)
   const setSql = useStore((s) => s.setSql)
   const prometheusTimeRange = useStore(
@@ -134,9 +131,7 @@ export function QueryEditor({
     : sql
   const effectiveDisplayQuery = builderMode
     ? (builderQueryState?.displayed ?? builderQueryState?.generated ?? '')
-    : repairReview
-      ? (repair?.draft ?? sql)
-      : sql
+    : sql
   const editorRef = useRef<QueryCodeEditorHandle>(null)
   const filters = useStore((s) => selectActiveSession(s).sqlResultFilters)
   const filterRevision = useStore(
@@ -175,7 +170,7 @@ export function QueryEditor({
     ]
   }, [language.kind, dialect, schemas, tabConnectionId])
   const run = useCallback(async () => {
-    if (repairReviewActive || connecting || metadataRefreshing) return
+    if (connecting || metadataRefreshing) return
     const requestTabId = tabId
     const requestSql = effectiveExecutionQuery
     const requestFilters = filters
@@ -285,7 +280,6 @@ export function QueryEditor({
         )
     }
   }, [
-    repairReviewActive,
     connecting,
     metadataRefreshing,
     tabId,
@@ -315,13 +309,7 @@ export function QueryEditor({
   }, [tabId, filterRevision, result, running, run])
 
   const explain = async (mode: 'explain' | 'analyze') => {
-    if (
-      repairReviewActive ||
-      activeExplainRequest ||
-      !tabConnectionId ||
-      connecting
-    )
-      return
+    if (activeExplainRequest || !tabConnectionId || connecting) return
     const requestTabId = tabId
     const requestSql = sql
     setActiveExplainRequest(mode, requestTabId)
@@ -376,7 +364,7 @@ export function QueryEditor({
   }
 
   const doFormat = async () => {
-    if (repairReviewActive || !sql.trim() || formatting) return
+    if (!sql.trim() || formatting) return
     const requestTabId = tabId
     const originalQuery = sql
     if (language.kind === 'promql') {
@@ -418,12 +406,12 @@ export function QueryEditor({
   const onKey = (e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
-      if (!repairReviewActive) void run()
+      run()
       return
     }
     if (!builderMode && e.shiftKey && e.altKey && e.key.toLowerCase() === 'f') {
       e.preventDefault()
-      if (!repairReviewActive) void doFormat()
+      void doFormat()
     }
   }
 
@@ -479,11 +467,7 @@ export function QueryEditor({
             </div>
           ) : undefined
         }
-        utilities={
-          <QueryUtilityActions
-            busy={isAnyExplainLoading || !!repair?.blocked}
-          />
-        }
+        utilities={<QueryUtilityActions busy={isAnyExplainLoading} />}
         editorActions={
           <div className={styles.editorActions}>
             {!builderMode && (
@@ -491,12 +475,7 @@ export function QueryEditor({
                 className="btn ghost"
                 onClick={() => void doFormat()}
                 title={`Format ${language.kind === 'promql' ? 'PromQL' : 'SQL'} (Shift+Alt+F)`}
-                disabled={
-                  repairReviewActive ||
-                  !sql.trim() ||
-                  formatting ||
-                  !canFormatPromql
-                }
+                disabled={!sql.trim() || formatting || !canFormatPromql}
                 aria-busy={formatting}
               >
                 {formatting ? 'Formatting…' : 'Format'}
@@ -518,9 +497,7 @@ export function QueryEditor({
               <button
                 className={`btn ghost explain-action ${styles.explainAction}`}
                 onClick={() => explain('explain')}
-                disabled={
-                  repairReviewActive || isAnyExplainLoading || !canExplain
-                }
+                disabled={isAnyExplainLoading || !canExplain}
                 aria-busy={isExplainLoading}
               >
                 {isExplainLoading && (
@@ -533,9 +510,7 @@ export function QueryEditor({
               <button
                 className={`btn ghost explain-action analyze ${styles.explainAction} ${styles.analyzeAction}`}
                 onClick={() => explain('analyze')}
-                disabled={
-                  repairReviewActive || isAnyExplainLoading || !canAnalyze
-                }
+                disabled={isAnyExplainLoading || !canAnalyze}
                 aria-busy={isAnalyzeLoading}
               >
                 {isAnalyzeLoading && (
@@ -551,7 +526,6 @@ export function QueryEditor({
             className="btn primary"
             onClick={run}
             disabled={
-              repairReviewActive ||
               metadataRefreshing ||
               !canUseDatabase ||
               running ||
@@ -585,15 +559,11 @@ export function QueryEditor({
       ) : (
         <QueryCodeEditor
           ref={editorRef}
-          value={repairReview ? (repair?.draft ?? sql) : sql}
+          value={sql}
           height="100%"
           extensions={extensions}
-          onChange={(value) =>
-            repairReview && repair
-              ? repair.setDraft(value)
-              : setSql(value, tabId)
-          }
-          editable={!isAnyExplainLoading && !repairDraftLocked}
+          onChange={(value) => setSql(value, tabId)}
+          editable={!isAnyExplainLoading}
           aria-label={
             language.kind === 'promql' ? 'PromQL editor' : 'SQL editor'
           }
