@@ -998,9 +998,7 @@ describe('Fix with AI editor review', () => {
     expect(
       screen.queryByRole('region', { name: 'AI query repair review' }),
     ).toBeNull()
-    expect(
-      screen.getByRole('button', { name: 'Fix with AI' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Fix with AI' })).toBeTruthy()
     expect(runQuery).not.toHaveBeenCalled()
   })
 
