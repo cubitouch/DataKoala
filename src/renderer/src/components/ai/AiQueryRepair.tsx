@@ -15,6 +15,8 @@ export function AiQueryRepair() {
   const ai = useAiQueryRepairController()
   if (!ai) return null
 
+  if (ai.review) return null
+
   if (ai.busy)
     return (
       <div className={styles.repairBusy} role="status">
@@ -27,9 +29,6 @@ export function AiQueryRepair() {
         </button>
       </div>
     )
-
-  if (ai.activeReview)
-    return ai.error ? <RepairFailure message={ai.error} /> : null
 
   if (!ai.visible) return null
 
