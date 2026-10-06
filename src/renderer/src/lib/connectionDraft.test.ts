@@ -13,7 +13,8 @@ const valid: ConnectionDraft = {
   database: ' analytics ',
   user: ' alice ',
   password: '  secret with spaces  ',
-  ssl: true,
+  tlsMode: 'verify-full',
+  tlsCa: '\n  -----BEGIN CERTIFICATE-----\nSYNTHETIC-TEST-CA\n-----END CERTIFICATE-----  \n',
   readonly: false,
 }
 
@@ -23,7 +24,7 @@ test('normalizes one draft consistently while preserving id, password, and flags
   if (!result.ok) return
   assert.deepEqual(result.profile, {
     kind: 'postgres',
-    version: 1,
+    version: 2,
     id: 'kept-id',
     name: 'My profile',
     host: 'db.example.com',
@@ -31,7 +32,9 @@ test('normalizes one draft consistently while preserving id, password, and flags
     database: 'analytics',
     user: 'alice',
     password: '  secret with spaces  ',
-    ssl: true,
+    tlsMode: 'verify-full',
+    tlsCa:
+      '-----BEGIN CERTIFICATE-----\nSYNTHETIC-TEST-CA\n-----END CERTIFICATE-----',
     readonly: false,
   })
 })
