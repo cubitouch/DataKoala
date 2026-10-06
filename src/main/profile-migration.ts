@@ -1,4 +1,8 @@
-import type { DataSourceProfile } from '../shared/types.ts'
+import type {
+  DataSourceProfile,
+  PostgresProfile,
+  PostgresTlsMode,
+} from '../shared/types.ts'
 
 export type StoredProfileMigration =
   | {
@@ -27,6 +31,46 @@ function isPostgresV1(stored: Record<string, unknown>): boolean {
     typeof stored.ssl === 'boolean' &&
     typeof stored.readonly === 'boolean'
   )
+}
+
+const POSTGRES_TLS_MODES = new Set<PostgresTlsMode>([
+  'disable',
+  'require',
+  'verify-ca',
+  'verify-full',
+])
+
+function isPostgresV2(stored: Record<string, unknown>): boolean {
+  return (
+    stored.kind === 'postgres' &&
+    stored.version === 2 &&
+    typeof stored.id === 'string' &&
+    typeof stored.name === 'string' &&
+    typeof stored.host === 'string' &&
+    typeof stored.port === 'number' &&
+    typeof stored.database === 'string' &&
+    typeof stored.user === 'string' &&
+    (stored.password === undefined || typeof stored.password === 'string') &&
+    typeof stored.tlsMode === 'string' &&
+    POSTGRES_TLS_MODES.has(stored.tlsMode as PostgresTlsMode) &&
+    (stored.tlsCa === undefined || typeof stored.tlsCa === 'string') &&
+    typeof stored.readonly === 'boolean'
+  )
+}
+
+function migratePostgresV1(
+  stored: Record<string, unknown>,
+): Record<string, unknown> {
+  const { ssl, ...rest } = stored
+  return {
+    ...rest,
+    version: 2,
+    tlsMode: ssl === true ? 'require' : 'disable',
+  }
+}
+
+function runtimePostgres(stored: Record<string, unknown>): PostgresProfile {
+  return { ...stored, password: '' } as unknown as PostgresProfile
 }
 
 function isLocalFilesV1(stored: Record<string, unknown>): boolean {
@@ -118,18 +162,27 @@ export function migrateStoredProfile(
   stored: Record<string, unknown>,
 ): StoredProfileMigration {
   if (stored.kind === undefined && stored.version === undefined) {
-    const migrated = { ...stored, kind: 'postgres', version: 1 }
-    if (!isPostgresV1(migrated)) return { status: 'unsupported', stored }
+    const legacy = { ...stored, kind: 'postgres', version: 1 }
+    if (!isPostgresV1(legacy)) return { status: 'unsupported', stored }
+    const migrated = migratePostgresV1(legacy)
     return {
       status: 'migrated',
-      profile: { ...migrated, password: '' } as unknown as DataSourceProfile,
+      profile: runtimePostgres(migrated),
       stored: migrated,
     }
   }
-  if (isPostgresV1(stored))
+  if (isPostgresV1(stored)) {
+    const migrated = migratePostgresV1(stored)
+    return {
+      status: 'migrated',
+      profile: runtimePostgres(migrated),
+      stored: migrated,
+    }
+  }
+  if (isPostgresV2(stored))
     return {
       status: 'current',
-      profile: { ...stored, password: '' } as unknown as DataSourceProfile,
+      profile: runtimePostgres(stored),
       stored,
     }
   if (isLocalFilesV1(stored))
