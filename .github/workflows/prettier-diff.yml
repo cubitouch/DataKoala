@@ -1,4 +1,5 @@
 name: Prettier diff diagnostic
+# temporary formatting diagnostic
 
 on:
   push:
