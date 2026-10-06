@@ -138,10 +138,10 @@ PostgreSQL TLS is explicit:
 
 | DataKoala mode         | Behavior                                              |
 | ---------------------- | ----------------------------------------------------- |
-| Disabled                | No TLS                                                 |
-| Require TLS             | Encrypted, certificate not verified                   |
-| Verify CA               | Certificate chain/CA verified; hostname not verified  |
-| Verify server identity  | Certificate chain and hostname verified               |
+| Disabled               | No TLS                                                |
+| Require TLS            | Encrypted, certificate not verified                   |
+| Verify CA              | Certificate chain/CA verified; hostname not verified  |
+| Verify server identity | Certificate chain and hostname verified               |
 
 **Verify server identity** is the recommended secure mode. **Require TLS** exists for compatibility and does not protect against an active man-in-the-middle attacker that can substitute a certificate.
 
