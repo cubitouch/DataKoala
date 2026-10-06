@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 
 const {
@@ -1103,7 +1104,10 @@ describe('Fix with AI editor review', () => {
     expect(editor.disabled).toBe(true)
     expect(editor.value).toBe(edited)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    const review = screen.getByRole('region', {
+      name: 'AI query repair review',
+    })
+    fireEvent.click(within(review).getByRole('button', { name: 'Cancel' }))
 
     await waitFor(() => expect(editor.disabled).toBe(false))
     expect(editor.value).toBe(edited)
