@@ -32,6 +32,10 @@
   margin-bottom: 10px;
 }
 
+.savedPasswordAction {
+  margin-top: 6px;
+}
+
 .field > label {
   display: block;
   font-size: 11px;

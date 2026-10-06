@@ -363,7 +363,7 @@ export function PostgresConnectionModal({
           {draft.hasPassword && (
             <button
               type="button"
-              className={['btn', 'ghost'].join(' ')}
+              className={['btn', 'ghost', styles.savedPasswordAction].join(' ')}
               onClick={() =>
                 set({
                   password: '',
