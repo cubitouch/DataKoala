@@ -314,14 +314,16 @@ describe('ConnectionModal canonical connection draft', () => {
     expect(screen.queryByLabelText('CA certificate (optional)')).toBeNull()
   })
 
-  it('pasted sslmode selects the exact TLS mode without preserving the previous mode', () => {
-    renderModal({ ...existing, tlsMode: 'require' })
+  it('pasted connection strings replace TLS mode without importing CA paths or clearing CA drafts', () => {
+    const ca =
+      '-----BEGIN CERTIFICATE-----\nSYNTHETIC-TEST-CA\n-----END CERTIFICATE-----'
+    renderModal({ ...existing, tlsMode: 'require', tlsCa: ca })
     const textarea = screen.getByLabelText('Paste a connection string')
 
     fireEvent.change(textarea, {
       target: {
         value:
-          'postgres://alice:secret@db.example:5432/reports?sslmode=verify-full',
+          'postgres://alice:secret@db.example:5432/reports?sslmode=verify-full&sslrootcert=%2Ftmp%2Froot.crt',
       },
     })
     expect(
@@ -329,16 +331,34 @@ describe('ConnectionModal canonical connection draft', () => {
         name: /TLS mode:.*Verify server identity/i,
       }),
     ).toBeTruthy()
+    expect(screen.getByLabelText('CA certificate (optional)')).toHaveProperty(
+      'value',
+      ca,
+    )
+    expect(
+      screen.getByText(/sslrootcert file paths are not imported/i),
+    ).toBeTruthy()
+
+    fireEvent.change(textarea, {
+      target: {
+        value: 'postgres://alice:secret@db.example:5432/reports',
+      },
+    })
+    expect(
+      screen.getByRole('combobox', { name: /TLS mode:.*Disabled/i }),
+    ).toBeTruthy()
+    expect(screen.queryByLabelText('CA certificate (optional)')).toBeNull()
 
     fireEvent.change(textarea, {
       target: {
         value:
-          'postgres://alice:secret@db.example:5432/reports?sslmode=require',
+          'postgres://alice:secret@db.example:5432/reports?sslmode=verify-ca',
       },
     })
-    expect(
-      screen.getByRole('combobox', { name: /TLS mode:.*Require TLS/i }),
-    ).toBeTruthy()
+    expect(screen.getByLabelText('CA certificate (optional)')).toHaveProperty(
+      'value',
+      ca,
+    )
   })
 
   it('Test and Save receive exact TLS mode and CA while previews never expose CA material', async () => {
