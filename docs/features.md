@@ -33,7 +33,6 @@ DataKoala supports saved PostgreSQL connection profiles with:
 
 Connections are read-only by default. For PostgreSQL, this is enforced by the database session through default transaction read-only mode rather than by attempting to recognize mutating SQL text. Read-only mode can be disabled explicitly for an individual profile.
 
-
 Saved PostgreSQL passwords are encrypted through Electron's OS-backed secure storage and are resolved only in the main process when a connection is tested or opened. Ordinary profile metadata remains in `connections.json`; renderer-facing profiles expose only credential presence/state and never the persisted password. If secure storage is unavailable, DataKoala refuses to persist a new password rather than falling back to plaintext. Passwordless proxy, IAM, `.pgpass`, and trust-based connections remain supported.
 
 PostgreSQL TLS can be **Disabled**, **Require TLS** (encrypted but certificate not verified), **Verify CA** (CA/chain verification without hostname verification), or **Verify server identity** (CA/chain plus hostname verification). Verify server identity is the recommended secure mode. A blank CA field uses system trusted roots; a populated field supplies a PEM CA certificate/bundle and must not contain private-key material. Pasted `sslmode=disable|require|verify-ca|verify-full` values map to these modes. Libpq `allow` and `prefer` are treated as TLS-required compatibility modes with a warning rather than allowing plaintext fallback.
