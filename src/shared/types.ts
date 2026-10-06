@@ -21,6 +21,11 @@ export type ConnectionFailureKind =
   | 'server-unavailable'
   | 'unknown'
 
+export type QueryFailureKind = 'query' | 'connection' | 'validation'
+export type QueryRunResponse =
+  | { ok: true; result: QueryResult }
+  | { ok: false; kind: QueryFailureKind; message: string }
+
 export interface ConnectionStateEvent {
   profileId: ConnectionId
   state: ConnectionLifecycleState

@@ -500,13 +500,14 @@ app.whenReady().then(async () => {
     async (_event, _id, query) => query,
   )
   ipcMain.handle('connections:tempo:attributes', async () => [])
-  ipcMain.handle('query:run', async (_event, _connectionId, query) =>
-    densePreview
+  ipcMain.handle('query:run', async (_event, _connectionId, query) => ({
+    ok: true,
+    result: densePreview
       ? (previewDenseTraceResultForId(String(query).trim()) ??
         previewDenseTraceSearchResult)
       : (previewTraceResultForId(String(query).trim()) ??
         previewTraceSearchResult),
-  )
+  }))
 
   const win = new BrowserWindow({
     width: 1440,

@@ -209,10 +209,13 @@ app.whenReady().then(async () => {
     value: { provider: 'openrouter', model: '', hasApiKey: false },
   }))
   ipcMain.handle('query:run', async () => ({
-    columns: [],
-    rows: [],
-    rowCount: 0,
-    durationMs: 0,
+    ok: true,
+    result: {
+      columns: [],
+      rows: [],
+      rowCount: 0,
+      durationMs: 0,
+    },
   }))
 
   const win = new BrowserWindow({

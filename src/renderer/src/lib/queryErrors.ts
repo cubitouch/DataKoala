@@ -1,5 +1,20 @@
 const fallbackMessage = 'The query could not be completed. Please try again.'
 
+export class QueryExecutionError extends Error {
+  readonly kind: import('@shared/types').QueryFailureKind
+  constructor(kind: import('@shared/types').QueryFailureKind, message: string) {
+    super(message)
+    this.name = 'QueryExecutionError'
+    this.kind = kind
+  }
+}
+
+export function isRepairableQueryExecutionError(
+  error: unknown,
+): error is QueryExecutionError {
+  return error instanceof QueryExecutionError && error.kind === 'query'
+}
+
 export function queryErrorMessage(error: unknown): string {
   let message =
     typeof error === 'string'
@@ -37,6 +52,7 @@ export async function withQueryErrors<T>(
   try {
     return await execute()
   } catch (error) {
+    if (error instanceof QueryExecutionError) throw error
     // Preserve the original transport error for diagnostics without logging query arguments.
     console.error('Query execution failed', error)
     throw new Error(queryErrorMessage(error), { cause: error })

@@ -37,6 +37,7 @@ const contextRequestWire = {
 }
 const request: AiQueryProposalRequest = {
   requestId: 'req',
+  intent: 'generate',
   prompt: 'count orders',
   context: { language: { kind: 'sql', dialect: 'postgres' }, relations: [] },
 }
@@ -507,4 +508,20 @@ test('IPC validation allowlists metadata and rejects oversized or unsupported co
       },
     }),
   )
+})
+
+test('repair validation enforces intent and sanitizes error context again', () => {
+  const clean = proposalRequest({
+    requestId: 'repair',
+    intent: 'repair',
+    currentQuery: 'SELECT device_id FROM orders',
+    error:
+      'ERROR: column orders.device_id does not exist SQLSTATE 42703 password=hunter2',
+    context: request.context,
+  })
+  assert.equal(clean.intent, 'repair')
+  assert.match(clean.error ?? '', /SQLSTATE 42703/)
+  assert.equal(clean.error?.includes('hunter2'), false)
+  assert.throws(() => proposalRequest({ ...request, intent: 'repair' }))
+  assert.throws(() => proposalRequest({ ...request, error: 'not allowed' }))
 })

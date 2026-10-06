@@ -24,8 +24,10 @@ export interface AiQueryContext {
 }
 export interface AiQueryProposalRequest {
   requestId: string
-  prompt: string
+  intent: 'generate' | 'repair'
+  prompt?: string
   currentQuery?: string
+  error?: string
   context: AiQueryContext
 }
 export interface AiQueryProposal {
@@ -62,6 +64,7 @@ export const AI_LIMITS = {
   initialContextCharacters: 18000,
   prompt: 8000,
   query: 40000,
+  errorCharacters: 6000,
   contextRequestTerms: 5,
   contextRequestTermCharacters: 80,
   contextRequestReason: 1000,

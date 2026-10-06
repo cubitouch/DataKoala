@@ -89,6 +89,7 @@ import {
   resetTestStore,
 } from '@test/sessionTestUtils'
 import { useStore } from '@store/useStore'
+import { QueryExecutionError } from '@lib/queryErrors'
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void
@@ -492,6 +493,131 @@ afterEach(() => {
 })
 
 describe('QueryEditor Explain loading states', () => {
+  it('records sanitized provenance only after a PostgreSQL datasource rejection', async () => {
+    resetTestStore({
+      profiles: [
+        {
+          kind: 'postgres',
+          version: 2,
+          id: 'pg',
+          name: 'PG',
+          host: 'localhost',
+          port: 5432,
+          database: 'db',
+          user: 'user',
+          password: '',
+          tlsMode: 'disable',
+          readonly: true,
+        },
+      ],
+      activeProfileId: 'pg',
+      connected: true,
+      connecting: false,
+      connectionStatus: 'connected',
+    })
+    const sql = 'SELECT device_id FROM orders'
+    patchActiveTestSession({ connectionProfileId: 'pg', sql, queryMode: 'sql' })
+    runQuery.mockRejectedValue(
+      new QueryExecutionError(
+        'query',
+        'ERROR: column orders.device_id does not exist password=hunter2 /Users/alice/private.sql',
+      ),
+    )
+    render(<QueryEditor />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() =>
+      expect(activeTestSession().queryError).toContain('hunter2'),
+    )
+    expect(activeTestSession().repairableQueryError?.query).toBe(sql)
+    expect(activeTestSession().repairableQueryError?.error).not.toMatch(
+      /hunter2|\/Users\/alice/,
+    )
+  })
+  it('does not record repair provenance for a classified connection failure', async () => {
+    resetTestStore({
+      profiles: [
+        {
+          kind: 'postgres',
+          version: 2,
+          id: 'pg',
+          name: 'PG',
+          host: 'localhost',
+          port: 5432,
+          database: 'db',
+          user: 'user',
+          password: '',
+          tlsMode: 'disable',
+          readonly: true,
+        },
+      ],
+      activeProfileId: 'pg',
+      connected: true,
+      connecting: false,
+      connectionStatus: 'connected',
+    })
+    patchActiveTestSession({
+      connectionProfileId: 'pg',
+      sql: 'SELECT device_id FROM orders',
+      queryMode: 'sql',
+    })
+    runQuery.mockRejectedValue(
+      new QueryExecutionError('connection', 'opaque reconnect failure'),
+    )
+    render(<QueryEditor />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() =>
+      expect(activeTestSession().queryError).toBe('opaque reconnect failure'),
+    )
+    expect(activeTestSession().repairableQueryError).toBeNull()
+  })
+  it('does not offer AI repair for a local read-only validation failure', async () => {
+    aiSettingsGet.mockResolvedValue({
+      ok: true,
+      value: {
+        provider: 'openrouter',
+        model: 'vendor/model',
+        hasApiKey: true,
+      },
+    })
+    resetTestStore({
+      profiles: [
+        {
+          kind: 'postgres',
+          version: 2,
+          id: 'pg',
+          name: 'PG',
+          host: 'localhost',
+          port: 5432,
+          database: 'db',
+          user: 'user',
+          password: '',
+          tlsMode: 'disable',
+          readonly: true,
+        },
+      ],
+      activeProfileId: 'pg',
+      connected: true,
+      connecting: false,
+      connectionStatus: 'connected',
+    })
+    const sql = 'DELETE FROM orders'
+    patchActiveTestSession({ connectionProfileId: 'pg', sql, queryMode: 'sql' })
+    runQuery.mockRejectedValue(
+      new QueryExecutionError(
+        'validation',
+        'Connection is read-only, so "DELETE" is not allowed.',
+      ),
+    )
+
+    render(<QueryEditor />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+
+    await waitFor(() =>
+      expect(activeTestSession().queryError).toMatch(/read-only.*DELETE/i),
+    )
+    expect(activeTestSession().repairableQueryError).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Fix with AI' })).toBeNull()
+  })
   it('follows datasource capabilities when the active tab changes', () => {
     resetTestStore({
       profiles: [

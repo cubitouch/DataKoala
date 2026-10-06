@@ -94,7 +94,12 @@ export function AiQueryCopilot() {
                     <button
                       type="button"
                       className="btn primary"
-                      disabled={ai.busy || ai.review.stale}
+                      disabled={
+                        ai.busy ||
+                        ai.review.stale ||
+                        ai.review.input.snapshot.query ===
+                          ai.review.proposal.query
+                      }
                       onClick={ai.apply}
                     >
                       Apply

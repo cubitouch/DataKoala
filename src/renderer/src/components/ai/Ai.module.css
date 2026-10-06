@@ -25,6 +25,61 @@
   gap: 8px;
 }
 
+.repairControl {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.repairBusy {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.repairBusyLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.repairFailure {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
+  margin-top: 2px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--border));
+  border-left-color: color-mix(in srgb, var(--amber) 62%, var(--border));
+  border-radius: 6px;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--amber) 7%, var(--bg-2));
+  font-family: var(--sans);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.repairFailure strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--amber);
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.repairReview {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
+  margin-top: 2px;
+}
+
 .notice {
   font-size: 12px;
   line-height: 1.5;
@@ -102,7 +157,10 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 12px;
+}
+
+.copilot > .review {
+  margin-top: 8px;
 }
 
 .reviewBody {
@@ -116,6 +174,20 @@
   border: 1px solid var(--border);
   border-radius: 5px;
   font: 12px/1.5 var(--mono);
+}
+
+.noDiff {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  color: var(--text-dim);
+  font: 12px/1.5 var(--sans);
+}
+
+.noDiff strong {
+  color: var(--text);
+  font-size: 12px;
 }
 
 .diffLine {
@@ -369,4 +441,17 @@
 .contextCount {
   color: var(--text-dim);
   font-size: 11px;
+}
+
+@container result-pane (max-width: 520px) {
+  .repairControl,
+  .repairBusy {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .repairBusy {
+    flex-wrap: wrap;
+  }
 }

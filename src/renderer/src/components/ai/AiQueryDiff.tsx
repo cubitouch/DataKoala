@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { queryDiff } from '@lib/ai/queryDiff'
 import styles from './Ai.module.css'
+
 export function AiQueryDiff({
   before,
   after,
@@ -9,36 +10,56 @@ export function AiQueryDiff({
   after: string
 }) {
   const diff = useMemo(() => queryDiff(before, after), [before, after])
+  const hasChanges = diff.some(
+    (line) => line.kind === 'add' || line.kind === 'remove',
+  )
+
   return (
     <div className={styles.diff} role="region" aria-label="SQL proposal diff">
-      {diff.slice(0, 400).map((line, index) => (
-        <div key={index} data-diff-kind={line.kind} className={styles.diffLine}>
-          <span
-            className={styles.diffMarker}
-            aria-label={
-              line.kind === 'add'
-                ? 'Added'
-                : line.kind === 'remove'
-                  ? 'Removed'
-                  : 'Unchanged'
-            }
-          >
-            {line.kind === 'add' ? '+' : line.kind === 'remove' ? '−' : ' '}
+      {!hasChanges ? (
+        <div className={styles.noDiff} role="status">
+          <strong>No SQL changes proposed</strong>
+          <span>
+            AI did not propose any SQL changes for this request. Try adding a
+            little more detail about what you want the query to do.
           </span>
-          <code>{line.text || ' '}</code>
         </div>
-      ))}
-      {diff.length > 400 && (
-        <p>
-          Diff preview limited to 400 lines. The complete proposed SQL is shown
-          below.
-        </p>
-      )}
-      {diff.length > 400 && (
-        <details>
-          <summary>Complete proposed SQL</summary>
-          <pre>{after}</pre>
-        </details>
+      ) : (
+        <>
+          {diff.slice(0, 400).map((line, index) => (
+            <div
+              key={index}
+              data-diff-kind={line.kind}
+              className={styles.diffLine}
+            >
+              <span
+                className={styles.diffMarker}
+                aria-label={
+                  line.kind === 'add'
+                    ? 'Added'
+                    : line.kind === 'remove'
+                      ? 'Removed'
+                      : 'Unchanged'
+                }
+              >
+                {line.kind === 'add' ? '+' : line.kind === 'remove' ? '−' : ' '}
+              </span>
+              <code>{line.text || ' '}</code>
+            </div>
+          ))}
+          {diff.length > 400 && (
+            <p>
+              Diff preview limited to 400 lines. The complete proposed SQL is
+              shown below.
+            </p>
+          )}
+          {diff.length > 400 && (
+            <details>
+              <summary>Complete proposed SQL</summary>
+              <pre>{after}</pre>
+            </details>
+          )}
+        </>
       )}
     </div>
   )

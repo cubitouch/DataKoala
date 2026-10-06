@@ -1,5 +1,12 @@
 import { TextInput } from '@components/ui/TextInput'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { isTimeType, type QueryResult } from '@shared/types'
 import { resultCellValue, resultColumnKey } from '@shared/query-result'
 import { copyTextToClipboard } from '@lib/clipboardText'
@@ -51,6 +58,7 @@ export interface ResultsTableProps {
   resultRevision?: number
   running: boolean
   error: string | null
+  errorAction?: ReactNode
   onAddFilter: (filter: ResultFilter) => void
   onRemoveFilter: (id: string) => void
   onClearFilters: () => void
@@ -70,6 +78,7 @@ export function ResultsTable({
   resultRevision = 0,
   running,
   error,
+  errorAction,
   onAddFilter,
   onRemoveFilter,
   onClearFilters,
@@ -285,8 +294,13 @@ export function ResultsTable({
   if (error)
     return (
       <div className={styles.pane} data-result-table-pane>
-        <div className={styles.error} role="alert">
-          {error}
+        <div className={styles.error}>
+          <div className={styles.errorMessage} role="alert">
+            {error}
+          </div>
+          {errorAction && (
+            <div className={styles.errorAction}>{errorAction}</div>
+          )}
         </div>
       </div>
     )

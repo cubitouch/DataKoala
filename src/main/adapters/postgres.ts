@@ -42,6 +42,13 @@ export class DatabaseConnectionError extends Error {
   }
 }
 
+export class QueryValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'QueryValidationError'
+  }
+}
+
 export function onConnectionStateChanged(
   listener: (event: ConnectionStateEvent) => void,
 ): void {
@@ -209,7 +216,7 @@ function assertReadonly(p: ConnectionProfile, sql: string): void {
   if (!p.readonly) return
   const kw = leadingKeyword(sql)
   if (kw && !READ_ONLY_STARTERS.has(kw)) {
-    throw new Error(
+    throw new QueryValidationError(
       `Connection is read-only, so "${kw.toUpperCase()}" is not allowed. ` +
         'Toggle "read-only" off in the connection profile if you really mean to write.',
     )
@@ -498,6 +505,9 @@ async function withClient<T>(
 
 /** Narrow dependency seam and read-only diagnostics for lifecycle tests. */
 export const __testing = {
+  assertReadonly(profile: ConnectionProfile, sql: string): void {
+    assertReadonly(profile, sql)
+  },
   postgresTlsConfig,
   buildPoolConfig,
   setPoolFactory(factory: (config: PoolConfig) => Pool): void {

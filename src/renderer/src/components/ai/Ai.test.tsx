@@ -42,6 +42,7 @@ vi.mock('@lib/relationColumns', () => ({
 import { AiSettingsAction } from './AiSettingsAction'
 import { AiSettingsModal } from './AiSettingsModal'
 import { AiQueryCopilot } from './AiQueryCopilot'
+import { AiQueryRepair } from './AiQueryRepair'
 import {
   patchActiveTestSession,
   resetTestStore,
@@ -312,6 +313,103 @@ test('provider errors remain visible and unconfigured copilot stays hidden', asy
   expect(screen.queryByLabelText('SQL AI copilot')).toBeNull()
 })
 
+test('Ask AI uses retry-friendly copy for an invalid structured response', async () => {
+  mocks.propose
+    .mockResolvedValueOnce({
+      ok: false,
+      code: 'invalid-response',
+      message:
+        'The model returned an invalid query step. Try again or choose another model.',
+    })
+    .mockResolvedValueOnce(
+      ok({ kind: 'proposal', proposal: proposed } as AiQueryStep),
+    )
+
+  render(<AiQueryCopilot />)
+  const input = await screen.findByRole('textbox', { name: 'AI prompt' })
+  fireEvent.change(input, { target: { value: 'fix it' } })
+  await waitFor(() =>
+    expect(
+      (screen.getByRole('button', { name: 'Ask' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
+
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toContain(
+    "AI couldn't produce a usable query from that request.",
+  )
+  expect(alert.textContent).toContain(
+    'Try adding a little more detail about what you want the query to do.',
+  )
+  expect(alert.textContent).not.toMatch(/invalid query step/i)
+  expect(alert.textContent).not.toMatch(/choose another model/i)
+  expect((input as HTMLInputElement).value).toBe('fix it')
+  expect(selectActiveSession(useStore.getState()).sql).toBe('')
+  expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+  expect(mocks.run).not.toHaveBeenCalled()
+
+  fireEvent.change(input, {
+    target: { value: 'count all orders grouped by country' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
+  expect(await screen.findByRole('button', { name: 'Apply' })).toBeTruthy()
+  expect((input as HTMLInputElement).value).toBe(
+    'count all orders grouped by country',
+  )
+})
+
+test('Ask AI preserves genuine model/settings guidance', async () => {
+  mocks.propose.mockResolvedValueOnce({
+    ok: false,
+    code: 'model',
+    message:
+      'This model is unavailable or does not support structured output. Choose another model in AI settings.',
+  })
+
+  render(<AiQueryCopilot />)
+  await generate()
+
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toContain(
+    'This model is unavailable or does not support structured output.',
+  )
+  expect(alert.textContent).toContain('Choose another model in AI settings.')
+  expect(alert.textContent).not.toContain(
+    "AI couldn't produce a usable query from that request.",
+  )
+})
+
+test('Ask AI maps invalid response from discovery retry to friendly copy', async () => {
+  setDiscoveryMetadata()
+  mocks.propose
+    .mockResolvedValueOnce(ok(contextRequest()))
+    .mockResolvedValueOnce({
+      ok: false,
+      code: 'invalid-response',
+      message:
+        'The model returned an invalid query step. Try again or choose another model.',
+    })
+
+  render(<AiQueryCopilot />)
+  await generate()
+
+  const alert = await screen.findByRole('alert')
+  expect(mocks.propose).toHaveBeenCalledTimes(2)
+  expect(alert.textContent).toContain(
+    "AI couldn't produce a usable query from that request.",
+  )
+  expect(alert.textContent).toContain(
+    'Try adding a little more detail about what you want the query to do.',
+  )
+  expect(alert.textContent).not.toMatch(/invalid query step/i)
+  expect(alert.textContent).not.toMatch(/choose another model/i)
+  expect(selectActiveSession(useStore.getState()).sql).toBe('')
+  expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
 test('inline composer submits on Enter, reports loading, and prevents parent Run shortcuts', async () => {
   mocks.propose.mockReturnValue(new Promise(() => {}))
   const parentShortcut = vi.fn()
@@ -400,6 +498,190 @@ test('empty editor diff is all additions and Apply clears the prompt', async () 
       .value,
   ).toBe('')
 })
+
+test('unchanged Ask AI proposal shows guidance instead of an empty diff', async () => {
+  const sql = 'SELECT id FROM public.orders'
+  patchActiveTestSession({ sql })
+  mocks.propose.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        ...proposed,
+        query: sql,
+      },
+    } as AiQueryStep),
+  )
+
+  render(<AiQueryCopilot />)
+  await generate()
+
+  const diff = await screen.findByRole('region', { name: 'SQL proposal diff' })
+  expect(screen.getByText('No SQL changes proposed')).toBeTruthy()
+  expect(
+    screen.getByText(
+      /AI did not propose any SQL changes for this request.*Try adding a little more detail/s,
+    ),
+  ).toBeTruthy()
+  expect(diff.querySelector('[data-diff-kind="add"]')).toBeNull()
+  expect(diff.querySelector('[data-diff-kind="remove"]')).toBeNull()
+  expect(
+    (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true)
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+  expect(selectActiveSession(useStore.getState()).sql).toBe(sql)
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
+test('Fix with AI sends sanitized provenance and Apply changes SQL without running it', async () => {
+  const failed = 'SELECT device_id FROM public.orders'
+  const safeError =
+    'ERROR: column orders.device_id does not exist LINE 4 Position: 87 SQLSTATE 42703 password=[REDACTED]'
+  patchActiveTestSession({
+    sql: failed,
+    queryMode: 'sql',
+    queryError: `${safeError} password=hunter2`,
+    repairableQueryError: { query: failed, error: safeError },
+  })
+  render(<AiQueryRepair />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+  await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
+  expect(mocks.propose).toHaveBeenCalledWith(
+    expect.objectContaining({
+      intent: 'repair',
+      currentQuery: failed,
+      error: safeError,
+    }),
+  )
+  expect(mocks.propose.mock.calls[0][0]).not.toHaveProperty('prompt')
+  expect(JSON.stringify(mocks.propose.mock.calls[0][0])).not.toContain(
+    'hunter2',
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
+  expect(screen.queryByRole('region', { name: 'Prompt' })).toBeNull()
+  expect(
+    screen.getByRole('region', { name: 'Failed SQL' }).textContent,
+  ).toContain(failed)
+  fireEvent.keyDown(document, { key: 'Escape' })
+  fireEvent.click(await screen.findByRole('button', { name: 'Apply' }))
+  expect(selectActiveSession(useStore.getState()).sql).toBe(proposed.query)
+  expect(
+    selectActiveSession(useStore.getState()).repairableQueryError,
+  ).toBeNull()
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
+test('Fix with AI keeps the SQL failure primary before repair starts', async () => {
+  const failed = 'SELECT device_id FROM public.orders'
+  patchActiveTestSession({
+    sql: failed,
+    queryMode: 'sql',
+    queryError: 'ERROR: column orders.device_id does not exist',
+    repairableQueryError: {
+      query: failed,
+      error: 'ERROR: column orders.device_id does not exist',
+    },
+  })
+
+  render(<AiQueryRepair />)
+
+  expect(
+    await screen.findByRole('button', { name: 'Fix with AI' }),
+  ).toBeTruthy()
+  expect(screen.queryByText('AI repair')).toBeNull()
+})
+
+test('Fix with AI shows a compact cancellable busy state', async () => {
+  const failed = 'SELECT device_id FROM public.orders'
+  patchActiveTestSession({
+    sql: failed,
+    queryMode: 'sql',
+    queryError: 'ERROR: column orders.device_id does not exist',
+    repairableQueryError: {
+      query: failed,
+      error: 'ERROR: column orders.device_id does not exist',
+    },
+  })
+  const pending = deferred<AiResult<AiQueryStep>>()
+  mocks.propose.mockReturnValue(pending.promise)
+
+  render(<AiQueryRepair />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+
+  expect(await screen.findByText('Fixing with AI…')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Fix with AI' })).toBeNull()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+})
+
+test('invalid repair response uses retry-friendly copy and preserves retry', async () => {
+  const failed = 'SELECT device_id FROM public.orders'
+  patchActiveTestSession({
+    sql: failed,
+    queryMode: 'sql',
+    queryError: 'ERROR: column orders.device_id does not exist',
+    repairableQueryError: {
+      query: failed,
+      error: 'ERROR: column orders.device_id does not exist',
+    },
+  })
+  mocks.propose
+    .mockResolvedValueOnce({
+      ok: false,
+      code: 'invalid-response',
+      message:
+        'The model returned an invalid query step. Try again or choose another model.',
+    })
+    .mockResolvedValueOnce(
+      ok({ kind: 'proposal', proposal: proposed } as AiQueryStep),
+    )
+
+  render(<AiQueryRepair />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+
+  expect(await screen.findByText('AI repair')).toBeTruthy()
+  expect(
+    screen.getByText(/AI couldn't produce a usable repair this time/),
+  ).toBeTruthy()
+  expect(screen.getByText(/Your query was not changed/)).toBeTruthy()
+  expect(screen.queryByText(/invalid query step/i)).toBeNull()
+  expect(screen.queryByText(/choose another model/i)).toBeNull()
+  expect(selectActiveSession(useStore.getState()).sql).toBe(failed)
+  expect(
+    selectActiveSession(useStore.getState()).repairableQueryError,
+  ).not.toBeNull()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Fix with AI' }))
+  expect(await screen.findByText('Proposed fix')).toBeTruthy()
+})
+
+test('model repair failure preserves model/settings guidance', async () => {
+  const failed = 'SELECT device_id FROM public.orders'
+  patchActiveTestSession({
+    sql: failed,
+    queryMode: 'sql',
+    queryError: 'ERROR: column orders.device_id does not exist',
+    repairableQueryError: {
+      query: failed,
+      error: 'ERROR: column orders.device_id does not exist',
+    },
+  })
+  mocks.propose.mockResolvedValueOnce({
+    ok: false,
+    code: 'model',
+    message:
+      'This model is unavailable or does not support structured output. Choose another model in AI settings.',
+  })
+
+  render(<AiQueryRepair />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+
+  expect(await screen.findByText('AI repair')).toBeTruthy()
+  expect(screen.getByText(/Choose another model in AI settings/)).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Fix with AI' })).toBeTruthy()
+})
+
 test('Try again keeps previous diff pending, uses latest SQL and replaces only on response', async () => {
   render(<AiQueryCopilot />)
   await generate()
@@ -628,6 +910,45 @@ test('cancelling during metadata expansion prevents the retry provider call', as
   )
   await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
   expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+})
+
+test('cancelling repair during metadata expansion cannot restore late state', async () => {
+  setDiscoveryMetadata()
+  const failed = 'SELECT device_id FROM public.orders'
+  patchActiveTestSession({
+    sql: failed,
+    queryMode: 'sql',
+    queryError: 'ERROR: column orders.device_id does not exist',
+    repairableQueryError: {
+      query: failed,
+      error: 'ERROR: column orders.device_id does not exist',
+    },
+  })
+  const deviceColumns =
+    deferred<Array<{ name: string; dataTypeName: string }>>()
+  mocks.columns.mockImplementation(
+    async (_profileId: string, relation: { name: string }) =>
+      relation.name === 'zy_devices'
+        ? deviceColumns.promise
+        : [{ name: 'id', dataTypeName: 'uuid' }],
+  )
+  mocks.propose.mockResolvedValueOnce(ok(contextRequest()))
+  render(<AiQueryRepair />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+  await waitFor(() =>
+    expect(
+      mocks.columns.mock.calls.some((call) => call[1].name === 'zy_devices'),
+    ).toBe(true),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  await act(async () =>
+    deviceColumns.resolve([{ name: 'device_id', dataTypeName: 'uuid' }]),
+  )
+  await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
+  expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.queryByText(/no undisclosed matching relation/i)).toBeNull()
+  expect(screen.getByRole('button', { name: 'Fix with AI' })).toBeTruthy()
 })
 
 for (const change of ['query', 'tab', 'connection'] as const) {

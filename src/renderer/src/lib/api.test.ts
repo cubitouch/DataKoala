@@ -34,7 +34,7 @@ it.each(Object.keys(query) as Array<keyof typeof query>)(
 
 it('forwards run arguments, progress callback and result unchanged', async () => {
   const result = { columns: [], rows: [], rowCount: 0, durationMs: 1 }
-  query.run.mockResolvedValueOnce(result)
+  query.run.mockResolvedValueOnce({ ok: true, result })
   const { api } = await import('@lib/api')
   const progress = vi.fn()
   const request = { start: '2026-09-28T00:00:00Z', end: '2026-09-28T01:00:00Z' }
@@ -49,4 +49,27 @@ it('forwards run arguments, progress callback and result unchanged', async () =>
     progress,
     true,
   )
+})
+
+it('preserves structured query versus connection failure classification', async () => {
+  query.run
+    .mockResolvedValueOnce({
+      ok: false,
+      kind: 'query',
+      message: 'column does not exist',
+    })
+    .mockResolvedValueOnce({
+      ok: false,
+      kind: 'connection',
+      message: 'opaque connection failure',
+    })
+  const { api } = await import('@lib/api')
+  await expect(api.query.run('pg', 'select bad')).rejects.toMatchObject({
+    kind: 'query',
+    message: 'column does not exist',
+  })
+  await expect(api.query.run('pg', 'select 1')).rejects.toMatchObject({
+    kind: 'connection',
+    message: 'opaque connection failure',
+  })
 })

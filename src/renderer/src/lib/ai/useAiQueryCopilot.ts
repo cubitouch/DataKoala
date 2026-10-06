@@ -1,42 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@lib/api'
 import {
-  appendAiContext,
-  buildAiContext,
-  expandAiRelations,
-  selectAiRelations,
-} from './context'
-import { ensureRelationColumns } from '@lib/relationColumns'
+  captureAiQuerySnapshot as capture,
+  expandAiQueryContext as expand,
+  matchesAiQuerySnapshot as matches,
+  noAiMetadataMatchMessage as noMatchMessage,
+  prepareAiQueryContext as prepare,
+  secondAiContextRequestMessage as secondRequestMessage,
+  type AiPreparedContext as Prepared,
+  type AiQuerySnapshot as Snapshot,
+} from './workflow'
 import { selectActiveSession, useStore } from '@store/useStore'
 import {
   AI_LIMITS,
   isAiConfigured,
-  type AiContextRequest,
-  type AiQueryContext,
+  type AiErrorCode,
   type AiQueryProposal,
 } from '@shared/ai'
-interface Snapshot {
-  tabId: string
-  profileId: string | null
-  query: string
-}
-const capture = (): Snapshot => {
-  const tab = selectActiveSession(useStore.getState())
-  return { tabId: tab.id, profileId: tab.connectionProfileId, query: tab.sql }
-}
-const matches = (a: Snapshot, b: Snapshot) =>
-  a.tabId === b.tabId && a.profileId === b.profileId && a.query === b.query
-interface AiDiscoveryDetails {
-  initialContext: AiQueryContext
-  request: AiContextRequest
-  addedRelations: string[]
-}
-interface Prepared {
-  snapshot: Snapshot
-  prompt: string
-  context: AiQueryContext
-  discovery?: AiDiscoveryDetails
-}
+const copilotErrorMessage = (code: AiErrorCode, message: string) =>
+  code === 'invalid-response'
+    ? "AI couldn't produce a usable query from that request. Try adding a little more detail about what you want the query to do."
+    : message
+
 interface Review {
   input: Prepared
   proposal: AiQueryProposal
@@ -48,68 +33,6 @@ interface Flight {
   stale: boolean
   sent: boolean
 }
-async function prepare(snapshot: Snapshot, prompt: string): Promise<Prepared> {
-  if (!snapshot.profileId) throw new Error('No PostgreSQL connection selected.')
-  const schemas =
-    useStore.getState().metadataByProfileId[snapshot.profileId]?.schemas ?? []
-  const context = await buildAiContext(
-    selectAiRelations(schemas, prompt, snapshot.query),
-    (relation) => ensureRelationColumns(snapshot.profileId!, relation),
-  )
-  return { snapshot, prompt, context }
-}
-async function expand(
-  input: Prepared,
-  request: AiContextRequest,
-): Promise<Prepared> {
-  if (!input.snapshot.profileId)
-    throw new Error('No PostgreSQL connection selected.')
-  const schemas =
-    useStore.getState().metadataByProfileId[input.snapshot.profileId]
-      ?.schemas ?? []
-  const candidates = expandAiRelations(
-    schemas,
-    request.searchTerms,
-    input.snapshot.query,
-    input.context.relations,
-  )
-  const requested: Prepared = {
-    ...input,
-    discovery: {
-      initialContext: input.context,
-      request,
-      addedRelations: [],
-    },
-  }
-  if (!candidates.length) return requested
-  const context = await appendAiContext(input.context, candidates, (relation) =>
-    ensureRelationColumns(input.snapshot.profileId!, relation),
-  )
-  const before = new Set(
-    input.context.relations.map(
-      (relation) => `${relation.schema}.${relation.name}`,
-    ),
-  )
-  return {
-    ...input,
-    context,
-    discovery: {
-      ...requested.discovery!,
-      addedRelations: context.relations
-        .filter(
-          (relation) => !before.has(`${relation.schema}.${relation.name}`),
-        )
-        .map((relation) => `${relation.schema}.${relation.name}`),
-    },
-  }
-}
-const requestedConcepts = (request: AiContextRequest) =>
-  request.searchTerms.map((term) => `“${term}”`).join(', ')
-const noMatchMessage = (request: AiContextRequest) =>
-  `AI requested more metadata for ${requestedConcepts(request)} (${request.reason}), but DataKoala found no undisclosed matching relation within the metadata budget. Make the prompt more specific or mention the relevant table.`
-const secondRequestMessage = (request: AiContextRequest) =>
-  `AI still needs more metadata for ${requestedConcepts(request)} (${request.reason}) after one discovery step. DataKoala stops after one expansion. Make the prompt more specific or mention the relevant table or columns.`
-
 export function useAiQueryCopilot() {
   const [prompt, setPrompt] = useState(''),
     [configured, setConfigured] = useState<boolean | null>(null)
@@ -267,6 +190,7 @@ export function useAiQueryCopilot() {
         active.sent = true
         return api.ai.proposeQuery({
           requestId: active.id,
+          intent: 'generate',
           prompt: requestInput.prompt,
           ...(requestInput.snapshot.query.trim()
             ? { currentQuery: requestInput.snapshot.query }
@@ -277,7 +201,8 @@ export function useAiQueryCopilot() {
       const first = await callProvider(input)
       if (!first || !mounted.current || flight.current !== active) return
       if (!first.ok) {
-        if (first.code !== 'cancelled') setError(first.message)
+        if (first.code !== 'cancelled')
+          setError(copilotErrorMessage(first.code, first.message))
         return
       }
       if (first.value.kind === 'proposal') {
@@ -303,7 +228,8 @@ export function useAiQueryCopilot() {
       const second = await callProvider(expanded)
       if (!second || !mounted.current || flight.current !== active) return
       if (!second.ok) {
-        if (second.code !== 'cancelled') setError(second.message)
+        if (second.code !== 'cancelled')
+          setError(copilotErrorMessage(second.code, second.message))
         return
       }
       if (second.value.kind === 'context-request') {
