@@ -229,7 +229,7 @@ export function useAiQueryRepair() {
       }
     }
   }
-  const apply = (query: string) => {
+  const apply = () => {
     const current = reviewRef.current
     if (
       flight.current ||
@@ -243,7 +243,9 @@ export function useAiQueryRepair() {
       })
     )
       return false
-    useStore.getState().setSql(query, current.input.snapshot.tabId)
+    useStore
+      .getState()
+      .setSql(current.proposal.query, current.input.snapshot.tabId)
     updateReview(null)
     return true
   }
