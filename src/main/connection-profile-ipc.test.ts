@@ -73,10 +73,7 @@ function legacyPostgres(password: string) {
 }
 
 function asPostgres(value: unknown): PostgresProfile {
-  assert.equal(
-    (value as DataSourceProfile | undefined)?.kind,
-    'postgres',
-  )
+  assert.equal((value as DataSourceProfile | undefined)?.kind, 'postgres')
   return value as PostgresProfile
 }
 
@@ -153,10 +150,7 @@ test('credential migration retry IPC returns only sanitized credential state', a
     assert.equal(retried.hasPassword, true)
     assert.equal(retried.credentialState, 'secure')
     assert.equal(JSON.stringify(retried).includes(IPC_LEGACY_PASSWORD), false)
-    assert.equal(
-      secrets.values.get('datasource/pg-ipc'),
-      IPC_LEGACY_PASSWORD,
-    )
+    assert.equal(secrets.values.get('datasource/pg-ipc'), IPC_LEGACY_PASSWORD)
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
