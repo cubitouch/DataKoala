@@ -4,25 +4,53 @@
 
 .intro {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 12px;
 }
 
-.intro strong {
+.introCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.introCopy strong {
   font-size: 13px;
 }
 
-.intro span {
+.introCopy > span {
+  max-width: 680px;
   color: var(--text-mute);
   font-size: 11px;
+  line-height: 1.4;
+}
+
+.planSummary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 12px;
+  color: var(--text-mute);
+  font-size: 10px;
+}
+
+.planSummary span {
+  white-space: nowrap;
+}
+
+.planSummary strong {
+  color: var(--text-dim);
+  font-weight: 600;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 12px;
-  min-height: 280px;
+  min-height: 300px;
 }
 
 .diagram,
@@ -33,12 +61,16 @@
 }
 
 .diagram {
+  max-width: 100%;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 16px;
 }
 
 .tree,
 .children {
+  width: max-content;
+  min-width: 100%;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -46,35 +78,39 @@
 
 .branch {
   position: relative;
+  width: max-content;
 }
 
 .children {
-  margin-left: 30px;
-  padding-left: 24px;
+  min-width: 0;
+  margin-left: 24px;
+  padding-left: 20px;
   border-left: 1px solid var(--border);
 }
 
 .children > .branch::before {
   content: '';
   position: absolute;
-  top: 24px;
-  left: -24px;
-  width: 24px;
+  top: 26px;
+  left: -20px;
+  width: 20px;
   border-top: 1px solid var(--border);
 }
 
 .node {
-  width: min(420px, 100%);
+  width: 360px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  margin: 6px 0;
-  padding: 9px 10px;
+  align-items: stretch;
+  gap: 5px;
+  margin: 7px 0;
+  padding: 10px 11px;
+  overflow: hidden;
   text-align: left;
   color: var(--text);
   background: var(--bg-2);
   border: 1px solid var(--border);
+  border-left-width: 3px;
   border-radius: 7px;
   cursor: pointer;
 }
@@ -88,26 +124,167 @@
   border-color: var(--accent);
 }
 
-.nodeType {
-  font-weight: 600;
-  font-size: 12px;
+.nodeHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
 }
 
-.target {
+.categoryBadge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 5px;
+  color: var(--text-mute);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.categoryBadge::before {
+  width: 10px;
+  text-align: center;
+}
+
+.categoryScan .categoryBadge::before {
+  content: '↳';
+}
+
+.categoryJoin .categoryBadge::before {
+  content: '⋈';
+}
+
+.categoryAggregate .categoryBadge::before {
+  content: 'Σ';
+}
+
+.categorySort .categoryBadge::before {
+  content: '↕';
+}
+
+.categoryLimit .categoryBadge::before {
+  content: '⊣';
+}
+
+.categoryHash .categoryBadge::before {
+  content: '#';
+}
+
+.categoryMaterialize .categoryBadge::before {
+  content: '▣';
+}
+
+.categorySubquery .categoryBadge::before {
+  content: '↪';
+}
+
+.categoryOther .categoryBadge::before {
+  content: '•';
+}
+
+.nodeType {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.target,
+.indexTarget {
+  overflow: hidden;
   font-family: var(--mono);
   color: var(--text-dim);
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.indexTarget {
   color: var(--text-mute);
   font-size: 10px;
 }
 
+.cardinality,
+.timing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 9px;
+  color: var(--text-mute);
+  font-size: 10px;
+}
+
+.cardinality strong {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.ratio {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.ratioKind {
+  color: var(--text-dim);
+}
+
+.ratioUnderestimate {
+  border-style: solid;
+}
+
+.ratioOverestimate {
+  border-style: dashed;
+}
+
+.ratioMatch {
+  opacity: 0.85;
+}
+
+.work {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.workCaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-mute);
+  font-size: 9px;
+}
+
+.workTrack {
+  height: 3px;
+  overflow: hidden;
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.workFill {
+  display: block;
+  height: 100%;
+  min-width: 1px;
+  background: var(--text-mute);
+  border-radius: inherit;
+  opacity: 0.65;
+}
+
 .inspector {
+  min-width: 0;
   padding: 12px;
   overflow: auto;
 }
@@ -120,14 +297,40 @@
   border-bottom: 1px solid var(--border);
 }
 
+.inspectorCategory {
+  align-self: flex-start;
+  color: var(--text-mute);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
 .inspectorHead strong {
   font-size: 13px;
 }
 
-.inspectorHead span {
+.inspectorHead > span:last-child {
+  overflow-wrap: anywhere;
   font-family: var(--mono);
   color: var(--text-mute);
   font-size: 10px;
+}
+
+.detailSection {
+  padding-top: 11px;
+}
+
+.detailSection + .detailSection {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.detailSection h3 {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .details {
@@ -136,10 +339,9 @@
 
 .detail {
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
+  grid-template-columns: 126px minmax(0, 1fr);
   gap: 8px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 5px 0;
   font-size: 11px;
 }
 
@@ -148,13 +350,27 @@
 }
 
 .detail dd {
+  min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--text-dim);
 }
 
-@media (width <= 760px) {
+@media (width <= 900px) {
+  .intro {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .planSummary {
+    justify-content: flex-start;
+  }
+
   .layout {
     grid-template-columns: 1fr;
+  }
+
+  .inspector {
+    max-height: 320px;
   }
 }
