@@ -210,6 +210,10 @@ c.commit(); c.close()
     assert.equal(bounded.execution?.truncated, true)
 
     await assert.rejects(
+      session.query({ sql: 'SELECT missing_column FROM sqlite.events' }),
+      (error) => queryFailureKind(error) === 'query',
+    )
+    await assert.rejects(
       session.query({ sql: 'DELETE FROM sqlite.events' }),
       (error) => queryFailureKind(error) === 'validation',
     )
