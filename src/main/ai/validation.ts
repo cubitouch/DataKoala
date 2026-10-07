@@ -15,7 +15,11 @@ import {
   type BuilderTimeRange,
 } from '../../shared/builderTimeRange.ts'
 import { materializeAiBuilderTargetState } from '../../shared/aiBuilder.ts'
-import { isNumericType } from '../../shared/types.ts'
+import {
+  DATA_SOURCE_DESCRIPTORS,
+  isNumericType,
+  type SqlDialect,
+} from '../../shared/types.ts'
 import type {
   AiBuilderPatch,
   AiBuilderProposal,
@@ -63,17 +67,25 @@ export function settingsInput(value: unknown): AiSettingsInput {
       : { apiKey: textValue(input.apiKey, 1024, true).trim() }),
   }
 }
+const supportedSqlDialects = new Set<SqlDialect>(
+  Object.values(DATA_SOURCE_DESCRIPTORS).map(
+    (descriptor) => descriptor.dialect,
+  ),
+)
+
 export function proposalRequest(value: unknown): AiQueryProposalRequest {
   const input = record(value),
     context = record(input.context),
     language = record(context.language)
+  const dialect = language.dialect
   if (
     language.kind !== 'sql' ||
-    language.dialect !== 'postgres' ||
+    typeof dialect !== 'string' ||
+    !supportedSqlDialects.has(dialect as SqlDialect) ||
     !Array.isArray(context.relations) ||
     context.relations.length > AI_LIMITS.relations
   )
-    throw new AiError('validation', 'Invalid PostgreSQL AI context.')
+    throw new AiError('validation', 'Invalid SQL AI context.')
   let columns = 0
   const relations = context.relations.map((item) => {
     const relation = record(item)
@@ -105,12 +117,29 @@ export function proposalRequest(value: unknown): AiQueryProposalRequest {
       }),
     }
   })
+  const rawAvailableRelations = context.availableRelations
+  if (
+    rawAvailableRelations !== undefined &&
+    (!Array.isArray(rawAvailableRelations) ||
+      rawAvailableRelations.length > AI_LIMITS.relationCatalog)
+  )
+    throw new AiError('validation', 'Invalid AI relation catalog.')
+  const availableRelations = (rawAvailableRelations ?? []).map((item) => {
+    const relation = record(item)
+    return {
+      schema: textValue(relation.schema, 256),
+      name: textValue(relation.name, 256),
+    }
+  })
   const cleanContext = {
-    language: { kind: 'sql' as const, dialect: 'postgres' as const },
+    language: { kind: 'sql' as const, dialect: dialect as SqlDialect },
     relations,
+    ...(rawAvailableRelations === undefined ? {} : { availableRelations }),
   }
   if (
     columns > AI_LIMITS.columns ||
+    JSON.stringify(availableRelations).length >
+      AI_LIMITS.relationCatalogCharacters ||
     JSON.stringify(cleanContext).length > AI_LIMITS.contextCharacters
   )
     throw new AiError('validation', 'AI schema context is too large.')
@@ -127,7 +156,10 @@ export function proposalRequest(value: unknown): AiQueryProposalRequest {
       'validation',
       'Generation requests cannot include an error.',
     )
-  if (intent === 'repair' && (input.prompt !== undefined || !currentQuery))
+  if (
+    intent === 'repair' &&
+    (dialect !== 'postgres' || input.prompt !== undefined || !currentQuery)
+  )
     throw new AiError('validation', 'Invalid AI repair request.')
   return {
     requestId: requestId(input.requestId),
