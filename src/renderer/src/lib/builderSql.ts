@@ -17,7 +17,7 @@ import { customRangeToQueryBounds } from './customTimeRange.ts'
 import { isPromotableFilter, type ResultFilter } from './resultFilters.ts'
 import { resolveBuilderPromotedFilters } from './builderPromotedFilters.ts'
 import { quotePostgresIdentifier } from '@shared/seriesCardinality.ts'
-import { isTimeType, type SqlDialect } from '@shared/types.ts'
+import type { SqlDialect } from '@shared/types.ts'
 
 export { quotePostgresIdentifier as quoteIdentifier } from '@shared/seriesCardinality.ts'
 
