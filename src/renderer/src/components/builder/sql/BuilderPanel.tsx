@@ -840,7 +840,7 @@ export function BuilderPanel() {
           setSeriesProbe({
             status: 'error',
             message: response.estimated
-              ? `PostgreSQL estimates this field has approximately ${Math.round(response.distinctCount).toLocaleString()} distinct values, above the supported Series limit of ${CHART_SERIES_HARD_LIMIT}.`
+              ? `${connectionKind === 'bigquery' ? 'BigQuery' : 'PostgreSQL'} estimates this field has approximately ${Math.round(response.distinctCount).toLocaleString()} distinct values, above the supported Series limit of ${CHART_SERIES_HARD_LIMIT}.`
               : `This Series field has more than ${CHART_SERIES_HARD_LIMIT} distinct values and cannot be used as a chart breakdown.`,
             retry,
           })
