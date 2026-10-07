@@ -15,7 +15,6 @@ import {
   QueryValidationError,
 } from '../query-failure.ts'
 
-export { QueryValidationError } from '../query-failure.ts'
 
 interface ManagedPool {
   pool: Pool
