@@ -166,7 +166,9 @@ function isBigQueryConnectionFailure(error: unknown): boolean {
       return true
   } else if (
     typeof value?.code === 'string' &&
-    /^(ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN)$/i.test(value.code)
+    /^(ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN)$/i.test(
+      value.code,
+    )
   ) {
     return true
   }
@@ -174,7 +176,9 @@ function isBigQueryConnectionFailure(error: unknown): boolean {
   const message = value?.message ?? ''
   if (
     value?.code === 404 &&
-    /(?:not found:\s*project|project\b.*\b(?:not found|does not exist|inaccessible))/i.test(message)
+    /(?:not found:\s*project|project\b.*\b(?:not found|does not exist|inaccessible))/i.test(
+      message,
+    )
   )
     return true
   return /credential|authentication|unauthenticated|application default credentials|api (?:is )?(?:disabled|not enabled)|location mismatch/i.test(
