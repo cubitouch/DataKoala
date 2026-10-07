@@ -3,6 +3,7 @@ import { test } from 'vitest'
 import { buildSeriesCardinalityProbe } from '@shared/seriesCardinality.ts'
 import { CHART_SERIES_HARD_LIMIT } from '@shared/chartLimits.ts'
 import {
+  addedSeriesColumns,
   isSeriesColumnRemoval,
   SeriesCardinalityProbeGuard,
   selectionAfterCardinalityProbe,
@@ -88,33 +89,13 @@ test('probe SQL safely quotes identifiers, stays bounded, and parameterizes pred
   assert.deepEqual(probe.parameters, ['2026-01-01', '2026-02-01'])
 })
 
-test('probe selects a collision-safe tuple while grouping each source column', () => {
-  const probe = buildSeriesCardinalityProbe({
-    schema: 'public',
-    table: 'events',
-    seriesColumns: ['country', 'device'],
-    predicates: [],
-  })
-  assert.match(probe.sql, /SELECT \("country", "device"\)/)
-  assert.match(probe.sql, /GROUP BY "country", "device"/)
-  // 50 × 40 is represented by the combined tuple probe, whose bounded result
-  // would be 101 and therefore preserves the prior valid selection.
+test('new Series fields are identified independently from already approved fields', () => {
+  assert.deepEqual(addedSeriesColumns(['type'], ['type', 'status']), ['status'])
   assert.deepEqual(
-    selectionAfterCardinalityProbe(
-      ['country'],
-      ['country', 'device'],
-      Math.min(50 * 40, CHART_SERIES_HARD_LIMIT + 1) > CHART_SERIES_HARD_LIMIT,
-    ),
-    ['country'],
+    addedSeriesColumns(['type'], ['type', 'status', 'region']),
+    ['status', 'region'],
   )
-  assert.deepEqual(
-    selectionAfterCardinalityProbe(
-      ['country'],
-      ['country', 'device'],
-      50 > CHART_SERIES_HARD_LIMIT,
-    ),
-    ['country', 'device'],
-  )
+  assert.deepEqual(addedSeriesColumns(['type', 'status'], ['status', 'type']), [])
 })
 
 test('ordered proposed series columns participate in fingerprints and stale approval', () => {
