@@ -1181,6 +1181,71 @@ describe('Fix with AI editor review', () => {
     await screen.findByRole('region', { name: 'SQL proposal diff' })
   }
 
+  it.each([
+    {
+      kind: 'local-files',
+      version: 1,
+      id: 'local-repair',
+      name: 'Local',
+      files: [{ path: '/tmp/orders.csv', alias: 'orders' }],
+      readonly: true,
+    },
+    {
+      kind: 'sqlite-file',
+      version: 1,
+      id: 'sqlite-repair',
+      name: 'SQLite',
+      path: '/tmp/orders.sqlite',
+      readonly: true,
+    },
+    {
+      kind: 'bigquery',
+      version: 1,
+      id: 'bq-repair',
+      name: 'BigQuery',
+      billingProject: 'billing',
+      maximumBytesBilled: '',
+      readonly: true,
+    },
+  ] satisfies DataSourceProfile[])(
+    'keeps Fix with AI PostgreSQL-only for $kind',
+    async (profile) => {
+      aiSettingsGet.mockResolvedValue({
+        ok: true,
+        value: {
+          provider: 'openrouter',
+          model: 'vendor/model',
+          hasApiKey: true,
+        },
+      })
+      resetTestStore({
+        profiles: [profile],
+        activeProfileId: profile.id,
+        connected: true,
+        connecting: false,
+        connectionStatus: 'connected',
+      })
+      patchActiveTestSession({
+        connectionProfileId: profile.id,
+        queryMode: 'sql',
+        sql: failed,
+        queryError: safeError,
+        repairableQueryError: { query: failed, error: safeError },
+      })
+      render(
+        <AiQueryRepairProvider>
+          <QueryEditor />
+          <AiQueryRepair />
+        </AiQueryRepairProvider>,
+      )
+
+      expect(
+        await screen.findByRole('textbox', { name: 'AI prompt' }),
+      ).toBeTruthy()
+      expect(screen.queryByRole('button', { name: 'Fix with AI' })).toBeNull()
+    },
+  )
+
   it('reviews the repair as a diff and only replaces editor SQL on Apply', async () => {
     renderRepairEditor()
     await proposeRepair()
