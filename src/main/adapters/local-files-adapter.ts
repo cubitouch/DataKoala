@@ -149,6 +149,28 @@ export function logicalType(native: string): LogicalType {
   return 'unknown'
 }
 
+const DUCKDB_PROHIBITED_STATEMENT = /^(?:ALTER|ATTACH|BEGIN|CALL|CHECKPOINT|COMMIT|COPY|CREATE|DELETE|DETACH|DROP|EXPORT|IMPORT|INSERT|INSTALL|LOAD|MERGE|PRAGMA|REPLACE|ROLLBACK|SET|TRUNCATE|UPDATE|VACUUM)\b/i
+
+function sqlAfterLeadingComments(sql: string): string {
+  let remaining = sql.trimStart()
+  while (remaining) {
+    if (remaining.startsWith('--')) {
+      const end = remaining.indexOf('\n')
+      if (end < 0) return ''
+      remaining = remaining.slice(end + 1).trimStart()
+      continue
+    }
+    if (remaining.startsWith('/*')) {
+      const end = remaining.indexOf('*/', 2)
+      if (end < 0) return ''
+      remaining = remaining.slice(end + 2).trimStart()
+      continue
+    }
+    break
+  }
+  return remaining
+}
+
 export async function assertDuckDBReadOnlyQuery(
   connection: DuckDBConnection,
   sql: string,
@@ -157,6 +179,10 @@ export async function assertDuckDBReadOnlyQuery(
   const extracted = await connection.extractStatements(sql)
   if (extracted.count !== 1)
     throw new QueryValidationError('Run exactly one read-only query at a time.')
+  if (DUCKDB_PROHIBITED_STATEMENT.test(sqlAfterLeadingComments(sql)))
+    throw new QueryValidationError(
+      `${label} are read-only. Run a SELECT or EXPLAIN query.`,
+    )
   const statement = await extracted.prepare(0)
   try {
     if (
