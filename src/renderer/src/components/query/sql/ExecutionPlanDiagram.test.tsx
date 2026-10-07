@@ -141,7 +141,7 @@ describe('ExecutionPlanDiagram', () => {
       screen.getByRole('button', { name: /Incremental Sort/ }),
     )
     let inspector = screen.getByLabelText('Plan node details')
-    expect(within(inspector).getByText('Incremental Sort')).toBeTruthy()
+    expect(within(inspector).getAllByText('Incremental Sort')).toHaveLength(2)
     expect(
       within(inspector).getByText(
         'orders_with_a_name_long_enough_to_require_safe_layout',
@@ -150,7 +150,7 @@ describe('ExecutionPlanDiagram', () => {
 
     rerender(<ExecutionPlanDiagram tree={{ ...tree }} />)
     inspector = screen.getByLabelText('Plan node details')
-    expect(within(inspector).getByText('Incremental Sort')).toBeTruthy()
+    expect(within(inspector).getAllByText('Incremental Sort')).toHaveLength(2)
     expect(
       screen.getByRole('button', { name: /Incremental Sort/ }).getAttribute(
         'aria-pressed',
