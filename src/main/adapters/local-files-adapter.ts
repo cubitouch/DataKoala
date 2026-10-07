@@ -199,6 +199,14 @@ export async function assertDuckDBReadOnlyQuery(
   }
 }
 
+export function classifyDuckDBQueryError(error: unknown): Error {
+  if (error instanceof QueryValidationError) return error
+  const message = error instanceof Error ? error.message : String(error)
+  if (/file system operations are disabled by configuration/i.test(message))
+    return new QueryValidationError(message)
+  return error instanceof Error ? error : new Error(message)
+}
+
 export function queryResultFromDuckDBReader(
   reader: DuckDBResultReader,
   started: number,
@@ -321,7 +329,11 @@ export class LocalFilesAdapter implements DataSourceAdapter {
         capabilities: DATA_SOURCE_CAPABILITIES['local-files'],
         query: async ({ sql, parameters = [] }) => {
           await assertDuckDBReadOnlyQuery(connection, sql)
-          return boundedUserQuery(connection, sql, parameters)
+          try {
+            return await boundedUserQuery(connection, sql, parameters)
+          } catch (error) {
+            throw classifyDuckDBQueryError(error)
+          }
         },
         listNamespaces: async () => [{ name: 'main' }],
         listRelations: async () =>
