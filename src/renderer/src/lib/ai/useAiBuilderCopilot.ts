@@ -119,6 +119,12 @@ export function useAiBuilderCopilot() {
 
   useEffect(() => {
     let active = true
+    if (!eligible || !api.ai?.settings) {
+      setConfigured(false)
+      return () => {
+        active = false
+      }
+    }
     const refresh = () => {
       void api.ai.settings
         .get()
@@ -137,7 +143,7 @@ export function useAiBuilderCopilot() {
       active = false
       window.removeEventListener('datakoala:ai-settings-changed', refresh)
     }
-  }, [])
+  }, [eligible])
 
   useEffect(() => {
     if (!eligible) {
