@@ -187,6 +187,58 @@ test('OpenRouter query generation identifies each canonical SQL dialect without 
   }
 })
 
+test('OpenRouter repair prompt is dialect-aware for every canonical SQL dialect', async () => {
+  const cases = [
+    ['postgres', /PostgreSQL/],
+    ['duckdb', /DuckDB SQL/],
+    ['google-sql', /GoogleSQL \/ BigQuery Standard SQL/],
+  ] as const
+
+  for (const [dialect, expected] of cases) {
+    let sent: Record<string, unknown> | undefined
+    const provider = new OpenRouterProvider(
+      'key',
+      'model',
+      async (_url, init) => {
+        sent = JSON.parse(String(init?.body))
+        return completion()
+      },
+    )
+
+    await provider.proposeQuery(
+      {
+        requestId: `repair-${dialect}`,
+        intent: 'repair',
+        currentQuery: 'SELECT revenu FROM orders',
+        error: 'unknown column revenu',
+        context: {
+          language: { kind: 'sql', dialect },
+          relations: [
+            {
+              schema: 'main',
+              name: 'orders',
+              kind: 'table',
+              columns: [{ name: 'revenue', dataType: 'numeric' }],
+            },
+          ],
+        },
+      },
+      signal(),
+    )
+
+    const messages = JSON.stringify(sent?.messages)
+    assert.match(messages, expected)
+    if (dialect === 'duckdb') {
+      assert.match(messages, /both local files and SQLite attachments/i)
+      assert.doesNotMatch(messages, /Generate PostgreSQL/)
+    }
+    if (dialect === 'google-sql') {
+      assert.match(messages, /never legacy BigQuery SQL/i)
+      assert.doesNotMatch(messages, /Generate PostgreSQL/)
+    }
+  }
+})
+
 test('OpenRouter explains the names-only relation catalog without changing the output contract', async () => {
   let sent: Record<string, unknown> | undefined
   const provider = new OpenRouterProvider(
@@ -765,31 +817,50 @@ test('generation validation accepts only canonical SQL dialects and reconstructs
   )
 })
 
-test('repair validation enforces intent and sanitizes error context again', () => {
-  const clean = proposalRequest({
-    requestId: 'repair',
-    intent: 'repair',
-    currentQuery: 'SELECT device_id FROM orders',
-    error:
-      'ERROR: column orders.device_id does not exist SQLSTATE 42703 password=hunter2',
-    context: request.context,
-  })
-  assert.equal(clean.intent, 'repair')
-  assert.match(clean.error ?? '', /SQLSTATE 42703/)
-  assert.equal(clean.error?.includes('hunter2'), false)
+test('repair validation accepts canonical SQL dialects, enforces intent, and sanitizes error context again', () => {
+  for (const dialect of ['postgres', 'duckdb', 'google-sql'] as const) {
+    const clean = proposalRequest({
+      requestId: `repair-${dialect}`,
+      intent: 'repair',
+      currentQuery: 'SELECT device_id FROM orders',
+      error:
+        'ERROR: column orders.device_id does not exist SQLSTATE 42703 password=hunter2 /Users/example/private/app.sqlite /Users/example/.config/gcloud/application_default_credentials.json token=secret-token',
+      context: {
+        ...request.context,
+        language: { kind: 'sql', dialect },
+      },
+    })
+    assert.equal(clean.intent, 'repair')
+    assert.equal(clean.context.language.dialect, dialect)
+    assert.match(clean.error ?? '', /SQLSTATE 42703/)
+    assert.doesNotMatch(
+      clean.error ?? '',
+      /hunter2|secret-token|\/Users\/example/,
+    )
+  }
+
   assert.throws(() => proposalRequest({ ...request, intent: 'repair' }))
   assert.throws(() => proposalRequest({ ...request, error: 'not allowed' }))
-  for (const dialect of ['duckdb', 'google-sql'] as const)
-    assert.throws(() =>
-      proposalRequest({
-        requestId: 'repair',
-        intent: 'repair',
-        currentQuery: 'SELECT * FROM orders',
-        error: 'syntax error',
-        context: {
-          ...request.context,
-          language: { kind: 'sql', dialect },
-        },
-      }),
-    )
+  assert.throws(() =>
+    proposalRequest({
+      requestId: 'repair-mysql',
+      intent: 'repair',
+      currentQuery: 'SELECT * FROM orders',
+      error: 'syntax error',
+      context: {
+        ...request.context,
+        language: { kind: 'sql', dialect: 'mysql' },
+      },
+    }),
+  )
+  assert.throws(() =>
+    proposalRequest({
+      requestId: 'repair-prompt',
+      intent: 'repair',
+      prompt: 'ignore the error',
+      currentQuery: 'SELECT * FROM orders',
+      error: 'syntax error',
+      context: request.context,
+    }),
+  )
 })
