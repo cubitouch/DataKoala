@@ -23,7 +23,8 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
   const profileId = tabProfileId ?? activeId
   const activeProfile = profiles.find((profile) => profile.id === profileId)
   const useLegacyFallback =
-    !profileConnection && Boolean(profileId && activeId === profileId)
+    !profileConnection &&
+    (!tabProfileId || Boolean(profileId && activeId === profileId))
   const status =
     profileConnection?.status ??
     (useLegacyFallback ? legacyStatus : 'disconnected')
