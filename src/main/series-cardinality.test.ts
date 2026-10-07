@@ -15,7 +15,7 @@ import {
 const request = {
   schema: 'public',
   table: 'events',
-  seriesColumns: ['status'],
+  seriesColumn: 'status',
   predicates: [],
 }
 const result = (rows: Record<string, unknown>[]): QueryResult => ({
@@ -62,23 +62,45 @@ for (const provider of ['bigquery', 'local-files', 'sqlite-file'] as const) {
 }
 
 for (const provider of ['local-files', 'sqlite-file'] as const) {
-  test(`${provider} uses one exact cardinality probe`, async () => {
-    const calls: QueryRequest[] = []
-    const measurements: ProbeMeasurement[] = []
-    const session = fake(provider, async (query) => {
-      calls.push(query)
-      return result([{ count: 3 }])
+  for (const count of [0, 100, 101]) {
+    test(`${provider} exact cardinality count ${count} uses one single-field probe`, async () => {
+      const calls: QueryRequest[] = []
+      const measurements: ProbeMeasurement[] = []
+      let approximateCalls = 0
+      const session: DataSourceSession = {
+        ...fake(provider, async (query) => {
+          calls.push(query)
+          return result([{ count }])
+        }),
+        querySeriesCardinalityApproximate: async () => {
+          approximateCalls++
+          throw new Error('BigQuery approximation must not run')
+        },
+      }
+      assert.deepEqual(
+        await new SeriesCardinalityProbes((measurement) =>
+          measurements.push(measurement),
+        ).probe(session, request),
+        {
+          distinctCount: count,
+          exceedsHardLimit: count === 101,
+        },
+      )
+      assert.equal(calls.length, 1)
+      assert.equal(approximateCalls, 0)
+      assert.match(calls[0].sql, /SELECT "status"/)
+      assert.match(calls[0].sql, /GROUP BY "status"/)
+      assert.match(calls[0].sql, /LIMIT 101/)
+      assert.doesNotMatch(
+        calls[0].sql,
+        /pg_stats|EXPLAIN|APPROX_COUNT_DISTINCT|STRUCT|"type"/i,
+      )
+      assert.equal(
+        measurements.at(-1)?.strategy,
+        provider === 'local-files' ? 'duckdb-exact' : 'sqlite-duckdb-exact',
+      )
     })
-    assert.deepEqual(
-      await new SeriesCardinalityProbes((measurement) =>
-        measurements.push(measurement),
-      ).probe(session, request),
-      { distinctCount: 3, exceedsHardLimit: false },
-    )
-    assert.equal(calls.length, 1)
-    assert.doesNotMatch(calls[0].sql, /pg_stats|EXPLAIN/)
-    assert.equal(measurements.at(-1)?.strategy, 'exact')
-  })
+  }
 }
 
 for (const [approximateCount, exactCount, expected] of [
@@ -119,12 +141,12 @@ for (const [approximateCount, exactCount, expected] of [
       }),
       querySeriesCardinalityApproximate: async (probeRequest) => {
         approximateCalls++
-        assert.deepEqual(probeRequest.seriesColumns, ['status'])
+        assert.deepEqual(probeRequest.seriesColumn, 'status')
         return withExecution(approximateCount, 11)
       },
       querySeriesCardinality: async (probeRequest) => {
         exactCalls++
-        assert.deepEqual(probeRequest.seriesColumns, ['status'])
+        assert.deepEqual(probeRequest.seriesColumn, 'status')
         return withExecution(exactCount ?? 0, 22)
       },
     }
@@ -158,32 +180,6 @@ for (const [approximateCount, exactCount, expected] of [
     )
   })
 }
-
-test('BigQuery refuses multi-column probes before provider work', async () => {
-  let providerCalls = 0
-  const session: DataSourceSession = {
-    ...fake('bigquery', async () => {
-      providerCalls++
-      return result([])
-    }),
-    querySeriesCardinalityApproximate: async () => {
-      providerCalls++
-      return result([{ count: 1 }])
-    },
-    querySeriesCardinality: async () => {
-      providerCalls++
-      return result([{ count: 1 }])
-    },
-  }
-  await assert.rejects(
-    new SeriesCardinalityProbes().probe(session, {
-      ...request,
-      seriesColumns: ['type', 'status'],
-    }),
-    /exactly one Series field/,
-  )
-  assert.equal(providerCalls, 0)
-})
 
 for (const [label, nDistinct, expected] of [
   ['low', 3, { distinctCount: 3, exceedsHardLimit: false, estimated: true }],
@@ -342,31 +338,18 @@ test('PostgreSQL exact fallback rejects at 101', async () => {
   )
 })
 
-test('PostgreSQL refuses multi-column probes before generating SQL', async () => {
-  let calls = 0
-  await assert.rejects(
-    new SeriesCardinalityProbes().probe(
-      fake('postgres', async () => {
-        calls++
-        return result([])
-      }),
-      { ...request, seriesColumns: ['type', 'status'] },
-    ),
-    /exactly one Series field/,
-  )
-  assert.equal(calls, 0)
-})
-
-for (const count of [undefined, null, '', false, -1, 102, NaN, 1.5, 'bad']) {
-  test(`invalid exact result ${String(count)} fails closed`, async () => {
-    await assert.rejects(
-      new SeriesCardinalityProbes().probe(
-        fake('local-files', async () => result([{ count }])),
-        request,
-      ),
-      /Invalid cardinality/,
-    )
-  })
+for (const provider of ['local-files', 'sqlite-file'] as const) {
+  for (const count of [undefined, null, '', false, -1, 102, NaN, 1.5, 'bad']) {
+    test(`${provider} invalid exact result ${String(count)} fails closed`, async () => {
+      await assert.rejects(
+        new SeriesCardinalityProbes().probe(
+          fake(provider, async () => result([{ count }])),
+          request,
+        ),
+        /Invalid cardinality/,
+      )
+    })
+  }
 }
 
 test('deduplicates only in-flight identical requests by session', async () => {
