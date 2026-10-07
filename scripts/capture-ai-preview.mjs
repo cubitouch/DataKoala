@@ -579,7 +579,28 @@ app.whenReady().then(async () => {
       const store = window.__datakoalaStore, state = store.getState()
       const bq = ${JSON.stringify(bigQueryProfile)}
       store.setState({
+        profiles: [...state.profiles.filter((item) => item.id !== bq.id), bq],
         activeProfileId: bq.id,
+        metadataByProfileId: {
+          ...state.metadataByProfileId,
+          [bq.id]: {
+            status: 'loaded',
+            isStale: false,
+            error: null,
+            schemas: [{
+              name: 'my-project.analytics',
+              isSystem: false,
+              relations: [{
+                schema: 'my-project.analytics',
+                name: 'orders',
+                kind: 'r',
+                qualifiedName: 'my-project.analytics.orders',
+                columnsStatus: 'loaded',
+                columns: ${JSON.stringify(bigQueryColumns)},
+              }, ...${JSON.stringify(bigQueryCatalogRelations)}],
+            }],
+          },
+        },
         tabs: state.tabs.map((tab) => ({
           ...tab,
           connectionProfileId: bq.id,
