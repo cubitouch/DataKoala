@@ -83,7 +83,7 @@ try {
             }),
           )
         }
-        if (postgres) {
+        if (postgres && columns.length === 1) {
           const session = {
             info: { provider: 'postgres' },
             query: async ({ sql, parameters }) => ({
@@ -96,7 +96,7 @@ try {
           ).probe(session, request)
           console.log(
             JSON.stringify({
-              strategy: 'provider-strategy',
+              strategy: 'postgres-per-field',
               columns,
               filtered,
               indexed,
