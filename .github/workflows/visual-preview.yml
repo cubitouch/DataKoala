@@ -215,6 +215,7 @@ jobs:
               'ai-query-repair-error.png': 'Fix with AI — failed PostgreSQL query action',
               'ai-query-repair-failure.png': 'Fix with AI — distinct retryable AI repair failure',
               'ai-query-repair-proposal.png': 'Fix with AI — Ask AI-style SQL diff and explicit Apply',
+              'ai-query-repair-bigquery-proposal.png': 'Fix with AI — BigQuery/GoogleSQL repair diff and explicit Apply',
               'table.png': 'Filtered results table'
             }
             const files = process.env.PREVIEW_FILES.split(/\r?\n/).filter(Boolean)
