@@ -1323,9 +1323,8 @@ test('Builder AI marks a visible proposal stale after manual Builder work', asyn
   expect(screen.getByText(/Builder controls changed/)).toBeTruthy()
 })
 
-test('Builder AI ignores a late proposal after tab, connection, relation, or Builder state changes', async () => {
-  for (const change of ['tab', 'connection', 'relation', 'builder'] as const) {
-    cleanup()
+for (const change of ['tab', 'connection', 'relation', 'builder'] as const) {
+  test(`Builder AI ignores a late proposal after a ${change} change`, async () => {
     setupBuilderAi()
     const pending = deferred<AiResult<AiBuilderStep>>()
     mocks.proposeBuilder.mockReturnValueOnce(pending.promise)
@@ -1364,8 +1363,8 @@ test('Builder AI ignores a late proposal after tab, connection, relation, or Bui
       ),
     )
     expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
-  }
-})
+  })
+}
 
 test('Builder AI shows unsupported requests without mutation or mode switching', async () => {
   setupBuilderAi()
