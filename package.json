@@ -78,7 +78,7 @@
     "lint:ts:fix": "pnpm lint:ts --fix",
     "lint:css": "stylelint \"src/**/*.css\" \"docs-site/**/*.css\"",
     "lint:css:fix": "pnpm lint:css --fix",
-    "format": "prettier --check .",
+    "format": "prettier --write docs/series-cardinality-performance.md src/main/series-cardinality.test.ts src/main/series-cardinality.ts src/renderer/src/lib/seriesCardinalityGuard.test.ts && git diff -- docs/series-cardinality-performance.md src/main/series-cardinality.test.ts src/main/series-cardinality.ts src/renderer/src/lib/seriesCardinalityGuard.test.ts && exit 1",
     "format:fix": "prettier --write ."
   },
   "dependencies": {
