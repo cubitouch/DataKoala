@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   SeriesCardinalityProbes,
-  groupedPlanEstimate,
   seriesStatistics,
   type ProbeMeasurement,
 } from './series-cardinality.ts'
@@ -16,7 +15,7 @@ import {
 const request = {
   schema: 'public',
   table: 'events',
-  seriesColumns: ['region'],
+  seriesColumns: ['status'],
   predicates: [],
 }
 const result = (rows: Record<string, unknown>[]): QueryResult => ({
@@ -53,7 +52,7 @@ for (const provider of ['bigquery', 'local-files', 'sqlite-file'] as const) {
         await seriesStatistics(session, {
           schema: 'public',
           table: 'events',
-          column: 'region',
+          column: 'status',
         })
       ).available,
       false,
@@ -115,13 +114,13 @@ for (const [label, nDistinct, expected] of [
     { distinctCount: 500, exceedsHardLimit: true, estimated: true },
   ],
 ] as const) {
-  test(`PostgreSQL pg_stats ${label} estimate is decisive`, async () => {
+  test(`unscoped PostgreSQL pg_stats ${label} estimate is decisive`, async () => {
     const calls: QueryRequest[] = []
     const measurements: ProbeMeasurement[] = []
     const session = fake('postgres', async (query) => {
       calls.push(query)
       assert.equal(isPgStats(query.sql), true)
-      assert.deepEqual(query.parameters, ['public', 'events', 'region'])
+      assert.deepEqual(query.parameters, ['public', 'events', 'status'])
       return result([{ n_distinct: nDistinct, reltuples: 1_000_000 }])
     })
     assert.deepEqual(
@@ -143,7 +142,7 @@ for (const [label, nDistinct, expected] of [
   })
 }
 
-test('PostgreSQL pg_stats mid-band falls back directly to exact', async () => {
+test('unscoped PostgreSQL pg_stats mid-band falls back to exact single-column SQL', async () => {
   const calls: QueryRequest[] = []
   const measurements: ProbeMeasurement[] = []
   const session = fake('postgres', async (query) => {
@@ -151,7 +150,6 @@ test('PostgreSQL pg_stats mid-band falls back directly to exact', async () => {
     if (isPgStats(query.sql)) {
       return result([{ n_distinct: 100, reltuples: 1_000_000 }])
     }
-    assert.doesNotMatch(query.sql, /^EXPLAIN/)
     return result([{ count: 24 }])
   })
   assert.deepEqual(
@@ -163,11 +161,14 @@ test('PostgreSQL pg_stats mid-band falls back directly to exact', async () => {
   assert.equal(calls.length, 2)
   assert.equal(isPgStats(calls[0].sql), true)
   assert.doesNotMatch(calls[1].sql, /pg_stats|EXPLAIN/)
+  assert.match(calls[1].sql, /SELECT "status"/)
+  assert.match(calls[1].sql, /GROUP BY "status"/)
+  assert.doesNotMatch(calls[1].sql, /"type"/)
   assert.deepEqual(
     measurements.map(({ strategy, result: outcome }) => [strategy, outcome]),
     [
       ['postgres-pg-stats', 'fallback'],
-      ['exact', 'accepted'],
+      ['postgres-exact', 'accepted'],
     ],
   )
 })
@@ -177,12 +178,11 @@ for (const statsRows of [
   [{ n_distinct: null, reltuples: 1_000_000 }],
   [{ n_distinct: 'bad', reltuples: 1_000_000 }],
 ]) {
-  test('PostgreSQL unavailable pg_stats falls back to exact', async () => {
+  test('unscoped PostgreSQL unavailable pg_stats falls back to exact', async () => {
     const calls: QueryRequest[] = []
     const session = fake('postgres', async (query) => {
       calls.push(query)
       if (isPgStats(query.sql)) return result(statsRows)
-      assert.doesNotMatch(query.sql, /^EXPLAIN/)
       return result([{ count: 5 }])
     })
     assert.deepEqual(
@@ -195,99 +195,84 @@ for (const statsRows of [
   })
 }
 
-const plannerRequests = [
-  {
-    label: 'filtered single-column',
-    seriesColumns: ['region'],
-    predicates: [{ column: 'region', operator: 'equals', value: 'eu' }],
-  },
-  {
-    label: 'unfiltered multi-column',
-    seriesColumns: ['region', 'service'],
-    predicates: [],
-  },
-  {
-    label: 'filtered multi-column',
-    seriesColumns: ['region', 'service'],
-    predicates: [{ column: 'region', operator: 'equals', value: 'eu' }],
-  },
-] as const
-
-for (const plannerRequest of plannerRequests) {
-  for (const [estimate, expectedCalls, expected] of [
-    [3, 1, { distinctCount: 3, exceedsHardLimit: false, estimated: true }],
-    [201, 1, { distinctCount: 201, exceedsHardLimit: true, estimated: true }],
-    [100, 2, { distinctCount: 24, exceedsHardLimit: false }],
-  ] as const) {
-    test(`${plannerRequest.label} planner estimate ${estimate} routes correctly`, async () => {
-      const calls: QueryRequest[] = []
-      const measurements: ProbeMeasurement[] = []
-      const session = fake('postgres', async (query) => {
-        calls.push(query)
-        assert.equal(isPgStats(query.sql), false)
-        if (query.sql.startsWith('EXPLAIN')) {
-          assert.doesNotMatch(query.sql, /ANALYZE/)
-          return result([
-            { 'QUERY PLAN': [{ Plan: { 'Plan Rows': estimate } }] },
-          ])
-        }
-        return result([{ count: 24 }])
-      })
-      assert.deepEqual(
-        await new SeriesCardinalityProbes((measurement) =>
-          measurements.push(measurement),
-        ).probe(session, {
-          ...request,
-          seriesColumns: [...plannerRequest.seriesColumns],
-          predicates: [...plannerRequest.predicates],
-        }),
-        expected,
-      )
-      assert.equal(calls.length, expectedCalls)
-      assert.match(calls[0].sql, /^EXPLAIN/)
-      assert.equal(isPgStats(calls[0].sql), false)
-      if (plannerRequest.predicates.length) {
-        assert.match(calls[0].sql, /WHERE "region" = \$1/)
-        assert.deepEqual(calls[0].parameters, ['eu'])
-      }
-      assert.match(
-        calls[0].sql,
-        new RegExp(
-          `GROUP BY ${plannerRequest.seriesColumns
-            .map((column) => `"${column}"`)
-            .join(', ')}`,
-        ),
-      )
-      assert.equal(measurements[0].strategy, 'postgres-planner')
-      const plannerOutcome =
-        estimate <= 50 ? 'accepted' : estimate > 200 ? 'rejected' : 'fallback'
-      assert.equal(measurements[0].result, plannerOutcome)
-      if (estimate === 100) {
-        assert.equal(measurements[1].strategy, 'exact')
-        assert.equal(measurements[1].result, 'accepted')
-      }
-    })
-  }
-}
-
-test('malformed PostgreSQL planner result falls back to exact', async () => {
+test('scoped PostgreSQL pg_stats <= 50 accepts without exact query', async () => {
   const calls: QueryRequest[] = []
   const session = fake('postgres', async (query) => {
     calls.push(query)
-    assert.equal(isPgStats(query.sql), false)
-    if (query.sql.startsWith('EXPLAIN')) {
-      return result([{ 'QUERY PLAN': [{ Plan: {} }] }])
-    }
-    return result([{ count: 9 }])
+    assert.equal(isPgStats(query.sql), true)
+    return result([{ n_distinct: 3, reltuples: 1_000_000 }])
   })
   assert.deepEqual(
     await new SeriesCardinalityProbes().probe(session, {
       ...request,
       predicates: [{ column: 'region', operator: 'equals', value: 'eu' }],
     }),
-    { distinctCount: 9, exceedsHardLimit: false },
+    { distinctCount: 3, exceedsHardLimit: false, estimated: true },
   )
-  assert.equal(calls.length, 2)
+  assert.equal(calls.length, 1)
+})
+
+for (const estimate of [51, 100, 500]) {
+  test(`scoped PostgreSQL pg_stats ${estimate} falls back to exact`, async () => {
+    const calls: QueryRequest[] = []
+    const measurements: ProbeMeasurement[] = []
+    const session = fake('postgres', async (query) => {
+      calls.push(query)
+      if (isPgStats(query.sql)) {
+        return result([{ n_distinct: estimate, reltuples: 1_000_000 }])
+      }
+      return result([{ count: 7 }])
+    })
+    assert.deepEqual(
+      await new SeriesCardinalityProbes((measurement) =>
+        measurements.push(measurement),
+      ).probe(session, {
+        ...request,
+        predicates: [{ column: 'region', operator: 'equals', value: 'eu' }],
+      }),
+      { distinctCount: 7, exceedsHardLimit: false },
+    )
+    assert.equal(calls.length, 2)
+    assert.doesNotMatch(calls[1].sql, /EXPLAIN/)
+    assert.match(calls[1].sql, /SELECT "status"/)
+    assert.match(calls[1].sql, /WHERE "region" = \$1/)
+    assert.match(calls[1].sql, /GROUP BY "status"/)
+    assert.deepEqual(calls[1].parameters, ['eu'])
+    assert.deepEqual(
+      measurements.map(({ strategy, result: outcome }) => [strategy, outcome]),
+      [
+        ['postgres-pg-stats', 'fallback'],
+        ['postgres-exact', 'accepted'],
+      ],
+    )
+  })
+}
+
+test('PostgreSQL exact fallback rejects at 101', async () => {
+  const session = fake('postgres', async (query) =>
+    isPgStats(query.sql)
+      ? result([{ n_distinct: 100, reltuples: 1_000_000 }])
+      : result([{ count: 101 }]),
+  )
+  assert.deepEqual(await new SeriesCardinalityProbes().probe(session, request), {
+    distinctCount: 101,
+    exceedsHardLimit: true,
+  })
+})
+
+test('PostgreSQL refuses multi-column probes before generating SQL', async () => {
+  let calls = 0
+  await assert.rejects(
+    new SeriesCardinalityProbes().probe(
+      fake('postgres', async () => {
+        calls++
+        return result([])
+      }),
+      { ...request, seriesColumns: ['type', 'status'] },
+    ),
+    /exactly one Series field/,
+  )
+  assert.equal(calls, 0)
 })
 
 for (const count of [undefined, null, '', false, -1, 102, NaN, 1.5, 'bad']) {
@@ -337,11 +322,4 @@ test('failed operations are evicted and can be retried', async () => {
   const probes = new SeriesCardinalityProbes()
   await assert.rejects(probes.probe(session, request), /offline/)
   assert.equal((await probes.probe(session, request)).distinctCount, 0)
-})
-
-test('malformed plans are unavailable, including invalid JSON', () => {
-  for (const input of [null, {}, [], 'bad', [{ Plan: {} }]]) {
-    assert.equal(groupedPlanEstimate(input), undefined)
-  }
-  assert.equal(groupedPlanEstimate('[{"Plan":{"Plan Rows":42}}]'), 42)
 })
