@@ -715,55 +715,88 @@ test('structured approximate cardinality probe executes one job with the same tr
   assert.equal(response.execution?.bytesProcessed, 12)
 })
 
-test('trusted operation validates runtime payload and cannot accept arbitrary SQL', async () => {
+test('trusted cardinality operations validate runtime payloads and cannot accept arbitrary SQL', async () => {
   const fake = client()
   const { session } = await new BigQueryAdapter(() => fake.value).connect(
     profile,
   )
-  for (const input of [
-    'DELETE FROM events',
-    { sql: 'DELETE FROM events' },
-    {
-      schema: 'data.analytics',
-      table: 'events',
-      seriesColumns: ['region'],
-      predicates: [
-        {
-          column: 'at',
-          operator: 'rolling',
-          amount: '1); DELETE FROM events;--',
-          unit: 'day',
-        },
-      ],
-    },
+  for (const operation of [
+    session!.querySeriesCardinality!.bind(session),
+    session!.querySeriesCardinalityApproximate!.bind(session),
   ]) {
-    await assert.rejects(
-      session!.querySeriesCardinality!(input as never),
-      /Invalid series cardinality request/,
-    )
+    for (const input of [
+      'DELETE FROM events',
+      { sql: 'DELETE FROM events' },
+      {
+        schema: 'data.analytics',
+        table: 'events',
+        seriesColumns: ['region'],
+        predicates: [
+          {
+            column: 'at',
+            operator: 'rolling',
+            amount: '1); DELETE FROM events;--',
+            unit: 'day',
+          },
+        ],
+      },
+    ]) {
+      await assert.rejects(
+        operation(input as never),
+        /Invalid series cardinality request/,
+      )
+    }
   }
   assert.equal(fake.calls.length, 0)
 })
 
-test('GoogleSQL probe escapes backslashes and backticks in every identifier', async () => {
+test('trusted BigQuery cardinality operations reject combined Series fields before jobs', async () => {
+  const fake = client()
+  const { session } = await new BigQueryAdapter(() => fake.value).connect(
+    profile,
+  )
+  const input = {
+    schema: 'data.analytics',
+    table: 'events',
+    seriesColumns: ['type', 'status'],
+    predicates: [],
+  }
+  await assert.rejects(
+    session!.querySeriesCardinality!(input),
+    /exactly one Series field/,
+  )
+  await assert.rejects(
+    session!.querySeriesCardinalityApproximate!(input),
+    /exactly one Series field/,
+  )
+  assert.equal(fake.calls.length, 0)
+})
+
+test('GoogleSQL cardinality probes escape backslashes and backticks in every identifier', async () => {
   const fake = client('SELECT', [{ count: 0 }])
   const { session } = await new BigQueryAdapter(() => fake.value).connect(
     profile,
   )
   const injected = 'x\\`; DELETE FROM events; --'
-  await session!.querySeriesCardinality!({
+  const input = {
     schema: injected,
     table: injected,
     seriesColumns: [injected],
-    predicates: [{ column: injected, operator: 'isNull' }],
-  })
-  const sql = String(fake.calls[0].query)
-  // Scan GoogleSQL identifiers: every apparent statement separator belongs to
-  // one quoted identifier; escaped delimiters cannot close it.
-  const withoutIdentifiers = sql.replace(
-    /`(?:\\[\s\S]|[^`\\])*`/g,
-    'identifier',
-  )
-  assert.doesNotMatch(withoutIdentifiers, /DELETE|--/)
-  assert.equal((withoutIdentifiers.match(/;/g) || []).length, 1)
+    predicates: [{ column: injected, operator: 'isNull' as const }],
+  }
+  await session!.querySeriesCardinalityApproximate!(input)
+  await session!.querySeriesCardinality!(input)
+
+  assert.equal(fake.calls.length, 2)
+  for (const call of fake.calls) {
+    const sql = String(call.query)
+    // Scan GoogleSQL identifiers: every apparent statement separator belongs to
+    // one quoted identifier; escaped delimiters cannot close it.
+    const withoutIdentifiers = sql.replace(
+      /`(?:\\[\s\S]|[^`\\])*`/g,
+      'identifier',
+    )
+    assert.doesNotMatch(withoutIdentifiers, /DELETE|--/)
+    assert.equal((withoutIdentifiers.match(/;/g) || []).length, 1)
+  }
 })
