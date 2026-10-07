@@ -1,6 +1,12 @@
 import type { TimeBucket } from '@store/useStore'
 import type { Aggregation } from './resultVisualization.ts'
 import {
+  BUILDER_AGGREGATIONS,
+  BUILDER_TIME_BUCKETS,
+  isBuilderTemporalDataType,
+  isBuilderTimeBucketSupported,
+} from '@shared/builderCapabilities.ts'
+import {
   isMinuteBucketAvailable,
   MINUTE_BUCKET_UNAVAILABLE_REASON,
   SEVEN_DAYS,
@@ -15,52 +21,11 @@ import { isTimeType, type SqlDialect } from '@shared/types.ts'
 
 export { quotePostgresIdentifier as quoteIdentifier } from '@shared/seriesCardinality.ts'
 
-export const TIME_BUCKETS: readonly TimeBucket[] = [
-  'minute',
-  'hour',
-  'day',
-  'week',
-  'month',
-  'quarter',
-  'year',
-]
-export const BUILDER_AGGREGATIONS: readonly Aggregation[] = [
-  'count',
-  'sum',
-  'average',
-  'minimum',
-  'maximum',
-]
-const BUILDER_TEMPORAL_TYPES = new Set([
-  'date',
-  'datetime',
-  'timestamp',
-  'timestamptz',
-  'timestamp_s',
-  'timestamp_ms',
-  'timestamp_ns',
-  'timestamp with time zone',
-  'timestamp without time zone',
-])
-export function isBuilderTemporalDataType(
-  dataTypeName: string | undefined,
-): boolean {
-  return Boolean(
-    dataTypeName &&
-    BUILDER_TEMPORAL_TYPES.has(dataTypeName.trim().toLowerCase()) &&
-    isTimeType(dataTypeName),
-  )
-}
-export function isBuilderTimeBucketSupported(
-  dataTypeName: string | undefined,
-  bucket: TimeBucket,
-  dialect?: SqlDialect,
-): boolean {
-  return !(
-    dialect === 'google-sql' &&
-    dataTypeName?.trim().toLowerCase() === 'date' &&
-    (bucket === 'minute' || bucket === 'hour')
-  )
+export const TIME_BUCKETS = BUILDER_TIME_BUCKETS
+export {
+  BUILDER_AGGREGATIONS,
+  isBuilderTemporalDataType,
+  isBuilderTimeBucketSupported,
 }
 
 export interface BuilderSqlInput {
