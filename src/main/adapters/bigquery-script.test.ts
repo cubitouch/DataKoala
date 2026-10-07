@@ -27,10 +27,7 @@ test('handles semicolons and keywords inside GoogleSQL literals and identifiers'
     '`project.dataset.table;name`',
   ])
     assert.doesNotThrow(
-      () =>
-        assertReadOnlyBigQueryQuery(
-          `DECLARE x INT64; SELECT ${literal};`,
-        ),
+      () => assertReadOnlyBigQueryQuery(`DECLARE x INT64; SELECT ${literal};`),
       literal,
     )
 })
