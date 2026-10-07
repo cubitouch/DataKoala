@@ -5,7 +5,7 @@
 | Provider                                 | Strategy                                                                                               | Approval                 |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------ |
 | PostgreSQL                               | Per-field `pg_stats`; scoped/high-or-uncertain estimates fall back to exact single-column SQL          | Native estimate or exact |
-| BigQuery                                 | Dedicated structured, validated internal SELECT operation, one execution job and no validation dry run | Exact only               |
+| BigQuery                                 | Per-field `APPROX_COUNT_DISTINCT`; uncertain estimates fall back to one exact generated probe          | Native estimate or exact |
 | DuckDB / local files / SQLite via DuckDB | Existing bounded grouped query                                                                         | Exact only               |
 
 The renderer validates newly added Series fields independently and retains
@@ -35,11 +35,20 @@ perform first. Restoring `pg_stats` for each individual field avoids that work
 for the common clearly-low unscoped case, while scoped requests still fall back
 to exact when whole-table statistics are not sufficiently informative.
 
-BigQuery arbitrary SQL retains its dry-run/read-only validation. The special
-operation accepts a structured request, validates it again, generates its own SQL,
-quotes identifiers using GoogleSQL escapes, binds predicate values, and preserves
-location/default dataset/maximum bytes billed. There is no raw SQL safety bypass.
-The execution result still exposes bytes processed and cache status.
+BigQuery arbitrary SQL retains its dry-run/read-only validation. Series
+cardinality uses two structured generated operations instead: a per-field
+`APPROX_COUNT_DISTINCT` preflight and, only for the 51-200 advisory band, the
+existing bounded exact probe. Estimates at or below 50 accept and estimates above
+200 reject. Both operations validate the structured request again, generate their
+own SQL, quote identifiers using GoogleSQL escapes, bind predicate values, and
+preserve location/default dataset/maximum bytes billed. Neither performs the
+arbitrary-user-SQL dry run and there is no raw SQL safety bypass. The execution
+results continue to expose bytes processed and cache status.
+
+BigQuery also enforces a single Series field before query generation. Adding
+`status` to an existing `type` Series selection probes `status` only; neither
+the approximate nor exact operation generates `STRUCT(type, status)` or another
+combined cardinality expression.
 
 Only identical _in-flight_ requests on the same live session are shared. Settled
 successes and failures are removed; reconnects cannot reuse another session's
@@ -56,11 +65,14 @@ follow-up. Ordinary Series selection stays disabled while checking.
 
 On the original main implementation, a first single-column BigQuery selection
 could run a failing PostgreSQL statistics dry run, then an exact-probe dry run,
-then the actual probe: three `createQueryJob` calls. The new path has one execution
-job. Adapter tests verify the trusted path's job count and continued validation
-of ordinary queries. This is a round-trip improvement, not a measured reduction
-in bytes scanned. Exact probe SQL is unchanged except for corrected GoogleSQL
-identifier escaping.
+then the actual probe: three `createQueryJob` calls. The provider now routes
+directly to BigQuery-native work: a decisive approximate result uses one execution
+job; an estimate in the 51-200 band uses the approximate job plus one exact job.
+There are zero PostgreSQL statistics/EXPLAIN attempts and zero validation dry runs
+for these internally generated operations. Adapter tests cover approximate counts
+20, 500, and 75 with expected job counts 1, 1, and 2 respectively. This is a
+round-trip/strategy improvement; live latency and bytes-scanned measurements are
+still pending.
 
 Run the synthetic benchmark with Node 24:
 
@@ -108,10 +120,10 @@ DATAKOALA_DEBUG_CARDINALITY=1 pnpm dev
 The main-process console emits provider, strategy, column count, whether predicates
 exist, duration, accepted/rejected/fallback/error, and BigQuery bytes processed
 when available. PostgreSQL strategy values are `postgres-pg-stats` and
-`postgres-exact`. Existing non-PostgreSQL strategy labels are unchanged. No
-identifiers, SQL, values, credentials, or remote telemetry are included. Timings
-are per strategy; fallback duration plus exact duration gives the total database
-work for one request.
+`postgres-exact`; BigQuery uses `bigquery-approx` and `bigquery-exact`.
+No identifiers, SQL, values, credentials, or remote telemetry are included.
+Timings are per strategy; fallback duration plus exact duration gives the total
+database work for one request.
 
 ## Deferred sampling
 
@@ -137,8 +149,11 @@ References:
   With a time scope, verify estimates above 50 fall back to exact rather than
   rejecting. Add a second Series field and confirm only the newly added field is
   probed and no multi-column PostgreSQL cardinality SQL is generated.
-- BigQuery: repeat Series selections and inspect debug records/job history;
-  ensure normal raw SQL still enforces read-only behavior and billing limits.
+- BigQuery: verify approximate counts <=50 and >200 resolve in one job, while
+  51-200 produces exactly one additional exact job. Add a second Series field and
+  confirm only the newly added field is referenced; inspect job SQL for no STRUCT,
+  pg_stats, EXPLAIN, or validation dry run. Ensure normal raw SQL still enforces
+  read-only behavior and billing limits.
 - During a pending probe, change table/time scope or disconnect: no obsolete
   response should apply a selection. Retry after a transient error.
 - Re-select a formerly accepted dimension after the data changes: a new check
