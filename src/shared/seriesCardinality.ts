@@ -13,8 +13,6 @@ export function buildSeriesCardinalityProbe(
   request: SeriesCardinalityProbeRequest,
   dialect: SqlDialect = 'postgres',
 ): { sql: string; groupedSql: string; parameters: unknown[] } {
-  if (!request.seriesColumns.length)
-    throw new Error('A cardinality probe requires at least one series column.')
   const quoteGoogle = (value: string) =>
     '`' +
     Array.from(value, (char) => {
@@ -29,15 +27,7 @@ export function buildSeriesCardinalityProbe(
     dialect === 'google-sql'
       ? quoteGoogle(value)
       : quotePostgresIdentifier(value)
-  const columns = request.seriesColumns.map(quote)
-  // A tuple preserves each combination (including NULLs) and cannot collide the
-  // way Builder's human-readable display separator could.
-  const dimension =
-    columns.length === 1
-      ? columns[0]
-      : dialect === 'google-sql'
-        ? `STRUCT(${columns.join(', ')})`
-        : `(${columns.join(', ')})`
+  const column = quote(request.seriesColumn)
   const parameters: unknown[] = []
   const googleTemporalValue = (
     value: string,
@@ -109,7 +99,7 @@ export function buildSeriesCardinalityProbe(
     dialect === 'google-sql'
       ? quoteGoogle(`${request.schema}.${request.table}`)
       : `${quote(request.schema)}.${quote(request.table)}`
-  const groupedSql = `SELECT ${dimension}\n  FROM ${relation}${predicates.length ? `\n  WHERE ${predicates.join(' AND ')}` : ''}\n  GROUP BY ${columns.join(', ')}`
+  const groupedSql = `SELECT ${column}\n  FROM ${relation}${predicates.length ? `\n  WHERE ${predicates.join(' AND ')}` : ''}\n  GROUP BY ${column}`
   return {
     sql: `SELECT count(*) AS ${quote('count')}\nFROM (\n  ${groupedSql}\n  LIMIT ${CHART_SERIES_HARD_LIMIT + 1}\n) AS ${quote('cardinality_probe')};`,
     groupedSql,
@@ -121,10 +111,6 @@ export function buildSeriesCardinalityProbe(
 export function buildBigQuerySeriesCardinalityApproxProbe(
   request: SeriesCardinalityProbeRequest,
 ): { sql: string; parameters: unknown[] } {
-  if (request.seriesColumns.length !== 1)
-    throw new Error(
-      'BigQuery approximate cardinality probes require exactly one Series field.',
-    )
   const exact = buildSeriesCardinalityProbe(request, 'google-sql')
   const fromIndex = exact.groupedSql.indexOf('\n  FROM ')
   const groupByIndex = exact.groupedSql.lastIndexOf('\n  GROUP BY ')
