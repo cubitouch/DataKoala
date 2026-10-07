@@ -9,6 +9,7 @@ import {
 import { selectActiveSession, useStore, type QueryMode } from '@store/useStore'
 import { GenericResultExplorer } from './GenericResultExplorer'
 import { AiQueryRepair } from '@components/ai/AiQueryRepair'
+import { queryLanguageForSourceKind } from '@shared/types'
 
 export interface ResultExplorerProps {
   mode: QueryMode
@@ -34,6 +35,9 @@ export function ResultExplorer({
           profile.id === selectActiveSession(state).connectionProfileId,
       )?.kind,
   )
+  const canRepairDatasource =
+    datasourceKind !== undefined &&
+    queryLanguageForSourceKind(datasourceKind).kind === 'sql'
   const setVisualization = useStore((state) => state.setVisualization)
   const addResultFilter = useStore((state) => state.addResultFilter)
   const removeResultFilter = useStore((state) => state.removeResultFilter)
@@ -160,9 +164,7 @@ export function ResultExplorer({
       running={session.running}
       error={session.queryError}
       errorAction={
-        datasourceKind === 'postgres' && mode === 'sql' ? (
-          <AiQueryRepair />
-        ) : undefined
+        canRepairDatasource && mode === 'sql' ? <AiQueryRepair /> : undefined
       }
       isResultStale={session.isResultStale}
       reconnecting={connectionStatus === 'reconnecting'}
