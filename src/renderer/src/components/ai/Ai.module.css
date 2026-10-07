@@ -443,6 +443,51 @@
   font-size: 11px;
 }
 
+.relationCatalog {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-3);
+}
+
+.relationCatalogHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.relationCatalogHeader h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 11px;
+}
+
+.relationCatalogNote {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.relationCatalogList {
+  display: grid;
+  gap: 3px;
+  max-height: 132px;
+  margin-top: 8px;
+  padding-top: 8px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.relationCatalogList code {
+  color: var(--text);
+  font: 11px/1.45 var(--mono);
+  overflow-wrap: anywhere;
+}
+
 @container result-pane (max-width: 520px) {
   .repairControl,
   .repairBusy {
