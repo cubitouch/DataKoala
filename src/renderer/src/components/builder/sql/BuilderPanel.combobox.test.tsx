@@ -429,15 +429,21 @@ describe('BuilderPanel axis-first controls', () => {
     arrange()
     chooseOrders()
     chooseXAxis(/created_at/)
+    const openSeries = async () => {
+      const control = screen.getByRole('combobox', { name: /Series/ })
+      if (control.getAttribute('aria-expanded') !== 'true')
+        fireEvent.click(control)
+      await screen.findByRole('listbox', { name: 'Series' })
+    }
 
-    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    await openSeries()
     fireEvent.click(screen.getByRole('option', { name: /region, text/ }))
     await waitFor(() =>
       expect(activeTestSession().builder.seriesColumns).toEqual(['region']),
     )
 
     probeSeriesCardinality.mockClear()
-    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    await openSeries()
     fireEvent.click(screen.getByRole('option', { name: /status, text/ }))
 
     await waitFor(() =>
