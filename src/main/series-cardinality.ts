@@ -18,25 +18,12 @@ import type { DataSourceSession } from './data-source.ts'
 export interface ProbeMeasurement {
   provider: string
   strategy:
-    'postgres-pg-stats' | 'postgres-planner' | 'bigquery-exact' | 'exact'
+    'postgres-pg-stats' | 'postgres-exact' | 'bigquery-exact' | 'exact'
   seriesColumnCount: number
   hasPredicates: boolean
   durationMs: number
   result: 'accepted' | 'rejected' | 'fallback' | 'error'
   bytesProcessed?: number
-}
-
-/** Never interpret a missing, partial, or malformed plan as zero groups. */
-export function groupedPlanEstimate(value: unknown): number | undefined {
-  try {
-    const plan = typeof value === 'string' ? JSON.parse(value) : value
-    const rows = plan?.[0]?.Plan?.['Plan Rows']
-    return typeof rows === 'number' && Number.isFinite(rows) && rows >= 0
-      ? rows
-      : undefined
-  } catch {
-    return undefined
-  }
 }
 
 /** PostgreSQL-native table statistics lookup; unavailable for every other provider. */
@@ -98,6 +85,11 @@ export class SeriesCardinalityProbes {
     request: ReturnType<typeof validateSeriesCardinalityRequest>,
   ): Promise<SeriesCardinalityProbeResult> {
     const provider = session.info.provider
+    if (provider === 'postgres' && request.seriesColumns.length !== 1)
+      throw new Error(
+        'PostgreSQL Series cardinality probes require exactly one Series field.',
+      )
+
     const probe = buildSeriesCardinalityProbe(
       request,
       sqlDialectForSourceKind(provider),
@@ -118,84 +110,54 @@ export class SeriesCardinalityProbes {
         ...(bytesProcessed === undefined ? {} : { bytesProcessed }),
       })
     }
+
     if (provider === 'postgres') {
-      const simpleUnscoped =
-        request.seriesColumns.length === 1 && request.predicates.length === 0
-      if (simpleUnscoped) {
-        const started = performance.now()
-        const statistics = await seriesStatistics(session, {
-          schema: request.schema,
-          table: request.table,
-          column: request.seriesColumns[0],
-        })
-        const estimate =
-          statistics.available &&
-          statistics.estimatedDistinct !== undefined &&
-          Number.isFinite(statistics.estimatedDistinct) &&
-          statistics.estimatedDistinct >= 0
-            ? statistics.estimatedDistinct
-            : undefined
-        if (
-          estimate !== undefined &&
-          estimate <= SERIES_STATS_ACCEPT_THRESHOLD
-        ) {
-          record('postgres-pg-stats', started, 'accepted')
-          return {
-            distinctCount: estimate,
-            exceedsHardLimit: false,
-            estimated: true,
-          }
+      const started = performance.now()
+      const statistics = await seriesStatistics(session, {
+        schema: request.schema,
+        table: request.table,
+        column: request.seriesColumns[0],
+      })
+      const estimate =
+        statistics.available &&
+        statistics.estimatedDistinct !== undefined &&
+        Number.isFinite(statistics.estimatedDistinct) &&
+        statistics.estimatedDistinct >= 0
+          ? statistics.estimatedDistinct
+          : undefined
+
+      if (estimate !== undefined && estimate <= SERIES_STATS_ACCEPT_THRESHOLD) {
+        record('postgres-pg-stats', started, 'accepted')
+        return {
+          distinctCount: estimate,
+          exceedsHardLimit: false,
+          estimated: true,
         }
-        if (
-          estimate !== undefined &&
-          estimate > SERIES_STATS_REJECT_THRESHOLD
-        ) {
-          record('postgres-pg-stats', started, 'rejected')
-          return {
-            distinctCount: estimate,
-            exceedsHardLimit: true,
-            estimated: true,
-          }
-        }
-        record('postgres-pg-stats', started, 'fallback')
-      } else {
-        const started = performance.now()
-        let estimate: number | undefined
-        try {
-          const result = await session.query({
-            sql: `EXPLAIN (FORMAT JSON) ${probe.groupedSql}`,
-            parameters: probe.parameters,
-          })
-          estimate = groupedPlanEstimate(result.rows[0]?.['QUERY PLAN'])
-        } catch {
-          // Unsupported plans/permissions are not decisive: fall back to exact.
-        }
-        if (
-          estimate !== undefined &&
-          estimate <= SERIES_STATS_ACCEPT_THRESHOLD
-        ) {
-          record('postgres-planner', started, 'accepted')
-          return {
-            distinctCount: estimate,
-            exceedsHardLimit: false,
-            estimated: true,
-          }
-        }
-        if (
-          estimate !== undefined &&
-          estimate > SERIES_STATS_REJECT_THRESHOLD
-        ) {
-          record('postgres-planner', started, 'rejected')
-          return {
-            distinctCount: estimate,
-            exceedsHardLimit: true,
-            estimated: true,
-          }
-        }
-        record('postgres-planner', started, 'fallback')
       }
+
+      const scoped = request.predicates.length > 0
+      if (
+        !scoped &&
+        estimate !== undefined &&
+        estimate > SERIES_STATS_REJECT_THRESHOLD
+      ) {
+        record('postgres-pg-stats', started, 'rejected')
+        return {
+          distinctCount: estimate,
+          exceedsHardLimit: true,
+          estimated: true,
+        }
+      }
+      record('postgres-pg-stats', started, 'fallback')
     }
+
     const started = performance.now()
+    const exactStrategy =
+      provider === 'postgres'
+        ? 'postgres-exact'
+        : provider === 'bigquery'
+          ? 'bigquery-exact'
+          : 'exact'
     try {
       const result = session.querySeriesCardinality
         ? await session.querySeriesCardinality(request)
@@ -215,18 +177,14 @@ export class SeriesCardinalityProbes {
         throw new Error('Invalid cardinality probe result.')
       const exceedsHardLimit = distinctCount > CHART_SERIES_HARD_LIMIT
       record(
-        provider === 'bigquery' ? 'bigquery-exact' : 'exact',
+        exactStrategy,
         started,
         exceedsHardLimit ? 'rejected' : 'accepted',
         result.execution?.bytesProcessed,
       )
       return { distinctCount, exceedsHardLimit }
     } catch (error) {
-      record(
-        provider === 'bigquery' ? 'bigquery-exact' : 'exact',
-        started,
-        'error',
-      )
+      record(exactStrategy, started, 'error')
       throw error
     }
   }
