@@ -570,6 +570,7 @@ test('structured cardinality probe executes one job with billing/location/parame
   })
   assert.equal(fake.calls.length, 1)
   assert.equal(fake.calls[0].dryRun, undefined)
+  assert.doesNotMatch(String(fake.calls[0].query), /pg_stats|EXPLAIN/i)
   assert.equal(fake.calls[0].maximumBytesBilled, profile.maximumBytesBilled)
   assert.equal(fake.calls[0].location, 'US')
   assert.deepEqual(fake.calls[0].params, ["'; DELETE FROM events; --"])
