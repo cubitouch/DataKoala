@@ -61,6 +61,10 @@ export interface DataSourceSession {
   querySeriesCardinality?(
     request: SeriesCardinalityProbeRequest,
   ): Promise<QueryResult>
+  /** Provider-native approximate preflight; structured/generated only. */
+  querySeriesCardinalityApproximate?(
+    request: SeriesCardinalityProbeRequest,
+  ): Promise<QueryResult>
   listNamespaces(): Promise<DataNamespace[]>
   listRelations(namespace?: DataNamespaceRef): Promise<DataRelation[]>
   describeRelation(ref: DataRelationRef): Promise<DataColumn[]>
