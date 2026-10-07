@@ -397,7 +397,7 @@ test('local-file sessions execute Builder SQL and parameterized cardinality prob
     const probe = buildSeriesCardinalityProbe({
       schema: 'main',
       table: 'events',
-      seriesColumns: ['region'],
+      seriesColumn: 'region',
       predicates: [{ column: 'status', operator: 'equals', value: 'paid' }],
     })
     const cardinality = await connected.session.query({
