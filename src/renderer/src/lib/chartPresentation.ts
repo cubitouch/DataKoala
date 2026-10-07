@@ -4,6 +4,7 @@ import { summarizeTooltipRows } from './chartTooltip.ts'
 import { prepareLogScaleSeries, type ValueAxisScale } from './chartAxisScale.ts'
 import type { ChartAnomaly } from './chartAnomalies.ts'
 import type { HierarchyNode } from './chartHierarchy.ts'
+import { formatDisplayValue, type DisplayUnit } from './displayUnit.ts'
 
 export type TimeDisplayPrecision =
   'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'datetime'
@@ -122,6 +123,7 @@ export function buildChartTooltipFormatter(
   originalSeries?: readonly ChartSeries[],
   visibility: Readonly<Record<string, boolean>> = {},
   anomalies: readonly ChartAnomaly[] = [],
+  formatValue: (value: unknown) => string = formatChartNumber,
 ) {
   return (input: unknown): string => {
     const params = (Array.isArray(input) ? input : [input]).filter(
@@ -183,7 +185,7 @@ export function buildChartTooltipFormatter(
         : []
     const rows = summary.rows.map((row) => {
       const anomaly = atPoint.find((item) => item.seriesName === row.identity)
-      return `<div class="chart-tooltip-row${row.hovered ? ' chart-tooltip-row-hovered' : ''}"><span class="chart-tooltip-marker" style="background:${escapeHtml(row.color ?? '#9aa0b0')}"></span><span class="chart-tooltip-series" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><strong>${escapeHtml(formatChartNumber(row.value))}</strong>${anomaly ? `<span class="chart-tooltip-anomaly">Anomaly ${anomaly.direction === 'above' ? '↑' : '↓'}</span>` : ''}</div>`
+      return `<div class="chart-tooltip-row${row.hovered ? ' chart-tooltip-row-hovered' : ''}"><span class="chart-tooltip-marker" style="background:${escapeHtml(row.color ?? '#9aa0b0')}"></span><span class="chart-tooltip-series" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><strong>${escapeHtml(formatValue(row.value))}</strong>${anomaly ? `<span class="chart-tooltip-anomaly">Anomaly ${anomaly.direction === 'above' ? '↑' : '↓'}</span>` : ''}</div>`
     })
     const hovered = atPoint.find(
       (item) =>
@@ -193,7 +195,7 @@ export function buildChartTooltipFormatter(
           : hoveredSeriesIdentity),
     )
     const detail = hovered
-      ? `<div class="chart-tooltip-more">Rolling median ${escapeHtml(formatChartNumber(hovered.median))} · deviation ${hovered.value - hovered.median >= 0 ? '+' : ''}${escapeHtml(formatChartNumber(hovered.value - hovered.median))}</div>`
+      ? `<div class="chart-tooltip-more">Rolling median ${escapeHtml(formatValue(hovered.median))} · deviation ${hovered.value - hovered.median >= 0 ? '+' : ''}${escapeHtml(formatValue(hovered.value - hovered.median))}</div>`
       : ''
     return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(formatLabel(axisValue))}</div>${rows.join('')}${detail}${summary.omitted ? `<div class="chart-tooltip-more">${summary.omitted} more</div>` : ''}</div>`
   }
@@ -223,6 +225,7 @@ interface PresentationInput {
   mode: 'sql' | 'builder'
   timeBucket?: string
   timeDomain?: { min: number; max: number }
+  displayUnit?: DisplayUnit
   valueAxisScale?: ValueAxisScale
   visibility?: Readonly<Record<string, boolean>>
   anomalies?: readonly ChartAnomaly[]
@@ -234,6 +237,8 @@ interface PresentationInput {
 export function buildChartPresentationOptions(
   input: PresentationInput,
 ): Record<string, unknown> {
+  const formatValue = (value: unknown) =>
+    formatDisplayValue(value, input.displayUnit, formatChartNumber)
   if (input.view === 'treemap' || input.view === 'sunburst') {
     const total = (input.hierarchy ?? []).reduce(
       (sum, node) => sum + node.value,
@@ -261,7 +266,7 @@ export function buildChartPresentationOptions(
             total > 0 && Number.isFinite(value)
               ? `${((value / total) * 100).toFixed(1)}%`
               : '—'
-          return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(path)}</div><div class="chart-tooltip-row"><span>Value</span><strong>${escapeHtml(formatChartNumber(value))}</strong></div><div class="chart-tooltip-row"><span>Share</span><strong>${percentage}</strong></div></div>`
+          return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(path)}</div><div class="chart-tooltip-row"><span>Value</span><strong>${escapeHtml(formatValue(value))}</strong></div><div class="chart-tooltip-row"><span>Share</span><strong>${percentage}</strong></div></div>`
         },
         backgroundColor: '#161922',
         borderColor: '#2a2f3d',
@@ -354,7 +359,7 @@ export function buildChartPresentationOptions(
           formatter: (params: { axisDimension?: string; value?: unknown }) =>
             params.axisDimension === 'x'
               ? formatLabel(params.value)
-              : formatChartNumber(params.value),
+              : formatValue(params.value),
         },
       },
       position: positionChartTooltip,
@@ -364,6 +369,7 @@ export function buildChartPresentationOptions(
         input.series,
         input.visibility,
         input.anomalies,
+        formatValue,
       ),
       backgroundColor: '#161922',
       borderColor: '#2a2f3d',
@@ -392,7 +398,7 @@ export function buildChartPresentationOptions(
         },
     yAxis: {
       type: input.valueAxisScale === 'log' ? 'log' : 'value',
-      axisLabel: { color: '#9aa0b0', formatter: formatChartNumber },
+      axisLabel: { color: '#9aa0b0', formatter: formatValue },
     },
     ...(input.rangeSelectionEnabled
       ? {

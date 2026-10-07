@@ -240,6 +240,28 @@ describe('ResultExplorer chart combobox controls', () => {
     expect(screen.queryByRole('button', { name: /query filter/i })).toBeNull()
   })
 
+  it('selects time input units and retains them when changing chart settings', () => {
+    arrange()
+    fireEvent.click(screen.getByRole('combobox', { name: 'Unit: Number' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Time' }))
+    expect(activeTestSession().sqlVisualization.displayUnit).toEqual({
+      family: 'time',
+      unit: 'ms',
+    })
+    fireEvent.click(
+      screen.getByRole('combobox', { name: 'Input time unit: ms' }),
+    )
+    fireEvent.click(screen.getByRole('option', { name: 's' }))
+    fireEvent.click(
+      screen.getByRole('combobox', { name: /Value axis scale: Linear/ }),
+    )
+    fireEvent.click(screen.getByRole('option', { name: 'Log' }))
+    expect(activeTestSession().sqlVisualization.displayUnit).toEqual({
+      family: 'time',
+      unit: 's',
+    })
+  })
+
   it('keeps Log selectable and reports omitted non-positive values persistently', () => {
     arrange()
     fireEvent.click(

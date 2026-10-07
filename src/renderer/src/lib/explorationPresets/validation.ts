@@ -1,3 +1,4 @@
+import { isDisplayUnit } from '@lib/displayUnit.ts'
 import type { QueryLanguage } from '@shared/types'
 import type { BuilderQueryState, QueryMode } from '@store/useStore'
 import type { BuilderTimeRange } from '@lib/builderTimeRange'
@@ -152,6 +153,8 @@ export function parseVisualization(
     value.hierarchyDimensions !== undefined &&
     !stringArray(value.hierarchyDimensions)
   )
+    return null
+  if (value.displayUnit !== undefined && !isDisplayUnit(value.displayUnit))
     return null
   if (
     value.valueAxisScale !== undefined &&

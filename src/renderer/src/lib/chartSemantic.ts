@@ -27,6 +27,10 @@ export function createChartFingerprint(
     configuration.seriesColumn ?? '',
     configuration.aggregation,
     configuration.valueAxisScale ?? 'linear',
+    configuration.displayUnit?.family ?? 'number',
+    configuration.displayUnit?.family === 'time'
+      ? configuration.displayUnit.unit
+      : '',
   ]
   if (chart) {
     parts.push(...chart.labels)

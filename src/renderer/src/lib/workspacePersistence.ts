@@ -1,3 +1,4 @@
+import { isDisplayUnit } from './displayUnit.ts'
 import {
   compatibleTimeBucket,
   SEVEN_DAYS,
@@ -526,6 +527,7 @@ function visualization(value: unknown): VisualizationConfiguration | null {
     !seriesColumns ||
     !hierarchyDimensions ||
     !valueAxisScale ||
+    (value.displayUnit !== undefined && !isDisplayUnit(value.displayUnit)) ||
     anomalyDetectionEnabled === null
   )
     return null
@@ -538,6 +540,9 @@ function visualization(value: unknown): VisualizationConfiguration | null {
     seriesColumns,
     hierarchyDimensions,
     valueAxisScale,
+    ...(isDisplayUnit(value.displayUnit)
+      ? { displayUnit: { ...value.displayUnit } }
+      : {}),
     anomalyDetectionEnabled,
   }
 }
