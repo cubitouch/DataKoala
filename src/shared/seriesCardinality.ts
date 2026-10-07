@@ -117,7 +117,6 @@ export function buildSeriesCardinalityProbe(
   }
 }
 
-
 /** Builds BigQuery's single-field approximate preflight from the same generated source/predicates as the exact probe. */
 export function buildBigQuerySeriesCardinalityApproxProbe(
   request: SeriesCardinalityProbeRequest,
