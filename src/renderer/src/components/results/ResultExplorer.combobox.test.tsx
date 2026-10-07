@@ -6,6 +6,9 @@ vi.mock('echarts-for-react', () => ({
   default: () => <div data-testid="chart" />,
 }))
 vi.mock('@lib/api', () => ({ api: { connections: { connect: vi.fn() } } }))
+vi.mock('@components/ai/AiQueryRepair', () => ({
+  AiQueryRepair: () => <div>AI repair action</div>,
+}))
 
 import { ResultExplorer } from './ResultExplorer'
 import { createResultFilter } from '@lib/resultFilters'
@@ -14,7 +17,7 @@ import {
   patchActiveTestSession,
   resetTestStore,
 } from '@test/sessionTestUtils'
-import type { QueryResult } from '@shared/types'
+import type { DataSourceProfile, QueryResult } from '@shared/types'
 
 Element.prototype.scrollIntoView = vi.fn()
 
@@ -87,6 +90,54 @@ const arrange = (patch: Parameters<typeof patchActiveTestSession>[0] = {}) => {
 afterEach(() => {
   cleanup()
   resetTestStore()
+})
+
+describe('ResultExplorer AI repair action', () => {
+  it.each([
+    {
+      kind: 'local-files',
+      version: 1,
+      id: 'local-repair',
+      name: 'Local',
+      files: [{ path: '/tmp/orders.csv', alias: 'orders' }],
+      readonly: true,
+    },
+    {
+      kind: 'sqlite-file',
+      version: 1,
+      id: 'sqlite-repair',
+      name: 'SQLite',
+      path: '/tmp/orders.sqlite',
+      readonly: true,
+    },
+    {
+      kind: 'bigquery',
+      version: 1,
+      id: 'bq-repair',
+      name: 'BigQuery',
+      billingProject: 'billing',
+      maximumBytesBilled: '',
+      readonly: true,
+    },
+  ] satisfies DataSourceProfile[])(
+    'shows the repair action for $kind SQL errors',
+    (profile) => {
+      resetTestStore({
+        profiles: [profile],
+        activeProfileId: profile.id,
+        connected: true,
+        connectionStatus: 'connected',
+      })
+      patchActiveTestSession({
+        connectionProfileId: profile.id,
+        queryMode: 'sql',
+        queryError: 'query failed',
+      })
+      render(<ResultExplorer mode="sql" dimensionControls="result" />)
+
+      expect(screen.getByText('AI repair action')).toBeTruthy()
+    },
+  )
 })
 
 describe('ResultExplorer chart combobox controls', () => {
