@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   models: vi.fn(),
   test: vi.fn(),
   propose: vi.fn(),
+  proposeBuilder: vi.fn(),
   cancel: vi.fn(),
   run: vi.fn(),
   columns: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock('@lib/api', () => ({
       listModels: mocks.models,
       test: mocks.test,
       proposeQuery: mocks.propose,
+      proposeBuilder: mocks.proposeBuilder,
       cancel: mocks.cancel,
     },
     query: { run: mocks.run },
@@ -42,6 +44,7 @@ vi.mock('@lib/relationColumns', () => ({
 import { AiSettingsAction } from './AiSettingsAction'
 import { AiSettingsModal } from './AiSettingsModal'
 import { AiQueryCopilot } from './AiQueryCopilot'
+import { AiBuilderCopilot } from './AiBuilderCopilot'
 import { AiQueryRepair } from './AiQueryRepair'
 import { AiQueryRepairProvider } from './AiQueryRepairProvider'
 import { AiQueryRepairReview } from './AiQueryRepairReview'
@@ -55,7 +58,8 @@ import {
   selectActiveSession,
   useStore,
 } from '@store/useStore'
-import type { AiQueryStep, AiResult } from '@shared/ai'
+import type { AiBuilderStep, AiQueryStep, AiResult } from '@shared/ai'
+import { generateBuilderQuery } from '@lib/builderSql'
 const summary = {
   provider: 'openrouter',
   model: 'saved/model',
@@ -89,6 +93,20 @@ beforeEach(() => {
   ])
   mocks.propose.mockResolvedValue(
     ok({ kind: 'proposal', proposal: proposed } as AiQueryStep),
+  )
+  mocks.proposeBuilder.mockResolvedValue(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        patch: {
+          xColumn: 'country',
+          valueColumn: 'revenue',
+          aggregation: 'sum',
+        },
+        explanation: 'Sum revenue by country.',
+        assumptions: [],
+      },
+    } as AiBuilderStep),
   )
   resetTestStore({
     profiles: [
@@ -1026,4 +1044,572 @@ test('AI details exposes initial context, discovery request, added relations and
   expect(
     screen.getByRole('region', { name: 'Final schema metadata' }).textContent,
   ).toContain('zy_devices')
+})
+
+function setupBuilderAi() {
+  const session = selectActiveSession(useStore.getState())
+  patchActiveTestSession({
+    queryMode: 'builder',
+    builder: {
+      table: { schema: 'public', name: 'orders' },
+      timeColumn: 'created_at',
+      timeBucket: 'day',
+      timeRange: { kind: 'rolling', amount: 7, unit: 'day' },
+      seriesColumns: [],
+    },
+    builderVisualization: {
+      ...session.builderVisualization,
+      xColumn: 'created_at',
+      valueColumn: null,
+      aggregation: 'count',
+      seriesColumn: null,
+      seriesColumns: [],
+    },
+    builderHasRun: true,
+  })
+  setActiveTestMetadata(
+    [
+      {
+        name: 'public',
+        isSystem: false,
+        relations: [
+          {
+            schema: 'public',
+            name: 'orders',
+            kind: 'r',
+            qualifiedName: 'public.orders',
+            columnsStatus: 'loaded',
+            columns: [
+              { name: 'created_at', dataTypeName: 'timestamptz' },
+              { name: 'country', dataTypeName: 'text' },
+              { name: 'revenue', dataTypeName: 'numeric' },
+              { name: 'status', dataTypeName: 'text' },
+            ],
+          },
+        ],
+      },
+    ],
+    'loaded',
+    null,
+    'pg',
+  )
+}
+
+function builderSql() {
+  const session = selectActiveSession(useStore.getState())
+  const aggregation =
+    session.builderVisualization.aggregation === 'count'
+      ? 'count'
+      : session.builderVisualization.aggregation
+  const xColumn =
+    session.builderVisualization.xColumn === 'time_bucket'
+      ? session.builder.timeColumn
+      : session.builderVisualization.xColumn
+  const types = new Map([
+    ['created_at', 'timestamptz'],
+    ['country', 'text'],
+    ['revenue', 'numeric'],
+    ['status', 'text'],
+  ])
+  if (!session.builder.table || !xColumn) return ''
+  return generateBuilderQuery({
+    table: session.builder.table,
+    xColumn,
+    xColumnDataType: types.get(xColumn),
+    timeColumn: session.builder.timeColumn,
+    timeColumnDataType: session.builder.timeColumn
+      ? types.get(session.builder.timeColumn)
+      : undefined,
+    timeBucket: session.builder.timeBucket,
+    valueColumn:
+      aggregation === 'count' ? null : session.builderVisualization.valueColumn,
+    aggregation,
+    seriesColumns: session.builder.seriesColumns,
+    timeRange: session.builder.timeRange,
+    filters: session.builderResultFilters,
+  }).sql
+}
+
+async function askBuilder(prompt = 'sum revenue by country') {
+  const input = await screen.findByRole('textbox', {
+    name: 'Builder AI prompt',
+  })
+  fireEvent.change(input, { target: { value: prompt } })
+  await waitFor(() =>
+    expect(
+      (screen.getByRole('button', { name: 'Ask' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
+  await waitFor(() => expect(mocks.proposeBuilder).toHaveBeenCalled())
+}
+
+test('Builder AI reviews structured changes before atomic Apply and never runs', async () => {
+  setupBuilderAi()
+  const before = selectActiveSession(useStore.getState())
+  const beforeSql = builderSql()
+  render(<AiBuilderCopilot />)
+  await askBuilder()
+
+  await screen.findByRole('button', { name: 'Apply' })
+  const pending = selectActiveSession(useStore.getState())
+  expect(pending.builder).toEqual(before.builder)
+  expect(pending.builderVisualization).toEqual(before.builderVisualization)
+  expect(builderSql()).toBe(beforeSql)
+  expect(mocks.run).not.toHaveBeenCalled()
+
+  const review = screen.getByRole('region', { name: 'AI Builder proposal' })
+  expect(review.textContent).toContain('X axis')
+  expect(review.textContent).toContain('created_at')
+  expect(review.textContent).toContain('country')
+  expect(review.textContent).toContain('Y axis')
+  expect(review.textContent).toContain('revenue')
+  expect(review.textContent).toContain('Aggregation')
+  expect(review.textContent).toContain('Sum')
+
+  const request = mocks.proposeBuilder.mock.calls[0][0]
+  expect(request.state.relation).toEqual({ schema: 'public', name: 'orders' })
+  expect(
+    request.columns.map((column: { name: string }) => column.name),
+  ).toEqual(
+    expect.arrayContaining(['created_at', 'country', 'revenue', 'status']),
+  )
+  expect(JSON.stringify(request)).not.toMatch(
+    /private-host|private-user|private-password/,
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  const applied = selectActiveSession(useStore.getState())
+  expect(applied.builderVisualization.xColumn).toBe('country')
+  expect(applied.builderVisualization.valueColumn).toBe('revenue')
+  expect(applied.builderVisualization.aggregation).toBe('sum')
+  expect(applied.builderHasRun).toBe(false)
+  expect(builderSql()).not.toBe(beforeSql)
+  expect(builderSql()).toContain('SUM("revenue")')
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
+test('Builder AI reviews and applies manual-parity X/Y conflict normalization without running', async () => {
+  setupBuilderAi()
+  const initial = selectActiveSession(useStore.getState())
+  patchActiveTestSession({
+    builderVisualization: {
+      ...initial.builderVisualization,
+      xColumn: 'country',
+      valueColumn: 'revenue',
+      aggregation: 'sum',
+      seriesColumn: null,
+      seriesColumns: [],
+    },
+  })
+  const before = selectActiveSession(useStore.getState())
+  const beforeSql = builderSql()
+  mocks.proposeBuilder.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        patch: { xColumn: 'revenue' },
+        explanation: 'Use revenue as the X axis.',
+        assumptions: [],
+      },
+    } as AiBuilderStep),
+  )
+
+  render(<AiBuilderCopilot />)
+  await askBuilder('use revenue as the X axis')
+
+  const review = await screen.findByRole('region', {
+    name: 'AI Builder proposal',
+  })
+  expect(review.textContent).toContain('X axis')
+  expect(review.textContent).toContain('country')
+  expect(review.textContent).toContain('revenue')
+  expect(review.textContent).toContain('Y axis')
+  expect(review.textContent).toContain('Aggregation')
+  expect(review.textContent).toContain('Sum')
+  expect(review.textContent).toContain('Count')
+  expect(review.textContent).toContain('—')
+
+  const pending = selectActiveSession(useStore.getState())
+  expect(pending.builderVisualization).toEqual(before.builderVisualization)
+  expect(builderSql()).toBe(beforeSql)
+  expect(mocks.run).not.toHaveBeenCalled()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+  const applied = selectActiveSession(useStore.getState())
+  expect(applied.builderVisualization.xColumn).toBe('revenue')
+  expect(applied.builderVisualization.valueColumn).toBeNull()
+  expect(applied.builderVisualization.aggregation).toBe('count')
+  expect(applied.builderHasRun).toBe(false)
+  expect(builderSql()).not.toBe(beforeSql)
+  expect(builderSql()).toContain('COUNT(*)')
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
+test('Builder AI normalizes a minimal Y-axis proposal through normal Builder defaults', async () => {
+  setupBuilderAi()
+  mocks.proposeBuilder.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        patch: { valueColumn: 'revenue' },
+        explanation: 'Use revenue as the Y axis.',
+        assumptions: [],
+      },
+    } as AiBuilderStep),
+  )
+  render(<AiBuilderCopilot />)
+  await askBuilder('use revenue as the Y axis')
+  const review = await screen.findByRole('region', {
+    name: 'AI Builder proposal',
+  })
+  expect(review.textContent).toContain('Y axis')
+  expect(review.textContent).toContain('revenue')
+  expect(review.textContent).toContain('Aggregation')
+  expect(review.textContent).toContain('Sum')
+
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  const session = selectActiveSession(useStore.getState())
+  expect(session.builderVisualization.valueColumn).toBe('revenue')
+  expect(session.builderVisualization.aggregation).toBe('sum')
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
+test('Builder AI accepts the exact ten-day hourly count request', async () => {
+  setupBuilderAi()
+  mocks.proposeBuilder.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        patch: {
+          timeBucket: 'hour',
+          timeRange: { kind: 'rolling', amount: 10, unit: 'day' },
+        },
+        explanation: 'Count collections hourly over the last 10 days.',
+        assumptions: [],
+      },
+    } as AiBuilderStep),
+  )
+  render(<AiBuilderCopilot />)
+  await askBuilder('number of collections over the last 10 days grouped hourly')
+  const review = await screen.findByRole('region', {
+    name: 'AI Builder proposal',
+  })
+  expect(review.textContent).toContain('Time bucket')
+  expect(review.textContent).toContain('Hour')
+  expect(review.textContent).toContain('Last 10 days')
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  const session = selectActiveSession(useStore.getState())
+  expect(session.builder.timeBucket).toBe('hour')
+  expect(session.builder.timeRange).toEqual({
+    kind: 'rolling',
+    amount: 10,
+    unit: 'day',
+  })
+  expect(builderSql()).toContain("INTERVAL '10 days'")
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
+test('Builder AI applies temporal controls while preserving a valid time column', async () => {
+  setupBuilderAi()
+  mocks.proposeBuilder.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        patch: {
+          valueColumn: 'revenue',
+          aggregation: 'sum',
+          timeBucket: 'week',
+          timeRange: { kind: 'rolling', amount: 30, unit: 'day' },
+        },
+        explanation: 'Show weekly revenue for the last 30 days.',
+        assumptions: [],
+      },
+    } as AiBuilderStep),
+  )
+  render(<AiBuilderCopilot />)
+  await askBuilder('show weekly revenue for the last 30 days')
+  fireEvent.click(await screen.findByRole('button', { name: 'Apply' }))
+  const session = selectActiveSession(useStore.getState())
+  expect(session.builder.timeColumn).toBe('created_at')
+  expect(session.builder.timeBucket).toBe('week')
+  expect(session.builder.timeRange).toEqual({
+    kind: 'rolling',
+    amount: 30,
+    unit: 'day',
+  })
+  expect(session.builderVisualization.valueColumn).toBe('revenue')
+  expect(session.builderVisualization.aggregation).toBe('sum')
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
+test('Builder AI Reject keeps Builder, generated SQL, and prompt unchanged', async () => {
+  setupBuilderAi()
+  const before = selectActiveSession(useStore.getState())
+  const beforeSql = builderSql()
+  render(<AiBuilderCopilot />)
+  await askBuilder()
+  fireEvent.click(await screen.findByRole('button', { name: 'Reject' }))
+  const current = selectActiveSession(useStore.getState())
+  expect(current.builder).toEqual(before.builder)
+  expect(current.builderVisualization).toEqual(before.builderVisualization)
+  expect(builderSql()).toBe(beforeSql)
+  expect(
+    (
+      screen.getByRole('textbox', {
+        name: 'Builder AI prompt',
+      }) as HTMLInputElement
+    ).value,
+  ).toBe('sum revenue by country')
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
+test('Builder AI retry keeps the old review, disables Apply, and Cancel preserves it', async () => {
+  setupBuilderAi()
+  render(<AiBuilderCopilot />)
+  await askBuilder()
+  const firstApply = await screen.findByRole('button', { name: 'Apply' })
+  expect((firstApply as HTMLButtonElement).disabled).toBe(false)
+
+  const retry = deferred<AiResult<AiBuilderStep>>()
+  mocks.proposeBuilder.mockReturnValueOnce(retry.promise)
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  expect(
+    (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true)
+  expect(
+    screen.getByRole('region', { name: 'AI Builder proposal' }),
+  ).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(mocks.cancel).toHaveBeenCalled()
+  expect(
+    screen.getByRole('region', { name: 'AI Builder proposal' }),
+  ).toBeTruthy()
+  expect(
+    (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(false)
+})
+
+test('Builder AI successful retry replaces the previous proposal and failed retry preserves it', async () => {
+  setupBuilderAi()
+  render(<AiBuilderCopilot />)
+  await askBuilder()
+  await screen.findByRole('button', { name: 'Apply' })
+
+  mocks.proposeBuilder.mockResolvedValueOnce({
+    ok: false,
+    code: 'provider',
+    message: 'Temporary provider error.',
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  await screen.findByRole('alert')
+  expect(
+    screen.getByRole('region', { name: 'AI Builder proposal' }),
+  ).toBeTruthy()
+
+  mocks.proposeBuilder.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        patch: { xColumn: 'status' },
+        explanation: 'Group by status.',
+        assumptions: [],
+      },
+    } as AiBuilderStep),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  await waitFor(() =>
+    expect(
+      screen.getByRole('region', { name: 'AI Builder proposal' }).textContent,
+    ).toContain('status'),
+  )
+})
+
+test('Builder AI marks a visible proposal stale after manual Builder work', async () => {
+  setupBuilderAi()
+  render(<AiBuilderCopilot />)
+  await askBuilder()
+  await screen.findByRole('button', { name: 'Apply' })
+  act(() =>
+    useStore.getState().setVisualization('builder', { xColumn: 'status' }),
+  )
+  await waitFor(() =>
+    expect(
+      (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true),
+  )
+  expect(screen.getByText(/Builder controls changed/)).toBeTruthy()
+})
+
+for (const change of [
+  'tab',
+  'connection',
+  'relation',
+  'builder',
+  'series',
+] as const) {
+  test(`Builder AI ignores a late proposal after a ${change} change`, async () => {
+    setupBuilderAi()
+    const pending = deferred<AiResult<AiBuilderStep>>()
+    mocks.proposeBuilder.mockReturnValueOnce(pending.promise)
+    render(<AiBuilderCopilot />)
+    await askBuilder()
+    const state = useStore.getState()
+    act(() => {
+      if (change === 'tab') {
+        const other = createQuerySession(2)
+        useStore.setState({
+          tabs: [...state.tabs, other],
+          activeTabId: other.id,
+        })
+      } else if (change === 'connection') {
+        patchActiveTestSession({ connectionProfileId: 'other' })
+      } else if (change === 'relation') {
+        useStore
+          .getState()
+          .setBuilder({ table: { schema: 'public', name: 'other' } })
+      } else if (change === 'builder') {
+        useStore.getState().setVisualization('builder', { xColumn: 'status' })
+      } else {
+        useStore.getState().setBuilder({ seriesColumns: ['status'] })
+      }
+    })
+    await act(async () =>
+      pending.resolve(
+        ok({
+          kind: 'proposal',
+          proposal: {
+            patch: { xColumn: 'country' },
+            explanation: 'Late proposal.',
+            assumptions: [],
+          },
+        }),
+      ),
+    )
+    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+  })
+}
+
+test('Builder AI shows unsupported requests without mutation or mode switching', async () => {
+  setupBuilderAi()
+  const before = selectActiveSession(useStore.getState())
+  mocks.proposeBuilder.mockResolvedValueOnce(
+    ok({
+      kind: 'unsupported',
+      reason: 'Joins are outside the current Builder capabilities.',
+    } as AiBuilderStep),
+  )
+  render(<AiBuilderCopilot />)
+  await askBuilder('join customers to orders')
+  await screen.findByText(/can't be represented by the current Builder yet/)
+  const current = selectActiveSession(useStore.getState())
+  expect(current.queryMode).toBe('builder')
+  expect(current.builder).toEqual(before.builder)
+  expect(mocks.run).not.toHaveBeenCalled()
+  expect(
+    (
+      screen.getByRole('textbox', {
+        name: 'Builder AI prompt',
+      }) as HTMLInputElement
+    ).value,
+  ).toBe('join customers to orders')
+})
+
+test('Builder AI details expose only prompt, Builder state, selected metadata, explanation and assumptions', async () => {
+  setupBuilderAi()
+  mocks.proposeBuilder.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        patch: { xColumn: 'country' },
+        explanation: 'Use country on the X axis.',
+        assumptions: ['Country values are the intended grouping.'],
+      },
+    } as AiBuilderStep),
+  )
+  render(<AiBuilderCopilot />)
+  await askBuilder('group by country')
+  await screen.findByRole('button', { name: 'Apply' })
+  fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
+  const response = await screen.findByRole('region', { name: 'AI response' })
+  expect(response.textContent).toContain('Use country on the X axis.')
+  expect(response.textContent).toContain(
+    'Country values are the intended grouping.',
+  )
+  expect(screen.getByRole('region', { name: 'Prompt' }).textContent).toContain(
+    'group by country',
+  )
+  expect(
+    screen.getByRole('region', { name: 'Current Builder state' }).textContent,
+  ).toContain('public.orders')
+  expect(
+    screen.getByRole('region', { name: 'Selected relation metadata' })
+      .textContent,
+  ).toContain('revenue numeric')
+  expect(document.body.textContent).not.toMatch(
+    /private-host|private-user|private-password/,
+  )
+})
+
+test('Builder AI proposal state is transient and absent from workspace/session state', async () => {
+  setupBuilderAi()
+  render(<AiBuilderCopilot />)
+  await askBuilder()
+  await screen.findByRole('button', { name: 'Apply' })
+  const persistedSessionShape = JSON.stringify(useStore.getState().tabs)
+  expect(persistedSessionShape).not.toContain('sum revenue by country')
+  expect(persistedSessionShape).not.toContain('Sum revenue by country.')
+  expect(persistedSessionShape).not.toContain('"patch"')
+})
+
+test('Builder AI stays hidden until a PostgreSQL relation has loaded columns', async () => {
+  patchActiveTestSession({
+    queryMode: 'builder',
+    builder: {
+      table: null,
+      timeColumn: null,
+      timeBucket: 'day',
+      seriesColumns: [],
+    },
+  })
+  render(<AiBuilderCopilot />)
+  expect(mocks.get).not.toHaveBeenCalled()
+  expect(
+    screen.queryByRole('textbox', { name: 'Builder AI prompt' }),
+  ).toBeNull()
+})
+
+test('Builder AI stays hidden when the selected relation has no usable columns', async () => {
+  setupBuilderAi()
+  setActiveTestMetadata(
+    [
+      {
+        name: 'public',
+        isSystem: false,
+        relations: [
+          {
+            schema: 'public',
+            name: 'orders',
+            kind: 'r',
+            qualifiedName: 'public.orders',
+            columnsStatus: 'loaded',
+            columns: [],
+          },
+        ],
+      },
+    ],
+    'loaded',
+    null,
+    'pg',
+  )
+  render(<AiBuilderCopilot />)
+  expect(mocks.get).not.toHaveBeenCalled()
+  expect(
+    screen.queryByRole('textbox', { name: 'Builder AI prompt' }),
+  ).toBeNull()
 })

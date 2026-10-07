@@ -60,6 +60,21 @@ test('count by status uses a categorical X with no hidden time predicates when n
   )
 })
 
+test('Builder SQL supports arbitrary bounded rolling ranges such as ten days', () => {
+  const sql = generateBuilderSql({
+    table: { schema: 'public', name: 'orders' },
+    xColumn: 'created_at',
+    xColumnDataType: 'timestamptz',
+    timeColumn: 'created_at',
+    timeColumnDataType: 'timestamptz',
+    timeBucket: 'hour',
+    timeRange: { kind: 'rolling', amount: 10, unit: 'day' },
+    aggregation: 'count',
+  })
+  assert.match(sql, /INTERVAL '10 days'/)
+  assert.match(sql, /date_trunc\('hour'/)
+})
+
 test('count by status can keep an independent seven-day dataset filter', () => {
   const sql = generateBuilderSql({
     table: { schema: 'public', name: 'orders' },

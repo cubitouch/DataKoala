@@ -5,6 +5,7 @@ import type { AiProvider } from './openrouter.ts'
 import { AiSettingsStore } from './settings.ts'
 import {
   AiError,
+  builderProposalRequest,
   proposalRequest,
   requestId,
   settingsInput,
@@ -141,6 +142,31 @@ export class AiService {
             )
           signal.throwIfAborted()
           return this.createProvider(key, settings.model).proposeQuery(
+            request,
+            signal,
+          )
+        },
+      )
+      if (!response.ok) throw new AiError(response.code, response.message)
+      return response.value
+    })
+  }
+  proposeBuilder(owner: number, input: unknown) {
+    return this.result(async () => {
+      const request = builderProposalRequest(input)
+      const response = await this.run(
+        owner,
+        request.requestId,
+        async (signal) => {
+          const settings = await this.settings.get()
+          const key = await this.settings.getApiKey()
+          if (!settings.model || !key)
+            throw new AiError(
+              'configuration',
+              'Configure OpenRouter to use Ask AI.',
+            )
+          signal.throwIfAborted()
+          return this.createProvider(key, settings.model).proposeBuilder(
             request,
             signal,
           )

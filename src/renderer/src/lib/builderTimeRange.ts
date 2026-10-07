@@ -1,37 +1,20 @@
 import type { CardinalityProbePredicate } from '@shared/chartLimits.ts'
 import type { TimeBucket } from '@store/useStore'
 import {
+  SEVEN_DAYS,
+  isMinuteBucketAvailable,
+  validateBuilderTimeRange,
+  type BuilderTimeRange,
+} from '@shared/builderTimeRange.ts'
+import {
   addDays,
   customRangeToQueryBounds,
-  recurringWindowIntervals,
-  timeToMinutes,
-  validateCustomRange,
   type TimeWindow,
 } from './customTimeRange.ts'
 
-type BuilderTimeRangeBase =
-  | { kind: 'all' }
-  | { kind: 'rolling'; amount: 15 | 30; unit: 'minute' }
-  | { kind: 'rolling'; amount: 1 | 3 | 6 | 12 | 24; unit: 'hour' }
-  | { kind: 'rolling'; amount: 7 | 30; unit: 'day' }
-  | { kind: 'rolling'; amount: 3 | 6 | 12; unit: 'month' }
-  | {
-      kind: 'custom'
-      startDate: string | null
-      startTime: string
-      endDate: string | null
-      endTime: string
-    }
+export { SEVEN_DAYS, isMinuteBucketAvailable, validateBuilderTimeRange }
+export type { BuilderTimeRange }
 
-export type BuilderTimeRange = BuilderTimeRangeBase & {
-  recurringWindows?: TimeWindow[]
-}
-
-export const SEVEN_DAYS: BuilderTimeRange = {
-  kind: 'rolling',
-  amount: 7,
-  unit: 'day',
-}
 export const EMPTY_BUILDER_CUSTOM_RANGE: BuilderTimeRange = {
   kind: 'custom',
   startDate: null,
@@ -93,60 +76,6 @@ export function normalizeBuilderTimeRange(
     endTime: '00:00',
     recurringWindows: normalizeRecurringWindows(value.timeWindows),
   }
-}
-
-function validateRecurringWindows(windows: TimeWindow[]): string | null {
-  const intervals: { start: number; end: number }[] = []
-  for (const window of windows.filter(
-    (candidate) => candidate.from || candidate.to,
-  )) {
-    const from = timeToMinutes(window.from),
-      to = timeToMinutes(window.to)
-    if (from === null || to === null || from === to)
-      return 'The recurring window end time must differ from the start time.'
-    intervals.push(...recurringWindowIntervals(window))
-  }
-  const sorted = intervals.sort((a, b) => a.start - b.start || a.end - b.end)
-  for (let index = 1; index < sorted.length; index++)
-    if (sorted[index].start < sorted[index - 1].end)
-      return 'This recurring window overlaps another window.'
-  return null
-}
-
-export function validateBuilderTimeRange(
-  range: BuilderTimeRange,
-): string | null {
-  if (range.kind === 'custom') {
-    return validateCustomRange({
-      startDate: range.startDate,
-      startTime: range.startTime,
-      endDate: range.endDate,
-      endTime: range.endTime,
-      recurringWindows: range.recurringWindows ?? [],
-    })
-  }
-  return validateRecurringWindows(range.recurringWindows ?? [])
-}
-
-function customRangeDurationMilliseconds(
-  range: Extract<BuilderTimeRange, { kind: 'custom' }>,
-): number | null {
-  if (validateBuilderTimeRange(range) || !range.startDate || !range.endDate)
-    return null
-  const start = Date.parse(`${range.startDate}T${range.startTime}:00Z`)
-  const end = Date.parse(`${range.endDate}T${range.endTime}:00Z`)
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return null
-  return end - start
-}
-
-export function isMinuteBucketAvailable(range: BuilderTimeRange): boolean {
-  if (range.kind === 'rolling')
-    return (
-      range.unit === 'minute' || (range.unit === 'hour' && range.amount <= 24)
-    )
-  if (range.kind !== 'custom') return false
-  const duration = customRangeDurationMilliseconds(range)
-  return duration !== null && duration > 0 && duration <= 24 * 60 * 60 * 1000
 }
 
 export function compatibleTimeBucket(

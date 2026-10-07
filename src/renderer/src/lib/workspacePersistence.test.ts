@@ -251,6 +251,22 @@ const categoricalState = (): WorkspacePersistableState => {
   }
 }
 
+test('workspace persistence keeps an exact ten-day rolling Builder range', () => {
+  const current = state()
+  current.tabs[0].builder.timeRange = {
+    kind: 'rolling',
+    amount: 10,
+    unit: 'day',
+  }
+  const restored = parseWorkspaceDraft(serializeWorkspaceDraft(current))
+  assert.ok(restored)
+  assert.deepEqual(restored.tabs[0].builder.timeRange, {
+    kind: 'rolling',
+    amount: 10,
+    unit: 'day',
+  })
+})
+
 test('workspace v2 round-trips ordered tabs, names, connection references and axis-first drafts', () => {
   const restored = parseWorkspaceDraft(serializeWorkspaceDraft(state()))
   assert.ok(restored)

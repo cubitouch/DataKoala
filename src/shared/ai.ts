@@ -1,3 +1,9 @@
+import type {
+  BuilderAggregation,
+  BuilderTimeBucket,
+} from './builderCapabilities.ts'
+import type { BuilderTimeRange } from './builderTimeRange.ts'
+
 export interface AiSettingsSummary {
   provider: 'openrouter'
   model: string
@@ -35,6 +41,43 @@ export interface AiQueryProposal {
   explanation: string
   assumptions: string[]
 }
+
+export interface AiBuilderColumnContext {
+  name: string
+  dataType: string
+  nullable?: boolean
+}
+export interface AiBuilderState {
+  relation: { schema: string; name: string }
+  xColumn: string | null
+  valueColumn: string | null
+  aggregation: BuilderAggregation
+  timeColumn: string | null
+  timeBucket: BuilderTimeBucket
+  timeRange?: BuilderTimeRange
+}
+export interface AiBuilderPatch {
+  xColumn?: string | null
+  valueColumn?: string | null
+  aggregation?: BuilderAggregation
+  timeColumn?: string | null
+  timeBucket?: BuilderTimeBucket
+  timeRange?: BuilderTimeRange
+}
+export interface AiBuilderProposalRequest {
+  requestId: string
+  prompt: string
+  state: AiBuilderState
+  columns: AiBuilderColumnContext[]
+}
+export interface AiBuilderProposal {
+  patch: AiBuilderPatch
+  explanation: string
+  assumptions: string[]
+}
+export type AiBuilderStep =
+  | { kind: 'proposal'; proposal: AiBuilderProposal }
+  | { kind: 'unsupported'; reason: string }
 export interface AiContextRequest {
   searchTerms: string[]
   reason: string
@@ -68,9 +111,10 @@ export const AI_LIMITS = {
   contextRequestTerms: 5,
   contextRequestTermCharacters: 80,
   contextRequestReason: 1000,
+  builderUnsupportedReason: 2000,
 } as const
 export const AI_PRIVACY_NOTICE =
-  'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query and bounded schema metadata. Database credentials and query result rows are not sent.'
+  'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query or Builder state, and bounded schema metadata. Database credentials and query result rows are not sent.'
 
 /**
  * Single product-level availability rule for AI features.

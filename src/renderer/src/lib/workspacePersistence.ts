@@ -4,6 +4,7 @@ import {
   SEVEN_DAYS,
   type BuilderTimeRange,
 } from './builderTimeRange.ts'
+import { parseBuilderRollingTimeRange } from '@shared/builderTimeRange.ts'
 import type { TimeWindow } from './customTimeRange.ts'
 import type {
   Aggregation,
@@ -174,45 +175,8 @@ function timeWindow(value: unknown): TimeWindow | null {
 function timeRange(value: unknown): BuilderTimeRange | null {
   if (!isRecord(value)) return null
   if (value.kind === 'all') return { kind: 'all' }
-  if (value.kind === 'rolling') {
-    if (
-      value.unit === 'minute' &&
-      typeof value.amount === 'number' &&
-      [15, 30].includes(value.amount)
-    )
-      return {
-        kind: 'rolling',
-        amount: value.amount as 15 | 30,
-        unit: 'minute',
-      }
-    if (
-      value.unit === 'hour' &&
-      typeof value.amount === 'number' &&
-      [1, 3, 6, 12, 24].includes(value.amount)
-    )
-      return {
-        kind: 'rolling',
-        amount: value.amount as 1 | 3 | 6 | 12 | 24,
-        unit: 'hour',
-      }
-    if (
-      value.unit === 'day' &&
-      typeof value.amount === 'number' &&
-      [7, 30].includes(value.amount)
-    )
-      return { kind: 'rolling', amount: value.amount as 7 | 30, unit: 'day' }
-    if (
-      value.unit === 'month' &&
-      typeof value.amount === 'number' &&
-      [3, 6, 12].includes(value.amount)
-    )
-      return {
-        kind: 'rolling',
-        amount: value.amount as 3 | 6 | 12,
-        unit: 'month',
-      }
-    return null
-  }
+  if (value.kind === 'rolling')
+    return parseBuilderRollingTimeRange(value.amount, value.unit)
   if (value.kind !== 'custom') return null
   const startDate = stringOrNull(value.startDate)
   const endDate = stringOrNull(value.endDate)

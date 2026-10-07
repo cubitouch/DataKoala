@@ -1,4 +1,6 @@
 import type {
+  AiBuilderProposalRequest,
+  AiBuilderStep,
   AiResult,
   AiSettingsSummary,
   AiSettingsInput,
@@ -83,6 +85,10 @@ const api = {
       request: AiQueryProposalRequest,
     ): Promise<AiResult<AiQueryStep>> =>
       ipcRenderer.invoke(IPC.AI_PROPOSE, request),
+    proposeBuilder: (
+      request: AiBuilderProposalRequest,
+    ): Promise<AiResult<AiBuilderStep>> =>
+      ipcRenderer.invoke(IPC.AI_PROPOSE_BUILDER, request),
     cancel: (requestId: string): Promise<AiResult<void>> =>
       ipcRenderer.invoke(IPC.AI_CANCEL, requestId),
   },

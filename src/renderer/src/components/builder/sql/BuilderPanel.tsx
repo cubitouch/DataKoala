@@ -65,6 +65,7 @@ import { GeneratedQueryPanel } from '@components/query/GeneratedQueryPanel'
 import { BuilderForm } from '@components/builder/BuilderForm'
 import { BuilderRow } from '@components/builder/BuilderRow'
 import { FormField } from '@components/builder/FormField'
+import { AiBuilderCopilot } from '@components/ai/AiBuilderCopilot'
 
 const isTimeColumn = (column: DatabaseColumnNode) =>
   isBuilderTemporalDataType(column.dataTypeName)
@@ -1025,6 +1026,7 @@ export function BuilderPanel() {
           </button>
         }
       />
+      <AiBuilderCopilot key={`${tabId}:${tabConnectionId}`} />
       <div className={styles.content} data-builder-content="">
         <BuilderForm className={styles.form} data-builder-form="">
           <BuilderRow
