@@ -1,78 +1,186 @@
 # Series cardinality performance (#324)
 
-## Implemented strategies
+## Final strategy
 
-| Provider                                 | Strategy                                                                                      | Approval                 |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------ |
-| PostgreSQL                               | Per-field `pg_stats`; scoped/high-or-uncertain estimates fall back to exact single-column SQL | Native estimate or exact |
-| BigQuery                                 | Per-field `APPROX_COUNT_DISTINCT`; uncertain estimates fall back to one exact generated probe | Native estimate or exact |
-| DuckDB / local files / SQLite via DuckDB | Existing bounded grouped query                                                                | Exact only               |
+Series-cardinality preflight validates each newly added Series field independently.
+It does not calculate the combined cardinality of the complete Series selection.
 
-The renderer validates newly added Series fields independently and retains
-stale-response protection for the complete proposed selection. PostgreSQL probes
-therefore contain exactly one Series field. Provider strategy selection stays in
-the main process.
+> The preflight guard limits individual Series dimensions. It does not guarantee
+> that the Cartesian combination of several Series fields is <=100.
 
-For every PostgreSQL field, table-wide `pg_stats.n_distinct` is the first step.
-An estimate at or below 50 accepts immediately. For an unscoped field, an
-estimate above 200 rejects immediately; 51-200 and unavailable/malformed
-statistics fall back to exact single-column SQL. For a time-scoped/filtered field,
-a whole-table estimate above 50 never rejects the filtered subset: it falls back
-to the exact scoped single-column probe instead.
+| Provider | Strategy | Resolution |
+| --- | --- | --- |
+| PostgreSQL | Per-field `pg_stats.n_distinct` | <=50 accept; unscoped >200 reject; otherwise exact single-column fallback |
+| BigQuery | Per-field `APPROX_COUNT_DISTINCT` | <=50 accept; >200 reject; 51-200 exact single-column fallback |
+| DuckDB / local files | Exact bounded single-column `GROUP BY` | 0-100 accept; 101 reject |
+| SQLite via DuckDB | Same exact bounded single-column `GROUP BY` through DuckDB | 0-100 accept; 101 reject |
 
-PostgreSQL no longer uses a grouped `EXPLAIN` cardinality strategy in this
-iteration, and the main process rejects multi-column PostgreSQL probe requests
-before generating SQL. Adding `status` to an existing `type` Series selection
-checks `status` only; it never asks PostgreSQL for the cardinality of
-`(type, status)`.
+The renderer owns only the interaction semantics: when the selection changes from
+`[type]` to `[type, status]`, it submits a cardinality request for `status`.
+If several fields are added together, they are validated one at a time before the
+candidate selection is committed. Removing or merely reordering already-approved
+fields performs no cardinality query.
 
-Manual testing showed why an exact-only policy is not appropriate for PostgreSQL.
-On a representative large events table, an exact grouped probe for a
-low-cardinality field performed a parallel sequential scan across millions of
-qualifying rows and took about 10 seconds. `LIMIT 101` bounds the returned
-groups, not the amount of source scanning or aggregation PostgreSQL may need to
-perform first. Restoring `pg_stats` for each individual field avoids that work
-for the common clearly-low unscoped case, while scoped requests still fall back
-to exact when whole-table statistics are not sufficiently informative.
+The structured preflight request is intentionally singular:
 
-BigQuery arbitrary SQL retains its dry-run/read-only validation. Series
-cardinality uses two structured generated operations instead: a per-field
-`APPROX_COUNT_DISTINCT` preflight and, only for the 51-200 advisory band, the
-existing bounded exact probe. Estimates at or below 50 accept and estimates above
-200 reject. Both operations validate the structured request again, generate their
-own SQL, quote identifiers using GoogleSQL escapes, bind predicate values, and
-preserve location/default dataset/maximum bytes billed. Neither performs the
-arbitrary-user-SQL dry run and there is no raw SQL safety bypass. The execution
-results continue to expose bytes processed and cache status.
+```ts
+{
+  schema,
+  table,
+  seriesColumn,
+  predicates
+}
+```
 
-BigQuery also enforces a single Series field before query generation. Adding
-`status` to an existing `type` Series selection probes `status` only; neither
-the approximate nor exact operation generates `STRUCT(type, status)` or another
-combined cardinality expression.
+Provider strategy selection stays in the main process. The SQL generator no
+longer supports cardinality tuples or BigQuery `STRUCT(...)` probes.
 
-Only identical _in-flight_ requests on the same live session are shared. Settled
-successes and failures are removed; reconnects cannot reuse another session's
-work. No completed positive approval cache remains. Connection setup and probe
-responses are guarded against stale Builder state, and results from replaced
-sessions are discarded. Removing dimensions still avoids probing.
+## PostgreSQL
 
-Different fingerprints can still execute concurrently. The current SQL provider
-sessions do not expose usable per-probe cancellation IDs. No generic cancellation
-framework was added, and cross-fingerprint cancellation/coalescing remains a
-follow-up. Ordinary Series selection stays disabled while checking.
+Every PostgreSQL field starts with the existing `pg_stats.n_distinct`
+interpretation.
+
+For an unscoped field:
+
+```text
+estimate <= 50  -> accept
+estimate > 200  -> reject
+51-200          -> exact fallback
+unavailable     -> exact fallback
+```
+
+For a scoped/time-filtered field, a table-wide estimate <=50 can still accept,
+but any estimate above 50 falls back to the exact scoped single-column query.
+A high whole-table estimate never rejects a filtered subset by itself.
+
+The exact fallback uses the same bounded single-column shape as the local
+providers. PostgreSQL no longer uses a cardinality `EXPLAIN` path.
+
+Manual testing showed why exact-only approval regressed PostgreSQL performance:
+a low-cardinality field on a representative large events table still caused a
+parallel sequential scan and aggregation across millions of qualifying rows,
+taking about 10 seconds. `LIMIT 101` bounds returned groups, not source work.
+Restoring the native `pg_stats` fast path avoids that scan in common cases.
+
+## BigQuery
+
+BigQuery routes directly to BigQuery-native generated operations and never tries
+PostgreSQL statistics or planner logic.
+
+The first generated query is equivalent to:
+
+```sql
+SELECT APPROX_COUNT_DISTINCT(`status`) AS `count`
+FROM `project.dataset.events`
+WHERE ...;
+```
+
+Decision band:
+
+```text
+approx <= 50  -> accept
+approx > 200  -> reject
+51-200        -> exact fallback
+```
+
+The exact fallback is a bounded single-column generated query:
+
+```sql
+SELECT count(*) AS `count`
+FROM (
+  SELECT `status`
+  FROM `project.dataset.events`
+  WHERE ...
+  GROUP BY `status`
+  LIMIT 101
+) AS `cardinality_probe`;
+```
+
+A decisive approximate result therefore uses one BigQuery job. The uncertain
+band uses the approximate job plus one exact job.
+
+Both operations are structured and generated internally, runtime validated,
+GoogleSQL-quoted, parameterized, and retain configured location, default dataset,
+and `maximumBytesBilled`. They do not perform the arbitrary-user-SQL validation
+dry run. Ordinary arbitrary BigQuery SQL still uses the existing dry-run and
+read-only validation path.
+
+## DuckDB / local files and SQLite via DuckDB
+
+These providers deliberately stay exact-only in this PR. There is no native
+statistics or approximate layer.
+
+The generated query shape is:
+
+```sql
+SELECT count(*) AS "count"
+FROM (
+  SELECT "status"
+  FROM "schema"."events"
+  WHERE ...
+  GROUP BY "status"
+  LIMIT 101
+) AS "cardinality_probe";
+```
+
+Only the newly added field is selected and grouped. The query generator cannot
+emit `GROUP BY "type", "status"` because the preflight contract contains one
+`seriesColumn`, not an array.
+
+SQLite files follow the same path because DataKoala executes them through
+DuckDB:
+
+```text
+SQLite file
+-> DuckDB execution
+-> exact bounded single-column cardinality
+```
+
+Results are fail-closed:
+
+```text
+0-100 -> accept
+101   -> reject
+anything malformed/out of range -> error
+```
+
+The existing GROUP BY shape is retained. The DuckDB benchmark showed mixed
+results between GROUP BY and DISTINCT, with GROUP BY clearly faster for the
+common low-cardinality synthetic case; there is no evidence here for a generic
+query-shape rewrite.
+
+## Cache, lifecycle and instrumentation
+
+Only identical in-flight requests on the same live session are shared. Settled
+successes and failures are evicted, so later identical user interactions perform
+a fresh check. Reconnected sessions cannot reuse another session's work.
+
+The renderer keeps stale-response protection across table, time-scope and
+connection changes. Results from replaced sessions are discarded.
+
+Enable local instrumentation with:
+
+```sh
+DATAKOALA_DEBUG_CARDINALITY=1 pnpm dev
+```
+
+Strategy labels are:
+
+```text
+postgres-pg-stats
+postgres-exact
+bigquery-approx
+bigquery-exact
+duckdb-exact
+sqlite-duckdb-exact
+```
+
+Measurements include provider, strategy, whether predicates exist, duration,
+outcome, and BigQuery bytes processed when available. They do not include field
+names, table names, SQL, predicate values, file paths, credentials, or remote
+telemetry.
 
 ## Measurements and reproducibility
-
-On the original main implementation, a first single-column BigQuery selection
-could run a failing PostgreSQL statistics dry run, then an exact-probe dry run,
-then the actual probe: three `createQueryJob` calls. The provider now routes
-directly to BigQuery-native work: a decisive approximate result uses one execution
-job; an estimate in the 51-200 band uses the approximate job plus one exact job.
-There are zero PostgreSQL statistics/EXPLAIN attempts and zero validation dry runs
-for these internally generated operations. Adapter tests cover approximate counts
-20, 500, and 75 with expected job counts 1, 1, and 2 respectively. This is a
-round-trip/strategy improvement; live latency and bytes-scanned measurements are
-still pending.
 
 Run the synthetic benchmark with Node 24:
 
@@ -82,80 +190,41 @@ node scripts/benchmarks/series-cardinality.mjs 1000000
 node scripts/benchmarks/series-cardinality.mjs --postgres 1000000
 ```
 
-DuckDB uses an in-memory temporary table. PostgreSQL uses a session-local temporary
-table, compares unindexed/indexed cases, prints JSON plans, and exercises the
-per-field PostgreSQL dispatcher for single-column cases. Neither modifies existing
-application tables. The raw query-shape benchmark can still compare one/multiple
-columns, but application-level PostgreSQL cardinality preflight is now per-field.
-Each shape has one warm-up and three measurements.
+The application benchmark is now per-field only. DuckDB uses an in-memory
+temporary table. PostgreSQL uses a session-local temporary table and optionally
+indexes the individual benchmark fields. Neither modifies existing application
+tables.
 
-Observed DuckDB baseline query-shape medians in this development container,
-1,000,000 rows (ms; synthetic data, not production before/after claims):
+Observed DuckDB baseline medians from the earlier 1,000,000-row synthetic run
+(ms; one warm-up plus three measurements):
 
-| Dimensions / scope    | GROUP BY (retained) | DISTINCT | Ordered DISTINCT |
-| --------------------- | ------------------: | -------: | ---------------: |
-| 10-value column / all |                3.46 |    11.67 |             8.25 |
-| Unique ID / all       |               37.75 |    37.00 |            27.83 |
-| Two columns / all     |               11.01 |    11.85 |            11.45 |
-| Unique ID / filtered  |                8.92 |     3.86 |             4.42 |
+| Field / scope | GROUP BY (retained) | DISTINCT | Ordered DISTINCT |
+| --- | ---: | ---: | ---: |
+| 10-value field / all | 3.46 | 11.67 | 8.25 |
+| Unique ID / all | 37.75 | 37.00 | 27.83 |
+| Unique ID / filtered | 8.92 | 3.86 | 4.42 |
 
-Plans place the limit above hash aggregation and a sequential scan. A bounded
-result does not imply bounded source scanning. Low-cardinality GROUP BY used a
-perfect hash aggregation, whereas DISTINCT used general hash aggregation. These
-mixed results do not justify changing the generic query shape.
+Plans place the limit above aggregation and a sequential scan, so a bounded
+result does not imply bounded source scanning. The mixed timings do not justify
+changing the generic DuckDB exact shape in this PR.
 
-The PostgreSQL regression above was observed during manual testing on a
-representative configured database. Broader PostgreSQL timings, live BigQuery
-latency/bytes, and SQLite file benchmarks remain incomplete. Run the supplied
-benchmark and local instrumentation against representative connections before
-declaring the overall investigation complete. The PR remains deliberately scoped
-and #324 stays open.
+Live PostgreSQL and BigQuery behavior should still be manually verified against
+representative connections before merge. The implementation work for #346 is
+otherwise complete; #324 can remain open until that final verification/merge
+decision.
 
-For per-strategy local instrumentation:
+## Manual verification before merge
 
-```sh
-DATAKOALA_DEBUG_CARDINALITY=1 pnpm dev
-```
-
-The main-process console emits provider, strategy, column count, whether predicates
-exist, duration, accepted/rejected/fallback/error, and BigQuery bytes processed
-when available. PostgreSQL strategy values are `postgres-pg-stats` and
-`postgres-exact`; BigQuery uses `bigquery-approx` and `bigquery-exact`.
-No identifiers, SQL, values, credentials, or remote telemetry are included.
-Timings are per strategy; fallback duration plus exact duration gives the total
-database work for one request.
-
-## Deferred sampling
-
-Sampling is rejection-only: finding 101 distinct combinations proves the full
-scope is too large; finding fewer proves nothing. Not implemented without evidence
-that it beats the single-job exact path. BigQuery SYSTEM samples storage blocks,
-can read an entire small table, is not cached, and has restrictions including
-views and row-level security. PostgreSQL SYSTEM likewise samples blocks; percent
-sampling is not a strict byte budget. Capability checks, real byte/latency results,
-and selective-filter behavior should precede adding the extra round trip.
-
-References:
-
-- <https://www.postgresql.org/docs/current/using-explain.html>
-- <https://www.postgresql.org/docs/current/sql-select.html>
-- <https://cloud.google.com/bigquery/docs/table-sampling>
-- <https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical>
-
-## Manual review
-
-- PostgreSQL: verify one unfiltered field resolves through `pg_stats` for
-  clearly low/high estimates; verify mid-band/unavailable stats fall back to exact.
-  With a time scope, verify estimates above 50 fall back to exact rather than
-  rejecting. Add a second Series field and confirm only the newly added field is
-  probed and no multi-column PostgreSQL cardinality SQL is generated.
-- BigQuery: verify approximate counts <=50 and >200 resolve in one job, while
-  51-200 produces exactly one additional exact job. Add a second Series field and
-  confirm only the newly added field is referenced; inspect job SQL for no STRUCT,
-  pg_stats, EXPLAIN, or validation dry run. Ensure normal raw SQL still enforces
-  read-only behavior and billing limits.
-- During a pending probe, change table/time scope or disconnect: no obsolete
-  response should apply a selection. Retry after a transient error.
-- Re-select a formerly accepted dimension after the data changes: a new check
-  must occur. Removing a dimension should remain immediate.
-- Verify NULL combinations and DATE/DATETIME/TIMESTAMP range boundaries.
+- PostgreSQL: verify a clearly low unscoped field resolves through `pg_stats`;
+  verify mid-band/unavailable statistics fall back to exact; verify scoped
+  estimates above 50 fall back rather than reject.
+- BigQuery: inspect job history for one job on decisive approximate results and
+  two jobs for the uncertain band; verify normal arbitrary SQL still performs
+  its read-only/dry-run validation.
+- DuckDB/local files: add a second Series field and confirm the cardinality SQL
+  contains only that newly added field and one bounded exact query.
+- SQLite file: repeat the same check and confirm execution remains through
+  DuckDB with no provider-specific statistics query.
+- For all providers: remove a Series field and confirm no cardinality request;
+  change table/time scope during a pending check and confirm the stale response
+  cannot apply.
