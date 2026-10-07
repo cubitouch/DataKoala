@@ -89,10 +89,7 @@ try {
           ).probe(session, request)
           console.log(
             JSON.stringify({
-              strategy:
-                columns.length === 1 && !filtered
-                  ? 'planner-then-exact'
-                  : 'exact-only',
+              strategy: 'provider-strategy',
               columns,
               filtered,
               indexed,
