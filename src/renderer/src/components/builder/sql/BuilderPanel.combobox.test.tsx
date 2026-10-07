@@ -425,6 +425,43 @@ describe('BuilderPanel axis-first controls', () => {
     )
   })
 
+  it('checks only the newly added Series field', async () => {
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /region, text/ }))
+    await waitFor(() =>
+      expect(activeTestSession().builder.seriesColumns).toEqual(['region']),
+    )
+
+    probeSeriesCardinality.mockClear()
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /status, text/ }))
+
+    await waitFor(() =>
+      expect(activeTestSession().builder.seriesColumns).toEqual([
+        'region',
+        'status',
+      ]),
+    )
+    expect(probeSeriesCardinality).toHaveBeenCalledTimes(1)
+    expect(probeSeriesCardinality).toHaveBeenCalledWith('p1', {
+      schema: 'demo_shop',
+      table: 'orders',
+      seriesColumns: ['status'],
+      predicates: expect.any(Array),
+    })
+    expect(
+      probeSeriesCardinality.mock.calls.some(
+        ([, probe]) =>
+          probe.seriesColumns.includes('region') &&
+          probe.seriesColumns.includes('status'),
+      ),
+    ).toBe(false)
+  })
+
   it('clears Series through the existing transition path', () => {
     arrange()
     chooseOrders()
