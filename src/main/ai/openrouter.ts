@@ -60,44 +60,22 @@ const recurringWindowsSchema = {
   },
 }
 const timeRangeSchema = {
-  oneOf: [
-    {
-      type: 'object',
-      properties: {
-        kind: { const: 'all' },
-        recurringWindows: recurringWindowsSchema,
-      },
-      required: ['kind'],
-      additionalProperties: false,
+  type: 'object',
+  properties: {
+    kind: { type: 'string', enum: ['all', 'rolling', 'custom'] },
+    amount: { type: 'integer' },
+    unit: {
+      type: 'string',
+      enum: ['minute', 'hour', 'day', 'month'],
     },
-    {
-      type: 'object',
-      properties: {
-        kind: { const: 'rolling' },
-        amount: { type: 'integer' },
-        unit: {
-          type: 'string',
-          enum: ['minute', 'hour', 'day', 'month'],
-        },
-        recurringWindows: recurringWindowsSchema,
-      },
-      required: ['kind', 'amount', 'unit'],
-      additionalProperties: false,
-    },
-    {
-      type: 'object',
-      properties: {
-        kind: { const: 'custom' },
-        startDate: { type: ['string', 'null'] },
-        startTime: { type: 'string' },
-        endDate: { type: ['string', 'null'] },
-        endTime: { type: 'string' },
-        recurringWindows: recurringWindowsSchema,
-      },
-      required: ['kind', 'startDate', 'startTime', 'endDate', 'endTime'],
-      additionalProperties: false,
-    },
-  ],
+    startDate: { type: ['string', 'null'] },
+    startTime: { type: 'string' },
+    endDate: { type: ['string', 'null'] },
+    endTime: { type: 'string' },
+    recurringWindows: recurringWindowsSchema,
+  },
+  required: ['kind'],
+  additionalProperties: false,
 }
 const builderSchema = {
   type: 'object',
