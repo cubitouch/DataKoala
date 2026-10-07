@@ -455,3 +455,84 @@
     flex-wrap: wrap;
   }
 }
+
+
+.builderDiff {
+  overflow: auto;
+  max-height: 240px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font: 12px/1.5 var(--sans);
+}
+
+.builderDiffRow {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.7fr) minmax(90px, 1fr) 20px minmax(90px, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  padding: 8px 12px;
+}
+
+.builderDiffRow + .builderDiffRow {
+  border-top: 1px solid var(--border);
+}
+
+.builderDiffRow strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.builderDiffBefore {
+  color: var(--red);
+  text-decoration: line-through;
+  overflow-wrap: anywhere;
+}
+
+.builderDiffArrow {
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.builderDiffAfter {
+  color: var(--green);
+  overflow-wrap: anywhere;
+}
+
+.builderUnsupported {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+  background: var(--bg-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.builderContextState {
+  display: grid;
+  gap: 1px;
+  margin: 8px 0 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.builderContextState > div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  padding: 7px 10px;
+  background: var(--bg-4);
+}
+
+.builderContextState dt {
+  color: var(--text-dim);
+}
+
+.builderContextState dd {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
