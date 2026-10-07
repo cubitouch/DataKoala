@@ -2,8 +2,8 @@
   position: fixed;
   right: 16px;
   bottom: 16px;
-  width: 560px;
-  max-height: 60vh;
+  width: min(1100px, calc(100vw - 32px));
+  max-height: 80vh;
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -40,4 +40,9 @@
   color: var(--text-mute);
   font-size: 12px;
   padding: 8px 10px 0;
+}
+
+.content {
+  overflow: auto;
+  min-height: 0;
 }

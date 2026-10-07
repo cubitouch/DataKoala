@@ -12,6 +12,8 @@ env:
   PREVIEW_FILES: |-
     ai-settings.png
     ai-query-proposal.png
+    ai-query-explain.png
+    ai-query-analyze.png
     ai-builder-proposal.png
     ai-query-repair-error.png
     ai-query-repair-failure.png

@@ -204,6 +204,7 @@ const tab = (
   builderResultFilters: [promotedFilter(), clientFilter()],
   queryFilterRevision: { sql: 3, builder: 4 },
   builderFilterNotice: { id: 4, message: 'runtime-notice-secret' },
+  explainSnapshot: { query: 'snapshot-secret', mode: 'explain' as const },
   explainText: 'explain-secret',
   showExplain: true,
   activeExplainRequest: 'analyze' as const,

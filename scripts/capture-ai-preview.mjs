@@ -98,6 +98,63 @@ app.whenReady().then(async () => {
     ipcMain.handle('ai:settings:get', () =>
       ok({ provider: 'openrouter', model: 'preview/model', hasApiKey: true }),
     )
+    ipcMain.handle('ai:explain', (_event, request) => {
+      if (
+        request.currentQuery !== query ||
+        'plan' in request ||
+        'rows' in request
+      )
+        throw new Error('Unexpected AI explanation disclosure')
+      return ok({
+        summary: 'Revenue by country for orders placed in the last 30 days.',
+        assumptions: ['amount is recorded in a consistent currency.'],
+        nodes: [
+          {
+            id: 'orders',
+            kind: 'source',
+            label: 'Orders',
+            sqlFragment: 'FROM public.orders',
+          },
+          {
+            id: 'filter',
+            kind: 'filter',
+            label: 'Last 30 days',
+            sqlFragment: "WHERE created_at >= now() - interval '30 days'",
+          },
+          {
+            id: 'group',
+            kind: 'group',
+            label: 'Revenue by country',
+            sqlFragment: 'GROUP BY country',
+          },
+          {
+            id: 'sort',
+            kind: 'sort',
+            label: 'Highest revenue first',
+            sqlFragment: 'ORDER BY revenue DESC',
+          },
+        ],
+        edges: [
+          { from: 'orders', to: 'filter' },
+          { from: 'filter', to: 'group' },
+          { from: 'group', to: 'sort' },
+        ],
+        highlights: [
+          {
+            title: 'Recent orders only',
+            detail:
+              'The date filter uses the database clock and excludes older orders.',
+            nodeIds: ['filter'],
+          },
+          {
+            title: 'One row per country',
+            detail:
+              'Sums amount within each country, then orders the groups by revenue.',
+            nodeIds: ['group', 'sort'],
+          },
+        ],
+      })
+    })
     ipcMain.handle('ai:models', () =>
       ok([{ id: 'preview/model', name: 'Preview analytical model' }]),
     )
@@ -251,6 +308,41 @@ app.whenReady().then(async () => {
     )
     if (applied !== query)
       throw new Error('AI preview did not apply the proposal')
+    // Both database-plan surfaces offer the same semantic explanation, without re-executing SQL.
+    const runsBeforeExplanation = queryRuns
+    for (const mode of ['explain', 'analyze']) {
+      await win.webContents.executeJavaScript(`(() => {
+        const state = window.__datakoalaStore.getState()
+        state.setExplain('Sort → Aggregate → Scan (deterministic preview plan)', state.activeTabId, { query: ${JSON.stringify(query)}, mode: ${JSON.stringify(mode)} })
+        state.setShowExplain(true)
+      })()`)
+      await wait(
+        win,
+        `document.querySelector('[aria-label="AI query explanation"]')`,
+      )
+      await click(win, 'Generate AI diagram')
+      await wait(
+        win,
+        `document.querySelector('[aria-label="Query diagram"] button')`,
+      )
+      await click(win, 'filter Last 30 days')
+      await wait(
+        win,
+        `document.querySelector('[aria-label="Explained SQL"] mark')?.textContent.includes('WHERE created_at')`,
+      )
+      if (queryRuns !== runsBeforeExplanation)
+        throw new Error('AI explanation executed SQL')
+      await settlePaint(win)
+      await writeFile(
+        resolve(output, `ai-query-${mode}.png`),
+        (await win.webContents.capturePage()).toPNG(),
+      )
+      await click(win, 'close')
+      await wait(
+        win,
+        `!document.querySelector('[aria-label="AI query explanation"]')`,
+      )
+    }
     // Exercise the real SQL Builder integration with a previously-run Builder.
     await win.webContents.executeJavaScript(`(() => {
       const store = window.__datakoalaStore, state = store.getState()

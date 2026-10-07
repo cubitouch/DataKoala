@@ -64,7 +64,7 @@ The SQL workflow includes:
 - schema, relation and column browsing;
 - clear separation between clearing results and resetting a query;
 - SQL export;
-- PostgreSQL EXPLAIN and EXPLAIN ANALYZE.
+- PostgreSQL EXPLAIN and EXPLAIN ANALYZE, with optional semantic AI diagrams and SQL-linked highlights when AI is configured.
 
 Queries and workspace drafts persist locally. Query results and runtime execution state are deliberately not stored as part of the workspace.
 

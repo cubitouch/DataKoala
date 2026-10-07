@@ -141,6 +141,10 @@ export interface QuerySession {
   builderResultFilters: ResultFilter[]
   queryFilterRevision: Record<QueryMode, number>
   builderFilterNotice: { id: number; message: string } | null
+  explainSnapshot: {
+    query: string
+    mode: 'explain' | 'analyze' | 'semantic'
+  } | null
   explainText: string | null
   showExplain: boolean
   activeExplainRequest: ExplainRequest
@@ -251,6 +255,7 @@ export function createQuerySession(
     queryFilterRevision: { sql: 0, builder: 0 },
     builderFilterNotice: null,
     explainText: null,
+    explainSnapshot: null,
     showExplain: false,
     activeExplainRequest: null,
     seriesVisibility: {},
@@ -402,7 +407,11 @@ export interface AppState {
     execution: 'client' | 'query',
     tabId?: string,
   ) => void
-  setExplain: (text: string | null, tabId?: string) => void
+  setExplain: (
+    text: string | null,
+    tabId?: string,
+    snapshot?: QuerySession['explainSnapshot'],
+  ) => void
   setShowExplain: (value: boolean, tabId?: string) => void
   setActiveExplainRequest: (request: ExplainRequest, tabId?: string) => void
   setSeriesVisibility: (
@@ -928,6 +937,7 @@ export const useStore = create<AppState>((set, get) => ({
           (filter) => filter.execution === 'query',
         ),
         explainText: null,
+        explainSnapshot: null,
         showExplain: false,
         activeExplainRequest: null,
         seriesVisibility: {},
@@ -991,6 +1001,7 @@ export const useStore = create<AppState>((set, get) => ({
           queryFilterRevision: { sql: 0, builder: 0 },
           builderFilterNotice: null,
           explainText: null,
+          explainSnapshot: null,
           showExplain: false,
           activeExplainRequest: null,
           seriesVisibility: {},
@@ -1347,9 +1358,13 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }),
     ),
-  setExplain: (explainText, tabId) =>
+  setExplain: (explainText, tabId, snapshot) =>
     set((state) =>
-      patchSession(state, tabId, (session) => ({ ...session, explainText })),
+      patchSession(state, tabId, (session) => ({
+        ...session,
+        explainText,
+        explainSnapshot: snapshot ?? null,
+      })),
     ),
   setShowExplain: (showExplain, tabId) =>
     set((state) =>

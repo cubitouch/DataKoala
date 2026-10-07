@@ -1,3 +1,4 @@
+import { AiExplainAction } from '@components/ai/AiExplainAction'
 import { AiQueryCopilot } from '@components/ai/AiQueryCopilot'
 import { AiQueryRepairReview } from '@components/ai/AiQueryRepairReview'
 import { useAiQueryRepairController } from '@components/ai/AiQueryRepairProvider'
@@ -319,7 +320,7 @@ export function QueryEditor({
         mode === 'analyze',
       )
       if (stillBoundTo(requestTabId, requestProfileId))
-        setExplain(res.text, requestTabId)
+        setExplain(res.text, requestTabId, { query: requestSql, mode })
     } catch (e) {
       if (stillBoundTo(requestTabId, requestProfileId))
         setExplain(e instanceof Error ? e.message : String(e), requestTabId)
@@ -482,6 +483,11 @@ export function QueryEditor({
                 }
                 query={effectiveDisplayQuery}
                 range={prometheusTimeRange}
+              />
+            )}
+            {connectionKind === 'postgres' && !builderMode && (
+              <AiExplainAction
+                disabled={isAnyExplainLoading || !!repair?.blocked}
               />
             )}
             {language.kind === 'sql' && capabilities.explain && (

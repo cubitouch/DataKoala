@@ -2,6 +2,8 @@ import type {
   AiBuilderProposalRequest,
   AiBuilderStep,
   AiModel,
+  AiQueryExplanationRequest,
+  AiQueryExplanation,
   AiQueryProposalRequest,
   AiQueryStep,
 } from '../../shared/ai.ts'
@@ -10,8 +12,17 @@ import {
   BUILDER_TIME_BUCKETS,
 } from '../../shared/builderCapabilities.ts'
 import { AiError, builderStep, queryStep, record } from './validation.ts'
+import {
+  explanationSchema,
+  explanationPrompt,
+  queryExplanation,
+} from './explanation.ts'
 
 export interface AiProvider {
+  explainQuery(
+    request: AiQueryExplanationRequest,
+    signal: AbortSignal,
+  ): Promise<AiQueryExplanation>
   listModels(signal: AbortSignal): Promise<AiModel[]>
   test(signal: AbortSignal): Promise<void>
   proposeQuery(
@@ -287,7 +298,29 @@ export class OpenRouterProvider implements AiProvider {
         'The model did not return a query proposal for the connection test.',
       )
   }
-
+  explainQuery(
+    request: AiQueryExplanationRequest,
+    signal: AbortSignal,
+  ): Promise<AiQueryExplanation> {
+    return this.complete(
+      [
+        { role: 'system', content: explanationPrompt },
+        {
+          role: 'user',
+          content: JSON.stringify({
+            currentQuery: request.currentQuery,
+            context: request.context,
+          }),
+        },
+      ],
+      signal,
+      8000,
+      'query_explanation',
+      explanationSchema,
+      (value) => queryExplanation(value, request.currentQuery),
+      'AI could not produce a grounded query diagram. Try again or choose another model.',
+    )
+  }
   proposeQuery(
     request: AiQueryProposalRequest,
     signal: AbortSignal,
