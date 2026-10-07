@@ -13,6 +13,7 @@ import {
   validateBuilderTimeRange,
   type BuilderTimeRange,
 } from '../../shared/builderTimeRange.ts'
+import { materializeAiBuilderTargetState } from '../../shared/aiBuilder.ts'
 import { isNumericType } from '../../shared/types.ts'
 import type {
   AiBuilderPatch,
@@ -489,16 +490,6 @@ const validateBuilderTarget = (
   }
 }
 
-const materializeBuilderTarget = (
-  state: AiBuilderState,
-  patch: AiBuilderPatch,
-): AiBuilderState => {
-  const target: AiBuilderState = { ...state, ...patch }
-  if (target.aggregation === 'count') target.valueColumn = null
-  if (!target.timeColumn) delete target.timeRange
-  return target
-}
-
 const normalizedBuilderPatch = (
   before: AiBuilderState,
   target: AiBuilderState,
@@ -531,7 +522,11 @@ function validateBuilderProposal(
   )
     throw new Error()
   const proposedPatch = cleanBuilderPatch(input.patch)
-  const target = materializeBuilderTarget(request.state, proposedPatch)
+  const target = materializeAiBuilderTargetState(
+    request.state,
+    proposedPatch,
+    request.columns,
+  )
   validateBuilderTarget(target, request.columns)
   return {
     patch: normalizedBuilderPatch(request.state, target),
