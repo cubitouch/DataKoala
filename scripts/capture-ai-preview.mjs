@@ -36,6 +36,24 @@ const bigQueryColumns = [
   { name: 'created_at', dataTypeName: 'TIMESTAMP' },
   { name: 'revenue', dataTypeName: 'NUMERIC' },
 ]
+const bigQueryCatalogRelations = [
+  'campaigns',
+  'customers',
+  'inventory',
+  'products',
+  'refunds',
+  'sessions',
+  'shipments',
+  'subscriptions',
+  'support_tickets',
+].map((name) => ({
+  schema: 'my-project.analytics',
+  name,
+  kind: 'r',
+  qualifiedName: `my-project.analytics.${name}`,
+  columnsStatus: 'loaded',
+  columns: [{ name: 'id', dataTypeName: 'STRING' }],
+}))
 const columns = [
   { name: 'id', dataTypeName: 'uuid' },
   { name: 'country', dataTypeName: 'text' },
@@ -301,7 +319,7 @@ app.whenReady().then(async () => {
                 qualifiedName: 'my-project.analytics.orders',
                 columnsStatus: 'loaded',
                 columns: ${JSON.stringify(bigQueryColumns)},
-              }],
+              }, ...${JSON.stringify(bigQueryCatalogRelations)}],
             }],
           },
         },
@@ -341,8 +359,13 @@ app.whenReady().then(async () => {
     await click(win, 'View AI details')
     await wait(
       win,
-      `[...document.querySelectorAll('[data-popover-overlay]')].some((overlay) => overlay.textContent.includes('GoogleSQL · OpenRouter') && overlay.textContent.includes('my-project.analytics.orders'))`,
+      `[...document.querySelectorAll('[data-popover-overlay]')].some((overlay) => overlay.textContent.includes('GoogleSQL · OpenRouter') && overlay.textContent.includes('my-project.analytics.orders') && overlay.textContent.includes('Available relation names') && overlay.textContent.includes('4 additional relations · names only') && overlay.textContent.includes('my-project.analytics.subscriptions'))`,
     )
+    await win.webContents.executeJavaScript(`(() => {
+      const overlay = [...document.querySelectorAll('[data-popover-overlay]')].find((item) => item.textContent.includes('GoogleSQL · OpenRouter'))
+      const catalog = overlay?.querySelector('[aria-label="Available relation names"]')
+      catalog?.scrollIntoView({ block: 'center' })
+    })()`)
     await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-query-bigquery-proposal.png'),

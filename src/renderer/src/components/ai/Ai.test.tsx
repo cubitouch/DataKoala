@@ -1038,12 +1038,27 @@ test('AI details exposes initial context, discovery request, added relations and
     'Need device metadata to answer the request.',
   )
   expect(discovery.textContent).toContain('public.zy_devices')
+  const initial = screen.getByRole('region', {
+    name: 'Initial schema metadata',
+  })
+  const final = screen.getByRole('region', { name: 'Final schema metadata' })
   expect(
-    screen.getByRole('region', { name: 'Initial schema metadata' }).textContent,
-  ).not.toContain('zy_devices')
+    Array.from(initial.querySelectorAll('pre')).some((item) =>
+      item.textContent?.includes('zy_devices'),
+    ),
+  ).toBe(false)
   expect(
-    screen.getByRole('region', { name: 'Final schema metadata' }).textContent,
-  ).toContain('zy_devices')
+    initial.querySelector('[aria-label="Available relation names"]')
+      ?.textContent,
+  ).toContain('public.zy_devices')
+  expect(
+    Array.from(final.querySelectorAll('pre')).some((item) =>
+      item.textContent?.includes('public.zy_devices'),
+    ),
+  ).toBe(true)
+  expect(
+    final.querySelector('[aria-label="Available relation names"]')?.textContent,
+  ).not.toContain('public.zy_devices')
 })
 
 function setupBuilderAi() {
