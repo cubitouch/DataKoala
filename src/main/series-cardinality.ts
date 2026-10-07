@@ -18,10 +18,7 @@ import type { DataSourceSession } from './data-source.ts'
 export interface ProbeMeasurement {
   provider: string
   strategy:
-    | 'postgres-pg-stats'
-    | 'postgres-planner'
-    | 'bigquery-exact'
-    | 'exact'
+    'postgres-pg-stats' | 'postgres-planner' | 'bigquery-exact' | 'exact'
   seriesColumnCount: number
   hasPredicates: boolean
   durationMs: number
