@@ -55,13 +55,19 @@ function categoryClass(category: ExplainNodeCategory): string {
 }
 
 function ratioClass(
-  relation: 'match' | 'underestimate' | 'overestimate',
+  relation: 'close' | 'underestimate' | 'overestimate',
 ): string {
   return {
-    match: styles.ratioMatch,
+    close: styles.ratioMatch,
     underestimate: styles.ratioUnderestimate,
     overestimate: styles.ratioOverestimate,
   }[relation]
+}
+
+function ratioRelationLabel(
+  relation: 'close' | 'underestimate' | 'overestimate',
+): string {
+  return relation === 'close' ? 'close estimate' : relation
 }
 
 function NodeButton({
@@ -132,7 +138,9 @@ function NodeButton({
               className={`${styles.ratio} ${ratioClass(cardinality.relation)}`}
             >
               {cardinality.label}
-              <span className={styles.ratioKind}>{cardinality.relation}</span>
+              <span className={styles.ratioKind}>
+                {ratioRelationLabel(cardinality.relation)}
+              </span>
             </span>
           )}
         </span>
