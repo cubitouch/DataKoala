@@ -34,8 +34,8 @@ function AvailableRelationCatalog({
         </span>
       </div>
       <p className={styles.relationCatalogNote}>
-        Columns for these relations are not included unless DataKoala selects one
-        during the single metadata-discovery step.
+        Columns for these relations are not included unless DataKoala selects
+        one during the single metadata-discovery step.
       </p>
       <div className={styles.relationCatalogList} role="list">
         {relations.map((relation) => (
