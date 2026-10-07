@@ -81,29 +81,105 @@ for (const provider of ['local-files', 'sqlite-file'] as const) {
   })
 }
 
-test('BigQuery uses one generated exact operation', async () => {
-  let genericCalls = 0
-  let generatedCalls = 0
-  const measurements: ProbeMeasurement[] = []
+for (const [approximateCount, exactCount, expected] of [
+  [
+    20,
+    undefined,
+    { distinctCount: 20, exceedsHardLimit: false, estimated: true },
+  ],
+  [
+    500,
+    undefined,
+    { distinctCount: 500, exceedsHardLimit: true, estimated: true },
+  ],
+  [75, 24, { distinctCount: 24, exceedsHardLimit: false }],
+] as const) {
+  test(`BigQuery approximate count ${approximateCount} uses the expected generated jobs`, async () => {
+    let genericCalls = 0
+    let approximateCalls = 0
+    let exactCalls = 0
+    const measurements: ProbeMeasurement[] = []
+    const withExecution = (count: number, bytesProcessed: number): QueryResult => ({
+      ...result([{ count }]),
+      execution: {
+        provider: 'bigquery',
+        durationMs: 1,
+        rowCount: 1,
+        truncated: false,
+        bytesProcessed,
+      },
+    })
+    const session: DataSourceSession = {
+      ...fake('bigquery', async () => {
+        genericCalls++
+        throw new Error('generic query path must not run')
+      }),
+      querySeriesCardinalityApproximate: async (probeRequest) => {
+        approximateCalls++
+        assert.deepEqual(probeRequest.seriesColumns, ['status'])
+        return withExecution(approximateCount, 11)
+      },
+      querySeriesCardinality: async (probeRequest) => {
+        exactCalls++
+        assert.deepEqual(probeRequest.seriesColumns, ['status'])
+        return withExecution(exactCount ?? 0, 22)
+      },
+    }
+    assert.deepEqual(
+      await new SeriesCardinalityProbes((measurement) =>
+        measurements.push(measurement),
+      ).probe(session, request),
+      expected,
+    )
+    assert.equal(genericCalls, 0)
+    assert.equal(approximateCalls, 1)
+    assert.equal(exactCalls, exactCount === undefined ? 0 : 1)
+    assert.deepEqual(
+      measurements.map(({ strategy, result: outcome, bytesProcessed }) => [
+        strategy,
+        outcome,
+        bytesProcessed,
+      ]),
+      exactCount === undefined
+        ? [
+            [
+              'bigquery-approx',
+              approximateCount <= 50 ? 'accepted' : 'rejected',
+              11,
+            ],
+          ]
+        : [
+            ['bigquery-approx', 'fallback', 11],
+            ['bigquery-exact', 'accepted', 22],
+          ],
+    )
+  })
+}
+
+test('BigQuery refuses multi-column probes before provider work', async () => {
+  let providerCalls = 0
   const session: DataSourceSession = {
     ...fake('bigquery', async () => {
-      genericCalls++
-      throw new Error('generic query path must not run')
+      providerCalls++
+      return result([])
     }),
+    querySeriesCardinalityApproximate: async () => {
+      providerCalls++
+      return result([{ count: 1 }])
+    },
     querySeriesCardinality: async () => {
-      generatedCalls++
-      return result([{ count: 3 }])
+      providerCalls++
+      return result([{ count: 1 }])
     },
   }
-  assert.deepEqual(
-    await new SeriesCardinalityProbes((measurement) =>
-      measurements.push(measurement),
-    ).probe(session, request),
-    { distinctCount: 3, exceedsHardLimit: false },
+  await assert.rejects(
+    new SeriesCardinalityProbes().probe(session, {
+      ...request,
+      seriesColumns: ['type', 'status'],
+    }),
+    /exactly one Series field/,
   )
-  assert.equal(genericCalls, 0)
-  assert.equal(generatedCalls, 1)
-  assert.equal(measurements.at(-1)?.strategy, 'bigquery-exact')
+  assert.equal(providerCalls, 0)
 })
 
 for (const [label, nDistinct, expected] of [
