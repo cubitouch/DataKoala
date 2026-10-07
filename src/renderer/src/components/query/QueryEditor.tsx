@@ -305,7 +305,6 @@ export function QueryEditor({
     if (activeExplainRequest || !tabConnectionId || connecting) return
     const requestTabId = tabId
     const requestSql = sql
-    const snapshot = { query: requestSql, mode }
     setActiveExplainRequest(mode, requestTabId)
     setShowExplain(true, requestTabId)
     const requestProfileId = await ensureConnectionForTab(requestTabId)
@@ -320,11 +319,10 @@ export function QueryEditor({
         mode === 'analyze',
       )
       if (stillBoundTo(requestTabId, requestProfileId))
-        setExplain(res.text, requestTabId, snapshot, res.tree)
+        setExplain(res.text, requestTabId)
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e)
       if (stillBoundTo(requestTabId, requestProfileId))
-        setExplain(message, requestTabId, snapshot)
+        setExplain(e instanceof Error ? e.message : String(e), requestTabId)
     } finally {
       setActiveExplainRequest(null, requestTabId)
     }
@@ -338,6 +336,8 @@ export function QueryEditor({
   const capabilities = DATA_SOURCE_CAPABILITIES[connectionKind ?? 'postgres']
   const canExplain = canUseDatabase && capabilities.explain
   const canAnalyze = canUseDatabase && capabilities.analyze
+  const canUseSqlCopilot = language.kind === 'sql' && !builderMode
+  const canUsePostgresRepair = connectionKind === 'postgres' && !builderMode
 
   const applyFormattedQuery = (formatted: string, requestTabId: string) => {
     const active = useStore.getState().activeTabId === requestTabId
@@ -533,17 +533,16 @@ export function QueryEditor({
         }
       />
 
-      {connectionKind === 'postgres' && !builderMode && (
-        <>
-          {!repair?.blocked && (
-            <AiQueryCopilot key={`${tabId}:${tabConnectionId}`} />
-          )}
-          <AiQueryRepairReview
-            onApplied={() =>
-              requestAnimationFrame(() => editorRef.current?.focus())
-            }
-          />
-        </>
+      {canUseSqlCopilot &&
+        !(canUsePostgresRepair && repair?.blocked) && (
+          <AiQueryCopilot key={`${tabId}:${tabConnectionId}`} />
+        )}
+      {canUsePostgresRepair && (
+        <AiQueryRepairReview
+          onApplied={() =>
+            requestAnimationFrame(() => editorRef.current?.focus())
+          }
+        />
       )}
       {builderMode ? (
         <PromqlBuilderPanel
