@@ -62,37 +62,37 @@ describe('AiContextPopover relation catalog', () => {
   it(
     'shows names-only relations separately from detailed schema metadata',
     () => {
-    renderDetails({
-      value: context(
-        [
-          {
-            schema: 'public',
-            name: 'orders',
-            kind: 'table',
-            columns: [
-              { name: 'id', dataType: 'uuid' },
-              { name: 'revenue', dataType: 'numeric' },
-            ],
-          },
-        ],
-        [
-          { schema: 'analytics', name: 'customers' },
-          { schema: 'analytics', name: 'subscriptions' },
-        ],
-      ),
-    })
+      renderDetails({
+        value: context(
+          [
+            {
+              schema: 'public',
+              name: 'orders',
+              kind: 'table',
+              columns: [
+                { name: 'id', dataType: 'uuid' },
+                { name: 'revenue', dataType: 'numeric' },
+              ],
+            },
+          ],
+          [
+            { schema: 'analytics', name: 'customers' },
+            { schema: 'analytics', name: 'subscriptions' },
+          ],
+        ),
+      })
 
-    const schema = screen.getByLabelText('Schema metadata')
-    expect(within(schema).getByText(/public\.orders/)).toBeTruthy()
-    expect(within(schema).getByText('1 relations · 2 columns')).toBeTruthy()
+      const schema = screen.getByLabelText('Schema metadata')
+      expect(within(schema).getByText(/public\.orders/)).toBeTruthy()
+      expect(within(schema).getByText('1 relations · 2 columns')).toBeTruthy()
 
-    const catalog = within(schema).getByLabelText('Available relation names')
-    expect(
-      within(catalog).getByText('2 additional relations · names only'),
-    ).toBeTruthy()
-    expect(within(catalog).getByText('analytics.customers')).toBeTruthy()
-    expect(within(catalog).getByText('analytics.subscriptions')).toBeTruthy()
-    expect(within(catalog).queryByText(/customers\n/)).toBeNull()
+      const catalog = within(schema).getByLabelText('Available relation names')
+      expect(
+        within(catalog).getByText('2 additional relations · names only'),
+      ).toBeTruthy()
+      expect(within(catalog).getByText('analytics.customers')).toBeTruthy()
+      expect(within(catalog).getByText('analytics.subscriptions')).toBeTruthy()
+      expect(within(catalog).queryByText(/customers\n/)).toBeNull()
     },
   )
 
@@ -115,44 +115,44 @@ describe('AiContextPopover relation catalog', () => {
   it(
     'keeps initial and final discovery catalogs associated with their own schema sections',
     () => {
-    const initialContext = context(
-      [relation('initial', 'orders', 'initial_id')],
-      [{ schema: 'initial', name: 'names_only' }],
-    )
-    const finalContext = context(
-      [
-        relation('final', 'orders', 'final_id'),
-        relation('final', 'discovered', 'revenue'),
-      ],
-      [{ schema: 'final', name: 'names_only' }],
-    )
+      const initialContext = context(
+        [relation('initial', 'orders', 'initial_id')],
+        [{ schema: 'initial', name: 'names_only' }],
+      )
+      const finalContext = context(
+        [
+          relation('final', 'orders', 'final_id'),
+          relation('final', 'discovered', 'revenue'),
+        ],
+        [{ schema: 'final', name: 'names_only' }],
+      )
 
-    renderDetails({
-      value: finalContext,
-      discovery: {
-        initialContext,
-        request: {
-          searchTerms: ['revenue'],
-          reason: 'Need the revenue relation.',
+      renderDetails({
+        value: finalContext,
+        discovery: {
+          initialContext,
+          request: {
+            searchTerms: ['revenue'],
+            reason: 'Need the revenue relation.',
+          },
+          addedRelations: ['final.discovered'],
         },
-        addedRelations: ['final.discovered'],
-      },
-    })
+      })
 
-    const initial = screen.getByLabelText('Initial schema metadata')
-    const final = screen.getByLabelText('Final schema metadata')
+      const initial = screen.getByLabelText('Initial schema metadata')
+      const final = screen.getByLabelText('Final schema metadata')
 
-    expect(within(initial).getByText(/initial\.orders/)).toBeTruthy()
-    expect(
-      within(initial).getByLabelText('Available relation names').textContent,
-    ).toContain('initial.names_only')
-    expect(within(initial).queryByText('final.names_only')).toBeNull()
+      expect(within(initial).getByText(/initial\.orders/)).toBeTruthy()
+      expect(
+        within(initial).getByLabelText('Available relation names').textContent,
+      ).toContain('initial.names_only')
+      expect(within(initial).queryByText('final.names_only')).toBeNull()
 
-    expect(within(final).getByText(/final\.discovered/)).toBeTruthy()
-    expect(
-      within(final).getByLabelText('Available relation names').textContent,
-    ).toContain('final.names_only')
-    expect(within(final).queryByText('initial.names_only')).toBeNull()
+      expect(within(final).getByText(/final\.discovered/)).toBeTruthy()
+      expect(
+        within(final).getByLabelText('Available relation names').textContent,
+      ).toContain('final.names_only')
+      expect(within(final).queryByText('initial.names_only')).toBeNull()
     },
   )
 })
