@@ -1219,6 +1219,41 @@ test('Builder AI normalizes a minimal Y-axis proposal through normal Builder def
   expect(mocks.run).not.toHaveBeenCalled()
 })
 
+test('Builder AI accepts the exact ten-day hourly count request', async () => {
+  setupBuilderAi()
+  mocks.proposeBuilder.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        patch: {
+          timeBucket: 'hour',
+          timeRange: { kind: 'rolling', amount: 10, unit: 'day' },
+        },
+        explanation: 'Count collections hourly over the last 10 days.',
+        assumptions: [],
+      },
+    } as AiBuilderStep),
+  )
+  render(<AiBuilderCopilot />)
+  await askBuilder('number of collections over the last 10 days grouped hourly')
+  const review = await screen.findByRole('region', {
+    name: 'AI Builder proposal',
+  })
+  expect(review.textContent).toContain('Time bucket')
+  expect(review.textContent).toContain('Hour')
+  expect(review.textContent).toContain('Last 10 days')
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  const session = selectActiveSession(useStore.getState())
+  expect(session.builder.timeBucket).toBe('hour')
+  expect(session.builder.timeRange).toEqual({
+    kind: 'rolling',
+    amount: 10,
+    unit: 'day',
+  })
+  expect(builderSql()).toContain("INTERVAL '10 days'")
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
 test('Builder AI applies temporal controls while preserving a valid time column', async () => {
   setupBuilderAi()
   mocks.proposeBuilder.mockResolvedValueOnce(
