@@ -79,7 +79,8 @@ test('validates Builder boundary and rolling predicates and reconstructs them', 
 
 test('rejects malformed Builder boundary and rolling predicates', () => {
   for (const predicate of [
-    { column: 'at', operator: 'rolling', amount: 5, unit: 'day' },
+    { column: 'at', operator: 'rolling', amount: 0, unit: 'day' },
+    { column: 'at', operator: 'rolling', amount: 367, unit: 'day' },
     { column: 'at', operator: 'rolling', amount: 7, unit: 'week' },
     { column: 'at', operator: 'rolling', amount: '7', unit: 'day' },
     { column: 'at', operator: 'gte' },
@@ -92,6 +93,22 @@ test('rejects malformed Builder boundary and rolling predicates', () => {
     assert.throws(() =>
       validateSeriesCardinalityRequest({ ...valid, predicates: [predicate] }),
     )
+})
+
+test('arbitrary bounded rolling ranges validate and reach probe SQL', () => {
+  const checked = validateSeriesCardinalityRequest({
+    ...valid,
+    predicates: [
+      { column: 'created_at', operator: 'rolling', amount: 10, unit: 'day' },
+    ],
+  })
+  assert.deepEqual(checked.predicates[0], {
+    column: 'created_at',
+    operator: 'rolling',
+    amount: 10,
+    unit: 'day',
+  })
+  assert.match(buildSeriesCardinalityProbe(checked).sql, /INTERVAL '10 days'/)
 })
 
 test('all supported hourly rolling presets validate and reach equivalent probe SQL', () => {
@@ -122,7 +139,7 @@ test('all supported hourly rolling presets validate and reach equivalent probe S
   }
 })
 
-test('supported short rolling presets validate while nearby combinations fail closed', () => {
+test('supported short rolling ranges validate while invalid bounds fail closed', () => {
   for (const [amount, unit] of [
     [15, 'minute'],
     [30, 'minute'],
@@ -140,9 +157,9 @@ test('supported short rolling presets validate while nearby combinations fail cl
     })
   }
   for (const [amount, unit] of [
-    [14, 'minute'],
-    [31, 'minute'],
-    [2, 'hour'],
+    [0, 'minute'],
+    [1441, 'minute'],
+    [745, 'hour'],
   ] as const) {
     assert.throws(() =>
       validateSeriesCardinalityRequest({
