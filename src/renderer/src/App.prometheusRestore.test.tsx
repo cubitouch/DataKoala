@@ -161,7 +161,7 @@ describe('Prometheus workspace restoration', () => {
     expect(activeTestSession().connectionProfileId).toBe(prometheus.id)
     expect(useStore.getState().activeProfileId).toBeNull()
     expect(screen.getAllByText('Cloud metrics').length).toBeGreaterThan(0)
-    expect(screen.getByText('Disconnected')).toBeTruthy()
+    expect(status.textContent).toBe('Cloud metrics · disconnected')
   })
 
   it('renders the PromQL query surface for an already-active Prometheus connection', () => {
