@@ -1,3 +1,4 @@
+import { formatCompactNumber } from './compactNumber.ts'
 import type { ChartSeries, ResultView } from './resultVisualization.ts'
 import { summarizeTooltipRows } from './chartTooltip.ts'
 import { prepareLogScaleSeries, type ValueAxisScale } from './chartAxisScale.ts'
@@ -103,9 +104,7 @@ export function formatChartNumber(value: unknown): string {
         ? Number(value)
         : NaN
   if (!Number.isFinite(numeric)) return value == null ? '—' : String(value)
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(
-    numeric,
-  )
+  return formatCompactNumber(numeric)
 }
 
 const escapeHtml = (value: unknown) =>
