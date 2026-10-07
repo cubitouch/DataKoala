@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { ConnectionStatus } from './ConnectionStatus'
-import { resetTestStore } from '@test/sessionTestUtils'
+import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 
 const postgres = {
   kind: 'postgres' as const,
@@ -40,6 +40,33 @@ describe('ConnectionStatus', () => {
     expect(status.dataset.state).toBe('connected')
     expect(status.getAttribute('aria-live')).toBe('polite')
     expect(status.title).toBe(status.textContent)
+  })
+
+  it('uses the active tab profile state after a renderer reload even when legacy global state is disconnected', () => {
+    resetTestStore({
+      profiles: [postgres],
+      activeProfileId: null,
+      connected: false,
+      connecting: false,
+      connectionStatus: 'disconnected',
+      connectionStateByProfileId: {
+        [postgres.id]: {
+          status: 'connected',
+          generation: 4,
+          error: null,
+          serverVersion: '16.4',
+        },
+      },
+    })
+    patchActiveTestSession({ connectionProfileId: postgres.id })
+
+    render(<ConnectionStatus />)
+
+    const status = screen.getByRole('status')
+    expect(status.textContent).toBe(
+      'A very long production database name · PostgreSQL 16.4',
+    )
+    expect(status.dataset.state).toBe('connected')
   })
 
   it.each([
