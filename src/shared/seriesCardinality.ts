@@ -116,3 +116,25 @@ export function buildSeriesCardinalityProbe(
     parameters,
   }
 }
+
+
+/** Builds BigQuery's single-field approximate preflight from the same generated source/predicates as the exact probe. */
+export function buildBigQuerySeriesCardinalityApproxProbe(
+  request: SeriesCardinalityProbeRequest,
+): { sql: string; parameters: unknown[] } {
+  if (request.seriesColumns.length !== 1)
+    throw new Error(
+      'BigQuery approximate cardinality probes require exactly one Series field.',
+    )
+  const exact = buildSeriesCardinalityProbe(request, 'google-sql')
+  const fromIndex = exact.groupedSql.indexOf('\n  FROM ')
+  const groupByIndex = exact.groupedSql.lastIndexOf('\n  GROUP BY ')
+  if (fromIndex < 0 || groupByIndex <= fromIndex)
+    throw new Error('Invalid generated BigQuery cardinality probe.')
+  const dimension = exact.groupedSql.slice('SELECT '.length, fromIndex)
+  const source = exact.groupedSql.slice(fromIndex, groupByIndex)
+  return {
+    sql: `SELECT APPROX_COUNT_DISTINCT(${dimension}) AS \`count\`${source};`,
+    parameters: exact.parameters,
+  }
+}
