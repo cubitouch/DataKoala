@@ -15,7 +15,10 @@ import { test } from 'vitest'
 import type { SqliteFileProfile } from '../../shared/types.ts'
 import { SqliteFileAdapter } from './sqlite-file-adapter.ts'
 import { generateBuilderQuery } from '../../renderer/src/lib/builderSql.ts'
-import { SeriesCardinalityProbes } from '../series-cardinality.ts'
+import {
+  SeriesCardinalityProbes,
+  type ProbeMeasurement,
+} from '../series-cardinality.ts'
 
 async function fingerprint(path: string) {
   const info = await stat(path, { bigint: true })
@@ -181,7 +184,7 @@ c.commit(); c.close()
     const parameterizedResult = await session.query(parameterized)
     assert.equal(parameterizedResult.rowCount, 1)
 
-    const cardinalityMeasurements = []
+    const cardinalityMeasurements: ProbeMeasurement[] = []
     const cardinality = await new SeriesCardinalityProbes((measurement) =>
       cardinalityMeasurements.push(measurement),
     ).probe(session, {
