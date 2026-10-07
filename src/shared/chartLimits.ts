@@ -31,7 +31,7 @@ export type CardinalityProbePredicate =
   | {
       column: string
       operator: 'rolling'
-      amount: 1 | 3 | 6 | 7 | 12 | 15 | 24 | 30
+      amount: number
       unit: 'minute' | 'hour' | 'day' | 'month'
       temporalType?: 'date' | 'datetime' | 'timestamp'
     }
