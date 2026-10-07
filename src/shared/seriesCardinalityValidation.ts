@@ -1,4 +1,4 @@
-import { isBuilderRollingTimeRange } from './builderTimeRange.ts'
+import { parseBuilderRollingTimeRange } from './builderTimeRange.ts'
 import {
   MAX_SERIES_PROBE_COLUMNS,
   MAX_SERIES_PROBE_PREDICATES,
@@ -95,7 +95,8 @@ function predicate(value: unknown, index: number): CardinalityProbePredicate {
   if (operator === 'rolling') {
     const amount = input.amount
     const unit = input.unit
-    if (!isBuilderRollingTimeRange(amount, unit))
+    const rolling = parseBuilderRollingTimeRange(amount, unit)
+    if (!rolling)
       controlledError(
         `predicates[${index}] must use a bounded positive rolling amount and supported unit.`,
       )
@@ -103,8 +104,8 @@ function predicate(value: unknown, index: number): CardinalityProbePredicate {
     return {
       column,
       operator,
-      amount,
-      unit,
+      amount: rolling.amount,
+      unit: rolling.unit,
       ...(temporalType ? { temporalType } : {}),
     }
   }
