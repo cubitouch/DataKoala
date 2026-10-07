@@ -209,6 +209,8 @@ jobs:
               'builder-count-without-y.png': 'Builder — Count without a Y axis',
               'builder-narrow.png': 'Builder — narrow responsive layout',
               'ai-settings.png': 'AI settings — encrypted key and OpenRouter model selection',
+              'ai-query-explain.png': 'Explain — semantic query diagram and SQL-linked AI highlights',
+              'ai-query-analyze.png': 'Explain Analyze — semantic query diagram alongside the database plan',
               'ai-query-proposal.png': 'Ask AI — inline composer, SQL diff and explicit Apply',
               'ai-builder-proposal.png': 'Builder Ask AI — structured control diff and explicit Apply',
               'ai-query-repair-error.png': 'Fix with AI — failed PostgreSQL query action',
