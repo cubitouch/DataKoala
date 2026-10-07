@@ -590,6 +590,66 @@ test('returns actionable provider errors', async () => {
   }
 })
 
+for (const [counts, expected, expectedJobs] of [
+  [
+    [20],
+    { distinctCount: 20, exceedsHardLimit: false, estimated: true },
+    1,
+  ],
+  [
+    [500],
+    { distinctCount: 500, exceedsHardLimit: true, estimated: true },
+    1,
+  ],
+  [[75, 24], { distinctCount: 24, exceedsHardLimit: false }, 2],
+] as const) {
+  test(`BigQuery cardinality strategy uses ${expectedJobs} generated job(s) for approximate count ${counts[0]}`, async () => {
+    const fake = cardinalityClient([...counts])
+    const { session } = await new BigQueryAdapter(() => fake.value).connect(
+      profile,
+    )
+    const response = await new SeriesCardinalityProbes().probe(session!, {
+      schema: 'data.analytics',
+      table: 'events',
+      seriesColumns: ['status'],
+      predicates: [{ column: 'region', operator: 'equals', value: 'eu' }],
+    })
+
+    assert.deepEqual(response, expected)
+    assert.equal(fake.calls.length, expectedJobs)
+    assert.equal(
+      fake.calls.every((call) => call.dryRun === undefined),
+      true,
+    )
+    assert.equal(
+      fake.calls.every((call) => !/pg_stats|EXPLAIN/i.test(String(call.query))),
+      true,
+    )
+    assert.deepEqual(
+      fake.calls.map((call) => call.params),
+      Array.from({ length: expectedJobs }, () => ['eu']),
+    )
+
+    const approximateSql = String(fake.calls[0].query)
+    assert.match(
+      approximateSql,
+      /SELECT APPROX_COUNT_DISTINCT\(`status`\) AS `count`/,
+    )
+    assert.match(approximateSql, /FROM `data\.analytics\.events`/)
+    assert.match(approximateSql, /WHERE `region` = \?/)
+    assert.doesNotMatch(approximateSql, /STRUCT|GROUP BY/)
+
+    if (expectedJobs === 2) {
+      const exactSql = String(fake.calls[1].query)
+      assert.match(exactSql, /SELECT `status`/)
+      assert.match(exactSql, /WHERE `region` = \?/)
+      assert.match(exactSql, /GROUP BY `status`/)
+      assert.match(exactSql, /LIMIT 101/)
+      assert.doesNotMatch(exactSql, /STRUCT|APPROX_COUNT_DISTINCT/)
+    }
+  })
+}
+
 test('structured exact cardinality probe executes one job with billing/location/parameters and no dry run', async () => {
   const fake = client('SELECT', [{ count: 101 }])
   const { session } = await new BigQueryAdapter(() => fake.value).connect(
