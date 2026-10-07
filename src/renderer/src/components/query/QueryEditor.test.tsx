@@ -924,10 +924,10 @@ describe('QueryEditor Explain loading states', () => {
       const prompt = await screen.findByRole('textbox', { name: 'AI prompt' })
       fireEvent.change(prompt, { target: { value: 'count rows' } })
       await waitFor(() =>
-        expect(screen.getByRole('button', { name: 'Ask' })).not.toHaveProperty(
-          'disabled',
-          true,
-        ),
+        expect(
+          (screen.getByRole('button', { name: 'Ask' }) as HTMLButtonElement)
+            .disabled,
+        ).toBe(false),
       )
       fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
       await waitFor(() => expect(aiPropose).toHaveBeenCalledTimes(1))
