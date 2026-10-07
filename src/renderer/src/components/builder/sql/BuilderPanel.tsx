@@ -831,7 +831,7 @@ export function BuilderPanel() {
           {
             schema: builder.table.schema,
             table: builder.table.name,
-            seriesColumns: [seriesColumn],
+            seriesColumn,
             predicates: probePredicates(),
           },
         )
