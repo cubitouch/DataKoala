@@ -9,7 +9,6 @@ import {
   type BuilderTimeBucket,
 } from '../../shared/builderCapabilities.ts'
 import {
-  isBuilderRollingTimeRange,
   isMinuteBucketAvailable,
   parseBuilderRollingTimeRange,
   validateBuilderTimeRange,
