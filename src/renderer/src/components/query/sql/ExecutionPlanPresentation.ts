@@ -11,20 +11,18 @@ export type ExplainNodeCategory =
   | 'subquery'
   | 'other'
 
-export const EXPLAIN_NODE_CATEGORY_LABELS: Record<
-  ExplainNodeCategory,
-  string
-> = {
-  scan: 'Scan',
-  join: 'Join',
-  aggregate: 'Aggregate',
-  sort: 'Sort',
-  limit: 'Limit',
-  hash: 'Hash',
-  materialize: 'Materialize',
-  subquery: 'CTE / subquery',
-  other: 'Other',
-}
+export const EXPLAIN_NODE_CATEGORY_LABELS: Record<ExplainNodeCategory, string> =
+  {
+    scan: 'Scan',
+    join: 'Join',
+    aggregate: 'Aggregate',
+    sort: 'Sort',
+    limit: 'Limit',
+    hash: 'Hash',
+    materialize: 'Materialize',
+    subquery: 'CTE / subquery',
+    other: 'Other',
+  }
 
 export function explainNodeCategory(nodeType: string): ExplainNodeCategory {
   const type = nodeType.trim().toLowerCase()
