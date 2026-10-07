@@ -17,7 +17,12 @@ import type { DataSourceSession } from './data-source.ts'
 
 export interface ProbeMeasurement {
   provider: string
-  strategy: 'postgres-pg-stats' | 'postgres-exact' | 'bigquery-exact' | 'exact'
+  strategy:
+    | 'postgres-pg-stats'
+    | 'postgres-exact'
+    | 'bigquery-approx'
+    | 'bigquery-exact'
+    | 'exact'
   seriesColumnCount: number
   hasPredicates: boolean
   durationMs: number
@@ -84,9 +89,12 @@ export class SeriesCardinalityProbes {
     request: ReturnType<typeof validateSeriesCardinalityRequest>,
   ): Promise<SeriesCardinalityProbeResult> {
     const provider = session.info.provider
-    if (provider === 'postgres' && request.seriesColumns.length !== 1)
+    if (
+      (provider === 'postgres' || provider === 'bigquery') &&
+      request.seriesColumns.length !== 1
+    )
       throw new Error(
-        'PostgreSQL Series cardinality probes require exactly one Series field.',
+        `${provider === 'postgres' ? 'PostgreSQL' : 'BigQuery'} Series cardinality probes require exactly one Series field.`,
       )
 
     const probe = buildSeriesCardinalityProbe(
@@ -148,6 +156,62 @@ export class SeriesCardinalityProbes {
         }
       }
       record('postgres-pg-stats', started, 'fallback')
+    }
+
+    if (provider === 'bigquery') {
+      if (!session.querySeriesCardinalityApproximate)
+        throw new Error(
+          'BigQuery approximate Series cardinality operation is unavailable.',
+        )
+      const started = performance.now()
+      try {
+        const result = await session.querySeriesCardinalityApproximate(request)
+        const rawCount = result.rows[0]?.count
+        const estimate =
+          typeof rawCount === 'number' ||
+          (typeof rawCount === 'string' && /^\d+$/.test(rawCount))
+            ? Number(rawCount)
+            : NaN
+        const validEstimate =
+          result.rows.length === 1 &&
+          Number.isSafeInteger(estimate) &&
+          estimate >= 0
+
+        if (validEstimate && estimate <= SERIES_STATS_ACCEPT_THRESHOLD) {
+          record(
+            'bigquery-approx',
+            started,
+            'accepted',
+            result.execution?.bytesProcessed,
+          )
+          return {
+            distinctCount: estimate,
+            exceedsHardLimit: false,
+            estimated: true,
+          }
+        }
+        if (validEstimate && estimate > SERIES_STATS_REJECT_THRESHOLD) {
+          record(
+            'bigquery-approx',
+            started,
+            'rejected',
+            result.execution?.bytesProcessed,
+          )
+          return {
+            distinctCount: estimate,
+            exceedsHardLimit: true,
+            estimated: true,
+          }
+        }
+        record(
+          'bigquery-approx',
+          started,
+          'fallback',
+          result.execution?.bytesProcessed,
+        )
+      } catch {
+        record('bigquery-approx', started, 'error')
+      }
     }
 
     const started = performance.now()
