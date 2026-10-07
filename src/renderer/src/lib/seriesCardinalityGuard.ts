@@ -4,7 +4,7 @@ import { SEVEN_DAYS } from './builderTimeRange.ts'
 export interface SeriesProbeFingerprintInput {
   profileId: string
   builder: BuilderQueryState
-  /** Complete proposed configuration; order affects Builder's display label. */
+  /** Complete proposed configuration; used only to invalidate stale work. */
   seriesColumns: string[]
   /** @deprecated Result filters no longer scope source cardinality. */
   filters?: unknown[]
@@ -21,6 +21,14 @@ export function seriesProbeFingerprint(
     seriesColumns: input.seriesColumns,
     timeRange: input.builder.timeRange ?? SEVEN_DAYS,
   })
+}
+
+export function addedSeriesColumns(
+  previous: string[],
+  candidate: string[],
+): string[] {
+  const existing = new Set(previous)
+  return candidate.filter((column) => !existing.has(column))
 }
 
 /** Ensures an async response can only approve the latest candidate/fingerprint. */
