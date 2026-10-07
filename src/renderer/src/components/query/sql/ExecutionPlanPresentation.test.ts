@@ -37,13 +37,33 @@ describe('execution-plan presentation metrics', () => {
     })
   })
 
+  it('keeps close estimates neutral while retaining the numerical ratio', () => {
+    expect(compareCardinality(node({ planRows: 100, actualRows: 101 }))).toEqual({
+      relation: 'close',
+      ratio: 1.01,
+      label: '1.01× estimate',
+    })
+    expect(compareCardinality(node({ planRows: 100, actualRows: 199 }))).toMatchObject({
+      relation: 'close',
+    })
+    expect(compareCardinality(node({ planRows: 100, actualRows: 200 }))).toMatchObject({
+      relation: 'underestimate',
+    })
+    expect(compareCardinality(node({ planRows: 100, actualRows: 51 }))).toMatchObject({
+      relation: 'close',
+    })
+    expect(compareCardinality(node({ planRows: 100, actualRows: 50 }))).toMatchObject({
+      relation: 'overestimate',
+    })
+  })
+
   it('handles zero estimates without infinite ratios', () => {
     expect(compareCardinality(node({ planRows: 0, actualRows: 12 }))).toEqual({
       relation: 'underestimate',
       label: 'estimate 0 · actual > 0',
     })
     expect(compareCardinality(node({ planRows: 0, actualRows: 0 }))).toEqual({
-      relation: 'match',
+      relation: 'close',
       ratio: 1,
       label: '1× estimate',
     })
