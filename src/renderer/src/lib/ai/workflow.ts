@@ -1,6 +1,7 @@
 import { ensureRelationColumns } from '@lib/relationColumns'
 import { selectActiveSession, useStore } from '@store/useStore'
 import type { AiContextRequest, AiQueryContext } from '@shared/ai'
+import { queryLanguageForSourceKind } from '@shared/types'
 import {
   appendAiContext,
   buildAiContext,
@@ -37,10 +38,15 @@ export async function prepareAiQueryContext(
   snapshot: AiQuerySnapshot,
   rankingText: string,
 ): Promise<AiPreparedContext> {
-  if (!snapshot.profileId) throw new Error('No PostgreSQL connection selected.')
-  const schemas =
-    useStore.getState().metadataByProfileId[snapshot.profileId]?.schemas ?? []
+  if (!snapshot.profileId) throw new Error('No SQL connection selected.')
+  const state = useStore.getState()
+  const profile = state.profiles.find((item) => item.id === snapshot.profileId)
+  if (!profile) throw new Error('No SQL connection selected.')
+  const language = queryLanguageForSourceKind(profile.kind)
+  if (language.kind !== 'sql') throw new Error('No SQL connection selected.')
+  const schemas = state.metadataByProfileId[snapshot.profileId]?.schemas ?? []
   const context = await buildAiContext(
+    language.dialect,
     selectAiRelations(schemas, rankingText, snapshot.query),
     (relation) => ensureRelationColumns(snapshot.profileId!, relation),
   )
@@ -52,7 +58,7 @@ export async function expandAiQueryContext(
   request: AiContextRequest,
 ): Promise<AiPreparedContext> {
   if (!input.snapshot.profileId)
-    throw new Error('No PostgreSQL connection selected.')
+    throw new Error('No SQL connection selected.')
   const schemas =
     useStore.getState().metadataByProfileId[input.snapshot.profileId]
       ?.schemas ?? []
