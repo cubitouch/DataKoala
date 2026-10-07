@@ -317,7 +317,9 @@ app.whenReady().then(async () => {
       builderPending.visualization !== builderBefore.visualization ||
       builderPending.generated !== builderBefore.generated
     )
-      throw new Error('Builder AI proposal mutated Builder state or generated SQL before Apply')
+      throw new Error(
+        'Builder AI proposal mutated Builder state or generated SQL before Apply',
+      )
     if (queryRuns !== 0)
       throw new Error('Builder AI proposal executed a query before Apply')
     await click(win, 'View AI details')

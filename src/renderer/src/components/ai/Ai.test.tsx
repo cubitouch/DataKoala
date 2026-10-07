@@ -58,11 +58,7 @@ import {
   selectActiveSession,
   useStore,
 } from '@store/useStore'
-import type {
-  AiBuilderStep,
-  AiQueryStep,
-  AiResult,
-} from '@shared/ai'
+import type { AiBuilderStep, AiQueryStep, AiResult } from '@shared/ai'
 import { generateBuilderQuery } from '@lib/builderSql'
 const summary = {
   provider: 'openrouter',
@@ -1050,7 +1046,6 @@ test('AI details exposes initial context, discovery request, added relations and
   ).toContain('zy_devices')
 })
 
-
 function setupBuilderAi() {
   const session = selectActiveSession(useStore.getState())
   patchActiveTestSession({
@@ -1127,9 +1122,7 @@ function builderSql() {
       : undefined,
     timeBucket: session.builder.timeBucket,
     valueColumn:
-      aggregation === 'count'
-        ? null
-        : session.builderVisualization.valueColumn,
+      aggregation === 'count' ? null : session.builderVisualization.valueColumn,
     aggregation,
     seriesColumns: session.builder.seriesColumns,
     timeRange: session.builder.timeRange,
@@ -1177,7 +1170,9 @@ test('Builder AI reviews structured changes before atomic Apply and never runs',
 
   const request = mocks.proposeBuilder.mock.calls[0][0]
   expect(request.state.relation).toEqual({ schema: 'public', name: 'orders' })
-  expect(request.columns.map((column: { name: string }) => column.name)).toEqual(
+  expect(
+    request.columns.map((column: { name: string }) => column.name),
+  ).toEqual(
     expect.arrayContaining(['created_at', 'country', 'revenue', 'status']),
   )
   expect(JSON.stringify(request)).not.toMatch(
@@ -1240,9 +1235,11 @@ test('Builder AI Reject keeps Builder, generated SQL, and prompt unchanged', asy
   expect(current.builderVisualization).toEqual(before.builderVisualization)
   expect(builderSql()).toBe(beforeSql)
   expect(
-    (screen.getByRole('textbox', {
-      name: 'Builder AI prompt',
-    }) as HTMLInputElement).value,
+    (
+      screen.getByRole('textbox', {
+        name: 'Builder AI prompt',
+      }) as HTMLInputElement
+    ).value,
   ).toBe('sum revenue by country')
   expect(mocks.run).not.toHaveBeenCalled()
 })
@@ -1261,10 +1258,14 @@ test('Builder AI retry keeps the old review, disables Apply, and Cancel preserve
     (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
       .disabled,
   ).toBe(true)
-  expect(screen.getByRole('region', { name: 'AI Builder proposal' })).toBeTruthy()
+  expect(
+    screen.getByRole('region', { name: 'AI Builder proposal' }),
+  ).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
   expect(mocks.cancel).toHaveBeenCalled()
-  expect(screen.getByRole('region', { name: 'AI Builder proposal' })).toBeTruthy()
+  expect(
+    screen.getByRole('region', { name: 'AI Builder proposal' }),
+  ).toBeTruthy()
   expect(
     (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
       .disabled,
@@ -1284,7 +1285,9 @@ test('Builder AI successful retry replaces the previous proposal and failed retr
   })
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
   await screen.findByRole('alert')
-  expect(screen.getByRole('region', { name: 'AI Builder proposal' })).toBeTruthy()
+  expect(
+    screen.getByRole('region', { name: 'AI Builder proposal' }),
+  ).toBeTruthy()
 
   mocks.proposeBuilder.mockResolvedValueOnce(
     ok({
@@ -1310,9 +1313,7 @@ test('Builder AI marks a visible proposal stale after manual Builder work', asyn
   await askBuilder()
   await screen.findByRole('button', { name: 'Apply' })
   act(() =>
-    useStore
-      .getState()
-      .setVisualization('builder', { xColumn: 'status' }),
+    useStore.getState().setVisualization('builder', { xColumn: 'status' }),
   )
   await waitFor(() =>
     expect(
@@ -1345,9 +1346,7 @@ for (const change of ['tab', 'connection', 'relation', 'builder'] as const) {
           .getState()
           .setBuilder({ table: { schema: 'public', name: 'other' } })
       } else {
-        useStore
-          .getState()
-          .setVisualization('builder', { xColumn: 'status' })
+        useStore.getState().setVisualization('builder', { xColumn: 'status' })
       }
     })
     await act(async () =>
@@ -1383,9 +1382,11 @@ test('Builder AI shows unsupported requests without mutation or mode switching',
   expect(current.builder).toEqual(before.builder)
   expect(mocks.run).not.toHaveBeenCalled()
   expect(
-    (screen.getByRole('textbox', {
-      name: 'Builder AI prompt',
-    }) as HTMLInputElement).value,
+    (
+      screen.getByRole('textbox', {
+        name: 'Builder AI prompt',
+      }) as HTMLInputElement
+    ).value,
   ).toBe('join customers to orders')
 })
 

@@ -14,8 +14,8 @@ export function AiBuilderCopilot() {
   const disabled =
     ai.busy || !ai.prompt.trim() || ai.promptTooLong || !!ai.review
   const hasChanges = ai.review
-    ? aiBuilderChanges(ai.review.input.snapshot.state, ai.review.target).length >
-      0
+    ? aiBuilderChanges(ai.review.input.snapshot.state, ai.review.target)
+        .length > 0
     : false
 
   return (

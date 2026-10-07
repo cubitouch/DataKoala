@@ -1,13 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  AI_LIMITS,
-  type AiBuilderProposalRequest,
-} from '../../shared/ai.ts'
-import {
-  builderProposalRequest,
-  builderStep,
-} from './validation.ts'
+import { AI_LIMITS, type AiBuilderProposalRequest } from '../../shared/ai.ts'
+import { builderProposalRequest, builderStep } from './validation.ts'
 
 const columns = [
   { name: 'created_at', dataType: 'timestamptz' },
@@ -102,10 +96,7 @@ for (const [name, patch] of [
       timeRange: { kind: 'rolling', amount: 30, unit: 'day' },
     },
   ],
-  [
-    'relation change',
-    { relation: { schema: 'public', name: 'customers' } },
-  ],
+  ['relation change', { relation: { schema: 'public', name: 'customers' } }],
 ] as const) {
   test(`Builder proposal rejects ${name}`, () => {
     assert.throws(() => builderStep(proposal(patch), request), {
@@ -115,14 +106,9 @@ for (const [name, patch] of [
 }
 
 test('Builder proposal requires a numeric Y for non-count aggregations', () => {
-  assert.throws(
-    () =>
-      builderStep(
-        proposal({ aggregation: 'sum' }),
-        request,
-      ),
-    { code: 'invalid-response' },
-  )
+  assert.throws(() => builderStep(proposal({ aggregation: 'sum' }), request), {
+    code: 'invalid-response',
+  })
 })
 
 test('Builder unsupported is a safe non-mutating response', () => {
@@ -158,10 +144,13 @@ test('Builder request rejects oversized prompts and contexts', () => {
       builderProposalRequest({
         ...request,
         prompt: 'x'.repeat(AI_LIMITS.prompt),
-        columns: Array.from({ length: AI_LIMITS.columnsPerRelation }, (_, i) => ({
-          name: `column_${i}_${'n'.repeat(220)}`,
-          dataType: `type_${'t'.repeat(220)}`,
-        })),
+        columns: Array.from(
+          { length: AI_LIMITS.columnsPerRelation },
+          (_, i) => ({
+            name: `column_${i}_${'n'.repeat(220)}`,
+            dataType: `type_${'t'.repeat(220)}`,
+          }),
+        ),
       }),
     { code: 'validation' },
   )

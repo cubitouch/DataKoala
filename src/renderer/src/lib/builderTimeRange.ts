@@ -12,11 +12,7 @@ import {
   type TimeWindow,
 } from './customTimeRange.ts'
 
-export {
-  SEVEN_DAYS,
-  isMinuteBucketAvailable,
-  validateBuilderTimeRange,
-}
+export { SEVEN_DAYS, isMinuteBucketAvailable, validateBuilderTimeRange }
 export type { BuilderTimeRange }
 
 export const EMPTY_BUILDER_CUSTOM_RANGE: BuilderTimeRange = {

@@ -37,8 +37,8 @@ export function isBuilderTemporalDataType(
 ): boolean {
   return Boolean(
     dataTypeName &&
-      BUILDER_TEMPORAL_TYPES.has(dataTypeName.trim().toLowerCase()) &&
-      isTimeType(dataTypeName),
+    BUILDER_TEMPORAL_TYPES.has(dataTypeName.trim().toLowerCase()) &&
+    isTimeType(dataTypeName),
   )
 }
 

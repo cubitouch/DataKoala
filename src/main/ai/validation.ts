@@ -214,7 +214,6 @@ export function queryStep(value: unknown): AiQueryStep {
   }
 }
 
-
 const exactKeys = (
   input: Record<string, unknown>,
   allowed: readonly string[],
@@ -236,7 +235,10 @@ const parseBuilderTimeRange = (value: unknown): BuilderTimeRange => {
   const input = record(value)
   const recurring = () => {
     if (input.recurringWindows === undefined) return undefined
-    if (!Array.isArray(input.recurringWindows) || input.recurringWindows.length > 24)
+    if (
+      !Array.isArray(input.recurringWindows) ||
+      input.recurringWindows.length > 24
+    )
       throw new Error()
     return input.recurringWindows.map((item) => {
       const window = record(item)
@@ -292,8 +294,7 @@ const parseBuilderTimeRange = (value: unknown): BuilderTimeRange => {
       ],
       ['kind', 'startDate', 'startTime', 'endDate', 'endTime'],
     )
-    const date = (item: unknown) =>
-      item === null ? null : textValue(item, 10)
+    const date = (item: unknown) => (item === null ? null : textValue(item, 10))
     const recurringWindows = recurring()
     return {
       kind: 'custom',
@@ -355,7 +356,9 @@ const cleanBuilderState = (value: unknown): AiBuilderState => {
   return state
 }
 
-export function builderProposalRequest(value: unknown): AiBuilderProposalRequest {
+export function builderProposalRequest(
+  value: unknown,
+): AiBuilderProposalRequest {
   try {
     const input = record(value)
     exactKeys(
@@ -371,10 +374,7 @@ export function builderProposalRequest(value: unknown): AiBuilderProposalRequest
     const columns = input.columns.map((item) => {
       const column = record(item)
       exactKeys(column, ['name', 'dataType', 'nullable'], ['name', 'dataType'])
-      if (
-        column.nullable !== undefined &&
-        typeof column.nullable !== 'boolean'
-      )
+      if (column.nullable !== undefined && typeof column.nullable !== 'boolean')
         throw new Error()
       return {
         name: textValue(column.name, 256),
@@ -421,8 +421,7 @@ const cleanBuilderPatch = (value: unknown): AiBuilderPatch => {
       throw new Error()
     patch.aggregation = input.aggregation as BuilderAggregation
   }
-  if ('timeColumn' in input)
-    patch.timeColumn = nullableText(input.timeColumn)
+  if ('timeColumn' in input) patch.timeColumn = nullableText(input.timeColumn)
   if ('timeBucket' in input) {
     if (!BUILDER_TIME_BUCKETS.includes(input.timeBucket as BuilderTimeBucket))
       throw new Error()
@@ -441,7 +440,8 @@ const validateBuilderTarget = (
   const x = target.xColumn ? byName.get(target.xColumn) : undefined
   if (target.xColumn && !x) throw new Error()
   const y = target.valueColumn ? byName.get(target.valueColumn) : undefined
-  if (target.valueColumn && (!y || !isNumericType(y.dataType))) throw new Error()
+  if (target.valueColumn && (!y || !isNumericType(y.dataType)))
+    throw new Error()
   if (
     !BUILDER_AGGREGATIONS.includes(target.aggregation) ||
     (target.aggregation !== 'count' && !y) ||
@@ -449,10 +449,7 @@ const validateBuilderTarget = (
   )
     throw new Error()
   const time = target.timeColumn ? byName.get(target.timeColumn) : undefined
-  if (
-    target.timeColumn &&
-    (!time || !isBuilderTemporalDataType(time.dataType))
-  )
+  if (target.timeColumn && (!time || !isBuilderTemporalDataType(time.dataType)))
     throw new Error()
   if (
     !BUILDER_TIME_BUCKETS.includes(target.timeBucket) ||
@@ -462,7 +459,10 @@ const validateBuilderTarget = (
   if (target.timeRange) {
     if (!target.timeColumn || validateBuilderTimeRange(target.timeRange))
       throw new Error()
-    if (target.timeBucket === 'minute' && !isMinuteBucketAvailable(target.timeRange))
+    if (
+      target.timeBucket === 'minute' &&
+      !isMinuteBucketAvailable(target.timeRange)
+    )
       throw new Error()
   }
 }
@@ -514,9 +514,7 @@ function validateBuilderProposal(
   return {
     patch: normalizedBuilderPatch(request.state, target),
     explanation: textValue(input.explanation, 8000, true),
-    assumptions: input.assumptions.map((item) =>
-      textValue(item, 2000, true),
-    ),
+    assumptions: input.assumptions.map((item) => textValue(item, 2000, true)),
   }
 }
 
@@ -547,10 +545,7 @@ export function builderStep(
         throw new Error()
       return {
         kind: 'unsupported',
-        reason: textValue(
-          input.reason,
-          AI_LIMITS.builderUnsupportedReason,
-        ),
+        reason: textValue(input.reason, AI_LIMITS.builderUnsupportedReason),
       }
     }
     throw new Error()

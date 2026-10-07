@@ -83,7 +83,6 @@ export function validateBuilderTimeRange(
   return null
 }
 
-
 function customRangeDurationMilliseconds(
   range: Extract<BuilderTimeRange, { kind: 'custom' }>,
 ): number | null {

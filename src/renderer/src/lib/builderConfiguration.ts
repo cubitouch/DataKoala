@@ -71,9 +71,7 @@ export function transitionBuilderConfiguration(
   const transition = transitionBuilderState(session, {
     timeColumn: target.timeColumn,
     timeBucket: target.timeBucket,
-    timeRange: target.timeColumn
-      ? (target.timeRange ?? SEVEN_DAYS)
-      : undefined,
+    timeRange: target.timeColumn ? (target.timeRange ?? SEVEN_DAYS) : undefined,
     seriesColumns: nextSeries,
   })
 

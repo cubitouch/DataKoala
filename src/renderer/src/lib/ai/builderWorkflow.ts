@@ -69,9 +69,9 @@ export const matchesAiBuilderSnapshot = (
 ): boolean =>
   Boolean(
     current &&
-      snapshot.tabId === current.tabId &&
-      snapshot.profileId === current.profileId &&
-      JSON.stringify(snapshot.state) === JSON.stringify(current.state),
+    snapshot.tabId === current.tabId &&
+    snapshot.profileId === current.profileId &&
+    JSON.stringify(snapshot.state) === JSON.stringify(current.state),
   )
 
 function selectedRelation(
@@ -106,9 +106,7 @@ function rankColumns(
   )
   return columns
     .map((column, index) => {
-      const words = tokens(
-        `${column.name} ${column.name.replaceAll('_', ' ')}`,
-      )
+      const words = tokens(`${column.name} ${column.name.replaceAll('_', ' ')}`)
       let score = current.has(column.name) ? 100 : 0
       for (const word of requested) if (words.has(word)) score += 10
       return { column, index, score }
@@ -179,10 +177,7 @@ export function materializeAiBuilderTarget(
   )
     throw new Error('The proposed aggregation cannot be represented safely.')
   const time = target.timeColumn ? byName.get(target.timeColumn) : undefined
-  if (
-    target.timeColumn &&
-    (!time || !isBuilderTemporalDataType(time.dataType))
-  )
+  if (target.timeColumn && (!time || !isBuilderTemporalDataType(time.dataType)))
     throw new Error('The proposed time column is not temporal.')
   if (
     !BUILDER_TIME_BUCKETS.includes(target.timeBucket) ||
@@ -209,10 +204,7 @@ export function materializeEffectiveAiBuilderTarget(
     patch,
     prepared.columns,
   )
-  const session = selectSession(
-    useStore.getState(),
-    prepared.snapshot.tabId,
-  )
+  const session = selectSession(useStore.getState(), prepared.snapshot.tabId)
   if (!session) throw new Error('The Builder tab no longer exists.')
   const transition = transitionBuilderConfiguration(session, target)
   const effective = normalizedAiBuilderState({

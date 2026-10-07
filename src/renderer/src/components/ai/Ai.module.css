@@ -456,7 +456,6 @@
   }
 }
 
-
 .builderDiff {
   overflow: auto;
   max-height: 240px;
@@ -467,7 +466,10 @@
 
 .builderDiffRow {
   display: grid;
-  grid-template-columns: minmax(96px, 0.7fr) minmax(90px, 1fr) 20px minmax(90px, 1fr);
+  grid-template-columns: minmax(96px, 0.7fr) minmax(90px, 1fr) 20px minmax(
+      90px,
+      1fr
+    );
   gap: 8px;
   align-items: baseline;
   padding: 8px 12px;

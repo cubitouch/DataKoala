@@ -29,11 +29,7 @@ export function aiBuilderChanges(
       titleCase(after.aggregation),
     ],
     ['Time column', display(before.timeColumn), display(after.timeColumn)],
-    [
-      'Time bucket',
-      titleCase(before.timeBucket),
-      titleCase(after.timeBucket),
-    ],
+    ['Time bucket', titleCase(before.timeBucket), titleCase(after.timeBucket)],
     ['Time range', range(before), range(after)],
   ]
   return values
