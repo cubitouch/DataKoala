@@ -33,6 +33,7 @@ import {
   type CardinalityProbePredicate,
 } from '@shared/chartLimits'
 import {
+  addedSeriesColumns,
   isSeriesColumnRemoval,
   SeriesCardinalityProbeGuard,
   seriesProbeFingerprint,
@@ -780,6 +781,18 @@ export function BuilderPanel() {
       applySeries(nextSeriesColumns)
       return
     }
+
+    const newlyAddedSeries = addedSeriesColumns(
+      builder.seriesColumns,
+      nextSeriesColumns,
+    )
+    if (newlyAddedSeries.length === 0) {
+      probeGuard.current.invalidate()
+      setSeriesProbe(null)
+      applySeries(nextSeriesColumns)
+      return
+    }
+
     if (!tabConnectionId || !builder.table) return
     const requestTabId = tabId
     const requestProfileId = tabConnectionId
@@ -811,26 +824,30 @@ export function BuilderPanel() {
       if (!isCurrent()) return
       if (connectedProfileId !== requestProfileId)
         throw new Error('Connection changed before cardinality probe.')
-      const response = await api.query.probeSeriesCardinality(
-        requestProfileId,
-        {
-          schema: builder.table.schema,
-          table: builder.table.name,
-          seriesColumns: nextSeriesColumns,
-          predicates: probePredicates(),
-        },
-      )
-      if (!isCurrent()) return
-      if (response.exceedsHardLimit) {
-        setSeriesProbe({
-          status: 'error',
-          message: response.estimated
-            ? `PostgreSQL estimates approximately ${Math.round(response.distinctCount).toLocaleString()} distinct combinations, above the supported chart limit of ${CHART_SERIES_HARD_LIMIT}. Narrow the time range or choose lower-cardinality dimensions.`
-            : `This Series selection has more than ${CHART_SERIES_HARD_LIMIT} distinct combinations and cannot be charted safely. Filter the data first or choose lower-cardinality dimensions.`,
-          retry,
-        })
-        return
+
+      for (const seriesColumn of newlyAddedSeries) {
+        const response = await api.query.probeSeriesCardinality(
+          requestProfileId,
+          {
+            schema: builder.table.schema,
+            table: builder.table.name,
+            seriesColumns: [seriesColumn],
+            predicates: probePredicates(),
+          },
+        )
+        if (!isCurrent()) return
+        if (response.exceedsHardLimit) {
+          setSeriesProbe({
+            status: 'error',
+            message: response.estimated
+              ? `PostgreSQL estimates this field has approximately ${Math.round(response.distinctCount).toLocaleString()} distinct values, above the supported Series limit of ${CHART_SERIES_HARD_LIMIT}.`
+              : `This Series field has more than ${CHART_SERIES_HARD_LIMIT} distinct values and cannot be used as a chart breakdown.`,
+            retry,
+          })
+          return
+        }
       }
+
       if (probeGuard.current.approve(operation.revision, fingerprint)) {
         setSeriesProbe(null)
         applySeries(nextSeriesColumns, requestTabId)
