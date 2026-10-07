@@ -90,7 +90,6 @@ export function QueryEditor({
   const metadataRefreshing = metadata?.refreshing ?? false
   const schemas = metadata?.schemas ?? EMPTY_SCHEMAS
   const connecting = useStore((s) => s.connecting)
-  const connected = useStore((s) => s.connected)
   const running = useStore((s) => selectActiveSession(s).running)
   const startQuery = useStore((s) => s.startQuery)
   const completeQuery = useStore((s) => s.completeQuery)
