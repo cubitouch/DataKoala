@@ -425,8 +425,21 @@ describe('BuilderPanel axis-first controls', () => {
     )
   })
 
-  it('checks only the newly added Series field', async () => {
+  it('checks only the newly added Series field for BigQuery', async () => {
     arrange()
+    useStore.setState({
+      profiles: [
+        {
+          kind: 'bigquery',
+          version: 1,
+          id: 'p1',
+          name: 'BQ',
+          billingProject: 'billing',
+          maximumBytesBilled: '1073741824',
+          readonly: true,
+        },
+      ],
+    })
     chooseOrders()
     chooseXAxis(/created_at/)
     const openSeries = async () => {
@@ -494,6 +507,39 @@ describe('BuilderPanel axis-first controls', () => {
     expect(
       await screen.findByText(
         'PostgreSQL estimates this field has approximately 500 distinct values, above the supported Series limit of 100.',
+      ),
+    ).toBeTruthy()
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
+  })
+
+  it('describes estimated BigQuery rejection as a per-field estimate', async () => {
+    probeSeriesCardinality.mockImplementationOnce(async () => ({
+      exceedsHardLimit: true,
+      distinctCount: 500,
+      estimated: true,
+    }))
+    arrange()
+    useStore.setState({
+      profiles: [
+        {
+          kind: 'bigquery',
+          version: 1,
+          id: 'p1',
+          name: 'BQ',
+          billingProject: 'billing',
+          maximumBytesBilled: '1073741824',
+          readonly: true,
+        },
+      ],
+    })
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /customer_id/ }))
+
+    expect(
+      await screen.findByText(
+        'BigQuery estimates this field has approximately 500 distinct values, above the supported Series limit of 100.',
       ),
     ).toBeTruthy()
     expect(activeTestSession().builder.seriesColumns).toEqual([])
