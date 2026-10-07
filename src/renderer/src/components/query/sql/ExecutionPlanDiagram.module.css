@@ -153,7 +153,7 @@
   color: var(--text-dim);
 }
 
-@media (max-width: 760px) {
+@media (width <= 760px) {
   .layout {
     grid-template-columns: 1fr;
   }
