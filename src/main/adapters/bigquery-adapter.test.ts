@@ -603,7 +603,7 @@ for (const [counts, expected, expectedJobs] of [
     const response = await new SeriesCardinalityProbes().probe(session!, {
       schema: 'data.analytics',
       table: 'events',
-      seriesColumns: ['status'],
+      seriesColumn: 'status',
       predicates: [{ column: 'region', operator: 'equals', value: 'eu' }],
     })
 
@@ -650,7 +650,7 @@ test('structured exact cardinality probe executes one job with billing/location/
   const response = await session!.querySeriesCardinality!({
     schema: 'data.analytics',
     table: 'events',
-    seriesColumns: ['status'],
+    seriesColumn: 'status',
     predicates: [
       {
         column: 'region',
@@ -679,7 +679,7 @@ test('structured approximate cardinality probe executes one job with the same tr
   const response = await session!.querySeriesCardinalityApproximate!({
     schema: 'data.analytics',
     table: 'events',
-    seriesColumns: ['status'],
+    seriesColumn: 'status',
     predicates: [
       {
         column: 'region',
@@ -722,7 +722,7 @@ test('trusted cardinality operations validate runtime payloads and cannot accept
       {
         schema: 'data.analytics',
         table: 'events',
-        seriesColumns: ['region'],
+        seriesColumn: 'region',
         predicates: [
           {
             column: 'at',
@@ -742,28 +742,6 @@ test('trusted cardinality operations validate runtime payloads and cannot accept
   assert.equal(fake.calls.length, 0)
 })
 
-test('trusted BigQuery cardinality operations reject combined Series fields before jobs', async () => {
-  const fake = client()
-  const { session } = await new BigQueryAdapter(() => fake.value).connect(
-    profile,
-  )
-  const input = {
-    schema: 'data.analytics',
-    table: 'events',
-    seriesColumns: ['type', 'status'],
-    predicates: [],
-  }
-  await assert.rejects(
-    session!.querySeriesCardinality!(input),
-    /exactly one Series field/,
-  )
-  await assert.rejects(
-    session!.querySeriesCardinalityApproximate!(input),
-    /exactly one Series field/,
-  )
-  assert.equal(fake.calls.length, 0)
-})
-
 test('GoogleSQL cardinality probes escape backslashes and backticks in every identifier', async () => {
   const fake = client('SELECT', [{ count: 0 }])
   const { session } = await new BigQueryAdapter(() => fake.value).connect(
@@ -773,7 +751,7 @@ test('GoogleSQL cardinality probes escape backslashes and backticks in every ide
   const input = {
     schema: injected,
     table: injected,
-    seriesColumns: [injected],
+    seriesColumn: injected,
     predicates: [{ column: injected, operator: 'isNull' as const }],
   }
   await session!.querySeriesCardinalityApproximate!(input)
