@@ -69,7 +69,7 @@ test('initial context reserves column and character headroom for discovery', asy
   )
   const selected = selectAiRelations(data, 'item', '')
   expect(selected).toHaveLength(AI_LIMITS.initialRelations)
-  const context = await buildAiContext(selected, async () =>
+  const context = await buildAiContext('postgres', selected, async () =>
     Array.from({ length: 60 }, (_, i) => ({
       name: `column_${i}`,
       dataTypeName: 'text',
@@ -82,7 +82,7 @@ test('initial context reserves column and character headroom for discovery', asy
   expect(context.relations.flatMap((r) => r.columns)).toHaveLength(
     AI_LIMITS.initialColumns,
   )
-  const huge = await buildAiContext(selected, async () =>
+  const huge = await buildAiContext('postgres', selected, async () =>
     Array.from({ length: 60 }, () => ({
       name: 'c'.repeat(256),
       dataTypeName: 't'.repeat(256),
@@ -111,6 +111,7 @@ test('initial context reserves column and character headroom for discovery', asy
 
 test('context construction excludes extra credentials and result values and fails on missing columns', async () => {
   const context = await buildAiContext(
+    'postgres',
     [
       {
         ...relation('orders'),
@@ -124,7 +125,7 @@ test('context construction excludes extra credentials and result values and fail
     /secret|private|password|rows|values/,
   )
   await expect(
-    buildAiContext([relation('orders')], async () => undefined),
+    buildAiContext('postgres', [relation('orders')], async () => undefined),
   ).rejects.toThrow('Could not load')
 })
 
@@ -246,7 +247,7 @@ test('wide initial context leaves usable global budget for discovered relation c
   const initialRelations = Array.from({ length: 6 }, (_, i) =>
     relation(`base_${i}`),
   )
-  const initial = await buildAiContext(initialRelations, async () =>
+  const initial = await buildAiContext('postgres', initialRelations, async () =>
     Array.from({ length: AI_LIMITS.columnsPerRelation }, (_, i) => ({
       name: `wide_column_${i}`,
       dataTypeName: 'text',
@@ -287,4 +288,50 @@ test('wide initial context leaves usable global budget for discovered relation c
   expect(JSON.stringify(context).length).toBeLessThanOrEqual(
     AI_LIMITS.contextCharacters,
   )
+})
+
+test.each([['postgres'], ['duckdb'], ['google-sql']] as const)(
+  'context construction preserves the %s dialect',
+  async (dialect) => {
+    const context = await buildAiContext(
+      dialect,
+      [relation('orders')],
+      async () => [{ name: 'revenue', dataTypeName: 'numeric' }],
+    )
+    expect(context.language).toEqual({ kind: 'sql', dialect })
+    expect(context.relations).toEqual([
+      {
+        schema: 'public',
+        name: 'orders',
+        kind: 'table',
+        columns: [{ name: 'revenue', dataType: 'numeric' }],
+      },
+    ])
+  },
+)
+
+test('DuckDB context excludes local source paths and BigQuery preserves project/dataset identity', async () => {
+  const local = await buildAiContext(
+    'duckdb',
+    [
+      {
+        ...relation('customer_data', 'main'),
+        path: '/Users/example/private/customer-data.csv',
+      } as DatabaseRelationNode,
+    ],
+    async () => [{ name: 'customer_id', dataTypeName: 'VARCHAR' }],
+  )
+  expect(JSON.stringify(local)).not.toContain(
+    '/Users/example/private/customer-data.csv',
+  )
+
+  const bigquery = await buildAiContext(
+    'google-sql',
+    [relation('orders', 'my-project.analytics')],
+    async () => [{ name: 'revenue', dataTypeName: 'NUMERIC' }],
+  )
+  expect(bigquery.relations[0]).toMatchObject({
+    schema: 'my-project.analytics',
+    name: 'orders',
+  })
 })
