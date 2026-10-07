@@ -1043,15 +1043,19 @@ test('AI details exposes initial context, discovery request, added relations and
   })
   const final = screen.getByRole('region', { name: 'Final schema metadata' })
   expect(
-    [...initial.querySelectorAll('pre')].map((item) => item.textContent),
-  ).not.toContain(expect.stringContaining('zy_devices'))
+    [...initial.querySelectorAll('pre')].some((item) =>
+      item.textContent?.includes('zy_devices'),
+    ),
+  ).toBe(false)
   expect(
     initial.querySelector('[aria-label="Available relation names"]')
       ?.textContent,
   ).toContain('public.zy_devices')
   expect(
-    [...final.querySelectorAll('pre')].map((item) => item.textContent),
-  ).toContainEqual(expect.stringContaining('public.zy_devices'))
+    [...final.querySelectorAll('pre')].some((item) =>
+      item.textContent?.includes('public.zy_devices'),
+    ),
+  ).toBe(true)
   expect(
     final.querySelector('[aria-label="Available relation names"]')?.textContent,
   ).not.toContain('public.zy_devices')
