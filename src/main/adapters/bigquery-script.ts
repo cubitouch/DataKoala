@@ -62,7 +62,7 @@ function scriptStatements(sql: string): string[] {
   return statements
 }
 
-export function assertReadOnlyBigQueryScript(sql: string): void {
+export function assertReadOnlyBigQueryQuery(sql: string): void {
   const statements = scriptStatements(sql)
   for (const statement of statements) {
     // Pipe syntax can include write operators despite starting with SELECT.
