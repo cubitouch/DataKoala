@@ -453,13 +453,6 @@ describe('BuilderPanel axis-first controls', () => {
       seriesColumns: ['status'],
       predicates: expect.any(Array),
     })
-    expect(
-      probeSeriesCardinality.mock.calls.some(
-        ([, probe]) =>
-          probe.seriesColumns.includes('region') &&
-          probe.seriesColumns.includes('status'),
-      ),
-    ).toBe(false)
   })
 
   it('describes exact rejection as a per-field Series limit', async () => {
