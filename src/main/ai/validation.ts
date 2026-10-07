@@ -483,6 +483,121 @@ const validateBuilderTarget = (
   }
 }
 
+const TEMPORAL_GROUPING_PATTERNS: Array<{
+  bucket: BuilderTimeBucket
+  pattern: RegExp
+}> = [
+  {
+    bucket: 'minute',
+    pattern:
+      /\b(?:per|each|every|by|group(?:ed|ing)?(?:\s+by)?)\s+(?:the\s+)?minute\b|\bminutely\b/i,
+  },
+  {
+    bucket: 'hour',
+    pattern:
+      /\b(?:per|each|every|by|group(?:ed|ing)?(?:\s+by)?)\s+(?:the\s+)?hour\b|\bhourly\b/i,
+  },
+  {
+    bucket: 'day',
+    pattern:
+      /\b(?:per|each|every|by|group(?:ed|ing)?(?:\s+by)?)\s+(?:the\s+)?day\b|\bdaily\b/i,
+  },
+  {
+    bucket: 'week',
+    pattern:
+      /\b(?:per|each|every|by|group(?:ed|ing)?(?:\s+by)?)\s+(?:the\s+)?week\b|\bweekly\b/i,
+  },
+  {
+    bucket: 'month',
+    pattern:
+      /\b(?:per|each|every|by|group(?:ed|ing)?(?:\s+by)?)\s+(?:the\s+)?month\b|\bmonthly\b/i,
+  },
+  {
+    bucket: 'quarter',
+    pattern:
+      /\b(?:per|each|every|by|group(?:ed|ing)?(?:\s+by)?)\s+(?:the\s+)?quarter\b|\bquarterly\b/i,
+  },
+  {
+    bucket: 'year',
+    pattern:
+      /\b(?:per|each|every|by|group(?:ed|ing)?(?:\s+by)?)\s+(?:the\s+)?year\b|\byearly\b|\bannually\b/i,
+  },
+]
+
+const countIntent = (prompt: string): boolean =>
+  /\b(?:count|number\s+of|how\s+many)\b/i.test(prompt)
+
+const requestedTemporalBucket = (
+  prompt: string,
+): BuilderTimeBucket | null =>
+  TEMPORAL_GROUPING_PATTERNS.find(({ pattern }) => pattern.test(prompt))
+    ?.bucket ?? null
+
+const normalizedWords = (value: string): string =>
+  value.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+
+const explicitCategoricalGrouping = (
+  prompt: string,
+  columns: AiBuilderProposalRequest['columns'],
+): boolean => {
+  const normalizedPrompt = ` ${normalizedWords(prompt)} `
+  return columns.some((column) => {
+    if (isBuilderTemporalDataType(column.dataType)) return false
+    const name = normalizedWords(column.name)
+    if (!name) return false
+    return (
+      normalizedPrompt.includes(` by ${name} `) ||
+      normalizedPrompt.includes(` grouped by ${name} `) ||
+      normalizedPrompt.includes(` grouping by ${name} `) ||
+      normalizedPrompt.includes(` per ${name} `)
+    )
+  })
+}
+
+const normalizeCountOverTimeTarget = (
+  request: AiBuilderProposalRequest,
+  target: AiBuilderState,
+): AiBuilderState => {
+  const bucket = requestedTemporalBucket(request.prompt)
+  if (!bucket || !countIntent(request.prompt)) return target
+  if (explicitCategoricalGrouping(request.prompt, request.columns))
+    throw new Error()
+
+  const byName = new Map(request.columns.map((column) => [column.name, column]))
+  const temporalColumns = request.columns.filter((column) =>
+    isBuilderTemporalDataType(column.dataType),
+  )
+  const normalizedPrompt = normalizedWords(request.prompt)
+  const mentionedTemporal = temporalColumns.find((column) =>
+    normalizedPrompt.includes(normalizedWords(column.name)),
+  )
+  const currentTime = request.state.timeColumn
+    ? byName.get(request.state.timeColumn)
+    : undefined
+  const currentX = request.state.xColumn
+    ? byName.get(request.state.xColumn)
+    : undefined
+  const timeColumn =
+    mentionedTemporal?.name ??
+    (currentTime && isBuilderTemporalDataType(currentTime.dataType)
+      ? currentTime.name
+      : currentX && isBuilderTemporalDataType(currentX.dataType)
+        ? currentX.name
+        : temporalColumns.length === 1
+          ? temporalColumns[0].name
+          : null)
+  if (!timeColumn) throw new Error()
+
+  return {
+    ...target,
+    xColumn: timeColumn,
+    valueColumn: null,
+    aggregation: 'count',
+    timeColumn,
+    timeBucket: bucket,
+    timeRange: target.timeRange ?? request.state.timeRange,
+  }
+}
 const normalizedBuilderPatch = (
   before: AiBuilderState,
   target: AiBuilderState,
@@ -515,10 +630,13 @@ function validateBuilderProposal(
   )
     throw new Error()
   const proposedPatch = cleanBuilderPatch(input.patch)
-  const target = materializeAiBuilderTargetState(
-    request.state,
-    proposedPatch,
-    request.columns,
+  const target = normalizeCountOverTimeTarget(
+    request,
+    materializeAiBuilderTargetState(
+      request.state,
+      proposedPatch,
+      request.columns,
+    ),
   )
   validateBuilderTarget(target, request.columns)
   return {
