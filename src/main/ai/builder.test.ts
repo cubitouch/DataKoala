@@ -85,6 +85,56 @@ test('Builder proposal applies the same safe axis defaults as manual controls', 
   )
 })
 
+test('Builder proposal clears the current Y when a minimal X patch selects it', () => {
+  const conflictRequest: AiBuilderProposalRequest = {
+    ...request,
+    state: {
+      ...request.state,
+      xColumn: 'country',
+      valueColumn: 'revenue',
+      aggregation: 'sum',
+    },
+  }
+  assert.deepEqual(
+    builderStep(proposal({ xColumn: 'revenue' }), conflictRequest),
+    {
+      kind: 'proposal',
+      proposal: {
+        patch: {
+          xColumn: 'revenue',
+          valueColumn: null,
+          aggregation: 'count',
+        },
+        explanation: 'Updates the Builder controls.',
+        assumptions: [],
+      },
+    },
+  )
+})
+
+test('Builder proposal preserves the current Y and aggregation when proposed X does not conflict', () => {
+  const nonConflictRequest: AiBuilderProposalRequest = {
+    ...request,
+    state: {
+      ...request.state,
+      xColumn: 'country',
+      valueColumn: 'revenue',
+      aggregation: 'sum',
+    },
+  }
+  assert.deepEqual(
+    builderStep(proposal({ xColumn: 'status' }), nonConflictRequest),
+    {
+      kind: 'proposal',
+      proposal: {
+        patch: { xColumn: 'status' },
+        explanation: 'Updates the Builder controls.',
+        assumptions: [],
+      },
+    },
+  )
+})
+
 test('Builder proposal validates and normalizes the complete target', () => {
   assert.deepEqual(
     builderStep(
