@@ -156,10 +156,7 @@ export function proposalRequest(value: unknown): AiQueryProposalRequest {
       'validation',
       'Generation requests cannot include an error.',
     )
-  if (
-    intent === 'repair' &&
-    (dialect !== 'postgres' || input.prompt !== undefined || !currentQuery)
-  )
+  if (intent === 'repair' && (input.prompt !== undefined || !currentQuery))
     throw new AiError('validation', 'Invalid AI repair request.')
   return {
     requestId: requestId(input.requestId),
