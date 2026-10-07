@@ -14,6 +14,40 @@ const dialectLabel: Record<SqlDialect, string> = {
   'google-sql': 'GoogleSQL',
 }
 
+function AvailableRelationCatalog({
+  relations,
+}: {
+  relations: NonNullable<AiQueryContext['availableRelations']>
+}) {
+  if (!relations.length) return null
+
+  return (
+    <div
+      className={styles.relationCatalog}
+      aria-label="Available relation names"
+    >
+      <div className={styles.relationCatalogHeader}>
+        <h4>Available relation names</h4>
+        <span className={styles.contextCount}>
+          {relations.length} additional{' '}
+          {relations.length === 1 ? 'relation' : 'relations'} · names only
+        </span>
+      </div>
+      <p className={styles.relationCatalogNote}>
+        Columns for these relations are not included unless DataKoala selects one
+        during the single metadata-discovery step.
+      </p>
+      <div className={styles.relationCatalogList} role="list">
+        {relations.map((relation) => (
+          <code key={`${relation.schema}.${relation.name}`} role="listitem">
+            {`${relation.schema}.${relation.name}`}
+          </code>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function SchemaMetadata({
   ariaLabel,
   title,
@@ -44,19 +78,26 @@ function SchemaMetadata({
         <p className={styles.notice}>Preparing schema context…</p>
       ) : !context ? (
         <p className={styles.notice}>Context is not ready yet.</p>
-      ) : !context.relations.length ? (
-        <p className={styles.notice}>
-          No eligible metadata is loaded. Refresh connection metadata for
-          table-based queries.
-        </p>
       ) : (
-        context.relations.map((relation) => (
-          <pre
-            key={`${relation.schema}.${relation.name}`}
-          >{`${relation.schema}.${relation.name}\n${relation.columns
-            .map((column) => `  ${column.name} ${column.dataType}`)
-            .join('\n')}`}</pre>
-        ))
+        <>
+          {!context.relations.length ? (
+            <p className={styles.notice}>
+              No detailed relation metadata is loaded. Refresh connection
+              metadata for table-based queries.
+            </p>
+          ) : (
+            context.relations.map((relation) => (
+              <pre
+                key={`${relation.schema}.${relation.name}`}
+              >{`${relation.schema}.${relation.name}\\n${relation.columns
+                .map((column) => `  ${column.name} ${column.dataType}`)
+                .join('\\n')}`}</pre>
+            ))
+          )}
+          <AvailableRelationCatalog
+            relations={context.availableRelations ?? []}
+          />
+        </>
       )}
     </section>
   )
