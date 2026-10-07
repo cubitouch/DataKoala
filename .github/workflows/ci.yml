@@ -49,10 +49,7 @@ jobs:
         run: pnpm lint:imports
 
       - name: Check formatting
-        run: |
-          pnpm exec prettier --write scripts/capture-ai-preview.mjs src/main/adapters/bigquery-adapter.ts src/main/adapters/local-files-adapter.ts src/main/adapters/postgres.ts
-          git diff -- scripts/capture-ai-preview.mjs src/main/adapters/bigquery-adapter.ts src/main/adapters/local-files-adapter.ts src/main/adapters/postgres.ts
-          exit 1
+        run: pnpm format
 
       - name: Lint TypeScript and React
         run: pnpm lint:ts
