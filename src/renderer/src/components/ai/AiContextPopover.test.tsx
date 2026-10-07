@@ -59,7 +59,9 @@ function renderDetails({
 }
 
 describe('AiContextPopover relation catalog', () => {
-  it('shows names-only relations separately from detailed schema metadata', () => {
+  it(
+    'shows names-only relations separately from detailed schema metadata',
+    () => {
     renderDetails({
       value: context(
         [
@@ -91,7 +93,8 @@ describe('AiContextPopover relation catalog', () => {
     expect(within(catalog).getByText('analytics.customers')).toBeTruthy()
     expect(within(catalog).getByText('analytics.subscriptions')).toBeTruthy()
     expect(within(catalog).queryByText(/customers\n/)).toBeNull()
-  })
+    },
+  )
 
   it('omits the catalog section when it is missing', () => {
     renderDetails({
@@ -109,7 +112,9 @@ describe('AiContextPopover relation catalog', () => {
     expect(screen.queryByLabelText('Available relation names')).toBeNull()
   })
 
-  it('keeps initial and final discovery catalogs associated with their own schema sections', () => {
+  it(
+    'keeps initial and final discovery catalogs associated with their own schema sections',
+    () => {
     const initialContext = context(
       [relation('initial', 'orders', 'initial_id')],
       [{ schema: 'initial', name: 'names_only' }],
@@ -139,18 +144,15 @@ describe('AiContextPopover relation catalog', () => {
 
     expect(within(initial).getByText(/initial\.orders/)).toBeTruthy()
     expect(
-      within(initial)
-        .getByLabelText('Available relation names')
-        .textContent,
+      within(initial).getByLabelText('Available relation names').textContent,
     ).toContain('initial.names_only')
     expect(within(initial).queryByText('final.names_only')).toBeNull()
 
     expect(within(final).getByText(/final\.discovered/)).toBeTruthy()
     expect(
-      within(final)
-        .getByLabelText('Available relation names')
-        .textContent,
+      within(final).getByLabelText('Available relation names').textContent,
     ).toContain('final.names_only')
     expect(within(final).queryByText('initial.names_only')).toBeNull()
-  })
+    },
+  )
 })
