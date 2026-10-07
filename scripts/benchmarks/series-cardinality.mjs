@@ -34,12 +34,12 @@ try {
       await query('CREATE INDEX ON cardinality_benchmark (id)')
       await query('CREATE INDEX ON cardinality_benchmark (low, medium)')
     }
-    for (const columns of [['low'], ['id'], ['low', 'medium']]) {
+    for (const seriesColumn of ['low', 'id']) {
       for (const filtered of [false, true]) {
         const request = {
           schema: postgresSchema,
           table: 'cardinality_benchmark',
-          seriesColumns: columns,
+          seriesColumn,
           predicates: filtered
             ? [{ column: 'low', operator: 'equals', value: 1 }]
             : [],
@@ -48,7 +48,7 @@ try {
           request,
           postgres ? 'postgres' : 'duckdb',
         )
-        const columnList = columns.map((c) => `"${c}"`).join(', ')
+        const columnList = `"${seriesColumn}"`
         const source = `FROM ${request.schema}.cardinality_benchmark${filtered ? ' WHERE "low" = $1' : ''}`
         for (const strategy of ['group', 'distinct', 'distinct-ordered']) {
           const sql =
@@ -67,7 +67,7 @@ try {
               provider: postgres ? 'postgres' : 'duckdb',
               rows,
               indexed,
-              columns,
+              seriesColumn,
               filtered,
               strategy,
               ms,
@@ -83,7 +83,7 @@ try {
             }),
           )
         }
-        if (postgres && columns.length === 1) {
+        if (postgres) {
           const session = {
             info: { provider: 'postgres' },
             query: async ({ sql, parameters }) => ({
@@ -97,7 +97,7 @@ try {
           console.log(
             JSON.stringify({
               strategy: 'postgres-per-field',
-              columns,
+              seriesColumn,
               filtered,
               indexed,
               durationMs: performance.now() - started,
