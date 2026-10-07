@@ -1043,7 +1043,7 @@ test('AI details exposes initial context, discovery request, added relations and
   })
   const final = screen.getByRole('region', { name: 'Final schema metadata' })
   expect(
-    [...initial.querySelectorAll('pre')].some((item) =>
+    Array.from(initial.querySelectorAll('pre')).some((item) =>
       item.textContent?.includes('zy_devices'),
     ),
   ).toBe(false)
@@ -1052,7 +1052,7 @@ test('AI details exposes initial context, discovery request, added relations and
       ?.textContent,
   ).toContain('public.zy_devices')
   expect(
-    [...final.querySelectorAll('pre')].some((item) =>
+    Array.from(final.querySelectorAll('pre')).some((item) =>
       item.textContent?.includes('public.zy_devices'),
     ),
   ).toBe(true)
