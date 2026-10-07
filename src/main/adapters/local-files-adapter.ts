@@ -8,6 +8,7 @@ import {
   type DuckDBValue,
 } from '@duckdb/node-api'
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
+import { QueryValidationError } from '../query-failure.ts'
 import {
   DATA_SOURCE_CAPABILITIES,
   type ColumnMeta,
@@ -155,14 +156,14 @@ export async function assertDuckDBReadOnlyQuery(
 ): Promise<void> {
   const extracted = await connection.extractStatements(sql)
   if (extracted.count !== 1)
-    throw new Error('Run exactly one read-only query at a time.')
+    throw new QueryValidationError('Run exactly one read-only query at a time.')
   const statement = await extracted.prepare(0)
   try {
     if (
       statement.statementType !== StatementType.SELECT &&
       statement.statementType !== StatementType.EXPLAIN
     ) {
-      throw new Error(`${label} are read-only. Run a SELECT or EXPLAIN query.`)
+      throw new QueryValidationError(`${label} are read-only. Run a SELECT or EXPLAIN query.`)
     }
   } finally {
     statement.destroySync()
