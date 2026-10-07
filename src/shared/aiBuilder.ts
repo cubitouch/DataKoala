@@ -31,6 +31,18 @@ export function materializeAiBuilderTargetState(
   }
   if (patch.aggregation === 'count') target.valueColumn = null
 
+  const minimalXConflict =
+    hasPatchField(patch, 'xColumn') &&
+    patch.xColumn !== null &&
+    patch.xColumn !== state.xColumn &&
+    patch.xColumn === state.valueColumn &&
+    !hasPatchField(patch, 'valueColumn') &&
+    !hasPatchField(patch, 'aggregation')
+  if (minimalXConflict) {
+    target.valueColumn = null
+    target.aggregation = 'count'
+  }
+
   if (hasPatchField(patch, 'xColumn') && patch.xColumn !== state.xColumn) {
     const previousTemporal = state.xColumn
       ? isBuilderTemporalDataType(dataType.get(state.xColumn))
