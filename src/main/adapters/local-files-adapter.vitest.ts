@@ -18,7 +18,10 @@ import {
   type BuilderFilterProvenance,
 } from '../../renderer/src/lib/resultFilters.ts'
 import { encodeBuilderSeriesTuple } from '../../renderer/src/lib/resultVisualization.ts'
-import { SeriesCardinalityProbes } from '../series-cardinality.ts'
+import {
+  SeriesCardinalityProbes,
+  type ProbeMeasurement,
+} from '../series-cardinality.ts'
 
 const pad2 = (value: number) => String(value).padStart(2, '0')
 const localDate = (value: Date) =>
@@ -394,7 +397,7 @@ test('local-file sessions execute Builder SQL and parameterized cardinality prob
       2,
     )
 
-    const cardinalityMeasurements = []
+    const cardinalityMeasurements: ProbeMeasurement[] = []
     const cardinality = await new SeriesCardinalityProbes((measurement) =>
       cardinalityMeasurements.push(measurement),
     ).probe(connected.session, {
