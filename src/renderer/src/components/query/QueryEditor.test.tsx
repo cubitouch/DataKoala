@@ -99,6 +99,7 @@ import {
 } from '@test/sessionTestUtils'
 import { useStore } from '@store/useStore'
 import { QueryExecutionError } from '@lib/queryErrors'
+import type { DataSourceProfile } from '@shared/types'
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void
@@ -719,7 +720,7 @@ describe('QueryEditor Explain loading states', () => {
     expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
     expect(explain).not.toHaveBeenCalled()
   })
-  it('shows the PostgreSQL AI composer only when AI settings are configured', async () => {
+  const configuredAi = () =>
     aiSettingsGet.mockResolvedValue({
       ok: true,
       value: {
@@ -728,33 +729,123 @@ describe('QueryEditor Explain loading states', () => {
         hasApiKey: true,
       },
     })
-    resetTestStore({
-      profiles: [
+
+  const sqlAiProfiles: DataSourceProfile[] = [
+    {
+      kind: 'postgres',
+      version: 2,
+      id: 'pg',
+      name: 'PG',
+      host: 'localhost',
+      port: 5432,
+      database: 'db',
+      user: 'user',
+      password: '',
+      tlsMode: 'disable',
+      readonly: true,
+    },
+    {
+      kind: 'local-files',
+      version: 1,
+      id: 'local',
+      name: 'Local',
+      files: [
         {
-          kind: 'postgres',
-          version: 2,
-          id: 'pg',
-          name: 'PG',
-          host: 'localhost',
-          port: 5432,
-          database: 'db',
-          user: 'user',
-          password: '',
-          tlsMode: 'disable',
-          readonly: true,
+          path: '/Users/example/private/customer-data.csv',
+          alias: 'customer_data',
         },
       ],
-      activeProfileId: 'pg',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
-    })
-    patchActiveTestSession({ connectionProfileId: 'pg', sql: 'select 1' })
-    render(<QueryEditor />)
-    expect(
-      await screen.findByRole('textbox', { name: 'AI prompt' }),
-    ).toBeTruthy()
-  })
+      readonly: true,
+    },
+    {
+      kind: 'sqlite-file',
+      version: 1,
+      id: 'sqlite',
+      name: 'SQLite',
+      path: '/Users/example/private/app.sqlite',
+      readonly: true,
+    },
+    {
+      kind: 'bigquery',
+      version: 1,
+      id: 'bq',
+      name: 'BigQuery',
+      billingProject: 'billing-project',
+      defaultProject: 'my-project',
+      defaultDataset: 'analytics',
+      maximumBytesBilled: '',
+      readonly: true,
+    },
+  ]
+
+  it.each(sqlAiProfiles)(
+    'shows the raw SQL AI composer for configured $kind connections',
+    async (profile) => {
+      configuredAi()
+      resetTestStore({
+        profiles: [profile],
+        activeProfileId: profile.id,
+        connected: true,
+        connecting: false,
+        connectionStatus: 'connected',
+      })
+      patchActiveTestSession({
+        connectionProfileId: profile.id,
+        queryMode: 'sql',
+        sql: 'select 1',
+      })
+      render(<QueryEditor />)
+      expect(
+        await screen.findByRole('textbox', { name: 'AI prompt' }),
+      ).toBeTruthy()
+    },
+  )
+
+  it.each([
+    {
+      kind: 'prometheus',
+      version: 1,
+      id: 'prom',
+      name: 'Prometheus',
+      readonly: true,
+      transport: { kind: 'gcx' },
+    },
+    {
+      kind: 'loki',
+      version: 1,
+      id: 'loki',
+      name: 'Loki',
+      readonly: true,
+      transport: { kind: 'gcx' },
+    },
+    {
+      kind: 'tempo',
+      version: 1,
+      id: 'tempo',
+      name: 'Tempo',
+      readonly: true,
+      transport: { kind: 'gcx' },
+    },
+  ] satisfies DataSourceProfile[])(
+    'hides the raw SQL AI composer for $kind',
+    (profile) => {
+      configuredAi()
+      resetTestStore({
+        profiles: [profile],
+        activeProfileId: profile.id,
+        connected: true,
+        connecting: false,
+        connectionStatus: 'connected',
+      })
+      patchActiveTestSession({
+        connectionProfileId: profile.id,
+        queryMode: 'sql',
+        sql: 'query',
+      })
+      render(<QueryEditor />)
+      expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
+    },
+  )
 
   it('keeps SQL formatting local', async () => {
     renderExplainUi()
