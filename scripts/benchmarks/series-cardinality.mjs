@@ -32,7 +32,7 @@ try {
   for (const indexed of postgres ? [false, true] : [false]) {
     if (indexed) {
       await query('CREATE INDEX ON cardinality_benchmark (id)')
-      await query('CREATE INDEX ON cardinality_benchmark (low, medium)')
+      await query('CREATE INDEX ON cardinality_benchmark (low)')
     }
     for (const seriesColumn of ['low', 'id']) {
       for (const filtered of [false, true]) {
