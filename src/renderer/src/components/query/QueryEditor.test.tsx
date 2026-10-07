@@ -99,6 +99,7 @@ import {
 } from '@test/sessionTestUtils'
 import { useStore } from '@store/useStore'
 import { QueryExecutionError } from '@lib/queryErrors'
+import type { DataSourceProfile } from '@shared/types'
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void
@@ -719,7 +720,7 @@ describe('QueryEditor Explain loading states', () => {
     expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
     expect(explain).not.toHaveBeenCalled()
   })
-  it('shows the PostgreSQL AI composer only when AI settings are configured', async () => {
+  const configuredAi = () =>
     aiSettingsGet.mockResolvedValue({
       ok: true,
       value: {
@@ -728,33 +729,224 @@ describe('QueryEditor Explain loading states', () => {
         hasApiKey: true,
       },
     })
-    resetTestStore({
-      profiles: [
+
+  const sqlAiProfiles: DataSourceProfile[] = [
+    {
+      kind: 'postgres',
+      version: 2,
+      id: 'pg',
+      name: 'PG',
+      host: 'localhost',
+      port: 5432,
+      database: 'db',
+      user: 'user',
+      password: '',
+      tlsMode: 'disable',
+      readonly: true,
+    },
+    {
+      kind: 'local-files',
+      version: 1,
+      id: 'local',
+      name: 'Local',
+      files: [
         {
-          kind: 'postgres',
-          version: 2,
-          id: 'pg',
-          name: 'PG',
-          host: 'localhost',
-          port: 5432,
-          database: 'db',
-          user: 'user',
-          password: '',
-          tlsMode: 'disable',
-          readonly: true,
+          path: '/Users/example/private/customer-data.csv',
+          alias: 'customer_data',
         },
       ],
-      activeProfileId: 'pg',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
-    })
-    patchActiveTestSession({ connectionProfileId: 'pg', sql: 'select 1' })
-    render(<QueryEditor />)
-    expect(
-      await screen.findByRole('textbox', { name: 'AI prompt' }),
-    ).toBeTruthy()
-  })
+      readonly: true,
+    },
+    {
+      kind: 'sqlite-file',
+      version: 1,
+      id: 'sqlite',
+      name: 'SQLite',
+      path: '/Users/example/private/app.sqlite',
+      readonly: true,
+    },
+    {
+      kind: 'bigquery',
+      version: 1,
+      id: 'bq',
+      name: 'BigQuery',
+      billingProject: 'billing-project',
+      defaultProject: 'my-project',
+      defaultDataset: 'analytics',
+      maximumBytesBilled: '',
+      readonly: true,
+    },
+  ]
+
+  it.each(sqlAiProfiles)(
+    'shows the raw SQL AI composer for configured $kind connections',
+    async (profile) => {
+      configuredAi()
+      resetTestStore({
+        profiles: [profile],
+        activeProfileId: profile.id,
+        connected: true,
+        connecting: false,
+        connectionStatus: 'connected',
+      })
+      patchActiveTestSession({
+        connectionProfileId: profile.id,
+        queryMode: 'sql',
+        sql: 'select 1',
+      })
+      render(<QueryEditor />)
+      expect(
+        await screen.findByRole('textbox', { name: 'AI prompt' }),
+      ).toBeTruthy()
+    },
+  )
+
+  it.each([
+    {
+      kind: 'prometheus',
+      version: 1,
+      id: 'prom',
+      name: 'Prometheus',
+      readonly: true,
+      transport: { kind: 'gcx' },
+    },
+    {
+      kind: 'loki',
+      version: 1,
+      id: 'loki',
+      name: 'Loki',
+      readonly: true,
+      transport: { kind: 'gcx' },
+    },
+    {
+      kind: 'tempo',
+      version: 1,
+      id: 'tempo',
+      name: 'Tempo',
+      readonly: true,
+      transport: { kind: 'gcx' },
+    },
+  ] satisfies DataSourceProfile[])(
+    'hides the raw SQL AI composer for $kind',
+    (profile) => {
+      configuredAi()
+      resetTestStore({
+        profiles: [profile],
+        activeProfileId: profile.id,
+        connected: true,
+        connecting: false,
+        connectionStatus: 'connected',
+      })
+      patchActiveTestSession({
+        connectionProfileId: profile.id,
+        queryMode: 'sql',
+        sql: 'query',
+      })
+      render(<QueryEditor />)
+      expect(screen.queryByRole('textbox', { name: 'AI prompt' })).toBeNull()
+    },
+  )
+
+  it.each([
+    {
+      profile: sqlAiProfiles.find((item) => item.kind === 'local-files')!,
+      schema: 'main',
+      relation: 'customer_data',
+      dialect: 'duckdb',
+      label: 'DuckDB · OpenRouter',
+    },
+    {
+      profile: sqlAiProfiles.find((item) => item.kind === 'sqlite-file')!,
+      schema: 'sqlite',
+      relation: 'orders',
+      dialect: 'duckdb',
+      label: 'DuckDB · OpenRouter',
+    },
+    {
+      profile: sqlAiProfiles.find((item) => item.kind === 'bigquery')!,
+      schema: 'my-project.analytics',
+      relation: 'orders',
+      dialect: 'google-sql',
+      label: 'GoogleSQL · OpenRouter',
+    },
+  ] as const)(
+    'submits $dialect context for $profile.kind without leaking profile paths or auto-running',
+    async ({ profile, schema, relation, dialect, label }) => {
+      configuredAi()
+      aiPropose.mockResolvedValue({
+        ok: true,
+        value: {
+          kind: 'proposal',
+          proposal: {
+            query: `SELECT count(*) FROM ${schema}.${relation}`,
+            explanation: 'Count rows.',
+            assumptions: [],
+          },
+        },
+      })
+      resetTestStore({
+        profiles: [profile],
+        activeProfileId: profile.id,
+        connected: true,
+        connecting: false,
+        connectionStatus: 'connected',
+        metadataByProfileId: {
+          [profile.id]: {
+            schemas: [
+              {
+                name: schema,
+                isSystem: false,
+                relations: [
+                  {
+                    schema,
+                    name: relation,
+                    kind: 'r',
+                    qualifiedName: `${schema}.${relation}`,
+                    columnsStatus: 'loaded',
+                    columns: [{ name: 'id', dataTypeName: 'INTEGER' }],
+                  },
+                ],
+              },
+            ],
+            status: 'loaded',
+            error: null,
+            isStale: false,
+          },
+        },
+      })
+      patchActiveTestSession({
+        connectionProfileId: profile.id,
+        queryMode: 'sql',
+        sql: `SELECT * FROM ${schema}.${relation}`,
+      })
+      render(<QueryEditor />)
+
+      const prompt = await screen.findByRole('textbox', { name: 'AI prompt' })
+      fireEvent.change(prompt, { target: { value: 'count rows' } })
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Ask' })).not.toHaveProperty(
+          'disabled',
+          true,
+        ),
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Ask' }))
+      await waitFor(() => expect(aiPropose).toHaveBeenCalledTimes(1))
+
+      const submitted = aiPropose.mock.calls[0][0]
+      expect(submitted.context.language).toEqual({ kind: 'sql', dialect })
+      expect(JSON.stringify(submitted)).not.toMatch(
+        /\/Users\/example\/private|customer-data\.csv|app\.sqlite/,
+      )
+      expect(runQuery).not.toHaveBeenCalled()
+
+      await screen.findByRole('region', { name: 'AI query proposal' })
+      fireEvent.click(screen.getByRole('button', { name: 'View AI details' }))
+      expect(await screen.findByText(label)).toBeTruthy()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+      expect(runQuery).not.toHaveBeenCalled()
+    },
+  )
 
   it('keeps SQL formatting local', async () => {
     renderExplainUi()
@@ -988,6 +1180,71 @@ describe('Fix with AI editor review', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
     await screen.findByRole('region', { name: 'SQL proposal diff' })
   }
+
+  it.each([
+    {
+      kind: 'local-files',
+      version: 1,
+      id: 'local-repair',
+      name: 'Local',
+      files: [{ path: '/tmp/orders.csv', alias: 'orders' }],
+      readonly: true,
+    },
+    {
+      kind: 'sqlite-file',
+      version: 1,
+      id: 'sqlite-repair',
+      name: 'SQLite',
+      path: '/tmp/orders.sqlite',
+      readonly: true,
+    },
+    {
+      kind: 'bigquery',
+      version: 1,
+      id: 'bq-repair',
+      name: 'BigQuery',
+      billingProject: 'billing',
+      maximumBytesBilled: '',
+      readonly: true,
+    },
+  ] satisfies DataSourceProfile[])(
+    'keeps Fix with AI PostgreSQL-only for $kind',
+    async (profile) => {
+      aiSettingsGet.mockResolvedValue({
+        ok: true,
+        value: {
+          provider: 'openrouter',
+          model: 'vendor/model',
+          hasApiKey: true,
+        },
+      })
+      resetTestStore({
+        profiles: [profile],
+        activeProfileId: profile.id,
+        connected: true,
+        connecting: false,
+        connectionStatus: 'connected',
+      })
+      patchActiveTestSession({
+        connectionProfileId: profile.id,
+        queryMode: 'sql',
+        sql: failed,
+        queryError: safeError,
+        repairableQueryError: { query: failed, error: safeError },
+      })
+      render(
+        <AiQueryRepairProvider>
+          <QueryEditor />
+          <AiQueryRepair />
+        </AiQueryRepairProvider>,
+      )
+
+      expect(
+        await screen.findByRole('textbox', { name: 'AI prompt' }),
+      ).toBeTruthy()
+      expect(screen.queryByRole('button', { name: 'Fix with AI' })).toBeNull()
+    },
+  )
 
   it('reviews the repair as a diff and only replaces editor SQL on Apply', async () => {
     renderRepairEditor()
