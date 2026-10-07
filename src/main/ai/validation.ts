@@ -274,12 +274,34 @@ const parseBuilderTimeRange = (value: unknown): BuilderTimeRange => {
       (unit === 'month' && [3, 6, 12].includes(amount))
     if (!allowed) throw new Error()
     const recurringWindows = recurring()
+    const extra = recurringWindows?.length ? { recurringWindows } : {}
+    if (unit === 'minute')
+      return {
+        kind: 'rolling',
+        amount: amount as 15 | 30,
+        unit,
+        ...extra,
+      }
+    if (unit === 'hour')
+      return {
+        kind: 'rolling',
+        amount: amount as 1 | 3 | 6 | 12 | 24,
+        unit,
+        ...extra,
+      }
+    if (unit === 'day')
+      return {
+        kind: 'rolling',
+        amount: amount as 7 | 30,
+        unit,
+        ...extra,
+      }
     return {
       kind: 'rolling',
-      amount: amount as 15 & 1 & 7 & 3,
-      unit: unit as 'minute',
-      ...(recurringWindows?.length ? { recurringWindows } : {}),
-    } as BuilderTimeRange
+      amount: amount as 3 | 6 | 12,
+      unit: 'month',
+      ...extra,
+    }
   }
   if (input.kind === 'custom') {
     exactKeys(
