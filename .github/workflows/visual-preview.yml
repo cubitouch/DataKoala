@@ -12,6 +12,7 @@ env:
   PREVIEW_FILES: |-
     ai-settings.png
     ai-query-proposal.png
+    ai-builder-proposal.png
     ai-query-repair-error.png
     ai-query-repair-failure.png
     ai-query-repair-proposal.png
@@ -207,6 +208,7 @@ jobs:
               'builder-narrow.png': 'Builder — narrow responsive layout',
               'ai-settings.png': 'AI settings — encrypted key and OpenRouter model selection',
               'ai-query-proposal.png': 'Ask AI — inline composer, SQL diff and explicit Apply',
+              'ai-builder-proposal.png': 'Builder Ask AI — structured control diff and explicit Apply',
               'ai-query-repair-error.png': 'Fix with AI — failed PostgreSQL query action',
               'ai-query-repair-failure.png': 'Fix with AI — distinct retryable AI repair failure',
               'ai-query-repair-proposal.png': 'Fix with AI — Ask AI-style SQL diff and explicit Apply',
