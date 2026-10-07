@@ -133,7 +133,6 @@ function friendlyError(error: unknown): string {
   return `BigQuery request failed. ${message}`
 }
 
-
 const BIGQUERY_CONNECTION_REASONS = new Set([
   'accessDenied',
   'accessNotConfigured',
@@ -173,6 +172,13 @@ function isBigQueryConnectionFailure(error: unknown): boolean {
   }
 
   const message = value?.message ?? ''
+  if (
+    value?.code === 404 &&
+    /(?:not found:\s*project|project\b.*\b(?:not found|does not exist|inaccessible))/i.test(
+      message,
+    )
+  )
+    return true
   return /credential|authentication|unauthenticated|application default credentials|api (?:is )?(?:disabled|not enabled)|location mismatch/i.test(
     message,
   )
