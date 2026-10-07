@@ -1,3 +1,5 @@
+import { QueryValidationError } from '../query-failure.ts'
+
 const scriptMessage =
   'BigQuery connections are read-only. Use DECLARE, SET for local variables, and SELECT statements, ending with a SELECT. Writes, dynamic SQL, and control-flow scripts are not supported.'
 
@@ -65,7 +67,7 @@ export function assertReadOnlyBigQueryScript(sql: string): void {
   for (const statement of statements) {
     // Pipe syntax can include write operators despite starting with SELECT.
     // Keep it outside this deliberately limited script subset.
-    if (statement.includes('|>')) throw new Error(scriptMessage)
+    if (statement.includes('|>')) throw new QueryValidationError(scriptMessage)
     if (/^(SELECT|WITH|DECLARE)\b/i.test(statement)) continue
     // Only user-variable assignments: never SET @@system_variable, which can
     // change the query destination or other execution settings.
@@ -75,8 +77,8 @@ export function assertReadOnlyBigQueryScript(sql: string): void {
       )
     )
       continue
-    throw new Error(scriptMessage)
+    throw new QueryValidationError(scriptMessage)
   }
   if (!/^(SELECT|WITH)\b/i.test(statements.at(-1) ?? ''))
-    throw new Error(scriptMessage)
+    throw new QueryValidationError(scriptMessage)
 }
