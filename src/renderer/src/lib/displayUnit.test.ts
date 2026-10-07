@@ -25,8 +25,12 @@ describe('display units', () => {
   })
   it('composes with any numeric formatter and leaves missing values alone', () => {
     expect(
-      formatDisplayValue(1200, { family: 'time', unit: 'ms' }, () => '1.2k'),
-    ).toBe('1.2k ms')
+      formatDisplayValue(
+        3600000000,
+        { family: 'time', unit: 'ms' },
+        () => '1k',
+      ),
+    ).toBe('1k h')
     expect(
       formatDisplayValue(
         null,
@@ -37,6 +41,34 @@ describe('display units', () => {
     expect(formatDisplayValue(1200, undefined, formatChartNumber)).toBe(
       formatChartNumber(1200),
     )
+  })
+  it.each([
+    [0.025, 's', '25 ms'],
+    [0.000025, 's', '25 µs'],
+    [0.000000025, 's', '25 ns'],
+    [0.000000000001, 's', '0.001 ns'],
+    [0, 's', '0 s'],
+    [-0.025, 's', '-25 ms'],
+    [1500, 'ms', '1.5 s'],
+    [90, 's', '1.5 min'],
+    [120, 'min', '2 h'],
+    [0.5, 'h', '30 min'],
+    [999.999, 'ms', '1 s'],
+    [59.999, 's', '1 min'],
+  ] as const)('scales %s %s to %s', (value, unit, expected) => {
+    expect(
+      formatDisplayValue(value, { family: 'time', unit }, formatChartNumber),
+    ).toBe(expected)
+  })
+  it('preserves missing and non-finite values', () => {
+    for (const value of [null, undefined, '', 'invalid', NaN, Infinity])
+      expect(
+        formatDisplayValue(
+          value,
+          { family: 'time', unit: 's' },
+          formatChartNumber,
+        ),
+      ).toBe(formatChartNumber(value))
   })
   it('uses one unit for the axis, crosshair and tooltip without changing data', () => {
     const series = [{ name: 'Latency', data: [1200] }]
@@ -55,7 +87,7 @@ describe('display units', () => {
       formatter: (value: unknown) => string
       axisPointer: { label: { formatter: (value: unknown) => string } }
     }
-    const expected = `${formatChartNumber(1200)} ms`
+    const expected = '1.2 s'
     expect(axis.axisLabel.formatter(1200)).toBe(expected)
     expect(
       tooltip.axisPointer.label.formatter({ axisDimension: 'y', value: 1200 }),
