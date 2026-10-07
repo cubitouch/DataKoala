@@ -40,6 +40,8 @@ export function ExplainPane() {
           <ExecutionPlanDiagram
             tree={tree}
             analyze={snapshot?.mode === 'analyze'}
+            planningTimeMs={snapshot?.planningTimeMs}
+            executionTimeMs={snapshot?.executionTimeMs}
           />
         )}
         {snapshot && snapshot.query !== session.sql && (
