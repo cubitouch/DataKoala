@@ -19,6 +19,7 @@ import {
   SeriesCardinalityProbes,
   type ProbeMeasurement,
 } from '../series-cardinality.ts'
+import { queryFailureKind } from '../query-failure.ts'
 
 async function fingerprint(path: string) {
   const info = await stat(path, { bigint: true })
@@ -207,6 +208,15 @@ c.commit(); c.close()
     })
     assert.equal(bounded.rowCount, 10_000)
     assert.equal(bounded.execution?.truncated, true)
+
+    await assert.rejects(
+      session.query({ sql: 'DELETE FROM sqlite.events' }),
+      (error) => queryFailureKind(error) === 'validation',
+    )
+    await assert.rejects(
+      session.query({ sql: 'SELECT 1; SELECT 2' }),
+      (error) => queryFailureKind(error) === 'validation',
+    )
 
     for (const sql of [
       'DELETE FROM sqlite.events',
