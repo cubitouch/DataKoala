@@ -146,6 +146,47 @@ test('OpenRouter models, structured request and proposal parsing use only explic
   assert.equal(sent?.max_tokens, 256)
 })
 
+test('OpenRouter query generation identifies each canonical SQL dialect without changing the structured schema', async () => {
+  const cases = [
+    ['postgres', /PostgreSQL/],
+    ['duckdb', /DuckDB SQL/],
+    ['google-sql', /GoogleSQL \/ BigQuery Standard SQL/],
+  ] as const
+  let expectedSchema = ''
+  for (const [dialect, expected] of cases) {
+    let sent: Record<string, unknown> | undefined
+    const provider = new OpenRouterProvider(
+      'key',
+      'model',
+      async (_url, init) => {
+        sent = JSON.parse(String(init?.body))
+        return completion()
+      },
+    )
+    await provider.proposeQuery(
+      {
+        ...request,
+        currentQuery: 'SELECT * FROM public.orders',
+        context: {
+          ...request.context,
+          language: { kind: 'sql', dialect },
+        },
+      },
+      signal(),
+    )
+    const serializedMessages = JSON.stringify(sent?.messages)
+    assert.match(serializedMessages, expected)
+    if (dialect !== 'postgres')
+      assert.doesNotMatch(serializedMessages, /Generate PostgreSQL/)
+    const schema = JSON.stringify(
+      (sent?.response_format as { json_schema?: { schema?: unknown } })
+        .json_schema?.schema,
+    )
+    if (!expectedSchema) expectedSchema = schema
+    else assert.equal(schema, expectedSchema)
+  }
+})
+
 test('OpenRouter normalizes a bounded context request into the provider-neutral step', async () => {
   const provider = new OpenRouterProvider('key', 'model', async () =>
     completion(contextRequestWire),
@@ -609,7 +650,7 @@ test('IPC validation allowlists metadata and rejects oversized or unsupported co
       ...request,
       context: {
         ...request.context,
-        language: { kind: 'sql', dialect: 'bigquery' },
+        language: { kind: 'sql', dialect: 'mysql' },
       },
     }),
   )
@@ -620,6 +661,40 @@ test('IPC validation allowlists metadata and rejects oversized or unsupported co
       context: {
         ...request.context,
         relations: Array(9).fill(clean.context.relations[0]),
+      },
+    }),
+  )
+})
+
+test('generation validation accepts only canonical SQL dialects and reconstructs the allowlisted context', () => {
+  for (const dialect of ['postgres', 'duckdb', 'google-sql'] as const) {
+    const clean = proposalRequest({
+      ...request,
+      profile: {
+        path: '/Users/example/private/customer-data.csv',
+        password: 'secret',
+      },
+      context: {
+        ...request.context,
+        language: { kind: 'sql', dialect },
+        connectionString: 'secret',
+      },
+    })
+    assert.equal(clean.context.language.dialect, dialect)
+    assert.equal(
+      JSON.stringify(clean).includes(
+        '/Users/example/private/customer-data.csv',
+      ),
+      false,
+    )
+    assert.equal(JSON.stringify(clean).includes('connectionString'), false)
+  }
+  assert.throws(() =>
+    proposalRequest({
+      ...request,
+      context: {
+        ...request.context,
+        language: { kind: 'promql' },
       },
     }),
   )
@@ -639,4 +714,17 @@ test('repair validation enforces intent and sanitizes error context again', () =
   assert.equal(clean.error?.includes('hunter2'), false)
   assert.throws(() => proposalRequest({ ...request, intent: 'repair' }))
   assert.throws(() => proposalRequest({ ...request, error: 'not allowed' }))
+  for (const dialect of ['duckdb', 'google-sql'] as const)
+    assert.throws(() =>
+      proposalRequest({
+        requestId: 'repair',
+        intent: 'repair',
+        currentQuery: 'SELECT * FROM orders',
+        error: 'syntax error',
+        context: {
+          ...request.context,
+          language: { kind: 'sql', dialect },
+        },
+      }),
+    )
 })
