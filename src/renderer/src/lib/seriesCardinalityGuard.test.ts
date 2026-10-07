@@ -91,11 +91,14 @@ test('probe SQL safely quotes identifiers, stays bounded, and parameterizes pred
 
 test('new Series fields are identified independently from already approved fields', () => {
   assert.deepEqual(addedSeriesColumns(['type'], ['type', 'status']), ['status'])
+  assert.deepEqual(addedSeriesColumns(['type'], ['type', 'status', 'region']), [
+    'status',
+    'region',
+  ])
   assert.deepEqual(
-    addedSeriesColumns(['type'], ['type', 'status', 'region']),
-    ['status', 'region'],
+    addedSeriesColumns(['type', 'status'], ['status', 'type']),
+    [],
   )
-  assert.deepEqual(addedSeriesColumns(['type', 'status'], ['status', 'type']), [])
 })
 
 test('ordered proposed series columns participate in stale-work fingerprints', () => {
