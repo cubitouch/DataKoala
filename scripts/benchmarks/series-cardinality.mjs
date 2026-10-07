@@ -22,6 +22,13 @@ try {
     `CREATE TEMP TABLE cardinality_benchmark AS SELECT i AS id, i % 10 AS low, i % 1000 AS medium FROM ${postgres ? `generate_series(0, ${rows - 1})` : `range(${rows})`} t(i)`,
   )
   if (postgres) await query('ANALYZE cardinality_benchmark')
+  const postgresSchema = postgres
+    ? (
+        await query(
+          "SELECT n.nspname AS schema FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.oid = 'cardinality_benchmark'::regclass",
+        )
+      )[0].schema
+    : 'main'
   for (const indexed of postgres ? [false, true] : [false]) {
     if (indexed) {
       await query('CREATE INDEX ON cardinality_benchmark (id)')
@@ -30,7 +37,7 @@ try {
     for (const columns of [['low'], ['id'], ['low', 'medium']]) {
       for (const filtered of [false, true]) {
         const request = {
-          schema: postgres ? 'pg_temp' : 'main',
+          schema: postgresSchema,
           table: 'cardinality_benchmark',
           seriesColumns: columns,
           predicates: filtered
