@@ -83,29 +83,46 @@ for (const estimate of [0, 50, 100, 200, 201, undefined, -1, Infinity, 'bad']) {
     assert.equal(measurements.at(-1)?.result, 'rejected')
   })
 }
-for (const columns of [['region'], ['region', 'service']]) {
-  test(`planner includes ${columns.length} dimensions and parameterized predicates`, async () => {
-    const session = fake('postgres', async ({ sql, parameters }) => {
-      assert.match(sql, /WHERE "region" = \$1/)
-      assert.deepEqual(parameters, ['eu'])
-      if (sql.startsWith('EXPLAIN')) {
-        assert.doesNotMatch(sql, /LIMIT|ANALYZE/)
-        assert.match(
-          sql,
-          new RegExp(`GROUP BY ${columns.map((c) => `"${c}"`).join(', ')}`),
-        )
-        throw new Error('explain unavailable')
+for (const scopedRequest of [
+  {
+    seriesColumns: ['region'],
+    predicates: [{ column: 'region', operator: 'equals', value: 'eu' }],
+  },
+  {
+    seriesColumns: ['region', 'service'],
+    predicates: [],
+  },
+  {
+    seriesColumns: ['region', 'service'],
+    predicates: [{ column: 'region', operator: 'equals', value: 'eu' }],
+  },
+] as const) {
+  test(`scoped/multicolumn probes skip planner: ${scopedRequest.seriesColumns.join('+')} / ${scopedRequest.predicates.length} predicates`, async () => {
+    const calls: QueryRequest[] = []
+    const session = fake('postgres', async (q) => {
+      calls.push(q)
+      assert.doesNotMatch(q.sql, /^EXPLAIN/)
+      if (scopedRequest.predicates.length) {
+        assert.match(q.sql, /WHERE "region" = \\$1/)
+        assert.deepEqual(q.parameters, ['eu'])
       }
+      assert.match(
+        q.sql,
+        new RegExp(
+          `GROUP BY ${scopedRequest.seriesColumns.map((column) => `"${column}"`).join(', ')}`,
+        ),
+      )
       return result([{ count: '100' }])
     })
     assert.deepEqual(
       await new SeriesCardinalityProbes().probe(session, {
         ...request,
-        seriesColumns: columns,
-        predicates: [{ column: 'region', operator: 'equals', value: 'eu' }],
+        seriesColumns: [...scopedRequest.seriesColumns],
+        predicates: [...scopedRequest.predicates],
       }),
       { distinctCount: 100, exceedsHardLimit: false },
     )
+    assert.equal(calls.length, 1)
   })
 }
 for (const count of [undefined, null, '', false, -1, 102, NaN, 1.5, 'bad']) {
