@@ -527,9 +527,7 @@ const TEMPORAL_GROUPING_PATTERNS: Array<{
 const countIntent = (prompt: string): boolean =>
   /\b(?:count|number\s+of|how\s+many)\b/i.test(prompt)
 
-const requestedTemporalBucket = (
-  prompt: string,
-): BuilderTimeBucket | null =>
+const requestedTemporalBucket = (prompt: string): BuilderTimeBucket | null =>
   TEMPORAL_GROUPING_PATTERNS.find(({ pattern }) => pattern.test(prompt))
     ?.bucket ?? null
 
