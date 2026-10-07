@@ -7,6 +7,7 @@ import {
   normalizeBigQueryValue,
   type BigQueryClientLike,
 } from './bigquery-adapter.ts'
+import { SeriesCardinalityProbes } from '../series-cardinality.ts'
 import {
   BigQueryDate,
   BigQueryDatetime,
@@ -551,7 +552,7 @@ test('returns actionable provider errors', async () => {
   }
 })
 
-test('structured cardinality probe executes one job with billing/location/parameters and no dry run', async () => {
+test('structured exact cardinality probe executes one job with billing/location/parameters and no dry run', async () => {
   const fake = client('SELECT', [{ count: 101 }])
   const { session } = await new BigQueryAdapter(() => fake.value).connect(
     profile,
@@ -559,7 +560,7 @@ test('structured cardinality probe executes one job with billing/location/parame
   const response = await session!.querySeriesCardinality!({
     schema: 'data.analytics',
     table: 'events',
-    seriesColumns: ['region', 'service'],
+    seriesColumns: ['status'],
     predicates: [
       {
         column: 'region',
@@ -570,12 +571,49 @@ test('structured cardinality probe executes one job with billing/location/parame
   })
   assert.equal(fake.calls.length, 1)
   assert.equal(fake.calls[0].dryRun, undefined)
-  assert.doesNotMatch(String(fake.calls[0].query), /pg_stats|EXPLAIN/i)
+  assert.doesNotMatch(String(fake.calls[0].query), /pg_stats|EXPLAIN|STRUCT/i)
+  assert.match(String(fake.calls[0].query), /GROUP BY `status`/)
   assert.equal(fake.calls[0].maximumBytesBilled, profile.maximumBytesBilled)
   assert.equal(fake.calls[0].location, 'US')
   assert.deepEqual(fake.calls[0].params, ["'; DELETE FROM events; --"])
   assert.doesNotMatch(String(fake.calls[0].query), /DELETE/)
   assert.equal(response.rows[0].count, 101)
+  assert.equal(response.execution?.bytesProcessed, 12)
+})
+
+test('structured approximate cardinality probe executes one job with the same trusted options', async () => {
+  const fake = client('SELECT', [{ count: 75 }])
+  const { session } = await new BigQueryAdapter(() => fake.value).connect(
+    profile,
+  )
+  const response = await session!.querySeriesCardinalityApproximate!({
+    schema: 'data.analytics',
+    table: 'events',
+    seriesColumns: ['status'],
+    predicates: [
+      {
+        column: 'region',
+        operator: 'equals',
+        value: "'; DELETE FROM events; --",
+      },
+    ],
+  })
+  assert.equal(fake.calls.length, 1)
+  assert.equal(fake.calls[0].dryRun, undefined)
+  assert.match(
+    String(fake.calls[0].query),
+    /SELECT APPROX_COUNT_DISTINCT\(`status`\) AS `count`/,
+  )
+  assert.doesNotMatch(String(fake.calls[0].query), /pg_stats|EXPLAIN|STRUCT/i)
+  assert.equal(fake.calls[0].maximumBytesBilled, profile.maximumBytesBilled)
+  assert.equal(fake.calls[0].location, 'US')
+  assert.deepEqual(fake.calls[0].defaultDataset, {
+    projectId: 'data',
+    datasetId: 'analytics',
+  })
+  assert.deepEqual(fake.calls[0].params, ["'; DELETE FROM events; --"])
+  assert.doesNotMatch(String(fake.calls[0].query), /DELETE/)
+  assert.equal(response.rows[0].count, 75)
   assert.equal(response.execution?.bytesProcessed, 12)
 })
 
