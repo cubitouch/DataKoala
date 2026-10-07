@@ -1,3 +1,4 @@
+import { materializeAiBuilderTargetState } from '@shared/aiBuilder'
 import {
   AI_LIMITS,
   type AiBuilderColumnContext,
@@ -119,6 +120,41 @@ function rankColumns(
     .map(({ column }) => column)
 }
 
+function validateAiBuilderTarget(
+  target: AiBuilderState,
+  columns: AiBuilderColumnContext[],
+): void {
+  const byName = new Map(columns.map((column) => [column.name, column]))
+  const x = target.xColumn ? byName.get(target.xColumn) : undefined
+  if (target.xColumn && !x)
+    throw new Error('The proposed X axis is not an available column.')
+  const y = target.valueColumn ? byName.get(target.valueColumn) : undefined
+  if (target.valueColumn && (!y || !isNumericType(y.dataType)))
+    throw new Error('The proposed Y axis is not an available numeric column.')
+  if (
+    !BUILDER_AGGREGATIONS.includes(target.aggregation) ||
+    (target.aggregation !== 'count' && !y) ||
+    (target.xColumn && target.xColumn === target.valueColumn)
+  )
+    throw new Error('The proposed aggregation cannot be represented safely.')
+  const time = target.timeColumn ? byName.get(target.timeColumn) : undefined
+  if (target.timeColumn && (!time || !isBuilderTemporalDataType(time.dataType)))
+    throw new Error('The proposed time column is not temporal.')
+  if (
+    !BUILDER_TIME_BUCKETS.includes(target.timeBucket) ||
+    !isBuilderTimeBucketSupported(x?.dataType, target.timeBucket, 'postgres')
+  )
+    throw new Error('The proposed time bucket is not supported.')
+  if (
+    target.timeRange &&
+    (!target.timeColumn ||
+      validateBuilderTimeRange(target.timeRange) ||
+      (target.timeBucket === 'minute' &&
+        !isMinuteBucketAvailable(target.timeRange)))
+  )
+    throw new Error('The proposed time range is not valid for this Builder.')
+}
+
 export function prepareAiBuilderContext(
   snapshot: AiBuilderSnapshot,
   prompt: string,
@@ -158,56 +194,16 @@ export function prepareAiBuilderContext(
   return { snapshot, prompt, columns }
 }
 
-export function materializeAiBuilderTarget(
-  current: AiBuilderState,
-  patch: AiBuilderPatch,
-  columns: AiBuilderColumnContext[],
-): AiBuilderState {
-  const target: AiBuilderState = { ...current, ...patch }
-  if (target.aggregation === 'count') target.valueColumn = null
-  if (!target.timeColumn) delete target.timeRange
-
-  const byName = new Map(columns.map((column) => [column.name, column]))
-  const x = target.xColumn ? byName.get(target.xColumn) : undefined
-  if (target.xColumn && !x)
-    throw new Error('The proposed X axis is not an available column.')
-  const y = target.valueColumn ? byName.get(target.valueColumn) : undefined
-  if (target.valueColumn && (!y || !isNumericType(y.dataType)))
-    throw new Error('The proposed Y axis is not an available numeric column.')
-  if (
-    !BUILDER_AGGREGATIONS.includes(target.aggregation) ||
-    (target.aggregation !== 'count' && !y) ||
-    (target.xColumn && target.xColumn === target.valueColumn)
-  )
-    throw new Error('The proposed aggregation cannot be represented safely.')
-  const time = target.timeColumn ? byName.get(target.timeColumn) : undefined
-  if (target.timeColumn && (!time || !isBuilderTemporalDataType(time.dataType)))
-    throw new Error('The proposed time column is not temporal.')
-  if (
-    !BUILDER_TIME_BUCKETS.includes(target.timeBucket) ||
-    !isBuilderTimeBucketSupported(x?.dataType, target.timeBucket, 'postgres')
-  )
-    throw new Error('The proposed time bucket is not supported.')
-  if (
-    target.timeRange &&
-    (!target.timeColumn ||
-      validateBuilderTimeRange(target.timeRange) ||
-      (target.timeBucket === 'minute' &&
-        !isMinuteBucketAvailable(target.timeRange)))
-  )
-    throw new Error('The proposed time range is not valid for this Builder.')
-  return target
-}
-
 export function materializeEffectiveAiBuilderTarget(
   prepared: AiPreparedBuilderContext,
   patch: AiBuilderPatch,
 ): AiBuilderState {
-  const target = materializeAiBuilderTarget(
+  const target = materializeAiBuilderTargetState(
     prepared.snapshot.state,
     patch,
     prepared.columns,
   )
+  validateAiBuilderTarget(target, prepared.columns)
   const session = selectSession(useStore.getState(), prepared.snapshot.tabId)
   if (!session) throw new Error('The Builder tab no longer exists.')
   const transition = transitionBuilderConfiguration(session, target)
