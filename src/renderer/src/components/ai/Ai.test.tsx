@@ -735,7 +735,7 @@ test('BigQuery repair cancels pending work after SQL edits and blocks a review a
     defaultProject: 'my-project',
     defaultDataset: 'analytics',
     maximumBytesBilled: '',
-    readonly: true,
+    readonly: true as const,
   }
   const pg = {
     id: 'pg-fallback',
@@ -748,7 +748,7 @@ test('BigQuery repair cancels pending work after SQL edits and blocks a review a
     user: 'user',
     password: '',
     tlsMode: 'disable' as const,
-    readonly: true,
+    readonly: true as const,
   }
 
   resetTestStore({ profiles: [bq, pg] })
