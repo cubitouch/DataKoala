@@ -128,6 +128,69 @@ test('Builder proposal validates and normalizes the complete target', () => {
   )
 })
 
+test('count-over-time wording keeps the temporal X axis when the model proposes the counted noun', () => {
+  const countRequest: AiBuilderProposalRequest = {
+    ...request,
+    prompt: 'number of collections over the last 7 days grouped hourly',
+  }
+  assert.deepEqual(
+    builderStep(
+      proposal({
+        xColumn: 'country',
+        aggregation: 'count',
+        timeBucket: 'hour',
+        timeRange: { kind: 'rolling', amount: 7, unit: 'day' },
+      }),
+      countRequest,
+    ),
+    {
+      kind: 'proposal',
+      proposal: {
+        patch: { timeBucket: 'hour' },
+        explanation: 'Updates the Builder controls.',
+        assumptions: [],
+      },
+    },
+  )
+})
+
+test('count-over-time wording normalizes the requested cadence', () => {
+  const countRequest: AiBuilderProposalRequest = {
+    ...request,
+    prompt: 'how many collections daily over the last 7 days',
+  }
+  const result = builderStep(
+    proposal({
+      xColumn: 'country',
+      aggregation: 'count',
+      timeBucket: 'month',
+    }),
+    countRequest,
+  )
+  assert.equal(result.kind, 'proposal')
+  if (result.kind !== 'proposal') return
+  assert.deepEqual(result.proposal.patch, { timeBucket: 'day' })
+})
+
+test('count with explicit categorical and temporal grouping is not approximated', () => {
+  const groupedRequest: AiBuilderProposalRequest = {
+    ...request,
+    prompt: 'count by country per hour over the last 7 days',
+  }
+  assert.throws(
+    () =>
+      builderStep(
+        proposal({
+          xColumn: 'country',
+          aggregation: 'count',
+          timeBucket: 'hour',
+        }),
+        groupedRequest,
+      ),
+    { code: 'invalid-response' },
+  )
+})
+
 test('Builder proposal accepts supported rolling ranges with flat schema extras', () => {
   assert.deepEqual(
     builderStep(
