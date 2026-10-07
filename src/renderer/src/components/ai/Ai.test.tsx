@@ -1190,6 +1190,35 @@ test('Builder AI reviews structured changes before atomic Apply and never runs',
   expect(mocks.run).not.toHaveBeenCalled()
 })
 
+test('Builder AI normalizes a minimal Y-axis proposal through normal Builder defaults', async () => {
+  setupBuilderAi()
+  mocks.proposeBuilder.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        patch: { valueColumn: 'revenue' },
+        explanation: 'Use revenue as the Y axis.',
+        assumptions: [],
+      },
+    } as AiBuilderStep),
+  )
+  render(<AiBuilderCopilot />)
+  await askBuilder('use revenue as the Y axis')
+  const review = await screen.findByRole('region', {
+    name: 'AI Builder proposal',
+  })
+  expect(review.textContent).toContain('Y axis')
+  expect(review.textContent).toContain('revenue')
+  expect(review.textContent).toContain('Aggregation')
+  expect(review.textContent).toContain('Sum')
+
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  const session = selectActiveSession(useStore.getState())
+  expect(session.builderVisualization.valueColumn).toBe('revenue')
+  expect(session.builderVisualization.aggregation).toBe('sum')
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
 test('Builder AI applies temporal controls while preserving a valid time column', async () => {
   setupBuilderAi()
   mocks.proposeBuilder.mockResolvedValueOnce(
