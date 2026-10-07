@@ -1,11 +1,10 @@
 export type BuilderTimeWindow = { id: string; from: string; to: string }
 
+export type BuilderRollingTimeUnit = 'minute' | 'hour' | 'day' | 'month'
+
 type BuilderTimeRangeBase =
   | { kind: 'all' }
-  | { kind: 'rolling'; amount: 15 | 30; unit: 'minute' }
-  | { kind: 'rolling'; amount: 1 | 3 | 6 | 12 | 24; unit: 'hour' }
-  | { kind: 'rolling'; amount: 7 | 30; unit: 'day' }
-  | { kind: 'rolling'; amount: 3 | 6 | 12; unit: 'month' }
+  | { kind: 'rolling'; amount: number; unit: BuilderRollingTimeUnit }
   | {
       kind: 'custom'
       startDate: string | null
@@ -22,6 +21,32 @@ export const SEVEN_DAYS: BuilderTimeRange = {
   kind: 'rolling',
   amount: 7,
   unit: 'day',
+}
+
+export const BUILDER_ROLLING_TIME_RANGE_MAX: Record<
+  BuilderRollingTimeUnit,
+  number
+> = {
+  minute: 1440,
+  hour: 744,
+  day: 366,
+  month: 120,
+}
+
+export function isBuilderRollingTimeRange(
+  amount: unknown,
+  unit: unknown,
+): unit is BuilderRollingTimeUnit {
+  return (
+    typeof amount === 'number' &&
+    Number.isInteger(amount) &&
+    amount >= 1 &&
+    (unit === 'minute' ||
+      unit === 'hour' ||
+      unit === 'day' ||
+      unit === 'month') &&
+    amount <= BUILDER_ROLLING_TIME_RANGE_MAX[unit]
+  )
 }
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
