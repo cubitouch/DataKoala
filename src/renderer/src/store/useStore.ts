@@ -47,6 +47,13 @@ import {
 } from '@lib/tempoQueryState'
 import type { TraceBuilderState, TraceSampleSize } from '@lib/traceBuilder'
 import { sanitizeAiErrorContext } from '@shared/aiErrorContext'
+import type { AiBuilderState } from '@shared/ai'
+import {
+  aiBuilderStatesEqual,
+  normalizedAiBuilderState,
+  transitionBuilderConfiguration,
+  transitionNotice,
+} from '@lib/builderConfiguration'
 
 export type ConnectionStatus =
   | 'disconnected'
@@ -371,6 +378,11 @@ export interface AppState {
     tabId?: string,
   ) => void
   setBuilderHasRun: (value: boolean, tabId?: string) => void
+  applyAiBuilderTarget: (
+    expected: { profileId: string; state: AiBuilderState },
+    target: AiBuilderState,
+    tabId: string,
+  ) => boolean
   setVisualization: (
     mode: QueryMode,
     patch: Partial<VisualizationConfiguration>,
@@ -1153,6 +1165,46 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) =>
       patchSession(state, tabId, (session) => ({ ...session, builderHasRun })),
     ),
+  applyAiBuilderTarget: (expected, target, tabId) => {
+    let applied = false
+    set((state) =>
+      patchSession(state, tabId, (session) => {
+        if (
+          session.queryMode !== 'builder' ||
+          session.connectionProfileId !== expected.profileId ||
+          !aiBuilderStatesEqual(
+            normalizedAiBuilderState(session),
+            expected.state,
+          )
+        )
+          return session
+        const transition = transitionBuilderConfiguration(session, target)
+        const notice = transitionNotice(transition)
+        applied = true
+        return {
+          ...session,
+          builder: transition.builder,
+          builderVisualization: transition.builderVisualization,
+          builderResultFilters: transition.builderResultFilters,
+          queryFilterRevision: transition.queryFilterRevision,
+          builderHasRun: false,
+          isResultStale:
+            session.isResultStale ||
+            Boolean(session.result) ||
+            Boolean(session.pendingResult),
+          ...(notice
+            ? {
+                builderFilterNotice: {
+                  id: (session.builderFilterNotice?.id ?? 0) + 1,
+                  message: notice,
+                },
+              }
+            : {}),
+        }
+      }),
+    )
+    return applied
+  },
   setVisualization: (mode, patch, tabId) =>
     set((state) =>
       patchSession(state, tabId, (session) => {
