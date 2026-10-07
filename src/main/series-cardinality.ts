@@ -22,8 +22,8 @@ export interface ProbeMeasurement {
     | 'postgres-exact'
     | 'bigquery-approx'
     | 'bigquery-exact'
-    | 'exact'
-  seriesColumnCount: number
+    | 'duckdb-exact'
+    | 'sqlite-duckdb-exact'
   hasPredicates: boolean
   durationMs: number
   result: 'accepted' | 'rejected' | 'fallback' | 'error'
@@ -89,14 +89,6 @@ export class SeriesCardinalityProbes {
     request: ReturnType<typeof validateSeriesCardinalityRequest>,
   ): Promise<SeriesCardinalityProbeResult> {
     const provider = session.info.provider
-    if (
-      (provider === 'postgres' || provider === 'bigquery') &&
-      request.seriesColumns.length !== 1
-    )
-      throw new Error(
-        `${provider === 'postgres' ? 'PostgreSQL' : 'BigQuery'} Series cardinality probes require exactly one Series field.`,
-      )
-
     const probe = buildSeriesCardinalityProbe(
       request,
       sqlDialectForSourceKind(provider),
@@ -110,7 +102,6 @@ export class SeriesCardinalityProbes {
       this.measure({
         provider,
         strategy,
-        seriesColumnCount: request.seriesColumns.length,
         hasPredicates: request.predicates.length > 0,
         durationMs: performance.now() - started,
         result,
@@ -123,7 +114,7 @@ export class SeriesCardinalityProbes {
       const statistics = await seriesStatistics(session, {
         schema: request.schema,
         table: request.table,
-        column: request.seriesColumns[0],
+        column: request.seriesColumn,
       })
       const estimate =
         statistics.available &&
@@ -220,7 +211,9 @@ export class SeriesCardinalityProbes {
         ? 'postgres-exact'
         : provider === 'bigquery'
           ? 'bigquery-exact'
-          : 'exact'
+          : provider === 'local-files'
+            ? 'duckdb-exact'
+            : 'sqlite-duckdb-exact'
     try {
       const result = session.querySeriesCardinality
         ? await session.querySeriesCardinality(request)
