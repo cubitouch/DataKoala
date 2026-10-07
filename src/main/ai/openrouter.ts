@@ -5,6 +5,7 @@ import type {
   AiQueryProposalRequest,
   AiQueryStep,
 } from '../../shared/ai.ts'
+import type { SqlDialect } from '../../shared/types.ts'
 import {
   BUILDER_AGGREGATIONS,
   BUILDER_TIME_BUCKETS,
@@ -107,8 +108,23 @@ const builderSchema = {
   additionalProperties: false,
 }
 
-const systemPrompt = `You are the query copilot inside DataKoala.
-Generate PostgreSQL suitable for the user's request.
+const dialectLabel: Record<SqlDialect, string> = {
+  postgres: 'PostgreSQL',
+  duckdb: 'DuckDB SQL',
+  'google-sql': 'GoogleSQL / BigQuery Standard SQL',
+}
+
+const dialectGuidance: Record<SqlDialect, string> = {
+  postgres: 'Use PostgreSQL syntax and semantics.',
+  duckdb:
+    'Use DuckDB syntax and semantics. This execution dialect is used for both local files and SQLite attachments, so generate DuckDB SQL rather than SQLite-specific SQL. Use the exact relation/schema identifiers supplied in metadata. Never infer or request local filesystem paths.',
+  'google-sql':
+    'Use GoogleSQL / BigQuery Standard SQL, never legacy BigQuery SQL or PostgreSQL-only constructs. Preserve the exact supplied relation identifiers and use appropriate GoogleSQL quoting, including backticks for qualified identifiers where needed.',
+}
+
+const querySystemPrompt = (dialect: SqlDialect) => `You are the query copilot inside DataKoala.
+Generate ${dialectLabel[dialect]} suitable for the user's request.
+${dialectGuidance[dialect]}
 Produce a read-only analytical query. Use only relations and columns supplied in schema context; never invent relations or columns. Prefer clear, understandable SQL.
 Return exactly one structured step:
 - If the supplied metadata is sufficient, return kind "proposal" with the query, a short explanation and assumptions. Set searchTerms to [] and reason to "".
@@ -296,7 +312,10 @@ export class OpenRouterProvider implements AiProvider {
       [
         {
           role: 'system',
-          content: request.intent === 'repair' ? repairPrompt : systemPrompt,
+          content:
+            request.intent === 'repair'
+              ? repairPrompt
+              : querySystemPrompt(request.context.language.dialect),
         },
         {
           role: 'user',
