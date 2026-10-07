@@ -3,10 +3,13 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 process.env.DATAKOALA_SMOKE = '1'
+const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const output = resolve(process.env.DATAKOALA_PREVIEW_OUTPUT ?? 'visual-preview')
-const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
+const sleep = (ms) =>
+  new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 
 async function wait(win, expression, description) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -145,7 +148,7 @@ app.whenReady().then(async () => {
       show: true,
       backgroundColor: '#0f1115',
       webPreferences: {
-        preload: resolve('out/preload/index.js'),
+        preload: resolve(root, 'out/preload/index.js'),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
@@ -153,11 +156,11 @@ app.whenReady().then(async () => {
       },
     })
 
-    await win.loadFile(resolve('out/renderer/index.html'))
+    await win.loadFile(resolve(root, 'out/renderer/index.html'))
     await wait(
       win,
-      `window.__datakoalaStore && document.querySelector('.cm-content')`,
-      'renderer store and SQL editor',
+      `document.getElementById('root')?.children.length && window.__datakoalaStore`,
+      'renderer store',
     )
 
     await win.webContents.executeJavaScript(`(() => {
@@ -220,8 +223,15 @@ app.whenReady().then(async () => {
         height: diagram?.getBoundingClientRect().height
       }
     })()`)
-    if (report.nodeCount < 7 || report.categories.length < 6 || !report.hasSummary || !report.hasMeasuredTime ||
-        report.hasPlannerMsConfusion || report.width < 700 || report.height < 300) {
+    if (
+      report.nodeCount < 7 ||
+      report.categories.length < 6 ||
+      !report.hasSummary ||
+      !report.hasMeasuredTime ||
+      report.hasPlannerMsConfusion ||
+      report.width < 700 ||
+      report.height < 300
+    ) {
       throw new Error(`EXPLAIN preview semantic/layout assertion failed: ${JSON.stringify(report)}`)
     }
 
@@ -230,7 +240,10 @@ app.whenReady().then(async () => {
     )
     await sleep(150)
     await mkdir(output, { recursive: true })
-    await writeFile(resolve(output, 'explain-plan.png'), (await win.webContents.capturePage()).toPNG())
+    await writeFile(
+      resolve(output, 'explain-plan.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
     app.exit(0)
   } catch (error) {
     console.error(error)
