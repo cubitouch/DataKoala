@@ -128,6 +128,51 @@ test('Builder proposal validates and normalizes the complete target', () => {
   )
 })
 
+test('Builder proposal accepts supported rolling ranges with flat schema extras', () => {
+  assert.deepEqual(
+    builderStep(
+      proposal({
+        timeBucket: 'hour',
+        timeRange: {
+          kind: 'rolling',
+          amount: 7,
+          unit: 'day',
+          startDate: null,
+          startTime: '',
+          endDate: null,
+          endTime: '',
+          recurringWindows: [],
+        },
+      }),
+      request,
+    ),
+    {
+      kind: 'proposal',
+      proposal: {
+        patch: { timeBucket: 'hour' },
+        explanation: 'Updates the Builder controls.',
+        assumptions: [],
+      },
+    },
+  )
+})
+
+test('Builder proposal accepts an exact ten-day rolling range', () => {
+  const result = builderStep(
+    proposal({
+      timeBucket: 'hour',
+      timeRange: { kind: 'rolling', amount: 10, unit: 'day' },
+    }),
+    request,
+  )
+  assert.equal(result.kind, 'proposal')
+  if (result.kind !== 'proposal') return
+  assert.deepEqual(result.proposal.patch, {
+    timeBucket: 'hour',
+    timeRange: { kind: 'rolling', amount: 10, unit: 'day' },
+  })
+})
+
 for (const [name, patch] of [
   ['unknown key', { xColumn: 'country', extra: true }],
   ['unknown column', { xColumn: 'missing' }],
@@ -137,7 +182,7 @@ for (const [name, patch] of [
   ['invalid bucket', { timeBucket: 'fortnight' }],
   [
     'invalid time range',
-    { timeRange: { kind: 'rolling', amount: 2, unit: 'day' } },
+    { timeRange: { kind: 'rolling', amount: 0, unit: 'day' } },
   ],
   [
     'minute bucket outside its supported range',
