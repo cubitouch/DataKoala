@@ -214,6 +214,41 @@ test('OpenRouter Builder proposals use a dedicated SQL-free structured contract 
   assert.equal(JSON.stringify(sent).includes('test-placeholder'), false)
 })
 
+test('OpenRouter normalizes a mistaken categorical X for count-over-time requests', async () => {
+  const provider = new OpenRouterProvider('key', 'model', async () =>
+    completion({
+      kind: 'proposal',
+      patch: {
+        xColumn: 'country',
+        aggregation: 'count',
+        timeBucket: 'hour',
+        timeRange: { kind: 'rolling', amount: 7, unit: 'day' },
+      },
+      explanation: 'Count collections hourly.',
+      assumptions: [],
+      reason: '',
+    }),
+  )
+
+  assert.deepEqual(
+    await provider.proposeBuilder(
+      {
+        ...builderRequest,
+        prompt: 'number of collections over the last 7 days grouped hourly',
+      },
+      signal(),
+    ),
+    {
+      kind: 'proposal',
+      proposal: {
+        patch: { timeBucket: 'hour' },
+        explanation: 'Count collections hourly.',
+        assumptions: [],
+      },
+    },
+  )
+})
+
 for (const [status, code] of [
   [401, 'authentication'],
   [403, 'authentication'],
