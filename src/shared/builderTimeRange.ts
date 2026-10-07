@@ -105,6 +105,11 @@ function normalizedCustomRange(
 export function validateBuilderTimeRange(
   range: BuilderTimeRange,
 ): string | null {
+  if (
+    range.kind === 'rolling' &&
+    !isBuilderRollingTimeRange(range.amount, range.unit)
+  )
+    return 'Choose a valid rolling time range.'
   if (range.kind !== 'custom')
     return validateRecurringWindows(range.recurringWindows ?? [])
 
