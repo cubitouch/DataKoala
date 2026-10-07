@@ -10,10 +10,7 @@ import type {
   ExplainNode,
   ExplainResult,
 } from '../../shared/types'
-import {
-  QueryConnectionError,
-  QueryValidationError,
-} from '../query-failure.ts'
+import { QueryConnectionError, QueryValidationError } from '../query-failure.ts'
 
 
 interface ManagedPool {
