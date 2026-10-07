@@ -24,12 +24,14 @@ const columns = [
   { name: 'country', dataTypeName: 'text' },
   { name: 'created_at', dataTypeName: 'timestamptz' },
   { name: 'amount', dataTypeName: 'numeric' },
+  { name: 'revenue', dataTypeName: 'numeric' },
 ]
 const query =
   "SELECT country, sum(amount) AS revenue\nFROM public.orders\nWHERE created_at >= now() - interval '30 days'\nGROUP BY country\nORDER BY revenue DESC;"
 const failedQuery = 'SELECT device_id FROM public.orders;'
 const fixedQuery = 'SELECT id AS device_id FROM public.orders;'
 let failNextRepair = true
+let queryRuns = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 async function wait(win, expression) {
   for (let i = 0; i < 100; i++) {
@@ -89,6 +91,10 @@ app.whenReady().then(async () => {
     ipcMain.handle('connections:list', () => [])
     ipcMain.handle('connections:live', () => [])
     ipcMain.handle('connection:describe-table', () => columns)
+    ipcMain.handle('query:run', () => {
+      queryRuns++
+      return { columns: [], rows: [] }
+    })
     ipcMain.handle('ai:settings:get', () =>
       ok({ provider: 'openrouter', model: 'preview/model', hasApiKey: true }),
     )
@@ -122,6 +128,21 @@ app.whenReady().then(async () => {
         },
       })
     })
+    ipcMain.handle('ai:propose-builder', (_event, request) =>
+      ok({
+        kind: 'proposal',
+        proposal: {
+          patch: {
+            xColumn: 'country',
+            valueColumn: 'revenue',
+            aggregation: 'sum',
+          },
+          explanation:
+            'Groups orders by country and sums the revenue column using the existing Builder controls.',
+          assumptions: ['revenue is the intended numeric order value.'],
+        },
+      }),
+    )
     const win = new BrowserWindow({
       width: 1440,
       height: 1000,
@@ -230,9 +251,108 @@ app.whenReady().then(async () => {
     )
     if (applied !== query)
       throw new Error('AI preview did not apply the proposal')
+    // Exercise the real SQL Builder integration with a previously-run Builder.
     await win.webContents.executeJavaScript(`(() => {
       const store = window.__datakoalaStore, state = store.getState()
-      store.setState({ tabs: state.tabs.map((tab) => ({ ...tab, sql: ${JSON.stringify(failedQuery)}, queryError: 'ERROR: column orders.device_id does not exist\\nLINE 1 Position: 8 SQLSTATE 42703', repairableQueryError: { query: ${JSON.stringify(failedQuery)}, error: 'ERROR: column orders.device_id does not exist\\nLINE 1 Position: 8 SQLSTATE 42703 password=[REDACTED]' } })) })
+      store.setState({
+        tabs: state.tabs.map((tab) => ({
+          ...tab,
+          queryMode: 'builder',
+          builder: {
+            ...tab.builder,
+            table: { schema: 'public', name: 'orders' },
+            timeColumn: 'created_at',
+            timeBucket: 'day',
+            timeRange: { kind: 'rolling', amount: 7, unit: 'day' },
+            seriesColumns: [],
+          },
+          builderVisualization: {
+            ...tab.builderVisualization,
+            xColumn: 'created_at',
+            valueColumn: null,
+            aggregation: 'count',
+            seriesColumn: null,
+            seriesColumns: [],
+          },
+          builderHasRun: true,
+        })),
+      })
+    })()`)
+    await wait(
+      win,
+      `document.querySelector('[data-field-name="Builder AI prompt"] input')`,
+    )
+    const builderBefore = await win.webContents.executeJavaScript(`(() => {
+      const tab = window.__datakoalaStore.getState().tabs[0]
+      const generated = document.querySelector('[aria-label="Generated SQL query"] .cm-content')?.textContent ?? ''
+      return {
+        builder: JSON.stringify(tab.builder),
+        visualization: JSON.stringify(tab.builderVisualization),
+        generated,
+      }
+    })()`)
+    await win.webContents.executeJavaScript(
+      `(() => { const input = document.querySelector('[data-field-name="Builder AI prompt"] input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'sum revenue by country'); input.dispatchEvent(new Event('input', { bubbles: true })) })()`,
+    )
+    await wait(
+      win,
+      '[...document.querySelectorAll("button")].some((b) => b.getAttribute("aria-label") === "Ask" && !b.disabled)',
+    )
+    await click(win, 'Ask')
+    await wait(
+      win,
+      `document.querySelector('[aria-label="AI Builder proposal"]') && document.querySelector('[data-builder-ai-change="X axis"]') && document.querySelector('[data-builder-ai-change="Y axis"]')`,
+    )
+    const builderPending = await win.webContents.executeJavaScript(`(() => {
+      const tab = window.__datakoalaStore.getState().tabs[0]
+      const generated = document.querySelector('[aria-label="Generated SQL query"] .cm-content')?.textContent ?? ''
+      return {
+        builder: JSON.stringify(tab.builder),
+        visualization: JSON.stringify(tab.builderVisualization),
+        generated,
+      }
+    })()`)
+    if (
+      builderPending.builder !== builderBefore.builder ||
+      builderPending.visualization !== builderBefore.visualization ||
+      builderPending.generated !== builderBefore.generated
+    )
+      throw new Error('Builder AI proposal mutated Builder state or generated SQL before Apply')
+    if (queryRuns !== 0)
+      throw new Error('Builder AI proposal executed a query before Apply')
+    await click(win, 'View AI details')
+    await wait(
+      win,
+      `[...document.querySelectorAll('[data-popover-overlay]')].some((overlay) => overlay.textContent.includes('Current Builder state') && overlay.textContent.includes('public.orders') && overlay.textContent.includes('revenue numeric'))`,
+    )
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-builder-proposal.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
+    await win.webContents.executeJavaScript(
+      `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+    )
+    await click(win, 'Apply')
+    await wait(
+      win,
+      `(() => { const tab = window.__datakoalaStore.getState().tabs[0]; return tab.builderVisualization.xColumn === 'country' && tab.builderVisualization.valueColumn === 'revenue' && tab.builderVisualization.aggregation === 'sum' && tab.builderHasRun === false })()`,
+    )
+    await wait(
+      win,
+      `document.querySelector('[aria-label="Generated SQL query"] .cm-content')?.textContent.includes('SUM("revenue")')`,
+    )
+    const builderAfterSql = await win.webContents.executeJavaScript(
+      `document.querySelector('[aria-label="Generated SQL query"] .cm-content')?.textContent ?? ''`,
+    )
+    if (builderAfterSql === builderBefore.generated)
+      throw new Error('Builder-generated SQL did not change after Apply')
+    if (queryRuns !== 0)
+      throw new Error('Applying a Builder AI proposal executed a query')
+
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore, state = store.getState()
+      store.setState({ tabs: state.tabs.map((tab) => ({ ...tab, queryMode: 'sql', sql: ${JSON.stringify(failedQuery)}, queryError: 'ERROR: column orders.device_id does not exist\\nLINE 1 Position: 8 SQLSTATE 42703', repairableQueryError: { query: ${JSON.stringify(failedQuery)}, error: 'ERROR: column orders.device_id does not exist\\nLINE 1 Position: 8 SQLSTATE 42703 password=[REDACTED]' } })) })
     })()`)
     await wait(
       win,
@@ -294,7 +414,7 @@ app.whenReady().then(async () => {
       `window.__datakoalaStore.getState().tabs[0].sql === ${JSON.stringify(fixedQuery)}`,
     )
     console.log(
-      'AI_PREVIEW_OK: settings, generation and repair diff proposals, explicit apply; no query execution handler registered',
+      'AI_PREVIEW_OK: settings, raw query, structured Builder and repair proposals require explicit apply; Builder AI never executes',
     )
     win.destroy()
     app.exit(0)
