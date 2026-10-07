@@ -469,7 +469,9 @@ describe('BuilderPanel axis-first controls', () => {
   })
 
   it('disables Series while cardinality checking is in progress', async () => {
-    seriesStatistics.mockImplementationOnce(() => new Promise(() => undefined))
+    probeSeriesCardinality.mockImplementationOnce(
+      () => new Promise(() => undefined),
+    )
     arrange()
     chooseOrders()
     chooseXAxis(/created_at/)
@@ -482,6 +484,33 @@ describe('BuilderPanel axis-first controls', () => {
       (screen.getByRole('combobox', { name: /Series/ }) as HTMLButtonElement)
         .disabled,
     ).toBe(true)
+  })
+
+  it('ignores an exact approval after the Builder time scope changes', async () => {
+    let complete!: (value: { exceedsHardLimit: boolean }) => void
+    probeSeriesCardinality.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve
+        }),
+    )
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /customer_id/ }))
+    await waitFor(() => expect(probeSeriesCardinality).toHaveBeenCalledTimes(1))
+    expect(seriesStatistics).not.toHaveBeenCalled()
+    act(() =>
+      patchActiveTestSession({
+        builder: { ...activeTestSession().builder, timeRange: { kind: 'all' } },
+      }),
+    )
+    await act(async () => {
+      complete({ exceedsHardLimit: false })
+      await Promise.resolve()
+    })
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
   })
 
   it('searches relations by schema, name, and object type without resetting relation state', () => {

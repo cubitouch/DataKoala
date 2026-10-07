@@ -16,12 +16,6 @@ import { registerConnectionProfileIpc } from './connection-profile-ipc'
 import { EncryptedSecretStore } from './secrets/store'
 import { createElectronEncryption } from './secrets/electron-encryption'
 import { IPC } from '@shared/ipc-channels'
-import { CHART_SERIES_HARD_LIMIT } from '@shared/chartLimits'
-import { buildSeriesCardinalityProbe } from '@shared/seriesCardinality'
-import {
-  interpretSeriesStatistics,
-  SERIES_STATISTICS_SQL,
-} from '@shared/seriesStatistics'
 import {
   validateConnectionId,
   validateSeriesCardinalityRequest,
@@ -897,16 +891,10 @@ function registerIpc(): void {
     IPC.QUERY_PROBE_SERIES_CARDINALITY,
     async (_e, id: unknown, request: unknown) => {
       const validId = validateConnectionId(id)
-      const probe = buildSeriesCardinalityProbe(
+      return db.probeSeriesCardinality(
+        validId,
         validateSeriesCardinalityRequest(request),
-        db.queryDialect(validId),
       )
-      const result = await db.runQuery(validId, probe.sql, probe.parameters)
-      const distinctCount = Number(result.rows[0]?.count ?? 0)
-      return {
-        distinctCount,
-        exceedsHardLimit: distinctCount > CHART_SERIES_HARD_LIMIT,
-      }
     },
   )
   ipcMain.handle(
@@ -914,16 +902,7 @@ function registerIpc(): void {
     async (_e, id: unknown, request: unknown) => {
       const validId = validateConnectionId(id)
       const validRequest = validateSeriesStatisticsRequest(request)
-      try {
-        const result = await db.runQuery(validId, SERIES_STATISTICS_SQL, [
-          validRequest.schema,
-          validRequest.table,
-          validRequest.column,
-        ])
-        return interpretSeriesStatistics(result.rows[0])
-      } catch {
-        return { available: false, source: 'pg_stats' as const }
-      }
+      return db.querySeriesStatistics(validId, validRequest)
     },
   )
   ipcMain.handle(

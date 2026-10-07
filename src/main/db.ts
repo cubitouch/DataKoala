@@ -1,9 +1,13 @@
+import {
+  SeriesCardinalityProbes,
+  seriesStatistics,
+} from './series-cardinality.ts'
+import type { SeriesStatisticsRequest } from '../shared/chartLimits.ts'
 /**
  * Provider-neutral main-process facade. IPC continues to call this stable API;
  * provider behavior lives behind adapters and sessions.
  */
 import {
-  sqlDialectForSourceKind,
   type ConnectionId,
   type ConnectionStateEvent,
   type ConnectResult,
@@ -249,6 +253,29 @@ function session(id: ConnectionId): DataSourceSession {
   return value
 }
 
+const seriesProbes = new SeriesCardinalityProbes((measurement) => {
+  if (process.env.DATAKOALA_DEBUG_CARDINALITY === '1')
+    console.debug('[series-cardinality]', JSON.stringify(measurement))
+})
+
+export async function probeSeriesCardinality(
+  id: ConnectionId,
+  request: unknown,
+) {
+  const active = session(id)
+  const result = await seriesProbes.probe(active, request)
+  if (session(id) !== active)
+    throw new Error('Connection changed during cardinality probe.')
+  return result
+}
+
+export function querySeriesStatistics(
+  id: ConnectionId,
+  request: SeriesStatisticsRequest,
+) {
+  return seriesStatistics(session(id), request)
+}
+
 type QueryIpcCompatibilityRange = Omit<PrometheusQueryRequest, 'expression'> & {
   progressRequestId?: string
   sampleSize?: number
@@ -364,17 +391,6 @@ export function formatLokiQuery(
   if (!operation)
     throw new Error('LogQL formatting is not supported by this datasource.')
   return operation(query)
-}
-
-export function queryDialect(id: ConnectionId) {
-  const provider = session(id).info.provider
-  if (provider === 'prometheus')
-    throw new Error('Prometheus uses PromQL, not a SQL dialect.')
-  if (provider === 'tempo')
-    throw new Error('Tempo uses TraceQL, not a SQL dialect.')
-  if (provider === 'loki')
-    throw new Error('Loki uses LogQL, not a SQL dialect.')
-  return sqlDialectForSourceKind(provider)
 }
 
 export async function listObjects(id: ConnectionId) {

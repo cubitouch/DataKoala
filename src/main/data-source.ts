@@ -1,3 +1,4 @@
+import type { SeriesCardinalityProbeRequest } from '../shared/chartLimits.ts'
 import type {
   ConnectionStateEvent,
   DataSourceCapabilities,
@@ -56,6 +57,10 @@ export interface DataSourceSession {
   info: SessionInfo
   capabilities: DataSourceCapabilities
   query(request: QueryRequest): Promise<QueryResult>
+  /** Structured generated SELECT only; never accepts arbitrary SQL. */
+  querySeriesCardinality?(
+    request: SeriesCardinalityProbeRequest,
+  ): Promise<QueryResult>
   listNamespaces(): Promise<DataNamespace[]>
   listRelations(namespace?: DataNamespaceRef): Promise<DataRelation[]>
   describeRelation(ref: DataRelationRef): Promise<DataColumn[]>

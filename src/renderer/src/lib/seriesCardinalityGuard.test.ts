@@ -180,3 +180,13 @@ test('invalidation clears current work, ignores old success/error, and permits r
   )
   assert.equal(guard.isCurrent(current.revision, 'new-table'), true)
 })
+
+test('successful probes are not cached across later interactions', () => {
+  const guard = new SeriesCardinalityProbeGuard()
+  const first = guard.begin('same')
+  assert.equal(guard.approve(first.revision, 'same'), true)
+  const next = guard.begin('same')
+  assert.notEqual(next.revision, first.revision)
+  assert.equal('cached' in next, false)
+  assert.equal(guard.approve(first.revision, 'same'), false)
+})
