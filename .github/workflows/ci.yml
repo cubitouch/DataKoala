@@ -48,10 +48,8 @@ jobs:
       - name: Check renderer import boundaries
         run: pnpm lint:imports
 
-      - name: Diagnose formatting while continuing quality checks
-        run: |
-          pnpm format:fix
-          git diff -- .
+      - name: Check formatting
+        run: pnpm format
 
       - name: Lint TypeScript and React
         run: pnpm lint:ts
