@@ -111,7 +111,6 @@ test('normalizes useful operation-specific diagnostics', () => {
     true,
   )
 
-  expect
   assert.equal(result.tree?.sortMethod, 'quicksort')
   assert.equal(result.tree?.sortSpaceUsed, 256)
   assert.equal(result.tree?.sortSpaceType, 'Memory')
