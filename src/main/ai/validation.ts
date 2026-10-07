@@ -567,9 +567,9 @@ const normalizeCountOverTimeTarget = (
   const temporalColumns = request.columns.filter((column) =>
     isBuilderTemporalDataType(column.dataType),
   )
-  const normalizedPrompt = normalizedWords(request.prompt)
+  const normalizedPrompt = ` ${normalizedWords(request.prompt)} `
   const mentionedTemporal = temporalColumns.find((column) =>
-    normalizedPrompt.includes(normalizedWords(column.name)),
+    normalizedPrompt.includes(` ${normalizedWords(column.name)} `),
   )
   const currentTime = request.state.timeColumn
     ? byName.get(request.state.timeColumn)
