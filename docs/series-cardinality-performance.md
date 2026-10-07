@@ -4,18 +4,20 @@
 
 | Provider                                 | Strategy                                                                                                              | Approval   |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------- |
-| PostgreSQL                               | `EXPLAIN (FORMAT JSON)` of the unbounded grouped selection; estimates above 200 reject; otherwise exact bounded probe | Exact only |
+| PostgreSQL                               | Unfiltered single column: planner fast-reject above 200, otherwise exact; scoped/multi-column: exact bounded probe    | Exact only |
 | BigQuery                                 | Dedicated structured, validated internal SELECT operation, one execution job and no validation dry run                | Exact only |
 | DuckDB / local files / SQLite via DuckDB | Existing bounded grouped query                                                                                        | Exact only |
 
 The renderer makes one cardinality request and retains stale-response protection.
 The legacy statistics operation explicitly returns unavailable outside PostgreSQL.
-PostgreSQL plans receive the same identifiers and parameters as the exact query,
-including time scope and multiple columns; PostgreSQL can use existing extended
-statistics without requiring new database objects. Missing/invalid/failed plans
-fall back to exact. Estimates above 200 can falsely reject, as the previous
-advisory high-estimate path could; the message labels them as estimates. Estimates
-never approve, including estimates at or below the previous threshold of 50.
+PostgreSQL planner fast-rejection is deliberately limited to the simple shape
+where estimates are least surprising: one unfiltered Series column. Scoped or
+multi-column selections go directly to the exact bounded probe, avoiding both an
+extra EXPLAIN round trip and correlated-dimension planner false rejections.
+Missing/invalid/failed plans fall back to exact. Even for the simple shape,
+estimates above 200 remain advisory and can falsely reject; the message labels
+them as estimates. Estimates never approve, including estimates at or below the
+previous threshold of 50.
 
 This intentionally prioritizes the brief's hard safety invariant over its
 conflicting suggestion to approve low estimates. Removing that shortcut can make
@@ -79,10 +81,10 @@ perfect hash aggregation, whereas DISTINCT used general hash aggregation. These
 mixed results do not justify changing the generic query shape.
 
 No live PostgreSQL/BigQuery server credentials were configured for this work.
-PostgreSQL plan timings, live BigQuery latency/bytes, and SQLite file benchmarks
-remain unmeasured. Run the supplied PostgreSQL benchmark and local instrumentation
-against representative configured connections before declaring the investigation
-complete. The PR is deliberately a draft and #324 remains open.
+PostgreSQL plan timings for the simple unfiltered single-column path, live
+BigQuery latency/bytes, and SQLite file benchmarks remain unmeasured. Run the
+supplied PostgreSQL benchmark and local instrumentation against representative
+configured connections before declaring the investigation complete. The PR is deliberately a draft and #324 remains open.
 
 For per-strategy local instrumentation:
 
@@ -115,8 +117,9 @@ References:
 
 ## Manual review
 
-- PostgreSQL: select one and multiple dimensions, all-time and scoped ranges;
-  confirm genuinely high estimates get the labelled advisory rejection.
+- PostgreSQL: verify planner rejection on an unfiltered single dimension, then
+  verify scoped and multi-column selections use the exact path and still preserve
+  time/filter semantics.
 - BigQuery: repeat Series selections and inspect debug records/job history;
   ensure normal raw SQL still enforces read-only behavior and billing limits.
 - During a pending probe, change table/time scope or disconnect: no obsolete
