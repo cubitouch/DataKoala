@@ -591,16 +591,8 @@ test('returns actionable provider errors', async () => {
 })
 
 for (const [counts, expected, expectedJobs] of [
-  [
-    [20],
-    { distinctCount: 20, exceedsHardLimit: false, estimated: true },
-    1,
-  ],
-  [
-    [500],
-    { distinctCount: 500, exceedsHardLimit: true, estimated: true },
-    1,
-  ],
+  [[20], { distinctCount: 20, exceedsHardLimit: false, estimated: true }, 1],
+  [[500], { distinctCount: 500, exceedsHardLimit: true, estimated: true }, 1],
   [[75, 24], { distinctCount: 24, exceedsHardLimit: false }, 2],
 ] as const) {
   test(`BigQuery cardinality strategy uses ${expectedJobs} generated job(s) for approximate count ${counts[0]}`, async () => {
