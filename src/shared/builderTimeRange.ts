@@ -82,3 +82,24 @@ export function validateBuilderTimeRange(
     return 'The end date and time must be later than the start date and time.'
   return null
 }
+
+
+function customRangeDurationMilliseconds(
+  range: Extract<BuilderTimeRange, { kind: 'custom' }>,
+): number | null {
+  if (validateBuilderTimeRange(range) || !range.startDate || !range.endDate)
+    return null
+  const start = Date.parse(`${range.startDate}T${range.startTime}:00Z`)
+  const end = Date.parse(`${range.endDate}T${range.endTime}:00Z`)
+  return Number.isFinite(start) && Number.isFinite(end) ? end - start : null
+}
+
+export function isMinuteBucketAvailable(range: BuilderTimeRange): boolean {
+  if (range.kind === 'rolling')
+    return (
+      range.unit === 'minute' || (range.unit === 'hour' && range.amount <= 24)
+    )
+  if (range.kind !== 'custom') return false
+  const duration = customRangeDurationMilliseconds(range)
+  return duration !== null && duration > 0 && duration <= 24 * 60 * 60 * 1000
+}
