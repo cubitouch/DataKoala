@@ -173,7 +173,10 @@ export class SeriesCardinalityProbes {
         } catch {
           // Unsupported plans/permissions are not decisive: fall back to exact.
         }
-        if (estimate !== undefined && estimate <= SERIES_STATS_ACCEPT_THRESHOLD) {
+        if (
+          estimate !== undefined &&
+          estimate <= SERIES_STATS_ACCEPT_THRESHOLD
+        ) {
           record('postgres-planner', started, 'accepted')
           return {
             distinctCount: estimate,
@@ -181,7 +184,10 @@ export class SeriesCardinalityProbes {
             estimated: true,
           }
         }
-        if (estimate !== undefined && estimate > SERIES_STATS_REJECT_THRESHOLD) {
+        if (
+          estimate !== undefined &&
+          estimate > SERIES_STATS_REJECT_THRESHOLD
+        ) {
           record('postgres-planner', started, 'rejected')
           return {
             distinctCount: estimate,
