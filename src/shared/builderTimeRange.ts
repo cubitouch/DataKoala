@@ -65,22 +65,39 @@ function validateRecurringWindows(
   return null
 }
 
+function normalizedCustomRange(
+  range: Extract<BuilderTimeRange, { kind: 'custom' }>,
+): Extract<BuilderTimeRange, { kind: 'custom' }> {
+  if (
+    range.startDate &&
+    range.endDate &&
+    range.endDate < range.startDate
+  )
+    return {
+      ...range,
+      startDate: range.endDate,
+      endDate: range.startDate,
+    }
+  return range
+}
+
 export function validateBuilderTimeRange(
   range: BuilderTimeRange,
 ): string | null {
-  const recurring = validateRecurringWindows(range.recurringWindows ?? [])
-  if (recurring) return recurring
-  if (range.kind !== 'custom') return null
-  if (!range.startDate || !range.endDate)
+  if (range.kind !== 'custom')
+    return validateRecurringWindows(range.recurringWindows ?? [])
+
+  const normalized = normalizedCustomRange(range)
+  if (!normalized.startDate || !normalized.endDate)
     return 'Choose both a start and an end date.'
-  if (!TIME_RE.test(range.startTime) || !TIME_RE.test(range.endTime))
+  if (!TIME_RE.test(normalized.startTime) || !TIME_RE.test(normalized.endTime))
     return 'Enter valid start and end times.'
   if (
-    `${range.endDate}T${range.endTime}` <=
-    `${range.startDate}T${range.startTime}`
+    `${normalized.endDate}T${normalized.endTime}` <=
+    `${normalized.startDate}T${normalized.startTime}`
   )
     return 'The end date and time must be later than the start date and time.'
-  return null
+  return validateRecurringWindows(normalized.recurringWindows ?? [])
 }
 
 function customRangeDurationMilliseconds(
