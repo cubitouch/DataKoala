@@ -221,6 +221,9 @@ test('settings preserve the model and blank key; tests do not save; removal dele
         tested = `${key}:${model}`
       },
       proposeQuery: async () => proposalStep,
+      proposeBuilder: async () => {
+        throw new Error('not used in query tests')
+      },
     }))
     await service.saveSettings({ model: 'old', apiKey: 'saved-key' })
     await service.test(1, 'test', { model: 'new', apiKey: 'draft-key' })
@@ -422,6 +425,9 @@ test('timeout, owner-scoped cancellation, duplicate protection and all completio
       listModels: async () => (hang ? new Promise(() => {}) : []),
       test: async () => {},
       proposeQuery: async () => proposalStep,
+      proposeBuilder: async () => {
+        throw new Error('not used in query tests')
+      },
     }),
     25,
   )
