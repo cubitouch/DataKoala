@@ -425,21 +425,8 @@ describe('BuilderPanel axis-first controls', () => {
     )
   })
 
-  it('checks only the newly added Series field for BigQuery', async () => {
+  it('checks only the newly added Series field', async () => {
     arrange()
-    useStore.setState({
-      profiles: [
-        {
-          kind: 'bigquery',
-          version: 1,
-          id: 'p1',
-          name: 'BQ',
-          billingProject: 'billing',
-          maximumBytesBilled: '1073741824',
-          readonly: true,
-        },
-      ],
-    })
     chooseOrders()
     chooseXAxis(/created_at/)
     const openSeries = async () => {
@@ -469,7 +456,7 @@ describe('BuilderPanel axis-first controls', () => {
     expect(probeSeriesCardinality).toHaveBeenCalledWith('p1', {
       schema: 'demo_shop',
       table: 'orders',
-      seriesColumns: ['status'],
+      seriesColumn: 'status',
       predicates: expect.any(Array),
     })
   })
@@ -545,7 +532,7 @@ describe('BuilderPanel axis-first controls', () => {
     expect(activeTestSession().builder.seriesColumns).toEqual([])
   })
 
-  it('clears Series through the existing transition path', () => {
+  it('clears Series without a cardinality probe', () => {
     arrange()
     chooseOrders()
     chooseXAxis(/created_at/)
@@ -554,9 +541,11 @@ describe('BuilderPanel axis-first controls', () => {
         builder: { ...activeTestSession().builder, seriesColumns: ['region'] },
       }),
     )
+    probeSeriesCardinality.mockClear()
     fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Clear all' }))
     expect(activeTestSession().builder.seriesColumns).toEqual([])
+    expect(probeSeriesCardinality).not.toHaveBeenCalled()
   })
 
   it('closes invalidated X axis and Series menus when changing table', async () => {
