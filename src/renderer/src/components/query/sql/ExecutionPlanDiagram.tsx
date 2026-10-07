@@ -132,9 +132,7 @@ function NodeButton({
               className={`${styles.ratio} ${ratioClass(cardinality.relation)}`}
             >
               {cardinality.label}
-              <span className={styles.ratioKind}>
-                {cardinality.relation}
-              </span>
+              <span className={styles.ratioKind}>{cardinality.relation}</span>
             </span>
           )}
         </span>
@@ -293,9 +291,11 @@ export function ExecutionPlanDiagram({
         <aside className={styles.inspector} aria-label="Plan node details">
           <div className={styles.inspectorHead}>
             <span className={styles.inspectorCategory}>
-              {EXPLAIN_NODE_CATEGORY_LABELS[
-                explainNodeCategory(selected.nodeType)
-              ]}
+              {
+                EXPLAIN_NODE_CATEGORY_LABELS[
+                  explainNodeCategory(selected.nodeType)
+                ]
+              }
             </span>
             <strong>{selected.nodeType}</strong>
             <span>{selected.plan}</span>
@@ -362,8 +362,7 @@ export function ExecutionPlanDiagram({
                       : formatCount(selected.loops),
                 },
                 {
-                  label:
-                    selectedLoops > 1 ? 'Per-loop time' : 'Measured time',
+                  label: selectedLoops > 1 ? 'Per-loop time' : 'Measured time',
                   value:
                     selected.actualTotalTime === undefined
                       ? undefined
