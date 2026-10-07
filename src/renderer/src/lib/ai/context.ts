@@ -2,6 +2,7 @@ import type {
   DatabaseColumnNode,
   DatabaseRelationNode,
   DatabaseSchemaNode,
+  SqlDialect,
 } from '@shared/types'
 import {
   AI_LIMITS,
@@ -133,6 +134,43 @@ export function selectAiRelations(
   return selected
 }
 
+export function withAiRelationCatalog(
+  context: AiQueryContext,
+  schemas: DatabaseSchemaNode[],
+  prompt: string,
+  query: string,
+): AiQueryContext {
+  const disclosed = new Set(context.relations.map(relationKey))
+  const availableRelations: NonNullable<AiQueryContext['availableRelations']> =
+    []
+  const next: AiQueryContext = {
+    ...context,
+    availableRelations,
+  }
+  for (const { relation } of rankRelations(schemas, prompt, query)) {
+    if (
+      disclosed.has(relationKey(relation)) ||
+      relation.schema.length > 256 ||
+      relation.name.length > 256
+    )
+      continue
+    if (availableRelations.length >= AI_LIMITS.relationCatalog) break
+    availableRelations.push({
+      schema: relation.schema,
+      name: relation.name,
+    })
+    if (
+      JSON.stringify(availableRelations).length >
+        AI_LIMITS.relationCatalogCharacters ||
+      JSON.stringify(next).length > AI_LIMITS.contextCharacters
+    ) {
+      availableRelations.pop()
+      break
+    }
+  }
+  return next
+}
+
 export function expandAiRelations(
   schemas: DatabaseSchemaNode[],
   searchTerms: string[],
@@ -183,6 +221,13 @@ export async function appendAiContext(
       ...relation,
       columns: relation.columns.map((column) => ({ ...column })),
     })),
+    ...(base.availableRelations
+      ? {
+          availableRelations: base.availableRelations.map((relation) => ({
+            ...relation,
+          })),
+        }
+      : {}),
   }
   const existing = new Set(context.relations.map(relationKey))
   let count = context.relations.reduce(
@@ -237,13 +282,14 @@ export async function appendAiContext(
 }
 
 export async function buildAiContext(
+  dialect: SqlDialect,
   relations: DatabaseRelationNode[],
   load: (
     relation: DatabaseRelationNode,
   ) => Promise<DatabaseColumnNode[] | undefined>,
 ): Promise<AiQueryContext> {
   return appendAiContext(
-    { language: { kind: 'sql', dialect: 'postgres' }, relations: [] },
+    { language: { kind: 'sql', dialect }, relations: [] },
     relations.slice(0, AI_LIMITS.relations),
     load,
     initialBudget,
