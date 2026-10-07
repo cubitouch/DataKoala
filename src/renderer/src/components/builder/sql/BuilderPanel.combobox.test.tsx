@@ -456,10 +456,9 @@ describe('BuilderPanel axis-first controls', () => {
   })
 
   it('describes exact rejection as a per-field Series limit', async () => {
-    probeSeriesCardinality.mockResolvedValueOnce({
+    probeSeriesCardinality.mockImplementationOnce(async () => ({
       exceedsHardLimit: true,
-      distinctCount: 101,
-    })
+    }))
     arrange()
     chooseOrders()
     chooseXAxis(/created_at/)
@@ -475,11 +474,11 @@ describe('BuilderPanel axis-first controls', () => {
   })
 
   it('describes estimated PostgreSQL rejection as a per-field estimate', async () => {
-    probeSeriesCardinality.mockResolvedValueOnce({
+    probeSeriesCardinality.mockImplementationOnce(async () => ({
       exceedsHardLimit: true,
       distinctCount: 500,
       estimated: true,
-    })
+    }))
     arrange()
     chooseOrders()
     chooseXAxis(/created_at/)
