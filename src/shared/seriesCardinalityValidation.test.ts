@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {
-  MAX_SERIES_PROBE_COLUMNS,
-  MAX_SERIES_PROBE_PREDICATES,
-} from './chartLimits.ts'
+import { MAX_SERIES_PROBE_PREDICATES } from './chartLimits.ts'
 import {
   validateConnectionId,
   validateSeriesCardinalityRequest,
@@ -14,7 +11,7 @@ import { buildSeriesCardinalityProbe } from './seriesCardinality.ts'
 const valid = {
   schema: 'odd"schema',
   table: 'event table',
-  seriesColumns: ['user"id'],
+  seriesColumn: 'user"id',
   predicates: [],
 }
 
@@ -32,8 +29,8 @@ test('valid quoted identifiers and supported predicates survive runtime validati
         { column: 'kind', operator: 'equals', value: 'paid' },
         { column: 'deleted_at', operator: 'isNull' },
       ],
-    }).seriesColumns,
-    ['user"id'],
+    }).seriesColumn,
+    'user"id',
   )
   assert.equal(validateConnectionId('profile-1'), 'profile-1')
   assert.deepEqual(
@@ -192,26 +189,12 @@ test('malformed IPC payloads and connection IDs fail closed', () => {
   )
 })
 
-test('empty and excessive seriesColumns are rejected', () => {
-  assert.throws(
-    () => validateSeriesCardinalityRequest({ ...valid, seriesColumns: [] }),
-    /seriesColumns/,
-  )
-  assert.throws(
-    () =>
-      validateSeriesCardinalityRequest({
-        ...valid,
-        seriesColumns: Array.from(
-          { length: MAX_SERIES_PROBE_COLUMNS + 1 },
-          (_, i) => `c${i}`,
-        ),
-      }),
-    /seriesColumns/,
-  )
-  assert.throws(
-    () => validateSeriesCardinalityRequest({ ...valid, seriesColumns: [''] }),
-    /seriesColumns\[0\]/,
-  )
+test('seriesColumn must be one bounded identifier', () => {
+  for (const seriesColumn of [undefined, '', [], ['status']])
+    assert.throws(
+      () => validateSeriesCardinalityRequest({ ...valid, seriesColumn }),
+      /seriesColumn/,
+    )
 })
 
 test('unsupported and malformed predicates are rejected and predicate count is bounded', () => {

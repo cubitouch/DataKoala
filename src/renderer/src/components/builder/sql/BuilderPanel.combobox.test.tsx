@@ -425,7 +425,114 @@ describe('BuilderPanel axis-first controls', () => {
     )
   })
 
-  it('clears Series through the existing transition path', () => {
+  it('checks only the newly added Series field', async () => {
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    const openSeries = async () => {
+      const control = screen.getByRole('combobox', { name: /Series/ })
+      if (control.getAttribute('aria-expanded') !== 'true')
+        fireEvent.click(control)
+      await screen.findByRole('listbox', { name: 'Series' })
+    }
+
+    await openSeries()
+    fireEvent.click(screen.getByRole('option', { name: /region, text/ }))
+    await waitFor(() =>
+      expect(activeTestSession().builder.seriesColumns).toEqual(['region']),
+    )
+
+    probeSeriesCardinality.mockClear()
+    await openSeries()
+    fireEvent.click(screen.getByRole('option', { name: /status, text/ }))
+
+    await waitFor(() =>
+      expect(activeTestSession().builder.seriesColumns).toEqual([
+        'region',
+        'status',
+      ]),
+    )
+    expect(probeSeriesCardinality).toHaveBeenCalledTimes(1)
+    expect(probeSeriesCardinality).toHaveBeenCalledWith('p1', {
+      schema: 'demo_shop',
+      table: 'orders',
+      seriesColumn: 'status',
+      predicates: expect.any(Array),
+    })
+  })
+
+  it('describes exact rejection as a per-field Series limit', async () => {
+    probeSeriesCardinality.mockImplementationOnce(async () => ({
+      exceedsHardLimit: true,
+    }))
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /customer_id/ }))
+
+    expect(
+      await screen.findByText(
+        'This Series field has more than 100 distinct values and cannot be used as a chart breakdown.',
+      ),
+    ).toBeTruthy()
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
+  })
+
+  it('describes estimated PostgreSQL rejection as a per-field estimate', async () => {
+    probeSeriesCardinality.mockImplementationOnce(async () => ({
+      exceedsHardLimit: true,
+      distinctCount: 500,
+      estimated: true,
+    }))
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /customer_id/ }))
+
+    expect(
+      await screen.findByText(
+        'PostgreSQL estimates this field has approximately 500 distinct values, above the supported Series limit of 100.',
+      ),
+    ).toBeTruthy()
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
+  })
+
+  it('describes estimated BigQuery rejection as a per-field estimate', async () => {
+    probeSeriesCardinality.mockImplementationOnce(async () => ({
+      exceedsHardLimit: true,
+      distinctCount: 500,
+      estimated: true,
+    }))
+    arrange()
+    useStore.setState({
+      profiles: [
+        {
+          kind: 'bigquery',
+          version: 1,
+          id: 'p1',
+          name: 'BQ',
+          billingProject: 'billing',
+          maximumBytesBilled: '1073741824',
+          readonly: true,
+        },
+      ],
+    })
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /customer_id/ }))
+
+    expect(
+      await screen.findByText(
+        'BigQuery estimates this field has approximately 500 distinct values, above the supported Series limit of 100.',
+      ),
+    ).toBeTruthy()
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
+  })
+
+  it('clears Series without a cardinality probe', () => {
     arrange()
     chooseOrders()
     chooseXAxis(/created_at/)
@@ -434,9 +541,11 @@ describe('BuilderPanel axis-first controls', () => {
         builder: { ...activeTestSession().builder, seriesColumns: ['region'] },
       }),
     )
+    probeSeriesCardinality.mockClear()
     fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Clear all' }))
     expect(activeTestSession().builder.seriesColumns).toEqual([])
+    expect(probeSeriesCardinality).not.toHaveBeenCalled()
   })
 
   it('closes invalidated X axis and Series menus when changing table', async () => {
@@ -469,7 +578,9 @@ describe('BuilderPanel axis-first controls', () => {
   })
 
   it('disables Series while cardinality checking is in progress', async () => {
-    seriesStatistics.mockImplementationOnce(() => new Promise(() => undefined))
+    probeSeriesCardinality.mockImplementationOnce(
+      () => new Promise(() => undefined),
+    )
     arrange()
     chooseOrders()
     chooseXAxis(/created_at/)
@@ -482,6 +593,33 @@ describe('BuilderPanel axis-first controls', () => {
       (screen.getByRole('combobox', { name: /Series/ }) as HTMLButtonElement)
         .disabled,
     ).toBe(true)
+  })
+
+  it('ignores an exact approval after the Builder time scope changes', async () => {
+    let complete!: (value: { exceedsHardLimit: boolean }) => void
+    probeSeriesCardinality.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve
+        }),
+    )
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /customer_id/ }))
+    await waitFor(() => expect(probeSeriesCardinality).toHaveBeenCalledTimes(1))
+    expect(seriesStatistics).not.toHaveBeenCalled()
+    act(() =>
+      patchActiveTestSession({
+        builder: { ...activeTestSession().builder, timeRange: { kind: 'all' } },
+      }),
+    )
+    await act(async () => {
+      complete({ exceedsHardLimit: false })
+      await Promise.resolve()
+    })
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
   })
 
   it('searches relations by schema, name, and object type without resetting relation state', () => {

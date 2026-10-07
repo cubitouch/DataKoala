@@ -1,6 +1,5 @@
 import { parseBuilderRollingTimeRange } from './builderTimeRange.ts'
 import {
-  MAX_SERIES_PROBE_COLUMNS,
   MAX_SERIES_PROBE_PREDICATES,
   type CardinalityProbePredicate,
   type SeriesCardinalityProbeRequest,
@@ -125,15 +124,6 @@ export function validateSeriesCardinalityRequest(
 ): SeriesCardinalityProbeRequest {
   const input = record(value)
   if (
-    !Array.isArray(input.seriesColumns) ||
-    input.seriesColumns.length === 0 ||
-    input.seriesColumns.length > MAX_SERIES_PROBE_COLUMNS
-  ) {
-    controlledError(
-      `seriesColumns must contain 1-${MAX_SERIES_PROBE_COLUMNS} identifiers.`,
-    )
-  }
-  if (
     !Array.isArray(input.predicates) ||
     input.predicates.length > MAX_SERIES_PROBE_PREDICATES
   ) {
@@ -144,8 +134,10 @@ export function validateSeriesCardinalityRequest(
   return {
     schema: requiredString(input.schema, 'schema', MAX_IDENTIFIER_LENGTH),
     table: requiredString(input.table, 'table', MAX_IDENTIFIER_LENGTH),
-    seriesColumns: input.seriesColumns.map((column, index) =>
-      requiredString(column, `seriesColumns[${index}]`, MAX_IDENTIFIER_LENGTH),
+    seriesColumn: requiredString(
+      input.seriesColumn,
+      'seriesColumn',
+      MAX_IDENTIFIER_LENGTH,
     ),
     predicates: input.predicates.map(predicate),
   }

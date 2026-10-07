@@ -2,10 +2,9 @@ export const CHART_SERIES_SOFT_LIMIT = 30
 export const CHART_SERIES_HARD_LIMIT = 100
 export const CHART_POINTS_SOFT_LIMIT = 20_000
 export const CHART_POINTS_HARD_LIMIT = 100_000
-/** Planner estimates are advisory only outside this deliberately wide band. */
+/** Native provider estimates at or below this threshold may accept a field. */
 export const SERIES_STATS_ACCEPT_THRESHOLD = 50
 export const SERIES_STATS_REJECT_THRESHOLD = 200
-export const MAX_SERIES_PROBE_COLUMNS = 16
 export const MAX_SERIES_PROBE_PREDICATES = 32
 
 export type CardinalityProbePredicate =
@@ -39,15 +38,16 @@ export type CardinalityProbePredicate =
 export interface SeriesCardinalityProbeRequest {
   schema: string
   table: string
-  /** Complete ordered Builder series dimension proposed by the user. */
-  seriesColumns: string[]
+  /** The single newly added Series field being preflighted. */
+  seriesColumn: string
   predicates: CardinalityProbePredicate[]
 }
 
 export interface SeriesCardinalityProbeResult {
-  /** Bounded at CHART_SERIES_HARD_LIMIT + 1. */
+  /** Exact count bounded at hard limit + 1, or a marked advisory estimate. */
   distinctCount: number
   exceedsHardLimit: boolean
+  estimated?: boolean
 }
 
 export interface SeriesStatisticsRequest {

@@ -31,14 +31,12 @@ import { ensureConnectionForTab } from '@lib/tabConnection'
 import {
   CHART_SERIES_HARD_LIMIT,
   type CardinalityProbePredicate,
-  type SeriesStatisticsResult,
 } from '@shared/chartLimits'
 import {
-  decideFromSeriesStatistics,
+  addedSeriesColumns,
   isSeriesColumnRemoval,
   SeriesCardinalityProbeGuard,
   seriesProbeFingerprint,
-  seriesStatisticsFingerprint,
 } from '@lib/seriesCardinalityGuard'
 import { ModeSwitch } from '@components/query/ModeSwitch'
 import { CopySqlButton } from '@components/query/CopySqlButton'
@@ -143,7 +141,6 @@ export function BuilderPanel() {
   const previousExecution = useRef(new Map<string, string>())
   const queryRevisions = useRef(new Map<string, number>())
   const probeGuard = useRef(new SeriesCardinalityProbeGuard())
-  const statisticsCache = useRef(new Map<string, SeriesStatisticsResult>())
   const [seriesProbe, setSeriesProbe] = useState<{
     status: 'checking' | 'error'
     message?: string
@@ -784,21 +781,27 @@ export function BuilderPanel() {
       applySeries(nextSeriesColumns)
       return
     }
+
+    const newlyAddedSeries = addedSeriesColumns(
+      builder.seriesColumns,
+      nextSeriesColumns,
+    )
+    if (newlyAddedSeries.length === 0) {
+      probeGuard.current.invalidate()
+      setSeriesProbe(null)
+      applySeries(nextSeriesColumns)
+      return
+    }
+
     if (!tabConnectionId || !builder.table) return
     const requestTabId = tabId
-    const requestProfileId = await ensureConnectionForTab(requestTabId)
-    if (!requestProfileId) return
+    const requestProfileId = tabConnectionId
     const fingerprint = seriesProbeFingerprint({
       profileId: requestProfileId,
       builder: { ...builder, timeRange: effectiveTimeRange },
       seriesColumns: nextSeriesColumns,
     })
     const operation = probeGuard.current.begin(fingerprint)
-    if (operation.cached) {
-      setSeriesProbe(null)
-      applySeries(nextSeriesColumns, requestTabId)
-      return
-    }
     const retry = () => void selectSeries(nextSeriesColumns)
     setSeriesProbe({ status: 'checking' })
     const isCurrent = () => {
@@ -817,82 +820,40 @@ export function BuilderPanel() {
       )
     }
     try {
-      if (nextSeriesColumns.length === 1) {
-        const statsKey = seriesStatisticsFingerprint({
-          profileId: requestProfileId,
-          builder: { ...builder, timeRange: effectiveTimeRange },
-          seriesColumns: nextSeriesColumns,
-        })
-        let statistics = statisticsCache.current.get(statsKey)
-        if (!statistics) {
-          try {
-            statistics = await api.query.seriesStatistics(requestProfileId, {
-              schema: builder.table.schema,
-              table: builder.table.name,
-              column: nextSeriesColumns[0],
-            })
-          } catch {
-            statistics = { available: false, source: 'pg_stats' }
-          }
-          if (!isCurrent()) return
-          statisticsCache.current.set(
-            statsKey,
-            statistics ?? { available: false, source: 'pg_stats' },
-          )
-        }
-        if (!isCurrent()) return
-        const resolvedStatistics = statistics ?? {
-          available: false,
-          source: 'pg_stats' as const,
-        }
-        const decision = decideFromSeriesStatistics(
-          resolvedStatistics,
-          Boolean(effectiveTimeRange && effectiveTimeRange.kind !== 'all'),
-          nextSeriesColumns.length,
+      const connectedProfileId = await ensureConnectionForTab(requestTabId)
+      if (!isCurrent()) return
+      if (connectedProfileId !== requestProfileId)
+        throw new Error('Connection changed before cardinality probe.')
+
+      for (const seriesColumn of newlyAddedSeries) {
+        const response = await api.query.probeSeriesCardinality(
+          requestProfileId,
+          {
+            schema: builder.table.schema,
+            table: builder.table.name,
+            seriesColumn,
+            predicates: probePredicates(),
+          },
         )
-        if (decision === 'accept') {
-          if (probeGuard.current.approve(operation.revision, fingerprint)) {
-            setSeriesProbe(null)
-            applySeries(nextSeriesColumns, requestTabId)
-          }
-          return
-        }
-        if (decision === 'reject') {
-          const estimate = Math.round(
-            resolvedStatistics.estimatedDistinct ?? 0,
-          ).toLocaleString()
+        if (!isCurrent()) return
+        if (response.exceedsHardLimit) {
           setSeriesProbe({
             status: 'error',
-            message: `PostgreSQL estimates this column has approximately ${estimate} distinct values, above the supported chart limit of ${CHART_SERIES_HARD_LIMIT}. Filter the data first or choose another column.`,
+            message: response.estimated
+              ? `${connectionKind === 'bigquery' ? 'BigQuery' : 'PostgreSQL'} estimates this field has approximately ${Math.round(response.distinctCount).toLocaleString()} distinct values, above the supported Series limit of ${CHART_SERIES_HARD_LIMIT}.`
+              : `This Series field has more than ${CHART_SERIES_HARD_LIMIT} distinct values and cannot be used as a chart breakdown.`,
             retry,
           })
           return
         }
       }
-      const response = await api.query.probeSeriesCardinality(
-        requestProfileId,
-        {
-          schema: builder.table.schema,
-          table: builder.table.name,
-          seriesColumns: nextSeriesColumns,
-          predicates: probePredicates(),
-        },
-      )
-      if (!isCurrent()) return
-      if (response.exceedsHardLimit) {
-        setSeriesProbe({
-          status: 'error',
-          message: `This Series selection has more than ${CHART_SERIES_HARD_LIMIT} distinct combinations and cannot be charted safely. Filter the data first or choose lower-cardinality dimensions.`,
-          retry,
-        })
-        return
-      }
+
       if (probeGuard.current.approve(operation.revision, fingerprint)) {
         setSeriesProbe(null)
         applySeries(nextSeriesColumns, requestTabId)
       }
     } catch {
-      if (probeGuard.current.isCurrent(operation.revision, fingerprint))
+      if (isCurrent())
         setSeriesProbe({
           status: 'error',
           message: 'Could not check Series cardinality.',

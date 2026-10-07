@@ -7,6 +7,7 @@ import {
   normalizeBigQueryValue,
   type BigQueryClientLike,
 } from './bigquery-adapter.ts'
+import { SeriesCardinalityProbes } from '../series-cardinality.ts'
 import {
   BigQueryDate,
   BigQueryDatetime,
@@ -96,6 +97,44 @@ function client(
     },
   }
   return { value, calls, dryRunGetMetadataCalls: () => dryRunGetMetadataCalls }
+}
+
+function cardinalityClient(counts: number[]) {
+  const base = client()
+  const calls: Record<string, unknown>[] = []
+  let index = 0
+  const value: BigQueryClientLike = {
+    ...base.value,
+    async createQueryJob(options) {
+      calls.push(options)
+      const count = counts[index++]
+      if (count === undefined) throw new Error('Unexpected BigQuery job.')
+      const metadata = {
+        statistics: {
+          query: {
+            totalBytesProcessed: String(index * 10),
+            cacheHit: false,
+          },
+        },
+      }
+      return [
+        {
+          metadata,
+          async getMetadata() {
+            return [metadata]
+          },
+          async getQueryResults() {
+            return [
+              [{ count }],
+              null,
+              { schema: { fields: [{ name: 'count', type: 'INT64' }] } },
+            ]
+          },
+        },
+      ]
+    },
+  }
+  return { value, calls }
 }
 
 test('constructs an ADC client with only the billing project', async () => {
@@ -548,5 +587,186 @@ test('returns actionable provider errors', async () => {
     const result = await adapter.test(profile)
     assert.equal(result.ok, false)
     if (!result.ok) assert.match(result.error, expected)
+  }
+})
+
+for (const [counts, expected, expectedJobs] of [
+  [[20], { distinctCount: 20, exceedsHardLimit: false, estimated: true }, 1],
+  [[500], { distinctCount: 500, exceedsHardLimit: true, estimated: true }, 1],
+  [[75, 24], { distinctCount: 24, exceedsHardLimit: false }, 2],
+] as const) {
+  test(`BigQuery cardinality strategy uses ${expectedJobs} generated job(s) for approximate count ${counts[0]}`, async () => {
+    const fake = cardinalityClient([...counts])
+    const { session } = await new BigQueryAdapter(() => fake.value).connect(
+      profile,
+    )
+    const response = await new SeriesCardinalityProbes().probe(session!, {
+      schema: 'data.analytics',
+      table: 'events',
+      seriesColumn: 'status',
+      predicates: [{ column: 'region', operator: 'equals', value: 'eu' }],
+    })
+
+    assert.deepEqual(response, expected)
+    assert.equal(fake.calls.length, expectedJobs)
+    assert.equal(
+      fake.calls.every((call) => call.dryRun === undefined),
+      true,
+    )
+    assert.equal(
+      fake.calls.every((call) => !/pg_stats|EXPLAIN/i.test(String(call.query))),
+      true,
+    )
+    assert.deepEqual(
+      fake.calls.map((call) => call.params),
+      Array.from({ length: expectedJobs }, () => ['eu']),
+    )
+
+    const approximateSql = String(fake.calls[0].query)
+    assert.match(
+      approximateSql,
+      /SELECT APPROX_COUNT_DISTINCT\(`status`\) AS `count`/,
+    )
+    assert.match(approximateSql, /FROM `data\.analytics\.events`/)
+    assert.match(approximateSql, /WHERE `region` = \?/)
+    assert.doesNotMatch(approximateSql, /STRUCT|GROUP BY/)
+
+    if (expectedJobs === 2) {
+      const exactSql = String(fake.calls[1].query)
+      assert.match(exactSql, /SELECT `status`/)
+      assert.match(exactSql, /WHERE `region` = \?/)
+      assert.match(exactSql, /GROUP BY `status`/)
+      assert.match(exactSql, /LIMIT 101/)
+      assert.doesNotMatch(exactSql, /STRUCT|APPROX_COUNT_DISTINCT/)
+    }
+  })
+}
+
+test('structured exact cardinality probe executes one job with billing/location/parameters and no dry run', async () => {
+  const fake = client('SELECT', [{ count: 101 }])
+  const { session } = await new BigQueryAdapter(() => fake.value).connect(
+    profile,
+  )
+  const response = await session!.querySeriesCardinality!({
+    schema: 'data.analytics',
+    table: 'events',
+    seriesColumn: 'status',
+    predicates: [
+      {
+        column: 'region',
+        operator: 'equals',
+        value: "'; DELETE FROM events; --",
+      },
+    ],
+  })
+  assert.equal(fake.calls.length, 1)
+  assert.equal(fake.calls[0].dryRun, undefined)
+  assert.doesNotMatch(String(fake.calls[0].query), /pg_stats|EXPLAIN|STRUCT/i)
+  assert.match(String(fake.calls[0].query), /GROUP BY `status`/)
+  assert.equal(fake.calls[0].maximumBytesBilled, profile.maximumBytesBilled)
+  assert.equal(fake.calls[0].location, 'US')
+  assert.deepEqual(fake.calls[0].params, ["'; DELETE FROM events; --"])
+  assert.doesNotMatch(String(fake.calls[0].query), /DELETE/)
+  assert.equal(response.rows[0].count, 101)
+  assert.equal(response.execution?.bytesProcessed, 12)
+})
+
+test('structured approximate cardinality probe executes one job with the same trusted options', async () => {
+  const fake = client('SELECT', [{ count: 75 }])
+  const { session } = await new BigQueryAdapter(() => fake.value).connect(
+    profile,
+  )
+  const response = await session!.querySeriesCardinalityApproximate!({
+    schema: 'data.analytics',
+    table: 'events',
+    seriesColumn: 'status',
+    predicates: [
+      {
+        column: 'region',
+        operator: 'equals',
+        value: "'; DELETE FROM events; --",
+      },
+    ],
+  })
+  assert.equal(fake.calls.length, 1)
+  assert.equal(fake.calls[0].dryRun, undefined)
+  assert.match(
+    String(fake.calls[0].query),
+    /SELECT APPROX_COUNT_DISTINCT\(`status`\) AS `count`/,
+  )
+  assert.doesNotMatch(String(fake.calls[0].query), /pg_stats|EXPLAIN|STRUCT/i)
+  assert.equal(fake.calls[0].maximumBytesBilled, profile.maximumBytesBilled)
+  assert.equal(fake.calls[0].location, 'US')
+  assert.deepEqual(fake.calls[0].defaultDataset, {
+    projectId: 'data',
+    datasetId: 'analytics',
+  })
+  assert.deepEqual(fake.calls[0].params, ["'; DELETE FROM events; --"])
+  assert.doesNotMatch(String(fake.calls[0].query), /DELETE/)
+  assert.equal(response.rows[0].count, 75)
+  assert.equal(response.execution?.bytesProcessed, 12)
+})
+
+test('trusted cardinality operations validate runtime payloads and cannot accept arbitrary SQL', async () => {
+  const fake = client()
+  const { session } = await new BigQueryAdapter(() => fake.value).connect(
+    profile,
+  )
+  for (const operation of [
+    session!.querySeriesCardinality!.bind(session),
+    session!.querySeriesCardinalityApproximate!.bind(session),
+  ]) {
+    for (const input of [
+      'DELETE FROM events',
+      { sql: 'DELETE FROM events' },
+      {
+        schema: 'data.analytics',
+        table: 'events',
+        seriesColumn: 'region',
+        predicates: [
+          {
+            column: 'at',
+            operator: 'rolling',
+            amount: '1); DELETE FROM events;--',
+            unit: 'day',
+          },
+        ],
+      },
+    ]) {
+      await assert.rejects(
+        operation(input as never),
+        /Invalid series cardinality request/,
+      )
+    }
+  }
+  assert.equal(fake.calls.length, 0)
+})
+
+test('GoogleSQL cardinality probes escape backslashes and backticks in every identifier', async () => {
+  const fake = client('SELECT', [{ count: 0 }])
+  const { session } = await new BigQueryAdapter(() => fake.value).connect(
+    profile,
+  )
+  const injected = 'x\\`; DELETE FROM events; --'
+  const input = {
+    schema: injected,
+    table: injected,
+    seriesColumn: injected,
+    predicates: [{ column: injected, operator: 'isNull' as const }],
+  }
+  await session!.querySeriesCardinalityApproximate!(input)
+  await session!.querySeriesCardinality!(input)
+
+  assert.equal(fake.calls.length, 2)
+  for (const call of fake.calls) {
+    const sql = String(call.query)
+    // Scan GoogleSQL identifiers: every apparent statement separator belongs to
+    // one quoted identifier; escaped delimiters cannot close it.
+    const withoutIdentifiers = sql.replace(
+      /`(?:\\[\s\S]|[^`\\])*`/g,
+      'identifier',
+    )
+    assert.doesNotMatch(withoutIdentifiers, /DELETE|--/)
+    assert.equal((withoutIdentifiers.match(/;/g) || []).length, 1)
   }
 })

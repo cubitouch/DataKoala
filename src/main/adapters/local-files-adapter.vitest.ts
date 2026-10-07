@@ -18,7 +18,10 @@ import {
   type BuilderFilterProvenance,
 } from '../../renderer/src/lib/resultFilters.ts'
 import { encodeBuilderSeriesTuple } from '../../renderer/src/lib/resultVisualization.ts'
-import { buildSeriesCardinalityProbe } from '../../shared/seriesCardinality.ts'
+import {
+  SeriesCardinalityProbes,
+  type ProbeMeasurement,
+} from '../series-cardinality.ts'
 
 const pad2 = (value: number) => String(value).padStart(2, '0')
 const localDate = (value: Date) =>
@@ -394,17 +397,20 @@ test('local-file sessions execute Builder SQL and parameterized cardinality prob
       2,
     )
 
-    const probe = buildSeriesCardinalityProbe({
+    const cardinalityMeasurements: ProbeMeasurement[] = []
+    const cardinality = await new SeriesCardinalityProbes((measurement) =>
+      cardinalityMeasurements.push(measurement),
+    ).probe(connected.session, {
       schema: 'main',
       table: 'events',
-      seriesColumns: ['region'],
+      seriesColumn: 'region',
       predicates: [{ column: 'status', operator: 'equals', value: 'paid' }],
     })
-    const cardinality = await connected.session.query({
-      sql: probe.sql,
-      parameters: probe.parameters,
+    assert.deepEqual(cardinality, {
+      distinctCount: 2,
+      exceedsHardLimit: false,
     })
-    assert.equal(cardinality.rows[0]?.count, '2')
+    assert.equal(cardinalityMeasurements.at(-1)?.strategy, 'duckdb-exact')
   } finally {
     await connected.session.close()
     await rm(directory, { recursive: true, force: true })

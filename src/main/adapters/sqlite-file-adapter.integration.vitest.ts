@@ -15,6 +15,10 @@ import { test } from 'vitest'
 import type { SqliteFileProfile } from '../../shared/types.ts'
 import { SqliteFileAdapter } from './sqlite-file-adapter.ts'
 import { generateBuilderQuery } from '../../renderer/src/lib/builderSql.ts'
+import {
+  SeriesCardinalityProbes,
+  type ProbeMeasurement,
+} from '../series-cardinality.ts'
 
 async function fingerprint(path: string) {
   const info = await stat(path, { bigint: true })
@@ -179,6 +183,24 @@ c.commit(); c.close()
     assert.ok(parameterized.parameters.length >= 3)
     const parameterizedResult = await session.query(parameterized)
     assert.equal(parameterizedResult.rowCount, 1)
+
+    const cardinalityMeasurements: ProbeMeasurement[] = []
+    const cardinality = await new SeriesCardinalityProbes((measurement) =>
+      cardinalityMeasurements.push(measurement),
+    ).probe(session, {
+      schema: 'sqlite',
+      table: 'events',
+      seriesColumn: 'category',
+      predicates: [],
+    })
+    assert.deepEqual(cardinality, {
+      distinctCount: 2,
+      exceedsHardLimit: false,
+    })
+    assert.equal(
+      cardinalityMeasurements.at(-1)?.strategy,
+      'sqlite-duckdb-exact',
+    )
 
     const bounded = await session.query({
       sql: 'SELECT * FROM sqlite.many_rows ORDER BY id',

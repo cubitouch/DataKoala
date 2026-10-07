@@ -3,6 +3,7 @@ import { test } from 'vitest'
 import { buildSeriesCardinalityProbe } from '@shared/seriesCardinality.ts'
 import { CHART_SERIES_HARD_LIMIT } from '@shared/chartLimits.ts'
 import {
+  addedSeriesColumns,
   isSeriesColumnRemoval,
   SeriesCardinalityProbeGuard,
   selectionAfterCardinalityProbe,
@@ -71,7 +72,7 @@ test('probe SQL safely quotes identifiers, stays bounded, and parameterizes pred
   const probe = buildSeriesCardinalityProbe({
     schema: 'odd"schema',
     table: 'event table',
-    seriesColumns: ['user"id'],
+    seriesColumn: 'user"id',
     predicates: [
       {
         column: 'created"at',
@@ -88,36 +89,19 @@ test('probe SQL safely quotes identifiers, stays bounded, and parameterizes pred
   assert.deepEqual(probe.parameters, ['2026-01-01', '2026-02-01'])
 })
 
-test('probe selects a collision-safe tuple while grouping each source column', () => {
-  const probe = buildSeriesCardinalityProbe({
-    schema: 'public',
-    table: 'events',
-    seriesColumns: ['country', 'device'],
-    predicates: [],
-  })
-  assert.match(probe.sql, /SELECT \("country", "device"\)/)
-  assert.match(probe.sql, /GROUP BY "country", "device"/)
-  // 50 × 40 is represented by the combined tuple probe, whose bounded result
-  // would be 101 and therefore preserves the prior valid selection.
+test('new Series fields are identified independently from already approved fields', () => {
+  assert.deepEqual(addedSeriesColumns(['type'], ['type', 'status']), ['status'])
+  assert.deepEqual(addedSeriesColumns(['type'], ['type', 'status', 'region']), [
+    'status',
+    'region',
+  ])
   assert.deepEqual(
-    selectionAfterCardinalityProbe(
-      ['country'],
-      ['country', 'device'],
-      Math.min(50 * 40, CHART_SERIES_HARD_LIMIT + 1) > CHART_SERIES_HARD_LIMIT,
-    ),
-    ['country'],
-  )
-  assert.deepEqual(
-    selectionAfterCardinalityProbe(
-      ['country'],
-      ['country', 'device'],
-      50 > CHART_SERIES_HARD_LIMIT,
-    ),
-    ['country', 'device'],
+    addedSeriesColumns(['type', 'status'], ['status', 'type']),
+    [],
   )
 })
 
-test('ordered proposed series columns participate in fingerprints and stale approval', () => {
+test('ordered proposed series columns participate in stale-work fingerprints', () => {
   const builder = {
     table: { schema: 'public', name: 'events' },
     timeColumn: 'at',
@@ -145,7 +129,12 @@ test('ordered proposed series columns participate in fingerprints and stale appr
   assert.equal(
     isSeriesColumnRemoval(['country', 'device'], ['device', 'country']),
     false,
-    'reordering must probe',
+    'reordering is not a removal-only transition',
+  )
+  assert.deepEqual(
+    addedSeriesColumns(['country', 'device'], ['device', 'country']),
+    [],
+    'reordering adds no field and needs no new cardinality validation',
   )
 })
 
@@ -179,4 +168,14 @@ test('invalidation clears current work, ignores old success/error, and permits r
     'stale response cannot overwrite current state',
   )
   assert.equal(guard.isCurrent(current.revision, 'new-table'), true)
+})
+
+test('successful probes are not cached across later interactions', () => {
+  const guard = new SeriesCardinalityProbeGuard()
+  const first = guard.begin('same')
+  assert.equal(guard.approve(first.revision, 'same'), true)
+  const next = guard.begin('same')
+  assert.notEqual(next.revision, first.revision)
+  assert.equal('cached' in next, false)
+  assert.equal(guard.approve(first.revision, 'same'), false)
 })

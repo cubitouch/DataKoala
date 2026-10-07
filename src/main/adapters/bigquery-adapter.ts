@@ -1,4 +1,10 @@
 import {
+  buildBigQuerySeriesCardinalityApproxProbe,
+  buildSeriesCardinalityProbe,
+} from '../../shared/seriesCardinality.ts'
+import { validateSeriesCardinalityRequest } from '../../shared/seriesCardinalityValidation.ts'
+import type { SeriesCardinalityProbeRequest } from '../../shared/chartLimits.ts'
+import {
   BigQuery,
   BigQueryDate,
   BigQueryDatetime,
@@ -313,6 +319,25 @@ class BigQuerySession implements DataSourceSession {
       throw new Error(
         'BigQuery connections are read-only. Use SELECT queries or DECLARE/SET scripts ending with a SELECT; write statements are not supported.',
       )
+    return this.executeQuery(common)
+  }
+  async querySeriesCardinalityApproximate(
+    request: SeriesCardinalityProbeRequest,
+  ): Promise<QueryResult> {
+    const validated = validateSeriesCardinalityRequest(request)
+    const probe = buildBigQuerySeriesCardinalityApproxProbe(validated)
+    return this.executeQuery(this.jobOptions(probe.sql, probe.parameters))
+  }
+  async querySeriesCardinality(
+    request: SeriesCardinalityProbeRequest,
+  ): Promise<QueryResult> {
+    const validated = validateSeriesCardinalityRequest(request)
+    const probe = buildSeriesCardinalityProbe(validated, 'google-sql')
+    return this.executeQuery(this.jobOptions(probe.sql, probe.parameters))
+  }
+  private async executeQuery(
+    common: ReturnType<BigQuerySession['jobOptions']>,
+  ): Promise<QueryResult> {
     const started = Date.now()
     const [job] = await this.client.createQueryJob(common)
     // For a script, BigQuery returns the last executed statement's rows/schema.

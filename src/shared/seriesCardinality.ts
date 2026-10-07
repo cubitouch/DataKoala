@@ -12,22 +12,22 @@ export function quotePostgresIdentifier(value: string): string {
 export function buildSeriesCardinalityProbe(
   request: SeriesCardinalityProbeRequest,
   dialect: SqlDialect = 'postgres',
-): { sql: string; parameters: unknown[] } {
-  if (!request.seriesColumns.length)
-    throw new Error('A cardinality probe requires at least one series column.')
+): { sql: string; groupedSql: string; parameters: unknown[] } {
+  const quoteGoogle = (value: string) =>
+    '`' +
+    Array.from(value, (char) => {
+      if (char === '\\' || char === '`') return '\\' + char
+      const code = char.charCodeAt(0)
+      return code < 32 || code === 127
+        ? `\\u${code.toString(16).padStart(4, '0')}`
+        : char
+    }).join('') +
+    '`'
   const quote = (value: string) =>
     dialect === 'google-sql'
-      ? `\`${value.replaceAll('`', '``')}\``
+      ? quoteGoogle(value)
       : quotePostgresIdentifier(value)
-  const columns = request.seriesColumns.map(quote)
-  // A tuple preserves each combination (including NULLs) and cannot collide the
-  // way Builder's human-readable display separator could.
-  const dimension =
-    columns.length === 1
-      ? columns[0]
-      : dialect === 'google-sql'
-        ? `STRUCT(${columns.join(', ')})`
-        : `(${columns.join(', ')})`
+  const column = quote(request.seriesColumn)
   const parameters: unknown[] = []
   const googleTemporalValue = (
     value: string,
@@ -95,8 +95,31 @@ export function buildSeriesCardinalityProbe(
     // an operator outside the shared request union.
     throw new Error('Unsupported cardinality probe predicate.')
   })
+  const relation =
+    dialect === 'google-sql'
+      ? quoteGoogle(`${request.schema}.${request.table}`)
+      : `${quote(request.schema)}.${quote(request.table)}`
+  const groupedSql = `SELECT ${column}\n  FROM ${relation}${predicates.length ? `\n  WHERE ${predicates.join(' AND ')}` : ''}\n  GROUP BY ${column}`
   return {
-    sql: `SELECT count(*) AS ${quote('count')}\nFROM (\n  SELECT ${dimension}\n  FROM ${dialect === 'google-sql' ? `\`${[...request.schema.split('.'), request.table].map((part) => part.replaceAll('`', '``')).join('.')}\`` : `${quote(request.schema)}.${quote(request.table)}`}${predicates.length ? `\n  WHERE ${predicates.join(' AND ')}` : ''}\n  GROUP BY ${columns.join(', ')}\n  LIMIT ${CHART_SERIES_HARD_LIMIT + 1}\n) AS ${quote('cardinality_probe')};`,
+    sql: `SELECT count(*) AS ${quote('count')}\nFROM (\n  ${groupedSql}\n  LIMIT ${CHART_SERIES_HARD_LIMIT + 1}\n) AS ${quote('cardinality_probe')};`,
+    groupedSql,
     parameters,
+  }
+}
+
+/** Builds BigQuery's single-field approximate preflight from the same generated source/predicates as the exact probe. */
+export function buildBigQuerySeriesCardinalityApproxProbe(
+  request: SeriesCardinalityProbeRequest,
+): { sql: string; parameters: unknown[] } {
+  const exact = buildSeriesCardinalityProbe(request, 'google-sql')
+  const fromIndex = exact.groupedSql.indexOf('\n  FROM ')
+  const groupByIndex = exact.groupedSql.lastIndexOf('\n  GROUP BY ')
+  if (fromIndex < 0 || groupByIndex <= fromIndex)
+    throw new Error('Invalid generated BigQuery cardinality probe.')
+  const dimension = exact.groupedSql.slice('SELECT '.length, fromIndex)
+  const source = exact.groupedSql.slice(fromIndex, groupByIndex)
+  return {
+    sql: `SELECT APPROX_COUNT_DISTINCT(${dimension}) AS \`count\`${source};`,
+    parameters: exact.parameters,
   }
 }
