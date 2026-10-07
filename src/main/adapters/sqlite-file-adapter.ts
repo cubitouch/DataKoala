@@ -16,6 +16,7 @@ import {
 import {
   MAX_LOCAL_FILE_RESULT_ROWS,
   assertDuckDBReadOnlyQuery,
+  classifyDuckDBQueryError,
   queryResultFromDuckDBReader,
   quoteIdentifier,
   quoteLiteral,
@@ -193,7 +194,11 @@ export class SqliteFileAdapter implements DataSourceAdapter {
         capabilities: DATA_SOURCE_CAPABILITIES['sqlite-file'],
         query: async ({ sql, parameters = [] }) => {
           await assertDuckDBReadOnlyQuery(connection, sql, 'SQLite connections')
-          return boundedQuery(connection, sql, parameters)
+          try {
+            return await boundedQuery(connection, sql, parameters)
+          } catch (error) {
+            throw classifyDuckDBQueryError(error)
+          }
         },
         listNamespaces: async () => [{ name: SQLITE_CATALOG }],
         listRelations: async () => {
