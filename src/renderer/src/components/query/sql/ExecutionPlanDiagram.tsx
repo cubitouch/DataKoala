@@ -25,7 +25,9 @@ function NodeButton({
     <li className={styles.branch}>
       <button
         type="button"
-        className={`${styles.node} ${selectedId === node.id ? styles.selected : ''}`}
+        className={`${styles.node} ${
+          selectedId === node.id ? styles.selected : ''
+        }`}
         onClick={() => onSelect(node.id)}
         aria-pressed={selectedId === node.id}
       >

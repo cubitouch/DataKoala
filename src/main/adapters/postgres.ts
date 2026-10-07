@@ -733,7 +733,9 @@ function explainString(value: unknown): string | undefined {
 
 function explainStrings(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined
-  const strings = value.filter((item): item is string => typeof item === 'string')
+  const strings = value.filter(
+    (item): item is string => typeof item === 'string',
+  )
   return strings.length === value.length ? strings : undefined
 }
 
@@ -750,7 +752,8 @@ function explainPlanLabel(node: PostgresExplainRecord): string {
 
 function normalizeExplainNode(value: unknown, id: string): ExplainNode {
   const node = explainRecord(value)
-  if (!node) throw new Error('PostgreSQL returned an invalid execution-plan node.')
+  if (!node)
+    throw new Error('PostgreSQL returned an invalid execution-plan node.')
 
   const rawChildren = Array.isArray(node.Plans) ? node.Plans : []
   const children = rawChildren.map((child, index) =>
@@ -801,7 +804,9 @@ function formatExplainTree(node: ExplainNode, depth = 0): string[] {
       ? `actual rows=${node.actualRows} loops=${node.loops ?? '?'} time=${node.actualTotalTime ?? '?'}ms`
       : ''
   const metrics = [estimate, actual].filter(Boolean).join(' · ')
-  const line = `${'  '.repeat(depth)}${node.plan}${metrics ? `  (${metrics})` : ''}`
+  const line = `${'  '.repeat(depth)}${node.plan}${
+    metrics ? `  (${metrics})` : ''
+  }`
   return [
     line,
     ...(node.children ?? []).flatMap((child) =>
@@ -850,7 +855,8 @@ export async function explainQuery(
       : 'EXPLAIN (FORMAT JSON)'
     const result = await client.query({ text: `${prefix} ${sql}` })
     const row = result.rows[0] as Record<string, unknown> | undefined
-    const value = row?.['QUERY PLAN'] ?? (row ? Object.values(row)[0] : undefined)
+    const value =
+      row?.['QUERY PLAN'] ?? (row ? Object.values(row)[0] : undefined)
     return normalizePostgresExplain(value, analyze)
   })
 }

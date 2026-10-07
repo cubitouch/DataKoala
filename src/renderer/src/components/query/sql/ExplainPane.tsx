@@ -22,7 +22,9 @@ export function ExplainPane() {
   return (
     <div className={styles.root}>
       <div className={styles.head}>
-        <span>{snapshot?.mode === 'analyze' ? 'EXPLAIN ANALYZE' : 'EXPLAIN'}</span>
+        <span>
+          {snapshot?.mode === 'analyze' ? 'EXPLAIN ANALYZE' : 'EXPLAIN'}
+        </span>
         <div className={styles.spacer} />
         <button className="btn ghost" onClick={() => setShow(false)}>
           close
