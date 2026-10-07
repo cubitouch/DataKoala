@@ -22,7 +22,9 @@
   color: var(--text-dim);
 }
 
-.spacer { flex: 1; }
+.spacer {
+  flex: 1;
+}
 
 .status {
   color: var(--text-mute);

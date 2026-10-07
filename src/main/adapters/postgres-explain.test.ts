@@ -29,7 +29,7 @@ const fixture = [
           'Actual Total Time': 8.1,
           'Actual Rows': 84000,
           'Actual Loops': 1,
-          Filter: '(created_at > now() - \'30 days\'::interval)',
+          Filter: "(created_at > now() - '30 days'::interval)",
           'Rows Removed by Filter': 16000,
           'Shared Read Blocks': 9,
         },

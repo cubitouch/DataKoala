@@ -141,7 +141,10 @@ export function ExecutionPlanDiagram({ tree, analyze = false }: Props) {
             <Detail label="Join filter" value={selected.joinFilter} />
             <Detail label="Sort key" value={selected.sortKey?.join(', ')} />
             <Detail label="Group key" value={selected.groupKey?.join(', ')} />
-            <Detail label="Shared cache hits" value={selected.sharedHitBlocks} />
+            <Detail
+              label="Shared cache hits"
+              value={selected.sharedHitBlocks}
+            />
             <Detail label="Shared reads" value={selected.sharedReadBlocks} />
             <Detail label="Temp reads" value={selected.tempReadBlocks} />
             <Detail label="Temp writes" value={selected.tempWrittenBlocks} />
