@@ -33,20 +33,29 @@ export const BUILDER_ROLLING_TIME_RANGE_MAX: Record<
   month: 120,
 }
 
+export function parseBuilderRollingTimeRange(
+  amount: unknown,
+  unit: unknown,
+): Extract<BuilderTimeRange, { kind: 'rolling' }> | null {
+  if (
+    typeof amount !== 'number' ||
+    !Number.isInteger(amount) ||
+    amount < 1 ||
+    (unit !== 'minute' &&
+      unit !== 'hour' &&
+      unit !== 'day' &&
+      unit !== 'month') ||
+    amount > BUILDER_ROLLING_TIME_RANGE_MAX[unit]
+  )
+    return null
+  return { kind: 'rolling', amount, unit }
+}
+
 export function isBuilderRollingTimeRange(
   amount: unknown,
   unit: unknown,
-): unit is BuilderRollingTimeUnit {
-  return (
-    typeof amount === 'number' &&
-    Number.isInteger(amount) &&
-    amount >= 1 &&
-    (unit === 'minute' ||
-      unit === 'hour' ||
-      unit === 'day' ||
-      unit === 'month') &&
-    amount <= BUILDER_ROLLING_TIME_RANGE_MAX[unit]
-  )
+): boolean {
+  return Boolean(parseBuilderRollingTimeRange(amount, unit))
 }
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
