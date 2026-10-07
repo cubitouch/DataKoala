@@ -320,7 +320,16 @@ export function QueryEditor({
         mode === 'analyze',
       )
       if (stillBoundTo(requestTabId, requestProfileId))
-        setExplain(res.text, requestTabId, snapshot, res.tree)
+        setExplain(
+          res.text,
+          requestTabId,
+          {
+            ...snapshot,
+            planningTimeMs: res.planningTimeMs,
+            executionTimeMs: res.executionTimeMs,
+          },
+          res.tree,
+        )
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       if (stillBoundTo(requestTabId, requestProfileId))
