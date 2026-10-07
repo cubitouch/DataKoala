@@ -47,6 +47,26 @@ const sameState = (a: AiBuilderState | null, b: AiBuilderState | null) =>
 
 export const aiBuilderStatesEqual = sameState
 
+export function aiBuilderMutationFingerprint(
+  session: Pick<
+    QuerySession,
+    'builder' | 'builderVisualization' | 'builderResultFilters'
+  >,
+): string {
+  const visualization = session.builderVisualization
+  return JSON.stringify({
+    builder: session.builder,
+    visualization: {
+      xColumn: visualization.xColumn,
+      valueColumn: visualization.valueColumn,
+      aggregation: visualization.aggregation,
+      seriesColumn: visualization.seriesColumn,
+      seriesColumns: visualization.seriesColumns,
+    },
+    builderResultFilters: session.builderResultFilters,
+  })
+}
+
 export function transitionBuilderConfiguration(
   session: Pick<
     QuerySession,
