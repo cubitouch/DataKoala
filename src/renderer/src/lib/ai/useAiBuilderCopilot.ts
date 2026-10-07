@@ -75,8 +75,7 @@ export function useAiBuilderCopilot() {
           candidate.name === session.builder.table?.name,
       )
     return (
-      relation?.columnsStatus === 'loaded' &&
-      Boolean(relation.columns?.length)
+      relation?.columnsStatus === 'loaded' && Boolean(relation.columns?.length)
     )
   })
 

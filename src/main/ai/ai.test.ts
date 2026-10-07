@@ -161,20 +161,24 @@ test('OpenRouter normalizes a bounded context request into the provider-neutral 
 
 test('OpenRouter Builder proposals use a dedicated SQL-free structured contract without oneOf', async () => {
   let sent: Record<string, unknown> | undefined
-  const provider = new OpenRouterProvider('key', 'model', async (_url, init) => {
-    sent = JSON.parse(String(init?.body))
-    return completion({
-      kind: 'proposal',
-      patch: {
-        xColumn: 'country',
-        valueColumn: 'revenue',
-        aggregation: 'sum',
-      },
-      explanation: 'Sum revenue by country.',
-      assumptions: [],
-      reason: '',
-    })
-  })
+  const provider = new OpenRouterProvider(
+    'key',
+    'model',
+    async (_url, init) => {
+      sent = JSON.parse(String(init?.body))
+      return completion({
+        kind: 'proposal',
+        patch: {
+          xColumn: 'country',
+          valueColumn: 'revenue',
+          aggregation: 'sum',
+        },
+        explanation: 'Sum revenue by country.',
+        assumptions: [],
+        reason: '',
+      })
+    },
+  )
 
   assert.deepEqual(await provider.proposeBuilder(builderRequest, signal()), {
     kind: 'proposal',
@@ -195,7 +199,10 @@ test('OpenRouter Builder proposals use a dedicated SQL-free structured contract 
     }
   ).json_schema?.schema
   assert.equal(JSON.stringify(schema).includes('oneOf'), false)
-  assert.match(JSON.stringify(sent?.messages), /Return Builder changes, never SQL/)
+  assert.match(
+    JSON.stringify(sent?.messages),
+    /Return Builder changes, never SQL/,
+  )
   assert.equal(JSON.stringify(sent).includes('test-placeholder'), false)
 })
 

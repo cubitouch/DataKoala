@@ -68,11 +68,7 @@ function validateRecurringWindows(
 function normalizedCustomRange(
   range: Extract<BuilderTimeRange, { kind: 'custom' }>,
 ): Extract<BuilderTimeRange, { kind: 'custom' }> {
-  if (
-    range.startDate &&
-    range.endDate &&
-    range.endDate < range.startDate
-  )
+  if (range.startDate && range.endDate && range.endDate < range.startDate)
     return {
       ...range,
       startDate: range.endDate,
