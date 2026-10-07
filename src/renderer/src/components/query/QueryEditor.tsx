@@ -286,7 +286,6 @@ export function QueryEditor({
     builderMode,
     setVisualization,
     completeQuery,
-    connectionKind,
   ])
 
   useEffect(() => {
