@@ -19,6 +19,23 @@ const profile = {
   tlsMode: 'disable',
   readonly: true,
 }
+const bigQueryProfile = {
+  id: 'ai-preview-bigquery',
+  name: 'Warehouse analytics',
+  kind: 'bigquery',
+  version: 1,
+  billingProject: 'billing-project',
+  defaultProject: 'my-project',
+  defaultDataset: 'analytics',
+  maximumBytesBilled: '',
+  readonly: true,
+}
+const bigQueryColumns = [
+  { name: 'id', dataTypeName: 'STRING' },
+  { name: 'country', dataTypeName: 'STRING' },
+  { name: 'created_at', dataTypeName: 'TIMESTAMP' },
+  { name: 'revenue', dataTypeName: 'NUMERIC' },
+]
 const columns = [
   { name: 'id', dataTypeName: 'uuid' },
   { name: 'country', dataTypeName: 'text' },
@@ -28,6 +45,10 @@ const columns = [
 ]
 const query =
   "SELECT country, sum(amount) AS revenue\nFROM public.orders\nWHERE created_at >= now() - interval '30 days'\nGROUP BY country\nORDER BY revenue DESC;"
+const bigQueryInitialQuery =
+  'SELECT * FROM \`my-project.analytics.orders\` LIMIT 100;'
+const bigQueryQuery =
+  'SELECT country, SUM(revenue) AS revenue\\nFROM \`my-project.analytics.orders\`\\nWHERE created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)\\nGROUP BY country\\nORDER BY revenue DESC;'
 const failedQuery = 'SELECT device_id FROM public.orders;'
 const fixedQuery = 'SELECT id AS device_id FROM public.orders;'
 let failNextRepair = true
@@ -116,7 +137,12 @@ app.whenReady().then(async () => {
       return ok({
         kind: 'proposal',
         proposal: {
-          query: request.intent === 'repair' ? fixedQuery : query,
+          query:
+            request.intent === 'repair'
+              ? fixedQuery
+              : request.context?.language?.dialect === 'google-sql'
+                ? bigQueryQuery
+                : query,
           explanation:
             request.intent === 'repair'
               ? 'Replaced the missing device_id column with the available id column while preserving the result name.'
@@ -251,6 +277,99 @@ app.whenReady().then(async () => {
     )
     if (applied !== query)
       throw new Error('AI preview did not apply the proposal')
+
+    // Exercise the same raw-query AI review lifecycle with BigQuery/GoogleSQL.
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore, state = store.getState()
+      const bq = ${JSON.stringify(bigQueryProfile)}
+      store.setState({
+        profiles: [...state.profiles.filter((item) => item.id !== bq.id), bq],
+        activeProfileId: bq.id,
+        metadataByProfileId: {
+          ...state.metadataByProfileId,
+          [bq.id]: {
+            status: 'loaded',
+            isStale: false,
+            error: null,
+            schemas: [{
+              name: 'my-project.analytics',
+              isSystem: false,
+              relations: [{
+                schema: 'my-project.analytics',
+                name: 'orders',
+                kind: 'r',
+                qualifiedName: 'my-project.analytics.orders',
+                columnsStatus: 'loaded',
+                columns: ${JSON.stringify(bigQueryColumns)},
+              }],
+            }],
+          },
+        },
+        tabs: state.tabs.map((tab) => ({
+          ...tab,
+          connectionProfileId: bq.id,
+          queryMode: 'sql',
+          sql: ${JSON.stringify(bigQueryInitialQuery)},
+          queryError: null,
+          repairableQueryError: null,
+        })),
+      })
+    })()`)
+    await wait(
+      win,
+      `document.querySelector('[data-field-name="AI prompt"] input')`,
+    )
+    await win.webContents.executeJavaScript(
+      `(() => { const input = document.querySelector('[data-field-name="AI prompt"] input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'revenue by country over the last 30 days'); input.dispatchEvent(new Event('input', { bubbles: true })) })()`,
+    )
+    await wait(
+      win,
+      '[...document.querySelectorAll("button")].some((b) => b.getAttribute("aria-label") === "Ask" && !b.disabled)',
+    )
+    await click(win, 'Ask')
+    await wait(
+      win,
+      '[...document.querySelectorAll("button")].some((b) => b.textContent === "Apply")',
+    )
+    const bigQueryUnchanged = await win.webContents.executeJavaScript(
+      'window.__datakoalaStore.getState().tabs[0].sql',
+    )
+    if (bigQueryUnchanged !== bigQueryInitialQuery)
+      throw new Error('BigQuery proposal changed SQL before Apply')
+    if (queryRuns !== 0)
+      throw new Error('BigQuery proposal executed a query before Apply')
+    await click(win, 'View AI details')
+    await wait(
+      win,
+      `[...document.querySelectorAll('[data-popover-overlay]')].some((overlay) => overlay.textContent.includes('GoogleSQL · OpenRouter') && overlay.textContent.includes('my-project.analytics.orders'))`,
+    )
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-query-bigquery-proposal.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
+    await win.webContents.executeJavaScript(
+      `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+    )
+    await click(win, 'Apply')
+    await wait(
+      win,
+      `window.__datakoalaStore.getState().tabs[0].sql === ${JSON.stringify(bigQueryQuery)}`,
+    )
+    if (queryRuns !== 0)
+      throw new Error('Applying BigQuery proposal executed a query')
+
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore, state = store.getState()
+      store.setState({
+        activeProfileId: ${JSON.stringify(profile.id)},
+        tabs: state.tabs.map((tab) => ({
+          ...tab,
+          connectionProfileId: ${JSON.stringify(profile.id)},
+        })),
+      })
+    })()`)
+
     // Exercise the real SQL Builder integration with a previously-run Builder.
     await win.webContents.executeJavaScript(`(() => {
       const store = window.__datakoalaStore, state = store.getState()
