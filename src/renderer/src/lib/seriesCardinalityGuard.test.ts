@@ -72,7 +72,7 @@ test('probe SQL safely quotes identifiers, stays bounded, and parameterizes pred
   const probe = buildSeriesCardinalityProbe({
     schema: 'odd"schema',
     table: 'event table',
-    seriesColumns: ['user"id'],
+    seriesColumn: 'user"id',
     predicates: [
       {
         column: 'created"at',
