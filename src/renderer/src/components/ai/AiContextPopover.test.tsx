@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  afterEach,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { AiQueryContext } from '@shared/ai'
 import { AiContextPopover } from './AiContextPopover'
@@ -86,12 +93,17 @@ describe('AiContextPopover relation catalog', () => {
     expect(within(catalog).queryByText(/customers\n/)).toBeNull()
   })
 
-  it.each([
-    ['missing', undefined],
-    ['empty', []],
-  ] as const)('omits the catalog section when it is %s', (_label, catalog) => {
+  it('omits the catalog section when it is missing', () => {
     renderDetails({
-      value: context([relation('public', 'orders')], catalog),
+      value: context([relation('public', 'orders')]),
+    })
+
+    expect(screen.queryByLabelText('Available relation names')).toBeNull()
+  })
+
+  it('omits the catalog section when it is empty', () => {
+    renderDetails({
+      value: context([relation('public', 'orders')], []),
     })
 
     expect(screen.queryByLabelText('Available relation names')).toBeNull()
