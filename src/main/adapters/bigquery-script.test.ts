@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { assertReadOnlyBigQueryScript } from './bigquery-script.ts'
+import { assertReadOnlyBigQueryQuery } from './bigquery-script.ts'
 
 test('allows local variables, tuple assignments, subqueries, CTEs and multiple SELECTs', () => {
   for (const sql of [
@@ -11,7 +11,7 @@ test('allows local variables, tuple assignments, subqueries, CTEs and multiple S
     'DECLARE `value` INT64; SET `value` = 2; SELECT `value`;',
     'SELECT 1; SELECT 2;',
   ])
-    assert.doesNotThrow(() => assertReadOnlyBigQueryScript(sql), sql)
+    assert.doesNotThrow(() => assertReadOnlyBigQueryQuery(sql), sql)
 })
 
 test('handles semicolons and keywords inside GoogleSQL literals and identifiers', () => {
@@ -27,7 +27,7 @@ test('handles semicolons and keywords inside GoogleSQL literals and identifiers'
     '`project.dataset.table;name`',
   ])
     assert.doesNotThrow(
-      () => assertReadOnlyBigQueryScript(`DECLARE x INT64; SELECT ${literal};`),
+      () => assertReadOnlyBigQueryQuery(`DECLARE x INT64; SELECT ${literal};`),
       literal,
     )
 })
@@ -55,7 +55,7 @@ test('rejects writes, execution, control flow, system assignments and scripts wi
   ])
     assert.throws(
       () =>
-        assertReadOnlyBigQueryScript(
+        assertReadOnlyBigQueryQuery(
           `DECLARE x INT64; ${statement}; SELECT x;`,
         ),
       /read-only/,
@@ -68,7 +68,7 @@ test('rejects writes, execution, control flow, system assignments and scripts wi
     'SELECT 1; SET x = 2;',
   ]) {
     assert.throws(
-      () => assertReadOnlyBigQueryScript(sql),
+      () => assertReadOnlyBigQueryQuery(sql),
       /ending with a SELECT/,
     )
   }
@@ -82,7 +82,7 @@ test('cannot hide a subsequent write behind comments, quotes, or raw literals', 
     'SELECT `a;b`; -- comment\rINSERT INTO t VALUES (1); SELECT 1;',
     'SELECT 1; /* comment */ EXECUTE IMMEDIATE "SELECT 1"; SELECT 1;',
   ])
-    assert.throws(() => assertReadOnlyBigQueryScript(sql), /read-only/, sql)
+    assert.throws(() => assertReadOnlyBigQueryQuery(sql), /read-only/, sql)
 })
 
 test('fails closed on unterminated comments and quoted values', () => {
@@ -92,6 +92,6 @@ test('fails closed on unterminated comments and quoted values', () => {
     'SELECT `unterminated',
     'SELECT 1; /* unterminated',
   ]) {
-    assert.throws(() => assertReadOnlyBigQueryScript(sql), /Unterminated/)
+    assert.throws(() => assertReadOnlyBigQueryQuery(sql), /Unterminated/)
   }
 })
