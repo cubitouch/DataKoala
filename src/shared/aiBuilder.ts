@@ -17,9 +17,14 @@ export function materializeAiBuilderTargetState(
   columns: readonly AiBuilderColumnContext[],
 ): AiBuilderState {
   const target: AiBuilderState = { ...state, ...patch }
-  const dataType = new Map(columns.map((column) => [column.name, column.dataType]))
+  const dataType = new Map(
+    columns.map((column) => [column.name, column.dataType]),
+  )
 
-  if (hasPatchField(patch, 'valueColumn') && !hasPatchField(patch, 'aggregation')) {
+  if (
+    hasPatchField(patch, 'valueColumn') &&
+    !hasPatchField(patch, 'aggregation')
+  ) {
     if (patch.valueColumn === null) target.aggregation = 'count'
     else if (patch.valueColumn && state.aggregation === 'count')
       target.aggregation = 'sum'
@@ -34,7 +39,10 @@ export function materializeAiBuilderTargetState(
       ? isBuilderTemporalDataType(dataType.get(patch.xColumn))
       : false
 
-    if (!hasPatchField(patch, 'timeBucket') && (!nextTemporal || !previousTemporal))
+    if (
+      !hasPatchField(patch, 'timeBucket') &&
+      (!nextTemporal || !previousTemporal)
+    )
       target.timeBucket = 'day'
 
     if (
