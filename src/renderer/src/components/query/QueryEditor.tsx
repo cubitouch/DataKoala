@@ -338,6 +338,11 @@ export function QueryEditor({
   const capabilities = DATA_SOURCE_CAPABILITIES[connectionKind ?? 'postgres']
   const canExplain = canUseDatabase && capabilities.explain
   const canAnalyze = canUseDatabase && capabilities.analyze
+  const canUseSqlCopilot =
+    connectionKind !== undefined && language.kind === 'sql' && !builderMode
+  const canUsePostgresRepair = connectionKind === 'postgres' && !builderMode
+  const showSqlCopilot =
+    canUseSqlCopilot && !(canUsePostgresRepair && repair?.blocked)
 
   const applyFormattedQuery = (formatted: string, requestTabId: string) => {
     const active = useStore.getState().activeTabId === requestTabId
@@ -533,17 +538,13 @@ export function QueryEditor({
         }
       />
 
-      {connectionKind === 'postgres' && !builderMode && (
-        <>
-          {!repair?.blocked && (
-            <AiQueryCopilot key={`${tabId}:${tabConnectionId}`} />
-          )}
-          <AiQueryRepairReview
-            onApplied={() =>
-              requestAnimationFrame(() => editorRef.current?.focus())
-            }
-          />
-        </>
+      {showSqlCopilot && <AiQueryCopilot key={`${tabId}:${tabConnectionId}`} />}
+      {canUsePostgresRepair && (
+        <AiQueryRepairReview
+          onApplied={() =>
+            requestAnimationFrame(() => editorRef.current?.focus())
+          }
+        />
       )}
       {builderMode ? (
         <PromqlBuilderPanel
