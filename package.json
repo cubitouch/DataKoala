@@ -78,7 +78,7 @@
     "lint:ts:fix": "pnpm lint:ts --fix",
     "lint:css": "stylelint \"src/**/*.css\" \"docs-site/**/*.css\"",
     "lint:css:fix": "pnpm lint:css --fix",
-    "format": "prettier --write docs/series-cardinality-performance.md && git diff -- docs/series-cardinality-performance.md && exit 1",
+    "format": "prettier --check .",
     "format:fix": "prettier --write ."
   },
   "dependencies": {
