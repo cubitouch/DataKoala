@@ -245,6 +245,17 @@ export function useAiBuilderCopilot() {
     setUnsupported('')
   }
 
+  let preview: Prepared | null = null
+  if (eligible && prompt.trim()) {
+    const snapshot = capture()
+    if (snapshot)
+      try {
+        preview = prepare(snapshot, prompt)
+      } catch {
+        preview = null
+      }
+  }
+
   return {
     prompt,
     setPrompt: (value: string) => {
@@ -262,7 +273,7 @@ export function useAiBuilderCopilot() {
     cancel,
     apply,
     reject: () => updateReview(null),
-    contextInput: busy ? sent : (review?.input ?? null),
+    contextInput: busy ? sent : (review?.input ?? preview),
     contextSent: Boolean(busy ? sent : review),
     promptTooLong: prompt.length > AI_LIMITS.prompt,
   }
