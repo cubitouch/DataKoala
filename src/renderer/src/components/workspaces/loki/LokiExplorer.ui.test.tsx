@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   labelValues: vi.fn(),
   formatQuery: vi.fn(),
   runLoki: vi.fn(),
+  notify: vi.fn(),
 }))
 const copyTextToClipboard = vi.hoisted(() => vi.fn())
 const chartMock = vi.hoisted(() => ({ renders: 0 }))
@@ -28,6 +29,9 @@ vi.mock('@lib/api', () => ({
     },
     query: { runLoki: mocks.runLoki },
   },
+}))
+vi.mock('@components/ui/feedback/NotificationArea', () => ({
+  notify: mocks.notify,
 }))
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count }: { count: number }) => ({
@@ -140,11 +144,28 @@ beforeEach(() => {
     .mockReset()
     .mockImplementation(async (_connectionId, query) => query)
   mocks.runLoki.mockReset()
+  mocks.notify.mockReset()
   copyTextToClipboard.mockReset()
   chartMock.renders = 0
 })
 
 describe('LokiExplorer execution', () => {
+  it('notifies after formatting raw LogQL successfully', async () => {
+    mocks.formatQuery.mockResolvedValue('{app="x"}\n|= "timeout"')
+    render(<LokiExplorer connectionId="loki" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+
+    await waitFor(() =>
+      expect(mocks.formatQuery).toHaveBeenCalledWith('loki', '{app="x"}'),
+    )
+    expect(useStore.getState().tabs[0].sql).toBe('{app="x"}\n|= "timeout"')
+    expect(mocks.notify).toHaveBeenCalledWith({
+      message: 'Formatted',
+      duration: 2600,
+    })
+  })
+
   it('disables and guards Loki execution while metadata refreshes', () => {
     useStore.setState({
       metadataByProfileId: {

@@ -444,6 +444,47 @@ describe('PromQL execution', () => {
     })
   })
 
+  it('keeps PromQL formatting available while disconnected and without a Grafana datasource', async () => {
+    resetTestStore({
+      profiles: [
+        {
+          id: 'prom-1',
+          name: 'Metrics',
+          kind: 'prometheus',
+          version: 1,
+          readonly: true,
+          transport: { kind: 'gcx' },
+        },
+      ],
+      activeProfileId: 'prom-1',
+      connected: false,
+      connecting: false,
+      connectionStatus: 'disconnected',
+    })
+    patchActiveTestSession({
+      connectionProfileId: 'prom-1',
+      queryMode: 'sql',
+      sql: 'sum(rate(http_requests_total[5m]))',
+    })
+    formatQuery.mockResolvedValue('sum(\n  rate(http_requests_total[5m])\n)')
+    render(<QueryEditor />)
+
+    const format = screen.getByRole('button', { name: 'Format' })
+    expect(format.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(format)
+
+    await waitFor(() =>
+      expect(formatQuery).toHaveBeenCalledWith(
+        'prom-1',
+        'sum(rate(http_requests_total[5m]))',
+      ),
+    )
+    expect(notify).toHaveBeenCalledWith({
+      message: 'Formatted',
+      duration: 2600,
+    })
+  })
+
   it('preserves PromQL when formatting fails and ignores duplicate clicks', async () => {
     const request = deferred<string>()
     formatQuery.mockReturnValue(request.promise)

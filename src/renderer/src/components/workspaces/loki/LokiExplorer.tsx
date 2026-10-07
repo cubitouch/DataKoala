@@ -48,6 +48,7 @@ import { applyResultFilters, type ResultFilter } from '@lib/resultFilters'
 import { QueryToolbar } from '@components/query/QueryToolbar'
 import { QueryCodeEditor } from '@components/query/QueryCodeEditor'
 import { GrafanaHandoffActions } from '@components/query/GrafanaHandoffActions'
+import { notify } from '@components/ui/feedback/NotificationArea'
 
 const serviceNameFallback = {
   label: 'service_name',
@@ -569,6 +570,7 @@ export function LokiExplorer({
     const original = query
     try {
       setSql(await api.connections.loki.formatQuery(connectionId, original))
+      notify({ message: 'Formatted', duration: 2600 })
     } catch (caught) {
       setError(
         `Formatting failed; query was not changed. ${caught instanceof Error ? caught.message : String(caught)}`,

@@ -82,12 +82,6 @@ export function QueryEditor({
         profile.id === tabConnectionId && profile.kind === 'prometheus',
     ),
   )
-  const prometheusDatasourceUid = useStore((s) => {
-    const profile = s.profiles.find((item) => item.id === tabConnectionId)
-    return profile?.kind === 'prometheus'
-      ? profile.transport.datasourceUid
-      : undefined
-  })
   const language = queryLanguageForSourceKind(connectionKind ?? 'postgres')
   const dialect = language.kind === 'sql' ? language.dialect : 'postgres'
   const metadata = useStore((s) =>
@@ -96,7 +90,6 @@ export function QueryEditor({
   const metadataRefreshing = metadata?.refreshing ?? false
   const schemas = metadata?.schemas ?? EMPTY_SCHEMAS
   const connecting = useStore((s) => s.connecting)
-  const connected = useStore((s) => s.connected)
   const running = useStore((s) => selectActiveSession(s).running)
   const startQuery = useStore((s) => s.startQuery)
   const completeQuery = useStore((s) => s.completeQuery)
@@ -339,9 +332,7 @@ export function QueryEditor({
   const isAnalyzeLoading = activeExplainRequest === 'analyze'
   const isAnyExplainLoading = activeExplainRequest !== null
   const canUseDatabase = Boolean(tabConnectionId) && !connecting
-  const canFormatPromql =
-    language.kind !== 'promql' ||
-    Boolean(tabConnectionId && connected && prometheusDatasourceUid?.trim())
+  const canFormatPromql = language.kind !== 'promql' || Boolean(tabConnectionId)
   const capabilities = DATA_SOURCE_CAPABILITIES[connectionKind ?? 'postgres']
   const canExplain = canUseDatabase && capabilities.explain
   const canAnalyze = canUseDatabase && capabilities.analyze
