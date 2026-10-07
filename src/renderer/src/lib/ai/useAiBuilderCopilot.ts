@@ -62,25 +62,29 @@ export function useAiBuilderCopilot() {
           profile.id === selectActiveSession(state).connectionProfileId,
       )?.kind,
   )
-  const columnsStatus = useStore((state) => {
+  const hasUsableColumns = useStore((state) => {
     const session = selectActiveSession(state)
-    if (!session.connectionProfileId || !session.builder.table) return undefined
+    if (!session.connectionProfileId || !session.builder.table) return false
     const schemas =
       state.metadataByProfileId[session.connectionProfileId]?.schemas ?? []
-    return schemas
+    const relation = schemas
       .flatMap((schema) => schema.relations)
       .find(
-        (relation) =>
-          relation.schema === session.builder.table?.schema &&
-          relation.name === session.builder.table?.name,
-      )?.columnsStatus
+        (candidate) =>
+          candidate.schema === session.builder.table?.schema &&
+          candidate.name === session.builder.table?.name,
+      )
+    return (
+      relation?.columnsStatus === 'loaded' &&
+      Boolean(relation.columns?.length)
+    )
   })
 
   const eligible =
     profileKind === 'postgres' &&
     queryMode === 'builder' &&
     Boolean(table) &&
-    columnsStatus === 'loaded'
+    hasUsableColumns
 
   const updateReview = (value: Review | null) => {
     reviewRef.current = value
@@ -238,6 +242,7 @@ export function useAiBuilderCopilot() {
       {
         profileId: current.input.snapshot.profileId,
         state: current.input.snapshot.state,
+        guard: current.input.snapshot.guard,
       },
       current.target,
       current.input.snapshot.tabId,
