@@ -254,10 +254,13 @@ test('PostgreSQL exact fallback rejects at 101', async () => {
       ? result([{ n_distinct: 100, reltuples: 1_000_000 }])
       : result([{ count: 101 }]),
   )
-  assert.deepEqual(await new SeriesCardinalityProbes().probe(session, request), {
-    distinctCount: 101,
-    exceedsHardLimit: true,
-  })
+  assert.deepEqual(
+    await new SeriesCardinalityProbes().probe(session, request),
+    {
+      distinctCount: 101,
+      exceedsHardLimit: true,
+    },
+  )
 })
 
 test('PostgreSQL refuses multi-column probes before generating SQL', async () => {
