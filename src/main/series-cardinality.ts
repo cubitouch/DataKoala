@@ -138,7 +138,10 @@ export class SeriesCardinalityProbes {
           statistics.estimatedDistinct >= 0
             ? statistics.estimatedDistinct
             : undefined
-        if (estimate !== undefined && estimate <= SERIES_STATS_ACCEPT_THRESHOLD) {
+        if (
+          estimate !== undefined &&
+          estimate <= SERIES_STATS_ACCEPT_THRESHOLD
+        ) {
           record('postgres-pg-stats', started, 'accepted')
           return {
             distinctCount: estimate,
@@ -146,7 +149,10 @@ export class SeriesCardinalityProbes {
             estimated: true,
           }
         }
-        if (estimate !== undefined && estimate > SERIES_STATS_REJECT_THRESHOLD) {
+        if (
+          estimate !== undefined &&
+          estimate > SERIES_STATS_REJECT_THRESHOLD
+        ) {
           record('postgres-pg-stats', started, 'rejected')
           return {
             distinctCount: estimate,
@@ -213,7 +219,11 @@ export class SeriesCardinalityProbes {
       )
       return { distinctCount, exceedsHardLimit }
     } catch (error) {
-      record(provider === 'bigquery' ? 'bigquery-exact' : 'exact', started, 'error')
+      record(
+        provider === 'bigquery' ? 'bigquery-exact' : 'exact',
+        started,
+        'error',
+      )
       throw error
     }
   }
