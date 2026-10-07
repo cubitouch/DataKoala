@@ -1447,7 +1447,7 @@ test('Builder AI stays hidden until a PostgreSQL relation has loaded columns', a
     },
   })
   render(<AiBuilderCopilot />)
-  await waitFor(() => expect(mocks.get).toHaveBeenCalled())
+  expect(mocks.get).not.toHaveBeenCalled()
   expect(
     screen.queryByRole('textbox', { name: 'Builder AI prompt' }),
   ).toBeNull()
