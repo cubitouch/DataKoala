@@ -134,7 +134,11 @@ test('DuckDB session queries selected files and sandboxes every unselected file 
     ])
       await assert.rejects(
         connected.session.query({ sql }),
-        /file system operations are disabled/i,
+        (error) =>
+          queryFailureKind(error) === 'validation' &&
+          /file system operations are disabled/i.test(
+            error instanceof Error ? error.message : '',
+          ),
       )
     const securitySettings = await connected.session.query({
       sql: "SELECT name, value FROM duckdb_settings() WHERE name IN ('enable_external_access', 'allow_community_extensions', 'autoinstall_known_extensions', 'autoload_known_extensions', 'allow_persistent_secrets', 'lock_configuration')",
