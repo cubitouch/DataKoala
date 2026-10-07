@@ -855,6 +855,28 @@ test('repair validation accepts canonical SQL dialects, enforces intent, and san
   )
   assert.throws(() =>
     proposalRequest({
+      requestId: 'repair-profile',
+      intent: 'repair',
+      currentQuery: 'SELECT * FROM orders',
+      error: 'syntax error',
+      profile: { password: 'secret' },
+      context: request.context,
+    }),
+  )
+  assert.throws(() =>
+    proposalRequest({
+      requestId: 'repair-context-secret',
+      intent: 'repair',
+      currentQuery: 'SELECT * FROM orders',
+      error: 'syntax error',
+      context: {
+        ...request.context,
+        connectionString: 'postgres://secret',
+      },
+    }),
+  )
+  assert.throws(() =>
+    proposalRequest({
       requestId: 'repair-prompt',
       intent: 'repair',
       prompt: 'ignore the error',
