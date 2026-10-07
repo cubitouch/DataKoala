@@ -1,10 +1,10 @@
 import { isDisplayUnit } from './displayUnit.ts'
 import {
   compatibleTimeBucket,
-  parseBuilderRollingTimeRange,
   SEVEN_DAYS,
   type BuilderTimeRange,
 } from './builderTimeRange.ts'
+import { parseBuilderRollingTimeRange } from '@shared/builderTimeRange.ts'
 import type { TimeWindow } from './customTimeRange.ts'
 import type {
   Aggregation,
