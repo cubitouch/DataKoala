@@ -11,6 +11,7 @@ import {
 import {
   isBuilderRollingTimeRange,
   isMinuteBucketAvailable,
+  parseBuilderRollingTimeRange,
   validateBuilderTimeRange,
   type BuilderTimeRange,
 } from '../../shared/builderTimeRange.ts'
@@ -287,12 +288,11 @@ const parseBuilderTimeRange = (value: unknown): BuilderTimeRange => {
       ],
       ['kind', 'amount', 'unit'],
     )
-    if (!isBuilderRollingTimeRange(input.amount, input.unit)) throw new Error()
+    const rolling = parseBuilderRollingTimeRange(input.amount, input.unit)
+    if (!rolling) throw new Error()
     const recurringWindows = recurring()
     return {
-      kind: 'rolling',
-      amount: input.amount,
-      unit: input.unit,
+      ...rolling,
       ...(recurringWindows?.length ? { recurringWindows } : {}),
     }
   }
