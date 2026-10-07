@@ -325,10 +325,6 @@ class BigQuerySession implements DataSourceSession {
     request: SeriesCardinalityProbeRequest,
   ): Promise<QueryResult> {
     const validated = validateSeriesCardinalityRequest(request)
-    if (validated.seriesColumns.length !== 1)
-      throw new Error(
-        'BigQuery Series cardinality probes require exactly one Series field.',
-      )
     const probe = buildBigQuerySeriesCardinalityApproxProbe(validated)
     return this.executeQuery(this.jobOptions(probe.sql, probe.parameters))
   }
@@ -336,10 +332,6 @@ class BigQuerySession implements DataSourceSession {
     request: SeriesCardinalityProbeRequest,
   ): Promise<QueryResult> {
     const validated = validateSeriesCardinalityRequest(request)
-    if (validated.seriesColumns.length !== 1)
-      throw new Error(
-        'BigQuery Series cardinality probes require exactly one Series field.',
-      )
     const probe = buildSeriesCardinalityProbe(validated, 'google-sql')
     return this.executeQuery(this.jobOptions(probe.sql, probe.parameters))
   }
