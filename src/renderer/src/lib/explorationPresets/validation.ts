@@ -1,7 +1,10 @@
 import { isDisplayUnit } from '@lib/displayUnit.ts'
 import type { QueryLanguage } from '@shared/types'
 import type { BuilderQueryState, QueryMode } from '@store/useStore'
-import type { BuilderTimeRange } from '@lib/builderTimeRange'
+import {
+  isBuilderRollingTimeRange,
+  type BuilderTimeRange,
+} from '@shared/builderTimeRange'
 import type { VisualizationConfiguration } from '@lib/resultVisualization'
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -72,14 +75,9 @@ export function parseTimeRange(value: unknown): BuilderTimeRange | null {
   if (recurringWindows === null) return null
   if (value.kind === 'all')
     return { kind: 'all', ...(recurringWindows ? { recurringWindows } : {}) }
-  if (value.kind === 'rolling' && typeof value.amount === 'number') {
-    const valid =
-      (value.unit === 'minute' && oneOf(value.amount, [15, 30] as const)) ||
-      (value.unit === 'hour' &&
-        oneOf(value.amount, [1, 3, 6, 12, 24] as const)) ||
-      (value.unit === 'day' && oneOf(value.amount, [7, 30] as const)) ||
-      (value.unit === 'month' && oneOf(value.amount, [3, 6, 12] as const))
-    return valid ? (clone(value) as BuilderTimeRange) : null
+  if (value.kind === 'rolling') {
+    if (!isBuilderRollingTimeRange(value.amount, value.unit)) return null
+    return clone(value) as BuilderTimeRange
   }
   if (value.kind !== 'custom') return null
   if (
