@@ -1324,7 +1324,13 @@ test('Builder AI marks a visible proposal stale after manual Builder work', asyn
   expect(screen.getByText(/Builder controls changed/)).toBeTruthy()
 })
 
-for (const change of ['tab', 'connection', 'relation', 'builder'] as const) {
+for (const change of [
+  'tab',
+  'connection',
+  'relation',
+  'builder',
+  'series',
+] as const) {
   test(`Builder AI ignores a late proposal after a ${change} change`, async () => {
     setupBuilderAi()
     const pending = deferred<AiResult<AiBuilderStep>>()
@@ -1345,8 +1351,10 @@ for (const change of ['tab', 'connection', 'relation', 'builder'] as const) {
         useStore
           .getState()
           .setBuilder({ table: { schema: 'public', name: 'other' } })
-      } else {
+      } else if (change === 'builder') {
         useStore.getState().setVisualization('builder', { xColumn: 'status' })
+      } else {
+        useStore.getState().setBuilder({ seriesColumns: ['status'] })
       }
     })
     await act(async () =>
@@ -1447,6 +1455,36 @@ test('Builder AI stays hidden until a PostgreSQL relation has loaded columns', a
       seriesColumns: [],
     },
   })
+  render(<AiBuilderCopilot />)
+  expect(mocks.get).not.toHaveBeenCalled()
+  expect(
+    screen.queryByRole('textbox', { name: 'Builder AI prompt' }),
+  ).toBeNull()
+})
+
+test('Builder AI stays hidden when the selected relation has no usable columns', async () => {
+  setupBuilderAi()
+  setActiveTestMetadata(
+    [
+      {
+        name: 'public',
+        isSystem: false,
+        relations: [
+          {
+            schema: 'public',
+            name: 'orders',
+            kind: 'r',
+            qualifiedName: 'public.orders',
+            columnsStatus: 'loaded',
+            columns: [],
+          },
+        ],
+      },
+    ],
+    'loaded',
+    null,
+    'pg',
+  )
   render(<AiBuilderCopilot />)
   expect(mocks.get).not.toHaveBeenCalled()
   expect(
