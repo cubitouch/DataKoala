@@ -34,8 +34,8 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
     profileConnection?.serverVersion ??
     (useLegacyFallback ? legacyServerVersion : null)
   const live =
-    status === 'connected' ||
-    status === 'idle' ||
+    profileConnection?.status === 'connected' ||
+    profileConnection?.status === 'idle' ||
     (useLegacyFallback && legacyConnected)
   const connecting =
     status === 'connecting' ||
@@ -47,13 +47,17 @@ export function ConnectionStatus({ className }: ConnectionStatusProps) {
       ? 'Reconnecting…'
       : connecting
         ? 'Connecting…'
-        : live
-          ? `${activeName} · ${activeProfile ? connectionKindLabel(activeProfile.kind) : ''}${serverVersion ? ` ${serverVersion}` : ''}`.trim()
+        : live && activeProfile
+          ? `${activeName} · ${connectionKindLabel(activeProfile.kind)}${serverVersion ? ` ${serverVersion}` : ''}`.trim()
           : error
             ? error
-            : activeName
-              ? `${activeName} · disconnected`
-              : 'Disconnected'
+            : status === 'idle'
+              ? 'Idle'
+              : live
+                ? 'Connected'
+                : activeName
+                  ? `${activeName} · disconnected`
+                  : 'Disconnected'
 
   const stateClass = live ? styles.connected : error ? styles.error : ''
   return (
