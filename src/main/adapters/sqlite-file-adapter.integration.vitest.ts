@@ -227,7 +227,11 @@ c.commit(); c.close()
     ])
       await assert.rejects(
         session.query({ sql }),
-        /read.only|external|permission|allowed|configuration/i,
+        (error) =>
+          queryFailureKind(error) === 'validation' &&
+          /read.only|external|permission|allowed|configuration/i.test(
+            error instanceof Error ? error.message : '',
+          ),
       )
 
     assert.deepEqual(await fingerprint(database), before)
