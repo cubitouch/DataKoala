@@ -333,7 +333,7 @@ export class OpenRouterProvider implements AiProvider {
               aggregations: BUILDER_AGGREGATIONS,
               timeBuckets: BUILDER_TIME_BUCKETS,
               timeRanges:
-                'all; rolling 15/30 minutes, 1/3/6/12/24 hours, 7/30 days, 3/6/12 months; or an existing-valid custom range',
+                'all; bounded positive-integer rolling minutes/hours/days/months (for example 10 days); or an existing-valid custom range',
             },
           }),
         },
