@@ -55,9 +55,7 @@ test('rejects writes, execution, control flow, system assignments and scripts wi
   ])
     assert.throws(
       () =>
-        assertReadOnlyBigQueryQuery(
-          `DECLARE x INT64; ${statement}; SELECT x;`,
-        ),
+        assertReadOnlyBigQueryQuery(`DECLARE x INT64; ${statement}; SELECT x;`),
       /read-only/,
       statement,
     )
