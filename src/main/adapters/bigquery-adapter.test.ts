@@ -791,6 +791,14 @@ test('BigQuery query failures distinguish SQL errors from auth and permission fa
       kind: 'query',
     },
     {
+      name: 'invalid configured project',
+      failure: Object.assign(new Error('Not found: Project missing-project'), {
+        code: 404,
+        errors: [{ reason: 'notFound' }],
+      }),
+      kind: 'connection',
+    },
+    {
       name: 'authentication',
       failure: Object.assign(new Error('invalid credentials'), {
         code: 401,
