@@ -45,7 +45,7 @@ export function explainNodeCategory(nodeType: string): ExplainNodeCategory {
 }
 
 export interface CardinalityComparison {
-  relation: 'match' | 'underestimate' | 'overestimate'
+  relation: 'close' | 'underestimate' | 'overestimate'
   ratio?: number
   label: string
 }
@@ -69,7 +69,7 @@ export function compareCardinality(
 
   if (planRows === 0) {
     if (actualRows === 0)
-      return { relation: 'match', ratio: 1, label: '1× estimate' }
+      return { relation: 'close', ratio: 1, label: '1× estimate' }
     return {
       relation: 'underestimate',
       label: 'estimate 0 · actual > 0',
@@ -79,11 +79,7 @@ export function compareCardinality(
   const ratio = actualRows / planRows
   return {
     relation:
-      actualRows === planRows
-        ? 'match'
-        : actualRows > planRows
-          ? 'underestimate'
-          : 'overestimate',
+      ratio >= 2 ? 'underestimate' : ratio <= 0.5 ? 'overestimate' : 'close',
     ratio,
     label: formatRatio(ratio),
   }
