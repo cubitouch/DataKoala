@@ -30,7 +30,7 @@ import type {
   DataSourceSession,
   QueryRequest,
 } from '../data-source.ts'
-import { assertReadOnlyBigQueryScript } from './bigquery-script.ts'
+import { assertReadOnlyBigQueryQuery } from './bigquery-script.ts'
 import {
   ClassifiedQueryError,
   QueryConnectionError,
@@ -373,6 +373,7 @@ class BigQuerySession implements DataSourceSession {
   }
   async query(request: QueryRequest): Promise<QueryResult> {
     try {
+      assertReadOnlyBigQueryQuery(request.sql)
       const common = this.jobOptions(request.sql, request.parameters || [])
       const [dryJob] = await this.client.createQueryJob({
         ...common,
@@ -380,8 +381,7 @@ class BigQuerySession implements DataSourceSession {
       })
       const dryMetadata = dryJob.metadata
       const statementType = dryMetadata.statistics?.query?.statementType
-      if (statementType === 'SCRIPT') assertReadOnlyBigQueryScript(request.sql)
-      else if (statementType !== 'SELECT')
+      if (statementType !== 'SELECT' && statementType !== 'SCRIPT')
         throw new QueryValidationError(
           'BigQuery connections are read-only. Use SELECT queries or DECLARE/SET scripts ending with a SELECT; write statements are not supported.',
         )
