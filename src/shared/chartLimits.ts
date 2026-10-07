@@ -2,7 +2,7 @@ export const CHART_SERIES_SOFT_LIMIT = 30
 export const CHART_SERIES_HARD_LIMIT = 100
 export const CHART_POINTS_SOFT_LIMIT = 20_000
 export const CHART_POINTS_HARD_LIMIT = 100_000
-/** Native PostgreSQL estimates at or below this threshold may accept a field. */
+/** Native provider estimates at or below this threshold may accept a field. */
 export const SERIES_STATS_ACCEPT_THRESHOLD = 50
 export const SERIES_STATS_REJECT_THRESHOLD = 200
 export const MAX_SERIES_PROBE_COLUMNS = 16
