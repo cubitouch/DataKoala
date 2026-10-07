@@ -99,7 +99,10 @@ for (const [approximateCount, exactCount, expected] of [
     let approximateCalls = 0
     let exactCalls = 0
     const measurements: ProbeMeasurement[] = []
-    const withExecution = (count: number, bytesProcessed: number): QueryResult => ({
+    const withExecution = (
+      count: number,
+      bytesProcessed: number,
+    ): QueryResult => ({
       ...result([{ count }]),
       execution: {
         provider: 'bigquery',
