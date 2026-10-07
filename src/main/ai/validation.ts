@@ -9,6 +9,7 @@ import {
   type BuilderTimeBucket,
 } from '../../shared/builderCapabilities.ts'
 import {
+  isBuilderRollingTimeRange,
   isMinuteBucketAvailable,
   validateBuilderTimeRange,
   type BuilderTimeRange,
@@ -252,7 +253,20 @@ const parseBuilderTimeRange = (value: unknown): BuilderTimeRange => {
     })
   }
   if (input.kind === 'all') {
-    exactKeys(input, ['kind', 'recurringWindows'], ['kind'])
+    exactKeys(
+      input,
+      [
+        'kind',
+        'amount',
+        'unit',
+        'startDate',
+        'startTime',
+        'endDate',
+        'endTime',
+        'recurringWindows',
+      ],
+      ['kind'],
+    )
     const recurringWindows = recurring()
     return recurringWindows?.length
       ? { kind: 'all', recurringWindows }
@@ -261,47 +275,25 @@ const parseBuilderTimeRange = (value: unknown): BuilderTimeRange => {
   if (input.kind === 'rolling') {
     exactKeys(
       input,
-      ['kind', 'amount', 'unit', 'recurringWindows'],
+      [
+        'kind',
+        'amount',
+        'unit',
+        'startDate',
+        'startTime',
+        'endDate',
+        'endTime',
+        'recurringWindows',
+      ],
       ['kind', 'amount', 'unit'],
     )
-    if (typeof input.amount !== 'number' || !Number.isInteger(input.amount))
-      throw new Error()
-    const amount = input.amount
-    const unit = input.unit
-    const allowed =
-      (unit === 'minute' && [15, 30].includes(amount)) ||
-      (unit === 'hour' && [1, 3, 6, 12, 24].includes(amount)) ||
-      (unit === 'day' && [7, 30].includes(amount)) ||
-      (unit === 'month' && [3, 6, 12].includes(amount))
-    if (!allowed) throw new Error()
+    if (!isBuilderRollingTimeRange(input.amount, input.unit)) throw new Error()
     const recurringWindows = recurring()
-    const extra = recurringWindows?.length ? { recurringWindows } : {}
-    if (unit === 'minute')
-      return {
-        kind: 'rolling',
-        amount: amount as 15 | 30,
-        unit,
-        ...extra,
-      }
-    if (unit === 'hour')
-      return {
-        kind: 'rolling',
-        amount: amount as 1 | 3 | 6 | 12 | 24,
-        unit,
-        ...extra,
-      }
-    if (unit === 'day')
-      return {
-        kind: 'rolling',
-        amount: amount as 7 | 30,
-        unit,
-        ...extra,
-      }
     return {
       kind: 'rolling',
-      amount: amount as 3 | 6 | 12,
-      unit: 'month',
-      ...extra,
+      amount: input.amount,
+      unit: input.unit,
+      ...(recurringWindows?.length ? { recurringWindows } : {}),
     }
   }
   if (input.kind === 'custom') {
@@ -309,6 +301,8 @@ const parseBuilderTimeRange = (value: unknown): BuilderTimeRange => {
       input,
       [
         'kind',
+        'amount',
+        'unit',
         'startDate',
         'startTime',
         'endDate',
