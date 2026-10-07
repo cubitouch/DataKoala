@@ -145,6 +145,8 @@ export interface QuerySession {
   explainSnapshot: {
     query: string
     mode: 'explain' | 'analyze'
+    planningTimeMs?: number
+    executionTimeMs?: number
   } | null
   explainText: string | null
   explainTree: ExplainNode | null
