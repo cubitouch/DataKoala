@@ -623,7 +623,8 @@ app.whenReady().then(async () => {
       win,
       `document.querySelector('[aria-label="AI query repair review"]') && document.querySelector('[aria-label="SQL proposal diff"]') && document.querySelector('[data-diff-kind="add"]') && document.querySelector('[data-diff-kind="remove"]')`,
     )
-    const bigQueryRepairReview = await win.webContents.executeJavaScript(`(() => {
+    const bigQueryRepairReview = await win.webContents
+      .executeJavaScript(`(() => {
       const editor = document.querySelector('[aria-label="SQL editor"] .cm-content') ?? document.querySelector('.cm-content')
       const diff = document.querySelector('[aria-label="SQL proposal diff"]')
       return {
