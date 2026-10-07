@@ -1,4 +1,7 @@
-import { buildSeriesCardinalityProbe } from '../../shared/seriesCardinality.ts'
+import {
+  buildBigQuerySeriesCardinalityApproxProbe,
+  buildSeriesCardinalityProbe,
+} from '../../shared/seriesCardinality.ts'
 import { validateSeriesCardinalityRequest } from '../../shared/seriesCardinalityValidation.ts'
 import type { SeriesCardinalityProbeRequest } from '../../shared/chartLimits.ts'
 import {
@@ -318,13 +321,26 @@ class BigQuerySession implements DataSourceSession {
       )
     return this.executeQuery(common)
   }
+  async querySeriesCardinalityApproximate(
+    request: SeriesCardinalityProbeRequest,
+  ): Promise<QueryResult> {
+    const validated = validateSeriesCardinalityRequest(request)
+    if (validated.seriesColumns.length !== 1)
+      throw new Error(
+        'BigQuery Series cardinality probes require exactly one Series field.',
+      )
+    const probe = buildBigQuerySeriesCardinalityApproxProbe(validated)
+    return this.executeQuery(this.jobOptions(probe.sql, probe.parameters))
+  }
   async querySeriesCardinality(
     request: SeriesCardinalityProbeRequest,
   ): Promise<QueryResult> {
-    const probe = buildSeriesCardinalityProbe(
-      validateSeriesCardinalityRequest(request),
-      'google-sql',
-    )
+    const validated = validateSeriesCardinalityRequest(request)
+    if (validated.seriesColumns.length !== 1)
+      throw new Error(
+        'BigQuery Series cardinality probes require exactly one Series field.',
+      )
+    const probe = buildSeriesCardinalityProbe(validated, 'google-sql')
     return this.executeQuery(this.jobOptions(probe.sql, probe.parameters))
   }
   private async executeQuery(
