@@ -38,6 +38,9 @@ export function registerAiIpc() {
   ipcMain.handle(IPC.AI_PROPOSE, (event, input: unknown) =>
     service.proposeQuery(owner(event), input),
   )
+  ipcMain.handle(IPC.AI_PROPOSE_BUILDER, (event, input: unknown) =>
+    service.proposeBuilder(owner(event), input),
+  )
   ipcMain.handle(IPC.AI_CANCEL, (event, id: unknown) =>
     service.cancel(owner(event), id),
   )
