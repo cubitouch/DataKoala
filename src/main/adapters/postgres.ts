@@ -10,6 +10,12 @@ import type {
   ExplainNode,
   ExplainResult,
 } from '../../shared/types'
+import {
+  QueryConnectionError,
+  QueryValidationError,
+} from '../query-failure.ts'
+
+export { QueryValidationError } from '../query-failure.ts'
 
 interface ManagedPool {
   pool: Pool
@@ -35,19 +41,13 @@ const connectionIntents = new Map<ConnectionId, number>()
 let stateListener: (event: ConnectionStateEvent) => void = () => undefined
 let createPool = (config: PoolConfig): Pool => new Pool(config)
 
-export class DatabaseConnectionError extends Error {
+export class DatabaseConnectionError extends QueryConnectionError {
   readonly code: ConnectionErrorCode
+
   constructor(code: ConnectionErrorCode, message: string) {
     super(message)
     this.name = 'DatabaseConnectionError'
     this.code = code
-  }
-}
-
-export class QueryValidationError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'QueryValidationError'
   }
 }
 
