@@ -462,6 +462,45 @@ describe('BuilderPanel axis-first controls', () => {
     ).toBe(false)
   })
 
+  it('describes exact rejection as a per-field Series limit', async () => {
+    probeSeriesCardinality.mockResolvedValueOnce({
+      exceedsHardLimit: true,
+      distinctCount: 101,
+    })
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /customer_id/ }))
+
+    expect(
+      await screen.findByText(
+        'This Series field has more than 100 distinct values and cannot be used as a chart breakdown.',
+      ),
+    ).toBeTruthy()
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
+  })
+
+  it('describes estimated PostgreSQL rejection as a per-field estimate', async () => {
+    probeSeriesCardinality.mockResolvedValueOnce({
+      exceedsHardLimit: true,
+      distinctCount: 500,
+      estimated: true,
+    })
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /customer_id/ }))
+
+    expect(
+      await screen.findByText(
+        'PostgreSQL estimates this field has approximately 500 distinct values, above the supported Series limit of 100.',
+      ),
+    ).toBeTruthy()
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
+  })
+
   it('clears Series through the existing transition path', () => {
     arrange()
     chooseOrders()
