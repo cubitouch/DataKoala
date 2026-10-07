@@ -2,11 +2,11 @@
 
 ## Implemented strategies
 
-| Provider                                 | Strategy                                                                                               | Approval                 |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------ |
-| PostgreSQL                               | Per-field `pg_stats`; scoped/high-or-uncertain estimates fall back to exact single-column SQL          | Native estimate or exact |
-| BigQuery                                 | Per-field `APPROX_COUNT_DISTINCT`; uncertain estimates fall back to one exact generated probe          | Native estimate or exact |
-| DuckDB / local files / SQLite via DuckDB | Existing bounded grouped query                                                                         | Exact only               |
+| Provider                                 | Strategy                                                                                      | Approval                 |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------ |
+| PostgreSQL                               | Per-field `pg_stats`; scoped/high-or-uncertain estimates fall back to exact single-column SQL | Native estimate or exact |
+| BigQuery                                 | Per-field `APPROX_COUNT_DISTINCT`; uncertain estimates fall back to one exact generated probe | Native estimate or exact |
+| DuckDB / local files / SQLite via DuckDB | Existing bounded grouped query                                                                | Exact only               |
 
 The renderer validates newly added Series fields independently and retains
 stale-response protection for the complete proposed selection. PostgreSQL probes
