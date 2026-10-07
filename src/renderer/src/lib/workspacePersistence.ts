@@ -1,7 +1,7 @@
 import { isDisplayUnit } from './displayUnit.ts'
 import {
   compatibleTimeBucket,
-  isBuilderRollingTimeRange,
+  parseBuilderRollingTimeRange,
   SEVEN_DAYS,
   type BuilderTimeRange,
 } from './builderTimeRange.ts'
@@ -175,10 +175,8 @@ function timeWindow(value: unknown): TimeWindow | null {
 function timeRange(value: unknown): BuilderTimeRange | null {
   if (!isRecord(value)) return null
   if (value.kind === 'all') return { kind: 'all' }
-  if (value.kind === 'rolling') {
-    if (!isBuilderRollingTimeRange(value.amount, value.unit)) return null
-    return { kind: 'rolling', amount: value.amount, unit: value.unit }
-  }
+  if (value.kind === 'rolling')
+    return parseBuilderRollingTimeRange(value.amount, value.unit)
   if (value.kind !== 'custom') return null
   const startDate = stringOrNull(value.startDate)
   const endDate = stringOrNull(value.endDate)
