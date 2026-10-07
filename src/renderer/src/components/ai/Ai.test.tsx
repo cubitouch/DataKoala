@@ -1190,6 +1190,64 @@ test('Builder AI reviews structured changes before atomic Apply and never runs',
   expect(mocks.run).not.toHaveBeenCalled()
 })
 
+test('Builder AI reviews and applies manual-parity X/Y conflict normalization without running', async () => {
+  setupBuilderAi()
+  const initial = selectActiveSession(useStore.getState())
+  patchActiveTestSession({
+    builderVisualization: {
+      ...initial.builderVisualization,
+      xColumn: 'country',
+      valueColumn: 'revenue',
+      aggregation: 'sum',
+      seriesColumn: null,
+      seriesColumns: [],
+    },
+  })
+  const before = selectActiveSession(useStore.getState())
+  const beforeSql = builderSql()
+  mocks.proposeBuilder.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: {
+        patch: { xColumn: 'revenue' },
+        explanation: 'Use revenue as the X axis.',
+        assumptions: [],
+      },
+    } as AiBuilderStep),
+  )
+
+  render(<AiBuilderCopilot />)
+  await askBuilder('use revenue as the X axis')
+
+  const review = await screen.findByRole('region', {
+    name: 'AI Builder proposal',
+  })
+  expect(review.textContent).toContain('X axis')
+  expect(review.textContent).toContain('country')
+  expect(review.textContent).toContain('revenue')
+  expect(review.textContent).toContain('Y axis')
+  expect(review.textContent).toContain('Aggregation')
+  expect(review.textContent).toContain('Sum')
+  expect(review.textContent).toContain('Count')
+  expect(review.textContent).toContain('—')
+
+  const pending = selectActiveSession(useStore.getState())
+  expect(pending.builderVisualization).toEqual(before.builderVisualization)
+  expect(builderSql()).toBe(beforeSql)
+  expect(mocks.run).not.toHaveBeenCalled()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+  const applied = selectActiveSession(useStore.getState())
+  expect(applied.builderVisualization.xColumn).toBe('revenue')
+  expect(applied.builderVisualization.valueColumn).toBeNull()
+  expect(applied.builderVisualization.aggregation).toBe('count')
+  expect(applied.builderHasRun).toBe(false)
+  expect(builderSql()).not.toBe(beforeSql)
+  expect(builderSql()).toContain('COUNT(*)')
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
 test('Builder AI normalizes a minimal Y-axis proposal through normal Builder defaults', async () => {
   setupBuilderAi()
   mocks.proposeBuilder.mockResolvedValueOnce(
