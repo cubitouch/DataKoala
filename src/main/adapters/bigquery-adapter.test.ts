@@ -8,6 +8,7 @@ import {
   type BigQueryClientLike,
 } from './bigquery-adapter.ts'
 import { SeriesCardinalityProbes } from '../series-cardinality.ts'
+import { queryFailureKind } from '../query-failure.ts'
 import {
   BigQueryDate,
   BigQueryDatetime,
@@ -768,5 +769,86 @@ test('GoogleSQL cardinality probes escape backslashes and backticks in every ide
     )
     assert.doesNotMatch(withoutIdentifiers, /DELETE|--/)
     assert.equal((withoutIdentifiers.match(/;/g) || []).length, 1)
+  }
+})
+
+
+test('BigQuery query failures distinguish SQL errors from auth and permission failures', async () => {
+  const cases = [
+    {
+      name: 'unknown column',
+      failure: Object.assign(new Error('Unrecognized name: revenu at [1:8]'), {
+        code: 400,
+        errors: [{ reason: 'invalidQuery' }],
+      }),
+      kind: 'query',
+    },
+    {
+      name: 'unknown table',
+      failure: Object.assign(new Error('Not found: Table analytics.missing'), {
+        code: 404,
+        errors: [{ reason: 'notFound' }],
+      }),
+      kind: 'query',
+    },
+    {
+      name: 'authentication',
+      failure: Object.assign(new Error('invalid credentials'), {
+        code: 401,
+        errors: [{ reason: 'authError' }],
+      }),
+      kind: 'connection',
+    },
+    {
+      name: 'permission',
+      failure: Object.assign(new Error('permission denied'), {
+        code: 403,
+        errors: [{ reason: 'accessDenied' }],
+      }),
+      kind: 'connection',
+    },
+    {
+      name: 'upstream unavailable',
+      failure: Object.assign(new Error('backend unavailable'), {
+        code: 503,
+        errors: [{ reason: 'backendError' }],
+      }),
+      kind: 'connection',
+    },
+  ] as const
+
+  for (const entry of cases) {
+    const fake = client()
+    const value: BigQueryClientLike = {
+      ...fake.value,
+      async createQueryJob() {
+        throw entry.failure
+      },
+    }
+    const connected = await new BigQueryAdapter(() => value).connect(profile)
+    assert.equal(connected.result.ok, true, entry.name)
+    await assert.rejects(
+      connected.session!.query({ sql: 'SELECT revenu FROM orders' }),
+      (error) => queryFailureKind(error) === entry.kind,
+      entry.name,
+    )
+  }
+})
+
+test('BigQuery write and write-containing script policy failures are validation failures', async () => {
+  for (const [statementType, sql] of [
+    ['DELETE', 'DELETE FROM orders'],
+    ['SCRIPT', 'DECLARE x INT64; DELETE FROM orders; SELECT x;'],
+  ] as const) {
+    const fake = client(statementType)
+    const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
+    assert.equal(connected.result.ok, true)
+    await assert.rejects(
+      connected.session!.query({ sql }),
+      (error) => queryFailureKind(error) === 'validation',
+      sql,
+    )
+    assert.equal(fake.calls.length, 1)
+    assert.equal(fake.calls[0]?.dryRun, true)
   }
 })
