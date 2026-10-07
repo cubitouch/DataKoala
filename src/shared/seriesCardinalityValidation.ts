@@ -1,3 +1,4 @@
+import { isBuilderRollingTimeRange } from './builderTimeRange.ts'
 import {
   MAX_SERIES_PROBE_COLUMNS,
   MAX_SERIES_PROBE_PREDICATES,
@@ -94,25 +95,15 @@ function predicate(value: unknown, index: number): CardinalityProbePredicate {
   if (operator === 'rolling') {
     const amount = input.amount
     const unit = input.unit
-    const valid =
-      (unit === 'minute' && (amount === 15 || amount === 30)) ||
-      (unit === 'hour' &&
-        (amount === 1 ||
-          amount === 3 ||
-          amount === 6 ||
-          amount === 12 ||
-          amount === 24)) ||
-      (unit === 'day' && (amount === 7 || amount === 30)) ||
-      (unit === 'month' && (amount === 3 || amount === 6 || amount === 12))
-    if (!valid)
+    if (!isBuilderRollingTimeRange(amount, unit))
       controlledError(
-        `predicates[${index}] must use an allowed rolling amount and unit.`,
+        `predicates[${index}] must use a bounded positive rolling amount and supported unit.`,
       )
     // Reconstruct the predicate so additional untrusted properties never cross IPC.
     return {
       column,
       operator,
-      amount: amount as 1 | 3 | 6 | 7 | 12 | 15 | 24 | 30,
+      amount,
       unit,
       ...(temporalType ? { temporalType } : {}),
     }
