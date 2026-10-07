@@ -2,7 +2,7 @@ import { isDisplayUnit } from '@lib/displayUnit.ts'
 import type { QueryLanguage } from '@shared/types'
 import type { BuilderQueryState, QueryMode } from '@store/useStore'
 import {
-  isBuilderRollingTimeRange,
+  parseBuilderRollingTimeRange,
   type BuilderTimeRange,
 } from '@shared/builderTimeRange'
 import type { VisualizationConfiguration } from '@lib/resultVisualization'
@@ -76,8 +76,12 @@ export function parseTimeRange(value: unknown): BuilderTimeRange | null {
   if (value.kind === 'all')
     return { kind: 'all', ...(recurringWindows ? { recurringWindows } : {}) }
   if (value.kind === 'rolling') {
-    if (!isBuilderRollingTimeRange(value.amount, value.unit)) return null
-    return clone(value) as BuilderTimeRange
+    const rolling = parseBuilderRollingTimeRange(value.amount, value.unit)
+    if (!rolling) return null
+    return {
+      ...rolling,
+      ...(recurringWindows ? { recurringWindows } : {}),
+    }
   }
   if (value.kind !== 'custom') return null
   if (
