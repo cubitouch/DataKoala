@@ -98,7 +98,7 @@ test('new Series fields are identified independently from already approved field
   assert.deepEqual(addedSeriesColumns(['type', 'status'], ['status', 'type']), [])
 })
 
-test('ordered proposed series columns participate in fingerprints and stale approval', () => {
+test('ordered proposed series columns participate in stale-work fingerprints', () => {
   const builder = {
     table: { schema: 'public', name: 'events' },
     timeColumn: 'at',
@@ -126,7 +126,12 @@ test('ordered proposed series columns participate in fingerprints and stale appr
   assert.equal(
     isSeriesColumnRemoval(['country', 'device'], ['device', 'country']),
     false,
-    'reordering must probe',
+    'reordering is not a removal-only transition',
+  )
+  assert.deepEqual(
+    addedSeriesColumns(['country', 'device'], ['device', 'country']),
+    [],
+    'reordering adds no field and needs no new cardinality validation',
   )
 })
 
