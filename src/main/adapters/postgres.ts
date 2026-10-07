@@ -7,6 +7,8 @@ import type {
   ColumnMeta,
   ConnectionStateEvent,
   ConnectionErrorCode,
+  ExplainNode,
+  ExplainResult,
 } from '../../shared/types'
 
 interface ManagedPool {
@@ -713,22 +715,148 @@ export async function describeTable(
   })
 }
 
+type PostgresExplainRecord = Record<string, unknown>
+
+function explainRecord(value: unknown): PostgresExplainRecord | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as PostgresExplainRecord)
+    : null
+}
+
+function explainNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function explainString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+function explainStrings(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const strings = value.filter(
+    (item): item is string => typeof item === 'string',
+  )
+  return strings.length === value.length ? strings : undefined
+}
+
+function explainPlanLabel(node: PostgresExplainRecord): string {
+  const nodeType = explainString(node['Node Type']) ?? 'Unknown'
+  const schema = explainString(node.Schema)
+  const relation = explainString(node['Relation Name'])
+  const index = explainString(node['Index Name'])
+  const target = relation ? `${schema ? `${schema}.` : ''}${relation}` : ''
+  return [nodeType, target, index ? `using ${index}` : '']
+    .filter(Boolean)
+    .join(' · ')
+}
+
+function normalizeExplainNode(value: unknown, id: string): ExplainNode {
+  const node = explainRecord(value)
+  if (!node)
+    throw new Error('PostgreSQL returned an invalid execution-plan node.')
+
+  const rawChildren = Array.isArray(node.Plans) ? node.Plans : []
+  const children = rawChildren.map((child, index) =>
+    normalizeExplainNode(child, `${id}.${index}`),
+  )
+
+  return {
+    id,
+    plan: explainPlanLabel(node),
+    nodeType: explainString(node['Node Type']) ?? 'Unknown',
+    relation: explainString(node['Relation Name']),
+    schema: explainString(node.Schema),
+    alias: explainString(node.Alias),
+    index: explainString(node['Index Name']),
+    joinType: explainString(node['Join Type']),
+    parentRelationship: explainString(node['Parent Relationship']),
+    startupCost: explainNumber(node['Startup Cost']),
+    totalCost: explainNumber(node['Total Cost']),
+    planRows: explainNumber(node['Plan Rows']),
+    planWidth: explainNumber(node['Plan Width']),
+    actualRows: explainNumber(node['Actual Rows']),
+    actualStartupTime: explainNumber(node['Actual Startup Time']),
+    actualTotalTime: explainNumber(node['Actual Total Time']),
+    loops: explainNumber(node['Actual Loops']),
+    filter: explainString(node.Filter),
+    indexCond: explainString(node['Index Cond']),
+    hashCond: explainString(node['Hash Cond']),
+    mergeCond: explainString(node['Merge Cond']),
+    joinFilter: explainString(node['Join Filter']),
+    sortKey: explainStrings(node['Sort Key']),
+    groupKey: explainStrings(node['Group Key']),
+    rowsRemovedByFilter: explainNumber(node['Rows Removed by Filter']),
+    sharedHitBlocks: explainNumber(node['Shared Hit Blocks']),
+    sharedReadBlocks: explainNumber(node['Shared Read Blocks']),
+    tempReadBlocks: explainNumber(node['Temp Read Blocks']),
+    tempWrittenBlocks: explainNumber(node['Temp Written Blocks']),
+    ...(children.length ? { children } : {}),
+  }
+}
+
+function formatExplainTree(node: ExplainNode, depth = 0): string[] {
+  const estimate =
+    node.startupCost !== undefined || node.totalCost !== undefined
+      ? `cost=${node.startupCost ?? '?'}..${node.totalCost ?? '?'} rows=${node.planRows ?? '?'}`
+      : ''
+  const actual =
+    node.actualRows !== undefined
+      ? `actual rows=${node.actualRows} loops=${node.loops ?? '?'} time=${node.actualTotalTime ?? '?'}ms`
+      : ''
+  const metrics = [estimate, actual].filter(Boolean).join(' · ')
+  const line = `${'  '.repeat(depth)}${node.plan}${
+    metrics ? `  (${metrics})` : ''
+  }`
+  return [
+    line,
+    ...(node.children ?? []).flatMap((child) =>
+      formatExplainTree(child, depth + 1),
+    ),
+  ]
+}
+
+export function normalizePostgresExplain(
+  value: unknown,
+  analyze: boolean,
+): ExplainResult {
+  let parsed = value
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed)
+    } catch {
+      throw new Error('PostgreSQL returned invalid JSON for EXPLAIN.')
+    }
+  }
+  const envelope = explainRecord(Array.isArray(parsed) ? parsed[0] : parsed)
+  const rawPlan = envelope ? envelope.Plan : undefined
+  if (!rawPlan)
+    throw new Error('PostgreSQL returned EXPLAIN JSON without a plan tree.')
+
+  const tree = normalizeExplainNode(rawPlan, '0')
+  return {
+    text: formatExplainTree(tree).join('\n'),
+    tree,
+    analyze,
+    planningTimeMs: explainNumber(envelope?.['Planning Time']),
+    executionTimeMs: explainNumber(envelope?.['Execution Time']),
+  }
+}
+
 export async function explainQuery(
   id: ConnectionId,
   sql: string,
   analyze: boolean,
-): Promise<{ text: string }> {
+): Promise<ExplainResult> {
   const m = getPool(id)
   assertReadonly(m.profile, sql)
   return withClient(id, async (client) => {
     const prefix = analyze
-      ? 'EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)'
-      : 'EXPLAIN (FORMAT TEXT)'
-    // Guard against LIMIT-less long ANALYZE: we wrap subselect-style statements.
-    const r = await client.query({ text: `${prefix} ${sql}` })
-    const text = r.rows
-      .map((row: Record<string, string>) => Object.values(row)[0])
-      .join('\n')
-    return { text }
+      ? 'EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)'
+      : 'EXPLAIN (FORMAT JSON)'
+    const result = await client.query({ text: `${prefix} ${sql}` })
+    const row = result.rows[0] as Record<string, unknown> | undefined
+    const value =
+      row?.['QUERY PLAN'] ?? (row ? Object.values(row)[0] : undefined)
+    return normalizePostgresExplain(value, analyze)
   })
 }

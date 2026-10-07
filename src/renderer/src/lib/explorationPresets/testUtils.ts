@@ -76,6 +76,8 @@ export function testSession(options: Partial<QuerySession> = {}): QuerySession {
     queryFilterRevision: { sql: 0, builder: 0 },
     builderFilterNotice: null,
     explainText: null,
+    explainTree: null,
+    explainSnapshot: null,
     showExplain: false,
     activeExplainRequest: null,
     seriesVisibility: {},

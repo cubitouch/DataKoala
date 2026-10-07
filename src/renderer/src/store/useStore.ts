@@ -5,6 +5,7 @@ import {
   type ConnectionStateEvent,
   type DatabaseColumnNode,
   type DatabaseSchemaNode,
+  type ExplainNode,
   type QueryResult,
 } from '@shared/types'
 import type { VisualizationConfiguration } from '@lib/resultVisualization'
@@ -141,7 +142,12 @@ export interface QuerySession {
   builderResultFilters: ResultFilter[]
   queryFilterRevision: Record<QueryMode, number>
   builderFilterNotice: { id: number; message: string } | null
+  explainSnapshot: {
+    query: string
+    mode: 'explain' | 'analyze'
+  } | null
   explainText: string | null
+  explainTree: ExplainNode | null
   showExplain: boolean
   activeExplainRequest: ExplainRequest
   seriesVisibility: Record<string, boolean>
@@ -251,6 +257,8 @@ export function createQuerySession(
     queryFilterRevision: { sql: 0, builder: 0 },
     builderFilterNotice: null,
     explainText: null,
+    explainTree: null,
+    explainSnapshot: null,
     showExplain: false,
     activeExplainRequest: null,
     seriesVisibility: {},
@@ -402,7 +410,12 @@ export interface AppState {
     execution: 'client' | 'query',
     tabId?: string,
   ) => void
-  setExplain: (text: string | null, tabId?: string) => void
+  setExplain: (
+    text: string | null,
+    tabId?: string,
+    snapshot?: QuerySession['explainSnapshot'],
+    tree?: ExplainNode,
+  ) => void
   setShowExplain: (value: boolean, tabId?: string) => void
   setActiveExplainRequest: (request: ExplainRequest, tabId?: string) => void
   setSeriesVisibility: (
@@ -928,6 +941,8 @@ export const useStore = create<AppState>((set, get) => ({
           (filter) => filter.execution === 'query',
         ),
         explainText: null,
+        explainTree: null,
+        explainSnapshot: null,
         showExplain: false,
         activeExplainRequest: null,
         seriesVisibility: {},
@@ -991,6 +1006,8 @@ export const useStore = create<AppState>((set, get) => ({
           queryFilterRevision: { sql: 0, builder: 0 },
           builderFilterNotice: null,
           explainText: null,
+          explainTree: null,
+          explainSnapshot: null,
           showExplain: false,
           activeExplainRequest: null,
           seriesVisibility: {},
@@ -1347,9 +1364,14 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }),
     ),
-  setExplain: (explainText, tabId) =>
+  setExplain: (explainText, tabId, snapshot, explainTree) =>
     set((state) =>
-      patchSession(state, tabId, (session) => ({ ...session, explainText })),
+      patchSession(state, tabId, (session) => ({
+        ...session,
+        explainText,
+        explainTree: explainTree ?? null,
+        explainSnapshot: snapshot ?? null,
+      })),
     ),
   setShowExplain: (showExplain, tabId) =>
     set((state) =>

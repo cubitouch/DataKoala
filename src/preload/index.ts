@@ -14,6 +14,7 @@ import type {
   ConnectResult,
   ConnectionStateEvent,
   DataSourceProfile,
+  ExplainResult,
   QueryRunResponse,
   TableInfo,
   TestResult,
@@ -275,7 +276,7 @@ const api = {
       id: string,
       sql: string,
       analyze: boolean,
-    ): Promise<{ text: string }> =>
+    ): Promise<ExplainResult> =>
       ipcRenderer.invoke(IPC.QUERY_EXPLAIN, id, sql, analyze),
   },
   export: {

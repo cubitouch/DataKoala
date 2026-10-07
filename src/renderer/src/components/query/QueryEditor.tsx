@@ -305,6 +305,7 @@ export function QueryEditor({
     if (activeExplainRequest || !tabConnectionId || connecting) return
     const requestTabId = tabId
     const requestSql = sql
+    const snapshot = { query: requestSql, mode }
     setActiveExplainRequest(mode, requestTabId)
     setShowExplain(true, requestTabId)
     const requestProfileId = await ensureConnectionForTab(requestTabId)
@@ -319,10 +320,11 @@ export function QueryEditor({
         mode === 'analyze',
       )
       if (stillBoundTo(requestTabId, requestProfileId))
-        setExplain(res.text, requestTabId)
+        setExplain(res.text, requestTabId, snapshot, res.tree)
     } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
       if (stillBoundTo(requestTabId, requestProfileId))
-        setExplain(e instanceof Error ? e.message : String(e), requestTabId)
+        setExplain(message, requestTabId, snapshot)
     } finally {
       setActiveExplainRequest(null, requestTabId)
     }

@@ -273,6 +273,8 @@ export function bindTabConnection(
           (filter) => filter.execution === 'query',
         ),
         explainText: null,
+        explainTree: null,
+        explainSnapshot: null,
         showExplain: false,
         activeExplainRequest: null,
         seriesVisibility: {},
