@@ -291,9 +291,9 @@ test('wide initial context leaves usable global budget for discovered relation c
 
 
 test.each([
-  ['postgres', 'PostgreSQL'],
-  ['duckdb', 'DuckDB'],
-  ['google-sql', 'GoogleSQL'],
+  ['postgres'],
+  ['duckdb'],
+  ['google-sql'],
 ] as const)('context construction preserves the %s dialect', async (dialect) => {
   const context = await buildAiContext(dialect, [relation('orders')], async () => [
     { name: 'revenue', dataTypeName: 'numeric' },
