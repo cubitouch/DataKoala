@@ -35,6 +35,56 @@ test('Builder request is reconstructed from the allowlisted contract', () => {
   assert.deepEqual(builderProposalRequest(request), request)
 })
 
+test('Builder proposal applies the same safe axis defaults as manual controls', () => {
+  assert.deepEqual(builderStep(proposal({ valueColumn: 'revenue' }), request), {
+    kind: 'proposal',
+    proposal: {
+      patch: { valueColumn: 'revenue', aggregation: 'sum' },
+      explanation: 'Updates the Builder controls.',
+      assumptions: [],
+    },
+  })
+
+  assert.deepEqual(
+    builderStep(proposal({ xColumn: 'country' }), {
+      ...request,
+      state: { ...request.state, timeBucket: 'week' },
+    }),
+    {
+      kind: 'proposal',
+      proposal: {
+        patch: { xColumn: 'country', timeBucket: 'day' },
+        explanation: 'Updates the Builder controls.',
+        assumptions: [],
+      },
+    },
+  )
+
+  assert.deepEqual(
+    builderStep(proposal({ xColumn: 'created_at' }), {
+      ...request,
+      state: {
+        ...request.state,
+        xColumn: 'country',
+        timeColumn: null,
+        timeRange: undefined,
+      },
+    }),
+    {
+      kind: 'proposal',
+      proposal: {
+        patch: {
+          xColumn: 'created_at',
+          timeColumn: 'created_at',
+          timeRange: { kind: 'rolling', amount: 7, unit: 'day' },
+        },
+        explanation: 'Updates the Builder controls.',
+        assumptions: [],
+      },
+    },
+  )
+})
+
 test('Builder proposal validates and normalizes the complete target', () => {
   assert.deepEqual(
     builderStep(
