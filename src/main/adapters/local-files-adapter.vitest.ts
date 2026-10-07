@@ -140,6 +140,10 @@ test('DuckDB session queries selected files and sandboxes every unselected file 
             error instanceof Error ? error.message : '',
           ),
       )
+    await assert.rejects(
+      connected.session.query({ sql: 'SELECT missing_column FROM sales' }),
+      (error) => queryFailureKind(error) === 'query',
+    )
     const securitySettings = await connected.session.query({
       sql: "SELECT name, value FROM duckdb_settings() WHERE name IN ('enable_external_access', 'allow_community_extensions', 'autoinstall_known_extensions', 'autoload_known_extensions', 'allow_persistent_secrets', 'lock_configuration')",
     })
