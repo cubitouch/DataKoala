@@ -158,6 +158,7 @@ test('count-over-time wording normalizes the requested cadence', () => {
   const countRequest: AiBuilderProposalRequest = {
     ...request,
     prompt: 'how many collections daily over the last 7 days',
+    state: { ...request.state, timeBucket: 'week' },
   }
   const result = builderStep(
     proposal({
