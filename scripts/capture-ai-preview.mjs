@@ -165,16 +165,19 @@ app.whenReady().then(async () => {
       } else if (request.context?.language?.dialect === 'google-sql') {
         proposalQuery = bigQueryQuery
       }
+      let explanation =
+        'Aggregates revenue by country for orders created within the last 30 days, with the highest revenue first.'
+      if (request.intent === 'repair') {
+        explanation =
+          request.context?.language?.dialect === 'google-sql'
+            ? 'Corrected the misspelled revenue column while preserving the BigQuery aggregation.'
+            : 'Replaced the missing device_id column with the available id column while preserving the result name.'
+      }
       return ok({
         kind: 'proposal',
         proposal: {
           query: proposalQuery,
-          explanation:
-            request.intent === 'repair'
-              ? request.context?.language?.dialect === 'google-sql'
-                ? 'Corrected the misspelled revenue column while preserving the BigQuery aggregation.'
-                : 'Replaced the missing device_id column with the available id column while preserving the result name.'
-              : 'Aggregates revenue by country for orders created within the last 30 days, with the highest revenue first.',
+          explanation,
           assumptions: [
             'amount is the order revenue in a consistent currency.',
             'The date range is relative to the database clock.',
