@@ -116,7 +116,10 @@ test('normalizes useful operation-specific diagnostics', () => {
   assert.equal(result.tree?.sortSpaceType, 'Memory')
   assert.equal(result.tree?.children?.[0].hashBatches, 2)
   assert.equal(result.tree?.children?.[0].peakMemoryUsage, 512)
-  assert.equal(\n    result.tree?.children?.[0].children?.[0].cteName,\n    'recent_orders',\n  )
+  assert.equal(
+    result.tree?.children?.[0].children?.[0].cteName,
+    'recent_orders',
+  )
   assert.equal(
     result.tree?.children?.[0].children?.[0].subplanName,
     'CTE recent_orders',
