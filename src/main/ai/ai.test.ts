@@ -203,6 +203,14 @@ test('OpenRouter Builder proposals use a dedicated SQL-free structured contract 
     JSON.stringify(sent?.messages),
     /Return Builder changes, never SQL/,
   )
+  assert.match(
+    JSON.stringify(sent?.messages),
+    /number of X.*count measure.*X axis/i,
+  )
+  assert.match(
+    JSON.stringify(sent?.messages),
+    /number of collections over the last 7 days grouped hourly/i,
+  )
   assert.equal(JSON.stringify(sent).includes('test-placeholder'), false)
 })
 
