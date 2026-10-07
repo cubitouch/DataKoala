@@ -99,6 +99,44 @@ function client(
   return { value, calls, dryRunGetMetadataCalls: () => dryRunGetMetadataCalls }
 }
 
+function cardinalityClient(counts: number[]) {
+  const base = client()
+  const calls: Record<string, unknown>[] = []
+  let index = 0
+  const value: BigQueryClientLike = {
+    ...base.value,
+    async createQueryJob(options) {
+      calls.push(options)
+      const count = counts[index++]
+      if (count === undefined) throw new Error('Unexpected BigQuery job.')
+      const metadata = {
+        statistics: {
+          query: {
+            totalBytesProcessed: String(index * 10),
+            cacheHit: false,
+          },
+        },
+      }
+      return [
+        {
+          metadata,
+          async getMetadata() {
+            return [metadata]
+          },
+          async getQueryResults() {
+            return [
+              [{ count }],
+              null,
+              { schema: { fields: [{ name: 'count', type: 'INT64' }] } },
+            ]
+          },
+        },
+      ]
+    },
+  }
+  return { value, calls }
+}
+
 test('constructs an ADC client with only the billing project', async () => {
   let options: unknown
   const fake = client()
