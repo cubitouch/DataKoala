@@ -2,11 +2,11 @@
 
 ## Implemented strategies
 
-| Provider                                 | Strategy                                                                                                              | Approval   |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------- |
-| PostgreSQL                               | Unfiltered single column: `pg_stats`; scoped/multi-column: planner; inconclusive estimates fall back to exact         | Native estimate or exact |
-| BigQuery                                 | Dedicated structured, validated internal SELECT operation, one execution job and no validation dry run                | Exact only |
-| DuckDB / local files / SQLite via DuckDB | Existing bounded grouped query                                                                                        | Exact only |
+| Provider                                 | Strategy                                                                                                      | Approval                 |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| PostgreSQL                               | Unfiltered single column: `pg_stats`; scoped/multi-column: planner; inconclusive estimates fall back to exact | Native estimate or exact |
+| BigQuery                                 | Dedicated structured, validated internal SELECT operation, one execution job and no validation dry run        | Exact only               |
+| DuckDB / local files / SQLite via DuckDB | Existing bounded grouped query                                                                                | Exact only               |
 
 The renderer makes one cardinality request and retains stale-response protection.
 Provider strategy selection stays in the main process. PostgreSQL uses table-wide
