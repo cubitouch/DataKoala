@@ -455,14 +455,14 @@ test('all-dataset relation enumeration uses bounded concurrency', async () => {
   assert.ok(peak <= __testing.DATASET_RELATION_CONCURRENCY)
 })
 
-test('rejects non-SELECT dry-run statement types before execution', async () => {
+test('rejects clearly prohibited writes before the BigQuery dry run', async () => {
   const fake = client('INSERT')
   const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
   await assert.rejects(
     () => connected.session!.query({ sql: 'INSERT INTO x VALUES (1)' }),
-    /write statements are not supported/,
+    /read-only/,
   )
-  assert.equal(fake.calls.length, 1)
+  assert.equal(fake.calls.length, 0)
 })
 
 test('caps renderer-bound rows and reports truncation', async () => {
@@ -501,7 +501,7 @@ test('runs an allowed script intact and returns the final query result with exis
   assert.equal(fake.dryRunGetMetadataCalls(), 0)
 })
 
-test('never submits an execution job for disallowed SCRIPT contents', async () => {
+test('never submits a dry-run or execution job for disallowed SCRIPT contents', async () => {
   for (const sql of [
     'DECLARE x INT64; DELETE FROM t; SELECT x;',
     'SELECT 1; CALL p(); SELECT 2;',
@@ -512,8 +512,7 @@ test('never submits an execution job for disallowed SCRIPT contents', async () =
       profile,
     )
     await assert.rejects(() => connected.session!.query({ sql }), /read-only/)
-    assert.equal(fake.calls.length, 1)
-    assert.equal(fake.calls[0].dryRun, true)
+    assert.equal(fake.calls.length, 0)
   }
 })
 
@@ -842,22 +841,46 @@ test('BigQuery query failures distinguish SQL errors from auth and permission fa
   }
 })
 
-test('BigQuery write and write-containing script policy failures are validation failures', async () => {
-  for (const [statementType, sql] of [
-    ['DELETE', 'DELETE FROM orders'],
-    ['SCRIPT', 'DECLARE x INT64; DELETE FROM orders; SELECT x;'],
-  ] as const) {
-    const fake = client(statementType)
-    const connected = await new BigQueryAdapter(() => fake.value).connect(
-      profile,
-    )
-    assert.equal(connected.result.ok, true)
+test('BigQuery write policy rejects before dry-run errors can obscure statement type', async () => {
+  const cases = [
+    {
+      name: 'DELETE with missing table',
+      sql: 'DELETE FROM `analytics.missing_table`',
+      failure: Object.assign(
+        new Error('Not found: Table analytics.missing_table'),
+        {
+          code: 404,
+          errors: [{ reason: 'notFound' }],
+        },
+      ),
+    },
+    {
+      name: 'UPDATE with invalid column',
+      sql: 'UPDATE `analytics.orders` SET revenu = 12 WHERE id = 1',
+      failure: Object.assign(new Error('Unrecognized name: revenu'), {
+        code: 400,
+        errors: [{ reason: 'invalidQuery' }],
+      }),
+    },
+  ] as const
+
+  for (const entry of cases) {
+    const fake = client()
+    let queryJobCalls = 0
+    const value: BigQueryClientLike = {
+      ...fake.value,
+      async createQueryJob() {
+        queryJobCalls++
+        throw entry.failure
+      },
+    }
+    const connected = await new BigQueryAdapter(() => value).connect(profile)
+    assert.equal(connected.result.ok, true, entry.name)
     await assert.rejects(
-      connected.session!.query({ sql }),
+      connected.session!.query({ sql: entry.sql }),
       (error) => queryFailureKind(error) === 'validation',
-      sql,
+      entry.name,
     )
-    assert.equal(fake.calls.length, 1)
-    assert.equal(fake.calls[0]?.dryRun, true)
+    assert.equal(queryJobCalls, 0, entry.name)
   }
 })
