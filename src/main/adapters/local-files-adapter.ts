@@ -163,7 +163,9 @@ export async function assertDuckDBReadOnlyQuery(
       statement.statementType !== StatementType.SELECT &&
       statement.statementType !== StatementType.EXPLAIN
     ) {
-      throw new QueryValidationError(`${label} are read-only. Run a SELECT or EXPLAIN query.`)
+      throw new QueryValidationError(
+        `${label} are read-only. Run a SELECT or EXPLAIN query.`,
+      )
     }
   } finally {
     statement.destroySync()
