@@ -184,12 +184,13 @@ export async function assertDuckDBReadOnlyQuery(
     throw new QueryValidationError(
       `${label} are read-only. Run a SELECT or EXPLAIN query.`,
     )
-  let statement
-  try {
-    statement = await extracted.prepare(0)
-  } catch (error) {
-    throw classifyDuckDBQueryError(error)
-  }
+  const statement = await (async () => {
+    try {
+      return await extracted.prepare(0)
+    } catch (error) {
+      throw classifyDuckDBQueryError(error)
+    }
+  })()
   try {
     if (
       statement.statementType !== StatementType.SELECT &&
