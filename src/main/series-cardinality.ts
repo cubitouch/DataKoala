@@ -42,7 +42,7 @@ export function groupedPlanEstimate(value: unknown): number | undefined {
   }
 }
 
-/** Compatibility metadata operation, explicitly PostgreSQL-only. */
+/** PostgreSQL-native table statistics lookup; unavailable for every other provider. */
 export async function seriesStatistics(
   session: DataSourceSession,
   request: SeriesStatisticsRequest,
