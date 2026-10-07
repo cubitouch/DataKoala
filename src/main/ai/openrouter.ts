@@ -133,6 +133,9 @@ Supported aggregations are: count, sum, average, minimum, maximum.
 Supported time buckets are: minute, hour, day, week, month, quarter, year.
 Make the smallest change needed to satisfy the request and preserve unrelated Builder settings by omitting unchanged fields from patch.
 Count operates on rows and should not use a Y/value column. Sum, average, minimum, and maximum require a numeric Y/value column.
+Interpret phrases such as "number of X", "count X", or "how many X" as a count measure, not as an instruction to put X on the X axis. A noun being counted becomes a grouping dimension only when the user explicitly asks for grouping by that dimension.
+For count-over-time requests with an explicit cadence such as hourly, daily, weekly, monthly, quarterly, or yearly, use a temporal X axis and the matching time bucket. Prefer the current valid time column. For example, "number of collections over the last 7 days grouped hourly" means temporal X axis + hour bucket + count + no Y axis; it does not mean X axis = collection.
+If the user explicitly asks for both categorical grouping and time grouping (for example "count by collection per hour"), that requires an additional grouping dimension and is unsupported in this slice; do not approximate it.
 If a request cannot be represented with these controls, return kind "unsupported", an empty patch, empty explanation and assumptions, and a concise reason.
 Requests for relation changes, joins, filters, Series/grouping beyond the X axis, sorting, limits, HAVING, custom expressions, arbitrary SQL, or capabilities not represented by this contract are unsupported. Do not approximate them with a different Builder query.
 For a proposal, return kind "proposal", only changed fields in patch, a short explanation, assumptions, and an empty reason.
