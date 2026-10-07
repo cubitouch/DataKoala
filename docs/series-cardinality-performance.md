@@ -8,12 +8,12 @@ It does not calculate the combined cardinality of the complete Series selection.
 > The preflight guard limits individual Series dimensions. It does not guarantee
 > that the Cartesian combination of several Series fields is <=100.
 
-| Provider | Strategy | Resolution |
-| --- | --- | --- |
-| PostgreSQL | Per-field `pg_stats.n_distinct` | <=50 accept; unscoped >200 reject; otherwise exact single-column fallback |
-| BigQuery | Per-field `APPROX_COUNT_DISTINCT` | <=50 accept; >200 reject; 51-200 exact single-column fallback |
-| DuckDB / local files | Exact bounded single-column `GROUP BY` | 0-100 accept; 101 reject |
-| SQLite via DuckDB | Same exact bounded single-column `GROUP BY` through DuckDB | 0-100 accept; 101 reject |
+| Provider             | Strategy                                                   | Resolution                                                                |
+| -------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
+| PostgreSQL           | Per-field `pg_stats.n_distinct`                            | <=50 accept; unscoped >200 reject; otherwise exact single-column fallback |
+| BigQuery             | Per-field `APPROX_COUNT_DISTINCT`                          | <=50 accept; >200 reject; 51-200 exact single-column fallback             |
+| DuckDB / local files | Exact bounded single-column `GROUP BY`                     | 0-100 accept; 101 reject                                                  |
+| SQLite via DuckDB    | Same exact bounded single-column `GROUP BY` through DuckDB | 0-100 accept; 101 reject                                                  |
 
 The renderer owns only the interaction semantics: when the selection changes from
 `[type]` to `[type, status]`, it submits a cardinality request for `status`.
@@ -24,12 +24,7 @@ fields performs no cardinality query.
 The structured preflight request is intentionally singular:
 
 ```ts
-{
-  schema,
-  table,
-  seriesColumn,
-  predicates
-}
+const request = { schema, table, seriesColumn, predicates }
 ```
 
 Provider strategy selection stays in the main process. The SQL generator no
@@ -198,11 +193,11 @@ tables.
 Observed DuckDB baseline medians from the earlier 1,000,000-row synthetic run
 (ms; one warm-up plus three measurements):
 
-| Field / scope | GROUP BY (retained) | DISTINCT | Ordered DISTINCT |
-| --- | ---: | ---: | ---: |
-| 10-value field / all | 3.46 | 11.67 | 8.25 |
-| Unique ID / all | 37.75 | 37.00 | 27.83 |
-| Unique ID / filtered | 8.92 | 3.86 | 4.42 |
+| Field / scope        | GROUP BY (retained) | DISTINCT | Ordered DISTINCT |
+| -------------------- | ------------------: | -------: | ---------------: |
+| 10-value field / all |                3.46 |    11.67 |             8.25 |
+| Unique ID / all      |               37.75 |    37.00 |            27.83 |
+| Unique ID / filtered |                8.92 |     3.86 |             4.42 |
 
 Plans place the limit above aggregation and a sequential scan, so a bounded
 result does not imply bounded source scanning. The mixed timings do not justify
