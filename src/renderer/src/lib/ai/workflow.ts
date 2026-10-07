@@ -1,11 +1,13 @@
 import { ensureRelationColumns } from '@lib/relationColumns'
 import { selectActiveSession, useStore } from '@store/useStore'
 import type { AiContextRequest, AiQueryContext } from '@shared/ai'
+import { queryLanguageForSourceKind } from '@shared/types'
 import {
   appendAiContext,
   buildAiContext,
   expandAiRelations,
   selectAiRelations,
+  withAiRelationCatalog,
 } from './context'
 
 export interface AiQuerySnapshot {
@@ -37,12 +39,23 @@ export async function prepareAiQueryContext(
   snapshot: AiQuerySnapshot,
   rankingText: string,
 ): Promise<AiPreparedContext> {
-  if (!snapshot.profileId) throw new Error('No PostgreSQL connection selected.')
-  const schemas =
-    useStore.getState().metadataByProfileId[snapshot.profileId]?.schemas ?? []
-  const context = await buildAiContext(
+  if (!snapshot.profileId) throw new Error('No SQL connection selected.')
+  const state = useStore.getState()
+  const profile = state.profiles.find((item) => item.id === snapshot.profileId)
+  if (!profile) throw new Error('No SQL connection selected.')
+  const language = queryLanguageForSourceKind(profile.kind)
+  if (language.kind !== 'sql') throw new Error('No SQL connection selected.')
+  const schemas = state.metadataByProfileId[snapshot.profileId]?.schemas ?? []
+  const detailedContext = await buildAiContext(
+    language.dialect,
     selectAiRelations(schemas, rankingText, snapshot.query),
     (relation) => ensureRelationColumns(snapshot.profileId!, relation),
+  )
+  const context = withAiRelationCatalog(
+    detailedContext,
+    schemas,
+    rankingText,
+    snapshot.query,
   )
   return { snapshot, prompt: rankingText, context }
 }
@@ -51,8 +64,7 @@ export async function expandAiQueryContext(
   input: AiPreparedContext,
   request: AiContextRequest,
 ): Promise<AiPreparedContext> {
-  if (!input.snapshot.profileId)
-    throw new Error('No PostgreSQL connection selected.')
+  if (!input.snapshot.profileId) throw new Error('No SQL connection selected.')
   const schemas =
     useStore.getState().metadataByProfileId[input.snapshot.profileId]
       ?.schemas ?? []
@@ -63,11 +75,21 @@ export async function expandAiQueryContext(
     input.context.relations,
   )
   const initialContext = input.context
-  const context = candidates.length
-    ? await appendAiContext(initialContext, candidates, (relation) =>
+  const detailedContext: AiQueryContext = {
+    language: { ...initialContext.language },
+    relations: initialContext.relations,
+  }
+  const expandedContext = candidates.length
+    ? await appendAiContext(detailedContext, candidates, (relation) =>
         ensureRelationColumns(input.snapshot.profileId!, relation),
       )
-    : initialContext
+    : detailedContext
+  const context = withAiRelationCatalog(
+    expandedContext,
+    schemas,
+    input.prompt,
+    input.snapshot.query,
+  )
   const before = new Set(
     initialContext.relations.map(
       (relation) => `${relation.schema}.${relation.name}`,

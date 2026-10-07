@@ -5,7 +5,14 @@ import {
   type AiQueryContext,
   type AiQueryProposal,
 } from '@shared/ai'
+import type { SqlDialect } from '@shared/types'
 import styles from './Ai.module.css'
+
+const dialectLabel: Record<SqlDialect, string> = {
+  postgres: 'PostgreSQL',
+  duckdb: 'DuckDB',
+  'google-sql': 'GoogleSQL',
+}
 
 function SchemaMetadata({
   ariaLabel,
@@ -84,6 +91,8 @@ export function AiContextPopover({
   sent: boolean
   proposal: AiQueryProposal | null
 }) {
+  const providerLabel = context ? dialectLabel[context.language.dialect] : 'SQL'
+
   return (
     <Popover
       trigger={
@@ -105,7 +114,9 @@ export function AiContextPopover({
               : 'Preview the context DataKoala will send.'}
           </div>
         </div>
-        <span className={styles.contextProvider}>PostgreSQL · OpenRouter</span>
+        <span className={styles.contextProvider}>
+          {providerLabel} · OpenRouter
+        </span>
       </header>
 
       {proposal && (
