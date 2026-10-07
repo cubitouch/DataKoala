@@ -18,6 +18,7 @@ env:
     ai-query-repair-failure.png
     ai-query-repair-proposal.png
     sql-default.png
+    explain-plan.png
     prometheus-toolbar.png
     prometheus-toolbar-narrow.png
     prometheus-builder.png
@@ -88,6 +89,9 @@ jobs:
 
       - name: Capture application previews
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+
+      - name: Capture EXPLAIN ANALYZE plan preview
+        run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x1000x24' pnpm exec electron --no-sandbox scripts/capture-explain-preview.mjs
 
       - name: Capture shared Tempo and Loki previews
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm preview:shared-captures
@@ -183,6 +187,7 @@ jobs:
             const mergeSha = context.sha
             const captions = {
               'sql-default.png': 'SQL mode — default dimensions',
+              'explain-plan.png': 'PostgreSQL EXPLAIN ANALYZE — deterministic execution-plan diagnostics',
               'prometheus-toolbar.png': 'Prometheus — datasource-aware query toolbar',
               'prometheus-toolbar-narrow.png': 'Prometheus — narrow responsive toolbar',
               'prometheus-builder.png': 'Prometheus Builder — metric, filters, grouping, and calculation',
