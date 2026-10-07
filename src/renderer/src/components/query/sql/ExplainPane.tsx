@@ -1,40 +1,28 @@
-import { AiQueryExplanation } from '@components/ai/AiQueryExplanation'
-import { useAiConfigured } from '@lib/ai/useAiConfigured'
+import { ExecutionPlanDiagram } from './ExecutionPlanDiagram'
 import { selectActiveSession, useStore } from '@store/useStore'
 import styles from './ExplainPane.module.css'
 
 export function ExplainPane() {
-  const configured = useAiConfigured()
   const session = useStore(selectActiveSession)
+  const show = session.showExplain
+  const text = session.explainText
+  const tree = session.explainTree
   const snapshot = session.explainSnapshot
-  const postgres = useStore(
-    (s) =>
-      s.profiles.find((p) => p.id === session.connectionProfileId)?.kind ===
-      'postgres',
-  )
-  const show = useStore((s) => selectActiveSession(s).showExplain)
-  const text = useStore((s) => selectActiveSession(s).explainText)
   const setShow = useStore((s) => s.setShowExplain)
-  const activeExplainRequest = useStore(
-    (s) => selectActiveSession(s).activeExplainRequest,
-  )
+  const activeExplainRequest = session.activeExplainRequest
   const loadingMessage =
     activeExplainRequest === 'analyze'
       ? 'Running EXPLAIN ANALYZE…'
       : activeExplainRequest === 'explain'
         ? 'Generating query plan…'
         : null
-  if (!show || (!text && !loadingMessage && !snapshot)) return null
+
+  if (!show || (!text && !tree && !loadingMessage)) return null
+
   return (
     <div className={styles.root}>
       <div className={styles.head}>
-        <span>
-          {snapshot?.mode === 'analyze'
-            ? 'EXPLAIN ANALYZE'
-            : snapshot?.mode === 'semantic'
-              ? 'EXPLAIN QUERY'
-              : 'EXPLAIN'}
-        </span>
+        <span>{snapshot?.mode === 'analyze' ? 'EXPLAIN ANALYZE' : 'EXPLAIN'}</span>
         <div className={styles.spacer} />
         <button className="btn ghost" onClick={() => setShow(false)}>
           close
@@ -46,25 +34,21 @@ export function ExplainPane() {
         </div>
       )}
       <div className={styles.content}>
-        {snapshot && postgres && configured && !activeExplainRequest && (
-          <AiQueryExplanation
-            key={`${session.id}:${session.connectionProfileId}:${snapshot.mode}:${snapshot.query}`}
-            snapshot={{
-              tabId: session.id,
-              profileId: session.connectionProfileId,
-              query: snapshot.query,
-            }}
+        {tree && (
+          <ExecutionPlanDiagram
+            tree={tree}
+            analyze={snapshot?.mode === 'analyze'}
           />
         )}
         {snapshot && snapshot.query !== session.sql && (
           <p className={styles.status}>
-            The editor has changed. This view describes the SQL captured when
-            you opened it.
+            The editor has changed. This plan belongs to the SQL captured when
+            Explain was run.
           </p>
         )}
         {text && (
-          <details open>
-            <summary className={styles.status}>Database plan</summary>
+          <details className={styles.textPlan}>
+            <summary>Text plan</summary>
             <pre className={styles.plan}>{text}</pre>
           </details>
         )}

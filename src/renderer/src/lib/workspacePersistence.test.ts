@@ -206,6 +206,13 @@ const tab = (
   builderFilterNotice: { id: 4, message: 'runtime-notice-secret' },
   explainSnapshot: { query: 'snapshot-secret', mode: 'explain' as const },
   explainText: 'explain-secret',
+  explainTree: {
+    id: '0',
+    plan: 'Seq Scan · public.secret_orders',
+    nodeType: 'Seq Scan',
+    relation: 'secret_orders',
+    schema: 'public',
+  },
   showExplain: true,
   activeExplainRequest: 'analyze' as const,
   seriesVisibility: { FR: false },
@@ -475,6 +482,7 @@ test('restore rebuilds every tab cold without reconnecting or replaying results'
       true,
     )
     assert.equal(restoredTab.explainText, null)
+    assert.equal(restoredTab.explainTree, null)
     assert.deepEqual(restoredTab.seriesVisibility, {})
   }
 })

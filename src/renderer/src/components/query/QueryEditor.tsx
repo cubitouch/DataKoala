@@ -320,10 +320,19 @@ export function QueryEditor({
         mode === 'analyze',
       )
       if (stillBoundTo(requestTabId, requestProfileId))
-        setExplain(res.text, requestTabId, { query: requestSql, mode })
+        setExplain(
+          res.text,
+          requestTabId,
+          { query: requestSql, mode },
+          res.tree,
+        )
     } catch (e) {
       if (stillBoundTo(requestTabId, requestProfileId))
-        setExplain(e instanceof Error ? e.message : String(e), requestTabId)
+        setExplain(
+          e instanceof Error ? e.message : String(e),
+          requestTabId,
+          { query: requestSql, mode },
+        )
     } finally {
       setActiveExplainRequest(null, requestTabId)
     }
@@ -483,11 +492,6 @@ export function QueryEditor({
                 }
                 query={effectiveDisplayQuery}
                 range={prometheusTimeRange}
-              />
-            )}
-            {connectionKind === 'postgres' && !builderMode && (
-              <AiExplainAction
-                disabled={isAnyExplainLoading || !!repair?.blocked}
               />
             )}
             {language.kind === 'sql' && capabilities.explain && (

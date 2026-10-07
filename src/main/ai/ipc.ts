@@ -35,9 +35,6 @@ export function registerAiIpc() {
   ipcMain.handle(IPC.AI_TEST, (event, id: unknown, input: unknown) =>
     service.test(owner(event), id, input),
   )
-  ipcMain.handle(IPC.AI_EXPLAIN, (event, input: unknown) =>
-    service.explainQuery(owner(event), input),
-  )
   ipcMain.handle(IPC.AI_PROPOSE, (event, input: unknown) =>
     service.proposeQuery(owner(event), input),
   )

@@ -329,9 +329,6 @@ test('settings preserve the model and blank key; tests do not save; removal dele
       test: async () => {
         tested = `${key}:${model}`
       },
-      explainQuery: async () => {
-        throw new Error('unused')
-      },
       proposeQuery: async () => proposalStep,
       proposeBuilder: async () => {
         throw new Error('not used in query tests')
@@ -536,9 +533,6 @@ test('timeout, owner-scoped cancellation, duplicate protection and all completio
     () => ({
       listModels: async () => (hang ? new Promise(() => {}) : []),
       test: async () => {},
-      explainQuery: async () => {
-        throw new Error('unused')
-      },
       proposeQuery: async () => proposalStep,
       proposeBuilder: async () => {
         throw new Error('not used in query tests')

@@ -5,6 +5,7 @@ import {
   type ConnectionStateEvent,
   type DatabaseColumnNode,
   type DatabaseSchemaNode,
+  type ExplainNode,
   type QueryResult,
 } from '@shared/types'
 import type { VisualizationConfiguration } from '@lib/resultVisualization'
@@ -143,9 +144,10 @@ export interface QuerySession {
   builderFilterNotice: { id: number; message: string } | null
   explainSnapshot: {
     query: string
-    mode: 'explain' | 'analyze' | 'semantic'
+    mode: 'explain' | 'analyze'
   } | null
   explainText: string | null
+  explainTree: ExplainNode | null
   showExplain: boolean
   activeExplainRequest: ExplainRequest
   seriesVisibility: Record<string, boolean>
@@ -255,6 +257,7 @@ export function createQuerySession(
     queryFilterRevision: { sql: 0, builder: 0 },
     builderFilterNotice: null,
     explainText: null,
+    explainTree: null,
     explainSnapshot: null,
     showExplain: false,
     activeExplainRequest: null,
@@ -411,6 +414,7 @@ export interface AppState {
     text: string | null,
     tabId?: string,
     snapshot?: QuerySession['explainSnapshot'],
+    tree?: ExplainNode,
   ) => void
   setShowExplain: (value: boolean, tabId?: string) => void
   setActiveExplainRequest: (request: ExplainRequest, tabId?: string) => void
@@ -937,6 +941,7 @@ export const useStore = create<AppState>((set, get) => ({
           (filter) => filter.execution === 'query',
         ),
         explainText: null,
+        explainTree: null,
         explainSnapshot: null,
         showExplain: false,
         activeExplainRequest: null,
@@ -1001,6 +1006,7 @@ export const useStore = create<AppState>((set, get) => ({
           queryFilterRevision: { sql: 0, builder: 0 },
           builderFilterNotice: null,
           explainText: null,
+          explainTree: null,
           explainSnapshot: null,
           showExplain: false,
           activeExplainRequest: null,
@@ -1358,11 +1364,12 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }),
     ),
-  setExplain: (explainText, tabId, snapshot) =>
+  setExplain: (explainText, tabId, snapshot, explainTree) =>
     set((state) =>
       patchSession(state, tabId, (session) => ({
         ...session,
         explainText,
+        explainTree: explainTree ?? null,
         explainSnapshot: snapshot ?? null,
       })),
     ),

@@ -4,7 +4,6 @@ export const IPC = {
   AI_KEY_REMOVE: 'ai:key:remove',
   AI_MODELS: 'ai:models',
   AI_TEST: 'ai:test',
-  AI_EXPLAIN: 'ai:explain',
   AI_PROPOSE: 'ai:propose',
   AI_PROPOSE_BUILDER: 'ai:propose-builder',
   AI_CANCEL: 'ai:cancel',

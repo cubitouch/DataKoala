@@ -126,33 +126,3 @@ export const AI_PRIVACY_NOTICE =
 export function isAiConfigured(settings: AiSettingsSummary): boolean {
   return settings.hasApiKey && settings.model.trim().length > 0
 }
-
-export interface AiQueryExplanationRequest {
-  requestId: string
-  currentQuery: string
-  context: AiQueryContext
-}
-export const AI_EXPLANATION_KINDS = [
-  'source',
-  'join',
-  'filter',
-  'group',
-  'select',
-  'window',
-  'sort',
-  'limit',
-  'cte',
-  'subquery',
-] as const
-export interface AiQueryExplanation {
-  summary: string
-  assumptions: string[]
-  nodes: Array<{
-    id: string
-    label: string
-    kind: (typeof AI_EXPLANATION_KINDS)[number]
-    sqlFragment: string
-  }>
-  edges: Array<{ from: string; to: string }>
-  highlights: Array<{ title: string; detail: string; nodeIds: string[] }>
-}

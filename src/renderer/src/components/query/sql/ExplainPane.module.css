@@ -13,16 +13,6 @@
   z-index: 40;
 }
 
-.plan {
-  margin: 0;
-  padding: 12px;
-  overflow: auto;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text-dim);
-  white-space: pre;
-}
-
 .head {
   display: flex;
   align-items: center;
@@ -32,17 +22,35 @@
   color: var(--text-dim);
 }
 
-.spacer {
-  flex: 1;
-}
+.spacer { flex: 1; }
 
 .status {
   color: var(--text-mute);
   font-size: 12px;
-  padding: 8px 10px 0;
+  padding: 8px 12px;
+  margin: 0;
 }
 
 .content {
   overflow: auto;
   min-height: 0;
+}
+
+.textPlan {
+  border-top: 1px solid var(--border);
+  padding: 10px 12px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.plan {
+  margin: 8px 0 0;
+  padding: 10px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: pre;
+  background: var(--bg-1);
+  border-radius: 6px;
 }

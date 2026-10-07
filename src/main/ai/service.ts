@@ -1,4 +1,3 @@
-import { explanationRequest } from './explanation.ts'
 import type { AiResult } from '../../shared/ai.ts'
 import { SecureStorageError } from '../secrets/store.ts'
 import { OpenRouterProvider } from './openrouter.ts'
@@ -125,31 +124,6 @@ export class AiService {
         )
       signal.throwIfAborted()
       await this.createProvider(key, draft.model).test(signal)
-    })
-  }
-  explainQuery(owner: number, input: unknown) {
-    return this.result(async () => {
-      const request = explanationRequest(input)
-      const response = await this.run(
-        owner,
-        request.requestId,
-        async (signal) => {
-          const settings = await this.settings.get(),
-            key = await this.settings.getApiKey()
-          if (!settings.model || !key)
-            throw new AiError(
-              'configuration',
-              'Configure OpenRouter to explain queries.',
-            )
-          signal.throwIfAborted()
-          return this.createProvider(key, settings.model).explainQuery(
-            request,
-            signal,
-          )
-        },
-      )
-      if (!response.ok) throw new AiError(response.code, response.message)
-      return response.value
     })
   }
   proposeQuery(owner: number, input: unknown) {

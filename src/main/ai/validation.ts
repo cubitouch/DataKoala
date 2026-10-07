@@ -23,7 +23,6 @@ import type {
   AiBuilderState,
   AiBuilderStep,
   AiContextRequest,
-  AiQueryContext,
   AiErrorCode,
   AiQueryProposal,
   AiQueryProposalRequest,
@@ -64,8 +63,9 @@ export function settingsInput(value: unknown): AiSettingsInput {
       : { apiKey: textValue(input.apiKey, 1024, true).trim() }),
   }
 }
-export function queryContext(value: unknown): AiQueryContext {
-  const context = record(value),
+export function proposalRequest(value: unknown): AiQueryProposalRequest {
+  const input = record(value),
+    context = record(input.context),
     language = record(context.language)
   if (
     language.kind !== 'sql' ||
@@ -114,11 +114,6 @@ export function queryContext(value: unknown): AiQueryContext {
     JSON.stringify(cleanContext).length > AI_LIMITS.contextCharacters
   )
     throw new AiError('validation', 'AI schema context is too large.')
-  return cleanContext
-}
-export function proposalRequest(value: unknown): AiQueryProposalRequest {
-  const input = record(value)
-  const cleanContext = queryContext(input.context)
   // Reconstruct an allowlist: accidental profile/result properties never reach the provider.
   if (input.intent !== 'generate' && input.intent !== 'repair')
     throw new AiError('validation', 'Invalid AI request intent.')

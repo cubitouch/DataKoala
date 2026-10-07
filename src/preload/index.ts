@@ -2,8 +2,6 @@ import type {
   AiBuilderProposalRequest,
   AiBuilderStep,
   AiResult,
-  AiQueryExplanationRequest,
-  AiQueryExplanation,
   AiSettingsSummary,
   AiSettingsInput,
   AiModel,
@@ -16,6 +14,7 @@ import type {
   ConnectResult,
   ConnectionStateEvent,
   DataSourceProfile,
+  ExplainResult,
   QueryRunResponse,
   TableInfo,
   TestResult,
@@ -83,10 +82,6 @@ const api = {
       input: AiSettingsInput,
     ): Promise<AiResult<void>> =>
       ipcRenderer.invoke(IPC.AI_TEST, requestId, input),
-    explainQuery: (
-      request: AiQueryExplanationRequest,
-    ): Promise<AiResult<AiQueryExplanation>> =>
-      ipcRenderer.invoke(IPC.AI_EXPLAIN, request),
     proposeQuery: (
       request: AiQueryProposalRequest,
     ): Promise<AiResult<AiQueryStep>> =>
@@ -281,7 +276,7 @@ const api = {
       id: string,
       sql: string,
       analyze: boolean,
-    ): Promise<{ text: string }> =>
+    ): Promise<ExplainResult> =>
       ipcRenderer.invoke(IPC.QUERY_EXPLAIN, id, sql, analyze),
   },
   export: {
