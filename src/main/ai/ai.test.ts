@@ -11,6 +11,7 @@ import { OpenRouterProvider } from './openrouter.ts'
 import { proposalRequest } from './validation.ts'
 import {
   AI_LIMITS,
+  type AiBuilderProposalRequest,
   type AiQueryProposalRequest,
   type AiQueryStep,
 } from '../../shared/ai.ts'
@@ -40,6 +41,24 @@ const request: AiQueryProposalRequest = {
   intent: 'generate',
   prompt: 'count orders',
   context: { language: { kind: 'sql', dialect: 'postgres' }, relations: [] },
+}
+const builderRequest: AiBuilderProposalRequest = {
+  requestId: 'builder-req',
+  prompt: 'sum revenue by country',
+  state: {
+    relation: { schema: 'public', name: 'orders' },
+    xColumn: 'created_at',
+    valueColumn: null,
+    aggregation: 'count',
+    timeColumn: 'created_at',
+    timeBucket: 'day',
+    timeRange: { kind: 'rolling', amount: 7, unit: 'day' },
+  },
+  columns: [
+    { name: 'created_at', dataType: 'timestamptz' },
+    { name: 'country', dataType: 'text' },
+    { name: 'revenue', dataType: 'numeric' },
+  ],
 }
 class MemorySecrets implements SecretStore {
   private values = new Map<string, string>()
@@ -138,6 +157,46 @@ test('OpenRouter normalizes a bounded context request into the provider-neutral 
       reason: contextRequestWire.reason,
     },
   })
+})
+
+test('OpenRouter Builder proposals use a dedicated SQL-free structured contract without oneOf', async () => {
+  let sent: Record<string, unknown> | undefined
+  const provider = new OpenRouterProvider('key', 'model', async (_url, init) => {
+    sent = JSON.parse(String(init?.body))
+    return completion({
+      kind: 'proposal',
+      patch: {
+        xColumn: 'country',
+        valueColumn: 'revenue',
+        aggregation: 'sum',
+      },
+      explanation: 'Sum revenue by country.',
+      assumptions: [],
+      reason: '',
+    })
+  })
+
+  assert.deepEqual(await provider.proposeBuilder(builderRequest, signal()), {
+    kind: 'proposal',
+    proposal: {
+      patch: {
+        xColumn: 'country',
+        valueColumn: 'revenue',
+        aggregation: 'sum',
+      },
+      explanation: 'Sum revenue by country.',
+      assumptions: [],
+    },
+  })
+
+  const schema = (
+    sent?.response_format as {
+      json_schema?: { schema?: Record<string, unknown> }
+    }
+  ).json_schema?.schema
+  assert.equal(JSON.stringify(schema).includes('oneOf'), false)
+  assert.match(JSON.stringify(sent?.messages), /Return Builder changes, never SQL/)
+  assert.equal(JSON.stringify(sent).includes('test-placeholder'), false)
 })
 
 for (const [status, code] of [
