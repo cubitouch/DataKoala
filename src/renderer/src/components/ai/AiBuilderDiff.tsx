@@ -54,7 +54,11 @@ export function AiBuilderDiff({
 }) {
   const changes = aiBuilderChanges(before, after)
   return (
-    <div className={styles.builderDiff} aria-label="AI Builder proposal">
+    <div
+      className={styles.builderDiff}
+      role="region"
+      aria-label="AI Builder proposal"
+    >
       {changes.length ? (
         changes.map((change) => (
           <div
