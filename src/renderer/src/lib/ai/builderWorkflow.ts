@@ -20,6 +20,7 @@ import {
   type DatabaseRelationNode,
 } from '@shared/types'
 import {
+  aiBuilderMutationFingerprint,
   normalizedAiBuilderState,
   transitionBuilderConfiguration,
 } from '@lib/builderConfiguration'
@@ -29,6 +30,7 @@ export interface AiBuilderSnapshot {
   tabId: string
   profileId: string
   state: AiBuilderState
+  guard: string
 }
 
 export interface AiPreparedBuilderContext {
@@ -59,6 +61,7 @@ export function captureAiBuilderSnapshot(): AiBuilderSnapshot | null {
         tabId: session.id,
         profileId: session.connectionProfileId,
         state,
+        guard: aiBuilderMutationFingerprint(session),
       }
     : null
 }
@@ -71,6 +74,7 @@ export const matchesAiBuilderSnapshot = (
     current &&
     snapshot.tabId === current.tabId &&
     snapshot.profileId === current.profileId &&
+    snapshot.guard === current.guard &&
     JSON.stringify(snapshot.state) === JSON.stringify(current.state),
   )
 
