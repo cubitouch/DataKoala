@@ -116,7 +116,11 @@ export class SeriesCardinalityProbes {
         ...(bytesProcessed === undefined ? {} : { bytesProcessed }),
       })
     }
-    if (provider === 'postgres') {
+    const canUsePostgresPlanner =
+      provider === 'postgres' &&
+      request.seriesColumns.length === 1 &&
+      request.predicates.length === 0
+    if (canUsePostgresPlanner) {
       const started = performance.now()
       let estimate: number | undefined
       try {
