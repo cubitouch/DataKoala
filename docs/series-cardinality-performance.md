@@ -4,25 +4,30 @@
 
 | Provider                                 | Strategy                                                                                                              | Approval   |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------- |
-| PostgreSQL                               | Unfiltered single column: planner fast-reject above 200, otherwise exact; scoped/multi-column: exact bounded probe    | Exact only |
+| PostgreSQL                               | Unfiltered single column: `pg_stats`; scoped/multi-column: planner; inconclusive estimates fall back to exact         | Native estimate or exact |
 | BigQuery                                 | Dedicated structured, validated internal SELECT operation, one execution job and no validation dry run                | Exact only |
 | DuckDB / local files / SQLite via DuckDB | Existing bounded grouped query                                                                                        | Exact only |
 
 The renderer makes one cardinality request and retains stale-response protection.
-The legacy statistics operation explicitly returns unavailable outside PostgreSQL.
-PostgreSQL planner fast-rejection is deliberately limited to the simple shape
-where estimates are least surprising: one unfiltered Series column. Scoped or
-multi-column selections go directly to the exact bounded probe, avoiding both an
-extra EXPLAIN round trip and correlated-dimension planner false rejections.
-Missing/invalid/failed plans fall back to exact. Even for the simple shape,
-estimates above 200 remain advisory and can falsely reject; the message labels
-them as estimates. Estimates never approve, including estimates at or below the
-previous threshold of 50.
+Provider strategy selection stays in the main process. PostgreSQL uses table-wide
+`pg_stats.n_distinct` only for one unfiltered Series column. Estimates at or
+below 50 accept, estimates above 200 reject, and the 51-200 advisory band falls
+back to the exact bounded probe. Missing or malformed statistics also fall back
+to exact.
 
-This intentionally prioritizes the brief's hard safety invariant over its
-conflicting suggestion to approve low estimates. Removing that shortcut can make
-some PostgreSQL low-cardinality checks slower. No general PostgreSQL latency
-improvement is claimed without live measurements.
+Filtered/time-scoped or multi-column PostgreSQL selections skip table-wide
+`pg_stats` and use `EXPLAIN (FORMAT JSON)` on the grouped selection instead.
+The same conservative band applies: planner estimates at or below 50 accept,
+estimates above 200 reject, and uncertain/missing estimates fall back to exact.
+These native estimates are intentionally advisory product decisions rather than
+proofs of exact cardinality.
+
+Manual testing showed why an exact-only policy is not appropriate for PostgreSQL.
+On a representative large events table, the planner estimated roughly three
+groups in under a millisecond, while the exact grouped probe performed a parallel
+sequential scan across millions of qualifying rows and took about 10 seconds.
+`LIMIT 101` bounds the returned groups, not the amount of source scanning or
+aggregation PostgreSQL may need to perform first.
 
 BigQuery arbitrary SQL retains its dry-run/read-only validation. The special
 operation accepts a structured request, validates it again, generates its own SQL,
@@ -61,7 +66,7 @@ node scripts/benchmarks/series-cardinality.mjs --postgres 1000000
 
 DuckDB uses an in-memory temporary table. PostgreSQL uses a session-local temporary
 table, compares unindexed/indexed cases, prints JSON plans, and exercises the
-new planner-then-exact strategy. Neither modifies existing application tables.
+provider strategy dispatcher. Neither modifies existing application tables.
 Both compare GROUP BY, DISTINCT, and ordered DISTINCT, with one/multiple columns
 and filtered/unfiltered scopes. Each shape has one warm-up and three measurements.
 
@@ -80,11 +85,12 @@ result does not imply bounded source scanning. Low-cardinality GROUP BY used a
 perfect hash aggregation, whereas DISTINCT used general hash aggregation. These
 mixed results do not justify changing the generic query shape.
 
-No live PostgreSQL/BigQuery server credentials were configured for this work.
-PostgreSQL plan timings for the simple unfiltered single-column path, live
-BigQuery latency/bytes, and SQLite file benchmarks remain unmeasured. Run the
-supplied PostgreSQL benchmark and local instrumentation against representative
-configured connections before declaring the investigation complete. The PR is deliberately a draft and #324 remains open.
+The PostgreSQL regression above was observed during manual testing on a
+representative configured database. Broader PostgreSQL timings, live BigQuery
+latency/bytes, and SQLite file benchmarks remain incomplete. Run the supplied
+benchmark and local instrumentation against representative connections before
+declaring the overall investigation complete. The PR remains deliberately scoped
+and #324 stays open.
 
 For per-strategy local instrumentation:
 
@@ -94,9 +100,11 @@ DATAKOALA_DEBUG_CARDINALITY=1 pnpm dev
 
 The main-process console emits provider, strategy, column count, whether predicates
 exist, duration, accepted/rejected/fallback/error, and BigQuery bytes processed
-when available. No identifiers, SQL, values, credentials, or remote telemetry are
-included. Timings are per strategy; fallback duration plus exact duration gives
-the total database work for one request.
+when available. Strategy values distinguish `postgres-pg-stats`,
+`postgres-planner`, `bigquery-exact`, and generic `exact`. No identifiers,
+SQL, values, credentials, or remote telemetry are included. Timings are per
+strategy; fallback duration plus exact duration gives the total database work for
+one request.
 
 ## Deferred sampling
 
@@ -117,9 +125,10 @@ References:
 
 ## Manual review
 
-- PostgreSQL: verify planner rejection on an unfiltered single dimension, then
-  verify scoped and multi-column selections use the exact path and still preserve
-  time/filter semantics.
+- PostgreSQL: verify one unfiltered dimension resolves through `pg_stats` for
+  clearly low/high estimates; verify mid-band/unavailable stats fall back to exact.
+  Then verify scoped and multi-column selections use planner estimates first and
+  preserve time/filter semantics.
 - BigQuery: repeat Series selections and inspect debug records/job history;
   ensure normal raw SQL still enforces read-only behavior and billing limits.
 - During a pending probe, change table/time scope or disconnect: no obsolete
