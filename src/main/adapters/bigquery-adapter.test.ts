@@ -772,7 +772,6 @@ test('GoogleSQL cardinality probes escape backslashes and backticks in every ide
   }
 })
 
-
 test('BigQuery query failures distinguish SQL errors from auth and permission failures', async () => {
   const cases = [
     {
@@ -841,7 +840,9 @@ test('BigQuery write and write-containing script policy failures are validation 
     ['SCRIPT', 'DECLARE x INT64; DELETE FROM orders; SELECT x;'],
   ] as const) {
     const fake = client(statementType)
-    const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
+    const connected = await new BigQueryAdapter(() => fake.value).connect(
+      profile,
+    )
     assert.equal(connected.result.ok, true)
     await assert.rejects(
       connected.session!.query({ sql }),
