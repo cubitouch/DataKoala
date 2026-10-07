@@ -332,8 +332,7 @@ export function QueryEditor({
   const isAnalyzeLoading = activeExplainRequest === 'analyze'
   const isAnyExplainLoading = activeExplainRequest !== null
   const canUseDatabase = Boolean(tabConnectionId) && !connecting
-  const canFormatPromql =
-    language.kind !== 'promql' || Boolean(tabConnectionId)
+  const canFormatPromql = language.kind !== 'promql' || Boolean(tabConnectionId)
   const capabilities = DATA_SOURCE_CAPABILITIES[connectionKind ?? 'postgres']
   const canExplain = canUseDatabase && capabilities.explain
   const canAnalyze = canUseDatabase && capabilities.analyze
