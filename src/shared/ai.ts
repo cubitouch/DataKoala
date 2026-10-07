@@ -3,6 +3,7 @@ import type {
   BuilderTimeBucket,
 } from './builderCapabilities.ts'
 import type { BuilderTimeRange } from './builderTimeRange.ts'
+import type { SqlDialect } from './types.ts'
 
 export interface AiSettingsSummary {
   provider: 'openrouter'
@@ -24,9 +25,14 @@ export interface AiRelationContext {
   kind: 'table' | 'view' | 'matview'
   columns: Array<{ name: string; dataType: string; nullable?: boolean }>
 }
+export interface AiRelationCatalogEntry {
+  schema: string
+  name: string
+}
 export interface AiQueryContext {
-  language: { kind: 'sql'; dialect: 'postgres' }
+  language: { kind: 'sql'; dialect: SqlDialect }
   relations: AiRelationContext[]
+  availableRelations?: AiRelationCatalogEntry[]
 }
 export interface AiQueryProposalRequest {
   requestId: string
@@ -105,6 +111,8 @@ export const AI_LIMITS = {
   initialColumns: 140,
   contextCharacters: 24000,
   initialContextCharacters: 18000,
+  relationCatalog: 200,
+  relationCatalogCharacters: 12000,
   prompt: 8000,
   query: 40000,
   errorCharacters: 6000,
