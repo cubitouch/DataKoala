@@ -78,7 +78,7 @@
     "lint:ts:fix": "pnpm lint:ts --fix",
     "lint:css": "stylelint \"src/**/*.css\" \"docs-site/**/*.css\"",
     "lint:css:fix": "pnpm lint:css --fix",
-    "format": "prettier --write src/main/adapters/postgres-explain.test.ts src/renderer/src/components/query/sql/ExecutionPlanDiagram.test.tsx src/renderer/src/components/query/sql/ExecutionPlanDiagram.tsx src/renderer/src/components/query/sql/ExecutionPlanPresentation.ts && git diff -- src/main/adapters/postgres-explain.test.ts src/renderer/src/components/query/sql/ExecutionPlanDiagram.test.tsx src/renderer/src/components/query/sql/ExecutionPlanDiagram.tsx src/renderer/src/components/query/sql/ExecutionPlanPresentation.ts && exit 1",
+    "format": "prettier --check .",
     "format:fix": "prettier --write ."
   },
   "dependencies": {
