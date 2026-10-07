@@ -19,6 +19,23 @@ const profile = {
   tlsMode: 'disable',
   readonly: true,
 }
+const bigQueryProfile = {
+  id: 'ai-preview-bigquery',
+  name: 'Warehouse analytics',
+  kind: 'bigquery',
+  version: 1,
+  billingProject: 'billing-project',
+  defaultProject: 'my-project',
+  defaultDataset: 'analytics',
+  maximumBytesBilled: '',
+  readonly: true,
+}
+const bigQueryColumns = [
+  { name: 'id', dataTypeName: 'STRING' },
+  { name: 'country', dataTypeName: 'STRING' },
+  { name: 'created_at', dataTypeName: 'TIMESTAMP' },
+  { name: 'revenue', dataTypeName: 'NUMERIC' },
+]
 const columns = [
   { name: 'id', dataTypeName: 'uuid' },
   { name: 'country', dataTypeName: 'text' },
@@ -28,6 +45,10 @@ const columns = [
 ]
 const query =
   "SELECT country, sum(amount) AS revenue\nFROM public.orders\nWHERE created_at >= now() - interval '30 days'\nGROUP BY country\nORDER BY revenue DESC;"
+const bigQueryInitialQuery =
+  'SELECT * FROM \`my-project.analytics.orders\` LIMIT 100;'
+const bigQueryQuery =
+  'SELECT country, SUM(revenue) AS revenue\\nFROM \`my-project.analytics.orders\`\\nWHERE created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)\\nGROUP BY country\\nORDER BY revenue DESC;'
 const failedQuery = 'SELECT device_id FROM public.orders;'
 const fixedQuery = 'SELECT id AS device_id FROM public.orders;'
 let failNextRepair = true
@@ -116,7 +137,12 @@ app.whenReady().then(async () => {
       return ok({
         kind: 'proposal',
         proposal: {
-          query: request.intent === 'repair' ? fixedQuery : query,
+          query:
+            request.intent === 'repair'
+              ? fixedQuery
+              : request.context?.language?.dialect === 'google-sql'
+                ? bigQueryQuery
+                : query,
           explanation:
             request.intent === 'repair'
               ? 'Replaced the missing device_id column with the available id column while preserving the result name.'
