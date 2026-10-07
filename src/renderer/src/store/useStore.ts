@@ -49,6 +49,7 @@ import type { TraceBuilderState, TraceSampleSize } from '@lib/traceBuilder'
 import { sanitizeAiErrorContext } from '@shared/aiErrorContext'
 import type { AiBuilderState } from '@shared/ai'
 import {
+  aiBuilderMutationFingerprint,
   aiBuilderStatesEqual,
   normalizedAiBuilderState,
   transitionBuilderConfiguration,
@@ -379,7 +380,7 @@ export interface AppState {
   ) => void
   setBuilderHasRun: (value: boolean, tabId?: string) => void
   applyAiBuilderTarget: (
-    expected: { profileId: string; state: AiBuilderState },
+    expected: { profileId: string; state: AiBuilderState; guard: string },
     target: AiBuilderState,
     tabId: string,
   ) => boolean
@@ -1172,6 +1173,7 @@ export const useStore = create<AppState>((set, get) => ({
         if (
           session.queryMode !== 'builder' ||
           session.connectionProfileId !== expected.profileId ||
+          expected.guard !== aiBuilderMutationFingerprint(session) ||
           !aiBuilderStatesEqual(
             normalizedAiBuilderState(session),
             expected.state,
