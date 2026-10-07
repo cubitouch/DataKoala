@@ -2,6 +2,7 @@ import type {
   DatabaseColumnNode,
   DatabaseRelationNode,
   DatabaseSchemaNode,
+  SqlDialect,
 } from '@shared/types'
 import {
   AI_LIMITS,
@@ -237,13 +238,14 @@ export async function appendAiContext(
 }
 
 export async function buildAiContext(
+  dialect: SqlDialect,
   relations: DatabaseRelationNode[],
   load: (
     relation: DatabaseRelationNode,
   ) => Promise<DatabaseColumnNode[] | undefined>,
 ): Promise<AiQueryContext> {
   return appendAiContext(
-    { language: { kind: 'sql', dialect: 'postgres' }, relations: [] },
+    { language: { kind: 'sql', dialect }, relations: [] },
     relations.slice(0, AI_LIMITS.relations),
     load,
     initialBudget,
