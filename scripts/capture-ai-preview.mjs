@@ -156,20 +156,24 @@ app.whenReady().then(async () => {
             'The model returned an invalid query step. Try again or choose another model.',
         }
       }
+      let proposalQuery = query
+      if (request.intent === 'repair') {
+        proposalQuery =
+          request.context?.language?.dialect === 'google-sql'
+            ? bigQueryFixedQuery
+            : fixedQuery
+      } else if (request.context?.language?.dialect === 'google-sql') {
+        proposalQuery = bigQueryQuery
+      }
       return ok({
         kind: 'proposal',
         proposal: {
-          query:
-            request.intent === 'repair'
-              ? request.context?.language?.dialect === 'google-sql'
-                ? bigQueryFixedQuery
-                : fixedQuery
-              : request.context?.language?.dialect === 'google-sql'
-                ? bigQueryQuery
-                : query,
+          query: proposalQuery,
           explanation:
             request.intent === 'repair'
-              ? 'Replaced the missing device_id column with the available id column while preserving the result name.'
+              ? request.context?.language?.dialect === 'google-sql'
+                ? 'Corrected the misspelled revenue column while preserving the BigQuery aggregation.'
+                : 'Replaced the missing device_id column with the available id column while preserving the result name.'
               : 'Aggregates revenue by country for orders created within the last 30 days, with the highest revenue first.',
           assumptions: [
             'amount is the order revenue in a consistent currency.',
