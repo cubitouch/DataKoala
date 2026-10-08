@@ -181,7 +181,7 @@ export function buildChartTooltipFormatter(
       (row) =>
         `<div class="chart-tooltip-row${row.hovered ? ' chart-tooltip-row-hovered' : ''}"><span class="chart-tooltip-marker" style="background:${escapeHtml(row.color ?? '#9aa0b0')}"></span><span class="chart-tooltip-series" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><strong>${escapeHtml(formatValue(row.value))}</strong></div>`,
     )
-    return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(formatLabel(axisValue))}</div>${rows.join('')}${detail}${summary.omitted ? `<div class="chart-tooltip-more">${summary.omitted} more</div>` : ''}</div>`
+    return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(formatLabel(axisValue))}</div>${rows.join('')}${summary.omitted ? `<div class="chart-tooltip-more">${summary.omitted} more</div>` : ''}</div>`
   }
 }
 
