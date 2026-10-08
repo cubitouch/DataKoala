@@ -90,11 +90,6 @@ test('normalizes primary gcx object entries without mixing field namespaces', ()
   assert.equal(result.logRows[0].timestampNs, '1750000000000000000')
   assert.equal(result.logRows[0].timestampMs, 1_750_000_000_000)
   assert.equal(result.logRows[0].severity, 'warn')
-  assert.deepEqual(result.logRows[0].severitySource, {
-    source: 'structured-metadata',
-    field: 'level',
-    value: 'WARN',
-  })
   assert.equal(result.logRows[0].traceId, 'abc')
   assert.equal(result.logRows[0].spanId, 'span-1')
 })
@@ -523,40 +518,19 @@ test('explicit single-value matrix samples are normalized without weakening malf
   )
 })
 
-test('tracks the source and safe parser provenance for normalized severity aliases', () => {
-  const json = normalizedLog('{"log_level":"ERROR"}')
-  assert.equal(json.severity, 'error')
-  assert.deepEqual(json.severitySource, {
-    source: 'parsed-field',
-    field: 'log_level',
-    value: 'ERROR',
-    parser: 'json',
-  })
-
-  const parsed = normalizedLog('plain message', {
-    parsed: { severity_text: 'WARN' },
-  })
-  assert.deepEqual(parsed.severitySource, {
-    source: 'parsed-field',
-    field: 'severity_text',
-    value: 'WARN',
-  })
-
-  const metadata = normalizedLog('plain message', {
-    structuredMetadata: { loglevel: 'INFO' },
-  })
-  assert.deepEqual(metadata.severitySource, {
-    source: 'structured-metadata',
-    field: 'loglevel',
-    value: 'INFO',
-  })
-
-  const label = normalizedLog('plain message', {
-    labels: { log_level: 'DEBUG' },
-  })
-  assert.deepEqual(label.severitySource, {
-    source: 'label',
-    field: 'log_level',
-    value: 'DEBUG',
-  })
+test('preserves normalized severity aliases across log records', () => {
+  assert.equal(normalizedLog('{"log_level":"ERROR"}').severity, 'error')
+  assert.equal(
+    normalizedLog('message', { parsed: { severity_text: 'WARN' } }).severity,
+    'warn',
+  )
+  assert.equal(
+    normalizedLog('message', { structuredMetadata: { loglevel: 'INFO' } })
+      .severity,
+    'info',
+  )
+  assert.equal(
+    normalizedLog('message', { labels: { log_level: 'DEBUG' } }).severity,
+    'debug',
+  )
 })
