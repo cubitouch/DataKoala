@@ -62,11 +62,29 @@ const anomalyAnalysisSchema = {
   type: 'object',
   properties: {
     summary: { type: 'string' },
-    findings: { type: 'array', maxItems: 8, items: { type: 'string' } },
+    anomalies: {
+      type: 'array',
+      maxItems: 12,
+      items: {
+        type: 'object',
+        properties: {
+          seriesIndex: { type: 'integer' },
+          pointIndex: { type: 'integer' },
+          title: { type: 'string' },
+          reason: { type: 'string' },
+          severity: {
+            type: ['string', 'null'],
+            enum: ['low', 'medium', 'high', null],
+          },
+        },
+        required: ['seriesIndex', 'pointIndex', 'title', 'reason', 'severity'],
+        additionalProperties: false,
+      },
+    },
     limitations: { type: 'array', maxItems: 8, items: { type: 'string' } },
     followUps: { type: 'array', maxItems: 8, items: { type: 'string' } },
   },
-  required: ['summary', 'findings', 'limitations', 'followUps'],
+  required: ['summary', 'anomalies', 'limitations', 'followUps'],
   additionalProperties: false,
 }
 
@@ -409,7 +427,7 @@ export class OpenRouterProvider implements AiProvider {
         {
           role: 'system',
           content:
-            'Analyze the bounded chart sample supplied by the user and identify notable changes or candidate anomalies. Longer series are sampled by chronological buckets, retaining endpoints, minima, and maxima; each series includes original and valid point counts plus sample coverage. Use that coverage when describing uncertainty, and note that short-lived changes outside the extrema sample could still be missed. Return a concise summary, visible patterns, limitations, and follow-up questions. Do not claim causation or statistical certainty; distinguish observations from hypotheses. Do not invent data or execute queries.',
+            'Analyze only the exact bounded chart sample supplied by the user. Return a concise summary and an anomalies array with zero-based seriesIndex and pointIndex references into the supplied series and points arrays. Each anomaly must refer to a real supplied point and include a short title and concise reason; severity may be low, medium, or high. Identify specific suspicious datapoints, distinguish observed evidence from hypotheses, and do not claim causation or statistical certainty. Longer series are sampled by chronological buckets retaining endpoints, minima, and maxima; use point counts and sampleCoverage to explain limits, and do not claim that unsampled points were examined. If evidence is insufficient or no point is noteworthy, return an empty anomalies array. Never invent a point, coordinate, value, or reference. Do not execute queries.',
         },
         { role: 'user', content: JSON.stringify(request.chart) },
       ],
@@ -417,7 +435,7 @@ export class OpenRouterProvider implements AiProvider {
       1800,
       'anomaly_analysis',
       anomalyAnalysisSchema,
-      anomalyAnalysis,
+      (value) => anomalyAnalysis(value, request),
       'The model returned an invalid anomaly analysis. Try again or choose another model.',
     )
   }
