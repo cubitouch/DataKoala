@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { buildLokiQuery } from '../shared/loki-builder.ts'
 import {
   GcxLokiTransport,
   classifyLogql,
@@ -533,4 +534,59 @@ test('preserves normalized severity aliases across log records', () => {
     normalizedLog('message', { labels: { log_level: 'DEBUG' } }).severity,
     'debug',
   )
+})
+
+
+test('indexed severity labels determine badges when log fields conflict', () => {
+  const levelFilterQuery = buildLokiQuery({
+    labelMatchers: [],
+    lineFilters: [],
+    parsers: [],
+    fieldFilters: [],
+    levelFilter: { label: 'level', values: ['ERROR'] },
+  })
+  assert.equal(levelFilterQuery, '{level=~"(?i)^(?:ERROR)$"}')
+
+  const stream = { level: 'ERROR' }
+  const matcher = /^(?:ERROR)$/i
+  assert.equal(matcher.test(stream.level), true)
+
+  const row = normalizedLog('message', {
+    labels: stream,
+    structuredMetadata: { severity: 'INFO' },
+  })
+  assert.equal(row.severity, 'error')
+  assert.deepEqual(row.labels, { app: 'checkout', level: 'ERROR' })
+  assert.deepEqual(row.structuredMetadata, { severity: 'INFO' })
+})
+
+test('indexed severity aliases are case-insensitive and outrank parsed fields', () => {
+  const row = normalizedLog('message', {
+    labels: { Severity_Text: 'ERROR' },
+    parsed: { level: 'INFO' },
+  })
+  assert.equal(row.severity, 'error')
+  assert.equal(row.labels.Severity_Text, 'ERROR')
+  assert.deepEqual(row.parsedFields, { level: 'INFO' })
+
+  const logLevel = normalizedLog('message', {
+    labels: { LOG_LEVEL: 'WARN' },
+    parsed: { severity: 'INFO' },
+  })
+  assert.equal(logLevel.severity, 'warn')
+})
+
+test('detected_level is not an authoritative severity alias', () => {
+  const row = normalizedLog('message', {
+    labels: { level: 'ERROR' },
+    parsed: { detected_level: 'INFO' },
+  })
+  assert.equal(row.severity, 'error')
+  assert.deepEqual(row.parsedFields, { detected_level: 'INFO' })
+
+  const withoutIndexedLevel = normalizedLog('message', {
+    parsed: { detected_level: 'ERROR' },
+    structuredMetadata: { severity: 'INFO' },
+  })
+  assert.equal(withoutIndexedLevel.severity, 'info')
 })
