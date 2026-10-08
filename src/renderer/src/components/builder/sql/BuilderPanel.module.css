@@ -78,6 +78,13 @@
   line-height: 1.45;
 }
 
+.seriesProbeStatus {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .seriesProbeError span {
   flex: 1 1 180px;
   min-width: 0;
