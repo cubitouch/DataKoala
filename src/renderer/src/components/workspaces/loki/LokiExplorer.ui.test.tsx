@@ -950,6 +950,33 @@ describe('LokiExplorer execution', () => {
     )
   })
 
+  it('uses detected_level for result badges when the row severity differs', () => {
+    const tab = createQuerySession(1, {
+      id: 'detected-level-badge',
+      connectionProfileId: 'loki',
+      queryMode: 'sql',
+    })
+    const row = {
+      ...logRow('warning', 'Scheduled retry', 'INFO'),
+      labels: { level: 'WARN' },
+      structuredMetadata: { severity: 'INFO' },
+      parsedFields: { detected_level: 'warning' },
+    }
+    tab.result = {
+      ...logs,
+      logRows: [row],
+      rows: [row],
+      rowCount: 1,
+    } as LokiLogResult
+    tab.resultRevision = 1
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+
+    const badge = screen.getByText('WARNING')
+    expect(badge.getAttribute('data-log-severity')).toBe('WARNING')
+    expect(badge.closest('article')?.textContent).toContain('Scheduled retry')
+  })
+
   it('disables Level when indexed metadata has no matching label, without filtering loaded rows', async () => {
     const tab = createQuerySession(1, {
       id: 'no-level',
