@@ -30,11 +30,6 @@ const row = {
   structuredMetadata: { severity: 'ERROR', trace_id: 'abc', region: 'west' },
   parsedFields: { attempt: 3 },
   severity: 'ERROR',
-  severitySource: {
-    source: 'structured-metadata' as const,
-    field: 'severity',
-    value: 'ERROR',
-  },
   traceId: 'abc',
 }
 
