@@ -31,6 +31,7 @@ env:
     tempo-service-map-dense.png
     tempo-service-map-fullscreen.png
     tempo-waterfall.png
+    loki-level-dropdown.png
     loki-log-list.png
     loki-log-patterns.png
     loki-log-chart.png
@@ -266,3 +267,4 @@ jobs:
                 body
               })
             }
+
