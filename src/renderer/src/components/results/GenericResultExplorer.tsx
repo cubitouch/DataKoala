@@ -249,8 +249,8 @@ export function GenericResultExplorer({
       }
       void getSettings()
         .then((result) => {
-          if (active && result.ok)
-            setAiConfigured(isAiConfigured(result.value))
+          if (!active) return
+          setAiConfigured(result.ok && isAiConfigured(result.value))
         })
         .catch(() => {
           if (active) setAiConfigured(false)
