@@ -66,6 +66,34 @@
   opacity: 0.65;
 }
 
+.seriesProbeError {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 8px;
+  min-width: 0;
+  margin-top: 8px;
+  color: var(--red);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.seriesProbeStatus {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.seriesProbeError span {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.seriesProbeError button {
+  flex: 0 0 auto;
+}
+
 .slotEmpty {
   min-width: 0;
 }
