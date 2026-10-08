@@ -207,11 +207,11 @@ app.whenReady().then(async () => {
     if (
       !Array.isArray(displayedSeverities) ||
       displayedSeverities.length !== 36 ||
-      displayedSeverities.some((severity) => !['error', 'warn'].includes(severity))
-    )
-      throw new Error(
-        `Expected filtered preview rows to have ERROR/WARN badges only: ${JSON.stringify(displayedSeverities)}`,
+      displayedSeverities.some(
+        (severity) => !['ERROR', 'WARN'].includes(severity),
       )
+    )
+      throw new Error('Filtered preview rows must have ERROR/WARN badges only')
     await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('section[aria-label="Log results"] article button')].find((button) => button.textContent?.includes('circuit breaker opened'))?.click()`,
     )
