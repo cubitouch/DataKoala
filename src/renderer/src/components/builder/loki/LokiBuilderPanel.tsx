@@ -8,7 +8,11 @@ import type {
 } from '@shared/loki'
 import type { LokiMetadataRequest } from '@shared/loki'
 import { lokiLabelValues } from '@lib/lokiMetadata'
-import { selectorWithoutMatcher } from '@shared/loki-builder'
+import {
+  normalizeLokiLevelValues,
+  selectorWithoutMatcher,
+  sortLokiLevelValues,
+} from '@shared/loki-builder'
 import { Combobox, MultiCombobox } from '@components/ui/combobox'
 import { CollapsibleSection } from '@components/ui/CollapsibleSection'
 import { GeneratedQueryPanel } from '@components/query/GeneratedQueryPanel'
@@ -201,13 +205,7 @@ export function LokiBuilderPanel({
     levelSelector,
     start,
   ])
-  const levelOptions = [
-    ...new Set(
-      indexedLevelValues
-        .map((level) => level.trim().toUpperCase())
-        .filter(Boolean),
-    ),
-  ].sort()
+  const levelOptions = sortLokiLevelValues(indexedLevelValues)
   const preserved = value.labelMatchers.filter((matcher) => !editable(matcher))
   const matchers = [
     ...new Map(
@@ -220,13 +218,7 @@ export function LokiBuilderPanel({
     (matcher) => matcher.label !== levelLabel,
   )
   const selected = filterMatchers.map(({ label }) => label)
-  const selectedLevels = [
-    ...new Set(
-      (value.levelFilter?.values ?? [])
-        .map((level) => level.trim().toUpperCase())
-        .filter(Boolean),
-    ),
-  ]
+  const selectedLevels = normalizeLokiLevelValues(value.levelFilter?.values ?? [])
   const selectLevels = (next: string[]) => {
     const values = [...new Set(next)]
     const nextBuilder: LokiBuilderState = {
