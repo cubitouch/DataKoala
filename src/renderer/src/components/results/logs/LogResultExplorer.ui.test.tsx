@@ -270,7 +270,6 @@ it('keeps the resized log inspector width when selecting another log', () => {
   ).toBeTruthy()
 })
 
-
 it('keeps an unknown level source local', () => {
   const onFilter = vi.fn()
   const unknownSource = { ...row, severitySource: undefined }
