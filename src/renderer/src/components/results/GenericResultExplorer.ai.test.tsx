@@ -159,11 +159,9 @@ describe('AI chart anomaly analysis', () => {
     expect(toggle.getAttribute('aria-pressed')).toBe('true')
     await waitFor(() => {
       const chartSeries = aiMocks.chartOptions?.series as
-        | Array<Record<string, unknown>>
-        | undefined
+        Array<Record<string, unknown>> | undefined
       const markerData = chartSeries?.[0]?.markPoint as
-        | { data: Array<{ coord: unknown[] }> }
-        | undefined
+        { data: Array<{ coord: unknown[] }> } | undefined
       expect(markerData?.data.map((marker) => marker.coord)).toEqual([
         [157, 800],
         [212, -40],
