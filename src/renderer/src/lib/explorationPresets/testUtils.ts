@@ -58,7 +58,6 @@ export function testSession(options: Partial<QuerySession> = {}): QuerySession {
       seriesColumns: [],
       hierarchyDimensions: [],
       valueAxisScale: 'linear',
-      anomalyDetectionEnabled: false,
     },
     builderVisualization: {
       view: 'line',
