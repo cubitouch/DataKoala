@@ -116,12 +116,21 @@ const escapeHtml = (value: unknown) =>
       ]!,
   )
 
+export interface ChartAiAnomalyTooltip {
+  seriesName: string
+  originalIndex: number
+  title: string
+  reason: string
+  severity?: 'low' | 'medium' | 'high'
+}
+
 export function buildChartTooltipFormatter(
   formatLabel: (value: unknown) => string,
   hoveredSeriesIdentity?: string | (() => string | undefined),
   originalSeries?: readonly ChartSeries[],
   visibility: Readonly<Record<string, boolean>> = {},
   formatValue: (value: unknown) => string = formatChartNumber,
+  aiAnomalies: readonly ChartAiAnomalyTooltip[] = [],
 ) {
   return (input: unknown): string => {
     const params = (Array.isArray(input) ? input : [input]).filter(
@@ -181,7 +190,23 @@ export function buildChartTooltipFormatter(
       (row) =>
         `<div class="chart-tooltip-row${row.hovered ? ' chart-tooltip-row-hovered' : ''}"><span class="chart-tooltip-marker" style="background:${escapeHtml(row.color ?? '#9aa0b0')}"></span><span class="chart-tooltip-series" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><strong>${escapeHtml(formatValue(row.value))}</strong></div>`,
     )
-    return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(formatLabel(axisValue))}</div>${rows.join('')}${summary.omitted ? `<div class="chart-tooltip-more">${summary.omitted} more</div>` : ''}</div>`
+    const hoveredIdentity =
+      typeof hoveredSeriesIdentity === 'function'
+        ? hoveredSeriesIdentity()
+        : hoveredSeriesIdentity
+    const anomaly =
+      typeof dataIndex === 'number' && hoveredIdentity
+        ? aiAnomalies.find(
+            (item) =>
+              item.seriesName === hoveredIdentity &&
+              item.originalIndex === dataIndex &&
+              visibility[item.seriesName] !== false,
+          )
+        : undefined
+    const anomalyDetails = anomaly
+      ? `<div class="chart-tooltip-anomaly"><div class="chart-tooltip-anomaly-heading">${anomaly.severity ? `AI anomaly · ${escapeHtml(anomaly.severity)}` : 'AI anomaly'}</div><strong>${escapeHtml(anomaly.title)}</strong><div class="chart-tooltip-anomaly-reason">${escapeHtml(anomaly.reason)}</div></div>`
+      : ''
+    return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(formatLabel(axisValue))}</div>${rows.join('')}${summary.omitted ? `<div class="chart-tooltip-more">${summary.omitted} more</div>` : ''}${anomalyDetails}</div>`
   }
 }
 
@@ -215,6 +240,8 @@ interface PresentationInput {
   hoveredSeriesIdentity?: string | (() => string | undefined)
   rangeSelectionEnabled?: boolean
   hierarchy?: HierarchyNode[]
+  aiAnomalies?: readonly ChartAiAnomalyTooltip[]
+  showAiAnomalies?: boolean
 }
 
 export function buildChartPresentationOptions(
@@ -352,6 +379,7 @@ export function buildChartPresentationOptions(
         input.series,
         input.visibility,
         formatValue,
+        input.showAiAnomalies ? input.aiAnomalies : [],
       ),
       backgroundColor: '#161922',
       borderColor: '#2a2f3d',
@@ -397,6 +425,46 @@ export function buildChartPresentationOptions(
       : {}),
     series: renderedSeries.map((series, index) => ({
       ...series,
+      ...(input.showAiAnomalies
+        ? (() => {
+            const data = (input.aiAnomalies ?? [])
+              .filter(
+                (anomaly) =>
+                  anomaly.seriesName === series.name &&
+                  anomaly.originalIndex >= 0 &&
+                  anomaly.originalIndex < series.data.length &&
+                  input.visibility?.[series.name] !== false &&
+                  typeof series.data[anomaly.originalIndex] === 'number' &&
+                  (input.valueAxisScale !== 'log' ||
+                    (series.data[anomaly.originalIndex] as number) > 0),
+              )
+              .map((anomaly) => ({
+                coord: [
+                  temporal
+                    ? temporalXValues[anomaly.originalIndex]
+                    : input.labels[anomaly.originalIndex],
+                  series.data[anomaly.originalIndex],
+                ],
+                value: series.data[anomaly.originalIndex],
+              }))
+            return data.length
+              ? {
+                  markPoint: {
+                    symbol: 'circle',
+                    symbolSize: 14,
+                    label: { show: false },
+                    tooltip: { show: false },
+                    itemStyle: {
+                      color: 'rgba(0, 0, 0, 0)',
+                      borderColor: '#ff4d4f',
+                      borderWidth: 2,
+                    },
+                    data,
+                  },
+                }
+              : {}
+          })()
+        : {}),
       missing: undefined,
       itemStyle: { color: chartSeriesColor(index) },
       lineStyle: { color: chartSeriesColor(index) },
