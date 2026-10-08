@@ -11,6 +11,8 @@ import { OpenRouterProvider } from './openrouter.ts'
 import {
   anomalyAnalysis,
   anomalyAnalysisRequest,
+  planAnalysis,
+  planAnalysisRequest,
   proposalRequest,
 } from './validation.ts'
 import {
@@ -19,6 +21,7 @@ import {
   type AiBuilderProposalRequest,
   type AiQueryProposalRequest,
   type AiQueryStep,
+  type AiPlanAnalysisRequest,
 } from '../../shared/ai.ts'
 
 const proposal = {
@@ -111,6 +114,29 @@ const completion = (content: unknown = proposalWire) =>
     ],
   })
 const signal = () => new AbortController().signal
+const planRequest: AiPlanAnalysisRequest = {
+  requestId: 'plan-request',
+  sql: "select * from analytics.orders where created_at > now() - interval '1 day'",
+  mode: 'analyze',
+  plan: {
+    truncated: false,
+    planningTimeMs: 1.2,
+    executionTimeMs: 15.4,
+    nodes: [
+      {
+        id: '0',
+        nodeType: 'Seq Scan',
+        schema: 'analytics',
+        relation: 'orders',
+        estimatedRows: 12,
+        actualRows: 8400,
+        actualTotalTimeMs: 12.3,
+        loops: 1,
+        filter: "created_at > now() - '1 day'::interval",
+      },
+    ],
+  },
+}
 
 const anomalyRequest: AiAnomalyAnalysisRequest = {
   requestId: 'anomaly-request',
@@ -295,6 +321,178 @@ test('OpenRouter models, structured request and proposal parsing use only explic
   assert.match(JSON.stringify(sent?.messages), /context-request/)
   await provider.test(signal())
   assert.equal(sent?.max_tokens, 256)
+})
+
+test('plan request validation rebuilds an allowlist and response validation grounds hints to submitted node IDs', () => {
+  const clean = planAnalysisRequest({
+    ...planRequest,
+    rows: [{ password: 'row-secret' }],
+    password: 'request-secret',
+    host: 'db.internal',
+    connection: { user: 'alice' },
+    profile: { database: 'private' },
+    plan: {
+      ...planRequest.plan,
+      rows: [{ secret: 'plan-row-secret' }],
+      password: 'plan-password',
+      host: 'plan-host',
+      connection: { user: 'plan-user' },
+      profile: { database: 'plan-db' },
+      nodes: planRequest.plan.nodes.map((node) => ({
+        ...node,
+        rows: [{ customer: 'customer-secret' }],
+        password: 'node-password',
+        host: 'node-host',
+        connection: { user: 'node-user' },
+        profile: { database: 'node-db' },
+      })),
+    },
+  })
+  const serialized = JSON.stringify(clean)
+  for (const secret of [
+    'row-secret',
+    'request-secret',
+    'db.internal',
+    'alice',
+    'private',
+    'plan-row-secret',
+    'plan-password',
+    'plan-host',
+    'plan-user',
+    'plan-db',
+    'customer-secret',
+    'node-password',
+    'node-host',
+    'node-user',
+    'node-db',
+  ])
+    assert.equal(serialized.includes(secret), false)
+  assert.equal(clean.plan.nodes[0]?.id, '0')
+
+  const hint = {
+    title: 'Cardinality estimate differs',
+    detail: 'The scan returned many more rows than the planner estimated.',
+    severity: 'warning',
+    nodeIds: ['0'],
+    evidence: 'Estimated 12 rows; actual rows 8400 at node 0.',
+  }
+  assert.deepEqual(
+    planAnalysis(
+      { summary: 'One large estimate mismatch.', hints: [hint] },
+      clean,
+    ),
+    {
+      summary: 'One large estimate mismatch.',
+      hints: [hint],
+    },
+  )
+  assert.deepEqual(
+    planAnalysis({ summary: 'No strong issue.', hints: [] }, clean),
+    {
+      summary: 'No strong issue.',
+      hints: [],
+    },
+  )
+  assert.throws(
+    () =>
+      planAnalysis(
+        {
+          summary: 'Bad',
+          hints: [{ ...hint, nodeIds: ['node-that-does-not-exist'] }],
+        },
+        clean,
+      ),
+    { code: 'invalid-response' },
+  )
+  assert.throws(
+    () =>
+      planAnalysis(
+        {
+          summary: 'Bad',
+          hints: [
+            { ...hint, detail: 'x'.repeat(AI_LIMITS.planHintDetail + 1) },
+          ],
+        },
+        clean,
+      ),
+    { code: 'invalid-response' },
+  )
+})
+
+test('OpenRouter plan analysis sends captured SQL and bounded context with a strict schema and mode-specific grounding', async () => {
+  for (const [mode, expectedPrompt] of [
+    ['explain', /plain EXPLAIN: runtime information is unavailable/],
+    ['analyze', /actual rows, timings, and buffers may be discussed/],
+  ] as const) {
+    let sent: Record<string, unknown> | undefined
+    const provider = new OpenRouterProvider(
+      'test-key',
+      'vendor/model',
+      async (_url, init) => {
+        sent = JSON.parse(String(init?.body))
+        return completion({ summary: 'No high-signal issue found.', hints: [] })
+      },
+    )
+    const request = planAnalysisRequest({
+      ...planRequest,
+      mode,
+      rows: [{ customer: 'result-row-secret' }],
+      password: 'request-password',
+      host: 'database-host',
+      connection: { user: 'connection-user' },
+      profile: { database: 'saved-profile' },
+      plan: {
+        ...planRequest.plan,
+        password: 'plan-password',
+        host: 'plan-host',
+        nodes: planRequest.plan.nodes.map((node) => ({
+          ...node,
+          rows: [{ customer: 'nested-result-secret' }],
+          connection: { user: 'nested-connection' },
+          profile: { database: 'nested-profile' },
+        })),
+      },
+    })
+    assert.deepEqual(await provider.analyzePlan(request, signal()), {
+      summary: 'No high-signal issue found.',
+      hints: [],
+    })
+    const messages = sent?.messages as Array<{ role: string; content: string }>
+    const prompt = messages[0]?.content ?? ''
+    const payload = JSON.parse(messages[1]?.content ?? '{}')
+    assert.match(prompt, expectedPrompt)
+    assert.match(prompt, /Do not claim an index is absent/)
+    assert.match(prompt, /only sources of truth/)
+    assert.equal(payload.sql, planRequest.sql)
+    assert.equal(payload.mode, mode)
+    assert.deepEqual(payload.plan, request.plan)
+    const serializedRequest = JSON.stringify(sent)
+    for (const secret of [
+      'result-row-secret',
+      'request-password',
+      'database-host',
+      'connection-user',
+      'saved-profile',
+      'plan-password',
+      'plan-host',
+      'nested-result-secret',
+      'nested-connection',
+      'nested-profile',
+    ])
+      assert.equal(serializedRequest.includes(secret), false)
+    assert.equal(sent?.max_tokens, 3072)
+    const format = sent?.response_format as {
+      type: string
+      json_schema: { strict: boolean; schema: Record<string, unknown> }
+    }
+    assert.equal(format.type, 'json_schema')
+    assert.equal(format.json_schema.strict, true)
+    assert.equal(format.json_schema.schema.additionalProperties, false)
+    assert.equal(
+      JSON.stringify(format.json_schema.schema).includes('query'),
+      false,
+    )
+  }
 })
 
 test('OpenRouter query generation identifies each canonical SQL dialect without changing the structured schema', async () => {
@@ -613,6 +811,7 @@ test('settings preserve the model and blank key; tests do not save; removal dele
         limitations: [],
         followUps: [],
       }),
+      analyzePlan: async () => ({ summary: '', hints: [] }),
     }))
     await service.saveSettings({ model: 'old', apiKey: 'saved-key' })
     await service.test(1, 'test', { model: 'new', apiKey: 'draft-key' })
@@ -823,6 +1022,7 @@ test('timeout, owner-scoped cancellation, duplicate protection and all completio
         limitations: [],
         followUps: [],
       }),
+      analyzePlan: async () => ({ summary: '', hints: [] }),
     }),
     25,
   )

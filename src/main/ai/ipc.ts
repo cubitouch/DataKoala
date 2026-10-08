@@ -44,6 +44,9 @@ export function registerAiIpc() {
   ipcMain.handle(IPC.AI_ANALYZE_ANOMALIES, (event, input: unknown) =>
     service.analyzeAnomalies(owner(event), input),
   )
+  ipcMain.handle(IPC.AI_ANALYZE_PLAN, (event, input: unknown) =>
+    service.analyzePlan(owner(event), input),
+  )
   ipcMain.handle(IPC.AI_CANCEL, (event, id: unknown) =>
     service.cancel(owner(event), id),
   )

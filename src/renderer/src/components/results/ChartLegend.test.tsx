@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { ChartLegend } from './ChartLegend'
+import { ChartLegend, ChartLegendResizer } from './ChartLegend'
 import { chartLegendEntries } from '@lib/chartLegend'
 import {
   isolateSeries,
@@ -77,4 +77,54 @@ test('scrolling has no selection side effects and single series has no legend', 
   expect(onIsolate).not.toHaveBeenCalled()
   view.rerender(<ChartLegend {...props} series={props.series.slice(0, 1)} />)
   expect(screen.queryByRole('group')).toBeNull()
+})
+
+test('right legend divider resizes with the keyboard and clamps to its available space', () => {
+  const container = document.createElement('div')
+  container.getBoundingClientRect = () => ({ width: 560 }) as DOMRect
+  const containerRef = { current: container }
+  const onWidthChange = vi.fn()
+  const view = render(
+    <ChartLegendResizer
+      width={200}
+      containerRef={containerRef}
+      onWidthChange={onWidthChange}
+    />,
+  )
+
+  const divider = screen.getByRole('separator', { name: 'Resize chart legend' })
+  expect(divider.getAttribute('aria-orientation')).toBe('vertical')
+  expect(divider.getAttribute('aria-valuemax')).toBe('256')
+  fireEvent.keyDown(divider, { key: 'ArrowLeft' })
+  expect(onWidthChange).toHaveBeenLastCalledWith(224)
+  view.rerender(
+    <ChartLegendResizer
+      width={224}
+      containerRef={containerRef}
+      onWidthChange={onWidthChange}
+    />,
+  )
+  fireEvent.keyDown(divider, { key: 'ArrowRight' })
+  expect(onWidthChange).toHaveBeenLastCalledWith(200)
+})
+
+test('right legend divider clamps pointer resizing to minimum and maximum widths', () => {
+  const container = document.createElement('div')
+  container.getBoundingClientRect = () => ({ width: 1200 }) as DOMRect
+  const containerRef = { current: container }
+  const onWidthChange = vi.fn()
+  render(
+    <ChartLegendResizer
+      width={200}
+      containerRef={containerRef}
+      onWidthChange={onWidthChange}
+    />,
+  )
+
+  const divider = screen.getByRole('separator', { name: 'Resize chart legend' })
+  fireEvent.pointerDown(divider, { button: 0, pointerId: 1, clientX: 100 })
+  fireEvent.pointerMove(divider, { pointerId: 1, clientX: 500 })
+  expect(onWidthChange).toHaveBeenLastCalledWith(140)
+  fireEvent.pointerMove(divider, { pointerId: 1, clientX: -500 })
+  expect(onWidthChange).toHaveBeenLastCalledWith(420)
 })

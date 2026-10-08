@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react'
 import ReactECharts from 'echarts-for-react'
@@ -101,7 +102,26 @@ import {
 import { ChartPicker } from './ChartPicker'
 import styles from './ResultExplorer.module.css'
 import { chartLegendEntries } from '@lib/chartLegend'
-import { ChartLegend } from './ChartLegend'
+import {
+  ChartLegend,
+  ChartLegendResizer,
+  DEFAULT_CHART_LEGEND_WIDTH,
+  MAX_CHART_LEGEND_WIDTH,
+  MIN_CHART_LEGEND_WIDTH,
+} from './ChartLegend'
+
+const CHART_LEGEND_WIDTH_STORAGE_KEY = 'datakoala.chartLegendWidth'
+
+function readChartLegendWidth() {
+  try {
+    const stored = Number(localStorage.getItem(CHART_LEGEND_WIDTH_STORAGE_KEY))
+    return Number.isFinite(stored) && stored >= MIN_CHART_LEGEND_WIDTH
+      ? Math.min(MAX_CHART_LEGEND_WIDTH, stored)
+      : DEFAULT_CHART_LEGEND_WIDTH
+  } catch {
+    return DEFAULT_CHART_LEGEND_WIDTH
+  }
+}
 
 const valueScaleOptions: ComboboxOption[] = [
   { value: 'linear', label: 'Linear' },
@@ -203,6 +223,8 @@ export function GenericResultExplorer({
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
   const aiContextRevision = useRef(0)
   const aiRequestId = useRef<string | null>(null)
+  const [chartLegendWidth, setChartLegendWidth] = useState(readChartLegendWidth)
+  const chartCanvasRef = useRef<HTMLDivElement | null>(null)
   const hoveredSeriesIdentity = useRef<string | undefined>(undefined)
   const chartEvents = useRef<ChartEventBridgeLifecycle | null>(null)
   if (!chartEvents.current)
@@ -233,6 +255,17 @@ export function GenericResultExplorer({
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readiness = useRef(new ChartReadinessController())
   const animationPolicy = useRef(new ChartAnimationPolicy())
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        CHART_LEGEND_WIDTH_STORAGE_KEY,
+        String(chartLegendWidth),
+      )
+    } catch {
+      // The live width remains usable when browser storage is unavailable.
+    }
+  }, [chartLegendWidth])
 
   useEffect(
     () => () => {
@@ -1391,7 +1424,13 @@ export function GenericResultExplorer({
           ) : (
             <>
               <div
+                ref={chartCanvasRef}
                 className={styles.chartCanvas}
+                style={
+                  {
+                    '--chart-legend-width': `${chartLegendWidth}px`,
+                  } as CSSProperties
+                }
                 data-result-chart-canvas
                 data-visual-type={effectiveConfiguration.view}
                 data-visual-finished={chartRendered}
@@ -1419,27 +1458,36 @@ export function GenericResultExplorer({
                   />
                 </div>
                 {!hierarchical && (
-                  <ChartLegend
-                    series={legendEntries}
-                    visibility={seriesVisibility}
-                    onToggle={(identity) =>
-                      updateSeriesVisibility(
-                        reconcileSeriesVisibility(
-                          toggleSeries(seriesVisibility, identity),
-                          seriesIdentities,
-                        ),
-                      )
-                    }
-                    onIsolate={(identity) =>
-                      updateSeriesVisibility(
-                        isolateSeries(
-                          seriesVisibility,
-                          seriesIdentities,
-                          identity,
-                        ),
-                      )
-                    }
-                  />
+                  <>
+                    {legendEntries.length > 1 && (
+                      <ChartLegendResizer
+                        width={chartLegendWidth}
+                        containerRef={chartCanvasRef}
+                        onWidthChange={setChartLegendWidth}
+                      />
+                    )}
+                    <ChartLegend
+                      series={legendEntries}
+                      visibility={seriesVisibility}
+                      onToggle={(identity) =>
+                        updateSeriesVisibility(
+                          reconcileSeriesVisibility(
+                            toggleSeries(seriesVisibility, identity),
+                            seriesIdentities,
+                          ),
+                        )
+                      }
+                      onIsolate={(identity) =>
+                        updateSeriesVisibility(
+                          isolateSeries(
+                            seriesVisibility,
+                            seriesIdentities,
+                            identity,
+                          ),
+                        )
+                      }
+                    />
+                  </>
                 )}
                 {showRunning && (
                   <div className={styles.runningOverlay} role="status">
