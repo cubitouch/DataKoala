@@ -62,8 +62,16 @@ function severityOf(
   indexedLabels: Record<string, unknown>,
   ...records: Record<string, unknown>[]
 ): string {
-  // Use the same discovered alias as the Builder so badges reflect the label
-  // that its Level matcher filters, while preserving conflicting fields below.
+  for (const record of records)
+    for (const [key, value] of Object.entries(record))
+      if (
+        key.toLowerCase().replace(/[._-]/g, '') === 'detectedlevel' &&
+        value != null &&
+        String(value).trim()
+      )
+        return String(value).toLowerCase()
+
+  // Use the same discovered alias as the Builder when no detected_level exists.
   const levelLabel = resolveLokiLevelLabel(Object.keys(indexedLabels))
   const indexedSeverity = levelLabel ? indexedLabels[levelLabel] : undefined
   if (indexedSeverity != null && String(indexedSeverity).trim())
