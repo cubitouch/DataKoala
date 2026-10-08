@@ -167,6 +167,10 @@ export function LokiExplorer({
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [localLevelFilter, setLocalLevelFilter] = useState<{
+    value: string
+    exclude: boolean
+  } | null>(null)
   const [patternScope, setPatternScope] = useState<{
     template: string
     memberIds: Set<string>
@@ -539,14 +543,33 @@ export function LokiExplorer({
     exclude: boolean,
     parser?: LokiParserKind,
   ) => {
+    const levelField = /^(severity|severity_text|level|loglevel|log_level)$/i.test(
+      key,
+    )
+    if (
+      source === 'local' ||
+      (source === 'parsed-field' && !parser) ||
+      mode !== 'builder'
+    ) {
+      if (levelField) setLocalLevelFilter({ value, exclude })
+      return
+    }
+    setLocalLevelFilter(null)
+    const isLevelAlias = (field: string) =>
+      /^(severity|severity_text|level|loglevel|log_level)$/i.test(field)
     if (source === 'label')
       setLokiState({
         lokiBuilder: {
           ...builder,
           labelMatchers: [
-            ...builder.labelMatchers.filter((matcher) => matcher.label !== key),
+            ...builder.labelMatchers.filter((matcher) =>
+              levelField ? !isLevelAlias(matcher.label) : matcher.label !== key,
+            ),
             { label: key, operator: exclude ? '!=' : '=', value },
           ],
+          fieldFilters: levelField
+            ? builder.fieldFilters.filter((filter) => !isLevelAlias(filter.field))
+            : builder.fieldFilters,
         },
       })
     else
@@ -557,8 +580,13 @@ export function LokiExplorer({
             parser && !builder.parsers.some((stage) => stage.kind === parser)
               ? [...builder.parsers, { kind: parser }]
               : builder.parsers,
+          labelMatchers: levelField
+            ? builder.labelMatchers.filter((matcher) => !isLevelAlias(matcher.label))
+            : builder.labelMatchers,
           fieldFilters: [
-            ...builder.fieldFilters.filter((filter) => filter.field !== key),
+            ...builder.fieldFilters.filter((filter) =>
+              levelField ? !isLevelAlias(filter.field) : filter.field !== key,
+            ),
             { field: key, operator: exclude ? '!=' : '=', value },
           ],
         },
@@ -605,9 +633,14 @@ export function LokiExplorer({
         ? (applyResultFilters(
             sortLokiLogRowsNewestFirst(result.logRows),
             session.sqlResultFilters,
-          ) as LokiLogResult['logRows'])
+          ) as LokiLogResult['logRows']).filter((row) =>
+            !localLevelFilter ||
+            (localLevelFilter.exclude
+              ? row.severity !== localLevelFilter.value
+              : row.severity === localLevelFilter.value),
+          )
         : [],
-    [result, session.sqlResultFilters],
+    [result, session.sqlResultFilters, localLevelFilter],
   )
   const scopedLogRows = useMemo(
     () =>
@@ -895,6 +928,23 @@ export function LokiExplorer({
                   </button>
                 </div>
               )}
+            {localLevelFilter && (
+              <div className={styles.status} role="status">
+                Local level filter:{' '}
+                <strong>
+                  {localLevelFilter.exclude ? 'not ' : ''}
+                  {localLevelFilter.value.toUpperCase()}
+                </strong>{' '}
+                — loaded logs only.
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => setLocalLevelFilter(null)}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
             <div className={styles.selectedView}>
               {resultView === 'list' ? (
                 <LogResultExplorer
