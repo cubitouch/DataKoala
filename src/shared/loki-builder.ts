@@ -11,10 +11,7 @@ export function escapeLogqlString(value: string): string {
   )
 }
 export function escapeLogqlRegexValue(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\export function escapeLogqlRegexValue(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-')
 }
 const LEVEL_ORDER = ['FATAL', 'ERROR', 'WARN', 'INFO', 'DEBUG']
 export function normalizeLokiLevelValue(value: string): string {
