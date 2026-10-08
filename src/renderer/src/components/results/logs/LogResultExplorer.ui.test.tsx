@@ -30,6 +30,7 @@ const row = {
   structuredMetadata: { severity: 'ERROR', trace_id: 'abc', region: 'west' },
   parsedFields: { attempt: 3 },
   severity: 'ERROR',
+  severitySource: { source: 'structured-metadata', field: 'severity' },
   traceId: 'abc',
 }
 
@@ -45,9 +46,20 @@ it('opens a compact selected row in the side inspector without advertising unava
   expect(screen.getByText('ERROR').getAttribute('data-severity')).toBe('ERROR')
   const timestamp = screen.getByText(/\d{2}:\d{2}:\d{2}\.\d{3}/)
   expect(timestamp.getAttribute('title')).toContain('2025-')
+  expect(screen.getByRole('button', { name: 'Filter level ERROR' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Filter level ERROR' }))
+  expect(onFilter).toHaveBeenCalledWith(
+    'structured-metadata',
+    'severity',
+    'ERROR',
+    false,
+    undefined,
+  )
   fireEvent.click(
     screen.getByRole('button', { name: /Payment provider timeout/ }),
   )
+  expect(screen.getByRole('heading', { name: 'Level' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Exclude level ERROR' })).toBeTruthy()
   expect(screen.getByRole('heading', { name: 'Indexed labels' })).toBeTruthy()
   expect(
     screen.getByRole('heading', { name: 'Structured metadata' }),
@@ -256,4 +268,29 @@ it('keeps the resized log inspector width when selecting another log', () => {
   expect(
     screen.getByRole('complementary', { name: 'Selected log details' }),
   ).toBeTruthy()
+})
+
+
+it('keeps an unknown level source local', () => {
+  const onFilter = vi.fn()
+  const unknownSource = { ...row, severitySource: undefined }
+  render(
+    <LogResultExplorer
+      rows={[unknownSource]}
+      limit={100}
+      onFilter={onFilter}
+    />,
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Filter level ERROR' }))
+  expect(onFilter).toHaveBeenCalledWith(
+    'local',
+    'severity',
+    'ERROR',
+    false,
+    undefined,
+  )
+  fireEvent.click(
+    screen.getByRole('button', { name: /Payment provider timeout/ }),
+  )
+  expect(screen.getByText(/filter will apply locally/)).toBeTruthy()
 })
