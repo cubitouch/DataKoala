@@ -114,7 +114,20 @@ const anomalyRequest: AiAnomalyAnalysisRequest = {
     chartType: 'line',
     xColumn: 'day',
     valueColumn: 'count',
-    series: [{ name: 'errors', points: [{ x: '2026-10-01', y: 2 }] }],
+    series: [
+      {
+        name: 'errors',
+        originalPointCount: 3,
+        validPointCount: 3,
+        sampleCoverage: 1,
+        samplingMethod: 'all-points',
+        points: [
+          { x: '2026-10-01', y: 2 },
+          { x: '2026-10-02', y: 3 },
+          { x: '2026-10-03', y: 9 },
+        ],
+      },
+    ],
   },
 }
 test('OpenRouter returns a validated structured anomaly analysis from bounded chart context', async () => {
@@ -142,11 +155,37 @@ test('OpenRouter returns a validated structured anomaly analysis from bounded ch
       ...anomalyRequest.chart,
       series: Array.from({ length: 9 }, (_, index) => ({
         name: String(index),
-        points: [],
+        originalPointCount: 3,
+        validPointCount: 3,
+        sampleCoverage: 1,
+        samplingMethod: 'all-points',
+        points: [
+          { x: '2026-10-01', y: 2 },
+          { x: '2026-10-02', y: 3 },
+          { x: '2026-10-03', y: 9 },
+        ],
       })),
     },
   }
   assert.throws(() => anomalyAnalysisRequest(tooMany))
+  assert.throws(() =>
+    anomalyAnalysisRequest({ ...anomalyRequest, chart: { ...anomalyRequest.chart, series: [] } }),
+  )
+  assert.throws(() =>
+    anomalyAnalysisRequest({
+      ...anomalyRequest,
+      chart: {
+        ...anomalyRequest.chart,
+        series: [{
+          ...anomalyRequest.chart.series[0],
+          points: anomalyRequest.chart.series[0].points.slice(0, 2),
+          originalPointCount: 2,
+          validPointCount: 2,
+          sampleCoverage: 1,
+        }],
+      },
+    }),
+  )
 })
 
 test('OpenRouter models, structured request and proposal parsing use only explicit query context', async () => {
@@ -498,7 +537,12 @@ test('settings preserve the model and blank key; tests do not save; removal dele
       proposeBuilder: async () => {
         throw new Error('not used in query tests')
       },
-      analyzeAnomalies: async () => ({ summary: '', findings: [], limitations: [], followUps: [] }),
+      analyzeAnomalies: async () => ({
+        summary: '',
+        findings: [],
+        limitations: [],
+        followUps: [],
+      }),
     }))
     await service.saveSettings({ model: 'old', apiKey: 'saved-key' })
     await service.test(1, 'test', { model: 'new', apiKey: 'draft-key' })
