@@ -66,7 +66,6 @@ const unfilteredUnavailable =
 // falling through to the component's per-render [] default.
 const EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS: string[] = []
 
-const COMMON_LOKI_LEVELS = ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE', 'FATAL']
 function interval(start: string, end: string): string {
   const targetSeconds = Math.max(
     1,
@@ -183,7 +182,6 @@ export function LokiExplorer({
     }),
     [builder, levelLabel],
   )
-  const levelOptions = COMMON_LOKI_LEVELS
   const [trend, setTrend] = useState<LokiQueryResult | null>(null)
   const [trendError, setTrendError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -541,20 +539,53 @@ export function LokiExplorer({
   ])
   useEffect(() => setPatternScope(null), [result])
   useEffect(() => {
-    if (
-      builder.levelFilter?.values.length &&
-      levelLabel &&
-      builder.levelFilter.label !== levelLabel
+    if (!levelLabel) return
+    const labelMatchers = builder.labelMatchers.filter(
+      (matcher) => matcher.label === levelLabel,
     )
-      setLokiState({
-        lokiBuilder: {
-          ...builder,
-          levelFilter: {
-            values: builder.levelFilter.values,
-            label: levelLabel,
-          },
-        },
-      })
+    const hasLevelSelection = Boolean(builder.levelFilter?.values.length)
+    const canPromoteMatchers = labelMatchers.every(
+      (matcher) => matcher.operator === '=',
+    )
+    const nextLevelValues = hasLevelSelection
+      ? builder.levelFilter!.values
+      : canPromoteMatchers
+        ? [
+            ...new Set(
+              labelMatchers.flatMap((matcher) =>
+                matcher.values?.length
+                  ? matcher.values
+                  : matcher.value
+                    ? [matcher.value]
+                    : [],
+              ),
+            ),
+          ]
+        : []
+    const shouldRemoveDuplicateMatchers =
+      labelMatchers.length > 0 &&
+      (hasLevelSelection || canPromoteMatchers)
+    const shouldRelabelSavedFilter =
+      hasLevelSelection && builder.levelFilter?.label !== levelLabel
+    if (!shouldRemoveDuplicateMatchers && !shouldRelabelSavedFilter) return
+    setLokiState({
+      lokiBuilder: {
+        ...builder,
+        labelMatchers: shouldRemoveDuplicateMatchers
+          ? builder.labelMatchers.filter(
+              (matcher) => matcher.label !== levelLabel,
+            )
+          : builder.labelMatchers,
+        ...(hasLevelSelection || nextLevelValues.length
+          ? {
+              levelFilter: {
+                values: nextLevelValues,
+                label: levelLabel,
+              },
+            }
+          : {}),
+      },
+    })
   }, [builder, levelLabel, setLokiState])
   const selectRange = (selected: LokiTrendRange) =>
     setLokiState({
@@ -863,7 +894,6 @@ export function LokiExplorer({
               value={builder}
               generated={displayedGenerated}
               labels={labels}
-              levelOptions={levelOptions}
               levelLabel={levelLabel}
               connectionId={connectionId}
               connectionGeneration={connectionGeneration}
