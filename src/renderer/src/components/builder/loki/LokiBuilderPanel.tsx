@@ -116,7 +116,6 @@ export function LokiBuilderPanel({
   value,
   generated,
   labels,
-  levelOptions,
   levelLabel,
   connectionId,
   connectionGeneration,
@@ -132,7 +131,6 @@ export function LokiBuilderPanel({
   value: LokiBuilderState
   generated: string
   labels: string[]
-  levelOptions: string[]
   levelLabel: string | null
   connectionId: string
   connectionGeneration: number
@@ -148,6 +146,68 @@ export function LokiBuilderPanel({
   const visibleLabels = [...new Set(labels)]
     .filter((label) => !internal(label))
     .sort()
+  const filterLabels = visibleLabels.filter((label) => label !== levelLabel)
+  const { start, end } = bounds
+  const levelSelector = useMemo(
+    () =>
+      levelLabel
+        ? selectorWithoutMatcher(value.labelMatchers, levelLabel)
+        : undefined,
+    [levelLabel, value.labelMatchers],
+  )
+  const [indexedLevelValues, setIndexedLevelValues] = useState<string[]>([])
+  const [levelValuesLoading, setLevelValuesLoading] = useState(false)
+  const [levelValuesError, setLevelValuesError] = useState<string | null>(null)
+  const levelValuesRequest = useRef(0)
+  useEffect(() => {
+    const current = ++levelValuesRequest.current
+    if (!canLoadMetadata || !levelLabel) {
+      setIndexedLevelValues([])
+      setLevelValuesLoading(false)
+      setLevelValuesError(null)
+      return
+    }
+    setLevelValuesLoading(true)
+    setLevelValuesError(null)
+    void lokiLabelValues(connectionId, levelLabel, {
+      start,
+      end,
+      ...(levelSelector ? { selector: levelSelector } : {}),
+    })
+      .then((values) => {
+        if (current === levelValuesRequest.current)
+          setIndexedLevelValues(values)
+      })
+      .catch((error) => {
+        if (current === levelValuesRequest.current)
+          setLevelValuesError(
+            error instanceof Error ? error.message : String(error),
+          )
+      })
+      .finally(() => {
+        if (current === levelValuesRequest.current)
+          setLevelValuesLoading(false)
+      })
+    return () => {
+      if (current === levelValuesRequest.current)
+        levelValuesRequest.current += 1
+    }
+  }, [
+    canLoadMetadata,
+    connectionGeneration,
+    connectionId,
+    end,
+    levelLabel,
+    levelSelector,
+    start,
+  ])
+  const levelOptions = [
+    ...new Set(
+      indexedLevelValues
+        .map((level) => level.trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  ].sort()
   const preserved = value.labelMatchers.filter((matcher) => !editable(matcher))
   const matchers = [
     ...new Map(
@@ -157,7 +217,13 @@ export function LokiBuilderPanel({
     ).values(),
   ]
   const selected = matchers.map(({ label }) => label)
-  const selectedLevels = value.levelFilter?.values ?? []
+  const selectedLevels = [
+    ...new Set(
+      (value.levelFilter?.values ?? [])
+        .map((level) => level.trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  ]
   const selectLevels = (next: string[]) => {
     const values = [...new Set(next)]
     const nextBuilder: LokiBuilderState = {
@@ -221,7 +287,7 @@ export function LokiBuilderPanel({
           <MultiCombobox
             label="Filter by"
             values={selected}
-            options={visibleLabels.map((label) => ({ value: label, label }))}
+            options={filterLabels.map((label) => ({ value: label, label }))}
             onChange={selectLabels}
             searchable
             showChips
@@ -254,6 +320,10 @@ export function LokiBuilderPanel({
             onChange={selectLevels}
             searchable
             showChips
+            loading={canLoadMetadata && levelValuesLoading}
+            error={canLoadMetadata ? levelValuesError : null}
+            loadingMessage="Loading indexed level values…"
+            emptyMessage="No indexed level values in this range"
             placeholder="All levels"
           />
           {!levelLabel && (
