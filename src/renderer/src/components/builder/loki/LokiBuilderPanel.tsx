@@ -216,7 +216,10 @@ export function LokiBuilderPanel({
         .map((matcher) => [matcher.label, matcher]),
     ).values(),
   ]
-  const selected = matchers.map(({ label }) => label)
+  const filterMatchers = matchers.filter(
+    (matcher) => matcher.label !== levelLabel,
+  )
+  const selected = filterMatchers.map(({ label }) => label)
   const selectedLevels = [
     ...new Set(
       (value.levelFilter?.values ?? [])
@@ -248,6 +251,7 @@ export function LokiBuilderPanel({
       ...value,
       labelMatchers: [
         ...preserved,
+        ...matchers.filter((matcher) => matcher.label === levelLabel),
         ...[...new Set(next)]
           .filter((label) => !internal(label))
           .map(
