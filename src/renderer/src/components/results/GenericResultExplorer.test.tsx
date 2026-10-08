@@ -1,7 +1,13 @@
 import { useState } from 'react'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 
 const aiMocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
@@ -151,7 +157,10 @@ describe('GenericResultExplorer controlled presentation', () => {
         { name: 'day', dataTypeID: 0, dataTypeName: 'integer' },
         { name: 'value', dataTypeID: 0, dataTypeName: 'integer' },
       ],
-      rows: Array.from({ length: 8 }, (_, day) => ({ day, value: day + 1 })),
+      rows: Array.from({ length: 8 }, (_, day) => ({
+        day,
+        value: day + 1,
+      })),
       rowCount: 8,
       durationMs: 3,
     }
