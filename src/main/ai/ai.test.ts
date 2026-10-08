@@ -149,6 +149,7 @@ test('OpenRouter returns a validated structured anomaly analysis from bounded ch
   assert.equal(analysis.findings.length, 1)
   assert.equal((sent?.response_format as { type: string }).type, 'json_schema')
   assert.match(JSON.stringify(sent?.messages), /2026-10-01/)
+  assert.match(JSON.stringify(sent?.messages), /sampleCoverage/)
   const tooMany = {
     ...anomalyRequest,
     chart: {
@@ -169,20 +170,25 @@ test('OpenRouter returns a validated structured anomaly analysis from bounded ch
   }
   assert.throws(() => anomalyAnalysisRequest(tooMany))
   assert.throws(() =>
-    anomalyAnalysisRequest({ ...anomalyRequest, chart: { ...anomalyRequest.chart, series: [] } }),
+    anomalyAnalysisRequest({
+      ...anomalyRequest,
+      chart: { ...anomalyRequest.chart, series: [] },
+    }),
   )
   assert.throws(() =>
     anomalyAnalysisRequest({
       ...anomalyRequest,
       chart: {
         ...anomalyRequest.chart,
-        series: [{
-          ...anomalyRequest.chart.series[0],
-          points: anomalyRequest.chart.series[0].points.slice(0, 2),
-          originalPointCount: 2,
-          validPointCount: 2,
-          sampleCoverage: 1,
-        }],
+        series: [
+          {
+            ...anomalyRequest.chart.series[0],
+            points: anomalyRequest.chart.series[0].points.slice(0, 2),
+            originalPointCount: 2,
+            validPointCount: 2,
+            sampleCoverage: 1,
+          },
+        ],
       },
     }),
   )
