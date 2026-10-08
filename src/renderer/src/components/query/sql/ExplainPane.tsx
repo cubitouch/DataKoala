@@ -63,11 +63,10 @@ export function ExplainPane() {
     }
   }
   const selectedId = selected?.id ?? ''
-  const highlightedIds = [
-    ...(ai.highlightedNodeIds ?? []),
-    ...(selectedDiagnostic?.nodeIds ?? []),
-  ]
-  const focusNodeId = ai.focusNodeId ?? selectedDiagnostic?.nodeIds[0] ?? null
+  const highlightedIds = selectedDiagnostic
+    ? selectedDiagnostic.nodeIds
+    : (ai.highlightedNodeIds ?? [])
+  const focusNodeId = selectedDiagnostic?.nodeIds[0] ?? ai.focusNodeId ?? null
 
   return (
     <section className={styles.root} aria-label="Explain results">
@@ -202,6 +201,7 @@ export function ExplainPane() {
                   className={`${styles.diagnostic} ${selectedDiagnosticId === diagnostic.id ? styles.activeCard : ''}`}
                   aria-pressed={selectedDiagnosticId === diagnostic.id}
                   onClick={() => {
+                    ai.clearHint()
                     setSelectedDiagnosticId((current) =>
                       current === diagnostic.id ? null : diagnostic.id,
                     )
@@ -255,6 +255,7 @@ export function ExplainPane() {
                         className={`${styles.hint} ${ai.selectedHint === hint ? styles.activeCard : ''}`}
                         aria-pressed={ai.selectedHint === hint}
                         onClick={() => {
+                          setSelectedDiagnosticId(null)
                           ai.selectHint(index)
                           if (ai.selectedHint !== hint && hint.nodeIds[0]) {
                             setSelectedNodeId(hint.nodeIds[0])

@@ -38,9 +38,8 @@ export function getExplainDiagnostics(
       diagnostics.push({
         id: `cardinality:${node.id}`,
         title: 'Material row estimate mismatch',
-        description:
-          'Review the estimate for this operation and the statistics or filters that shape its input.',
-        evidence: `Estimated ${count(node.planRows!)} rows; actual ${count(node.actualRows!)} rows (${cardinality.label}).`,
+        description: `PostgreSQL estimated ${count(node.planRows!)} rows and observed ${count(node.actualRows!)} rows per loop.`,
+        evidence: `${cardinality.label}.`,
         nodeIds: [node.id],
         severity: 'warning',
       })
@@ -55,7 +54,7 @@ export function getExplainDiagnostics(
         id: `measured-work:${node.id}`,
         title: 'High measured work',
         description:
-          'Inspect this operation and its ancestors together; PostgreSQL node timings are inclusive.',
+          'Node timings are inclusive, so this approximate work includes descendant time.',
         evidence: `${milliseconds(timing.perLoopMs)} per loop × ${count(timing.loops)} loops ≈ ${milliseconds(timing.approxTotalMs)} total measured work.`,
         nodeIds: [node.id],
         severity: 'info',
@@ -70,9 +69,8 @@ export function getExplainDiagnostics(
       diagnostics.push({
         id: `external-sort:${node.id}`,
         title: 'External sort used temporary storage',
-        description:
-          'Review the sort input size and available work_mem for this session before changing the query.',
-        evidence: `${node.sortMethod} wrote ${count(node.tempWrittenBlocks!)} temporary blocks${node.tempReadBlocks ? ` and read ${count(node.tempReadBlocks)} blocks` : ''}.`,
+        description: `PostgreSQL reported ${node.sortMethod}.`,
+        evidence: `${count(node.tempWrittenBlocks!)} temporary blocks written${node.tempReadBlocks ? ` · ${count(node.tempReadBlocks)} temporary blocks read` : ''}.`,
         nodeIds: [node.id],
         severity: 'warning',
       })
