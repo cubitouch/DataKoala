@@ -320,18 +320,66 @@ export function anomalyAnalysisRequest(
     },
   }
 }
-export function anomalyAnalysis(value: unknown): AiAnomalyAnalysis {
+export function anomalyAnalysis(
+  value: unknown,
+  request: AiAnomalyAnalysisRequest,
+): AiAnomalyAnalysis {
   try {
     const input = record(value)
-    onlyKeys(input, ['summary', 'findings', 'limitations', 'followUps'])
+    onlyKeys(input, ['summary', 'anomalies', 'limitations', 'followUps'])
     const strings = (items: unknown) => {
-      if (!Array.isArray(items) || items.length > AI_LIMITS.anomalyFindings)
-        throw new Error()
+      if (!Array.isArray(items) || items.length > 8) throw new Error()
       return items.map((item) => textValue(item, AI_LIMITS.anomalyText))
     }
+    if (
+      !Array.isArray(input.anomalies) ||
+      input.anomalies.length > AI_LIMITS.anomalyCount
+    )
+      throw new Error()
+    const seen = new Set<string>()
+    const anomalies = input.anomalies.map((raw) => {
+      const item = record(raw)
+      onlyKeys(item, [
+        'seriesIndex',
+        'pointIndex',
+        'title',
+        'reason',
+        'severity',
+      ])
+      const seriesIndex = finite(item.seriesIndex)
+      const pointIndex = finite(item.pointIndex)
+      if (
+        !Number.isInteger(seriesIndex) ||
+        seriesIndex < 0 ||
+        seriesIndex >= request.chart.series.length ||
+        !Number.isInteger(pointIndex) ||
+        pointIndex < 0 ||
+        pointIndex >= request.chart.series[seriesIndex].points.length
+      )
+        throw new Error()
+      const reference = `${seriesIndex}:${pointIndex}`
+      if (seen.has(reference)) throw new Error()
+      seen.add(reference)
+      const severity =
+        item.severity == null
+          ? undefined
+          : textValue(item.severity, 16)
+      if (
+        severity !== undefined &&
+        !['low', 'medium', 'high'].includes(severity)
+      )
+        throw new Error()
+      return {
+        seriesIndex,
+        pointIndex,
+        title: textValue(item.title, AI_LIMITS.anomalyTitle),
+        reason: textValue(item.reason, AI_LIMITS.anomalyReason),
+        ...(severity ? { severity: severity as 'low' | 'medium' | 'high' } : {}),
+      }
+    })
     return {
-      summary: textValue(input.summary, 2000),
-      findings: strings(input.findings),
+      summary: textValue(input.summary, AI_LIMITS.anomalySummary),
+      anomalies,
       limitations: strings(input.limitations),
       followUps: strings(input.followUps),
     }
