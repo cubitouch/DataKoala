@@ -409,7 +409,7 @@ export class OpenRouterProvider implements AiProvider {
         {
           role: 'system',
           content:
-            'Analyze the bounded chart sample supplied by the user and identify notable changes or candidate anomalies. Return a concise summary, visible patterns, limitations, and follow-up questions. Do not claim causation or statistical certainty; distinguish observations from hypotheses. Do not invent data or execute queries.',
+            'Analyze the bounded chart sample supplied by the user and identify notable changes or candidate anomalies. Longer series are sampled by chronological buckets, retaining endpoints, minima, and maxima; each series includes original and valid point counts plus sample coverage. Use that coverage when describing uncertainty, and note that short-lived changes outside the extrema sample could still be missed. Return a concise summary, visible patterns, limitations, and follow-up questions. Do not claim causation or statistical certainty; distinguish observations from hypotheses. Do not invent data or execute queries.',
         },
         { role: 'user', content: JSON.stringify(request.chart) },
       ],
