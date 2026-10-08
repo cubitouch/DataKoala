@@ -163,5 +163,7 @@ export function parseVisualization(
     !oneOf(value.valueAxisScale, ['linear', 'log'] as const)
   )
     return null
-  return clone(value) as unknown as VisualizationConfiguration
+  const visualization = clone(value)
+  delete visualization.anomalyDetectionEnabled
+  return visualization as unknown as VisualizationConfiguration
 }
