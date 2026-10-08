@@ -158,12 +158,6 @@ export function LokiBuilderPanel({
   ]
   const selected = matchers.map(({ label }) => label)
   const selectedLevels = value.levelFilter?.values ?? []
-  const levelSelectionSummary =
-    selectedLevels.length === 0
-      ? 'All levels'
-      : selectedLevels.length <= 2
-        ? selectedLevels.join(', ')
-        : `${selectedLevels.length} levels selected`
   const selectLevels = (next: string[]) => {
     const values = [...new Set(next)]
     const nextBuilder: LokiBuilderState = {
@@ -258,10 +252,9 @@ export function LokiBuilderPanel({
               }),
             )}
             onChange={selectLevels}
-            selectedSummary={levelSelectionSummary}
-            selectionIndicator="checkbox"
+            searchable
+            showChips
             placeholder="All levels"
-            searchable={false}
           />
           {!levelLabel && (
             <p className={styles.preserved} role="status">
