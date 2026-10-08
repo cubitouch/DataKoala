@@ -184,7 +184,6 @@ const defaultBuilderVisualization = (): VisualizationConfiguration => ({
   seriesColumns: [],
   hierarchyDimensions: [],
   valueAxisScale: 'linear',
-  anomalyDetectionEnabled: false,
 })
 
 let sessionSequence = 0
