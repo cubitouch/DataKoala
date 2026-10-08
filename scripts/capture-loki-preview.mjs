@@ -165,6 +165,14 @@ app.whenReady().then(async () => {
       (await win.webContents.capturePage()).toPNG(),
     )
     await win.webContents.executeJavaScript(
+      `document.querySelector('[role="listbox"][aria-label="Level"] button')?.click()`,
+    )
+    await waitFor(
+      win,
+      `!window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId)?.lokiBuilder?.levelFilter`,
+      'clear the preview Level selection before running the full fixture',
+    )
+    await win.webContents.executeJavaScript(
       `document.querySelector('[data-field][data-field-name="Level"] [role="combobox"]')?.click()`,
     )
     await win.webContents.executeJavaScript(
