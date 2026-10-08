@@ -571,7 +571,12 @@ export function LokiExplorer({
           ...builder,
           labelMatchers: alreadyPresent
             ? builder.labelMatchers
-            : [...builder.labelMatchers, { label: key, operator, value }],
+            : [
+                ...builder.labelMatchers.filter(
+                  (matcher) => levelField || matcher.label !== key,
+                ),
+                { label: key, operator, value },
+              ],
         },
       })
     } else {
@@ -590,7 +595,12 @@ export function LokiExplorer({
               : builder.parsers,
           fieldFilters: alreadyPresent
             ? builder.fieldFilters
-            : [...builder.fieldFilters, { field: key, operator, value }],
+            : [
+                ...builder.fieldFilters.filter(
+                  (filter) => levelField || filter.field !== key,
+                ),
+                { field: key, operator, value },
+              ],
         },
       })
     }
