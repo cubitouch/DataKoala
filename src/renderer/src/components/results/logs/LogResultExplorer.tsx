@@ -135,6 +135,7 @@ export function LogResultExplorer({
           !source ||
           source.source !== first.source ||
           source.field !== first.field ||
+          source.value !== first.value ||
           source.parser !== first.parser,
       )
     )
@@ -146,7 +147,7 @@ export function LogResultExplorer({
     onFilter(
       target?.source ?? 'local',
       target?.field ?? 'severity',
-      severity,
+      target?.value ?? severity,
       exclude,
       target?.parser,
     )
