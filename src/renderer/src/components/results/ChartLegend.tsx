@@ -1,8 +1,106 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react'
+import {
+  type KeyboardEvent,
+  type PointerEvent,
+  type RefObject,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { createPortal } from 'react-dom'
 import type { ChartLegendEntry } from '@lib/chartLegend'
 import type { SeriesVisibility } from '@lib/chartVisibility'
 import styles from './ChartLegend.module.css'
+
+export const DEFAULT_CHART_LEGEND_WIDTH = 200
+export const MIN_CHART_LEGEND_WIDTH = 140
+export const MAX_CHART_LEGEND_WIDTH = 420
+const MIN_CHART_PLOT_WIDTH = 240
+
+interface ChartLegendResizerProps {
+  width: number
+  containerRef: RefObject<HTMLDivElement | null>
+  onWidthChange: (width: number) => void
+}
+
+/** Keyboard and pointer divider for the right-side chart legend. */
+export function ChartLegendResizer({
+  width,
+  containerRef,
+  onWidthChange,
+}: ChartLegendResizerProps) {
+  const drag = useRef<{
+    pointerId: number
+    startX: number
+    startWidth: number
+  } | null>(null)
+
+  const clampWidth = (candidate: number) => {
+    const containerWidth =
+      containerRef.current?.getBoundingClientRect().width ?? 0
+    const availableMaximum = Math.min(
+      MAX_CHART_LEGEND_WIDTH,
+      Math.max(
+        MIN_CHART_LEGEND_WIDTH,
+        containerWidth - MIN_CHART_PLOT_WIDTH - 64,
+      ),
+    )
+    return Math.round(
+      Math.max(MIN_CHART_LEGEND_WIDTH, Math.min(availableMaximum, candidate)),
+    )
+  }
+
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    drag.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: clampWidth(width),
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    event.preventDefault()
+  }
+
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!drag.current || drag.current.pointerId !== event.pointerId) return
+    onWidthChange(
+      clampWidth(
+        drag.current.startWidth - (event.clientX - drag.current.startX),
+      ),
+    )
+  }
+
+  const finishPointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (!drag.current || drag.current.pointerId !== event.pointerId) return
+    drag.current = null
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId))
+      event.currentTarget.releasePointerCapture?.(event.pointerId)
+  }
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    onWidthChange(clampWidth(width + (event.key === 'ArrowLeft' ? 24 : -24)))
+  }
+
+  return (
+    <div
+      className={styles.resizer}
+      role="separator"
+      aria-label="Resize chart legend"
+      aria-orientation="vertical"
+      aria-valuemin={MIN_CHART_LEGEND_WIDTH}
+      aria-valuemax={clampWidth(MAX_CHART_LEGEND_WIDTH)}
+      aria-valuenow={clampWidth(width)}
+      tabIndex={0}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={finishPointer}
+      onPointerCancel={finishPointer}
+      onKeyDown={onKeyDown}
+    />
+  )
+}
 
 interface ChartLegendProps {
   series: readonly ChartLegendEntry[]
