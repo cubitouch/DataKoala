@@ -291,6 +291,3 @@
   color: var(--text-muted, #aaa);
 }
 
-.aiAnomalyError {
-  color: var(--danger);
-}
