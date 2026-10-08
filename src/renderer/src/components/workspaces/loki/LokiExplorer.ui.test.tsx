@@ -846,7 +846,7 @@ describe('LokiExplorer execution', () => {
     ).value
     expect(generated).toContain('severity="critical"')
     expect(generated).toContain('level="ERROR"')
-    expect(generated).toContain('level=~"(?i)^(?:ERROR|WARN)$"')
+    expect(generated).toContain('level=~"(?i)^(?:ERROR|WARN|WARNING)$"')
     expect(generated.match(/level=~/g)).toHaveLength(1)
     expect(mocks.runLoki).not.toHaveBeenCalled()
 
@@ -901,8 +901,14 @@ describe('LokiExplorer execution', () => {
     ).toEqual(['ERROR', 'WARN', 'INFO'])
     fireEvent.click(level)
     await screen.findByRole('option', { name: 'DEBUG' })
-    for (const name of ['DEBUG', 'ERROR', 'FATAL', 'INFO', 'WARN', 'WARNING'])
-      expect(screen.getByRole('option', { name })).toBeTruthy()
+    expect(screen.getAllByRole('option').map((option) => option.textContent?.trim())).toEqual([
+      'FATAL',
+      'ERROR',
+      'WARN',
+      'INFO',
+      'DEBUG',
+    ])
+    expect(screen.queryByRole('option', { name: 'WARNING' })).toBeNull()
     expect(screen.queryByRole('option', { name: 'TRACE' })).toBeNull()
   })
 
@@ -946,7 +952,7 @@ describe('LokiExplorer execution', () => {
     await waitFor(() =>
       expect(
         (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
-      ).toContain('level=~"(?i)^(?:warn)$"'),
+      ).toContain('level=~"(?i)^(?:WARN|WARNING)$"'),
     )
   })
 
