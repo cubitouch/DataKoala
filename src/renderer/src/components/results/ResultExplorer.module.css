@@ -138,7 +138,7 @@
   grid-template-columns: auto 96px;
 }
 
-.chartActions [aria-pressed="true"] {
+.chartActions [aria-pressed='true'] {
   color: #fbbf24;
   border-color: #f59e0b;
 }
