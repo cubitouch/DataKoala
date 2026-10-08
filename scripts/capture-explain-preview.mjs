@@ -319,7 +319,7 @@ app.whenReady().then(async () => {
       sql: ${JSON.stringify(capturedPlanRequest?.sql ?? null)},
       mode: ${JSON.stringify(capturedPlanRequest?.mode ?? null)},
       planNodeCount: ${capturedPlanRequest?.plan?.nodes?.length ?? 0},
-      highlights: [...document.querySelectorAll('[data-ai-highlighted="true"]')].map((node) => node.dataset.nodeId),
+      highlights: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.highlightedNodeIds?.split(',').filter(Boolean) ?? [],
       capturedQueryNotice: document.body.innerText.includes('This plan belongs to the SQL captured when Explain was run.')
     })`)
     if (
