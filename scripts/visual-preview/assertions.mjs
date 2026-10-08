@@ -12,10 +12,18 @@ export async function assertEditorResizeHandle(win) {
       tabIndex: handle?.tabIndex
     }
   })()`)
-  if (report.count !== 1 || report.height < 8 || report.height > 9 ||
-      !(report.width > 0) || report.role !== 'separator' ||
-      report.orientation !== 'horizontal' || report.tabIndex !== 0) {
-    throw new Error(`Expected one focusable horizontal separator with an 8px hit target: ${JSON.stringify(report)}`)
+  if (
+    report.count !== 1 ||
+    report.height < 8 ||
+    report.height > 9 ||
+    !(report.width > 0) ||
+    report.role !== 'separator' ||
+    report.orientation !== 'horizontal' ||
+    report.tabIndex !== 0
+  ) {
+    throw new Error(
+      `Expected one focusable horizontal separator with an 8px hit target: ${JSON.stringify(report)}`,
+    )
   }
 }
 
@@ -33,8 +41,15 @@ export async function assertCompactObjectFilter(win, expectedLabel) {
       labelHeight: bounds?.height
     }
   })()`)
-  if (report.accessibleName !== expectedLabel || !report.hiddenLabel || (report.labelWidth ?? 2) > 1 || (report.labelHeight ?? 2) > 1) {
-    throw new Error(`Sidebar object filter is not compact and accessible: ${JSON.stringify({ expectedLabel, ...report })}`)
+  if (
+    report.accessibleName !== expectedLabel ||
+    !report.hiddenLabel ||
+    (report.labelWidth ?? 2) > 1 ||
+    (report.labelHeight ?? 2) > 1
+  ) {
+    throw new Error(
+      `Sidebar object filter is not compact and accessible: ${JSON.stringify({ expectedLabel, ...report })}`,
+    )
   }
 }
 
@@ -44,7 +59,10 @@ export async function assertVisibleSeriesField(win) {
       .find((candidate) => candidate.getBoundingClientRect().width > 0 && candidate.getBoundingClientRect().height > 0)
     return Boolean(field?.querySelector('[data-field-label]') && field?.querySelector('[data-popover-trigger]'))
   })()`)
-  if (!visible) throw new Error('A visible semantic Series field is required in this visualization scenario')
+  if (!visible)
+    throw new Error(
+      'A visible semantic Series field is required in this visualization scenario',
+    )
 }
 
 export async function assertFieldRowGeometry(win, scopeSelector, names) {
@@ -58,11 +76,26 @@ export async function assertFieldRowGeometry(win, scopeSelector, names) {
       return { name, label, control, gap: label && control ? control.top - label.bottom : null }
     })
   })()`)
-  const metrics = ['label.top', 'label.bottom', 'control.top', 'control.bottom', 'gap']
+  const metrics = [
+    'label.top',
+    'label.bottom',
+    'control.top',
+    'control.bottom',
+    'gap',
+  ]
   for (const metric of metrics) {
-    const values = report.map((item) => metric === 'gap' ? item.gap : metric.split('.').reduce((value, key) => value?.[key], item))
-    if (values.some((value) => typeof value !== 'number') || Math.max(...values) - Math.min(...values) > 1) {
-      throw new Error(`Mixed field geometry differs for ${metric}: ${JSON.stringify(report)}`)
+    const values = report.map((item) =>
+      metric === 'gap'
+        ? item.gap
+        : metric.split('.').reduce((value, key) => value?.[key], item),
+    )
+    if (
+      values.some((value) => typeof value !== 'number') ||
+      Math.max(...values) - Math.min(...values) > 1
+    ) {
+      throw new Error(
+        `Mixed field geometry differs for ${metric}: ${JSON.stringify(report)}`,
+      )
     }
   }
 }
@@ -72,62 +105,277 @@ export async function assertFieldRowGeometry(win, scopeSelector, names) {
  * to the capture assertion makes adding an unaudited screenshot impossible.
  */
 export const previewExpectations = Object.freeze({
-  'sql-default.png': { selector: '[data-result-chart-canvas]', description: 'SQL default chart', minSeries: 1, minItems: 1 },
-  'prometheus-toolbar.png': { selector: '[data-result-chart-canvas]', description: 'Prometheus query result chart', minSeries: 2, minItems: 50, itemCount: 50, expectedConfig: { view: 'line', x: 'timestamp', y: 'value', series: ['status'], aggregation: 'sum' } },
-  'prometheus-toolbar-narrow.png': { selector: '[data-result-chart-canvas]', description: 'Prometheus query result chart in narrow layout', minSeries: 2, minItems: 50, itemCount: 50, expectedConfig: { view: 'line', x: 'timestamp', y: 'value', series: ['status'], aggregation: 'sum' } },
-  'prometheus-builder.png': { selector: '[data-result-chart-canvas]', description: 'Prometheus Builder result chart', minSeries: 2, minItems: 50, itemCount: 50, expectedConfig: { view: 'line', x: 'timestamp', y: 'value', series: ['continent'], aggregation: 'sum' } },
-  'prometheus-builder-narrow.png': { selector: '[data-result-chart-canvas]', description: 'Prometheus Builder result chart in narrow layout', minSeries: 2, minItems: 50, itemCount: 50, expectedConfig: { view: 'line', x: 'timestamp', y: 'value', series: ['continent'], aggregation: 'sum' } },
+  'sql-default.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'SQL default chart',
+    minSeries: 1,
+    minItems: 1,
+  },
+  'prometheus-toolbar.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'Prometheus query result chart',
+    minSeries: 2,
+    minItems: 50,
+    itemCount: 50,
+    expectedConfig: {
+      view: 'line',
+      x: 'timestamp',
+      y: 'value',
+      series: ['status'],
+      aggregation: 'sum',
+    },
+  },
+  'prometheus-toolbar-narrow.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'Prometheus query result chart in narrow layout',
+    minSeries: 2,
+    minItems: 50,
+    itemCount: 50,
+    expectedConfig: {
+      view: 'line',
+      x: 'timestamp',
+      y: 'value',
+      series: ['status'],
+      aggregation: 'sum',
+    },
+  },
+  'prometheus-builder.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'Prometheus Builder result chart',
+    minSeries: 2,
+    minItems: 50,
+    itemCount: 50,
+    expectedConfig: {
+      view: 'line',
+      x: 'timestamp',
+      y: 'value',
+      series: ['continent'],
+      aggregation: 'sum',
+    },
+  },
+  'prometheus-builder-narrow.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'Prometheus Builder result chart in narrow layout',
+    minSeries: 2,
+    minItems: 50,
+    itemCount: 50,
+    expectedConfig: {
+      view: 'line',
+      x: 'timestamp',
+      y: 'value',
+      series: ['continent'],
+      aggregation: 'sum',
+    },
+  },
   'tempo-trace-builder.png': { kind: 'not-visualization' },
   'tempo-trace-search.png': { kind: 'not-visualization' },
-  'tempo-trace-scatter.png': { selector: '[data-trace-scatter] [data-visual-type="scatter"]', description: 'Tempo trace scatter in Last hour', minSeries: 1, minItems: 5 },
-  'tempo-service-map.png': { selector: '[data-trace-service-map]', description: 'Tempo service map', minNodes: 1, minEdges: 1 },
-  'tempo-service-map-dense.png': { selector: '[data-trace-service-map]', description: 'Tempo dense grouped service map (60 fixture services)', minNodes: 5, minEdges: 1 },
-  'tempo-service-map-fullscreen.png': { selector: '[data-trace-service-map]', description: 'Tempo fullscreen async service map (60 fixture services)', minNodes: 1, minEdges: 1 },
-  'tempo-waterfall.png': { selector: '[data-trace-waterfall]', description: 'Tempo trace waterfall', minItems: 1 },
+  'tempo-trace-scatter.png': {
+    selector: '[data-trace-scatter] [data-visual-type="scatter"]',
+    description: 'Tempo trace scatter in Last hour',
+    minSeries: 1,
+    minItems: 5,
+  },
+  'tempo-service-map.png': {
+    selector: '[data-trace-service-map]',
+    description: 'Tempo service map',
+    minNodes: 1,
+    minEdges: 1,
+  },
+  'tempo-service-map-dense.png': {
+    selector: '[data-trace-service-map]',
+    description: 'Tempo dense grouped service map (60 fixture services)',
+    minNodes: 5,
+    minEdges: 1,
+  },
+  'tempo-service-map-fullscreen.png': {
+    selector: '[data-trace-service-map]',
+    description: 'Tempo fullscreen async service map (60 fixture services)',
+    minNodes: 1,
+    minEdges: 1,
+  },
+  'tempo-waterfall.png': {
+    selector: '[data-trace-waterfall]',
+    description: 'Tempo trace waterfall',
+    minItems: 1,
+  },
   'loki-log-list.png': { kind: 'not-visualization' },
+  'loki-level-dropdown.png': { kind: 'not-visualization' },
   'loki-log-patterns.png': { kind: 'not-visualization' },
-  'loki-log-chart.png': { selector: '[data-result-chart-canvas]', description: 'Loki log-volume trend', minSeries: 1, minItems: 1 },
-  'sql-resized-panes.png': { selector: '[data-result-chart-canvas]', description: 'SQL chart with resized panes', minSeries: 1, minItems: 1 },
-  'sql-long-query-scroll.png': { selector: '[data-result-chart-canvas]', description: 'SQL chart below long query', minSeries: 1, minItems: 1 },
-  'sql-wide-sidebar-long-names.png': { selector: '[data-result-chart-canvas]', description: 'SQL chart with wide sidebar', minSeries: 1, minItems: 1 },
-  'sql-narrow-short-tooltip.png': { selector: '[data-result-chart-canvas]', description: 'SQL narrow chart', minSeries: 1, minItems: 1 },
-  'builder-temporal-series.png': { selector: '[data-result-chart-canvas]', description: 'Builder temporal series chart', minSeries: 2, minItems: 10, itemCount: 10, expectedConfig: { view: 'line', x: 'time_bucket', y: 'amount', series: ['series'], aggregation: 'sum' } },
-  'builder-time-range-open.png': { selector: '[data-result-chart-canvas]', description: 'Builder temporal series chart behind open Time range picker', minSeries: 2, minItems: 10, itemCount: 10, expectedConfig: { view: 'line', x: 'time_bucket', y: 'amount', series: ['series'], aggregation: 'sum' } },
-  'builder-time-range-overflow.png': { selector: '[data-result-chart-canvas]', description: 'Builder temporal series chart behind overflowing Time range picker', minSeries: 2, minItems: 10, itemCount: 10, expectedConfig: { view: 'line', x: 'time_bucket', y: 'amount', series: ['series'], aggregation: 'sum' } },
-  'builder-categorical-numeric.png': { selector: '[data-result-chart-canvas]', description: 'Builder categorical chart', minSeries: 1, minItems: 4, itemCount: 4, expectedConfig: { view: 'bar', x: 'series', y: 'amount', series: [], aggregation: 'sum' } },
-  'builder-count-without-y.png': { selector: '[data-result-chart-canvas]', description: 'Builder count chart', minSeries: 1, minItems: 4, itemCount: 4, expectedConfig: { view: 'bar', x: 'series', y: null, series: [], aggregation: 'count' } },
+  'loki-log-chart.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'Loki log-volume trend',
+    minSeries: 1,
+    minItems: 1,
+  },
+  'sql-resized-panes.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'SQL chart with resized panes',
+    minSeries: 1,
+    minItems: 1,
+  },
+  'sql-long-query-scroll.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'SQL chart below long query',
+    minSeries: 1,
+    minItems: 1,
+  },
+  'sql-wide-sidebar-long-names.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'SQL chart with wide sidebar',
+    minSeries: 1,
+    minItems: 1,
+  },
+  'sql-narrow-short-tooltip.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'SQL narrow chart',
+    minSeries: 1,
+    minItems: 1,
+  },
+  'builder-temporal-series.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'Builder temporal series chart',
+    minSeries: 2,
+    minItems: 10,
+    itemCount: 10,
+    expectedConfig: {
+      view: 'line',
+      x: 'time_bucket',
+      y: 'amount',
+      series: ['series'],
+      aggregation: 'sum',
+    },
+  },
+  'builder-time-range-open.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'Builder temporal series chart behind open Time range picker',
+    minSeries: 2,
+    minItems: 10,
+    itemCount: 10,
+    expectedConfig: {
+      view: 'line',
+      x: 'time_bucket',
+      y: 'amount',
+      series: ['series'],
+      aggregation: 'sum',
+    },
+  },
+  'builder-time-range-overflow.png': {
+    selector: '[data-result-chart-canvas]',
+    description:
+      'Builder temporal series chart behind overflowing Time range picker',
+    minSeries: 2,
+    minItems: 10,
+    itemCount: 10,
+    expectedConfig: {
+      view: 'line',
+      x: 'time_bucket',
+      y: 'amount',
+      series: ['series'],
+      aggregation: 'sum',
+    },
+  },
+  'builder-categorical-numeric.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'Builder categorical chart',
+    minSeries: 1,
+    minItems: 4,
+    itemCount: 4,
+    expectedConfig: {
+      view: 'bar',
+      x: 'series',
+      y: 'amount',
+      series: [],
+      aggregation: 'sum',
+    },
+  },
+  'builder-count-without-y.png': {
+    selector: '[data-result-chart-canvas]',
+    description: 'Builder count chart',
+    minSeries: 1,
+    minItems: 4,
+    itemCount: 4,
+    expectedConfig: {
+      view: 'bar',
+      x: 'series',
+      y: null,
+      series: [],
+      aggregation: 'count',
+    },
+  },
   // This capture exercises responsive Builder controls; its plot is below the viewport.
   'builder-narrow.png': { kind: 'not-visualization' },
-  'table.png': { kind: 'not-visualization' }
+  'table.png': { kind: 'not-visualization' },
 })
 
 export function validateVisualReport(previewName, expectation, report) {
   if (expectation.kind === 'not-visualization') return
-  if (!report) throw new Error(`[${previewName}] Missing ${expectation.description} semantic report (${expectation.selector})`)
-  const diagnostics = JSON.stringify({ previewName, visualization: report.type, expectation, actual: report })
-  if (!report.finished) throw new Error(`[${previewName}] ${expectation.description} has not finished rendering. ${diagnostics}`)
-  if (report.expectedFingerprint && report.fingerprint !== report.expectedFingerprint) throw new Error(`[${previewName}] ${expectation.description} is a stale chart from a previous result or configuration. ${diagnostics}`)
+  if (!report)
+    throw new Error(
+      `[${previewName}] Missing ${expectation.description} semantic report (${expectation.selector})`,
+    )
+  const diagnostics = JSON.stringify({
+    previewName,
+    visualization: report.type,
+    expectation,
+    actual: report,
+  })
+  if (!report.finished)
+    throw new Error(
+      `[${previewName}] ${expectation.description} has not finished rendering. ${diagnostics}`,
+    )
+  if (
+    report.expectedFingerprint &&
+    report.fingerprint !== report.expectedFingerprint
+  )
+    throw new Error(
+      `[${previewName}] ${expectation.description} is a stale chart from a previous result or configuration. ${diagnostics}`,
+    )
   if (expectation.expectedConfig) {
     for (const [key, expected] of Object.entries(expectation.expectedConfig)) {
-      if (JSON.stringify(report.config?.[key]) !== JSON.stringify(expected)) throw new Error(`[${previewName}] ${expectation.description} has unexpected ${key}. ${diagnostics}`)
+      if (JSON.stringify(report.config?.[key]) !== JSON.stringify(expected))
+        throw new Error(
+          `[${previewName}] ${expectation.description} has unexpected ${key}. ${diagnostics}`,
+        )
     }
   }
-  const counts = [['series', 'minSeries'], ['items', 'minItems'], ['nodes', 'minNodes'], ['edges', 'minEdges']]
+  const counts = [
+    ['series', 'minSeries'],
+    ['items', 'minItems'],
+    ['nodes', 'minNodes'],
+    ['edges', 'minEdges'],
+  ]
   if (expectation.expectEmpty) {
-    if (counts.some(([actual]) => Number(report[actual] ?? 0) !== 0)) throw new Error(`[${previewName}] Expected an intentionally empty visualization. ${diagnostics}`)
+    if (counts.some(([actual]) => Number(report[actual] ?? 0) !== 0))
+      throw new Error(
+        `[${previewName}] Expected an intentionally empty visualization. ${diagnostics}`,
+      )
     return
   }
   for (const [actual, minimum] of counts) {
-    if (expectation[minimum] != null && Number(report[actual] ?? 0) < expectation[minimum]) {
-      throw new Error(`[${previewName}] ${expectation.description} expected ${minimum}=${expectation[minimum]}, actual ${actual}=${report[actual] ?? 0}. ${diagnostics}`)
+    if (
+      expectation[minimum] != null &&
+      Number(report[actual] ?? 0) < expectation[minimum]
+    ) {
+      throw new Error(
+        `[${previewName}] ${expectation.description} expected ${minimum}=${expectation[minimum]}, actual ${actual}=${report[actual] ?? 0}. ${diagnostics}`,
+      )
     }
   }
-  if (expectation.itemCount != null && Number(report.items ?? 0) !== expectation.itemCount) throw new Error(`[${previewName}] ${expectation.description} expected itemCount=${expectation.itemCount}, actual items=${report.items ?? 0}. ${diagnostics}`)
+  if (
+    expectation.itemCount != null &&
+    Number(report.items ?? 0) !== expectation.itemCount
+  )
+    throw new Error(
+      `[${previewName}] ${expectation.description} expected itemCount=${expectation.itemCount}, actual items=${report.items ?? 0}. ${diagnostics}`,
+    )
 }
 
 export async function assertPreviewReady(win, previewName, override) {
   const expectation = override ?? previewExpectations[previewName]
-  if (!expectation) throw new Error(`[${previewName}] has no audited visual-preview expectation`)
+  if (!expectation)
+    throw new Error(
+      `[${previewName}] has no audited visual-preview expectation`,
+    )
   if (expectation.kind === 'not-visualization') return
   let report = null
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -138,7 +386,10 @@ export async function assertPreviewReady(win, previewName, override) {
       const config = element.getAttribute('data-visual-config')
       return { type: element.getAttribute('data-visual-type'), finished: element.getAttribute('data-visual-finished') === 'true', series: number('data-visual-series'), items: number('data-visual-items'), nodes: number('data-visual-nodes'), edges: number('data-visual-edges'), range: element.getAttribute('data-visual-range'), fixture: element.getAttribute('data-visual-fixture'), fingerprint: element.getAttribute('data-visual-fingerprint'), expectedFingerprint: element.getAttribute('data-visual-expected-fingerprint'), config: config ? JSON.parse(config) : null }
     })()`)
-    try { validateVisualReport(previewName, expectation, report); return report } catch (error) {
+    try {
+      validateVisualReport(previewName, expectation, report)
+      return report
+    } catch (error) {
       if (attempt === 99) throw error
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
