@@ -253,19 +253,53 @@ export function anomalyAnalysisRequest(
   onlyKeys(chart, ['chartType', 'xColumn', 'valueColumn', 'series'])
   if (
     !Array.isArray(chart.series) ||
+    chart.series.length < 1 ||
     chart.series.length > AI_LIMITS.anomalySeries
   )
     throw new AiError('validation', 'Invalid AI anomaly chart context.')
   const series = chart.series.map((raw) => {
     const item = record(raw)
-    onlyKeys(item, ['name', 'points'])
+    onlyKeys(item, [
+      'name',
+      'originalPointCount',
+      'validPointCount',
+      'sampleCoverage',
+      'samplingMethod',
+      'points',
+    ])
     if (
       !Array.isArray(item.points) ||
+      item.points.length < AI_LIMITS.anomalyMinimumPointsPerSeries ||
       item.points.length > AI_LIMITS.anomalyPointsPerSeries
+    )
+      throw new AiError(
+        'validation',
+        'AI anomaly analysis needs at least three numeric points per series.',
+      )
+    const originalPointCount = finite(item.originalPointCount)
+    const validPointCount = finite(item.validPointCount)
+    const sampleCoverage = finite(item.sampleCoverage)
+    if (
+      !Number.isInteger(originalPointCount) ||
+      !Number.isInteger(validPointCount) ||
+      validPointCount < item.points.length ||
+      originalPointCount < validPointCount ||
+      sampleCoverage <= 0 ||
+      sampleCoverage > 1 ||
+      Math.abs(sampleCoverage - item.points.length / validPointCount) > 0.000001 ||
+      !['all-points', 'bucket-extrema'].includes(
+        String(item.samplingMethod),
+      )
     )
       throw new AiError('validation', 'Invalid AI anomaly chart context.')
     return {
       name: textValue(item.name, 256),
+      originalPointCount,
+      validPointCount,
+      sampleCoverage,
+      samplingMethod: item.samplingMethod as
+        | 'all-points'
+        | 'bucket-extrema',
       points: item.points.map((rawPoint) => {
         const point = record(rawPoint)
         onlyKeys(point, ['x', 'y'])
