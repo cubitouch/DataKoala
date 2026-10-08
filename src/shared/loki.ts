@@ -109,6 +109,7 @@ export type LokiFilterSource =
 export interface LokiSeveritySource {
   source: Exclude<LokiFilterSource, 'local'>
   field: string
+  value: string
   parser?: LokiParserKind
 }
 export interface LokiBuilderState {
