@@ -826,6 +826,9 @@ describe('LokiExplorer execution', () => {
     fireEvent.keyDown(level, { key: 'Escape' })
 
     const filterBy = screen.getByRole('combobox', { name: /Filter by/ })
+    expect(
+      screen.queryByRole('combobox', { name: /level values/i }),
+    ).toBeNull()
     fireEvent.click(filterBy)
     expect(screen.queryByRole('option', { name: 'level' })).toBeNull()
     fireEvent.keyDown(filterBy, { key: 'Escape' })
