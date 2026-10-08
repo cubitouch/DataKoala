@@ -23,8 +23,11 @@ export function resolveIndexedSeverityLabel(labels: string[]): string | null {
   const matches = labels.filter((label) =>
     severityLabelNames.has(label.toLowerCase().replace(/[_-]/g, '')),
   )
+  const canonicalLevels = matches
+    .filter((label) => label.toLowerCase() === 'level')
+    .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
   return (
-    matches.find((label) => label === 'level') ??
+    canonicalLevels[0] ??
     matches.sort((left, right) =>
       left < right ? -1 : left > right ? 1 : 0,
     )[0] ??
@@ -65,7 +68,11 @@ function renderedMatcher({
   if (!label.trim() || !unique.length) return null
   if (!isValidLokiLabelName(label))
     throw new Error(`Invalid Loki label name: ${label}`)
-  if (values && operator === '=~')
+  if (
+    values &&
+    operator === '=~' &&
+    resolveIndexedSeverityLabel([label]) === label
+  )
     return {
       expression: `${label}=~${escapeLogqlString(`(?i)^(?:${unique.map(escapeLogqlRegexValue).join('|')})$`)}`,
       anchorsSelector: true,

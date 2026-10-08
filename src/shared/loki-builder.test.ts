@@ -19,8 +19,9 @@ test('resolves only supported indexed severity labels deterministically', () => 
     assert.equal(resolveIndexedSeverityLabel([label]), label)
   assert.equal(
     resolveIndexedSeverityLabel(['severity', 'LEVEL', 'level', 'log_level']),
-    'level',
+    'LEVEL',
   )
+  assert.equal(resolveIndexedSeverityLabel(['severity', 'LEVEL']), 'LEVEL')
   assert.equal(
     resolveIndexedSeverityLabel(['severity_text', 'log_level']),
     'log_level',
@@ -70,6 +71,25 @@ test('Level values use one case-insensitive indexed-label matcher and preserve o
       labelMatchers: [unrelated, matcher(['ERR.OR'])],
     }),
     '{service_name=~".+", level=~"(?i)^(?:ERR\\\\.OR)$"} |= "timeout" | json | attempt!="2"',
+  )
+})
+
+test('multi-value regex matchers for unrelated labels remain case-sensitive', () => {
+  assert.equal(
+    buildLokiQuery({
+      labelMatchers: [
+        {
+          label: 'environment',
+          operator: '=~',
+          value: '',
+          values: ['prod', 'staging'],
+        },
+      ],
+      lineFilters: [],
+      parsers: [],
+      fieldFilters: [],
+    }),
+    '{environment=~"^(?:prod|staging)$"}',
   )
 })
 
