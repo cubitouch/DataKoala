@@ -543,9 +543,8 @@ export function LokiExplorer({
     exclude: boolean,
     parser?: LokiParserKind,
   ) => {
-    const levelField = /^(severity|severity_text|level|loglevel|log_level)$/i.test(
-      key,
-    )
+    const levelField =
+      /^(severity|severity_text|level|loglevel|log_level)$/i.test(key)
     if (
       source === 'local' ||
       (levelField && source === 'parsed-field' && !parser) ||
@@ -634,14 +633,17 @@ export function LokiExplorer({
   const filteredLogRows = useMemo(
     () =>
       result?.resultKind === 'logs'
-        ? (applyResultFilters(
-            sortLokiLogRowsNewestFirst(result.logRows),
-            session.sqlResultFilters,
-          ) as LokiLogResult['logRows']).filter((row) =>
-            !localLevelFilter ||
-            (localLevelFilter.exclude
-              ? row.severity !== localLevelFilter.value
-              : row.severity === localLevelFilter.value),
+        ? (
+            applyResultFilters(
+              sortLokiLogRowsNewestFirst(result.logRows),
+              session.sqlResultFilters,
+            ) as LokiLogResult['logRows']
+          ).filter(
+            (row) =>
+              !localLevelFilter ||
+              (localLevelFilter.exclude
+                ? row.severity !== localLevelFilter.value
+                : row.severity === localLevelFilter.value),
           )
         : [],
     [result, session.sqlResultFilters, localLevelFilter],
