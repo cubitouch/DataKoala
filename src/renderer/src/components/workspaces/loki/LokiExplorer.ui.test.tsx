@@ -901,7 +901,7 @@ describe('LokiExplorer execution', () => {
     ).toEqual(['ERROR', 'WARN', 'INFO'])
     fireEvent.click(level)
     await screen.findByRole('option', { name: 'DEBUG' })
-    expect(screen.getAllByRole('option').map((option) => option.textContent?.trim())).toEqual([
+    expect(screen.getAllByRole('option').map((option) => option.getAttribute('aria-label'))).toEqual([
       'FATAL',
       'ERROR',
       'WARN',
