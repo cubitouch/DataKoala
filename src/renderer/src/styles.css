@@ -151,12 +151,6 @@ body.resizing-row * {
   line-height: 14px;
 }
 
-.chart-tooltip-anomaly {
-  color: var(--amber);
-  font-size: 10px;
-  font-weight: 700;
-  white-space: nowrap;
-}
 
 /* Shared button primitive. */
 .btn {
