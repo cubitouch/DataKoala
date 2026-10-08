@@ -2,7 +2,6 @@ import { formatCompactNumber } from './compactNumber.ts'
 import type { ChartSeries, ResultView } from './resultVisualization.ts'
 import { summarizeTooltipRows } from './chartTooltip.ts'
 import { prepareLogScaleSeries, type ValueAxisScale } from './chartAxisScale.ts'
-import type { ChartAnomaly } from './chartAnomalies.ts'
 import type { HierarchyNode } from './chartHierarchy.ts'
 import { formatDisplayValue, type DisplayUnit } from './displayUnit.ts'
 
@@ -122,7 +121,6 @@ export function buildChartTooltipFormatter(
   hoveredSeriesIdentity?: string | (() => string | undefined),
   originalSeries?: readonly ChartSeries[],
   visibility: Readonly<Record<string, boolean>> = {},
-  anomalies: readonly ChartAnomaly[] = [],
   formatValue: (value: unknown) => string = formatChartNumber,
 ) {
   return (input: unknown): string => {
@@ -179,24 +177,10 @@ export function buildChartTooltipFormatter(
         ? hoveredSeriesIdentity()
         : hoveredSeriesIdentity,
     )
-    const atPoint =
-      typeof dataIndex === 'number'
-        ? anomalies.filter((anomaly) => anomaly.dataIndex === dataIndex)
-        : []
-    const rows = summary.rows.map((row) => {
-      const anomaly = atPoint.find((item) => item.seriesName === row.identity)
-      return `<div class="chart-tooltip-row${row.hovered ? ' chart-tooltip-row-hovered' : ''}"><span class="chart-tooltip-marker" style="background:${escapeHtml(row.color ?? '#9aa0b0')}"></span><span class="chart-tooltip-series" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><strong>${escapeHtml(formatValue(row.value))}</strong>${anomaly ? `<span class="chart-tooltip-anomaly">Anomaly ${anomaly.direction === 'above' ? '↑' : '↓'}</span>` : ''}</div>`
-    })
-    const hovered = atPoint.find(
-      (item) =>
-        item.seriesName ===
-        (typeof hoveredSeriesIdentity === 'function'
-          ? hoveredSeriesIdentity()
-          : hoveredSeriesIdentity),
+    const rows = summary.rows.map(
+      (row) =>
+        `<div class="chart-tooltip-row${row.hovered ? ' chart-tooltip-row-hovered' : ''}"><span class="chart-tooltip-marker" style="background:${escapeHtml(row.color ?? '#9aa0b0')}"></span><span class="chart-tooltip-series" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><strong>${escapeHtml(formatValue(row.value))}</strong></div>`,
     )
-    const detail = hovered
-      ? `<div class="chart-tooltip-more">Rolling median ${escapeHtml(formatValue(hovered.median))} · deviation ${hovered.value - hovered.median >= 0 ? '+' : ''}${escapeHtml(formatValue(hovered.value - hovered.median))}</div>`
-      : ''
     return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(formatLabel(axisValue))}</div>${rows.join('')}${detail}${summary.omitted ? `<div class="chart-tooltip-more">${summary.omitted} more</div>` : ''}</div>`
   }
 }
@@ -228,7 +212,6 @@ interface PresentationInput {
   displayUnit?: DisplayUnit
   valueAxisScale?: ValueAxisScale
   visibility?: Readonly<Record<string, boolean>>
-  anomalies?: readonly ChartAnomaly[]
   hoveredSeriesIdentity?: string | (() => string | undefined)
   rangeSelectionEnabled?: boolean
   hierarchy?: HierarchyNode[]
@@ -368,7 +351,6 @@ export function buildChartPresentationOptions(
         input.hoveredSeriesIdentity,
         input.series,
         input.visibility,
-        input.anomalies,
         formatValue,
       ),
       backgroundColor: '#161922',
@@ -431,33 +413,7 @@ export function buildChartPresentationOptions(
       connectNulls: false,
       showSymbol: input.view === 'line',
       symbolSize: input.view === 'scatter' ? 8 : 6,
-      markPoint:
-        input.view === 'line'
-          ? {
-              silent: true,
-              symbol: 'circle',
-              symbolSize: 13,
-              label: { show: false },
-              itemStyle: {
-                color: 'transparent',
-                borderColor: '#f59e0b',
-                borderWidth: 3,
-              },
-              data: (input.anomalies ?? [])
-                .filter(
-                  (anomaly) =>
-                    anomaly.seriesName === series.name &&
-                    (input.valueAxisScale !== 'log' || anomaly.value > 0),
-                )
-                .map((anomaly) => ({
-                  coord: [
-                    temporal
-                      ? temporalXValues[anomaly.dataIndex]
-                      : anomaly.dataIndex,
-                    anomaly.value,
-                  ],
-                  name: 'Anomaly',
-                })),
+    })),
             }
           : undefined,
     })),
