@@ -174,7 +174,6 @@ const defaultSqlVisualization = (): VisualizationConfiguration => ({
   seriesColumns: [],
   hierarchyDimensions: [],
   valueAxisScale: 'linear',
-  anomalyDetectionEnabled: false,
 })
 const defaultBuilderVisualization = (): VisualizationConfiguration => ({
   view: 'line',
