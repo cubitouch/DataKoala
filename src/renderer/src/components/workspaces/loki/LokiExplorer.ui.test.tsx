@@ -792,25 +792,12 @@ describe('LokiExplorer execution', () => {
       parsers: [],
       fieldFilters: [{ field: 'level', operator: '=', value: 'ERROR' }],
     }
-    const resultRow = {
-      ...logRow('level-row', 'Request failed', 'ERROR'),
-      severitySource: {
-        source: 'structured-metadata' as const,
-        field: 'severity',
-        value: 'ERROR',
-      },
-    }
-    tab.result = {
-      ...logs,
-      logRows: [resultRow],
-      rows: [resultRow],
-      rowCount: 1,
-    } as LokiLogResult
-    tab.resultRevision = 1
+    mocks.labels.mockResolvedValue(['app', 'level', 'severity'])
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
 
     const level = screen.getByRole('combobox', { name: /Level/ })
+    await waitFor(() => expect(level.hasAttribute('disabled')).toBe(false))
     expect(level.textContent).toContain('All levels')
     fireEvent.keyDown(level, { key: 'ArrowDown' })
     fireEvent.keyDown(level, { key: 'Enter' })
@@ -828,15 +815,15 @@ describe('LokiExplorer execution', () => {
     await waitFor(() =>
       expect(
         (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
-      ).toContain('severity=~'),
+      ).toContain('level=~'),
     )
     const generated = (
       screen.getByLabelText('LogQL editor') as HTMLTextAreaElement
     ).value
     expect(generated).toContain('severity="critical"')
     expect(generated).toContain('level="ERROR"')
-    expect(generated).toContain('severity=~"(?i)^(?:ERROR|WARN)$"')
-    expect(generated.match(/severity=~/g)).toHaveLength(1)
+    expect(generated).toContain('level=~"(?i)^(?:ERROR|WARN)$"')
+    expect(generated.match(/level=~/g)).toHaveLength(1)
     expect(mocks.runLoki).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('combobox', { name: /Level/ }))
@@ -850,12 +837,13 @@ describe('LokiExplorer execution', () => {
     await waitFor(() =>
       expect(
         (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
-      ).not.toContain('severity=~'),
+      ).not.toContain('level=~'),
     )
     expect(mocks.runLoki).not.toHaveBeenCalled()
   })
 
-  it('shows saved Level selections compactly and offers common values before a query', () => {
+  it('shows saved Level selections compactly and offers common values before a query', async () => {
+    mocks.labels.mockResolvedValue(['app', 'level'])
     const tab = createQuerySession(1, {
       id: 'saved-level-filter',
       connectionProfileId: 'loki',
@@ -866,21 +854,39 @@ describe('LokiExplorer execution', () => {
       lineFilters: [],
       parsers: [],
       fieldFilters: [],
-      levelFilter: { values: ['ERROR', 'WARN', 'INFO'] },
+      levelFilter: { label: 'level', values: ['ERROR', 'WARN', 'INFO'] },
     }
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
 
     const level = screen.getByRole('combobox', { name: /Level/ })
+    await waitFor(() => expect(level.hasAttribute('disabled')).toBe(false))
     expect(level.textContent).toContain('3 levels selected')
     fireEvent.click(level)
     for (const name of ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE', 'FATAL'])
       expect(screen.getByRole('option', { name })).toBeTruthy()
   })
 
-  it('keeps the first query unrestricted until result provenance is discovered, then updates LogQL without rerunning', async () => {
+  it('disables Level when indexed metadata has no matching label, without filtering loaded rows', async () => {
     const tab = createQuerySession(1, {
-      id: 'first-query-level-filter',
+      id: 'no-level',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+    await screen.findByText(
+      'Level is unavailable: no indexed severity label was discovered.',
+    )
+    expect(
+      screen.getByRole('combobox', { name: /Level/ }).hasAttribute('disabled'),
+    ).toBe(true)
+    expect(mocks.runLoki).not.toHaveBeenCalled()
+  })
+
+  it('blocks unavailable saved Levels and lets users clear them without executing', async () => {
+    const tab = createQuerySession(1, {
+      id: 'missing-saved-level',
       connectionProfileId: 'loki',
       queryMode: 'builder',
     })
@@ -889,59 +895,34 @@ describe('LokiExplorer execution', () => {
       lineFilters: [],
       parsers: [],
       fieldFilters: [],
+      levelFilter: { label: 'severity', values: ['ERROR', 'WARN'] },
     }
-    const resultRow = {
-      ...logRow('first-level-row', 'Request failed', 'ERROR'),
-      severitySource: {
-        source: 'structured-metadata' as const,
-        field: 'severity',
-        value: 'ERROR',
-      },
-    }
-    mocks.runLoki.mockResolvedValue({
-      ...logs,
-      logRows: [resultRow],
-      rows: [resultRow],
-      rowCount: 1,
-    })
+    const rows = [
+      logRow('error', 'Failure', 'ERROR'),
+      logRow('info', 'Success', 'INFO'),
+    ]
+    tab.result = { ...logs, logRows: rows, rows, rowCount: 2 } as LokiLogResult
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
-
-    const level = screen.getByRole('combobox', { name: /Level/ })
-    fireEvent.keyDown(level, { key: 'ArrowDown' })
-    fireEvent.keyDown(level, { key: 'Enter' })
-    fireEvent.keyDown(level, { key: 'ArrowDown' })
-    fireEvent.keyDown(level, { key: 'Enter' })
-    expect(
-      await screen.findByText(
-        'Local only until a safe Level source is discovered.',
-      ),
-    ).toBeTruthy()
-    fireEvent.keyDown(level, { key: 'Escape' })
-
-    fireEvent.click(screen.getByText('Generated LogQL'))
-    const editor = () =>
-      screen.getByLabelText('LogQL editor') as HTMLTextAreaElement
-    await waitFor(() => expect(editor().value).toContain('{app="x"}'))
-    expect(editor().value).not.toContain('severity=~')
-    expect(
-      screen.getByText(/This generated LogQL is unrestricted by Level/),
-    ).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
-    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
-    expect(mocks.runLoki.mock.calls[0][1].expression).toBe('{app="x"}')
     await waitFor(() =>
       expect(
-        useStore.getState().tabs[0].lokiBuilder.levelFilter?.source,
-      ).toEqual({ source: 'structured-metadata', field: 'severity' }),
+        screen.getByRole('button', { name: 'Run' }).hasAttribute('disabled'),
+      ).toBe(true),
     )
-    await waitFor(() => expect(editor().value).toContain('severity=~'))
-    expect(editor().value).toContain('(?i)^(?:ERROR|WARN)$')
-    expect(mocks.runLoki).toHaveBeenCalledTimes(1)
-    expect(
-      screen.queryByText('Local only until a safe Level source is discovered.'),
-    ).toBeNull()
+    expect(screen.getByText(/^2 loaded/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('combobox', { name: /Level/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear all' }))
+    await waitFor(() =>
+      expect(
+        useStore.getState().tabs[0].lokiBuilder.levelFilter,
+      ).toBeUndefined(),
+    )
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Run' }).hasAttribute('disabled'),
+      ).toBe(false),
+    )
+    expect(mocks.runLoki).not.toHaveBeenCalled()
   })
 
   it('uses an explicit removable local pattern filter from raw LogQL', async () => {
