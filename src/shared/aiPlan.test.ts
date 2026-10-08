@@ -111,6 +111,7 @@ test('plan context retains complete ancestor chains for selected nodes', () => {
   const ids = new Set(plan.nodes.map((item) => item.id))
 
   assert.equal(plan.truncated, true)
+  assert.ok(plan.nodes.length <= AI_LIMITS.planNodes)
   for (const id of ['0', '0.0', '0.0.0', '0.0.0.0'])
     assert.ok(ids.has(id), `${id} should remain in the selected ancestor chain`)
   for (const item of plan.nodes)
