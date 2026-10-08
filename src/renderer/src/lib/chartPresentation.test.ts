@@ -498,36 +498,50 @@ test('temporal AI anomaly markers use the plotted UTC coordinate', () => {
 })
 
 test('anomaly tooltip explanation is series-specific and escapes model text', () => {
-  const formatter = buildChartTooltipFormatter(
-    String,
-    'Errors',
-    [
-      { name: 'Requests', data: [1, 800] },
-      { name: 'Errors', data: [2, 80] },
-    ],
-    {},
-    undefined,
-    [
-      {
-        seriesName: 'Requests',
-        originalIndex: 1,
-        title: '<script>unsafe</script>',
-        reason: 'literal <b>text</b> & detail',
-      },
-      {
-        seriesName: 'Errors',
-        originalIndex: 1,
-        title: 'Error spike',
-        reason: 'Errors are elevated.',
-      },
-    ],
-  )
-  const html = formatter([
+  const anomalies = [
+    {
+      seriesName: 'Requests',
+      originalIndex: 1,
+      title: '<script>unsafe</script>',
+      reason: 'literal <b>text</b> & detail',
+    },
+    {
+      seriesName: 'Errors',
+      originalIndex: 1,
+      title: 'Error spike',
+      reason: 'Errors are elevated.',
+    },
+  ]
+  const series = [
+    { name: 'Requests', data: [1, 800] },
+    { name: 'Errors', data: [2, 80] },
+  ]
+  const rows = [
     { axisValue: 'day 2', dataIndex: 1, seriesName: 'Requests', value: 800 },
     { axisValue: 'day 2', dataIndex: 1, seriesName: 'Errors', value: 80 },
-  ])
-  assert.match(html, /Error spike/)
-  assert.doesNotMatch(html, /<script>/)
-  assert.match(html, /&lt;script&gt;unsafe&lt;\/script&gt;/)
-  assert.match(html, /literal &lt;b&gt;text&lt;\/b&gt; &amp; detail/)
+  ]
+  const requestsHtml = buildChartTooltipFormatter(
+    String,
+    'Requests',
+    series,
+    {},
+    undefined,
+    anomalies,
+  )(rows)
+  assert.ok(requestsHtml.includes('&lt;script&gt;unsafe&lt;/script&gt;'))
+  assert.ok(
+    requestsHtml.includes('literal &lt;b&gt;text&lt;/b&gt; &amp; detail'),
+  )
+  assert.doesNotMatch(requestsHtml, /Error spike/)
+
+  const errorsHtml = buildChartTooltipFormatter(
+    String,
+    'Errors',
+    series,
+    {},
+    undefined,
+    anomalies,
+  )(rows)
+  assert.match(errorsHtml, /Error spike/)
+  assert.doesNotMatch(errorsHtml, /&lt;script&gt;unsafe/)
 })
