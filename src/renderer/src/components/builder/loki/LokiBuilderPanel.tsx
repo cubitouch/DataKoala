@@ -257,7 +257,7 @@ export function LokiBuilderPanel({
             placeholder="All levels"
           />
           {!levelLabel && (
-            <p className={styles.preserved} role="status">
+            <p className={styles.preserved}>
               Level is unavailable: no indexed severity label was discovered.
             </p>
           )}
