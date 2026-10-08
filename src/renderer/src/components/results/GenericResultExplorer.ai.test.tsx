@@ -94,10 +94,21 @@ afterEach(cleanup)
 
 describe('AI chart anomaly analysis', () => {
   it('shows loading and renders the structured analysis from an extrema-preserving sample', async () => {
+    let resolveAnalysis: ((value: unknown) => void) | undefined
+    aiMocks.analyzeAnomalies.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveAnalysis = resolve
+        }),
+    )
     render(<GenericResultExplorer {...props()} />)
     fireEvent.click(
       await screen.findByRole('button', { name: 'Analyze with AI' }),
     )
+    expect(
+      await screen.findByRole('button', { name: 'Analyzing with AI…' }),
+    ).toBeDisabled()
+    resolveAnalysis?.(successfulAnalysis)
 
     expect(
       await screen.findByText('A spike and drop are visible.'),
