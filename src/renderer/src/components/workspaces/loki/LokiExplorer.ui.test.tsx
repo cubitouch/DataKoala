@@ -809,7 +809,11 @@ describe('LokiExplorer execution', () => {
         useStore.getState().tabs[0].lokiBuilder.levelFilter?.values,
       ).toEqual(['ERROR', 'WARN']),
     )
-    expect(level.textContent).toContain('ERROR, WARN')
+    expect(
+      [...level.querySelectorAll('[data-combobox-chip]')].map((chip) =>
+        chip.textContent?.replace('×', '').trim(),
+      ),
+    ).toEqual(['ERROR', 'WARN'])
     fireEvent.keyDown(level, { key: 'Escape' })
     fireEvent.click(screen.getByText('Generated LogQL'))
     await waitFor(() =>
@@ -861,7 +865,11 @@ describe('LokiExplorer execution', () => {
 
     const level = screen.getByRole('combobox', { name: /Level/ })
     await waitFor(() => expect(level.hasAttribute('disabled')).toBe(false))
-    expect(level.textContent).toContain('3 levels selected')
+    expect(
+      [...level.querySelectorAll('[data-combobox-chip]')].map((chip) =>
+        chip.textContent?.replace('×', '').trim(),
+      ),
+    ).toEqual(['ERROR', 'WARN', 'INFO'])
     fireEvent.click(level)
     for (const name of ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE', 'FATAL'])
       expect(screen.getByRole('option', { name })).toBeTruthy()
