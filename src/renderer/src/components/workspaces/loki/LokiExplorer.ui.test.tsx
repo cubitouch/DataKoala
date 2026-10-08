@@ -927,9 +927,9 @@ describe('LokiExplorer execution', () => {
     render(<LokiExplorer connectionId="loki" />)
 
     await waitFor(() =>
-      expect(useStore.getState().tabs[0].lokiBuilder.levelFilter?.values).toEqual([
-        'warn',
-      ]),
+      expect(
+        useStore.getState().tabs[0].lokiBuilder.levelFilter?.values,
+      ).toEqual(['warn']),
     )
     expect(
       useStore.getState().tabs[0].lokiBuilder.labelMatchers,
