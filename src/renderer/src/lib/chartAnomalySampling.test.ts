@@ -35,9 +35,9 @@ describe('sampleChartSeries', () => {
     expect(sample.points.some((point) => point.x < 160 && point.y === 20)).toBe(
       true,
     )
-    expect(sample.points.some((point) => point.x >= 160 && point.y === 80)).toBe(
-      true,
-    )
+    expect(
+      sample.points.some((point) => point.x >= 160 && point.y === 80),
+    ).toBe(true)
   })
 
   it('keeps every point when the series fits in the budget', () => {
