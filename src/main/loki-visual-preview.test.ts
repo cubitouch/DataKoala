@@ -16,6 +16,7 @@ test('Loki preview fixture preserves log field boundaries and realistic severiti
     cluster: 'eu-west-1',
     namespace: 'payments',
     service_name: 'checkout-api',
+    severity: 'ERROR',
   })
   assert.equal(row.structuredMetadata.severity, 'ERROR')
   assert.equal(row.parsedFields.downstream_service, 'inventory-service')
@@ -44,11 +45,16 @@ test('Loki preview workflow, documentation, and screenshot command stay synchron
     readFile(new URL('docs-site/src/main.ts', root), 'utf8'),
     readFile(new URL('package.json', root), 'utf8'),
   ])
+  assert.match(workflow, /^\s+loki-level-dropdown\.png$/m)
   assert.match(workflow, /^\s+loki-log-list\.png$/m)
   assert.match(workflow, /^\s+loki-log-patterns\.png$/m)
   assert.match(workflow, /^\s+loki-log-chart\.png$/m)
   const scripts = JSON.parse(packageJson).scripts
   assert.match(workflow, /pnpm preview:shared-captures/)
+  assert.match(
+    workflow,
+    /Loki Builder — open multi-select Level filter with ERROR and WARN selected/,
+  )
   assert.match(
     workflow,
     /Loki — production checkout logs and selected event inspector/,
