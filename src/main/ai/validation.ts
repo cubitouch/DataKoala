@@ -25,6 +25,8 @@ import type {
   AiBuilderProposal,
   AiBuilderProposalRequest,
   AiBuilderState,
+  AiAnomalyAnalysis,
+  AiAnomalyAnalysisRequest,
   AiBuilderStep,
   AiContextRequest,
   AiErrorCode,
@@ -227,6 +229,83 @@ function validateContextRequest(
     reason: textValue(input.reason, AI_LIMITS.contextRequestReason),
   }
 }
+const onlyKeys = (value: Record<string, unknown>, keys: string[]) => {
+  if (
+    Object.keys(value).length !== keys.length ||
+    Object.keys(value).some((key) => !keys.includes(key))
+  )
+    throw new AiError('validation', 'Invalid AI anomaly analysis input.')
+}
+const finite = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    throw new AiError('validation', 'Invalid AI anomaly analysis input.')
+  return value
+}
+const anomalyX = (value: unknown): string | number =>
+  typeof value === 'string' ? textValue(value, 160) : finite(value)
+
+export function anomalyAnalysisRequest(
+  value: unknown,
+): AiAnomalyAnalysisRequest {
+  const input = record(value)
+  onlyKeys(input, ['requestId', 'chart'])
+  const chart = record(input.chart)
+  onlyKeys(chart, ['chartType', 'xColumn', 'valueColumn', 'series'])
+  if (
+    !Array.isArray(chart.series) ||
+    chart.series.length > AI_LIMITS.anomalySeries
+  )
+    throw new AiError('validation', 'Invalid AI anomaly chart context.')
+  const series = chart.series.map((raw) => {
+    const item = record(raw)
+    onlyKeys(item, ['name', 'points'])
+    if (
+      !Array.isArray(item.points) ||
+      item.points.length > AI_LIMITS.anomalyPointsPerSeries
+    )
+      throw new AiError('validation', 'Invalid AI anomaly chart context.')
+    return {
+      name: textValue(item.name, 256),
+      points: item.points.map((rawPoint) => {
+        const point = record(rawPoint)
+        onlyKeys(point, ['x', 'y'])
+        return { x: anomalyX(point.x), y: finite(point.y) }
+      }),
+    }
+  })
+  return {
+    requestId: requestId(input.requestId),
+    chart: {
+      chartType: textValue(chart.chartType, 32),
+      xColumn: textValue(chart.xColumn, 256),
+      valueColumn: textValue(chart.valueColumn, 256),
+      series,
+    },
+  }
+}
+export function anomalyAnalysis(value: unknown): AiAnomalyAnalysis {
+  try {
+    const input = record(value)
+    onlyKeys(input, ['summary', 'findings', 'limitations', 'followUps'])
+    const strings = (items: unknown) => {
+      if (!Array.isArray(items) || items.length > AI_LIMITS.anomalyFindings)
+        throw new Error()
+      return items.map((item) => textValue(item, AI_LIMITS.anomalyText))
+    }
+    return {
+      summary: textValue(input.summary, 2000),
+      findings: strings(input.findings),
+      limitations: strings(input.limitations),
+      followUps: strings(input.followUps),
+    }
+  } catch {
+    throw new AiError(
+      'invalid-response',
+      'The model returned an invalid anomaly analysis. Try again or choose another model.',
+    )
+  }
+}
+
 export function queryStep(value: unknown): AiQueryStep {
   try {
     const input = record(value)

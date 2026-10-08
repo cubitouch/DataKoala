@@ -193,6 +193,8 @@ Anomaly detection affects only chart presentation. It does not alter SQL, table 
 
 This is intended as a lightweight exploratory signal, not as a replacement for domain-specific monitoring or statistical modelling.
 
+When OpenRouter is configured, **Analyze with AI** inspects a bounded chart sample directly. It sends at most 8 series with 32 sampled points each; the model returns observations, limitations and follow-up ideas. The action is hidden when AI is not configured, and analysis never changes the query or result. This path does not depend on the local MAD detector.
+
 ## Export and sharing
 
 The current workflow can export or copy:

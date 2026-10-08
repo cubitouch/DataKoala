@@ -122,6 +122,30 @@ describe('GenericResultExplorer controlled presentation', () => {
     expect(canPromoteChartFilter).toHaveBeenCalledWith(filter)
   })
 
+  it('hides AI chart analysis when OpenRouter is not configured', () => {
+    const anomalyResult: QueryResult = {
+      columns: [
+        { name: 'day', dataTypeID: 0, dataTypeName: 'integer' },
+        { name: 'value', dataTypeID: 0, dataTypeName: 'integer' },
+      ],
+      rows: [1, 2, 3, 4, 5, 6, 7, 8].map((day) => ({
+        day,
+        value: day === 7 ? 20 : 2,
+      })),
+      rowCount: 8,
+      durationMs: 3,
+    }
+    render(
+      <GenericResultExplorer
+        {...props({
+          result: anomalyResult,
+          configuration: { ...configuration, view: 'line', xColumn: 'day' },
+        })}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Analyze with AI' })).toBeNull()
+  })
+
   it('renders the controlled result in the table branch', () => {
     render(<GenericResultExplorer {...props()} />)
     expect(screen.getByText('category')).toBeTruthy()

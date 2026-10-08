@@ -10,6 +10,7 @@ import {
 import ReactECharts from 'echarts-for-react'
 import type EChartsReact from 'echarts-for-react'
 import { api } from '@lib/api'
+import { isAiConfigured, type AiAnomalyAnalysis } from '@shared/ai'
 import { buildChartPresentationOptions } from '@lib/chartPresentation'
 import {
   chartSeriesResultFilters,
@@ -191,6 +192,10 @@ export function GenericResultExplorer({
     [seriesVisibility, onSeriesVisibilityChange],
   )
   const [showRunning, setShowRunning] = useState(false)
+  const [aiConfigured, setAiConfigured] = useState(false)
+  const [aiAnalysis, setAiAnalysis] = useState<AiAnomalyAnalysis | null>(null)
+  const [aiAnalysisError, setAiAnalysisError] = useState('')
+  const [aiAnalyzing, setAiAnalyzing] = useState(false)
   const hoveredSeriesIdentity = useRef<string | undefined>(undefined)
   const chartEvents = useRef<ChartEventBridgeLifecycle | null>(null)
   if (!chartEvents.current)
@@ -231,6 +236,24 @@ export function GenericResultExplorer({
     },
     [],
   )
+
+  useEffect(() => {
+    let active = true
+    const getSettings = api?.ai?.settings?.get
+    if (getSettings) {
+      void getSettings().then((result) => {
+        if (active && result.ok) setAiConfigured(isAiConfigured(result.value))
+      }).catch(() => {
+        if (active) setAiConfigured(false)
+      })
+    }
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    setAiAnalysis(null)
+    setAiAnalysisError('')
+  }, [resultRevision])
 
   useEffect(() => {
     if (!running) {
@@ -897,6 +920,53 @@ export function GenericResultExplorer({
         fingerprint: appliedChart.fingerprint,
       })
   }
+  const analyzeChartWithAi = async () => {
+    if (
+      !chart ||
+      !effectiveConfiguration.xColumn ||
+      !effectiveConfiguration.valueColumn ||
+      !api?.ai?.analyzeAnomalies
+    )
+      return
+    setAiAnalyzing(true)
+    setAiAnalysis(null)
+    setAiAnalysisError('')
+    const series = chart.series.slice(0, 8).map((item) => {
+      const stride = Math.max(1, Math.ceil(item.data.length / 32))
+      const points: Array<{ x: string | number; y: number }> = []
+      for (let index = 0; index < item.data.length; index += stride) {
+        const y = item.data[index]
+        if (typeof y !== 'number' || !Number.isFinite(y)) continue
+        const rawX = chart.xValues[index]
+        points.push({
+          x:
+            typeof rawX === 'number' || typeof rawX === 'string'
+              ? rawX
+              : String(rawX ?? ''),
+          y,
+        })
+      }
+      return { name: item.name, points }
+    })
+    try {
+      const response = await api.ai.analyzeAnomalies({
+        requestId: crypto.randomUUID(),
+        chart: {
+          chartType: effectiveConfiguration.view,
+          xColumn: effectiveConfiguration.xColumn,
+          valueColumn: effectiveConfiguration.valueColumn,
+          series,
+        },
+      })
+      if (response.ok) setAiAnalysis(response.value)
+      else setAiAnalysisError(response.message)
+    } catch {
+      setAiAnalysisError('AI analysis failed. Check your connection and try again.')
+    } finally {
+      setAiAnalyzing(false)
+    }
+  }
+
   const hiddenSeries = seriesIdentities.filter(
     (identity) => seriesVisibility[identity] === false,
   )
@@ -1145,6 +1215,18 @@ export function GenericResultExplorer({
                 Highlight anomalies
               </button>
             )}
+            {aiConfigured &&
+              effectiveConfiguration.view === 'line' &&
+              chart?.renderable &&
+              !hierarchical && (
+                <button
+                  className="btn ghost"
+                  disabled={aiAnalyzing || isResultStale}
+                  onClick={() => void analyzeChartWithAi()}
+                >
+                  {aiAnalyzing ? 'Analyzing with AI…' : 'Analyze with AI'}
+                </button>
+              )}
             <button
               className="btn ghost"
               disabled={isChartActionDisabled(
@@ -1174,6 +1256,17 @@ export function GenericResultExplorer({
                   : 'No anomalies detected with the current settings.'}
               </div>
             )}
+          {aiAnalysis && (
+            <section className={styles.aiAnomalyAnalysis} aria-label="AI anomaly analysis">
+              <strong>AI analysis</strong>
+              <p>{aiAnalysis.summary}</p>
+              {!!aiAnalysis.findings.length && <><strong>Patterns in the supplied data</strong><ul>{aiAnalysis.findings.map((item, index) => <li key={index}>{item}</li>)}</ul></>}
+              {!!aiAnalysis.limitations.length && <><strong>Limitations</strong><ul>{aiAnalysis.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul></>}
+              {!!aiAnalysis.followUps.length && <><strong>Explore next</strong><ul>{aiAnalysis.followUps.map((item, index) => <li key={index}>{item}</li>)}</ul></>}
+              <small>OpenRouter analysis of up to 8 series and 32 sampled points per series.</small>
+            </section>
+          )}
+          {aiAnalysisError && <div className={styles.aiAnomalyError} role="alert">{aiAnalysisError}</div>}
           <ResultFilterBar
             filters={activeFilters}
             onRemove={onRemoveFilter}

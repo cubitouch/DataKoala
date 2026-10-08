@@ -8,9 +8,10 @@ import { EncryptedSecretStore } from '../secrets/store.ts'
 import type { Encryption, SecretOwner, SecretStore } from '../secrets/store.ts'
 import { AiService } from './service.ts'
 import { OpenRouterProvider } from './openrouter.ts'
-import { proposalRequest } from './validation.ts'
+import { anomalyAnalysisRequest, proposalRequest } from './validation.ts'
 import {
   AI_LIMITS,
+  type AiAnomalyAnalysisRequest,
   type AiBuilderProposalRequest,
   type AiQueryProposalRequest,
   type AiQueryStep,
@@ -106,6 +107,47 @@ const completion = (content: unknown = proposalWire) =>
     ],
   })
 const signal = () => new AbortController().signal
+
+const anomalyRequest: AiAnomalyAnalysisRequest = {
+  requestId: 'anomaly-request',
+  chart: {
+    chartType: 'line',
+    xColumn: 'day',
+    valueColumn: 'count',
+    series: [{ name: 'errors', points: [{ x: '2026-10-01', y: 2 }] }],
+  },
+}
+test('OpenRouter returns a validated structured anomaly analysis from bounded chart context', async () => {
+  let sent: Record<string, unknown> | undefined
+  const provider = new OpenRouterProvider('key', 'model', async (_url, init) => {
+    sent = JSON.parse(String(init?.body))
+    return completion({
+      summary: 'One candidate spike is visible.',
+      findings: ['The sampled value is much higher than nearby values.'],
+      limitations: ['The sample cannot explain the cause.'],
+      followUps: ['Compare the same period last week.'],
+    })
+  })
+  const analysis = await provider.analyzeAnomalies(
+    anomalyAnalysisRequest(anomalyRequest),
+    signal(),
+  )
+  assert.equal(analysis.summary, 'One candidate spike is visible.')
+  assert.equal(analysis.findings.length, 1)
+  assert.equal((sent?.response_format as { type: string }).type, 'json_schema')
+  assert.match(JSON.stringify(sent?.messages), /2026-10-01/)
+  const tooMany = {
+    ...anomalyRequest,
+    chart: {
+      ...anomalyRequest.chart,
+      series: Array.from({ length: 9 }, (_, index) => ({
+        name: String(index),
+        points: [],
+      })),
+    },
+  }
+  assert.throws(() => anomalyAnalysisRequest(tooMany))
+})
 
 test('OpenRouter models, structured request and proposal parsing use only explicit query context', async () => {
   let sent: Record<string, unknown> | undefined
@@ -456,6 +498,7 @@ test('settings preserve the model and blank key; tests do not save; removal dele
       proposeBuilder: async () => {
         throw new Error('not used in query tests')
       },
+      analyzeAnomalies: async () => ({ summary: '', findings: [], limitations: [], followUps: [] }),
     }))
     await service.saveSettings({ model: 'old', apiKey: 'saved-key' })
     await service.test(1, 'test', { model: 'new', apiKey: 'draft-key' })

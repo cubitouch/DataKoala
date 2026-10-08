@@ -34,6 +34,26 @@ export interface AiQueryContext {
   relations: AiRelationContext[]
   availableRelations?: AiRelationCatalogEntry[]
 }
+export interface AiAnomalyChartContext {
+  chartType: string
+  xColumn: string
+  valueColumn: string
+  series: Array<{
+    name: string
+    points: Array<{ x: string | number; y: number }>
+  }>
+}
+export interface AiAnomalyAnalysisRequest {
+  requestId: string
+  chart: AiAnomalyChartContext
+}
+export interface AiAnomalyAnalysis {
+  summary: string
+  findings: string[]
+  limitations: string[]
+  followUps: string[]
+}
+
 export interface AiQueryProposalRequest {
   requestId: string
   intent: 'generate' | 'repair'
@@ -120,9 +140,13 @@ export const AI_LIMITS = {
   contextRequestTermCharacters: 80,
   contextRequestReason: 1000,
   builderUnsupportedReason: 2000,
+  anomalySeries: 8,
+  anomalyPointsPerSeries: 32,
+  anomalyFindings: 8,
+  anomalyText: 1200,
 } as const
 export const AI_PRIVACY_NOTICE =
-  'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query or Builder state, and bounded schema metadata. Database credentials and query result rows are not sent.'
+  'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query or Builder state, and bounded schema metadata, or a small capped chart sample for AI anomaly analysis. Database credentials and full query results are not sent.'
 
 /**
  * Single product-level availability rule for AI features.

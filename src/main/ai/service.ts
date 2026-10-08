@@ -5,6 +5,7 @@ import type { AiProvider } from './openrouter.ts'
 import { AiSettingsStore } from './settings.ts'
 import {
   AiError,
+  anomalyAnalysisRequest,
   builderProposalRequest,
   proposalRequest,
   requestId,
@@ -142,6 +143,31 @@ export class AiService {
             )
           signal.throwIfAborted()
           return this.createProvider(key, settings.model).proposeQuery(
+            request,
+            signal,
+          )
+        },
+      )
+      if (!response.ok) throw new AiError(response.code, response.message)
+      return response.value
+    })
+  }
+  analyzeAnomalies(owner: number, input: unknown) {
+    return this.result(async () => {
+      const request = anomalyAnalysisRequest(input)
+      const response = await this.run(
+        owner,
+        request.requestId,
+        async (signal) => {
+          const settings = await this.settings.get()
+          const key = await this.settings.getApiKey()
+          if (!settings.model || !key)
+            throw new AiError(
+              'configuration',
+              'Configure OpenRouter to use AI analysis.',
+            )
+          signal.throwIfAborted()
+          return this.createProvider(key, settings.model).analyzeAnomalies(
             request,
             signal,
           )

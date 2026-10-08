@@ -1,4 +1,6 @@
 import type {
+  AiAnomalyAnalysis,
+  AiAnomalyAnalysisRequest,
   AiBuilderProposalRequest,
   AiBuilderStep,
   AiModel,
@@ -10,7 +12,13 @@ import {
   BUILDER_AGGREGATIONS,
   BUILDER_TIME_BUCKETS,
 } from '../../shared/builderCapabilities.ts'
-import { AiError, builderStep, queryStep, record } from './validation.ts'
+import {
+  AiError,
+  anomalyAnalysis,
+  builderStep,
+  queryStep,
+  record,
+} from './validation.ts'
 
 export interface AiProvider {
   listModels(signal: AbortSignal): Promise<AiModel[]>
@@ -23,6 +31,10 @@ export interface AiProvider {
     request: AiBuilderProposalRequest,
     signal: AbortSignal,
   ): Promise<AiBuilderStep>
+  analyzeAnomalies(
+    request: AiAnomalyAnalysisRequest,
+    signal: AbortSignal,
+  ): Promise<AiAnomalyAnalysis>
 }
 
 const querySchema = {
@@ -43,6 +55,18 @@ const querySchema = {
     'searchTerms',
     'reason',
   ],
+  additionalProperties: false,
+}
+
+const anomalyAnalysisSchema = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    findings: { type: 'array', maxItems: 8, items: { type: 'string' } },
+    limitations: { type: 'array', maxItems: 8, items: { type: 'string' } },
+    followUps: { type: 'array', maxItems: 8, items: { type: 'string' } },
+  },
+  required: ['summary', 'findings', 'limitations', 'followUps'],
   additionalProperties: false,
 }
 
@@ -373,6 +397,28 @@ export class OpenRouterProvider implements AiProvider {
       builderSchema,
       (value) => builderStep(value, request),
       'The model returned an invalid Builder proposal. Try again or choose another model.',
+    )
+  }
+
+  analyzeAnomalies(
+    request: AiAnomalyAnalysisRequest,
+    signal: AbortSignal,
+  ): Promise<AiAnomalyAnalysis> {
+    return this.complete(
+      [
+        {
+          role: 'system',
+          content:
+            'Analyze the bounded chart sample supplied by the user and identify notable changes or candidate anomalies. Return a concise summary, visible patterns, limitations, and follow-up questions. Do not claim causation or statistical certainty; distinguish observations from hypotheses. Do not invent data or execute queries.',
+        },
+        { role: 'user', content: JSON.stringify(request.chart) },
+      ],
+      signal,
+      1800,
+      'anomaly_analysis',
+      anomalyAnalysisSchema,
+      anomalyAnalysis,
+      'The model returned an invalid anomaly analysis. Try again or choose another model.',
     )
   }
 }
