@@ -155,7 +155,7 @@ app.whenReady().then(async () => {
     )
     await waitFor(
       win,
-      `document.querySelector('[aria-label="LogQL editor"]')?.value.includes('level=~"(?i)^(?:ERROR|WARN)$"')`,
+      `document.querySelector('[data-generated-query-panel]')?.innerText.includes('level=~"(?i)^(?:ERROR|WARN)$"')`,
       'generated Level matcher',
     )
     await win.webContents.executeJavaScript(
