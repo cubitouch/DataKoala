@@ -67,6 +67,7 @@ interface Props {
   truncated?: boolean
   limit: number
   selectionKey?: string | number
+  canPromoteLevelFilter?: boolean
   onFilter: (
     source: LokiFilterSource,
     key: string,
@@ -81,6 +82,7 @@ export function LogResultExplorer({
   truncated,
   limit,
   selectionKey,
+  canPromoteLevelFilter = true,
   onFilter,
 }: Props) {
   const [search, setSearch] = useState('')
@@ -120,12 +122,14 @@ export function LogResultExplorer({
     ),
   ].sort()
   const levelTarget = (severity: string): LokiSeveritySource | null => {
+    if (!canPromoteLevelFilter) return null
     const sources = rows
       .filter((row) => row.severity === severity)
       .map((row) => row.severitySource)
     const first = sources[0]
     if (
       !first ||
+      (first.source === 'parsed-field' && !first.parser) ||
       sources.some(
         (source) =>
           !source ||
