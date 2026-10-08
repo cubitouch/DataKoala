@@ -5,7 +5,6 @@ import type {
   LokiLabelMatcher,
   LokiLabelOperator,
   LokiParserKind,
-  LokiLevelFilterSource,
 } from '@shared/loki'
 import type { LokiMetadataRequest } from '@shared/loki'
 import { lokiLabelValues } from '@lib/lokiMetadata'
@@ -118,8 +117,7 @@ export function LokiBuilderPanel({
   generated,
   labels,
   levelOptions,
-  levelSource,
-  levelFilterLocally,
+  levelLabel,
   connectionId,
   connectionGeneration,
   canLoadMetadata,
@@ -135,8 +133,7 @@ export function LokiBuilderPanel({
   generated: string
   labels: string[]
   levelOptions: string[]
-  levelSource: LokiLevelFilterSource | null
-  levelFilterLocally: boolean
+  levelLabel: string | null
   connectionId: string
   connectionGeneration: number
   canLoadMetadata: boolean
@@ -169,11 +166,19 @@ export function LokiBuilderPanel({
         : `${selectedLevels.length} levels selected`
   const selectLevels = (next: string[]) => {
     const values = [...new Set(next)]
-    const nextBuilder: LokiBuilderState = { ...value }
+    const nextBuilder: LokiBuilderState = {
+      ...value,
+      labelMatchers:
+        values.length && levelLabel
+          ? value.labelMatchers.filter(
+              (matcher) => matcher.label !== levelLabel,
+            )
+          : value.labelMatchers,
+    }
     if (values.length) {
       nextBuilder.levelFilter = {
         values,
-        ...(levelSource ? { source: levelSource } : {}),
+        ...(levelLabel ? { label: levelLabel } : {}),
       }
     } else delete nextBuilder.levelFilter
     onChange(nextBuilder)
@@ -243,11 +248,13 @@ export function LokiBuilderPanel({
         <FormField>
           <MultiCombobox
             label="Level"
+            disabled={!levelLabel && selectedLevels.length === 0}
             values={selectedLevels}
             options={[...new Set([...levelOptions, ...selectedLevels])].map(
               (level) => ({
                 value: level,
                 label: level,
+                disabled: !levelLabel,
               }),
             )}
             onChange={selectLevels}
@@ -256,9 +263,9 @@ export function LokiBuilderPanel({
             placeholder="All levels"
             searchable={false}
           />
-          {levelFilterLocally && (
-            <p className={styles.preserved}>
-              Local only until a safe Level source is discovered.
+          {!levelLabel && (
+            <p className={styles.preserved} role="status">
+              Level is unavailable: no indexed severity label was discovered.
             </p>
           )}
         </FormField>
@@ -476,14 +483,6 @@ export function LokiBuilderPanel({
         language="LogQL"
         value={generated}
         onOpenInEditor={onOpenLogql}
-        supplementary={
-          levelFilterLocally ? (
-            <p className={styles.preserved} role="status">
-              This generated LogQL is unrestricted by Level because no safe
-              source is known. Selected levels filter loaded logs only.
-            </p>
-          ) : undefined
-        }
       />
     </BuilderForm>
   )
