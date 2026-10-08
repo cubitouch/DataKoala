@@ -240,13 +240,7 @@ export function LokiBuilderPanel({
             }
           />
         </FormField>
-        <FormField
-          hint={
-            levelFilterLocally
-              ? 'Source is unknown or mixed; this filters loaded logs only.'
-              : undefined
-          }
-        >
+        <FormField>
           <MultiCombobox
             label="Level"
             values={selectedLevels}
@@ -262,6 +256,11 @@ export function LokiBuilderPanel({
             placeholder="All levels"
             searchable={false}
           />
+          {levelFilterLocally && (
+            <p className={styles.preserved}>
+              Source is unknown or mixed; this filters loaded logs only.
+            </p>
+          )}
         </FormField>
         <FormField>
           <TextInput
