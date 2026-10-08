@@ -76,27 +76,44 @@ function renderedMatcher({
 function matcherExpression(matcher: LokiLabelMatcher): string | null {
   return renderedMatcher(matcher)?.expression ?? null
 }
+export function resolveLokiLevelLabel(labels: string[]): string | null {
+  const normalize = (label: string) =>
+    label.toLowerCase().replace(/[_ .-]/g, '')
+  const aliases = new Set(['level', 'severity', 'severitytext', 'loglevel'])
+  return (
+    [...new Set(labels)]
+      .filter(
+        (label) =>
+          !label.startsWith('__') &&
+          isValidLokiLabelName(label) &&
+          aliases.has(normalize(label)),
+      )
+      .sort(
+        (a, b) =>
+          Number(normalize(b) === 'level') - Number(normalize(a) === 'level') ||
+          (a < b ? -1 : a > b ? 1 : 0),
+      )[0] ?? null
+  )
+}
 export function buildLokiQuery(
   state: LokiBuilderState,
   options: BuildLokiQueryOptions = {},
 ): string {
   const levelValues = [...new Set(state.levelFilter?.values ?? [])]
-  const levelSource = state.levelFilter?.source
-  const levelRegex = levelValues.length
-    ? `(?i)^(?:${levelValues.map(escapeLogqlRegexValue).join('|')})$`
-    : undefined
-  const canApplyLevel = Boolean(
-    levelRegex &&
-    levelSource &&
-    (levelSource.source !== 'parsed-field' || levelSource.parser),
-  )
+  const levelLabel = state.levelFilter?.label
+  if (levelValues.length && !levelLabel)
+    throw new Error(
+      'Level filtering is unavailable: no matching indexed severity label was discovered. Clear the saved Level selection to continue.',
+    )
+  if (levelLabel && !isValidLokiLabelName(levelLabel))
+    throw new Error(`Invalid Loki label name: ${levelLabel}`)
   const userMatchers = state.labelMatchers
+    .filter((matcher) => !levelValues.length || matcher.label !== levelLabel)
     .map(matcherExpression)
     .filter((value): value is string => Boolean(value))
-  if (canApplyLevel && levelSource?.source === 'label') {
-    if (!isValidLokiLabelName(levelSource.field))
-      throw new Error(`Invalid Loki label name: ${levelSource.field}`)
-    userMatchers.push(`${levelSource.field}=~${escapeLogqlString(levelRegex!)}`)
+  if (levelValues.length) {
+    const regex = `(?i)^(?:${levelValues.map(escapeLogqlRegexValue).join('|')})$`
+    userMatchers.push(`${levelLabel}=~${escapeLogqlString(regex)}`)
   }
   let selectorMatchers = userMatchers
   if (!selectorMatchers.length && options.fallbackMatcher) {
@@ -114,15 +131,7 @@ export function buildLokiQuery(
   let query = `{${selectorMatchers.join(', ')}}`
   for (const filter of state.lineFilters)
     query += ` ${filter.operator} ${escapeLogqlString(filter.value)}`
-  const parserStages = [...state.parsers]
-  if (
-    canApplyLevel &&
-    levelSource?.source === 'parsed-field' &&
-    levelSource.parser &&
-    !parserStages.some((stage) => stage.kind === levelSource.parser)
-  )
-    parserStages.push({ kind: levelSource.parser })
-  for (const stage of parserStages) {
+  for (const stage of state.parsers) {
     query += ` | ${stage.kind}`
     if (stage.expression !== undefined && stage.expression !== '')
       query += ` ${escapeLogqlString(stage.expression)}`
@@ -131,11 +140,6 @@ export function buildLokiQuery(
     if (!isValidLokiLabelName(filter.field))
       throw new Error(`Invalid Loki field name: ${filter.field}`)
     query += ` | ${filter.field}${filter.operator}${escapeLogqlString(filter.value)}`
-  }
-  if (canApplyLevel && levelSource && levelSource.source !== 'label') {
-    if (!isValidLokiLabelName(levelSource.field))
-      throw new Error(`Invalid Loki field name: ${levelSource.field}`)
-    query += ` | ${levelSource.field}=~${escapeLogqlString(levelRegex!)}`
   }
   assertValidLogql(query)
   return query
