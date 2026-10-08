@@ -1,13 +1,27 @@
 import { useState } from 'react'
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+
+const aiMocks = vi.hoisted(() => ({
+  getSettings: vi.fn(),
+  analyzeAnomalies: vi.fn(),
+  cancel: vi.fn(),
+}))
 
 vi.mock('echarts-for-react', () => ({
   default: () => <div data-testid="chart" />,
 }))
 vi.mock('@lib/api', () => ({
-  api: { clipboardImage: vi.fn(), export: { saveBinary: vi.fn() } },
+  api: {
+    clipboardImage: vi.fn(),
+    export: { saveBinary: vi.fn() },
+    ai: {
+      settings: { get: aiMocks.getSettings },
+      analyzeAnomalies: aiMocks.analyzeAnomalies,
+      cancel: aiMocks.cancel,
+    },
+  },
 }))
 
 import {
@@ -56,6 +70,15 @@ const props = (
   ...overrides,
 })
 
+beforeEach(() => {
+  aiMocks.getSettings.mockReset()
+  aiMocks.analyzeAnomalies.mockReset()
+  aiMocks.cancel.mockReset()
+  aiMocks.getSettings.mockResolvedValue({
+    ok: true,
+    value: { provider: 'openrouter', model: '', hasApiKey: false },
+  })
+})
 afterEach(cleanup)
 
 describe('GenericResultExplorer controlled presentation', () => {
@@ -122,16 +145,13 @@ describe('GenericResultExplorer controlled presentation', () => {
     expect(canPromoteChartFilter).toHaveBeenCalledWith(filter)
   })
 
-  it('hides AI chart analysis when OpenRouter is not configured', () => {
+  it('hides AI chart analysis when OpenRouter is not configured', async () => {
     const anomalyResult: QueryResult = {
       columns: [
         { name: 'day', dataTypeID: 0, dataTypeName: 'integer' },
         { name: 'value', dataTypeID: 0, dataTypeName: 'integer' },
       ],
-      rows: [1, 2, 3, 4, 5, 6, 7, 8].map((day) => ({
-        day,
-        value: day === 7 ? 20 : 2,
-      })),
+      rows: Array.from({ length: 8 }, (_, day) => ({ day, value: day + 1 })),
       rowCount: 8,
       durationMs: 3,
     }
@@ -143,7 +163,11 @@ describe('GenericResultExplorer controlled presentation', () => {
         })}
       />,
     )
-    expect(screen.queryByRole('button', { name: 'Analyze with AI' })).toBeNull()
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Analyze with AI' }),
+      ).toBeNull(),
+    )
   })
 
   it('renders the controlled result in the table branch', () => {
