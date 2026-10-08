@@ -131,19 +131,32 @@ describe('AI chart anomaly analysis', () => {
     expect((analyzingButton as HTMLButtonElement).disabled).toBe(true)
     resolveAnalysis?.(successfulAnalysis)
 
-    expect(await screen.findByRole('button', { name: 'AI details (2)' })).toBeTruthy()
+    expect(
+      await screen.findByRole('button', { name: 'AI details (2)' }),
+    ).toBeTruthy()
     const toggle = screen.getByRole('button', { name: 'AI anomalies' })
     expect(toggle.getAttribute('aria-pressed')).toBe('true')
-    const chartSeries = aiMocks.chartOptions?.series as Array<Record<string, unknown>>
-    const markerData = chartSeries[0].markPoint as { data: Array<{ coord: unknown[] }> }
-    expect(markerData.data.map((marker) => marker.coord)).toEqual([[157, 800], [212, -40]])
+    const chartSeries = aiMocks.chartOptions?.series as Array<
+      Record<string, unknown>
+    >
+    const markerData = chartSeries[0].markPoint as {
+      data: Array<{ coord: unknown[] }>
+    }
+    expect(markerData.data.map((marker) => marker.coord)).toEqual([
+      [157, 800],
+      [212, -40],
+    ])
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-pressed')).toBe('false')
     expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: 'AI details (2)' }))
     expect(await screen.findByRole('dialog')).toBeTruthy()
     expect(screen.getByText('A spike and drop are visible.')).toBeTruthy()
-    expect(screen.getByText('The sampled value at day 157 rises far above its neighbors.')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'The sampled value at day 157 rises far above its neighbors.',
+      ),
+    ).toBeTruthy()
     const request = aiMocks.analyzeAnomalies.mock.calls[0][0]
     expect(request.chart.series[0].points).toContainEqual({ x: 157, y: 800 })
     expect(request.chart.series[0].points).toContainEqual({ x: 212, y: -40 })
@@ -168,7 +181,9 @@ describe('AI chart anomaly analysis', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Analyze with AI' }),
     )
-    fireEvent.click(await screen.findByRole('button', { name: 'AI details (0)' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'AI details (0)' }),
+    )
     expect(
       await screen.findByText(
         'No candidate anomalies found in the supplied sample.',
