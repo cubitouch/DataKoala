@@ -548,8 +548,8 @@ export function LokiExplorer({
     )
     if (
       source === 'local' ||
-      (source === 'parsed-field' && !parser) ||
-      mode !== 'builder'
+      (levelField && source === 'parsed-field' && !parser) ||
+      (levelField && mode !== 'builder')
     ) {
       if (levelField) setLocalLevelFilter({ value, exclude })
       return
