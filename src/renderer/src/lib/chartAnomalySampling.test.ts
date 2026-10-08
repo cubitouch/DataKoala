@@ -14,8 +14,8 @@ describe('sampleChartSeries', () => {
     )
 
     expect(sample.points.length).toBeLessThanOrEqual(32)
-    expect(sample.points).toContainEqual({ x: 157, y: 800 })
-    expect(sample.points).toContainEqual({ x: 212, y: -40 })
+    expect(sample.points).toContainEqual({ x: 157, y: 800, originalIndex: 157 })
+    expect(sample.points).toContainEqual({ x: 212, y: -40, originalIndex: 212 })
     expect(sample.originalPointCount).toBe(320)
     expect(sample.validPointCount).toBe(320)
     expect(sample.sampleCoverage).toBe(sample.points.length / 320)
@@ -49,8 +49,8 @@ describe('sampleChartSeries', () => {
   it('keeps every point when the series fits in the budget', () => {
     const sample = sampleChartSeries('requests', [2, null, 3], ['a', 'b', 'c'])
     expect(sample.points).toEqual([
-      { x: 'a', y: 2 },
-      { x: 'c', y: 3 },
+      { x: 'a', y: 2, originalIndex: 0 },
+      { x: 'c', y: 3, originalIndex: 2 },
     ])
     expect(sample.originalPointCount).toBe(3)
     expect(sample.validPointCount).toBe(2)
