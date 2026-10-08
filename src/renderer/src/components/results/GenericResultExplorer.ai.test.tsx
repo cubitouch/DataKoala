@@ -83,14 +83,14 @@ const successfulAnalysis = {
     anomalies: [
       {
         seriesIndex: 0,
-        pointIndex: 7,
+        pointIndex: 9,
         title: 'Narrow spike',
         reason: 'The sampled value at day 157 rises far above its neighbors.',
         severity: 'high',
       },
       {
         seriesIndex: 0,
-        pointIndex: 12,
+        pointIndex: 14,
         title: 'Narrow drop',
         reason: 'The sampled value at day 212 falls far below its neighbors.',
         severity: 'medium',
