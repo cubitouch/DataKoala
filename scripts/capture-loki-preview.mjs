@@ -61,7 +61,7 @@ async function seedWorkspace(win) {
             { label: 'service_name', operator: '=', value: 'checkout-api' }
           ],
           lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: [],
-          levelFilter: { values: ['ERROR', 'WARN'], source: { source: 'structured-metadata', field: 'severity' } }
+          levelFilter: { values: ['ERROR', 'WARN'], label: 'severity' }
         },
         lokiResultLimit: 48, lokiGroupBy: ['service_name', 'severity'], lokiRangeHistory: [], lokiResultView: 'list'
       } : tab)
@@ -150,6 +150,14 @@ app.whenReady().then(async () => {
       'Line contains',
       'Group by',
     ])
+    await win.webContents.executeJavaScript(
+      `(() => { const summary = [...document.querySelectorAll('summary')].find((element) => element.textContent.includes('Generated LogQL')); if (summary && !summary.parentElement.open) summary.click() })()`,
+    )
+    await waitFor(
+      win,
+      `document.body.innerText.includes('severity=~')`,
+      'generated indexed Level matcher',
+    )
     await win.webContents.executeJavaScript(
       `document.querySelector('[data-field][data-field-name="Level"] [role="combobox"]')?.click()`,
     )
