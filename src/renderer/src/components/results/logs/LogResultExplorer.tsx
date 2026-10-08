@@ -369,7 +369,11 @@ export function LogResultExplorer({
           value={search}
           onValueChange={setSearch}
         />
-        <div className={styles.levelFilters} aria-label="Discovered log levels">
+        <div
+          className={styles.levelFilters}
+          role="group"
+          aria-label="Discovered log levels"
+        >
           <span>Level</span>
           {levels.map((level) => (
             <button
