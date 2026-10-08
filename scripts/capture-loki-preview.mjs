@@ -172,7 +172,7 @@ app.whenReady().then(async () => {
       'generated Level matcher',
     )
     await win.webContents.executeJavaScript(
-      `document.querySelector('[data-field-name="Level"] button[role="combobox"]')?.click()`,
+      `if (!document.querySelector('[role="listbox"][aria-label="Level"]')) document.querySelector('[data-field-name="Level"] button[role="combobox"]')?.click()`,
     )
     await waitFor(
       win,
