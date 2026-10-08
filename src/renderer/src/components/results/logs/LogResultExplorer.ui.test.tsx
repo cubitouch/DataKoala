@@ -47,7 +47,11 @@ it('opens a compact selected row in the side inspector without advertising unava
       .closest('[data-field]')
       ?.getAttribute('data-label-visibility'),
   ).toBe('sr-only')
-  expect(screen.getByText('ERROR').getAttribute('data-severity')).toBe('ERROR')
+  expect(
+    screen
+      .getByText('ERROR', { selector: '[data-severity]' })
+      .getAttribute('data-severity'),
+  ).toBe('ERROR')
   const timestamp = screen.getByText(/\d{2}:\d{2}:\d{2}\.\d{3}/)
   expect(timestamp.getAttribute('title')).toContain('2025-')
   expect(
