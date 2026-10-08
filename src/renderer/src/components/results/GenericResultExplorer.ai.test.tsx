@@ -139,6 +139,7 @@ describe('AI chart anomaly analysis', () => {
     expect(markerData.data.map((marker) => marker.coord)).toEqual([[157, 800], [212, -40]])
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: 'AI details (2)' }))
     expect(await screen.findByRole('dialog')).toBeTruthy()
     expect(screen.getByText('A spike and drop are visible.')).toBeTruthy()
@@ -151,6 +152,29 @@ describe('AI chart anomaly analysis', () => {
     expect(request.chart.series[0].sampleCoverage).toBe(
       request.chart.series[0].points.length / 320,
     )
+  })
+
+  it('shows a calm empty state without markers when no anomalies are returned', async () => {
+    aiMocks.analyzeAnomalies.mockResolvedValue({
+      ok: true,
+      value: {
+        summary: 'No clear candidate stands out.',
+        anomalies: [],
+        limitations: ['The sample is sparse.'],
+        followUps: [],
+      },
+    })
+    render(<GenericResultExplorer {...props()} />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Analyze with AI' }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'AI details (0)' }))
+    expect(
+      await screen.findByText(
+        'No candidate anomalies found in the supplied sample.',
+      ),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'AI anomalies' })).toBeNull()
   })
 
   it('shows provider errors', async () => {
