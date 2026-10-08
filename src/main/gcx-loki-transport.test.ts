@@ -522,7 +522,6 @@ test('explicit single-value matrix samples are normalized without weakening malf
   )
 })
 
-
 test(
   'tracks the source and safe parser provenance for normalized severity aliases',
   () => {
