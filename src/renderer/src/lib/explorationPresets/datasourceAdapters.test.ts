@@ -4,6 +4,7 @@ import { sqlPresetAdapter } from './sqlPresetAdapter'
 import { prometheusPresetAdapter } from './prometheusPresetAdapter'
 import { lokiPresetAdapter } from './lokiPresetAdapter'
 import { tempoPresetAdapter } from './tempoPresetAdapter'
+import { buildLokiQuery } from '@shared/loki-builder'
 import { testSession } from './testUtils'
 
 describe('datasource preset adapters', () => {
@@ -263,4 +264,34 @@ describe('datasource preset adapters', () => {
     expect(applied).not.toBe(target)
     expect(applied.builder).not.toBe(payload.builder)
   })
+})
+
+it('round-trips indexed Level selections through Loki presets', () => {
+  const source = testSession({ queryMode: 'builder' })
+  source.lokiBuilder = {
+    labelMatchers: [{ label: 'app', operator: '=', value: 'checkout' }],
+    lineFilters: [],
+    parsers: [],
+    fieldFilters: [],
+    levelFilter: { label: 'Severity_Text', values: ['ERROR', 'WARN'] },
+  }
+  const payload = lokiPresetAdapter.capture(source)
+  const parsed = lokiPresetAdapter.parse(JSON.parse(JSON.stringify(payload)))
+  expect(parsed).not.toBeNull()
+  const restored = lokiPresetAdapter.apply(
+    testSession({ id: 'target' }),
+    parsed!,
+  )
+  expect(restored.lokiBuilder.levelFilter).toEqual(
+    source.lokiBuilder.levelFilter,
+  )
+  expect(buildLokiQuery(restored.lokiBuilder)).toContain(
+    'Severity_Text=~"(?i)^(?:ERROR|WARN)$"',
+  )
+  expect(
+    lokiPresetAdapter.parse({
+      ...payload,
+      lokiBuilder: { ...payload.lokiBuilder, levelFilter: { values: 42 } },
+    }),
+  ).toBeNull()
 })
