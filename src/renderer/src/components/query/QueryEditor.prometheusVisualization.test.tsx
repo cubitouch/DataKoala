@@ -105,7 +105,6 @@ function arrange(
       seriesColumns: [],
       hierarchyDimensions: [],
       valueAxisScale: 'linear',
-      anomalyDetectionEnabled: false,
     },
   })
   render(<QueryEditor />)
