@@ -146,6 +146,22 @@ app.whenReady().then(async () => {
     )
     ipcMain.handle('ai:test', () => ok(undefined))
     ipcMain.handle('ai:cancel', () => ok(undefined))
+    ipcMain.handle('ai:analyze-anomalies', (_event, request) => {
+      const sample = request.chart.series[0]?.points ?? []
+      if (!sample.some((point) => point.y === 800) || !sample.some((point) => point.y === -40))
+        throw new Error('AI anomaly preview did not receive bucket extrema')
+      return ok({
+        summary: 'Two sharp changes stand out in the request series.',
+        findings: [
+          'A narrow spike reaches 800 near day 17.',
+          'A narrow drop reaches -40 near day 42.',
+        ],
+        limitations: [
+          'The sample shows when the changes occurred, not what caused them.',
+        ],
+        followUps: ['Compare this window with the previous period.'],
+      })
+    })
     ipcMain.handle('ai:propose', (_event, request) => {
       if (request.intent === 'repair' && failNextRepair) {
         failNextRepair = false
@@ -669,6 +685,57 @@ app.whenReady().then(async () => {
     )
     if (queryRuns !== 0)
       throw new Error('Applying BigQuery repair executed a query')
+
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore
+      const state = store.getState()
+      const rows = Array.from({ length: 64 }, (_, day) => ({
+        day,
+        requests: day === 17 ? 800 : day === 42 ? -40 : 20,
+      }))
+      store.setState({
+        activeProfileId: ${JSON.stringify(profile.id)},
+        tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
+          ...tab,
+          connectionProfileId: ${JSON.stringify(profile.id)},
+          queryMode: 'sql',
+          sql: 'SELECT day, requests FROM public.request_counts ORDER BY day',
+          sqlResultFilters: [],
+          sqlVisualization: {
+            ...tab.sqlVisualization,
+            view: 'line',
+            xColumn: 'day',
+            valueColumn: 'requests',
+            seriesColumn: null,
+            seriesColumns: [],
+            aggregation: 'sum',
+          },
+        } : tab),
+      })
+      store.getState().setResult({
+        columns: [
+          { name: 'day', dataTypeID: 20, dataTypeName: 'int8' },
+          { name: 'requests', dataTypeID: 20, dataTypeName: 'int8' },
+        ],
+        rows,
+        rowCount: rows.length,
+        durationMs: 8,
+      }, null)
+    })()`)
+    await wait(
+      win,
+      `[...document.querySelectorAll('button')].some((button) => button.textContent.trim() === 'Analyze with AI')`,
+    )
+    await click(win, 'Analyze with AI')
+    await wait(
+      win,
+      `document.querySelector('[aria-label="AI anomaly analysis"]')?.textContent.includes('Two sharp changes stand out')`,
+    )
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-chart-anomaly.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
 
     console.log(
       'AI_PREVIEW_OK: settings, raw query, structured Builder and PostgreSQL/BigQuery repair proposals require explicit apply; Builder AI never executes',
