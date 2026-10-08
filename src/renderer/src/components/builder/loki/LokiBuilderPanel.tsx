@@ -5,6 +5,7 @@ import type {
   LokiLabelMatcher,
   LokiLabelOperator,
   LokiParserKind,
+  LokiLevelFilterSource,
 } from '@shared/loki'
 import type { LokiMetadataRequest } from '@shared/loki'
 import { lokiLabelValues } from '@lib/lokiMetadata'
@@ -18,8 +19,6 @@ import { FormField } from '@components/builder/FormField'
 import styles from './LokiBuilderPanel.module.css'
 
 const internal = (label: string) => label.startsWith('__')
-const isLevelField = (field: string) =>
-  /^(severity|severity_text|level|loglevel|log_level)$/i.test(field)
 const editable = (matcher: LokiLabelMatcher) =>
   matcher.values !== undefined || matcher.operator === '='
 function ValueControl({
@@ -118,6 +117,9 @@ export function LokiBuilderPanel({
   value,
   generated,
   labels,
+  levelOptions,
+  levelSource,
+  levelFilterLocally,
   connectionId,
   connectionGeneration,
   canLoadMetadata,
@@ -132,6 +134,9 @@ export function LokiBuilderPanel({
   value: LokiBuilderState
   generated: string
   labels: string[]
+  levelOptions: string[]
+  levelSource: LokiLevelFilterSource | null
+  levelFilterLocally: boolean
   connectionId: string
   connectionGeneration: number
   canLoadMetadata: boolean
@@ -155,12 +160,24 @@ export function LokiBuilderPanel({
     ).values(),
   ]
   const selected = matchers.map(({ label }) => label)
-  const levelMatchers = value.labelMatchers.flatMap((matcher, index) =>
-    isLevelField(matcher.label) ? [{ matcher, index }] : [],
-  )
-  const levelFieldFilters = value.fieldFilters.flatMap((filter, index) =>
-    isLevelField(filter.field) ? [{ filter, index }] : [],
-  )
+  const selectedLevels = value.levelFilter?.values ?? []
+  const levelSelectionSummary =
+    selectedLevels.length === 0
+      ? 'All levels'
+      : selectedLevels.length <= 2
+        ? selectedLevels.join(', ')
+        : `${selectedLevels.length} levels selected`
+  const selectLevels = (next: string[]) => {
+    const values = [...new Set(next)]
+    const nextBuilder: LokiBuilderState = { ...value }
+    if (values.length) {
+      nextBuilder.levelFilter = {
+        values,
+        ...(levelSource ? { source: levelSource } : {}),
+      }
+    } else delete nextBuilder.levelFilter
+    onChange(nextBuilder)
+  }
   const selectLabels = (next: string[]) =>
     onChange({
       ...value,
@@ -223,6 +240,29 @@ export function LokiBuilderPanel({
             }
           />
         </FormField>
+        <FormField
+          hint={
+            levelFilterLocally
+              ? 'Source is unknown or mixed; this filters loaded logs only.'
+              : undefined
+          }
+        >
+          <MultiCombobox
+            label="Level"
+            values={selectedLevels}
+            options={[...new Set([...levelOptions, ...selectedLevels])].map(
+              (level) => ({
+                value: level,
+                label: level,
+              }),
+            )}
+            onChange={selectLevels}
+            selectedSummary={levelSelectionSummary}
+            selectionIndicator="checkbox"
+            placeholder="All levels"
+            searchable={false}
+          />
+        </FormField>
         <FormField>
           <TextInput
             label="Line contains"
@@ -278,62 +318,6 @@ export function LokiBuilderPanel({
             />
           ))}
         </BuilderRow>
-      )}
-      {(levelMatchers.length > 0 || levelFieldFilters.length > 0) && (
-        <section
-          className={styles.levelFilterSection}
-          aria-label="Level filters"
-        >
-          <strong>Level</strong>
-          <div className={styles.levelFilterList}>
-            {levelMatchers.map(({ matcher, index }) => (
-              <div className={styles.levelFilter} key={`label-${index}`}>
-                <span className={styles.levelBadge}>Level</span>
-                <span>
-                  {matcher.label} label {matcher.operator} {matcher.value}
-                </span>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  aria-label={`Remove Level filter using label ${matcher.label}`}
-                  onClick={() =>
-                    onChange({
-                      ...value,
-                      labelMatchers: value.labelMatchers.filter(
-                        (_, itemIndex) => itemIndex !== index,
-                      ),
-                    })
-                  }
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            {levelFieldFilters.map(({ filter, index }) => (
-              <div className={styles.levelFilter} key={`field-${index}`}>
-                <span className={styles.levelBadge}>Level</span>
-                <span>
-                  {filter.field} pipeline field {filter.operator} {filter.value}
-                </span>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  aria-label={`Remove Level filter using field ${filter.field}`}
-                  onClick={() =>
-                    onChange({
-                      ...value,
-                      fieldFilters: value.fieldFilters.filter(
-                        (_, itemIndex) => itemIndex !== index,
-                      ),
-                    })
-                  }
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
       )}
       {preserved.length > 0 && (
         <p className={styles.preserved}>
