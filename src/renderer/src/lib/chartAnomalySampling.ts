@@ -3,6 +3,7 @@ export const AI_ANOMALY_MAX_POINTS_PER_SERIES = 32
 export interface SampledChartPoint {
   x: string | number
   y: number
+  originalIndex: number
 }
 
 export interface SampledChartSeries {
@@ -65,6 +66,7 @@ export function sampleChartSeries(
   const points = indices.map((index) => ({
     x: chartXValue(xValues[index]),
     y: values[index] as number,
+    originalIndex: index,
   }))
   return {
     name,
