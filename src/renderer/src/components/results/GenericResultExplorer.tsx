@@ -1225,7 +1225,7 @@ export function GenericResultExplorer({
                 <button
                   className="btn ghost"
                   disabled={aiAnalyzing || isResultStale}
-                  title="Sends up to 8 visible series with up to 32 points per series, preserving bucket minima and maxima."
+                  title="Up to 8 series, 32 points each; preserves bucket minima and maxima."
                   onClick={() => void analyzeChartWithAi()}
                 >
                   {aiAnalyzing ? 'Analyzing with AI…' : 'Analyze with AI'}
