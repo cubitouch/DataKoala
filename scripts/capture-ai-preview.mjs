@@ -765,21 +765,32 @@ app.whenReady().then(async () => {
     win.show()
     win.focus()
     await sleep(250)
+    win.webContents.sendInputEvent({
+      type: 'mouseEnter',
+      x: anomalyHover.x,
+      y: anomalyHover.top,
+    })
     let anomalyTooltipVisible = false
     for (
-      let y = anomalyHover.top;
-      y < anomalyHover.bottom && !anomalyTooltipVisible;
-      y += 3
+      let xOffset = -2;
+      xOffset <= 2 && !anomalyTooltipVisible;
+      xOffset += 2
     ) {
-      win.webContents.sendInputEvent({
-        type: 'mouseMove',
-        x: anomalyHover.x,
-        y,
-      })
-      await sleep(25)
-      anomalyTooltipVisible = await win.webContents.executeJavaScript(
-        `document.querySelector('.chart-tooltip-anomaly')?.textContent.includes('Narrow spike') ?? false`,
-      )
+      for (
+        let y = anomalyHover.top;
+        y < anomalyHover.bottom && !anomalyTooltipVisible;
+        y += 4
+      ) {
+        win.webContents.sendInputEvent({
+          type: 'mouseMove',
+          x: anomalyHover.x + xOffset,
+          y,
+        })
+        await sleep(20)
+        anomalyTooltipVisible = await win.webContents.executeJavaScript(
+          `document.querySelector('.chart-tooltip-anomaly')?.textContent.includes('Narrow spike') ?? false`,
+        )
+      }
     }
     if (!anomalyTooltipVisible)
       throw new Error(
