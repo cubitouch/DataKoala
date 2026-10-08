@@ -574,6 +574,12 @@ test('indexed severity aliases are case-insensitive and outrank parsed fields', 
     parsed: { severity: 'INFO' },
   })
   assert.equal(logLevel.severity, 'warn')
+
+  const canonicalSeverity = normalizedLog('message', {
+    labels: { severity: 'ERROR' },
+    parsed: { level: 'INFO' },
+  })
+  assert.equal(canonicalSeverity.severity, 'error')
 })
 
 test('detected_level is not an authoritative severity alias', () => {
