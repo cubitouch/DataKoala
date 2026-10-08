@@ -260,6 +260,7 @@ export function LokiExplorer({
     setTrendError(null)
     setLoading(false)
     setPatternScope(null)
+    setLocalLevelFilter(null)
   }
   useEffect(() => {
     mounted.current = true
@@ -314,6 +315,7 @@ export function LokiExplorer({
     setError(null)
     setWarning(null)
     setLoading(false)
+    setLocalLevelFilter(null)
   }, [session.id])
   useEffect(() => {
     if (!isLokiChartView(resultView)) return
@@ -426,6 +428,7 @@ export function LokiExplorer({
         )
       }
       const current = ++revision.current
+      setLocalLevelFilter(null)
       trendRevision.current++
       trendCacheKey.current = null
       lastProcessedTrendKey.current = null
@@ -522,6 +525,7 @@ export function LokiExplorer({
     groupBy,
   ])
   useEffect(() => setPatternScope(null), [result])
+  useEffect(() => setLocalLevelFilter(null), [result])
   const selectRange = (selected: LokiTrendRange) =>
     setLokiState({
       lokiRangeHistory: [...session.lokiRangeHistory, range],
@@ -554,26 +558,29 @@ export function LokiExplorer({
       return
     }
     setLocalLevelFilter(null)
-    const isLevelAlias = (field: string) =>
-      /^(severity|severity_text|level|loglevel|log_level)$/i.test(field)
-    if (source === 'label')
+    const operator = exclude ? '!=' : '='
+    if (source === 'label') {
+      const alreadyPresent = builder.labelMatchers.some(
+        (matcher) =>
+          matcher.label === key &&
+          matcher.operator === operator &&
+          matcher.value === value,
+      )
       setLokiState({
         lokiBuilder: {
           ...builder,
-          labelMatchers: [
-            ...builder.labelMatchers.filter((matcher) =>
-              levelField ? !isLevelAlias(matcher.label) : matcher.label !== key,
-            ),
-            { label: key, operator: exclude ? '!=' : '=', value },
-          ],
-          fieldFilters: levelField
-            ? builder.fieldFilters.filter(
-                (filter) => !isLevelAlias(filter.field),
-              )
-            : builder.fieldFilters,
+          labelMatchers: alreadyPresent
+            ? builder.labelMatchers
+            : [...builder.labelMatchers, { label: key, operator, value }],
         },
       })
-    else
+    } else {
+      const alreadyPresent = builder.fieldFilters.some(
+        (filter) =>
+          filter.field === key &&
+          filter.operator === operator &&
+          filter.value === value,
+      )
       setLokiState({
         lokiBuilder: {
           ...builder,
@@ -581,19 +588,12 @@ export function LokiExplorer({
             parser && !builder.parsers.some((stage) => stage.kind === parser)
               ? [...builder.parsers, { kind: parser }]
               : builder.parsers,
-          labelMatchers: levelField
-            ? builder.labelMatchers.filter(
-                (matcher) => !isLevelAlias(matcher.label),
-              )
-            : builder.labelMatchers,
-          fieldFilters: [
-            ...builder.fieldFilters.filter((filter) =>
-              levelField ? !isLevelAlias(filter.field) : filter.field !== key,
-            ),
-            { field: key, operator: exclude ? '!=' : '=', value },
-          ],
+          fieldFilters: alreadyPresent
+            ? builder.fieldFilters
+            : [...builder.fieldFilters, { field: key, operator, value }],
         },
       })
+    }
     setMode('builder')
   }
   const format = async () => {
