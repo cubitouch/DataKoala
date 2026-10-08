@@ -793,13 +793,21 @@ describe('LokiExplorer execution', () => {
       fieldFilters: [{ field: 'level', operator: '=', value: 'ERROR' }],
     }
     mocks.labels.mockResolvedValue(['app', 'level', 'severity'])
-    mocks.labelValues.mockResolvedValue(['ERROR', 'warn', 'error', 'WARN', 'warning'])
+    mocks.labelValues.mockResolvedValue([
+      'ERROR',
+      'warn',
+      'error',
+      'WARN',
+      'warning',
+    ])
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
 
     const level = screen.getByRole('combobox', { name: /Level/ })
     await waitFor(() => expect(level.hasAttribute('disabled')).toBe(false))
     expect(level.textContent).toContain('All levels')
+    fireEvent.click(level)
+    await screen.findByRole('option', { name: 'ERROR' })
     fireEvent.keyDown(level, { key: 'ArrowDown' })
     fireEvent.keyDown(level, { key: 'Enter' })
     fireEvent.keyDown(level, { key: 'ArrowDown' })
@@ -890,6 +898,7 @@ describe('LokiExplorer execution', () => {
       ),
     ).toEqual(['ERROR', 'WARN', 'INFO'])
     fireEvent.click(level)
+    await screen.findByRole('option', { name: 'DEBUG' })
     for (const name of ['DEBUG', 'ERROR', 'FATAL', 'INFO', 'WARN', 'WARNING'])
       expect(screen.getByRole('option', { name })).toBeTruthy()
     expect(screen.queryByRole('option', { name: 'TRACE' })).toBeNull()
