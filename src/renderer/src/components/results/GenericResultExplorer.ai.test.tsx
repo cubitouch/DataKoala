@@ -93,7 +93,7 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('AI chart anomaly analysis', () => {
-  it('shows loading and renders the structured analysis from an extrema-preserving sample', async () => {
+  it('shows loading and renders an extrema-preserving AI analysis', async () => {
     let resolveAnalysis: ((value: unknown) => void) | undefined
     aiMocks.analyzeAnomalies.mockImplementation(
       () =>
@@ -113,7 +113,9 @@ describe('AI chart anomaly analysis', () => {
     expect(
       await screen.findByText('A spike and drop are visible.'),
     ).toBeTruthy()
-    expect(screen.getByText('A narrow spike appears at point 157.')).toBeTruthy()
+    expect(
+      screen.getByText('A narrow spike appears at point 157.'),
+    ).toBeTruthy()
     const request = aiMocks.analyzeAnomalies.mock.calls[0][0]
     expect(request.chart.series[0].points).toContainEqual({ x: 157, y: 800 })
     expect(request.chart.series[0].points).toContainEqual({ x: 212, y: -40 })
@@ -147,7 +149,11 @@ describe('AI chart anomaly analysis', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        value: { provider: 'openrouter', model: 'test-model', hasApiKey: true },
+        value: {
+          provider: 'openrouter',
+          model: 'test-model',
+          hasApiKey: true,
+        },
       })
       .mockResolvedValueOnce({
         ok: true,
