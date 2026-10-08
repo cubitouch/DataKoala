@@ -32,11 +32,17 @@ describe('sampleChartSeries', () => {
       values.map((_, index) => index),
     )
 
-    expect(sample.points.some((point) => point.x < 160 && point.y === 20)).toBe(
-      true,
-    )
     expect(
-      sample.points.some((point) => point.x >= 160 && point.y === 80),
+      sample.points.some(
+        (point) =>
+          typeof point.x === 'number' && point.x < 160 && point.y === 20,
+      ),
+    ).toBe(true)
+    expect(
+      sample.points.some(
+        (point) =>
+          typeof point.x === 'number' && point.x >= 160 && point.y === 80,
+      ),
     ).toBe(true)
   })
 
