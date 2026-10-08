@@ -7,9 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 process.env.DATAKOALA_SMOKE = '1'
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const output = resolve(
-  process.env.DATAKOALA_PREVIEW_OUTPUT ?? 'visual-preview',
-)
+const output = resolve(process.env.DATAKOALA_PREVIEW_OUTPUT ?? 'visual-preview')
 const sleep = (ms) =>
   new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 
