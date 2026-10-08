@@ -582,17 +582,19 @@ test('indexed severity aliases are case-insensitive and outrank parsed fields', 
   assert.equal(canonicalSeverity.severity, 'error')
 })
 
-test('detected_level is not an authoritative severity alias', () => {
+test('detected_level determines badges and remains available in parsed fields', () => {
   const row = normalizedLog('message', {
-    labels: { level: 'ERROR' },
-    parsed: { detected_level: 'INFO' },
+    labels: { level: 'INFO' },
+    parsed: { detected_level: 'ERROR' },
+    structuredMetadata: { severity: 'WARN' },
   })
   assert.equal(row.severity, 'error')
-  assert.deepEqual(row.parsedFields, { detected_level: 'INFO' })
+  assert.equal(row.labels.level, 'INFO')
+  assert.deepEqual(row.parsedFields, { detected_level: 'ERROR' })
+  assert.deepEqual(row.structuredMetadata, { severity: 'WARN' })
 
-  const withoutIndexedLevel = normalizedLog('message', {
-    parsed: { detected_level: 'ERROR' },
+  const withoutDetectedLevel = normalizedLog('message', {
     structuredMetadata: { severity: 'INFO' },
   })
-  assert.equal(withoutIndexedLevel.severity, 'info')
+  assert.equal(withoutDetectedLevel.severity, 'info')
 })
