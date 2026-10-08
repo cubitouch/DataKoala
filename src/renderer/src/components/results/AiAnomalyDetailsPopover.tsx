@@ -32,7 +32,7 @@ export function AiAnomalyDetailsPopover({
   return (
     <Popover
       trigger={`AI details (${analysis.anomalies.length})`}
-      ariaLabel="AI anomaly analysis details"
+      ariaLabel={`AI details (${analysis.anomalies.length})`}
       popupType="dialog"
       contentRole="dialog"
       preferredWidth={460}
