@@ -115,7 +115,10 @@ function sanitizeNode(
 
 function nodeSignal(node: AiExecutionPlanNode, mode: PlanMode): number {
   let signal = 0
-  if (mode === 'analyze') signal += (node.actualTotalTimeMs ?? 0) * 100
+  if (mode === 'analyze') {
+    const measuredTime = (node.actualTotalTimeMs ?? 0) * (node.loops ?? 1)
+    signal += measuredTime * 100
+  }
   signal += (node.totalCost ?? 0) * 0.001
   if (
     mode === 'analyze' &&
@@ -173,52 +176,52 @@ export function sanitizeAiExecutionPlanContext(
   if (nodes.some((node) => node.parentId && !ids.has(node.parentId)))
     throw new Error('Execution plan contains an unknown parent node.')
   const metrics = boundedMetrics(input, mode)
-  let truncated = input.truncated === true || nodes.length > AI_LIMITS.planNodes
+  let truncated = input.truncated === true
   const bySignal = [...nodes]
     .filter((node) => node.id !== '0')
     .sort(
       (a, b) =>
         nodeSignal(b, mode) - nodeSignal(a, mode) || a.id.localeCompare(b.id),
     )
-  const retained = new Set([
-    '0',
-    ...bySignal
-      .slice(0, Math.max(0, AI_LIMITS.planNodes - 1))
-      .map((node) => node.id),
-  ])
-  let boundedNodes = nodes.filter((node) => retained.has(node.id))
-  if (boundedNodes.length !== nodes.length) truncated = true
-  const normalizeParents = () => {
-    boundedNodes = boundedNodes.map((node) =>
-      node.parentId && !retained.has(node.parentId)
-        ? (Object.fromEntries(
-            Object.entries(node).filter(([key]) => key !== 'parentId'),
-          ) as AiExecutionPlanNode)
-        : node,
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const positions = new Map(nodes.map((node, index) => [node.id, index]))
+  let retained = new Set(['0'])
+  const selectedNodes = (ids: ReadonlySet<string>) =>
+    [...ids]
+      .map((id) => byId.get(id)!)
+      .sort((a, b) => positions.get(a.id)! - positions.get(b.id)!)
+  const fits = (ids: ReadonlySet<string>) => {
+    if (ids.size > AI_LIMITS.planNodes) return false
+    return (
+      JSON.stringify({
+        truncated: true,
+        ...metrics,
+        nodes: selectedNodes(ids),
+      }).length <= AI_LIMITS.planCharacters
     )
   }
-  normalizeParents()
-  const serialize = () =>
-    JSON.stringify({ truncated, ...metrics, nodes: boundedNodes })
-  while (
-    serialize().length > AI_LIMITS.planCharacters &&
-    boundedNodes.length > 1
-  ) {
-    const remove = [...boundedNodes]
-      .filter((node) => node.id !== '0')
-      .sort(
-        (a, b) =>
-          nodeSignal(a, mode) - nodeSignal(b, mode) || b.id.localeCompare(a.id),
-      )[0]
-    if (!remove) break
-    retained.delete(remove.id)
-    boundedNodes = boundedNodes.filter((node) => node.id !== remove.id)
-    normalizeParents()
-    truncated = true
+
+  // Add each highest-signal node together with its complete ancestor chain.
+  // Ancestors consume node and character budget like any other submitted node.
+  for (const node of bySignal) {
+    if (retained.has(node.id)) continue
+    const chain: AiExecutionPlanNode[] = []
+    let ancestor: AiExecutionPlanNode | undefined = node
+    while (ancestor && !retained.has(ancestor.id)) {
+      chain.push(ancestor)
+      ancestor = ancestor.parentId ? byId.get(ancestor.parentId) : undefined
+    }
+    const next = new Set(retained)
+    for (const item of chain) next.add(item.id)
+    if (fits(next)) retained = next
   }
-  if (serialize().length > AI_LIMITS.planCharacters)
+
+  const boundedNodes = selectedNodes(retained)
+  truncated = truncated || boundedNodes.length !== nodes.length
+  const result = { truncated, ...metrics, nodes: boundedNodes }
+  if (JSON.stringify(result).length > AI_LIMITS.planCharacters)
     throw new Error('Execution plan context exceeds the AI limit.')
-  return { truncated, ...metrics, nodes: boundedNodes }
+  return result
 }
 
 export function explainTreeToAiExecutionPlan(

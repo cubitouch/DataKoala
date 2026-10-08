@@ -74,6 +74,49 @@ test('plan context retains the root and deterministically selects useful nodes w
     assert.ok(!item.parentId || ids.has(item.parentId))
 })
 
+test('ANALYZE ranking uses measured time across loops', () => {
+  const nodes = [node('0')]
+  nodes.push(
+    node('0.1', { actualTotalTimeMs: 0.2, loops: 10_000 }),
+    node('0.2', { actualTotalTimeMs: 10, loops: 1 }),
+  )
+  for (let index = 3; index <= AI_LIMITS.planNodes + 2; index += 1) {
+    nodes.push(node(`0.${index}`, { actualTotalTimeMs: 1, loops: 100 }))
+  }
+
+  const plan = sanitizeAiExecutionPlanContext({ nodes }, 'analyze')
+  const ids = new Set(plan.nodes.map((item) => item.id))
+
+  assert.equal(plan.truncated, true)
+  assert.ok(ids.has('0.1'), '0.2 ms × 10,000 loops should be retained')
+  assert.ok(!ids.has('0.2'), '10 ms × 1 loop should rank below 0.1')
+})
+
+test('plan context retains complete ancestor chains for selected nodes', () => {
+  const nodes = [
+    node('0'),
+    node('0.0', { parentId: '0', totalCost: 1 }),
+    node('0.0.0', { parentId: '0.0', totalCost: 2 }),
+    node('0.0.0.0', {
+      parentId: '0.0.0',
+      actualTotalTimeMs: 1_000,
+      loops: 1,
+    }),
+  ]
+  for (let index = 1; index <= AI_LIMITS.planNodes; index += 1) {
+    nodes.push(node(`0.${index}`, { totalCost: index }))
+  }
+
+  const plan = sanitizeAiExecutionPlanContext({ nodes }, 'analyze')
+  const ids = new Set(plan.nodes.map((item) => item.id))
+
+  assert.equal(plan.truncated, true)
+  for (const id of ['0', '0.0', '0.0.0', '0.0.0.0'])
+    assert.ok(ids.has(id), `${id} should remain in the selected ancestor chain`)
+  for (const item of plan.nodes)
+    assert.ok(!item.parentId || ids.has(item.parentId))
+})
+
 test('plan context marks overall character trimming and rejects invalid roots and duplicate IDs', () => {
   const plan = sanitizeAiExecutionPlanContext(
     {
