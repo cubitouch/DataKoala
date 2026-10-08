@@ -90,6 +90,10 @@ test('normalizes primary gcx object entries without mixing field namespaces', ()
   assert.equal(result.logRows[0].timestampNs, '1750000000000000000')
   assert.equal(result.logRows[0].timestampMs, 1_750_000_000_000)
   assert.equal(result.logRows[0].severity, 'warn')
+  assert.deepEqual(result.logRows[0].severitySource, {
+    source: 'structured-metadata',
+    field: 'level',
+  })
   assert.equal(result.logRows[0].traceId, 'abc')
   assert.equal(result.logRows[0].spanId, 'span-1')
 })
@@ -100,6 +104,7 @@ function normalizedLog(
     parsed?: Record<string, unknown>
     structuredMetadata?: Record<string, unknown>
     entry?: Record<string, unknown>
+    labels?: Record<string, unknown>
   } = {},
 ) {
   const result = normalizeLokiQuery(
@@ -109,7 +114,7 @@ function normalizedLog(
         resultType: 'streams',
         result: [
           {
-            stream: { app: 'checkout' },
+            stream: { app: 'checkout', ...options.labels },
             values: [
               {
                 timestamp: '1750000000000000000',
@@ -516,3 +521,41 @@ test('explicit single-value matrix samples are normalized without weakening malf
     /without values/,
   )
 })
+
+
+test(
+  'tracks the source and safe parser provenance for normalized severity aliases',
+  () => {
+    const json = normalizedLog('{"log_level":"ERROR"}')
+    assert.equal(json.severity, 'error')
+    assert.deepEqual(json.severitySource, {
+      source: 'parsed-field',
+      field: 'log_level',
+      parser: 'json',
+    })
+
+    const parsed = normalizedLog('plain message', {
+      parsed: { severity_text: 'WARN' },
+    })
+    assert.deepEqual(parsed.severitySource, {
+      source: 'parsed-field',
+      field: 'severity_text',
+    })
+
+    const metadata = normalizedLog('plain message', {
+      structuredMetadata: { loglevel: 'INFO' },
+    })
+    assert.deepEqual(metadata.severitySource, {
+      source: 'structured-metadata',
+      field: 'loglevel',
+    })
+
+    const label = normalizedLog('plain message', {
+      labels: { log_level: 'DEBUG' },
+    })
+    assert.deepEqual(label.severitySource, {
+      source: 'label',
+      field: 'log_level',
+    })
+  },
+)
