@@ -50,7 +50,9 @@ it('opens a compact selected row in the side inspector without advertising unava
   expect(screen.getByText('ERROR').getAttribute('data-severity')).toBe('ERROR')
   const timestamp = screen.getByText(/\d{2}:\d{2}:\d{2}\.\d{3}/)
   expect(timestamp.getAttribute('title')).toContain('2025-')
-  expect(screen.getByRole('button', { name: 'Filter level ERROR' })).toBeTruthy()
+  expect(
+    screen.getByRole('button', { name: 'Filter level ERROR' }),
+  ).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Filter level ERROR' }))
   expect(onFilter).toHaveBeenCalledWith(
     'structured-metadata',
@@ -63,7 +65,9 @@ it('opens a compact selected row in the side inspector without advertising unava
     screen.getByRole('button', { name: /Payment provider timeout/ }),
   )
   expect(screen.getByRole('heading', { name: 'Level' })).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Exclude level ERROR' })).toBeTruthy()
+  expect(
+    screen.getByRole('button', { name: 'Exclude level ERROR' }),
+  ).toBeTruthy()
   expect(screen.getByRole('heading', { name: 'Indexed labels' })).toBeTruthy()
   expect(
     screen.getByRole('heading', { name: 'Structured metadata' }),
@@ -298,7 +302,6 @@ it('keeps an unknown level source local', () => {
   expect(screen.getByText(/filter will apply locally/)).toBeTruthy()
 })
 
-
 it('keeps parser-unsafe level fields local', () => {
   const onFilter = vi.fn()
   const parsedSource = {
@@ -310,11 +313,7 @@ it('keeps parser-unsafe level fields local', () => {
     },
   }
   render(
-    <LogResultExplorer
-      rows={[parsedSource]}
-      limit={100}
-      onFilter={onFilter}
-    />,
+    <LogResultExplorer rows={[parsedSource]} limit={100} onFilter={onFilter} />,
   )
   fireEvent.click(screen.getByRole('button', { name: 'Filter level ERROR' }))
   expect(onFilter).toHaveBeenCalledWith(
