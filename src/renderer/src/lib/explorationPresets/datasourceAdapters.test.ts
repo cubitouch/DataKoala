@@ -286,7 +286,7 @@ it('round-trips indexed Level selections through Loki presets', () => {
     source.lokiBuilder.levelFilter,
   )
   expect(buildLokiQuery(restored.lokiBuilder)).toContain(
-    'Severity_Text=~"(?i)^(?:ERROR|WARN)$"',
+    'Severity_Text=~"(?i)^(?:ERROR|WARN|WARNING)$"',
   )
   expect(
     lokiPresetAdapter.parse({
