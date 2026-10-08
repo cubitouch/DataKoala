@@ -164,7 +164,7 @@ app.whenReady().then(async () => {
       `[...document.querySelectorAll('[role="option"]')].find((option) => option.textContent?.trim() === 'WARN')?.click()`,
     )
     await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Generated LogQL')?.click()`,
+      `document.querySelector('[data-collapsible-title="Generated LogQL"] summary')?.click()`,
     )
     await waitFor(
       win,
