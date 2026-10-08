@@ -34,6 +34,17 @@ const dedicatedKeys = new Set([
 ])
 const isDedicated = (key: string) =>
   dedicatedKeys.has(key.toLowerCase().replace(/[._]/g, ''))
+const displayedSeverity = (row: LokiLogRow) => {
+  for (const record of [row.parsedFields, row.structuredMetadata])
+    for (const [key, value] of Object.entries(record))
+      if (
+        key.toLowerCase().replace(/[._-]/g, '') === 'detectedlevel' &&
+        value != null &&
+        String(value).trim()
+      )
+        return String(value).trim()
+  return row.severity
+}
 function ActionIcon({
   kind,
 }: {
@@ -213,7 +224,7 @@ export function LogResultExplorer({
       </header>
       <div className={styles.inspectorBody}>
         <div className={styles.inspectorSeverity}>
-          <LogSeverityBadge severity={selected.severity} />
+          <LogSeverityBadge severity={displayedSeverity(selected)} />
         </div>
         <p className={styles.fullLine}>
           {highlight(effectiveLogMessage(selected))}
@@ -335,14 +346,14 @@ export function LogResultExplorer({
                   >
                     <button
                       className={styles.logSummary}
-                      aria-label={`${shortTimestamp(row.timestampMs)}, ${row.severity.toUpperCase()}, ${message}`}
+                      aria-label={`${shortTimestamp(row.timestampMs)}, ${displayedSeverity(row).toUpperCase()}, ${message}`}
                       aria-selected={active}
                       onClick={() => setSelectedId(active ? null : row.id)}
                     >
                       <time dateTime={iso} title={iso}>
                         {shortTimestamp(row.timestampMs)}
                       </time>
-                      <LogSeverityBadge severity={row.severity} />
+                      <LogSeverityBadge severity={displayedSeverity(row)} />
                       <span>{highlight(message)}</span>
                       <LogRowChevron />
                     </button>
