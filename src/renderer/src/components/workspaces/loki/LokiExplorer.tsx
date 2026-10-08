@@ -186,7 +186,6 @@ export function LokiExplorer({
       seriesColumns: [],
       hierarchyDimensions: [],
       valueAxisScale: 'linear',
-      anomalyDetectionEnabled: false,
     })
   const revision = useRef(0),
     trendRevision = useRef(0),
