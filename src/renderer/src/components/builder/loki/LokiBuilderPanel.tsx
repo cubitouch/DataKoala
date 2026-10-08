@@ -18,6 +18,8 @@ import { FormField } from '@components/builder/FormField'
 import styles from './LokiBuilderPanel.module.css'
 
 const internal = (label: string) => label.startsWith('__')
+const isLevelField = (field: string) =>
+  /^(severity|severity_text|level|loglevel|log_level)$/i.test(field)
 const editable = (matcher: LokiLabelMatcher) =>
   matcher.values !== undefined || matcher.operator === '='
 function ValueControl({
@@ -153,6 +155,12 @@ export function LokiBuilderPanel({
     ).values(),
   ]
   const selected = matchers.map(({ label }) => label)
+  const levelMatchers = value.labelMatchers.flatMap((matcher, index) =>
+    isLevelField(matcher.label) ? [{ matcher, index }] : [],
+  )
+  const levelFieldFilters = value.fieldFilters.flatMap((filter, index) =>
+    isLevelField(filter.field) ? [{ filter, index }] : [],
+  )
   const selectLabels = (next: string[]) =>
     onChange({
       ...value,
@@ -270,6 +278,62 @@ export function LokiBuilderPanel({
             />
           ))}
         </BuilderRow>
+      )}
+      {(levelMatchers.length > 0 || levelFieldFilters.length > 0) && (
+        <section
+          className={styles.levelFilterSection}
+          aria-label="Level filters"
+        >
+          <strong>Level</strong>
+          <div className={styles.levelFilterList}>
+            {levelMatchers.map(({ matcher, index }) => (
+              <div className={styles.levelFilter} key={`label-${index}`}>
+                <span className={styles.levelBadge}>Level</span>
+                <span>
+                  {matcher.label} label {matcher.operator} {matcher.value}
+                </span>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  aria-label={`Remove Level filter using label ${matcher.label}`}
+                  onClick={() =>
+                    onChange({
+                      ...value,
+                      labelMatchers: value.labelMatchers.filter(
+                        (_, itemIndex) => itemIndex !== index,
+                      ),
+                    })
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {levelFieldFilters.map(({ filter, index }) => (
+              <div className={styles.levelFilter} key={`field-${index}`}>
+                <span className={styles.levelBadge}>Level</span>
+                <span>
+                  {filter.field} pipeline field {filter.operator} {filter.value}
+                </span>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  aria-label={`Remove Level filter using field ${filter.field}`}
+                  onClick={() =>
+                    onChange({
+                      ...value,
+                      fieldFilters: value.fieldFilters.filter(
+                        (_, itemIndex) => itemIndex !== index,
+                      ),
+                    })
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
       {preserved.length > 0 && (
         <p className={styles.preserved}>
