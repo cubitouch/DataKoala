@@ -30,6 +30,41 @@
   font-size: 11px;
 }
 
+.levelFilters,
+.levelActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.levelFilters {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.levelFilters > span,
+.localFilterHint {
+  color: var(--text-mute);
+  font-size: 11px;
+}
+
+.levelActions > button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-mute);
+  cursor: pointer;
+}
+
+.levelActions > button:hover {
+  color: var(--text);
+  border-color: var(--text-mute);
+}
+
 .logScroller {
   overflow: auto;
   min-width: 0;
@@ -293,6 +328,7 @@
 
 .iconAction svg,
 .fieldActions svg,
+.levelActions svg,
 .traceIdentifiers button svg {
   width: 13px;
   height: 13px;
