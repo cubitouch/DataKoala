@@ -16,7 +16,7 @@ import {
   sanitizeGcxError,
   type GcxCommandRunner,
 } from './gcx-command.ts'
-import { logqlResultKind } from '../shared/loki-builder.ts'
+import { logqlResultKind, resolveLokiLevelLabel } from '../shared/loki-builder.ts'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value)
@@ -55,7 +55,15 @@ export function normalizeLokiDatasources(raw: unknown): LokiDatasourceOption[] {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-function severityOf(...records: Record<string, unknown>[]): string {
+function severityOf(
+  indexedLabels: Record<string, unknown>,
+  ...records: Record<string, unknown>[]
+): string {
+  const levelLabel = resolveLokiLevelLabel(Object.keys(indexedLabels))
+  const indexedSeverity = levelLabel ? indexedLabels[levelLabel] : undefined
+  if (indexedSeverity != null && String(indexedSeverity).trim())
+    return String(indexedSeverity).toLowerCase()
+
   const names = ['severity', 'severity_text', 'level', 'loglevel', 'log_level']
   for (const record of records)
     for (const [key, value] of Object.entries(record)) {
@@ -272,7 +280,7 @@ export function normalizeLokiQuery(
         labels,
         structuredMetadata,
         parsedFields,
-        severity: severityOf(parsedFields, structuredMetadata, payload, labels),
+        severity: severityOf(labels, parsedFields, structuredMetadata, payload),
         traceId,
         spanId,
       })
