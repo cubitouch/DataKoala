@@ -600,6 +600,235 @@ test('Fix with AI sends sanitized provenance and Apply changes SQL without runni
   expect(mocks.run).not.toHaveBeenCalled()
 })
 
+test('BigQuery repair keeps original provenance through retry and never auto-runs', async () => {
+  const failed =
+    'SELECT country, SUM(revenu) FROM `my-project.analytics.orders` GROUP BY country'
+  const safeError = 'Unrecognized name: revenu at [1:21]'
+  const fixed =
+    'SELECT country, SUM(revenue) FROM `my-project.analytics.orders` GROUP BY country'
+
+  resetTestStore({
+    profiles: [
+      {
+        id: 'bq',
+        name: 'BigQuery',
+        kind: 'bigquery',
+        version: 1,
+        billingProject: 'billing-project',
+        defaultProject: 'my-project',
+        defaultDataset: 'analytics',
+        maximumBytesBilled: '',
+        readonly: true,
+      },
+    ],
+  })
+  patchActiveTestSession({
+    connectionProfileId: 'bq',
+    sql: failed,
+    queryMode: 'sql',
+    queryError: safeError,
+    repairableQueryError: { query: failed, error: safeError },
+  })
+  setActiveTestMetadata(
+    [
+      {
+        name: 'my-project.analytics',
+        isSystem: false,
+        relations: [
+          {
+            schema: 'my-project.analytics',
+            name: 'orders',
+            kind: 'r',
+            qualifiedName: 'my-project.analytics.orders',
+            columnsStatus: 'loaded',
+            columns: [
+              { name: 'country', dataTypeName: 'STRING' },
+              { name: 'revenue', dataTypeName: 'NUMERIC' },
+            ],
+          },
+        ],
+      },
+    ],
+    'loaded',
+    null,
+    'bq',
+  )
+
+  mocks.propose.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: { ...proposed, query: fixed },
+    } as AiQueryStep),
+  )
+  const retry = deferred<AiResult<AiQueryStep>>()
+  renderRepair()
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+  await screen.findByRole('region', { name: 'SQL proposal diff' })
+
+  expect(mocks.propose.mock.calls[0][0]).toEqual(
+    expect.objectContaining({
+      intent: 'repair',
+      currentQuery: failed,
+      error: safeError,
+      context: expect.objectContaining({
+        language: { kind: 'sql', dialect: 'google-sql' },
+      }),
+    }),
+  )
+  expect(selectActiveSession(useStore.getState()).sql).toBe(failed)
+  expect(mocks.run).not.toHaveBeenCalled()
+
+  mocks.propose.mockReturnValueOnce(retry.promise)
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(2))
+  expect(mocks.propose.mock.calls[1][0]).toEqual(
+    expect.objectContaining({
+      intent: 'repair',
+      currentQuery: failed,
+      error: safeError,
+    }),
+  )
+  expect(screen.getByRole('region', { name: 'SQL proposal diff' })).toBeTruthy()
+  expect(
+    (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(screen.getByRole('region', { name: 'SQL proposal diff' })).toBeTruthy()
+  expect(
+    (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(false)
+
+  mocks.propose.mockResolvedValueOnce({
+    ok: false,
+    code: 'invalid-response',
+    message: 'invalid query step',
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  await screen.findByText(/AI couldn't produce a usable repair this time/)
+  expect(screen.getByRole('region', { name: 'SQL proposal diff' })).toBeTruthy()
+  expect(
+    (screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(false)
+  expect(selectActiveSession(useStore.getState()).sql).toBe(failed)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+  expect(selectActiveSession(useStore.getState()).sql).toBe(fixed)
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
+test('BigQuery repair cancels pending work after SQL edits and blocks a review after profile switch', async () => {
+  const failed =
+    'SELECT country, SUM(revenu) FROM `my-project.analytics.orders` GROUP BY country'
+  const fixed =
+    'SELECT country, SUM(revenue) FROM `my-project.analytics.orders` GROUP BY country'
+  const safeError = 'Unrecognized name: revenu at [1:21]'
+  const bq = {
+    id: 'bq',
+    name: 'BigQuery',
+    kind: 'bigquery' as const,
+    version: 1 as const,
+    billingProject: 'billing-project',
+    defaultProject: 'my-project',
+    defaultDataset: 'analytics',
+    maximumBytesBilled: '',
+    readonly: true as const,
+  }
+  const pg = {
+    id: 'pg-fallback',
+    name: 'Postgres',
+    kind: 'postgres' as const,
+    version: 2 as const,
+    host: 'localhost',
+    port: 5432,
+    database: 'db',
+    user: 'user',
+    password: '',
+    tlsMode: 'disable' as const,
+    readonly: true as const,
+  }
+
+  resetTestStore({ profiles: [bq, pg] })
+  patchActiveTestSession({
+    connectionProfileId: bq.id,
+    sql: failed,
+    queryMode: 'sql',
+    queryError: safeError,
+    repairableQueryError: { query: failed, error: safeError },
+  })
+  setActiveTestMetadata(
+    [
+      {
+        name: 'my-project.analytics',
+        isSystem: false,
+        relations: [
+          {
+            schema: 'my-project.analytics',
+            name: 'orders',
+            kind: 'r',
+            qualifiedName: 'my-project.analytics.orders',
+            columnsStatus: 'loaded',
+            columns: [
+              { name: 'country', dataTypeName: 'STRING' },
+              { name: 'revenue', dataTypeName: 'NUMERIC' },
+            ],
+          },
+        ],
+      },
+    ],
+    'loaded',
+    null,
+    bq.id,
+  )
+
+  const pending = deferred<AiResult<AiQueryStep>>()
+  mocks.propose.mockReturnValueOnce(pending.promise)
+  const first = renderRepair()
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+  await waitFor(() => expect(mocks.propose).toHaveBeenCalledTimes(1))
+
+  act(() => useStore.getState().setSql('SELECT 1'))
+  await waitFor(() => expect(mocks.cancel).toHaveBeenCalledTimes(1))
+  await act(async () =>
+    pending.resolve(
+      ok({
+        kind: 'proposal',
+        proposal: { ...proposed, query: fixed },
+      } as AiQueryStep),
+    ),
+  )
+  expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull()
+  expect(selectActiveSession(useStore.getState()).sql).toBe('SELECT 1')
+  first.unmount()
+
+  patchActiveTestSession({
+    connectionProfileId: bq.id,
+    sql: failed,
+    queryMode: 'sql',
+    queryError: safeError,
+    repairableQueryError: { query: failed, error: safeError },
+  })
+  mocks.propose.mockResolvedValueOnce(
+    ok({
+      kind: 'proposal',
+      proposal: { ...proposed, query: fixed },
+    } as AiQueryStep),
+  )
+  renderRepair()
+  fireEvent.click(await screen.findByRole('button', { name: 'Fix with AI' }))
+  await screen.findByRole('region', { name: 'SQL proposal diff' })
+
+  act(() => useStore.getState().setActive(pg.id))
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull(),
+  )
+  expect(selectActiveSession(useStore.getState()).sql).toBe(failed)
+  expect(mocks.run).not.toHaveBeenCalled()
+})
+
 test('Fix with AI keeps the SQL failure primary before repair starts', async () => {
   const failed = 'SELECT device_id FROM public.orders'
   patchActiveTestSession({

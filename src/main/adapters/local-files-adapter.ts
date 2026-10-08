@@ -8,6 +8,7 @@ import {
   type DuckDBValue,
 } from '@duckdb/node-api'
 import type { DataSourceAdapter, DataSourceSession } from '../data-source.ts'
+import { QueryValidationError } from '../query-failure.ts'
 import {
   DATA_SOURCE_CAPABILITIES,
   type ColumnMeta,
@@ -148,6 +149,29 @@ export function logicalType(native: string): LogicalType {
   return 'unknown'
 }
 
+const DUCKDB_PROHIBITED_STATEMENT =
+  /^(?:ALTER|ATTACH|BEGIN|CALL|CHECKPOINT|COMMIT|COPY|CREATE|DELETE|DETACH|DROP|EXPORT|IMPORT|INSERT|INSTALL|LOAD|MERGE|PRAGMA|REPLACE|ROLLBACK|SET|TRUNCATE|UPDATE|VACUUM)\b/i
+
+function sqlAfterLeadingComments(sql: string): string {
+  let remaining = sql.trimStart()
+  while (remaining) {
+    if (remaining.startsWith('--')) {
+      const end = remaining.indexOf('\n')
+      if (end < 0) return ''
+      remaining = remaining.slice(end + 1).trimStart()
+      continue
+    }
+    if (remaining.startsWith('/*')) {
+      const end = remaining.indexOf('*/', 2)
+      if (end < 0) return ''
+      remaining = remaining.slice(end + 2).trimStart()
+      continue
+    }
+    break
+  }
+  return remaining
+}
+
 export async function assertDuckDBReadOnlyQuery(
   connection: DuckDBConnection,
   sql: string,
@@ -155,18 +179,38 @@ export async function assertDuckDBReadOnlyQuery(
 ): Promise<void> {
   const extracted = await connection.extractStatements(sql)
   if (extracted.count !== 1)
-    throw new Error('Run exactly one read-only query at a time.')
-  const statement = await extracted.prepare(0)
+    throw new QueryValidationError('Run exactly one read-only query at a time.')
+  if (DUCKDB_PROHIBITED_STATEMENT.test(sqlAfterLeadingComments(sql)))
+    throw new QueryValidationError(
+      `${label} are read-only. Run a SELECT or EXPLAIN query.`,
+    )
+  const statement = await (async () => {
+    try {
+      return await extracted.prepare(0)
+    } catch (error) {
+      throw classifyDuckDBQueryError(error)
+    }
+  })()
   try {
     if (
       statement.statementType !== StatementType.SELECT &&
       statement.statementType !== StatementType.EXPLAIN
     ) {
-      throw new Error(`${label} are read-only. Run a SELECT or EXPLAIN query.`)
+      throw new QueryValidationError(
+        `${label} are read-only. Run a SELECT or EXPLAIN query.`,
+      )
     }
   } finally {
     statement.destroySync()
   }
+}
+
+export function classifyDuckDBQueryError(error: unknown): Error {
+  if (error instanceof QueryValidationError) return error
+  const message = error instanceof Error ? error.message : String(error)
+  if (/file system operations are disabled by configuration/i.test(message))
+    return new QueryValidationError(message)
+  return error instanceof Error ? error : new Error(message)
 }
 
 export function queryResultFromDuckDBReader(
@@ -291,7 +335,11 @@ export class LocalFilesAdapter implements DataSourceAdapter {
         capabilities: DATA_SOURCE_CAPABILITIES['local-files'],
         query: async ({ sql, parameters = [] }) => {
           await assertDuckDBReadOnlyQuery(connection, sql)
-          return boundedUserQuery(connection, sql, parameters)
+          try {
+            return await boundedUserQuery(connection, sql, parameters)
+          } catch (error) {
+            throw classifyDuckDBQueryError(error)
+          }
         },
         listNamespaces: async () => [{ name: 'main' }],
         listRelations: async () =>

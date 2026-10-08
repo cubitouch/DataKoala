@@ -69,6 +69,10 @@ const bigQueryQuery =
   'SELECT country, SUM(revenue) AS revenue\\nFROM \`my-project.analytics.orders\`\\nWHERE created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)\\nGROUP BY country\\nORDER BY revenue DESC;'
 const failedQuery = 'SELECT device_id FROM public.orders;'
 const fixedQuery = 'SELECT id AS device_id FROM public.orders;'
+const bigQueryFailedQuery =
+  'SELECT country, SUM(revenu) AS revenue\nFROM `my-project.analytics.orders`\nGROUP BY country;'
+const bigQueryFixedQuery =
+  'SELECT country, SUM(revenue) AS revenue\nFROM `my-project.analytics.orders`\nGROUP BY country;'
 let failNextRepair = true
 let queryRuns = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -152,19 +156,28 @@ app.whenReady().then(async () => {
             'The model returned an invalid query step. Try again or choose another model.',
         }
       }
+      let proposalQuery = query
+      if (request.intent === 'repair') {
+        proposalQuery =
+          request.context?.language?.dialect === 'google-sql'
+            ? bigQueryFixedQuery
+            : fixedQuery
+      } else if (request.context?.language?.dialect === 'google-sql') {
+        proposalQuery = bigQueryQuery
+      }
+      let explanation =
+        'Aggregates revenue by country for orders created within the last 30 days, with the highest revenue first.'
+      if (request.intent === 'repair') {
+        explanation =
+          request.context?.language?.dialect === 'google-sql'
+            ? 'Corrected the misspelled revenue column while preserving the BigQuery aggregation.'
+            : 'Replaced the missing device_id column with the available id column while preserving the result name.'
+      }
       return ok({
         kind: 'proposal',
         proposal: {
-          query:
-            request.intent === 'repair'
-              ? fixedQuery
-              : request.context?.language?.dialect === 'google-sql'
-                ? bigQueryQuery
-                : query,
-          explanation:
-            request.intent === 'repair'
-              ? 'Replaced the missing device_id column with the available id column while preserving the result name.'
-              : 'Aggregates revenue by country for orders created within the last 30 days, with the highest revenue first.',
+          query: proposalQuery,
+          explanation,
           assumptions: [
             'amount is the order revenue in a consistent currency.',
             'The date range is relative to the database clock.',
@@ -557,8 +570,108 @@ app.whenReady().then(async () => {
       win,
       `window.__datakoalaStore.getState().tabs[0].sql === ${JSON.stringify(fixedQuery)}`,
     )
+    if (queryRuns !== 0)
+      throw new Error('Applying PostgreSQL repair executed a query')
+
+    // Cross-datasource repair preview: the same review UI should expose the
+    // canonical GoogleSQL dialect while leaving the failed SQL untouched.
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore, state = store.getState()
+      const bq = ${JSON.stringify(bigQueryProfile)}
+      store.setState({
+        profiles: [...state.profiles.filter((item) => item.id !== bq.id), bq],
+        activeProfileId: bq.id,
+        metadataByProfileId: {
+          ...state.metadataByProfileId,
+          [bq.id]: {
+            status: 'loaded',
+            isStale: false,
+            error: null,
+            schemas: [{
+              name: 'my-project.analytics',
+              isSystem: false,
+              relations: [{
+                schema: 'my-project.analytics',
+                name: 'orders',
+                kind: 'r',
+                qualifiedName: 'my-project.analytics.orders',
+                columnsStatus: 'loaded',
+                columns: ${JSON.stringify(bigQueryColumns)},
+              }, ...${JSON.stringify(bigQueryCatalogRelations)}],
+            }],
+          },
+        },
+        tabs: state.tabs.map((tab) => ({
+          ...tab,
+          connectionProfileId: bq.id,
+          queryMode: 'sql',
+          sql: ${JSON.stringify(bigQueryFailedQuery)},
+          queryError: 'Unrecognized name: revenu at [1:21]',
+          repairableQueryError: {
+            query: ${JSON.stringify(bigQueryFailedQuery)},
+            error: 'Unrecognized name: revenu at [1:21] token=[REDACTED]',
+          },
+        })),
+      })
+    })()`)
+    await wait(
+      win,
+      `[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Fix with AI')`,
+    )
+    await click(win, 'Fix with AI')
+    await wait(
+      win,
+      `document.querySelector('[aria-label="AI query repair review"]') && document.querySelector('[aria-label="SQL proposal diff"]') && document.querySelector('[data-diff-kind="add"]') && document.querySelector('[data-diff-kind="remove"]')`,
+    )
+    const bigQueryRepairReview = await win.webContents
+      .executeJavaScript(`(() => {
+      const editor = document.querySelector('[aria-label="SQL editor"] .cm-content') ?? document.querySelector('.cm-content')
+      const diff = document.querySelector('[aria-label="SQL proposal diff"]')
+      return {
+        editorText: editor?.textContent ?? '',
+        diffText: diff?.textContent ?? '',
+        storedSql: window.__datakoalaStore.getState().tabs[0].sql,
+      }
+    })()`)
+    if (!bigQueryRepairReview.editorText.includes('SUM(revenu)'))
+      throw new Error(
+        `BigQuery repair replaced SQL before Apply: ${JSON.stringify(bigQueryRepairReview)}`,
+      )
+    if (
+      !bigQueryRepairReview.diffText.includes('revenu') ||
+      !bigQueryRepairReview.diffText.includes('revenue')
+    )
+      throw new Error(
+        `BigQuery repair diff is incomplete: ${JSON.stringify(bigQueryRepairReview)}`,
+      )
+    if (bigQueryRepairReview.storedSql !== bigQueryFailedQuery)
+      throw new Error('BigQuery repair changed stored SQL before Apply')
+    if (queryRuns !== 0)
+      throw new Error('BigQuery repair executed a query before Apply')
+
+    await click(win, 'View AI details')
+    await wait(
+      win,
+      `[...document.querySelectorAll('[data-popover-overlay]')].some((overlay) => overlay.textContent.includes('GoogleSQL · OpenRouter') && overlay.textContent.includes('Fix with AI') && overlay.textContent.includes('Sanitized datasource error') && overlay.textContent.includes('Failed SQL') && overlay.textContent.includes('my-project.analytics.orders') && overlay.textContent.includes('Available relation names'))`,
+    )
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-query-repair-bigquery-proposal.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
+    await win.webContents.executeJavaScript(
+      `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+    )
+    await click(win, 'Apply')
+    await wait(
+      win,
+      `window.__datakoalaStore.getState().tabs[0].sql === ${JSON.stringify(bigQueryFixedQuery)}`,
+    )
+    if (queryRuns !== 0)
+      throw new Error('Applying BigQuery repair executed a query')
+
     console.log(
-      'AI_PREVIEW_OK: settings, raw query, structured Builder and repair proposals require explicit apply; Builder AI never executes',
+      'AI_PREVIEW_OK: settings, raw query, structured Builder and PostgreSQL/BigQuery repair proposals require explicit apply; Builder AI never executes',
     )
     win.destroy()
     app.exit(0)

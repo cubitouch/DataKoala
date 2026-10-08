@@ -30,7 +30,12 @@ import type {
   DataSourceSession,
   QueryRequest,
 } from '../data-source.ts'
-import { assertReadOnlyBigQueryScript } from './bigquery-script.ts'
+import { assertReadOnlyBigQueryQuery } from './bigquery-script.ts'
+import {
+  ClassifiedQueryError,
+  QueryConnectionError,
+  QueryValidationError,
+} from '../query-failure.ts'
 
 const ROW_LIMIT = 10_000
 const DATASET_RELATION_CONCURRENCY = 5
@@ -126,6 +131,66 @@ function friendlyError(error: unknown): string {
   if (e?.code === 404 || /project.*not found|notFound/i.test(reason))
     return `BigQuery project was not found or is inaccessible. ${message}`
   return `BigQuery request failed. ${message}`
+}
+
+const BIGQUERY_CONNECTION_REASONS = new Set([
+  'accessDenied',
+  'accessNotConfigured',
+  'backendError',
+  'billingNotEnabled',
+  'internalError',
+  'jobRateLimitExceeded',
+  'quotaExceeded',
+  'rateLimitExceeded',
+  'serviceUnavailable',
+  'userRateLimitExceeded',
+])
+
+function isBigQueryConnectionFailure(error: unknown): boolean {
+  const value = error as {
+    code?: number | string
+    message?: string
+    errors?: { reason?: string }[]
+  }
+  const reason = value?.errors?.[0]?.reason ?? ''
+  if (BIGQUERY_CONNECTION_REASONS.has(reason)) return true
+
+  if (typeof value?.code === 'number') {
+    if (
+      value.code === 401 ||
+      value.code === 403 ||
+      value.code === 408 ||
+      value.code === 429 ||
+      value.code >= 500
+    )
+      return true
+  } else if (
+    typeof value?.code === 'string' &&
+    /^(ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN)$/i.test(
+      value.code,
+    )
+  ) {
+    return true
+  }
+
+  const message = value?.message ?? ''
+  if (
+    value?.code === 404 &&
+    /(?:not found:\s*project|project\b.*\b(?:not found|does not exist|inaccessible))/i.test(
+      message,
+    )
+  )
+    return true
+  return /credential|authentication|unauthenticated|application default credentials|api (?:is )?(?:disabled|not enabled)|location mismatch/i.test(
+    message,
+  )
+}
+
+function classifyBigQueryQueryError(error: unknown): Error {
+  if (error instanceof ClassifiedQueryError) return error
+  if (isBigQueryConnectionFailure(error))
+    return new QueryConnectionError(friendlyError(error))
+  return error instanceof Error ? error : new Error(String(error))
 }
 
 function logical(type: string): LogicalType {
@@ -307,19 +372,23 @@ class BigQuerySession implements DataSourceSession {
     }))
   }
   async query(request: QueryRequest): Promise<QueryResult> {
-    const common = this.jobOptions(request.sql, request.parameters || [])
-    const [dryJob] = await this.client.createQueryJob({
-      ...common,
-      dryRun: true,
-    })
-    const dryMetadata = dryJob.metadata
-    const statementType = dryMetadata.statistics?.query?.statementType
-    if (statementType === 'SCRIPT') assertReadOnlyBigQueryScript(request.sql)
-    else if (statementType !== 'SELECT')
-      throw new Error(
-        'BigQuery connections are read-only. Use SELECT queries or DECLARE/SET scripts ending with a SELECT; write statements are not supported.',
-      )
-    return this.executeQuery(common)
+    try {
+      assertReadOnlyBigQueryQuery(request.sql)
+      const common = this.jobOptions(request.sql, request.parameters || [])
+      const [dryJob] = await this.client.createQueryJob({
+        ...common,
+        dryRun: true,
+      })
+      const dryMetadata = dryJob.metadata
+      const statementType = dryMetadata.statistics?.query?.statementType
+      if (statementType !== 'SELECT' && statementType !== 'SCRIPT')
+        throw new QueryValidationError(
+          'BigQuery connections are read-only. Use SELECT queries or DECLARE/SET scripts ending with a SELECT; write statements are not supported.',
+        )
+      return await this.executeQuery(common)
+    } catch (error) {
+      throw classifyBigQueryQueryError(error)
+    }
   }
   async querySeriesCardinalityApproximate(
     request: SeriesCardinalityProbeRequest,
@@ -435,6 +504,8 @@ export class BigQueryAdapter implements DataSourceAdapter {
 
 export const __testing = {
   friendlyError,
+  classifyBigQueryQueryError,
+  isBigQueryConnectionFailure,
   effectiveDataProject,
   mapWithConcurrency,
   parseNamespace,

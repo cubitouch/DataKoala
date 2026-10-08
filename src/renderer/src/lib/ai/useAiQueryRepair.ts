@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '@lib/api'
+import { queryLanguageForSourceKind } from '@shared/types'
 import { selectActiveSession, useStore } from '@store/useStore'
 import {
   isAiConfigured,
@@ -87,6 +88,9 @@ export function useAiQueryRepair() {
         (profile) => profile.id === session.connectionProfileId,
       )?.kind,
   )
+  const canRepairDatasource =
+    datasourceKind !== undefined &&
+    queryLanguageForSourceKind(datasourceKind).kind === 'sql'
   const updateReview = (next: RepairReview | null) => {
     reviewRef.current = next
     setReview(next)
@@ -262,7 +266,7 @@ export function useAiQueryRepair() {
     configured,
     visible:
       configured === true &&
-      datasourceKind === 'postgres' &&
+      canRepairDatasource &&
       session.queryMode === 'sql' &&
       !!failure &&
       failure.query === session.sql,

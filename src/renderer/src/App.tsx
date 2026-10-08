@@ -20,7 +20,10 @@ import {
   sidebarBounds,
 } from '@shared/layoutDimensions'
 import { api } from './lib/api'
-import type { ConnectionStateEvent } from '@shared/types'
+import {
+  queryLanguageForSourceKind,
+  type ConnectionStateEvent,
+} from '@shared/types'
 import { NotificationArea } from '@components/ui/feedback/NotificationArea'
 import { AiQueryRepairProvider } from '@components/ai/AiQueryRepairProvider'
 import styles from './App.module.css'
@@ -87,6 +90,10 @@ export function App() {
     !tempoWorkspace &&
     !lokiWorkspace &&
     (effectiveMode === 'sql' || mode === 'builder')
+  const aiRepairEnabled =
+    effectiveMode === 'sql' &&
+    !!tabProfile &&
+    queryLanguageForSourceKind(tabProfile.kind).kind === 'sql'
 
   const currentSidebarBounds = useCallback(
     () => sidebarBounds(workspaceRef.current?.clientWidth ?? window.innerWidth),
@@ -303,11 +310,7 @@ export function App() {
                 )}
               />
             ) : (
-              <AiQueryRepairProvider
-                enabled={
-                  tabProfile?.kind === 'postgres' && effectiveMode === 'sql'
-                }
-              >
+              <AiQueryRepairProvider enabled={aiRepairEnabled}>
                 {effectiveMode === 'sql' ? (
                   <QueryEditor builderMode={prometheusBuilder} />
                 ) : (

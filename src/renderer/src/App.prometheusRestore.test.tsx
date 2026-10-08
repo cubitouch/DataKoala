@@ -13,7 +13,11 @@ import {
 } from './lib/workspacePersistence'
 import { useStore } from './store/useStore'
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), queryEditorRenders: 0 }))
+const mocks = vi.hoisted(() => ({
+  list: vi.fn(),
+  queryEditorRenders: 0,
+  repairEnabled: [] as boolean[],
+}))
 vi.mock('./lib/api', () => ({
   api: {
     ai: {
@@ -42,6 +46,18 @@ vi.mock('./lib/api', () => ({
     },
     query: { run: vi.fn(), explain: vi.fn() },
     export: { saveText: vi.fn() },
+  },
+}))
+vi.mock('@components/ai/AiQueryRepairProvider', () => ({
+  AiQueryRepairProvider: ({
+    children,
+    enabled,
+  }: {
+    children: React.ReactNode
+    enabled?: boolean
+  }) => {
+    mocks.repairEnabled.push(Boolean(enabled))
+    return <>{children}</>
   },
 }))
 vi.mock('@components/query/QueryEditor', () => ({
@@ -83,6 +99,17 @@ const postgres: DataSourceProfile = {
   password: '',
   tlsMode: 'disable',
 }
+const bigquery: DataSourceProfile = {
+  id: 'bq-1',
+  name: 'BigQuery',
+  version: 1,
+  kind: 'bigquery',
+  readonly: true,
+  billingProject: 'billing-project',
+  defaultProject: 'data-project',
+  defaultDataset: 'analytics',
+  maximumBytesBilled: '',
+}
 const loki: DataSourceProfile = {
   id: 'loki-1',
   name: 'Production logs',
@@ -107,6 +134,7 @@ beforeEach(() => {
   resetTestStore()
   localStorage.clear()
   mocks.queryEditorRenders = 0
+  mocks.repairEnabled.length = 0
   mocks.list.mockReset()
 })
 afterEach(() => {
@@ -220,6 +248,26 @@ describe('Prometheus workspace restoration', () => {
     expect(separator.getAttribute('aria-orientation')).toBe('horizontal')
     expect(separator.tabIndex).toBe(0)
     expect(container.querySelectorAll('.editor-resizer')).toHaveLength(1)
+  })
+
+  it('mounts the AI repair controller for BigQuery raw SQL', async () => {
+    resetTestStore({
+      profiles: [bigquery],
+      activeProfileId: bigquery.id,
+      connected: true,
+      connectionStatus: 'connected',
+    })
+    patchActiveTestSession({
+      connectionProfileId: bigquery.id,
+      queryMode: 'sql',
+    })
+    mocks.list.mockResolvedValue([bigquery])
+    render(<App />)
+
+    await waitFor(() =>
+      expect(screen.getByText('SQL editor mounted')).toBeTruthy(),
+    )
+    expect(mocks.repairEnabled.at(-1)).toBe(true)
   })
 
   it('passes the shared query/results separator into the Loki workspace', () => {

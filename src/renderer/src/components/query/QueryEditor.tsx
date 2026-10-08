@@ -224,7 +224,7 @@ export function QueryEditor({
           ? { ...promBounds, step: effectiveStep }
           : undefined
       if (
-        connectionKind === 'postgres' &&
+        language.kind === 'sql' &&
         !builderMode &&
         !promoted.length &&
         execution.sql === requestSql
@@ -286,7 +286,6 @@ export function QueryEditor({
     builderMode,
     setVisualization,
     completeQuery,
-    connectionKind,
   ])
 
   useEffect(() => {
@@ -340,9 +339,9 @@ export function QueryEditor({
   const canAnalyze = canUseDatabase && capabilities.analyze
   const canUseSqlCopilot =
     connectionKind !== undefined && language.kind === 'sql' && !builderMode
-  const canUsePostgresRepair = connectionKind === 'postgres' && !builderMode
+  const canUseSqlRepair = canUseSqlCopilot
   const showSqlCopilot =
-    canUseSqlCopilot && !(canUsePostgresRepair && repair?.blocked)
+    canUseSqlCopilot && !(canUseSqlRepair && repair?.blocked)
 
   const applyFormattedQuery = (formatted: string, requestTabId: string) => {
     const active = useStore.getState().activeTabId === requestTabId
@@ -539,7 +538,7 @@ export function QueryEditor({
       />
 
       {showSqlCopilot && <AiQueryCopilot key={`${tabId}:${tabConnectionId}`} />}
-      {canUsePostgresRepair && (
+      {canUseSqlRepair && (
         <AiQueryRepairReview
           onApplied={() =>
             requestAnimationFrame(() => editorRef.current?.focus())

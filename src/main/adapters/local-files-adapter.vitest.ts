@@ -22,6 +22,7 @@ import {
   SeriesCardinalityProbes,
   type ProbeMeasurement,
 } from '../series-cardinality.ts'
+import { queryFailureKind } from '../query-failure.ts'
 
 const pad2 = (value: number) => String(value).padStart(2, '0')
 const localDate = (value: Date) =>
@@ -133,8 +134,16 @@ test('DuckDB session queries selected files and sandboxes every unselected file 
     ])
       await assert.rejects(
         connected.session.query({ sql }),
-        /file system operations are disabled/i,
+        (error) =>
+          queryFailureKind(error) === 'validation' &&
+          /file system operations are disabled/i.test(
+            error instanceof Error ? error.message : '',
+          ),
       )
+    await assert.rejects(
+      connected.session.query({ sql: 'SELECT missing_column FROM sales' }),
+      (error) => queryFailureKind(error) === 'query',
+    )
     const securitySettings = await connected.session.query({
       sql: "SELECT name, value FROM duckdb_settings() WHERE name IN ('enable_external_access', 'allow_community_extensions', 'autoinstall_known_extensions', 'autoload_known_extensions', 'allow_persistent_secrets', 'lock_configuration')",
     })
@@ -161,11 +170,15 @@ test('DuckDB session queries selected files and sandboxes every unselected file 
       connected.session.query({
         sql: `COPY (SELECT 1) TO '${join(directory, 'leak.csv')}'`,
       }),
-      /read-only|file system operations are disabled/i,
+      (error) =>
+        queryFailureKind(error) === 'validation' &&
+        /read-only/i.test(error instanceof Error ? error.message : ''),
     )
     await assert.rejects(
       connected.session.query({ sql: 'SELECT 1; SELECT 2' }),
-      /exactly one/,
+      (error) =>
+        queryFailureKind(error) === 'validation' &&
+        /exactly one/i.test(error instanceof Error ? error.message : ''),
     )
     await connected.session.close()
     const reconnected = await adapter.connect(profile)

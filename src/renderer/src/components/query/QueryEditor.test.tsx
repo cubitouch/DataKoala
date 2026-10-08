@@ -596,6 +596,43 @@ describe('QueryEditor Explain loading states', () => {
       /hunter2|\/Users\/alice/,
     )
   })
+  it('records sanitized repair provenance for a BigQuery query failure', async () => {
+    resetTestStore({
+      profiles: [
+        {
+          kind: 'bigquery',
+          version: 1,
+          id: 'bq',
+          name: 'BQ',
+          billingProject: 'billing',
+          maximumBytesBilled: '',
+          readonly: true,
+        },
+      ],
+      activeProfileId: 'bq',
+      connected: true,
+      connecting: false,
+      connectionStatus: 'connected',
+    })
+    const sql = 'SELECT revenu FROM `my-project.analytics.orders`'
+    patchActiveTestSession({ connectionProfileId: 'bq', sql, queryMode: 'sql' })
+    runQuery.mockRejectedValue(
+      new QueryExecutionError(
+        'query',
+        'Unrecognized name: revenu at [1:8] token=secret /Users/alice/.config/gcloud/application_default_credentials.json',
+      ),
+    )
+    render(<QueryEditor />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() =>
+      expect(activeTestSession().queryError).toContain('Unrecognized name'),
+    )
+    expect(activeTestSession().repairableQueryError?.query).toBe(sql)
+    expect(activeTestSession().repairableQueryError?.error).not.toMatch(
+      /secret|\/Users\/alice/,
+    )
+  })
+
   it('does not record repair provenance for a classified connection failure', async () => {
     resetTestStore({
       profiles: [
@@ -1594,7 +1631,7 @@ describe('Fix with AI editor review', () => {
       readonly: true,
     },
   ] satisfies DataSourceProfile[])(
-    'keeps Fix with AI PostgreSQL-only for $kind',
+    'shows Fix with AI for raw $kind SQL failures',
     async (profile) => {
       aiSettingsGet.mockResolvedValue({
         ok: true,
@@ -1628,7 +1665,9 @@ describe('Fix with AI editor review', () => {
       expect(
         await screen.findByRole('textbox', { name: 'AI prompt' }),
       ).toBeTruthy()
-      expect(screen.queryByRole('button', { name: 'Fix with AI' })).toBeNull()
+      expect(
+        await screen.findByRole('button', { name: 'Fix with AI' }),
+      ).toBeTruthy()
     },
   )
 

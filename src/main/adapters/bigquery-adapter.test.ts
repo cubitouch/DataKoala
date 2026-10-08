@@ -8,6 +8,7 @@ import {
   type BigQueryClientLike,
 } from './bigquery-adapter.ts'
 import { SeriesCardinalityProbes } from '../series-cardinality.ts'
+import { queryFailureKind } from '../query-failure.ts'
 import {
   BigQueryDate,
   BigQueryDatetime,
@@ -454,14 +455,14 @@ test('all-dataset relation enumeration uses bounded concurrency', async () => {
   assert.ok(peak <= __testing.DATASET_RELATION_CONCURRENCY)
 })
 
-test('rejects non-SELECT dry-run statement types before execution', async () => {
+test('rejects clearly prohibited writes before the BigQuery dry run', async () => {
   const fake = client('INSERT')
   const connected = await new BigQueryAdapter(() => fake.value).connect(profile)
   await assert.rejects(
     () => connected.session!.query({ sql: 'INSERT INTO x VALUES (1)' }),
-    /write statements are not supported/,
+    /read-only/,
   )
-  assert.equal(fake.calls.length, 1)
+  assert.equal(fake.calls.length, 0)
 })
 
 test('caps renderer-bound rows and reports truncation', async () => {
@@ -500,7 +501,7 @@ test('runs an allowed script intact and returns the final query result with exis
   assert.equal(fake.dryRunGetMetadataCalls(), 0)
 })
 
-test('never submits an execution job for disallowed SCRIPT contents', async () => {
+test('never submits a dry-run or execution job for disallowed SCRIPT contents', async () => {
   for (const sql of [
     'DECLARE x INT64; DELETE FROM t; SELECT x;',
     'SELECT 1; CALL p(); SELECT 2;',
@@ -511,8 +512,7 @@ test('never submits an execution job for disallowed SCRIPT contents', async () =
       profile,
     )
     await assert.rejects(() => connected.session!.query({ sql }), /read-only/)
-    assert.equal(fake.calls.length, 1)
-    assert.equal(fake.calls[0].dryRun, true)
+    assert.equal(fake.calls.length, 0)
   }
 })
 
@@ -768,5 +768,119 @@ test('GoogleSQL cardinality probes escape backslashes and backticks in every ide
     )
     assert.doesNotMatch(withoutIdentifiers, /DELETE|--/)
     assert.equal((withoutIdentifiers.match(/;/g) || []).length, 1)
+  }
+})
+
+test('BigQuery query failures distinguish SQL errors from auth and permission failures', async () => {
+  const cases = [
+    {
+      name: 'unknown column',
+      failure: Object.assign(new Error('Unrecognized name: revenu at [1:8]'), {
+        code: 400,
+        errors: [{ reason: 'invalidQuery' }],
+      }),
+      kind: 'query',
+    },
+    {
+      name: 'unknown table',
+      failure: Object.assign(new Error('Not found: Table analytics.missing'), {
+        code: 404,
+        errors: [{ reason: 'notFound' }],
+      }),
+      kind: 'query',
+    },
+    {
+      name: 'invalid configured project',
+      failure: Object.assign(new Error('Not found: Project missing-project'), {
+        code: 404,
+        errors: [{ reason: 'notFound' }],
+      }),
+      kind: 'connection',
+    },
+    {
+      name: 'authentication',
+      failure: Object.assign(new Error('invalid credentials'), {
+        code: 401,
+        errors: [{ reason: 'authError' }],
+      }),
+      kind: 'connection',
+    },
+    {
+      name: 'permission',
+      failure: Object.assign(new Error('permission denied'), {
+        code: 403,
+        errors: [{ reason: 'accessDenied' }],
+      }),
+      kind: 'connection',
+    },
+    {
+      name: 'upstream unavailable',
+      failure: Object.assign(new Error('backend unavailable'), {
+        code: 503,
+        errors: [{ reason: 'backendError' }],
+      }),
+      kind: 'connection',
+    },
+  ] as const
+
+  for (const entry of cases) {
+    const fake = client()
+    const value: BigQueryClientLike = {
+      ...fake.value,
+      async createQueryJob() {
+        throw entry.failure
+      },
+    }
+    const connected = await new BigQueryAdapter(() => value).connect(profile)
+    assert.equal(connected.result.ok, true, entry.name)
+    await assert.rejects(
+      connected.session!.query({ sql: 'SELECT revenu FROM orders' }),
+      (error) => queryFailureKind(error) === entry.kind,
+      entry.name,
+    )
+  }
+})
+
+test('BigQuery write policy rejects before dry-run errors can obscure statement type', async () => {
+  const cases = [
+    {
+      name: 'DELETE with missing table',
+      sql: 'DELETE FROM `analytics.missing_table`',
+      failure: Object.assign(
+        new Error('Not found: Table analytics.missing_table'),
+        {
+          code: 404,
+          errors: [{ reason: 'notFound' }],
+        },
+      ),
+    },
+    {
+      name: 'UPDATE with invalid column',
+      sql: 'UPDATE `analytics.orders` SET revenu = 12 WHERE id = 1',
+      failure: Object.assign(new Error('Unrecognized name: revenu'), {
+        code: 400,
+        errors: [{ reason: 'invalidQuery' }],
+      }),
+    },
+  ] as const
+
+  for (const entry of cases) {
+    const fake = client()
+    let queryJobCalls = 0
+    const value: BigQueryClientLike = {
+      ...fake.value,
+      async createQueryJob() {
+        queryJobCalls++
+        throw entry.failure
+      },
+    }
+    const connected = await new BigQueryAdapter(() => value).connect(profile)
+    assert.equal(connected.result.ok, true, entry.name)
+    await assert.rejects(
+      connected.session!.query({ sql: entry.sql }),
+      (error) => queryFailureKind(error) === 'validation',
+      entry.name,
+    )
+    assert.equal(queryJobCalls, 0, entry.name)
   }
 })

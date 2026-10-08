@@ -147,6 +147,19 @@ export function proposalRequest(value: unknown): AiQueryProposalRequest {
   if (input.intent !== 'generate' && input.intent !== 'repair')
     throw new AiError('validation', 'Invalid AI request intent.')
   const intent = input.intent
+  if (
+    intent === 'repair' &&
+    (Object.keys(input).some(
+      (key) =>
+        !['requestId', 'intent', 'currentQuery', 'error', 'context'].includes(
+          key,
+        ),
+    ) ||
+      Object.keys(context).some(
+        (key) => !['language', 'relations', 'availableRelations'].includes(key),
+      ))
+  )
+    throw new AiError('validation', 'Invalid AI repair request.')
   const currentQuery =
     input.currentQuery === undefined
       ? undefined
@@ -156,10 +169,7 @@ export function proposalRequest(value: unknown): AiQueryProposalRequest {
       'validation',
       'Generation requests cannot include an error.',
     )
-  if (
-    intent === 'repair' &&
-    (dialect !== 'postgres' || input.prompt !== undefined || !currentQuery)
-  )
+  if (intent === 'repair' && (input.prompt !== undefined || !currentQuery))
     throw new AiError('validation', 'Invalid AI repair request.')
   return {
     requestId: requestId(input.requestId),
