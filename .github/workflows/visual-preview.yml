@@ -11,6 +11,7 @@ permissions:
 env:
   PREVIEW_FILES: |-
     ai-settings.png
+    ai-chart-anomaly.png
     ai-query-proposal.png
     ai-query-bigquery-proposal.png
     ai-builder-proposal.png
@@ -214,6 +215,7 @@ jobs:
               'builder-count-without-y.png': 'Builder — Count without a Y axis',
               'builder-narrow.png': 'Builder — narrow responsive layout',
               'ai-settings.png': 'AI settings — encrypted key and OpenRouter model selection',
+              'ai-chart-anomaly.png': 'Analyze with AI — chart sample coverage, extrema and structured findings',
               'ai-query-proposal.png': 'Ask AI — inline composer, SQL diff and explicit Apply',
               'ai-query-bigquery-proposal.png': 'Ask AI — BigQuery/GoogleSQL proposal and submitted dialect',
               'ai-builder-proposal.png': 'Builder Ask AI — structured control diff and explicit Apply',
