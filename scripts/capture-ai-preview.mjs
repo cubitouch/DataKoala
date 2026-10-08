@@ -758,20 +758,33 @@ app.whenReady().then(async () => {
       const plotWidth = rect.width - 74
       return {
         x: rect.left + 50 + plotWidth * (17.5 / 64),
-        y: rect.top + rect.height / 2,
+        top: rect.top + 20,
+        bottom: rect.bottom - 45,
       }
     })()`)
     win.show()
     win.focus()
-    win.webContents.sendInputEvent({
-      type: 'mouseMove',
-      x: anomalyHover.x,
-      y: anomalyHover.y,
-    })
-    await wait(
-      win,
-      `document.querySelector('.chart-tooltip-anomaly')?.textContent.includes('Narrow spike')`,
-    )
+    await sleep(250)
+    let anomalyTooltipVisible = false
+    for (
+      let y = anomalyHover.top;
+      y < anomalyHover.bottom && !anomalyTooltipVisible;
+      y += 3
+    ) {
+      win.webContents.sendInputEvent({
+        type: 'mouseMove',
+        x: anomalyHover.x,
+        y,
+      })
+      await sleep(25)
+      anomalyTooltipVisible = await win.webContents.executeJavaScript(
+        `document.querySelector('.chart-tooltip-anomaly')?.textContent.includes('Narrow spike') ?? false`,
+      )
+    }
+    if (!anomalyTooltipVisible)
+      throw new Error(
+        'AI anomaly tooltip did not appear when hovering the spike',
+      )
     await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-chart-anomaly.png'),
