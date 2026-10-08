@@ -10,6 +10,7 @@ import {
 } from 'react'
 import type {
   LokiFilterSource,
+  LokiLevelFilterSource,
   LokiLogResult,
   LokiParserKind,
   LokiQueryResult,
@@ -61,6 +62,42 @@ const unfilteredUnavailable =
 // Loki owns its chart dimensions, so provide one stable empty adapter value rather than
 // falling through to the component's per-render [] default.
 const EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS: string[] = []
+
+const COMMON_LOKI_LEVELS = ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE', 'FATAL']
+const resolveLevelSource = (
+  rows: LokiLogResult['logRows'],
+): { source: LokiLevelFilterSource | null; unsafe: boolean } => {
+  if (!rows.length) return { source: null, unsafe: false }
+  const sources = rows.map((row) => row.severitySource)
+  const first = sources[0]
+  if (
+    !first ||
+    (first.source === 'parsed-field' && !first.parser) ||
+    sources.some(
+      (source) =>
+        !source ||
+        source.source !== first.source ||
+        source.field !== first.field ||
+        source.parser !== first.parser,
+    )
+  )
+    return { source: null, unsafe: true }
+  return {
+    source: {
+      source: first.source,
+      field: first.field,
+      ...(first.parser ? { parser: first.parser } : {}),
+    },
+    unsafe: false,
+  }
+}
+const sameLevelSource = (
+  left: LokiLevelFilterSource | undefined,
+  right: LokiLevelFilterSource | null,
+) =>
+  left?.source === right?.source &&
+  left?.field === right?.field &&
+  left?.parser === right?.parser
 function interval(start: string, end: string): string {
   const targetSeconds = Math.max(
     1,
@@ -162,15 +199,40 @@ export function LokiExplorer({
     ]),
   ].sort()
   const result = session.result as LokiQueryResult | null
+  const logResult = result?.resultKind === 'logs' ? result : null
+  const levelResolution = useMemo(
+    () => resolveLevelSource(logResult?.logRows ?? []),
+    [logResult],
+  )
+  const effectiveLevelSource = levelResolution.unsafe
+    ? null
+    : (levelResolution.source ?? builder.levelFilter?.source ?? null)
+  const builderForGeneration = useMemo(() => {
+    if (!builder.levelFilter?.values.length) return builder
+    return {
+      ...builder,
+      levelFilter: {
+        values: builder.levelFilter.values,
+        ...(effectiveLevelSource ? { source: effectiveLevelSource } : {}),
+      },
+    }
+  }, [builder, effectiveLevelSource])
+  const levelOptions = useMemo(() => {
+    const discovered = (logResult?.logRows ?? [])
+      .map((row) => row.severity.toUpperCase())
+      .filter((level) => level !== 'UNKNOWN')
+    return [
+      ...COMMON_LOKI_LEVELS,
+      ...[...new Set(discovered)].filter(
+        (level) => !COMMON_LOKI_LEVELS.includes(level),
+      ),
+    ]
+  }, [logResult])
   const [trend, setTrend] = useState<LokiQueryResult | null>(null)
   const [trendError, setTrendError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [localLevelFilter, setLocalLevelFilter] = useState<{
-    value: string
-    exclude: boolean
-  } | null>(null)
   const [patternScope, setPatternScope] = useState<{
     template: string
     memberIds: Set<string>
@@ -215,7 +277,7 @@ export function LokiExplorer({
   const generation = useMemo(() => {
     try {
       return {
-        generated: buildLokiQuery(builder, { fallbackMatcher }),
+        generated: buildLokiQuery(builderForGeneration, { fallbackMatcher }),
         error: null,
       }
     } catch (caught) {
@@ -224,7 +286,7 @@ export function LokiExplorer({
         error: caught instanceof Error ? caught.message : String(caught),
       }
     }
-  }, [builder, fallbackMatcher])
+  }, [builderForGeneration, fallbackMatcher])
   const generated = generation.generated
   const displayedGenerated =
     canLoadMetadata &&
@@ -260,7 +322,6 @@ export function LokiExplorer({
     setTrendError(null)
     setLoading(false)
     setPatternScope(null)
-    setLocalLevelFilter(null)
   }
   useEffect(() => {
     mounted.current = true
@@ -315,7 +376,6 @@ export function LokiExplorer({
     setError(null)
     setWarning(null)
     setLoading(false)
-    setLocalLevelFilter(null)
   }, [session.id])
   useEffect(() => {
     if (!isLokiChartView(resultView)) return
@@ -428,7 +488,6 @@ export function LokiExplorer({
         )
       }
       const current = ++revision.current
-      setLocalLevelFilter(null)
       trendRevision.current++
       trendCacheKey.current = null
       lastProcessedTrendKey.current = null
@@ -525,7 +584,26 @@ export function LokiExplorer({
     groupBy,
   ])
   useEffect(() => setPatternScope(null), [result])
-  useEffect(() => setLocalLevelFilter(null), [result])
+  useEffect(() => {
+    const levelFilter = builder.levelFilter
+    if (
+      mode !== 'builder' ||
+      !levelFilter?.values.length ||
+      !logResult?.logRows.length
+    )
+      return
+    const resolution = resolveLevelSource(logResult.logRows)
+    const nextSource = resolution.unsafe ? null : resolution.source
+    if (sameLevelSource(levelFilter.source, nextSource)) return
+    const nextBuilder = {
+      ...builder,
+      levelFilter: {
+        values: levelFilter.values,
+        ...(nextSource ? { source: nextSource } : {}),
+      },
+    }
+    setLokiState({ lokiBuilder: nextBuilder })
+  }, [builder, logResult, mode, setLokiState])
   const selectRange = (selected: LokiTrendRange) =>
     setLokiState({
       lokiRangeHistory: [...session.lokiRangeHistory, range],
@@ -549,15 +627,7 @@ export function LokiExplorer({
   ) => {
     const levelField =
       /^(severity|severity_text|level|loglevel|log_level)$/i.test(key)
-    if (
-      source === 'local' ||
-      (levelField && source === 'parsed-field' && !parser) ||
-      (levelField && mode !== 'builder')
-    ) {
-      if (levelField) setLocalLevelFilter({ value, exclude })
-      return
-    }
-    setLocalLevelFilter(null)
+    if (source === 'local') return
     const operator = exclude ? '!=' : '='
     if (source === 'label') {
       const alreadyPresent = builder.labelMatchers.some(
@@ -648,15 +718,16 @@ export function LokiExplorer({
               sortLokiLogRowsNewestFirst(result.logRows),
               session.sqlResultFilters,
             ) as LokiLogResult['logRows']
-          ).filter(
-            (row) =>
-              !localLevelFilter ||
-              (localLevelFilter.exclude
-                ? row.severity !== localLevelFilter.value
-                : row.severity === localLevelFilter.value),
-          )
+          ).filter((row) => {
+            const selectedLevels =
+              mode === 'builder' ? (builder.levelFilter?.values ?? []) : []
+            return (
+              selectedLevels.length === 0 ||
+              selectedLevels.includes(row.severity.toUpperCase())
+            )
+          })
         : [],
-    [result, session.sqlResultFilters, localLevelFilter],
+    [result, session.sqlResultFilters, mode, builder.levelFilter],
   )
   const scopedLogRows = useMemo(
     () =>
@@ -851,6 +922,12 @@ export function LokiExplorer({
               value={builder}
               generated={displayedGenerated}
               labels={labels}
+              levelOptions={levelOptions}
+              levelSource={effectiveLevelSource}
+              levelFilterLocally={
+                Boolean(builder.levelFilter?.values.length) &&
+                !effectiveLevelSource
+              }
               connectionId={connectionId}
               connectionGeneration={connectionGeneration}
               canLoadMetadata={canLoadMetadata}
@@ -944,23 +1021,6 @@ export function LokiExplorer({
                   </button>
                 </div>
               )}
-            {localLevelFilter && (
-              <div className={styles.status} role="status">
-                Local level filter:{' '}
-                <strong>
-                  {localLevelFilter.exclude ? 'not ' : ''}
-                  {localLevelFilter.value.toUpperCase()}
-                </strong>{' '}
-                — loaded logs only.
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => setLocalLevelFilter(null)}
-                >
-                  Clear
-                </button>
-              </div>
-            )}
             <div className={styles.selectedView}>
               {resultView === 'list' ? (
                 <LogResultExplorer
@@ -968,7 +1028,6 @@ export function LokiExplorer({
                   rows={scopedLogRows}
                   truncated={result.execution?.truncated}
                   limit={limit}
-                  canPromoteLevelFilter={mode === 'builder'}
                   onFilter={resultFilter}
                 />
               ) : resultView === 'patterns' ? (
