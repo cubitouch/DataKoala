@@ -715,7 +715,7 @@ app.whenReady().then(async () => {
           },
         } : tab),
       })
-window.setTimeout(() => {
+      window.setTimeout(() => {
         store.getState().setResult(
           {
             columns: [
@@ -732,7 +732,7 @@ window.setTimeout(() => {
     })()`)
     await wait(
       win,
-      `[...document.querySelectorAll('button')].some((button) => button.textContent.trim() === 'Analyze with AI')`,
+      `document.body.innerText.includes('Analyze with AI')`,
     )
     await click(win, 'Analyze with AI')
     await wait(
