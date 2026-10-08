@@ -303,7 +303,11 @@ it('keeps parser-unsafe level fields local', () => {
   const onFilter = vi.fn()
   const parsedSource = {
     ...row,
-    severitySource: { source: 'parsed-field' as const, field: 'severity' },
+    severitySource: {
+      source: 'parsed-field' as const,
+      field: 'severity',
+      value: 'ERROR',
+    },
   }
   render(
     <LogResultExplorer
