@@ -341,3 +341,59 @@ test('value selections generate exact and anchored escaped regex matchers', () =
     /at least one/,
   )
 })
+
+test('Level selections use one OR matcher and preserve predicates from other sources', () => {
+  const query = buildLokiQuery({
+    labelMatchers: [
+      { label: 'app', operator: '=', value: 'checkout' },
+      { label: 'severity', operator: '=', value: 'critical' },
+    ],
+    lineFilters: [],
+    parsers: [],
+    fieldFilters: [{ field: 'level', operator: '=', value: 'ERROR' }],
+    levelFilter: {
+      values: ['ERROR', 'WARN', 'ERROR'],
+      source: { source: 'structured-metadata', field: 'severity_text' },
+    },
+  })
+
+  assert.equal(
+    query,
+    '{app="checkout", severity="critical"} | level="ERROR" | severity_text=~"(?i)^(?:ERROR|WARN)$"',
+  )
+  assert.equal((query.match(/severity_text=~/g) ?? []).length, 1)
+})
+
+test('Level source resolution adds safe parser stages and leaves unsafe fields unrestricted', () => {
+  const base = {
+    labelMatchers: [
+      { label: 'app', operator: '=' as const, value: 'checkout' },
+    ],
+    lineFilters: [],
+    parsers: [],
+    fieldFilters: [],
+    levelFilter: { values: ['ERROR', 'WARN'] },
+  }
+
+  assert.equal(
+    buildLokiQuery({
+      ...base,
+      levelFilter: {
+        values: ['ERROR', 'WARN'],
+        source: { source: 'parsed-field', field: 'severity', parser: 'json' },
+      },
+    }),
+    '{app="checkout"} | json | severity=~"(?i)^(?:ERROR|WARN)$"',
+  )
+  assert.equal(buildLokiQuery(base), '{app="checkout"}')
+  assert.equal(
+    buildLokiQuery({
+      ...base,
+      levelFilter: {
+        values: ['ERROR', 'WARN'],
+        source: { source: 'parsed-field', field: 'severity' },
+      },
+    }),
+    '{app="checkout"}',
+  )
+})
