@@ -111,7 +111,22 @@ app.whenReady().then(async () => {
       return previewLokiTrendResult
     }
     logFinished = true
-    return previewLokiLogResult
+    if (!String(request.expression).includes('severity=~'))
+      return previewLokiLogResult
+    const logRows = previewLokiLogResult.logRows.filter((row) =>
+      ['ERROR', 'WARN'].includes(row.labels.severity),
+    )
+    return {
+      ...previewLokiLogResult,
+      logRows,
+      rows: logRows,
+      rowCount: logRows.length,
+      execution: {
+        ...previewLokiLogResult.execution,
+        rowCount: logRows.length,
+        notice: 'Showing the newest matching ERROR and WARN entries.',
+      },
+    }
   })
 
   const win = new BrowserWindow({
@@ -173,14 +188,6 @@ app.whenReady().then(async () => {
       (await win.webContents.capturePage()).toPNG(),
     )
     await win.webContents.executeJavaScript(
-      `document.querySelector('[role="listbox"][aria-label="Level"] button')?.click()`,
-    )
-    await waitFor(
-      win,
-      `!window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId)?.lokiBuilder?.levelFilter`,
-      'clear the preview Level selection before running the full fixture',
-    )
-    await win.webContents.executeJavaScript(
       `document.querySelector('[data-field][data-field-name="Level"] [role="combobox"]')?.click()`,
     )
     await win.webContents.executeJavaScript(
@@ -191,9 +198,20 @@ app.whenReady().then(async () => {
     if (!logFinished) throw new Error('Loki log fixture did not finish')
     await waitFor(
       win,
-      `document.querySelector('section[aria-label="Log results"] article') && document.body.innerText.includes('48 loaded') && !document.body.innerText.includes('Running…')`,
+      `document.querySelector('section[aria-label="Log results"] article') && document.body.innerText.includes('36 loaded') && !document.body.innerText.includes('Running…')`,
       'rendered virtual log rows',
     )
+    const displayedSeverities = await win.webContents.executeJavaScript(
+      `window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId)?.result?.logRows?.map((row) => row.severity)`,
+    )
+    if (
+      !Array.isArray(displayedSeverities) ||
+      displayedSeverities.length !== 36 ||
+      displayedSeverities.some((severity) => !['error', 'warn'].includes(severity))
+    )
+      throw new Error(
+        `Expected filtered preview rows to have ERROR/WARN badges only: ${JSON.stringify(displayedSeverities)}`,
+      )
     await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('section[aria-label="Log results"] article button')].find((button) => button.textContent?.includes('circuit breaker opened'))?.click()`,
     )
