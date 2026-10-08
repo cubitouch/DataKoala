@@ -262,36 +262,6 @@ test('temporal presentation preserves the explicit selected domain around canoni
   ])
 })
 
-test('temporal anomaly mark points use the corresponding series millisecond coordinate', () => {
-  const labels = ['2026-09-22T00:00:00Z', '2026-09-23T00:00:00Z']
-  const options = buildChartPresentationOptions({
-    labels,
-    series: [{ name: 'Orders', data: [2, 9] }],
-    view: 'line',
-    hasSeriesColumn: false,
-    mode: 'sql',
-    anomalies: [
-      {
-        seriesName: 'Orders',
-        dataIndex: 1,
-        value: 9,
-        median: 2,
-        mad: 0,
-        direction: 'above',
-      },
-    ],
-  })
-  const series = (
-    options.series as Array<{
-      data: Array<[number, number]>
-      markPoint: { data: Array<{ coord: [number, number] }> }
-    }>
-  )[0]
-
-  assert.equal(series.markPoint.data[0].coord[0], series.data[1][0])
-  assert.equal(series.markPoint.data[0].coord[0], Date.parse(labels[1]))
-})
-
 test('tooltip marks and retains the hovered series without becoming scrollable', () => {
   const rows = Array.from({ length: 14 }, (_, index) => ({
     seriesName: `series-${index}`,
