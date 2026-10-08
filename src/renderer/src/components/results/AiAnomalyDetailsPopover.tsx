@@ -112,8 +112,9 @@ export function AiAnomalyDetailsPopover({
           <ul className={styles.anomalyTextList}>
             {samples.map((sample) => (
               <li key={sample.name}>
-                {sample.name}: {sample.points.length} of {sample.validPointCount}{' '}
-                valid points ({Math.round(sample.sampleCoverage * 100)}%)
+                {sample.name}: {sample.points.length} of{' '}
+                {sample.validPointCount} valid points (
+                {Math.round(sample.sampleCoverage * 100)}%)
               </li>
             ))}
           </ul>
