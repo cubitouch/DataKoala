@@ -18,6 +18,7 @@ export interface LokiLogRow {
   structuredMetadata: Record<string, string>
   parsedFields: Record<string, unknown>
   severity: string
+  severitySource?: LokiSeveritySource
   traceId?: string
   spanId?: string
 }
@@ -100,7 +101,16 @@ export interface LokiParserStage {
   kind: LokiParserKind
   expression?: string
 }
-export type LokiFilterSource = 'label' | 'structured-metadata' | 'parsed-field'
+export type LokiFilterSource =
+  | 'label'
+  | 'structured-metadata'
+  | 'parsed-field'
+  | 'local'
+export interface LokiSeveritySource {
+  source: Exclude<LokiFilterSource, 'local'>
+  field: string
+  parser?: LokiParserKind
+}
 export interface LokiBuilderState {
   labelMatchers: LokiLabelMatcher[]
   lineFilters: LokiLineFilter[]
