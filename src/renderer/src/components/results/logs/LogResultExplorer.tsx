@@ -342,8 +342,8 @@ export function LogResultExplorer({
           </div>
           {!levelTarget(selected.severity) && (
             <p className={styles.localFilterHint}>
-              This filter will apply locally to loaded logs because its
-              source cannot be promoted safely.
+              This filter will apply locally to loaded logs because its source
+              cannot be promoted safely.
             </p>
           )}
         </section>
