@@ -251,20 +251,6 @@ export function GenericResultExplorer({
     return () => { active = false }
   }, [])
 
-  useEffect(() => {
-    aiContextRevision.current += 1
-    setAiAnalysis(null)
-    setAiAnalysisError('')
-  }, [
-    resultRevision,
-    effectiveConfiguration.view,
-    effectiveConfiguration.xColumn,
-    effectiveConfiguration.valueColumn,
-    effectiveConfiguration.seriesColumn,
-    effectiveConfiguration.seriesColumns,
-    activeFilters,
-    seriesVisibility,
-  ])
 
   useEffect(() => {
     if (!running) {
@@ -292,6 +278,21 @@ export function GenericResultExplorer({
         : configuration,
     [result, configuration, mode, dimensionControls, externalSeriesColumns],
   )
+  useEffect(() => {
+    aiContextRevision.current += 1
+    setAiAnalysis(null)
+    setAiAnalysisError('')
+  }, [
+    resultRevision,
+    effectiveConfiguration.view,
+    effectiveConfiguration.xColumn,
+    effectiveConfiguration.valueColumn,
+    effectiveConfiguration.seriesColumn,
+    effectiveConfiguration.seriesColumns,
+    activeFilters,
+    seriesVisibility,
+  ])
+
   useEffect(() => {
     if (
       dimensionControls === 'result' &&
