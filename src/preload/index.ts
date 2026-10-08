@@ -7,6 +7,8 @@ import type {
   AiModel,
   AiQueryProposalRequest,
   AiQueryStep,
+  AiPlanAnalysisRequest,
+  AiPlanAnalysis,
 } from '@shared/ai'
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipc-channels'
@@ -90,6 +92,10 @@ const api = {
       request: AiBuilderProposalRequest,
     ): Promise<AiResult<AiBuilderStep>> =>
       ipcRenderer.invoke(IPC.AI_PROPOSE_BUILDER, request),
+    analyzePlan: (
+      request: AiPlanAnalysisRequest,
+    ): Promise<AiResult<AiPlanAnalysis>> =>
+      ipcRenderer.invoke(IPC.AI_ANALYZE_PLAN, request),
     cancel: (requestId: string): Promise<AiResult<void>> =>
       ipcRenderer.invoke(IPC.AI_CANCEL, requestId),
   },

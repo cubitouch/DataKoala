@@ -124,6 +124,13 @@
   border-color: var(--accent);
 }
 
+.aiHighlighted {
+  outline: 2px solid #a78bfa;
+  outline-offset: 1px;
+  border-color: #a78bfa;
+  background: color-mix(in srgb, #a78bfa 8%, var(--bg-2));
+}
+
 .nodeHead {
   display: flex;
   align-items: center;

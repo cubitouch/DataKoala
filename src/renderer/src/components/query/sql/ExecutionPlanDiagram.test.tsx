@@ -142,4 +142,37 @@ describe('ExecutionPlanDiagram', () => {
         .getAttribute('aria-pressed'),
     ).toBe('true')
   })
+
+  it('highlights referenced nodes and focuses the first AI-linked node without changing the plan', () => {
+    const tree = planNode('0', 'Nested Loop', {}, [
+      planNode('0.0', 'Hash Join', {}, [planNode('0.0.0', 'Seq Scan')]),
+      planNode('0.1', 'Index Scan'),
+    ])
+    const { rerender } = render(
+      <ExecutionPlanDiagram
+        tree={tree}
+        highlightedNodeIds={['0.0', '0.1']}
+        focusNodeId="0.0"
+      />,
+    )
+    const nodes = screen.getAllByTestId('plan-node')
+    expect(nodes).toHaveLength(4)
+    expect(
+      nodes.filter(
+        (node) => node.getAttribute('data-ai-highlighted') === 'true',
+      ),
+    ).toHaveLength(2)
+    expect(
+      screen
+        .getByRole('button', { name: /Hash Join/ })
+        .getAttribute('aria-pressed'),
+    ).toBe('true')
+    rerender(<ExecutionPlanDiagram tree={tree} />)
+    expect(screen.getAllByTestId('plan-node')).toHaveLength(4)
+    expect(
+      screen
+        .getAllByTestId('plan-node')
+        .filter((node) => node.getAttribute('data-ai-highlighted') === 'true'),
+    ).toHaveLength(0)
+  })
 })

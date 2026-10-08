@@ -1,11 +1,7 @@
-import { Popover } from '@components/ui/Popover'
-import {
-  AI_PRIVACY_NOTICE,
-  type AiBuilderProposal,
-  type AiBuilderState,
-} from '@shared/ai'
+import { type AiBuilderProposal, type AiBuilderState } from '@shared/ai'
 import { builderTimeRangeSummary } from '@lib/builderTimeRange'
 import type { AiPreparedBuilderContext } from '@lib/ai/builderWorkflow'
+import { AiProcessPopover } from './AiProcessPopover'
 import styles from './Ai.module.css'
 
 const display = (value: string | null | undefined) => value || '—'
@@ -51,33 +47,17 @@ export function AiBuilderContextPopover({
   proposal: AiBuilderProposal | null
 }) {
   return (
-    <Popover
-      trigger={
-        <span className={styles.contextTriggerIcon} aria-hidden="true">
-          i
-        </span>
+    <AiProcessPopover
+      subtitle={
+        proposal
+          ? 'Review the Builder response and the context that produced it.'
+          : 'Preview the Builder context DataKoala will send.'
       }
-      ariaLabel="View AI details"
-      preferredWidth={720}
-      maxHeight={680}
-      contentClassName={styles.context}
-    >
-      <header className={styles.contextHeader}>
-        <div>
-          <strong>AI details</strong>
-          <div className={styles.contextHeaderSubtitle}>
-            {proposal
-              ? 'Review the Builder response and the context that produced it.'
-              : 'Preview the Builder context DataKoala will send.'}
-          </div>
-        </div>
-        <span className={styles.contextProvider}>PostgreSQL · OpenRouter</span>
-      </header>
-
-      {proposal && (
-        <section className={styles.responseCard} aria-label="AI response">
-          <div className={styles.contextLabel}>AI response</div>
-          <div className={styles.responseContent}>
+      providerLabel="PostgreSQL · OpenRouter"
+      sent={sent}
+      response={
+        proposal && (
+          <>
             <section>
               <h3>Explanation</h3>
               <p>{proposal.explanation}</p>
@@ -92,64 +72,53 @@ export function AiBuilderContextPopover({
                 </ul>
               </section>
             )}
-          </div>
-          <p className={styles.responseHint}>
-            Apply changes Builder controls only. Run remains a separate action.
-          </p>
-        </section>
-      )}
-
-      <div className={styles.contextDivider} />
-      <div className={styles.contextLabel}>
-        {sent ? 'Submitted context' : 'Context to send'}
-      </div>
-      <div className={styles.contextPayload}>
-        <section aria-label="Operation">
-          <h3>Operation</h3>
-          <pre>Modify structured SQL Builder</pre>
-        </section>
-        <section aria-label="Prompt">
-          <h3>Prompt</h3>
-          {prompt ? (
-            <pre>{prompt}</pre>
-          ) : (
-            <p className={styles.notice}>Enter a prompt.</p>
-          )}
-        </section>
-        {input ? (
-          <>
-            <section aria-label="Current Builder state">
-              <h3>Current Builder state</h3>
-              <BuilderStateDetails state={input.snapshot.state} />
-            </section>
-            <section aria-label="Selected relation metadata">
-              <div className={styles.contextSectionHeading}>
-                <h3>Selected relation metadata</h3>
-                <span className={styles.contextCount}>
-                  {input.columns.length} columns
-                </span>
-              </div>
-              <pre>{`${input.snapshot.state.relation.schema}.${input.snapshot.state.relation.name}\n${input.columns
-                .map((column) => `  ${column.name} ${column.dataType}`)
-                .join('\n')}`}</pre>
-            </section>
           </>
-        ) : (
-          <p className={styles.notice}>
-            Select a PostgreSQL table or view with loaded column metadata.
-          </p>
-        )}
-      </div>
-
-      <aside className={styles.contextInfo}>
-        <strong>About this request</strong>
-        <p>{AI_PRIVACY_NOTICE}</p>
-        <p>
+        )
+      }
+      responseNote="Apply changes Builder controls only. Run remains a separate action."
+      privacyNote={
+        <>
           Builder AI is limited to the selected relation and structured Builder
           controls. Result rows, credentials, connection strings, and hidden
           query history are not included.
+        </>
+      }
+    >
+      <section aria-label="Operation">
+        <h3>Operation</h3>
+        <pre>Modify structured SQL Builder</pre>
+      </section>
+      <section aria-label="Prompt">
+        <h3>Prompt</h3>
+        {prompt ? (
+          <pre>{prompt}</pre>
+        ) : (
+          <p className={styles.notice}>Enter a prompt.</p>
+        )}
+      </section>
+      {input ? (
+        <>
+          <section aria-label="Current Builder state">
+            <h3>Current Builder state</h3>
+            <BuilderStateDetails state={input.snapshot.state} />
+          </section>
+          <section aria-label="Selected relation metadata">
+            <div className={styles.contextSectionHeading}>
+              <h3>Selected relation metadata</h3>
+              <span className={styles.contextCount}>
+                {input.columns.length} columns
+              </span>
+            </div>
+            <pre>{`${input.snapshot.state.relation.schema}.${input.snapshot.state.relation.name}\n${input.columns
+              .map((column) => `  ${column.name} ${column.dataType}`)
+              .join('\n')}`}</pre>
+          </section>
+        </>
+      ) : (
+        <p className={styles.notice}>
+          Select a PostgreSQL table or view with loaded column metadata.
         </p>
-      </aside>
-    </Popover>
+      )}
+    </AiProcessPopover>
   )
 }

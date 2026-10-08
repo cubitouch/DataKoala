@@ -139,6 +139,23 @@
   line-height: 1;
 }
 
+.processPopover {
+  flex: none;
+}
+
+.processTrigger.processTrigger {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 31px;
+  height: 31px;
+  flex: none;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+
 .context pre {
   white-space: pre-wrap;
 }
@@ -419,6 +436,36 @@
   border-top: 1px solid var(--border);
   color: var(--text-dim);
   font-size: 11px;
+}
+
+.planHints {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planHints li {
+  display: grid;
+  gap: 5px;
+  padding-left: 12px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.planHints strong {
+  color: var(--text);
+}
+
+.planHints p {
+  margin: 0;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.planHints small {
+  color: var(--text-mute);
+  line-height: 1.45;
 }
 
 .contextDivider {

@@ -188,7 +188,7 @@ jobs:
             const mergeSha = context.sha
             const captions = {
               'sql-default.png': 'SQL mode — default dimensions',
-              'explain-plan.png': 'PostgreSQL EXPLAIN ANALYZE — deterministic execution-plan diagnostics',
+              'explain-plan.png': 'PostgreSQL EXPLAIN ANALYZE — deterministic plan and mocked, node-linked AI hints',
               'prometheus-toolbar.png': 'Prometheus — datasource-aware query toolbar',
               'prometheus-toolbar-narrow.png': 'Prometheus — narrow responsive toolbar',
               'prometheus-builder.png': 'Prometheus Builder — metric, filters, grouping, and calculation',
