@@ -33,6 +33,7 @@ const row = {
   severitySource: {
     source: 'structured-metadata' as const,
     field: 'severity',
+    value: 'ERROR',
   },
   traceId: 'abc',
 }
