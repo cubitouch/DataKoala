@@ -85,7 +85,9 @@ function severityInfo(
         String(value).trim()
       ) {
         const parser =
-          source === 'parsed-field' && Object.hasOwn(payload, field)
+          source === 'parsed-field' &&
+          Object.hasOwn(payload, field) &&
+          String(payload[field]) === String(value)
             ? ('json' as const)
             : undefined
         return {
@@ -295,7 +297,12 @@ export function normalizeLokiQuery(
         parsedFields.trace_id = extracted.traceId
       if (!authoritativeSpanId && extracted.spanId)
         parsedFields.span_id = extracted.spanId
-      const severity = severityInfo(parsedFields, structuredMetadata, payload, labels)
+      const severity = severityInfo(
+        parsedFields,
+        structuredMetadata,
+        payload,
+        labels,
+      )
       rows.push({
         id: `${timestampNs}:${rows.length}`,
         timestampNs,
