@@ -143,13 +143,6 @@
   border-color: #f59e0b;
 }
 
-.anomalyStatus {
-  flex: none;
-  padding: 5px 12px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-mute);
-  font-size: 11px;
-}
 
 .empty {
   display: flex;
