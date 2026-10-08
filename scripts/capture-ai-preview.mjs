@@ -716,16 +716,19 @@ app.whenReady().then(async () => {
         } : tab),
       })
 window.setTimeout(() => {
-        store.getState().setResult({
-        columns: [
-          { name: 'day', dataTypeID: 20, dataTypeName: 'int8' },
-          { name: 'requests', dataTypeID: 20, dataTypeName: 'int8' },
-        ],
-        rows,
-        rowCount: rows.length,
-        durationMs: 8,
-      }, null
-      }, 500))
+        store.getState().setResult(
+          {
+            columns: [
+              { name: 'day', dataTypeID: 20, dataTypeName: 'int8' },
+              { name: 'requests', dataTypeID: 20, dataTypeName: 'int8' },
+            ],
+            rows,
+            rowCount: rows.length,
+            durationMs: 8,
+          },
+          null,
+        )
+      }, 500)
     })()`)
     await wait(
       win,
@@ -734,7 +737,7 @@ window.setTimeout(() => {
     await click(win, 'Analyze with AI')
     await wait(
       win,
-      `document.querySelector('[aria-label="AI anomaly analysis"]')?.textContent.includes('Two sharp changes stand out')`,
+      `document.querySelector('[aria-label="AI anomaly analysis"]')?.textContent.includes('sharp changes')`,
     )
     await settlePaint(win)
     await writeFile(
