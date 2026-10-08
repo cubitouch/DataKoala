@@ -8,7 +8,6 @@ interface Props {
   active: boolean
   onSelect: () => void
   onMouseEnter: () => void
-  selectionIndicator?: 'check' | 'checkbox'
 }
 
 export function ComboboxOption({
@@ -18,7 +17,6 @@ export function ComboboxOption({
   active,
   onSelect,
   onMouseEnter,
-  selectionIndicator = 'check',
 }: Props) {
   const accessibleName = [option.label, option.subtitle]
     .filter(Boolean)
@@ -69,11 +67,7 @@ export function ComboboxOption({
         )}
       </span>
       <span
-        className={
-          selectionIndicator === 'checkbox'
-            ? styles.optionCheckbox
-            : styles.optionCheck
-        }
+        className={styles.optionCheck}
         data-selected={selected || undefined}
         aria-hidden="true"
       >
