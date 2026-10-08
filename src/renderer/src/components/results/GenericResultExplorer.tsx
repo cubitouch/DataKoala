@@ -1,4 +1,4 @@
-import type { DisplayUnit } from '@lib/displayUnit'
+import type { DisplayUnit } from "@lib/displayUnit";
 import {
   useCallback,
   useEffect,
@@ -6,33 +6,29 @@ import {
   useRef,
   useState,
   type ReactNode,
-} from 'react'
-import ReactECharts from 'echarts-for-react'
-import type EChartsReact from 'echarts-for-react'
-import { api } from '@lib/api'
-import {
-  AI_LIMITS,
-  isAiConfigured,
-  type AiAnomalyAnalysis,
-} from '@shared/ai'
-import { buildChartPresentationOptions } from '@lib/chartPresentation'
+} from "react";
+import ReactECharts from "echarts-for-react";
+import type EChartsReact from "echarts-for-react";
+import { api } from "@lib/api";
+import { AI_LIMITS, isAiConfigured, type AiAnomalyAnalysis } from "@shared/ai";
+import { buildChartPresentationOptions } from "@lib/chartPresentation";
 import {
   chartSeriesResultFilters,
   timeBucketRange,
   type ChartPointContext,
-} from '@lib/chartPointFilters'
+} from "@lib/chartPointFilters";
 import {
   chartTimeSelectionRange,
   effectiveChartTimeDomain,
   expandChartTimeDomainToValues,
   isTemporalChartValues,
-} from '@lib/chartRangeSelection'
+} from "@lib/chartRangeSelection";
 import {
   createResultFilter,
   createResultRangeFilter,
   filterQueryResult,
   type ResultFilter,
-} from '@lib/resultFilters'
+} from "@lib/resultFilters";
 import {
   decodeBuilderSeriesTuple,
   deriveEffectiveVisualization,
@@ -42,70 +38,70 @@ import {
   visualizationConfigurationsEqual,
   type ValueAxisScale,
   type VisualizationConfiguration,
-} from '@lib/resultVisualization'
-import { ResultsTable } from './ResultsTable'
+} from "@lib/resultVisualization";
+import { ResultsTable } from "./ResultsTable";
 import {
   ChartFilterPopover,
   type ChartFilterAction,
-} from './filters/ChartFilterPopover'
-import { ResultFilterBar } from './filters/ResultFilterBar'
+} from "./filters/ChartFilterPopover";
+import { ResultFilterBar } from "./filters/ResultFilterBar";
 import {
   captureChartPng,
   chartCapturePixelRatio,
   copyChartPng,
   exportChartPng,
   isChartActionDisabled,
-} from '@lib/chartImage'
-import { notifyChartCopyResult } from '@lib/chartCopyNotification'
+} from "@lib/chartImage";
+import { notifyChartCopyResult } from "@lib/chartCopyNotification";
 import {
   ChartReadinessController,
   createChartRevision,
   type ChartRevision,
-} from '@lib/chartReadiness'
+} from "@lib/chartReadiness";
 import {
   isolateSeries,
   reconcileSeriesVisibility,
   showAllSeries,
   toggleSeries,
-} from '@lib/chartVisibility'
-import { prepareLogScaleSeries } from '@lib/chartAxisScale'
-import { ChartEventBridgeLifecycle } from '@lib/chartEventBridgeLifecycle'
+} from "@lib/chartVisibility";
+import { prepareLogScaleSeries } from "@lib/chartAxisScale";
+import { ChartEventBridgeLifecycle } from "@lib/chartEventBridgeLifecycle";
 import {
   ChartAnimationPolicy,
   createChartFingerprint,
   semanticChartCounts,
-} from '@lib/chartSemantic'
+} from "@lib/chartSemantic";
 import {
   ChartApplicationController,
   type AppliedChart,
   type ChartRevisionOrigin,
-} from '@lib/chartApplication'
-import { QUERY_LOADING_DELAY_MS } from '@lib/loadingIndicator'
+} from "@lib/chartApplication";
+import { QUERY_LOADING_DELAY_MS } from "@lib/loadingIndicator";
 import {
   chartActionsReady,
   shouldKeepChartMounted,
-} from '@lib/chartQueryLifecycle'
+} from "@lib/chartQueryLifecycle";
 import {
   Combobox,
   MultiCombobox,
   type ComboboxOption,
-} from '@components/ui/combobox'
-import type { ColumnMeta, QueryResult } from '@shared/types'
-import { sampleChartSeries } from '@lib/chartAnomalySampling'
+} from "@components/ui/combobox";
+import type { ColumnMeta, QueryResult } from "@shared/types";
+import { sampleChartSeries } from "@lib/chartAnomalySampling";
 import {
   buildHierarchy,
   hierarchyCardinalities,
   suggestHierarchyDimensions,
-} from '@lib/chartHierarchy'
-import { ChartPicker } from './ChartPicker'
-import styles from './ResultExplorer.module.css'
-import { chartLegendEntries } from '@lib/chartLegend'
-import { ChartLegend } from './ChartLegend'
+} from "@lib/chartHierarchy";
+import { ChartPicker } from "./ChartPicker";
+import styles from "./ResultExplorer.module.css";
+import { chartLegendEntries } from "@lib/chartLegend";
+import { ChartLegend } from "./ChartLegend";
 
 const valueScaleOptions: ComboboxOption[] = [
-  { value: 'linear', label: 'Linear' },
-  { value: 'log', label: 'Log' },
-]
+  { value: "linear", label: "Linear" },
+  { value: "log", label: "Log" },
+];
 
 function resultColumnToComboboxOption(column: ColumnMeta): ComboboxOption {
   return {
@@ -113,45 +109,46 @@ function resultColumnToComboboxOption(column: ColumnMeta): ComboboxOption {
     label: column.name,
     subtitle: column.dataTypeName,
     keywords: [column.name, column.dataTypeName],
-  }
+  };
 }
 
 export interface GenericResultExplorerProps {
-  mode: 'sql' | 'builder'
-  dimensionControls?: 'result' | 'external'
-  hasRun?: boolean
-  result: QueryResult | null
-  resultRevision: number
-  running: boolean
-  error: string | null
-  errorAction?: ReactNode
-  isResultStale: boolean
-  reconnecting?: boolean
-  configuration: VisualizationConfiguration
-  seriesVisibility: Record<string, boolean>
-  activeFilters: ResultFilter[]
-  externalSeriesColumns?: string[]
-  timeBucket?: 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
-  chartTimeDomain?: { min: number; max: number } | null
-  hidePicker?: boolean
-  onConfigurationChange: (configuration: VisualizationConfiguration) => void
-  onSeriesVisibilityChange: (visibility: Record<string, boolean>) => void
-  onAddFilter: (filter: ResultFilter) => void
-  onRemoveFilter: (id: string) => void
-  onClearFilters: () => void
-  onToggleFilterExecution?: (id: string) => void
-  canPromoteTableFilter?: (filter: ResultFilter) => boolean
-  canPromoteChartFilter?: (filter: ResultFilter) => boolean
+  mode: "sql" | "builder";
+  dimensionControls?: "result" | "external";
+  hasRun?: boolean;
+  result: QueryResult | null;
+  resultRevision: number;
+  running: boolean;
+  error: string | null;
+  errorAction?: ReactNode;
+  isResultStale: boolean;
+  reconnecting?: boolean;
+  configuration: VisualizationConfiguration;
+  seriesVisibility: Record<string, boolean>;
+  activeFilters: ResultFilter[];
+  externalSeriesColumns?: string[];
+  timeBucket?:
+    "minute" | "hour" | "day" | "week" | "month" | "quarter" | "year";
+  chartTimeDomain?: { min: number; max: number } | null;
+  hidePicker?: boolean;
+  onConfigurationChange: (configuration: VisualizationConfiguration) => void;
+  onSeriesVisibilityChange: (visibility: Record<string, boolean>) => void;
+  onAddFilter: (filter: ResultFilter) => void;
+  onRemoveFilter: (id: string) => void;
+  onClearFilters: () => void;
+  onToggleFilterExecution?: (id: string) => void;
+  canPromoteTableFilter?: (filter: ResultFilter) => boolean;
+  canPromoteChartFilter?: (filter: ResultFilter) => boolean;
   canDemoteFilter?: (filter: ResultFilter) => {
-    allowed: boolean
-    reason?: string
-  }
-  onReconnect?: () => void
-  onTemporalRangeSelected?: (range: { startMs: number; endMs: number }) => void
+    allowed: boolean;
+    reason?: string;
+  };
+  onReconnect?: () => void;
+  onTemporalRangeSelected?: (range: { startMs: number; endMs: number }) => void;
 }
 export function GenericResultExplorer({
   mode,
-  dimensionControls = 'result',
+  dimensionControls = "result",
   hasRun = true,
   result,
   resultRevision,
@@ -186,102 +183,102 @@ export function GenericResultExplorer({
         | ((current: Record<string, boolean>) => Record<string, boolean>),
     ) => {
       onSeriesVisibilityChange(
-        typeof next === 'function' ? next(seriesVisibility) : next,
-      )
+        typeof next === "function" ? next(seriesVisibility) : next,
+      );
     },
     [seriesVisibility, onSeriesVisibilityChange],
-  )
-  const [showRunning, setShowRunning] = useState(false)
-  const [aiConfigured, setAiConfigured] = useState(false)
-  const [aiAnalysis, setAiAnalysis] = useState<AiAnomalyAnalysis | null>(null)
-  const [aiAnalysisError, setAiAnalysisError] = useState('')
-  const [aiAnalyzing, setAiAnalyzing] = useState(false)
-  const aiContextRevision = useRef(0)
-  const aiRequestId = useRef<string | null>(null)
-  const hoveredSeriesIdentity = useRef<string | undefined>(undefined)
-  const chartEvents = useRef<ChartEventBridgeLifecycle | null>(null)
+  );
+  const [showRunning, setShowRunning] = useState(false);
+  const [aiConfigured, setAiConfigured] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<AiAnomalyAnalysis | null>(null);
+  const [aiAnalysisError, setAiAnalysisError] = useState("");
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const aiContextRevision = useRef(0);
+  const aiRequestId = useRef<string | null>(null);
+  const hoveredSeriesIdentity = useRef<string | undefined>(undefined);
+  const chartEvents = useRef<ChartEventBridgeLifecycle | null>(null);
   if (!chartEvents.current)
     chartEvents.current = new ChartEventBridgeLifecycle(() => {
-      hoveredSeriesIdentity.current = undefined
-    })
-  const ref = useRef<EChartsReact | null>(null)
-  const plotRef = useRef<HTMLDivElement | null>(null)
-  const chartRevisionRef = useRef<ChartRevision | null>(null)
+      hoveredSeriesIdentity.current = undefined;
+    });
+  const ref = useRef<EChartsReact | null>(null);
+  const plotRef = useRef<HTMLDivElement | null>(null);
+  const chartRevisionRef = useRef<ChartRevision | null>(null);
   const applications = useRef(
     new ChartApplicationController<Record<string, unknown>>(),
-  )
-  const applicationFrame = useRef<number | null>(null)
+  );
+  const applicationFrame = useRef<number | null>(null);
   const [appliedChart, setAppliedChart] = useState<AppliedChart<
     Record<string, unknown>
-  > | null>(null)
-  const previousResultRevision = useRef(resultRevision)
-  const previousView = useRef(configuration.view)
-  const previousVisibility = useRef(seriesVisibility)
+  > | null>(null);
+  const previousResultRevision = useRef(resultRevision);
+  const previousView = useRef(configuration.view);
+  const previousVisibility = useRef(seriesVisibility);
   const [pointMenu, setPointMenu] = useState<{
-    context: ChartPointContext
-    position: { x: number; y: number }
-  } | null>(null)
+    context: ChartPointContext;
+    position: { x: number; y: number };
+  } | null>(null);
   const [renderedRevision, setRenderedRevision] =
-    useState<ChartRevision | null>(null)
-  const [capturing, setCapturing] = useState<'copy' | 'export' | null>(null)
-  const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
-  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const readiness = useRef(new ChartReadinessController())
-  const animationPolicy = useRef(new ChartAnimationPolicy())
+    useState<ChartRevision | null>(null);
+  const [capturing, setCapturing] = useState<"copy" | "export" | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const readiness = useRef(new ChartReadinessController());
+  const animationPolicy = useRef(new ChartAnimationPolicy());
 
   useEffect(
     () => () => {
-      if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
-      chartEvents.current?.detach()
+      if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+      chartEvents.current?.detach();
       if (applicationFrame.current !== null)
-        cancelAnimationFrame(applicationFrame.current)
+        cancelAnimationFrame(applicationFrame.current);
     },
     [],
-  )
+  );
 
   useEffect(() => {
-    let active = true
+    let active = true;
     const refresh = () => {
-      const getSettings = api?.ai?.settings?.get
+      const getSettings = api?.ai?.settings?.get;
       if (!getSettings) {
-        setAiConfigured(false)
-        return
+        setAiConfigured(false);
+        return;
       }
       void getSettings()
         .then((result) => {
-          if (!active) return
-          setAiConfigured(result.ok && isAiConfigured(result.value))
+          if (!active) return;
+          setAiConfigured(result.ok && isAiConfigured(result.value));
         })
         .catch(() => {
-          if (active) setAiConfigured(false)
-        })
-    }
-    refresh()
-    window.addEventListener('datakoala:ai-settings-changed', refresh)
+          if (active) setAiConfigured(false);
+        });
+    };
+    refresh();
+    window.addEventListener("datakoala:ai-settings-changed", refresh);
     return () => {
-      active = false
-      window.removeEventListener('datakoala:ai-settings-changed', refresh)
-    }
-  }, [])
+      active = false;
+      window.removeEventListener("datakoala:ai-settings-changed", refresh);
+    };
+  }, []);
 
   const cancelAiRequest = useCallback(() => {
-    const requestId = aiRequestId.current
-    if (!requestId) return
-    aiRequestId.current = null
-    if (api?.ai?.cancel) void api.ai.cancel(requestId)
-  }, [])
+    const requestId = aiRequestId.current;
+    if (!requestId) return;
+    aiRequestId.current = null;
+    if (api?.ai?.cancel) void api.ai.cancel(requestId);
+  }, []);
 
   useEffect(() => {
     if (!running) {
-      setShowRunning(false)
-      return
+      setShowRunning(false);
+      return;
     }
     const timer = window.setTimeout(
       () => setShowRunning(true),
       QUERY_LOADING_DELAY_MS,
-    )
-    return () => window.clearTimeout(timer)
-  }, [running])
+    );
+    return () => window.clearTimeout(timer);
+  }, [running]);
 
   const effectiveConfiguration = useMemo(
     () =>
@@ -289,20 +286,20 @@ export function GenericResultExplorer({
         ? deriveEffectiveVisualization(
             result,
             configuration,
-            dimensionControls === 'external' && mode === 'builder'
-              ? 'builder'
-              : 'result',
+            dimensionControls === "external" && mode === "builder"
+              ? "builder"
+              : "result",
             externalSeriesColumns,
           )
         : configuration,
     [result, configuration, mode, dimensionControls, externalSeriesColumns],
-  )
+  );
   useEffect(() => {
-    aiContextRevision.current += 1
-    cancelAiRequest()
-    setAiAnalyzing(false)
-    setAiAnalysis(null)
-    setAiAnalysisError('')
+    aiContextRevision.current += 1;
+    cancelAiRequest();
+    setAiAnalyzing(false);
+    setAiAnalysis(null);
+    setAiAnalysisError("");
   }, [
     result,
     resultRevision,
@@ -316,16 +313,16 @@ export function GenericResultExplorer({
     chartTimeDomain,
     timeBucket,
     cancelAiRequest,
-  ])
-  useEffect(() => () => cancelAiRequest(), [cancelAiRequest])
+  ]);
+  useEffect(() => () => cancelAiRequest(), [cancelAiRequest]);
 
   useEffect(() => {
     if (
-      dimensionControls === 'result' &&
+      dimensionControls === "result" &&
       result &&
       !visualizationConfigurationsEqual(effectiveConfiguration, configuration)
     ) {
-      onConfigurationChange(effectiveConfiguration)
+      onConfigurationChange(effectiveConfiguration);
     }
   }, [
     result,
@@ -333,20 +330,20 @@ export function GenericResultExplorer({
     configuration,
     dimensionControls,
     onConfigurationChange,
-  ])
+  ]);
 
   const filteredResult = useMemo(
     () => (result ? filterQueryResult(result, activeFilters) : null),
     [result, activeFilters],
-  )
+  );
   const numeric = useMemo(
     () => (filteredResult ? numericColumns(filteredResult) : []),
     [filteredResult],
-  )
+  );
   const xAxisOptions = useMemo<ComboboxOption[]>(
     () => (result ? result.columns.map(resultColumnToComboboxOption) : []),
     [result],
-  )
+  );
   const yAxisOptions = useMemo<ComboboxOption[]>(
     () =>
       result
@@ -355,7 +352,7 @@ export function GenericResultExplorer({
             .map(resultColumnToComboboxOption)
         : [],
     [result, numeric],
-  )
+  );
   const seriesOptions = useMemo<ComboboxOption[]>(
     () =>
       result
@@ -372,7 +369,7 @@ export function GenericResultExplorer({
       effectiveConfiguration.xColumn,
       effectiveConfiguration.valueColumn,
     ],
-  )
+  );
   const selectedSeriesValues = useMemo(
     () =>
       effectiveConfiguration.seriesColumns?.length
@@ -381,14 +378,14 @@ export function GenericResultExplorer({
           ? [effectiveConfiguration.seriesColumn]
           : [],
     [effectiveConfiguration.seriesColumn, effectiveConfiguration.seriesColumns],
-  )
+  );
   const availableHierarchyDimensions = useMemo(
     () =>
-      dimensionControls === 'external' && mode === 'builder'
+      dimensionControls === "external" && mode === "builder"
         ? externalSeriesColumns
         : selectedSeriesValues,
     [dimensionControls, mode, externalSeriesColumns, selectedSeriesValues],
-  )
+  );
   const hierarchyDimensions = useMemo(
     () =>
       reconcileHierarchyDimensions(
@@ -396,12 +393,12 @@ export function GenericResultExplorer({
         availableHierarchyDimensions,
       ),
     [effectiveConfiguration.hierarchyDimensions, availableHierarchyDimensions],
-  )
+  );
   const hierarchyStats = useMemo(
     () =>
       hierarchyCardinalities(filteredResult?.rows ?? [], hierarchyDimensions),
     [filteredResult, hierarchyDimensions],
-  )
+  );
   const suggestedHierarchyDimensions = useMemo(
     () =>
       suggestHierarchyDimensions(
@@ -409,7 +406,7 @@ export function GenericResultExplorer({
         hierarchyDimensions,
       ),
     [filteredResult, hierarchyDimensions],
-  )
+  );
   const hierarchy = useMemo(
     () =>
       buildHierarchy({
@@ -424,19 +421,19 @@ export function GenericResultExplorer({
       effectiveConfiguration.valueColumn,
       effectiveConfiguration.aggregation,
     ],
-  )
+  );
   const chart = useMemo(
     () =>
       filteredResult
         ? pivotRowsForChart(filteredResult, effectiveConfiguration)
         : null,
     [filteredResult, effectiveConfiguration],
-  )
+  );
   const temporalRangeSelectionEnabled = Boolean(
     chart?.renderable &&
     effectiveConfiguration.xColumn &&
     isTemporalChartValues(chart.xValues),
-  )
+  );
   const filteredTimeDomain = useMemo(
     () =>
       effectiveChartTimeDomain(
@@ -445,7 +442,7 @@ export function GenericResultExplorer({
         effectiveConfiguration.xColumn,
       ),
     [chartTimeDomain, activeFilters, effectiveConfiguration.xColumn],
-  )
+  );
   const effectiveTimeDomain = useMemo(
     () =>
       isResultStale
@@ -455,47 +452,47 @@ export function GenericResultExplorer({
             chart?.xValues ?? [],
           ),
     [filteredTimeDomain, chart, isResultStale],
-  )
+  );
   const activeBuilderTimeBucket =
-    mode === 'builder' && effectiveConfiguration.xColumn === 'time_bucket'
+    mode === "builder" && effectiveConfiguration.xColumn === "time_bucket"
       ? timeBucket
-      : undefined
+      : undefined;
   const seriesIdentities = useMemo(
     () => chart?.series.map((series) => series.name) ?? [],
     [chart],
-  )
+  );
   const legendEntries = useMemo(
     () => chartLegendEntries(seriesIdentities),
     [seriesIdentities],
-  )
+  );
   useEffect(() => {
-    const next = reconcileSeriesVisibility(seriesVisibility, seriesIdentities)
-    if (next !== seriesVisibility) onSeriesVisibilityChange(next)
-  }, [seriesIdentities, seriesVisibility, onSeriesVisibilityChange])
+    const next = reconcileSeriesVisibility(seriesVisibility, seriesIdentities);
+    if (next !== seriesVisibility) onSeriesVisibilityChange(next);
+  }, [seriesIdentities, seriesVisibility, onSeriesVisibilityChange]);
   const logPresentation = useMemo(
     () =>
-      effectiveConfiguration.valueAxisScale === 'log'
+      effectiveConfiguration.valueAxisScale === "log"
         ? prepareLogScaleSeries(chart?.series ?? [], seriesVisibility)
         : null,
     [chart, seriesVisibility, effectiveConfiguration.valueAxisScale],
-  )
+  );
   const update = (patch: Partial<VisualizationConfiguration>) => {
-    onConfigurationChange({ ...configuration, ...patch })
-  }
+    onConfigurationChange({ ...configuration, ...patch });
+  };
   const updateSeries = (values: string[]) =>
     update(
       values.length > 1
         ? { seriesColumn: null, seriesColumns: values }
         : { seriesColumn: values[0] ?? null, seriesColumns: [] },
-    )
+    );
   const hierarchical =
-    effectiveConfiguration.view === 'treemap' ||
-    effectiveConfiguration.view === 'sunburst'
+    effectiveConfiguration.view === "treemap" ||
+    effectiveConfiguration.view === "sunburst";
   const chartReady = hierarchical
     ? Boolean(hierarchyDimensions.length && effectiveConfiguration.valueColumn)
     : Boolean(
         effectiveConfiguration.xColumn && effectiveConfiguration.valueColumn,
-      )
+      );
   const option = useMemo(
     () =>
       (hierarchical || chart?.renderable) && chartReady
@@ -531,33 +528,33 @@ export function GenericResultExplorer({
       hierarchy,
       hierarchical,
     ],
-  )
+  );
   const setHierarchyDimensions = (dimensions: string[]) =>
-    update({ hierarchyDimensions: dimensions })
+    update({ hierarchyDimensions: dimensions });
   const chooseView = (view: typeof effectiveConfiguration.view) => {
-    const enteringHierarchy = view === 'treemap' || view === 'sunburst'
+    const enteringHierarchy = view === "treemap" || view === "sunburst";
     const savedHierarchy = reconcileHierarchyDimensions(
       configuration.hierarchyDimensions,
       availableHierarchyDimensions,
-    )
+    );
     const hierarchyOrder = configuration.hierarchyDimensions?.length
       ? savedHierarchy
-      : suggestedHierarchyDimensions
+      : suggestedHierarchyDimensions;
     update({
       view,
       ...(enteringHierarchy ? { hierarchyDimensions: hierarchyOrder } : {}),
-    })
-  }
+    });
+  };
   const moveHierarchyDimension = (index: number, offset: number) => {
-    const next = [...hierarchyDimensions]
-    const target = index + offset
-    if (target < 0 || target >= next.length) return
-    ;[next[index], next[target]] = [next[target], next[index]]
-    setHierarchyDimensions(next)
-  }
+    const next = [...hierarchyDimensions];
+    const target = index + offset;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setHierarchyDimensions(next);
+  };
   const chartFingerprint = useMemo(
     () =>
-      `${resultRevision}:${createChartFingerprint(chart, effectiveConfiguration, seriesVisibility)}:${mode}:${activeBuilderTimeBucket ?? ''}:domain=${effectiveTimeDomain ? `${effectiveTimeDomain.min}-${effectiveTimeDomain.max}` : ''}:requested=${configuration.view}/${configuration.xColumn ?? ''}/${configuration.valueColumn ?? ''}/${configuration.aggregation}/${configuration.seriesColumn ?? ''}/${configuration.seriesColumns?.join(',') ?? ''}:hierarchy=${hierarchical ? JSON.stringify(hierarchy) : ''}`,
+      `${resultRevision}:${createChartFingerprint(chart, effectiveConfiguration, seriesVisibility)}:${mode}:${activeBuilderTimeBucket ?? ""}:domain=${effectiveTimeDomain ? `${effectiveTimeDomain.min}-${effectiveTimeDomain.max}` : ""}:requested=${configuration.view}/${configuration.xColumn ?? ""}/${configuration.valueColumn ?? ""}/${configuration.aggregation}/${configuration.seriesColumn ?? ""}/${configuration.seriesColumns?.join(",") ?? ""}:hierarchy=${hierarchical ? JSON.stringify(hierarchy) : ""}`,
     [
       resultRevision,
       chart,
@@ -570,7 +567,7 @@ export function GenericResultExplorer({
       hierarchy,
       hierarchical,
     ],
-  )
+  );
   const renderedOption = useMemo(
     () =>
       option
@@ -584,52 +581,52 @@ export function GenericResultExplorer({
           }
         : null,
     [chartFingerprint, option],
-  )
-  const chartRevision = useMemo(createChartRevision, [chartFingerprint])
+  );
+  const chartRevision = useMemo(createChartRevision, [chartFingerprint]);
   useEffect(() => {
-    if (!renderedOption) return
+    if (!renderedOption) return;
     const origin: ChartRevisionOrigin =
       resultRevision !== previousResultRevision.current
-        ? 'query-result'
+        ? "query-result"
         : effectiveConfiguration.view !== previousView.current
-          ? 'view'
+          ? "view"
           : seriesVisibility !== previousVisibility.current
-            ? 'series-visibility'
-            : 'configuration'
-    previousResultRevision.current = resultRevision
-    previousView.current = effectiveConfiguration.view
-    previousVisibility.current = seriesVisibility
+            ? "series-visibility"
+            : "configuration";
+    previousResultRevision.current = resultRevision;
+    previousView.current = effectiveConfiguration.view;
+    previousVisibility.current = seriesVisibility;
     const supersedes =
       applications.current.getPending()?.fingerprint ??
-      applications.current.getApplied()?.fingerprint
+      applications.current.getApplied()?.fingerprint;
     applications.current.request({
       revision: chartRevision,
       fingerprint: chartFingerprint,
       option: renderedOption,
       origin,
-    })
+    });
     if (import.meta.env.DEV)
-      console.debug('[chart-application] candidate', {
+      console.debug("[chart-application] candidate", {
         fingerprint: chartFingerprint,
         origin,
         supersedes,
-      })
+      });
     if (applicationFrame.current !== null)
-      cancelAnimationFrame(applicationFrame.current)
+      cancelAnimationFrame(applicationFrame.current);
     applicationFrame.current = requestAnimationFrame(() => {
-      applicationFrame.current = null
-      const applied = applications.current.applyPending()
-      if (!applied) return
-      chartRevisionRef.current = applied.revision
-      readiness.current.commitRevision(applied.revision)
+      applicationFrame.current = null;
+      const applied = applications.current.applyPending();
+      if (!applied) return;
+      chartRevisionRef.current = applied.revision;
+      readiness.current.commitRevision(applied.revision);
       if (import.meta.env.DEV)
-        console.debug('[chart-application] apply', {
+        console.debug("[chart-application] apply", {
           token: applied.token,
           fingerprint: applied.fingerprint,
           animation: applied.option.animation,
-        })
-      setAppliedChart(applied)
-    })
+        });
+      setAppliedChart(applied);
+    });
   }, [
     chartRevision,
     chartFingerprint,
@@ -637,63 +634,63 @@ export function GenericResultExplorer({
     resultRevision,
     effectiveConfiguration.view,
     seriesVisibility,
-  ])
+  ]);
   const hasRenderableChart = Boolean(
     appliedChart && result?.rows.length && filteredResult?.rows.length,
-  )
+  );
   const setChartRef = useCallback(
     (instance: EChartsReact | null) => {
-      ref.current = instance
-      const echarts = instance?.getEchartsInstance() ?? null
-      chartEvents.current?.attach(echarts)
+      ref.current = instance;
+      const echarts = instance?.getEchartsInstance() ?? null;
+      chartEvents.current?.attach(echarts);
       if (echarts && chartRevisionRef.current)
-        readiness.current.commitRevision(chartRevisionRef.current)
+        readiness.current.commitRevision(chartRevisionRef.current);
       if (echarts && temporalRangeSelectionEnabled) {
         echarts.dispatchAction({
-          type: 'takeGlobalCursor',
-          key: 'brush',
-          brushOption: { brushType: 'lineX', brushMode: 'single' },
-        })
+          type: "takeGlobalCursor",
+          key: "brush",
+          brushOption: { brushType: "lineX", brushMode: "single" },
+        });
       }
     },
     [temporalRangeSelectionEnabled],
-  )
+  );
   useEffect(() => {
-    const plot = plotRef.current
-    if (!plot || typeof ResizeObserver === 'undefined') return
+    const plot = plotRef.current;
+    if (!plot || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
-      const echarts = ref.current?.getEchartsInstance()
-      if (echarts && !echarts.isDisposed?.()) echarts.resize()
-    })
-    observer.observe(plot)
-    return () => observer.disconnect()
-  }, [appliedChart])
+      const echarts = ref.current?.getEchartsInstance();
+      if (echarts && !echarts.isDisposed?.()) echarts.resize();
+    });
+    observer.observe(plot);
+    return () => observer.disconnect();
+  }, [appliedChart]);
   useEffect(() => {
     if (ref.current && appliedChart)
-      readiness.current.commitRevision(appliedChart.revision)
-    const echarts = ref.current?.getEchartsInstance()
-    if (!echarts) return
+      readiness.current.commitRevision(appliedChart.revision);
+    const echarts = ref.current?.getEchartsInstance();
+    if (!echarts) return;
     if (temporalRangeSelectionEnabled) {
       echarts.dispatchAction({
-        type: 'takeGlobalCursor',
-        key: 'brush',
-        brushOption: { brushType: 'lineX', brushMode: 'single' },
-      })
+        type: "takeGlobalCursor",
+        key: "brush",
+        brushOption: { brushType: "lineX", brushMode: "single" },
+      });
     } else {
       echarts.dispatchAction({
-        type: 'takeGlobalCursor',
-        key: 'brush',
+        type: "takeGlobalCursor",
+        key: "brush",
         brushOption: { brushType: false },
-      })
-      echarts.dispatchAction({ type: 'brush', areas: [] })
+      });
+      echarts.dispatchAction({ type: "brush", areas: [] });
     }
-  }, [appliedChart, temporalRangeSelectionEnabled])
+  }, [appliedChart, temporalRangeSelectionEnabled]);
   const chartRendered = chartActionsReady(
     Boolean(appliedChart && renderedRevision === appliedChart.revision),
     running,
     error,
-  )
-  const semanticCounts = semanticChartCounts(appliedChart?.option ?? null)
+  );
+  const semanticCounts = semanticChartCounts(appliedChart?.option ?? null);
   const semanticConfiguration = JSON.stringify({
     view: configuration.view,
     x: configuration.xColumn,
@@ -705,78 +702,78 @@ export function GenericResultExplorer({
         : [],
     aggregation: configuration.aggregation,
     resultRevision,
-  })
+  });
   const image = async (revision: ChartRevision) => {
-    const instance = ref.current?.getEchartsInstance()
-    if (!instance) throw new Error('Chart is not available')
+    const instance = ref.current?.getEchartsInstance();
+    if (!instance) throw new Error("Chart is not available");
     const png = await captureChartPng(
       instance,
       chartCapturePixelRatio(window.devicePixelRatio),
       hierarchical ? [] : legendEntries,
       seriesVisibility,
-    )
+    );
     if (!readiness.current.isCurrentRevision(revision))
-      throw new Error('Chart changed while capturing')
-    return png
-  }
+      throw new Error("Chart changed while capturing");
+    return png;
+  };
   const feedback = (message: string) => {
-    if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
-    setCopyFeedback(message)
-    feedbackTimer.current = setTimeout(() => setCopyFeedback(null), 1800)
-  }
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    setCopyFeedback(message);
+    feedbackTimer.current = setTimeout(() => setCopyFeedback(null), 1800);
+  };
   const copyChart = async () => {
-    if (!chartRendered || capturing || !appliedChart) return
-    const revision = appliedChart.revision
-    setCapturing('copy')
+    if (!chartRendered || capturing || !appliedChart) return;
+    const revision = appliedChart.revision;
+    setCapturing("copy");
     try {
-      const ok = await copyChartPng(await image(revision), api.clipboardImage)
-      notifyChartCopyResult(ok)
-      if (!ok) console.error('[chart] Clipboard image write was rejected')
+      const ok = await copyChartPng(await image(revision), api.clipboardImage);
+      notifyChartCopyResult(ok);
+      if (!ok) console.error("[chart] Clipboard image write was rejected");
     } catch (error) {
-      console.error('[chart] Could not copy chart', error)
-      notifyChartCopyResult(false)
+      console.error("[chart] Could not copy chart", error);
+      notifyChartCopyResult(false);
     } finally {
-      setCapturing(null)
+      setCapturing(null);
     }
-  }
+  };
   const exportPng = async () => {
-    if (!chartRendered || capturing || !appliedChart) return
-    const revision = appliedChart.revision
-    setCapturing('export')
+    if (!chartRendered || capturing || !appliedChart) return;
+    const revision = appliedChart.revision;
+    setCapturing("export");
     try {
       const outcome = await exportChartPng(
         () => image(revision),
         api.export.saveBinary,
-      )
-      if (outcome === 'saved') feedback('Chart exported')
+      );
+      if (outcome === "saved") feedback("Chart exported");
     } catch (error) {
-      console.error('[chart] Could not export chart', error)
-      feedback('Could not export chart')
+      console.error("[chart] Could not export chart", error);
+      feedback("Could not export chart");
     } finally {
-      setCapturing(null)
+      setCapturing(null);
     }
-  }
-  const dismissPointMenu = useCallback(() => setPointMenu(null), [])
+  };
+  const dismissPointMenu = useCallback(() => setPointMenu(null), []);
   const onBrushEnd = (params: {
-    areas?: Array<{ coordRange?: unknown[] }>
+    areas?: Array<{ coordRange?: unknown[] }>;
   }) => {
     if (
       !temporalRangeSelectionEnabled ||
       !chart?.renderable ||
       !effectiveConfiguration.xColumn
     )
-      return
+      return;
     const range = chartTimeSelectionRange(
       params.areas?.[0]?.coordRange ?? [],
       chart.xValues,
       activeBuilderTimeBucket,
-    )
-    if (!range) return
+    );
+    if (!range) return;
     if (onTemporalRangeSelected)
       onTemporalRangeSelected({
         startMs: Date.parse(String(range.startInclusive)),
         endMs: Date.parse(String(range.endExclusive)),
-      })
+      });
     else
       onAddFilter(
         createResultRangeFilter(
@@ -784,54 +781,54 @@ export function GenericResultExplorer({
           range.startInclusive,
           range.endExclusive,
         ),
-      )
-    const instance = ref.current?.getEchartsInstance()
-    instance?.dispatchAction({ type: 'brush', areas: [] })
+      );
+    const instance = ref.current?.getEchartsInstance();
+    instance?.dispatchAction({ type: "brush", areas: [] });
     instance?.dispatchAction({
-      type: 'takeGlobalCursor',
-      key: 'brush',
-      brushOption: { brushType: 'lineX', brushMode: 'single' },
-    })
-  }
+      type: "takeGlobalCursor",
+      key: "brush",
+      brushOption: { brushType: "lineX", brushMode: "single" },
+    });
+  };
   const onChartClick = (params: {
-    componentType?: string
-    dataIndex?: number
-    seriesIndex?: number
-    event?: { event?: MouseEvent; offsetX?: number; offsetY?: number }
+    componentType?: string;
+    dataIndex?: number;
+    seriesIndex?: number;
+    event?: { event?: MouseEvent; offsetX?: number; offsetY?: number };
   }) => {
     if (
-      params.componentType !== 'series' ||
+      params.componentType !== "series" ||
       !chart?.renderable ||
       !effectiveConfiguration.xColumn ||
       params.dataIndex == null ||
       params.seriesIndex == null
     )
-      return
-    const xValue = chart.xValues[params.dataIndex]
-    const seriesValue = chart.seriesValues[params.seriesIndex] ?? null
-    const tuple = decodeBuilderSeriesTuple(seriesValue)
+      return;
+    const xValue = chart.xValues[params.dataIndex];
+    const seriesValue = chart.seriesValues[params.seriesIndex] ?? null;
+    const tuple = decodeBuilderSeriesTuple(seriesValue);
     const directSeriesColumn =
       effectiveConfiguration.seriesColumn &&
-      effectiveConfiguration.seriesColumn !== 'series'
+      effectiveConfiguration.seriesColumn !== "series"
         ? effectiveConfiguration.seriesColumn
-        : null
+        : null;
     const seriesFilters =
       tuple?.map(({ column, value }) => ({ column, value })) ??
       (directSeriesColumn
         ? [{ column: directSeriesColumn, value: seriesValue }]
-        : undefined)
-    const native = params.event?.event
+        : undefined);
+    const native = params.event?.event;
     const bounds = ref.current
       ?.getEchartsInstance()
       .getDom()
-      .getBoundingClientRect()
+      .getBoundingClientRect();
     setPointMenu({
       context: {
         xColumn: effectiveConfiguration.xColumn,
         xValue,
         seriesColumn:
           effectiveConfiguration.seriesColumn ??
-          (effectiveConfiguration.seriesColumns?.length ? 'series' : null),
+          (effectiveConfiguration.seriesColumns?.length ? "series" : null),
         seriesValue,
         seriesFilters,
         timeBucket: activeBuilderTimeBucket,
@@ -841,28 +838,28 @@ export function GenericResultExplorer({
           native?.clientX ?? (bounds?.left ?? 0) + (params.event?.offsetX ?? 0),
         y: native?.clientY ?? (bounds?.top ?? 0) + (params.event?.offsetY ?? 0),
       },
-    })
-  }
+    });
+  };
   const applyPointAction = (action: ChartFilterAction) => {
-    if (!pointMenu) return
-    const { context } = pointMenu
+    if (!pointMenu) return;
+    const { context } = pointMenu;
     if (
-      action === 'includeSeries' ||
-      action === 'excludeSeries' ||
-      action === 'includeSeriesAndX'
+      action === "includeSeries" ||
+      action === "excludeSeries" ||
+      action === "includeSeriesAndX"
     ) {
-      const include = action !== 'excludeSeries'
+      const include = action !== "excludeSeries";
       for (const filter of chartSeriesResultFilters(context, include))
-        onAddFilter(filter)
+        onAddFilter(filter);
     }
     if (
-      action === 'includeX' ||
-      action === 'excludeX' ||
-      action === 'includeSeriesAndX'
+      action === "includeX" ||
+      action === "excludeX" ||
+      action === "includeSeriesAndX"
     ) {
-      const exclude = action === 'excludeX'
+      const exclude = action === "excludeX";
       if (context.timeBucket) {
-        const range = timeBucketRange(context.xValue, context.timeBucket)
+        const range = timeBucketRange(context.xValue, context.timeBucket);
         if (range)
           onAddFilter(
             createResultRangeFilter(
@@ -871,40 +868,40 @@ export function GenericResultExplorer({
               range.endExclusive,
               exclude,
             ),
-          )
+          );
       } else {
-        const operator: 'equals' | 'notEquals' | 'isNull' | 'isNotNull' =
+        const operator: "equals" | "notEquals" | "isNull" | "isNotNull" =
           context.xValue == null
             ? exclude
-              ? 'isNotNull'
-              : 'isNull'
+              ? "isNotNull"
+              : "isNull"
             : exclude
-              ? 'notEquals'
-              : 'equals'
+              ? "notEquals"
+              : "equals";
         onAddFilter(
           createResultFilter(context.xColumn, operator, context.xValue),
-        )
+        );
       }
     }
-    dismissPointMenu()
-  }
+    dismissPointMenu();
+  };
   const onSeriesMouseOver = (params: {
-    componentType?: string
-    seriesName?: string
+    componentType?: string;
+    seriesName?: string;
   }) => {
-    if (params.componentType === 'series' && params.seriesName)
-      hoveredSeriesIdentity.current = params.seriesName
-  }
+    if (params.componentType === "series" && params.seriesName)
+      hoveredSeriesIdentity.current = params.seriesName;
+  };
   const onSeriesMouseOut = (params: {
-    componentType?: string
-    seriesName?: string
+    componentType?: string;
+    seriesName?: string;
   }) => {
     if (
-      params.componentType === 'series' &&
+      params.componentType === "series" &&
       params.seriesName === hoveredSeriesIdentity.current
     )
-      hoveredSeriesIdentity.current = undefined
-  }
+      hoveredSeriesIdentity.current = undefined;
+  };
   const onChartFinished = () => {
     if (
       !appliedChart ||
@@ -913,19 +910,19 @@ export function GenericResultExplorer({
       !applications.current.finish(appliedChart.token)
     ) {
       if (import.meta.env.DEV)
-        console.debug('[chart-application] ignored stale finished event', {
+        console.debug("[chart-application] ignored stale finished event", {
           token: appliedChart?.token,
-        })
-      return
+        });
+      return;
     }
-    animationPolicy.current.commit(appliedChart.fingerprint)
-    setRenderedRevision(appliedChart.revision)
+    animationPolicy.current.commit(appliedChart.fingerprint);
+    setRenderedRevision(appliedChart.revision);
     if (import.meta.env.DEV)
-      console.debug('[chart-application] finished', {
+      console.debug("[chart-application] finished", {
         token: appliedChart.token,
         fingerprint: appliedChart.fingerprint,
-      })
-  }
+      });
+  };
   const analyzeChartWithAi = async () => {
     if (
       !chart ||
@@ -934,31 +931,28 @@ export function GenericResultExplorer({
       !api?.ai?.analyzeAnomalies ||
       isResultStale
     )
-      return
-    const requestRevision = aiContextRevision.current
+      return;
+    const requestRevision = aiContextRevision.current;
     const series = chart.series
       .filter((item) => seriesVisibility[item.name] !== false)
-      .map((item) =>
-        sampleChartSeries(item.name, item.data, chart.xValues),
-      )
+      .map((item) => sampleChartSeries(item.name, item.data, chart.xValues))
       .filter(
-        (item) =>
-          item.points.length >= AI_LIMITS.anomalyMinimumPointsPerSeries,
+        (item) => item.points.length >= AI_LIMITS.anomalyMinimumPointsPerSeries,
       )
-      .slice(0, AI_LIMITS.anomalySeries)
+      .slice(0, AI_LIMITS.anomalySeries);
     if (!series.length) {
-      setAiAnalysis(null)
+      setAiAnalysis(null);
       setAiAnalysisError(
-        'AI analysis needs at least three numeric points in a visible series.',
-      )
-      return
+        "AI analysis needs at least three numeric points in a visible series.",
+      );
+      return;
     }
 
-    const requestId = crypto.randomUUID()
-    aiRequestId.current = requestId
-    setAiAnalyzing(true)
-    setAiAnalysis(null)
-    setAiAnalysisError('')
+    const requestId = crypto.randomUUID();
+    aiRequestId.current = requestId;
+    setAiAnalyzing(true);
+    setAiAnalysis(null);
+    setAiAnalysisError("");
     try {
       const response = await api.ai.analyzeAnomalies({
         requestId,
@@ -968,50 +962,50 @@ export function GenericResultExplorer({
           valueColumn: effectiveConfiguration.valueColumn,
           series,
         },
-      })
+      });
       if (
         aiRequestId.current !== requestId ||
         aiContextRevision.current !== requestRevision
       )
-        return
-      if (response.ok) setAiAnalysis(response.value)
-      else setAiAnalysisError(response.message)
+        return;
+      if (response.ok) setAiAnalysis(response.value);
+      else setAiAnalysisError(response.message);
     } catch {
       if (
         aiRequestId.current === requestId &&
         aiContextRevision.current === requestRevision
       )
         setAiAnalysisError(
-          'AI analysis failed. Check your connection and try again.',
-        )
+          "AI analysis failed. Check your connection and try again.",
+        );
     } finally {
       if (aiRequestId.current === requestId) {
-        aiRequestId.current = null
-        setAiAnalyzing(false)
+        aiRequestId.current = null;
+        setAiAnalyzing(false);
       }
     }
-  }
+  };
 
   const hiddenSeries = seriesIdentities.filter(
     (identity) => seriesVisibility[identity] === false,
-  )
+  );
   const showChart = shouldKeepChartMounted(
     effectiveConfiguration.view,
     Boolean(result),
-  )
+  );
 
   if (!hasRun)
     return (
       <div className={styles.explorer} data-result-explorer>
         <div className={styles.pane}>
           <div className={styles.empty} data-result-empty>
-            {mode === 'builder'
-              ? 'Select a table and X axis, then run the query to explore the grouped result.'
-              : 'Run a query to view its results.'}
+            {mode === "builder"
+              ? "Select a table and X axis, then run the query to explore the grouped result."
+              : "Run a query to view its results."}
           </div>
         </div>
       </div>
-    )
+    );
   return (
     <div className={styles.explorer} data-result-explorer>
       {result && isResultStale && (
@@ -1025,7 +1019,7 @@ export function GenericResultExplorer({
             onClick={() => void onReconnect?.()}
             disabled={reconnecting || !onReconnect}
           >
-            {reconnecting ? 'Reconnecting…' : 'Reconnect'}
+            {reconnecting ? "Reconnecting…" : "Reconnect"}
           </button>
         </div>
       )}
@@ -1035,14 +1029,14 @@ export function GenericResultExplorer({
           onChange={chooseView}
         />
       )}
-      {effectiveConfiguration.view !== 'table' &&
+      {effectiveConfiguration.view !== "table" &&
         result &&
-        dimensionControls === 'result' && (
+        dimensionControls === "result" && (
           <div className={styles.visualizationControls}>
             <div className={styles.visualizationControl}>
               <Combobox
                 label="X axis"
-                value={effectiveConfiguration.xColumn ?? ''}
+                value={effectiveConfiguration.xColumn ?? ""}
                 options={xAxisOptions}
                 onChange={(value) => update({ xColumn: value || null })}
                 placeholder="Choose…"
@@ -1053,10 +1047,10 @@ export function GenericResultExplorer({
             <div className={styles.visualizationControl}>
               <Combobox
                 label="Y axis"
-                value={effectiveConfiguration.valueColumn ?? ''}
+                value={effectiveConfiguration.valueColumn ?? ""}
                 options={yAxisOptions}
                 onChange={(value) => update({ valueColumn: value || null })}
-                placeholder={numeric.length ? 'Choose…' : 'No numeric column'}
+                placeholder={numeric.length ? "Choose…" : "No numeric column"}
                 searchable
                 emptyMessage="No matching numeric columns"
               />
@@ -1085,7 +1079,7 @@ export function GenericResultExplorer({
             {hierarchyStats.map(({ column, distinctCount }, index) => (
               <div className={styles.hierarchyLevel} key={column}>
                 <span>
-                  <b>{index + 1}</b> {column}{' '}
+                  <b>{index + 1}</b> {column}{" "}
                   <small>{distinctCount} values</small>
                 </span>
                 <button
@@ -1109,8 +1103,8 @@ export function GenericResultExplorer({
               </div>
             ))}
           </div>
-          {hierarchyDimensions.join('\0') !==
-            suggestedHierarchyDimensions.join('\0') && (
+          {hierarchyDimensions.join("\0") !==
+            suggestedHierarchyDimensions.join("\0") && (
             <button
               className="btn ghost"
               type="button"
@@ -1146,7 +1140,7 @@ export function GenericResultExplorer({
             <span className={styles.stats}>
               {activeFilters.length
                 ? `${filteredResult?.rowCount ?? 0} of ${result.rowCount}`
-                : result.rowCount}{' '}
+                : result.rowCount}{" "}
               rows · {result.columns.length} cols · {result.durationMs} ms
             </span>
             <div className={styles.spacer} />
@@ -1166,39 +1160,39 @@ export function GenericResultExplorer({
               <Combobox
                 label="Unit"
                 mode="inline"
-                value={effectiveConfiguration.displayUnit?.family ?? 'number'}
+                value={effectiveConfiguration.displayUnit?.family ?? "number"}
                 options={[
-                  { value: 'number', label: 'Number' },
-                  { value: 'time', label: 'Time' },
+                  { value: "number", label: "Number" },
+                  { value: "time", label: "Time" },
                 ]}
                 onChange={(value) =>
                   update({
                     displayUnit:
-                      value === 'time'
-                        ? { family: 'time', unit: 'ms' }
-                        : { family: 'number' },
+                      value === "time"
+                        ? { family: "time", unit: "ms" }
+                        : { family: "number" },
                   })
                 }
               />
             </div>
-            {effectiveConfiguration.displayUnit?.family === 'time' && (
+            {effectiveConfiguration.displayUnit?.family === "time" && (
               <div className={styles.axisScale}>
                 <Combobox
                   label="Input time unit"
                   mode="inline"
                   value={effectiveConfiguration.displayUnit.unit}
-                  options={['ms', 's', 'min', 'h'].map((unit) => ({
+                  options={["ms", "s", "min", "h"].map((unit) => ({
                     value: unit,
                     label: unit,
                   }))}
                   onChange={(value) =>
                     update({
                       displayUnit: {
-                        family: 'time',
+                        family: "time",
                         unit: value as Extract<
                           DisplayUnit,
-                          { family: 'time' }
-                        >['unit'],
+                          { family: "time" }
+                        >["unit"],
                       },
                     })
                   }
@@ -1210,7 +1204,7 @@ export function GenericResultExplorer({
                 <Combobox
                   label="Value axis scale"
                   mode="inline"
-                  value={effectiveConfiguration.valueAxisScale ?? 'linear'}
+                  value={effectiveConfiguration.valueAxisScale ?? "linear"}
                   options={valueScaleOptions}
                   onChange={(value) =>
                     update({ valueAxisScale: value as ValueAxisScale })
@@ -1219,7 +1213,7 @@ export function GenericResultExplorer({
               </div>
             )}
             {aiConfigured &&
-              effectiveConfiguration.view === 'line' &&
+              effectiveConfiguration.view === "line" &&
               chart?.renderable &&
               !hierarchical && (
                 <button
@@ -1228,7 +1222,7 @@ export function GenericResultExplorer({
                   title="Up to 8 series, 32 points each; preserves bucket minima and maxima."
                   onClick={() => void analyzeChartWithAi()}
                 >
-                  {aiAnalyzing ? 'Analyzing with AI…' : 'Analyze with AI'}
+                  {aiAnalyzing ? "Analyzing with AI…" : "Analyze with AI"}
                 </button>
               )}
             <button
@@ -1239,7 +1233,7 @@ export function GenericResultExplorer({
               )}
               onClick={copyChart}
             >
-              {capturing === 'copy' ? 'Copying…' : 'Copy chart'}
+              {capturing === "copy" ? "Copying…" : "Copy chart"}
             </button>
             <button
               className="btn ghost"
@@ -1249,7 +1243,7 @@ export function GenericResultExplorer({
               )}
               onClick={exportPng}
             >
-              {capturing === 'export' ? 'Exporting…' : 'Export PNG'}
+              {capturing === "export" ? "Exporting…" : "Export PNG"}
             </button>
           </div>
           {aiAnalysis && (
@@ -1318,13 +1312,13 @@ export function GenericResultExplorer({
               )}
             </div>
           )}
-          {effectiveConfiguration.valueAxisScale === 'log' &&
+          {effectiveConfiguration.valueAxisScale === "log" &&
             (logPresentation?.omittedCount ?? 0) > 0 && (
               <div className={styles.warning} role="status">
-                Log scale: {logPresentation!.omittedCount} zero or negative{' '}
+                Log scale: {logPresentation!.omittedCount} zero or negative{" "}
                 {logPresentation!.omittedCount === 1
-                  ? 'point is'
-                  : 'points are'}{' '}
+                  ? "point is"
+                  : "points are"}{" "}
                 not plotted.
               </div>
             )}
@@ -1336,8 +1330,8 @@ export function GenericResultExplorer({
           ) : !chartReady ? (
             <div className={styles.empty} data-result-empty>
               {hierarchical
-                ? 'Choose at least one Series dimension and a Y axis to render this hierarchy.'
-                : 'Choose an X axis and Y axis column to render a chart.'}
+                ? "Choose at least one Series dimension and a Y axis to render this hierarchy."
+                : "Choose an X axis and Y axis column to render a chart."}
             </div>
           ) : result.rows.length === 0 ? (
             <div className={styles.empty} data-result-empty>
@@ -1349,13 +1343,13 @@ export function GenericResultExplorer({
             </div>
           ) : !hierarchical && chart && !chart.renderable ? (
             <div className={styles.empty} data-result-empty role="alert">
-              {chart.rejectionReason === 'too-many-series'
-                ? 'Too many series to chart: more than 100.'
-                : 'This chart would contain more than 100,000 points.'}
+              {chart.rejectionReason === "too-many-series"
+                ? "Too many series to chart: more than 100."
+                : "This chart would contain more than 100,000 points."}
               <br />
               {activeBuilderTimeBucket
-                ? 'Filter the result, narrow the time range, increase the bucket size, or choose another Series dimension.'
-                : 'Filter the result, reduce Series cardinality, or choose another X axis.'}
+                ? "Filter the result, narrow the time range, increase the bucket size, or choose another Series dimension."
+                : "Filter the result, reduce Series cardinality, or choose another X axis."}
             </div>
           ) : !appliedChart ? (
             <div className={styles.chartCanvas} data-result-chart-canvas />
@@ -1386,7 +1380,7 @@ export function GenericResultExplorer({
                       mouseout: onSeriesMouseOut,
                       finished: onChartFinished,
                     }}
-                    style={{ height: '100%', width: '100%' }}
+                    style={{ height: "100%", width: "100%" }}
                   />
                 </div>
                 {!hierarchical && (
@@ -1442,5 +1436,5 @@ export function GenericResultExplorer({
         </div>
       )}
     </div>
-  )
+  );
 }
