@@ -819,7 +819,7 @@ test('timeout, owner-scoped cancellation, duplicate protection and all completio
       },
       analyzeAnomalies: async () => ({
         summary: '',
-        findings: [],
+        anomalies: [],
         limitations: [],
         followUps: [],
       }),
