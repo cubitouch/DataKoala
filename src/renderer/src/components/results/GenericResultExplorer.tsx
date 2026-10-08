@@ -87,10 +87,7 @@ import {
   type ComboboxOption,
 } from '@components/ui/combobox'
 import type { ColumnMeta, QueryResult } from '@shared/types'
-import {
-  sampleChartSeries,
-  type SampledChartSeries,
-} from '@lib/chartAnomalySampling'
+import { sampleChartSeries } from '@lib/chartAnomalySampling'
 import {
   resolveAiAnomalies,
   type SubmittedAnomalySeries,
@@ -992,6 +989,8 @@ export function GenericResultExplorer({
       .slice(0, AI_LIMITS.anomalySeries)
     if (!submitted.length) {
       setAiAnalysis(null)
+      setAiSubmittedSamples(null)
+      setAiAnomaliesVisible(false)
       setAiAnalysisError(
         'AI analysis needs at least three numeric points in a visible series.',
       )
