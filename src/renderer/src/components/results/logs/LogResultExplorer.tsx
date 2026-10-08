@@ -7,7 +7,7 @@ import {
 } from '@components/ui/ResizableDetailPanel'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { LokiFilterSource, LokiLogRow } from '@shared/loki'
+import type { LokiFilterSource, LokiLogRow, LokiParserKind } from '@shared/loki'
 import styles from './LogResultExplorer.module.css'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
 import { createTextSearch } from '@lib/textSearch'
