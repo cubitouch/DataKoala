@@ -703,6 +703,12 @@ test('timeout, owner-scoped cancellation, duplicate protection and all completio
       proposeBuilder: async () => {
         throw new Error('not used in query tests')
       },
+      analyzeAnomalies: async () => ({
+        summary: '',
+        findings: [],
+        limitations: [],
+        followUps: [],
+      }),
     }),
     25,
   )
