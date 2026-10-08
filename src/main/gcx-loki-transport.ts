@@ -2,6 +2,7 @@ import type { ColumnMeta } from '../shared/types.ts'
 import {
   sortLokiLogRowsNewestFirst,
   type LokiDatasourceOption,
+  type LokiSeveritySource,
   type LokiLogRow,
   type LokiMetadataRequest,
   type LokiQueryRequest,
@@ -55,18 +56,48 @@ export function normalizeLokiDatasources(raw: unknown): LokiDatasourceOption[] {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-function severityOf(...records: Record<string, unknown>[]): string {
-  const names = ['severity', 'severity_text', 'level', 'loglevel', 'log_level']
-  for (const record of records)
-    for (const [key, value] of Object.entries(record)) {
+function severityInfo(
+  parsedFields: Record<string, unknown>,
+  structuredMetadata: Record<string, unknown>,
+  payload: Record<string, unknown>,
+  labels: Record<string, unknown>,
+): { severity: string; severitySource?: LokiSeveritySource } {
+  const names = new Set([
+    'severity',
+    'severity_text',
+    'level',
+    'loglevel',
+    'log_level',
+  ])
+  const records: Array<
+    [LokiSeveritySource['source'], Record<string, unknown>]
+  > = [
+    ['parsed-field', parsedFields],
+    ['structured-metadata', structuredMetadata],
+    ['parsed-field', payload],
+    ['label', labels],
+  ]
+  for (const [source, record] of records)
+    for (const [field, value] of Object.entries(record))
       if (
-        names.includes(key.toLowerCase()) &&
+        names.has(field.toLowerCase()) &&
         value != null &&
         String(value).trim()
-      )
-        return String(value).toLowerCase()
-    }
-  return 'unknown'
+      ) {
+        const parser =
+          source === 'parsed-field' && Object.hasOwn(payload, field)
+            ? ('json' as const)
+            : undefined
+        return {
+          severity: String(value).toLowerCase(),
+          severitySource: {
+            source,
+            field,
+            ...(parser ? { parser } : {}),
+          },
+        }
+      }
+  return { severity: 'unknown' }
 }
 function identifierOf(
   kind: 'trace' | 'span',
@@ -264,6 +295,7 @@ export function normalizeLokiQuery(
         parsedFields.trace_id = extracted.traceId
       if (!authoritativeSpanId && extracted.spanId)
         parsedFields.span_id = extracted.spanId
+      const severity = severityInfo(parsedFields, structuredMetadata, payload, labels)
       rows.push({
         id: `${timestampNs}:${rows.length}`,
         timestampNs,
@@ -272,7 +304,7 @@ export function normalizeLokiQuery(
         labels,
         structuredMetadata,
         parsedFields,
-        severity: severityOf(parsedFields, structuredMetadata, payload, labels),
+        ...severity,
         traceId,
         spanId,
       })
