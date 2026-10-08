@@ -271,7 +271,6 @@ export function GenericResultExplorer({
     if (api?.ai?.cancel) void api.ai.cancel(requestId)
   }, [])
 
-
   useEffect(() => {
     if (!running) {
       setShowRunning(false)
@@ -567,7 +566,6 @@ export function GenericResultExplorer({
       effectiveTimeDomain,
       hierarchy,
       hierarchical,
-      anomalies,
     ],
   )
   const renderedOption = useMemo(
