@@ -150,14 +150,9 @@ app.whenReady().then(async () => {
       'Line contains',
       'Group by',
     ])
-    await win.webContents.executeJavaScript(`(() => {
-      const trigger = [...document.querySelectorAll('[role="combobox"]')].find((element) =>
-        element.getAttribute('aria-labelledby')?.split(' ').some((id) =>
-          document.getElementById(id)?.textContent?.trim() === 'Level'
-        )
-      )
-      trigger?.click()
-    })()`)
+    await win.webContents.executeJavaScript(
+      `document.querySelector('[data-field][data-field-name="Level"] [role="combobox"]')?.click()`,
+    )
     await waitFor(
       win,
       `(() => { const list = document.querySelector('[role="listbox"][aria-label="Level"]'); return list && ['ERROR', 'WARN'].every((name) => [...list.querySelectorAll('[role="option"]')].some((option) => option.textContent?.includes(name) && option.getAttribute('aria-selected') === 'true')) })()`,
@@ -170,7 +165,7 @@ app.whenReady().then(async () => {
       (await win.webContents.capturePage()).toPNG(),
     )
     await win.webContents.executeJavaScript(
-      `(() => { const trigger = [...document.querySelectorAll('[role="combobox"]')].find((element) => element.getAttribute('aria-labelledby')?.split(' ').some((id) => document.getElementById(id)?.textContent?.trim() === 'Level')); trigger?.click() })()`,
+      `document.querySelector('[data-field][data-field-name="Level"] [role="combobox"]')?.click()`,
     )
     await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('main button')].find((button) => button.textContent?.trim() === 'Run')?.click()`,
