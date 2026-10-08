@@ -414,8 +414,5 @@ export function buildChartPresentationOptions(
       showSymbol: input.view === 'line',
       symbolSize: input.view === 'scatter' ? 8 : 6,
     })),
-            }
-          : undefined,
-    })),
   }
 }
