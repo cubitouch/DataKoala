@@ -478,12 +478,6 @@ function visualization(value: unknown): VisualizationConfiguration | null {
       : isOneOf(value.valueAxisScale, VALUE_AXIS_SCALES)
         ? value.valueAxisScale
         : null
-  const anomalyDetectionEnabled =
-    value.anomalyDetectionEnabled === undefined
-      ? false
-      : typeof value.anomalyDetectionEnabled === 'boolean'
-        ? value.anomalyDetectionEnabled
-        : null
   if (
     xColumn === undefined ||
     valueColumn === undefined ||
@@ -492,7 +486,6 @@ function visualization(value: unknown): VisualizationConfiguration | null {
     !hierarchyDimensions ||
     !valueAxisScale ||
     (value.displayUnit !== undefined && !isDisplayUnit(value.displayUnit)) ||
-    anomalyDetectionEnabled === null
   )
     return null
   return {
@@ -507,7 +500,6 @@ function visualization(value: unknown): VisualizationConfiguration | null {
     ...(isDisplayUnit(value.displayUnit)
       ? { displayUnit: { ...value.displayUnit } }
       : {}),
-    anomalyDetectionEnabled,
   }
 }
 
