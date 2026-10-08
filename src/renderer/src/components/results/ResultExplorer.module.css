@@ -138,7 +138,7 @@
   grid-template-columns: auto 96px;
 }
 
-.chartActions [aria-pressed='true'] {
+.chartActions [aria-pressed="true"] {
   color: #fbbf24;
   border-color: #f59e0b;
 }
@@ -265,20 +265,25 @@
   color: var(--text);
   font-size: 12px;
 }
+
 .aiAnomalyAnalysis p {
   margin: 6px 0;
   line-height: 1.5;
 }
+
 .aiAnomalyAnalysis ul {
   margin: 4px 0 8px;
   padding-left: 20px;
 }
+
 .aiAnomalyAnalysis li {
   margin: 3px 0;
 }
+
 .aiAnomalyAnalysis small {
   color: var(--text-muted, #aaa);
 }
+
 .aiAnomalyError {
   color: var(--danger);
 }
