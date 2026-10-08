@@ -95,6 +95,7 @@ function severityInfo(
           severitySource: {
             source,
             field,
+            value: String(value),
             ...(parser ? { parser } : {}),
           },
         }
