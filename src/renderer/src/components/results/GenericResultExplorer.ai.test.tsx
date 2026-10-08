@@ -163,8 +163,8 @@ describe('AI chart anomaly analysis', () => {
       const markerData = chartSeries?.[0]?.markPoint as
         { data: Array<{ coord: unknown[] }> } | undefined
       expect(markerData?.data.map((marker) => marker.coord)).toEqual([
-        [157, 800],
-        [212, -40],
+        ['157', 800],
+        ['212', -40],
       ])
     })
     fireEvent.click(toggle)
