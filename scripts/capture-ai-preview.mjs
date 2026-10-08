@@ -757,8 +757,8 @@ app.whenReady().then(async () => {
       const rect = chart.getBoundingClientRect()
       const plotWidth = rect.width - 74
       const plotHeight = rect.height - 65
-      const clientX = rect.left + 50 + plotWidth * (17 / 63)
-      const clientY = rect.top + 20 + plotHeight * 0.1
+      const clientX = rect.left + 50 + plotWidth * (17.5 / 64)
+      const clientY = rect.top + 22
       chart.dispatchEvent(new MouseEvent('mousemove', {
         bubbles: true,
         clientX,
