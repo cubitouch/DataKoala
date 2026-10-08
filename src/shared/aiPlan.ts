@@ -173,8 +173,30 @@ export function sanitizeAiExecutionPlanContext(
     ids.add(node.id)
   }
   if (!ids.has('0')) throw new Error('Execution plan root is missing.')
+  if (nodes.some((node) => node.id === '0' && node.parentId))
+    throw new Error('Execution plan root cannot have a parent.')
+  if (nodes.some((node) => node.id !== '0' && !node.parentId))
+    throw new Error('Execution plan node is missing its parent.')
   if (nodes.some((node) => node.parentId && !ids.has(node.parentId)))
     throw new Error('Execution plan contains an unknown parent node.')
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const reachesRoot = new Set(['0'])
+  for (const node of nodes) {
+    if (reachesRoot.has(node.id)) continue
+    const path: string[] = []
+    const pathIds = new Set<string>()
+    let ancestor: AiExecutionPlanNode | undefined = node
+    while (ancestor && !reachesRoot.has(ancestor.id)) {
+      if (pathIds.has(ancestor.id))
+        throw new Error('Execution plan contains a parent cycle.')
+      path.push(ancestor.id)
+      pathIds.add(ancestor.id)
+      ancestor = ancestor.parentId ? byId.get(ancestor.parentId) : undefined
+    }
+    if (!ancestor)
+      throw new Error('Execution plan node does not lead to the root.')
+    for (const id of path) reachesRoot.add(id)
+  }
   const metrics = boundedMetrics(input, mode)
   let truncated = input.truncated === true
   const bySignal = [...nodes]
@@ -183,7 +205,6 @@ export function sanitizeAiExecutionPlanContext(
       (a, b) =>
         nodeSignal(b, mode) - nodeSignal(a, mode) || a.id.localeCompare(b.id),
     )
-  const byId = new Map(nodes.map((node) => [node.id, node]))
   const positions = new Map(nodes.map((node, index) => [node.id, index]))
   let retained = new Set(['0'])
   const selectedNodes = (ids: ReadonlySet<string>) =>

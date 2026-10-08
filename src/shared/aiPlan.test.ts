@@ -145,6 +145,39 @@ test('plan context marks overall character trimming and rejects invalid roots an
   )
 })
 
+test('plan context rejects cyclic and rootless parent relationships', () => {
+  assert.throws(
+    () =>
+      sanitizeAiExecutionPlanContext(
+        { nodes: [node('0', { parentId: '0.1' }), node('0.1')] },
+        'analyze',
+      ),
+    /root cannot have a parent/i,
+  )
+  assert.throws(
+    () =>
+      sanitizeAiExecutionPlanContext(
+        {
+          nodes: [
+            node('0'),
+            node('0.1', { parentId: '0.2' }),
+            node('0.2', { parentId: '0.1' }),
+          ],
+        },
+        'analyze',
+      ),
+    /parent cycle/i,
+  )
+  assert.throws(
+    () =>
+      sanitizeAiExecutionPlanContext(
+        { nodes: [node('0'), node('0.1', { parentId: undefined })] },
+        'analyze',
+      ),
+    /missing its parent/i,
+  )
+})
+
 test('plain EXPLAIN context never discloses runtime fields even if they are attached accidentally', () => {
   const plan = sanitizeAiExecutionPlanContext(
     {
