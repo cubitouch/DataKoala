@@ -130,7 +130,9 @@ const anomalyRequest: AiAnomalyAnalysisRequest = {
     ],
   },
 }
-test('OpenRouter returns a validated structured anomaly analysis from bounded chart context', async () => {
+test(
+  'OpenRouter returns a validated structured anomaly analysis from bounded chart context',
+  async () => {
   let sent: Record<string, unknown> | undefined
   const provider = new OpenRouterProvider('key', 'model', async (_url, init) => {
     sent = JSON.parse(String(init?.body))
