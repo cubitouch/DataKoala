@@ -148,7 +148,10 @@ app.whenReady().then(async () => {
     ipcMain.handle('ai:cancel', () => ok(undefined))
     ipcMain.handle('ai:analyze-anomalies', (_event, request) => {
       const sample = request.chart.series[0]?.points ?? []
-      if (!sample.some((point) => point.y === 800) || !sample.some((point) => point.y === -40))
+      if (
+        !sample.some((point) => point.y === 800) ||
+        !sample.some((point) => point.y === -40)
+      )
         throw new Error('AI anomaly preview did not receive bucket extrema')
       return ok({
         summary: 'Two sharp changes stand out in the request series.',
@@ -712,7 +715,8 @@ app.whenReady().then(async () => {
           },
         } : tab),
       })
-      store.getState().setResult({
+window.setTimeout(() => {
+        store.getState().setResult({
         columns: [
           { name: 'day', dataTypeID: 20, dataTypeName: 'int8' },
           { name: 'requests', dataTypeID: 20, dataTypeName: 'int8' },
@@ -720,7 +724,8 @@ app.whenReady().then(async () => {
         rows,
         rowCount: rows.length,
         durationMs: 8,
-      }, null)
+      }, null
+      }, 500))
     })()`)
     await wait(
       win,
