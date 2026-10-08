@@ -80,9 +80,24 @@ export function buildLokiQuery(
   state: LokiBuilderState,
   options: BuildLokiQueryOptions = {},
 ): string {
+  const levelValues = [...new Set(state.levelFilter?.values ?? [])]
+  const levelSource = state.levelFilter?.source
+  const levelRegex = levelValues.length
+    ? `(?i)^(?:${levelValues.map(escapeLogqlRegexValue).join('|')})$`
+    : undefined
+  const canApplyLevel = Boolean(
+    levelRegex &&
+    levelSource &&
+    (levelSource.source !== 'parsed-field' || levelSource.parser),
+  )
   const userMatchers = state.labelMatchers
     .map(matcherExpression)
     .filter((value): value is string => Boolean(value))
+  if (canApplyLevel && levelSource?.source === 'label') {
+    if (!isValidLokiLabelName(levelSource.field))
+      throw new Error(`Invalid Loki label name: ${levelSource.field}`)
+    userMatchers.push(`${levelSource.field}=~${escapeLogqlString(levelRegex!)}`)
+  }
   let selectorMatchers = userMatchers
   if (!selectorMatchers.length && options.fallbackMatcher) {
     const fallback = renderedMatcher(options.fallbackMatcher)
@@ -99,7 +114,15 @@ export function buildLokiQuery(
   let query = `{${selectorMatchers.join(', ')}}`
   for (const filter of state.lineFilters)
     query += ` ${filter.operator} ${escapeLogqlString(filter.value)}`
-  for (const stage of state.parsers) {
+  const parserStages = [...state.parsers]
+  if (
+    canApplyLevel &&
+    levelSource?.source === 'parsed-field' &&
+    levelSource.parser &&
+    !parserStages.some((stage) => stage.kind === levelSource.parser)
+  )
+    parserStages.push({ kind: levelSource.parser })
+  for (const stage of parserStages) {
     query += ` | ${stage.kind}`
     if (stage.expression !== undefined && stage.expression !== '')
       query += ` ${escapeLogqlString(stage.expression)}`
@@ -108,6 +131,11 @@ export function buildLokiQuery(
     if (!isValidLokiLabelName(filter.field))
       throw new Error(`Invalid Loki field name: ${filter.field}`)
     query += ` | ${filter.field}${filter.operator}${escapeLogqlString(filter.value)}`
+  }
+  if (canApplyLevel && levelSource && levelSource.source !== 'label') {
+    if (!isValidLokiLabelName(levelSource.field))
+      throw new Error(`Invalid Loki field name: ${levelSource.field}`)
+    query += ` | ${levelSource.field}=~${escapeLogqlString(levelRegex!)}`
   }
   assertValidLogql(query)
   return query
