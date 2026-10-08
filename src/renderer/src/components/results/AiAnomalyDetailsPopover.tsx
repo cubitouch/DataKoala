@@ -2,7 +2,7 @@ import { Popover } from '@components/ui/Popover'
 import type { AiAnomalyAnalysis } from '@shared/ai'
 import type { ChartAnomalyAnnotation } from '@lib/chartAnomalyMapping'
 import type { SampledChartSeries } from '@lib/chartAnomalySampling'
-import styles from './Ai.module.css'
+import styles from '../ai/Ai.module.css'
 
 function formatPoint(value: unknown): string {
   if (value instanceof Date) return value.toISOString()
