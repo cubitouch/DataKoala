@@ -956,6 +956,7 @@ export function LokiExplorer({
                   rows={scopedLogRows}
                   truncated={result.execution?.truncated}
                   limit={limit}
+                  canPromoteLevelFilter={mode === 'builder'}
                   onFilter={resultFilter}
                 />
               ) : resultView === 'patterns' ? (
