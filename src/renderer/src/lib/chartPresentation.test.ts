@@ -410,3 +410,112 @@ test('hierarchical presentation shares data and exposes path, value, and share t
     )
   }
 })
+
+
+test('AI markers use exact series coordinates, respect visibility, and disappear when toggled off', () => {
+  const base = {
+    labels: ['same', 'same', 'last'],
+    series: [
+      { name: 'Requests', data: [1, 8, 10] },
+      { name: 'Errors', data: [2, 80, 100] },
+    ],
+    view: 'line' as const,
+    hasSeriesColumn: true,
+    mode: 'sql' as const,
+    aiAnomalies: [
+      {
+        seriesName: 'Requests',
+        originalIndex: 1,
+        title: 'Spike',
+        reason: 'Large rise.',
+      },
+      {
+        seriesName: 'Errors',
+        originalIndex: 1,
+        title: 'Error spike',
+        reason: 'Errors rise.',
+      },
+    ],
+  }
+  const visible = buildChartPresentationOptions({ ...base, showAiAnomalies: true })
+  const rendered = visible.series as Array<Record<string, unknown>>
+  const requestMark = rendered[0].markPoint as { data: Array<{ coord: unknown[] }> }
+  const errorMark = rendered[1].markPoint as { data: Array<{ coord: unknown[] }> }
+  assert.deepEqual(requestMark.data, [{ coord: ['same', 8], value: 8 }])
+  assert.deepEqual(errorMark.data, [{ coord: ['same', 80], value: 80 }])
+  assert.equal((rendered[0].markPoint as { symbol: string }).symbol, 'circle')
+  assert.equal(
+    (rendered[0].markPoint as { itemStyle: { borderColor: string } }).itemStyle.borderColor,
+    '#ff4d4f',
+  )
+
+  const hidden = buildChartPresentationOptions({
+    ...base,
+    visibility: { Requests: false },
+    showAiAnomalies: true,
+  }).series as Array<Record<string, unknown>>
+  assert.equal(hidden[0].markPoint, undefined)
+  assert.deepEqual(
+    (hidden[1].markPoint as { data: Array<{ coord: unknown[] }> }).data,
+    [{ coord: ['same', 80], value: 80 }],
+  )
+
+  const off = buildChartPresentationOptions({ ...base, showAiAnomalies: false })
+    .series as Array<Record<string, unknown>>
+  assert.equal(off[0].markPoint, undefined)
+})
+
+test('temporal AI anomaly markers use the plotted UTC coordinate', () => {
+  const label = '2026-10-01T00:00:00Z'
+  const options = buildChartPresentationOptions({
+    labels: [label],
+    series: [{ name: 'Requests', data: [800] }],
+    view: 'line',
+    hasSeriesColumn: false,
+    mode: 'sql',
+    aiAnomalies: [
+      { seriesName: 'Requests', originalIndex: 0, title: 'Spike', reason: 'High.' },
+    ],
+    showAiAnomalies: true,
+  })
+  const series = (options.series as Array<Record<string, unknown>>)[0]
+  assert.deepEqual(
+    (series.markPoint as { data: Array<{ coord: unknown[] }> }).data,
+    [{ coord: [Date.parse(label), 800], value: 800 }],
+  )
+})
+
+test('anomaly tooltip explanation is series-specific and escapes model text', () => {
+  const formatter = buildChartTooltipFormatter(
+    String,
+    'Errors',
+    [
+      { name: 'Requests', data: [1, 800] },
+      { name: 'Errors', data: [2, 80] },
+    ],
+    {},
+    undefined,
+    [
+      {
+        seriesName: 'Requests',
+        originalIndex: 1,
+        title: '<script>unsafe</script>',
+        reason: 'literal <b>text</b> & detail',
+      },
+      {
+        seriesName: 'Errors',
+        originalIndex: 1,
+        title: 'Error spike',
+        reason: 'Errors are elevated.',
+      },
+    ],
+  )
+  const html = formatter([
+    { axisValue: 'day 2', dataIndex: 1, seriesName: 'Requests', value: 800 },
+    { axisValue: 'day 2', dataIndex: 1, seriesName: 'Errors', value: 80 },
+  ])
+  assert.match(html, /Error spike/)
+  assert.doesNotMatch(html, /<script>/)
+  assert.match(html, /&lt;script&gt;unsafe&lt;\/script&gt;/)
+  assert.match(html, /literal &lt;b&gt;text&lt;\/b&gt; &amp; detail/)
+})
