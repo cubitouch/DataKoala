@@ -810,7 +810,7 @@ describe('LokiExplorer execution', () => {
       ).toEqual(['ERROR', 'WARN']),
     )
     expect(
-      [...level.querySelectorAll('[data-combobox-chip]')].map((chip) =>
+      Array.from(level.querySelectorAll('[data-combobox-chip]')).map((chip) =>
         chip.textContent?.replace('×', '').trim(),
       ),
     ).toEqual(['ERROR', 'WARN'])
@@ -866,7 +866,7 @@ describe('LokiExplorer execution', () => {
     const level = screen.getByRole('combobox', { name: /Level/ })
     await waitFor(() => expect(level.hasAttribute('disabled')).toBe(false))
     expect(
-      [...level.querySelectorAll('[data-combobox-chip]')].map((chip) =>
+      Array.from(level.querySelectorAll('[data-combobox-chip]')).map((chip) =>
         chip.textContent?.replace('×', '').trim(),
       ),
     ).toEqual(['ERROR', 'WARN', 'INFO'])
