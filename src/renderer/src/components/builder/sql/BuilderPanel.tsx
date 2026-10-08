@@ -1125,12 +1125,12 @@ export function BuilderPanel() {
                 <small role="status">Checking cardinality…</small>
               )}
               {seriesProbe?.status === 'error' && (
-                <small className="inline-error" role="alert">
-                  {seriesProbe.message}{' '}
+                <div className={styles.seriesProbeError} role="alert">
+                  <span>{seriesProbe.message}</span>
                   <button className="btn ghost" onClick={seriesProbe.retry}>
                     Retry
                   </button>
-                </small>
+                </div>
               )}
             </FormField>
           </BuilderRow>
