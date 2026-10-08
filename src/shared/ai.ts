@@ -151,7 +151,7 @@ export const AI_LIMITS = {
   anomalyText: 1200,
 } as const
 export const AI_PRIVACY_NOTICE =
-  'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query or Builder state, bounded schema metadata, or a small capped chart sample for AI anomaly analysis. Database credentials and query result rows are not sent.'
+  'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query or Builder state, bounded schema metadata, or a small capped chart sample for AI anomaly analysis. Database credentials and full query result rows are not sent.'
 
 /**
  * Single product-level availability rule for AI features.
