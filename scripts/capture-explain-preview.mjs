@@ -7,12 +7,16 @@ import { fileURLToPath } from 'node:url'
 
 process.env.DATAKOALA_SMOKE = '1'
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const output = resolve(process.env.DATAKOALA_PREVIEW_OUTPUT ?? 'visual-preview')
-const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
+const output = resolve(
+  process.env.DATAKOALA_PREVIEW_OUTPUT ?? 'visual-preview',
+)
+const sleep = (ms) =>
+  new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 
 async function wait(win, expression, description) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    if (await win.webContents.executeJavaScript(`Boolean(${expression})`)) return
+    if (await win.webContents.executeJavaScript(`Boolean(${expression})`))
+      return
     await sleep(100)
   }
   throw new Error(`EXPLAIN preview did not become ready: ${description}`)
@@ -178,7 +182,8 @@ app.whenReady().then(async () => {
         tlsMode: 'disable',
         readonly: true
       }
-      const sql = "SELECT c.country, sum(o.amount) AS revenue\\nFROM analytics.orders o\\nJOIN analytics.customers c ON c.id = o.customer_id\\nWHERE o.created_at >= now() - interval '30 days'\\nGROUP BY c.country\\nORDER BY revenue DESC\\nLIMIT 100;"
+      const sql =
+        "SELECT c.country, sum(o.amount) AS revenue\\nFROM analytics.orders o\\nJOIN analytics.customers c ON c.id = o.customer_id\\nWHERE o.created_at >= now() - interval '30 days'\\nGROUP BY c.country\\nORDER BY revenue DESC\\nLIMIT 100;"
       store.setState({
         profiles: [profile],
         activeProfileId: profile.id,
@@ -187,18 +192,28 @@ app.whenReady().then(async () => {
         connectionStatus: 'connected',
         connectionError: null,
         serverVersion: '17',
-        tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
-          ...tab,
-          title: 'Revenue by country',
-          connectionProfileId: profile.id,
-          queryMode: 'sql',
-          sql,
-          explainTree: ${JSON.stringify(tree)},
-          explainText: 'Limit  (cost=1284.42..1284.67 rows=100) (actual time=24.800..24.800 rows=101 loops=1)',
-          explainSnapshot: { query: sql, mode: 'analyze', planningTimeMs: 1.42, executionTimeMs: 25.31 },
-          showExplain: true,
-          activeExplainRequest: null
-        } : tab)
+        tabs: state.tabs.map((tab) =>
+          tab.id === state.activeTabId
+            ? {
+                ...tab,
+                title: 'Revenue by country',
+                connectionProfileId: profile.id,
+                queryMode: 'sql',
+                sql,
+                explainTree: ${JSON.stringify(tree)},
+                explainText:
+                  'Limit  (cost=1284.42..1284.67 rows=100) (actual time=24.800..24.800 rows=101 loops=1)',
+                explainSnapshot: {
+                  query: sql,
+                  mode: 'analyze',
+                  planningTimeMs: 1.42,
+                  executionTimeMs: 25.31
+                },
+                showExplain: true,
+                activeExplainRequest: null
+              }
+            : tab
+        )
       })
     })()`)
 
@@ -214,8 +229,11 @@ app.whenReady().then(async () => {
       const text = diagram?.innerText ?? ''
       return {
         nodeCount: nodes.length,
-        categories: ['Limit', 'Sort', 'Aggregate', 'Join', 'Scan', 'Hash'].filter((label) => text.includes(label)),
-        hasSummary: text.includes('Planning time') && text.includes('Execution time'),
+        categories: ['Limit', 'Sort', 'Aggregate', 'Join', 'Scan', 'Hash'].filter(
+          (label) => text.includes(label),
+        ),
+        hasSummary:
+          text.includes('Planning time') && text.includes('Execution time'),
         hasMeasuredTime: text.includes('Measured time'),
         hasPlannerMsConfusion: /Planner cost[^\\n]*ms/i.test(text),
         width: diagram?.getBoundingClientRect().width,
@@ -231,7 +249,9 @@ app.whenReady().then(async () => {
       report.width < 700 ||
       report.height < 300
     ) {
-      throw new Error(`EXPLAIN preview semantic/layout assertion failed: ${JSON.stringify(report)}`)
+      throw new Error(
+        `EXPLAIN preview semantic/layout assertion failed: ${JSON.stringify(report)}`,
+      )
     }
 
     await win.webContents.executeJavaScript(
