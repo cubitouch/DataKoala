@@ -196,6 +196,7 @@ export function GenericResultExplorer({
   const [aiAnalysis, setAiAnalysis] = useState<AiAnomalyAnalysis | null>(null)
   const [aiAnalysisError, setAiAnalysisError] = useState('')
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
+  const aiContextRevision = useRef(0)
   const hoveredSeriesIdentity = useRef<string | undefined>(undefined)
   const chartEvents = useRef<ChartEventBridgeLifecycle | null>(null)
   if (!chartEvents.current)
@@ -251,9 +252,19 @@ export function GenericResultExplorer({
   }, [])
 
   useEffect(() => {
+    aiContextRevision.current += 1
     setAiAnalysis(null)
     setAiAnalysisError('')
-  }, [resultRevision])
+  }, [
+    resultRevision,
+    effectiveConfiguration.view,
+    effectiveConfiguration.xColumn,
+    effectiveConfiguration.valueColumn,
+    effectiveConfiguration.seriesColumn,
+    effectiveConfiguration.seriesColumns,
+    activeFilters,
+    seriesVisibility,
+  ])
 
   useEffect(() => {
     if (!running) {
@@ -928,10 +939,14 @@ export function GenericResultExplorer({
       !api?.ai?.analyzeAnomalies
     )
       return
+    const requestRevision = aiContextRevision.current
     setAiAnalyzing(true)
     setAiAnalysis(null)
     setAiAnalysisError('')
-    const series = chart.series.slice(0, 8).map((item) => {
+    const series = chart.series
+      .filter((item) => seriesVisibility[item.name] !== false)
+      .slice(0, 8)
+      .map((item) => {
       const stride = Math.max(1, Math.ceil(item.data.length / 32))
       const points: Array<{ x: string | number; y: number }> = []
       for (let index = 0; index < item.data.length; index += stride) {
@@ -958,10 +973,12 @@ export function GenericResultExplorer({
           series,
         },
       })
+      if (aiContextRevision.current !== requestRevision) return
       if (response.ok) setAiAnalysis(response.value)
       else setAiAnalysisError(response.message)
     } catch {
-      setAiAnalysisError('AI analysis failed. Check your connection and try again.')
+      if (aiContextRevision.current === requestRevision)
+        setAiAnalysisError('AI analysis failed. Check your connection and try again.')
     } finally {
       setAiAnalyzing(false)
     }
@@ -1222,6 +1239,7 @@ export function GenericResultExplorer({
                 <button
                   className="btn ghost"
                   disabled={aiAnalyzing || isResultStale}
+                  title="Sends up to 8 visible series with 32 sampled points each to the configured OpenRouter model."
                   onClick={() => void analyzeChartWithAi()}
                 >
                   {aiAnalyzing ? 'Analyzing with AI…' : 'Analyze with AI'}
