@@ -378,7 +378,7 @@ export function LokiBuilderPanel({
       </BuilderRow>
       {matchers.length > 0 && (
         <BuilderRow className={styles.valuesGrid}>
-          {matchers.map((matcher) => (
+          {filterMatchers.map((matcher) => (
             <ValueControl
               key={matcher.label}
               matcher={matcher}
