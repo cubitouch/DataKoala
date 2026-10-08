@@ -82,7 +82,11 @@
 }
 
 .chartCanvas > [data-chart-legend] {
-  flex: 0 0 200px;
+  flex: 0 0 min(var(--chart-legend-width), calc(100% - 284px));
+}
+
+.chartCanvas > [role='separator'] {
+  flex: 0 0 12px;
 }
 
 /* The single responsive policy for interactive chart legends. */
@@ -97,6 +101,10 @@
     display: flex;
     overflow: auto hidden;
     scrollbar-gutter: auto;
+  }
+
+  .chartCanvas > [role='separator'] {
+    display: none;
   }
 
   .chartCanvas > [data-chart-legend] > div {
