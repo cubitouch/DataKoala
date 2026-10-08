@@ -304,6 +304,7 @@ export function GenericResultExplorer({
     setAiAnalysis(null)
     setAiAnalysisError('')
   }, [
+    result,
     resultRevision,
     effectiveConfiguration.view,
     effectiveConfiguration.xColumn,
