@@ -304,6 +304,9 @@ export interface ExplainNode {
   index?: string
   joinType?: string
   parentRelationship?: string
+  strategy?: string
+  cteName?: string
+  subplanName?: string
   startupCost?: number
   totalCost?: number
   planRows?: number
@@ -319,6 +322,11 @@ export interface ExplainNode {
   joinFilter?: string
   sortKey?: string[]
   groupKey?: string[]
+  sortMethod?: string
+  sortSpaceUsed?: number
+  sortSpaceType?: string
+  hashBatches?: number
+  peakMemoryUsage?: number
   rowsRemovedByFilter?: number
   sharedHitBlocks?: number
   sharedReadBlocks?: number

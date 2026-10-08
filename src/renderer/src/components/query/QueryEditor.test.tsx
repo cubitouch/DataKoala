@@ -1465,6 +1465,40 @@ describe('QueryEditor Explain loading states', () => {
     expect(screen.queryByText('Generating query plan…')).toBeNull()
   })
 
+  it('keeps plan-level PostgreSQL timings with the captured Explain snapshot', async () => {
+    explain.mockResolvedValueOnce({
+      text: 'analyzed plan',
+      tree: {
+        id: '0',
+        plan: 'Seq Scan · public.events',
+        nodeType: 'Seq Scan',
+        relation: 'events',
+        schema: 'public',
+        planRows: 100,
+        actualRows: 120,
+        actualTotalTime: 3.2,
+        loops: 1,
+      },
+      analyze: true,
+      planningTimeMs: 0.6,
+      executionTimeMs: 3.8,
+    })
+    renderExplainUi()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Explain Analyze' }))
+
+    await waitFor(() =>
+      expect(activeTestSession().explainSnapshot).toMatchObject({
+        query: 'select 1;',
+        mode: 'analyze',
+        planningTimeMs: 0.6,
+        executionTimeMs: 3.8,
+      }),
+    )
+    expect(screen.getByText(/Planning time/).textContent).toContain('0.60 ms')
+    expect(screen.getByText(/Execution time/).textContent).toContain('3.80 ms')
+  })
+
   it('shows Analyzing, sends analyze=true, and ends after failure through existing error text', async () => {
     const request = deferred<{ text: string }>()
     explain.mockReturnValueOnce(request.promise)

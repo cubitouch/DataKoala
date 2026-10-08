@@ -81,6 +81,51 @@ test('accepts JSON text and keeps plain EXPLAIN estimate-only', () => {
   assert.equal(result.tree?.actualRows, undefined)
 })
 
+test('normalizes useful operation-specific diagnostics', () => {
+  const result = normalizePostgresExplain(
+    [
+      {
+        Plan: {
+          'Node Type': 'Sort',
+          'Sort Key': ['created_at DESC'],
+          'Sort Method': 'quicksort',
+          'Sort Space Used': 256,
+          'Sort Space Type': 'Memory',
+          Plans: [
+            {
+              'Node Type': 'Hash',
+              'Hash Batches': 2,
+              'Peak Memory Usage': 512,
+              Plans: [
+                {
+                  'Node Type': 'CTE Scan',
+                  'CTE Name': 'recent_orders',
+                  'Subplan Name': 'CTE recent_orders',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+    true,
+  )
+
+  assert.equal(result.tree?.sortMethod, 'quicksort')
+  assert.equal(result.tree?.sortSpaceUsed, 256)
+  assert.equal(result.tree?.sortSpaceType, 'Memory')
+  assert.equal(result.tree?.children?.[0].hashBatches, 2)
+  assert.equal(result.tree?.children?.[0].peakMemoryUsage, 512)
+  assert.equal(
+    result.tree?.children?.[0].children?.[0].cteName,
+    'recent_orders',
+  )
+  assert.equal(
+    result.tree?.children?.[0].children?.[0].subplanName,
+    'CTE recent_orders',
+  )
+})
+
 test('rejects malformed PostgreSQL plan payloads', () => {
   assert.throws(() => normalizePostgresExplain({}, false))
   assert.throws(() => normalizePostgresExplain('not json', false))
