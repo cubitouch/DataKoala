@@ -242,22 +242,3 @@
   white-space: nowrap;
   border: 0;
 }
-
-.optionCheckbox {
-  width: 14px;
-  height: 14px;
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid var(--border-hi);
-  border-radius: 3px;
-  color: #384948;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.optionCheckbox[data-selected='true'] {
-  border-color: var(--accent);
-  background: var(--accent);
-}
