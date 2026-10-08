@@ -87,7 +87,15 @@ import {
   type ComboboxOption,
 } from '@components/ui/combobox'
 import type { ColumnMeta, QueryResult } from '@shared/types'
-import { sampleChartSeries } from '@lib/chartAnomalySampling'
+import {
+  sampleChartSeries,
+  type SampledChartSeries,
+} from '@lib/chartAnomalySampling'
+import {
+  resolveAiAnomalies,
+  type SubmittedAnomalySeries,
+} from '@lib/chartAnomalyMapping'
+import { AiAnomalyDetailsPopover } from './AiAnomalyDetailsPopover'
 import {
   buildHierarchy,
   hierarchyCardinalities,
@@ -190,6 +198,10 @@ export function GenericResultExplorer({
   const [showRunning, setShowRunning] = useState(false)
   const [aiConfigured, setAiConfigured] = useState(false)
   const [aiAnalysis, setAiAnalysis] = useState<AiAnomalyAnalysis | null>(null)
+  const [aiSubmittedSamples, setAiSubmittedSamples] = useState<
+    SubmittedAnomalySeries[] | null
+  >(null)
+  const [aiAnomaliesVisible, setAiAnomaliesVisible] = useState(false)
   const [aiAnalysisError, setAiAnalysisError] = useState('')
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
   const aiContextRevision = useRef(0)
@@ -279,6 +291,16 @@ export function GenericResultExplorer({
     return () => window.clearTimeout(timer)
   }, [running])
 
+  useEffect(() => {
+    if (aiConfigured || !aiRequestId.current) return
+    aiContextRevision.current += 1
+    cancelAiRequest()
+    setAiAnalyzing(false)
+    setAiAnalysis(null)
+    setAiSubmittedSamples(null)
+    setAiAnomaliesVisible(false)
+  }, [aiConfigured, cancelAiRequest])
+
   const effectiveConfiguration = useMemo(
     () =>
       result
@@ -301,6 +323,7 @@ export function GenericResultExplorer({
     valueColumn: effectiveConfiguration.valueColumn,
     seriesColumn: effectiveConfiguration.seriesColumn,
     seriesColumns: effectiveConfiguration.seriesColumns,
+    valueAxisScale: effectiveConfiguration.valueAxisScale,
     activeFilters,
     seriesVisibility,
     chartTimeDomain,
@@ -311,6 +334,8 @@ export function GenericResultExplorer({
     cancelAiRequest()
     setAiAnalyzing(false)
     setAiAnalysis(null)
+    setAiSubmittedSamples(null)
+    setAiAnomaliesVisible(false)
     setAiAnalysisError('')
   }, [result, aiContextKey, cancelAiRequest])
   useEffect(() => () => cancelAiRequest(), [cancelAiRequest])
@@ -428,6 +453,26 @@ export function GenericResultExplorer({
         : null,
     [filteredResult, effectiveConfiguration],
   )
+  const resolvedAiAnomalies = useMemo(
+    () =>
+      aiAnalysis && aiSubmittedSamples && chart
+        ? resolveAiAnomalies(
+            aiAnalysis,
+            aiSubmittedSamples,
+            chart.series,
+            chart.xValues,
+            seriesVisibility,
+            effectiveConfiguration.valueAxisScale ?? 'linear',
+          )
+        : [],
+    [
+      aiAnalysis,
+      aiSubmittedSamples,
+      chart,
+      seriesVisibility,
+      effectiveConfiguration.valueAxisScale,
+    ],
+  )
   const temporalRangeSelectionEnabled = Boolean(
     chart?.renderable &&
     effectiveConfiguration.xColumn &&
@@ -513,6 +558,8 @@ export function GenericResultExplorer({
             rangeSelectionEnabled:
               temporalRangeSelectionEnabled && !hierarchical,
             hierarchy,
+            aiAnomalies: resolvedAiAnomalies,
+            showAiAnomalies: aiAnomaliesVisible,
           })
         : null,
     [
@@ -526,6 +573,8 @@ export function GenericResultExplorer({
       temporalRangeSelectionEnabled,
       hierarchy,
       hierarchical,
+      resolvedAiAnomalies,
+      aiAnomaliesVisible,
     ],
   )
   const setHierarchyDimensions = (dimensions: string[]) =>
@@ -932,14 +981,16 @@ export function GenericResultExplorer({
     )
       return
     const requestRevision = aiContextRevision.current
-    const series = chart.series
-      .filter((item) => seriesVisibility[item.name] !== false)
-      .map((item) => sampleChartSeries(item.name, item.data, chart.xValues))
-      .filter(
-        (item) => item.points.length >= AI_LIMITS.anomalyMinimumPointsPerSeries,
-      )
+    const submitted = chart.series
+      .flatMap((item, chartSeriesIndex) => {
+        if (seriesVisibility[item.name] === false) return []
+        const sample = sampleChartSeries(item.name, item.data, chart.xValues)
+        return sample.points.length >= AI_LIMITS.anomalyMinimumPointsPerSeries
+          ? [{ chartSeriesIndex, sample }]
+          : []
+      })
       .slice(0, AI_LIMITS.anomalySeries)
-    if (!series.length) {
+    if (!submitted.length) {
       setAiAnalysis(null)
       setAiAnalysisError(
         'AI analysis needs at least three numeric points in a visible series.',
@@ -951,6 +1002,8 @@ export function GenericResultExplorer({
     aiRequestId.current = requestId
     setAiAnalyzing(true)
     setAiAnalysis(null)
+    setAiSubmittedSamples(null)
+    setAiAnomaliesVisible(false)
     setAiAnalysisError('')
     try {
       const response = await api.ai.analyzeAnomalies({
@@ -959,7 +1012,10 @@ export function GenericResultExplorer({
           chartType: effectiveConfiguration.view,
           xColumn: effectiveConfiguration.xColumn,
           valueColumn: effectiveConfiguration.valueColumn,
-          series,
+          series: submitted.map(({ sample }) => ({
+            ...sample,
+            points: sample.points.map(({ x, y }) => ({ x, y })),
+          })),
         },
       })
       if (
@@ -967,8 +1023,15 @@ export function GenericResultExplorer({
         aiContextRevision.current !== requestRevision
       )
         return
-      if (response.ok) setAiAnalysis(response.value)
-      else setAiAnalysisError(response.message)
+      if (response.ok) {
+        setAiAnalysis(response.value)
+        setAiSubmittedSamples(submitted)
+        setAiAnomaliesVisible(true)
+      } else {
+        setAiAnalysis(null)
+        setAiSubmittedSamples(null)
+        setAiAnalysisError(response.message)
+      }
     } catch {
       if (
         aiRequestId.current === requestId &&
@@ -1224,6 +1287,23 @@ export function GenericResultExplorer({
                   {aiAnalyzing ? 'Analyzing with AI…' : 'Analyze with AI'}
                 </button>
               )}
+            {aiAnalysis && aiAnalysis.anomalies.length > 0 && (
+              <button
+                className="btn ghost"
+                type="button"
+                aria-pressed={aiAnomaliesVisible}
+                onClick={() => setAiAnomaliesVisible((visible) => !visible)}
+              >
+                AI anomalies
+              </button>
+            )}
+            {aiAnalysis && aiSubmittedSamples && (
+              <AiAnomalyDetailsPopover
+                analysis={aiAnalysis}
+                anomalies={resolvedAiAnomalies}
+                samples={aiSubmittedSamples.map(({ sample }) => sample)}
+              />
+            )}
             <button
               className="btn ghost"
               disabled={isChartActionDisabled(
@@ -1245,49 +1325,6 @@ export function GenericResultExplorer({
               {capturing === 'export' ? 'Exporting…' : 'Export PNG'}
             </button>
           </div>
-          {aiAnalysis && (
-            <section
-              className={styles.aiAnomalyAnalysis}
-              aria-label="AI anomaly analysis"
-            >
-              <strong>AI analysis</strong>
-              <p>{aiAnalysis.summary}</p>
-              {!!aiAnalysis.findings.length && (
-                <>
-                  <strong>Patterns in the supplied data</strong>
-                  <ul>
-                    {aiAnalysis.findings.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {!!aiAnalysis.limitations.length && (
-                <>
-                  <strong>Limitations</strong>
-                  <ul>
-                    {aiAnalysis.limitations.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {!!aiAnalysis.followUps.length && (
-                <>
-                  <strong>Explore next</strong>
-                  <ul>
-                    {aiAnalysis.followUps.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              <small>
-                OpenRouter analysis of up to 8 visible series. Samples preserve
-                bucket minima, maxima, and endpoints.
-              </small>
-            </section>
-          )}
           {aiAnalysisError && (
             <div className={styles.aiAnomalyError} role="alert">
               {aiAnalysisError}
