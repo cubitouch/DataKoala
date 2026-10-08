@@ -855,6 +855,29 @@ describe('LokiExplorer execution', () => {
     expect(mocks.runLoki).not.toHaveBeenCalled()
   })
 
+  it('shows saved Level selections compactly and offers common values before a query', () => {
+    const tab = createQuerySession(1, {
+      id: 'saved-level-filter',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [],
+      parsers: [],
+      fieldFilters: [],
+      levelFilter: { values: ['ERROR', 'WARN', 'INFO'] },
+    }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+
+    const level = screen.getByRole('combobox', { name: /Level/ })
+    expect(level.textContent).toContain('3 levels selected')
+    fireEvent.click(level)
+    for (const name of ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE', 'FATAL'])
+      expect(screen.getByRole('option', { name })).toBeTruthy()
+  })
+
   it('uses an explicit removable local pattern filter from raw LogQL', async () => {
     mocks.runLoki.mockResolvedValue(patternLogs())
     render(<LokiExplorer connectionId="loki" />)
