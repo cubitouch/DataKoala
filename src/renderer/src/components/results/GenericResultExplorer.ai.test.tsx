@@ -114,11 +114,32 @@ afterEach(cleanup)
 
 describe('AI chart anomaly analysis', () => {
   it('shows loading, exact chart markers, a toggle, and on-demand AI details', async () => {
-    let resolveAnalysis: ((value: unknown) => void) | undefined
+    let resolveAnalysis: (() => void) | undefined
     aiMocks.analyzeAnomalies.mockImplementation(
-      () =>
+      (request: {
+        chart: { series: Array<{ points: Array<{ x: unknown; y: number }> }> }
+      }) =>
         new Promise((resolve) => {
-          resolveAnalysis = resolve
+          const points = request.chart.series[0].points
+          const spikeIndex = points.findIndex(
+            (point) => point.x === 157 && point.y === 800,
+          )
+          const dropIndex = points.findIndex(
+            (point) => point.x === 212 && point.y === -40,
+          )
+          resolveAnalysis = () =>
+            resolve({
+              ...successfulAnalysis,
+              value: {
+                ...successfulAnalysis.value,
+                anomalies: successfulAnalysis.value.anomalies.map(
+                  (anomaly, index) => ({
+                    ...anomaly,
+                    pointIndex: index === 0 ? spikeIndex : dropIndex,
+                  }),
+                ),
+              },
+            })
         }),
     )
     render(<GenericResultExplorer {...props()} />)
@@ -129,23 +150,25 @@ describe('AI chart anomaly analysis', () => {
       name: 'Analyzing with AI…',
     })
     expect((analyzingButton as HTMLButtonElement).disabled).toBe(true)
-    resolveAnalysis?.(successfulAnalysis)
+    resolveAnalysis?.()
 
     expect(
       await screen.findByRole('button', { name: 'AI details (2)' }),
     ).toBeTruthy()
     const toggle = screen.getByRole('button', { name: 'AI anomalies' })
     expect(toggle.getAttribute('aria-pressed')).toBe('true')
-    const chartSeries = aiMocks.chartOptions?.series as Array<
-      Record<string, unknown>
-    >
-    const markerData = chartSeries[0].markPoint as {
-      data: Array<{ coord: unknown[] }>
-    }
-    expect(markerData.data.map((marker) => marker.coord)).toEqual([
-      [157, 800],
-      [212, -40],
-    ])
+    await waitFor(() => {
+      const chartSeries = aiMocks.chartOptions?.series as
+        | Array<Record<string, unknown>>
+        | undefined
+      const markerData = chartSeries?.[0]?.markPoint as
+        | { data: Array<{ coord: unknown[] }> }
+        | undefined
+      expect(markerData?.data.map((marker) => marker.coord)).toEqual([
+        [157, 800],
+        [212, -40],
+      ])
+    })
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-pressed')).toBe('false')
     expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
