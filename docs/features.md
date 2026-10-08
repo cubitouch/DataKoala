@@ -176,24 +176,9 @@ Chart configuration includes:
 
 Chart settings are stored per query tab and survive compatible reruns.
 
-## Anomaly detection
+## AI chart anomaly analysis
 
-Charts include optional client-side anomaly detection based on a rolling median and median absolute deviation (MAD).
-
-The feature:
-
-- evaluates each visible Series independently;
-- highlights anomalous chart points without modifying source rows;
-- recomputes from the currently filtered result;
-- handles constant and zero-MAD baselines conservatively;
-- provides eligibility and status feedback;
-- persists the preference per query tab.
-
-Anomaly detection affects only chart presentation. It does not alter SQL, table values, CSV exports or copied result data.
-
-This is intended as a lightweight exploratory signal, not as a replacement for domain-specific monitoring or statistical modelling.
-
-When OpenRouter is configured, **Analyze with AI** inspects a bounded chart sample directly. It sends at most 8 series with 32 sampled points each; the model returns observations, limitations and follow-up ideas. The action is hidden when AI is not configured, and analysis never changes the query or result. This path does not depend on the local MAD detector.
+When OpenRouter is configured, **Analyze with AI** is available for line charts. It sends a bounded sample of up to 8 visible series with up to 32 points per series. Longer series retain chronological bucket endpoints, minima, and maxima; the request also includes point counts and sample coverage. Analysis returns observations, limitations, and follow-up ideas without changing the query or result. The action is hidden when AI is not configured.
 
 ## Export and sharing
 
