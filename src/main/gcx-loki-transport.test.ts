@@ -536,7 +536,7 @@ test('preserves normalized severity aliases across log records', () => {
   )
 })
 
-test('indexed severity labels determine badges when log fields conflict', () => {
+test('indexed severity labels determine badges when detected_level is absent', () => {
   const levelFilterQuery = buildLokiQuery({
     labelMatchers: [],
     lineFilters: [],
