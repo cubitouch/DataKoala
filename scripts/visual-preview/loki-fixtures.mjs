@@ -76,6 +76,7 @@ export const previewLokiRows = Array.from({ length: 48 }, (_, index) => {
       downstream_service:
         index % 3 === 1 ? 'payment-worker' : 'inventory-service',
       outcome: severity === 'INFO' ? 'recovered' : 'retrying',
+      detected_level: severity.toLowerCase(),
       ...(traceId ? { trace_id: traceId, span_id: 'c92f5b76d841a903' } : {}),
     },
     severity,
