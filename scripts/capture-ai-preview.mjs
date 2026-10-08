@@ -153,11 +153,25 @@ app.whenReady().then(async () => {
         !sample.some((point) => point.y === -40)
       )
         throw new Error('AI anomaly preview did not receive bucket extrema')
+      const spikeIndex = sample.findIndex((point) => point.y === 800)
+      const dropIndex = sample.findIndex((point) => point.y === -40)
       return ok({
         summary: 'Two sharp changes stand out in the request series.',
-        findings: [
-          'A narrow spike reaches 800 near day 17.',
-          'A narrow drop reaches -40 near day 42.',
+        anomalies: [
+          {
+            seriesIndex: 0,
+            pointIndex: spikeIndex,
+            title: 'Narrow spike',
+            reason: 'Requests rise sharply to 800 near day 17.',
+            severity: 'high',
+          },
+          {
+            seriesIndex: 0,
+            pointIndex: dropIndex,
+            title: 'Narrow drop',
+            reason: 'Requests fall sharply to -40 near day 42.',
+            severity: 'medium',
+          },
         ],
         limitations: [
           'The sample shows when the changes occurred, not what caused them.',
@@ -734,11 +748,21 @@ app.whenReady().then(async () => {
     await click(win, 'Analyze with AI')
     await wait(
       win,
-      `document.querySelector('[aria-label="AI anomaly analysis"]')?.textContent.includes('sharp changes')`,
+      `document.querySelector('button[aria-pressed="true"]')?.textContent.includes('AI anomalies') && [...document.querySelectorAll('button')].some((button) => button.textContent.includes('AI details (2)'))`,
     )
     await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-chart-anomaly.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
+    await click(win, 'AI details (2)')
+    await wait(
+      win,
+      `[...document.querySelectorAll('[role="dialog"]')].some((dialog) => dialog.textContent.includes('Narrow spike') && dialog.textContent.includes('Narrow drop') && dialog.textContent.includes('sample coverage'))`,
+    )
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-chart-anomaly-details.png'),
       (await win.webContents.capturePage()).toPNG(),
     )
 
