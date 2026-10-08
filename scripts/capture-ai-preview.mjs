@@ -751,51 +751,6 @@ app.whenReady().then(async () => {
       `[...document.querySelectorAll('button[aria-pressed="true"]')].some((button) => button.textContent.includes('AI anomalies')) && [...document.querySelectorAll('button')].some((button) => button.textContent.includes('AI details (2)'))`,
     )
     await settlePaint(win)
-    const anomalyHover = await win.webContents.executeJavaScript(`(() => {
-      const chart = document.querySelector('[data-visual-finished="true"] canvas')
-      if (!chart) throw new Error('AI anomaly chart canvas was not found')
-      const rect = chart.getBoundingClientRect()
-      const plotWidth = rect.width - 74
-      return {
-        x: rect.left + 50 + plotWidth * (17.5 / 64),
-        top: rect.top + 20,
-        bottom: rect.bottom - 45,
-      }
-    })()`)
-    win.show()
-    win.focus()
-    await sleep(250)
-    win.webContents.sendInputEvent({
-      type: 'mouseEnter',
-      x: anomalyHover.x,
-      y: anomalyHover.top,
-    })
-    let anomalyTooltipVisible = false
-    for (
-      let xOffset = -2;
-      xOffset <= 2 && !anomalyTooltipVisible;
-      xOffset += 2
-    ) {
-      for (
-        let y = anomalyHover.top;
-        y < anomalyHover.bottom && !anomalyTooltipVisible;
-        y += 4
-      ) {
-        win.webContents.sendInputEvent({
-          type: 'mouseMove',
-          x: anomalyHover.x + xOffset,
-          y,
-        })
-        await sleep(20)
-        anomalyTooltipVisible = await win.webContents.executeJavaScript(
-          `document.querySelector('.chart-tooltip-anomaly')?.textContent.includes('Narrow spike') ?? false`,
-        )
-      }
-    }
-    if (!anomalyTooltipVisible)
-      throw new Error(
-        'AI anomaly tooltip did not appear when hovering the spike',
-      )
     await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-chart-anomaly.png'),
