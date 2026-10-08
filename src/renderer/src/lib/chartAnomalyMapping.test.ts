@@ -29,7 +29,13 @@ test('maps AI sample references to exact original rows even when X values repeat
   const result = resolveAiAnomalies(
     analysis,
     [{ chartSeriesIndex: 0, sample }],
-    [{ name: 'Requests', data: [1, null, 8, 10], missing: [false, true, false, false] }],
+    [
+      {
+        name: 'Requests',
+        data: [1, null, 8, 10],
+        missing: [false, true, false, false],
+      },
+    ],
     ['same', 'same', 'same', 'last'],
     {},
   )
@@ -46,11 +52,20 @@ test('drops stale, missing, hidden, misassociated and non-plottable log referenc
   const changed = resolveAiAnomalies(
     analysis,
     [{ chartSeriesIndex: 0, sample }],
-    [{ name: 'Requests', data: [1, null, 9, 10], missing: [false, true, false, false] }],
+    [
+      {
+        name: 'Requests',
+        data: [1, null, 9, 10],
+        missing: [false, true, false, false],
+      },
+    ],
     ['a', 'b', 'same', 'last'],
     {},
   )
-  assert.deepEqual(changed.map(({ originalIndex }) => originalIndex), [3])
+  assert.deepEqual(
+    changed.map(({ originalIndex }) => originalIndex),
+    [3],
+  )
 
   const hidden = resolveAiAnomalies(
     analysis,
@@ -63,7 +78,12 @@ test('drops stale, missing, hidden, misassociated and non-plottable log referenc
 
   const logInvalid = resolveAiAnomalies(
     { ...analysis, anomalies: [analysis.anomalies[0]] },
-    [{ chartSeriesIndex: 0, sample: { ...sample, points: [{ ...sample.points[0], y: -8 }] } }],
+    [
+      {
+        chartSeriesIndex: 0,
+        sample: { ...sample, points: [{ ...sample.points[0], y: -8 }] },
+      },
+    ],
     [{ name: 'Requests', data: [1, null, -8, 10] }],
     ['a', 'b', 'same', 'last'],
     {},
