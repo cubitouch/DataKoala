@@ -32,14 +32,17 @@ export function ExplainPane() {
         {ai.configured && ai.plan && ai.context && (
           <>
             <button
-              className="btn ghost"
+              className={`btn ghost ${styles.performanceAction}`}
               disabled={ai.busy}
               onClick={() => void ai.analyze()}
             >
               {ai.busy ? 'Analyzing…' : 'Analyze performance'}
             </button>
             {ai.busy && (
-              <button className="btn ghost" onClick={ai.cancel}>
+              <button
+                className={`btn ghost ${styles.cancelAction}`}
+                onClick={ai.cancel}
+              >
                 Cancel
               </button>
             )}
@@ -48,10 +51,14 @@ export function ExplainPane() {
               sql={ai.plan.query}
               plan={ai.context}
               response={ai.analysis}
+              sent={ai.busy || Boolean(ai.analysis) || Boolean(ai.error)}
             />
           </>
         )}
-        <button className="btn ghost" onClick={() => setShow(false)}>
+        <button
+          className={`btn ghost ${styles.closeAction}`}
+          onClick={() => setShow(false)}
+        >
           close
         </button>
       </div>
