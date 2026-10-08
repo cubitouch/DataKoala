@@ -568,7 +568,9 @@ export function LokiExplorer({
             { label: key, operator: exclude ? '!=' : '=', value },
           ],
           fieldFilters: levelField
-            ? builder.fieldFilters.filter((filter) => !isLevelAlias(filter.field))
+            ? builder.fieldFilters.filter(
+                (filter) => !isLevelAlias(filter.field),
+              )
             : builder.fieldFilters,
         },
       })
@@ -581,7 +583,9 @@ export function LokiExplorer({
               ? [...builder.parsers, { kind: parser }]
               : builder.parsers,
           labelMatchers: levelField
-            ? builder.labelMatchers.filter((matcher) => !isLevelAlias(matcher.label))
+            ? builder.labelMatchers.filter(
+                (matcher) => !isLevelAlias(matcher.label),
+              )
             : builder.labelMatchers,
           fieldFilters: [
             ...builder.fieldFilters.filter((filter) =>
