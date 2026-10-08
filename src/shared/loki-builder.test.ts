@@ -3,6 +3,8 @@ import test from 'node:test'
 import {
   buildLokiQuery,
   resolveLokiLevelLabel,
+  normalizeLokiLevelValues,
+  sortLokiLevelValues,
   logqlResultKind,
   selectorWithoutMatcher,
 } from './loki-builder.ts'
@@ -367,6 +369,27 @@ test('resolves exact normalized indexed severity aliases deterministically', () 
   )
 })
 
+
+test('canonicalizes WARN and WARNING and orders indexed levels by severity', () => {
+  assert.deepEqual(
+    sortLokiLevelValues(['debug', 'ERROR', 'warning', 'FATAL', 'INFO', 'WARN']),
+    ['FATAL', 'ERROR', 'WARN', 'INFO', 'DEBUG'],
+  )
+  assert.deepEqual(normalizeLokiLevelValues(['warning', 'WARN', 'warn']), ['WARN'])
+  const query = buildLokiQuery({
+    labelMatchers: [],
+    lineFilters: [],
+    parsers: [],
+    fieldFilters: [],
+    levelFilter: { label: 'level', values: ['warning'] },
+  })
+  assert.equal(query, '{level=~"(?i)^(?:WARN|WARNING)$"}')
+  const matcher = /^(?:WARN|WARNING)$/i
+  assert.equal(matcher.test('WARN'), true)
+  assert.equal(matcher.test('WARNING'), true)
+  assert.equal(matcher.test('INFO'), false)
+})
+
 test('Level selections replace only the resolved label with one OR matcher and round-trip', () => {
   const state = {
     labelMatchers: [
@@ -382,7 +405,7 @@ test('Level selections replace only the resolved label with one OR matcher and r
   const query = buildLokiQuery(JSON.parse(JSON.stringify(state)))
   assert.equal(
     query,
-    '{severity="critical", app="checkout", level=~"(?i)^(?:ERROR|WARN)$"} | level="ERROR"',
+    '{severity="critical", app="checkout", level=~"(?i)^(?:ERROR|WARN|WARNING)$"} | level="ERROR"',
   )
   assert.equal((query.match(/level=~/g) ?? []).length, 1)
   assert.equal(
