@@ -16,7 +16,10 @@ import {
   sanitizeGcxError,
   type GcxCommandRunner,
 } from './gcx-command.ts'
-import { logqlResultKind, resolveLokiLevelLabel } from '../shared/loki-builder.ts'
+import {
+  logqlResultKind,
+  resolveLokiLevelLabel,
+} from '../shared/loki-builder.ts'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value)
