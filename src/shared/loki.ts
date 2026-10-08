@@ -102,10 +102,7 @@ export interface LokiParserStage {
   expression?: string
 }
 export type LokiFilterSource =
-  | 'label'
-  | 'structured-metadata'
-  | 'parsed-field'
-  | 'local'
+  'label' | 'structured-metadata' | 'parsed-field' | 'local'
 export interface LokiSeveritySource {
   source: Exclude<LokiFilterSource, 'local'>
   field: string
