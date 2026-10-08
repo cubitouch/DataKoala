@@ -12,10 +12,14 @@ const aiMocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   analyzeAnomalies: vi.fn(),
   cancel: vi.fn(),
+  chartOptions: null as Record<string, unknown> | null,
 }))
 
 vi.mock('echarts-for-react', () => ({
-  default: () => <div data-testid="chart" />,
+  default: ({ option }: { option: Record<string, unknown> }) => {
+    aiMocks.chartOptions = option
+    return <div data-testid="chart" />
+  },
 }))
 vi.mock('@lib/api', () => ({
   api: {
@@ -76,7 +80,22 @@ const successfulAnalysis = {
   ok: true,
   value: {
     summary: 'A spike and drop are visible.',
-    findings: ['A narrow spike appears at point 157.'],
+    anomalies: [
+      {
+        seriesIndex: 0,
+        pointIndex: 7,
+        title: 'Narrow spike',
+        reason: 'The sampled value at day 157 rises far above its neighbors.',
+        severity: 'high',
+      },
+      {
+        seriesIndex: 0,
+        pointIndex: 12,
+        title: 'Narrow drop',
+        reason: 'The sampled value at day 212 falls far below its neighbors.',
+        severity: 'medium',
+      },
+    ],
     limitations: ['The sample cannot explain the cause.'],
     followUps: ['Compare another time window.'],
   },
@@ -89,11 +108,12 @@ beforeEach(() => {
   })
   aiMocks.analyzeAnomalies.mockReset().mockResolvedValue(successfulAnalysis)
   aiMocks.cancel.mockReset()
+  aiMocks.chartOptions = null
 })
 afterEach(cleanup)
 
 describe('AI chart anomaly analysis', () => {
-  it('shows loading and renders an extrema-preserving AI analysis', async () => {
+  it('shows loading, exact chart markers, a toggle, and on-demand AI details', async () => {
     let resolveAnalysis: ((value: unknown) => void) | undefined
     aiMocks.analyzeAnomalies.mockImplementation(
       () =>
@@ -111,12 +131,18 @@ describe('AI chart anomaly analysis', () => {
     expect((analyzingButton as HTMLButtonElement).disabled).toBe(true)
     resolveAnalysis?.(successfulAnalysis)
 
-    expect(
-      await screen.findByText('A spike and drop are visible.'),
-    ).toBeTruthy()
-    expect(
-      screen.getByText('A narrow spike appears at point 157.'),
-    ).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'AI details (2)' })).toBeTruthy()
+    const toggle = screen.getByRole('button', { name: 'AI anomalies' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    const chartSeries = aiMocks.chartOptions?.series as Array<Record<string, unknown>>
+    const markerData = chartSeries[0].markPoint as { data: Array<{ coord: unknown[] }> }
+    expect(markerData.data.map((marker) => marker.coord)).toEqual([[157, 800], [212, -40]])
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: 'AI details (2)' }))
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('A spike and drop are visible.')).toBeTruthy()
+    expect(screen.getByText('The sampled value at day 157 rises far above its neighbors.')).toBeTruthy()
     const request = aiMocks.analyzeAnomalies.mock.calls[0][0]
     expect(request.chart.series[0].points).toContainEqual({ x: 157, y: 800 })
     expect(request.chart.series[0].points).toContainEqual({ x: 212, y: -40 })
