@@ -946,7 +946,7 @@ describe('LokiExplorer execution', () => {
     await waitFor(() =>
       expect(
         (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
-      ).toContain('level=~"(?i)^(?:WARN)$"'),
+      ).toContain('level=~"(?i)^(?:warn)$"'),
     )
   })
 
