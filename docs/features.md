@@ -178,7 +178,9 @@ Chart settings are stored per query tab and survive compatible reruns.
 
 ## AI chart anomaly analysis
 
-When OpenRouter is configured, **Analyze with AI** is available for line charts. It sends a bounded sample of up to 8 visible series with up to 32 points per series. Longer series retain chronological bucket endpoints, minima, and maxima; the request also includes point counts and sample coverage. Analysis returns observations, limitations, and follow-up ideas without changing the query or result. The action is hidden when AI is not configured.
+When OpenRouter is configured, **Analyze with AI** is available for line charts. It sends a bounded sample of up to 8 visible series with up to 32 points per series. Longer series retain chronological bucket endpoints, minima, and maxima; the request also includes point counts and sample coverage. The action is hidden when AI is not configured.
+
+AI results reference exact points in the submitted sample. Matching points receive red outlined chart markers, and hovering one shows its series-specific explanation in the tooltip. An **AI anomalies** toggle hides or restores the markers without another request. The **AI details** popover contains the summary, flagged values, limitations, follow-up ideas and per-series coverage; unsampled points are identified as not reviewed. No result changes the query or source data, and an empty analysis shows a calm no-candidates message.
 
 ## Export and sharing
 
