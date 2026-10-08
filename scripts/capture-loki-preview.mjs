@@ -59,7 +59,6 @@ async function seedWorkspace(win) {
             { label: 'environment', operator: '=', value: 'production' },
             { label: 'namespace', operator: '=', value: 'payments' },
             { label: 'service_name', operator: '=', value: 'checkout-api' },
-            { label: 'level', operator: '=~', value: '', values: ['ERROR', 'WARN'] }
           ],
           lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: []
         },
@@ -151,6 +150,20 @@ app.whenReady().then(async () => {
       'Group by',
     ])
     await win.webContents.executeJavaScript(
+      `document.querySelector('[data-field-name="Level"] button[role="combobox"]')?.click()`,
+    )
+    await waitFor(
+      win,
+      `document.querySelector('[role="listbox"][aria-label="Level"]')`,
+      'open Level dropdown',
+    )
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll('[role="option"]')].find((option) => option.textContent?.trim() === 'ERROR')?.click()`,
+    )
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll('[role="option"]')].find((option) => option.textContent?.trim() === 'WARN')?.click()`,
+    )
+    await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Generated LogQL')?.click()`,
     )
     await waitFor(
@@ -164,7 +177,7 @@ app.whenReady().then(async () => {
     await waitFor(
       win,
       `document.querySelector('[role="listbox"][aria-label="Level"]')`,
-      'open Level dropdown',
+      'reopen Level dropdown',
     )
     await sleep(300)
     const levelPath = resolve(outputDir, 'loki-builder-level.png')
