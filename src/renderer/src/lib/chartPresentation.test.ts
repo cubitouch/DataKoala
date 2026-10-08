@@ -411,7 +411,6 @@ test('hierarchical presentation shares data and exposes path, value, and share t
   }
 })
 
-
 test('AI markers use exact series coordinates, respect visibility, and disappear when toggled off', () => {
   const base = {
     labels: ['same', 'same', 'last'],
@@ -437,15 +436,23 @@ test('AI markers use exact series coordinates, respect visibility, and disappear
       },
     ],
   }
-  const visible = buildChartPresentationOptions({ ...base, showAiAnomalies: true })
+  const visible = buildChartPresentationOptions({
+    ...base,
+    showAiAnomalies: true,
+  })
   const rendered = visible.series as Array<Record<string, unknown>>
-  const requestMark = rendered[0].markPoint as { data: Array<{ coord: unknown[] }> }
-  const errorMark = rendered[1].markPoint as { data: Array<{ coord: unknown[] }> }
+  const requestMark = rendered[0].markPoint as {
+    data: Array<{ coord: unknown[] }>
+  }
+  const errorMark = rendered[1].markPoint as {
+    data: Array<{ coord: unknown[] }>
+  }
   assert.deepEqual(requestMark.data, [{ coord: ['same', 8], value: 8 }])
   assert.deepEqual(errorMark.data, [{ coord: ['same', 80], value: 80 }])
   assert.equal((rendered[0].markPoint as { symbol: string }).symbol, 'circle')
   assert.equal(
-    (rendered[0].markPoint as { itemStyle: { borderColor: string } }).itemStyle.borderColor,
+    (rendered[0].markPoint as { itemStyle: { borderColor: string } }).itemStyle
+      .borderColor,
     '#ff4d4f',
   )
 
@@ -474,7 +481,12 @@ test('temporal AI anomaly markers use the plotted UTC coordinate', () => {
     hasSeriesColumn: false,
     mode: 'sql',
     aiAnomalies: [
-      { seriesName: 'Requests', originalIndex: 0, title: 'Spike', reason: 'High.' },
+      {
+        seriesName: 'Requests',
+        originalIndex: 0,
+        title: 'Spike',
+        reason: 'High.',
+      },
     ],
     showAiAnomalies: true,
   })
