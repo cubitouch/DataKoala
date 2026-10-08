@@ -313,6 +313,8 @@ export function GenericResultExplorer({
     effectiveConfiguration.seriesColumns,
     activeFilters,
     seriesVisibility,
+    chartTimeDomain,
+    timeBucket,
     cancelAiRequest,
   ])
   useEffect(() => () => cancelAiRequest(), [cancelAiRequest])
