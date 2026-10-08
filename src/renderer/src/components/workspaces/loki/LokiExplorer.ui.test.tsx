@@ -878,6 +878,72 @@ describe('LokiExplorer execution', () => {
       expect(screen.getByRole('option', { name })).toBeTruthy()
   })
 
+  it('keeps the first query unrestricted until result provenance is discovered, then updates LogQL without rerunning', async () => {
+    const tab = createQuerySession(1, {
+      id: 'first-query-level-filter',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+      lineFilters: [],
+      parsers: [],
+      fieldFilters: [],
+    }
+    const resultRow = {
+      ...logRow('first-level-row', 'Request failed', 'ERROR'),
+      severitySource: {
+        source: 'structured-metadata' as const,
+        field: 'severity',
+        value: 'ERROR',
+      },
+    }
+    mocks.runLoki.mockResolvedValue({
+      ...logs,
+      logRows: [resultRow],
+      rows: [resultRow],
+      rowCount: 1,
+    })
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+
+    const level = screen.getByRole('combobox', { name: /Level/ })
+    fireEvent.keyDown(level, { key: 'ArrowDown' })
+    fireEvent.keyDown(level, { key: 'Enter' })
+    fireEvent.keyDown(level, { key: 'ArrowDown' })
+    fireEvent.keyDown(level, { key: 'Enter' })
+    expect(
+      await screen.findByText(
+        'Local only until a safe Level source is discovered.',
+      ),
+    ).toBeTruthy()
+    fireEvent.keyDown(level, { key: 'Escape' })
+
+    fireEvent.click(screen.getByText('Generated LogQL'))
+    const editor = () =>
+      screen.getByLabelText('LogQL editor') as HTMLTextAreaElement
+    await waitFor(() => expect(editor().value).toContain('{app="x"}'))
+    expect(editor().value).not.toContain('severity=~')
+    expect(
+      screen.getByText(/This generated LogQL is unrestricted by Level/),
+    ).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+    expect(mocks.runLoki.mock.calls[0][1].expression).toBe('{app="x"}')
+    await waitFor(() =>
+      expect(
+        useStore.getState().tabs[0].lokiBuilder.levelFilter?.source,
+      ).toEqual({ source: 'structured-metadata', field: 'severity' }),
+    )
+    await waitFor(() => expect(editor().value).toContain('severity=~'))
+    expect(editor().value).toContain('(?i)^(?:ERROR|WARN)$')
+    expect(mocks.runLoki).toHaveBeenCalledTimes(1)
+    expect(
+      screen.queryByText('Local only until a safe Level source is discovered.'),
+    ).toBeNull()
+  })
+
   it('uses an explicit removable local pattern filter from raw LogQL', async () => {
     mocks.runLoki.mockResolvedValue(patternLogs())
     render(<LokiExplorer connectionId="loki" />)
