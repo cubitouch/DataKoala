@@ -31,6 +31,8 @@ interface Props extends FieldFeedbackProps {
   emptyMessage?: string
   invalidationKey?: unknown
   allowCustomValue?: boolean
+  selectedSummary?: string
+  selectionIndicator?: 'check' | 'checkbox'
 }
 const optionText = (option: ComboboxOption) =>
   [option.label, option.subtitle, ...(option.keywords ?? [])]
@@ -60,6 +62,8 @@ export function MultiCombobox({
   emptyMessage = 'No matching options',
   invalidationKey,
   allowCustomValue = false,
+  selectedSummary,
+  selectionIndicator = 'check',
 }: Props) {
   const reactId = useId()
   const menuId = `${reactId}-listbox`
@@ -173,7 +177,10 @@ export function MultiCombobox({
     setQuery('')
   }
   const triggerSummary = selectedOptions.length
-    ? { value: 'summary', label: `${selectedOptions.length} selected` }
+    ? {
+        value: 'summary',
+        label: selectedSummary ?? `${selectedOptions.length} selected`,
+      }
     : undefined
   return (
     <FieldChrome
@@ -214,19 +221,23 @@ export function MultiCombobox({
                 ? optionId(reactId, active.value)
                 : undefined,
               onKeyDown: (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault()
-                  setOpen(true)
+                if (!open) {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setOpen(true)
+                    return
+                  }
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault()
+                    setOpen(true)
+                    setActiveValue(
+                      (event.key === 'ArrowDown' ? enabled[0] : enabled.at(-1))
+                        ?.value ?? null,
+                    )
+                  }
                   return
                 }
-                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                  event.preventDefault()
-                  setOpen(true)
-                  setActiveValue(
-                    (event.key === 'ArrowDown' ? enabled[0] : enabled.at(-1))
-                      ?.value ?? null,
-                  )
-                }
+                onKeyDown(event)
               },
             }}
             trigger={
@@ -302,6 +313,7 @@ export function MultiCombobox({
                       if (!option.disabled) setActiveValue(option.value)
                     }}
                     onSelect={() => toggle(option)}
+                    selectionIndicator={selectionIndicator}
                   />
                 ))}
               {!loading && !error && filtered.length === 0 && (
