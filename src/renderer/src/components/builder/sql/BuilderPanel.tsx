@@ -1122,7 +1122,9 @@ export function BuilderPanel() {
                 invalidationKey={`${relationInvalidationKey}\0${selectedX ?? ''}\0${selectedY ?? ''}`}
               />
               {seriesProbe?.status === 'checking' && (
-                <small role="status">Checking cardinality…</small>
+                <small className={styles.seriesProbeStatus} role="status">
+                  Checking cardinality…
+                </small>
               )}
               {seriesProbe?.status === 'error' && (
                 <div className={styles.seriesProbeError} role="alert">
