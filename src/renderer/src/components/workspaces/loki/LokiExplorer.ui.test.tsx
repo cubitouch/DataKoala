@@ -793,6 +793,7 @@ describe('LokiExplorer execution', () => {
       fieldFilters: [{ field: 'level', operator: '=', value: 'ERROR' }],
     }
     mocks.labels.mockResolvedValue(['app', 'level', 'severity'])
+    mocks.labelValues.mockResolvedValue(['ERROR', 'warn', 'error', 'WARN', 'warning'])
     useStore.setState({ tabs: [tab], activeTabId: tab.id })
     render(<LokiExplorer connectionId="loki" />)
 
@@ -815,6 +816,15 @@ describe('LokiExplorer execution', () => {
       ),
     ).toEqual(['ERROR', 'WARN'])
     fireEvent.keyDown(level, { key: 'Escape' })
+
+    const filterBy = screen.getByRole('combobox', { name: /Filter by/ })
+    fireEvent.click(filterBy)
+    expect(screen.queryByRole('option', { name: 'level' })).toBeNull()
+    fireEvent.keyDown(filterBy, { key: 'Escape' })
+    const groupBy = screen.getByRole('combobox', { name: /Group by/ })
+    fireEvent.click(groupBy)
+    expect(await screen.findByRole('option', { name: 'level' })).toBeTruthy()
+    fireEvent.keyDown(groupBy, { key: 'Escape' })
     fireEvent.click(screen.getByText('Generated LogQL'))
     await waitFor(() =>
       expect(
@@ -846,8 +856,17 @@ describe('LokiExplorer execution', () => {
     expect(mocks.runLoki).not.toHaveBeenCalled()
   })
 
-  it('shows saved Level selections compactly and offers common values before a query', async () => {
+  it('shows saved Level selections and offers discovered indexed values before a query', async () => {
     mocks.labels.mockResolvedValue(['app', 'level'])
+    mocks.labelValues.mockResolvedValue([
+      'ERROR',
+      'debug',
+      'error',
+      'fatal',
+      'info',
+      'warn',
+      'warning',
+    ])
     const tab = createQuerySession(1, {
       id: 'saved-level-filter',
       connectionProfileId: 'loki',
@@ -871,8 +890,53 @@ describe('LokiExplorer execution', () => {
       ),
     ).toEqual(['ERROR', 'WARN', 'INFO'])
     fireEvent.click(level)
-    for (const name of ['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE', 'FATAL'])
+    for (const name of ['DEBUG', 'ERROR', 'FATAL', 'INFO', 'WARN', 'WARNING'])
       expect(screen.getByRole('option', { name })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'TRACE' })).toBeNull()
+  })
+
+  it('promotes an existing exact severity matcher into Level and removes it from Filter by', async () => {
+    mocks.labels.mockResolvedValue(['app', 'level'])
+    mocks.labelValues.mockResolvedValue(['warn'])
+    const tab = createQuerySession(1, {
+      id: 'legacy-level-filter',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [
+        { label: 'app', operator: '=', value: 'x' },
+        { label: 'level', operator: '=', value: 'warn' },
+      ],
+      lineFilters: [],
+      parsers: [],
+      fieldFilters: [],
+    }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+
+    await waitFor(() =>
+      expect(useStore.getState().tabs[0].lokiBuilder.levelFilter?.values).toEqual([
+        'warn',
+      ]),
+    )
+    expect(
+      useStore.getState().tabs[0].lokiBuilder.labelMatchers,
+    ).toEqual([{ label: 'app', operator: '=', value: 'x' }])
+    const level = screen.getByRole('combobox', { name: /Level/ })
+    expect(level.querySelector('[data-combobox-chip]')?.textContent).toContain(
+      'WARN',
+    )
+    const filterBy = screen.getByRole('combobox', { name: /Filter by/ })
+    fireEvent.click(filterBy)
+    expect(screen.queryByRole('option', { name: 'level' })).toBeNull()
+    fireEvent.keyDown(filterBy, { key: 'Escape' })
+    fireEvent.click(screen.getByText('Generated LogQL'))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
+      ).toContain('level=~"(?i)^(?:WARN)$"'),
+    )
   })
 
   it('disables Level when indexed metadata has no matching label, without filtering loaded rows', async () => {
