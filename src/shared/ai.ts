@@ -51,9 +51,16 @@ export interface AiAnomalyAnalysisRequest {
   requestId: string
   chart: AiAnomalyChartContext
 }
+export interface AiDetectedAnomaly {
+  seriesIndex: number
+  pointIndex: number
+  title: string
+  reason: string
+  severity?: 'low' | 'medium' | 'high'
+}
 export interface AiAnomalyAnalysis {
   summary: string
-  findings: string[]
+  anomalies: AiDetectedAnomaly[]
   limitations: string[]
   followUps: string[]
 }
@@ -147,8 +154,11 @@ export const AI_LIMITS = {
   anomalySeries: 8,
   anomalyPointsPerSeries: 32,
   anomalyMinimumPointsPerSeries: 3,
-  anomalyFindings: 8,
-  anomalyText: 1200,
+  anomalyCount: 12,
+  anomalyTitle: 120,
+  anomalyReason: 400,
+  anomalySummary: 1000,
+  anomalyText: 500,
 } as const
 export const AI_PRIVACY_NOTICE =
   'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query or Builder state, bounded schema metadata, or a small capped chart sample for AI anomaly analysis. Database credentials and full query result rows are not sent.'
