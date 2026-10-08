@@ -8,7 +8,11 @@ import { EncryptedSecretStore } from '../secrets/store.ts'
 import type { Encryption, SecretOwner, SecretStore } from '../secrets/store.ts'
 import { AiService } from './service.ts'
 import { OpenRouterProvider } from './openrouter.ts'
-import { anomalyAnalysisRequest, proposalRequest } from './validation.ts'
+import {
+  anomalyAnalysis,
+  anomalyAnalysisRequest,
+  proposalRequest,
+} from './validation.ts'
 import {
   AI_LIMITS,
   type AiAnomalyAnalysisRequest,
@@ -130,6 +134,54 @@ const anomalyRequest: AiAnomalyAnalysisRequest = {
     ],
   },
 }
+test('AI anomaly response validation rejects ungrounded and duplicate references', () => {
+  const valid = {
+    summary: 'A candidate spike is present.',
+    anomalies: [
+      {
+        seriesIndex: 0,
+        pointIndex: 2,
+        title: 'Candidate spike',
+        reason: 'The sampled value is higher than its neighbors.',
+        severity: 'high',
+      },
+    ],
+    limitations: [],
+    followUps: [],
+  }
+  assert.deepEqual(
+    anomalyAnalysis(valid, anomalyRequest).anomalies,
+    valid.anomalies,
+  )
+  assert.throws(() =>
+    anomalyAnalysis(
+      {
+        ...valid,
+        anomalies: [{ ...valid.anomalies[0], seriesIndex: 1 }],
+      },
+      anomalyRequest,
+    ),
+  )
+  assert.throws(() =>
+    anomalyAnalysis(
+      {
+        ...valid,
+        anomalies: [{ ...valid.anomalies[0], pointIndex: 3 }],
+      },
+      anomalyRequest,
+    ),
+  )
+  assert.throws(() =>
+    anomalyAnalysis(
+      {
+        ...valid,
+        anomalies: [valid.anomalies[0], valid.anomalies[0]],
+      },
+      anomalyRequest,
+    ),
+  )
+})
+
 test('OpenRouter returns a validated structured anomaly analysis from bounded chart context', async () => {
   let sent: Record<string, unknown> | undefined
   const provider = new OpenRouterProvider(
@@ -139,7 +191,16 @@ test('OpenRouter returns a validated structured anomaly analysis from bounded ch
       sent = JSON.parse(String(init?.body))
       return completion({
         summary: 'One candidate spike is visible.',
-        findings: ['The sampled value is much higher than nearby values.'],
+        anomalies: [
+          {
+            seriesIndex: 0,
+            pointIndex: 2,
+            title: 'Candidate spike',
+            reason:
+              'The final sampled value is higher than the preceding values.',
+            severity: 'high',
+          },
+        ],
         limitations: ['The sample cannot explain the cause.'],
         followUps: ['Compare the same period last week.'],
       })
@@ -150,7 +211,7 @@ test('OpenRouter returns a validated structured anomaly analysis from bounded ch
     signal(),
   )
   assert.equal(analysis.summary, 'One candidate spike is visible.')
-  assert.equal(analysis.findings.length, 1)
+  assert.equal(analysis.anomalies.length, 1)
   assert.equal((sent?.response_format as { type: string }).type, 'json_schema')
   assert.match(JSON.stringify(sent?.messages), /2026-10-01/)
   assert.match(JSON.stringify(sent?.messages), /sampleCoverage/)
@@ -548,7 +609,7 @@ test('settings preserve the model and blank key; tests do not save; removal dele
       },
       analyzeAnomalies: async () => ({
         summary: '',
-        findings: [],
+        anomalies: [],
         limitations: [],
         followUps: [],
       }),
