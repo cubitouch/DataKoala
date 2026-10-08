@@ -109,11 +109,20 @@ export interface LokiSeveritySource {
   value: string
   parser?: LokiParserKind
 }
+export type LokiLevelFilterSource = Pick<
+  LokiSeveritySource,
+  'source' | 'field' | 'parser'
+>
+export interface LokiLevelFilter {
+  values: string[]
+  source?: LokiLevelFilterSource
+}
 export interface LokiBuilderState {
   labelMatchers: LokiLabelMatcher[]
   lineFilters: LokiLineFilter[]
   parsers: LokiParserStage[]
   fieldFilters: LokiFieldFilter[]
+  levelFilter?: LokiLevelFilter
 }
 export const DEFAULT_LOKI_BUILDER: LokiBuilderState = {
   labelMatchers: [],
