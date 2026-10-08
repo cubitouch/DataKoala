@@ -748,7 +748,7 @@ app.whenReady().then(async () => {
     await click(win, 'Analyze with AI')
     await wait(
       win,
-      `document.querySelector('button[aria-pressed="true"]')?.textContent.includes('AI anomalies') && [...document.querySelectorAll('button')].some((button) => button.textContent.includes('AI details (2)'))`,
+      `[...document.querySelectorAll('button[aria-pressed="true"]')].some((button) => button.textContent.includes('AI anomalies')) && [...document.querySelectorAll('button')].some((button) => button.textContent.includes('AI details (2)'))`,
     )
     await settlePaint(win)
     await win.webContents.executeJavaScript(`(() => {
