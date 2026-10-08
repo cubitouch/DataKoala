@@ -59,7 +59,13 @@ function parseBuilder(value: unknown): LokiBuilderState | null {
       oneOf(x.operator, ['=', '!=', '=~', '!~'] as const) &&
       typeof x.value === 'string',
   )
-  return labels && lines && parsers && fields
+  const levels =
+    value.levelFilter === undefined ||
+    (isRecord(value.levelFilter) &&
+      stringArray(value.levelFilter.values) &&
+      (value.levelFilter.label === undefined ||
+        typeof value.levelFilter.label === 'string'))
+  return labels && lines && parsers && fields && levels
     ? (clone(value) as unknown as LokiBuilderState)
     : null
 }
