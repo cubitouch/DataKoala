@@ -240,4 +240,4 @@ These limitations should be considered before using the prototype with sensitive
 
 ## In one sentence
 
-> DataKoala turns a PostgreSQL database or local data file into an interactive SQL, table and chart workspace—with a transparent visual Builder and lightweight anomaly detection, entirely from a desktop application.
+> DataKoala turns a PostgreSQL database or local data file into an interactive SQL, table and chart workspace—with a transparent visual Builder and optional AI-assisted chart analysis, entirely from a desktop application.
