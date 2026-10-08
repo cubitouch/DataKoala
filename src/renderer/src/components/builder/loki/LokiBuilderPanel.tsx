@@ -258,7 +258,7 @@ export function LokiBuilderPanel({
           />
           {levelFilterLocally && (
             <p className={styles.preserved}>
-              Source is unknown or mixed; this filters loaded logs only.
+              Local only until a safe Level source is discovered.
             </p>
           )}
         </FormField>
@@ -476,6 +476,14 @@ export function LokiBuilderPanel({
         language="LogQL"
         value={generated}
         onOpenInEditor={onOpenLogql}
+        supplementary={
+          levelFilterLocally ? (
+            <p className={styles.preserved} role="status">
+              This generated LogQL is unrestricted by Level because no safe
+              source is known. Selected levels filter loaded logs only.
+            </p>
+          ) : undefined
+        }
       />
     </BuilderForm>
   )
