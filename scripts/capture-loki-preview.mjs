@@ -153,11 +153,11 @@ app.whenReady().then(async () => {
     await assertCompactObjectFilter(win, 'Filter Loki objects')
     for (
       let attempt = 0;
-      attempt < 80 && (!labelsReady || valueRequests.size < 3);
+      attempt < 80 && (!labelsReady || valueRequests.size < 4);
       attempt += 1
     )
       await sleep(100)
-    if (!labelsReady || valueRequests.size < 3)
+    if (!labelsReady || valueRequests.size < 4)
       throw new Error('Loki metadata fixtures did not finish loading')
     await assertFieldRowGeometry(win, '[data-loki-builder]', [
       'Filter by',
