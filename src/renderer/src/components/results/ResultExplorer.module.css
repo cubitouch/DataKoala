@@ -255,14 +255,13 @@
   cursor: default;
 }
 
-.aiAnomalyAnalysis,
 .aiAnomalyError {
   margin: 8px 12px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-2);
-  color: var(--text);
+  color: var(--danger);
   font-size: 12px;
 }
 
