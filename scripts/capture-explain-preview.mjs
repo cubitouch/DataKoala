@@ -269,8 +269,13 @@ app.whenReady().then(async () => {
 
     await wait(
       win,
-      `document.querySelector('[aria-label="Execution plan diagram"]') && document.body.innerText.includes('EXPLAIN ANALYZE') && document.body.innerText.includes('700× estimate') && document.body.innerText.includes('close estimate') && document.body.innerText.includes('2.50 ms / loop') && document.body.innerText.includes('≈25.00 ms total')`,
-      'execution-plan diagnostics',
+      `(() => {
+        const diagram = document.querySelector('[aria-label="Execution plan diagram"]')
+        const nodeCount = Number(diagram?.dataset.nodeCount ?? 0)
+        const edgeCount = Number(diagram?.dataset.edgeCount ?? 0)
+        return nodeCount >= 7 && edgeCount === nodeCount - 1 && document.body.innerText.includes('EXPLAIN ANALYZE')
+      })()`,
+      'JointJS execution-plan graph and Explain summary',
     )
 
     await sleep(250)
