@@ -259,7 +259,10 @@ export function anomalyAnalysisRequest(
     throw new AiError('validation', 'Invalid AI anomaly chart context.')
   const chartType = textValue(chart.chartType, 32)
   if (chartType !== 'line')
-    throw new AiError('validation', 'AI anomaly analysis only supports line charts.')
+    throw new AiError(
+      'validation',
+      'AI anomaly analysis only supports line charts.',
+    )
   const series = chart.series.map((raw) => {
     const item = record(raw)
     onlyKeys(item, [
@@ -289,7 +292,8 @@ export function anomalyAnalysisRequest(
       originalPointCount < validPointCount ||
       sampleCoverage <= 0 ||
       sampleCoverage > 1 ||
-      Math.abs(sampleCoverage - item.points.length / validPointCount) > 0.000001 ||
+      Math.abs(sampleCoverage - item.points.length / validPointCount) >
+        0.000001 ||
       !['all-points', 'bucket-extrema'].includes(
         String(item.samplingMethod),
       )
