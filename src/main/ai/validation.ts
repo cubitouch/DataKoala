@@ -257,6 +257,9 @@ export function anomalyAnalysisRequest(
     chart.series.length > AI_LIMITS.anomalySeries
   )
     throw new AiError('validation', 'Invalid AI anomaly chart context.')
+  const chartType = textValue(chart.chartType, 32)
+  if (chartType !== 'line')
+    throw new AiError('validation', 'AI anomaly analysis only supports line charts.')
   const series = chart.series.map((raw) => {
     const item = record(raw)
     onlyKeys(item, [
@@ -310,7 +313,7 @@ export function anomalyAnalysisRequest(
   return {
     requestId: requestId(input.requestId),
     chart: {
-      chartType: textValue(chart.chartType, 32),
+      chartType,
       xColumn: textValue(chart.xColumn, 256),
       valueColumn: textValue(chart.valueColumn, 256),
       series,
