@@ -133,69 +133,69 @@ const anomalyRequest: AiAnomalyAnalysisRequest = {
 test(
   'OpenRouter returns a validated structured anomaly analysis from bounded chart context',
   async () => {
-  let sent: Record<string, unknown> | undefined
-  const provider = new OpenRouterProvider('key', 'model', async (_url, init) => {
-    sent = JSON.parse(String(init?.body))
-    return completion({
-      summary: 'One candidate spike is visible.',
-      findings: ['The sampled value is much higher than nearby values.'],
-      limitations: ['The sample cannot explain the cause.'],
-      followUps: ['Compare the same period last week.'],
+    let sent: Record<string, unknown> | undefined
+    const provider = new OpenRouterProvider('key', 'model', async (_url, init) => {
+      sent = JSON.parse(String(init?.body))
+      return completion({
+        summary: 'One candidate spike is visible.',
+        findings: ['The sampled value is much higher than nearby values.'],
+        limitations: ['The sample cannot explain the cause.'],
+        followUps: ['Compare the same period last week.'],
+      })
     })
-  })
-  const analysis = await provider.analyzeAnomalies(
-    anomalyAnalysisRequest(anomalyRequest),
-    signal(),
-  )
-  assert.equal(analysis.summary, 'One candidate spike is visible.')
-  assert.equal(analysis.findings.length, 1)
-  assert.equal((sent?.response_format as { type: string }).type, 'json_schema')
-  assert.match(JSON.stringify(sent?.messages), /2026-10-01/)
-  assert.match(JSON.stringify(sent?.messages), /sampleCoverage/)
-  const tooMany = {
-    ...anomalyRequest,
-    chart: {
-      ...anomalyRequest.chart,
-      series: Array.from({ length: 9 }, (_, index) => ({
-        name: String(index),
-        originalPointCount: 3,
-        validPointCount: 3,
-        sampleCoverage: 1,
-        samplingMethod: 'all-points',
-        points: [
-          { x: '2026-10-01', y: 2 },
-          { x: '2026-10-02', y: 3 },
-          { x: '2026-10-03', y: 9 },
-        ],
-      })),
-    },
-  }
-  assert.throws(() => anomalyAnalysisRequest(tooMany))
-  assert.throws(() =>
-    anomalyAnalysisRequest({
-      ...anomalyRequest,
-      chart: { ...anomalyRequest.chart, series: [] },
-    }),
-  )
-  assert.throws(() =>
-    anomalyAnalysisRequest({
+    const analysis = await provider.analyzeAnomalies(
+      anomalyAnalysisRequest(anomalyRequest),
+      signal(),
+    )
+    assert.equal(analysis.summary, 'One candidate spike is visible.')
+    assert.equal(analysis.findings.length, 1)
+    assert.equal((sent?.response_format as { type: string }).type, 'json_schema')
+    assert.match(JSON.stringify(sent?.messages), /2026-10-01/)
+    assert.match(JSON.stringify(sent?.messages), /sampleCoverage/)
+    const tooMany = {
       ...anomalyRequest,
       chart: {
         ...anomalyRequest.chart,
-        series: [
-          {
-            ...anomalyRequest.chart.series[0],
-            points: anomalyRequest.chart.series[0].points.slice(0, 2),
-            originalPointCount: 2,
-            validPointCount: 2,
-            sampleCoverage: 1,
-          },
-        ],
+        series: Array.from({ length: 9 }, (_, index) => ({
+          name: String(index),
+          originalPointCount: 3,
+          validPointCount: 3,
+          sampleCoverage: 1,
+          samplingMethod: 'all-points',
+          points: [
+            { x: '2026-10-01', y: 2 },
+            { x: '2026-10-02', y: 3 },
+            { x: '2026-10-03', y: 9 },
+          ],
+        })),
       },
-    }),
-  )
-})
-
+    }
+    assert.throws(() => anomalyAnalysisRequest(tooMany))
+    assert.throws(() =>
+      anomalyAnalysisRequest({
+        ...anomalyRequest,
+        chart: { ...anomalyRequest.chart, series: [] },
+      }),
+    )
+    assert.throws(() =>
+      anomalyAnalysisRequest({
+        ...anomalyRequest,
+        chart: {
+          ...anomalyRequest.chart,
+          series: [
+            {
+              ...anomalyRequest.chart.series[0],
+              points: anomalyRequest.chart.series[0].points.slice(0, 2),
+              originalPointCount: 2,
+              validPointCount: 2,
+              sampleCoverage: 1,
+            },
+          ],
+        },
+      }),
+    )
+  },
+)
 test('OpenRouter models, structured request and proposal parsing use only explicit query context', async () => {
   let sent: Record<string, unknown> | undefined
   const provider = new OpenRouterProvider(
