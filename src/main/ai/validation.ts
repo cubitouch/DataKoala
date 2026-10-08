@@ -225,11 +225,16 @@ export function planAnalysis(
       if (
         Object.keys(hint).some(
           (key) =>
-            !['title', 'detail', 'severity', 'nodeIds', 'evidence'].includes(
-              key,
-            ),
+            ![
+              'title',
+              'action',
+              'detail',
+              'severity',
+              'nodeIds',
+              'evidence',
+            ].includes(key),
         ) ||
-        Object.keys(hint).length !== 5 ||
+        Object.keys(hint).length !== 6 ||
         !Array.isArray(hint.nodeIds) ||
         hint.nodeIds.length < 1 ||
         hint.nodeIds.length > AI_LIMITS.planHintNodes ||
@@ -241,6 +246,10 @@ export function planAnalysis(
       if (new Set(referenced).size !== referenced.length) throw new Error()
       return {
         title: textValue(hint.title, AI_LIMITS.planHintTitle),
+        action:
+          hint.action === null
+            ? null
+            : textValue(hint.action, AI_LIMITS.planHintAction),
         detail: textValue(hint.detail, AI_LIMITS.planHintDetail),
         severity: hint.severity as 'info' | 'warning',
         nodeIds: referenced,

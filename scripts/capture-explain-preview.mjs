@@ -163,6 +163,7 @@ app.whenReady().then(async () => {
           hints: [
             {
               title: 'Join cardinality is underestimated',
+              action: 'Review statistics for the join key and filtered rows.',
               detail:
                 'The planner estimated far fewer rows than PostgreSQL returned, which may affect downstream choices.',
               severity: 'warning',
@@ -172,6 +173,7 @@ app.whenReady().then(async () => {
             },
             {
               title: 'Review the date filter selectivity',
+              action: null,
               detail:
                 'The scan removed a noticeable number of rows after applying the captured date predicate.',
               severity: 'info',
@@ -329,27 +331,43 @@ app.whenReady().then(async () => {
 
     const report = await win.webContents.executeJavaScript(`(() => {
       const diagram = document.querySelector('[aria-label="Execution plan diagram"]')
-      const nodes = [...document.querySelectorAll('[data-testid="plan-node"]')]
-      const text = diagram?.innerText ?? ''
+      const surface = document.querySelector('[data-testid="execution-plan-joint-surface"]')
+      const summary = document.querySelector('[aria-label="Plan summary"]')
+      const diagnostics = document.querySelector('[aria-label="Deterministic diagnostics"]')
+      const hints = document.querySelector('[aria-label="AI performance hints"]')
+      const text = document.body.innerText + (diagram?.textContent ?? '')
+      const layout = document.querySelector('[class*="planLayout"]')
       return {
-        nodeCount: nodes.length,
+        nodeCount: Number(diagram?.dataset.nodeCount ?? 0),
+        edgeCount: Number(diagram?.dataset.edgeCount ?? 0),
+        selectedNodeId: diagram?.dataset.selectedNodeId,
+        highlightedNodeIds: diagram?.dataset.highlightedNodeIds?.split(',').filter(Boolean),
         categories: ['Limit', 'Sort', 'Aggregate', 'Join', 'Scan', 'Hash'].filter(
           (label) => text.includes(label),
         ),
-        hasSummary:
-          text.includes('Planning time') && text.includes('Execution time'),
+        hasSummary: summary?.innerText.includes('Planning') && summary?.innerText.includes('Execution'),
         hasMeasuredTime: text.includes('Measured time'),
-        hasPlannerMsConfusion: /Planner cost[^\\n]*ms/i.test(text),
+        hasPlannerMsConfusion: /Planner cost\\s*:\\s*[\\d.]+\\s*ms/i.test(text),
         width: diagram?.getBoundingClientRect().width,
-        height: diagram?.getBoundingClientRect().height
+        height: diagram?.getBoundingClientRect().height,
+        diagnosticsOutsideGraph: Boolean(diagnostics && !surface?.contains(diagnostics)),
+        hintsOutsideGraph: Boolean(hints && !surface?.contains(hints)),
+        actionableSubtitle: text.includes('Review statistics for the join key and filtered rows.'),
+        layoutDirection: layout ? getComputedStyle(layout).flexDirection : null,
       }
     })()`)
     if (
       report.nodeCount < 7 ||
+      report.edgeCount !== report.nodeCount - 1 ||
       report.categories.length < 6 ||
       !report.hasSummary ||
       !report.hasMeasuredTime ||
       report.hasPlannerMsConfusion ||
+      report.selectedNodeId !== '0.0.0.0' ||
+      report.highlightedNodeIds?.length !== 2 ||
+      !report.diagnosticsOutsideGraph ||
+      !report.hintsOutsideGraph ||
+      !report.actionableSubtitle ||
       report.width < 700 ||
       report.height < 300
     ) {
@@ -357,6 +375,24 @@ app.whenReady().then(async () => {
         `EXPLAIN preview semantic/layout assertion failed: ${JSON.stringify(report)}`,
       )
     }
+
+    win.setSize(900, 900)
+    await sleep(180)
+    const narrowExplain = await win.webContents.executeJavaScript(`({
+      direction: getComputedStyle(document.querySelector('[class*="planLayout"]')).flexDirection,
+      graphWidth: document.querySelector('[aria-label="Execution plan diagram"]').getBoundingClientRect().width,
+      inspectorWidth: document.querySelector('[aria-label="Plan node details"]').getBoundingClientRect().width
+    })`)
+    if (
+      narrowExplain.direction !== 'column' ||
+      narrowExplain.graphWidth < 300 ||
+      narrowExplain.inspectorWidth < 250
+    )
+      throw new Error(
+        `Narrow EXPLAIN layout assertion failed: ${JSON.stringify(narrowExplain)}`,
+      )
+    win.setSize(1440, 1000)
+    await sleep(180)
 
     await win.webContents.executeJavaScript(
       `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
@@ -367,6 +403,57 @@ app.whenReady().then(async () => {
       resolve(output, 'explain-plan.png'),
       (await win.webContents.capturePage()).toPNG(),
     )
+
+    const manualNode = await win.webContents.executeJavaScript(`(() => {
+      const element = document.querySelector('[data-node-id="0"]')
+      const bounds = element?.getBoundingClientRect()
+      return bounds ? { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 } : null
+    })()`)
+    if (!manualNode)
+      throw new Error('Root plan node was not rendered by JointJS')
+    win.webContents.sendInputEvent({
+      type: 'mouseDown',
+      x: manualNode.x,
+      y: manualNode.y,
+      button: 'left',
+    })
+    win.webContents.sendInputEvent({
+      type: 'mouseUp',
+      x: manualNode.x,
+      y: manualNode.y,
+      button: 'left',
+    })
+    await sleep(100)
+    const manualSelection = await win.webContents.executeJavaScript(`({
+      selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
+      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds,
+      activeHint: [...document.querySelectorAll('[aria-label="AI performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true')
+    })`)
+    if (
+      manualSelection.selectedNodeId !== '0' ||
+      !manualSelection.activeHint ||
+      manualSelection.highlightedNodeIds.split(',').length !== 2
+    )
+      throw new Error(
+        `Manual graph selection did not preserve the active AI hint: ${JSON.stringify(manualSelection)}`,
+      )
+
+    await win.webContents.executeJavaScript(
+      `document.querySelector('[aria-label="Deterministic diagnostics"] button')?.click()`,
+    )
+    const diagnosticSelection = await win.webContents.executeJavaScript(`({
+      selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
+      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds
+    })`)
+    if (
+      !diagnosticSelection.selectedNodeId ||
+      !diagnosticSelection.highlightedNodeIds
+        .split(',')
+        .includes(diagnosticSelection.selectedNodeId)
+    )
+      throw new Error(
+        `Deterministic diagnostic did not focus its plan node: ${JSON.stringify(diagnosticSelection)}`,
+      )
 
     delayPlanResponse = true
     await win.webContents.executeJavaScript(

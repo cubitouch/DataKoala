@@ -222,6 +222,7 @@ test('plan request validation rebuilds an allowlist and response validation grou
 
   const hint = {
     title: 'Cardinality estimate differs',
+    action: 'Review statistics for orders.customer_id.',
     detail: 'The scan returned many more rows than the planner estimated.',
     severity: 'warning',
     nodeIds: ['0'],
@@ -251,6 +252,30 @@ test('plan request validation rebuilds an allowlist and response validation grou
           summary: 'Bad',
           hints: [{ ...hint, nodeIds: ['node-that-does-not-exist'] }],
         },
+        clean,
+      ),
+    { code: 'invalid-response' },
+  )
+  assert.deepEqual(
+    planAnalysis(
+      { summary: 'Observation only.', hints: [{ ...hint, action: null }] },
+      clean,
+    ).hints[0]?.action,
+    null,
+  )
+  for (const invalidAction of ['x'.repeat(AI_LIMITS.planHintAction + 1), 42])
+    assert.throws(
+      () =>
+        planAnalysis(
+          { summary: 'Bad', hints: [{ ...hint, action: invalidAction }] },
+          clean,
+        ),
+      { code: 'invalid-response' },
+    )
+  assert.throws(
+    () =>
+      planAnalysis(
+        { summary: 'Bad', hints: [{ ...hint, invented: true }] },
         clean,
       ),
     { code: 'invalid-response' },
@@ -314,6 +339,14 @@ test('OpenRouter plan analysis sends captured SQL and bounded context with a str
     assert.match(prompt, expectedPrompt)
     assert.match(prompt, /Do not claim an index is absent/)
     assert.match(prompt, /only sources of truth/)
+    assert.match(
+      prompt,
+      /title = what was observed; action = the concise next action/,
+    )
+    assert.match(
+      prompt,
+      /Set action to null when the evidence supports only an observation/,
+    )
     assert.equal(payload.sql, planRequest.sql)
     assert.equal(payload.mode, mode)
     assert.deepEqual(payload.plan, request.plan)
@@ -339,6 +372,22 @@ test('OpenRouter plan analysis sends captured SQL and bounded context with a str
     assert.equal(format.type, 'json_schema')
     assert.equal(format.json_schema.strict, true)
     assert.equal(format.json_schema.schema.additionalProperties, false)
+    const hintSchema = (
+      format.json_schema.schema.properties as {
+        hints: {
+          items: { properties: Record<string, unknown>; required: string[] }
+        }
+      }
+    ).hints.items
+    assert.deepEqual(hintSchema.required, [
+      'title',
+      'action',
+      'detail',
+      'severity',
+      'nodeIds',
+      'evidence',
+    ])
+    assert.deepEqual(hintSchema.properties.action, { type: ['string', 'null'] })
     assert.equal(
       JSON.stringify(format.json_schema.schema).includes('query'),
       false,
