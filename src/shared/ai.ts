@@ -81,6 +81,68 @@ export interface AiBuilderProposal {
   explanation: string
   assumptions: string[]
 }
+
+export interface AiExecutionPlanNode {
+  id: string
+  parentId?: string
+  nodeType: string
+  schema?: string
+  relation?: string
+  alias?: string
+  index?: string
+  joinType?: string
+  strategy?: string
+  startupCost?: number
+  totalCost?: number
+  estimatedRows?: number
+  actualRows?: number
+  loops?: number
+  actualTotalTimeMs?: number
+  filter?: string
+  indexCondition?: string
+  hashCondition?: string
+  mergeCondition?: string
+  joinFilter?: string
+  groupKey?: string[]
+  sortKey?: string[]
+  rowsRemovedByFilter?: number
+  sharedHitBlocks?: number
+  sharedReadBlocks?: number
+  tempReadBlocks?: number
+  tempWrittenBlocks?: number
+  sortMethod?: string
+  sortSpaceUsedKb?: number
+  sortSpaceType?: string
+  hashBatches?: number
+  peakMemoryUsageKb?: number
+}
+
+export interface AiExecutionPlanContext {
+  truncated: boolean
+  planningTimeMs?: number
+  executionTimeMs?: number
+  nodes: AiExecutionPlanNode[]
+}
+
+export interface AiPlanAnalysisRequest {
+  requestId: string
+  sql: string
+  mode: 'explain' | 'analyze'
+  plan: AiExecutionPlanContext
+}
+
+export interface AiPerformanceHint {
+  title: string
+  detail: string
+  severity: 'info' | 'warning'
+  nodeIds: string[]
+  evidence: string
+}
+
+export interface AiPlanAnalysis {
+  summary: string
+  hints: AiPerformanceHint[]
+}
 export type AiBuilderStep =
   | { kind: 'proposal'; proposal: AiBuilderProposal }
   | { kind: 'unsupported'; reason: string }
@@ -120,9 +182,20 @@ export const AI_LIMITS = {
   contextRequestTermCharacters: 80,
   contextRequestReason: 1000,
   builderUnsupportedReason: 2000,
+  planNodes: 80,
+  planCharacters: 24000,
+  planNodeText: 512,
+  planKeyCharacters: 256,
+  planKeysPerNode: 16,
+  planHintCount: 8,
+  planHintTitle: 120,
+  planHintDetail: 1200,
+  planHintEvidence: 600,
+  planHintNodes: 8,
+  planSummary: 1200,
 } as const
 export const AI_PRIVACY_NOTICE =
-  'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query or Builder state, and bounded schema metadata. Database credentials and query result rows are not sent.'
+  'AI requests are sent to OpenRouter. DataKoala may send your prompt, SQL, bounded schema metadata, or a captured execution plan. Database credentials and query result rows are not sent.'
 
 /**
  * Single product-level availability rule for AI features.

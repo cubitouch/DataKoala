@@ -1,5 +1,5 @@
 // Deterministic PostgreSQL EXPLAIN ANALYZE preview.
-// The execution-plan tree is synthetic and rendered by the real renderer; no database or AI provider is used.
+// The execution-plan tree and AI response are synthetic; no database or provider is used.
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
@@ -10,6 +10,12 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const output = resolve(process.env.DATAKOALA_PREVIEW_OUTPUT ?? 'visual-preview')
 const sleep = (ms) =>
   new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
+let planAnalysisCalls = 0
+let capturedPlanRequest
+let aiConfigured = false
+let delayPlanResponse = false
+let pendingPlanResponse
+let cancelledPlanRequests = 0
 
 async function wait(win, expression, description) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -140,8 +146,52 @@ app.whenReady().then(async () => {
     ipcMain.handle('connections:live', () => [])
     ipcMain.handle('ai:settings:get', () => ({
       ok: true,
-      value: { provider: 'openrouter', model: '', hasApiKey: false },
+      value: {
+        provider: 'openrouter',
+        model: aiConfigured ? 'preview/model' : '',
+        hasApiKey: aiConfigured,
+      },
     }))
+    ipcMain.handle('ai:analyze-plan', (_event, request) => {
+      planAnalysisCalls += 1
+      capturedPlanRequest = request
+      const response = {
+        ok: true,
+        value: {
+          summary:
+            'The plan contains a material row estimate mismatch and a filtered sequential scan worth reviewing.',
+          hints: [
+            {
+              title: 'Join cardinality is underestimated',
+              detail:
+                'The planner estimated far fewer rows than PostgreSQL returned, which may affect downstream choices.',
+              severity: 'warning',
+              nodeIds: ['0.0.0.0', '0.0.0.0.0'],
+              evidence:
+                'The Hash Join estimated 120 rows and returned 84,000; the orders scan reports 12,500 rows removed by its filter.',
+            },
+            {
+              title: 'Review the date filter selectivity',
+              detail:
+                'The scan removed a noticeable number of rows after applying the captured date predicate.',
+              severity: 'info',
+              nodeIds: ['0.0.0.0.0'],
+              evidence:
+                'The orders Seq Scan filter uses created_at and reports 12,500 rows removed.',
+            },
+          ],
+        },
+      }
+      if (delayPlanResponse)
+        return new Promise((resolve) => {
+          pendingPlanResponse = () => resolve(response)
+        })
+      return response
+    })
+    ipcMain.handle('ai:cancel', () => {
+      cancelledPlanRequests += 1
+      return { ok: true, value: undefined }
+    })
 
     const win = new BrowserWindow({
       width: 1440,
@@ -221,6 +271,62 @@ app.whenReady().then(async () => {
       'execution-plan diagnostics',
     )
 
+    await sleep(250)
+    const unconfiguredReport = await win.webContents.executeJavaScript(`({
+      plan: Boolean(document.querySelector('[aria-label="Execution plan diagram"]')),
+      analyzeAction: [...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Analyze performance')
+    })`)
+    if (!unconfiguredReport.plan || unconfiguredReport.analyzeAction)
+      throw new Error(
+        `Unconfigured EXPLAIN preview assertion failed: ${JSON.stringify(unconfiguredReport)}`,
+      )
+    aiConfigured = true
+    await win.webContents.executeJavaScript(
+      `window.dispatchEvent(new Event('datakoala:ai-settings-changed'))`,
+    )
+    await wait(
+      win,
+      `[...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Analyze performance')`,
+      'configured AI performance action',
+    )
+    if (planAnalysisCalls !== 0)
+      throw new Error(
+        'Opening the plan triggered AI analysis without an explicit action',
+      )
+    await win.webContents.executeJavaScript(
+      `window.__datakoalaStore.getState().setSql('select * from analytics.other_table;')`,
+    )
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Analyze performance')?.click()`,
+    )
+    await wait(
+      win,
+      `document.body.innerText.includes('Join cardinality is underestimated') && document.body.innerText.includes('Review the date filter selectivity')`,
+      'mocked AI performance hints',
+    )
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()`,
+    )
+    const aiReport = await win.webContents.executeJavaScript(`({
+      calls: ${planAnalysisCalls},
+      sql: ${JSON.stringify(capturedPlanRequest?.sql ?? null)},
+      mode: ${JSON.stringify(capturedPlanRequest?.mode ?? null)},
+      planNodeCount: ${capturedPlanRequest?.plan?.nodes?.length ?? 0},
+      highlights: [...document.querySelectorAll('[data-ai-highlighted="true"]')].map((node) => node.dataset.nodeId),
+      capturedQueryNotice: document.body.innerText.includes('This plan belongs to the SQL captured when Explain was run.')
+    })`)
+    if (
+      aiReport.calls !== 1 ||
+      !String(aiReport.sql).startsWith('SELECT c.country') ||
+      aiReport.mode !== 'analyze' ||
+      aiReport.planNodeCount < 7 ||
+      aiReport.highlights.length !== 2 ||
+      !aiReport.capturedQueryNotice
+    )
+      throw new Error(
+        `EXPLAIN AI preview assertion failed: ${JSON.stringify(aiReport)}`,
+      )
+
     const report = await win.webContents.executeJavaScript(`(() => {
       const diagram = document.querySelector('[aria-label="Execution plan diagram"]')
       const nodes = [...document.querySelectorAll('[data-testid="plan-node"]')]
@@ -261,6 +367,45 @@ app.whenReady().then(async () => {
       resolve(output, 'explain-plan.png'),
       (await win.webContents.capturePage()).toPNG(),
     )
+
+    delayPlanResponse = true
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Analyze performance')?.click()`,
+    )
+    for (let attempt = 0; attempt < 50 && !pendingPlanResponse; attempt += 1)
+      await sleep(50)
+    if (!pendingPlanResponse)
+      throw new Error(
+        'Plan replacement preview did not start the delayed request',
+      )
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore
+      const session = store.getState().tabs.find((tab) => tab.id === store.getState().activeTabId)
+      const nextTree = { id: '0', nodeType: 'Seq Scan', plan: 'replacement plan', relation: 'replacement', children: [] }
+      store.getState().setExplain('replacement plan', session.id, {
+        query: 'select * from replacement', mode: 'analyze', planningTimeMs: 0.2, executionTimeMs: 1
+      }, nextTree)
+    })()`)
+    await wait(
+      win,
+      `document.body.innerText.includes('Analyze this captured plan to get optional AI hints.')`,
+      'replacement plan state reset',
+    )
+    pendingPlanResponse()
+    await sleep(200)
+    const replacementReport = await win.webContents.executeJavaScript(`({
+      oldHintVisible: document.body.innerText.includes('Join cardinality is underestimated'),
+      replacementVisible: document.body.innerText.includes('replacement plan'),
+      cancelCalls: ${cancelledPlanRequests}
+    })`)
+    if (
+      replacementReport.oldHintVisible ||
+      !replacementReport.replacementVisible ||
+      replacementReport.cancelCalls < 1
+    )
+      throw new Error(
+        `Late EXPLAIN analysis response was not isolated from the replacement plan: ${JSON.stringify(replacementReport)}`,
+      )
     app.exit(0)
   } catch (error) {
     console.error(error)

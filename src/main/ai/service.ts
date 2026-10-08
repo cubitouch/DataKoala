@@ -7,6 +7,7 @@ import {
   AiError,
   builderProposalRequest,
   proposalRequest,
+  planAnalysisRequest,
   requestId,
   settingsInput,
 } from './validation.ts'
@@ -167,6 +168,31 @@ export class AiService {
             )
           signal.throwIfAborted()
           return this.createProvider(key, settings.model).proposeBuilder(
+            request,
+            signal,
+          )
+        },
+      )
+      if (!response.ok) throw new AiError(response.code, response.message)
+      return response.value
+    })
+  }
+  analyzePlan(owner: number, input: unknown) {
+    return this.result(async () => {
+      const request = planAnalysisRequest(input)
+      const response = await this.run(
+        owner,
+        request.requestId,
+        async (signal) => {
+          const settings = await this.settings.get()
+          const key = await this.settings.getApiKey()
+          if (!settings.model || !key)
+            throw new AiError(
+              'configuration',
+              'Configure OpenRouter to analyze execution plans.',
+            )
+          signal.throwIfAborted()
+          return this.createProvider(key, settings.model).analyzePlan(
             request,
             signal,
           )

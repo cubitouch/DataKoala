@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ExplainNode } from '@shared/types'
 import {
   EXPLAIN_NODE_CATEGORY_LABELS,
@@ -15,6 +15,8 @@ interface Props {
   analyze?: boolean
   planningTimeMs?: number
   executionTimeMs?: number
+  highlightedNodeIds?: readonly string[]
+  focusNodeId?: string | null
 }
 
 function flatten(node: ExplainNode): ExplainNode[] {
@@ -75,12 +77,14 @@ function NodeButton({
   analyze,
   selectedId,
   maxWork,
+  highlightedNodeIds,
   onSelect,
 }: {
   node: ExplainNode
   analyze: boolean
   selectedId: string
   maxWork: number
+  highlightedNodeIds: ReadonlySet<string>
   onSelect: (id: string) => void
 }) {
   const category = explainNodeCategory(node.nodeType)
@@ -99,9 +103,10 @@ function NodeButton({
         type="button"
         data-testid="plan-node"
         data-node-id={node.id}
+        data-ai-highlighted={highlightedNodeIds.has(node.id) ? 'true' : 'false'}
         className={`${styles.node} ${categoryClass(category)} ${
           selectedId === node.id ? styles.selected : ''
-        }`}
+        } ${highlightedNodeIds.has(node.id) ? styles.aiHighlighted : ''}`}
         onClick={() => onSelect(node.id)}
         aria-pressed={selectedId === node.id}
         title={node.plan}
@@ -194,6 +199,7 @@ function NodeButton({
               analyze={analyze}
               selectedId={selectedId}
               maxWork={maxWork}
+              highlightedNodeIds={highlightedNodeIds}
               onSelect={onSelect}
             />
           ))}
@@ -240,9 +246,19 @@ export function ExecutionPlanDiagram({
   analyze = false,
   planningTimeMs,
   executionTimeMs,
+  highlightedNodeIds = [],
+  focusNodeId = null,
 }: Props) {
   const nodes = useMemo(() => flatten(tree), [tree])
   const [selectedId, setSelectedId] = useState(tree.id)
+  useEffect(() => {
+    if (focusNodeId && nodes.some((node) => node.id === focusNodeId))
+      setSelectedId(focusNodeId)
+  }, [focusNodeId, nodes])
+  const highlighted = useMemo(
+    () => new Set(highlightedNodeIds),
+    [highlightedNodeIds],
+  )
   const selected = nodes.find((node) => node.id === selectedId) ?? tree
   const maxWork = useMemo(
     () =>
@@ -292,6 +308,7 @@ export function ExecutionPlanDiagram({
               analyze={analyze}
               selectedId={selected.id}
               maxWork={maxWork}
+              highlightedNodeIds={highlighted}
               onSelect={setSelectedId}
             />
           </ul>
