@@ -485,7 +485,7 @@ function visualization(value: unknown): VisualizationConfiguration | null {
     !seriesColumns ||
     !hierarchyDimensions ||
     !valueAxisScale ||
-    (value.displayUnit !== undefined && !isDisplayUnit(value.displayUnit)) ||
+    (value.displayUnit !== undefined && !isDisplayUnit(value.displayUnit))
   )
     return null
   return {
