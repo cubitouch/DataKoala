@@ -7,12 +7,7 @@ import {
 } from '@components/ui/ResizableDetailPanel'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type {
-  LokiFilterSource,
-  LokiLogRow,
-  LokiParserKind,
-  LokiSeveritySource,
-} from '@shared/loki'
+import type { LokiFilterSource, LokiLogRow } from '@shared/loki'
 import styles from './LogResultExplorer.module.css'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
 import { createTextSearch } from '@lib/textSearch'
@@ -31,7 +26,9 @@ const dedicatedKeys = new Set([
   'msg',
   'body',
   'severity',
+  'severitytext',
   'level',
+  'loglevel',
   'traceid',
   'spanid',
 ])
@@ -67,7 +64,6 @@ interface Props {
   truncated?: boolean
   limit: number
   selectionKey?: string | number
-  canPromoteLevelFilter?: boolean
   onFilter: (
     source: LokiFilterSource,
     key: string,
@@ -82,7 +78,6 @@ export function LogResultExplorer({
   truncated,
   limit,
   selectionKey,
-  canPromoteLevelFilter = true,
   onFilter,
 }: Props) {
   const [search, setSearch] = useState('')
@@ -114,44 +109,6 @@ export function LogResultExplorer({
     [rows, search, textSearch],
   )
   const selected = visible.find((row) => row.id === selectedId) ?? null
-  const levels = [
-    ...new Set(
-      rows
-        .map((row) => row.severity)
-        .filter((level) => level && level !== 'unknown'),
-    ),
-  ].sort()
-  const levelTarget = (severity: string): LokiSeveritySource | null => {
-    if (!canPromoteLevelFilter) return null
-    const sources = rows
-      .filter((row) => row.severity === severity)
-      .map((row) => row.severitySource)
-    const first = sources[0]
-    if (
-      !first ||
-      (first.source === 'parsed-field' && !first.parser) ||
-      sources.some(
-        (source) =>
-          !source ||
-          source.source !== first.source ||
-          source.field !== first.field ||
-          source.value !== first.value ||
-          source.parser !== first.parser,
-      )
-    )
-      return null
-    return first
-  }
-  const filterLevel = (severity: string, exclude: boolean) => {
-    const target = levelTarget(severity)
-    onFilter(
-      target?.source ?? 'local',
-      target?.field ?? 'severity',
-      target?.value ?? severity,
-      exclude,
-      target?.parser,
-    )
-  }
   const virtual = useVirtualizer({
     count: visible.length,
     getScrollElement: () => parent.current,
@@ -320,34 +277,6 @@ export function LogResultExplorer({
           </dl>
         )}
         <section className={styles.detailSection}>
-          <h3>Level</h3>
-          <div className={styles.levelActions}>
-            <LogSeverityBadge severity={selected.severity} />
-            <button
-              type="button"
-              aria-label={`Include level ${selected.severity.toUpperCase()}`}
-              title={`Include level ${selected.severity.toUpperCase()}`}
-              onClick={() => filterLevel(selected.severity, false)}
-            >
-              <ActionIcon kind="include" />
-            </button>
-            <button
-              type="button"
-              aria-label={`Exclude level ${selected.severity.toUpperCase()}`}
-              title={`Exclude level ${selected.severity.toUpperCase()}`}
-              onClick={() => filterLevel(selected.severity, true)}
-            >
-              <ActionIcon kind="exclude" />
-            </button>
-          </div>
-          {!levelTarget(selected.severity) && (
-            <p className={styles.localFilterHint}>
-              This filter will apply locally to loaded logs because its source
-              cannot be promoted safely.
-            </p>
-          )}
-        </section>
-        <section className={styles.detailSection}>
           <h3>Indexed labels</h3>
           {fields(selected.labels, 'label')}
         </section>
@@ -374,24 +303,6 @@ export function LogResultExplorer({
           value={search}
           onValueChange={setSearch}
         />
-        <div
-          className={styles.levelFilters}
-          role="group"
-          aria-label="Discovered log levels"
-        >
-          <span>Level</span>
-          {levels.map((level) => (
-            <button
-              key={level}
-              type="button"
-              className="btn ghost"
-              aria-label={`Filter level ${level}`}
-              onClick={() => filterLevel(level, false)}
-            >
-              {level.toUpperCase()}
-            </button>
-          ))}
-        </div>
         <span className={styles.loadedCount}>
           {visible.length} loaded
           {truncated ? ` · limited to ${limit} · more available` : ''}
