@@ -751,6 +751,25 @@ app.whenReady().then(async () => {
       `document.querySelector('button[aria-pressed="true"]')?.textContent.includes('AI anomalies') && [...document.querySelectorAll('button')].some((button) => button.textContent.includes('AI details (2)'))`,
     )
     await settlePaint(win)
+    await win.webContents.executeJavaScript(`(() => {
+      const chart = document.querySelector('[data-visual-finished="true"] canvas')
+      if (!chart) throw new Error('AI anomaly chart canvas was not found')
+      const rect = chart.getBoundingClientRect()
+      const plotWidth = rect.width - 74
+      const plotHeight = rect.height - 65
+      const clientX = rect.left + 50 + plotWidth * (17 / 63)
+      const clientY = rect.top + 20 + plotHeight * 0.1
+      chart.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true,
+        clientX,
+        clientY,
+      }))
+    })()`)
+    await wait(
+      win,
+      `document.querySelector('.chart-tooltip-anomaly')?.textContent.includes('Narrow spike')`,
+    )
+    await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-chart-anomaly.png'),
       (await win.webContents.capturePage()).toPNG(),
