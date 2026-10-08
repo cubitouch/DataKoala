@@ -71,7 +71,8 @@ function severityOf(
       )
         return String(value).toLowerCase()
 
-  // Use the same discovered alias as the Builder when no detected_level exists.
+  // detected_level is the explicit app classification used for the badge. If it is absent,
+  // fall back to the same discovered indexed alias as the Builder, then other severity fields.
   const levelLabel = resolveLokiLevelLabel(Object.keys(indexedLabels))
   const indexedSeverity = levelLabel ? indexedLabels[levelLabel] : undefined
   if (indexedSeverity != null && String(indexedSeverity).trim())
