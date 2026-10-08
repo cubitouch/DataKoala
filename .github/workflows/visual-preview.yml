@@ -201,6 +201,7 @@ jobs:
               'tempo-service-map-dense.png': 'Tempo — synthetic dense 60-service cohort map',
               'tempo-service-map-fullscreen.png': 'Tempo — synthetic fullscreen async-branch map with Top 10 bottlenecks',
               'tempo-waterfall.png': 'Tempo — synthetic waterfall with selected failing dependency span',
+              'loki-level-dropdown.png': 'Loki Builder — open multi-select Level filter with ERROR and WARN selected',
               'loki-log-list.png': 'Loki — production checkout logs and selected event inspector',
               'loki-log-patterns.png': 'Loki — clustered log patterns with examples and variable samples',
               'loki-log-chart.png': 'Loki — production incident log-volume trend',
@@ -267,4 +268,3 @@ jobs:
                 body
               })
             }
-
