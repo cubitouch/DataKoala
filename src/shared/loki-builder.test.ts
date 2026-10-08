@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   buildLokiQuery,
+  resolveLokiLevelLabel,
   logqlResultKind,
   selectorWithoutMatcher,
 } from './loki-builder.ts'
@@ -342,58 +343,57 @@ test('value selections generate exact and anchored escaped regex matchers', () =
   )
 })
 
-test('Level selections use one OR matcher and preserve predicates from other sources', () => {
-  const query = buildLokiQuery({
-    labelMatchers: [
-      { label: 'app', operator: '=', value: 'checkout' },
-      { label: 'severity', operator: '=', value: 'critical' },
-    ],
-    lineFilters: [],
-    parsers: [],
-    fieldFilters: [{ field: 'level', operator: '=', value: 'ERROR' }],
-    levelFilter: {
-      values: ['ERROR', 'WARN', 'ERROR'],
-      source: { source: 'structured-metadata', field: 'severity_text' },
-    },
-  })
-
+test('resolves exact normalized indexed severity aliases deterministically', () => {
   assert.equal(
-    query,
-    '{app="checkout", severity="critical"} | level="ERROR" | severity_text=~"(?i)^(?:ERROR|WARN)$"',
+    resolveLokiLevelLabel(['severity', 'level', 'log_level']),
+    'level',
   )
-  assert.equal((query.match(/severity_text=~/g) ?? []).length, 1)
+  assert.equal(resolveLokiLevelLabel(['severity']), 'severity')
+  for (const label of [
+    'LEVEL',
+    'Severity_Text',
+    'LOG_LEVEL',
+    'loglevel',
+    'Log__Level',
+  ])
+    assert.equal(resolveLokiLevelLabel([label]), label)
+  assert.equal(
+    resolveLokiLevelLabel(['service_level', 'severity_count', 'app']),
+    null,
+  )
+  assert.equal(
+    resolveLokiLevelLabel(['severity', 'log_level']),
+    resolveLokiLevelLabel(['log_level', 'severity']),
+  )
 })
 
-test('Level source resolution adds safe parser stages and leaves unsafe fields unrestricted', () => {
-  const base = {
+test('Level selections replace only the resolved label with one OR matcher and round-trip', () => {
+  const state = {
     labelMatchers: [
+      { label: 'level', operator: '=' as const, value: 'INFO' },
+      { label: 'severity', operator: '=' as const, value: 'critical' },
       { label: 'app', operator: '=' as const, value: 'checkout' },
     ],
     lineFilters: [],
     parsers: [],
-    fieldFilters: [],
-    levelFilter: { values: ['ERROR', 'WARN'] },
+    fieldFilters: [{ field: 'level', operator: '=' as const, value: 'ERROR' }],
+    levelFilter: { label: 'level', values: ['ERROR', 'WARN', 'ERROR'] },
   }
-
+  const query = buildLokiQuery(JSON.parse(JSON.stringify(state)))
   assert.equal(
-    buildLokiQuery({
-      ...base,
-      levelFilter: {
-        values: ['ERROR', 'WARN'],
-        source: { source: 'parsed-field', field: 'severity', parser: 'json' },
-      },
-    }),
-    '{app="checkout"} | json | severity=~"(?i)^(?:ERROR|WARN)$"',
+    query,
+    '{severity="critical", app="checkout", level=~"(?i)^(?:ERROR|WARN)$"} | level="ERROR"',
   )
-  assert.equal(buildLokiQuery(base), '{app="checkout"}')
+  assert.equal((query.match(/level=~/g) ?? []).length, 1)
   assert.equal(
     buildLokiQuery({
-      ...base,
-      levelFilter: {
-        values: ['ERROR', 'WARN'],
-        source: { source: 'parsed-field', field: 'severity' },
-      },
+      ...state,
+      levelFilter: { label: 'severity', values: ['FATAL'] },
     }),
-    '{app="checkout"}',
+    '{level="INFO", app="checkout", severity=~"(?i)^(?:FATAL)$"} | level="ERROR"',
+  )
+  assert.throws(
+    () => buildLokiQuery({ ...state, levelFilter: { values: ['ERROR'] } }),
+    /unavailable/,
   )
 })
