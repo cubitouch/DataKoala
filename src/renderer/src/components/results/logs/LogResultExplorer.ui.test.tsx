@@ -30,7 +30,10 @@ const row = {
   structuredMetadata: { severity: 'ERROR', trace_id: 'abc', region: 'west' },
   parsedFields: { attempt: 3 },
   severity: 'ERROR',
-  severitySource: { source: 'structured-metadata', field: 'severity' },
+  severitySource: {
+    source: 'structured-metadata' as const,
+    field: 'severity',
+  },
   traceId: 'abc',
 }
 
@@ -292,4 +295,28 @@ it('keeps an unknown level source local', () => {
     screen.getByRole('button', { name: /Payment provider timeout/ }),
   )
   expect(screen.getByText(/filter will apply locally/)).toBeTruthy()
+})
+
+
+it('keeps parser-unsafe level fields local', () => {
+  const onFilter = vi.fn()
+  const parsedSource = {
+    ...row,
+    severitySource: { source: 'parsed-field' as const, field: 'severity' },
+  }
+  render(
+    <LogResultExplorer
+      rows={[parsedSource]}
+      limit={100}
+      onFilter={onFilter}
+    />,
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Filter level ERROR' }))
+  expect(onFilter).toHaveBeenCalledWith(
+    'local',
+    'severity',
+    'ERROR',
+    false,
+    undefined,
+  )
 })
