@@ -436,9 +436,7 @@ export function anomalyAnalysis(
       if (seen.has(reference)) throw new Error()
       seen.add(reference)
       const severity =
-        item.severity == null
-          ? undefined
-          : textValue(item.severity, 16)
+        item.severity == null ? undefined : textValue(item.severity, 16)
       if (
         severity !== undefined &&
         !['low', 'medium', 'high'].includes(severity)
@@ -449,7 +447,9 @@ export function anomalyAnalysis(
         pointIndex,
         title: textValue(item.title, AI_LIMITS.anomalyTitle),
         reason: textValue(item.reason, AI_LIMITS.anomalyReason),
-        ...(severity ? { severity: severity as 'low' | 'medium' | 'high' } : {}),
+        ...(severity
+          ? { severity: severity as 'low' | 'medium' | 'high' }
+          : {}),
       }
     })
     return {
