@@ -758,9 +758,11 @@ app.whenReady().then(async () => {
       const plotWidth = rect.width - 74
       return {
         x: rect.left + 50 + plotWidth * (17.5 / 64),
-        y: rect.top + 22,
+        y: rect.top + rect.height / 2,
       }
     })()`)
+    win.show()
+    win.focus()
     win.webContents.sendInputEvent({
       type: 'mouseMove',
       x: anomalyHover.x,
