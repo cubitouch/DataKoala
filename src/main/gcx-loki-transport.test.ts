@@ -93,6 +93,7 @@ test('normalizes primary gcx object entries without mixing field namespaces', ()
   assert.deepEqual(result.logRows[0].severitySource, {
     source: 'structured-metadata',
     field: 'level',
+    value: 'WARN',
   })
   assert.equal(result.logRows[0].traceId, 'abc')
   assert.equal(result.logRows[0].spanId, 'span-1')
@@ -530,6 +531,7 @@ test(
     assert.deepEqual(json.severitySource, {
       source: 'parsed-field',
       field: 'log_level',
+      value: 'ERROR',
       parser: 'json',
     })
 
@@ -539,6 +541,7 @@ test(
     assert.deepEqual(parsed.severitySource, {
       source: 'parsed-field',
       field: 'severity_text',
+      value: 'WARN',
     })
 
     const metadata = normalizedLog('plain message', {
@@ -547,6 +550,7 @@ test(
     assert.deepEqual(metadata.severitySource, {
       source: 'structured-metadata',
       field: 'loglevel',
+      value: 'INFO',
     })
 
     const label = normalizedLog('plain message', {
@@ -555,6 +559,7 @@ test(
     assert.deepEqual(label.severitySource, {
       source: 'label',
       field: 'log_level',
+      value: 'DEBUG',
     })
   },
 )
