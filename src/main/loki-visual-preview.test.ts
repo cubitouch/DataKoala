@@ -14,6 +14,7 @@ test('Loki preview fixture preserves log field boundaries and realistic severiti
   assert.deepEqual(row.labels, {
     environment: 'production',
     cluster: 'eu-west-1',
+    level: 'ERROR',
     namespace: 'payments',
     service_name: 'checkout-api',
   })
@@ -45,6 +46,7 @@ test('Loki preview workflow, documentation, and screenshot command stay synchron
     readFile(new URL('package.json', root), 'utf8'),
   ])
   assert.match(workflow, /^\s+loki-log-list\.png$/m)
+  assert.match(workflow, /^\s+loki-builder-level\.png$/m)
   assert.match(workflow, /^\s+loki-log-patterns\.png$/m)
   assert.match(workflow, /^\s+loki-log-chart\.png$/m)
   const scripts = JSON.parse(packageJson).scripts
@@ -53,6 +55,7 @@ test('Loki preview workflow, documentation, and screenshot command stay synchron
     workflow,
     /Loki — production checkout logs and selected event inspector/,
   )
+  assert.match(workflow, /Loki Builder — indexed Level filter before query/)
   assert.match(
     workflow,
     /Loki — clustered log patterns with examples and variable samples/,

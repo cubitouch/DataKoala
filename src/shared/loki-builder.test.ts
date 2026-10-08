@@ -3,8 +3,75 @@ import test from 'node:test'
 import {
   buildLokiQuery,
   logqlResultKind,
+  resolveIndexedSeverityLabel,
   selectorWithoutMatcher,
 } from './loki-builder.ts'
+
+test('resolves only supported indexed severity labels deterministically', () => {
+  for (const label of [
+    'level',
+    'LEVEL',
+    'severity',
+    'SEVERITY_TEXT',
+    'loglevel',
+    'log_level',
+  ])
+    assert.equal(resolveIndexedSeverityLabel([label]), label)
+  assert.equal(
+    resolveIndexedSeverityLabel(['severity', 'LEVEL', 'level', 'log_level']),
+    'level',
+  )
+  assert.equal(
+    resolveIndexedSeverityLabel(['severity_text', 'log_level']),
+    'log_level',
+  )
+  assert.equal(resolveIndexedSeverityLabel(['detected_level']), null)
+  assert.equal(
+    resolveIndexedSeverityLabel(['service_level', 'severity_count']),
+    null,
+  )
+})
+
+test('Level values use one case-insensitive indexed-label matcher and preserve other filters', () => {
+  const base = {
+    lineFilters: [{ operator: '|=' as const, value: 'timeout' }],
+    parsers: [{ kind: 'json' as const }],
+    fieldFilters: [{ field: 'attempt', operator: '!=' as const, value: '2' }],
+  }
+  const matcher = (values: string[]) => ({
+    label: 'level',
+    operator: '=~' as const,
+    value: '',
+    values,
+  })
+  const unrelated = {
+    label: 'service_name',
+    operator: '=~' as const,
+    value: '.+',
+  }
+  assert.equal(
+    buildLokiQuery({ ...base, labelMatchers: [unrelated, matcher(['ERROR'])] }),
+    '{service_name=~".+", level=~"(?i)^(?:ERROR)$"} |= "timeout" | json | attempt!="2"',
+  )
+  assert.equal(
+    buildLokiQuery({
+      ...base,
+      labelMatchers: [unrelated, matcher(['ERROR', 'WARN'])],
+    }),
+    '{service_name=~".+", level=~"(?i)^(?:ERROR|WARN)$"} |= "timeout" | json | attempt!="2"',
+  )
+  assert.equal(
+    buildLokiQuery({ ...base, labelMatchers: [unrelated] }),
+    '{service_name=~".+"} |= "timeout" | json | attempt!="2"',
+  )
+  assert.equal(
+    buildLokiQuery({
+      ...base,
+      labelMatchers: [unrelated, matcher(['ERR.OR'])],
+    }),
+    '{service_name=~".+", level=~"(?i)^(?:ERR\\\\.OR)$"} |= "timeout" | json | attempt!="2"',
+  )
+})
 
 test('generates parser-valid LogQL for every supported operator and escaped input', () => {
   const query = buildLokiQuery({

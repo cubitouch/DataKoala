@@ -802,6 +802,7 @@ export function LokiExplorer({
               value={builder}
               generated={displayedGenerated}
               labels={labels}
+              indexedLabels={labelResource.labels}
               connectionId={connectionId}
               connectionGeneration={connectionGeneration}
               canLoadMetadata={canLoadMetadata}

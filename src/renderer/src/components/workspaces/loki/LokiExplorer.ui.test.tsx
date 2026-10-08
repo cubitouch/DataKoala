@@ -150,6 +150,74 @@ beforeEach(() => {
 })
 
 describe('LokiExplorer execution', () => {
+  it('selects indexed levels before the first query and preserves other filters when cleared', async () => {
+    mocks.labels.mockResolvedValue(['level', 'service_name'])
+    const tab = createQuerySession(1, {
+      id: 'level-filter-before-query',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiBuilder = {
+      labelMatchers: [
+        { label: 'service_name', operator: '=', value: 'checkout' },
+      ],
+      lineFilters: [{ operator: '|=', value: 'timeout' }],
+      parsers: [{ kind: 'json' }],
+      fieldFilters: [],
+    }
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+
+    fireEvent.click(await screen.findByText('Generated LogQL'))
+    const level = await screen.findByRole('combobox', { name: /Level:/ })
+    fireEvent.click(level)
+    fireEvent.click(await screen.findByRole('option', { name: 'ERROR' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'WARN' }))
+
+    expect(mocks.runLoki).not.toHaveBeenCalled()
+    expect(useStore.getState().tabs[0].lokiBuilder.labelMatchers).toEqual([
+      { label: 'service_name', operator: '=', value: 'checkout' },
+      {
+        label: 'level',
+        operator: '=~',
+        value: '',
+        values: ['ERROR', 'WARN'],
+      },
+    ])
+    expect(
+      (screen.getByLabelText('LogQL editor') as HTMLTextAreaElement).value,
+    ).toBe(
+      '{service_name="checkout", level=~"(?i)^(?:ERROR|WARN)$"} |= "timeout" | json',
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear all' }))
+    expect(useStore.getState().tabs[0].lokiBuilder.labelMatchers).toEqual([
+      { label: 'service_name', operator: '=', value: 'checkout' },
+    ])
+    expect(useStore.getState().tabs[0].lokiBuilder.lineFilters).toEqual([
+      { operator: '|=', value: 'timeout' },
+    ])
+    expect(mocks.runLoki).not.toHaveBeenCalled()
+  })
+
+  it('disables Level when indexed metadata has no supported severity label', async () => {
+    mocks.labels.mockResolvedValue(['service_level', 'detected_level'])
+    const tab = createQuerySession(1, {
+      id: 'level-filter-unavailable',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+    const level = (await screen.findByRole('combobox', {
+      name: /Level:/,
+    })) as HTMLButtonElement
+    await waitFor(() => expect(level.disabled).toBe(true))
+    expect(
+      screen.getByText('No indexed severity label is available.'),
+    ).toBeTruthy()
+  })
+
   it('notifies after formatting raw LogQL successfully', async () => {
     mocks.formatQuery.mockResolvedValue('{app="x"}\n|= "timeout"')
     render(<LokiExplorer connectionId="loki" />)

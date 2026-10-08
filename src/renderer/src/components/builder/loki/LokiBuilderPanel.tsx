@@ -8,7 +8,10 @@ import type {
 } from '@shared/loki'
 import type { LokiMetadataRequest } from '@shared/loki'
 import { lokiLabelValues } from '@lib/lokiMetadata'
-import { selectorWithoutMatcher } from '@shared/loki-builder'
+import {
+  resolveIndexedSeverityLabel,
+  selectorWithoutMatcher,
+} from '@shared/loki-builder'
 import { Combobox, MultiCombobox } from '@components/ui/combobox'
 import { CollapsibleSection } from '@components/ui/CollapsibleSection'
 import { GeneratedQueryPanel } from '@components/query/GeneratedQueryPanel'
@@ -116,6 +119,7 @@ export function LokiBuilderPanel({
   value,
   generated,
   labels,
+  indexedLabels,
   connectionId,
   connectionGeneration,
   canLoadMetadata,
@@ -130,6 +134,7 @@ export function LokiBuilderPanel({
   value: LokiBuilderState
   generated: string
   labels: string[]
+  indexedLabels: string[]
   connectionId: string
   connectionGeneration: number
   canLoadMetadata: boolean
@@ -141,8 +146,12 @@ export function LokiBuilderPanel({
   onGroupByChange: (value: string[]) => void
   onOpenLogql: () => void
 }) {
+  const severityLabel =
+    metadataStatus === 'loaded'
+      ? resolveIndexedSeverityLabel(indexedLabels)
+      : null
   const visibleLabels = [...new Set(labels)]
-    .filter((label) => !internal(label))
+    .filter((label) => !internal(label) && label !== severityLabel)
     .sort()
   const preserved = value.labelMatchers.filter((matcher) => !editable(matcher))
   const matchers = [
@@ -152,12 +161,26 @@ export function LokiBuilderPanel({
         .map((matcher) => [matcher.label, matcher]),
     ).values(),
   ]
-  const selected = matchers.map(({ label }) => label)
+  const selected = matchers
+    .filter((matcher) => matcher.label !== severityLabel)
+    .map(({ label }) => label)
+  const severityMatcher = severityLabel
+    ? matchers.find((matcher) => matcher.label === severityLabel)
+    : undefined
+  const selectedLevels = severityMatcher
+    ? [
+        ...new Set(
+          severityMatcher.values ??
+            (severityMatcher.value ? [severityMatcher.value] : []),
+        ),
+      ]
+    : []
   const selectLabels = (next: string[]) =>
     onChange({
       ...value,
       labelMatchers: [
         ...preserved,
+        ...(severityMatcher ? [severityMatcher] : []),
         ...[...new Set(next)]
           .filter((label) => !internal(label))
           .map(
@@ -230,6 +253,47 @@ export function LokiBuilderPanel({
         </FormField>
         <FormField>
           <MultiCombobox
+            label="Level"
+            values={selectedLevels}
+            options={['FATAL', 'ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'].map(
+              (level) => ({ value: level, label: level }),
+            )}
+            onChange={(levels) =>
+              onChange({
+                ...value,
+                labelMatchers: [
+                  ...value.labelMatchers.filter(
+                    (matcher) => matcher.label !== severityLabel,
+                  ),
+                  ...(severityLabel && levels.length
+                    ? [
+                        {
+                          label: severityLabel,
+                          operator: '=~' as const,
+                          value: '',
+                          values: [...new Set(levels)],
+                        },
+                      ]
+                    : []),
+                ],
+              })
+            }
+            searchable
+            showChips
+            disabled={!canLoadMetadata || !severityLabel}
+            hint={
+              !canLoadMetadata
+                ? 'Loki metadata is unavailable.'
+                : !severityLabel && metadataStatus === 'loaded'
+                  ? 'No indexed severity label is available.'
+                  : undefined
+            }
+            placeholder={severityLabel ? 'All levels' : 'Unavailable'}
+            emptyMessage="No levels found"
+          />
+        </FormField>
+        <FormField>
+          <MultiCombobox
             label="Group by"
             values={groupBy}
             options={visibleLabels.map((label) => ({ value: label, label }))}
@@ -257,18 +321,20 @@ export function LokiBuilderPanel({
       </BuilderRow>
       {matchers.length > 0 && (
         <BuilderRow className={styles.valuesGrid}>
-          {matchers.map((matcher) => (
-            <ValueControl
-              key={matcher.label}
-              matcher={matcher}
-              matchers={value.labelMatchers}
-              connectionId={connectionId}
-              connectionGeneration={connectionGeneration}
-              canLoadMetadata={canLoadMetadata}
-              bounds={bounds}
-              onChange={(next) => patchValues(matcher.label, next)}
-            />
-          ))}
+          {matchers
+            .filter((matcher) => matcher.label !== severityLabel)
+            .map((matcher) => (
+              <ValueControl
+                key={matcher.label}
+                matcher={matcher}
+                matchers={value.labelMatchers}
+                connectionId={connectionId}
+                connectionGeneration={connectionGeneration}
+                canLoadMetadata={canLoadMetadata}
+                bounds={bounds}
+                onChange={(next) => patchValues(matcher.label, next)}
+              />
+            ))}
         </BuilderRow>
       )}
       {preserved.length > 0 && (

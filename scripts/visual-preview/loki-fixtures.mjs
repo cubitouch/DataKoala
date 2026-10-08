@@ -1,12 +1,12 @@
 const baseTime = Date.parse('2026-08-19T16:48:00.000Z')
 
-export const lokiLabels = ['cluster', 'environment', 'namespace', 'service_name', 'severity']
+export const lokiLabels = ['cluster', 'environment', 'level', 'namespace', 'service_name']
 export const lokiLabelValues = {
   cluster: ['eu-west-1'],
   environment: ['production', 'staging'],
   namespace: ['payments', 'platform'],
   service_name: ['checkout-api', 'payment-worker', 'inventory-service'],
-  severity: ['INFO', 'WARN', 'ERROR']
+  level: ['INFO', 'WARN', 'ERROR']
 }
 
 const messages = [
@@ -29,7 +29,7 @@ export const previewLokiRows = Array.from({ length: 48 }, (_, index) => {
     timestampNs: `${BigInt(timestampMs) * 1_000_000n}`,
     timestampMs,
     line: index === 0 ? JSON.stringify({ message: line, level: severity, trace_id: traceId, span_id: 'c92f5b76d841a903', checkout_id: 'demo-4821' }) : `${line}; checkout_id=demo-${String(4821 - index).padStart(4, '0')}`,
-    labels: { environment: 'production', cluster: 'eu-west-1', namespace: 'payments', service_name: 'checkout-api' },
+    labels: { environment: 'production', cluster: 'eu-west-1', namespace: 'payments', service_name: 'checkout-api', level: severity },
     structuredMetadata: { severity, pod: `checkout-api-7d9f${index % 3}`, ...(index === 0 ? {} : { trace_id: `synthetic-${String(index).padStart(4, '0')}` }) },
     parsedFields: { attempt: index % 3 + 1, timeout_ms: index % 4 === 0 ? 800 : 650, downstream_service: index % 3 === 1 ? 'payment-worker' : 'inventory-service', outcome: severity === 'INFO' ? 'recovered' : 'retrying', ...(traceId ? { trace_id: traceId, span_id: 'c92f5b76d841a903' } : {}) },
     severity,

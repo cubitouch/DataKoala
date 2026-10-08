@@ -58,7 +58,8 @@ async function seedWorkspace(win) {
           labelMatchers: [
             { label: 'environment', operator: '=', value: 'production' },
             { label: 'namespace', operator: '=', value: 'payments' },
-            { label: 'service_name', operator: '=', value: 'checkout-api' }
+            { label: 'service_name', operator: '=', value: 'checkout-api' },
+            { label: 'level', operator: '=~', value: '', values: ['ERROR', 'WARN'] }
           ],
           lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: []
         },
@@ -146,8 +147,32 @@ app.whenReady().then(async () => {
     await assertFieldRowGeometry(win, '[data-loki-builder]', [
       'Filter by',
       'Line contains',
+      'Level',
       'Group by',
     ])
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Generated LogQL')?.click()`,
+    )
+    await waitFor(
+      win,
+      `document.querySelector('[aria-label="LogQL editor"]')?.value.includes('level=~"(?i)^(?:ERROR|WARN)$"')`,
+      'generated Level matcher',
+    )
+    await win.webContents.executeJavaScript(
+      `document.querySelector('[data-field-name="Level"] button[role="combobox"]')?.click()`,
+    )
+    await waitFor(
+      win,
+      `document.querySelector('[role="listbox"][aria-label="Level"]')`,
+      'open Level dropdown',
+    )
+    await sleep(300)
+    const levelPath = resolve(outputDir, 'loki-builder-level.png')
+    await assertPreviewReady(win, 'loki-builder-level.png')
+    await writeFile(levelPath, (await win.webContents.capturePage()).toPNG())
+    await win.webContents.executeJavaScript(
+      `document.querySelector('[data-field-name="Level"] button[role="combobox"]')?.click()`,
+    )
     await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('main button')].find((button) => button.textContent?.trim() === 'Run')?.click()`,
     )
@@ -215,7 +240,7 @@ app.whenReady().then(async () => {
     await sleep(200)
     await writeFile(chartPath, (await win.webContents.capturePage()).toPNG())
     console.log(
-      `Loki visual previews written to ${listPath}, ${patternsPath}, and ${chartPath}`,
+      `Loki visual previews written to ${levelPath}, ${listPath}, ${patternsPath}, and ${chartPath}`,
     )
     app.exit(0)
   } catch (error) {

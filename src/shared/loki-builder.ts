@@ -13,6 +13,24 @@ export function escapeLogqlString(value: string): string {
 export function escapeLogqlRegexValue(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
+const severityLabelNames = new Set([
+  'level',
+  'severity',
+  'severitytext',
+  'loglevel',
+])
+export function resolveIndexedSeverityLabel(labels: string[]): string | null {
+  const matches = labels.filter((label) =>
+    severityLabelNames.has(label.toLowerCase().replace(/[_-]/g, '')),
+  )
+  return (
+    matches.find((label) => label === 'level') ??
+    matches.sort((left, right) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    )[0] ??
+    null
+  )
+}
 type RenderedMatcher = {
   expression: string
   anchorsSelector: boolean
@@ -47,6 +65,12 @@ function renderedMatcher({
   if (!label.trim() || !unique.length) return null
   if (!isValidLokiLabelName(label))
     throw new Error(`Invalid Loki label name: ${label}`)
+  if (values && operator === '=~')
+    return {
+      expression: `${label}=~${escapeLogqlString(`(?i)^(?:${unique.map(escapeLogqlRegexValue).join('|')})$`)}`,
+      anchorsSelector: true,
+      safeForMetadata: true,
+    }
   if (values && unique.length > 1)
     return {
       expression: `${label}=~${escapeLogqlString(`^(?:${unique.map(escapeLogqlRegexValue).join('|')})$`)}`,
