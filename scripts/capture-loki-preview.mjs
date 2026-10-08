@@ -60,7 +60,8 @@ async function seedWorkspace(win) {
             { label: 'namespace', operator: '=', value: 'payments' },
             { label: 'service_name', operator: '=', value: 'checkout-api' }
           ],
-          lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: []
+          lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: [],
+          levelFilter: { values: ['ERROR', 'WARN'], source: { source: 'structured-metadata', field: 'severity' } }
         },
         lokiResultLimit: 48, lokiGroupBy: ['service_name', 'severity'], lokiRangeHistory: [], lokiResultView: 'list'
       } : tab)
@@ -145,9 +146,32 @@ app.whenReady().then(async () => {
       throw new Error('Loki metadata fixtures did not finish loading')
     await assertFieldRowGeometry(win, '[data-loki-builder]', [
       'Filter by',
+      'Level',
       'Line contains',
       'Group by',
     ])
+    await win.webContents.executeJavaScript(`(() => {
+      const trigger = [...document.querySelectorAll('[role="combobox"]')].find((element) =>
+        element.getAttribute('aria-labelledby')?.split(' ').some((id) =>
+          document.getElementById(id)?.textContent?.trim() === 'Level'
+        )
+      )
+      trigger?.click()
+    })()`)
+    await waitFor(
+      win,
+      `(() => { const list = document.querySelector('[role="listbox"][aria-label="Level"]'); return list && ['ERROR', 'WARN'].every((name) => [...list.querySelectorAll('[role="option"]')].some((option) => option.textContent?.includes(name) && option.getAttribute('aria-selected') === 'true')) })()`,
+      'open Level dropdown with ERROR and WARN selected',
+    )
+    const levelDropdownPath = resolve(outputDir, 'loki-level-dropdown.png')
+    await assertPreviewReady(win, 'loki-level-dropdown.png')
+    await writeFile(
+      levelDropdownPath,
+      (await win.webContents.capturePage()).toPNG(),
+    )
+    await win.webContents.executeJavaScript(
+      `(() => { const trigger = [...document.querySelectorAll('[role="combobox"]')].find((element) => element.getAttribute('aria-labelledby')?.split(' ').some((id) => document.getElementById(id)?.textContent?.trim() === 'Level')); trigger?.click() })()`,
+    )
     await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('main button')].find((button) => button.textContent?.trim() === 'Run')?.click()`,
     )
@@ -215,7 +239,7 @@ app.whenReady().then(async () => {
     await sleep(200)
     await writeFile(chartPath, (await win.webContents.capturePage()).toPNG())
     console.log(
-      `Loki visual previews written to ${listPath}, ${patternsPath}, and ${chartPath}`,
+      `Loki visual previews written to ${levelDropdownPath}, ${listPath}, ${patternsPath}, and ${chartPath}`,
     )
     app.exit(0)
   } catch (error) {
