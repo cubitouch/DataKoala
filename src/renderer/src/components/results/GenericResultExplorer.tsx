@@ -312,7 +312,7 @@ export function GenericResultExplorer({
     setAiAnalyzing(false)
     setAiAnalysis(null)
     setAiAnalysisError('')
-  }, [aiContextKey, cancelAiRequest])
+  }, [result, aiContextKey, cancelAiRequest])
   useEffect(() => () => cancelAiRequest(), [cancelAiRequest])
 
   useEffect(() => {
