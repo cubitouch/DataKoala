@@ -333,10 +333,29 @@ export function ExecutionPlanGraph({
       )
     }
     host.addEventListener('wheel', wheel, { passive: false })
+    let resizeFrame = 0
+    let previousWidth = 0
+    let previousHeight = 0
     const observer = new ResizeObserver((entries) => {
       const size = entries[0]?.contentRect
-      if (size && size.width > 0 && size.height > 0)
-        paper.setDimensions(size.width, size.height)
+      if (
+        !size ||
+        size.width <= 0 ||
+        size.height <= 0 ||
+        (size.width === previousWidth && size.height === previousHeight)
+      )
+        return
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame)
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = 0
+        const bounds = host.getBoundingClientRect()
+        if (bounds.width <= 0 || bounds.height <= 0) return
+        if (bounds.width === previousWidth && bounds.height === previousHeight)
+          return
+        previousWidth = bounds.width
+        previousHeight = bounds.height
+        paper.setDimensions(bounds.width, bounds.height)
+      })
     })
     observer.observe(host)
 
@@ -351,6 +370,7 @@ export function ExecutionPlanGraph({
     })
     return () => {
       observer.disconnect()
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame)
       host.removeEventListener('click', selectNode)
       host.removeEventListener('keydown', keydown)
       host.removeEventListener('wheel', wheel)
