@@ -317,7 +317,7 @@ export function Sidebar() {
       return
     }
     bindTabConnection(activeTabId, profile.id)
-    await ensureConnectionForTab(activeTabId, { confirmInterrupt: false })
+    await ensureConnectionForTab(activeTabId)
   }
 
   const retryObjects = async () => {
