@@ -231,6 +231,14 @@ app.whenReady().then(async () => {
       `document.getElementById('root')?.children.length && window.__datakoalaStore`,
       'renderer store',
     )
+    await win.webContents.executeJavaScript(`(() => {
+      window.addEventListener('error', (event) => {
+        console.error('Window error stack:', event.error?.stack ?? event.message)
+      })
+      window.addEventListener('unhandledrejection', (event) => {
+        console.error('Unhandled rejection:', event.reason?.stack ?? event.reason)
+      })
+    })()`)
 
     previewStep = 'seed EXPLAIN plan'
     await win.webContents.executeJavaScript(`(() => {
