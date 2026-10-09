@@ -454,6 +454,16 @@ test('AI markers use exact series coordinates, respect visibility, and disappear
     { coord: ['same', 80], value: 80, originalIndex: 1 },
   ])
   assert.equal((rendered[0].markPoint as { symbol: string }).symbol, 'circle')
+  const markerTooltip = (
+    rendered[0].markPoint as {
+      tooltip: { show: boolean; formatter: unknown }
+    }
+  ).tooltip
+  assert.equal(markerTooltip.show, true)
+  assert.equal(
+    markerTooltip.formatter,
+    (visible.tooltip as { formatter: unknown }).formatter,
+  )
   assert.equal(
     (rendered[0].markPoint as { itemStyle: { borderColor: string } }).itemStyle
       .borderColor,
@@ -585,6 +595,34 @@ test('anomaly tooltip explanation is series-specific and escapes model text', ()
     undefined,
     anomalies,
   )(rows)
+  const directMarkerHtml = buildChartTooltipFormatter(
+    String,
+    'Requests',
+    series,
+    {},
+    undefined,
+    anomalies,
+  )({
+    componentType: 'markPoint',
+    seriesName: 'Requests',
+    data: { originalIndex: 1, coord: ['day 2', 800] },
+  })
+  assert.ok(directMarkerHtml.includes('&lt;script&gt;unsafe&lt;/script&gt;'))
+  assert.doesNotMatch(directMarkerHtml, /Error spike/)
+  const errorMarkerHtml = buildChartTooltipFormatter(
+    String,
+    'Requests',
+    series,
+    {},
+    undefined,
+    anomalies,
+  )({
+    componentType: 'markPoint',
+    seriesName: 'Errors',
+    data: { originalIndex: 1, coord: ['day 2', 80] },
+  })
+  assert.match(errorMarkerHtml, /Error spike/)
+  assert.doesNotMatch(errorMarkerHtml, /&lt;script&gt;unsafe/)
   assert.match(errorsHtml, /Error spike/)
   assert.doesNotMatch(errorsHtml, /&lt;script&gt;unsafe/)
 

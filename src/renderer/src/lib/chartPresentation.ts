@@ -138,10 +138,23 @@ export function buildChartTooltipFormatter(
         Boolean(item) && typeof item === 'object',
     )
     if (!params.length) return ''
-    const axisValue = params[0].axisValue ?? params[0].name
-    const dataIndex = params.find(
-      (param) => typeof param.dataIndex === 'number',
-    )?.dataIndex
+    const markerParam = params.find(
+      (param) => param.componentType === 'markPoint',
+    )
+    const markerData = markerParam?.data as
+      { originalIndex?: unknown; coord?: unknown[] } | undefined
+    const axisValue =
+      markerData?.coord?.[0] ?? params[0].axisValue ?? params[0].name
+    const dataIndex =
+      typeof markerData?.originalIndex === 'number'
+        ? markerData.originalIndex
+        : params.find((param) => typeof param.dataIndex === 'number')?.dataIndex
+    const hoveredIdentity =
+      markerParam && typeof markerParam.seriesName === 'string'
+        ? markerParam.seriesName
+        : typeof hoveredSeriesIdentity === 'function'
+          ? hoveredSeriesIdentity()
+          : hoveredSeriesIdentity
     const colors = new Map(
       params.map((param) => [
         typeof param.seriesName === 'string' ? param.seriesName : '',
@@ -182,18 +195,12 @@ export function buildChartTooltipFormatter(
             ? row.value
             : null,
       })),
-      typeof hoveredSeriesIdentity === 'function'
-        ? hoveredSeriesIdentity()
-        : hoveredSeriesIdentity,
+      hoveredIdentity,
     )
     const rows = summary.rows.map(
       (row) =>
         `<div class="chart-tooltip-row${row.hovered ? ' chart-tooltip-row-hovered' : ''}"><span class="chart-tooltip-marker" style="background:${escapeHtml(row.color ?? '#9aa0b0')}"></span><span class="chart-tooltip-series" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><strong>${escapeHtml(formatValue(row.value))}</strong></div>`,
     )
-    const hoveredIdentity =
-      typeof hoveredSeriesIdentity === 'function'
-        ? hoveredSeriesIdentity()
-        : hoveredSeriesIdentity
     const anomaly =
       typeof dataIndex === 'number' && hoveredIdentity
         ? aiAnomalies.find(
@@ -341,6 +348,14 @@ export function buildChartPresentationOptions(
     input.valueAxisScale === 'log'
       ? prepareLogScaleSeries(input.series, input.visibility).series
       : input.series
+  const tooltipFormatter = buildChartTooltipFormatter(
+    formatLabel,
+    input.hoveredSeriesIdentity,
+    input.series,
+    input.visibility,
+    formatValue,
+    input.showAiAnomalies ? input.aiAnomalies : [],
+  )
   return {
     useUTC: true,
     backgroundColor: 'transparent',
@@ -373,14 +388,7 @@ export function buildChartPresentationOptions(
         },
       },
       position: positionChartTooltip,
-      formatter: buildChartTooltipFormatter(
-        formatLabel,
-        input.hoveredSeriesIdentity,
-        input.series,
-        input.visibility,
-        formatValue,
-        input.showAiAnomalies ? input.aiAnomalies : [],
-      ),
+      formatter: tooltipFormatter,
       backgroundColor: '#161922',
       borderColor: '#2a2f3d',
       borderWidth: 1,
@@ -454,7 +462,11 @@ export function buildChartPresentationOptions(
                     symbol: 'circle',
                     symbolSize: 14,
                     label: { show: false },
-                    tooltip: { show: false },
+                    tooltip: {
+                      show: true,
+                      trigger: 'item',
+                      formatter: tooltipFormatter,
+                    },
                     itemStyle: {
                       color: 'rgba(0, 0, 0, 0)',
                       borderColor: '#ff4d4f',

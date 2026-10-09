@@ -781,9 +781,7 @@ app.whenReady().then(async () => {
           x: Math.round(markerX + offsetX),
           y: Math.round(y),
         })
-        await win.webContents.executeJavaScript(
-          'new Promise((resolve) => requestAnimationFrame(resolve))',
-        )
+        await sleep(80)
         markerHoverFound = await win.webContents.executeJavaScript(`(() => {
           const tooltip = document.querySelector('.chart-tooltip-anomaly')?.textContent ?? ''
           return tooltip.includes('Narrow spike') && tooltip.includes('40×')

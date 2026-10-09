@@ -13,7 +13,6 @@ const aiMocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   analyzeAnomalies: vi.fn(),
   cancel: vi.fn(),
-  dispatchAction: vi.fn(),
   chartOptions: null as Record<string, unknown> | null,
 }))
 
@@ -33,7 +32,6 @@ vi.mock('echarts-for-react', async () => {
       aiMocks.chartOptions = option
       React.useImperativeHandle(ref, () => ({
         getEchartsInstance: () => ({
-          dispatchAction: aiMocks.dispatchAction,
           on: vi.fn(),
           off: vi.fn(),
           getZr: () => ({ on: vi.fn(), off: vi.fn() }),
@@ -165,7 +163,6 @@ beforeEach(() => {
   })
   aiMocks.analyzeAnomalies.mockReset().mockResolvedValue(successfulAnalysis)
   aiMocks.cancel.mockReset()
-  aiMocks.dispatchAction.mockReset()
   aiMocks.chartOptions = null
 })
 afterEach(cleanup)
@@ -227,19 +224,23 @@ describe('AI chart anomaly analysis', () => {
       ])
     })
     fireEvent.mouseOver(screen.getByTestId('chart-marker'))
-    expect(aiMocks.dispatchAction).toHaveBeenCalledWith({
-      type: 'showTip',
-      seriesIndex: 0,
-      dataIndex: 157,
-    })
     const tooltipFormatter = (
       aiMocks.chartOptions?.tooltip as {
         formatter: (params: unknown) => string
       }
     ).formatter
-    const markerTooltip = tooltipFormatter([
-      { axisValue: '157', dataIndex: 157, seriesName: 'value', value: 800 },
-    ])
+    const markerTooltipConfig = (
+      (aiMocks.chartOptions?.series as Array<Record<string, unknown>>)[0]
+        .markPoint as {
+        tooltip: { show: boolean; formatter: (input: unknown) => string }
+      }
+    ).tooltip
+    expect(markerTooltipConfig.show).toBe(true)
+    const markerTooltip = markerTooltipConfig.formatter({
+      componentType: 'markPoint',
+      seriesName: 'value',
+      data: { originalIndex: 157, coord: ['157', 800] },
+    })
     expect(markerTooltip).toContain('AI anomaly · high')
     expect(markerTooltip).toContain('Narrow spike')
     expect(markerTooltip).toContain('day 157 rises far above')

@@ -965,31 +965,13 @@ export function GenericResultExplorer({
   const onChartMouseOver = (params: {
     componentType?: string
     seriesName?: string
-    seriesIndex?: number
-    data?: unknown
   }) => {
-    if (params.componentType !== 'markPoint') {
-      onSeriesMouseOver(params)
+    if (params.componentType === 'markPoint') {
+      if (aiAnomaliesVisible && params.seriesName)
+        hoveredSeriesIdentity.current = params.seriesName
       return
     }
-    if (
-      !aiAnomaliesVisible ||
-      !params.seriesName ||
-      typeof params.seriesIndex !== 'number' ||
-      !Number.isInteger(params.seriesIndex)
-    )
-      return
-    const originalIndex = (
-      params.data as { originalIndex?: unknown } | undefined
-    )?.originalIndex
-    if (typeof originalIndex !== 'number' || !Number.isInteger(originalIndex))
-      return
-    hoveredSeriesIdentity.current = params.seriesName
-    ref.current?.getEchartsInstance()?.dispatchAction({
-      type: 'showTip',
-      seriesIndex: params.seriesIndex,
-      dataIndex: originalIndex,
-    })
+    onSeriesMouseOver(params)
   }
   const onSeriesMouseOut = (params: {
     componentType?: string
