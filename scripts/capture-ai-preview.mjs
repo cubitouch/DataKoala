@@ -75,6 +75,7 @@ const bigQueryFixedQuery =
   'SELECT country, SUM(revenue) AS revenue\nFROM `my-project.analytics.orders`\nGROUP BY country;'
 let failNextRepair = true
 let queryRuns = 0
+let anomalyAnalysisRuns = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 async function wait(win, expression) {
   for (let i = 0; i < 100; i++) {
@@ -147,6 +148,7 @@ app.whenReady().then(async () => {
     ipcMain.handle('ai:test', () => ok(undefined))
     ipcMain.handle('ai:cancel', () => ok(undefined))
     ipcMain.handle('ai:analyze-anomalies', (_event, request) => {
+      anomalyAnalysisRuns++
       const sample = request.chart.series[0]?.points ?? []
       if (
         !sample.some((point) => point.y === 800) ||
@@ -762,17 +764,34 @@ app.whenReady().then(async () => {
     win.focus()
     // The mock analysis flags original point 17. Move over its red mark so the
     // screenshot proves the real markPoint-to-axis-tooltip interaction.
-    const markerX = plotBounds.left + 50 + (plotBounds.width - 74) * (17 / 63)
-    const markerY = plotBounds.top + 20 + (plotBounds.height - 65) * 0.09
-    await win.webContents.sendInputEvent({
-      type: 'mouseMove',
-      x: Math.round(markerX),
-      y: Math.round(markerY),
-    })
-    await wait(
-      win,
-      `document.querySelector('.chart-tooltip-anomaly')?.textContent.includes('Narrow spike') && document.querySelector('.chart-tooltip-anomaly')?.textContent.includes('40×')`,
-    )
+    const markerX = plotBounds.left + 50 + (plotBounds.width - 74) * (17.5 / 64)
+    const firstMarkerY = plotBounds.top + 20
+    const lastMarkerY = plotBounds.top + plotBounds.height * 0.45
+    let markerHoverFound = false
+    for (let offsetX = -6; offsetX <= 6 && !markerHoverFound; offsetX += 3) {
+      for (
+        let y = firstMarkerY;
+        y <= lastMarkerY && !markerHoverFound;
+        y += 6
+      ) {
+        await win.webContents.sendInputEvent({
+          type: 'mouseMove',
+          x: Math.round(markerX + offsetX),
+          y: Math.round(y),
+        })
+        await win.webContents.executeJavaScript(
+          'new Promise((resolve) => requestAnimationFrame(resolve))',
+        )
+        markerHoverFound = await win.webContents.executeJavaScript(`(() => {
+          const tooltip = document.querySelector('.chart-tooltip-anomaly')?.textContent ?? ''
+          return tooltip.includes('Narrow spike') && tooltip.includes('40×')
+        })()`)
+      }
+    }
+    if (!markerHoverFound)
+      throw new Error('AI preview could not hover the red anomaly marker')
+    if (anomalyAnalysisRuns !== 1)
+      throw new Error('AI preview did not run exactly one anomaly analysis')
     await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-chart-anomaly.png'),
@@ -816,6 +835,8 @@ app.whenReady().then(async () => {
       win,
       `window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId)?.sqlVisualization.valueAxisScale === 'log'`,
     )
+    if (anomalyAnalysisRuns !== 1)
+      throw new Error('Changing to log scale requested another AI analysis')
     await settlePaint(win)
     await settlePaint(win)
     await writeFile(

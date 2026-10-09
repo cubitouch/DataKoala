@@ -493,12 +493,7 @@ export function GenericResultExplorer({
             seriesVisibility,
           )
         : [],
-    [
-      aiAnalysis,
-      aiSubmittedSamples,
-      chart,
-      seriesVisibility,
-    ],
+    [aiAnalysis, aiSubmittedSamples, chart, seriesVisibility],
   )
   const temporalRangeSelectionEnabled = Boolean(
     chart?.renderable &&
@@ -1002,7 +997,8 @@ export function GenericResultExplorer({
   }) => {
     if (
       params.seriesName === hoveredSeriesIdentity.current &&
-      (params.componentType === 'series' || params.componentType === 'markPoint')
+      (params.componentType === 'series' ||
+        params.componentType === 'markPoint')
     )
       hoveredSeriesIdentity.current = undefined
   }
@@ -1361,7 +1357,9 @@ export function GenericResultExplorer({
                 analysis={aiAnalysis}
                 anomalies={resolvedAiAnomalies}
                 samples={aiSubmittedSamples.map(({ sample }) => sample)}
-                valueAxisScale={effectiveConfiguration.valueAxisScale ?? 'linear'}
+                valueAxisScale={
+                  effectiveConfiguration.valueAxisScale ?? 'linear'
+                }
               />
             )}
             <button

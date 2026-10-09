@@ -44,7 +44,9 @@ vi.mock('echarts-for-react', async () => {
       const chartEvents = onEvents as
         | { mouseover?: (params: Record<string, unknown>) => void }
         | undefined
-      const firstSeries = (option.series as Array<Record<string, unknown>>)?.[0]
+      const firstSeries = (
+        option.series as Array<Record<string, unknown>>
+      )?.[0]
       const firstMarker = (
         firstSeries?.markPoint as
           | { data?: Array<Record<string, unknown>> }

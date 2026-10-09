@@ -48,60 +48,57 @@ test('maps AI sample references to exact original rows even when X values repeat
   )
 })
 
-test(
-  'drops stale, missing, hidden, and misassociated references without losing log-only findings',
-  () => {
-    const changed = resolveAiAnomalies(
-      analysis,
-      [{ chartSeriesIndex: 0, sample }],
-      [
-        {
-          name: 'Requests',
-          data: [1, null, 9, 10],
-          missing: [false, true, false, false],
-        },
-      ],
-      ['a', 'b', 'same', 'last'],
-      {},
-    )
-    assert.deepEqual(
-      changed.map(({ originalIndex }) => originalIndex),
-      [3],
-    )
+test('drops stale, missing, hidden, and misassociated references without losing log-only findings', () => {
+  const changed = resolveAiAnomalies(
+    analysis,
+    [{ chartSeriesIndex: 0, sample }],
+    [
+      {
+        name: 'Requests',
+        data: [1, null, 9, 10],
+        missing: [false, true, false, false],
+      },
+    ],
+    ['a', 'b', 'same', 'last'],
+    {},
+  )
+  assert.deepEqual(
+    changed.map(({ originalIndex }) => originalIndex),
+    [3],
+  )
 
-    const hidden = resolveAiAnomalies(
-      analysis,
-      [{ chartSeriesIndex: 0, sample }],
-      [{ name: 'Requests', data: [1, null, 8, 10] }],
-      ['a', 'b', 'same', 'last'],
-      { Requests: false },
-    )
-    assert.deepEqual(hidden, [])
+  const hidden = resolveAiAnomalies(
+    analysis,
+    [{ chartSeriesIndex: 0, sample }],
+    [{ name: 'Requests', data: [1, null, 8, 10] }],
+    ['a', 'b', 'same', 'last'],
+    { Requests: false },
+  )
+  assert.deepEqual(hidden, [])
 
-    const logInvalid = resolveAiAnomalies(
-      { ...analysis, anomalies: [analysis.anomalies[0]] },
-      [
-        {
-          chartSeriesIndex: 0,
-          sample: { ...sample, points: [{ ...sample.points[0], y: -8 }] },
-        },
-      ],
-      [{ name: 'Requests', data: [1, null, -8, 10] }],
-      ['a', 'b', 'same', 'last'],
-      {},
-    )
-    assert.deepEqual(
-      logInvalid.map(({ originalIndex, y }) => ({ originalIndex, y })),
-      [{ originalIndex: 2, y: -8 }],
-    )
+  const logInvalid = resolveAiAnomalies(
+    { ...analysis, anomalies: [analysis.anomalies[0]] },
+    [
+      {
+        chartSeriesIndex: 0,
+        sample: { ...sample, points: [{ ...sample.points[0], y: -8 }] },
+      },
+    ],
+    [{ name: 'Requests', data: [1, null, -8, 10] }],
+    ['a', 'b', 'same', 'last'],
+    {},
+  )
+  assert.deepEqual(
+    logInvalid.map(({ originalIndex, y }) => ({ originalIndex, y })),
+    [{ originalIndex: 2, y: -8 }],
+  )
 
-    const wrongSeries = resolveAiAnomalies(
-      analysis,
-      [{ chartSeriesIndex: 0, sample }],
-      [{ name: 'Other', data: [1, null, 8, 10] }],
-      ['a', 'b', 'same', 'last'],
-      {},
-    )
-    assert.deepEqual(wrongSeries, [])
-  },
-)
+  const wrongSeries = resolveAiAnomalies(
+    analysis,
+    [{ chartSeriesIndex: 0, sample }],
+    [{ name: 'Other', data: [1, null, 8, 10] }],
+    ['a', 'b', 'same', 'last'],
+    {},
+  )
+  assert.deepEqual(wrongSeries, [])
+})

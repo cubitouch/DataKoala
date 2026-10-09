@@ -507,7 +507,9 @@ test('log scale keeps positive anomalies and suppresses nonpositive markers only
     showAiAnomalies: true,
   })
   const series = (options.series as Array<Record<string, unknown>>)[0]
-  const markerData = (series.markPoint as { data: Array<Record<string, unknown>> }).data
+  const markerData = (
+    series.markPoint as { data: Array<Record<string, unknown>> }
+  ).data
   assert.deepEqual(markerData, [
     { coord: ['positive', 800], value: 800, originalIndex: 0 },
   ])
