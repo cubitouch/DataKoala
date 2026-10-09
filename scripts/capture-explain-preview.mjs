@@ -355,7 +355,10 @@ app.whenReady().then(async () => {
       sql: ${JSON.stringify(capturedPlanRequest?.sql ?? null)},
       mode: ${JSON.stringify(capturedPlanRequest?.mode ?? null)},
       planNodeCount: ${capturedPlanRequest?.plan?.nodes?.length ?? 0},
+      selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.selectedNodeId,
+      focusNodeId: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.focusNodeId,
       highlights: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.highlightedNodeIds?.split(',').filter(Boolean) ?? [],
+      inspectorSignals: [...(document.querySelector('[aria-label="Plan node details"] [aria-label="Plan signals"]')?.querySelectorAll('li') ?? [])].map((item) => item.innerText),
       capturedQueryNotice: document.body.innerText.includes('This plan belongs to the SQL captured when Explain was run.')
     })\n//# sourceURL=datakoala-ai-hint-report.js`
     let aiReport
@@ -370,7 +373,12 @@ app.whenReady().then(async () => {
       !String(aiReport.sql).startsWith('SELECT c.country') ||
       aiReport.mode !== 'analyze' ||
       aiReport.planNodeCount < 7 ||
+      aiReport.selectedNodeId !== '0.0.0.0' ||
+      aiReport.focusNodeId !== '0.0.0.0' ||
       aiReport.highlights.length !== 2 ||
+      !aiReport.inspectorSignals.some((signal) =>
+        signal.includes('Material row estimate mismatch'),
+      ) ||
       !aiReport.capturedQueryNotice
     )
       throw new Error(
@@ -437,6 +445,7 @@ app.whenReady().then(async () => {
         height: diagram?.getBoundingClientRect().height,
         signalsInInspector: Boolean(signals && inspector?.contains(signals) && signalSections.length === 1),
         signalCount: signals?.querySelectorAll('li').length ?? 0,
+        signalButtons: signals?.querySelectorAll('button').length ?? 0,
         noRepeatedMeasuredSignals: !text.includes('High measured work'),
         opaqueSurfaces: opaque(rootBackground) && opaque(surfaceBackground) && opaque(paperBackground),
         surfaceColors: { rootBackground, surfaceBackground, paperBackground },
@@ -472,6 +481,7 @@ app.whenReady().then(async () => {
       report.highlightedNodeIds?.length !== 2 ||
       !report.signalsInInspector ||
       report.signalCount !== 2 ||
+      report.signalButtons !== 0 ||
       !report.noRepeatedMeasuredSignals ||
       !report.opaqueSurfaces ||
       !report.noPlanNote ||
@@ -528,7 +538,7 @@ app.whenReady().then(async () => {
 
     previewStep = 'manual graph selection'
     const manualNodeSelected = await win.webContents.executeJavaScript(`(() => {
-      const element = document.querySelector('[data-node-id="0.2"]')
+      const element = document.querySelector('[data-node-id="0"]')
       if (!element) return false
       element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
       return true
@@ -550,53 +560,6 @@ app.whenReady().then(async () => {
     )
       throw new Error(
         `Manual graph selection did not update the inspector while preserving the AI hint: ${JSON.stringify(manualSelection)}`,
-      )
-
-    previewStep = 'deterministic signal selection'
-    await win.webContents.executeJavaScript(`(() => {
-      document.querySelector('[data-node-id="0.0"]')?.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, cancelable: true, view: window }),
-      )
-      document.querySelector('[aria-label="Plan signals"] button')?.click()
-    })()`)
-    const diagnosticSelection = await win.webContents.executeJavaScript(`({
-      selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
-      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds,
-      focusNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.focusNodeId,
-      activeHint: [...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true'),
-      activeSignal: [...document.querySelectorAll('[aria-label="Plan signals"] button')].some((button) => button.getAttribute('aria-pressed') === 'true')
-    })`)
-    if (
-      diagnosticSelection.selectedNodeId !== '0.0' ||
-      diagnosticSelection.highlightedNodeIds !== '0.0' ||
-      diagnosticSelection.focusNodeId !== '0.0' ||
-      diagnosticSelection.activeHint ||
-      !diagnosticSelection.activeSignal
-    )
-      throw new Error(
-        `Selecting a deterministic signal did not exclusively focus its node: ${JSON.stringify(diagnosticSelection)}`,
-      )
-
-    previewStep = 'AI selection after diagnostic'
-    await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()`,
-    )
-    const aiAfterDiagnostic = await win.webContents.executeJavaScript(`({
-      selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
-      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds,
-      focusNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.focusNodeId,
-      activeHint: [...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true'),
-      activeSignal: [...document.querySelectorAll('[aria-label="Plan signals"] button')].some((button) => button.getAttribute('aria-pressed') === 'true')
-    })`)
-    if (
-      aiAfterDiagnostic.selectedNodeId !== '0.0.0.0' ||
-      aiAfterDiagnostic.highlightedNodeIds.split(',').length !== 2 ||
-      aiAfterDiagnostic.focusNodeId !== '0.0.0.0' ||
-      !aiAfterDiagnostic.activeHint ||
-      aiAfterDiagnostic.activeSignal
-    )
-      throw new Error(
-        `Selecting an AI hint did not clear deterministic signal selection: ${JSON.stringify(aiAfterDiagnostic)}`,
       )
 
     previewStep = 'second AI hint selection'
