@@ -42,7 +42,7 @@ test('Loki preview fixture preserves log field boundaries and realistic severiti
 test('Loki preview workflow, documentation, and screenshot command stay synchronized', async () => {
   const [workflow, docs, packageJson] = await Promise.all([
     readFile(new URL('.github/workflows/visual-preview.yml', root), 'utf8'),
-    readFile(new URL('docs-site/src/main.ts', root), 'utf8'),
+    readFile(new URL('docs-site/index.html', root), 'utf8'),
     readFile(new URL('package.json', root), 'utf8'),
   ])
   assert.match(workflow, /^\s+loki-log-list\.png$/m)
@@ -61,13 +61,13 @@ test('Loki preview workflow, documentation, and screenshot command stay synchron
     /Loki — clustered log patterns with examples and variable samples/,
   )
   assert.match(workflow, /Loki — production incident log-volume trend/)
-  assert.match(
-    docs,
-    /(?:shot|bentoShot)\('loki-log-list', 'Loki production checkout log list/,
-  )
-  assert.match(docs, /shot\('loki-log-patterns', 'Loki log patterns/)
-  assert.match(docs, /shot\('loki-log-chart', 'Loki log-volume chart/)
-  assert.match(docs, /\.\/screenshots\/\$\{name\}\.png/)
+  // The static docs-site/index.html is the single source of truth for the
+  // homepage markup; the screenshot references must live there (not in a
+  // duplicated main.ts template).
+  assert.match(docs, /\.\/screenshots\/loki-log-list\.png/)
+  assert.match(docs, /\.\/screenshots\/loki-log-patterns\.png/)
+  assert.match(docs, /\.\/screenshots\/loki-log-chart\.png/)
+  assert.match(docs, /\.\/screenshots\/docs-overview\.png/)
   assert.match(scripts['docs:screenshots'], /pnpm preview:shared-captures/)
   assert.match(
     scripts['preview:shared-captures'],

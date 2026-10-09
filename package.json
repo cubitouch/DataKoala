@@ -81,7 +81,8 @@
     "format": "prettier --check .",
     "check:duplication": "jscpd",
     "report:duplication": "jscpd --reporters console,json,html --summary",
-    "format:fix": "prettier --write ."
+    "format:fix": "prettier --write .",
+    "docs:verify": "node docs-site/scripts/verify-docs-build.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
