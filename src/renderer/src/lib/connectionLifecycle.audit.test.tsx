@@ -122,6 +122,45 @@ describe('connection lifecycle consolidation safeguards', () => {
     expect(mocks.listObjects).toHaveBeenCalledTimes(1)
   })
 
+  it.each(['success', 'failure'] as const)(
+    'ignores an older explicit %s after a newer lazy connection succeeds',
+    async (outcome) => {
+      const older = deferred<ConnectResult>()
+      mocks.connect
+        .mockReturnValueOnce(older.promise)
+        .mockResolvedValueOnce(success(2))
+      const explicit = useStore.getState().connectProfile(profile('a'))
+      // A main-process disconnect event permits on-demand recovery while the IPC response is delayed.
+      useStore.getState().applyConnectionEvent({
+        profileId: 'a',
+        generation: 0,
+        state: 'disconnected',
+        expected: true,
+        code: null,
+        message: 'Disconnected',
+        timestamp: 1,
+        recoverable: true,
+        recoverability: 'transient',
+        source: 'test',
+        activeOperationAffected: false,
+      })
+      expect(await ensureConnectionForTab(tabA.id)).toBe('a')
+      await vi.waitFor(() =>
+        expect(useStore.getState().metadataByProfileId.a.status).toBe('loaded'),
+      )
+      const current = useStore.getState().connectionStateByProfileId.a
+      older.resolve(
+        outcome === 'success'
+          ? success(1)
+          : { ok: false, error: 'late failure' },
+      )
+      await explicit
+      expect(useStore.getState().connectionStateByProfileId.a).toBe(current)
+      expect(mocks.disconnect).not.toHaveBeenCalled()
+      expect(mocks.listObjects).toHaveBeenCalledTimes(1)
+    },
+  )
+
   it('rejects an older explicit failure before the newer attempt receives a generation', async () => {
     const older = deferred<ConnectResult>()
     const newer = deferred<ConnectResult>()
