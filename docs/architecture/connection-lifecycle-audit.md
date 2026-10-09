@@ -103,22 +103,119 @@ Do not build a lifecycle runner, shared promise registry, ConnectionManager,
 option-heavy connector, or a shared awaited metadata pipeline. Keep event,
 restoration, refresh, and tab-selection policy separate.
 
-### Risks outside this extraction
+### Confirmed findings from the final follow-up
 
-- An older lazy failure arriving **before** newer explicit success can still write
-  error while no generation has advanced; lazy attempts do not participate in
-  explicit intents. The reverse entry-point order normally cannot start because
-  ensureConnectionForTab returns null while connecting. The tests cover the
-  required older failure **after** newer success and explicit intent ordering
-  before a new generation. They do not claim unified cross-flow intent protection.
-- Generation-scoped disconnect is safe for a **different** replacement generation.
-  SessionManager can return the same existing generation to two explicit calls;
-  mismatched renderer intent cleanup could then disconnect the reused session.
-  This is an audit risk inferred from the two implementations, not a fix in this
-  slice. Do not make cleanup more aggressive during consolidation; investigate
-  that same-generation reuse interleaving separately before claiming universal safety.
-- Late `listLive` data, canonical IDs, and interrupted queries have policies beyond
-  the proposed failure helper. Do not widen this extraction to hydration/persistence.
+#### Same-generation cleanup: confirmed unsafe at the store/API boundary
+
+`SessionManager.connect()` checks its live-session map before allocating a new
+main-process intent. Reuse returns the **same successful result object**, with the
+same generation, and does not call the adapter again. The real connect IPC handler
+only adds the saved/canonical profile ID; it does not turn reuse into ownership of
+a fresh session. `SessionManager.disconnect(id, generation)` closes the current
+session when the generation equals the supplied value. That is correct for a
+requested disconnect, but does not establish that a renderer attempt owns it.
+
+`src/main/adapters/connection-lifecycle-reuse.vitest.ts` bridges the actual renderer
+`connectProfile` to the actual SessionManager using a fake provider session. Only
+IPC delivery and metadata are mocked; reuse, renderer intents, cleanup and the
+manager's session map execute their production implementations. No live database
+or Electron transport is required. The test seeds one live generation 7, starts
+two explicit renderer attempts, and verifies both main responses are that same
+result object. Each of the following schedules reproduces the defect:
+
+| Delivery schedule                   | State before stale cleanup                          | Observed result                                                        |
+| ----------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------- |
+| Newer response, then older response | Newer renderer attempt is connected at generation 7 | Older cleanup closes the retained main session                         |
+| Older response, then newer response | Newer attempt is still connecting at generation 7   | Older cleanup closes the session before the newer response is accepted |
+
+In both schedules the adapter connects once, `disconnect('same', 7)` executes
+once, the provider closes once, `manager.get('same')` becomes undefined and
+`listLive()` becomes empty. With the fake BigQuery-style session (no emitted
+connection event), the renderer ends at connected/generation 7 even though its
+session is gone. PostgreSQL disconnect events can change the renderer's visible
+state; they do not prevent the session from being closed.
+
+This is **confirmed**, not just an inferred generation-counter limitation. The
+public store action permits overlapping explicit calls. Sidebar and reconnect UI
+status guards reduce ordinary double-click exposure; this reproduction does not
+claim a specific normal UI click sequence bypasses those guards. The API itself
+provides no exclusivity guarantee, so consolidation must not assume one.
+
+The two committed tests are passing **characterization** cases of current unsafe
+behavior, not safety claims or intentionally failing tests. Slice 2 must replace
+their final absence/close assertions with preservation assertions after the fix.
+
+**Smallest correction for Slice 2:** remove the renderer-issued disconnect from
+`connectProfile`'s superseded-intent branch, retaining the intent rejection/return.
+Main-process SessionManager already owns stale adapter-session cleanup and forced
+replacement. Keep that cleanup there. Do not introduce a shared intent registry,
+reuse flag, or ConnectionManager. Preserve canonical-ID handling and per-profile
+isolation. Update the existing distinct-generation renderer cleanup expectation
+rather than deleting that test, and retain main-process replacement/closure tests.
+A check that only skips cleanup for an already-connected matching generation is
+insufficient: the older-first schedule still has a newer request pending, and a
+first accepted main session may not yet have reached renderer state at all.
+
+#### Background lazy confirmation: confirmed wrong prompt/cancellation, no B mutation
+
+`ensureConnectionForTab(tabA)` captures A's profile, but `connectForTab` obtains
+its previous profile from `initial.activeTabId`. With B active and running on a
+different live profile, it asks whether to stop B before connecting A. The added
+renderer tests cover declined, accepted and `confirmInterrupt: false` outcomes:
+
+- Decline: A returns null before any connect/status write; A stays disconnected.
+  This unnecessarily blocks A's work because of unrelated B's query.
+- Accept: the API receives A's profile and A connects. B's tab, running flag,
+  connection and metadata remain unchanged; no disconnect occurs. The warning's
+  claim that B will be stopped is inaccurate for this path.
+- Opt out: A connects without the warning, with the same B-preservation result.
+
+The defect is confirmed for the exported helper's background-tab invocation.
+Current Run/Explain/Builder callbacks generally capture their rendered tab and
+enter ensureConnectionForTab synchronously, so merely switching tabs _after_ a
+request starts does not cause this prompt. Existing deferred-completion tests
+cover that different, safe case. This follow-up does not assert that an ordinary
+foreground click routinely triggers the background-start scenario.
+
+**Smallest correction for Slice 2:** keep actual connection-switch confirmation
+at the selection/binding caller (Sidebar already checks before bindTabConnection),
+and remove the active-tab switch-confirmation lookup from the lazy reuse/connect
+path. That path does not rebind the requesting tab: desiredProfileId comes from
+that same tab synchronously. Mechanically replacing activeTabId with requesting
+Tab A would make previousProfileId equal desiredProfileId, so there is no genuine
+switch to confirm there. Preserve the Sidebar's real switch/interruption policy,
+background tab ownership and scoped result checks. Remove any now-unused private
+confirmation code/options only in that small correction; no new interruption policy
+or generic operation coordinator is needed. This audit PR keeps existing behavior.
+
+### Minimal Slice 2 plan and extraction prerequisites
+
+1. Fix the confirmed stale-success ownership error by leaving session cleanup in
+   SessionManager; turn both characterization schedules into preservation tests.
+2. Correct the background-tab confirmation source without changing real explicit
+   selection confirmation. Turn decline/accept characterization into no-unrelated-
+   prompt checks; retain opt-out/call-site coverage as applicable.
+3. Only then extract the four guarded failure writes into one small store action,
+   keeping explicit intent checks outside it and the existing generation/status
+   predicate unchanged. A pure metadata-validity predicate is optional; the fetch
+   and normalization are already shared. Leave success orchestration, awaited vs
+   detached metadata completion, refresh, hydration and tab binding separate.
+4. Rerun main ownership/reuse/replacement and renderer concurrency/tab/metadata
+   suites; compare production LOC and branches against the unchanged baseline.
+
+The failure transition and metadata validity predicate are genuinely identical
+local invariants; cleanup and confirmation are **not** safe shared policies as
+currently written. The confirmed defects must be corrected before extracting any
+shared success/cleanup or interruption orchestration. Mechanical failure extraction
+would not fix them; do not package it as complete lifecycle safety.
+
+Remaining **inferred/unreproduced** risk: an older lazy failure before newer
+explicit success may still write error while no generation has advanced, because
+lazy work does not participate in explicit intents. The existing tests establish
+failure rejection after newer success and explicit pre-generation ordering, not
+unified cross-flow intent protection. Do not add global coordination in this slice.
+Late listLive data and canonical-ID edge cases also remain outside this extraction;
+no new defect in those paths is claimed here.
 
 ## Reproducible baseline
 
@@ -197,7 +294,13 @@ SessionManager suite passed **7 tests**. Existing coverage includes:
 The new fixtures assign tab profiles and connection statuses separately; the
 existing patchActiveTestSession helper is not rewritten. No test is removed.
 New coverage adds 16 UI cases, one additional refresh case and two main cases.
-The selected UI set becomes 125 tests across nine suites; main becomes 9 tests.
+The original selected UI set passed 125 tests across nine suites; main passed 9 tests.
+The final follow-up adds three background-confirmation UI cases and two integrated
+SessionManager/renderer characterization cases. All original coverage is retained.
+Run the integration cases with `pnpm exec vitest run --config vitest.renderer.config.ts
+src/main/adapters/connection-lifecycle-reuse.vitest.ts` and the confirmation cases
+with `pnpm exec vitest run --config vitest.ui.config.ts
+src/renderer/src/lib/connectionLifecycle.audit.test.tsx`.
 
 Validation commands and final results are recorded in the PR description.
 Full local verification requiring macOS Electron paths/PostgreSQL is not portable

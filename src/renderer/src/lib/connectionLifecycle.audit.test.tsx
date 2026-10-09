@@ -68,7 +68,10 @@ beforeEach(() => {
     },
   })
 })
-afterEach(() => resetTestStore())
+afterEach(() => {
+  resetTestStore()
+  vi.restoreAllMocks()
+})
 
 function expectBUnchanged(before = tabB) {
   expect(useStore.getState().tabs.find((tab) => tab.id === tabB.id)).toEqual(
@@ -293,6 +296,56 @@ describe('connection lifecycle consolidation safeguards', () => {
       },
     )
   }
+
+  it.each([false, true])(
+    'characterizes background A confirmation against running active B (accept=%s)',
+    async (accept) => {
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accept)
+      const runningB = { ...tabB, running: true }
+      useStore.setState({ tabs: [tabA, runningB], activeTabId: tabB.id })
+      mocks.connect.mockResolvedValue(success(2))
+      const connected = await ensureConnectionForTab(tabA.id)
+      expect(confirm).toHaveBeenCalledExactlyOnceWith(
+        'A query is still running on the current connection. Running this action on another connection will stop it. Continue?',
+      )
+      expect(useStore.getState().activeTabId).toBe(tabB.id)
+      expectBUnchanged(runningB)
+      expect(mocks.disconnect).not.toHaveBeenCalled()
+      if (accept) {
+        expect(connected).toBe('a')
+        expect(mocks.connect).toHaveBeenCalledExactlyOnceWith(profile('a'))
+        await vi.waitFor(() =>
+          expect(useStore.getState().metadataByProfileId.a.status).toBe(
+            'loaded',
+          ),
+        )
+      } else {
+        // Declining B's warning blocks A's unrelated work before its status changes.
+        expect(connected).toBeNull()
+        expect(mocks.connect).not.toHaveBeenCalled()
+        expect(useStore.getState().connectionStateByProfileId.a.status).toBe(
+          'disconnected',
+        )
+      }
+    },
+  )
+
+  it('bypasses the unrelated active-tab interruption prompt when the caller opts out', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const runningB = { ...tabB, running: true }
+    useStore.setState({ tabs: [tabA, runningB], activeTabId: tabB.id })
+    mocks.connect.mockResolvedValue(success(2))
+    expect(
+      await ensureConnectionForTab(tabA.id, { confirmInterrupt: false }),
+    ).toBe('a')
+    expect(confirm).not.toHaveBeenCalled()
+    expectBUnchanged(runningB)
+    expect(useStore.getState().activeTabId).toBe(tabB.id)
+    expect(mocks.disconnect).not.toHaveBeenCalled()
+    await vi.waitFor(() =>
+      expect(useStore.getState().metadataByProfileId.a.status).toBe('loaded'),
+    )
+  })
 
   it('does not open a session while hydration has not established connection state', async () => {
     useStore.setState({ connectionStateByProfileId: {} })
