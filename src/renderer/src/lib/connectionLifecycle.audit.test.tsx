@@ -20,6 +20,7 @@ const profile = (id: string): BigQueryProfile => ({
   id,
   name: id,
   billingProject: 'billing',
+  maximumBytesBilled: '1073741824',
   readonly: true,
 })
 const success = (generation: number) => ({
