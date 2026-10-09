@@ -26,6 +26,16 @@ export interface ExecutionPlanPosition {
   y: number
 }
 
+export interface ExecutionPlanNodeContent {
+  category: string
+  nodeType: string
+  target?: string
+  estimatedRows?: string
+  actualRows?: string
+  ratio?: string
+  work?: string
+}
+
 export function mapExecutionPlan(tree: ExplainNode): {
   nodes: ExecutionPlanGraphNode[]
   edges: ExecutionPlanGraphEdge[]
@@ -56,59 +66,67 @@ export function layoutExecutionPlan(
   siblingGap: number,
 ): Map<string, ExecutionPlanPosition> {
   const positions = new Map<string, ExecutionPlanPosition>()
-  let nextLeafCenter = nodeHeight / 2
+  let nextLeafCenterX = nodeWidth / 2
   const place = (node: ExplainNode, depth: number): number => {
-    let centerY: number
+    let centerX: number
     if (!node.children?.length) {
-      centerY = nextLeafCenter
-      nextLeafCenter += nodeHeight + siblingGap
+      centerX = nextLeafCenterX
+      nextLeafCenterX += nodeWidth + siblingGap
     } else {
-      const childCenters = node.children.map((child) => place(child, depth + 1))
-      centerY = (childCenters[0]! + childCenters[childCenters.length - 1]!) / 2
+      const childCentersX = node.children.map((child) =>
+        place(child, depth + 1),
+      )
+      centerX = (childCentersX[0]! + childCentersX.at(-1)!) / 2
     }
     positions.set(node.id, {
-      x: depth * (nodeWidth + rankGap),
-      y: centerY - nodeHeight / 2,
+      x: centerX - nodeWidth / 2,
+      y: depth * (nodeHeight + rankGap),
     })
-    return centerY
+    return centerX
   }
   place(tree, 0)
   return positions
 }
 
-export function graphNodeLabel(node: ExplainNode, analyze: boolean): string {
-  const category =
-    EXPLAIN_NODE_CATEGORY_LABELS[explainNodeCategory(node.nodeType)]
+const GRAPH_TARGET_MAX_LENGTH = 32
+const GRAPH_NODE_TYPE_MAX_LENGTH = 30
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value
+  return `${value.slice(0, maxLength - 1).trimEnd()}…`
+}
+
+export function executionPlanNodeContent(
+  node: ExplainNode,
+  analyze: boolean,
+): ExecutionPlanNodeContent {
   const target = node.relation
     ? `${node.schema ? `${node.schema}.` : ''}${node.relation}`
     : node.cteName
       ? `CTE ${node.cteName}`
       : (node.subplanName ?? node.index)
-  const rows = [
-    node.planRows === undefined
-      ? null
-      : `Estimated ${compactCount(node.planRows)}`,
-    analyze && node.actualRows !== undefined
-      ? `Actual ${compactCount(node.actualRows)}`
-      : null,
-  ].filter(Boolean)
-  const ratio = analyze ? compareCardinality(node)?.label : undefined
   const timing = analyze ? explainNodeTiming(node) : null
   const work = explainNodeWorkValue(node, analyze)
-  const measured =
-    timing && work !== undefined ? `≈${compactMs(work)} total` : undefined
-  return [
-    `${category} · ${node.nodeType}`,
-    target,
-    ...rows,
-    ratio,
-    measured ??
-      (!analyze && node.totalCost !== undefined
-        ? `Cost ${compactMetric(node.totalCost)}`
-        : undefined),
-  ]
-    .filter((value): value is string => Boolean(value))
-    .join('\n')
+  return {
+    category: EXPLAIN_NODE_CATEGORY_LABELS[explainNodeCategory(node.nodeType)],
+    nodeType: truncate(node.nodeType, GRAPH_NODE_TYPE_MAX_LENGTH),
+    target: target ? truncate(target, GRAPH_TARGET_MAX_LENGTH) : undefined,
+    estimatedRows:
+      node.planRows === undefined
+        ? undefined
+        : `Estimated ${compactCount(node.planRows)}`,
+    actualRows:
+      analyze && node.actualRows !== undefined
+        ? `Actual ${compactCount(node.actualRows)} / loop`
+        : undefined,
+    ratio: analyze ? compareCardinality(node)?.label : undefined,
+    work:
+      timing && work !== undefined
+        ? `≈${compactMs(work)} total measured work`
+        : !analyze && node.totalCost !== undefined
+          ? `Planner cost ${compactMetric(node.totalCost)}`
+          : undefined,
+  }
 }
 
 function compactCount(value: number): string {
