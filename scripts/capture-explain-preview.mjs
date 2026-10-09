@@ -448,25 +448,14 @@ app.whenReady().then(async () => {
       (await win.webContents.capturePage()).toPNG(),
     )
 
-    const manualNode = await win.webContents.executeJavaScript(`(() => {
+    const manualNodeSelected = await win.webContents.executeJavaScript(`(() => {
       const element = document.querySelector('[data-node-id="0"]')
-      const bounds = element?.getBoundingClientRect()
-      return bounds ? { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 } : null
+      if (!element) return false
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
+      return true
     })()`)
-    if (!manualNode)
+    if (!manualNodeSelected)
       throw new Error('Root plan node was not rendered by JointJS')
-    win.webContents.sendInputEvent({
-      type: 'mouseDown',
-      x: manualNode.x,
-      y: manualNode.y,
-      button: 'left',
-    })
-    win.webContents.sendInputEvent({
-      type: 'mouseUp',
-      x: manualNode.x,
-      y: manualNode.y,
-      button: 'left',
-    })
     await sleep(100)
     const manualSelection = await win.webContents.executeJavaScript(`({
       selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
