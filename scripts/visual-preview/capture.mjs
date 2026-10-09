@@ -503,6 +503,7 @@ async function configureDocumentationSql(win, mode, view) {
     store.setState({
       profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false,
       connectionStatus: 'connected', connectionError: null, serverVersion: '17',
+      connectionStateByProfileId: { ...state.connectionStateByProfileId, [profile.id]: { status: 'connected', generation: 1, error: null, serverVersion: '17' } },
       metadataByProfileId: { ...state.metadataByProfileId, [profile.id]: { schemas, status: 'loaded', error: null, isStale: false } },
       tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
         ...tab, connectionProfileId: profile.id, queryMode: '${mode}',
@@ -630,6 +631,7 @@ async function configureDocumentationPrometheus(win) {
     store.setState({
       profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false,
       connectionStatus: 'connected', connectionError: null, serverVersion: null,
+      connectionStateByProfileId: { ...state.connectionStateByProfileId, [profile.id]: { status: 'connected', generation: 1, error: null, serverVersion: null } },
       metadataByProfileId: { ...state.metadataByProfileId, [profile.id]: { schemas, status: 'loaded', error: null, isStale: false } },
       tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
         ...tab, title: 'Service latency', connectionProfileId: profile.id, queryMode: 'builder',
@@ -761,7 +763,10 @@ async function configureMode(win, mode) {
         ]
       }] }], 'loaded', null, 'preview-postgres')
       const current = store.getState()
-      store.setState({ tabs: current.tabs.map((item) => item.id === current.activeTabId ? { ...item, connectionProfileId: 'preview-postgres' } : item) })
+      store.setState({
+        tabs: current.tabs.map((item) => item.id === current.activeTabId ? { ...item, connectionProfileId: 'preview-postgres' } : item),
+        connectionStateByProfileId: { ...current.connectionStateByProfileId, 'preview-postgres': { status: 'connected', generation: 1, error: null, serverVersion: '17' } }
+      })
       store.getState().clearResultFilters('sql')
       store.getState().addResultFilter('sql', {
         id: 'preview-chart-series-france',
@@ -846,7 +851,10 @@ async function configurePrometheusToolbar(win) {
       ...item, connectionProfileId: 'preview-prometheus', queryMode: 'sql',
       sql: 'sum by(status)(rate(http_requests_total{service="api"}[5m]))',
       prometheusTimeRange: { kind: 'rolling', amount: 6, unit: 'hour' }, prometheusStep: '30s'
-    } : item) })
+    } : item), connectionStateByProfileId: {
+      ...state.connectionStateByProfileId,
+      'preview-prometheus': { status: 'connected', generation: 1, error: null, serverVersion: null }
+    } })
     return { ok: true }
   })()`)
   if (report?.error) throw new Error(report.error)

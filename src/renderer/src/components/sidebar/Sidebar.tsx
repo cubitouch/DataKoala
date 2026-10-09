@@ -19,7 +19,13 @@ import { isBuilderTemporalDataType } from '@lib/builderSql'
 import { reconcilePromqlBuilderForMetric } from '@lib/promqlBuilder'
 import { defaultTempoBuilder } from '@lib/tempoQueryState'
 import { bindTabConnection, ensureConnectionForTab } from '@lib/tabConnection'
-import { selectActiveSession, selectSession, useStore } from '@store/useStore'
+import {
+  selectActiveSession,
+  selectActiveTabConnection,
+  selectProfileConnection,
+  selectSession,
+  useStore,
+} from '@store/useStore'
 import { ConnectionModal } from '@components/connections/ConnectionModal'
 import { connectionKindLabel } from '@lib/connectionKind'
 import { DeleteConnectionDialog } from '@components/connections/DeleteConnectionDialog'
@@ -72,11 +78,8 @@ function RelationName({
 export function Sidebar() {
   const profiles = useStore((s) => s.profiles)
   const setProfiles = useStore((s) => s.setProfiles)
-  const activeId = useStore((s) => s.activeProfileId)
   const detachProfile = useStore((s) => s.detachProfile)
-  const connectionError = useStore((s) => s.connectionError)
   const connecting = useStore((s) => s.connecting)
-  const connected = useStore((s) => s.connected)
   const connectionStateByProfileId = useStore(
     (s) => s.connectionStateByProfileId,
   )
@@ -116,20 +119,38 @@ export function Sidebar() {
   const deleteOrigin = useRef<HTMLButtonElement | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
-  const activeTabConnection = activeTabConnectionId
-    ? connectionStateByProfileId[activeTabConnectionId]
-    : undefined
+  const [liveSessionHydrationFailed, setLiveSessionHydrationFailed] =
+    useState(false)
+  const activeTabConnection = useStore(selectActiveTabConnection)
+  const activeTabConnecting =
+    activeTabConnection?.status === 'connecting' ||
+    activeTabConnection?.status === 'reconnecting'
   const tabConnected = Boolean(
     activeTabConnectionId &&
     (activeTabConnection?.status === 'connected' ||
-      activeTabConnection?.status === 'idle' ||
-      (connected && activeId === activeTabConnectionId)),
+      activeTabConnection?.status === 'idle'),
   )
 
   const loadProfiles = useCallback(async () => {
-    setProfiles(await api.connections.list())
-    const live = await api.connections.listLive?.()
-    if (!live?.length) return
+    const loadedProfiles = await api.connections.list()
+    setProfiles(loadedProfiles)
+    const listLive = api.connections.listLive
+    if (!listLive) {
+      setLiveSessionHydrationFailed(true)
+      return
+    }
+    let live: Awaited<ReturnType<typeof listLive>>
+    try {
+      live = await listLive()
+    } catch {
+      setLiveSessionHydrationFailed(true)
+      return
+    }
+    if (!live) {
+      setLiveSessionHydrationFailed(true)
+      return
+    }
+    setLiveSessionHydrationFailed(false)
     const hydrationSessions = live.filter((session) => {
       const metadata = useStore.getState().metadataByProfileId[session.id]
       return !metadata || metadata.status === 'idle'
@@ -137,6 +158,19 @@ export function Sidebar() {
     useStore.setState((state) => ({
       connectionStateByProfileId: {
         ...state.connectionStateByProfileId,
+        ...Object.fromEntries(
+          loadedProfiles
+            .filter((profile) => !state.connectionStateByProfileId[profile.id])
+            .map((profile) => [
+              profile.id,
+              {
+                status: 'disconnected' as const,
+                generation: 0,
+                error: null,
+                serverVersion: null,
+              },
+            ]),
+        ),
         ...Object.fromEntries(
           live.map((session) => [
             session.id,
@@ -491,27 +525,36 @@ export function Sidebar() {
   return (
     <aside className={styles.sidebar} aria-label="Connections and objects">
       <h3>Connections</h3>
+      {liveSessionHydrationFailed && (
+        <div className={styles.objectStatus} role="status">
+          Connection status could not be restored.
+        </div>
+      )}
       {profiles.map((profile) => {
-        const profileConnection = connectionStateByProfileId[profile.id]
+        const profileConnection = selectProfileConnection(
+          { connectionStateByProfileId },
+          profile.id,
+        )
         const isConnecting =
           profileConnection?.status === 'connecting' ||
           profileConnection?.status === 'reconnecting'
         const isSelected = activeTabConnectionId === profile.id
         const isLive =
           profileConnection?.status === 'connected' ||
-          profileConnection?.status === 'idle' ||
-          (activeId === profile.id && connected)
+          profileConnection?.status === 'idle'
         const isCurrentLive = isLive && isSelected
         const isBackgroundLive = isLive && !isSelected
-        const stateLabel = isConnecting
-          ? 'connecting'
-          : isCurrentLive
-            ? 'live, current tab'
-            : isBackgroundLive
-              ? 'live, background'
-              : profileConnection?.status === 'error'
-                ? 'connection error'
-                : 'disconnected'
+        const stateLabel = !profileConnection
+          ? 'restoring connection'
+          : isConnecting
+            ? 'connecting'
+            : isCurrentLive
+              ? 'live, current tab'
+              : isBackgroundLive
+                ? 'live, background'
+                : profileConnection?.status === 'error'
+                  ? 'connection error'
+                  : 'disconnected'
         const isRefreshing =
           metadataByProfileId[profile.id]?.refreshing ?? false
         return (
@@ -527,7 +570,7 @@ export function Sidebar() {
             )}
             data-connection-item
             data-connection-live={isLive || undefined}
-            data-connection-state={stateLabel}
+            data-connection-state={profileConnection ? stateLabel : 'pending'}
             title={`${profile.name}: ${stateLabel}`}
             onClick={() => {
               if (!isConnecting) void connect(profile)
@@ -611,19 +654,17 @@ export function Sidebar() {
         + new connection
       </button>
       <AiSettingsAction />
-      {!tabConnected &&
-        connectionError &&
-        activeId === activeTabConnectionId && (
-          <div className={styles.objectError} role="alert">
-            {connectionError}
-            <button
-              onClick={() => void ensureConnectionForTab(activeTabId)}
-              disabled={connecting}
-            >
-              {connecting ? 'Reconnecting…' : 'Reconnect'}
-            </button>
-          </div>
-        )}
+      {!tabConnected && activeTabConnection?.error && (
+        <div className={styles.objectError} role="alert">
+          {activeTabConnection.error}
+          <button
+            onClick={() => void ensureConnectionForTab(activeTabId)}
+            disabled={activeTabConnecting}
+          >
+            {activeTabConnecting ? 'Reconnecting…' : 'Reconnect'}
+          </button>
+        </div>
+      )}
       {activeTabSourceKind === 'loki' && activeTabConnectionId && (
         <LokiSidebarTree connectionId={activeTabConnectionId} />
       )}

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -100,10 +101,21 @@ vi.mock('@lib/api', () => ({
 }))
 
 import { Sidebar } from './Sidebar'
+import { ConnectionStatus } from '@components/connections/ConnectionStatus'
 import styles from './Sidebar.module.css'
 import { api } from '@lib/api'
 import { resetTestStore } from '@test/sessionTestUtils'
 import { createQuerySession, useStore } from '@store/useStore'
+
+const liveConnection = (
+  generation = 1,
+  serverVersion: string | null = null,
+) => ({
+  status: 'connected' as const,
+  generation,
+  error: null,
+  serverVersion,
+})
 
 afterEach(() => {
   cleanup()
@@ -134,7 +146,12 @@ it('rehydrates metadata for a restored background live session after renderer re
     connectionStateByProfileId: {},
   })
 
-  render(<Sidebar />)
+  const { container } = render(
+    <>
+      <ConnectionStatus />
+      <Sidebar />
+    </>,
+  )
 
   await waitFor(() =>
     expect(useStore.getState().connectionStateByProfileId.pg).toMatchObject({
@@ -148,11 +165,150 @@ it('rehydrates metadata for a restored background live session after renderer re
       schemas: [{ name: 'public', relations: [{ name: 'orders' }] }],
     }),
   )
+  const postgresRow = screen.getByLabelText('Orders, live, background')
+  expect(postgresRow.getAttribute('data-connection-state')).toBe(
+    'live, background',
+  )
+  expect(container.querySelector('[data-state]')?.textContent).toBe(
+    'Analytics · disconnected',
+  )
   expect(api.connections.listObjects).toHaveBeenCalledWith('pg')
   expect(api.connections.connect).not.toHaveBeenCalled()
 
-  useStore.setState({ activeTabId: postgresTab.id })
+  act(() => useStore.setState({ activeTabId: postgresTab.id }))
+  expect(container.querySelector('[data-state]')?.textContent).toBe(
+    'Orders · PostgreSQL 16',
+  )
+  expect(
+    screen
+      .getByLabelText('Orders, live, current tab')
+      .getAttribute('data-connection-state'),
+  ).toBe('live, current tab')
   expect(await screen.findByText('orders')).toBeTruthy()
+})
+
+it('keeps restored profile indicators pending until live-session hydration completes', async () => {
+  let finishLive!: (
+    sessions: Array<{ id: string; generation: number; serverVersion?: string }>,
+  ) => void
+  vi.mocked(api.connections.listLive!).mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishLive = resolve
+    }),
+  )
+  const tab = createQuerySession(1, {
+    id: 'restored-tab',
+    connectionProfileId: 'pg',
+  })
+  useStore.setState({
+    profiles: [],
+    tabs: [tab],
+    activeTabId: tab.id,
+    connectionStateByProfileId: {},
+  })
+
+  const { container } = render(
+    <>
+      <ConnectionStatus />
+      <Sidebar />
+    </>,
+  )
+
+  const postgresRow = await screen.findByLabelText(
+    'Orders, restoring connection',
+  )
+  expect(postgresRow.getAttribute('data-connection-state')).toBe('pending')
+  expect(container.querySelector('[data-state]')?.textContent).toBe(
+    'Restoring connection…',
+  )
+  expect(api.connections.connect).not.toHaveBeenCalled()
+
+  act(() => finishLive([]))
+  await waitFor(() =>
+    expect(useStore.getState().connectionStateByProfileId.pg?.status).toBe(
+      'disconnected',
+    ),
+  )
+  expect(screen.getByLabelText('Orders, disconnected')).toBeTruthy()
+  expect(container.querySelector('[data-state]')?.textContent).toBe(
+    'Orders · disconnected',
+  )
+  expect(api.connections.connect).not.toHaveBeenCalled()
+})
+
+it.each(['unavailable', 'fails'] as const)(
+  'shows a hydration failure when live-session lookup %s',
+  async (outcome) => {
+    if (outcome === 'unavailable')
+      vi.mocked(api.connections.listLive!).mockReturnValueOnce(
+        undefined as never,
+      )
+    else
+      vi.mocked(api.connections.listLive!).mockRejectedValueOnce(
+        new Error('IPC unavailable'),
+      )
+
+    const tab = createQuerySession(1, {
+      id: 'restored-tab',
+      connectionProfileId: 'pg',
+    })
+    useStore.setState({
+      profiles: [],
+      tabs: [tab],
+      activeTabId: tab.id,
+      connectionStateByProfileId: {},
+    })
+
+    const { container } = render(
+      <>
+        <ConnectionStatus />
+        <Sidebar />
+      </>,
+    )
+
+    expect(
+      await screen.findByText('Connection status could not be restored.'),
+    ).toBeTruthy()
+    expect(container.querySelector('[data-state]')?.textContent).toBe(
+      'Restoring connection…',
+    )
+    expect(useStore.getState().connectionStateByProfileId.pg).toBeUndefined()
+    expect(api.connections.connect).not.toHaveBeenCalled()
+  },
+)
+
+it("doesn't disable profile B's reconnect control while profile A is connecting", async () => {
+  const tab = createQuerySession(1, {
+    id: 'profile-b-tab',
+    connectionProfileId: 'bq',
+  })
+  useStore.setState({
+    profiles,
+    tabs: [tab],
+    activeTabId: tab.id,
+    activeProfileId: 'pg',
+    connecting: true,
+    connectionStateByProfileId: {
+      pg: {
+        status: 'connecting',
+        generation: 2,
+        error: null,
+        serverVersion: null,
+      },
+      bq: {
+        status: 'error',
+        generation: 4,
+        error: 'Profile B failed',
+        serverVersion: null,
+      },
+    },
+  })
+
+  render(<Sidebar />)
+
+  expect(await screen.findByText('Profile B failed')).toBeTruthy()
+  const reconnect = screen.getByRole('button', { name: 'Reconnect' })
+  expect((reconnect as HTMLButtonElement).disabled).toBe(false)
 })
 
 it.each(['loaded', 'loading'] as const)(
@@ -242,6 +398,7 @@ it('shows a selected non-live profile without persistent connect-on-run copy', a
     activeTabId: tab.id,
     activeProfileId: 'pg',
     connected: true,
+    connectionStateByProfileId: { pg: liveConnection() },
   })
   render(<Sidebar />)
 
@@ -294,6 +451,7 @@ it('keeps only the live profile refresh action pending and does not switch conne
     activeProfileId: 'pg',
     connected: true,
     connectionGeneration: 4,
+    connectionStateByProfileId: { pg: liveConnection(4) },
     metadataByProfileId: {
       pg: {
         schemas: [
@@ -377,6 +535,7 @@ it('restores the previous filtered tree and reports a failed manual refresh', as
     activeProfileId: 'pg',
     connected: true,
     connectionGeneration: 4,
+    connectionStateByProfileId: { pg: liveConnection(4) },
     metadataByProfileId: {
       pg: {
         schemas: [
@@ -478,6 +637,7 @@ it('selecting a Tempo service seeds the structured Builder and clears stale serv
     activeTabId: tab.id,
     activeProfileId: 'tempo',
     connected: true,
+    connectionStateByProfileId: { tempo: liveConnection() },
     metadataByProfileId: {
       tempo: {
         schemas: [
@@ -537,6 +697,7 @@ it('selecting a Prometheus metric updates Builder state without replacing raw Pr
     activeTabId: tab.id,
     activeProfileId: 'prom',
     connected: true,
+    connectionStateByProfileId: { prom: liveConnection() },
     metadataByProfileId: {
       prom: {
         schemas: [
@@ -581,6 +742,7 @@ it('filters Tempo services with multiple partial tokens', async () => {
     activeTabId: tab.id,
     activeProfileId: 'tempo',
     connected: true,
+    connectionStateByProfileId: { tempo: liveConnection() },
     metadataByProfileId: {
       tempo: {
         schemas: [
@@ -642,6 +804,7 @@ it('keeps the Loki filter visible and uses the generic refresh status while labe
     activeProfileId: 'loki',
     connected: true,
     connectionGeneration: 3,
+    connectionStateByProfileId: { loki: liveConnection(3) },
     metadataByProfileId: {
       loki: { schemas: [], status: 'loaded', error: null, isStale: false },
     },
@@ -690,6 +853,7 @@ it('shows useful Loki labels, hides internal labels, and lazily seeds a value fi
     activeTabId: tab.id,
     activeProfileId: 'loki',
     connected: true,
+    connectionStateByProfileId: { loki: liveConnection() },
   })
   render(<Sidebar />)
   await screen.findByText('Production logs')
