@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import type { ExplainNode } from '@shared/types'
 import { ExplainPane } from './ExplainPane'
@@ -48,6 +49,12 @@ vi.mock('./ExecutionPlanGraph', () => ({
       <button type="button" onClick={() => onSelectNode('0.1')}>
         Select graph node 0.1
       </button>
+      <button type="button" onClick={() => onSelectNode('0.2')}>
+        Select graph node 0.2
+      </button>
+      <button type="button" onClick={() => onSelectNode('0.4')}>
+        Select graph node 0.4
+      </button>
     </section>
   ),
 }))
@@ -56,22 +63,38 @@ const tree: ExplainNode = {
   id: '0',
   plan: 'Limit',
   nodeType: 'Limit',
+  planRows: 120,
+  actualRows: 84_000,
+  loops: 1,
   children: [
     {
       id: '0.1',
+      plan: 'Sort',
+      nodeType: 'Sort',
+      planRows: 1_000,
+      actualRows: 10_000,
+      loops: 1,
+      sortMethod: 'external merge',
+      tempWrittenBlocks: 4,
+      tempReadBlocks: 3,
+      children: [],
+    },
+    {
+      id: '0.2',
       plan: 'Seq Scan',
       nodeType: 'Seq Scan',
-      planRows: 120,
-      actualRows: 84_000,
+      planRows: 100,
+      actualRows: 101,
       loops: 1,
       children: [],
     },
     {
       id: '0.4',
-      plan: 'Sort',
-      nodeType: 'Sort',
-      sortMethod: 'external merge',
-      tempWrittenBlocks: 4,
+      plan: 'Hash Join',
+      nodeType: 'Hash Join',
+      planRows: 10,
+      actualRows: 900,
+      loops: 1,
       children: [],
     },
   ],
@@ -81,12 +104,12 @@ function graph() {
   return screen.getByLabelText('Execution plan diagram')
 }
 
-async function requestHints() {
-  const analyzeButton = await screen.findByRole('button', {
-    name: 'Analyze performance',
-  })
-  fireEvent.click(analyzeButton)
-  return screen.findByRole('button', { name: /AI finds a filtered scan/ })
+function inspector() {
+  return screen.getByLabelText('Plan node details')
+}
+
+function performanceHints() {
+  return screen.getByLabelText('Performance hints')
 }
 
 beforeEach(() => {
@@ -105,7 +128,15 @@ beforeEach(() => {
           detail: 'The scan may affect the plan choice.',
           severity: 'warning',
           nodeIds: ['0.1'],
-          evidence: '84,000 actual rows.',
+          evidence: '10,000 actual rows.',
+        },
+        {
+          title: 'A hint without a proposed action',
+          action: null,
+          detail: 'Supporting explanation remains visible.',
+          severity: 'info',
+          nodeIds: ['0.2'],
+          evidence: '101 actual rows.',
         },
       ],
     },
@@ -150,18 +181,96 @@ afterEach(() => {
   resetTestStore()
 })
 
-describe('Explain hint and diagnostic selection', () => {
-  it('clears the AI hint and focuses only the selected diagnostic', async () => {
+describe('Explain node signals and AI performance hints', () => {
+  it('shows only signals for the selected node, including multiple facts on one node', () => {
     render(<ExplainPane />)
-    const hint = await requestHints()
+    const details = within(inspector())
+
+    expect(details.getByRole('heading', { name: 'Signals' })).toBeTruthy()
+    expect(inspector().contains(screen.getByLabelText('Plan signals'))).toBe(
+      true,
+    )
+    expect(details.getByText('Material row estimate mismatch')).toBeTruthy()
+    expect(
+      details.queryByText('External sort used temporary storage'),
+    ).toBeNull()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select graph node 0.1' }),
+    )
+    expect(details.getByText('Material row estimate mismatch')).toBeTruthy()
+    expect(
+      details.getByText('External sort used temporary storage'),
+    ).toBeTruthy()
+    expect(details.getByText('4 temp blocks written · 3 read')).toBeTruthy()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select graph node 0.2' }),
+    )
+    expect(details.queryByRole('heading', { name: 'Signals' })).toBeNull()
+    expect(details.queryByText('Material row estimate mismatch')).toBeNull()
+    expect(
+      details.queryByText('External sort used temporary storage'),
+    ).toBeNull()
+  })
+
+  it('offers optional analysis in Performance hints and selecting an AI hint updates the inspector node', async () => {
+    render(<ExplainPane />)
+    const heading = screen.getByText('EXPLAIN ANALYZE').closest('header')
+    expect(heading).toBeTruthy()
+    expect(
+      within(heading!).queryByRole('button', { name: /Analyze performance/ }),
+    ).toBeNull()
+    expect(analyzePlan).not.toHaveBeenCalled()
+
+    const runButton = await screen.findByRole('button', {
+      name: 'Run analysis',
+    })
+    expect(performanceHints().contains(runButton)).toBe(true)
+    expect(
+      within(performanceHints()).getByRole('button', {
+        name: 'Inspect Analyze performance request',
+      }),
+    ).toBeTruthy()
+    expect(inspector().contains(screen.getByLabelText('Plan signals'))).toBe(
+      true,
+    )
+
+    fireEvent.click(runButton)
+    const hint = await screen.findByRole('button', {
+      name: /AI finds a filtered scan/,
+    })
+    expect(analyzePlan).toHaveBeenCalledTimes(1)
     fireEvent.click(hint)
+
     await waitFor(() => {
+      expect(graph().dataset.selectedNodeId).toBe('0.1')
       expect(graph().dataset.highlightedNodeIds).toBe('0.1')
       expect(graph().dataset.focusNodeId).toBe('0.1')
+      expect(
+        within(inspector()).getByText('External sort used temporary storage'),
+      ).toBeTruthy()
     })
 
-    const diagnostic = screen.getByRole('button', {
-      name: /External sort used temporary storage/,
+    const noActionHint = screen.getByRole('button', {
+      name: /A hint without a proposed action/,
+    })
+    expect(noActionHint.querySelectorAll('strong')).toHaveLength(0)
+  })
+
+  it('selecting a diagnostic clears the AI hint and focuses only its node', async () => {
+    render(<ExplainPane />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Run analysis' }))
+    const hint = await screen.findByRole('button', {
+      name: /AI finds a filtered scan/,
+    })
+    fireEvent.click(hint)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select graph node 0.4' }),
+    )
+    const diagnostic = within(inspector()).getByRole('button', {
+      name: /Material row estimate mismatch/,
     })
     fireEvent.click(diagnostic)
 
@@ -174,26 +283,62 @@ describe('Explain hint and diagnostic selection', () => {
     })
   })
 
-  it('clears the diagnostic and focuses only the selected AI hint', async () => {
+  it('selecting an AI hint clears the diagnostic highlight and focuses only the hint node', async () => {
     render(<ExplainPane />)
-    const diagnostic = screen.getByRole('button', {
-      name: /External sort used temporary storage/,
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select graph node 0.4' }),
+    )
+    const diagnostic = within(inspector()).getByRole('button', {
+      name: /Material row estimate mismatch/,
     })
     fireEvent.click(diagnostic)
-    await waitFor(() => {
-      expect(graph().dataset.highlightedNodeIds).toBe('0.4')
-      expect(graph().dataset.focusNodeId).toBe('0.4')
-    })
 
-    const hint = await requestHints()
+    fireEvent.click(await screen.findByRole('button', { name: 'Run analysis' }))
+    const hint = await screen.findByRole('button', {
+      name: /AI finds a filtered scan/,
+    })
     fireEvent.click(hint)
 
     await waitFor(() => {
-      expect(diagnostic.getAttribute('aria-pressed')).toBe('false')
+      expect(
+        within(inspector())
+          .getByRole('button', { name: /Material row estimate mismatch/ })
+          .getAttribute('aria-pressed'),
+      ).toBe('false')
       expect(hint.getAttribute('aria-pressed')).toBe('true')
       expect(graph().dataset.selectedNodeId).toBe('0.1')
       expect(graph().dataset.highlightedNodeIds).toBe('0.1')
       expect(graph().dataset.focusNodeId).toBe('0.1')
     })
+  })
+
+  it('shows Cancel without a duplicate Run action while analysis is busy', async () => {
+    let resolveAnalysis!: (value: unknown) => void
+    analyzePlan.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAnalysis = resolve
+        }),
+    )
+    render(<ExplainPane />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Run analysis' }))
+
+    expect(
+      await screen.findByText('Analyzing the captured execution plan…'),
+    ).toBeTruthy()
+    expect(
+      within(performanceHints()).getByRole('button', { name: 'Cancel' }),
+    ).toBeTruthy()
+    expect(
+      within(performanceHints()).queryByRole('button', {
+        name: 'Run analysis',
+      }),
+    ).toBeNull()
+
+    fireEvent.click(
+      within(performanceHints()).getByRole('button', { name: 'Cancel' }),
+    )
+    await waitFor(() => expect(cancelPlan).toHaveBeenCalledTimes(1))
+    resolveAnalysis({ ok: true, value: { summary: '', hints: [] } })
   })
 })
