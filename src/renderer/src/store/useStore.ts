@@ -30,6 +30,7 @@ import {
 import { api } from '@lib/api'
 import { loadConnectionMetadata } from '@lib/connectionMetadata'
 import { refreshConnectionMetadata } from '@lib/metadataRefresh'
+import { isCurrentProfileConnectionEvent } from '@lib/connectionLifecycle'
 import {
   DEFAULT_PROMQL_BUILDER,
   type PromqlBuilderState,
@@ -308,7 +309,7 @@ export interface AppState {
     profile: DataSourceProfile,
     options?: { force?: boolean },
   ) => Promise<void>
-  reconnectActiveProfile: () => Promise<void>
+  reconnectActiveProfile: (profileId: string) => Promise<void>
   setMetadata: (
     schemas: DatabaseSchemaNode[],
     status: MetadataStatus,
@@ -514,7 +515,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const active = selectActiveSession(state)
       if (active.activeExplainRequest) return {}
-      const sameConnection = state.activeProfileId === id
+      const sameConnection = active.connectionProfileId === id
       return {
         ...patchSession(state, state.activeTabId, (session) => ({
           ...session,
@@ -575,11 +576,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const previousConnection =
         state.connectionStateByProfileId[event.profileId]
-      if (
-        previousConnection &&
-        event.generation < previousConnection.generation
-      )
-        return {}
+      if (!isCurrentProfileConnectionEvent(previousConnection, event)) return {}
       const metadata =
         state.metadataByProfileId[event.profileId] ?? emptyMetadata()
       const status: ConnectionStatus =
@@ -607,7 +604,11 @@ export const useStore = create<AppState>((set, get) => ({
               ...scoped,
               metadataByProfileId: {
                 ...state.metadataByProfileId,
-                [event.profileId]: { ...metadata, isStale: true },
+                [event.profileId]: {
+                  ...metadata,
+                  isStale: true,
+                  refreshing: false,
+                },
               },
             }
           : scoped
@@ -651,7 +652,11 @@ export const useStore = create<AppState>((set, get) => ({
         disconnectedAt: event.timestamp,
         metadataByProfileId: {
           ...state.metadataByProfileId,
-          [event.profileId]: { ...metadata, isStale: true },
+          [event.profileId]: {
+            ...metadata,
+            isStale: true,
+            refreshing: false,
+          },
         },
         tabs: state.tabs.map((tab) =>
           tab.connectionProfileId === event.profileId
@@ -668,21 +673,33 @@ export const useStore = create<AppState>((set, get) => ({
   connectProfile: async (profile, options) => {
     const intent = ++connectionIntent
     connectionIntents.set(profile.id, intent)
+    const startingGeneration =
+      get().connectionStateByProfileId[profile.id]?.generation ?? 0
     set((state) => ({
-      ...patchSession(state, state.activeTabId, (session) => ({
-        ...session,
-        connectionProfileId: profile.id,
-      })),
-      activeProfileId: profile.id,
-      connecting: true,
-      connected: false,
-      connectionStatus: 'connecting',
-      connectionError: null,
-      serverVersion: null,
+      ...(!options?.force
+        ? {
+            ...patchSession(state, state.activeTabId, (session) => ({
+              ...session,
+              connectionProfileId: profile.id,
+            })),
+            activeProfileId: profile.id,
+          }
+        : {}),
+      ...(state.activeProfileId === profile.id
+        ? {
+            connecting: true,
+            connected: false,
+            connectionStatus: options?.force
+              ? ('reconnecting' as const)
+              : ('connecting' as const),
+            connectionError: null,
+            serverVersion: null,
+          }
+        : {}),
       connectionStateByProfileId: {
         ...state.connectionStateByProfileId,
         [profile.id]: {
-          status: 'connecting',
+          status: options?.force ? 'reconnecting' : 'connecting',
           generation:
             state.connectionStateByProfileId[profile.id]?.generation ?? 0,
           error: null,
@@ -704,43 +721,58 @@ export const useStore = create<AppState>((set, get) => ({
       const actualId = result.id ?? profile.id
       if (!result.ok) {
         set((state) => ({
-          ...(selectActiveSession(state).connectionProfileId === profile.id
-            ? {
-                connected: false,
-                connecting: false,
-                connectionStatus: 'error' as const,
-                connectionError: result.error,
-                serverVersion: null,
-              }
-            : {}),
-          connectionStateByProfileId: {
-            ...state.connectionStateByProfileId,
-            [profile.id]: {
-              status: 'error',
-              generation:
-                state.connectionStateByProfileId[profile.id]?.generation ?? 0,
-              error: result.error,
-              serverVersion: null,
-            },
-          },
+          ...((state.connectionStateByProfileId[profile.id]?.generation ?? 0) >
+            startingGeneration ||
+          state.connectionStateByProfileId[profile.id]?.status === 'connected'
+            ? {}
+            : {
+                ...(selectActiveSession(state).connectionProfileId ===
+                profile.id
+                  ? {
+                      connected: false,
+                      connecting: false,
+                      connectionStatus: 'error' as const,
+                      connectionError: result.error,
+                      serverVersion: null,
+                    }
+                  : {}),
+                connectionStateByProfileId: {
+                  ...state.connectionStateByProfileId,
+                  [profile.id]: {
+                    status: 'error',
+                    generation:
+                      state.connectionStateByProfileId[profile.id]
+                        ?.generation ?? 0,
+                    error: result.error,
+                    serverVersion: null,
+                  },
+                },
+              }),
         }))
         return
       }
+      const currentConnection = get().connectionStateByProfileId[actualId]
+      if (currentConnection && currentConnection.generation > result.generation)
+        return
       set((state) => ({
-        ...(selectActiveSession(state).connectionProfileId === profile.id
+        ...(selectActiveSession(state).connectionProfileId === profile.id &&
+        state.activeProfileId === profile.id
           ? {
-              tabs: state.tabs.map((tab) =>
-                tab.id === state.activeTabId
-                  ? { ...tab, connectionProfileId: actualId }
-                  : tab,
-              ),
-              activeProfileId: actualId,
               connected: true,
               connecting: false,
               connectionStatus: 'connected' as const,
               connectionGeneration: result.generation,
               serverVersion: result.serverVersion,
               connectionError: null,
+            }
+          : {}),
+        ...(actualId !== profile.id
+          ? {
+              tabs: state.tabs.map((tab) =>
+                tab.connectionProfileId === profile.id
+                  ? { ...tab, connectionProfileId: actualId }
+                  : tab,
+              ),
             }
           : {}),
         connectionStateByProfileId: {
@@ -768,9 +800,21 @@ export const useStore = create<AppState>((set, get) => ({
       try {
         const schemas = await loadConnectionMetadata(actualId)
         if (connectionIntents.get(profile.id) !== intent) return
+        const latest = get().connectionStateByProfileId[actualId]
+        if (
+          latest?.generation !== result.generation ||
+          (latest.status !== 'connected' && latest.status !== 'idle')
+        )
+          return
         get().setMetadata(schemas, 'loaded', null, actualId)
       } catch (error) {
         if (connectionIntents.get(profile.id) !== intent) return
+        const latest = get().connectionStateByProfileId[actualId]
+        if (
+          latest?.generation !== result.generation ||
+          (latest.status !== 'connected' && latest.status !== 'idle')
+        )
+          return
         get().setMetadata(
           [],
           'error',
@@ -782,40 +826,66 @@ export const useStore = create<AppState>((set, get) => ({
       if (connectionIntents.get(profile.id) !== intent) return
       const message = error instanceof Error ? error.message : String(error)
       set((state) => ({
-        ...(selectActiveSession(state).connectionProfileId === profile.id
-          ? {
-              connected: false,
-              connecting: false,
-              connectionStatus: 'error' as const,
-              serverVersion: null,
-              connectionError: message,
-            }
-          : {}),
-        connectionStateByProfileId: {
-          ...state.connectionStateByProfileId,
-          [profile.id]: {
-            status: 'error',
-            generation:
-              state.connectionStateByProfileId[profile.id]?.generation ?? 0,
-            error: message,
-            serverVersion: null,
-          },
-        },
+        ...((state.connectionStateByProfileId[profile.id]?.generation ?? 0) >
+          startingGeneration ||
+        state.connectionStateByProfileId[profile.id]?.status === 'connected'
+          ? {}
+          : {
+              ...(selectActiveSession(state).connectionProfileId === profile.id
+                ? {
+                    connected: false,
+                    connecting: false,
+                    connectionStatus: 'error' as const,
+                    serverVersion: null,
+                    connectionError: message,
+                  }
+                : {}),
+              connectionStateByProfileId: {
+                ...state.connectionStateByProfileId,
+                [profile.id]: {
+                  status: 'error',
+                  generation:
+                    state.connectionStateByProfileId[profile.id]?.generation ??
+                    0,
+                  error: message,
+                  serverVersion: null,
+                },
+              },
+            }),
       }))
     }
   },
-  reconnectActiveProfile: async () => {
+  reconnectActiveProfile: async (profileId: string) => {
     const state = get()
     const profile = state.profiles.find(
-      (candidate) => candidate.id === state.activeProfileId,
+      (candidate) => candidate.id === profileId,
     )
-    if (!profile || state.connecting) return
+    const connection = profile
+      ? state.connectionStateByProfileId[profile.id]
+      : undefined
+    if (
+      !profile ||
+      connection?.status === 'connecting' ||
+      connection?.status === 'reconnecting'
+    )
+      return
     const attemptId = state.reconnectAttemptId + 1
-    set({
+    set((current) => ({
       reconnectAttemptId: attemptId,
       activeReconnectAttempt: { id: attemptId, profileId: profile.id },
-      connectionStatus: 'reconnecting',
-    })
+      ...(current.activeProfileId === profile.id
+        ? { connectionStatus: 'reconnecting' as const }
+        : {}),
+      connectionStateByProfileId: {
+        ...current.connectionStateByProfileId,
+        [profile.id]: {
+          status: 'reconnecting',
+          generation: connection?.generation ?? 0,
+          error: null,
+          serverVersion: connection?.serverVersion ?? null,
+        },
+      },
+    }))
     await get().connectProfile(profile, { force: true })
     const current = get()
     if (current.activeReconnectAttempt?.id === attemptId)
@@ -823,7 +893,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
   setMetadata: (schemas, status, error, profileId) =>
     set((state) => {
-      const id = profileId ?? state.activeProfileId
+      const id = profileId
       if (!id) return {}
       const previous = state.metadataByProfileId[id] ?? emptyMetadata()
       return {
@@ -840,7 +910,7 @@ export const useStore = create<AppState>((set, get) => ({
     }),
   setRelationColumns: (qualifiedName, columns, status, error, profileId) =>
     set((state) => {
-      const id = profileId ?? state.activeProfileId
+      const id = profileId
       if (!id) return {}
       const metadata = state.metadataByProfileId[id] ?? emptyMetadata()
       return {
@@ -909,7 +979,13 @@ export const useStore = create<AppState>((set, get) => ({
           }),
     })
     if (sameProfile) return
-    if (!targetProfile) return
+    if (
+      !targetProfile ||
+      !live ||
+      live.status === 'connecting' ||
+      live.status === 'reconnecting'
+    )
+      return
     const profile = get().profiles.find(
       (candidate) => candidate.id === targetProfile,
     )

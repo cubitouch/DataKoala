@@ -67,7 +67,7 @@ describe('profile-scoped reconnect attempts', () => {
     const request = deferred<any>()
     const connect = vi.fn(() => request.promise)
     const { useStore, disconnect } = await setup(connect)
-    const reconnect = useStore.getState().reconnectActiveProfile()
+    const reconnect = useStore.getState().reconnectActiveProfile('a')
     useStore.getState().setActive('b')
     request.resolve({ ok: true, serverVersion: '16-a', generation: 7, id: 'a' })
     await reconnect
@@ -93,9 +93,9 @@ describe('profile-scoped reconnect attempts', () => {
       .mockImplementationOnce(() => a.promise)
       .mockImplementationOnce(() => b.promise)
     const { useStore, disconnect } = await setup(connect)
-    const attemptA = useStore.getState().reconnectActiveProfile()
+    const attemptA = useStore.getState().reconnectActiveProfile('a')
     useStore.getState().setActive('b')
-    const attemptB = useStore.getState().reconnectActiveProfile()
+    const attemptB = useStore.getState().reconnectActiveProfile('b')
     b.resolve({ ok: true, serverVersion: '16-b', generation: 22, id: 'b' })
     await attemptB
     a.resolve({ ok: true, serverVersion: '16-a', generation: 11, id: 'a' })
@@ -117,7 +117,7 @@ describe('profile-scoped reconnect attempts', () => {
   it('does not show a stale A failure on B', async () => {
     const request = deferred<any>()
     const { useStore } = await setup(vi.fn(() => request.promise))
-    const reconnect = useStore.getState().reconnectActiveProfile()
+    const reconnect = useStore.getState().reconnectActiveProfile('a')
     useStore.getState().setActive('b')
     request.reject(new Error('A authentication failed'))
     await reconnect
@@ -132,8 +132,8 @@ describe('profile-scoped reconnect attempts', () => {
     const request = deferred<any>()
     const connect = vi.fn(() => request.promise)
     const { useStore } = await setup(connect)
-    const first = useStore.getState().reconnectActiveProfile()
-    const second = useStore.getState().reconnectActiveProfile()
+    const first = useStore.getState().reconnectActiveProfile('a')
+    const second = useStore.getState().reconnectActiveProfile('a')
     expect(connect).toHaveBeenCalledTimes(1)
     request.resolve({ ok: false, error: 'offline', id: 'a' })
     await Promise.all([first, second])
@@ -178,5 +178,59 @@ describe('profile-scoped reconnect attempts', () => {
     })
     expect(selectActiveSession(useStore.getState()).isResultStale).toBe(false)
     expect(useStore.getState().metadataByProfileId.a.isStale).toBe(false)
+  })
+
+  it('ignores delayed events per profile without coupling equal generations', async () => {
+    const { useStore } = await setup(vi.fn())
+    useStore.setState((state) => ({
+      connectionStateByProfileId: {
+        a: {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: '16-a',
+        },
+        b: {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: '16-b',
+        },
+      },
+      tabs: [
+        { ...state.tabs[0], id: 'tab-a', connectionProfileId: 'a' },
+        { ...state.tabs[0], id: 'tab-b', connectionProfileId: 'b' },
+      ],
+    }))
+    const event = (
+      profileId: string,
+      generation: number,
+      eventState: 'reconnecting' | 'failed',
+    ) => ({
+      profileId,
+      generation,
+      state: eventState,
+      expected: false,
+      code: null,
+      message: eventState,
+      timestamp: generation,
+      recoverable: true,
+      recoverability: 'transient' as const,
+      source: 'test',
+      activeOperationAffected: false,
+    })
+
+    useStore.getState().applyConnectionEvent(event('a', 2, 'reconnecting'))
+    useStore.getState().applyConnectionEvent(event('a', 1, 'failed'))
+    expect(useStore.getState().connectionStateByProfileId).toMatchObject({
+      a: { status: 'reconnecting', generation: 2 },
+      b: { status: 'connected', generation: 1 },
+    })
+
+    useStore.getState().applyConnectionEvent(event('b', 2, 'failed'))
+    expect(useStore.getState().connectionStateByProfileId).toMatchObject({
+      a: { status: 'reconnecting', generation: 2 },
+      b: { status: 'error', generation: 2, error: 'failed' },
+    })
   })
 })

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { QueryResult } from '@shared/types'
 import { api } from './api'
+import { isTabConnectionCurrent } from './tabConnection'
+import { useStore } from '@store/useStore'
 import { tempoTraceLookupRequest } from './traceCohort'
 import {
   canonicalTraceId,
@@ -44,6 +46,7 @@ export function useTempoTraceOpenController({
     requestId?: string
     spanCount: number
   } | null>(null)
+  const requestRevision = useRef(0)
 
   useEffect(() => {
     const timing = traceRenderTiming.current
@@ -78,6 +81,22 @@ export function useTempoTraceOpenController({
 
       onOpenStart?.(request)
       setTraceLoading(true)
+      const tabId = useStore.getState().activeTabId
+      const requestGeneration =
+        useStore.getState().connectionStateByProfileId[connectionId]?.generation
+      if (
+        requestGeneration === undefined ||
+        !isTabConnectionCurrent(tabId, connectionId, requestGeneration)
+      ) {
+        setTraceLoading(false)
+        return
+      }
+      const revision = ++requestRevision.current
+      const isCurrentRequest = () =>
+        revision === requestRevision.current &&
+        isTabConnectionCurrent(tabId, connectionId, requestGeneration)
+      const isVisibleRequest = () =>
+        isCurrentRequest() && useStore.getState().activeTabId === tabId
       const perfStarted = performance.now()
       const sourceRow = searchRows.find(
         (row) => canonicalTraceId(row.traceId) === request,
@@ -92,6 +111,7 @@ export function useTempoTraceOpenController({
           undefined,
           true,
         )
+        if (!isVisibleRequest()) return
         tempoPerf('trace.result-renderer', {
           requestId: result.execution?.requestId,
           elapsedMs: performance.now() - perfStarted,
@@ -113,9 +133,10 @@ export function useTempoTraceOpenController({
         const status = openedTraceStatus(result.rows)
         if (status !== 'unknown') onTraceStatusResolved?.(request, status)
       } catch (reason) {
-        onError(reason instanceof Error ? reason.message : String(reason))
+        if (isVisibleRequest())
+          onError(reason instanceof Error ? reason.message : String(reason))
       } finally {
-        setTraceLoading(false)
+        if (isVisibleRequest()) setTraceLoading(false)
       }
     },
     [connectionId, onError, onOpenStart, onTraceOpened, onTraceStatusResolved],

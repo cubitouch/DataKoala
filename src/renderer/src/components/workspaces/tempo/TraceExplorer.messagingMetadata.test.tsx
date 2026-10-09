@@ -100,7 +100,15 @@ describe('Trace Explorer messaging metadata', () => {
       .mockResolvedValueOnce(['nats'])
     const view = render(<TraceExplorer connectionId="tempo-1" />)
     await waitFor(() => expect(attributeValues).toHaveBeenCalledTimes(1))
-    useStore.setState({ connectionGeneration: 8 })
+    useStore.setState((state) => ({
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        'tempo-1': {
+          ...state.connectionStateByProfileId['tempo-1'],
+          generation: 8,
+        },
+      },
+    }))
     view.rerender(<TraceExplorer connectionId="tempo-1" />)
     await waitFor(() => expect(attributeValues).toHaveBeenCalledTimes(2))
     fireEvent.click(screen.getByRole('combobox', { name: /Messaging system/ }))

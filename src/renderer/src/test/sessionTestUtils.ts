@@ -13,9 +13,29 @@ export function activeTestSession(): QuerySession {
 
 export function patchActiveTestSession(patch: Partial<QuerySession>): void {
   const state = useStore.getState()
+  if (
+    typeof patch.connectionProfileId === 'string' &&
+    !state.connectionStateByProfileId[patch.connectionProfileId]
+  )
+    useStore.setState((current) => ({
+      connectionStateByProfileId: {
+        ...current.connectionStateByProfileId,
+        [patch.connectionProfileId!]: {
+          status: current.connected
+            ? current.connectionStatus === 'idle'
+              ? 'idle'
+              : 'connected'
+            : 'disconnected',
+          generation: current.connectionGeneration,
+          error: current.connectionError,
+          serverVersion: current.serverVersion,
+        },
+      },
+    }))
+  const latest = useStore.getState()
   useStore.setState({
-    tabs: state.tabs.map((tab) =>
-      tab.id === state.activeTabId ? { ...tab, ...patch } : tab,
+    tabs: latest.tabs.map((tab) =>
+      tab.id === latest.activeTabId ? { ...tab, ...patch } : tab,
     ),
   })
 }

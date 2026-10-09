@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
 import { api } from '@lib/api'
+import { isProfileConnectionCurrent } from '@lib/tabConnection'
 import { matchesSearch } from '@lib/matchesSearch'
 import { TextInput } from '@components/ui/TextInput'
 import {
@@ -13,6 +14,8 @@ const VALUE_LIMIT = 200
 
 type Props = {
   connectionId: string
+  connectionGeneration?: number
+  canLoadMetadata?: boolean
   revision?: number
   schemas: DatabaseSchemaNode[]
   expanded: ReadonlySet<string>
@@ -40,8 +43,8 @@ export function PrometheusMetadataTree(props: Props) {
   >()
   const metricKey = useCallback(
     (metric: DatabaseRelationNode) =>
-      `${props.connectionId}\0${metric.qualifiedName}`,
-    [props.connectionId],
+      `${props.connectionId}\0${props.connectionGeneration ?? 0}\0${metric.qualifiedName}`,
+    [props.connectionGeneration, props.connectionId],
   )
   const valueKey = useCallback(
     (metric: DatabaseRelationNode, label: string) =>
@@ -51,6 +54,7 @@ export function PrometheusMetadataTree(props: Props) {
 
   const loadLabels = useCallback(
     async (metric: DatabaseRelationNode, retry = false) => {
+      if (props.canLoadMetadata === false) return
       const key = metricKey(metric)
       if (labelRequests.current.has(key) || (!retry && labels[key]?.data))
         return
@@ -64,9 +68,25 @@ export function PrometheusMetadataTree(props: Props) {
           props.connectionId,
           metric.name,
         )
+        if (
+          props.connectionGeneration !== undefined &&
+          !isProfileConnectionCurrent(
+            props.connectionId,
+            props.connectionGeneration,
+          )
+        )
+          return
         setLabels((old) => ({ ...old, [key]: { data } }))
         return data
       } catch (error) {
+        if (
+          props.connectionGeneration !== undefined &&
+          !isProfileConnectionCurrent(
+            props.connectionId,
+            props.connectionGeneration,
+          )
+        )
+          return
         setLabels((old) => ({
           ...old,
           [key]: { ...old[key], loading: false, error: message(error) },
@@ -75,11 +95,18 @@ export function PrometheusMetadataTree(props: Props) {
         labelRequests.current.delete(key)
       }
     },
-    [labels, metricKey, props.connectionId],
+    [
+      labels,
+      metricKey,
+      props.canLoadMetadata,
+      props.connectionGeneration,
+      props.connectionId,
+    ],
   )
 
   const loadValues = useCallback(
     async (metric: DatabaseRelationNode, label: string, retry = false) => {
+      if (props.canLoadMetadata === false) return
       const key = valueKey(metric, label)
       if (valueRequests.current.has(key) || (!retry && values[key]?.data))
         return
@@ -94,8 +121,24 @@ export function PrometheusMetadataTree(props: Props) {
           metric.name,
           label,
         )
+        if (
+          props.connectionGeneration !== undefined &&
+          !isProfileConnectionCurrent(
+            props.connectionId,
+            props.connectionGeneration,
+          )
+        )
+          return
         setValues((old) => ({ ...old, [key]: { data } }))
       } catch (error) {
+        if (
+          props.connectionGeneration !== undefined &&
+          !isProfileConnectionCurrent(
+            props.connectionId,
+            props.connectionGeneration,
+          )
+        )
+          return
         setValues((old) => ({
           ...old,
           [key]: { ...old[key], loading: false, error: message(error) },
@@ -104,10 +147,17 @@ export function PrometheusMetadataTree(props: Props) {
         valueRequests.current.delete(key)
       }
     },
-    [props.connectionId, valueKey, values],
+    [
+      props.canLoadMetadata,
+      props.connectionGeneration,
+      props.connectionId,
+      valueKey,
+      values,
+    ],
   )
 
   useEffect(() => {
+    if (props.canLoadMetadata === false) return
     for (const schema of props.schemas) {
       for (const metric of schema.relations) {
         const id = `relation:${metric.qualifiedName}`
@@ -122,12 +172,19 @@ export function PrometheusMetadataTree(props: Props) {
         }
       }
     }
-  }, [labels, loadLabels, metricKey, props.expanded, props.schemas])
+  }, [
+    labels,
+    loadLabels,
+    metricKey,
+    props.canLoadMetadata,
+    props.expanded,
+    props.schemas,
+  ])
 
   const lastProcessedRevision = useRef('')
   useEffect(() => {
     if (!props.revision) return
-    const revisionKey = `${props.connectionId}\0${props.revision}`
+    const revisionKey = `${props.connectionId}\0${props.connectionGeneration ?? 0}\0${props.revision}`
     if (lastProcessedRevision.current === revisionKey) return
     lastProcessedRevision.current = revisionKey
     for (const schema of props.schemas)
@@ -144,6 +201,8 @@ export function PrometheusMetadataTree(props: Props) {
     loadValues,
     openLabels,
     props.connectionId,
+    props.connectionGeneration,
+    props.canLoadMetadata,
     props.expanded,
     props.revision,
     props.schemas,

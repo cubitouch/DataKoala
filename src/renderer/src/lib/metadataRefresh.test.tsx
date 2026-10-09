@@ -39,6 +39,14 @@ function connectedState() {
       activeProfileId: 'profile-a',
       connected: true,
       connectionGeneration: 7,
+      connectionStateByProfileId: {
+        'profile-a': {
+          status: 'connected',
+          generation: 7,
+          error: null,
+          serverVersion: '16',
+        },
+      },
       tabs: [
         {
           ...tab,
@@ -88,8 +96,30 @@ afterEach(() => {
   connectedState()
 })
 
-it('atomically replaces top-level metadata while leaving editor, result, and session state unchanged', async () => {
+it('refreshes A while B is selected and leaves B metadata and A session state unchanged', async () => {
   connectedState()
+  useStore.setState((state) => ({
+    activeProfileId: 'profile-b',
+    connected: false,
+    connectionStateByProfileId: {
+      ...state.connectionStateByProfileId,
+      'profile-b': {
+        status: 'connected',
+        generation: 2,
+        error: null,
+        serverVersion: '16-b',
+      },
+    },
+    metadataByProfileId: {
+      ...state.metadataByProfileId,
+      'profile-b': {
+        schemas: [],
+        status: 'loaded',
+        error: null,
+        isStale: false,
+      },
+    },
+  }))
   mocks.refresh.mockResolvedValue(undefined)
   mocks.listObjects.mockResolvedValue([
     { schema: 'public', name: 'new_table', kind: 'r' },
@@ -101,8 +131,9 @@ it('atomically replaces top-level metadata while leaving editor, result, and ses
     state.metadataByProfileId['profile-a'].schemas[0].relations[0].name,
   ).toBe('new_table')
   expect(state.metadataByProfileId['profile-a'].revision).toBe(1)
+  expect(state.metadataByProfileId['profile-b'].schemas).toEqual([])
   expect(state.tabs[0]).toEqual(before)
-  expect(state.connected).toBe(true)
+  expect(state.connected).toBe(false)
   expect(state.connectionGeneration).toBe(7)
 })
 
@@ -208,7 +239,7 @@ it('deduplicates concurrent refreshes for one profile', async () => {
   expect(mocks.listObjects).toHaveBeenCalledTimes(1)
 })
 
-it('discards metadata that resolves after the live connection generation changes', async () => {
+it('discards stale metadata for A without consulting the active profile or global generation', async () => {
   connectedState()
   let resolveObjects!: (
     objects: Array<{ schema: string; name: string; kind: 'r' }>,
@@ -221,11 +252,41 @@ it('discards metadata that resolves after the live connection generation changes
   )
   const pending = useStore.getState().refreshMetadata('profile-a')
   await vi.waitFor(() => expect(mocks.listObjects).toHaveBeenCalled())
-  useStore.setState({ activeProfileId: 'profile-b', connectionGeneration: 8 })
+  useStore.setState((state) => ({
+    activeProfileId: 'profile-b',
+    connectionGeneration: 8,
+    connectionStateByProfileId: {
+      ...state.connectionStateByProfileId,
+      'profile-a': {
+        status: 'connected',
+        generation: 8,
+        error: null,
+        serverVersion: '17',
+      },
+      'profile-b': {
+        status: 'connected',
+        generation: 8,
+        error: null,
+        serverVersion: '16',
+      },
+    },
+    metadataByProfileId: {
+      ...state.metadataByProfileId,
+      'profile-b': {
+        schemas: [],
+        status: 'loaded',
+        error: null,
+        isStale: false,
+      },
+    },
+  }))
   resolveObjects([{ schema: 'public', name: 'stale_table', kind: 'r' }])
   await pending
   expect(useStore.getState().metadataByProfileId['profile-a'].schemas).toEqual(
     oldSchemas,
   )
-  expect(useStore.getState().metadataByProfileId['profile-b']).toBeUndefined()
+  expect(useStore.getState().metadataByProfileId['profile-b']).toMatchObject({
+    schemas: [],
+    status: 'loaded',
+  })
 })

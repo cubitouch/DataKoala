@@ -22,13 +22,10 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
     Record<string, LokiValueStatus>
   >({})
   const revision = useRef(0)
-  const activeProfileId = useStore((state) => state.activeProfileId)
-  const connected = useStore((state) => state.connected)
   const scopedConnection = useStore(
     (state) => state.connectionStateByProfileId[connectionId],
   )
-  const connectionGeneration =
-    scopedConnection?.generation ?? useStore.getState().connectionGeneration
+  const connectionGeneration = scopedConnection?.generation ?? 0
   const metadataRevision = useStore(
     (state) => state.metadataByProfileId[connectionId]?.revision ?? 0,
   )
@@ -40,8 +37,7 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
   )
   const canLoadMetadata =
     scopedConnection?.status === 'connected' ||
-    scopedConnection?.status === 'idle' ||
-    (connectionId === activeProfileId && connected)
+    scopedConnection?.status === 'idle'
   const available = useRef(canLoadMetadata)
   available.current = canLoadMetadata
   const lifecycleKey = useRef('')

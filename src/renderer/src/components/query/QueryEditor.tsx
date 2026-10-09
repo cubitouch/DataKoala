@@ -11,10 +11,18 @@ import {
 } from 'react'
 import { sql as sqlExtension } from '@codemirror/lang-sql'
 import { PromQLExtension } from '@prometheus-io/codemirror-promql'
-import { selectActiveSession, selectSession, useStore } from '@store/useStore'
+import {
+  selectActiveSession,
+  selectActiveTabConnection,
+  selectSession,
+  useStore,
+} from '@store/useStore'
 import { api } from '@lib/api'
 import { isRepairableQueryExecutionError } from '@lib/queryErrors'
-import { ensureConnectionForTab } from '@lib/tabConnection'
+import {
+  ensureConnectionForTab,
+  isTabConnectionCurrent,
+} from '@lib/tabConnection'
 import { CopySqlButton } from './CopySqlButton'
 import {
   DATA_SOURCE_CAPABILITIES,
@@ -52,10 +60,6 @@ import { QueryCodeEditor, type QueryCodeEditorHandle } from './QueryCodeEditor'
 import { GrafanaHandoffActions } from './GrafanaHandoffActions'
 
 const EMPTY_SCHEMAS: DatabaseSchemaNode[] = []
-const stillBoundTo = (requestTabId: string, profileId: string) =>
-  selectSession(useStore.getState(), requestTabId)?.connectionProfileId ===
-  profileId
-
 export function QueryEditor({
   builderMode = false,
 }: {
@@ -89,7 +93,10 @@ export function QueryEditor({
   )
   const metadataRefreshing = metadata?.refreshing ?? false
   const schemas = metadata?.schemas ?? EMPTY_SCHEMAS
-  const connecting = useStore((s) => s.connecting)
+  const activeTabConnection = useStore(selectActiveTabConnection)
+  const connecting =
+    activeTabConnection?.status === 'connecting' ||
+    activeTabConnection?.status === 'reconnecting'
   const running = useStore((s) => selectActiveSession(s).running)
   const startQuery = useStore((s) => s.startQuery)
   const completeQuery = useStore((s) => s.completeQuery)
@@ -149,11 +156,12 @@ export function QueryEditor({
           schemas,
           dialect,
           async (relation) => {
+            if (!tabConnectionId) return undefined
             const state = useStore.getState()
+            const connection = state.connectionStateByProfileId[tabConnectionId]
             if (
-              !tabConnectionId ||
-              state.activeProfileId !== tabConnectionId ||
-              !state.connected
+              connection?.status !== 'connected' &&
+              connection?.status !== 'idle'
             )
               return undefined
             return ensureRelationColumns(tabConnectionId, relation)
@@ -181,11 +189,23 @@ export function QueryEditor({
     }
     const requestProfileId = await ensureConnectionForTab(requestTabId)
     if (!requestProfileId) {
-      const error = useStore.getState().connectionError
-      if (error) setResult(null, error, requestTabId)
+      const connection =
+        useStore.getState().connectionStateByProfileId[tabConnectionId]
+      setResult(
+        null,
+        connection?.error ??
+          (connection
+            ? 'This connection is not ready to run a query.'
+            : 'Connection status is still being restored.'),
+        requestTabId,
+      )
       return
     }
-    if (!stillBoundTo(requestTabId, requestProfileId)) return
+    if (!isTabConnectionCurrent(requestTabId, requestProfileId)) return
+    const requestGeneration =
+      useStore.getState().connectionStateByProfileId[requestProfileId]
+        ?.generation
+    if (requestGeneration === undefined) return
     const revision = (runRevisions.current.get(requestTabId) ?? 0) + 1
     runRevisions.current.set(requestTabId, revision)
     startQuery(requestTabId)
@@ -257,13 +277,21 @@ export function QueryEditor({
       }
       if (
         runRevisions.current.get(requestTabId) === revision &&
-        stillBoundTo(requestTabId, requestProfileId)
+        isTabConnectionCurrent(
+          requestTabId,
+          requestProfileId,
+          requestGeneration,
+        )
       )
         completeQuery(res, null, requestTabId)
     } catch (e) {
       if (
         runRevisions.current.get(requestTabId) === revision &&
-        stillBoundTo(requestTabId, requestProfileId)
+        isTabConnectionCurrent(
+          requestTabId,
+          requestProfileId,
+          requestGeneration,
+        )
       )
         completeQuery(
           null,
@@ -308,7 +336,17 @@ export function QueryEditor({
     setActiveExplainRequest(mode, requestTabId)
     setShowExplain(true, requestTabId)
     const requestProfileId = await ensureConnectionForTab(requestTabId)
-    if (!requestProfileId || !stillBoundTo(requestTabId, requestProfileId)) {
+    if (
+      !requestProfileId ||
+      !isTabConnectionCurrent(requestTabId, requestProfileId)
+    ) {
+      setActiveExplainRequest(null, requestTabId)
+      return
+    }
+    const requestGeneration =
+      useStore.getState().connectionStateByProfileId[requestProfileId]
+        ?.generation
+    if (requestGeneration === undefined) {
       setActiveExplainRequest(null, requestTabId)
       return
     }
@@ -318,7 +356,13 @@ export function QueryEditor({
         requestSql,
         mode === 'analyze',
       )
-      if (stillBoundTo(requestTabId, requestProfileId))
+      if (
+        isTabConnectionCurrent(
+          requestTabId,
+          requestProfileId,
+          requestGeneration,
+        )
+      )
         setExplain(
           res.text,
           requestTabId,
@@ -331,7 +375,13 @@ export function QueryEditor({
         )
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
-      if (stillBoundTo(requestTabId, requestProfileId))
+      if (
+        isTabConnectionCurrent(
+          requestTabId,
+          requestProfileId,
+          requestGeneration,
+        )
+      )
         setExplain(message, requestTabId, snapshot)
     } finally {
       setActiveExplainRequest(null, requestTabId)

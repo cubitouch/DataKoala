@@ -94,13 +94,10 @@ export function PromqlBuilderPanel({
   const tabId = useStore((state) => state.activeTabId)
   const session = useStore(selectActiveSession)
   const profileId = session.connectionProfileId
-  const activeProfileId = useStore((state) => state.activeProfileId)
-  const connected = useStore((state) => state.connected)
-  const legacyGeneration = useStore((state) => state.connectionGeneration)
   const scopedConnection = useStore((state) =>
     profileId ? state.connectionStateByProfileId[profileId] : undefined,
   )
-  const connectionGeneration = scopedConnection?.generation ?? legacyGeneration
+  const connectionGeneration = scopedConnection?.generation ?? 0
   const metadata = useStore((state) =>
     profileId ? state.metadataByProfileId[profileId] : undefined,
   )
@@ -123,8 +120,7 @@ export function PromqlBuilderPanel({
   const canLoadMetadata = Boolean(
     profileId &&
     (scopedConnection?.status === 'connected' ||
-      scopedConnection?.status === 'idle' ||
-      (profileId === activeProfileId && connected)),
+      scopedConnection?.status === 'idle'),
   )
   const metrics = useMemo(
     () =>

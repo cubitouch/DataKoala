@@ -22,7 +22,11 @@ vi.mock('./api', () => ({
   },
 }))
 
-import { bindTabConnection, ensureConnectionForTab } from './tabConnection'
+import {
+  bindTabConnection,
+  ensureConnectionForTab,
+  isTabConnectionCurrent,
+} from './tabConnection'
 import { selectActiveSession, selectSession, useStore } from '@store/useStore'
 import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 import { defaultQueryTextForDatasource } from './queryDefaults'
@@ -140,6 +144,14 @@ describe('tab connection lifecycle', () => {
       activeProfileId: 'profile-a',
       connected: true,
       connectionStatus: 'connected',
+      connectionStateByProfileId: {
+        'profile-a': {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: '16',
+        },
+      },
     })
     patchActiveTestSession({
       connectionProfileId: 'profile-a',
@@ -206,6 +218,12 @@ describe('tab connection lifecycle', () => {
           error: null,
           serverVersion: '16',
         },
+        'profile-b': {
+          status: 'disconnected',
+          generation: 0,
+          error: null,
+          serverVersion: null,
+        },
       },
     })
     const id = useStore.getState().activeTabId
@@ -223,6 +241,38 @@ describe('tab connection lifecycle', () => {
       useStore.getState().connectionStateByProfileId['profile-b']?.status,
     ).toBe('connected')
     expect(useStore.getState().connected).toBe(true)
+  })
+
+  it('keeps async query ownership tied to its tab and profile generation', () => {
+    resetTestStore({ profiles })
+    const tabA = useStore.getState().activeTabId
+    const tabB = 'tab-b'
+    useStore.setState((state) => ({
+      tabs: [
+        { ...state.tabs[0], id: tabA, connectionProfileId: 'profile-a' },
+        { ...state.tabs[0], id: tabB, connectionProfileId: 'profile-b' },
+      ],
+      activeTabId: tabB,
+      connectionStateByProfileId: {
+        'profile-a': {
+          status: 'connected',
+          generation: 7,
+          error: null,
+          serverVersion: '16-a',
+        },
+        'profile-b': {
+          status: 'connected',
+          generation: 7,
+          error: null,
+          serverVersion: '16-b',
+        },
+      },
+    }))
+
+    expect(isTabConnectionCurrent(tabA, 'profile-a', 7)).toBe(true)
+    expect(isTabConnectionCurrent(tabB, 'profile-a', 7)).toBe(false)
+    expect(isTabConnectionCurrent(tabA, 'profile-a', 6)).toBe(false)
+    expect(isTabConnectionCurrent(tabB, 'profile-b', 7)).toBe(true)
   })
 
   it('reuses an already-live matching pool without reconnecting', async () => {

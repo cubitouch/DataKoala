@@ -6,7 +6,12 @@ import {
   deriveEffectiveVisualization,
   type VisualizationConfiguration,
 } from '@lib/resultVisualization'
-import { selectActiveSession, useStore, type QueryMode } from '@store/useStore'
+import {
+  selectActiveSession,
+  selectActiveTabConnection,
+  useStore,
+  type QueryMode,
+} from '@store/useStore'
 import { GenericResultExplorer } from './GenericResultExplorer'
 import { AiQueryRepair } from '@components/ai/AiQueryRepair'
 import { queryLanguageForSourceKind } from '@shared/types'
@@ -26,8 +31,12 @@ export function ResultExplorer({
 }: ResultExplorerProps) {
   const tabId = useStore((state) => state.activeTabId)
   const session = useStore(selectActiveSession)
-  const connectionStatus = useStore((state) => state.connectionStatus)
-  const reconnect = useStore((state) => state.reconnectActiveProfile)
+  const connectionStatus = useStore(
+    (state) => selectActiveTabConnection(state)?.status,
+  )
+  const reconnectActiveProfile = useStore(
+    (state) => state.reconnectActiveProfile,
+  )
   const datasourceKind = useStore(
     (state) =>
       state.profiles.find(
@@ -183,7 +192,10 @@ export function ResultExplorer({
       canPromoteTableFilter={canPromoteTableFilter}
       canPromoteChartFilter={canPromoteChartFilter}
       canDemoteFilter={canDemoteFilter}
-      onReconnect={() => void reconnect()}
+      onReconnect={() =>
+        session.connectionProfileId &&
+        void reconnectActiveProfile(session.connectionProfileId)
+      }
     />
   )
 }

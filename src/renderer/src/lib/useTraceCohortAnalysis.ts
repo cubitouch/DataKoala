@@ -9,6 +9,8 @@ import {
   type TraceCohortTraceSummary,
 } from './traceCohort'
 import { canonicalTraceId, type TraceRow } from './traceViewer'
+import { isTabConnectionCurrent } from './tabConnection'
+import { useStore } from '@store/useStore'
 
 const DEFAULT_COHORT_SAMPLE = 100
 const MAX_COHORT_SAMPLE = 250
@@ -50,6 +52,8 @@ function isSpanResult(columns: Array<{ name: string }>): boolean {
 export function useTraceCohortAnalysis(
   connectionId: string,
   searchRows: TraceRow[],
+  tabId: string,
+  connectionGeneration: number,
 ) {
   const [sampleLimit, setSampleLimit] = useState(DEFAULT_COHORT_SAMPLE)
   const [state, setState] = useState<CohortState>(initialState)
@@ -68,7 +72,7 @@ export function useTraceCohortAnalysis(
     setState(initialState())
   }, [])
 
-  useEffect(() => reset(), [connectionId, reset])
+  useEffect(() => reset(), [connectionGeneration, connectionId, reset])
 
   const run = useCallback(
     async (requestedLimit = sampleLimit) => {
@@ -83,6 +87,9 @@ export function useTraceCohortAnalysis(
       const rows = selection.rows
       const key = selection.sourceKey
       const runGeneration = ++generation.current
+      const isCurrentConnection = () =>
+        isTabConnectionCurrent(tabId, connectionId, connectionGeneration) &&
+        useStore.getState().activeTabId === tabId
       const started = performance.now()
       let nextIndex = 0
       let completed = 0
@@ -105,7 +112,8 @@ export function useTraceCohortAnalysis(
       })
 
       const publish = (force = false) => {
-        if (runGeneration !== generation.current) return
+        if (runGeneration !== generation.current || !isCurrentConnection())
+          return
         if (
           !force &&
           completed < rows.length &&
@@ -148,10 +156,12 @@ export function useTraceCohortAnalysis(
               throw new Error(
                 'Tempo returned search results instead of a trace.',
               )
-            if (runGeneration !== generation.current) return
+            if (runGeneration !== generation.current || !isCurrentConnection())
+              return
             traces.push(summarizeTraceForCohort(result.rows, row))
           } catch {
-            if (runGeneration !== generation.current) return
+            if (runGeneration !== generation.current || !isCurrentConnection())
+              return
             failed += 1
           }
           completed += 1
@@ -165,7 +175,7 @@ export function useTraceCohortAnalysis(
           worker,
         ),
       )
-      if (runGeneration !== generation.current) return
+      if (runGeneration !== generation.current || !isCurrentConnection()) return
       publish(true)
       const status =
         traces.length === 0 ? 'error' : failed > 0 ? 'partial' : 'ready'
@@ -192,7 +202,14 @@ export function useTraceCohortAnalysis(
           })}`,
         )
     },
-    [connectionId, currentSelection, sampleLimit, searchRows],
+    [
+      connectionGeneration,
+      connectionId,
+      currentSelection,
+      sampleLimit,
+      searchRows,
+      tabId,
+    ],
   )
 
   const ensureStarted = useCallback(() => {

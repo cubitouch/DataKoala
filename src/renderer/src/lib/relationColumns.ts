@@ -32,6 +32,15 @@ export function ensureRelationColumns(
   if (existing) return existing
 
   const request = (async () => {
+    const initialConnection =
+      useStore.getState().connectionStateByProfileId[profileId]
+    if (
+      !initialConnection ||
+      (initialConnection.status !== 'connected' &&
+        initialConnection.status !== 'idle')
+    )
+      return undefined
+    const generation = initialConnection.generation
     useStore
       .getState()
       .setRelationColumns(
@@ -47,6 +56,14 @@ export function ensureRelationColumns(
         relation.schema,
         relation.name,
       )) as DatabaseColumnNode[]
+      const currentConnection =
+        useStore.getState().connectionStateByProfileId[profileId]
+      if (
+        currentConnection?.generation !== generation ||
+        (currentConnection.status !== 'connected' &&
+          currentConnection.status !== 'idle')
+      )
+        return undefined
       // The profile id is explicit: a tab/profile switch cannot write into the
       // newly active profile's metadata.
       useStore
@@ -60,6 +77,14 @@ export function ensureRelationColumns(
         )
       return columns
     } catch (error) {
+      const currentConnection =
+        useStore.getState().connectionStateByProfileId[profileId]
+      if (
+        currentConnection?.generation !== generation ||
+        (currentConnection.status !== 'connected' &&
+          currentConnection.status !== 'idle')
+      )
+        return undefined
       useStore
         .getState()
         .setRelationColumns(

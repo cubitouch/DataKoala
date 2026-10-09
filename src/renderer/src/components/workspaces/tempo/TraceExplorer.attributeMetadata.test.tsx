@@ -77,7 +77,15 @@ describe('Trace Explorer attribute facet metadata', () => {
       ),
     )
 
-    useStore.setState({ connectionGeneration: 8 })
+    useStore.setState((state) => ({
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        'tempo-1': {
+          ...state.connectionStateByProfileId['tempo-1'],
+          generation: 8,
+        },
+      },
+    }))
     view.rerender(<TraceExplorer connectionId="tempo-1" />)
     await waitFor(() => expect(attributeValues).toHaveBeenCalledTimes(2))
     oldValues.resolve(['stale-region'])

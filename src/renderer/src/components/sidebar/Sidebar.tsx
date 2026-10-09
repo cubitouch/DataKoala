@@ -79,7 +79,6 @@ export function Sidebar() {
   const profiles = useStore((s) => s.profiles)
   const setProfiles = useStore((s) => s.setProfiles)
   const detachProfile = useStore((s) => s.detachProfile)
-  const connecting = useStore((s) => s.connecting)
   const connectionStateByProfileId = useStore(
     (s) => s.connectionStateByProfileId,
   )
@@ -156,33 +155,27 @@ export function Sidebar() {
       return !metadata || metadata.status === 'idle'
     })
     useStore.setState((state) => ({
-      connectionStateByProfileId: {
-        ...state.connectionStateByProfileId,
-        ...Object.fromEntries(
-          loadedProfiles
-            .filter((profile) => !state.connectionStateByProfileId[profile.id])
-            .map((profile) => [
-              profile.id,
-              {
-                status: 'disconnected' as const,
-                generation: 0,
-                error: null,
-                serverVersion: null,
-              },
-            ]),
-        ),
-        ...Object.fromEntries(
-          live.map((session) => [
-            session.id,
-            {
-              status: 'connected' as const,
-              generation: session.generation,
-              error: null,
-              serverVersion: session.serverVersion ?? null,
-            },
-          ]),
-        ),
-      },
+      connectionStateByProfileId: (() => {
+        const connections = { ...state.connectionStateByProfileId }
+        for (const profile of loadedProfiles)
+          connections[profile.id] ??= {
+            status: 'disconnected',
+            generation: 0,
+            error: null,
+            serverVersion: null,
+          }
+        for (const session of live) {
+          const current = connections[session.id]
+          if (current && current.generation >= session.generation) continue
+          connections[session.id] = {
+            status: 'connected',
+            generation: session.generation,
+            error: null,
+            serverVersion: session.serverVersion ?? null,
+          }
+        }
+        return connections
+      })(),
       metadataByProfileId: {
         ...state.metadataByProfileId,
         ...Object.fromEntries(
@@ -260,11 +253,30 @@ export function Sidebar() {
   }, [metadataStatus, schemas, expanded.size])
 
   const loadObjects = async (id: string) => {
+    const connection = useStore.getState().connectionStateByProfileId[id]
+    if (
+      !connection ||
+      (connection.status !== 'connected' && connection.status !== 'idle')
+    )
+      return
+    const generation = connection.generation
     setMetadata([], 'loading', null, id)
     try {
       const nodes = await loadConnectionMetadata(id)
+      const latest = useStore.getState().connectionStateByProfileId[id]
+      if (
+        latest?.generation !== generation ||
+        (latest.status !== 'connected' && latest.status !== 'idle')
+      )
+        return
       setMetadata(nodes, 'loaded', null, id)
     } catch (error) {
+      const latest = useStore.getState().connectionStateByProfileId[id]
+      if (
+        latest?.generation !== generation ||
+        (latest.status !== 'connected' && latest.status !== 'idle')
+      )
+        return
       setMetadata(
         [],
         'error',
@@ -279,14 +291,19 @@ export function Sidebar() {
     const profileStatus = state.connectionStateByProfileId[profile.id]?.status
     if (profileStatus === 'connecting' || profileStatus === 'reconnecting')
       return
+    const currentTabProfileId = selectActiveSession(state).connectionProfileId
     const switchingLiveConnection = Boolean(
-      state.activeProfileId && state.activeProfileId !== profile.id,
+      currentTabProfileId &&
+      currentTabProfileId !== profile.id &&
+      (state.connectionStateByProfileId[currentTabProfileId]?.status ===
+        'connected' ||
+        state.connectionStateByProfileId[currentTabProfileId]?.status ===
+          'idle'),
     )
     const wouldInterrupt =
       switchingLiveConnection &&
       state.tabs.some(
-        (tab) =>
-          tab.connectionProfileId === state.activeProfileId && tab.running,
+        (tab) => tab.connectionProfileId === currentTabProfileId && tab.running,
       )
     if (
       wouldInterrupt &&
@@ -615,7 +632,10 @@ export function Sidebar() {
                   type="button"
                   title="Edit connection"
                   aria-label={`Edit connection ${profile.name}`}
-                  disabled={connecting}
+                  disabled={
+                    profileConnection?.status === 'connecting' ||
+                    profileConnection?.status === 'reconnecting'
+                  }
                   onClick={(event) => {
                     event.stopPropagation()
                     setEditing(profile)
@@ -629,7 +649,10 @@ export function Sidebar() {
                   type="button"
                   title="Delete connection"
                   aria-label={`Delete connection ${profile.name}`}
-                  disabled={connecting}
+                  disabled={
+                    profileConnection?.status === 'connecting' ||
+                    profileConnection?.status === 'reconnecting'
+                  }
                   onClick={(event) => {
                     event.stopPropagation()
                     deleteOrigin.current = event.currentTarget
@@ -645,7 +668,6 @@ export function Sidebar() {
       })}
       <button
         className={styles.btnAdd}
-        disabled={connecting}
         onClick={() => {
           setEditing(null)
           setShowModal(true)
@@ -727,6 +749,10 @@ export function Sidebar() {
                   ) : isPrometheusMetadata && activeTabConnectionId ? (
                     <PrometheusMetadataTree
                       connectionId={activeTabConnectionId}
+                      connectionGeneration={
+                        activeTabConnection?.generation ?? 0
+                      }
+                      canLoadMetadata={tabConnected}
                       revision={metadataRevision}
                       schemas={schemas}
                       expanded={expanded}

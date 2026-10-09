@@ -20,15 +20,9 @@ export function refreshConnectionMetadata(
   if (joined) return joined
   const initial = store.getState()
   const connection = initial.connectionStateByProfileId[profileId]
-  const legacyActive =
-    initial.activeProfileId === profileId && initial.connected
-  if (
-    connection?.status !== 'connected' &&
-    connection?.status !== 'idle' &&
-    !legacyActive
-  )
+  if (connection?.status !== 'connected' && connection?.status !== 'idle')
     return Promise.resolve()
-  const generation = connection?.generation ?? initial.connectionGeneration
+  const generation = connection.generation
   store.setState((state) => {
     const old = state.metadataByProfileId[profileId]
     return {
@@ -54,17 +48,10 @@ export function refreshConnectionMetadata(
       const current = store.getState()
       const currentConnection = current.connectionStateByProfileId[profileId]
       if (
-        currentConnection &&
-        (currentConnection.generation !== generation ||
-          (currentConnection.status !== 'connected' &&
-            currentConnection.status !== 'idle'))
-      )
-        return
-      if (
-        !currentConnection &&
-        (current.activeProfileId !== profileId ||
-          current.connectionGeneration !== generation ||
-          !current.connected)
+        !currentConnection ||
+        currentConnection.generation !== generation ||
+        (currentConnection.status !== 'connected' &&
+          currentConnection.status !== 'idle')
       )
         return
       store.setState((state) => {
@@ -93,12 +80,9 @@ export function refreshConnectionMetadata(
         const old = state.metadataByProfileId[profileId]
         const latest = state.connectionStateByProfileId[profileId]
         if (
-          latest
-            ? latest.generation !== generation ||
-              (latest.status !== 'connected' && latest.status !== 'idle')
-            : state.activeProfileId !== profileId ||
-              state.connectionGeneration !== generation ||
-              !state.connected
+          !latest ||
+          latest.generation !== generation ||
+          (latest.status !== 'connected' && latest.status !== 'idle')
         )
           return {}
         const metadata =
