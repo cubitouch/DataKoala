@@ -354,7 +354,6 @@ export function GenericResultExplorer({
     seriesColumn: effectiveConfiguration.seriesColumn,
     seriesColumns: effectiveConfiguration.seriesColumns,
     activeFilters,
-    seriesVisibility,
     chartTimeDomain,
     timeBucket,
   })
