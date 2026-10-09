@@ -542,7 +542,7 @@ app.whenReady().then(async () => {
 
     previewStep = 'manual graph selection'
     const manualNodeSelected = await win.webContents.executeJavaScript(`(() => {
-      const element = document.querySelector('[data-node-id="0.2"]')
+      const element = document.querySelector('[data-node-id="0"]')
       if (!element) return false
       element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
       return true
