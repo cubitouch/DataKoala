@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: var(--bg-1);
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -55,7 +55,7 @@
   padding: 7px 9px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--bg-1);
+  background: var(--bg);
 }
 
 .summary span {
@@ -161,7 +161,12 @@
   gap: 8px;
 }
 
-.diagnostic,
+.signals {
+  display: grid;
+  gap: 4px;
+}
+
+.signal,
 .hint {
   display: grid;
   align-content: start;
@@ -170,30 +175,64 @@
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 7px;
-  background: var(--bg-1);
+  background: var(--bg);
   color: var(--text-dim);
   text-align: left;
   cursor: pointer;
 }
 
-.diagnostic:hover,
+.signal:hover,
 .hint:hover,
 .activeCard {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 
-.diagnostic > strong {
+.signalTitle {
+  grid-column: 2;
   color: var(--text);
   font-size: 11px;
 }
 
-.diagnostic > span,
+.signal {
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 3px 8px;
+  padding: 8px 10px;
+}
+
+.signalIcon {
+  grid-row: 1 / 3;
+  align-self: start;
+  color: var(--amber);
+  font-size: 12px;
+}
+
+.signalMetrics {
+  grid-column: 2;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.signalDestination {
+  display: flex;
+  grid-column: 3;
+  grid-row: 1 / 3;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
 .hint > span:not(.hintTitle) {
   font-size: 11px;
   line-height: 1.45;
 }
 
-.diagnostic small,
 .hint small {
   color: var(--text-mute);
   font-size: 10px;
