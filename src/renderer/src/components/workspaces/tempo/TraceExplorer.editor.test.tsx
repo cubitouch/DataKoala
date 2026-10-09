@@ -685,7 +685,7 @@ describe('TraceExplorer TraceQL editor', () => {
 
   it('clears the filter on session switch, picker edits, reset, and failed refresh', async () => {
     const result = {
-      columns: [{ name: 'traceId', dataTypeID: 0 }],
+      columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text' }],
       rows: [
         {
           traceId: '00000000000000000000000000000001',
