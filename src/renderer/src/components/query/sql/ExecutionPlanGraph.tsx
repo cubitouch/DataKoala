@@ -180,7 +180,12 @@ export function ExecutionPlanGraph({
       width: '100%',
       height: '100%',
       background: { color: cssColor('--bg', '#17201f') },
-      interactive: false,
+      interactive: {
+        elementMove: false,
+        addLinkFromMagnet: false,
+        labelMove: false,
+        linkMove: false,
+      },
       sorting: dia.Paper.sorting.APPROX,
       frozen: true,
       gridSize: 10,
