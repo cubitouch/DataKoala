@@ -119,6 +119,26 @@ const result: QueryResult = {
   rowCount: 320,
   durationMs: 3,
 }
+const multiSeriesResult: QueryResult = {
+  columns: [
+    { name: 'day', dataTypeID: 0, dataTypeName: 'integer' },
+    { name: 'series', dataTypeID: 0, dataTypeName: 'text' },
+    { name: 'value', dataTypeID: 0, dataTypeName: 'integer' },
+  ],
+  rows: Array.from({ length: 6 }, (_, day) =>
+    ['A', 'B', 'C'].map((series, index) => ({
+      day,
+      series,
+      value: day + index + 10,
+    })),
+  ).flat(),
+  rowCount: 18,
+  durationMs: 3,
+}
+const multiSeriesConfiguration: VisualizationConfiguration = {
+  ...configuration,
+  seriesColumn: 'series',
+}
 const props = (
   overrides: Partial<GenericResultExplorerProps> = {},
 ): GenericResultExplorerProps => ({
@@ -161,6 +181,34 @@ const successfulAnalysis = {
     limitations: ['The sample cannot explain the cause.'],
     followUps: ['Compare another time window.'],
   },
+}
+const analysisForSubmittedSeries = (request: {
+  chart: { series: Array<{ name: string }> }
+}) => ({
+  ok: true,
+  value: {
+    summary: 'Each submitted series has one flagged point.',
+    anomalies: request.chart.series.map((series, seriesIndex) => ({
+      seriesIndex,
+      pointIndex: 2,
+      title: `${series.name} spike`,
+      reason: `${series.name} rises above its neighbors.`,
+    })),
+    limitations: [],
+    followUps: [],
+  },
+})
+const renderedAnomalySeries = () => {
+  const series = aiMocks.chartOptions?.series as
+    Array<Record<string, unknown>> | undefined
+  return (series ?? [])
+    .filter((item) => item.aiAnomalyOverlay === true)
+    .map((item) => {
+      const data = item.data as Array<{ sourceSeriesName: string }>
+      return data[0]?.sourceSeriesName
+    })
+    .filter((name): name is string => Boolean(name))
+    .sort()
 }
 
 beforeEach(() => {
@@ -356,6 +404,140 @@ describe('AI chart anomaly analysis', () => {
     expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
   })
 
+  it('preserves findings for submitted series across hide and show without analyzing newly visible series', async () => {
+    aiMocks.analyzeAnomalies.mockImplementation(
+      (request: { chart: { series: Array<{ name: string }> } }) =>
+        Promise.resolve(analysisForSubmittedSeries(request)),
+    )
+    const view = render(
+      <GenericResultExplorer
+        {...props({
+          result: multiSeriesResult,
+          configuration: multiSeriesConfiguration,
+          seriesVisibility: { C: false },
+        })}
+      />,
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Analyze with AI' }),
+    )
+    expect(
+      await screen.findByRole('button', { name: 'AI details (2)' }),
+    ).toBeTruthy()
+    await waitFor(() => expect(renderedAnomalySeries()).toEqual(['A', 'B']))
+    expect(aiMocks.analyzeAnomalies.mock.calls[0][0].chart.series).toHaveLength(
+      2,
+    )
+
+    const toggle = screen.getByRole('button', { name: 'Show anomalies' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    view.rerender(
+      <GenericResultExplorer
+        {...props({
+          result: multiSeriesResult,
+          configuration: multiSeriesConfiguration,
+          seriesVisibility: { A: false, C: false },
+        })}
+      />,
+    )
+    await waitFor(() => expect(renderedAnomalySeries()).toEqual(['B']))
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'AI details (2)' })).toBeTruthy()
+
+    view.rerender(
+      <GenericResultExplorer
+        {...props({
+          result: multiSeriesResult,
+          configuration: multiSeriesConfiguration,
+          seriesVisibility: {},
+        })}
+      />,
+    )
+    await waitFor(() => expect(renderedAnomalySeries()).toEqual(['A', 'B']))
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+
+    view.rerender(
+      <GenericResultExplorer
+        {...props({
+          result: multiSeriesResult,
+          configuration: multiSeriesConfiguration,
+          seriesVisibility: { B: false },
+        })}
+      />,
+    )
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    view.rerender(
+      <GenericResultExplorer
+        {...props({
+          result: multiSeriesResult,
+          configuration: multiSeriesConfiguration,
+          seriesVisibility: {},
+        })}
+      />,
+    )
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    await waitFor(() => expect(renderedAnomalySeries()).toEqual([]))
+    expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
+
+    fireEvent.click(toggle)
+    await waitFor(() => expect(renderedAnomalySeries()).toEqual(['A', 'B']))
+    fireEvent.click(screen.getByRole('button', { name: 'AI details (2)' }))
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('A: 6 of 6 valid points (100%)')).toBeTruthy()
+    expect(screen.getByText('B: 6 of 6 valid points (100%)')).toBeTruthy()
+    expect(screen.queryByText('C: 6 of 6 valid points (100%)')).toBeNull()
+    expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
+  })
+
+  it('keeps an in-flight request scoped to its submitted series during visibility changes', async () => {
+    let finishAnalysis: (() => void) | undefined
+    aiMocks.analyzeAnomalies.mockImplementation(
+      (request: { chart: { series: Array<{ name: string }> } }) =>
+        new Promise((resolve) => {
+          finishAnalysis = () => resolve(analysisForSubmittedSeries(request))
+        }),
+    )
+    const view = render(
+      <GenericResultExplorer
+        {...props({
+          result: multiSeriesResult,
+          configuration: multiSeriesConfiguration,
+          seriesVisibility: { C: false },
+        })}
+      />,
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Analyze with AI' }),
+    )
+    await waitFor(() => expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce())
+    view.rerender(
+      <GenericResultExplorer
+        {...props({
+          result: multiSeriesResult,
+          configuration: multiSeriesConfiguration,
+          seriesVisibility: { A: false },
+        })}
+      />,
+    )
+    expect(aiMocks.cancel).not.toHaveBeenCalled()
+    finishAnalysis?.()
+    expect(
+      await screen.findByRole('button', { name: 'AI details (2)' }),
+    ).toBeTruthy()
+    await waitFor(() => expect(renderedAnomalySeries()).toEqual(['B']))
+    expect(
+      screen
+        .getByRole('button', { name: 'Show anomalies' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true')
+    expect(aiMocks.analyzeAnomalies.mock.calls[0][0].chart.series).toHaveLength(
+      2,
+    )
+    expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
+  })
+
   it('shows a calm empty state without markers when no anomalies are returned', async () => {
     aiMocks.analyzeAnomalies.mockResolvedValue({
       ok: true,
@@ -379,6 +561,38 @@ describe('AI chart anomaly analysis', () => {
       ),
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Show anomalies' })).toBeNull()
+  })
+
+  it('invalidates completed findings when chart data changes without a revision bump', async () => {
+    const view = render(<GenericResultExplorer {...props()} />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Analyze with AI' }),
+    )
+    expect(
+      await screen.findByRole('button', { name: 'AI details (2)' }),
+    ).toBeTruthy()
+
+    const changedResult: QueryResult = {
+      ...result,
+      rows: result.rows.map((row, index) =>
+        index === 157 ? { ...row, value: 900 } : row,
+      ),
+    }
+    view.rerender(
+      <GenericResultExplorer
+        {...props({ result: changedResult, resultRevision: 1 })}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: 'AI details (2)' }),
+      ).toBeNull()
+      expect(
+        screen.queryByRole('button', { name: 'Show anomalies' }),
+      ).toBeNull()
+    })
+    expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
   })
 
   it('shows provider errors', async () => {
@@ -441,7 +655,17 @@ describe('AI chart anomaly analysis', () => {
     )
     await waitFor(() => expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce())
     const requestId = aiMocks.analyzeAnomalies.mock.calls[0][0].requestId
-    view.rerender(<GenericResultExplorer {...props({ resultRevision: 2 })} />)
+    const changedResult: QueryResult = {
+      ...result,
+      rows: result.rows.map((row, index) =>
+        index === 157 ? { ...row, value: 900 } : row,
+      ),
+    }
+    view.rerender(
+      <GenericResultExplorer
+        {...props({ result: changedResult, resultRevision: 1 })}
+      />,
+    )
     await waitFor(() => expect(aiMocks.cancel).toHaveBeenCalledWith(requestId))
     resolveAnalysis?.(successfulAnalysis)
     await waitFor(() =>
