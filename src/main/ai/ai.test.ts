@@ -151,6 +151,16 @@ const anomalyRequest: AiAnomalyAnalysisRequest = {
         validPointCount: 3,
         sampleCoverage: 1,
         samplingMethod: 'all-points',
+        bucketSummaries: [
+          {
+            startX: '2026-10-01',
+            endX: '2026-10-03',
+            count: 3,
+            min: 2,
+            max: 9,
+            mean: 14 / 3,
+          },
+        ],
         points: [
           { x: '2026-10-01', y: 2 },
           { x: '2026-10-02', y: 3 },
@@ -241,9 +251,21 @@ test('OpenRouter returns a validated structured anomaly analysis from bounded ch
   assert.equal((sent?.response_format as { type: string }).type, 'json_schema')
   const messages = sent?.messages as Array<{ role: string; content: string }>
   assert.equal(messages[0].role, 'system')
-  assert.match(messages[0].content, /one or two concise sentences/)
+  assert.match(
+    messages[0].content,
+    /one or two concise, evidence-based sentences/,
+  )
   assert.match(messages[0].content, /Avoid repeating exact X\/Y values/)
   assert.match(messages[0].content, /Do not invent statistical confidence/)
+  assert.match(messages[0].content, /aggregate statistics/)
+  assert.match(
+    messages[0].content,
+    /must never be used to invent an anomaly point/,
+  )
+  assert.match(
+    messages[0].content,
+    /not sample coverage or implementation details/,
+  )
   assert.match(JSON.stringify(sent?.messages), /2026-10-01/)
   assert.match(JSON.stringify(sent?.messages), /sampleCoverage/)
   const tooMany = {
@@ -256,6 +278,16 @@ test('OpenRouter returns a validated structured anomaly analysis from bounded ch
         validPointCount: 3,
         sampleCoverage: 1,
         samplingMethod: 'all-points',
+        bucketSummaries: [
+          {
+            startX: '2026-10-01',
+            endX: '2026-10-03',
+            count: 3,
+            min: 2,
+            max: 9,
+            mean: 14 / 3,
+          },
+        ],
         points: [
           { x: '2026-10-01', y: 2 },
           { x: '2026-10-02', y: 3 },
@@ -288,6 +320,102 @@ test('OpenRouter returns a validated structured anomaly analysis from bounded ch
       },
     }),
   )
+})
+
+test('anomaly request accepts the full eight-series global point budget', () => {
+  const points = Array.from({ length: 256 }, (_, index) => ({
+    x: index,
+    y: index,
+  }))
+  const bucketSummaries = Array.from({ length: 16 }, (_, index) => ({
+    startX: index * 16,
+    endX: index * 16 + 15,
+    count: 16,
+    min: index * 16,
+    max: index * 16 + 15,
+    mean: index * 16 + 7.5,
+  }))
+  const series = Array.from({ length: 8 }, (_, index) => ({
+    name: `series-${index}`,
+    originalPointCount: 256,
+    validPointCount: 256,
+    sampleCoverage: 1,
+    samplingMethod: 'all-points',
+    points,
+    bucketSummaries,
+  }))
+  const request = anomalyAnalysisRequest({
+    ...anomalyRequest,
+    chart: { ...anomalyRequest.chart, series },
+  })
+  assert.equal(
+    request.chart.series.reduce((total, item) => total + item.points.length, 0),
+    2048,
+  )
+
+  assert.throws(() =>
+    anomalyAnalysisRequest({
+      ...anomalyRequest,
+      chart: {
+        ...anomalyRequest.chart,
+        series: [
+          {
+            ...anomalyRequest.chart.series[0],
+            points: [
+              ...anomalyRequest.chart.series[0].points,
+              { x: 'extra', y: 1 },
+            ],
+          },
+        ],
+      },
+    }),
+  )
+  assert.throws(() =>
+    anomalyAnalysisRequest({
+      ...anomalyRequest,
+      chart: {
+        ...anomalyRequest.chart,
+        series: [
+          {
+            ...anomalyRequest.chart.series[0],
+            bucketSummaries: [
+              {
+                ...anomalyRequest.chart.series[0].bucketSummaries[0],
+                mean: 10,
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  )
+})
+
+test('anomaly request accepts bounded empty X values for sparse chart rows', () => {
+  const request = anomalyAnalysisRequest({
+    ...anomalyRequest,
+    chart: {
+      ...anomalyRequest.chart,
+      series: [
+        {
+          ...anomalyRequest.chart.series[0],
+          points: anomalyRequest.chart.series[0].points.map((point) => ({
+            ...point,
+            x: '',
+          })),
+          bucketSummaries: [
+            {
+              ...anomalyRequest.chart.series[0].bucketSummaries[0],
+              startX: '',
+              endX: '',
+            },
+          ],
+        },
+      ],
+    },
+  })
+  assert.equal(request.chart.series[0].points[0].x, '')
+  assert.equal(request.chart.series[0].bucketSummaries[0].startX, '')
 })
 test('OpenRouter models, structured request and proposal parsing use only explicit query context', async () => {
   let sent: Record<string, unknown> | undefined

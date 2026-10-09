@@ -121,14 +121,16 @@ export function AiAnomalyDetailsPopover({
           <ul className={styles.anomalyTextList}>
             {samples.map((sample) => (
               <li key={sample.name}>
-                {sample.name}: {sample.points.length} of{' '}
-                {sample.validPointCount} valid points (
+                {sample.name}: {sample.points.length.toLocaleString()} of{' '}
+                {sample.validPointCount.toLocaleString()} valid points (
                 {Math.round(sample.sampleCoverage * 100)}%)
               </li>
             ))}
           </ul>
           <p className={styles.anomalyCoverageNote}>
-            Points outside this bounded sample were not reviewed.
+            Summary statistics cover all {validCount.toLocaleString()} valid
+            points across {samples.length} series. Unsampled individual
+            observations were not reviewed by the AI.
           </p>
         </section>
       </div>

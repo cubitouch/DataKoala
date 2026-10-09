@@ -50,6 +50,7 @@
     "test:unit": "node --experimental-strip-types --test \"src/main/**/!(*.e2e).test.ts\" \"src/shared/**/!(*.e2e).test.ts\" && vitest run --config vitest.renderer.config.ts",
     "test:e2e": "node --experimental-strip-types --test \"src/**/*.e2e.test.ts\"",
     "test:ui": "vitest run --config vitest.ui.config.ts",
+    "benchmark:ai-anomaly-sampling": "node scripts/benchmark-chart-anomaly-sampling.mjs",
     "smoke": "node scripts/smoke-render.mjs",
     "smoke:db": "node scripts/smoke-db.mjs",
     "smoke:flow": "node scripts/smoke-flow.mjs",

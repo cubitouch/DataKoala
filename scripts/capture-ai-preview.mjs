@@ -149,12 +149,22 @@ app.whenReady().then(async () => {
     ipcMain.handle('ai:cancel', () => ok(undefined))
     ipcMain.handle('ai:analyze-anomalies', (_event, request) => {
       anomalyAnalysisRuns++
-      const sample = request.chart.series[0]?.points ?? []
+      const requestSeries = request.chart.series[0]
+      const sample = requestSeries?.points ?? []
       if (
         !sample.some((point) => point.y === 800) ||
         !sample.some((point) => point.y === -40)
       )
         throw new Error('AI anomaly preview did not receive bucket extrema')
+      if (
+        requestSeries?.bucketSummaries?.reduce(
+          (total, bucket) => total + bucket.count,
+          0,
+        ) !== requestSeries?.validPointCount
+      )
+        throw new Error(
+          'AI anomaly preview did not receive full-series summaries',
+        )
       const spikeIndex = sample.findIndex((point) => point.y === 800)
       const dropIndex = sample.findIndex((point) => point.y === -40)
       return ok({

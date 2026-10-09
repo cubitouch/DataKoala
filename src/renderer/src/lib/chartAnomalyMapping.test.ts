@@ -10,6 +10,9 @@ const sample: SampledChartSeries = {
   validPointCount: 3,
   sampleCoverage: 2 / 3,
   samplingMethod: 'bucket-extrema',
+  bucketSummaries: [
+    { startX: 'same', endX: 'last', count: 3, min: 1, max: 10, mean: 19 / 3 },
+  ],
   points: [
     { x: 'same', y: 8, originalIndex: 2 },
     { x: 'last', y: 10, originalIndex: 3 },

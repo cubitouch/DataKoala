@@ -45,6 +45,14 @@ export interface AiAnomalyChartContext {
     sampleCoverage: number
     samplingMethod: 'all-points' | 'bucket-extrema'
     points: Array<{ x: string | number; y: number }>
+    bucketSummaries: Array<{
+      startX: string | number
+      endX: string | number
+      count: number
+      min: number
+      max: number
+      mean: number
+    }>
   }>
 }
 export interface AiAnomalyAnalysisRequest {
@@ -214,7 +222,9 @@ export const AI_LIMITS = {
   contextRequestReason: 1000,
   builderUnsupportedReason: 2000,
   anomalySeries: 8,
-  anomalyPointsPerSeries: 32,
+  anomalyPointsPerSeries: 256,
+  anomalyTotalPoints: 2048,
+  anomalyBucketSummariesPerSeries: 16,
   anomalyMinimumPointsPerSeries: 3,
   anomalyCount: 12,
   anomalyTitle: 120,
@@ -234,7 +244,7 @@ export const AI_LIMITS = {
   planSummary: 1200,
 } as const
 export const AI_PRIVACY_NOTICE =
-  'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query or Builder state, SQL, bounded schema metadata, a small capped chart sample for AI anomaly analysis, or a captured execution plan. Database credentials and full query result rows are not sent.'
+  'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query or Builder state, SQL, bounded schema metadata, a capped chart sample and aggregate summaries for AI anomaly analysis, or a captured execution plan. Database credentials and full query result rows are not sent.'
 
 /**
  * Single product-level availability rule for AI features.

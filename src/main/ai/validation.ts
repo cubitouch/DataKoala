@@ -317,7 +317,7 @@ const finite = (value: unknown): number => {
   return value
 }
 const anomalyX = (value: unknown): string | number =>
-  typeof value === 'string' ? textValue(value, 160) : finite(value)
+  typeof value === 'string' ? textValue(value, 160, true) : finite(value)
 
 export function anomalyAnalysisRequest(
   value: unknown,
@@ -338,6 +338,7 @@ export function anomalyAnalysisRequest(
       'validation',
       'AI anomaly analysis only supports line charts.',
     )
+  let totalPoints = 0
   const series = chart.series.map((raw) => {
     const item = record(raw)
     onlyKeys(item, [
@@ -347,6 +348,7 @@ export function anomalyAnalysisRequest(
       'sampleCoverage',
       'samplingMethod',
       'points',
+      'bucketSummaries',
     ])
     if (
       !Array.isArray(item.points) ||
@@ -357,12 +359,15 @@ export function anomalyAnalysisRequest(
         'validation',
         'AI anomaly analysis needs at least three numeric points per series.',
       )
+    totalPoints += item.points.length
+    if (totalPoints > AI_LIMITS.anomalyTotalPoints)
+      throw new AiError('validation', 'Invalid AI anomaly chart context.')
     const originalPointCount = finite(item.originalPointCount)
     const validPointCount = finite(item.validPointCount)
     const sampleCoverage = finite(item.sampleCoverage)
     if (
-      !Number.isInteger(originalPointCount) ||
-      !Number.isInteger(validPointCount) ||
+      !Number.isSafeInteger(originalPointCount) ||
+      !Number.isSafeInteger(validPointCount) ||
       validPointCount < item.points.length ||
       originalPointCount < validPointCount ||
       sampleCoverage <= 0 ||
@@ -371,6 +376,44 @@ export function anomalyAnalysisRequest(
         0.000001 ||
       !['all-points', 'bucket-extrema'].includes(String(item.samplingMethod))
     )
+      throw new AiError('validation', 'Invalid AI anomaly chart context.')
+    if (
+      !Array.isArray(item.bucketSummaries) ||
+      item.bucketSummaries.length < 1 ||
+      item.bucketSummaries.length > AI_LIMITS.anomalyBucketSummariesPerSeries
+    )
+      throw new AiError('validation', 'Invalid AI anomaly chart context.')
+    let summaryCount = 0
+    const bucketSummaries = item.bucketSummaries.map((rawSummary) => {
+      const summary = record(rawSummary)
+      onlyKeys(summary, ['startX', 'endX', 'count', 'min', 'max', 'mean'])
+      const count = finite(summary.count)
+      const min = finite(summary.min)
+      const max = finite(summary.max)
+      const mean = finite(summary.mean)
+      const tolerance =
+        Number.EPSILON * Math.max(1, Math.abs(min), Math.abs(max)) * 8
+      if (
+        !Number.isSafeInteger(count) ||
+        count < 1 ||
+        min > max ||
+        mean < min - tolerance ||
+        mean > max + tolerance
+      )
+        throw new AiError('validation', 'Invalid AI anomaly chart context.')
+      summaryCount += count
+      if (!Number.isSafeInteger(summaryCount))
+        throw new AiError('validation', 'Invalid AI anomaly chart context.')
+      return {
+        startX: anomalyX(summary.startX),
+        endX: anomalyX(summary.endX),
+        count,
+        min,
+        max,
+        mean: Math.min(max, Math.max(min, mean)),
+      }
+    })
+    if (summaryCount !== validPointCount)
       throw new AiError('validation', 'Invalid AI anomaly chart context.')
     return {
       name: textValue(item.name, 256),
@@ -383,6 +426,7 @@ export function anomalyAnalysisRequest(
         onlyKeys(point, ['x', 'y'])
         return { x: anomalyX(point.x), y: finite(point.y) }
       }),
+      bucketSummaries,
     }
   })
   return {

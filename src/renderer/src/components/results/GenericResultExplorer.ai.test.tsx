@@ -198,6 +198,22 @@ const analysisForSubmittedSeries = (request: {
     followUps: [],
   },
 })
+const analysisForDefaultChart = (request: {
+  chart: { series: Array<{ points: Array<{ x: unknown; y: number }> }> }
+}) => ({
+  ...successfulAnalysis,
+  value: {
+    ...successfulAnalysis.value,
+    anomalies: successfulAnalysis.value.anomalies.map((anomaly, index) => ({
+      ...anomaly,
+      pointIndex: request.chart.series[0].points.findIndex((point) =>
+        index === 0
+          ? point.x === 157 && point.y === 800
+          : point.x === 212 && point.y === -40,
+      ),
+    })),
+  },
+})
 const renderedAnomalySeries = () => {
   const series = aiMocks.chartOptions?.series as
     Array<Record<string, unknown>> | undefined
@@ -216,7 +232,12 @@ beforeEach(() => {
     ok: true,
     value: { provider: 'openrouter', model: 'test-model', hasApiKey: true },
   })
-  aiMocks.analyzeAnomalies.mockReset().mockResolvedValue(successfulAnalysis)
+  aiMocks.analyzeAnomalies
+    .mockReset()
+    .mockImplementation(
+      (request: Parameters<typeof analysisForDefaultChart>[0]) =>
+        Promise.resolve(analysisForDefaultChart(request)),
+    )
   aiMocks.cancel.mockReset()
   aiMocks.dispatchAction.mockReset()
   aiMocks.chartOptions = null
@@ -334,6 +355,14 @@ describe('AI chart anomaly analysis', () => {
     expect(await screen.findByRole('dialog')).toBeTruthy()
     expect(screen.getByText('A spike and drop are visible.')).toBeTruthy()
     expect(
+      screen.getByText(/Summary statistics cover all 320 valid points/),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(
+        /Summary statistics cover all 320 valid points across 1 series\. Unsampled individual observations were not reviewed by the AI\./,
+      ),
+    ).toBeTruthy()
+    expect(
       screen.getByText(
         'The sampled value at day 157 rises far above its neighbors.',
       ),
@@ -341,8 +370,15 @@ describe('AI chart anomaly analysis', () => {
     const request = aiMocks.analyzeAnomalies.mock.calls[0][0]
     expect(request.chart.series[0].points).toContainEqual({ x: 157, y: 800 })
     expect(request.chart.series[0].points).toContainEqual({ x: 212, y: -40 })
-    expect(request.chart.series[0].points.length).toBeLessThanOrEqual(32)
+    expect(request.chart.series[0].points.length).toBeLessThanOrEqual(256)
     expect(request.chart.series[0].originalPointCount).toBe(320)
+    expect(request.chart.series[0].bucketSummaries).toHaveLength(16)
+    expect(
+      request.chart.series[0].bucketSummaries.reduce(
+        (count: number, bucket: { count: number }) => count + bucket.count,
+        0,
+      ),
+    ).toBe(320)
     expect(request.chart.series[0].sampleCoverage).toBe(
       request.chart.series[0].points.length / 320,
     )
@@ -485,9 +521,14 @@ describe('AI chart anomaly analysis', () => {
     await waitFor(() => expect(renderedAnomalySeries()).toEqual(['A', 'B']))
     fireEvent.click(screen.getByRole('button', { name: 'AI details (2)' }))
     expect(await screen.findByRole('dialog')).toBeTruthy()
-    expect(screen.getByText('A: 6 of 6 valid points (100%)')).toBeTruthy()
-    expect(screen.getByText('B: 6 of 6 valid points (100%)')).toBeTruthy()
-    expect(screen.queryByText('C: 6 of 6 valid points (100%)')).toBeNull()
+    expect(screen.getByText(/A: 6 of 6 valid points \(100%\)/)).toBeTruthy()
+    expect(screen.getByText(/B: 6 of 6 valid points \(100%\)/)).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Summary statistics cover all 12 valid points across 2 series. Unsampled individual observations were not reviewed by the AI.',
+      ),
+    ).toBeTruthy()
+    expect(screen.queryByText(/C: 6 of 6 valid points/)).toBeNull()
     expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
   })
 
