@@ -1452,7 +1452,7 @@ describe('QueryEditor Explain loading states', () => {
         .hasAttribute('disabled'),
     ).toBe(true)
     expect(
-      screen.getByText('Generating query plan…').getAttribute('aria-live'),
+      screen.getByTestId('explain-loading-overlay').getAttribute('aria-live'),
     ).toBe('polite')
     expect(screen.getByText('previous plan')).toBeTruthy()
     expect(screen.getByLabelText('SQL editor')).toHaveProperty('disabled', true)
@@ -1526,7 +1526,7 @@ describe('QueryEditor Explain loading states', () => {
       screen.getByRole('button', { name: 'Explain' }).hasAttribute('disabled'),
     ).toBe(true)
     expect(
-      screen.getByText('Running EXPLAIN ANALYZE…').getAttribute('aria-live'),
+      screen.getByTestId('explain-loading-overlay').getAttribute('aria-live'),
     ).toBe('polite')
     await waitFor(() =>
       expect(explain).toHaveBeenCalledWith('profile-1', 'select 1;', true),
