@@ -36,8 +36,12 @@ export function ExplainPane() {
     [analyze, tree],
   )
   const selected = nodes.find((node) => node.id === selectedNodeId) ?? tree
+  const selectedId = selected?.id ?? ''
+  const selectedSignals = diagnostics.filter((signal) =>
+    signal.nodeIds.includes(selectedId),
+  )
   const selectedDiagnostic = diagnostics.find(
-    (item) => item.id === selectedDiagnosticId,
+    (diagnostic) => diagnostic.id === selectedDiagnosticId,
   )
   const loadingMessage =
     activeExplainRequest === 'analyze'
@@ -62,11 +66,8 @@ export function ExplainPane() {
       setCopied('Clipboard access is unavailable')
     }
   }
-  const selectedId = selected?.id ?? ''
-  const highlightedIds = selectedDiagnostic
-    ? selectedDiagnostic.nodeIds
-    : (ai.highlightedNodeIds ?? [])
-  const focusNodeId = selectedDiagnostic?.nodeIds[0] ?? ai.focusNodeId ?? null
+  const highlightedIds = selectedDiagnostic?.nodeIds ?? ai.highlightedNodeIds
+  const focusNodeId = selectedDiagnostic?.nodeIds[0] ?? ai.focusNodeId
 
   return (
     <section className={styles.root} aria-label="Explain results">
@@ -120,29 +121,6 @@ export function ExplainPane() {
               Copy plan JSON
             </button>
           )}
-          {ai.configured && ai.plan && ai.context && (
-            <>
-              <button
-                className="btn primary"
-                disabled={ai.busy}
-                onClick={() => void ai.analyze()}
-              >
-                {ai.busy ? 'Analyzing…' : 'Analyze performance'}
-              </button>
-              {ai.busy && (
-                <button className="btn ghost" onClick={ai.cancel}>
-                  Cancel
-                </button>
-              )}
-              <AiPlanContextPopover
-                mode={ai.plan.mode}
-                sql={ai.plan.query}
-                plan={ai.context}
-                response={ai.analysis}
-                sent={ai.busy || Boolean(ai.analysis) || Boolean(ai.error)}
-              />
-            </>
-          )}
           <button className="btn ghost" onClick={() => setShow(false)}>
             Close
           </button>
@@ -161,74 +139,34 @@ export function ExplainPane() {
       )}
       <div className={styles.content}>
         {tree && selected && (
-          <>
-            <p className={styles.planNote}>
-              {analyze
-                ? 'Node timing is inclusive and averaged per loop. Relative emphasis uses approximate total measured work; it does not add up to query execution time.'
-                : 'Planner cost is a relative unit, not milliseconds. Plain EXPLAIN does not include runtime measurements.'}
-            </p>
-            <div className={styles.planLayout}>
-              <ExecutionPlanGraph
-                tree={tree}
-                analyze={analyze}
-                selectedNodeId={selectedId}
-                highlightedNodeIds={highlightedIds}
-                focusNodeId={focusNodeId}
-                focusRequestId={focusRequestId}
-                onSelectNode={(id) => setSelectedNodeId(id)}
-              />
-              <PlanNodeInspector node={selected} analyze={analyze} />
-            </div>
-          </>
-        )}
-        {diagnostics.length > 0 && (
-          <section className={styles.panel} aria-label="Plan signals">
-            <div className={styles.panelHeading}>
-              <div>
-                <span className={styles.eyebrow}>From PostgreSQL metrics</span>
-                <h2>Plan signals</h2>
-              </div>
-              <p>
-                Deterministic observations. Select a signal to inspect its node;
-                possible next steps are in AI hints.
-              </p>
-            </div>
-            <div className={styles.signals}>
-              {diagnostics.map((diagnostic) => (
-                <button
-                  type="button"
-                  key={diagnostic.id}
-                  className={`${styles.signal} ${selectedDiagnosticId === diagnostic.id ? styles.activeCard : ''}`}
-                  aria-pressed={selectedDiagnosticId === diagnostic.id}
-                  onClick={() => {
-                    ai.clearHint()
-                    setSelectedDiagnosticId((current) =>
-                      current === diagnostic.id ? null : diagnostic.id,
-                    )
-                    setSelectedNodeId(diagnostic.nodeIds[0] ?? selectedId)
-                    setFocusRequestId((current) => current + 1)
-                  }}
-                >
-                  <span className={styles.signalIcon} aria-hidden="true">
-                    {diagnostic.severity === 'warning' ? '⚠' : 'ⓘ'}
-                  </span>
-                  <strong className={styles.signalTitle}>
-                    {diagnostic.title}
-                  </strong>
-                  <span className={styles.signalMetrics}>
-                    {diagnostic.description} · {diagnostic.evidence}
-                  </span>
-                  <span className={styles.signalDestination}>
-                    Node {diagnostic.nodeIds.join(', ')}
-                    <span aria-hidden="true">›</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
+          <div className={styles.planLayout}>
+            <ExecutionPlanGraph
+              tree={tree}
+              analyze={analyze}
+              selectedNodeId={selectedId}
+              highlightedNodeIds={highlightedIds}
+              focusNodeId={focusNodeId}
+              focusRequestId={focusRequestId}
+              onSelectNode={(id) => setSelectedNodeId(id)}
+            />
+            <PlanNodeInspector
+              node={selected}
+              analyze={analyze}
+              signals={selectedSignals}
+              selectedSignalId={selectedDiagnosticId}
+              onSelectSignal={(signal) => {
+                ai.clearHint()
+                setSelectedDiagnosticId((current) =>
+                  current === signal.id ? null : signal.id,
+                )
+                setSelectedNodeId(signal.nodeIds[0] ?? selectedId)
+                setFocusRequestId((current) => current + 1)
+              }}
+            />
+          </div>
         )}
         {ai.configured && ai.plan && (
-          <section className={styles.panel} aria-label="AI performance hints">
+          <section className={styles.panel} aria-label="Performance hints">
             <div className={styles.panelHeading}>
               <div>
                 <span className={styles.eyebrow}>Optional AI analysis</span>
@@ -245,6 +183,25 @@ export function ExplainPane() {
                     {ai.error}
                   </span>
                 )}
+                {ai.busy ? (
+                  <button className="btn ghost" onClick={ai.cancel}>
+                    Cancel
+                  </button>
+                ) : (
+                  <button
+                    className={ai.analysis ? 'btn ghost' : 'btn primary'}
+                    onClick={() => void ai.analyze()}
+                  >
+                    {ai.analysis ? 'Run again' : 'Run analysis'}
+                  </button>
+                )}
+                <AiPlanContextPopover
+                  mode={ai.plan.mode}
+                  sql={ai.plan.query}
+                  plan={ai.context!}
+                  response={ai.analysis}
+                  sent={ai.busy || Boolean(ai.analysis) || Boolean(ai.error)}
+                />
               </div>
             </div>
             {ai.busy ? (
@@ -265,7 +222,7 @@ export function ExplainPane() {
                         onClick={() => {
                           setSelectedDiagnosticId(null)
                           ai.selectHint(index)
-                          if (ai.selectedHint !== hint && hint.nodeIds[0]) {
+                          if (hint.nodeIds[0]) {
                             setSelectedNodeId(hint.nodeIds[0])
                             setFocusRequestId((current) => current + 1)
                           }
@@ -305,7 +262,7 @@ export function ExplainPane() {
               </>
             ) : (
               <p className={styles.panelMessage}>
-                Analyze this captured plan to get optional AI hints.
+                Analyze the captured plan for possible performance improvements.
               </p>
             )}
           </section>
