@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -153,31 +154,37 @@ vi.mock('@components/builder/tempo/TraceBuilderPanel', () => ({
 vi.mock('@components/results/traces/TraceScatterChart', () => ({
   TraceScatterChart: ({
     onSelectRange,
+    option,
   }: {
-    onSelectRange: (range: {
-      kind: 'custom'
-      startDate: string
-      startTime: string
-      endDate: string
-      endTime: string
-      recurringWindows: []
-    }) => void
+    onSelectRange: (range: { startMs: number; endMs: number }) => void
+    option: { series: Array<{ data: Array<{ traceId: string }> }> }
   }) => (
-    <button
-      type="button"
-      onClick={() =>
-        onSelectRange({
-          kind: 'custom',
-          startDate: '2026-08-30',
-          startTime: '10:00',
-          endDate: '2026-08-30',
-          endTime: '10:30',
-          recurringWindows: [],
-        })
-      }
-    >
-      Refine scatter range
-    </button>
+    <div>
+      <output data-testid="scatter-traces">
+        {option.series
+          .flatMap((series) => series.data.map((point) => point.traceId))
+          .join(',')}
+      </output>
+      {[
+        ['Refine scatter range', '10:00:00', '10:30:00'],
+        ['Sub-minute interval', '10:00:00.123', '10:00:10.789'],
+        ['Smaller interval', '10:05:00', '10:15:00'],
+        ['Different interval', '10:30:00', '11:00:00'],
+      ].map(([label, from, to]) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() =>
+            onSelectRange({
+              startMs: Date.parse(`2026-08-30T${from}Z`),
+              endMs: Date.parse(`2026-08-30T${to}Z`),
+            })
+          }
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   ),
 }))
 
@@ -191,9 +198,12 @@ import { useStore } from '@store/useStore'
 import { formatTraceql } from '@lib/formatTraceql'
 import { buildTraceql, traceBuilderFromTraceql } from '@lib/traceBuilder'
 import { api } from '@lib/api'
+import { createPresetFromSession } from '@lib/explorationPresets'
+import { explorationPresetRepository } from '@lib/explorationPresetRepository'
 
 describe('TraceExplorer TraceQL editor', () => {
   beforeEach(() => {
+    window.localStorage.clear()
     resetTestStore({
       connectionStateByProfileId: {
         'tempo-1': {
@@ -587,7 +597,7 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(activeTestSession().tempoResultView).toBe('scatter')
   })
 
-  it('keeps Scatter selected when a range refinement reruns the search', async () => {
+  it('filters retrieved scatter and list results without rerunning or changing the picker', async () => {
     const result = {
       columns: [
         {
@@ -602,7 +612,7 @@ describe('TraceExplorer TraceQL editor', () => {
           traceId: '00000000000000000000000000000001',
           rootService: 'service-01',
           rootOperation: 'GET /example',
-          startTimeMs: Date.now() - 60_000,
+          startTimeMs: Date.parse('2026-08-30T10:10:00Z'),
           durationMs: 120,
           matchedSpans: 3,
           status: 'ok',
@@ -612,11 +622,18 @@ describe('TraceExplorer TraceQL editor', () => {
       durationMs: 1,
       notice: 'Synthetic search',
     }
+    result.rows.push({
+      ...result.rows[0],
+      traceId: '00000000000000000000000000000002',
+      rootService: 'service-02',
+      startTimeMs: Date.parse('2026-08-30T10:30:00Z'),
+    })
+    result.rowCount = 2
     vi.mocked(api.query.run).mockResolvedValue(result)
     render(<TraceExplorer connectionId="tempo-1" />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
-    await waitFor(() => expect(screen.getByText('1 traces')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('2 traces')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Scatter' }))
     expect(
       screen
@@ -624,22 +641,230 @@ describe('TraceExplorer TraceQL editor', () => {
         .getAttribute('aria-pressed'),
     ).toBe('true')
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Refine scatter range' }),
+    const originalRange = activeTestSession().tempoTimeRange
+    const picker = screen.getByRole('button', {
+      name: /Time range/,
+    }).textContent
+    const select = (name: string) =>
+      fireEvent.click(screen.getByRole('button', { name }))
+    select('Refine scatter range')
+    expect(screen.getByTestId('scatter-traces').textContent).toBe(
+      result.rows[0].traceId,
     )
-    await waitFor(() =>
-      expect(vi.mocked(api.query.run)).toHaveBeenCalledTimes(2),
+    expect(screen.getByText('1 of 2 retrieved traces')).toBeTruthy()
+    expect(activeTestSession().result?.rows).toEqual(result.rows)
+    expect(activeTestSession().tempoTimeRange).toEqual(originalRange)
+    expect(screen.getByRole('button', { name: /Time range/ }).textContent).toBe(
+      picker,
     )
-    await waitFor(() =>
-      expect(
-        screen
-          .getByRole('button', { name: 'Scatter' })
-          .getAttribute('aria-pressed'),
-      ).toBe('true'),
+    select('Smaller interval')
+    expect(screen.getByTestId('scatter-traces').textContent).toBe(
+      result.rows[0].traceId,
+    )
+    select('Different interval')
+    expect(screen.getByTestId('scatter-traces').textContent).toBe(
+      result.rows[1].traceId,
     )
     expect(
-      screen.getByRole('button', { name: 'Refine scatter range' }),
+      screen.getAllByRole('button', { name: /Remove filter/ }),
+    ).toHaveLength(1)
+    select('List')
+    expect(screen.queryByText('service-01')).toBeNull()
+    expect(screen.getByText('service-02')).toBeTruthy()
+    select('Scatter')
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    expect(screen.getByTestId('scatter-traces').textContent).toContain(
+      result.rows[0].traceId,
+    )
+    expect(screen.getByTestId('scatter-traces').textContent).toContain(
+      result.rows[1].traceId,
+    )
+    expect(api.query.run).toHaveBeenCalledTimes(1)
+    select('Different interval')
+    const emptyTrace = {
+      columns: [{ name: 'spanId', dataTypeID: 0, dataTypeName: 'text' }],
+      rows: [],
+      rowCount: 0,
+      durationMs: 1,
+    }
+    vi.mocked(api.query.run)
+      .mockResolvedValueOnce(emptyTrace)
+      .mockResolvedValueOnce(emptyTrace)
+    select('Service map')
+    expect(
+      screen.getByText(/Service map uses the full retrieved cohort/),
     ).toBeTruthy()
+    expect(screen.getByText('2 traces')).toBeTruthy()
+    await waitFor(() => expect(api.query.run).toHaveBeenCalledTimes(3))
+    expect(
+      vi
+        .mocked(api.query.run)
+        .mock.calls.slice(1)
+        .map((call) => call[1])
+        .sort(),
+    ).toEqual(result.rows.map((row) => row.traceId).sort())
+    select('Scatter')
+    expect(screen.getByTestId('scatter-traces').textContent).toBe(
+      result.rows[1].traceId,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    expect(screen.getByTestId('scatter-traces').textContent).toContain(
+      result.rows[0].traceId,
+    )
+    expect(screen.getByTestId('scatter-traces').textContent).toContain(
+      result.rows[1].traceId,
+    )
+    expect(api.query.run).toHaveBeenCalledTimes(3)
+    select('Refine scatter range')
+    select('Run')
+    await waitFor(() => expect(screen.getByText('2 traces')).toBeTruthy())
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    expect(api.query.run).toHaveBeenCalledTimes(4)
+  })
+
+  it('uses inclusive start and exclusive end on fetched millisecond timestamps', () => {
+    const start = Date.parse('2026-08-30T10:00:00.123Z')
+    const end = Date.parse('2026-08-30T10:00:10.789Z')
+    const result = {
+      columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text' }],
+      rows: [start - 1, start, end - 1, end].map((startTimeMs, index) => ({
+        traceId: String(index + 1).padStart(32, '0'),
+        startTimeMs,
+        status: 'ok',
+      })),
+      rowCount: 4,
+      durationMs: 1,
+    }
+    patchActiveTestSession({ result, tempoResultView: 'scatter' })
+    render(<TraceExplorer connectionId="tempo-1" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Sub-minute interval' }))
+    expect(screen.getByTestId('scatter-traces').textContent).toBe(
+      [result.rows[1].traceId, result.rows[2].traceId].join(','),
+    )
+    expect(screen.getByText('2 of 4 retrieved traces')).toBeTruthy()
+    expect(
+      screen
+        .getByRole('button', { name: /Remove filter/ })
+        .getAttribute('aria-label'),
+    ).toContain('2026-08-30T10:00:00.123Z, 2026-08-30T10:00:10.789Z')
+    expect(activeTestSession().result).toBe(result)
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    expect(screen.getByTestId('scatter-traces').textContent).toBe(
+      result.rows.map((row) => row.traceId).join(','),
+    )
+    expect(api.query.run).not.toHaveBeenCalled()
+  })
+
+  it('clears the local interval on connection generation change and actual preset load', () => {
+    const result = {
+      columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text' }],
+      rows: [
+        {
+          traceId: '00000000000000000000000000000001',
+          startTimeMs: Date.parse('2026-08-30T10:10:00Z'),
+        },
+      ],
+      rowCount: 1,
+      durationMs: 1,
+    }
+    patchActiveTestSession({ result, tempoResultView: 'scatter' })
+    explorationPresetRepository().create(
+      createPresetFromSession({
+        name: 'Tempo baseline',
+        profile: useStore.getState().profiles[0],
+        session: activeTestSession(),
+      }),
+    )
+    render(<TraceExplorer connectionId="tempo-1" />)
+    const select = (name: string | RegExp) =>
+      fireEvent.click(screen.getByRole('button', { name }))
+    select('Refine scatter range')
+    expect(screen.getByLabelText('Active result filters')).toBeTruthy()
+    act(() =>
+      useStore.setState((state) => ({
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          'tempo-1': {
+            ...state.connectionStateByProfileId['tempo-1'],
+            generation: 8,
+          },
+        },
+      })),
+    )
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    expect(screen.getByText('1 traces')).toBeTruthy()
+    select('Refine scatter range')
+    select('Manage saved presets')
+    select('Load preset Tempo baseline')
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    expect(activeTestSession().result).toBeNull()
+    expect(screen.queryByTestId('scatter-traces')).toBeNull()
+    expect(api.query.run).not.toHaveBeenCalled()
+  })
+
+  it('clears the filter on session switch, picker edits, reset, and failed refresh', async () => {
+    const result = {
+      columns: [{ name: 'traceId', dataTypeID: 0, dataTypeName: 'text' }],
+      rows: [
+        {
+          traceId: '00000000000000000000000000000001',
+          rootService: 'checkout',
+          startTimeMs: Date.parse('2026-08-30T10:10:00Z'),
+        },
+      ],
+      rowCount: 1,
+      durationMs: 1,
+      notice: 'Retrieved sample',
+    }
+    vi.mocked(api.query.run).mockResolvedValue(result)
+    render(<TraceExplorer connectionId="tempo-1" />)
+    const select = (name: string | RegExp) =>
+      fireEvent.click(screen.getByRole('button', { name }))
+    select('Run')
+    await waitFor(() => expect(screen.getByText('1 traces')).toBeTruthy())
+    select('Scatter')
+    select('Refine scatter range')
+    const firstTab = activeTestSession().id
+    act(() => {
+      useStore.getState().createTab()
+    })
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    await act(async () => {
+      await useStore.getState().activateTab(firstTab)
+    })
+    expect(screen.getByText('1 traces')).toBeTruthy()
+    select('Refine scatter range')
+    select(/Time range/)
+    select('Last day')
+    select('Confirm')
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    // The existing picker edits criteria; Run explicitly fetches the new window.
+    expect(api.query.run).toHaveBeenCalledTimes(1)
+    select('Run')
+    await waitFor(() => expect(api.query.run).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByText('1 traces')).toBeTruthy())
+    const options = vi.mocked(api.query.run).mock.calls[1][3]
+    expect(Date.parse(options!.end!) - Date.parse(options!.start!)).toBe(
+      24 * 60 * 60 * 1000,
+    )
+    select('Refine scatter range')
+    vi.mocked(api.query.run).mockRejectedValueOnce(
+      new Error('Tempo unavailable'),
+    )
+    select('Run')
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain(
+        'Tempo unavailable',
+      ),
+    )
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    select('Run')
+    await waitFor(() => expect(screen.getByText('1 traces')).toBeTruthy())
+    select('Refine scatter range')
+    select('Reset query')
+    select('Reset exploration')
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    expect(activeTestSession().result).toBeNull()
   })
 
   it('opens search and direct-ID traces and returns to the retained search results', async () => {
@@ -694,6 +919,7 @@ describe('TraceExplorer TraceQL editor', () => {
     vi.mocked(api.query.run)
       .mockResolvedValueOnce(searchResult)
       .mockResolvedValueOnce(openedResult(searchedTraceId))
+      .mockResolvedValueOnce(openedResult(searchedTraceId))
       .mockResolvedValueOnce(openedResult(directTraceId))
     render(<TraceExplorer connectionId="tempo-1" />)
 
@@ -707,14 +933,38 @@ describe('TraceExplorer TraceQL editor', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '← Search results' }))
     expect(screen.getByText('checkout')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Scatter' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Refine scatter range' }),
+    )
+    expect(
+      screen.getByText(/No retrieved traces in this local interval/),
+    ).toBeTruthy()
+    expect(screen.getByText('0 of 1 retrieved traces')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Open trace' }))
+    await waitFor(() => expect(screen.getByText(searchedTraceId)).toBeTruthy())
+    expect(
+      screen.getByText(/Opened trace is outside the filtered results/),
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    expect(screen.getByText(searchedTraceId)).toBeTruthy()
+    expect(screen.queryByText(/Opened trace is outside/)).toBeNull()
+    expect(api.query.run).toHaveBeenCalledTimes(3)
+    fireEvent.click(screen.getByRole('button', { name: '← Search results' }))
+    expect(screen.getByTestId('scatter-traces').textContent).toBe(
+      searchedTraceId,
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Refine scatter range' }),
+    )
     fireEvent.change(screen.getByLabelText('Trace ID'), {
       target: { value: '2' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Open trace' }))
     await waitFor(() =>
-      expect(vi.mocked(api.query.run)).toHaveBeenCalledTimes(3),
+      expect(vi.mocked(api.query.run)).toHaveBeenCalledTimes(4),
     )
-    expect(vi.mocked(api.query.run).mock.calls[2]).toEqual([
+    expect(vi.mocked(api.query.run).mock.calls[3]).toEqual([
       'tempo-1',
       directTraceId,
       [],
@@ -723,5 +973,16 @@ describe('TraceExplorer TraceQL editor', () => {
       true,
     ])
     await waitFor(() => expect(screen.getByText(directTraceId)).toBeTruthy())
+    expect(
+      screen.getByText(/Opened trace is outside the filtered results/),
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    expect(screen.getByText(directTraceId)).toBeTruthy()
+    expect(screen.queryByText(/Opened trace is outside/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '← Search results' }))
+    expect(screen.getByTestId('scatter-traces').textContent).toBe(
+      searchedTraceId,
+    )
+    expect(api.query.run).toHaveBeenCalledTimes(4)
   })
 })

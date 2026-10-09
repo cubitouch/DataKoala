@@ -79,7 +79,7 @@ export const previewExpectations = Object.freeze({
   'prometheus-builder-narrow.png': { selector: '[data-result-chart-canvas]', description: 'Prometheus Builder result chart in narrow layout', minSeries: 2, minItems: 50, itemCount: 50, expectedConfig: { view: 'line', x: 'timestamp', y: 'value', series: ['continent'], aggregation: 'sum' } },
   'tempo-trace-builder.png': { kind: 'not-visualization' },
   'tempo-trace-search.png': { kind: 'not-visualization' },
-  'tempo-trace-scatter.png': { selector: '[data-trace-scatter] [data-visual-type="scatter"]', description: 'Tempo trace scatter in Last hour', minSeries: 1, minItems: 5 },
+  'tempo-trace-scatter.png': { selector: '[data-trace-scatter] [data-visual-type="scatter"]', description: 'Tempo trace scatter with local range filter', minSeries: 1, itemCount: 2 },
   'tempo-service-map.png': { selector: '[data-trace-service-map]', description: 'Tempo service map', minNodes: 1, minEdges: 1 },
   'tempo-service-map-dense.png': { selector: '[data-trace-service-map]', description: 'Tempo dense grouped service map (60 fixture services)', minNodes: 5, minEdges: 1 },
   'tempo-service-map-fullscreen.png': { selector: '[data-trace-service-map]', description: 'Tempo fullscreen async service map (60 fixture services)', minNodes: 1, minEdges: 1 },
