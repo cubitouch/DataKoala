@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   quality:
-    name: Typecheck and diff check
+    name: Quality
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
