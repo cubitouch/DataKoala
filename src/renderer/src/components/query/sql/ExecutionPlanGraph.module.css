@@ -7,7 +7,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  background: var(--bg-1);
+  background: var(--bg);
 }
 
 .toolbar {
@@ -25,6 +25,7 @@
   flex: 1;
   min-height: 340px;
   overflow: hidden;
+  background: var(--bg);
   touch-action: none;
   cursor: grab;
 }
