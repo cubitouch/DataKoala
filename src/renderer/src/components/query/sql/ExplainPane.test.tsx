@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -268,6 +269,71 @@ describe('Explain node signals and AI performance hints', () => {
       name: /A hint without a proposed action/,
     })
     expect(noActionHint.querySelectorAll('strong')).toHaveLength(0)
+  })
+
+  it('shows replacement Explain requests over the stale plan and updates the mode immediately', async () => {
+    patchActiveTestSession({
+      explainSnapshot: {
+        query: 'select * from events',
+        mode: 'explain',
+      },
+      explainText: 'old EXPLAIN plan',
+    })
+    render(<ExplainPane />)
+
+    expect(screen.getByRole('heading', { name: 'EXPLAIN' })).toBeTruthy()
+    expect(graph()).toBeTruthy()
+    expect(screen.getByText('old EXPLAIN plan')).toBeTruthy()
+
+    act(() => patchActiveTestSession({ activeExplainRequest: 'analyze' }))
+
+    expect(
+      screen.getByRole('heading', { name: 'EXPLAIN ANALYZE' }),
+    ).toBeTruthy()
+    expect(screen.getByText('Running EXPLAIN ANALYZE…')).toBeTruthy()
+    expect(graph()).toBeTruthy()
+    const staleContent = screen.getByTestId('explain-content-body')
+    expect(staleContent.hasAttribute('inert')).toBe(true)
+    expect(staleContent.closest('[aria-busy="true"]')).toBeTruthy()
+    expect(screen.getByTestId('explain-loading-overlay')).toBeTruthy()
+
+    const analyzedTree: ExplainNode = {
+      id: '0',
+      plan: 'new analyzed plan',
+      nodeType: 'Hash Join',
+      planRows: 10,
+      actualRows: 900,
+      loops: 1,
+      children: [],
+    }
+    act(() =>
+      patchActiveTestSession({
+        explainText: 'new analyzed plan text',
+        explainTree: analyzedTree,
+        explainSnapshot: {
+          query: 'select * from events',
+          mode: 'analyze',
+          executionTimeMs: 12,
+        },
+        activeExplainRequest: null,
+      }),
+    )
+
+    expect(screen.queryByTestId('explain-loading-overlay')).toBeNull()
+    expect(
+      screen.getByRole('heading', { name: 'EXPLAIN ANALYZE' }),
+    ).toBeTruthy()
+    expect(
+      within(inspector()).getByRole('heading', { name: 'Hash Join' }),
+    ).toBeTruthy()
+    expect(screen.getByText('new analyzed plan text')).toBeTruthy()
+
+    act(() => patchActiveTestSession({ activeExplainRequest: 'explain' }))
+    expect(screen.getByRole('heading', { name: 'EXPLAIN' })).toBeTruthy()
+    expect(screen.getByText('Generating query plan…')).toBeTruthy()
+    expect(
+      screen.getByTestId('explain-content-body').hasAttribute('inert'),
+    ).toBe(true)
   })
 
   it('shows Cancel without a duplicate Run action while analysis is busy', async () => {
