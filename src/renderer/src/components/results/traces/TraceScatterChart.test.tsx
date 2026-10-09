@@ -7,6 +7,7 @@ interface ChartInstance {
   dispatchAction: (action: unknown) => void
 }
 interface MockChartProps {
+  option: { xAxis: { min: number; max: number } }
   onChartReady: (instance: ChartInstance) => void
   onEvents: Record<string, (value: unknown) => void>
 }
@@ -80,7 +81,7 @@ describe('traceScatterLocalRange', () => {
   it('preserves sub-minute precision for local half-open filtering', () => {
     expect(
       traceScatterLocalRange(
-        [domainStart + 1234, domainStart + 15678],
+        [domainStart + 15678, domainStart + 1234],
         domainStart,
         domainEnd,
       ),
@@ -171,7 +172,7 @@ describe('TraceScatterChart brush lifecycle', () => {
     expect(chart.dispatchAction).toHaveBeenCalledWith(enableBrushAction)
   })
 
-  it('re-enables brushing when chart options are reapplied', async () => {
+  it('retains the full query domain and re-enables brushing after points are filtered', async () => {
     const { rerender } = render(
       <TraceScatterChart
         option={option}
@@ -184,7 +185,7 @@ describe('TraceScatterChart brush lifecycle', () => {
 
     rerender(
       <TraceScatterChart
-        option={{ ...option, symbolSize: 12 }}
+        option={{ ...option, series: [{ data: [] }] }}
         searchRange={range}
         onSelectRange={vi.fn()}
       />,
@@ -193,6 +194,10 @@ describe('TraceScatterChart brush lifecycle', () => {
     await waitFor(() =>
       expect(chart.dispatchAction).toHaveBeenCalledWith(enableBrushAction),
     )
+    expect(chart.props?.option.xAxis).toMatchObject({
+      min: Date.parse('2026-09-13T10:00:00Z'),
+      max: Date.parse('2026-09-13T11:00:00Z'),
+    })
   })
 
   it('preserves the supplied point-click interaction', async () => {
