@@ -390,31 +390,39 @@ export function ExecutionPlanGraph({
         highWork || materialMismatch
           ? cssColor('--amber', '#efb44f')
           : normalNodeStroke()
-      model.attr(
-        'body/stroke',
-        isSelected
-          ? cssColor('--text', '#f2f2f4')
-          : isHighlighted
-            ? accent
-            : emphasis,
-      )
-      model.attr(
-        'body/strokeWidth',
-        isSelected
-          ? 3
-          : isHighlighted || highWork || materialMismatch
-            ? 2.5
-            : 1.5,
-      )
-      model.attr(
-        'body/fill',
-        isHighlighted
-          ? cssColor('--bg-3', '#2b2e36')
-          : cssColor('--bg-2', '#202329'),
-      )
-      model.attr('root/data-ai-highlighted', String(isHighlighted))
-      model.attr('root/data-selected', String(isSelected))
-      model.attr('root/aria-pressed', String(isSelected))
+      try {
+        model.attr(
+          'body/stroke',
+          isSelected
+            ? cssColor('--text', '#f2f2f4')
+            : isHighlighted
+              ? accent
+              : emphasis,
+        )
+        model.attr(
+          'body/strokeWidth',
+          isSelected
+            ? 3
+            : isHighlighted || highWork || materialMismatch
+              ? 2.5
+              : 1.5,
+        )
+        model.attr(
+          'body/fill',
+          isHighlighted
+            ? cssColor('--bg-3', '#2b2e36')
+            : cssColor('--bg-2', '#202329'),
+        )
+        model.attr('root/data-ai-highlighted', String(isHighlighted))
+        model.attr('root/data-selected', String(isSelected))
+        model.attr('root/aria-pressed', String(isSelected))
+      } catch (error) {
+        console.error(
+          `Could not update JointJS selection for node ${id}`,
+          error,
+        )
+        throw error
+      }
     })
   }, [analyze, highlighted, mapped.nodes, selectedNodeId])
 
@@ -428,10 +436,15 @@ export function ExecutionPlanGraph({
     const position = model.position()
     const size = model.size()
     const scale = paper.scale().sx
-    paper.translate(
-      host.clientWidth / 2 - (position.x + size.width / 2) * scale,
-      host.clientHeight / 2 - (position.y + size.height / 2) * scale,
-    )
+    try {
+      paper.translate(
+        host.clientWidth / 2 - (position.x + size.width / 2) * scale,
+        host.clientHeight / 2 - (position.y + size.height / 2) * scale,
+      )
+    } catch (error) {
+      console.error(`Could not focus JointJS node ${focusNodeId}`, error)
+      throw error
+    }
   }, [focusNodeId, focusRequestId, graphKey])
 
   const zoom = (factor: number) => {
