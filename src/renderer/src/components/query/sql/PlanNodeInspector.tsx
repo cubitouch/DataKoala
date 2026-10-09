@@ -44,14 +44,10 @@ export function PlanNodeInspector({
   node,
   analyze,
   signals = [],
-  selectedSignalId = null,
-  onSelectSignal,
 }: {
   node: ExplainNode
   analyze: boolean
   signals?: ExplainDiagnostic[]
-  selectedSignalId?: string | null
-  onSelectSignal?: (signal: ExplainDiagnostic) => void
 }) {
   const timing = analyze ? explainNodeTiming(node) : null
   const relation = node.relation
@@ -72,19 +68,14 @@ export function PlanNodeInspector({
           <ul className={styles.signalList}>
             {signals.map((signal) => (
               <li key={signal.id}>
-                <button
-                  type="button"
-                  className={styles.signal}
-                  aria-pressed={selectedSignalId === signal.id}
-                  onClick={() => onSelectSignal?.(signal)}
-                >
+                <div className={styles.signal}>
                   <strong className={styles.signalTitle}>
                     <span aria-hidden="true">⚠</span>
                     {signal.title}
                   </strong>
                   <span>{signal.description}</span>
                   <small>{signal.evidence}</small>
-                </button>
+                </div>
               </li>
             ))}
           </ul>
