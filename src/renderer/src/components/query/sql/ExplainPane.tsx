@@ -18,9 +18,6 @@ export function ExplainPane() {
   const activeExplainRequest = session.activeExplainRequest
   const ai = useAiPlanAnalysis()
   const [selectedNodeId, setSelectedNodeId] = useState(tree?.id ?? '')
-  const [selectedDiagnosticId, setSelectedDiagnosticId] = useState<
-    string | null
-  >(null)
   const [focusRequestId, setFocusRequestId] = useState(0)
   const [copied, setCopied] = useState('')
   const analyze = snapshot?.mode === 'analyze'
@@ -40,9 +37,6 @@ export function ExplainPane() {
   const selectedSignals = diagnostics.filter((signal) =>
     signal.nodeIds.includes(selectedId),
   )
-  const selectedDiagnostic = diagnostics.find(
-    (diagnostic) => diagnostic.id === selectedDiagnosticId,
-  )
   const loadingMessage =
     activeExplainRequest === 'analyze'
       ? 'Running EXPLAIN ANALYZE…'
@@ -52,7 +46,6 @@ export function ExplainPane() {
 
   useEffect(() => {
     setSelectedNodeId(tree?.id ?? '')
-    setSelectedDiagnosticId(null)
   }, [tree])
 
   if (!show || (!text && !tree && !loadingMessage)) return null
@@ -66,8 +59,8 @@ export function ExplainPane() {
       setCopied('Clipboard access is unavailable')
     }
   }
-  const highlightedIds = selectedDiagnostic?.nodeIds ?? ai.highlightedNodeIds
-  const focusNodeId = selectedDiagnostic?.nodeIds[0] ?? ai.focusNodeId
+  const highlightedIds = ai.highlightedNodeIds
+  const focusNodeId = ai.focusNodeId
 
   return (
     <section className={styles.root} aria-label="Explain results">
@@ -153,15 +146,6 @@ export function ExplainPane() {
               node={selected}
               analyze={analyze}
               signals={selectedSignals}
-              selectedSignalId={selectedDiagnosticId}
-              onSelectSignal={(signal) => {
-                ai.clearHint()
-                setSelectedDiagnosticId((current) =>
-                  current === signal.id ? null : signal.id,
-                )
-                setSelectedNodeId(signal.nodeIds[0] ?? selectedId)
-                setFocusRequestId((current) => current + 1)
-              }}
             />
           </div>
         )}
@@ -220,7 +204,6 @@ export function ExplainPane() {
                         className={`${styles.hint} ${ai.selectedHint === hint ? styles.activeCard : ''}`}
                         aria-pressed={ai.selectedHint === hint}
                         onClick={() => {
-                          setSelectedDiagnosticId(null)
                           ai.selectHint(index)
                           if (hint.nodeIds[0]) {
                             setSelectedNodeId(hint.nodeIds[0])
