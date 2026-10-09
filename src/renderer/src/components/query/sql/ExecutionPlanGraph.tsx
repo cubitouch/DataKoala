@@ -76,6 +76,10 @@ function planNodeAttributes(
   }
   return {
     body: {
+      x: 0,
+      y: 0,
+      width: 'calc(w)',
+      height: 'calc(h)',
       rx: 10,
       ry: 10,
       fill: cssColor('--bg-2', '#202329'),
