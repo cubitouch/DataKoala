@@ -283,3 +283,90 @@ test('a failed session can connect normally again', async () => {
   assert.notEqual(reconnected.generation, first.generation)
   await manager.disconnectAll()
 })
+
+test('generation-scoped stale cleanup cannot disconnect a replacement or another profile', async () => {
+  const closed: string[] = []
+  const generations = new Map<string, number>()
+  const adapter: DataSourceAdapter = {
+    kind: 'bigquery',
+    async test() {
+      return { ok: true }
+    },
+    async connect(value) {
+      const generation = (generations.get(value.id) ?? 0) + 1
+      generations.set(value.id, generation)
+      return {
+        result: { ok: true, generation },
+        session: fakeSession(`${value.id}:${generation}`, closed),
+      }
+    },
+  }
+  const manager = new SessionManager(new AdapterRegistry().register(adapter))
+  try {
+    const older = await manager.connect(profile('a'))
+    await manager.connect(profile('b'))
+    const newer = await manager.reconnect(profile('a'))
+    assert.ok(older.ok && newer.ok)
+    const replacement = manager.get('a')
+    const other = manager.get('b')
+    await manager.disconnect('a', older.generation)
+    assert.equal(manager.get('a'), replacement)
+    assert.equal(manager.get('b'), other)
+    assert.deepEqual(closed, ['a:1'])
+    assert.deepEqual(manager.listLive(), [
+      { id: 'b', generation: 1, serverVersion: undefined },
+      { id: 'a', generation: 2, serverVersion: undefined },
+    ])
+    await replacement!.query({ sql: 'select 1' })
+    await other!.query({ sql: 'select 1' })
+  } finally {
+    await manager.disconnectAll()
+  }
+})
+
+test('a delayed successful adapter attempt is closed after a newer same-profile success', async () => {
+  const closed: string[] = []
+  let releaseOlder!: () => void
+  let markStarted!: () => void
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve
+  })
+  const gate = new Promise<void>((resolve) => {
+    releaseOlder = resolve
+  })
+  let attempts = 0
+  const adapter: DataSourceAdapter = {
+    kind: 'bigquery',
+    async test() {
+      return { ok: true }
+    },
+    async connect(value) {
+      const generation = ++attempts
+      if (generation === 1) {
+        markStarted()
+        await gate
+      }
+      return {
+        result: { ok: true, generation },
+        session: fakeSession(`${value.id}:${generation}`, closed),
+      }
+    },
+    async cancelConnect() {},
+  }
+  const manager = new SessionManager(new AdapterRegistry().register(adapter))
+  try {
+    const older = manager.connect(profile('a'))
+    await started
+    const newer = await manager.connect(profile('a'))
+    assert.ok(newer.ok)
+    const replacement = manager.get('a')
+    releaseOlder()
+    assert.equal((await older).ok, false)
+    assert.equal(manager.get('a'), replacement)
+    assert.deepEqual(closed, ['a:1'])
+    assert.equal(manager.listLive()[0].generation, 2)
+  } finally {
+    releaseOlder()
+    await manager.disconnectAll()
+  }
+})

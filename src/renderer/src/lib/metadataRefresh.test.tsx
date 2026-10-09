@@ -234,52 +234,59 @@ it('deduplicates concurrent refreshes for one profile', async () => {
   expect(mocks.listObjects).toHaveBeenCalledTimes(1)
 })
 
-it('discards stale metadata for A without consulting the active profile or global generation', async () => {
-  connectedState()
-  let resolveObjects!: (
-    objects: Array<{ schema: string; name: string; kind: 'r' }>,
-  ) => void
-  mocks.refresh.mockResolvedValue(undefined)
-  mocks.listObjects.mockReturnValue(
-    new Promise((done) => {
-      resolveObjects = done
-    }),
-  )
-  const pending = useStore.getState().refreshMetadata('profile-a')
-  await vi.waitFor(() => expect(mocks.listObjects).toHaveBeenCalled())
-  useStore.setState((state) => ({
-    connectionStateByProfileId: {
-      ...state.connectionStateByProfileId,
-      'profile-a': {
-        status: 'connected',
-        generation: 8,
-        error: null,
-        serverVersion: '17',
+it.each(['success', 'error'] as const)(
+  'discards stale metadata %s for A without consulting the active profile or global generation',
+  async (outcome) => {
+    connectedState()
+    let resolveObjects!: (
+      objects: Array<{ schema: string; name: string; kind: 'r' }>,
+    ) => void
+    let rejectObjects!: (error: Error) => void
+    mocks.refresh.mockResolvedValue(undefined)
+    mocks.listObjects.mockReturnValue(
+      new Promise((done, reject) => {
+        resolveObjects = done
+        rejectObjects = reject
+      }),
+    )
+    const pending = useStore.getState().refreshMetadata('profile-a')
+    await vi.waitFor(() => expect(mocks.listObjects).toHaveBeenCalled())
+    useStore.setState((state) => ({
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        'profile-a': {
+          status: 'connected',
+          generation: 8,
+          error: null,
+          serverVersion: '17',
+        },
+        'profile-b': {
+          status: 'connected',
+          generation: 8,
+          error: null,
+          serverVersion: '16',
+        },
       },
-      'profile-b': {
-        status: 'connected',
-        generation: 8,
-        error: null,
-        serverVersion: '16',
+      metadataByProfileId: {
+        ...state.metadataByProfileId,
+        'profile-b': {
+          schemas: [],
+          status: 'loaded',
+          error: null,
+          isStale: false,
+        },
       },
-    },
-    metadataByProfileId: {
-      ...state.metadataByProfileId,
-      'profile-b': {
-        schemas: [],
-        status: 'loaded',
-        error: null,
-        isStale: false,
-      },
-    },
-  }))
-  resolveObjects([{ schema: 'public', name: 'stale_table', kind: 'r' }])
-  await pending
-  expect(useStore.getState().metadataByProfileId['profile-a'].schemas).toEqual(
-    oldSchemas,
-  )
-  expect(useStore.getState().metadataByProfileId['profile-b']).toMatchObject({
-    schemas: [],
-    status: 'loaded',
-  })
-})
+    }))
+    if (outcome === 'success')
+      resolveObjects([{ schema: 'public', name: 'stale_table', kind: 'r' }])
+    else rejectObjects(new Error('stale discovery failure'))
+    await pending
+    expect(
+      useStore.getState().metadataByProfileId['profile-a'].schemas,
+    ).toEqual(oldSchemas)
+    expect(useStore.getState().metadataByProfileId['profile-b']).toMatchObject({
+      schemas: [],
+      status: 'loaded',
+    })
+  },
+)
