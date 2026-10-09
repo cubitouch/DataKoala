@@ -368,11 +368,7 @@ async function validateLocalScatterFilter(win) {
     minSeries: 1,
     itemCount: 2,
   })
-  await mkdir(resolve(outputDir, 'checks'), { recursive: true })
-  await writeFile(
-    resolve(outputDir, 'checks/tempo-local-filter.png'),
-    (await win.webContents.capturePage()).toPNG(),
-  )
+  await capture(win, 'tempo-trace-scatter.png')
   const after = await win.webContents.executeJavaScript(`(() => {
     const state = window.__datakoalaStore.getState()
     const tab = state.tabs.find((item) => item.id === state.activeTabId)
@@ -625,7 +621,6 @@ app.whenReady().then(async () => {
     await searchTraces(win)
     await capture(win, 'tempo-trace-search.png')
     await showScatter(win)
-    await capture(win, 'tempo-trace-scatter.png')
     await validateLocalScatterFilter(win)
     await showServiceMap(win)
     await capture(win, 'tempo-service-map.png')
