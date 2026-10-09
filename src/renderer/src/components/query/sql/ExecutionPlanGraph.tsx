@@ -8,7 +8,7 @@ import {
   EXPLAIN_DIAGNOSTIC_LIMITS,
 } from './ExecutionPlanPresentation'
 import {
-  graphNodeLabel,
+  executionPlanNodeContent,
   layoutExecutionPlan,
   mapExecutionPlan,
 } from './ExecutionPlanGraphModel'
@@ -24,17 +24,119 @@ export interface ExecutionPlanGraphProps {
   onSelectNode(nodeId: string): void
 }
 
-const NODE_WIDTH = 248
-const NODE_HEIGHT = 126
-const RANK_GAP = 84
-const SIBLING_GAP = 42
+const NODE_WIDTH = 280
+const NODE_HEIGHT = 176
+const RANK_GAP = 76
+const SIBLING_GAP = 44
 const GRAPH_PADDING = 36
+
+const ExecutionPlanNode = dia.Element.define(
+  'datakoala.ExecutionPlanNode',
+  {},
+  {
+    markup: [
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'text', selector: 'category' },
+      { tagName: 'text', selector: 'title' },
+      { tagName: 'text', selector: 'target' },
+      { tagName: 'text', selector: 'estimatedRows' },
+      { tagName: 'text', selector: 'actualRows' },
+      { tagName: 'text', selector: 'ratio' },
+      { tagName: 'text', selector: 'work' },
+    ],
+  },
+)
 
 function cssColor(name: string, fallback: string): string {
   return (
     getComputedStyle(document.documentElement).getPropertyValue(name).trim() ||
     fallback
   )
+}
+
+function planNodeAttributes(
+  node: ExplainNode,
+  analyze: boolean,
+): Record<string, Record<string, string | number>> {
+  const content = executionPlanNodeContent(node, analyze)
+  const textStyle = {
+    textAnchor: 'start',
+    textVerticalAnchor: 'middle',
+    fontFamily: 'Inter, system-ui, sans-serif',
+  }
+  const metricStyle = {
+    ...textStyle,
+    x: 14,
+    fill: cssColor('--text-dim', '#b5bbc5'),
+    fontSize: 10,
+  }
+  return {
+    body: {
+      rx: 10,
+      ry: 10,
+      fill: cssColor('--bg-2', '#202329'),
+      stroke: cssColor('--border', '#3a3d45'),
+      strokeWidth: 1.5,
+    },
+    category: {
+      ...textStyle,
+      text: content.category.toUpperCase(),
+      x: 14,
+      y: 19,
+      fill: cssColor('--text-mute', '#858b97'),
+      fontSize: 9,
+      fontWeight: 700,
+      letterSpacing: 0.7,
+    },
+    title: {
+      ...textStyle,
+      text: content.nodeType,
+      x: 14,
+      y: 42,
+      fill: cssColor('--text', '#f2f2f4'),
+      fontSize: 13,
+      fontWeight: 700,
+    },
+    target: {
+      ...textStyle,
+      text: content.target ?? '',
+      display: content.target ? 'block' : 'none',
+      x: 14,
+      y: 63,
+      fill: cssColor('--text-dim', '#b5bbc5'),
+      fontSize: 10,
+    },
+    estimatedRows: {
+      ...metricStyle,
+      text: content.estimatedRows ?? '',
+      display: content.estimatedRows ? 'block' : 'none',
+      y: 91,
+    },
+    actualRows: {
+      ...metricStyle,
+      text: content.actualRows ?? '',
+      display: content.actualRows ? 'block' : 'none',
+      y: 111,
+    },
+    ratio: {
+      ...metricStyle,
+      text: content.ratio ?? '',
+      display: content.ratio ? 'block' : 'none',
+      y: 131,
+      fill: content.ratio
+        ? cssColor('--amber', '#efb44f')
+        : cssColor('--text-dim', '#b5bbc5'),
+    },
+    work: {
+      ...metricStyle,
+      text: content.work ?? '',
+      display: content.work ? 'block' : 'none',
+      y: 151,
+      fill: analyze
+        ? cssColor('--blue', '#79a9ff')
+        : cssColor('--text-mute', '#858b97'),
+    },
+  }
 }
 
 export function ExecutionPlanGraph({
@@ -53,7 +155,7 @@ export function ExecutionPlanGraph({
   const graphKey = JSON.stringify({
     nodes: mapped.nodes.map(({ id, node }) => [
       id,
-      graphNodeLabel(node, analyze),
+      executionPlanNodeContent(node, analyze),
     ]),
     edges: mapped.edges.map(({ id, order }) => [id, order]),
   })
@@ -77,7 +179,7 @@ export function ExecutionPlanGraph({
       async: true,
       width: '100%',
       height: '100%',
-      background: { color: cssColor('--bg-1', '#16181d') },
+      background: { color: cssColor('--bg', '#17201f') },
       interactive: false,
       sorting: dia.Paper.sorting.APPROX,
       frozen: true,
@@ -93,49 +195,55 @@ export function ExecutionPlanGraph({
       RANK_GAP,
       SIBLING_GAP,
     )
-    const nodes = mapped.nodes.map(
-      ({ id, node }) =>
-        new shapes.standard.Rectangle({
-          id,
-          position: positions.get(id),
-          size: { width: NODE_WIDTH, height: NODE_HEIGHT },
-          attrs: {
-            root: {
-              cursor: 'pointer',
-              tabindex: 0,
-              role: 'button',
-              'data-testid': 'plan-node',
-              'data-node-id': id,
-              'aria-label': `${node.nodeType}${node.relation ? ` on ${node.relation}` : ''}`,
-            },
-            body: {
-              rx: 9,
-              ry: 9,
-              fill: cssColor('--bg-2', '#202329'),
-              stroke: cssColor('--border', '#3a3d45'),
-              strokeWidth: 1.5,
-            },
-            label: {
-              text: graphNodeLabel(node, analyze),
-              fill: cssColor('--text', '#f2f2f4'),
-              fontSize: 11,
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontWeight: 500,
-              textWrap: { width: -24, height: -20, ellipsis: true },
-              textAnchor: 'middle',
-              textVerticalAnchor: 'middle',
-              lineHeight: 1.3,
-            },
+    const nodes = mapped.nodes.map(({ id, node }) => {
+      const cardinality = analyze ? compareCardinality(node) : null
+      const materialMismatch =
+        cardinality !== null && cardinality.relation !== 'close'
+      const timing = analyze ? explainNodeTiming(node) : null
+      const highWork =
+        timing?.approxTotalMs !== undefined &&
+        timing.approxTotalMs >= EXPLAIN_DIAGNOSTIC_LIMITS.highMeasuredWorkMs
+      const attrs = planNodeAttributes(node, analyze)
+      return new ExecutionPlanNode({
+        id,
+        position: positions.get(id),
+        size: { width: NODE_WIDTH, height: NODE_HEIGHT },
+        attrs: {
+          root: {
+            cursor: 'pointer',
+            tabindex: 0,
+            role: 'button',
+            'data-testid': 'plan-node',
+            'data-node-id': id,
+            'aria-label': `${node.nodeType}${node.relation ? ` on ${node.relation}` : ''}`,
           },
-        }),
-    )
+          ...attrs,
+          body: {
+            ...attrs.body,
+            stroke:
+              highWork || materialMismatch
+                ? cssColor('--amber', '#efb44f')
+                : cssColor('--border', '#3a3d45'),
+            strokeWidth: highWork || materialMismatch ? 2.5 : 1.5,
+          },
+        },
+      })
+    })
     const edges = mapped.edges.map(
       ({ id, source, target }) =>
         new shapes.standard.Link({
           id,
-          source: { id: source },
-          target: { id: target },
-          router: { name: 'manhattan', args: { padding: 18, step: 12 } },
+          source: { id: source, anchor: { name: 'bottom' } },
+          target: { id: target, anchor: { name: 'top' } },
+          router: {
+            name: 'manhattan',
+            args: {
+              padding: 18,
+              step: 12,
+              startDirections: ['bottom'],
+              endDirections: ['top'],
+            },
+          },
           connector: { name: 'rounded', args: { radius: 7 } },
           attrs: {
             line: {
