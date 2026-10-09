@@ -577,15 +577,24 @@ export function LokiExplorer({
       setVisualization('sql', next, session.id),
     [setVisualization, session.id],
   )
+  // Synthetic volume metrics use `timestamp`; raw logs expose `timestampMs`.
+  // Keep volume selections local to that result instead of hiding unrelated logs.
+  const logResultFilters = useMemo(
+    () =>
+      session.sqlResultFilters.filter(
+        (filter) => filter.column !== 'timestamp',
+      ),
+    [session.sqlResultFilters],
+  )
   const filteredLogRows = useMemo(
     () =>
       result?.resultKind === 'logs'
         ? (applyResultFilters(
             sortLokiLogRowsNewestFirst(result.logRows),
-            session.sqlResultFilters,
+            logResultFilters,
           ) as LokiLogResult['logRows'])
         : [],
-    [result, session.sqlResultFilters],
+    [result, logResultFilters],
   )
   const scopedLogRows = useMemo(
     () =>
@@ -866,7 +875,7 @@ export function LokiExplorer({
                   reconnecting={connectionReconnecting}
                   configuration={{ ...trendVisualization, view: 'table' }}
                   seriesVisibility={session.seriesVisibility}
-                  activeFilters={session.sqlResultFilters}
+                  activeFilters={logResultFilters}
                   hidePicker
                   onConfigurationChange={setTrendVisualization}
                   onSeriesVisibilityChange={onSeriesVisibilityChange}
