@@ -48,9 +48,11 @@ const tree = {
       actualTotalTime: 24.7,
       loops: 1,
       sortKey: ['sum(o.amount) DESC'],
-      sortMethod: 'top-N heapsort',
-      sortSpaceUsed: 49,
-      sortSpaceType: 'Memory',
+      sortMethod: 'external merge',
+      sortSpaceUsed: 8192,
+      sortSpaceType: 'Disk',
+      tempWrittenBlocks: 215,
+      tempReadBlocks: 214,
       children: [
         {
           id: '0.0.0',
@@ -117,9 +119,11 @@ const tree = {
                       plan: 'Index Scan using customers_pkey on customers c',
                       nodeType: 'Index Scan',
                       schema: 'analytics',
-                      relation: 'customers',
+                      relation:
+                        'customers_with_a_long_relation_name_for_preview',
                       alias: 'c',
-                      index: 'customers_pkey',
+                      index:
+                        'customers_primary_region_account_activity_index_long_name',
                       startupCost: 0.29,
                       totalCost: 186.4,
                       planRows: 10000,
@@ -337,11 +341,24 @@ app.whenReady().then(async () => {
     const report = await win.webContents.executeJavaScript(`(() => {
       const diagram = document.querySelector('[aria-label="Execution plan diagram"]')
       const surface = document.querySelector('[data-testid="execution-plan-joint-surface"]')
+      const explainRoot = document.querySelector('[aria-label="Explain results"]')
       const summary = document.querySelector('[aria-label="Plan summary"]')
-      const diagnostics = document.querySelector('[aria-label="Deterministic diagnostics"]')
+      const signals = document.querySelector('[aria-label="Plan signals"]')
       const hints = document.querySelector('[aria-label="AI performance hints"]')
       const text = document.body.innerText + (diagram?.textContent ?? '')
       const layout = document.querySelector('[class*="planLayout"]')
+      const bounds = (id) => document.querySelector('[data-node-id="' + id + '"]')?.getBoundingClientRect()
+      const rootNode = bounds('0')
+      const firstChild = bounds('0.0')
+      const join = bounds('0.0.0.0')
+      const joinLeftChild = bounds('0.0.0.0.0')
+      const joinRightChild = bounds('0.0.0.0.1')
+      const longTargetNode = document.querySelector('[data-node-id="0.0.0.0.1.0"]')
+      const svgTexts = [...(longTargetNode?.querySelectorAll('text') ?? [])]
+      const rootBackground = getComputedStyle(explainRoot).backgroundColor
+      const surfaceBackground = getComputedStyle(surface).backgroundColor
+      const paperBackground = surface?.querySelector('svg rect.joint-background')?.getAttribute('fill')
+      const opaque = (color) => Boolean(color && color !== 'transparent' && !/[,/]\\s*0\\s*\\)?$/.test(color))
       return {
         nodeCount: Number(diagram?.dataset.nodeCount ?? 0),
         edgeCount: Number(diagram?.dataset.edgeCount ?? 0),
@@ -351,12 +368,22 @@ app.whenReady().then(async () => {
           (label) => text.includes(label),
         ),
         hasSummary: summary?.innerText.includes('Planning') && summary?.innerText.includes('Execution'),
+        hasSignalsLabel: summary?.innerText.includes('Signals'),
         hasMeasuredTime: text.includes('Measured time'),
         hasPlannerMsConfusion: /Planner cost\\s*:\\s*[\\d.]+\\s*ms/i.test(text),
         width: diagram?.getBoundingClientRect().width,
         height: diagram?.getBoundingClientRect().height,
-        diagnosticsOutsideGraph: Boolean(diagnostics && !surface?.contains(diagnostics)),
+        signalsOutsideGraph: Boolean(signals && !surface?.contains(signals)),
         hintsOutsideGraph: Boolean(hints && !surface?.contains(hints)),
+        signalCount: signals?.querySelectorAll('button').length ?? 0,
+        noRepeatedMeasuredSignals: !text.includes('High measured work'),
+        opaqueSurfaces: opaque(rootBackground) && opaque(surfaceBackground) && opaque(paperBackground),
+        rootAboveChild: Boolean(rootNode && firstChild && rootNode.y < firstChild.y),
+        joinAboveChildren: Boolean(join && joinLeftChild && joinRightChild && join.y < joinLeftChild.y && join.y < joinRightChild.y),
+        siblingOrder: Boolean(joinLeftChild && joinRightChild && joinLeftChild.x < joinRightChild.x),
+        separateNodeText: svgTexts.length >= 6,
+        truncatedTarget: svgTexts[2]?.textContent?.endsWith('…') ?? false,
+        fullTargetAccessible: longTargetNode?.getAttribute('aria-label')?.includes('customers_with_a_long_relation_name_for_preview') ?? false,
         actionableSubtitle: text.includes('Review statistics for the join key and filtered rows.'),
         layoutDirection: layout ? getComputedStyle(layout).flexDirection : null,
       }
@@ -366,12 +393,22 @@ app.whenReady().then(async () => {
       report.edgeCount !== report.nodeCount - 1 ||
       report.categories.length < 6 ||
       !report.hasSummary ||
+      !report.hasSignalsLabel ||
       !report.hasMeasuredTime ||
       report.hasPlannerMsConfusion ||
       report.selectedNodeId !== '0.0.0.0' ||
       report.highlightedNodeIds?.length !== 2 ||
-      !report.diagnosticsOutsideGraph ||
+      !report.signalsOutsideGraph ||
       !report.hintsOutsideGraph ||
+      report.signalCount < 2 ||
+      !report.noRepeatedMeasuredSignals ||
+      !report.opaqueSurfaces ||
+      !report.rootAboveChild ||
+      !report.joinAboveChildren ||
+      !report.siblingOrder ||
+      !report.separateNodeText ||
+      !report.truncatedTarget ||
+      !report.fullTargetAccessible ||
       !report.actionableSubtitle ||
       report.width < 700 ||
       report.height < 300
@@ -444,20 +481,43 @@ app.whenReady().then(async () => {
       )
 
     await win.webContents.executeJavaScript(
-      `document.querySelector('[aria-label="Deterministic diagnostics"] button')?.click()`,
+      `document.querySelector('[aria-label="Plan signals"] button')?.click()`,
     )
     const diagnosticSelection = await win.webContents.executeJavaScript(`({
       selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
-      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds
+      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds,
+      activeHint: [...document.querySelectorAll('[aria-label="AI performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true'),
+      activeSignal: [...document.querySelectorAll('[aria-label="Plan signals"] button')].some((button) => button.getAttribute('aria-pressed') === 'true')
     })`)
     if (
       !diagnosticSelection.selectedNodeId ||
       !diagnosticSelection.highlightedNodeIds
         .split(',')
-        .includes(diagnosticSelection.selectedNodeId)
+        .includes(diagnosticSelection.selectedNodeId) ||
+      diagnosticSelection.activeHint ||
+      !diagnosticSelection.activeSignal
     )
       throw new Error(
         `Deterministic diagnostic did not focus its plan node: ${JSON.stringify(diagnosticSelection)}`,
+      )
+
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll('[aria-label="AI performance hints"] button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()`,
+    )
+    const aiAfterSignal = await win.webContents.executeJavaScript(`({
+      selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
+      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds.split(',').filter(Boolean),
+      activeHint: [...document.querySelectorAll('[aria-label="AI performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true'),
+      activeSignal: [...document.querySelectorAll('[aria-label="Plan signals"] button')].some((button) => button.getAttribute('aria-pressed') === 'true')
+    })`)
+    if (
+      aiAfterSignal.selectedNodeId !== '0.0.0.0' ||
+      !aiAfterSignal.activeHint ||
+      aiAfterSignal.activeSignal ||
+      aiAfterSignal.highlightedNodeIds.length !== 2
+    )
+      throw new Error(
+        `AI hint did not exclusively restore its plan focus: ${JSON.stringify(aiAfterSignal)}`,
       )
 
     delayPlanResponse = true
