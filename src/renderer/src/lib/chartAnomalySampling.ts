@@ -75,10 +75,10 @@ function summarizeBuckets(
 }
 
 /**
- * Keeps all valid points for short series. Longer series retain five
- * observations per chronological bucket: its endpoints, local extrema, and
- * midpoint. Summaries are computed from every valid observation before the
- * sample is reduced.
+ * Keeps all valid points for short series. Longer series retain observations
+ * from chronological buckets, including endpoints, local extrema, and
+ * midpoints. Remaining capacity is filled by repeatedly splitting the widest
+ * unsampled gap. Summaries use every valid observation before downsampling.
  */
 export function sampleChartSeries(
   name: string,
@@ -100,35 +100,62 @@ export function sampleChartSeries(
       validIndices.push(index)
   }
 
-  const selectedIndices = new Set<number>()
+  // Positions refer to validIndices so sparse series are sampled evenly by
+  // observation, while the final point mapping still uses original chart indices.
+  const selectedPositions = new Set<number>()
   const useBuckets = validIndices.length > budget
   if (!useBuckets) {
-    for (const index of validIndices) selectedIndices.add(index)
+    for (let position = 0; position < validIndices.length; position += 1)
+      selectedPositions.add(position)
   } else {
     const bucketCount = Math.floor(budget / 5)
     for (let bucket = 0; bucket < bucketCount; bucket += 1) {
       const start = Math.floor((bucket * validIndices.length) / bucketCount)
       const end = Math.floor(((bucket + 1) * validIndices.length) / bucketCount)
-      const first = validIndices[start]
-      const last = validIndices[end - 1]
-      const middle = validIndices[Math.floor((start + end - 1) / 2)]
-      let minimum = first
-      let maximum = first
+      let minimumPosition = start
+      let maximumPosition = start
       for (let position = start + 1; position < end; position += 1) {
         const index = validIndices[position]
-        if ((values[index] as number) < (values[minimum] as number))
-          minimum = index
-        if ((values[index] as number) > (values[maximum] as number))
-          maximum = index
+        if (
+          (values[index] as number) <
+          (values[validIndices[minimumPosition]] as number)
+        )
+          minimumPosition = position
+        if (
+          (values[index] as number) >
+          (values[validIndices[maximumPosition]] as number)
+        )
+          maximumPosition = position
       }
-      selectedIndices.add(first)
-      selectedIndices.add(minimum)
-      selectedIndices.add(middle)
-      selectedIndices.add(maximum)
-      selectedIndices.add(last)
+      selectedPositions.add(start)
+      selectedPositions.add(minimumPosition)
+      selectedPositions.add(Math.floor((start + end - 1) / 2))
+      selectedPositions.add(maximumPosition)
+      selectedPositions.add(end - 1)
+    }
+
+    // Bucket candidates can overlap (for example, extrema on monotonic data).
+    // Fill those unused slots deterministically without displacing any of them.
+    while (selectedPositions.size < budget) {
+      const ordered = [...selectedPositions].sort((a, b) => a - b)
+      let left = -1
+      let widestGap = 0
+      let fillPosition = -1
+      for (const right of [...ordered, validIndices.length]) {
+        const available = right - left - 1
+        if (available > widestGap) {
+          widestGap = available
+          fillPosition = Math.floor((left + right) / 2)
+        }
+        left = right
+      }
+      if (fillPosition < 0) break
+      selectedPositions.add(fillPosition)
     }
   }
-  const indices = [...selectedIndices].sort((a, b) => a - b)
+  const indices = [...selectedPositions]
+    .sort((a, b) => a - b)
+    .map((position) => validIndices[position])
   const points = indices.map((index) => ({
     x: chartXValue(xValues[index]),
     y: values[index] as number,

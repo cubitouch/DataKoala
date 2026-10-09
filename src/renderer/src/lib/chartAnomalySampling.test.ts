@@ -74,6 +74,22 @@ describe('sampleChartSeries', () => {
     expect(sample.samplingMethod).toBe('all-points')
   })
 
+  it.each([257, 300, 1_000])(
+    'fills the 256-point budget for a monotonic %i-point series',
+    (length) => {
+      const values = Array.from({ length }, (_, index) => index)
+      const sample = sampleChartSeries('monotonic', values, values)
+      const indices = sample.points.map((point) => point.originalIndex)
+
+      expect(indices).toHaveLength(256)
+      expect(indices[0]).toBe(0)
+      expect(indices.at(-1)).toBe(length - 1)
+      expect(indices).toEqual([...indices].sort((a, b) => a - b))
+      expect(new Set(indices).size).toBe(256)
+      expect(sample.sampleCoverage).toBe(256 / length)
+    },
+  )
+
   it('bounds thousands of observations and retains endpoints and chronology', () => {
     const values = Array.from({ length: 10_000 }, (_, index) => index % 31)
     values[2_345] = 10_000
