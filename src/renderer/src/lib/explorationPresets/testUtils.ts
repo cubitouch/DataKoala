@@ -29,7 +29,6 @@ export function testSession(options: Partial<QuerySession> = {}): QuerySession {
     lokiResultLimit: 1000,
     lokiGroupBy: [],
     lokiResultView: 'list',
-    lokiRangeHistory: [],
     tempoBuilder: defaultTempoBuilder(),
     tempoTimeRange: { kind: 'rolling', amount: 1, unit: 'hour' },
     tempoSampleSize: '250',

@@ -120,7 +120,6 @@ export interface QuerySession {
     | 'scatter'
     | 'treemap'
     | 'sunburst'
-  lokiRangeHistory: BuilderTimeRange[]
   tempoBuilder: TraceBuilderState
   tempoTimeRange: BuilderTimeRange
   tempoSampleSize: TraceSampleSize
@@ -230,7 +229,6 @@ export function createQuerySession(
     lokiResultLimit: 1000,
     lokiGroupBy: [],
     lokiResultView: 'list',
-    lokiRangeHistory: [],
     tempoBuilder: defaultTempoBuilder(),
     tempoTimeRange: { ...DEFAULT_TRACE_RANGE },
     tempoSampleSize: DEFAULT_TRACE_SAMPLE_SIZE,
@@ -333,7 +331,6 @@ export interface AppState {
         | 'lokiResultLimit'
         | 'lokiGroupBy'
         | 'lokiResultView'
-        | 'lokiRangeHistory'
       >
     >,
     tabId?: string,
@@ -909,7 +906,6 @@ export const useStore = create<AppState>((set, get) => ({
           showExplain: false,
           activeExplainRequest: null,
           seriesVisibility: {},
-          lokiRangeHistory: [],
         }
       }),
     ),

@@ -95,7 +95,6 @@ export interface QuerySessionDraft {
     | 'scatter'
     | 'treemap'
     | 'sunburst'
-  lokiRangeHistory: BuilderTimeRange[]
   tempoBuilder: TraceBuilderState
   tempoTimeRange: BuilderTimeRange
   tempoSampleSize: TraceSampleSize
@@ -602,7 +601,6 @@ function sessionDraft(session: QuerySession): QuerySessionDraft {
     lokiResultLimit: session.lokiResultLimit,
     lokiGroupBy: session.lokiGroupBy,
     lokiResultView: session.lokiResultView,
-    lokiRangeHistory: session.lokiRangeHistory,
     tempoBuilder: cloneTempoBuilder(session.tempoBuilder),
     tempoTimeRange: cloneTimeRange(session.tempoTimeRange)!,
     tempoSampleSize: session.tempoSampleSize,
@@ -657,7 +655,6 @@ function serializedSession(tab: QuerySessionDraft): Record<string, unknown> {
     lokiResultLimit: tab.lokiResultLimit,
     lokiGroupBy: tab.lokiGroupBy,
     lokiResultView: tab.lokiResultView,
-    lokiRangeHistory: tab.lokiRangeHistory,
     tempoBuilder: tab.tempoBuilder,
     tempoTimeRange: tab.tempoTimeRange,
     tempoSampleSize: tab.tempoSampleSize,
@@ -775,11 +772,6 @@ function parseSession(value: unknown): QuerySessionDraft | null {
           ] as const)
         ? value.lokiResultView
         : 'list'
-  const lokiRangeHistory = Array.isArray(value.lokiRangeHistory)
-    ? value.lokiRangeHistory
-        .map(timeRange)
-        .filter((item): item is BuilderTimeRange => item !== null)
-    : []
   const tempoBuilder =
     parseTempoBuilder(value.tempoBuilder) ?? defaultTempoBuilder()
   const tempoTimeRange = (value.tempoTimeRange === undefined
@@ -820,7 +812,6 @@ function parseSession(value: unknown): QuerySessionDraft | null {
     lokiResultLimit,
     lokiGroupBy,
     lokiResultView,
-    lokiRangeHistory,
     tempoBuilder,
     tempoTimeRange,
     tempoSampleSize,
@@ -915,7 +906,6 @@ function parseLegacyWorkspace(raw: string | null): WorkspaceDraft | null {
           lokiResultLimit: 1000,
           lokiGroupBy: [],
           lokiResultView: 'list',
-          lokiRangeHistory: [],
           tempoBuilder: defaultTempoBuilder(),
           tempoTimeRange: { ...DEFAULT_TRACE_RANGE },
           tempoSampleSize: DEFAULT_TRACE_SAMPLE_SIZE,
@@ -987,7 +977,6 @@ function restoredSession(draft: QuerySessionDraft): QuerySession {
     lokiResultLimit: draft.lokiResultLimit,
     lokiGroupBy: draft.lokiGroupBy,
     lokiResultView: draft.lokiResultView,
-    lokiRangeHistory: draft.lokiRangeHistory,
     tempoBuilder: cloneTempoBuilder(draft.tempoBuilder),
     tempoTimeRange: cloneTimeRange(draft.tempoTimeRange)!,
     tempoSampleSize: draft.tempoSampleSize,

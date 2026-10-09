@@ -70,27 +70,10 @@ function interval(start: string, end: string): string {
   const choices = [1, 5, 10, 30, 60, 300, 900, 3600, 10_800, 21_600, 86_400]
   return `${choices.find((item) => item >= targetSeconds) ?? 86_400}s`
 }
-interface LokiTrendRange {
-  startMs: number
-  endMs: number
-}
 type LokiChartView =
   'bar' | 'line' | 'area' | 'scatter' | 'treemap' | 'sunburst'
 const isLokiChartView = (view: ChartPickerView): view is LokiChartView =>
   ['bar', 'line', 'area', 'scatter', 'treemap', 'sunburst'].includes(view)
-
-function customRange({ startMs, endMs }: LokiTrendRange): BuilderTimeRange {
-  const start = new Date(startMs),
-    end = new Date(endMs)
-  return {
-    kind: 'custom',
-    startDate: start.toISOString().slice(0, 10),
-    startTime: start.toISOString().slice(11, 16),
-    endDate: end.toISOString().slice(0, 10),
-    endTime: end.toISOString().slice(11, 16),
-    recurringWindows: [],
-  }
-}
 
 interface LokiExplorerProps {
   connectionId: string
@@ -527,20 +510,6 @@ export function LokiExplorer({
     groupBy,
   ])
   useEffect(() => setPatternScope(null), [result])
-  const selectRange = (selected: LokiTrendRange) =>
-    setLokiState({
-      lokiRangeHistory: [...session.lokiRangeHistory, range],
-      lokiTimeRange: customRange(selected),
-    })
-  const restoreRange = (reset = false) => {
-    const history = session.lokiRangeHistory
-    const prior = reset ? history[0] : history.at(-1)
-    if (prior)
-      setLokiState({
-        lokiTimeRange: prior,
-        lokiRangeHistory: reset ? [] : history.slice(0, -1),
-      })
-  }
   const resultFilter = (
     source: LokiFilterSource,
     key: string,
@@ -608,15 +577,28 @@ export function LokiExplorer({
       setVisualization('sql', next, session.id),
     [setVisualization, session.id],
   )
+  // Synthetic volume metrics use `timestamp`; raw logs expose `timestampMs`.
+  // Keep volume selections local to that result instead of hiding unrelated logs.
+  const logResultFilters = useMemo(
+    () =>
+      session.sqlResultFilters.filter(
+        (filter) => filter.column !== 'timestamp',
+      ),
+    [session.sqlResultFilters],
+  )
+  const onClearLogResultFilters = useCallback(() => {
+    // Match the Table's visible filter chips; retain hidden volume selections.
+    for (const filter of logResultFilters) onRemoveResultFilter(filter.id)
+  }, [logResultFilters, onRemoveResultFilter])
   const filteredLogRows = useMemo(
     () =>
       result?.resultKind === 'logs'
         ? (applyResultFilters(
             sortLokiLogRowsNewestFirst(result.logRows),
-            session.sqlResultFilters,
+            logResultFilters,
           ) as LokiLogResult['logRows'])
         : [],
-    [result, session.sqlResultFilters],
+    [result, logResultFilters],
   )
   const scopedLogRows = useMemo(
     () =>
@@ -725,24 +707,6 @@ export function LokiExplorer({
                   })
                 }
               />
-              {session.lokiRangeHistory.length > 0 && (
-                <div className={styles.rangeHistory}>
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    onClick={() => restoreRange()}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    onClick={() => restoreRange(true)}
-                  >
-                    Reset range
-                  </button>
-                </div>
-              )}
             </div>
           }
           utilities={
@@ -872,24 +836,6 @@ export function LokiExplorer({
                   setLokiState({ lokiResultView: view as typeof resultView })
                 }
               />
-              {resultView !== 'list' && session.lokiRangeHistory.length > 0 && (
-                <div className={styles.rangeHistory}>
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    onClick={() => restoreRange()}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    className="btn ghost"
-                    onClick={() => restoreRange(true)}
-                  >
-                    Reset range
-                  </button>
-                </div>
-              )}
             </div>
             {patternScope &&
               (resultView === 'list' || resultView === 'table') && (
@@ -933,13 +879,13 @@ export function LokiExplorer({
                   reconnecting={connectionReconnecting}
                   configuration={{ ...trendVisualization, view: 'table' }}
                   seriesVisibility={session.seriesVisibility}
-                  activeFilters={session.sqlResultFilters}
+                  activeFilters={logResultFilters}
                   hidePicker
                   onConfigurationChange={setTrendVisualization}
                   onSeriesVisibilityChange={onSeriesVisibilityChange}
                   onAddFilter={onAddResultFilter}
                   onRemoveFilter={onRemoveResultFilter}
-                  onClearFilters={onClearResultFilters}
+                  onClearFilters={onClearLogResultFilters}
                   onReconnect={() =>
                     connectionId && void reconnectActiveProfile(connectionId)
                   }
@@ -972,7 +918,6 @@ export function LokiExplorer({
                   onReconnect={() =>
                     connectionId && void reconnectActiveProfile(connectionId)
                   }
-                  onTemporalRangeSelected={selectRange}
                 />
               ) : (
                 <div className={styles.empty}>Loading log volume…</div>

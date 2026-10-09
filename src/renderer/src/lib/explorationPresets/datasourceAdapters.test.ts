@@ -153,14 +153,12 @@ describe('datasource preset adapters', () => {
       valueColumn: 'rate',
       seriesColumn: 'app',
     }
-    source.lokiRangeHistory = [{ kind: 'all' }]
     const payload = lokiPresetAdapter.capture(source)
     expect(payload).not.toHaveProperty('lokiRangeHistory')
     expect(lokiPresetAdapter.parse(payload)).toEqual(payload)
     const target = testSession()
-    target.lokiRangeHistory = [{ kind: 'rolling', amount: 1, unit: 'hour' }]
-    expect(lokiPresetAdapter.apply(target, payload).lokiRangeHistory).toEqual(
-      target.lokiRangeHistory,
+    expect(lokiPresetAdapter.apply(target, payload).lokiTimeRange).toEqual(
+      source.lokiTimeRange,
     )
   })
 
