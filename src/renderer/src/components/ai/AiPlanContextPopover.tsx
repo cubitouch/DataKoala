@@ -39,6 +39,7 @@ export function AiPlanContextPopover({
                   {response.hints.map((hint, index) => (
                     <li key={`${hint.title}:${index}`}>
                       <strong>{hint.title}</strong>
+                      {hint.action && <strong>{hint.action}</strong>}
                       <p>{hint.detail}</p>
                       <small>
                         Evidence: {hint.evidence} · node{' '}

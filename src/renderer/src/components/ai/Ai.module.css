@@ -724,3 +724,8 @@
   font-family: var(--mono);
   overflow-wrap: anywhere;
 }
+
+.planHints strong + strong {
+  color: var(--accent);
+  font-size: 11px;
+}

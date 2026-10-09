@@ -1,0 +1,130 @@
+.root {
+  display: flex;
+  flex: 0 1 360px;
+  flex-direction: column;
+  gap: 14px;
+  min-width: min(280px, 100%);
+  max-width: 420px;
+  max-height: 620px;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-2);
+}
+
+.header {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.header > span {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.header h2,
+.section h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.header p {
+  margin: 0;
+  color: var(--text-mute);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.section {
+  display: grid;
+  gap: 7px;
+}
+
+.section h3 {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.section dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.section dl > div {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.2fr);
+  gap: 10px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.section dt {
+  color: var(--text-mute);
+}
+
+.section dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.signalList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signalList li {
+  min-width: 0;
+}
+
+.signal {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.signalTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--text);
+  font-size: 11px;
+}
+
+.signalTitle span {
+  color: var(--amber);
+}
+
+.signalList small {
+  color: var(--text-mute);
+  font-size: 10px;
+}
+
+@media (width <= 900px) {
+  .root {
+    flex: 1 1 auto;
+    max-width: none;
+    max-height: 360px;
+  }
+}

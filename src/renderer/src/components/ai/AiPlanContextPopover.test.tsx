@@ -18,6 +18,7 @@ describe('AiPlanContextPopover', () => {
       hints: [
         {
           title: 'Review scan selectivity',
+          action: 'Check the filter selectivity.',
           detail: 'The scan returns a large number of rows.',
           severity: 'warning',
           nodeIds: ['0'],
@@ -47,6 +48,7 @@ describe('AiPlanContextPopover', () => {
     expect(screen.getByText('select * from orders')).toBeTruthy()
     expect(screen.getByLabelText('AI response')).toBeTruthy()
     expect(screen.getByText('Review scan selectivity')).toBeTruthy()
+    expect(screen.getByText('Check the filter selectivity.')).toBeTruthy()
     expect(screen.getByText('About this request')).toBeTruthy()
   })
 })

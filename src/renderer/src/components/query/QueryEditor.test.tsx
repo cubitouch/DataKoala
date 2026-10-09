@@ -53,6 +53,14 @@ vi.mock('@lib/api', () => ({
   },
 }))
 vi.mock('@components/ui/feedback/NotificationArea', () => ({ notify }))
+vi.mock('@components/query/sql/ExecutionPlanGraph', () => ({
+  ExecutionPlanGraph: () => (
+    <div
+      aria-label="Execution plan diagram"
+      data-testid="execution-plan-test-double"
+    />
+  ),
+}))
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({
     value,
@@ -1444,7 +1452,7 @@ describe('QueryEditor Explain loading states', () => {
         .hasAttribute('disabled'),
     ).toBe(true)
     expect(
-      screen.getByText('Generating query plan…').getAttribute('aria-live'),
+      screen.getByTestId('explain-loading-overlay').getAttribute('aria-live'),
     ).toBe('polite')
     expect(screen.getByText('previous plan')).toBeTruthy()
     expect(screen.getByLabelText('SQL editor')).toHaveProperty('disabled', true)
@@ -1495,8 +1503,11 @@ describe('QueryEditor Explain loading states', () => {
         executionTimeMs: 3.8,
       }),
     )
-    expect(screen.getByText(/Planning time/).textContent).toContain('0.60 ms')
-    expect(screen.getByText(/Execution time/).textContent).toContain('3.80 ms')
+    const summary = screen.getByLabelText('Plan summary').textContent
+    expect(summary).toContain('Planning')
+    expect(summary).toContain('0.60 ms')
+    expect(summary).toContain('Execution')
+    expect(summary).toContain('3.80 ms')
   })
 
   it('shows Analyzing, sends analyze=true, and ends after failure through existing error text', async () => {
@@ -1515,7 +1526,7 @@ describe('QueryEditor Explain loading states', () => {
       screen.getByRole('button', { name: 'Explain' }).hasAttribute('disabled'),
     ).toBe(true)
     expect(
-      screen.getByText('Running EXPLAIN ANALYZE…').getAttribute('aria-live'),
+      screen.getByTestId('explain-loading-overlay').getAttribute('aria-live'),
     ).toBe('polite')
     await waitFor(() =>
       expect(explain).toHaveBeenCalledWith('profile-1', 'select 1;', true),

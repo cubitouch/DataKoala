@@ -16,6 +16,7 @@ let aiConfigured = false
 let delayPlanResponse = false
 let pendingPlanResponse
 let cancelledPlanRequests = 0
+let previewStep = 'initialize preview'
 
 async function wait(win, expression, description) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -44,13 +45,15 @@ const tree = {
       startupCost: 1284.42,
       totalCost: 1286.92,
       planRows: 1000,
-      actualRows: 1000,
+      actualRows: 10_000,
       actualTotalTime: 24.7,
       loops: 1,
       sortKey: ['sum(o.amount) DESC'],
-      sortMethod: 'top-N heapsort',
-      sortSpaceUsed: 49,
-      sortSpaceType: 'Memory',
+      sortMethod: 'external merge',
+      sortSpaceUsed: 8192,
+      sortSpaceType: 'Disk',
+      tempWrittenBlocks: 215,
+      tempReadBlocks: 214,
       children: [
         {
           id: '0.0.0',
@@ -117,9 +120,11 @@ const tree = {
                       plan: 'Index Scan using customers_pkey on customers c',
                       nodeType: 'Index Scan',
                       schema: 'analytics',
-                      relation: 'customers',
+                      relation:
+                        'customers_with_a_long_relation_name_for_preview',
                       alias: 'c',
-                      index: 'customers_pkey',
+                      index:
+                        'customers_primary_region_account_activity_index_long_name',
                       startupCost: 0.29,
                       totalCost: 186.4,
                       planRows: 10000,
@@ -163,6 +168,7 @@ app.whenReady().then(async () => {
           hints: [
             {
               title: 'Join cardinality is underestimated',
+              action: 'Review statistics for the join key and filtered rows.',
               detail:
                 'The planner estimated far fewer rows than PostgreSQL returned, which may affect downstream choices.',
               severity: 'warning',
@@ -172,6 +178,7 @@ app.whenReady().then(async () => {
             },
             {
               title: 'Review the date filter selectivity',
+              action: null,
               detail:
                 'The scan removed a noticeable number of rows after applying the captured date predicate.',
               severity: 'info',
@@ -206,14 +213,34 @@ app.whenReady().then(async () => {
         backgroundThrottling: false,
       },
     })
+    win.webContents.on(
+      'console-message',
+      (_event, level, message, line, source) => {
+        if (level >= 2)
+          console.error(
+            `Renderer console (${level}): ${message} (${source}:${line})`,
+          )
+      },
+    )
 
+    previewStep = 'load renderer'
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
+    previewStep = 'wait for renderer store'
     await wait(
       win,
       `document.getElementById('root')?.children.length && window.__datakoalaStore`,
       'renderer store',
     )
+    await win.webContents.executeJavaScript(`(() => {
+      window.addEventListener('error', (event) => {
+        console.error('Window error stack:', event.error?.stack ?? event.message)
+      })
+      window.addEventListener('unhandledrejection', (event) => {
+        console.error('Unhandled rejection:', event.reason?.stack ?? event.reason)
+      })
+    })()`)
 
+    previewStep = 'seed EXPLAIN plan'
     await win.webContents.executeJavaScript(`(() => {
       const store = window.__datakoalaStore
       const state = store.getState()
@@ -265,91 +292,218 @@ app.whenReady().then(async () => {
       })
     })()`)
 
+    previewStep = 'wait for JointJS graph'
     await wait(
       win,
-      `document.querySelector('[aria-label="Execution plan diagram"]') && document.body.innerText.includes('EXPLAIN ANALYZE') && document.body.innerText.includes('700× estimate') && document.body.innerText.includes('close estimate') && document.body.innerText.includes('2.50 ms / loop') && document.body.innerText.includes('≈25.00 ms total')`,
-      'execution-plan diagnostics',
+      `(() => {
+        const diagram = document.querySelector('[aria-label="Execution plan diagram"]')
+        const nodeCount = Number(diagram?.dataset.nodeCount ?? 0)
+        const edgeCount = Number(diagram?.dataset.edgeCount ?? 0)
+        return nodeCount >= 7 && edgeCount === nodeCount - 1 && document.body.innerText.includes('EXPLAIN ANALYZE')
+      })()`,
+      'JointJS execution-plan graph and Explain summary',
     )
 
+    previewStep = 'configure and run AI analysis'
     await sleep(250)
+    previewStep = 'inspect unconfigured Explain state'
     const unconfiguredReport = await win.webContents.executeJavaScript(`({
       plan: Boolean(document.querySelector('[aria-label="Execution plan diagram"]')),
-      analyzeAction: [...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Analyze performance')
+      headerAnalyzeAction: [...document.querySelector('[aria-label="Explain results"] header')?.querySelectorAll('button') ?? []].some((button) => button.textContent?.trim() === 'Analyze performance')
     })`)
-    if (!unconfiguredReport.plan || unconfiguredReport.analyzeAction)
+    if (!unconfiguredReport.plan || unconfiguredReport.headerAnalyzeAction)
       throw new Error(
         `Unconfigured EXPLAIN preview assertion failed: ${JSON.stringify(unconfiguredReport)}`,
       )
     aiConfigured = true
+    previewStep = 'dispatch AI settings changed event'
     await win.webContents.executeJavaScript(
       `window.dispatchEvent(new Event('datakoala:ai-settings-changed'))`,
     )
+    previewStep = 'wait for configured AI action'
     await wait(
       win,
-      `[...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Analyze performance')`,
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.trim() === 'Run analysis')`,
       'configured AI performance action',
     )
     if (planAnalysisCalls !== 0)
       throw new Error(
         'Opening the plan triggered AI analysis without an explicit action',
       )
+    previewStep = 'change editor SQL'
     await win.webContents.executeJavaScript(
       `window.__datakoalaStore.getState().setSql('select * from analytics.other_table;')`,
     )
+    previewStep = 'click Run analysis'
     await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Analyze performance')?.click()`,
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.trim() === 'Run analysis')?.click()`,
     )
+    previewStep = 'wait for mocked AI response'
     await wait(
       win,
       `document.body.innerText.includes('Join cardinality is underestimated') && document.body.innerText.includes('Review the date filter selectivity')`,
       'mocked AI performance hints',
     )
+    previewStep = 'select first AI hint'
     await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()`,
+      `[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()\n//# sourceURL=datakoala-ai-hint-click.js`,
     )
-    const aiReport = await win.webContents.executeJavaScript(`({
+    await sleep(100)
+    previewStep = 'validate initial AI selection'
+    const aiReportScript = `({
       calls: ${planAnalysisCalls},
       sql: ${JSON.stringify(capturedPlanRequest?.sql ?? null)},
       mode: ${JSON.stringify(capturedPlanRequest?.mode ?? null)},
       planNodeCount: ${capturedPlanRequest?.plan?.nodes?.length ?? 0},
-      highlights: [...document.querySelectorAll('[data-ai-highlighted="true"]')].map((node) => node.dataset.nodeId),
+      selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.selectedNodeId,
+      focusNodeId: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.focusNodeId,
+      highlights: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.highlightedNodeIds?.split(',').filter(Boolean) ?? [],
+      inspectorSignals: [...(document.querySelector('[aria-label="Plan node details"] [aria-label="Plan signals"]')?.querySelectorAll('li') ?? [])].map((item) => item.innerText),
       capturedQueryNotice: document.body.innerText.includes('This plan belongs to the SQL captured when Explain was run.')
-    })`)
+    })\n//# sourceURL=datakoala-ai-hint-report.js`
+    let aiReport
+    try {
+      aiReport = await win.webContents.executeJavaScript(aiReportScript)
+    } catch (error) {
+      console.error(`Initial AI report script: ${aiReportScript}`)
+      throw error
+    }
     if (
       aiReport.calls !== 1 ||
       !String(aiReport.sql).startsWith('SELECT c.country') ||
       aiReport.mode !== 'analyze' ||
       aiReport.planNodeCount < 7 ||
+      aiReport.selectedNodeId !== '0.0.0.0' ||
+      aiReport.focusNodeId !== '0.0.0.0' ||
       aiReport.highlights.length !== 2 ||
+      !aiReport.inspectorSignals.some((signal) =>
+        signal.includes('Material row estimate mismatch'),
+      ) ||
       !aiReport.capturedQueryNotice
     )
       throw new Error(
         `EXPLAIN AI preview assertion failed: ${JSON.stringify(aiReport)}`,
       )
 
+    await win.webContents.executeJavaScript(`(() => {
+      const node = document.querySelector('[data-node-id="0.0"]')
+      node?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
+    })()`)
+    await sleep(100)
+    previewStep = 'build Explain preview report'
     const report = await win.webContents.executeJavaScript(`(() => {
       const diagram = document.querySelector('[aria-label="Execution plan diagram"]')
-      const nodes = [...document.querySelectorAll('[data-testid="plan-node"]')]
-      const text = diagram?.innerText ?? ''
+      const surface = document.querySelector('[data-testid="execution-plan-joint-surface"]')
+      const explainRoot = document.querySelector('[aria-label="Explain results"]')
+      const summary = document.querySelector('[aria-label="Plan summary"]')
+      const inspector = document.querySelector('[aria-label="Plan node details"]')
+      const signals = inspector?.querySelector('[aria-label="Plan signals"]')
+      const signalSections = document.querySelectorAll('[aria-label="Plan signals"]')
+      const hints = document.querySelector('[aria-label="Performance hints"]')
+      const header = explainRoot?.querySelector('header')
+      const toolbar = diagram?.querySelector('[aria-label="Plan diagram navigation"]')
+      const canvas = diagram?.querySelector('[data-testid="execution-plan-joint-surface"]')
+      const text = document.body.innerText + (diagram?.textContent ?? '')
+      const layout = document.querySelector('[class*="planLayout"]')
+      const nodeElement = (id) => document.querySelector('[data-node-id="' + id + '"]')
+      const nodeBounds = (id) => nodeElement(id)?.getBoundingClientRect()
+      const rootElement = nodeElement('0')
+      const firstChildElement = nodeElement('0.0')
+      const rootNode = rootElement?.getBoundingClientRect()
+      const firstChild = firstChildElement?.getBoundingClientRect()
+      const sortNode = firstChild
+      const join = nodeBounds('0.0.0.0')
+      const joinLeftChild = nodeBounds('0.0.0.0.0')
+      const joinRightChild = nodeBounds('0.0.0.0.1')
+      const longTargetNode = document.querySelector('[data-node-id="0.0.0.0.1.0"]')
+      const svgTexts = [...(longTargetNode?.querySelectorAll('text') ?? [])]
+      const rootBackground = getComputedStyle(explainRoot).backgroundColor
+      const surfaceBackground = getComputedStyle(surface).backgroundColor
+      const paper = surface?.firstElementChild
+      const paperBackground = paper ? getComputedStyle(paper).backgroundColor : ''
+      const opaque = (color) => Boolean(color && color !== 'transparent' && !/[,/]\\s*0\\s*\\)?$/.test(color))
+      const rootRect = rootElement?.querySelector('rect')
+      const selectedRect = firstChildElement?.querySelector('rect')
+      const rootBodyBounds = rootRect?.getBoundingClientRect()
+      const rootStroke = rootRect ? getComputedStyle(rootRect).stroke : ''
+      const selectedStroke = selectedRect ? getComputedStyle(selectedRect).stroke : ''
+      const toolbarBounds = toolbar?.getBoundingClientRect()
+      const canvasBounds = canvas?.getBoundingClientRect()
+      const performanceStyle = hints ? getComputedStyle(hints) : null
       return {
-        nodeCount: nodes.length,
+        nodeCount: Number(diagram?.dataset.nodeCount ?? 0),
+        edgeCount: Number(diagram?.dataset.edgeCount ?? 0),
+        selectedNodeId: diagram?.dataset.selectedNodeId,
+        highlightedNodeIds: diagram?.dataset.highlightedNodeIds?.split(',').filter(Boolean),
         categories: ['Limit', 'Sort', 'Aggregate', 'Join', 'Scan', 'Hash'].filter(
           (label) => text.includes(label),
         ),
-        hasSummary:
-          text.includes('Planning time') && text.includes('Execution time'),
+        hasSummary: summary?.innerText.includes('Planning') && summary?.innerText.includes('Execution'),
+        hasSignalsLabel: summary?.innerText.includes('Signals'),
         hasMeasuredTime: text.includes('Measured time'),
-        hasPlannerMsConfusion: /Planner cost[^\\n]*ms/i.test(text),
+        hasPlannerMsConfusion: /Planner cost\\s*:\\s*[\\d.]+\\s*ms/i.test(text),
         width: diagram?.getBoundingClientRect().width,
-        height: diagram?.getBoundingClientRect().height
+        height: diagram?.getBoundingClientRect().height,
+        signalsInInspector: Boolean(signals && inspector?.contains(signals) && signalSections.length === 1),
+        signalCount: signals?.querySelectorAll('li').length ?? 0,
+        signalButtons: signals?.querySelectorAll('button').length ?? 0,
+        noRepeatedMeasuredSignals: !text.includes('High measured work'),
+        opaqueSurfaces: opaque(rootBackground) && opaque(surfaceBackground) && opaque(paperBackground),
+        surfaceColors: { rootBackground, surfaceBackground, paperBackground },
+        noPlanNote: !explainRoot?.querySelector('[class*="planNote"]'),
+        noHeaderAnalyzeAction: ![...(header?.querySelectorAll('button') ?? [])].some((button) => button.textContent?.trim() === 'Analyze performance'),
+        runAgainInHints: Boolean(hints && [...hints.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Run again')),
+        aiDetailsInHints: Boolean(hints?.querySelector('[aria-label="Inspect Analyze performance request"]')),
+        hintsFlat: Boolean(performanceStyle && performanceStyle.borderTopWidth === '0px' && performanceStyle.backgroundColor === 'rgba(0, 0, 0, 0)'),
+        controlsOverlay: Boolean(toolbar && toolbar.parentElement === diagram && getComputedStyle(toolbar).position === 'absolute'),
+        canvasFillsGraph: Boolean(toolbarBounds && canvasBounds && canvasBounds.top <= toolbarBounds.top && canvasBounds.height >= diagram.getBoundingClientRect().height - 4),
+        normalNodeBorder: Boolean(rootStroke && rootStroke !== 'none' && rootStroke !== surfaceBackground),
+        rootBodyBounds: rootBodyBounds ? { width: rootBodyBounds.width, height: rootBodyBounds.height } : null,
+        rootBodyMatchesNode: Boolean(rootNode && rootBodyBounds && rootBodyBounds.width >= rootNode.width * 0.95 && rootBodyBounds.height >= rootNode.height * 0.95),
+        selectedNodeOutlineStrong: Boolean(selectedStroke && rootStroke !== selectedStroke),
+        rootAboveChild: Boolean(rootNode && firstChild && rootNode.y < firstChild.y),
+        joinAboveChildren: Boolean(join && joinLeftChild && joinRightChild && join.y < joinLeftChild.y && join.y < joinRightChild.y),
+        siblingOrder: Boolean(joinLeftChild && joinRightChild && joinLeftChild.x < joinRightChild.x),
+        separateNodeText: svgTexts.length >= 6,
+        truncatedTarget: svgTexts[2]?.textContent?.endsWith('…') ?? false,
+        fullTargetAccessible: longTargetNode?.getAttribute('aria-label')?.includes('customers_with_a_long_relation_name_for_preview') ?? false,
+        actionableSubtitle: text.includes('Review statistics for the join key and filtered rows.'),
+        layoutDirection: layout ? getComputedStyle(layout).flexDirection : null,
       }
     })()`)
+    previewStep = 'validate Explain preview report'
     if (
       report.nodeCount < 7 ||
+      report.edgeCount !== report.nodeCount - 1 ||
       report.categories.length < 6 ||
       !report.hasSummary ||
+      !report.hasSignalsLabel ||
       !report.hasMeasuredTime ||
       report.hasPlannerMsConfusion ||
+      report.selectedNodeId !== '0.0' ||
+      report.highlightedNodeIds?.length !== 2 ||
+      !report.signalsInInspector ||
+      report.signalCount !== 2 ||
+      report.signalButtons !== 0 ||
+      !report.noRepeatedMeasuredSignals ||
+      !report.opaqueSurfaces ||
+      !report.noPlanNote ||
+      !report.noHeaderAnalyzeAction ||
+      !report.runAgainInHints ||
+      !report.aiDetailsInHints ||
+      !report.hintsFlat ||
+      !report.controlsOverlay ||
+      !report.canvasFillsGraph ||
+      !report.normalNodeBorder ||
+      !report.rootBodyMatchesNode ||
+      !report.selectedNodeOutlineStrong ||
+      !report.rootAboveChild ||
+      !report.joinAboveChildren ||
+      !report.siblingOrder ||
+      !report.separateNodeText ||
+      !report.truncatedTarget ||
+      !report.fullTargetAccessible ||
+      !report.actionableSubtitle ||
       report.width < 700 ||
       report.height < 300
     ) {
@@ -357,6 +511,24 @@ app.whenReady().then(async () => {
         `EXPLAIN preview semantic/layout assertion failed: ${JSON.stringify(report)}`,
       )
     }
+
+    win.setSize(900, 900)
+    await sleep(180)
+    const narrowExplain = await win.webContents.executeJavaScript(`({
+      direction: getComputedStyle(document.querySelector('[class*="planLayout"]')).flexDirection,
+      graphWidth: document.querySelector('[aria-label="Execution plan diagram"]').getBoundingClientRect().width,
+      inspectorWidth: document.querySelector('[aria-label="Plan node details"]').getBoundingClientRect().width
+    })`)
+    if (
+      narrowExplain.direction !== 'column' ||
+      narrowExplain.graphWidth < 300 ||
+      narrowExplain.inspectorWidth < 250
+    )
+      throw new Error(
+        `Narrow EXPLAIN layout assertion failed: ${JSON.stringify(narrowExplain)}`,
+      )
+    win.setSize(1440, 1000)
+    await sleep(180)
 
     await win.webContents.executeJavaScript(
       `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
@@ -368,9 +540,56 @@ app.whenReady().then(async () => {
       (await win.webContents.capturePage()).toPNG(),
     )
 
+    previewStep = 'manual graph selection'
+    const manualNodeSelected = await win.webContents.executeJavaScript(`(() => {
+      const element = document.querySelector('[data-node-id="0"]')
+      if (!element) return false
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
+      return true
+    })()`)
+    if (!manualNodeSelected)
+      throw new Error('Plan node was not rendered by JointJS')
+    await sleep(100)
+    const manualSelection = await win.webContents.executeJavaScript(`({
+      selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
+      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds,
+      activeHint: [...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true'),
+      hasSignals: Boolean(document.querySelector('[aria-label="Plan node details"] [aria-label="Plan signals"]'))
+    })`)
+    if (
+      manualSelection.selectedNodeId !== '0' ||
+      !manualSelection.activeHint ||
+      manualSelection.highlightedNodeIds.split(',').length !== 2 ||
+      manualSelection.hasSignals
+    )
+      throw new Error(
+        `Manual graph selection did not update the inspector while preserving the AI hint: ${JSON.stringify(manualSelection)}`,
+      )
+
+    previewStep = 'second AI hint selection'
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.includes('Review the date filter selectivity'))?.click()`,
+    )
+    const secondHintSelection = await win.webContents.executeJavaScript(`({
+      selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
+      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds,
+      selectedHint: [...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.includes('Review the date filter selectivity') && button.getAttribute('aria-pressed') === 'true'),
+      hasSignals: Boolean(document.querySelector('[aria-label="Plan node details"] [aria-label="Plan signals"]'))
+    })`)
+    if (
+      secondHintSelection.selectedNodeId !== '0.0.0.0.0' ||
+      secondHintSelection.highlightedNodeIds !== '0.0.0.0.0' ||
+      !secondHintSelection.selectedHint ||
+      secondHintSelection.hasSignals
+    )
+      throw new Error(
+        `AI hint selection did not focus its plan node: ${JSON.stringify(secondHintSelection)}`,
+      )
+
+    previewStep = 'plan replacement cancellation'
     delayPlanResponse = true
     await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Analyze performance')?.click()`,
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.trim() === 'Run again')?.click()`,
     )
     for (let attempt = 0; attempt < 50 && !pendingPlanResponse; attempt += 1)
       await sleep(50)
@@ -388,7 +607,7 @@ app.whenReady().then(async () => {
     })()`)
     await wait(
       win,
-      `document.body.innerText.includes('Analyze this captured plan to get optional AI hints.')`,
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.trim() === 'Run analysis')`,
       'replacement plan state reset',
     )
     pendingPlanResponse()
@@ -406,8 +625,66 @@ app.whenReady().then(async () => {
       throw new Error(
         `Late EXPLAIN analysis response was not isolated from the replacement plan: ${JSON.stringify(replacementReport)}`,
       )
+
+    previewStep = 'start Explain Analyze replacement request'
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore
+      const state = store.getState()
+      const session = state.tabs.find((tab) => tab.id === state.activeTabId)
+      store.getState().setExplain('existing EXPLAIN plan', session.id, {
+        query: session.sql, mode: 'explain'
+      }, session.explainTree)
+      store.getState().setActiveExplainRequest('analyze', session.id)
+    })()`)
+    await wait(
+      win,
+      `document.querySelector('[aria-label="Explain results"] h1')?.textContent === 'EXPLAIN ANALYZE' && document.querySelector('[data-testid="explain-loading-overlay"]')?.textContent.includes('Running EXPLAIN ANALYZE')`,
+      'Analyze replacement loading state',
+    )
+    const loadingReport = await win.webContents.executeJavaScript(`(() => {
+      const content = document.querySelector('[data-testid="explain-content-body"]')
+      const diagram = document.querySelector('[aria-label="Execution plan diagram"]')
+      const inspector = document.querySelector('[aria-label="Plan node details"]')
+      return {
+        heading: document.querySelector('[aria-label="Explain results"] h1')?.textContent,
+        message: document.querySelector('[data-testid="explain-loading-overlay"]')?.textContent?.trim(),
+        inert: content?.hasAttribute('inert') ?? false,
+        staleStyle: content?.className.includes('staleContent') ?? false,
+        oldGraphVisible: Number(diagram?.dataset.nodeCount ?? 0) > 0,
+        oldPlanVisible: inspector?.textContent?.includes('replacement') ?? false
+      }
+    })()`)
+    if (
+      loadingReport.heading !== 'EXPLAIN ANALYZE' ||
+      !loadingReport.message?.includes('Running EXPLAIN ANALYZE') ||
+      !loadingReport.inert ||
+      !loadingReport.staleStyle ||
+      !loadingReport.oldGraphVisible ||
+      !loadingReport.oldPlanVisible
+    )
+      throw new Error(
+        `Explain Analyze loading overlay did not cover the previous plan: ${JSON.stringify(loadingReport)}`,
+      )
+
+    previewStep = 'resolve Explain Analyze replacement request'
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore
+      const state = store.getState()
+      const session = state.tabs.find((tab) => tab.id === state.activeTabId)
+      const nextTree = { id: '0', nodeType: 'Hash Join', plan: 'fresh analyzed plan', children: [] }
+      store.getState().setExplain('fresh analyzed plan', session.id, {
+        query: session.sql, mode: 'analyze', planningTimeMs: 0.3, executionTimeMs: 2
+      }, nextTree)
+      store.getState().setActiveExplainRequest(null, session.id)
+    })()`)
+    await wait(
+      win,
+      `document.querySelector('[aria-label="Explain results"] h1')?.textContent === 'EXPLAIN ANALYZE' && !document.querySelector('[data-testid="explain-loading-overlay"]') && document.querySelector('[aria-label="Plan node details"]')?.textContent.includes('fresh analyzed plan')`,
+      'replacement Analyze plan after loading',
+    )
     app.exit(0)
   } catch (error) {
+    console.error(`EXPLAIN preview failed during: ${previewStep}`)
     console.error(error)
     app.exit(1)
   }

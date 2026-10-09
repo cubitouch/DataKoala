@@ -50,6 +50,12 @@ export interface CardinalityComparison {
   label: string
 }
 
+export const EXPLAIN_DIAGNOSTIC_LIMITS = {
+  materialCardinalityRatio: 2,
+  highMeasuredWorkMs: 1000,
+  minimumTemporaryWriteBlocks: 1,
+} as const
+
 function formatRatio(ratio: number): string {
   if (ratio === 0) return '0× estimate'
   if (ratio < 0.01) return '<0.01× estimate'
@@ -79,7 +85,11 @@ export function compareCardinality(
   const ratio = actualRows / planRows
   return {
     relation:
-      ratio >= 2 ? 'underestimate' : ratio <= 0.5 ? 'overestimate' : 'close',
+      ratio >= EXPLAIN_DIAGNOSTIC_LIMITS.materialCardinalityRatio
+        ? 'underestimate'
+        : ratio <= 1 / EXPLAIN_DIAGNOSTIC_LIMITS.materialCardinalityRatio
+          ? 'overestimate'
+          : 'close',
     ratio,
     label: formatRatio(ratio),
   }

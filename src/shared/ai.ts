@@ -164,6 +164,8 @@ export interface AiPlanAnalysisRequest {
 
 export interface AiPerformanceHint {
   title: string
+  /** Concise next action when justified, otherwise null for an observation. */
+  action: string | null
   detail: string
   severity: 'info' | 'warning'
   nodeIds: string[]
@@ -228,6 +230,7 @@ export const AI_LIMITS = {
   planKeysPerNode: 16,
   planHintCount: 8,
   planHintTitle: 120,
+  planHintAction: 200,
   planHintDetail: 1200,
   planHintEvidence: 600,
   planHintNodes: 8,
