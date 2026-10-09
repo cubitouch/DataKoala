@@ -317,8 +317,8 @@ test('generation-scoped stale cleanup cannot disconnect a replacement or another
       { id: 'b', generation: 1, serverVersion: undefined },
       { id: 'a', generation: 2, serverVersion: undefined },
     ])
-    await replacement!.query('select 1')
-    await other!.query('select 1')
+    await replacement!.query({ sql: 'select 1' })
+    await other!.query({ sql: 'select 1' })
   } finally {
     await manager.disconnectAll()
   }
