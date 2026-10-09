@@ -382,6 +382,7 @@ app.whenReady().then(async () => {
       node?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
     })()`)
     await sleep(100)
+    previewStep = 'build Explain preview report'
     const report = await win.webContents.executeJavaScript(`(() => {
       const diagram = document.querySelector('[aria-label="Execution plan diagram"]')
       const surface = document.querySelector('[data-testid="execution-plan-joint-surface"]')
@@ -396,13 +397,16 @@ app.whenReady().then(async () => {
       const canvas = diagram?.querySelector('[data-testid="execution-plan-joint-surface"]')
       const text = document.body.innerText + (diagram?.textContent ?? '')
       const layout = document.querySelector('[class*="planLayout"]')
-      const bounds = (id) => document.querySelector('[data-node-id="' + id + '"]')?.getBoundingClientRect()
-      const rootNode = bounds('0')
-      const firstChild = bounds('0.0')
+      const nodeElement = (id) => document.querySelector('[data-node-id="' + id + '"]')
+      const nodeBounds = (id) => nodeElement(id)?.getBoundingClientRect()
+      const rootElement = nodeElement('0')
+      const firstChildElement = nodeElement('0.0')
+      const rootNode = rootElement?.getBoundingClientRect()
+      const firstChild = firstChildElement?.getBoundingClientRect()
       const sortNode = firstChild
-      const join = bounds('0.0.0.0')
-      const joinLeftChild = bounds('0.0.0.0.0')
-      const joinRightChild = bounds('0.0.0.0.1')
+      const join = nodeBounds('0.0.0.0')
+      const joinLeftChild = nodeBounds('0.0.0.0.0')
+      const joinRightChild = nodeBounds('0.0.0.0.1')
       const longTargetNode = document.querySelector('[data-node-id="0.0.0.0.1.0"]')
       const svgTexts = [...(longTargetNode?.querySelectorAll('text') ?? [])]
       const rootBackground = getComputedStyle(explainRoot).backgroundColor
@@ -410,8 +414,10 @@ app.whenReady().then(async () => {
       const paper = surface?.firstElementChild
       const paperBackground = paper ? getComputedStyle(paper).backgroundColor : ''
       const opaque = (color) => Boolean(color && color !== 'transparent' && !/[,/]\\s*0\\s*\\)?$/.test(color))
-      const rootStroke = rootNode ? getComputedStyle(rootNode.querySelector('rect')).stroke : ''
-      const selectedStroke = sortNode ? getComputedStyle(sortNode.querySelector('rect')).stroke : ''
+      const rootRect = rootElement?.querySelector('rect')
+      const selectedRect = firstChildElement?.querySelector('rect')
+      const rootStroke = rootRect ? getComputedStyle(rootRect).stroke : ''
+      const selectedStroke = selectedRect ? getComputedStyle(selectedRect).stroke : ''
       const toolbarBounds = toolbar?.getBoundingClientRect()
       const canvasBounds = canvas?.getBoundingClientRect()
       const performanceStyle = hints ? getComputedStyle(hints) : null
