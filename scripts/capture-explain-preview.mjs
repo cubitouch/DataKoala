@@ -293,6 +293,7 @@ app.whenReady().then(async () => {
 
     previewStep = 'configure and run AI analysis'
     await sleep(250)
+    previewStep = 'inspect unconfigured Explain state'
     const unconfiguredReport = await win.webContents.executeJavaScript(`({
       plan: Boolean(document.querySelector('[aria-label="Execution plan diagram"]')),
       headerAnalyzeAction: [...document.querySelector('[aria-label="Explain results"] header')?.querySelectorAll('button') ?? []].some((button) => button.textContent?.trim() === 'Analyze performance')
@@ -302,9 +303,11 @@ app.whenReady().then(async () => {
         `Unconfigured EXPLAIN preview assertion failed: ${JSON.stringify(unconfiguredReport)}`,
       )
     aiConfigured = true
+    previewStep = 'dispatch AI settings changed event'
     await win.webContents.executeJavaScript(
       `window.dispatchEvent(new Event('datakoala:ai-settings-changed'))`,
     )
+    previewStep = 'wait for configured AI action'
     await wait(
       win,
       `[...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.trim() === 'Run analysis')`,
@@ -314,20 +317,25 @@ app.whenReady().then(async () => {
       throw new Error(
         'Opening the plan triggered AI analysis without an explicit action',
       )
+    previewStep = 'change editor SQL'
     await win.webContents.executeJavaScript(
       `window.__datakoalaStore.getState().setSql('select * from analytics.other_table;')`,
     )
+    previewStep = 'click Run analysis'
     await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.trim() === 'Run analysis')?.click()`,
     )
+    previewStep = 'wait for mocked AI response'
     await wait(
       win,
       `document.body.innerText.includes('Join cardinality is underestimated') && document.body.innerText.includes('Review the date filter selectivity')`,
       'mocked AI performance hints',
     )
+    previewStep = 'select first AI hint'
     await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()`,
     )
+    previewStep = 'validate initial AI selection'
     const aiReport = await win.webContents.executeJavaScript(`({
       calls: ${planAnalysisCalls},
       sql: ${JSON.stringify(capturedPlanRequest?.sql ?? null)},
