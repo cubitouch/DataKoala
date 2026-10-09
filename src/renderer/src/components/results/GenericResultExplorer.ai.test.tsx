@@ -42,15 +42,11 @@ vi.mock('echarts-for-react', async () => {
         }),
       }))
       const chartEvents = onEvents as
-        | { mouseover?: (params: Record<string, unknown>) => void }
-        | undefined
-      const firstSeries = (
-        option.series as Array<Record<string, unknown>>
-      )?.[0]
+        { mouseover?: (params: Record<string, unknown>) => void } | undefined
+      const firstSeries = (option.series as Array<Record<string, unknown>>)?.[0]
       const firstMarker = (
         firstSeries?.markPoint as
-          | { data?: Array<Record<string, unknown>> }
-          | undefined
+          { data?: Array<Record<string, unknown>> } | undefined
       )?.data?.[0]
       return (
         <>
@@ -338,12 +334,10 @@ describe('AI chart anomaly analysis', () => {
         Array<Record<string, unknown>> | undefined
       const markerData = (
         renderedSeries?.[0]?.markPoint as
-          | { data: Array<{ originalIndex: number }> }
-          | undefined
+          { data: Array<{ originalIndex: number }> } | undefined
       )?.data
       expect(markerData?.map(({ originalIndex }) => originalIndex)).toEqual([
-        157,
-        212,
+        157, 212,
       ])
     })
     expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()

@@ -164,14 +164,16 @@ app.whenReady().then(async () => {
             seriesIndex: 0,
             pointIndex: spikeIndex,
             title: 'Narrow spike',
-            reason: 'About 40× the surrounding baseline, then it returns to its usual level.',
+            reason:
+              'About 40× the surrounding baseline, then it returns to its usual level.',
             severity: 'high',
           },
           {
             seriesIndex: 0,
             pointIndex: dropIndex,
             title: 'Narrow drop',
-            reason: 'A brief fall below the usual range before values return to baseline.',
+            reason:
+              'A brief fall below the usual range before values return to baseline.',
             severity: 'medium',
           },
         ],
@@ -802,7 +804,8 @@ app.whenReady().then(async () => {
       win,
       `[...document.querySelectorAll('[role="dialog"]')].some((dialog) => dialog.textContent.includes('Narrow spike') && dialog.textContent.includes('Narrow drop') && dialog.textContent.includes('sample coverage'))`,
     )
-    const detailScrollContainers = await win.webContents.executeJavaScript(`(() => {
+    const detailScrollContainers = await win.webContents
+      .executeJavaScript(`(() => {
       const dialog = [...document.querySelectorAll('[role="dialog"]')].find((node) => node.textContent.includes('Narrow spike'))
       if (!dialog) return -1
       return [dialog, ...dialog.querySelectorAll('*')].filter((node) => {
