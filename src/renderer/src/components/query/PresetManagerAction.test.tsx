@@ -429,7 +429,6 @@ describe('PresetManagerAction', () => {
       showExplain: true,
       activeExplainRequest: 'explain',
       seriesVisibility: { failed: false },
-      lokiRangeHistory: [{ kind: 'rolling', amount: 7, unit: 'day' }],
     })
     const startQuery = vi.fn(),
       completeQuery = vi.fn(),
@@ -475,7 +474,6 @@ describe('PresetManagerAction', () => {
         showExplain: false,
         activeExplainRequest: null,
         seriesVisibility: {},
-        lokiRangeHistory: [],
       }),
     )
     expect(onPresetLoaded).toHaveBeenCalledOnce()
