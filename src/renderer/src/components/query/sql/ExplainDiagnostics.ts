@@ -1,7 +1,6 @@
 import type { ExplainNode } from '@shared/types'
 import {
   compareCardinality,
-  explainNodeTiming,
   EXPLAIN_DIAGNOSTIC_LIMITS,
 } from './ExecutionPlanPresentation'
 
@@ -22,10 +21,6 @@ function count(value: number): string {
   return value.toLocaleString()
 }
 
-function milliseconds(value: number): string {
-  return `${value.toFixed(value >= 100 ? 0 : 1)} ms`
-}
-
 export function getExplainDiagnostics(
   tree: ExplainNode,
   analyze: boolean,
@@ -38,26 +33,10 @@ export function getExplainDiagnostics(
       diagnostics.push({
         id: `cardinality:${node.id}`,
         title: 'Material row estimate mismatch',
-        description: `PostgreSQL estimated ${count(node.planRows!)} rows and observed ${count(node.actualRows!)} rows per loop.`,
+        description: `${count(node.planRows!)} estimated → ${count(node.actualRows!)} actual / loop`,
         evidence: `${cardinality.label}.`,
         nodeIds: [node.id],
         severity: 'warning',
-      })
-    }
-
-    const timing = explainNodeTiming(node)
-    if (
-      timing &&
-      timing.approxTotalMs >= EXPLAIN_DIAGNOSTIC_LIMITS.highMeasuredWorkMs
-    ) {
-      diagnostics.push({
-        id: `measured-work:${node.id}`,
-        title: 'High measured work',
-        description:
-          'Node timings are inclusive, so this approximate work includes descendant time.',
-        evidence: `${milliseconds(timing.perLoopMs)} per loop × ${count(timing.loops)} loops ≈ ${milliseconds(timing.approxTotalMs)} total measured work.`,
-        nodeIds: [node.id],
-        severity: 'info',
       })
     }
 
@@ -69,8 +48,8 @@ export function getExplainDiagnostics(
       diagnostics.push({
         id: `external-sort:${node.id}`,
         title: 'External sort used temporary storage',
-        description: `PostgreSQL reported ${node.sortMethod}.`,
-        evidence: `${count(node.tempWrittenBlocks!)} temporary blocks written${node.tempReadBlocks ? ` · ${count(node.tempReadBlocks)} temporary blocks read` : ''}.`,
+        description: node.sortMethod ?? 'External sort',
+        evidence: `${count(node.tempWrittenBlocks!)} temp blocks written${node.tempReadBlocks ? ` · ${count(node.tempReadBlocks)} read` : ''}`,
         nodeIds: [node.id],
         severity: 'warning',
       })
