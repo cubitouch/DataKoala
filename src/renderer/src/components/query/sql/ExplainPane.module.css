@@ -94,14 +94,6 @@
   min-width: 0;
 }
 
-.planNote {
-  flex: 0 0 auto;
-  margin: 0;
-  color: var(--text-mute);
-  font-size: 10px;
-  line-height: 1.45;
-}
-
 .status,
 .snapshotNotice {
   flex: 0 0 auto;
@@ -118,11 +110,8 @@
 
 .panel {
   display: grid;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-2);
+  gap: 8px;
+  padding: 0;
 }
 
 .panelHeading {
@@ -136,16 +125,11 @@
   gap: 4px;
 }
 
-.panelHeading p,
 .panelMessage {
   margin: 0;
   color: var(--text-dim);
   font-size: 11px;
   line-height: 1.5;
-}
-
-.panelHeading > p {
-  margin-left: auto;
 }
 
 .inlineActions {
@@ -161,71 +145,29 @@
   gap: 8px;
 }
 
-.signals {
-  display: grid;
-  gap: 4px;
-}
-
-.signal,
 .hint {
   display: grid;
   align-content: start;
   gap: 6px;
   min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg);
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-bottom-color: var(--border);
+  border-radius: 5px;
+  background: transparent;
   color: var(--text-dim);
   text-align: left;
   cursor: pointer;
 }
 
-.signal:hover,
 .hint:hover,
 .activeCard {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-.signalTitle {
-  grid-column: 2;
-  color: var(--text);
-  font-size: 11px;
-}
-
-.signal {
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  align-items: center;
-  gap: 3px 8px;
-  padding: 8px 10px;
-}
-
-.signalIcon {
-  grid-row: 1 / 3;
-  align-self: start;
-  color: var(--amber);
-  font-size: 12px;
-}
-
-.signalMetrics {
-  grid-column: 2;
-  color: var(--text-dim);
-  font-size: 10px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.signalDestination {
-  display: flex;
-  grid-column: 3;
-  grid-row: 1 / 3;
-  align-items: center;
-  gap: 8px;
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 650;
-  white-space: nowrap;
+.hint.activeCard {
+  box-shadow: inset 3px 0 var(--accent);
 }
 
 .hint > span:not(.hintTitle) {
@@ -319,7 +261,6 @@
     gap: 8px;
   }
 
-  .panelHeading > p,
   .inlineActions {
     margin-left: 0;
   }
