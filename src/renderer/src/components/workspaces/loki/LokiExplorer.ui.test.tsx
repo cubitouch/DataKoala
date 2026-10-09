@@ -121,10 +121,6 @@ beforeEach(() => {
   useStore.setState({
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'loki',
-    connected: true,
-    connectionStatus: 'connected',
-    connectionGeneration: 1,
     connectionStateByProfileId: {
       loki: {
         status: 'connected',
@@ -561,9 +557,6 @@ describe('LokiExplorer execution', () => {
     useStore.setState({
       tabs: [tab],
       activeTabId: tab.id,
-      connected: false,
-      connectionStatus: 'reconnecting',
-      connectionGeneration: 2,
       connectionStateByProfileId: {
         loki: {
           status: 'reconnecting',
@@ -624,9 +617,6 @@ describe('LokiExplorer execution', () => {
     await waitFor(() => expect(mocks.labelValues).toHaveBeenCalledTimes(1))
     act(() =>
       useStore.setState({
-        connected: false,
-        connectionStatus: 'reconnecting',
-        connectionGeneration: 2,
         connectionStateByProfileId: {
           loki: {
             status: 'reconnecting',
@@ -651,9 +641,6 @@ describe('LokiExplorer execution', () => {
 
     act(() =>
       useStore.setState({
-        connected: true,
-        connectionStatus: 'connected',
-        connectionGeneration: 3,
         connectionStateByProfileId: {
           loki: {
             status: 'connected',

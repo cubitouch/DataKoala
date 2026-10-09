@@ -326,8 +326,6 @@ it("doesn't disable profile B's reconnect control while profile A is connecting"
     profiles,
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'pg',
-    connecting: true,
     connectionStateByProfileId: {
       pg: {
         status: 'connecting',
@@ -436,8 +434,6 @@ it('shows a selected non-live profile without persistent connect-on-run copy', a
     profiles,
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'pg',
-    connected: true,
     connectionStateByProfileId: { pg: liveConnection() },
   })
   render(<Sidebar />)
@@ -488,9 +484,6 @@ it('keeps only the live profile refresh action pending and does not switch conne
     profiles,
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'pg',
-    connected: true,
-    connectionGeneration: 4,
     connectionStateByProfileId: { pg: liveConnection(4) },
     metadataByProfileId: {
       pg: {
@@ -572,9 +565,6 @@ it('restores the previous filtered tree and reports a failed manual refresh', as
     profiles,
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'pg',
-    connected: true,
-    connectionGeneration: 4,
     connectionStateByProfileId: { pg: liveConnection(4) },
     metadataByProfileId: {
       pg: {
@@ -623,9 +613,6 @@ it('retains compact progress feedback during an active connection attempt', asyn
     profiles,
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'bq',
-    connected: false,
-    connecting: true,
     connectionStateByProfileId: {
       bq: {
         status: 'connecting',
@@ -675,8 +662,6 @@ it('selecting a Tempo service seeds the structured Builder and clears stale serv
     profiles,
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'tempo',
-    connected: true,
     connectionStateByProfileId: { tempo: liveConnection() },
     metadataByProfileId: {
       tempo: {
@@ -735,8 +720,6 @@ it('selecting a Prometheus metric updates Builder state without replacing raw Pr
     profiles,
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'prom',
-    connected: true,
     connectionStateByProfileId: { prom: liveConnection() },
     metadataByProfileId: {
       prom: {
@@ -780,8 +763,6 @@ it('filters Tempo services with multiple partial tokens', async () => {
     profiles,
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'tempo',
-    connected: true,
     connectionStateByProfileId: { tempo: liveConnection() },
     metadataByProfileId: {
       tempo: {
@@ -841,9 +822,6 @@ it('keeps the Loki filter visible and uses the generic refresh status while labe
     profiles,
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'loki',
-    connected: true,
-    connectionGeneration: 3,
     connectionStateByProfileId: { loki: liveConnection(3) },
     metadataByProfileId: {
       loki: { schemas: [], status: 'loaded', error: null, isStale: false },
@@ -891,8 +869,6 @@ it('shows useful Loki labels, hides internal labels, and lazily seeds a value fi
     profiles,
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'loki',
-    connected: true,
     connectionStateByProfileId: { loki: liveConnection() },
   })
   render(<Sidebar />)

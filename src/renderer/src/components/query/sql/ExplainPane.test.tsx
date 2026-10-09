@@ -160,7 +160,6 @@ beforeEach(() => {
         readonly: true,
       },
     ],
-    activeProfileId: 'pg',
   })
   patchActiveTestSession({
     connectionProfileId: 'pg',

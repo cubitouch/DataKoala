@@ -218,7 +218,6 @@ describe('query session model', () => {
     const id = useStore.getState().activeTabId
     useStore.setState((state) => ({
       profiles: [],
-      activeProfileId: 'profile-a',
       tabs: state.tabs.map((tab) =>
         tab.id === id
           ? {

@@ -194,16 +194,15 @@ describe('Prometheus workspace restoration', () => {
     )
     expect(mocks.queryEditorRenders).toBeGreaterThan(initialEditorRenders)
     expect(activeTestSession().connectionProfileId).toBe(prometheus.id)
-    expect(useStore.getState().activeProfileId).toBeNull()
+    expect(
+      useStore.getState().connectionStateByProfileId[prometheus.id]?.status,
+    ).toBe('disconnected')
     expect(screen.getAllByText('Cloud metrics').length).toBeGreaterThan(0)
   })
 
   it('renders the PromQL query surface for an already-active Prometheus connection', () => {
     resetTestStore({
       profiles: [prometheus],
-      activeProfileId: prometheus.id,
-      connected: true,
-      connectionStatus: 'connected',
       connectionStateByProfileId: {
         [prometheus.id]: {
           status: 'connected',
@@ -238,9 +237,6 @@ describe('Prometheus workspace restoration', () => {
   it('continues to initialize the SQL editor when another datasource is active', async () => {
     resetTestStore({
       profiles: [prometheus, postgres],
-      activeProfileId: postgres.id,
-      connected: true,
-      connectionStatus: 'connected',
       connectionStateByProfileId: {
         [postgres.id]: {
           status: 'connected',
@@ -275,9 +271,6 @@ describe('Prometheus workspace restoration', () => {
   it('mounts the AI repair controller for BigQuery raw SQL', async () => {
     resetTestStore({
       profiles: [bigquery],
-      activeProfileId: bigquery.id,
-      connected: true,
-      connectionStatus: 'connected',
       connectionStateByProfileId: {
         [bigquery.id]: {
           status: 'connected',
@@ -303,9 +296,6 @@ describe('Prometheus workspace restoration', () => {
   it('passes the shared query/results separator into the Loki workspace', () => {
     resetTestStore({
       profiles: [loki],
-      activeProfileId: loki.id,
-      connected: true,
-      connectionStatus: 'connected',
     })
     patchActiveTestSession({
       connectionProfileId: loki.id,
@@ -329,9 +319,6 @@ describe('Prometheus workspace restoration', () => {
   it('uses the shared SQL query/results separator for SQL Builder', async () => {
     resetTestStore({
       profiles: [postgres],
-      activeProfileId: postgres.id,
-      connected: true,
-      connectionStatus: 'connected',
     })
     patchActiveTestSession({
       connectionProfileId: postgres.id,

@@ -82,11 +82,6 @@ beforeEach(() => {
         transport: { kind: 'gcx' },
       },
     ],
-    activeProfileId: profileId,
-    connected: true,
-    connecting: false,
-    connectionStatus: 'connected',
-    connectionGeneration: 1,
     connectionStateByProfileId: {
       [profileId]: {
         status: 'connected',

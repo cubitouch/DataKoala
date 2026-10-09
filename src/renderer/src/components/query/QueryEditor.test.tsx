@@ -127,12 +127,7 @@ const deferred = <T,>() => {
 }
 
 function renderExplainUi() {
-  resetTestStore({
-    activeProfileId: 'profile-1',
-    connected: true,
-    connecting: false,
-    connectionStatus: 'connected',
-  })
+  resetTestStore({})
   patchActiveTestSession({
     connectionProfileId: 'profile-1',
     sql: 'select 1;',
@@ -184,10 +179,6 @@ describe('PromQL execution', () => {
           transport: { kind: 'gcx', datasourceUid: 'prom-main' },
         },
       ],
-      activeProfileId: 'prom-1',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
     })
     patchActiveTestSession({
       connectionProfileId: 'prom-1',
@@ -245,10 +236,6 @@ describe('PromQL execution', () => {
           transport: { kind: 'gcx' },
         },
       ],
-      activeProfileId: 'prom-1',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
     })
     patchActiveTestSession({
       connectionProfileId: 'prom-1',
@@ -354,7 +341,9 @@ describe('PromQL execution', () => {
     )
     expect(runQuery).not.toHaveBeenCalled()
     expect(useStore.getState().tabs[0].running).toBe(false)
-    expect(useStore.getState().connected).toBe(true)
+    expect(
+      useStore.getState().connectionStateByProfileId['prom-1'].status,
+    ).toBe('connected')
   })
 
   it('can rerun successfully after an oversized provider error without reconnecting', async () => {
@@ -385,7 +374,9 @@ describe('PromQL execution', () => {
     await waitFor(() =>
       expect(useStore.getState().tabs[0].queryError).toBeNull(),
     )
-    expect(useStore.getState().connected).toBe(true)
+    expect(
+      useStore.getState().connectionStateByProfileId['prom-1'].status,
+    ).toBe('connected')
   })
 
   it('defaults Prometheus Builder chart Series from all Group by labels', async () => {
@@ -407,10 +398,6 @@ describe('PromQL execution', () => {
           transport: { kind: 'gcx' },
         },
       ],
-      activeProfileId: 'prom-1',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
     })
     patchActiveTestSession({
       connectionProfileId: 'prom-1',
@@ -474,10 +461,6 @@ describe('PromQL execution', () => {
           transport: { kind: 'gcx' },
         },
       ],
-      activeProfileId: 'prom-1',
-      connected: false,
-      connecting: false,
-      connectionStatus: 'disconnected',
     })
     patchActiveTestSession({
       connectionProfileId: 'prom-1',
@@ -581,10 +564,6 @@ describe('QueryEditor Explain loading states', () => {
           readonly: true,
         },
       ],
-      activeProfileId: 'pg',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
     })
     const sql = 'SELECT device_id FROM orders'
     patchActiveTestSession({ connectionProfileId: 'pg', sql, queryMode: 'sql' })
@@ -617,10 +596,6 @@ describe('QueryEditor Explain loading states', () => {
           readonly: true,
         },
       ],
-      activeProfileId: 'bq',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
     })
     const sql = 'SELECT revenu FROM `my-project.analytics.orders`'
     patchActiveTestSession({ connectionProfileId: 'bq', sql, queryMode: 'sql' })
@@ -658,10 +633,6 @@ describe('QueryEditor Explain loading states', () => {
           readonly: true,
         },
       ],
-      activeProfileId: 'pg',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
     })
     patchActiveTestSession({
       connectionProfileId: 'pg',
@@ -703,10 +674,6 @@ describe('QueryEditor Explain loading states', () => {
           readonly: true,
         },
       ],
-      activeProfileId: 'pg',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
     })
     const sql = 'DELETE FROM orders'
     patchActiveTestSession({ connectionProfileId: 'pg', sql, queryMode: 'sql' })
@@ -752,10 +719,6 @@ describe('QueryEditor Explain loading states', () => {
           readonly: true,
         },
       ],
-      activeProfileId: 'bq',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
     })
     patchActiveTestSession({ connectionProfileId: 'bq', sql: 'select 1' })
     const view = render(<QueryEditor />)
@@ -764,7 +727,6 @@ describe('QueryEditor Explain loading states', () => {
     expect(screen.queryByRole('button', { name: 'Explain Analyze' })).toBeNull()
     useStore.setState((state) => ({
       tabs: state.tabs.map((tab) => ({ ...tab, connectionProfileId: 'pg' })),
-      activeProfileId: 'pg',
     }))
     view.rerender(<QueryEditor />)
     expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy()
@@ -838,10 +800,6 @@ describe('QueryEditor Explain loading states', () => {
       configuredAi()
       resetTestStore({
         profiles: [profile],
-        activeProfileId: profile.id,
-        connected: true,
-        connecting: false,
-        connectionStatus: 'connected',
       })
       patchActiveTestSession({
         connectionProfileId: profile.id,
@@ -867,10 +825,6 @@ describe('QueryEditor Explain loading states', () => {
     aiSettingsGet.mockReturnValue(settings.promise)
     resetTestStore({
       profiles: [],
-      activeProfileId: null,
-      connected: false,
-      connecting: false,
-      connectionStatus: 'disconnected',
     })
     patchActiveTestSession({
       connectionProfileId: null,
@@ -925,10 +879,6 @@ describe('QueryEditor Explain loading states', () => {
       configuredAi()
       resetTestStore({
         profiles: [profile],
-        activeProfileId: profile.id,
-        connected: true,
-        connecting: false,
-        connectionStatus: 'connected',
       })
       patchActiveTestSession({
         connectionProfileId: profile.id,
@@ -979,10 +929,6 @@ describe('QueryEditor Explain loading states', () => {
       })
       resetTestStore({
         profiles: [profile],
-        activeProfileId: profile.id,
-        connected: true,
-        connecting: false,
-        connectionStatus: 'connected',
         metadataByProfileId: {
           [profile.id]: {
             schemas: [
@@ -1096,10 +1042,6 @@ describe('QueryEditor Explain loading states', () => {
 
     resetTestStore({
       profiles: [profile],
-      activeProfileId: profile.id,
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
       metadataByProfileId: {
         [profile.id]: {
           schemas: [
@@ -1257,10 +1199,6 @@ describe('QueryEditor Explain loading states', () => {
 
     resetTestStore({
       profiles: [profile],
-      activeProfileId: profile.id,
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
       metadataByProfileId: {
         [profile.id]: {
           schemas: [
@@ -1693,10 +1631,6 @@ describe('Fix with AI editor review', () => {
           readonly: true,
         },
       ],
-      activeProfileId: 'pg',
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
       metadataByProfileId: {
         pg: {
           schemas: [
@@ -1783,10 +1717,6 @@ describe('Fix with AI editor review', () => {
       })
       resetTestStore({
         profiles: [profile],
-        activeProfileId: profile.id,
-        connected: true,
-        connecting: false,
-        connectionStatus: 'connected',
       })
       patchActiveTestSession({
         connectionProfileId: profile.id,

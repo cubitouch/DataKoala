@@ -95,11 +95,7 @@ afterEach(() => {
 })
 
 const arrange = () => {
-  resetTestStore({
-    connected: true,
-    activeProfileId: 'p1',
-    connectionStatus: 'connected',
-  })
+  resetTestStore({})
   setActiveTestMetadata(schemas, 'loaded', null, 'p1')
   patchActiveTestSession({
     connectionProfileId: 'p1',

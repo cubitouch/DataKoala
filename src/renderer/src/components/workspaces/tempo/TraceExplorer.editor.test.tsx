@@ -194,7 +194,16 @@ import { api } from '@lib/api'
 
 describe('TraceExplorer TraceQL editor', () => {
   beforeEach(() => {
-    resetTestStore({ connected: true, connectionGeneration: 7 })
+    resetTestStore({
+      connectionStateByProfileId: {
+        'tempo-1': {
+          status: 'connected',
+          generation: 7,
+          error: null,
+          serverVersion: null,
+        },
+      },
+    })
     const traceql = '{resource.service.name="checkout"}'
     patchActiveTestSession({
       connectionProfileId: 'tempo-1',

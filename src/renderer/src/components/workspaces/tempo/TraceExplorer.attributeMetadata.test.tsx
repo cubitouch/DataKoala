@@ -50,7 +50,16 @@ describe('Trace Explorer attribute facet metadata', () => {
       },
     ])
     attributeValues.mockReset()
-    resetTestStore({ connected: true, connectionGeneration: 7 })
+    resetTestStore({
+      connectionStateByProfileId: {
+        'tempo-1': {
+          status: 'connected',
+          generation: 7,
+          error: null,
+          serverVersion: null,
+        },
+      },
+    })
     const traceql =
       '{ resource.service.name = "checkout" && resource.cloud.region = "eu-west-1" }'
     patchActiveTestSession({

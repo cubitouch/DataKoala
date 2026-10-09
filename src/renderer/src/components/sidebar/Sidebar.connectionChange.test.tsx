@@ -114,10 +114,6 @@ describe('Sidebar connection changes', () => {
   it('clears result-derived state when the active tab changes connection but preserves its draft', async () => {
     resetTestStore({
       profiles,
-      activeProfileId: 'profile-a',
-      connected: true,
-      connectionStatus: 'connected',
-      connectionGeneration: 1,
       connectionStateByProfileId: {
         'profile-a': {
           status: 'connected',

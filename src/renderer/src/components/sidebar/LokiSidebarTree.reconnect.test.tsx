@@ -31,11 +31,6 @@ beforeEach(() => {
   useStore.setState({
     tabs: [tab],
     activeTabId: tab.id,
-    activeProfileId: 'loki',
-    connected: true,
-    connecting: false,
-    connectionStatus: 'connected',
-    connectionGeneration: 1,
     connectionStateByProfileId: {
       loki: {
         status: 'connected',
@@ -67,9 +62,6 @@ it('ignores an expanded value request after disconnect and refreshes on reconnec
 
   act(() =>
     useStore.setState({
-      connected: false,
-      connectionStatus: 'reconnecting',
-      connectionGeneration: 2,
       connectionStateByProfileId: {
         loki: {
           status: 'reconnecting',
@@ -91,9 +83,6 @@ it('ignores an expanded value request after disconnect and refreshes on reconnec
 
   act(() =>
     useStore.setState({
-      connected: true,
-      connectionStatus: 'connected',
-      connectionGeneration: 3,
       connectionStateByProfileId: {
         loki: {
           status: 'connected',

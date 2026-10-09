@@ -38,7 +38,7 @@ const result: QueryResult = {
 }
 
 function arrange(timeRange: BuilderTimeRange) {
-  resetTestStore({ connected: true, connectionStatus: 'connected' })
+  resetTestStore()
   patchActiveTestSession({
     result,
     resultRevision: 1,

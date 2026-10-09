@@ -194,7 +194,6 @@ describe('PresetManagerAction', () => {
       profiles: [profileA, sqlProfile],
       tabs: [tabA, tabB],
       activeTabId: tabB.id,
-      activeProfileId: profileA.id,
     })
     render(<PresetManagerAction repository={repository} />)
     openDialog()

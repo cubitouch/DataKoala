@@ -52,11 +52,7 @@ afterEach(() => {
 
 describe('Builder generated SQL header', () => {
   it('keeps Open in SQL mode available while collapsed without toggling the preview', () => {
-    resetTestStore({
-      connected: true,
-      activeProfileId: 'p1',
-      connectionStatus: 'connected',
-    })
+    resetTestStore({})
     setActiveTestMetadata(schemas, 'loaded', null, 'p1')
     patchActiveTestSession({
       connectionProfileId: 'p1',
@@ -99,11 +95,7 @@ describe('Builder generated SQL header', () => {
 
   it('preserves raw SQL through Builder changes and normal mode switches until the explicit handoff', async () => {
     const manualSql = 'select distinct manual_edit from private_draft'
-    resetTestStore({
-      connected: true,
-      activeProfileId: 'p1',
-      connectionStatus: 'connected',
-    })
+    resetTestStore({})
     setActiveTestMetadata(schemas, 'loaded', null, 'p1')
     patchActiveTestSession({
       connectionProfileId: 'p1',

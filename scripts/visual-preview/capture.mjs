@@ -501,8 +501,7 @@ async function configureDocumentationSql(win, mode, view) {
       { schema: 'analytics', name: 'customer_activity', qualifiedName: 'analytics.customer_activity', kind: 'r', columnsStatus: 'idle' }
     ] }]
     store.setState({
-      profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false,
-      connectionStatus: 'connected', connectionError: null, serverVersion: '17',
+      profiles: [profile],
       connectionStateByProfileId: { ...state.connectionStateByProfileId, [profile.id]: { status: 'connected', generation: 1, error: null, serverVersion: '17' } },
       metadataByProfileId: { ...state.metadataByProfileId, [profile.id]: { schemas, status: 'loaded', error: null, isStale: false } },
       tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
@@ -629,8 +628,7 @@ async function configureDocumentationPrometheus(win) {
     ] }]
 
     store.setState({
-      profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false,
-      connectionStatus: 'connected', connectionError: null, serverVersion: null,
+      profiles: [profile],
       connectionStateByProfileId: { ...state.connectionStateByProfileId, [profile.id]: { status: 'connected', generation: 1, error: null, serverVersion: null } },
       metadataByProfileId: { ...state.metadataByProfileId, [profile.id]: { schemas, status: 'loaded', error: null, isStale: false } },
       tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
@@ -1420,7 +1418,15 @@ async function verifyInterruptedDragCleanup(win) {
 async function configureLongObjectTree(win) {
   await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
-    store.getState().setConnected(true, '17', null)
+    const state = store.getState()
+    const profileId = state.tabs.find((tab) => tab.id === state.activeTabId)?.connectionProfileId
+    if (!profileId) throw new Error('The active preview tab has no connection profile')
+    store.setState((current) => ({
+      connectionStateByProfileId: {
+        ...current.connectionStateByProfileId,
+        [profileId]: { status: 'connected', generation: 1, error: null, serverVersion: '17' },
+      },
+    }))
     store.getState().setMetadata([{ name: 'analytics_schema_with_an_exceptionally_long_name', isSystem: false, relations: [{
       schema: 'analytics_schema_with_an_exceptionally_long_name',
       name: 'monthly_market_activity_relation_with_a_name_that_needs_more_space',
@@ -1429,7 +1435,7 @@ async function configureLongObjectTree(win) {
         name: 'a_column_name_that_is_intentionally_long_to_verify_sidebar_truncation',
         dataTypeID: 25, dataTypeName: 'character varying with a long display name'
       }]
-    }] }], 'loaded')
+    }] }], 'loaded', null, profileId)
   })()`)
   await sleep(250)
   await win.webContents.executeJavaScript(

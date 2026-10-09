@@ -21,14 +21,10 @@ export function patchActiveTestSession(patch: Partial<QuerySession>): void {
       connectionStateByProfileId: {
         ...current.connectionStateByProfileId,
         [patch.connectionProfileId!]: {
-          status: current.connected
-            ? current.connectionStatus === 'idle'
-              ? 'idle'
-              : 'connected'
-            : 'disconnected',
-          generation: current.connectionGeneration,
-          error: current.connectionError,
-          serverVersion: current.serverVersion,
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
         },
       },
     }))
@@ -53,11 +49,16 @@ export function setActiveTestMetadata(
   schemas: DatabaseSchemaNode[],
   status: ConnectionMetadataState['status'] = 'loaded',
   error: string | null = null,
-  profileId = useStore.getState().activeProfileId ?? 'test-profile',
+  profileId = selectActiveSession(useStore.getState()).connectionProfileId ??
+    'test-profile',
 ): void {
   const state = useStore.getState()
   useStore.setState({
-    activeProfileId: profileId,
+    tabs: state.tabs.map((tab) =>
+      tab.id === state.activeTabId
+        ? { ...tab, connectionProfileId: profileId }
+        : tab,
+    ),
     metadataByProfileId: {
       ...state.metadataByProfileId,
       [profileId]: { schemas, status, error, isStale: false },

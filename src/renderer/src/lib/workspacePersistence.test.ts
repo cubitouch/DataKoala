@@ -420,7 +420,6 @@ test('workspace serialization is allow-listed: no credentials, results, client f
     profiles: [
       { id: 'prod', host: 'db', user: 'alice', password: 'do-not-persist' },
     ],
-    connected: true,
   }
   const serialized = serializeWorkspaceDraft(unsafe)
   const envelope = JSON.parse(serialized) as Record<string, unknown>
@@ -461,9 +460,9 @@ test('restore rebuilds every tab cold without reconnecting or replaying results'
   const patch = patches[0]
   assert.ok(restored && patch)
   assert.equal(patch.activeTabId, 'tab-b')
-  assert.equal(
-    patch.activeProfileId,
-    null,
+  assert.deepEqual(
+    Object.keys(patch).sort(),
+    ['activeTabId', 'tabs'],
     'saved profile IDs stay on tabs; no connection becomes live during restore',
   )
   assert.equal(patch.tabs.length, 2)
