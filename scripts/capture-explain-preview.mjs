@@ -424,6 +424,7 @@ app.whenReady().then(async () => {
       const opaque = (color) => Boolean(color && color !== 'transparent' && !/[,/]\\s*0\\s*\\)?$/.test(color))
       const rootRect = rootElement?.querySelector('rect')
       const selectedRect = firstChildElement?.querySelector('rect')
+      const rootBodyBounds = rootRect?.getBoundingClientRect()
       const rootStroke = rootRect ? getComputedStyle(rootRect).stroke : ''
       const selectedStroke = selectedRect ? getComputedStyle(selectedRect).stroke : ''
       const toolbarBounds = toolbar?.getBoundingClientRect()
@@ -457,6 +458,8 @@ app.whenReady().then(async () => {
         controlsOverlay: Boolean(toolbar && toolbar.parentElement === diagram && getComputedStyle(toolbar).position === 'absolute'),
         canvasFillsGraph: Boolean(toolbarBounds && canvasBounds && canvasBounds.top <= toolbarBounds.top && canvasBounds.height >= diagram.getBoundingClientRect().height - 4),
         normalNodeBorder: Boolean(rootStroke && rootStroke !== 'none' && rootStroke !== surfaceBackground),
+        rootBodyBounds: rootBodyBounds ? { width: rootBodyBounds.width, height: rootBodyBounds.height } : null,
+        rootBodyMatchesNode: Boolean(rootNode && rootBodyBounds && rootBodyBounds.width >= rootNode.width * 0.95 && rootBodyBounds.height >= rootNode.height * 0.95),
         selectedNodeOutlineStrong: Boolean(selectedStroke && rootStroke !== selectedStroke),
         rootAboveChild: Boolean(rootNode && firstChild && rootNode.y < firstChild.y),
         joinAboveChildren: Boolean(join && joinLeftChild && joinRightChild && join.y < joinLeftChild.y && join.y < joinRightChild.y),
@@ -492,6 +495,7 @@ app.whenReady().then(async () => {
       !report.controlsOverlay ||
       !report.canvasFillsGraph ||
       !report.normalNodeBorder ||
+      !report.rootBodyMatchesNode ||
       !report.selectedNodeOutlineStrong ||
       !report.rootAboveChild ||
       !report.joinAboveChildren ||
@@ -538,7 +542,7 @@ app.whenReady().then(async () => {
 
     previewStep = 'manual graph selection'
     const manualNodeSelected = await win.webContents.executeJavaScript(`(() => {
-      const element = document.querySelector('[data-node-id="0"]')
+      const element = document.querySelector('[data-node-id="0.2"]')
       if (!element) return false
       element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
       return true
@@ -621,6 +625,63 @@ app.whenReady().then(async () => {
       throw new Error(
         `Late EXPLAIN analysis response was not isolated from the replacement plan: ${JSON.stringify(replacementReport)}`,
       )
+
+    previewStep = 'start Explain Analyze replacement request'
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore
+      const state = store.getState()
+      const session = state.tabs.find((tab) => tab.id === state.activeTabId)
+      store.getState().setExplain('existing EXPLAIN plan', session.id, {
+        query: session.sql, mode: 'explain'
+      }, session.explainTree)
+      store.getState().setActiveExplainRequest('analyze', session.id)
+    })()`)
+    await wait(
+      win,
+      `document.querySelector('[aria-label="Explain results"] h1')?.textContent === 'EXPLAIN ANALYZE' && document.querySelector('[data-testid="explain-loading-overlay"]')?.textContent.includes('Running EXPLAIN ANALYZE')`,
+      'Analyze replacement loading state',
+    )
+    const loadingReport = await win.webContents.executeJavaScript(`(() => {
+      const content = document.querySelector('[data-testid="explain-content-body"]')
+      const diagram = document.querySelector('[aria-label="Execution plan diagram"]')
+      const inspector = document.querySelector('[aria-label="Plan node details"]')
+      return {
+        heading: document.querySelector('[aria-label="Explain results"] h1')?.textContent,
+        message: document.querySelector('[data-testid="explain-loading-overlay"]')?.textContent?.trim(),
+        inert: content?.hasAttribute('inert') ?? false,
+        staleStyle: content?.className.includes('staleContent') ?? false,
+        oldGraphVisible: Number(diagram?.dataset.nodeCount ?? 0) > 0,
+        oldPlanVisible: inspector?.textContent?.includes('replacement') ?? false
+      }
+    })()`)
+    if (
+      loadingReport.heading !== 'EXPLAIN ANALYZE' ||
+      !loadingReport.message?.includes('Running EXPLAIN ANALYZE') ||
+      !loadingReport.inert ||
+      !loadingReport.staleStyle ||
+      !loadingReport.oldGraphVisible ||
+      !loadingReport.oldPlanVisible
+    )
+      throw new Error(
+        `Explain Analyze loading overlay did not cover the previous plan: ${JSON.stringify(loadingReport)}`,
+      )
+
+    previewStep = 'resolve Explain Analyze replacement request'
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore
+      const state = store.getState()
+      const session = state.tabs.find((tab) => tab.id === state.activeTabId)
+      const nextTree = { id: '0', nodeType: 'Hash Join', plan: 'fresh analyzed plan', children: [] }
+      store.getState().setExplain('fresh analyzed plan', session.id, {
+        query: session.sql, mode: 'analyze', planningTimeMs: 0.3, executionTimeMs: 2
+      }, nextTree)
+      store.getState().setActiveExplainRequest(null, session.id)
+    })()`)
+    await wait(
+      win,
+      `document.querySelector('[aria-label="Explain results"] h1')?.textContent === 'EXPLAIN ANALYZE' && !document.querySelector('[data-testid="explain-loading-overlay"]') && document.querySelector('[aria-label="Plan node details"]')?.textContent.includes('fresh analyzed plan')`,
+      'replacement Analyze plan after loading',
+    )
     app.exit(0)
   } catch (error) {
     console.error(`EXPLAIN preview failed during: ${previewStep}`)
