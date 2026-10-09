@@ -357,7 +357,7 @@ app.whenReady().then(async () => {
       const svgTexts = [...(longTargetNode?.querySelectorAll('text') ?? [])]
       const rootBackground = getComputedStyle(explainRoot).backgroundColor
       const surfaceBackground = getComputedStyle(surface).backgroundColor
-      const paper = surface?.querySelector('[class*="paper-background"]')
+      const paper = surface?.firstElementChild
       const paperBackground = paper ? getComputedStyle(paper).backgroundColor : ''
       const opaque = (color) => Boolean(color && color !== 'transparent' && !/[,/]\\s*0\\s*\\)?$/.test(color))
       return {
@@ -379,6 +379,7 @@ app.whenReady().then(async () => {
         signalCount: signals?.querySelectorAll('button').length ?? 0,
         noRepeatedMeasuredSignals: !text.includes('High measured work'),
         opaqueSurfaces: opaque(rootBackground) && opaque(surfaceBackground) && opaque(paperBackground),
+        surfaceColors: { rootBackground, surfaceBackground, paperBackground },
         rootAboveChild: Boolean(rootNode && firstChild && rootNode.y < firstChild.y),
         joinAboveChildren: Boolean(join && joinLeftChild && joinRightChild && join.y < joinLeftChild.y && join.y < joinRightChild.y),
         siblingOrder: Boolean(joinLeftChild && joinRightChild && joinLeftChild.x < joinRightChild.x),
