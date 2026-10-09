@@ -78,6 +78,14 @@ describe('Sidebar Builder relation selection', () => {
       connected: true,
       activeProfileId: 'p1',
       connectionStatus: 'connected',
+      connectionStateByProfileId: {
+        p1: {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
+        },
+      },
     })
     setActiveTestMetadata(schemas, 'loaded', null, 'p1')
     const { useStore } = await import('@store/useStore')
@@ -107,6 +115,14 @@ describe('Sidebar Builder relation selection', () => {
       connected: true,
       activeProfileId: 'p1',
       connectionStatus: 'connected',
+      connectionStateByProfileId: {
+        p1: {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
+        },
+      },
     })
     setActiveTestMetadata(schemas, 'loaded', null, 'p1')
     const session = activeTestSession()

@@ -89,6 +89,15 @@ async function seedSqlWorkspace(win, view) {
       connectionStatus: 'connected',
       connectionError: null,
       serverVersion: '17',
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        [profile.id]: {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: '17',
+        },
+      },
       metadataByProfileId: {
         ...state.metadataByProfileId,
         [profile.id]: { schemas, status: 'loaded', error: null, isStale: false }
@@ -204,6 +213,7 @@ async function assertVisibleChart(win, view) {
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
+  ipcMain.handle('connections:live', async () => [])
   ipcMain.handle('ai:settings:get', () => ({
     ok: true,
     value: { provider: 'openrouter', model: '', hasApiKey: false },

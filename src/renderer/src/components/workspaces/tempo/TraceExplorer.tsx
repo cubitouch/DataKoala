@@ -104,17 +104,13 @@ export function TraceExplorer({
     (state) => selectActiveSession(state).tempoResultView,
   )
   const metadata = useStore((state) => state.metadataByProfileId[connectionId])
-  const activeProfileId = useStore((state) => state.activeProfileId)
-  const globalConnected = useStore((state) => state.connected)
-  const legacyGeneration = useStore((state) => state.connectionGeneration)
   const scopedConnection = useStore(
     (state) => state.connectionStateByProfileId[connectionId],
   )
   const connected =
     scopedConnection?.status === 'connected' ||
-    scopedConnection?.status === 'idle' ||
-    (connectionId === activeProfileId && globalConnected)
-  const connectionGeneration = scopedConnection?.generation ?? legacyGeneration
+    scopedConnection?.status === 'idle'
+  const connectionGeneration = scopedConnection?.generation ?? 0
   const metadataRevision = useStore(
     (state) => state.metadataByProfileId[connectionId]?.revision ?? 0,
   )
@@ -178,7 +174,12 @@ export function TraceExplorer({
     onError: setError,
     onSearchStart: resetForSearch,
   })
-  const cohortAnalysis = useTraceCohortAnalysis(connectionId, searchRows)
+  const cohortAnalysis = useTraceCohortAnalysis(
+    connectionId,
+    searchRows,
+    tabId,
+    connectionGeneration,
+  )
   const loading: 'search' | 'trace' | null = searching
     ? 'search'
     : traceLoading

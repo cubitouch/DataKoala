@@ -50,6 +50,21 @@ describe('useTempoTraceSearchController', () => {
   beforeEach(() => {
     run.mockReset()
     useStore.setState(useStore.getInitialState(), true)
+    useStore.setState((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.id === state.activeTabId
+          ? { ...tab, connectionProfileId: 'tempo-1' }
+          : tab,
+      ),
+      connectionStateByProfileId: {
+        'tempo-1': {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
+        },
+      },
+    }))
   })
   afterEach(cleanup)
 

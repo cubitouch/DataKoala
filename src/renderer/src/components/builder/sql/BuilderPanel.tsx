@@ -27,7 +27,10 @@ import {
   useStore,
   type TimeBucket,
 } from '@store/useStore'
-import { ensureConnectionForTab } from '@lib/tabConnection'
+import {
+  ensureConnectionForTab,
+  isTabConnectionCurrent,
+} from '@lib/tabConnection'
 import {
   CHART_SERIES_HARD_LIMIT,
   type CardinalityProbePredicate,
@@ -88,9 +91,6 @@ const EMPTY_SCHEMAS: DatabaseSchemaNode[] = []
 
 export function BuilderPanel() {
   const tabId = useStore((state) => state.activeTabId)
-  const activeId = useStore((state) => state.activeProfileId)
-  const connected = useStore((state) => state.connected)
-  const connecting = useStore((state) => state.connecting)
   const tabConnectionId = useStore(
     (state) => selectActiveSession(state).connectionProfileId,
   )
@@ -99,6 +99,9 @@ export function BuilderPanel() {
       ? state.connectionStateByProfileId[tabConnectionId]
       : undefined,
   )
+  const connecting =
+    scopedConnection?.status === 'connecting' ||
+    scopedConnection?.status === 'reconnecting'
   const connectionKind = useStore(
     (state) =>
       state.profiles.find(
@@ -150,21 +153,13 @@ export function BuilderPanel() {
   const tabConnected = Boolean(
     tabConnectionId &&
     (scopedConnection?.status === 'connected' ||
-      scopedConnection?.status === 'idle' ||
-      (connected && activeId === tabConnectionId)),
+      scopedConnection?.status === 'idle'),
   )
   const documentationCapture = Boolean(
     window.datakoala?.smokeMode &&
     (window as unknown as Record<string, unknown>)
       .__datakoalaDocumentationCapture,
   )
-  const stillBoundTo = useCallback(
-    (requestTabId: string, profileId: string) =>
-      selectSession(useStore.getState(), requestTabId)?.connectionProfileId ===
-      profileId,
-    [],
-  )
-
   useEffect(() => {
     // Documentation capture deliberately demonstrates Sum(count). The legacy
     // migration remains unchanged for real workspaces and regression previews.
@@ -319,8 +314,15 @@ export function BuilderPanel() {
         return
       const requestTabId = tabId
       const requestProfileId = await ensureConnectionForTab(requestTabId)
-      if (!requestProfileId || !stillBoundTo(requestTabId, requestProfileId))
+      if (
+        !requestProfileId ||
+        !isTabConnectionCurrent(requestTabId, requestProfileId)
+      )
         return
+      const requestGeneration =
+        useStore.getState().connectionStateByProfileId[requestProfileId]
+          ?.generation
+      if (requestGeneration === undefined) return
       const requested = { schema: relation.schema, name: relation.name }
       const qualifiedName = relation.qualifiedName
       setMetadataError(null)
@@ -333,7 +335,16 @@ export function BuilderPanel() {
         if (!next) return
         let state = useStore.getState()
         let session = selectSession(state, requestTabId)
-        if (!session || session.connectionProfileId !== requestProfileId) return
+        if (
+          !session ||
+          session.connectionProfileId !== requestProfileId ||
+          !isTabConnectionCurrent(
+            requestTabId,
+            requestProfileId,
+            requestGeneration,
+          )
+        )
+          return
         const patch = selectionPatchForColumns(
           requested,
           session.builder.table,
@@ -344,7 +355,15 @@ export function BuilderPanel() {
         if (patch) state.setBuilder(patch, requestTabId)
         state = useStore.getState()
         session = selectSession(state, requestTabId)
-        if (!session) return
+        if (
+          !session ||
+          !isTabConnectionCurrent(
+            requestTabId,
+            requestProfileId,
+            requestGeneration,
+          )
+        )
+          return
         const sourceX =
           session.builderVisualization.xColumn === 'time_bucket'
             ? session.builder.timeColumn
@@ -377,6 +396,14 @@ export function BuilderPanel() {
           )
         }
       } catch (error) {
+        if (
+          !isTabConnectionCurrent(
+            requestTabId,
+            requestProfileId,
+            requestGeneration,
+          )
+        )
+          return
         setRelationColumns(
           qualifiedName,
           undefined,
@@ -394,7 +421,7 @@ export function BuilderPanel() {
           setMetadataError(String(error))
       }
     },
-    [tabId, stillBoundTo, setRelationColumns],
+    [tabId, setRelationColumns],
   )
   useEffect(() => {
     if (
@@ -881,8 +908,15 @@ export function BuilderPanel() {
     const requestQuery = generatedQuery
     const requestSql = generatedSql
     const requestProfileId = await ensureConnectionForTab(requestTabId)
-    if (!requestProfileId || !stillBoundTo(requestTabId, requestProfileId))
+    if (
+      !requestProfileId ||
+      !isTabConnectionCurrent(requestTabId, requestProfileId)
+    )
       return
+    const requestGeneration =
+      useStore.getState().connectionStateByProfileId[requestProfileId]
+        ?.generation
+    if (requestGeneration === undefined) return
     const revision = (queryRevisions.current.get(requestTabId) ?? 0) + 1
     queryRevisions.current.set(requestTabId, revision)
     startQuery(requestTabId)
@@ -895,13 +929,21 @@ export function BuilderPanel() {
       )
       if (
         queryRevisions.current.get(requestTabId) === revision &&
-        stillBoundTo(requestTabId, requestProfileId)
+        isTabConnectionCurrent(
+          requestTabId,
+          requestProfileId,
+          requestGeneration,
+        )
       )
         completeQuery(result, null, requestTabId)
     } catch (error) {
       if (
         queryRevisions.current.get(requestTabId) === revision &&
-        stillBoundTo(requestTabId, requestProfileId)
+        isTabConnectionCurrent(
+          requestTabId,
+          requestProfileId,
+          requestGeneration,
+        )
       )
         completeQuery(
           null,
@@ -916,7 +958,6 @@ export function BuilderPanel() {
     metadataRefreshing,
     tabId,
     generatedQuery,
-    stillBoundTo,
     startQuery,
     setHasRun,
     completeQuery,

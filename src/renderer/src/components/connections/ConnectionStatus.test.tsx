@@ -153,7 +153,13 @@ describe('ConnectionStatus', () => {
       connected: true,
       connectionStatus: 'connected',
     })
-    patchActiveTestSession({ connectionProfileId: postgres.id })
+    useStore.setState((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.id === state.activeTabId
+          ? { ...tab, connectionProfileId: postgres.id }
+          : tab,
+      ),
+    }))
 
     render(<ConnectionStatus />)
 

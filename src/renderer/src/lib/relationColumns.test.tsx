@@ -20,6 +20,17 @@ const relation: DatabaseRelationNode = {
 beforeEach(() => {
   resetTestStore()
   describeTable.mockReset()
+  useStore.setState((state) => ({
+    connectionStateByProfileId: {
+      ...state.connectionStateByProfileId,
+      p1: {
+        status: 'connected',
+        generation: 1,
+        error: null,
+        serverVersion: null,
+      },
+    },
+  }))
   useStore
     .getState()
     .setMetadata(
@@ -88,5 +99,34 @@ describe('ensureRelationColumns', () => {
       useStore.getState().metadataByProfileId.p1.schemas[0].relations[0]
         .columns?.[0].name,
     ).toBe('id')
+  })
+
+  it('discards relation columns from an older profile generation', async () => {
+    let finish!: (
+      columns: Array<{ name: string; dataTypeName: string }>,
+    ) => void
+    describeTable.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    const request = ensureRelationColumns('p1', relation)
+    useStore.setState((state) => ({
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        p1: {
+          status: 'connected',
+          generation: 2,
+          error: null,
+          serverVersion: null,
+        },
+      },
+    }))
+    finish([{ name: 'stale_id', dataTypeName: 'integer' }])
+    await expect(request).resolves.toBeUndefined()
+    expect(
+      useStore.getState().metadataByProfileId.p1.schemas[0].relations[0]
+        .columns,
+    ).toBeUndefined()
   })
 })

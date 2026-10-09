@@ -93,6 +93,14 @@ beforeEach(() => {
     activeProfileId: profile.id,
     connected: true,
     connectionStatus: 'connected',
+    connectionStateByProfileId: {
+      [profile.id]: {
+        status: 'connected',
+        generation: 1,
+        error: null,
+        serverVersion: null,
+      },
+    },
     metadataByProfileId: {
       [profile.id]: {
         schemas: objects,

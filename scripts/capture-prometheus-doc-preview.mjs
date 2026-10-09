@@ -86,6 +86,15 @@ async function seedPrometheusWorkspace(win) {
       connectionStatus: 'connected',
       connectionError: null,
       serverVersion: null,
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        [profile.id]: {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
+        },
+      },
       metadataByProfileId: {
         ...state.metadataByProfileId,
         [profile.id]: { schemas, status: 'loaded', error: null, isStale: false }
@@ -183,6 +192,7 @@ async function seedPrometheusWorkspace(win) {
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
+  ipcMain.handle('connections:live', async () => [])
   ipcMain.handle('connections:prometheus:metric-labels', async () => [
     'environment',
     'service',

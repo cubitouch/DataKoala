@@ -264,6 +264,15 @@ describe('PromQL Builder Run availability', () => {
           },
         ],
         activeProfileId: 'prom-builder-b',
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          'prom-builder-b': {
+            status: 'connected',
+            generation: 1,
+            error: null,
+            serverVersion: null,
+          },
+        },
         tabs: state.tabs.map((tab) =>
           tab.id === state.activeTabId
             ? {

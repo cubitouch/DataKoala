@@ -32,6 +32,26 @@ import {
 import { useStore } from '@store/useStore'
 
 const profileId = 'prom-reconnect'
+function patchConnection(patch: {
+  status?:
+    | 'connected'
+    | 'connecting'
+    | 'reconnecting'
+    | 'disconnected'
+    | 'error'
+    | 'idle'
+  generation?: number
+}) {
+  useStore.setState((state) => ({
+    connectionStateByProfileId: {
+      ...state.connectionStateByProfileId,
+      [profileId]: {
+        ...state.connectionStateByProfileId[profileId],
+        ...patch,
+      },
+    },
+  }))
+}
 const deferred = <T,>() => {
   let resolve!: (value: T) => void
   let reject!: (reason: unknown) => void
@@ -67,6 +87,14 @@ beforeEach(() => {
     connecting: false,
     connectionStatus: 'connected',
     connectionGeneration: 1,
+    connectionStateByProfileId: {
+      [profileId]: {
+        status: 'connected',
+        generation: 1,
+        error: null,
+        serverVersion: null,
+      },
+    },
   })
   patchActiveTestSession({
     connectionProfileId: profileId,
@@ -125,7 +153,7 @@ it('reloads Group by options when a reconnect creates a new connection generatio
   fireEvent.keyDown(screen.getByLabelText('Search Group by'), { key: 'Escape' })
 
   act(() => {
-    useStore.setState({ connectionGeneration: 2 })
+    patchConnection({ generation: 2 })
   })
   await waitFor(() => expect(labelsForMetric).toHaveBeenCalledTimes(2))
   await waitFor(() =>
@@ -153,7 +181,7 @@ it('shows loading states while reconnect label metadata is being fetched', async
   await screen.findByRole('combobox', { name: 'Group by: No grouping' })
 
   act(() => {
-    useStore.setState({ connectionGeneration: 2 })
+    patchConnection({ generation: 2 })
   })
 
   expect(
@@ -200,7 +228,7 @@ it('keeps metadata controls calm and makes no requests when already disconnected
       labelValues: { region: ['eu'] },
     },
   })
-  useStore.setState({ connected: false, connectionStatus: 'disconnected' })
+  patchConnection({ status: 'disconnected' })
 
   render(<PromqlBuilderPanel />)
 
@@ -236,13 +264,7 @@ it('ignores metadata failures which arrive after disconnect and clears loading s
     await screen.findByRole('combobox', { name: 'Group by: Loading labels…' }),
   ).toBeTruthy()
 
-  act(() =>
-    useStore.setState({
-      connected: false,
-      connectionStatus: 'disconnected',
-      connectionGeneration: 2,
-    }),
-  )
+  act(() => patchConnection({ status: 'disconnected', generation: 2 }))
   await act(async () => {
     pendingLabels.reject(new Error('This profile is not connected'))
     await pendingLabels.promise.catch(() => undefined)
@@ -266,18 +288,12 @@ it('refreshes active metadata once on reconnect without changing builder configu
     labelValues: { region: ['eu'] },
   }
   patchActiveTestSession({ promqlBuilder: configured })
-  useStore.setState({ connected: false, connectionStatus: 'reconnecting' })
+  patchConnection({ status: 'reconnecting' })
   render(<PromqlBuilderPanel />)
   expect(labelsForMetric).not.toHaveBeenCalled()
   expect(labelValues).not.toHaveBeenCalled()
 
-  act(() =>
-    useStore.setState({
-      connected: true,
-      connectionStatus: 'connected',
-      connectionGeneration: 2,
-    }),
-  )
+  act(() => patchConnection({ status: 'connected', generation: 2 }))
   await waitFor(() => expect(labelsForMetric).toHaveBeenCalledTimes(1))
   await waitFor(() => expect(labelValues).toHaveBeenCalledTimes(2))
   await waitFor(() =>
@@ -355,13 +371,7 @@ it('preserves a label-detected classic histogram interpretation across disconnec
     screen.queryByRole('combobox', { name: /Histogram representation/ }),
   ).toBeNull()
 
-  act(() =>
-    useStore.setState({
-      connected: false,
-      connectionStatus: 'reconnecting',
-      connectionGeneration: 2,
-    }),
-  )
+  act(() => patchConnection({ status: 'reconnecting', generation: 2 }))
 
   expect(labelsForMetric).toHaveBeenCalledTimes(1)
   expect(screen.queryByRole('alert')).toBeNull()
@@ -372,13 +382,7 @@ it('preserves a label-detected classic histogram interpretation across disconnec
   expect(useStore.getState().tabs[0].sql).toBe('manual_query_that_must_survive')
   expect(generatedQuery()).toBe(beforeGenerated)
 
-  act(() =>
-    useStore.setState({
-      connected: true,
-      connectionStatus: 'connected',
-      connectionGeneration: 3,
-    }),
-  )
+  act(() => patchConnection({ status: 'connected', generation: 3 }))
   await waitFor(() => expect(labelsForMetric).toHaveBeenCalledTimes(2))
   expect(
     await screen.findByRole('combobox', { name: 'Group by: Loading labels…' }),

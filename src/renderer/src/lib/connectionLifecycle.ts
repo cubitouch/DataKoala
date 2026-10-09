@@ -1,38 +1,10 @@
-import type { ConnectionStateEvent, QueryResult } from '@shared/types'
+import type { ConnectionStateEvent } from '@shared/types'
+import type { ProfileConnectionState } from '@store/useStore'
 
-export interface DisconnectableState {
-  activeProfileId: string | null
-  connectionGeneration: number
-  sql: string
-  connected: boolean
-  running: boolean
-  connectionError: string | null
-  result: QueryResult | null
-  pendingResult?: QueryResult | null
-  isResultStale?: boolean
-  isMetadataStale?: boolean
-  disconnectedAt?: number | null
-}
-
-export function unexpectedDisconnectPatch(
-  state: DisconnectableState,
+/** Connection event generations are scoped to their profile, never the selected profile. */
+export function isCurrentProfileConnectionEvent(
+  current: ProfileConnectionState | undefined,
   event: ConnectionStateEvent,
-): Partial<DisconnectableState> | null {
-  if (
-    event.profileId !== state.activeProfileId ||
-    event.generation < state.connectionGeneration
-  )
-    return null
-  if (event.state !== 'failed' && event.state !== 'disconnected')
-    return { connectionGeneration: event.generation }
-  return {
-    connectionGeneration: event.generation,
-    connected: false,
-    running: false,
-    connectionError: event.expected ? null : event.message,
-    pendingResult: null,
-    isResultStale: Boolean(state.result),
-    isMetadataStale: true,
-    disconnectedAt: event.timestamp,
-  }
+): boolean {
+  return !current || event.generation >= current.generation
 }

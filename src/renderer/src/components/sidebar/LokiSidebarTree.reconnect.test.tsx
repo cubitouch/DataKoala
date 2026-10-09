@@ -36,6 +36,14 @@ beforeEach(() => {
     connecting: false,
     connectionStatus: 'connected',
     connectionGeneration: 1,
+    connectionStateByProfileId: {
+      loki: {
+        status: 'connected',
+        generation: 1,
+        error: null,
+        serverVersion: null,
+      },
+    },
   })
   mocks.labels.mockReset().mockResolvedValue(['app'])
   mocks.labelValues.mockReset()
@@ -62,6 +70,14 @@ it('ignores an expanded value request after disconnect and refreshes on reconnec
       connected: false,
       connectionStatus: 'reconnecting',
       connectionGeneration: 2,
+      connectionStateByProfileId: {
+        loki: {
+          status: 'reconnecting',
+          generation: 2,
+          error: null,
+          serverVersion: null,
+        },
+      },
     }),
   )
   await act(async () => {
@@ -78,6 +94,14 @@ it('ignores an expanded value request after disconnect and refreshes on reconnec
       connected: true,
       connectionStatus: 'connected',
       connectionGeneration: 3,
+      connectionStateByProfileId: {
+        loki: {
+          status: 'connected',
+          generation: 3,
+          error: null,
+          serverVersion: null,
+        },
+      },
     }),
   )
   await waitFor(() => expect(mocks.labels).toHaveBeenCalledTimes(2))

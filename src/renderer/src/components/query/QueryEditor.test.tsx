@@ -1555,6 +1555,101 @@ describe('QueryEditor Explain loading states', () => {
   })
 })
 
+describe('profile-scoped query ownership', () => {
+  it('keeps an in-flight query on A when the user switches to B', async () => {
+    resetTestStore({
+      profiles: [
+        {
+          kind: 'postgres',
+          version: 2,
+          id: 'profile-a',
+          name: 'A',
+          host: 'localhost',
+          port: 5432,
+          database: 'a',
+          user: 'reader',
+          password: '',
+          tlsMode: 'disable',
+          readonly: true,
+        },
+        {
+          kind: 'postgres',
+          version: 2,
+          id: 'profile-b',
+          name: 'B',
+          host: 'localhost',
+          port: 5432,
+          database: 'b',
+          user: 'reader',
+          password: '',
+          tlsMode: 'disable',
+          readonly: true,
+        },
+      ],
+      connectionStateByProfileId: {
+        'profile-a': {
+          status: 'connected',
+          generation: 3,
+          error: null,
+          serverVersion: '16-a',
+        },
+        'profile-b': {
+          status: 'connected',
+          generation: 3,
+          error: null,
+          serverVersion: '16-b',
+        },
+      },
+    })
+    patchActiveTestSession({
+      connectionProfileId: 'profile-a',
+      sql: 'select A',
+    })
+    const tabA = activeTestSession().id
+    const tabB = useStore.getState().createTab()
+    useStore.setState((state) => ({
+      activeTabId: tabA,
+      tabs: state.tabs.map((tab) =>
+        tab.id === tabB
+          ? { ...tab, connectionProfileId: 'profile-b', sql: 'select B' }
+          : tab,
+      ),
+    }))
+    const pending = deferred<{
+      columns: []
+      rows: [{ source: string }]
+      rowCount: number
+      durationMs: number
+    }>()
+    runQuery.mockReturnValueOnce(pending.promise)
+
+    render(<QueryEditor />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(runQuery).toHaveBeenCalledTimes(1))
+    expect(runQuery.mock.calls[0][0]).toBe('profile-a')
+
+    act(() => useStore.setState({ activeTabId: tabB }))
+    pending.resolve({
+      columns: [],
+      rows: [{ source: 'A' }],
+      rowCount: 1,
+      durationMs: 1,
+    })
+    await waitFor(() =>
+      expect(
+        useStore.getState().tabs.find((tab) => tab.id === tabA)?.result?.rows,
+      ).toEqual([{ source: 'A' }]),
+    )
+    expect(
+      useStore.getState().tabs.find((tab) => tab.id === tabB)?.result,
+    ).toBeNull()
+    expect(useStore.getState().connectionStateByProfileId).toMatchObject({
+      'profile-a': { status: 'connected', generation: 3 },
+      'profile-b': { status: 'connected', generation: 3 },
+    })
+  })
+})
+
 describe('Fix with AI editor review', () => {
   const failed = 'SELECT device_id FROM public.orders'
   const fixed = 'SELECT id AS device_id FROM public.orders'

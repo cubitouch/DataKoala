@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { QueryResult } from '@shared/types'
 import type { TempoSearchProgress } from '@shared/tempo'
 import { api } from './api'
@@ -11,6 +11,7 @@ import {
   type TraceRow,
 } from './traceViewer'
 import { selectSession, useStore } from '@store/useStore'
+import { isTabConnectionCurrent } from './tabConnection'
 
 interface SearchRequest {
   query: string
@@ -88,6 +89,7 @@ export function useTempoTraceSearchController({
   const [searchProgress, setSearchProgress] =
     useState<TempoSearchProgress | null>(null)
   const [searching, setSearching] = useState(false)
+  const requestRevisions = useRef(new Map<string, number>())
 
   useEffect(() => {
     const storedResult =
@@ -139,18 +141,36 @@ export function useTempoTraceSearchController({
       }
 
       const sampled = sampleSize !== 'all'
+      const requestTabId = tabId
+      const requestGeneration =
+        useStore.getState().connectionStateByProfileId[connectionId]?.generation
+      if (requestGeneration === undefined) return
+      if (
+        !isTabConnectionCurrent(requestTabId, connectionId, requestGeneration)
+      )
+        return
+      const requestRevision =
+        (requestRevisions.current.get(requestTabId) ?? 0) + 1
+      requestRevisions.current.set(requestTabId, requestRevision)
+      const isCurrentRequest = () =>
+        requestRevisions.current.get(requestTabId) === requestRevision &&
+        isTabConnectionCurrent(requestTabId, connectionId, requestGeneration)
+      const isVisibleRequest = () =>
+        isCurrentRequest() && useStore.getState().activeTabId === requestTabId
       const perfStarted = performance.now()
       let firstUsefulResult = false
       onSearchStart?.()
-      useStore.getState().startQuery(tabId)
-      setSearching(true)
-      setSearchRows([])
-      setSearchProgress(null)
-      setSearchNotice(
-        sampled
-          ? `Fetching a quick sample of up to ${sampleSize} traces across the selected period…`
-          : 'Fetching the complete selected period…',
-      )
+      useStore.getState().startQuery(requestTabId)
+      if (useStore.getState().activeTabId === requestTabId) {
+        setSearching(true)
+        setSearchRows([])
+        setSearchProgress(null)
+        setSearchNotice(
+          sampled
+            ? `Fetching a quick sample of up to ${sampleSize} traces across the selected period…`
+            : 'Fetching the complete selected period…',
+        )
+      }
       try {
         const result = await api.query.run(
           connectionId,
@@ -172,18 +192,26 @@ export function useTempoTraceSearchController({
                 sampleSize,
               })
             }
-            setSearchProgress(progress)
-            setSearchRows((current) => mergeSearchRows(current, progress.rows))
+            if (isVisibleRequest()) {
+              setSearchProgress(progress)
+              setSearchRows((current) =>
+                mergeSearchRows(current, progress.rows),
+              )
+            }
           },
         )
         if (isSpanResult(result))
           throw new Error(
             'TraceQL search returned a trace instead of search results.',
           )
-        setSearchRows(result.rows)
-        setSearchNotice(result.notice ?? '')
-        setSearchProgress(null)
-        useStore.getState().completeQuery(result, null, tabId)
+        if (isCurrentRequest()) {
+          useStore.getState().completeQuery(result, null, requestTabId)
+          if (isVisibleRequest()) {
+            setSearchRows(result.rows)
+            setSearchNotice(result.notice ?? '')
+            setSearchProgress(null)
+          }
+        }
         tempoPerf('search.final-renderer', {
           requestId: result.execution?.requestId,
           elapsedMs: performance.now() - perfStarted,
@@ -191,18 +219,22 @@ export function useTempoTraceSearchController({
           sampleSize,
         })
       } catch (reason) {
-        setSearchNotice(
-          sampled
-            ? 'Sample search stopped before Tempo returned its bounded result set.'
-            : 'Search stopped before the selected period was fully covered; partial results found so far are shown.',
-        )
-        setSearchProgress(null)
         const message =
           reason instanceof Error ? reason.message : String(reason)
-        useStore.getState().completeQuery(null, message, tabId)
-        onError(message)
+        if (isCurrentRequest()) {
+          useStore.getState().completeQuery(null, message, requestTabId)
+          if (isVisibleRequest()) {
+            setSearchNotice(
+              sampled
+                ? 'Sample search stopped before Tempo returned its bounded result set.'
+                : 'Search stopped before the selected period was fully covered; partial results found so far are shown.',
+            )
+            setSearchProgress(null)
+            onError(message)
+          }
+        }
       } finally {
-        setSearching(false)
+        if (isVisibleRequest()) setSearching(false)
       }
     },
     [connectionId, onError, onSearchStart, tabId],

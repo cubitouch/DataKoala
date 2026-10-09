@@ -29,6 +29,7 @@ import { logql } from '@lib/logqlLanguage'
 import { useLokiLabelsResource } from '@lib/useLokiLabelsResource'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
 import { api } from '@lib/api'
+import { isTabConnectionCurrent } from '@lib/tabConnection'
 import { TimeRangeField } from '@components/query/time-range/TimeRangeField'
 import { LogResultExplorer } from '@components/results/logs/LogResultExplorer'
 import { LogPatternExplorer } from '@components/results/logs/LogPatternExplorer'
@@ -109,7 +110,6 @@ export function LokiExplorer({
   const setSql = useStore((state) => state.setSql)
   const setMode = useStore((state) => state.setQueryMode)
   const setLokiState = useStore((state) => state.setLokiState)
-  const connectionStatus = useStore((state) => state.connectionStatus)
   const reconnectActiveProfile = useStore(
     (state) => state.reconnectActiveProfile,
   )
@@ -127,13 +127,11 @@ export function LokiExplorer({
     lokiGroupBy: groupBy,
     lokiResultView: resultView,
   } = session
-  const activeProfileId = useStore((state) => state.activeProfileId)
-  const connected = useStore((state) => state.connected)
-  const legacyGeneration = useStore((state) => state.connectionGeneration)
   const scopedConnection = useStore(
     (state) => state.connectionStateByProfileId[connectionId],
   )
-  const connectionGeneration = scopedConnection?.generation ?? legacyGeneration
+  const connectionGeneration = scopedConnection?.generation ?? 0
+  const connectionReconnecting = scopedConnection?.status === 'reconnecting'
   const metadataRevision = useStore(
     (state) => state.metadataByProfileId[connectionId]?.revision ?? 0,
   )
@@ -142,8 +140,7 @@ export function LokiExplorer({
   )
   const canLoadMetadata =
     scopedConnection?.status === 'connected' ||
-    scopedConnection?.status === 'idle' ||
-    (connectionId === activeProfileId && connected)
+    scopedConnection?.status === 'idle'
   const labelResource = useLokiLabelsResource(
     connectionId,
     connectionGeneration,
@@ -421,6 +418,9 @@ export function LokiExplorer({
         )
       }
       const current = ++revision.current
+      const requestGeneration = connectionGeneration
+      const requestIsCurrent = () =>
+        isTabConnectionCurrent(tabId, connectionId, requestGeneration)
       trendRevision.current++
       trendCacheKey.current = null
       lastProcessedTrendKey.current = null
@@ -446,16 +446,25 @@ export function LokiExplorer({
           step,
           limit,
         })
-        if (current !== revision.current || !isCurrentTab(tabId)) return
+        if (current !== revision.current || !requestIsCurrent()) return
         useStore.getState().completeQuery(main, null, tabId)
       } catch (caught) {
-        if (current === revision.current && isCurrentTab(tabId)) {
-          // Do not allow a trend from a failed main query to become the visible result.
-          trendRevision.current++
-          trendCacheKey.current = null
-          setTrend(null)
-          setTrendError(null)
-          setError(caught instanceof Error ? caught.message : String(caught))
+        if (current === revision.current && requestIsCurrent()) {
+          useStore
+            .getState()
+            .completeQuery(
+              null,
+              caught instanceof Error ? caught.message : String(caught),
+              tabId,
+            )
+          if (isCurrentTab(tabId)) {
+            // Do not allow a trend from a failed main query to become the visible result.
+            trendRevision.current++
+            trendCacheKey.current = null
+            setTrend(null)
+            setTrendError(null)
+            setError(caught instanceof Error ? caught.message : String(caught))
+          }
         }
       } finally {
         if (current === revision.current && isCurrentTab(tabId))
@@ -472,6 +481,7 @@ export function LokiExplorer({
       connectionId,
       limit,
       isCurrentTab,
+      connectionGeneration,
       trendRefreshKey,
     ],
   )
@@ -920,7 +930,7 @@ export function LokiExplorer({
                   running={session.running}
                   error={session.queryError}
                   isResultStale={session.isResultStale}
-                  reconnecting={connectionStatus === 'reconnecting'}
+                  reconnecting={connectionReconnecting}
                   configuration={{ ...trendVisualization, view: 'table' }}
                   seriesVisibility={session.seriesVisibility}
                   activeFilters={session.sqlResultFilters}
@@ -930,7 +940,9 @@ export function LokiExplorer({
                   onAddFilter={onAddResultFilter}
                   onRemoveFilter={onRemoveResultFilter}
                   onClearFilters={onClearResultFilters}
-                  onReconnect={() => void reconnectActiveProfile()}
+                  onReconnect={() =>
+                    connectionId && void reconnectActiveProfile(connectionId)
+                  }
                 />
               ) : trendError ? (
                 <div className={styles.empty}>
@@ -947,7 +959,7 @@ export function LokiExplorer({
                   running={session.running}
                   error={session.queryError}
                   isResultStale={session.isResultStale}
-                  reconnecting={connectionStatus === 'reconnecting'}
+                  reconnecting={connectionReconnecting}
                   configuration={trendVisualization}
                   seriesVisibility={session.seriesVisibility}
                   activeFilters={session.sqlResultFilters}
@@ -957,7 +969,9 @@ export function LokiExplorer({
                   onAddFilter={onAddResultFilter}
                   onRemoveFilter={onRemoveResultFilter}
                   onClearFilters={onClearResultFilters}
-                  onReconnect={() => void reconnectActiveProfile()}
+                  onReconnect={() =>
+                    connectionId && void reconnectActiveProfile(connectionId)
+                  }
                   onTemporalRangeSelected={selectRange}
                 />
               ) : (
@@ -976,7 +990,7 @@ export function LokiExplorer({
             running={session.running}
             error={session.queryError}
             isResultStale={session.isResultStale}
-            reconnecting={connectionStatus === 'reconnecting'}
+            reconnecting={connectionReconnecting}
             configuration={session.sqlVisualization}
             seriesVisibility={session.seriesVisibility}
             activeFilters={session.sqlResultFilters}
@@ -985,7 +999,9 @@ export function LokiExplorer({
             onAddFilter={onAddResultFilter}
             onRemoveFilter={onRemoveResultFilter}
             onClearFilters={onClearResultFilters}
-            onReconnect={() => void reconnectActiveProfile()}
+            onReconnect={() =>
+              connectionId && void reconnectActiveProfile(connectionId)
+            }
           />
         ) : (
           !loading && (

@@ -1444,6 +1444,7 @@ async function configureLongObjectTree(win) {
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
+  ipcMain.handle('connections:live', async () => [])
   ipcMain.handle('ai:settings:get', () => ({
     ok: true,
     value: { provider: 'openrouter', model: '', hasApiKey: false },
