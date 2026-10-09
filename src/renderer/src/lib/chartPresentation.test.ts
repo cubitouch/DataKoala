@@ -447,8 +447,12 @@ test('AI markers use exact series coordinates, respect visibility, and disappear
   const errorMark = rendered[1].markPoint as {
     data: Array<{ coord: unknown[] }>
   }
-  assert.deepEqual(requestMark.data, [{ coord: ['same', 8], value: 8 }])
-  assert.deepEqual(errorMark.data, [{ coord: ['same', 80], value: 80 }])
+  assert.deepEqual(requestMark.data, [
+    { coord: ['same', 8], value: 8, originalIndex: 1 },
+  ])
+  assert.deepEqual(errorMark.data, [
+    { coord: ['same', 80], value: 80, originalIndex: 1 },
+  ])
   assert.equal((rendered[0].markPoint as { symbol: string }).symbol, 'circle')
   assert.equal(
     (rendered[0].markPoint as { itemStyle: { borderColor: string } }).itemStyle
@@ -464,12 +468,49 @@ test('AI markers use exact series coordinates, respect visibility, and disappear
   assert.equal(hidden[0].markPoint, undefined)
   assert.deepEqual(
     (hidden[1].markPoint as { data: Array<{ coord: unknown[] }> }).data,
-    [{ coord: ['same', 80], value: 80 }],
+    [{ coord: ['same', 80], value: 80, originalIndex: 1 }],
   )
 
   const off = buildChartPresentationOptions({ ...base, showAiAnomalies: false })
     .series as Array<Record<string, unknown>>
   assert.equal(off[0].markPoint, undefined)
+})
+
+test('log scale keeps positive anomalies and suppresses nonpositive markers only', () => {
+  const options = buildChartPresentationOptions({
+    labels: ['positive', 'negative', 'zero'],
+    series: [{ name: 'Requests', data: [800, -40, 0] }],
+    view: 'line',
+    hasSeriesColumn: false,
+    mode: 'sql',
+    valueAxisScale: 'log',
+    aiAnomalies: [
+      {
+        seriesName: 'Requests',
+        originalIndex: 0,
+        title: 'Spike',
+        reason: 'Elevated.',
+      },
+      {
+        seriesName: 'Requests',
+        originalIndex: 1,
+        title: 'Drop',
+        reason: 'Lower.',
+      },
+      {
+        seriesName: 'Requests',
+        originalIndex: 2,
+        title: 'Zero',
+        reason: 'Not representable on log.',
+      },
+    ],
+    showAiAnomalies: true,
+  })
+  const series = (options.series as Array<Record<string, unknown>>)[0]
+  const markerData = (series.markPoint as { data: Array<Record<string, unknown>> }).data
+  assert.deepEqual(markerData, [
+    { coord: ['positive', 800], value: 800, originalIndex: 0 },
+  ])
 })
 
 test('temporal AI anomaly markers use the plotted UTC coordinate', () => {
@@ -493,7 +534,7 @@ test('temporal AI anomaly markers use the plotted UTC coordinate', () => {
   const series = (options.series as Array<Record<string, unknown>>)[0]
   assert.deepEqual(
     (series.markPoint as { data: Array<{ coord: unknown[] }> }).data,
-    [{ coord: [Date.parse(label), 800], value: 800 }],
+    [{ coord: [Date.parse(label), 800], value: 800, originalIndex: 0 }],
   )
 })
 
@@ -544,4 +585,18 @@ test('anomaly tooltip explanation is series-specific and escapes model text', ()
   )(rows)
   assert.match(errorsHtml, /Error spike/)
   assert.doesNotMatch(errorsHtml, /&lt;script&gt;unsafe/)
+
+  const hiddenOptions = buildChartPresentationOptions({
+    labels: ['day 2'],
+    series,
+    view: 'line',
+    hasSeriesColumn: true,
+    mode: 'sql',
+    aiAnomalies: anomalies,
+    showAiAnomalies: false,
+  })
+  const hiddenFormatter = (
+    hiddenOptions.tooltip as { formatter: (input: unknown) => string }
+  ).formatter
+  assert.doesNotMatch(hiddenFormatter(rows), /AI anomaly|Spike|Error spike/)
 })

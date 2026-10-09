@@ -13,6 +13,7 @@ env:
     ai-settings.png
     ai-chart-anomaly.png
     ai-chart-anomaly-details.png
+    ai-chart-log.png
     ai-query-proposal.png
     ai-query-bigquery-proposal.png
     ai-builder-proposal.png
@@ -216,8 +217,9 @@ jobs:
               'builder-count-without-y.png': 'Builder — Count without a Y axis',
               'builder-narrow.png': 'Builder — narrow responsive layout',
               'ai-settings.png': 'AI settings — encrypted key and OpenRouter model selection',
-              'ai-chart-anomaly.png': 'Analyze with AI — exact red anomaly markers',
-              'ai-chart-anomaly-details.png': 'Analyze with AI — details popover, limitations and sample coverage',
+              'ai-chart-anomaly.png': 'AI anomaly — red marker with its explanation in the chart tooltip',
+              'ai-chart-anomaly-details.png': 'AI anomaly — details popover with limitations and sample coverage',
+              'ai-chart-log.png': 'AI anomaly — positive marker retained on a logarithmic axis',
               'ai-query-proposal.png': 'Ask AI — inline composer, SQL diff and explicit Apply',
               'ai-query-bigquery-proposal.png': 'Ask AI — BigQuery/GoogleSQL proposal and submitted dialect',
               'ai-builder-proposal.png': 'Builder Ask AI — structured control diff and explicit Apply',

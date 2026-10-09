@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Ref } from 'react'
 import {
   cleanup,
   fireEvent,
@@ -12,15 +13,70 @@ const aiMocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   analyzeAnomalies: vi.fn(),
   cancel: vi.fn(),
+  dispatchAction: vi.fn(),
   chartOptions: null as Record<string, unknown> | null,
 }))
 
-vi.mock('echarts-for-react', () => ({
-  default: ({ option }: { option: Record<string, unknown> }) => {
-    aiMocks.chartOptions = option
-    return <div data-testid="chart" />
-  },
-}))
+vi.mock('echarts-for-react', async () => {
+  const React = await import('react')
+  const MockChart = React.forwardRef(
+    (
+      {
+        option,
+        onEvents,
+      }: {
+        option: Record<string, unknown>
+        onEvents?: unknown
+      },
+      ref: Ref<unknown>,
+    ) => {
+      aiMocks.chartOptions = option
+      React.useImperativeHandle(ref, () => ({
+        getEchartsInstance: () => ({
+          dispatchAction: aiMocks.dispatchAction,
+          on: vi.fn(),
+          off: vi.fn(),
+          getZr: () => ({ on: vi.fn(), off: vi.fn() }),
+          resize: vi.fn(),
+          isDisposed: () => false,
+        }),
+      }))
+      const chartEvents = onEvents as
+        | { mouseover?: (params: Record<string, unknown>) => void }
+        | undefined
+      const firstSeries = (option.series as Array<Record<string, unknown>>)?.[0]
+      const firstMarker = (
+        firstSeries?.markPoint as { data?: Array<Record<string, unknown>> } | undefined
+      )?.data?.[0]
+      return (
+        <>
+          <div
+            data-testid="chart-marker"
+            onMouseOver={() =>
+              firstMarker &&
+              chartEvents?.mouseover?.({
+                componentType: 'markPoint',
+                seriesIndex: 0,
+                seriesName: firstSeries?.name as string,
+                data: firstMarker,
+              })
+            }
+          />
+          <div
+            data-testid="chart-series-point"
+            onMouseOver={() =>
+              chartEvents?.mouseover?.({
+                componentType: 'series',
+                seriesName: firstSeries?.name as string,
+              })
+            }
+          />
+        </>
+      )
+    },
+  )
+  return { default: MockChart }
+})
 vi.mock('@lib/api', () => ({
   api: {
     clipboardImage: vi.fn(),
@@ -108,6 +164,7 @@ beforeEach(() => {
   })
   aiMocks.analyzeAnomalies.mockReset().mockResolvedValue(successfulAnalysis)
   aiMocks.cancel.mockReset()
+  aiMocks.dispatchAction.mockReset()
   aiMocks.chartOptions = null
 })
 afterEach(cleanup)
@@ -155,8 +212,9 @@ describe('AI chart anomaly analysis', () => {
     expect(
       await screen.findByRole('button', { name: 'AI details (2)' }),
     ).toBeTruthy()
-    const toggle = screen.getByRole('button', { name: 'AI anomalies' })
+    const toggle = screen.getByRole('button', { name: 'Show anomalies' })
     expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    expect(toggle.getAttribute('title')).toContain('Show or hide')
     await waitFor(() => {
       const chartSeries = aiMocks.chartOptions?.series as
         Array<Record<string, unknown>> | undefined
@@ -167,8 +225,47 @@ describe('AI chart anomaly analysis', () => {
         ['212', -40],
       ])
     })
+    fireEvent.mouseOver(screen.getByTestId('chart'))
+    expect(aiMocks.dispatchAction).toHaveBeenCalledWith({
+      type: 'showTip',
+      seriesIndex: 0,
+      dataIndex: 157,
+    })
+    const tooltipFormatter = (
+      aiMocks.chartOptions?.tooltip as {
+        formatter: (params: unknown) => string
+      }
+    ).formatter
+    const markerTooltip = tooltipFormatter([
+      { axisValue: '157', dataIndex: 157, seriesName: 'value', value: 800 },
+    ])
+    expect(markerTooltip).toContain('AI anomaly · high')
+    expect(markerTooltip).toContain('Narrow spike')
+    expect(markerTooltip).toContain('day 157 rises far above')
+    expect(markerTooltip).toContain('<strong>800</strong>')
+    fireEvent.mouseOver(screen.getByTestId('chart-series-point'))
+    const pointTooltip = tooltipFormatter([
+      { axisValue: '157', dataIndex: 157, seriesName: 'value', value: 800 },
+    ])
+    expect(pointTooltip).toContain('Narrow spike')
+    expect(pointTooltip).toContain('day 157 rises far above')
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    await waitFor(() => {
+      const series = aiMocks.chartOptions?.series as
+        Array<Record<string, unknown>> | undefined
+      expect(series?.[0].markPoint).toBeUndefined()
+      const formatter = (
+        aiMocks.chartOptions?.tooltip as {
+          formatter: (params: unknown) => string
+        }
+      ).formatter
+      expect(
+        formatter([
+          { axisValue: '157', dataIndex: 157, seriesName: 'value', value: 800 },
+        ]),
+      ).not.toContain('AI anomaly')
+    })
     expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: 'AI details (2)' }))
     expect(await screen.findByRole('dialog')).toBeTruthy()
@@ -186,6 +283,64 @@ describe('AI chart anomaly analysis', () => {
     expect(request.chart.series[0].sampleCoverage).toBe(
       request.chart.series[0].points.length / 320,
     )
+  })
+
+  it('preserves AI analysis and toggle state when switching axis scale', async () => {
+    const view = render(<GenericResultExplorer {...props()} />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Analyze with AI' }),
+    )
+    expect(
+      await screen.findByRole('button', { name: 'AI details (2)' }),
+    ).toBeTruthy()
+    const toggle = screen.getByRole('button', { name: 'Show anomalies' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+
+    view.rerender(
+      <GenericResultExplorer
+        {...props({
+          configuration: { ...configuration, valueAxisScale: 'log' },
+        })}
+      />,
+    )
+    await waitFor(() => {
+      const renderedSeries = aiMocks.chartOptions?.series as
+        Array<Record<string, unknown>> | undefined
+      const markerData = (
+        renderedSeries?.[0]?.markPoint as
+          | { data: Array<{ coord: unknown[]; originalIndex: number }> }
+          | undefined
+      )?.data
+      expect(markerData).toEqual([
+        { coord: ['157', 800], value: 800, originalIndex: 157 },
+      ])
+    })
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'AI details (2)' })).toBeTruthy()
+    expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: 'AI details (2)' }))
+    expect(screen.getByText(/Nonpositive flagged values remain/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'AI details (2)' }))
+
+    view.rerender(
+      <GenericResultExplorer
+        {...props({ configuration: { ...configuration, valueAxisScale: 'linear' } })}
+      />,
+    )
+    await waitFor(() => {
+      const renderedSeries = aiMocks.chartOptions?.series as
+        Array<Record<string, unknown>> | undefined
+      const markerData = (
+        renderedSeries?.[0]?.markPoint as
+          | { data: Array<{ originalIndex: number }> }
+          | undefined
+      )?.data
+      expect(markerData?.map(({ originalIndex }) => originalIndex)).toEqual([
+        157,
+        212,
+      ])
+    })
+    expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
   })
 
   it('shows a calm empty state without markers when no anomalies are returned', async () => {
@@ -210,7 +365,7 @@ describe('AI chart anomaly analysis', () => {
         'No candidate anomalies found in the supplied sample.',
       ),
     ).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'AI anomalies' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Show anomalies' })).toBeNull()
   })
 
   it('shows provider errors', async () => {

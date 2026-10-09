@@ -353,7 +353,6 @@ export function GenericResultExplorer({
     valueColumn: effectiveConfiguration.valueColumn,
     seriesColumn: effectiveConfiguration.seriesColumn,
     seriesColumns: effectiveConfiguration.seriesColumns,
-    valueAxisScale: effectiveConfiguration.valueAxisScale,
     activeFilters,
     seriesVisibility,
     chartTimeDomain,
@@ -492,7 +491,6 @@ export function GenericResultExplorer({
             chart.series,
             chart.xValues,
             seriesVisibility,
-            effectiveConfiguration.valueAxisScale ?? 'linear',
           )
         : [],
     [
@@ -500,7 +498,6 @@ export function GenericResultExplorer({
       aiSubmittedSamples,
       chart,
       seriesVisibility,
-      effectiveConfiguration.valueAxisScale,
     ],
   )
   const temporalRangeSelectionEnabled = Boolean(
@@ -970,13 +967,42 @@ export function GenericResultExplorer({
     if (params.componentType === 'series' && params.seriesName)
       hoveredSeriesIdentity.current = params.seriesName
   }
+  const onChartMouseOver = (params: {
+    componentType?: string
+    seriesName?: string
+    seriesIndex?: number
+    data?: unknown
+  }) => {
+    if (params.componentType !== 'markPoint') {
+      onSeriesMouseOver(params)
+      return
+    }
+    if (
+      !aiAnomaliesVisible ||
+      !params.seriesName ||
+      typeof params.seriesIndex !== 'number' ||
+      !Number.isInteger(params.seriesIndex)
+    )
+      return
+    const originalIndex = (
+      params.data as { originalIndex?: unknown } | undefined
+    )?.originalIndex
+    if (typeof originalIndex !== 'number' || !Number.isInteger(originalIndex))
+      return
+    hoveredSeriesIdentity.current = params.seriesName
+    ref.current?.getEchartsInstance()?.dispatchAction({
+      type: 'showTip',
+      seriesIndex: params.seriesIndex,
+      dataIndex: originalIndex,
+    })
+  }
   const onSeriesMouseOut = (params: {
     componentType?: string
     seriesName?: string
   }) => {
     if (
-      params.componentType === 'series' &&
-      params.seriesName === hoveredSeriesIdentity.current
+      params.seriesName === hoveredSeriesIdentity.current &&
+      (params.componentType === 'series' || params.componentType === 'markPoint')
     )
       hoveredSeriesIdentity.current = undefined
   }
@@ -1324,9 +1350,10 @@ export function GenericResultExplorer({
                 className="btn ghost"
                 type="button"
                 aria-pressed={aiAnomaliesVisible}
+                title="Show or hide the AI-identified anomaly markers and tooltip explanations."
                 onClick={() => setAiAnomaliesVisible((visible) => !visible)}
               >
-                AI anomalies
+                Show anomalies
               </button>
             )}
             {aiAnalysis && aiSubmittedSamples && (
@@ -1334,6 +1361,7 @@ export function GenericResultExplorer({
                 analysis={aiAnalysis}
                 anomalies={resolvedAiAnomalies}
                 samples={aiSubmittedSamples.map(({ sample }) => sample)}
+                valueAxisScale={effectiveConfiguration.valueAxisScale ?? 'linear'}
               />
             )}
             <button
@@ -1450,7 +1478,7 @@ export function GenericResultExplorer({
                     onEvents={{
                       click: hierarchical ? () => {} : onChartClick,
                       brushEnd: onBrushEnd,
-                      mouseover: onSeriesMouseOver,
+                      mouseover: onChartMouseOver,
                       mouseout: onSeriesMouseOut,
                       finished: onChartFinished,
                     }}

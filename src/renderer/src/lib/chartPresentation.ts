@@ -446,6 +446,7 @@ export function buildChartPresentationOptions(
                   series.data[anomaly.originalIndex],
                 ],
                 value: series.data[anomaly.originalIndex],
+                originalIndex: anomaly.originalIndex,
               }))
             return data.length
               ? {

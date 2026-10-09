@@ -13,10 +13,12 @@ export function AiAnomalyDetailsPopover({
   analysis,
   anomalies,
   samples,
+  valueAxisScale = 'linear',
 }: {
   analysis: AiAnomalyAnalysis
   anomalies: readonly ChartAnomalyAnnotation[]
   samples: readonly SampledChartSeries[]
+  valueAxisScale?: 'linear' | 'log'
 }) {
   const sampledCount = samples.reduce(
     (total, sample) => total + sample.points.length,
@@ -53,6 +55,13 @@ export function AiAnomalyDetailsPopover({
 
       <div className={styles.anomalyDetailsBody}>
         <p className={styles.anomalySummary}>{analysis.summary}</p>
+        {valueAxisScale === 'log' &&
+          anomalies.some((anomaly) => anomaly.y <= 0) && (
+            <p className={styles.anomalyCoverageNote} role="note">
+              Nonpositive flagged values remain in the analysis but cannot be
+              shown on a logarithmic axis.
+            </p>
+          )}
         <section aria-label="Flagged points">
           <h3>Flagged points</h3>
           {anomalies.length ? (

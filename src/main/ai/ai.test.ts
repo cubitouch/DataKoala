@@ -239,6 +239,11 @@ test('OpenRouter returns a validated structured anomaly analysis from bounded ch
   assert.equal(analysis.summary, 'One candidate spike is visible.')
   assert.equal(analysis.anomalies.length, 1)
   assert.equal((sent?.response_format as { type: string }).type, 'json_schema')
+  const messages = sent?.messages as Array<{ role: string; content: string }>
+  assert.equal(messages[0].role, 'system')
+  assert.match(messages[0].content, /one or two concise sentences/)
+  assert.match(messages[0].content, /Avoid repeating exact X\/Y values/)
+  assert.match(messages[0].content, /Do not invent statistical confidence/)
   assert.match(JSON.stringify(sent?.messages), /2026-10-01/)
   assert.match(JSON.stringify(sent?.messages), /sampleCoverage/)
   const tooMany = {

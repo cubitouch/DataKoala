@@ -162,14 +162,14 @@ app.whenReady().then(async () => {
             seriesIndex: 0,
             pointIndex: spikeIndex,
             title: 'Narrow spike',
-            reason: 'Requests rise sharply to 800 near day 17.',
+            reason: 'About 40× the surrounding baseline, then it returns to its usual level.',
             severity: 'high',
           },
           {
             seriesIndex: 0,
             pointIndex: dropIndex,
             title: 'Narrow drop',
-            reason: 'Requests fall sharply to -40 near day 42.',
+            reason: 'A brief fall below the usual range before values return to baseline.',
             severity: 'medium',
           },
         ],
@@ -748,9 +748,30 @@ app.whenReady().then(async () => {
     await click(win, 'Analyze with AI')
     await wait(
       win,
-      `[...document.querySelectorAll('button[aria-pressed="true"]')].some((button) => button.textContent.includes('AI anomalies')) && [...document.querySelectorAll('button')].some((button) => button.textContent.includes('AI details (2)'))`,
+      `[...document.querySelectorAll('button[aria-pressed="true"]')].some((button) => button.textContent.includes('Show anomalies')) && [...document.querySelectorAll('button')].some((button) => button.textContent.includes('AI details (2)'))`,
     )
+    win.setSize(1100, 700)
     await settlePaint(win)
+    await settlePaint(win)
+    const plotBounds = await win.webContents.executeJavaScript(`() => {
+      const rect = document.querySelector('[data-result-chart-canvas] .plot')?.getBoundingClientRect()
+      return rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null
+    }`)
+    if (!plotBounds) throw new Error('AI anomaly preview could not locate the chart plot')
+    win.focus()
+    // The mock analysis flags original point 17. Move over its red mark so the
+    // screenshot proves the real markPoint-to-axis-tooltip interaction.
+    const markerX = plotBounds.left + 50 + (plotBounds.width - 74) * (17 / 63)
+    const markerY = plotBounds.top + 20 + (plotBounds.height - 65) * 0.09
+    await win.webContents.sendInputEvent({
+      type: 'mouseMove',
+      x: Math.round(markerX),
+      y: Math.round(markerY),
+    })
+    await wait(
+      win,
+      `document.querySelector('.chart-tooltip-anomaly')?.textContent.includes('Narrow spike') && document.querySelector('.chart-tooltip-anomaly')?.textContent.includes('40×')`,
+    )
     await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-chart-anomaly.png'),
@@ -761,9 +782,40 @@ app.whenReady().then(async () => {
       win,
       `[...document.querySelectorAll('[role="dialog"]')].some((dialog) => dialog.textContent.includes('Narrow spike') && dialog.textContent.includes('Narrow drop') && dialog.textContent.includes('sample coverage'))`,
     )
+    const detailScrollContainers = await win.webContents.executeJavaScript(`() => {
+      const dialog = [...document.querySelectorAll('[role="dialog"]')].find((node) => node.textContent.includes('Narrow spike'))
+      if (!dialog) return -1
+      return [dialog, ...dialog.querySelectorAll('*')].filter((node) => {
+        const overflowY = getComputedStyle(node).overflowY
+        return (overflowY === 'auto' || overflowY === 'scroll') && node.clientHeight > 0
+      }).length
+    }`)
+    if (detailScrollContainers !== 1)
+      throw new Error(`AI anomaly details expected one vertical scroll container, found ${detailScrollContainers}`)
     await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-chart-anomaly-details.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
+    await win.webContents.executeJavaScript(
+      `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+    )
+    await win.webContents.executeJavaScript(`() => {
+      const store = window.__datakoalaStore, state = store.getState()
+      store.setState({
+        tabs: state.tabs.map((tab) => tab.id === state.activeTabId
+          ? { ...tab, sqlVisualization: { ...tab.sqlVisualization, valueAxisScale: 'log' } }
+          : tab),
+      })
+    }`)
+    await wait(
+      win,
+      `window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId)?.sqlVisualization.valueAxisScale === 'log'`,
+    )
+    await settlePaint(win)
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-chart-log.png'),
       (await win.webContents.capturePage()).toPNG(),
     )
 

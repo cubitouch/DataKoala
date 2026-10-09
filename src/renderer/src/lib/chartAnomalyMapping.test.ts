@@ -48,7 +48,7 @@ test('maps AI sample references to exact original rows even when X values repeat
   )
 })
 
-test('drops stale, missing, hidden, misassociated and non-plottable log references', () => {
+test('drops stale, missing, hidden, and misassociated references without losing log-only findings', () => {
   const changed = resolveAiAnomalies(
     analysis,
     [{ chartSeriesIndex: 0, sample }],
@@ -87,9 +87,10 @@ test('drops stale, missing, hidden, misassociated and non-plottable log referenc
     [{ name: 'Requests', data: [1, null, -8, 10] }],
     ['a', 'b', 'same', 'last'],
     {},
-    'log',
   )
-  assert.deepEqual(logInvalid, [])
+  assert.deepEqual(logInvalid.map(({ originalIndex, y }) => ({ originalIndex, y })), [
+    { originalIndex: 2, y: -8 },
+  ])
 
   const wrongSeries = resolveAiAnomalies(
     analysis,

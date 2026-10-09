@@ -24,7 +24,6 @@ export function resolveAiAnomalies(
   }[],
   xValues: readonly unknown[],
   visibility: Readonly<Record<string, boolean>>,
-  valueAxisScale: 'linear' | 'log' = 'linear',
 ): ChartAnomalyAnnotation[] {
   const resolved: ChartAnomalyAnnotation[] = []
   const used = new Set<string>()
@@ -45,8 +44,7 @@ export function resolveAiAnomalies(
       series.missing?.[originalIndex] ||
       typeof y !== 'number' ||
       !Number.isFinite(y) ||
-      y !== samplePoint.y ||
-      (valueAxisScale === 'log' && y <= 0)
+      y !== samplePoint.y
     )
       continue
     const key = `${submittedSeries.chartSeriesIndex}:${originalIndex}`
