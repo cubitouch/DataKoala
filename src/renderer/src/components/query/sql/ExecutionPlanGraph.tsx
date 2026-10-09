@@ -267,17 +267,19 @@ export function ExecutionPlanGraph({
     )
     graph.resetCells([...nodes, ...edges])
 
-    const select = (id: string) => onSelectNode(id)
-    paper.on('element:pointerclick', (view: dia.ElementView) =>
-      select(String(view.model.id)),
-    )
+    const selectNode = (event: MouseEvent) => {
+      const target = (event.target as Element | null)?.closest('[data-node-id]')
+      const id = target?.getAttribute('data-node-id')
+      if (id) onSelectNode(id)
+    }
+    host.addEventListener('click', selectNode)
     const keydown = (event: KeyboardEvent) => {
       if (event.key !== 'Enter' && event.key !== ' ') return
       const target = event.target as Element | null
       const id = target?.closest('[data-node-id]')?.getAttribute('data-node-id')
       if (!id) return
       event.preventDefault()
-      select(id)
+      onSelectNode(id)
     }
     host.addEventListener('keydown', keydown)
 
@@ -345,6 +347,7 @@ export function ExecutionPlanGraph({
     })
     return () => {
       observer.disconnect()
+      host.removeEventListener('click', selectNode)
       host.removeEventListener('keydown', keydown)
       host.removeEventListener('wheel', wheel)
       window.removeEventListener('pointermove', panMove)
