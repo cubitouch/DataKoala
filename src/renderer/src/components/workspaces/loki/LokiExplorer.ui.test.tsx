@@ -1164,8 +1164,9 @@ describe('LokiExplorer execution', () => {
     const tab = useStore.getState().tabs[0]
     useStore.getState().setLokiState({ lokiGroupBy: ['app'] }, tab.id)
     const before = useStore.getState().tabs[0]
+    const loadedLogs = patternLogs()
     const run = mocks.runLoki
-      .mockResolvedValueOnce(logs)
+      .mockResolvedValueOnce(loadedLogs)
       .mockResolvedValueOnce(metric)
       .mockResolvedValueOnce(volume)
     render(<LokiExplorer connectionId="loki" />)
@@ -1234,13 +1235,22 @@ describe('LokiExplorer execution', () => {
     expect(after.lokiBuilder).toEqual(before.lokiBuilder)
     expect(after.lokiGroupBy).toEqual(['app'])
     expect(after.sql).toBe(before.sql)
-    expect(after.result).toEqual(logs)
+    expect(after.result).toEqual(loadedLogs)
     expect(volume).toEqual(original)
     expect(screen.getByRole('button', { name: /Time range/ }).textContent).toBe(
       pickerValue,
     )
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Reset range' })).toBeNull()
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 2] }] }))
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    expect(screen.getByText(/^3 loaded/)).toBeTruthy()
+    expect(useStore.getState().tabs[0].sqlResultFilters).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    expect(
+      screen.getByRole('button', { name: /Request.*<number>.*completed/ }),
+    ).toBeTruthy()
+    expect(useStore.getState().tabs[0].result).toEqual(loadedLogs)
     fireEvent.click(screen.getByRole('button', { name: /Time range/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Last 3 hours' }))
     const requestsBeforeRangeChange = run.mock.calls.length
