@@ -44,7 +44,7 @@ const tree = {
       startupCost: 1284.42,
       totalCost: 1286.92,
       planRows: 1000,
-      actualRows: 1000,
+      actualRows: 10_000,
       actualTotalTime: 24.7,
       loops: 1,
       sortKey: ['sum(o.amount) DESC'],
@@ -285,9 +285,9 @@ app.whenReady().then(async () => {
     await sleep(250)
     const unconfiguredReport = await win.webContents.executeJavaScript(`({
       plan: Boolean(document.querySelector('[aria-label="Execution plan diagram"]')),
-      analyzeAction: [...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Analyze performance')
+      headerAnalyzeAction: [...document.querySelector('[aria-label="Explain results"] header')?.querySelectorAll('button') ?? []].some((button) => button.textContent?.trim() === 'Analyze performance')
     })`)
-    if (!unconfiguredReport.plan || unconfiguredReport.analyzeAction)
+    if (!unconfiguredReport.plan || unconfiguredReport.headerAnalyzeAction)
       throw new Error(
         `Unconfigured EXPLAIN preview assertion failed: ${JSON.stringify(unconfiguredReport)}`,
       )
@@ -297,7 +297,7 @@ app.whenReady().then(async () => {
     )
     await wait(
       win,
-      `[...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Analyze performance')`,
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.trim() === 'Run analysis')`,
       'configured AI performance action',
     )
     if (planAnalysisCalls !== 0)
@@ -308,7 +308,7 @@ app.whenReady().then(async () => {
       `window.__datakoalaStore.getState().setSql('select * from analytics.other_table;')`,
     )
     await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Analyze performance')?.click()`,
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.trim() === 'Run analysis')?.click()`,
     )
     await wait(
       win,
@@ -338,18 +338,29 @@ app.whenReady().then(async () => {
         `EXPLAIN AI preview assertion failed: ${JSON.stringify(aiReport)}`,
       )
 
+    await win.webContents.executeJavaScript(`(() => {
+      const node = document.querySelector('[data-node-id="0.0"]')
+      node?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
+    })()`)
+    await sleep(100)
     const report = await win.webContents.executeJavaScript(`(() => {
       const diagram = document.querySelector('[aria-label="Execution plan diagram"]')
       const surface = document.querySelector('[data-testid="execution-plan-joint-surface"]')
       const explainRoot = document.querySelector('[aria-label="Explain results"]')
       const summary = document.querySelector('[aria-label="Plan summary"]')
-      const signals = document.querySelector('[aria-label="Plan signals"]')
-      const hints = document.querySelector('[aria-label="AI performance hints"]')
+      const inspector = document.querySelector('[aria-label="Plan node details"]')
+      const signals = inspector?.querySelector('[aria-label="Plan signals"]')
+      const signalSections = document.querySelectorAll('[aria-label="Plan signals"]')
+      const hints = document.querySelector('[aria-label="Performance hints"]')
+      const header = explainRoot?.querySelector('header')
+      const toolbar = diagram?.querySelector('[aria-label="Plan diagram navigation"]')
+      const canvas = diagram?.querySelector('[data-testid="execution-plan-joint-surface"]')
       const text = document.body.innerText + (diagram?.textContent ?? '')
       const layout = document.querySelector('[class*="planLayout"]')
       const bounds = (id) => document.querySelector('[data-node-id="' + id + '"]')?.getBoundingClientRect()
       const rootNode = bounds('0')
       const firstChild = bounds('0.0')
+      const sortNode = firstChild
       const join = bounds('0.0.0.0')
       const joinLeftChild = bounds('0.0.0.0.0')
       const joinRightChild = bounds('0.0.0.0.1')
@@ -360,6 +371,11 @@ app.whenReady().then(async () => {
       const paper = surface?.firstElementChild
       const paperBackground = paper ? getComputedStyle(paper).backgroundColor : ''
       const opaque = (color) => Boolean(color && color !== 'transparent' && !/[,/]\\s*0\\s*\\)?$/.test(color))
+      const rootStroke = rootNode ? getComputedStyle(rootNode.querySelector('rect')).stroke : ''
+      const selectedStroke = sortNode ? getComputedStyle(sortNode.querySelector('rect')).stroke : ''
+      const toolbarBounds = toolbar?.getBoundingClientRect()
+      const canvasBounds = canvas?.getBoundingClientRect()
+      const performanceStyle = hints ? getComputedStyle(hints) : null
       return {
         nodeCount: Number(diagram?.dataset.nodeCount ?? 0),
         edgeCount: Number(diagram?.dataset.edgeCount ?? 0),
@@ -374,12 +390,20 @@ app.whenReady().then(async () => {
         hasPlannerMsConfusion: /Planner cost\\s*:\\s*[\\d.]+\\s*ms/i.test(text),
         width: diagram?.getBoundingClientRect().width,
         height: diagram?.getBoundingClientRect().height,
-        signalsOutsideGraph: Boolean(signals && !surface?.contains(signals)),
-        hintsOutsideGraph: Boolean(hints && !surface?.contains(hints)),
-        signalCount: signals?.querySelectorAll('button').length ?? 0,
+        signalsInInspector: Boolean(signals && inspector?.contains(signals) && signalSections.length === 1),
+        signalCount: signals?.querySelectorAll('li').length ?? 0,
         noRepeatedMeasuredSignals: !text.includes('High measured work'),
         opaqueSurfaces: opaque(rootBackground) && opaque(surfaceBackground) && opaque(paperBackground),
         surfaceColors: { rootBackground, surfaceBackground, paperBackground },
+        noPlanNote: !explainRoot?.querySelector('[class*="planNote"]'),
+        noHeaderAnalyzeAction: ![...(header?.querySelectorAll('button') ?? [])].some((button) => button.textContent?.trim() === 'Analyze performance'),
+        runAgainInHints: Boolean(hints && [...hints.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'Run again')),
+        aiDetailsInHints: Boolean(hints?.querySelector('[aria-label="Inspect Analyze performance request"]')),
+        hintsFlat: Boolean(performanceStyle && performanceStyle.borderTopWidth === '0px' && performanceStyle.backgroundColor === 'rgba(0, 0, 0, 0)'),
+        controlsOverlay: Boolean(toolbar && toolbar.parentElement === diagram && getComputedStyle(toolbar).position === 'absolute'),
+        canvasFillsGraph: Boolean(toolbarBounds && canvasBounds && canvasBounds.top <= toolbarBounds.top && canvasBounds.height >= diagram.getBoundingClientRect().height - 4),
+        normalNodeBorder: Boolean(rootStroke && rootStroke !== 'none' && rootStroke !== surfaceBackground),
+        selectedNodeOutlineStrong: Boolean(selectedStroke && rootStroke !== selectedStroke),
         rootAboveChild: Boolean(rootNode && firstChild && rootNode.y < firstChild.y),
         joinAboveChildren: Boolean(join && joinLeftChild && joinRightChild && join.y < joinLeftChild.y && join.y < joinRightChild.y),
         siblingOrder: Boolean(joinLeftChild && joinRightChild && joinLeftChild.x < joinRightChild.x),
@@ -398,13 +422,21 @@ app.whenReady().then(async () => {
       !report.hasSignalsLabel ||
       !report.hasMeasuredTime ||
       report.hasPlannerMsConfusion ||
-      report.selectedNodeId !== '0.0.0.0' ||
+      report.selectedNodeId !== '0.0' ||
       report.highlightedNodeIds?.length !== 2 ||
-      !report.signalsOutsideGraph ||
-      !report.hintsOutsideGraph ||
-      report.signalCount < 2 ||
+      !report.signalsInInspector ||
+      report.signalCount !== 2 ||
       !report.noRepeatedMeasuredSignals ||
       !report.opaqueSurfaces ||
+      !report.noPlanNote ||
+      !report.noHeaderAnalyzeAction ||
+      !report.runAgainInHints ||
+      !report.aiDetailsInHints ||
+      !report.hintsFlat ||
+      !report.controlsOverlay ||
+      !report.canvasFillsGraph ||
+      !report.normalNodeBorder ||
+      !report.selectedNodeOutlineStrong ||
       !report.rootAboveChild ||
       !report.joinAboveChildren ||
       !report.siblingOrder ||
@@ -449,71 +481,97 @@ app.whenReady().then(async () => {
     )
 
     const manualNodeSelected = await win.webContents.executeJavaScript(`(() => {
-      const element = document.querySelector('[data-node-id="0"]')
+      const element = document.querySelector('[data-node-id="0.2"]')
       if (!element) return false
       element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
       return true
     })()`)
     if (!manualNodeSelected)
-      throw new Error('Root plan node was not rendered by JointJS')
+      throw new Error('Plan node was not rendered by JointJS')
     await sleep(100)
     const manualSelection = await win.webContents.executeJavaScript(`({
       selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
       highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds,
-      activeHint: [...document.querySelectorAll('[aria-label="AI performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true')
+      activeHint: [...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true'),
+      hasSignals: Boolean(document.querySelector('[aria-label="Plan node details"] [aria-label="Plan signals"]'))
     })`)
     if (
-      manualSelection.selectedNodeId !== '0' ||
+      manualSelection.selectedNodeId !== '0.2' ||
       !manualSelection.activeHint ||
-      manualSelection.highlightedNodeIds.split(',').length !== 2
+      manualSelection.highlightedNodeIds.split(',').length !== 2 ||
+      manualSelection.hasSignals
     )
       throw new Error(
-        `Manual graph selection did not preserve the active AI hint: ${JSON.stringify(manualSelection)}`,
+        `Manual graph selection did not update the inspector while preserving the AI hint: ${JSON.stringify(manualSelection)}`,
       )
 
-    await win.webContents.executeJavaScript(
-      `document.querySelector('[aria-label="Plan signals"] button')?.click()`,
-    )
+    await win.webContents.executeJavaScript(`(() => {
+      document.querySelector('[data-node-id="0.0"]')?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true, view: window }),
+      )
+      document.querySelector('[aria-label="Plan signals"] button')?.click()
+    })()`)
     const diagnosticSelection = await win.webContents.executeJavaScript(`({
       selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
       highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds,
-      activeHint: [...document.querySelectorAll('[aria-label="AI performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true'),
+      focusNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.focusNodeId,
+      activeHint: [...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true'),
       activeSignal: [...document.querySelectorAll('[aria-label="Plan signals"] button')].some((button) => button.getAttribute('aria-pressed') === 'true')
     })`)
     if (
-      !diagnosticSelection.selectedNodeId ||
-      !diagnosticSelection.highlightedNodeIds
-        .split(',')
-        .includes(diagnosticSelection.selectedNodeId) ||
+      diagnosticSelection.selectedNodeId !== '0.0' ||
+      diagnosticSelection.highlightedNodeIds !== '0.0' ||
+      diagnosticSelection.focusNodeId !== '0.0' ||
       diagnosticSelection.activeHint ||
       !diagnosticSelection.activeSignal
     )
       throw new Error(
-        `Deterministic diagnostic did not focus its plan node: ${JSON.stringify(diagnosticSelection)}`,
+        `Selecting a deterministic signal did not exclusively focus its node: ${JSON.stringify(diagnosticSelection)}`,
       )
 
     await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll('[aria-label="AI performance hints"] button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()`,
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()`,
     )
-    const aiAfterSignal = await win.webContents.executeJavaScript(`({
+    const aiAfterDiagnostic = await win.webContents.executeJavaScript(`({
       selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
-      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds.split(',').filter(Boolean),
-      activeHint: [...document.querySelectorAll('[aria-label="AI performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true'),
+      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds,
+      focusNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.focusNodeId,
+      activeHint: [...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.includes('Join cardinality is underestimated') && button.getAttribute('aria-pressed') === 'true'),
       activeSignal: [...document.querySelectorAll('[aria-label="Plan signals"] button')].some((button) => button.getAttribute('aria-pressed') === 'true')
     })`)
     if (
-      aiAfterSignal.selectedNodeId !== '0.0.0.0' ||
-      !aiAfterSignal.activeHint ||
-      aiAfterSignal.activeSignal ||
-      aiAfterSignal.highlightedNodeIds.length !== 2
+      aiAfterDiagnostic.selectedNodeId !== '0.0.0.0' ||
+      aiAfterDiagnostic.highlightedNodeIds.split(',').length !== 2 ||
+      aiAfterDiagnostic.focusNodeId !== '0.0.0.0' ||
+      !aiAfterDiagnostic.activeHint ||
+      aiAfterDiagnostic.activeSignal
     )
       throw new Error(
-        `AI hint did not exclusively restore its plan focus: ${JSON.stringify(aiAfterSignal)}`,
+        `Selecting an AI hint did not clear deterministic signal selection: ${JSON.stringify(aiAfterDiagnostic)}`,
+      )
+
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.includes('Review the date filter selectivity'))?.click()`,
+    )
+    const secondHintSelection = await win.webContents.executeJavaScript(`({
+      selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]').dataset.selectedNodeId,
+      highlightedNodeIds: document.querySelector('[aria-label="Execution plan diagram"]').dataset.highlightedNodeIds,
+      selectedHint: [...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.includes('Review the date filter selectivity') && button.getAttribute('aria-pressed') === 'true'),
+      hasSignals: Boolean(document.querySelector('[aria-label="Plan node details"] [aria-label="Plan signals"]'))
+    })`)
+    if (
+      secondHintSelection.selectedNodeId !== '0.0.0.0.0' ||
+      secondHintSelection.highlightedNodeIds !== '0.0.0.0.0' ||
+      !secondHintSelection.selectedHint ||
+      secondHintSelection.hasSignals
+    )
+      throw new Error(
+        `AI hint selection did not focus its plan node: ${JSON.stringify(secondHintSelection)}`,
       )
 
     delayPlanResponse = true
     await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Analyze performance')?.click()`,
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.trim() === 'Run again')?.click()`,
     )
     for (let attempt = 0; attempt < 50 && !pendingPlanResponse; attempt += 1)
       await sleep(50)
@@ -531,7 +589,7 @@ app.whenReady().then(async () => {
     })()`)
     await wait(
       win,
-      `document.body.innerText.includes('Analyze this captured plan to get optional AI hints.')`,
+      `[...document.querySelectorAll('[aria-label="Performance hints"] button')].some((button) => button.textContent?.trim() === 'Run analysis')`,
       'replacement plan state reset',
     )
     pendingPlanResponse()
