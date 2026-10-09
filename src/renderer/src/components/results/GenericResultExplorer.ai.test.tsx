@@ -46,7 +46,9 @@ vi.mock('echarts-for-react', async () => {
         | undefined
       const firstSeries = (option.series as Array<Record<string, unknown>>)?.[0]
       const firstMarker = (
-        firstSeries?.markPoint as { data?: Array<Record<string, unknown>> } | undefined
+        firstSeries?.markPoint as
+          | { data?: Array<Record<string, unknown>> }
+          | undefined
       )?.data?.[0]
       return (
         <>
@@ -225,7 +227,7 @@ describe('AI chart anomaly analysis', () => {
         ['212', -40],
       ])
     })
-    fireEvent.mouseOver(screen.getByTestId('chart'))
+    fireEvent.mouseOver(screen.getByTestId('chart-marker'))
     expect(aiMocks.dispatchAction).toHaveBeenCalledWith({
       type: 'showTip',
       seriesIndex: 0,
@@ -324,7 +326,9 @@ describe('AI chart anomaly analysis', () => {
 
     view.rerender(
       <GenericResultExplorer
-        {...props({ configuration: { ...configuration, valueAxisScale: 'linear' } })}
+        {...props({
+          configuration: { ...configuration, valueAxisScale: 'linear' },
+        })}
       />,
     )
     await waitFor(() => {

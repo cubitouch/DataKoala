@@ -753,11 +753,12 @@ app.whenReady().then(async () => {
     win.setSize(1100, 700)
     await settlePaint(win)
     await settlePaint(win)
-    const plotBounds = await win.webContents.executeJavaScript(`() => {
-      const rect = document.querySelector('[data-result-chart-canvas] .plot')?.getBoundingClientRect()
+    const plotBounds = await win.webContents.executeJavaScript(`(() => {
+      const rect = document.querySelector('[data-result-chart-canvas] > div')?.getBoundingClientRect()
       return rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null
-    }`)
-    if (!plotBounds) throw new Error('AI anomaly preview could not locate the chart plot')
+    })()`)
+    if (!plotBounds)
+      throw new Error('AI anomaly preview could not locate the chart plot')
     win.focus()
     // The mock analysis flags original point 17. Move over its red mark so the
     // screenshot proves the real markPoint-to-axis-tooltip interaction.
@@ -782,16 +783,19 @@ app.whenReady().then(async () => {
       win,
       `[...document.querySelectorAll('[role="dialog"]')].some((dialog) => dialog.textContent.includes('Narrow spike') && dialog.textContent.includes('Narrow drop') && dialog.textContent.includes('sample coverage'))`,
     )
-    const detailScrollContainers = await win.webContents.executeJavaScript(`() => {
+    const detailScrollContainers = await win.webContents.executeJavaScript(`(() => {
       const dialog = [...document.querySelectorAll('[role="dialog"]')].find((node) => node.textContent.includes('Narrow spike'))
       if (!dialog) return -1
       return [dialog, ...dialog.querySelectorAll('*')].filter((node) => {
         const overflowY = getComputedStyle(node).overflowY
         return (overflowY === 'auto' || overflowY === 'scroll') && node.clientHeight > 0
       }).length
-    }`)
-    if (detailScrollContainers !== 1)
-      throw new Error(`AI anomaly details expected one vertical scroll container, found ${detailScrollContainers}`)
+    })()`)
+    if (detailScrollContainers !== 1) {
+      throw new Error(
+        `AI anomaly details expected one vertical scroll container, found ${detailScrollContainers}`,
+      )
+    }
     await settlePaint(win)
     await writeFile(
       resolve(output, 'ai-chart-anomaly-details.png'),
@@ -800,14 +804,14 @@ app.whenReady().then(async () => {
     await win.webContents.executeJavaScript(
       `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
     )
-    await win.webContents.executeJavaScript(`() => {
+    await win.webContents.executeJavaScript(`(() => {
       const store = window.__datakoalaStore, state = store.getState()
       store.setState({
         tabs: state.tabs.map((tab) => tab.id === state.activeTabId
           ? { ...tab, sqlVisualization: { ...tab.sqlVisualization, valueAxisScale: 'log' } }
           : tab),
       })
-    }`)
+    })()`)
     await wait(
       win,
       `window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId)?.sqlVisualization.valueAxisScale === 'log'`,
