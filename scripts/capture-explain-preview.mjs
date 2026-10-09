@@ -261,12 +261,10 @@ app.whenReady().then(async () => {
         "SELECT c.country, sum(o.amount) AS revenue\\nFROM analytics.orders o\\nJOIN analytics.customers c ON c.id = o.customer_id\\nWHERE o.created_at >= now() - interval '30 days'\\nGROUP BY c.country\\nORDER BY revenue DESC\\nLIMIT 100;"
       store.setState({
         profiles: [profile],
-        activeProfileId: profile.id,
-        connected: true,
-        connecting: false,
-        connectionStatus: 'connected',
-        connectionError: null,
-        serverVersion: '17',
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          [profile.id]: { status: 'connected', generation: 1, error: null, serverVersion: '17' },
+        },
         tabs: state.tabs.map((tab) =>
           tab.id === state.activeTabId
             ? {

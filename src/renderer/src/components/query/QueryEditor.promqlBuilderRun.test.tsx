@@ -87,10 +87,6 @@ function arrange(
         },
       },
     ],
-    activeProfileId: id,
-    connected: true,
-    connecting: false,
-    connectionStatus: 'connected',
   })
   patchActiveTestSession({
     connectionProfileId: id,
@@ -263,7 +259,6 @@ describe('PromQL Builder Run availability', () => {
             transport: { kind: 'gcx', datasourceUid: 'prom-b' },
           },
         ],
-        activeProfileId: 'prom-builder-b',
         connectionStateByProfileId: {
           ...state.connectionStateByProfileId,
           'prom-builder-b': {

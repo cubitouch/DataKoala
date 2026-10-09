@@ -44,7 +44,16 @@ describe('Trace Explorer messaging metadata', () => {
     resetTempoMetadataCache()
     attributeValues.mockReset().mockResolvedValue(['rabbitmq', 'kafka'])
     attributes.mockReset().mockResolvedValue([])
-    resetTestStore({ connected: true, connectionGeneration: 7 })
+    resetTestStore({
+      connectionStateByProfileId: {
+        'tempo-1': {
+          status: 'connected',
+          generation: 7,
+          error: null,
+          serverVersion: null,
+        },
+      },
+    })
     const traceql = '{ span.messaging.system != nil }'
     patchActiveTestSession({
       connectionProfileId: 'tempo-1',

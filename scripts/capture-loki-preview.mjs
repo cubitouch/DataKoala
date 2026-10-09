@@ -48,8 +48,7 @@ async function seedWorkspace(win) {
     if (!store || !state) return
     const profile = { id: 'preview-loki', name: 'Production logs', kind: 'loki', version: 1, readonly: true, transport: { kind: 'gcx', context: 'production', datasourceUid: 'grafana-loki-production' } }
     store.setState({
-      profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false,
-      connectionStatus: 'connected', connectionError: null,
+      profiles: [profile],
       connectionStateByProfileId: { ...state.connectionStateByProfileId, [profile.id]: { status: 'connected', generation: 1, error: null, serverVersion: null } },
       tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
         ...tab, title: 'Checkout timeouts', connectionProfileId: profile.id, queryMode: 'builder',

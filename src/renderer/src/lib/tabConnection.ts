@@ -55,16 +55,6 @@ async function connectForTab(
   const startingGeneration =
     initial.connectionStateByProfileId[desiredProfileId]?.generation ?? 0
   useStore.setState((state) => ({
-    ...(state.activeProfileId === desiredProfileId
-      ? {
-          connecting: true,
-          connected: false,
-          connectionStatus: 'connecting' as const,
-          connectionError: null,
-          serverVersion: null,
-          activeReconnectAttempt: null,
-        }
-      : {}),
     connectionStateByProfileId: {
       ...state.connectionStateByProfileId,
       [desiredProfileId]: {
@@ -81,17 +71,6 @@ async function connectForTab(
     const result = await api.connections.connect(profile)
     if (!result.ok) {
       useStore.setState((state) => ({
-        ...(state.activeProfileId === desiredProfileId &&
-        (state.connectionStateByProfileId[desiredProfileId]?.generation ?? 0) <=
-          startingGeneration
-          ? {
-              connected: false,
-              connecting: false,
-              connectionStatus: 'error' as const,
-              connectionError: result.error,
-              serverVersion: null,
-            }
-          : {}),
         connectionStateByProfileId:
           (state.connectionStateByProfileId[desiredProfileId]?.generation ??
             0) > startingGeneration ||
@@ -122,17 +101,6 @@ async function connectForTab(
         ? actualId
         : null
     useStore.setState((state) => ({
-      ...(selectSession(state, state.activeTabId)?.connectionProfileId ===
-        desiredProfileId && state.activeProfileId === desiredProfileId
-        ? {
-            connected: true,
-            connecting: false,
-            connectionStatus: 'connected' as const,
-            connectionGeneration: result.generation,
-            serverVersion: result.serverVersion,
-            connectionError: null,
-          }
-        : {}),
       connectionStateByProfileId: {
         ...state.connectionStateByProfileId,
         [actualId]: {
@@ -204,17 +172,6 @@ async function connectForTab(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     useStore.setState((state) => ({
-      ...(state.activeProfileId === desiredProfileId &&
-      (state.connectionStateByProfileId[desiredProfileId]?.generation ?? 0) <=
-        startingGeneration
-        ? {
-            connected: false,
-            connecting: false,
-            connectionStatus: 'error' as const,
-            connectionError: message,
-            serverVersion: null,
-          }
-        : {}),
       connectionStateByProfileId:
         (state.connectionStateByProfileId[desiredProfileId]?.generation ?? 0) >
           startingGeneration ||

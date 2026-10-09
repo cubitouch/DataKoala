@@ -48,13 +48,6 @@ async function setup(
   const active = selectActiveSession(useStore.getState())
   useStore.setState({
     profiles,
-    activeProfileId: 'a',
-    connected: false,
-    connecting: false,
-    connectionStatus: 'error',
-    connectionError: 'lost',
-    reconnectAttemptId: 0,
-    activeReconnectAttempt: null,
     tabs: [{ ...active, connectionProfileId: 'a' }],
   })
   return { ...module, disconnect }
@@ -66,18 +59,14 @@ describe('profile-scoped reconnect attempts', () => {
   it('keeps a successful A reconnect live in the background after switching to B', async () => {
     const request = deferred<any>()
     const connect = vi.fn(() => request.promise)
-    const { useStore, disconnect } = await setup(connect)
+    const { useStore, disconnect, selectActiveSession } = await setup(connect)
     const reconnect = useStore.getState().reconnectActiveProfile('a')
     useStore.getState().setActive('b')
     request.resolve({ ok: true, serverVersion: '16-a', generation: 7, id: 'a' })
     await reconnect
-    expect(useStore.getState()).toMatchObject({
-      activeProfileId: 'b',
-      connected: false,
-      connectionStatus: 'disconnected',
-      serverVersion: null,
-      connectionError: null,
-    })
+    expect(selectActiveSession(useStore.getState()).connectionProfileId).toBe(
+      'b',
+    )
     expect(disconnect).not.toHaveBeenCalled()
     expect(useStore.getState().connectionStateByProfileId.a).toMatchObject({
       status: 'connected',
@@ -92,7 +81,7 @@ describe('profile-scoped reconnect attempts', () => {
       .fn()
       .mockImplementationOnce(() => a.promise)
       .mockImplementationOnce(() => b.promise)
-    const { useStore, disconnect } = await setup(connect)
+    const { useStore, disconnect, selectActiveSession } = await setup(connect)
     const attemptA = useStore.getState().reconnectActiveProfile('a')
     useStore.getState().setActive('b')
     const attemptB = useStore.getState().reconnectActiveProfile('b')
@@ -100,13 +89,9 @@ describe('profile-scoped reconnect attempts', () => {
     await attemptB
     a.resolve({ ok: true, serverVersion: '16-a', generation: 11, id: 'a' })
     await attemptA
-    expect(useStore.getState()).toMatchObject({
-      activeProfileId: 'b',
-      connected: true,
-      connectionStatus: 'connected',
-      serverVersion: '16-b',
-      connectionGeneration: 22,
-    })
+    expect(selectActiveSession(useStore.getState()).connectionProfileId).toBe(
+      'b',
+    )
     expect(disconnect).not.toHaveBeenCalled()
     expect(useStore.getState().connectionStateByProfileId).toMatchObject({
       a: { status: 'connected', generation: 11 },
@@ -116,16 +101,20 @@ describe('profile-scoped reconnect attempts', () => {
 
   it('does not show a stale A failure on B', async () => {
     const request = deferred<any>()
-    const { useStore } = await setup(vi.fn(() => request.promise))
+    const { useStore, selectActiveSession } = await setup(
+      vi.fn(() => request.promise),
+    )
     const reconnect = useStore.getState().reconnectActiveProfile('a')
     useStore.getState().setActive('b')
     request.reject(new Error('A authentication failed'))
     await reconnect
-    expect(useStore.getState()).toMatchObject({
-      activeProfileId: 'b',
-      connectionError: null,
-      connectionStatus: 'disconnected',
+    expect(useStore.getState().connectionStateByProfileId.a).toMatchObject({
+      status: 'error',
+      error: 'A authentication failed',
     })
+    expect(selectActiveSession(useStore.getState()).connectionProfileId).toBe(
+      'b',
+    )
   })
 
   it('deduplicates repeated reconnect entry-point calls', async () => {
@@ -143,9 +132,15 @@ describe('profile-scoped reconnect attempts', () => {
     const { useStore, selectActiveSession } = await setup(vi.fn())
     const result = { columns: [], rows: [], rowCount: 0, durationMs: 1 }
     useStore.setState((state) => ({
-      activeProfileId: 'a',
-      connectionGeneration: 4,
-      serverVersion: '16.4',
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        a: {
+          status: 'connected',
+          generation: 4,
+          error: null,
+          serverVersion: '16.4',
+        },
+      },
       metadataByProfileId: {
         ...state.metadataByProfileId,
         a: { schemas: [], status: 'loaded', error: null, isStale: false },
@@ -169,11 +164,9 @@ describe('profile-scoped reconnect attempts', () => {
       source: 'pool:idle-client-error',
       activeOperationAffected: false,
     })
-    expect(useStore.getState()).toMatchObject({
-      connected: true,
-      connecting: false,
-      connectionStatus: 'idle',
-      connectionError: null,
+    expect(useStore.getState().connectionStateByProfileId.a).toMatchObject({
+      status: 'idle',
+      generation: 4,
       serverVersion: '16.4',
     })
     expect(selectActiveSession(useStore.getState()).isResultStale).toBe(false)

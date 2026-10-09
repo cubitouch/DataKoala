@@ -86,10 +86,6 @@ function arrange(
         transport: { kind: 'gcx', datasourceUid: 'prom-main' },
       },
     ],
-    activeProfileId: profileId,
-    connected: true,
-    connecting: false,
-    connectionStatus: 'connected',
   })
   patchActiveTestSession({
     connectionProfileId: profileId,

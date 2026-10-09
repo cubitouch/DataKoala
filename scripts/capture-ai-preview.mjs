@@ -258,7 +258,12 @@ app.whenReady().then(async () => {
     )
     await win.webContents.executeJavaScript(`(() => {
       const store = window.__datakoalaStore, state = store.getState(), profile = ${JSON.stringify(profile)}
-      store.setState({ profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false, connectionStatus: 'connected',
+      store.setState({
+        profiles: [profile],
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          [profile.id]: { status: 'connected', generation: 1, error: null, serverVersion: null },
+        },
         metadataByProfileId: { [profile.id]: { status: 'loaded', isStale: false, error: null, schemas: [{ name: 'public', isSystem: false, relations: [{ schema: 'public', name: 'orders', kind: 'r', qualifiedName: 'public.orders', columnsStatus: 'loaded', columns: ${JSON.stringify(columns)} }] }] } },
         tabs: state.tabs.map((tab) => ({ ...tab, connectionProfileId: profile.id, queryMode: 'sql', sql: 'SELECT * FROM public.orders LIMIT 100;' })) })
     })()`)
@@ -352,7 +357,10 @@ app.whenReady().then(async () => {
       const bq = ${JSON.stringify(bigQueryProfile)}
       store.setState({
         profiles: [...state.profiles.filter((item) => item.id !== bq.id), bq],
-        activeProfileId: bq.id,
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          [bq.id]: { status: 'connected', generation: 1, error: null, serverVersion: null },
+        },
         metadataByProfileId: {
           ...state.metadataByProfileId,
           [bq.id]: {
@@ -435,7 +443,6 @@ app.whenReady().then(async () => {
     await win.webContents.executeJavaScript(`(() => {
       const store = window.__datakoalaStore, state = store.getState()
       store.setState({
-        activeProfileId: ${JSON.stringify(profile.id)},
         tabs: state.tabs.map((tab) => ({
           ...tab,
           connectionProfileId: ${JSON.stringify(profile.id)},
@@ -617,7 +624,10 @@ app.whenReady().then(async () => {
       const bq = ${JSON.stringify(bigQueryProfile)}
       store.setState({
         profiles: [...state.profiles.filter((item) => item.id !== bq.id), bq],
-        activeProfileId: bq.id,
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          [bq.id]: { status: 'connected', generation: 1, error: null, serverVersion: null },
+        },
         metadataByProfileId: {
           ...state.metadataByProfileId,
           [bq.id]: {
@@ -715,7 +725,6 @@ app.whenReady().then(async () => {
         requests: day === 17 ? 800 : day === 42 ? -40 : 20,
       }))
       store.setState({
-        activeProfileId: ${JSON.stringify(profile.id)},
         tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
           ...tab,
           connectionProfileId: ${JSON.stringify(profile.id)},

@@ -28,7 +28,6 @@ describe('ConnectionStatus', () => {
   it('preserves connected text, glow state, live semantics, and the full accessible label', () => {
     resetTestStore({
       profiles: [postgres],
-      activeProfileId: postgres.id,
       connectionStateByProfileId: {
         [postgres.id]: {
           status: 'connected',
@@ -52,10 +51,6 @@ describe('ConnectionStatus', () => {
   it('uses the active tab profile state after a renderer reload even when legacy global state is disconnected', () => {
     resetTestStore({
       profiles: [postgres],
-      activeProfileId: null,
-      connected: false,
-      connecting: false,
-      connectionStatus: 'disconnected',
       connectionStateByProfileId: {
         [postgres.id]: {
           status: 'connected',
@@ -97,7 +92,6 @@ describe('ConnectionStatus', () => {
     })
     resetTestStore({
       profiles: [postgres, bigQuery],
-      activeProfileId: bigQuery.id,
       tabs: [tabA, tabB],
       activeTabId: tabA.id,
       connectionStateByProfileId: {
@@ -149,9 +143,6 @@ describe('ConnectionStatus', () => {
   it('keeps an unavailable scoped entry pending instead of falling back to legacy state', () => {
     resetTestStore({
       profiles: [postgres],
-      activeProfileId: postgres.id,
-      connected: true,
-      connectionStatus: 'connected',
     })
     useStore.setState((state) => ({
       tabs: state.tabs.map((tab) =>
@@ -170,7 +161,6 @@ describe('ConnectionStatus', () => {
   it('does not infer a tab connection from sidebar selection when the tab has none', () => {
     resetTestStore({
       profiles: [postgres],
-      activeProfileId: postgres.id,
       connectionStateByProfileId: {
         [postgres.id]: {
           status: 'connected',

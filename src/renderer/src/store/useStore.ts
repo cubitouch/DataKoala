@@ -278,16 +278,6 @@ function emptyMetadata(): ConnectionMetadataState {
 
 export interface AppState {
   profiles: DataSourceProfile[]
-  activeProfileId: string | null
-  serverVersion: string | null
-  connected: boolean
-  connecting: boolean
-  connectionStatus: ConnectionStatus
-  connectionError: string | null
-  connectionGeneration: number
-  disconnectedAt: number | null
-  reconnectAttemptId: number
-  activeReconnectAttempt: { id: number; profileId: string } | null
   connectionStateByProfileId: Record<string, ProfileConnectionState>
   metadataByProfileId: Record<string, ConnectionMetadataState>
 
@@ -297,13 +287,6 @@ export interface AppState {
   setProfiles: (profiles: DataSourceProfile[]) => void
   setActive: (id: string | null) => void
   detachProfile: (id: string) => void
-  setConnected: (
-    value: boolean,
-    version?: string | null,
-    error?: string | null,
-  ) => void
-  setConnecting: (value: boolean) => void
-  setConnectionGeneration: (generation: number) => void
   applyConnectionEvent: (event: ConnectionStateEvent) => void
   connectProfile: (
     profile: DataSourceProfile,
@@ -438,14 +421,6 @@ export function selectSession(
   return state.tabs.find((tab) => tab.id === id)
 }
 
-export function selectActiveMetadata(
-  state: Pick<AppState, 'metadataByProfileId' | 'activeProfileId'>,
-): ConnectionMetadataState {
-  return state.activeProfileId
-    ? (state.metadataByProfileId[state.activeProfileId] ?? EMPTY_METADATA)
-    : EMPTY_METADATA
-}
-
 export function selectProfileConnection(
   state: Pick<AppState, 'connectionStateByProfileId'>,
   profileId: string | null | undefined,
@@ -494,16 +469,6 @@ const initialSession = createQuerySession(1)
 
 export const useStore = create<AppState>((set, get) => ({
   profiles: [],
-  activeProfileId: null,
-  serverVersion: null,
-  connected: false,
-  connecting: false,
-  connectionStatus: 'disconnected',
-  connectionError: null,
-  connectionGeneration: 0,
-  disconnectedAt: null,
-  reconnectAttemptId: 0,
-  activeReconnectAttempt: null,
   connectionStateByProfileId: {},
   metadataByProfileId: {},
 
@@ -515,25 +480,10 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const active = selectActiveSession(state)
       if (active.activeExplainRequest) return {}
-      const sameConnection = active.connectionProfileId === id
-      return {
-        ...patchSession(state, state.activeTabId, (session) => ({
-          ...session,
-          connectionProfileId: id,
-        })),
-        activeProfileId: id,
-        ...(sameConnection
-          ? {}
-          : {
-              reconnectAttemptId: state.reconnectAttemptId + 1,
-              activeReconnectAttempt: null,
-              connecting: false,
-              connected: false,
-              connectionStatus: 'disconnected' as const,
-              connectionError: null,
-              serverVersion: null,
-            }),
-      }
+      return patchSession(state, state.activeTabId, (session) => ({
+        ...session,
+        connectionProfileId: id,
+      }))
     }),
   detachProfile: (id) =>
     set((state) => ({
@@ -547,31 +497,7 @@ export const useStore = create<AppState>((set, get) => ({
           ([profileId]) => profileId !== id,
         ),
       ),
-      ...(state.activeProfileId === id
-        ? {
-            activeProfileId: null,
-            connected: false,
-            connecting: false,
-            connectionStatus: 'disconnected' as const,
-            connectionError: null,
-            serverVersion: null,
-          }
-        : {}),
     })),
-  setConnected: (value, version, error) =>
-    set({
-      connected: value,
-      connectionStatus: value ? 'connected' : error ? 'error' : 'disconnected',
-      serverVersion: version ?? null,
-      connectionError: error ?? null,
-    }),
-  setConnecting: (value) =>
-    set((state) => ({
-      connecting: value,
-      connectionStatus: value ? 'connecting' : state.connectionStatus,
-    })),
-  setConnectionGeneration: (connectionGeneration) =>
-    set({ connectionGeneration }),
   applyConnectionEvent: (event) =>
     set((state) => {
       const previousConnection =
@@ -598,58 +524,10 @@ export const useStore = create<AppState>((set, get) => ({
           [event.profileId]: nextConnection,
         },
       }
-      if (event.profileId !== state.activeProfileId)
-        return event.state === 'failed' || event.state === 'disconnected'
-          ? {
-              ...scoped,
-              metadataByProfileId: {
-                ...state.metadataByProfileId,
-                [event.profileId]: {
-                  ...metadata,
-                  isStale: true,
-                  refreshing: false,
-                },
-              },
-            }
-          : scoped
-      if (event.state === 'idle')
-        return {
-          ...scoped,
-          connectionGeneration: event.generation,
-          connected: true,
-          connecting: false,
-          connectionStatus: 'idle',
-          connectionError: null,
-        }
-      if (event.state === 'reconnecting')
-        return {
-          ...scoped,
-          connectionGeneration: event.generation,
-          connected: false,
-          connecting: true,
-          connectionStatus: 'reconnecting',
-          connectionError: null,
-        }
-      if (event.state === 'connected')
-        return {
-          ...scoped,
-          connectionGeneration: event.generation,
-          connected: true,
-          connecting: false,
-          connectionStatus: 'connected',
-          connectionError: null,
-        }
       if (event.state !== 'failed' && event.state !== 'disconnected')
-        return { connectionGeneration: event.generation }
+        return scoped
       return {
         ...scoped,
-        connectionGeneration: event.generation,
-        connected: false,
-        connecting: false,
-        connectionStatus: event.state === 'failed' ? 'error' : 'disconnected',
-        connectionError: event.expected ? null : event.message,
-        serverVersion: null,
-        disconnectedAt: event.timestamp,
         metadataByProfileId: {
           ...state.metadataByProfileId,
           [event.profileId]: {
@@ -682,18 +560,6 @@ export const useStore = create<AppState>((set, get) => ({
               ...session,
               connectionProfileId: profile.id,
             })),
-            activeProfileId: profile.id,
-          }
-        : {}),
-      ...(state.activeProfileId === profile.id
-        ? {
-            connecting: true,
-            connected: false,
-            connectionStatus: options?.force
-              ? ('reconnecting' as const)
-              : ('connecting' as const),
-            connectionError: null,
-            serverVersion: null,
           }
         : {}),
       connectionStateByProfileId: {
@@ -726,16 +592,6 @@ export const useStore = create<AppState>((set, get) => ({
           state.connectionStateByProfileId[profile.id]?.status === 'connected'
             ? {}
             : {
-                ...(selectActiveSession(state).connectionProfileId ===
-                profile.id
-                  ? {
-                      connected: false,
-                      connecting: false,
-                      connectionStatus: 'error' as const,
-                      connectionError: result.error,
-                      serverVersion: null,
-                    }
-                  : {}),
                 connectionStateByProfileId: {
                   ...state.connectionStateByProfileId,
                   [profile.id]: {
@@ -755,17 +611,6 @@ export const useStore = create<AppState>((set, get) => ({
       if (currentConnection && currentConnection.generation > result.generation)
         return
       set((state) => ({
-        ...(selectActiveSession(state).connectionProfileId === profile.id &&
-        state.activeProfileId === profile.id
-          ? {
-              connected: true,
-              connecting: false,
-              connectionStatus: 'connected' as const,
-              connectionGeneration: result.generation,
-              serverVersion: result.serverVersion,
-              connectionError: null,
-            }
-          : {}),
         ...(actualId !== profile.id
           ? {
               tabs: state.tabs.map((tab) =>
@@ -831,15 +676,6 @@ export const useStore = create<AppState>((set, get) => ({
         state.connectionStateByProfileId[profile.id]?.status === 'connected'
           ? {}
           : {
-              ...(selectActiveSession(state).connectionProfileId === profile.id
-                ? {
-                    connected: false,
-                    connecting: false,
-                    connectionStatus: 'error' as const,
-                    serverVersion: null,
-                    connectionError: message,
-                  }
-                : {}),
               connectionStateByProfileId: {
                 ...state.connectionStateByProfileId,
                 [profile.id]: {
@@ -869,13 +705,7 @@ export const useStore = create<AppState>((set, get) => ({
       connection?.status === 'reconnecting'
     )
       return
-    const attemptId = state.reconnectAttemptId + 1
     set((current) => ({
-      reconnectAttemptId: attemptId,
-      activeReconnectAttempt: { id: attemptId, profileId: profile.id },
-      ...(current.activeProfileId === profile.id
-        ? { connectionStatus: 'reconnecting' as const }
-        : {}),
       connectionStateByProfileId: {
         ...current.connectionStateByProfileId,
         [profile.id]: {
@@ -887,9 +717,6 @@ export const useStore = create<AppState>((set, get) => ({
       },
     }))
     await get().connectProfile(profile, { force: true })
-    const current = get()
-    if (current.activeReconnectAttempt?.id === attemptId)
-      set({ activeReconnectAttempt: null })
   },
   setMetadata: (schemas, status, error, profileId) =>
     set((state) => {
@@ -957,27 +784,7 @@ export const useStore = create<AppState>((set, get) => ({
       ? before.connectionStateByProfileId[targetProfile]
       : undefined
     const sameProfile = live?.status === 'connected' || live?.status === 'idle'
-    set({
-      activeTabId: id,
-      activeProfileId: targetProfile,
-      ...(sameProfile && live
-        ? {
-            connected: true,
-            connecting: false,
-            connectionStatus: live.status,
-            connectionError: live.error,
-            connectionGeneration: live.generation,
-            serverVersion: live.serverVersion,
-          }
-        : {
-            connected: false,
-            connecting: false,
-            connectionStatus: 'disconnected' as const,
-            connectionError: null,
-            serverVersion: null,
-            activeReconnectAttempt: null,
-          }),
-    })
+    set({ activeTabId: id })
     if (sameProfile) return
     if (
       !targetProfile ||

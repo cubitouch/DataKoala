@@ -41,9 +41,6 @@ beforeEach(() => {
   formatQuery.mockReset()
 
   resetTestStore({
-    activeProfileId: profileId,
-    connected: true,
-    connectionStatus: 'connected',
     profiles: [
       {
         id: profileId,

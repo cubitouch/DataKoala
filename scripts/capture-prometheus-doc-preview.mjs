@@ -80,12 +80,6 @@ async function seedPrometheusWorkspace(win) {
 
     store.setState({
       profiles: [profile],
-      activeProfileId: profile.id,
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
-      connectionError: null,
-      serverVersion: null,
       connectionStateByProfileId: {
         ...state.connectionStateByProfileId,
         [profile.id]: {

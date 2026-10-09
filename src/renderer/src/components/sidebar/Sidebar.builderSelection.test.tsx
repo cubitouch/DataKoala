@@ -75,9 +75,6 @@ afterEach(() => {
 describe('Sidebar Builder relation selection', () => {
   it('reloads columns for an expanded relation after metadata revision', async () => {
     resetTestStore({
-      connected: true,
-      activeProfileId: 'p1',
-      connectionStatus: 'connected',
       connectionStateByProfileId: {
         p1: {
           status: 'connected',
@@ -112,9 +109,6 @@ describe('Sidebar Builder relation selection', () => {
 
   it('loads relation columns and populates explicit Time and X axis choices when the table is chosen from the object tree', async () => {
     resetTestStore({
-      connected: true,
-      activeProfileId: 'p1',
-      connectionStatus: 'connected',
       connectionStateByProfileId: {
         p1: {
           status: 'connected',

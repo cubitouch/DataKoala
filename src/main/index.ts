@@ -436,12 +436,20 @@ function attachRepro(conn: string): void {
         const store = window.__datakoalaStore
         for (let i = 0; i < 60; i++) {
           const st = store.getState()
-          if (!st.connecting && (st.connected || st.connectionError)) break
+          const tab = st.tabs.find((item) => item.id === st.activeTabId)
+          const connection = tab?.connectionProfileId
+            ? st.connectionStateByProfileId[tab.connectionProfileId]
+            : undefined
+          if (connection && connection.status !== 'connecting' && connection.status !== 'reconnecting') break
           await sleep(200)
         }
         const s1 = store.getState()
-        steps.push('after connect: connected=' + s1.connected + ' activeId=' + s1.activeProfileId + ' err=' + s1.connectionError)
-        if (!s1.connected) return JSON.stringify({ error: 'failed to connect: ' + s1.connectionError, steps })
+        const firstTab = s1.tabs.find((item) => item.id === s1.activeTabId)
+        const firstProfileId = firstTab?.connectionProfileId ?? null
+        const firstConnection = firstProfileId ? s1.connectionStateByProfileId[firstProfileId] : undefined
+        const firstConnected = firstConnection?.status === 'connected' || firstConnection?.status === 'idle'
+        steps.push('after connect: connected=' + firstConnected + ' profileId=' + firstProfileId + ' err=' + firstConnection?.error)
+        if (!firstConnected) return JSON.stringify({ error: 'failed to connect: ' + firstConnection?.error, steps })
         store.getState().setSql(${JSON.stringify(process.env.DATAKOALA_REPRO_SQL ?? 'select created_at, region, amount from orders limit 25')})
         await sleep(300)
         const runBtn = [...document.querySelectorAll('.editor-head .btn')]
@@ -455,6 +463,9 @@ function attachRepro(conn: string): void {
         }
         await sleep(1200)
         const s2 = store.getState()
+        const resultTab = s2.tabs.find((item) => item.id === s2.activeTabId)
+        const resultProfileId = resultTab?.connectionProfileId ?? null
+        const resultConnection = resultProfileId ? s2.connectionStateByProfileId[resultProfileId] : undefined
         const sqlBefore = store.getState().sql
         const fmtBtn = [...document.querySelectorAll('.editor-head .btn')]
           .find((b) => /^format$/i.test(b.textContent.trim()))
@@ -488,8 +499,8 @@ function attachRepro(conn: string): void {
         }
         return JSON.stringify({
           steps,
-          connected: s2.connected,
-          activeProfileId: s2.activeProfileId,
+          isConnected: resultConnection?.status === 'connected' || resultConnection?.status === 'idle',
+          connectionProfileId: resultProfileId,
           running: s2.running,
           queryError: s2.queryError,
           rowCount: s2.result ? s2.result.rowCount : null,

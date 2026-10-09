@@ -36,9 +36,6 @@ function connectedState() {
   useStore.setState(
     {
       ...useStore.getInitialState(),
-      activeProfileId: 'profile-a',
-      connected: true,
-      connectionGeneration: 7,
       connectionStateByProfileId: {
         'profile-a': {
           status: 'connected',
@@ -99,8 +96,6 @@ afterEach(() => {
 it('refreshes A while B is selected and leaves B metadata and A session state unchanged', async () => {
   connectedState()
   useStore.setState((state) => ({
-    activeProfileId: 'profile-b',
-    connected: false,
     connectionStateByProfileId: {
       ...state.connectionStateByProfileId,
       'profile-b': {
@@ -133,8 +128,8 @@ it('refreshes A while B is selected and leaves B metadata and A session state un
   expect(state.metadataByProfileId['profile-a'].revision).toBe(1)
   expect(state.metadataByProfileId['profile-b'].schemas).toEqual([])
   expect(state.tabs[0]).toEqual(before)
-  expect(state.connected).toBe(false)
-  expect(state.connectionGeneration).toBe(7)
+  expect(state.connectionStateByProfileId['profile-a'].status).toBe('connected')
+  expect(state.connectionStateByProfileId['profile-a'].generation).toBe(7)
 })
 
 it('creates missing renderer metadata when refreshing a restored live session', async () => {
@@ -253,8 +248,6 @@ it('discards stale metadata for A without consulting the active profile or globa
   const pending = useStore.getState().refreshMetadata('profile-a')
   await vi.waitFor(() => expect(mocks.listObjects).toHaveBeenCalled())
   useStore.setState((state) => ({
-    activeProfileId: 'profile-b',
-    connectionGeneration: 8,
     connectionStateByProfileId: {
       ...state.connectionStateByProfileId,
       'profile-a': {

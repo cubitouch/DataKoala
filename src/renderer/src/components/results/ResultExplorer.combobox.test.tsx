@@ -65,7 +65,7 @@ const result: QueryResult = {
 }
 
 const arrange = (patch: Parameters<typeof patchActiveTestSession>[0] = {}) => {
-  resetTestStore({ connected: true, connectionStatus: 'connected' })
+  resetTestStore()
   patchActiveTestSession({
     result,
     resultRevision: 1,
@@ -124,9 +124,6 @@ describe('ResultExplorer AI repair action', () => {
     (profile) => {
       resetTestStore({
         profiles: [profile],
-        activeProfileId: profile.id,
-        connected: true,
-        connectionStatus: 'connected',
       })
       patchActiveTestSession({
         connectionProfileId: profile.id,
@@ -154,7 +151,7 @@ describe('ResultExplorer chart combobox controls', () => {
   })
 
   it('derives dimension candidates from columns regardless of query mode identity', () => {
-    resetTestStore({ connected: true, connectionStatus: 'connected' })
+    resetTestStore()
     patchActiveTestSession({
       result,
       resultRevision: 1,
@@ -393,7 +390,7 @@ describe('ResultExplorer chart combobox controls', () => {
 
 describe('ResultExplorer hierarchy state', () => {
   const arrangeBuilder = () => {
-    resetTestStore({ connected: true, connectionStatus: 'connected' })
+    resetTestStore()
     patchActiveTestSession({
       result,
       resultRevision: 1,

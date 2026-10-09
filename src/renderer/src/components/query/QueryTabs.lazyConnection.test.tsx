@@ -43,9 +43,20 @@ describe('QueryTabs lazy connection switching', () => {
     resetTestStore({
       tabs: [a, b],
       activeTabId: a.id,
-      activeProfileId: 'profile-a',
-      connected: true,
-      connectionStatus: 'connected',
+      connectionStateByProfileId: {
+        'profile-a': {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
+        },
+        'profile-b': {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
+        },
+      },
       profiles: [
         {
           kind: 'postgres',
@@ -81,8 +92,13 @@ describe('QueryTabs lazy connection switching', () => {
 
     const state = useStore.getState()
     expect(state.activeTabId).toBe('tab-b')
-    expect(state.activeProfileId).toBe('profile-a')
-    expect(state.connected).toBe(true)
+    expect(
+      state.tabs.find((tab) => tab.id === state.activeTabId)
+        ?.connectionProfileId,
+    ).toBe('profile-b')
+    expect(state.connectionStateByProfileId['profile-b'].status).toBe(
+      'connected',
+    )
     expect(disconnect).not.toHaveBeenCalled()
     expect(connect).not.toHaveBeenCalled()
   })

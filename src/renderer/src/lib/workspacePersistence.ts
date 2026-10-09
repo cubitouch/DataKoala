@@ -115,7 +115,6 @@ export type WorkspacePersistableState = Pick<AppState, 'activeTabId' | 'tabs'>
 export interface WorkspaceRestorePatch {
   tabs: QuerySession[]
   activeTabId: string
-  activeProfileId: string | null
 }
 
 export interface WorkspaceStorage {
@@ -1029,7 +1028,7 @@ export function restoreWorkspaceDraft(
   const activeTabId = tabs.some((tab) => tab.id === draft.activeTabId)
     ? draft.activeTabId
     : tabs[0].id
-  setState({ tabs, activeTabId, activeProfileId: null })
+  setState({ tabs, activeTabId })
   return draft
 }
 

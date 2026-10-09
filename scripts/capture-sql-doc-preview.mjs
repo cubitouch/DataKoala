@@ -83,12 +83,6 @@ async function seedSqlWorkspace(win, view) {
 
     store.setState({
       profiles: [profile],
-      activeProfileId: profile.id,
-      connected: true,
-      connecting: false,
-      connectionStatus: 'connected',
-      connectionError: null,
-      serverVersion: '17',
       connectionStateByProfileId: {
         ...state.connectionStateByProfileId,
         [profile.id]: {

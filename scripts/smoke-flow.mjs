@@ -75,9 +75,11 @@ child.on('exit', () => {
   const problems = []
   if (!report) problems.push('no report produced')
   else {
-    if (!report.connected) problems.push('did not connect')
-    if (!report.activeProfileId)
-      problems.push('activeProfileId is falsy — Run would silently no-op')
+    if (!report.isConnected) problems.push('did not connect')
+    if (!report.connectionProfileId)
+      problems.push(
+        'active tab has no connection profile — Run would silently no-op',
+      )
     if (report.queryError) problems.push('query error: ' + report.queryError)
     if (!report.rowCount) problems.push('query returned no rows')
     if (isDefaultQuery && report.domTableRows !== 25) {

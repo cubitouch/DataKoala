@@ -44,9 +44,6 @@ function arrange(
 ) {
   const id = `prom-builder-${++sequence}`
   resetTestStore({
-    activeProfileId: id,
-    connected: true,
-    connectionStatus: 'connected',
     profiles: [
       {
         id,

@@ -90,9 +90,6 @@ beforeEach(() => {
   mocks.labelValues.mockReset().mockResolvedValue(['success', 'failure'])
   resetTestStore({
     profiles: [profile],
-    activeProfileId: profile.id,
-    connected: true,
-    connectionStatus: 'connected',
     connectionStateByProfileId: {
       [profile.id]: {
         status: 'connected',

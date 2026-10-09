@@ -141,9 +141,6 @@ describe('tab connection lifecycle', () => {
   it('rebinding a tab clears result-derived state but preserves editable work and promoted Builder predicates', () => {
     resetTestStore({
       profiles,
-      activeProfileId: 'profile-a',
-      connected: true,
-      connectionStatus: 'connected',
       connectionStateByProfileId: {
         'profile-a': {
           status: 'connected',
@@ -207,10 +204,6 @@ describe('tab connection lifecycle', () => {
   it('connects the requested profile without disconnecting another live profile', async () => {
     resetTestStore({
       profiles,
-      activeProfileId: 'profile-a',
-      connected: true,
-      connectionStatus: 'connected',
-      connectionGeneration: 1,
       connectionStateByProfileId: {
         'profile-a': {
           status: 'connected',
@@ -240,13 +233,11 @@ describe('tab connection lifecycle', () => {
     expect(
       useStore.getState().connectionStateByProfileId['profile-b']?.status,
     ).toBe('connected')
-    expect(useStore.getState().connected).toBe(true)
   })
 
   it('keeps a newer explicit connection after an older tab connection fails', async () => {
     resetTestStore({
       profiles,
-      activeProfileId: 'profile-a',
       connectionStateByProfileId: {
         'profile-a': {
           status: 'disconnected',
@@ -337,9 +328,6 @@ describe('tab connection lifecycle', () => {
   it('reuses an already-live matching pool without reconnecting', async () => {
     resetTestStore({
       profiles,
-      activeProfileId: 'profile-a',
-      connected: true,
-      connectionStatus: 'connected',
     })
     const id = useStore.getState().activeTabId
     patchActiveTestSession({ connectionProfileId: 'profile-a' })
