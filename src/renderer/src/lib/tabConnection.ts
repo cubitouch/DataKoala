@@ -1,6 +1,7 @@
 import type { DataSourceProfile } from '@shared/types'
 import { api } from './api'
 import { loadConnectionMetadata } from './connectionMetadata'
+import { isUsableProfileConnection } from './connectionLifecycle'
 import { selectSession, useStore } from '@store/useStore'
 import {
   defaultQueryModeForDatasource,
@@ -10,47 +11,12 @@ import {
 
 const inFlight = new Map<string, Promise<string | null>>()
 
-function runningOnProfile(profileId: string): boolean {
-  return useStore
-    .getState()
-    .tabs.some((tab) => tab.connectionProfileId === profileId && tab.running)
-}
-
-function confirmConnectionSwitch(
-  previousProfileId: string,
-  nextProfileId: string,
-): boolean {
-  if (
-    previousProfileId === nextProfileId ||
-    !runningOnProfile(previousProfileId)
-  )
-    return true
-  if (typeof window === 'undefined' || typeof window.confirm !== 'function')
-    return false
-  return window.confirm(
-    'A query is still running on the current connection. Running this action on another connection will stop it. Continue?',
-  )
-}
-
-async function connectForTab(
-  desiredProfileId: string,
-  confirmInterrupt: boolean,
-): Promise<string | null> {
+async function connectForTab(desiredProfileId: string): Promise<string | null> {
   const initial = useStore.getState()
   const profile = initial.profiles.find(
     (candidate) => candidate.id === desiredProfileId,
   )
   if (!profile) return null
-
-  const previousProfileId =
-    selectSession(initial, initial.activeTabId)?.connectionProfileId ?? null
-  if (
-    confirmInterrupt &&
-    previousProfileId &&
-    previousProfileId !== desiredProfileId &&
-    !confirmConnectionSwitch(previousProfileId, desiredProfileId)
-  )
-    return null
 
   const startingGeneration =
     initial.connectionStateByProfileId[desiredProfileId]?.generation ?? 0
@@ -70,25 +36,14 @@ async function connectForTab(
   try {
     const result = await api.connections.connect(profile)
     if (!result.ok) {
-      useStore.setState((state) => ({
-        connectionStateByProfileId:
-          (state.connectionStateByProfileId[desiredProfileId]?.generation ??
-            0) > startingGeneration ||
-          state.connectionStateByProfileId[desiredProfileId]?.status ===
-            'connected'
-            ? state.connectionStateByProfileId
-            : {
-                ...state.connectionStateByProfileId,
-                [desiredProfileId]: {
-                  status: 'error',
-                  generation:
-                    state.connectionStateByProfileId[desiredProfileId]
-                      ?.generation ?? startingGeneration,
-                  error: result.error,
-                  serverVersion: null,
-                },
-              },
-      }))
+      useStore
+        .getState()
+        .applyConnectionFailure(
+          desiredProfileId,
+          startingGeneration,
+          result.error,
+          startingGeneration,
+        )
       return null
     }
 
@@ -146,18 +101,12 @@ async function connectForTab(
     void loadConnectionMetadata(actualId).then(
       (nodes) => {
         const latest = useStore.getState().connectionStateByProfileId[actualId]
-        if (
-          latest?.generation === generation &&
-          (latest.status === 'connected' || latest.status === 'idle')
-        )
+        if (isUsableProfileConnection(latest, generation))
           useStore.getState().setMetadata(nodes, 'loaded', null, actualId)
       },
       (error: unknown) => {
         const latest = useStore.getState().connectionStateByProfileId[actualId]
-        if (
-          latest?.generation === generation &&
-          (latest.status === 'connected' || latest.status === 'idle')
-        )
+        if (isUsableProfileConnection(latest, generation))
           useStore
             .getState()
             .setMetadata(
@@ -171,32 +120,20 @@ async function connectForTab(
     return actualId
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    useStore.setState((state) => ({
-      connectionStateByProfileId:
-        (state.connectionStateByProfileId[desiredProfileId]?.generation ?? 0) >
-          startingGeneration ||
-        state.connectionStateByProfileId[desiredProfileId]?.status ===
-          'connected'
-          ? state.connectionStateByProfileId
-          : {
-              ...state.connectionStateByProfileId,
-              [desiredProfileId]: {
-                status: 'error',
-                generation:
-                  state.connectionStateByProfileId[desiredProfileId]
-                    ?.generation ?? startingGeneration,
-                error: message,
-                serverVersion: null,
-              },
-            },
-    }))
+    useStore
+      .getState()
+      .applyConnectionFailure(
+        desiredProfileId,
+        startingGeneration,
+        message,
+        startingGeneration,
+      )
     return null
   }
 }
 
 export async function ensureConnectionForTab(
   tabId: string,
-  options: { confirmInterrupt?: boolean } = {},
 ): Promise<string | null> {
   const state = useStore.getState()
   const session = selectSession(state, tabId)
@@ -216,10 +153,7 @@ export async function ensureConnectionForTab(
   const pending = inFlight.get(desiredProfileId)
   if (pending) return pending
 
-  const promise = connectForTab(
-    desiredProfileId,
-    options.confirmInterrupt !== false,
-  )
+  const promise = connectForTab(desiredProfileId)
   inFlight.set(desiredProfileId, promise)
   try {
     return await promise
@@ -235,10 +169,7 @@ export function isProfileConnectionCurrent(
   generation: number,
 ): boolean {
   const connection = useStore.getState().connectionStateByProfileId[profileId]
-  return (
-    connection?.generation === generation &&
-    (connection.status === 'connected' || connection.status === 'idle')
-  )
+  return isUsableProfileConnection(connection, generation)
 }
 
 export function isTabConnectionCurrent(
