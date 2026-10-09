@@ -4,6 +4,7 @@ import {
   explainNodeCategory,
   explainNodeTiming,
 } from './ExecutionPlanPresentation'
+import type { ExplainDiagnostic } from './ExplainDiagnostics'
 import styles from './PlanNodeInspector.module.css'
 
 interface Item {
@@ -42,9 +43,15 @@ function Section({ title, items }: { title: string; items: Item[] }) {
 export function PlanNodeInspector({
   node,
   analyze,
+  signals = [],
+  selectedSignalId = null,
+  onSelectSignal,
 }: {
   node: ExplainNode
   analyze: boolean
+  signals?: ExplainDiagnostic[]
+  selectedSignalId?: string | null
+  onSelectSignal?: (signal: ExplainDiagnostic) => void
 }) {
   const timing = analyze ? explainNodeTiming(node) : null
   const relation = node.relation
@@ -59,6 +66,30 @@ export function PlanNodeInspector({
         <h2>{node.nodeType}</h2>
         <p>{node.plan}</p>
       </header>
+      {signals.length > 0 && (
+        <section className={styles.section} aria-label="Plan signals">
+          <h3>Signals</h3>
+          <ul className={styles.signalList}>
+            {signals.map((signal) => (
+              <li key={signal.id}>
+                <button
+                  type="button"
+                  className={styles.signal}
+                  aria-pressed={selectedSignalId === signal.id}
+                  onClick={() => onSelectSignal?.(signal)}
+                >
+                  <strong className={styles.signalTitle}>
+                    <span aria-hidden="true">⚠</span>
+                    {signal.title}
+                  </strong>
+                  <span>{signal.description}</span>
+                  <small>{signal.evidence}</small>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <Section
         title="Operation"
         items={[
