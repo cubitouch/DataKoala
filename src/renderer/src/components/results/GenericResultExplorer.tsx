@@ -865,8 +865,11 @@ export function GenericResultExplorer({
     dataIndex?: number
     seriesIndex?: number
     event?: { event?: MouseEvent; offsetX?: number; offsetY?: number }
+    data?: unknown
   }) => {
     if (
+      (params.data as { aiAnomalyOverlay?: unknown } | undefined)
+        ?.aiAnomalyOverlay === true ||
       params.componentType !== 'series' ||
       !chart?.renderable ||
       !effectiveConfiguration.xColumn ||
@@ -965,10 +968,15 @@ export function GenericResultExplorer({
   const onChartMouseOver = (params: {
     componentType?: string
     seriesName?: string
+    data?: unknown
   }) => {
-    if (params.componentType === 'markPoint') {
-      if (aiAnomaliesVisible && params.seriesName)
-        hoveredSeriesIdentity.current = params.seriesName
+    const data = params.data as
+      { aiAnomalyOverlay?: unknown; sourceSeriesName?: unknown } | undefined
+    if (
+      data?.aiAnomalyOverlay === true &&
+      typeof data.sourceSeriesName === 'string'
+    ) {
+      hoveredSeriesIdentity.current = data.sourceSeriesName
       return
     }
     onSeriesMouseOver(params)
@@ -976,11 +984,19 @@ export function GenericResultExplorer({
   const onSeriesMouseOut = (params: {
     componentType?: string
     seriesName?: string
+    data?: unknown
   }) => {
+    const data = params.data as
+      | { aiAnomalyOverlay?: unknown; sourceSeriesName?: unknown }
+      | undefined
+    const seriesIdentity =
+      data?.aiAnomalyOverlay === true &&
+      typeof data.sourceSeriesName === 'string'
+        ? data.sourceSeriesName
+        : params.seriesName
     if (
-      params.seriesName === hoveredSeriesIdentity.current &&
-      (params.componentType === 'series' ||
-        params.componentType === 'markPoint')
+      seriesIdentity === hoveredSeriesIdentity.current &&
+      params.componentType === 'series'
     )
       hoveredSeriesIdentity.current = undefined
   }

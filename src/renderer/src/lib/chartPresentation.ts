@@ -138,23 +138,35 @@ export function buildChartTooltipFormatter(
         Boolean(item) && typeof item === 'object',
     )
     if (!params.length) return ''
-    const markerParam = params.find(
-      (param) => param.componentType === 'markPoint',
-    )
-    const markerData = markerParam?.data as
-      { originalIndex?: unknown; coord?: unknown[] } | undefined
-    const axisValue =
-      markerData?.coord?.[0] ?? params[0].axisValue ?? params[0].name
+    const markerData = params
+      .map(
+        (param) =>
+          param.data as
+            | {
+                aiAnomalyOverlay?: unknown
+                originalIndex?: unknown
+                sourceSeriesName?: unknown
+                value?: unknown
+              }
+            | undefined,
+      )
+      .find((data) => data?.aiAnomalyOverlay === true)
+    const markerValue = Array.isArray(markerData?.value)
+      ? markerData.value[0]
+      : undefined
+    const axisValue = markerValue ?? params[0].axisValue ?? params[0].name
     const dataIndex =
       typeof markerData?.originalIndex === 'number'
         ? markerData.originalIndex
         : params.find((param) => typeof param.dataIndex === 'number')?.dataIndex
     const hoveredIdentity =
-      markerParam && typeof markerParam.seriesName === 'string'
-        ? markerParam.seriesName
-        : typeof hoveredSeriesIdentity === 'function'
-          ? hoveredSeriesIdentity()
-          : hoveredSeriesIdentity
+      typeof hoveredSeriesIdentity === 'function'
+        ? hoveredSeriesIdentity()
+        : hoveredSeriesIdentity
+    const anomalySeriesIdentity =
+      typeof markerData?.sourceSeriesName === 'string'
+        ? markerData.sourceSeriesName
+        : hoveredIdentity
     const colors = new Map(
       params.map((param) => [
         typeof param.seriesName === 'string' ? param.seriesName : '',
@@ -202,10 +214,10 @@ export function buildChartTooltipFormatter(
         `<div class="chart-tooltip-row${row.hovered ? ' chart-tooltip-row-hovered' : ''}"><span class="chart-tooltip-marker" style="background:${escapeHtml(row.color ?? '#9aa0b0')}"></span><span class="chart-tooltip-series" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><strong>${escapeHtml(formatValue(row.value))}</strong></div>`,
     )
     const anomaly =
-      typeof dataIndex === 'number' && hoveredIdentity
+      typeof dataIndex === 'number' && anomalySeriesIdentity
         ? aiAnomalies.find(
             (item) =>
-              item.seriesName === hoveredIdentity &&
+              item.seriesName === anomalySeriesIdentity &&
               item.originalIndex === dataIndex &&
               visibility[item.seriesName] !== false,
           )
@@ -431,10 +443,29 @@ export function buildChartPresentationOptions(
           },
         }
       : {}),
-    series: renderedSeries.map((series, index) => ({
-      ...series,
+    series: [
+      ...renderedSeries.map((series, index) => ({
+        ...series,
+        missing: undefined,
+        itemStyle: { color: chartSeriesColor(index) },
+        lineStyle: { color: chartSeriesColor(index) },
+        type: input.view === 'area' ? 'line' : input.view,
+        data: temporal
+          ? series.data.map((value, index) => [temporalXValues[index], value])
+          : series.data,
+        stack:
+          (input.view === 'bar' || input.view === 'area') &&
+          input.hasSeriesColumn
+            ? 'total'
+            : undefined,
+        areaStyle: input.view === 'area' ? { opacity: 0.3 } : undefined,
+        smooth: input.view === 'line' || input.view === 'area',
+        connectNulls: false,
+        showSymbol: input.view === 'line',
+        symbolSize: input.view === 'scatter' ? 8 : 6,
+      })),
       ...(input.showAiAnomalies
-        ? (() => {
+        ? input.series.flatMap((series) => {
             const data = (input.aiAnomalies ?? [])
               .filter(
                 (anomaly) =>
@@ -447,26 +478,29 @@ export function buildChartPresentationOptions(
                     (series.data[anomaly.originalIndex] as number) > 0),
               )
               .map((anomaly) => ({
-                coord: [
+                value: [
                   temporal
                     ? temporalXValues[anomaly.originalIndex]
                     : input.labels[anomaly.originalIndex],
                   series.data[anomaly.originalIndex],
                 ],
-                value: series.data[anomaly.originalIndex],
                 originalIndex: anomaly.originalIndex,
+                sourceSeriesName: series.name,
+                aiAnomalyOverlay: true,
               }))
             return data.length
-              ? {
-                  markPoint: {
-                    symbol: 'circle',
-                    symbolSize: 14,
-                    label: { show: false },
+              ? [
+                  {
+                    name: `__datakoala_ai_anomaly__:${series.name}`,
+                    type: 'scatter',
+                    aiAnomalyOverlay: true,
                     tooltip: {
-                      show: true,
                       trigger: 'item',
                       formatter: tooltipFormatter,
                     },
+                    symbol: 'circle',
+                    symbolSize: 14,
+                    z: 10,
                     itemStyle: {
                       color: 'rgba(0, 0, 0, 0)',
                       borderColor: '#ff4d4f',
@@ -474,26 +508,10 @@ export function buildChartPresentationOptions(
                     },
                     data,
                   },
-                }
-              : {}
-          })()
-        : {}),
-      missing: undefined,
-      itemStyle: { color: chartSeriesColor(index) },
-      lineStyle: { color: chartSeriesColor(index) },
-      type: input.view === 'area' ? 'line' : input.view,
-      data: temporal
-        ? series.data.map((value, index) => [temporalXValues[index], value])
-        : series.data,
-      stack:
-        (input.view === 'bar' || input.view === 'area') && input.hasSeriesColumn
-          ? 'total'
-          : undefined,
-      areaStyle: input.view === 'area' ? { opacity: 0.3 } : undefined,
-      smooth: input.view === 'line' || input.view === 'area',
-      connectNulls: false,
-      showSymbol: input.view === 'line',
-      symbolSize: input.view === 'scatter' ? 8 : 6,
-    })),
+                ]
+              : []
+          })
+        : []),
+    ],
   }
 }

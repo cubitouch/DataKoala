@@ -441,33 +441,42 @@ test('AI markers use exact series coordinates, respect visibility, and disappear
     showAiAnomalies: true,
   })
   const rendered = visible.series as Array<Record<string, unknown>>
-  const requestMark = rendered[0].markPoint as {
-    data: Array<{ coord: unknown[] }>
+  const requestMarker = rendered[2] as {
+    aiAnomalyOverlay: boolean
+    symbol: string
+    data: Array<Record<string, unknown>>
+    itemStyle: { borderColor: string }
+    tooltip: { formatter: unknown }
   }
-  const errorMark = rendered[1].markPoint as {
-    data: Array<{ coord: unknown[] }>
+  const errorMarker = rendered[3] as {
+    data: Array<Record<string, unknown>>
   }
-  assert.deepEqual(requestMark.data, [
-    { coord: ['same', 8], value: 8, originalIndex: 1 },
+  assert.deepEqual(requestMarker.data, [
+    {
+      value: ['same', 8],
+      originalIndex: 1,
+      sourceSeriesName: 'Requests',
+      aiAnomalyOverlay: true,
+    },
   ])
-  assert.deepEqual(errorMark.data, [
-    { coord: ['same', 80], value: 80, originalIndex: 1 },
+  assert.deepEqual(errorMarker.data, [
+    {
+      value: ['same', 80],
+      originalIndex: 1,
+      sourceSeriesName: 'Errors',
+      aiAnomalyOverlay: true,
+    },
   ])
-  assert.equal((rendered[0].markPoint as { symbol: string }).symbol, 'circle')
-  const markerTooltip = (
-    rendered[0].markPoint as {
-      tooltip: { show: boolean; formatter: unknown }
-    }
-  ).tooltip
-  assert.equal(markerTooltip.show, true)
+  assert.equal(requestMarker.aiAnomalyOverlay, true)
+  assert.equal(requestMarker.symbol, 'circle')
+  assert.equal(requestMarker.itemStyle.borderColor, '#ff4d4f')
   assert.equal(
-    markerTooltip.formatter,
-    (visible.tooltip as { formatter: unknown }).formatter,
-  )
-  assert.equal(
-    (rendered[0].markPoint as { itemStyle: { borderColor: string } }).itemStyle
-      .borderColor,
-    '#ff4d4f',
+    requestMarker.tooltip.formatter,
+    (
+      visible.tooltip as {
+        formatter: unknown
+      }
+    ).formatter,
   )
 
   const hidden = buildChartPresentationOptions({
@@ -475,15 +484,12 @@ test('AI markers use exact series coordinates, respect visibility, and disappear
     visibility: { Requests: false },
     showAiAnomalies: true,
   }).series as Array<Record<string, unknown>>
-  assert.equal(hidden[0].markPoint, undefined)
-  assert.deepEqual(
-    (hidden[1].markPoint as { data: Array<{ coord: unknown[] }> }).data,
-    [{ coord: ['same', 80], value: 80, originalIndex: 1 }],
-  )
+  assert.equal(hidden.length, 3)
+  assert.equal(hidden[2].name, '__datakoala_ai_anomaly__:Errors')
 
   const off = buildChartPresentationOptions({ ...base, showAiAnomalies: false })
     .series as Array<Record<string, unknown>>
-  assert.equal(off[0].markPoint, undefined)
+  assert.equal(off.length, 2)
 })
 
 test('log scale keeps positive anomalies and suppresses nonpositive markers only', () => {
@@ -516,12 +522,15 @@ test('log scale keeps positive anomalies and suppresses nonpositive markers only
     ],
     showAiAnomalies: true,
   })
-  const series = (options.series as Array<Record<string, unknown>>)[0]
-  const markerData = (
-    series.markPoint as { data: Array<Record<string, unknown>> }
-  ).data
+  const markerSeries = (options.series as Array<Record<string, unknown>>)[1]
+  const markerData = markerSeries.data as Array<Record<string, unknown>>
   assert.deepEqual(markerData, [
-    { coord: ['positive', 800], value: 800, originalIndex: 0 },
+    {
+      value: ['positive', 800],
+      originalIndex: 0,
+      sourceSeriesName: 'Requests',
+      aiAnomalyOverlay: true,
+    },
   ])
 })
 
@@ -543,11 +552,15 @@ test('temporal AI anomaly markers use the plotted UTC coordinate', () => {
     ],
     showAiAnomalies: true,
   })
-  const series = (options.series as Array<Record<string, unknown>>)[0]
-  assert.deepEqual(
-    (series.markPoint as { data: Array<{ coord: unknown[] }> }).data,
-    [{ coord: [Date.parse(label), 800], value: 800, originalIndex: 0 }],
-  )
+  const markerSeries = (options.series as Array<Record<string, unknown>>)[1]
+  assert.deepEqual(markerSeries.data, [
+    {
+      value: [Date.parse(label), 800],
+      originalIndex: 0,
+      sourceSeriesName: 'Requests',
+      aiAnomalyOverlay: true,
+    },
+  ])
 })
 
 test('anomaly tooltip explanation is series-specific and escapes model text', () => {
@@ -603,9 +616,14 @@ test('anomaly tooltip explanation is series-specific and escapes model text', ()
     undefined,
     anomalies,
   )({
-    componentType: 'markPoint',
-    seriesName: 'Requests',
-    data: { originalIndex: 1, coord: ['day 2', 800] },
+    componentType: 'series',
+    seriesName: '__datakoala_ai_anomaly__:Requests',
+    data: {
+      aiAnomalyOverlay: true,
+      originalIndex: 1,
+      sourceSeriesName: 'Requests',
+      value: ['day 2', 800],
+    },
   })
   assert.ok(directMarkerHtml.includes('&lt;script&gt;unsafe&lt;/script&gt;'))
   assert.doesNotMatch(directMarkerHtml, /Error spike/)
@@ -617,9 +635,14 @@ test('anomaly tooltip explanation is series-specific and escapes model text', ()
     undefined,
     anomalies,
   )({
-    componentType: 'markPoint',
-    seriesName: 'Errors',
-    data: { originalIndex: 1, coord: ['day 2', 80] },
+    componentType: 'series',
+    seriesName: '__datakoala_ai_anomaly__:Errors',
+    data: {
+      aiAnomalyOverlay: true,
+      originalIndex: 1,
+      sourceSeriesName: 'Errors',
+      value: ['day 2', 80],
+    },
   })
   assert.match(errorMarkerHtml, /Error spike/)
   assert.doesNotMatch(errorMarkerHtml, /&lt;script&gt;unsafe/)

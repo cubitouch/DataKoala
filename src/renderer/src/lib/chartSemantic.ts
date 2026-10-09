@@ -89,7 +89,9 @@ export function semanticChartCounts(
         {})
       : {}
   const visibleSeries = series.filter(
-    (item) => selected[String(item.name ?? '')] !== false,
+    (item) =>
+      item.aiAnomalyOverlay !== true &&
+      selected[String(item.name ?? '')] !== false,
   )
   const finiteValue = (value: unknown) =>
     typeof value === 'number'

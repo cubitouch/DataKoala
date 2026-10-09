@@ -43,11 +43,16 @@ vi.mock('echarts-for-react', async () => {
       }))
       const chartEvents = onEvents as
         { mouseover?: (params: Record<string, unknown>) => void } | undefined
-      const firstSeries = (option.series as Array<Record<string, unknown>>)?.[0]
+      const chartSeries = option.series as Array<Record<string, unknown>>
+      const firstSeries = chartSeries.find(
+        (series) => series.aiAnomalyOverlay !== true,
+      )
+      const markerSeries = chartSeries.find(
+        (series) => series.aiAnomalyOverlay === true,
+      )
       const firstMarker = (
-        firstSeries?.markPoint as
-          { data?: Array<Record<string, unknown>> } | undefined
-      )?.data?.[0]
+        markerSeries?.data as Array<Record<string, unknown>> | undefined
+      )?.[0]
       return (
         <>
           <div
@@ -55,9 +60,9 @@ vi.mock('echarts-for-react', async () => {
             onMouseOver={() =>
               firstMarker &&
               chartEvents?.mouseover?.({
-                componentType: 'markPoint',
-                seriesIndex: 0,
-                seriesName: firstSeries?.name as string,
+                componentType: 'series',
+                seriesIndex: chartSeries.indexOf(markerSeries!),
+                seriesName: markerSeries?.name as string,
                 data: firstMarker,
               })
             }
@@ -219,9 +224,12 @@ describe('AI chart anomaly analysis', () => {
     await waitFor(() => {
       const chartSeries = aiMocks.chartOptions?.series as
         Array<Record<string, unknown>> | undefined
-      const markerData = chartSeries?.[0]?.markPoint as
-        { data: Array<{ coord: unknown[] }> } | undefined
-      expect(markerData?.data.map((marker) => marker.coord)).toEqual([
+      const markerSeries = chartSeries?.find(
+        (series) => series.aiAnomalyOverlay === true,
+      )
+      const markerData = markerSeries?.data as
+        Array<{ value: unknown[]; originalIndex: number }> | undefined
+      expect(markerData?.map(({ value }) => value)).toEqual([
         ['157', 800],
         ['212', -40],
       ])
@@ -232,17 +240,19 @@ describe('AI chart anomaly analysis', () => {
         formatter: (params: unknown) => string
       }
     ).formatter
-    const markerTooltipConfig = (
-      (aiMocks.chartOptions?.series as Array<Record<string, unknown>>)[0]
-        .markPoint as {
-        tooltip: { show: boolean; formatter: (input: unknown) => string }
-      }
-    ).tooltip
-    expect(markerTooltipConfig.show).toBe(true)
+    const markerSeries = (
+      aiMocks.chartOptions?.series as Array<Record<string, unknown>>
+    ).find((series) => series.aiAnomalyOverlay === true)
+    const markerTooltipConfig = markerSeries?.tooltip as {
+      trigger: string
+      formatter: (input: unknown) => string
+    }
+    expect(markerTooltipConfig.trigger).toBe('item')
+    const markerData = (markerSeries?.data as Array<Record<string, unknown>>)[0]
     const markerTooltip = markerTooltipConfig.formatter({
-      componentType: 'markPoint',
-      seriesName: 'value',
-      data: { originalIndex: 157, coord: ['157', 800] },
+      componentType: 'series',
+      seriesName: markerSeries?.name,
+      data: markerData,
     })
     expect(markerTooltip).toContain('AI anomaly · high')
     expect(markerTooltip).toContain('Narrow spike')
@@ -259,7 +269,7 @@ describe('AI chart anomaly analysis', () => {
     await waitFor(() => {
       const series = aiMocks.chartOptions?.series as
         Array<Record<string, unknown>> | undefined
-      expect(series?.[0].markPoint).toBeUndefined()
+      expect(series?.some((item) => item.aiAnomalyOverlay === true)).toBe(false)
       const formatter = (
         aiMocks.chartOptions?.tooltip as {
           formatter: (params: unknown) => string
@@ -311,13 +321,12 @@ describe('AI chart anomaly analysis', () => {
     await waitFor(() => {
       const renderedSeries = aiMocks.chartOptions?.series as
         Array<Record<string, unknown>> | undefined
-      const markerData = (
-        renderedSeries?.[0]?.markPoint as
-          | { data: Array<{ coord: unknown[]; originalIndex: number }> }
-          | undefined
-      )?.data
-      expect(markerData).toEqual([
-        { coord: ['157', 800], value: 800, originalIndex: 157 },
+      const markerData = renderedSeries?.find(
+        (series) => series.aiAnomalyOverlay === true,
+      )?.data as Array<{ value: unknown[]; originalIndex: number }> | undefined
+      expect(markerData?.map(({ value }) => value)).toEqual([['157', 800]])
+      expect(markerData?.map(({ originalIndex }) => originalIndex)).toEqual([
+        157,
       ])
     })
     expect(toggle.getAttribute('aria-pressed')).toBe('true')
@@ -337,10 +346,9 @@ describe('AI chart anomaly analysis', () => {
     await waitFor(() => {
       const renderedSeries = aiMocks.chartOptions?.series as
         Array<Record<string, unknown>> | undefined
-      const markerData = (
-        renderedSeries?.[0]?.markPoint as
-          { data: Array<{ originalIndex: number }> } | undefined
-      )?.data
+      const markerData = renderedSeries?.find(
+        (series) => series.aiAnomalyOverlay === true,
+      )?.data as Array<{ originalIndex: number }> | undefined
       expect(markerData?.map(({ originalIndex }) => originalIndex)).toEqual([
         157, 212,
       ])
