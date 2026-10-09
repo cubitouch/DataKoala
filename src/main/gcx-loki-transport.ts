@@ -272,7 +272,7 @@ export function normalizeLokiQuery(
         labels,
         structuredMetadata,
         parsedFields,
-        severity: severityOf(parsedFields, structuredMetadata, payload, labels),
+        severity: severityOf(labels, parsedFields, structuredMetadata, payload),
         traceId,
         spanId,
       })

@@ -4,9 +4,9 @@
 }
 
 .primaryRow {
-  grid-template-columns: minmax(240px, 1.2fr) minmax(180px, 1fr) minmax(
-      170px,
-      0.8fr
+  grid-template-columns: minmax(200px, 1.2fr) minmax(160px, 1fr) repeat(
+      2,
+      minmax(150px, 0.8fr)
     );
 
   --builder-row-gap: 12px;

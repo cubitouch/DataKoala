@@ -674,13 +674,20 @@ test('automatic persistence debounces edits, ignores runtime-only churn and flus
 test('Loki value selections persist and legacy chart view migrates to line', () => {
   const raw = JSON.parse(serializeWorkspaceDraft(state()))
   raw.tabs[0].lokiResultView = 'chart'
-  raw.tabs[0].lokiBuilder.labelMatchers[0].values = ['prod', 'staging', 'prod']
+  raw.tabs[0].lokiBuilder.labelMatchers[0] = {
+    label: 'level',
+    operator: '=~',
+    value: '',
+    values: ['ERROR', 'WARN', 'ERROR'],
+  }
   const restored = parseWorkspaceDraft(JSON.stringify(raw))
   assert.equal(restored?.tabs[0].lokiResultView, 'line')
-  assert.deepEqual(restored?.tabs[0].lokiBuilder.labelMatchers[0].values, [
-    'prod',
-    'staging',
-  ])
+  assert.deepEqual(restored?.tabs[0].lokiBuilder.labelMatchers[0], {
+    label: 'level',
+    operator: '=~',
+    value: '',
+    values: ['ERROR', 'WARN'],
+  })
 })
 
 test('persists the Loki patterns view and rejects invalid legacy views', () => {

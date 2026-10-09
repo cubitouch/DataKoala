@@ -97,6 +97,7 @@ test('normalizes primary gcx object entries without mixing field namespaces', ()
 function normalizedLog(
   line: string,
   options: {
+    labels?: Record<string, unknown>
     parsed?: Record<string, unknown>
     structuredMetadata?: Record<string, unknown>
     entry?: Record<string, unknown>
@@ -109,7 +110,7 @@ function normalizedLog(
         resultType: 'streams',
         result: [
           {
-            stream: { app: 'checkout' },
+            stream: { app: 'checkout', ...options.labels },
             values: [
               {
                 timestamp: '1750000000000000000',
@@ -129,6 +130,18 @@ function normalizedLog(
   if (result.resultKind !== 'logs') throw new Error('Expected logs')
   return result.logRows[0]
 }
+
+test('indexed severity labels take precedence over conflicting metadata and parsed fields', () => {
+  const row = normalizedLog('{"level":"DEBUG"}', {
+    labels: { level: 'ERROR' },
+    structuredMetadata: { severity: 'INFO' },
+    parsed: { severity_text: 'WARN' },
+  })
+  assert.equal(row.severity, 'error')
+  assert.deepEqual(row.labels, { app: 'checkout', level: 'ERROR' })
+  assert.deepEqual(row.structuredMetadata, { severity: 'INFO' })
+  assert.deepEqual(row.parsedFields, { severity_text: 'WARN' })
+})
 
 test('extracts snake, camel, dotted, and nested identifiers from raw JSON into parsed fields', () => {
   const snake = normalizedLog(
