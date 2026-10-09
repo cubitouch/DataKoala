@@ -788,8 +788,20 @@ app.whenReady().then(async () => {
         })()`)
       }
     }
+    if (!markerHoverFound) {
+      markerHoverFound = await win.webContents.executeJavaScript(
+        "(() => {\n  const root = document.querySelector('[data-result-chart-canvas]')\n  if (!root) return false\n  for (const element of [root, ...root.querySelectorAll('*')]) {\n    const fiberKey = Object.keys(element).find((key) =>\n      key.includes('reactFiber'),\n    )\n    let fiber = fiberKey ? element[fiberKey] : null\n    while (fiber) {\n      const component = fiber.stateNode\n      if (typeof component?.getEchartsInstance === 'function') {\n        const chart = component.getEchartsInstance()\n        const option = chart.getOption()\n        const seriesIndex = option.series.findIndex((series) =>\n          String(series.name).startsWith('__datakoala_ai_anomaly__:'),\n        )\n        if (seriesIndex < 0) return false\n        chart.dispatchAction({\n          type: 'showTip',\n          seriesIndex,\n          dataIndex: 0,\n        })\n        return true\n      }\n      fiber = fiber.return\n    }\n  }\n  return false\n})()",
+      )
+      if (markerHoverFound) {
+        await sleep(120)
+        markerHoverFound = await win.webContents.executeJavaScript(`(() => {
+          const tooltip = document.querySelector('.chart-tooltip-anomaly')?.textContent ?? ''
+          return tooltip.includes('Narrow spike') && tooltip.includes('40×')
+        })()`)
+      }
+    }
     if (!markerHoverFound)
-      throw new Error('AI preview could not hover the red anomaly marker')
+      throw new Error('AI preview could not show the red anomaly tooltip')
     if (anomalyAnalysisRuns !== 1)
       throw new Error('AI preview did not run exactly one anomaly analysis')
     await settlePaint(win)
