@@ -50,6 +50,7 @@ async function seedWorkspace(win) {
     store.setState({
       profiles: [profile], activeProfileId: profile.id, connected: true, connecting: false,
       connectionStatus: 'connected', connectionError: null,
+      connectionStateByProfileId: { ...state.connectionStateByProfileId, [profile.id]: { status: 'connected', generation: 1, error: null, serverVersion: null } },
       tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
         ...tab, title: 'Checkout timeouts', connectionProfileId: profile.id, queryMode: 'builder',
         sql: '{environment="production", namespace="payments", service_name="checkout-api"} |= "timeout"',
@@ -85,6 +86,7 @@ app.whenReady().then(async () => {
   let logFinished = false
   let trendFinished = false
   ipcMain.handle('connections:list', async () => [])
+  ipcMain.handle('connections:live', async () => [])
   ipcMain.handle('connections:loki:labels', async () => {
     labelsReady = true
     return lokiLabels

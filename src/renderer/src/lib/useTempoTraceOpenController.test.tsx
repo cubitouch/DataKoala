@@ -10,6 +10,7 @@ vi.mock('./api', () => ({ api }))
 
 import { tempoTraceLookupRequest } from './traceCohort'
 import { useTempoTraceOpenController } from './useTempoTraceOpenController'
+import { useStore } from '@store/useStore'
 
 const traceId = '000000000000000000000000000000ab'
 const searchRow = { traceId: 'ab', startTimeMs: 10_000, durationMs: 2_000 }
@@ -45,6 +46,22 @@ describe('useTempoTraceOpenController', () => {
   beforeEach(() => {
     run.mockReset()
     api.tempoPerformanceEnabled = false
+    useStore.setState(useStore.getInitialState(), true)
+    useStore.setState((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.id === state.activeTabId
+          ? { ...tab, connectionProfileId: 'tempo-1' }
+          : tab,
+      ),
+      connectionStateByProfileId: {
+        'tempo-1': {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
+        },
+      },
+    }))
   })
   afterEach(() => {
     cleanup()
