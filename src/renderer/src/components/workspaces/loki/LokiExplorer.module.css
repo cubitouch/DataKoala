@@ -52,16 +52,6 @@
   width: clamp(170px, 20vw, 250px);
 }
 
-.rangeHistory {
-  display: flex;
-  gap: 3px;
-}
-
-.rangeHistory button {
-  min-height: 28px;
-  padding: 0 7px;
-}
-
 .editorActions {
   display: flex;
   align-items: center;
@@ -108,11 +98,6 @@
   flex: none;
   border-bottom: 1px solid var(--border);
   background: var(--bg-2);
-}
-
-.resultViewBar .rangeHistory {
-  margin-left: auto;
-  margin-right: 12px;
 }
 
 .selectedView {

@@ -168,7 +168,6 @@ export interface GenericResultExplorerProps {
     reason?: string
   }
   onReconnect?: () => void
-  onTemporalRangeSelected?: (range: { startMs: number; endMs: number }) => void
 }
 export function GenericResultExplorer({
   mode,
@@ -198,7 +197,6 @@ export function GenericResultExplorer({
   canPromoteChartFilter,
   canDemoteFilter,
   onReconnect,
-  onTemporalRangeSelected,
 }: GenericResultExplorerProps) {
   const updateSeriesVisibility = useCallback(
     (
@@ -838,19 +836,13 @@ export function GenericResultExplorer({
       activeBuilderTimeBucket,
     )
     if (!range) return
-    if (onTemporalRangeSelected)
-      onTemporalRangeSelected({
-        startMs: Date.parse(String(range.startInclusive)),
-        endMs: Date.parse(String(range.endExclusive)),
-      })
-    else
-      onAddFilter(
-        createResultRangeFilter(
-          effectiveConfiguration.xColumn,
-          range.startInclusive,
-          range.endExclusive,
-        ),
-      )
+    onAddFilter(
+      createResultRangeFilter(
+        effectiveConfiguration.xColumn,
+        range.startInclusive,
+        range.endExclusive,
+      ),
+    )
     const instance = ref.current?.getEchartsInstance()
     instance?.dispatchAction({ type: 'brush', areas: [] })
     instance?.dispatchAction({
