@@ -262,36 +262,6 @@ test('temporal presentation preserves the explicit selected domain around canoni
   ])
 })
 
-test('temporal anomaly mark points use the corresponding series millisecond coordinate', () => {
-  const labels = ['2026-09-22T00:00:00Z', '2026-09-23T00:00:00Z']
-  const options = buildChartPresentationOptions({
-    labels,
-    series: [{ name: 'Orders', data: [2, 9] }],
-    view: 'line',
-    hasSeriesColumn: false,
-    mode: 'sql',
-    anomalies: [
-      {
-        seriesName: 'Orders',
-        dataIndex: 1,
-        value: 9,
-        median: 2,
-        mad: 0,
-        direction: 'above',
-      },
-    ],
-  })
-  const series = (
-    options.series as Array<{
-      data: Array<[number, number]>
-      markPoint: { data: Array<{ coord: [number, number] }> }
-    }>
-  )[0]
-
-  assert.equal(series.markPoint.data[0].coord[0], series.data[1][0])
-  assert.equal(series.markPoint.data[0].coord[0], Date.parse(labels[1]))
-})
-
 test('tooltip marks and retains the hovered series without becoming scrollable', () => {
   const rows = Array.from({ length: 14 }, (_, index) => ({
     seriesName: `series-${index}`,
@@ -439,4 +409,257 @@ test('hierarchical presentation shares data and exposes path, value, and share t
       /62.5%/,
     )
   }
+})
+
+test('AI markers use exact series coordinates, respect visibility, and disappear when toggled off', () => {
+  const base = {
+    labels: ['same', 'same', 'last'],
+    series: [
+      { name: 'Requests', data: [1, 8, 10] },
+      { name: 'Errors', data: [2, 80, 100] },
+    ],
+    view: 'line' as const,
+    hasSeriesColumn: true,
+    mode: 'sql' as const,
+    aiAnomalies: [
+      {
+        seriesName: 'Requests',
+        originalIndex: 1,
+        title: 'Spike',
+        reason: 'Large rise.',
+      },
+      {
+        seriesName: 'Errors',
+        originalIndex: 1,
+        title: 'Error spike',
+        reason: 'Errors rise.',
+      },
+    ],
+  }
+  const visible = buildChartPresentationOptions({
+    ...base,
+    showAiAnomalies: true,
+  })
+  const rendered = visible.series as Array<Record<string, unknown>>
+  const requestMarker = rendered[2] as {
+    aiAnomalyOverlay: boolean
+    symbol: string
+    data: Array<Record<string, unknown>>
+    itemStyle: { borderColor: string }
+    tooltip: { formatter: unknown }
+  }
+  const errorMarker = rendered[3] as {
+    data: Array<Record<string, unknown>>
+  }
+  assert.deepEqual(requestMarker.data, [
+    {
+      value: ['same', 8],
+      originalIndex: 1,
+      sourceSeriesName: 'Requests',
+      aiAnomalyOverlay: true,
+    },
+  ])
+  assert.deepEqual(errorMarker.data, [
+    {
+      value: ['same', 80],
+      originalIndex: 1,
+      sourceSeriesName: 'Errors',
+      aiAnomalyOverlay: true,
+    },
+  ])
+  assert.equal(requestMarker.aiAnomalyOverlay, true)
+  assert.equal(requestMarker.symbol, 'circle')
+  assert.equal(requestMarker.itemStyle.borderColor, '#ff4d4f')
+  assert.equal(
+    requestMarker.tooltip.formatter,
+    (
+      visible.tooltip as {
+        formatter: unknown
+      }
+    ).formatter,
+  )
+
+  const hidden = buildChartPresentationOptions({
+    ...base,
+    visibility: { Requests: false },
+    showAiAnomalies: true,
+  }).series as Array<Record<string, unknown>>
+  assert.equal(hidden.length, 3)
+  assert.equal(hidden[2].name, '__datakoala_ai_anomaly__:Errors')
+
+  const off = buildChartPresentationOptions({ ...base, showAiAnomalies: false })
+    .series as Array<Record<string, unknown>>
+  assert.equal(off.length, 2)
+})
+
+test('log scale keeps positive anomalies and suppresses nonpositive markers only', () => {
+  const options = buildChartPresentationOptions({
+    labels: ['positive', 'negative', 'zero'],
+    series: [{ name: 'Requests', data: [800, -40, 0] }],
+    view: 'line',
+    hasSeriesColumn: false,
+    mode: 'sql',
+    valueAxisScale: 'log',
+    aiAnomalies: [
+      {
+        seriesName: 'Requests',
+        originalIndex: 0,
+        title: 'Spike',
+        reason: 'Elevated.',
+      },
+      {
+        seriesName: 'Requests',
+        originalIndex: 1,
+        title: 'Drop',
+        reason: 'Lower.',
+      },
+      {
+        seriesName: 'Requests',
+        originalIndex: 2,
+        title: 'Zero',
+        reason: 'Not representable on log.',
+      },
+    ],
+    showAiAnomalies: true,
+  })
+  const markerSeries = (options.series as Array<Record<string, unknown>>)[1]
+  const markerData = markerSeries.data as Array<Record<string, unknown>>
+  assert.deepEqual(markerData, [
+    {
+      value: ['positive', 800],
+      originalIndex: 0,
+      sourceSeriesName: 'Requests',
+      aiAnomalyOverlay: true,
+    },
+  ])
+})
+
+test('temporal AI anomaly markers use the plotted UTC coordinate', () => {
+  const label = '2026-10-01T00:00:00Z'
+  const options = buildChartPresentationOptions({
+    labels: [label],
+    series: [{ name: 'Requests', data: [800] }],
+    view: 'line',
+    hasSeriesColumn: false,
+    mode: 'sql',
+    aiAnomalies: [
+      {
+        seriesName: 'Requests',
+        originalIndex: 0,
+        title: 'Spike',
+        reason: 'High.',
+      },
+    ],
+    showAiAnomalies: true,
+  })
+  const markerSeries = (options.series as Array<Record<string, unknown>>)[1]
+  assert.deepEqual(markerSeries.data, [
+    {
+      value: [Date.parse(label), 800],
+      originalIndex: 0,
+      sourceSeriesName: 'Requests',
+      aiAnomalyOverlay: true,
+    },
+  ])
+})
+
+test('anomaly tooltip explanation is series-specific and escapes model text', () => {
+  const anomalies = [
+    {
+      seriesName: 'Requests',
+      originalIndex: 1,
+      title: '<script>unsafe</script>',
+      reason: 'literal <b>text</b> & detail',
+    },
+    {
+      seriesName: 'Errors',
+      originalIndex: 1,
+      title: 'Error spike',
+      reason: 'Errors are elevated.',
+    },
+  ]
+  const series = [
+    { name: 'Requests', data: [1, 800] },
+    { name: 'Errors', data: [2, 80] },
+  ]
+  const rows = [
+    { axisValue: 'day 2', dataIndex: 1, seriesName: 'Requests', value: 800 },
+    { axisValue: 'day 2', dataIndex: 1, seriesName: 'Errors', value: 80 },
+  ]
+  const requestsHtml = buildChartTooltipFormatter(
+    String,
+    'Requests',
+    series,
+    {},
+    undefined,
+    anomalies,
+  )(rows)
+  assert.ok(requestsHtml.includes('&lt;script&gt;unsafe&lt;/script&gt;'))
+  assert.ok(
+    requestsHtml.includes('literal &lt;b&gt;text&lt;/b&gt; &amp; detail'),
+  )
+  assert.doesNotMatch(requestsHtml, /Error spike/)
+
+  const errorsHtml = buildChartTooltipFormatter(
+    String,
+    'Errors',
+    series,
+    {},
+    undefined,
+    anomalies,
+  )(rows)
+  const directMarkerHtml = buildChartTooltipFormatter(
+    String,
+    'Requests',
+    series,
+    {},
+    undefined,
+    anomalies,
+  )({
+    componentType: 'series',
+    seriesName: '__datakoala_ai_anomaly__:Requests',
+    data: {
+      aiAnomalyOverlay: true,
+      originalIndex: 1,
+      sourceSeriesName: 'Requests',
+      value: ['day 2', 800],
+    },
+  })
+  assert.ok(directMarkerHtml.includes('&lt;script&gt;unsafe&lt;/script&gt;'))
+  assert.doesNotMatch(directMarkerHtml, /Error spike/)
+  const errorMarkerHtml = buildChartTooltipFormatter(
+    String,
+    'Requests',
+    series,
+    {},
+    undefined,
+    anomalies,
+  )({
+    componentType: 'series',
+    seriesName: '__datakoala_ai_anomaly__:Errors',
+    data: {
+      aiAnomalyOverlay: true,
+      originalIndex: 1,
+      sourceSeriesName: 'Errors',
+      value: ['day 2', 80],
+    },
+  })
+  assert.match(errorMarkerHtml, /Error spike/)
+  assert.doesNotMatch(errorMarkerHtml, /&lt;script&gt;unsafe/)
+  assert.match(errorsHtml, /Error spike/)
+  assert.doesNotMatch(errorsHtml, /&lt;script&gt;unsafe/)
+
+  const hiddenOptions = buildChartPresentationOptions({
+    labels: ['day 2'],
+    series,
+    view: 'line',
+    hasSeriesColumn: true,
+    mode: 'sql',
+    aiAnomalies: anomalies,
+    showAiAnomalies: false,
+  })
+  const hiddenFormatter = (
+    hiddenOptions.tooltip as { formatter: (input: unknown) => string }
+  ).formatter
+  assert.doesNotMatch(hiddenFormatter(rows), /AI anomaly|Spike|Error spike/)
 })

@@ -24,7 +24,6 @@ export interface VisualizationConfiguration {
   hierarchyDimensions?: string[]
   displayUnit?: DisplayUnit
   valueAxisScale?: ValueAxisScale
-  anomalyDetectionEnabled?: boolean
 }
 export interface ChartSeries {
   name: string
@@ -80,8 +79,7 @@ export function visualizationConfigurationsEqual(
     (a.displayUnit?.family !== 'time' ||
       (b.displayUnit?.family === 'time' &&
         a.displayUnit.unit === b.displayUnit.unit)) &&
-    (a.valueAxisScale ?? 'linear') === (b.valueAxisScale ?? 'linear') &&
-    Boolean(a.anomalyDetectionEnabled) === Boolean(b.anomalyDetectionEnabled)
+    (a.valueAxisScale ?? 'linear') === (b.valueAxisScale ?? 'linear')
   )
 }
 
@@ -236,7 +234,6 @@ export function inferVisualizationConfiguration(
     ),
     ...(previous?.displayUnit ? { displayUnit: previous.displayUnit } : {}),
     valueAxisScale: previous?.valueAxisScale ?? 'linear',
-    anomalyDetectionEnabled: previous?.anomalyDetectionEnabled ?? false,
   }
 }
 

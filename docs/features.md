@@ -176,22 +176,11 @@ Chart configuration includes:
 
 Chart settings are stored per query tab and survive compatible reruns.
 
-## Anomaly detection
+## AI chart anomaly analysis
 
-Charts include optional client-side anomaly detection based on a rolling median and median absolute deviation (MAD).
+When OpenRouter is configured, **Analyze with AI** is available for line charts. It sends a bounded sample of up to 8 visible series with up to 32 points per series. Longer series retain chronological bucket endpoints, minima, and maxima; the request also includes point counts and sample coverage. The action is hidden when AI is not configured.
 
-The feature:
-
-- evaluates each visible Series independently;
-- highlights anomalous chart points without modifying source rows;
-- recomputes from the currently filtered result;
-- handles constant and zero-MAD baselines conservatively;
-- provides eligibility and status feedback;
-- persists the preference per query tab.
-
-Anomaly detection affects only chart presentation. It does not alter SQL, table values, CSV exports or copied result data.
-
-This is intended as a lightweight exploratory signal, not as a replacement for domain-specific monitoring or statistical modelling.
+AI results reference exact points in the submitted sample. Matching points receive red outlined chart markers, and hovering one shows its series-specific explanation in the tooltip. A **Show anomalies** toggle hides or restores the markers and tooltip explanations without another request. The **AI details** popover contains the summary, flagged values, limitations, follow-up ideas and per-series coverage; unsampled points are identified as not reviewed. No result changes the query or source data, and an empty analysis shows a calm no-candidates message.
 
 ## Export and sharing
 
@@ -253,4 +242,4 @@ These limitations should be considered before using the prototype with sensitive
 
 ## In one sentence
 
-> DataKoala turns a PostgreSQL database or local data file into an interactive SQL, table and chart workspace—with a transparent visual Builder and lightweight anomaly detection, entirely from a desktop application.
+> DataKoala turns a PostgreSQL database or local data file into an interactive SQL, table and chart workspace—with a transparent visual Builder and optional AI-assisted chart analysis, entirely from a desktop application.

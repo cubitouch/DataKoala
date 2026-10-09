@@ -151,14 +151,6 @@
   border-color: #f59e0b;
 }
 
-.anomalyStatus {
-  flex: none;
-  padding: 5px 12px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-mute);
-  font-size: 11px;
-}
-
 .empty {
   display: flex;
   align-items: center;
@@ -269,4 +261,32 @@
 .hierarchyLevel button:disabled {
   opacity: 0.3;
   cursor: default;
+}
+
+.aiAnomalyError {
+  margin: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.aiAnomalyAnalysis p {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+
+.aiAnomalyAnalysis ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
+.aiAnomalyAnalysis li {
+  margin: 3px 0;
+}
+
+.aiAnomalyAnalysis small {
+  color: var(--text-muted, #aaa);
 }

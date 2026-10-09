@@ -75,6 +75,7 @@ const bigQueryFixedQuery =
   'SELECT country, SUM(revenue) AS revenue\nFROM `my-project.analytics.orders`\nGROUP BY country;'
 let failNextRepair = true
 let queryRuns = 0
+let anomalyAnalysisRuns = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 async function wait(win, expression) {
   for (let i = 0; i < 100; i++) {
@@ -146,6 +147,42 @@ app.whenReady().then(async () => {
     )
     ipcMain.handle('ai:test', () => ok(undefined))
     ipcMain.handle('ai:cancel', () => ok(undefined))
+    ipcMain.handle('ai:analyze-anomalies', (_event, request) => {
+      anomalyAnalysisRuns++
+      const sample = request.chart.series[0]?.points ?? []
+      if (
+        !sample.some((point) => point.y === 800) ||
+        !sample.some((point) => point.y === -40)
+      )
+        throw new Error('AI anomaly preview did not receive bucket extrema')
+      const spikeIndex = sample.findIndex((point) => point.y === 800)
+      const dropIndex = sample.findIndex((point) => point.y === -40)
+      return ok({
+        summary: 'Two sharp changes stand out in the request series.',
+        anomalies: [
+          {
+            seriesIndex: 0,
+            pointIndex: spikeIndex,
+            title: 'Narrow spike',
+            reason:
+              'About 40× the surrounding baseline, then it returns to its usual level.',
+            severity: 'high',
+          },
+          {
+            seriesIndex: 0,
+            pointIndex: dropIndex,
+            title: 'Narrow drop',
+            reason:
+              'A brief fall below the usual range before values return to baseline.',
+            severity: 'medium',
+          },
+        ],
+        limitations: [
+          'The sample shows when the changes occurred, not what caused them.',
+        ],
+        followUps: ['Compare this window with the previous period.'],
+      })
+    })
     ipcMain.handle('ai:propose', (_event, request) => {
       if (request.intent === 'repair' && failNextRepair) {
         failNextRepair = false
@@ -669,6 +706,156 @@ app.whenReady().then(async () => {
     )
     if (queryRuns !== 0)
       throw new Error('Applying BigQuery repair executed a query')
+
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore
+      const state = store.getState()
+      const rows = Array.from({ length: 64 }, (_, day) => ({
+        day,
+        requests: day === 17 ? 800 : day === 42 ? -40 : 20,
+      }))
+      store.setState({
+        activeProfileId: ${JSON.stringify(profile.id)},
+        tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
+          ...tab,
+          connectionProfileId: ${JSON.stringify(profile.id)},
+          queryMode: 'sql',
+          sql: 'SELECT day, requests FROM public.request_counts ORDER BY day',
+          sqlResultFilters: [],
+          sqlVisualization: {
+            ...tab.sqlVisualization,
+            view: 'line',
+            xColumn: 'day',
+            valueColumn: 'requests',
+            seriesColumn: null,
+            seriesColumns: [],
+            aggregation: 'sum',
+          },
+        } : tab),
+      })
+      window.setTimeout(() => {
+        store.getState().setResult(
+          {
+            columns: [
+              { name: 'day', dataTypeID: 20, dataTypeName: 'int8' },
+              { name: 'requests', dataTypeID: 20, dataTypeName: 'int8' },
+            ],
+            rows,
+            rowCount: rows.length,
+            durationMs: 8,
+          },
+          null,
+        )
+      }, 500)
+    })()`)
+    await wait(win, `document.body.innerText.includes('Analyze with AI')`)
+    await click(win, 'Analyze with AI')
+    await wait(
+      win,
+      `[...document.querySelectorAll('button[aria-pressed="true"]')].some((button) => button.textContent.includes('Show anomalies')) && [...document.querySelectorAll('button')].some((button) => button.textContent.includes('AI details (2)'))`,
+    )
+    win.setSize(1100, 700)
+    await settlePaint(win)
+    await settlePaint(win)
+    const plotBounds = await win.webContents.executeJavaScript(`(() => {
+      const rect = document.querySelector('[data-result-chart-canvas] > div')?.getBoundingClientRect()
+      return rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null
+    })()`)
+    if (!plotBounds)
+      throw new Error('AI anomaly preview could not locate the chart plot')
+    win.focus()
+    // The mock analysis flags original point 17. Move over its red mark so the
+    // screenshot proves the real markPoint-to-axis-tooltip interaction.
+    const markerX = plotBounds.left + 50 + (plotBounds.width - 74) * (17.5 / 64)
+    const firstMarkerY = plotBounds.top + 20
+    const lastMarkerY = plotBounds.top + plotBounds.height * 0.45
+    let markerHoverFound = false
+    for (let offsetX = -6; offsetX <= 6 && !markerHoverFound; offsetX += 3) {
+      for (
+        let y = firstMarkerY;
+        y <= lastMarkerY && !markerHoverFound;
+        y += 6
+      ) {
+        await win.webContents.sendInputEvent({
+          type: 'mouseMove',
+          x: Math.round(markerX + offsetX),
+          y: Math.round(y),
+        })
+        await sleep(80)
+        markerHoverFound = await win.webContents.executeJavaScript(`(() => {
+          const tooltip = document.querySelector('.chart-tooltip-anomaly')?.textContent ?? ''
+          return tooltip.includes('Narrow spike') && tooltip.includes('40×')
+        })()`)
+      }
+    }
+    if (!markerHoverFound) {
+      markerHoverFound = await win.webContents.executeJavaScript(
+        "(() => {\n  const root = document.querySelector('[data-result-chart-canvas]')\n  if (!root) return false\n  for (const element of [root, ...root.querySelectorAll('*')]) {\n    const fiberKey = Object.keys(element).find((key) =>\n      key.includes('reactFiber'),\n    )\n    let fiber = fiberKey ? element[fiberKey] : null\n    while (fiber) {\n      const component = fiber.stateNode\n      if (typeof component?.getEchartsInstance === 'function') {\n        const chart = component.getEchartsInstance()\n        const option = chart.getOption()\n        const seriesIndex = option.series.findIndex((series) =>\n          String(series.name).startsWith('__datakoala_ai_anomaly__:'),\n        )\n        if (seriesIndex < 0) return false\n        chart.dispatchAction({\n          type: 'showTip',\n          seriesIndex,\n          dataIndex: 0,\n        })\n        return true\n      }\n      fiber = fiber.return\n    }\n  }\n  return false\n})()",
+      )
+      if (markerHoverFound) {
+        await sleep(120)
+        markerHoverFound = await win.webContents.executeJavaScript(`(() => {
+          const tooltip = document.querySelector('.chart-tooltip-anomaly')?.textContent ?? ''
+          return tooltip.includes('Narrow spike') && tooltip.includes('40×')
+        })()`)
+      }
+    }
+    if (!markerHoverFound)
+      throw new Error('AI preview could not show the red anomaly tooltip')
+    if (anomalyAnalysisRuns !== 1)
+      throw new Error('AI preview did not run exactly one anomaly analysis')
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-chart-anomaly.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
+    await click(win, 'AI details (2)')
+    await wait(
+      win,
+      `[...document.querySelectorAll('[role="dialog"]')].some((dialog) => dialog.textContent.includes('Narrow spike') && dialog.textContent.includes('Narrow drop') && dialog.textContent.includes('sample coverage'))`,
+    )
+    const detailScrollContainers = await win.webContents
+      .executeJavaScript(`(() => {
+      const dialog = [...document.querySelectorAll('[role="dialog"]')].find((node) => node.textContent.includes('Narrow spike'))
+      if (!dialog) return -1
+      return [dialog, ...dialog.querySelectorAll('*')].filter((node) => {
+        const overflowY = getComputedStyle(node).overflowY
+        return (overflowY === 'auto' || overflowY === 'scroll') && node.clientHeight > 0
+      }).length
+    })()`)
+    if (detailScrollContainers !== 1) {
+      throw new Error(
+        `AI anomaly details expected one vertical scroll container, found ${detailScrollContainers}`,
+      )
+    }
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-chart-anomaly-details.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
+    await win.webContents.executeJavaScript(
+      `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`,
+    )
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore, state = store.getState()
+      store.setState({
+        tabs: state.tabs.map((tab) => tab.id === state.activeTabId
+          ? { ...tab, sqlVisualization: { ...tab.sqlVisualization, valueAxisScale: 'log' } }
+          : tab),
+      })
+    })()`)
+    await wait(
+      win,
+      `window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId)?.sqlVisualization.valueAxisScale === 'log'`,
+    )
+    if (anomalyAnalysisRuns !== 1)
+      throw new Error('Changing to log scale requested another AI analysis')
+    await settlePaint(win)
+    await settlePaint(win)
+    await writeFile(
+      resolve(output, 'ai-chart-log.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    )
 
     console.log(
       'AI_PREVIEW_OK: settings, raw query, structured Builder and PostgreSQL/BigQuery repair proposals require explicit apply; Builder AI never executes',

@@ -6,6 +6,7 @@ export const IPC = {
   AI_TEST: 'ai:test',
   AI_PROPOSE: 'ai:propose',
   AI_PROPOSE_BUILDER: 'ai:propose-builder',
+  AI_ANALYZE_ANOMALIES: 'ai:analyze-anomalies',
   AI_ANALYZE_PLAN: 'ai:analyze-plan',
   AI_CANCEL: 'ai:cancel',
   CONNECTION_TEST: 'connection:test',

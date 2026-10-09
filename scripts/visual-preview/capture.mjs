@@ -1,18 +1,28 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { documentationScreenshots, syntheticSources } from './fixtures.mjs'
-import { assertEditorResizeHandle, assertCompactObjectFilter, assertPreviewReady, assertVisibleSeriesField } from './assertions.mjs'
+import {
+  assertEditorResizeHandle,
+  assertCompactObjectFilter,
+  assertPreviewReady,
+  assertVisibleSeriesField,
+} from './assertions.mjs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)))
-const outputArgument = process.argv.slice(2).find((argument) => !argument.endsWith('.mjs'))
-const outputDir = resolve(process.env.DATAKOALA_PREVIEW_OUTPUT ?? outputArgument ?? 'visual-preview')
+const outputArgument = process.argv
+  .slice(2)
+  .find((argument) => !argument.endsWith('.mjs'))
+const outputDir = resolve(
+  process.env.DATAKOALA_PREVIEW_OUTPUT ?? outputArgument ?? 'visual-preview',
+)
 const captureKind = process.env.DATAKOALA_PREVIEW_KIND ?? 'regression'
 
 process.env.DATAKOALA_SMOKE = '1'
 
-const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
+const sleep = (ms) =>
+  new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 
 function builderFixtureResult(query) {
   const sql = String(query)
@@ -21,20 +31,70 @@ function builderFixtureResult(query) {
   const amount = /amount/i.test(sql)
   if (!count && !amount) return null
   const temporal = /date_trunc\s*\(/i.test(sql)
-  const currentMonth = new Date(); currentMonth.setUTCDate(1); currentMonth.setUTCHours(0, 0, 0, 0)
+  const currentMonth = new Date()
+  currentMonth.setUTCDate(1)
+  currentMonth.setUTCHours(0, 0, 0, 0)
   // End at the previous month so every bucket is complete and inside “Last 6 months”.
   const rows = temporal
-    ? Array.from({ length: 5 }, (_, month) => ['North', 'South'].map((series, seriesIndex) => ({ time_bucket: new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth() - (5 - month), 15)), series, value: 120 + month * 35 + seriesIndex * 55 }))).flat()
-    : ['France', 'Germany', 'Spain', 'United Kingdom'].map((series, index) => ({ series, [count ? 'count' : 'value']: count ? [8, 13, 5, 11][index] : [42, 31, 24, 37][index] }))
+    ? Array.from({ length: 5 }, (_, month) =>
+        ['North', 'South'].map((series, seriesIndex) => ({
+          time_bucket: new Date(
+            Date.UTC(
+              currentMonth.getUTCFullYear(),
+              currentMonth.getUTCMonth() - (5 - month),
+              15,
+            ),
+          ),
+          series,
+          value: 120 + month * 35 + seriesIndex * 55,
+        })),
+      ).flat()
+    : ['France', 'Germany', 'Spain', 'United Kingdom'].map((series, index) => ({
+        series,
+        [count ? 'count' : 'value']: count
+          ? [8, 13, 5, 11][index]
+          : [42, 31, 24, 37][index],
+      }))
   return {
-    columns: [...(temporal ? [{ name: 'time_bucket', dataTypeID: 1184, dataTypeName: 'timestamptz', logicalType: 'timestamp' }] : []), { name: 'series', dataTypeID: 25, dataTypeName: 'text', logicalType: 'string' }, { name: count ? 'count' : 'value', dataTypeID: 20, dataTypeName: 'int8', logicalType: 'number' }],
-    rows, rowCount: rows.length, durationMs: 7
+    columns: [
+      ...(temporal
+        ? [
+            {
+              name: 'time_bucket',
+              dataTypeID: 1184,
+              dataTypeName: 'timestamptz',
+              logicalType: 'timestamp',
+            },
+          ]
+        : []),
+      {
+        name: 'series',
+        dataTypeID: 25,
+        dataTypeName: 'text',
+        logicalType: 'string',
+      },
+      {
+        name: count ? 'count' : 'value',
+        dataTypeID: 20,
+        dataTypeName: 'int8',
+        logicalType: 'number',
+      },
+    ],
+    rows,
+    rowCount: rows.length,
+    durationMs: 7,
   }
 }
 
-async function waitForRendererState(win, expression, description, attempts = 60) {
+async function waitForRendererState(
+  win,
+  expression,
+  description,
+  attempts = 60,
+) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    if (await win.webContents.executeJavaScript(`Boolean(${expression})`)) return
+    if (await win.webContents.executeJavaScript(`Boolean(${expression})`))
+      return
     await sleep(100)
   }
   throw new Error(`Timed out waiting for ${description}`)
@@ -54,7 +114,7 @@ async function waitForRenderer(win) {
 async function waitForTable(win) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const ready = await win.webContents.executeJavaScript(
-      `Boolean(document.querySelector('table tbody tr'))`
+      `Boolean(document.querySelector('table tbody tr'))`,
     )
     if (ready) return
     await sleep(100)
@@ -82,9 +142,19 @@ async function verifyResponsiveChartPicker(win) {
       inactiveColor: inactive ? getComputedStyle(inactive).color : null
     }
   })()`)
-  if (!report || report.paneWidth > 760 || report.visibleLabels !== 0 || report.pickerScrollWidth > report.pickerClientWidth || !report.activeVisible ||
-      report.activeColor !== 'rgb(255, 255, 255)' || report.inactiveColor === 'rgb(154, 160, 176)' || report.activeBorder === 'rgba(0, 0, 0, 0)') {
-    throw new Error(`Responsive chart picker failed in a narrow result pane: ${JSON.stringify(report)}`)
+  if (
+    !report ||
+    report.paneWidth > 760 ||
+    report.visibleLabels !== 0 ||
+    report.pickerScrollWidth > report.pickerClientWidth ||
+    !report.activeVisible ||
+    report.activeColor !== 'rgb(255, 255, 255)' ||
+    report.inactiveColor === 'rgb(154, 160, 176)' ||
+    report.activeBorder === 'rgba(0, 0, 0, 0)'
+  ) {
+    throw new Error(
+      `Responsive chart picker failed in a narrow result pane: ${JSON.stringify(report)}`,
+    )
   }
 }
 
@@ -149,26 +219,61 @@ async function showChartTooltip(win, captureFilename) {
             rowHeight: row?.getBoundingClientRect().height, hoveredBackground: hovered ? getComputedStyle(hovered).backgroundColor : null }
         })()
       })`)
-      if (after.documentWidth > after.clientWidth || after.workspaceWidth > after.workspaceClientWidth ||
-          after.mainWidth > after.mainClientWidth || after.documentWidth !== before.documentWidth ||
-          after.workspaceWidth !== before.workspaceWidth || after.mainWidth !== before.mainWidth) {
-        throw new Error(`Chart tooltip changed layout or caused horizontal overflow: ${JSON.stringify({ before, after })}`)
+      if (
+        after.documentWidth > after.clientWidth ||
+        after.workspaceWidth > after.workspaceClientWidth ||
+        after.mainWidth > after.mainClientWidth ||
+        after.documentWidth !== before.documentWidth ||
+        after.workspaceWidth !== before.workspaceWidth ||
+        after.mainWidth !== before.mainWidth
+      ) {
+        throw new Error(
+          `Chart tooltip changed layout or caused horizontal overflow: ${JSON.stringify({ before, after })}`,
+        )
       }
-      if (!after.tooltip || after.tooltip.overflowX !== 'hidden' || after.tooltip.overflowY !== 'hidden') {
-        throw new Error(`Chart tooltip must be bounded and non-scrollable: ${JSON.stringify(after.tooltip)}`)
+      if (
+        !after.tooltip ||
+        after.tooltip.overflowX !== 'hidden' ||
+        after.tooltip.overflowY !== 'hidden'
+      ) {
+        throw new Error(
+          `Chart tooltip must be bounded and non-scrollable: ${JSON.stringify(after.tooltip)}`,
+        )
       }
-      if (after.tooltip.width > 300 || after.tooltip.height > 260 || after.tooltip.fontSize > 12 || after.tooltip.headingFontSize > 12 || after.tooltip.rowHeight > 20) {
-        throw new Error(`Chart tooltip is not compact: ${JSON.stringify(after.tooltip)}`)
+      if (
+        after.tooltip.width > 300 ||
+        after.tooltip.height > 260 ||
+        after.tooltip.fontSize > 12 ||
+        after.tooltip.headingFontSize > 12 ||
+        after.tooltip.rowHeight > 20
+      ) {
+        throw new Error(
+          `Chart tooltip is not compact: ${JSON.stringify(after.tooltip)}`,
+        )
       }
-      if (!after.tooltip.hoveredBackground || !/rgba\(255, 255, 255, 0\.0/.test(after.tooltip.hoveredBackground)) {
-        throw new Error(`Hovered tooltip row is missing subtle emphasis: ${JSON.stringify(after.tooltip)}`)
+      if (
+        !after.tooltip.hoveredBackground ||
+        !/rgba\(255, 255, 255, 0\.0/.test(after.tooltip.hoveredBackground)
+      ) {
+        throw new Error(
+          `Hovered tooltip row is missing subtle emphasis: ${JSON.stringify(after.tooltip)}`,
+        )
       }
       const tolerance = 1
-      if (after.tooltip.left < after.tooltip.canvasLeft - tolerance || after.tooltip.top < after.tooltip.canvasTop - tolerance ||
-          after.tooltip.right > after.tooltip.canvasRight + tolerance || after.tooltip.bottom > after.tooltip.canvasBottom + tolerance) {
-        throw new Error(`Chart tooltip escaped its chart viewport: ${JSON.stringify(after.tooltip)}`)
+      if (
+        after.tooltip.left < after.tooltip.canvasLeft - tolerance ||
+        after.tooltip.top < after.tooltip.canvasTop - tolerance ||
+        after.tooltip.right > after.tooltip.canvasRight + tolerance ||
+        after.tooltip.bottom > after.tooltip.canvasBottom + tolerance
+      ) {
+        throw new Error(
+          `Chart tooltip escaped its chart viewport: ${JSON.stringify(after.tooltip)}`,
+        )
       }
-      if (captureFilename) { await sleep(600); await capture(win, captureFilename) }
+      if (captureFilename) {
+        await sleep(600)
+        await capture(win, captureFilename)
+      }
       await cleanupPreviewState(win)
       return
     }
@@ -187,17 +292,58 @@ async function cleanupPreviewState(win) {
 }
 
 async function assertCanonicalCaptureState(win, description) {
-  const errors = await win.webContents.executeJavaScript(`[...document.querySelectorAll('[role="alert"]')]
+  const errors = await win.webContents
+    .executeJavaScript(`[...document.querySelectorAll('[role="alert"]')]
     .filter((element) => element.offsetParent !== null)
     .map((element) => element.textContent?.trim()).filter(Boolean)`)
-  if (errors.length) throw new Error(`${description} contains unexpected application errors: ${JSON.stringify(errors)}`)
-  const transient = await win.webContents.executeJavaScript(`Boolean(document.getElementById('_visual-preview-tooltip'))`)
-  if (transient) throw new Error(`${description} contains leaked preview-only DOM`)
+  if (errors.length)
+    throw new Error(
+      `${description} contains unexpected application errors: ${JSON.stringify(errors)}`,
+    )
+  const transient = await win.webContents.executeJavaScript(
+    `Boolean(document.getElementById('_visual-preview-tooltip'))`,
+  )
+  if (transient)
+    throw new Error(`${description} contains leaked preview-only DOM`)
 }
 
 async function verifyHtmlLegend(win, narrow = false) {
-  await waitForRendererState(win, `document.querySelector('[data-chart-legend] button[aria-pressed]')`, 'HTML legend')
-  await waitForRendererState(win, `(() => { const legend = document.querySelector('[data-chart-legend]').getBoundingClientRect(); const plot = document.querySelector('[data-result-chart-canvas] canvas')?.getBoundingClientRect(); return plot && (${narrow} ? legend.top >= plot.bottom - 1 : legend.left >= plot.right - 1) })()`, 'chart resize beside HTML legend')
+  await waitForRendererState(
+    win,
+    `document.querySelector('[data-chart-legend] button[aria-pressed]')`,
+    'HTML legend',
+  )
+  try {
+    await waitForRendererState(
+      win,
+      `(() => { const legend = document.querySelector('[data-chart-legend]').getBoundingClientRect(); const plot = document.querySelector('[data-result-chart-canvas] canvas')?.getBoundingClientRect(); return plot && (${narrow} ? legend.top >= plot.bottom - 1 : legend.left >= plot.right - 1) })()`,
+      'chart resize beside HTML legend',
+    )
+  } catch (error) {
+    const geometry = await win.webContents.executeJavaScript(`(() => {
+      const root = document.querySelector('[data-result-chart-canvas]')
+      const plot = root?.firstElementChild
+      const canvas = root?.querySelector('canvas')
+      const legend = root?.querySelector('[data-chart-legend]')
+      const resizer = root?.querySelector('[role="separator"]')
+      const bounds = (element) => {
+        const rect = element?.getBoundingClientRect()
+        return rect && { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height }
+      }
+      return {
+        windowWidth: innerWidth,
+        root: bounds(root),
+        plot: bounds(plot),
+        canvas: bounds(canvas),
+        legend: bounds(legend),
+        resizer: bounds(resizer),
+        direction: root ? getComputedStyle(root).flexDirection : null,
+      }
+    })()`)
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)}: ${JSON.stringify(geometry)}`,
+    )
+  }
   const report = await win.webContents.executeJavaScript(`(() => {
     const legend = document.querySelector('[data-chart-legend]')
     const plot = document.querySelector('[data-result-chart-canvas] canvas')
@@ -218,26 +364,59 @@ async function verifyHtmlLegend(win, narrow = false) {
       legendHeight: legendBounds.height, plotWidth: plotBounds.width
     }
   })()`)
-  if (report.count < 20 || report.overflow !== 'auto' || !report.scrolled || !report.unchanged ||
-    (narrow ? !report.below || report.legendHeight > 50 : !report.right)) {
-    throw new Error(`HTML legend layout/scroll regression: ${JSON.stringify(report)}`)
+  if (
+    report.count < 20 ||
+    report.overflow !== 'auto' ||
+    !report.scrolled ||
+    !report.unchanged ||
+    (narrow ? !report.below || report.legendHeight > 50 : !report.right)
+  ) {
+    throw new Error(
+      `HTML legend layout/scroll regression: ${JSON.stringify(report)}`,
+    )
   }
 }
 
 async function verifyLegendExport(win) {
   let copied, exported
-  ipcMain.handle('clipboard:write-png', (_event, data) => { copied = nativeImage.createFromDataURL(data); return { ok: true } })
-  ipcMain.handle('export:save-binary', (_event, options) => { exported = nativeImage.createFromBuffer(Buffer.from(options.base64, 'base64')); return '/preview/chart.png' })
+  ipcMain.handle('clipboard:write-png', (_event, data) => {
+    copied = nativeImage.createFromDataURL(data)
+    return { ok: true }
+  })
+  ipcMain.handle('export:save-binary', (_event, options) => {
+    exported = nativeImage.createFromBuffer(
+      Buffer.from(options.base64, 'base64'),
+    )
+    return '/preview/chart.png'
+  })
   try {
     for (const label of ['Copy chart', 'Export PNG']) {
-      await waitForRendererState(win, `[...document.querySelectorAll('button')].some(b => b.textContent === '${label}' && !b.disabled)`, label + ' ready')
-      await win.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find(b => b.textContent === '${label}').click()`)
-      for (let attempt = 0; attempt < 60 && !(label === 'Copy chart' ? copied : exported); attempt++) await sleep(100)
+      await waitForRendererState(
+        win,
+        `[...document.querySelectorAll('button')].some(b => b.textContent === '${label}' && !b.disabled)`,
+        label + ' ready',
+      )
+      await win.webContents.executeJavaScript(
+        `[...document.querySelectorAll('button')].find(b => b.textContent === '${label}').click()`,
+      )
+      for (
+        let attempt = 0;
+        attempt < 60 && !(label === 'Copy chart' ? copied : exported);
+        attempt++
+      )
+        await sleep(100)
     }
-    const plot = await win.webContents.executeJavaScript(`(() => { const r = document.querySelector('[data-result-chart-canvas] canvas').getBoundingClientRect(); return { width: r.width, height: r.height } })()`)
+    const plot = await win.webContents.executeJavaScript(
+      `(() => { const r = document.querySelector('[data-result-chart-canvas] canvas').getBoundingClientRect(); return { width: r.width, height: r.height } })()`,
+    )
     for (const image of [copied, exported]) {
       const size = image?.getSize()
-      if (!size || size.width < (plot.width + 280) * 2 || size.height < 24 * 28 * 2) throw new Error('Chart PNG must include the entire 24-series legend')
+      if (
+        !size ||
+        size.width < (plot.width + 280) * 2 ||
+        size.height < 24 * 28 * 2
+      )
+        throw new Error('Chart PNG must include the entire 24-series legend')
     }
   } finally {
     ipcMain.removeHandler('clipboard:write-png')
@@ -336,7 +515,11 @@ async function configureDocumentationSql(win, mode, view) {
       } : tab)
     })
   })()`)
-  await waitForRendererState(win, `'${mode}' === 'builder' ? document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' : document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'SQL'`, `visible ${mode} documentation mode`)
+  await waitForRendererState(
+    win,
+    `'${mode}' === 'builder' ? document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' : document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'SQL'`,
+    `visible ${mode} documentation mode`,
+  )
 }
 
 async function expandDocumentationRelation(win) {
@@ -344,13 +527,21 @@ async function expandDocumentationRelation(win) {
     const schema = document.querySelector('[role="tree"] > [role="treeitem"]')
     if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('button')?.click()
   })()`)
-  await waitForRendererState(win, `document.body.innerText.includes('monthly_market_activity')`, 'analytics relation tree')
+  await waitForRendererState(
+    win,
+    `document.body.innerText.includes('monthly_market_activity')`,
+    'analytics relation tree',
+  )
   await win.webContents.executeJavaScript(`(() => {
     const relationButton = document.querySelector('[role="tree"] button[aria-label="Select analytics.monthly_market_activity for Builder"]')
     const relation = relationButton?.closest('[role="treeitem"]')
     if (relation?.getAttribute('aria-expanded') === 'false') relation.querySelector('button[aria-label^="Expand"], button[aria-label^="Collapse"]')?.click()
   })()`)
-  await waitForRendererState(win, `document.body.innerText.includes('time_bucket') && document.body.innerText.includes('series') && document.body.innerText.includes('count')`, 'monthly market activity columns')
+  await waitForRendererState(
+    win,
+    `document.body.innerText.includes('time_bucket') && document.body.innerText.includes('series') && document.body.innerText.includes('count')`,
+    'monthly market activity columns',
+  )
 }
 
 async function assertDocumentationSourceTree(win, mode) {
@@ -362,28 +553,66 @@ async function assertDocumentationSourceTree(win, mode) {
     filters: document.querySelectorAll('[data-result-filter-chip]').length
   })`)
   const expectedMode = mode === 'builder' ? 'Builder' : 'SQL'
-  if (report.mode !== expectedMode || !report.profile?.includes('Market analytics') || !report.status?.includes('Market analytics') ||
-      !report.tree?.includes('monthly_market_activity') || !report.tree.includes('time_bucket') || !report.tree.includes('series') || !report.tree.includes('count')) {
-    throw new Error(`Documentation source tree assertion failed: ${JSON.stringify(report)}`)
+  if (
+    report.mode !== expectedMode ||
+    !report.profile?.includes('Market analytics') ||
+    !report.status?.includes('Market analytics') ||
+    !report.tree?.includes('monthly_market_activity') ||
+    !report.tree.includes('time_bucket') ||
+    !report.tree.includes('series') ||
+    !report.tree.includes('count')
+  ) {
+    throw new Error(
+      `Documentation source tree assertion failed: ${JSON.stringify(report)}`,
+    )
   }
 }
 
 async function finalizeDocumentationBuilder(win, view) {
-  await win.webContents.executeJavaScript(`(() => { const store = window.__datakoalaStore; const state = store.getState(); store.setState({ tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? { ...tab, builderVisualization: { ...tab.builderVisualization, view: '${view}', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: null, seriesColumns: ['series'], aggregation: 'sum' } } : tab) }) })()`)
-  await waitForRendererState(win, `document.querySelector('.builder-pane')`, 'visible SQL Builder')
+  await win.webContents.executeJavaScript(
+    `(() => { const store = window.__datakoalaStore; const state = store.getState(); store.setState({ tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? { ...tab, builderVisualization: { ...tab.builderVisualization, view: '${view}', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: null, seriesColumns: ['series'], aggregation: 'sum' } } : tab) }) })()`,
+  )
+  await waitForRendererState(
+    win,
+    `document.querySelector('.builder-pane')`,
+    'visible SQL Builder',
+  )
   await sleep(100)
-  const visible = await win.webContents.executeJavaScript(`document.querySelector('.builder-pane')?.innerText + ' ' + [...document.querySelectorAll('.builder-pane input')].map((input) => input.value).join(' ')`)
-  for (const value of ['analytics', 'monthly_market_activity', 'time_bucket', 'Month', 'count', 'Sum', 'series']) if (!visible.includes(value)) throw new Error(`Builder value ${value} is not visible: ${visible}`)
+  const visible = await win.webContents.executeJavaScript(
+    `document.querySelector('.builder-pane')?.innerText + ' ' + [...document.querySelectorAll('.builder-pane input')].map((input) => input.value).join(' ')`,
+  )
+  for (const value of [
+    'analytics',
+    'monthly_market_activity',
+    'time_bucket',
+    'Month',
+    'count',
+    'Sum',
+    'series',
+  ])
+    if (!visible.includes(value))
+      throw new Error(`Builder value ${value} is not visible: ${visible}`)
 }
 
 async function assertDocumentationChart(win, filename) {
-  await waitForRendererState(win, `document.querySelectorAll('[data-result-chart-canvas] canvas').length === 1 && new Set(window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).result.rows.map((row) => row.series)).size === 5`, `${filename} five-series chart`)
+  await waitForRendererState(
+    win,
+    `document.querySelectorAll('[data-result-chart-canvas] canvas').length === 1 && new Set(window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).result.rows.map((row) => row.series)).size === 5`,
+    `${filename} five-series chart`,
+  )
   const report = await win.webContents.executeJavaScript(`({
     filters: document.querySelectorAll('[data-result-filter-chip]').length,
     seriesCount: new Set(window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).result.rows.map((row) => row.series)).size,
     activeView: document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim()
   })`)
-  if (report.filters || report.seriesCount !== 5 || !['Bar', 'Line'].includes(report.activeView)) throw new Error(`${filename} semantic assertion failed: ${JSON.stringify(report)}`)
+  if (
+    report.filters ||
+    report.seriesCount !== 5 ||
+    !['Bar', 'Line'].includes(report.activeView)
+  )
+    throw new Error(
+      `${filename} semantic assertion failed: ${JSON.stringify(report)}`,
+    )
   await sleep(1200)
 }
 
@@ -415,7 +644,11 @@ async function configureDocumentationPrometheus(win) {
   // Switching from the SQL documentation fixture to Prometheus remounts source-specific
   // UI and clears stale results. Wait for that transition to settle before seeding the
   // synthetic result, otherwise the cleanup effect can erase it immediately afterwards.
-  await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && document.querySelector('.promql-builder-form') && document.querySelector('[data-connection-live="true"]')?.innerText.includes('Service metrics') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'settled configured Prometheus Builder')
+  await waitForRendererState(
+    win,
+    `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'Builder' && document.querySelector('.promql-builder-form') && document.querySelector('[data-connection-live="true"]')?.innerText.includes('Service metrics') && document.body.innerText.includes('http_request_duration_seconds_bucket')`,
+    'settled configured Prometheus Builder',
+  )
 
   const report = await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
@@ -458,9 +691,19 @@ async function configureDocumentationPrometheus(win) {
     const tab = store.getState().tabs.find((item) => item.id === store.getState().activeTabId)
     return { rowCount: tab?.result?.rowCount, metric: tab?.promqlBuilder.metric }
   })()`)
-  if (report?.rowCount !== 50 || report?.metric !== 'http_request_duration_seconds_bucket') throw new Error(`Prometheus documentation fixture did not seed correctly: ${JSON.stringify(report)}`)
+  if (
+    report?.rowCount !== 50 ||
+    report?.metric !== 'http_request_duration_seconds_bucket'
+  )
+    throw new Error(
+      `Prometheus documentation fixture did not seed correctly: ${JSON.stringify(report)}`,
+    )
 
-  await waitForRendererState(win, `document.querySelector('[data-result-chart-canvas] canvas') && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Line' && document.body.innerText.includes('Last 6 hours')`, 'rendered Prometheus documentation result')
+  await waitForRendererState(
+    win,
+    `document.querySelector('[data-result-chart-canvas] canvas') && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Line' && document.body.innerText.includes('Last 6 hours')`,
+    'rendered Prometheus documentation result',
+  )
 }
 async function configureDocumentationSunburst(win) {
   await configureDocumentationSql(win, 'sql', 'sunburst')
@@ -481,9 +724,24 @@ async function configureDocumentationSunburst(win) {
     store.getState().setSql('select currency, country, value\\nfrom analytics.payment_summary\\norder by currency, country;')
     store.getState().setVisualization('sql', { view: 'sunburst', xColumn: 'payment', valueColumn: 'value', seriesColumn: null, seriesColumns: ['currency', 'country'], hierarchyDimensions: ['currency', 'country'], aggregation: 'sum' })
   })()`)
-  await waitForRendererState(win, `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Sunburst' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`, 'rendered documentation Sunburst')
-  const report = await win.webContents.executeJavaScript(`({ view: document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim(), hierarchy: document.querySelector('[aria-label="Hierarchy order"]')?.innerText, filters: document.querySelectorAll('[data-result-filter-chip]').length, empty: Boolean(document.querySelector('[data-result-empty]')) })`)
-  if (report.view !== 'Sunburst' || report.filters || report.empty || !report.hierarchy?.includes('currency') || !report.hierarchy.includes('country')) throw new Error(`Sunburst documentation assertion failed: ${JSON.stringify(report)}`)
+  await waitForRendererState(
+    win,
+    `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Sunburst' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`,
+    'rendered documentation Sunburst',
+  )
+  const report = await win.webContents.executeJavaScript(
+    `({ view: document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim(), hierarchy: document.querySelector('[aria-label="Hierarchy order"]')?.innerText, filters: document.querySelectorAll('[data-result-filter-chip]').length, empty: Boolean(document.querySelector('[data-result-empty]')) })`,
+  )
+  if (
+    report.view !== 'Sunburst' ||
+    report.filters ||
+    report.empty ||
+    !report.hierarchy?.includes('currency') ||
+    !report.hierarchy.includes('country')
+  )
+    throw new Error(
+      `Sunburst documentation assertion failed: ${JSON.stringify(report)}`,
+    )
 }
 
 async function configureMode(win, mode) {
@@ -562,7 +820,7 @@ async function configureMode(win, mode) {
   if (report?.error) throw new Error(report.error)
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const ready = await win.webContents.executeJavaScript(
-      `'${mode}' === 'builder' ? Boolean(document.querySelector('.builder-pane')) : Boolean(document.querySelector('.sql-layout'))`
+      `'${mode}' === 'builder' ? Boolean(document.querySelector('.builder-pane')) : Boolean(document.querySelector('.sql-layout'))`,
     )
     if (ready) break
     if (attempt === 39) throw new Error(`The ${mode} editor did not render`)
@@ -592,7 +850,11 @@ async function configurePrometheusToolbar(win) {
     return { ok: true }
   })()`)
   if (report?.error) throw new Error(report.error)
-  await waitForRendererState(win, `document.body.innerText.includes('http_requests_total')`, 'Prometheus metric browser')
+  await waitForRendererState(
+    win,
+    `document.body.innerText.includes('http_requests_total')`,
+    'Prometheus metric browser',
+  )
 }
 
 async function seedPrometheusPreviewResult(win, seriesColumn, seriesValues) {
@@ -657,8 +919,15 @@ async function seedPrometheusPreviewResult(win, seriesColumn, seriesValues) {
   })()`)
 
   if (report?.error) throw new Error(report.error)
-  if (report?.rowCount !== 50 || report?.sqlFilters !== 0 || report?.builderFilters !== 0 || report?.seriesColumn !== seriesColumn) {
-    throw new Error(`Prometheus regression fixture did not seed correctly: ${JSON.stringify(report)}`)
+  if (
+    report?.rowCount !== 50 ||
+    report?.sqlFilters !== 0 ||
+    report?.builderFilters !== 0 ||
+    report?.seriesColumn !== seriesColumn
+  ) {
+    throw new Error(
+      `Prometheus regression fixture did not seed correctly: ${JSON.stringify(report)}`,
+    )
   }
 }
 
@@ -674,10 +943,16 @@ async function configurePrometheusBuilder(win) {
     state.setSql('histogram_quantile(\\n  0.95,\\n  sum by (continent, le) (\\n    rate(http_request_duration_seconds_bucket{continent="Europe",environment="production"}[5m])\\n  )\\n)')
     state.setQueryMode('builder')
   })()`)
-  await win.webContents.executeJavaScript(`document.querySelector('.generated-promql')?.setAttribute('open', '')`)
+  await win.webContents.executeJavaScript(
+    `document.querySelector('.generated-promql')?.setAttribute('open', '')`,
+  )
   win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'ESC' })
   win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'ESC' })
-  await waitForRendererState(win, `document.querySelector('.promql-builder-form') && !document.querySelector('[role="listbox"]')`, 'closed Prometheus Builder controls')
+  await waitForRendererState(
+    win,
+    `document.querySelector('.promql-builder-form') && !document.querySelector('[role="listbox"]')`,
+    'closed Prometheus Builder controls',
+  )
 }
 
 async function verifyQueryToolbar(win) {
@@ -692,8 +967,17 @@ async function verifyQueryToolbar(win) {
       hasExplain: [...toolbar.querySelectorAll('button')].some((button) => button.textContent?.includes('Explain'))
     } : null
   })()`)
-  if (!report || !report.hasRange || !report.hasStep || report.hasExplain || report.toolbarScrollWidth > report.toolbarClientWidth || report.paneScrollWidth > report.paneClientWidth) {
-    throw new Error(`Prometheus query toolbar is clipped or missing controls: ${JSON.stringify(report)}`)
+  if (
+    !report ||
+    !report.hasRange ||
+    !report.hasStep ||
+    report.hasExplain ||
+    report.toolbarScrollWidth > report.toolbarClientWidth ||
+    report.paneScrollWidth > report.paneClientWidth
+  ) {
+    throw new Error(
+      `Prometheus query toolbar is clipped or missing controls: ${JSON.stringify(report)}`,
+    )
   }
 }
 
@@ -720,7 +1004,11 @@ async function configureTablePreview(win) {
 }
 
 async function configureBuilderControls(win, variant) {
-  await waitForRendererState(win, `!window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).running`, `settled query before Builder ${variant} fixture`)
+  await waitForRendererState(
+    win,
+    `!window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).running`,
+    `settled query before Builder ${variant} fixture`,
+  )
   const report = await win.webContents.executeJavaScript(`(() => {
     const store = window.__datakoalaStore
     if (!store) return { error: 'window.__datakoalaStore is unavailable' }
@@ -777,7 +1065,10 @@ async function configureBuilderControls(win, variant) {
     return { ok: true, previousRevision, resultRevision }
   })()`)
   if (report?.error) throw new Error(report.error)
-  if (!(report.resultRevision > report.previousRevision)) throw new Error(`Builder ${variant} fixture did not advance the result revision: ${JSON.stringify(report)}`)
+  if (!(report.resultRevision > report.previousRevision))
+    throw new Error(
+      `Builder ${variant} fixture did not advance the result revision: ${JSON.stringify(report)}`,
+    )
 }
 
 async function capture(win, filename) {
@@ -785,7 +1076,9 @@ async function capture(win, filename) {
     await assertPreviewReady(win, filename)
     await assertEditorResizeHandle(win)
   }
-  await win.webContents.executeJavaScript(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+  await win.webContents.executeJavaScript(
+    `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
+  )
   await sleep(150)
   const image = await win.webContents.capturePage()
   const path = resolve(outputDir, filename)
@@ -812,12 +1105,19 @@ async function verifySeriesTriggerAlignment(win) {
       schemaLabel: Object.fromEntries(labelProperties.map((property) => [property, getComputedStyle(schemaLabel)[property]]))
     }
   })()`)
-  if (!metrics) throw new Error('Series trigger or neighboring Builder combobox is missing')
+  if (!metrics)
+    throw new Error('Series trigger or neighboring Builder combobox is missing')
   for (const property of Object.keys(metrics.trigger)) {
-    if (metrics.trigger[property] !== metrics.reference[property]) throw new Error(`Series trigger ${property} does not match Builder combobox: ${JSON.stringify(metrics)}`)
+    if (metrics.trigger[property] !== metrics.reference[property])
+      throw new Error(
+        `Series trigger ${property} does not match Builder combobox: ${JSON.stringify(metrics)}`,
+      )
   }
   for (const property of Object.keys(metrics.seriesLabel)) {
-    if (metrics.seriesLabel[property] !== metrics.schemaLabel[property]) throw new Error(`Series label ${property} does not match Schema label: ${JSON.stringify(metrics)}`)
+    if (metrics.seriesLabel[property] !== metrics.schemaLabel[property])
+      throw new Error(
+        `Series label ${property} does not match Schema label: ${JSON.stringify(metrics)}`,
+      )
   }
 }
 
@@ -833,10 +1133,22 @@ async function verifySharedFieldGeometry(win) {
     const timeLabels = ['Time column', 'Time range'].map(label)
     return { controls, timeControls, timeLabels }
   })()`)
-  const aligned = (rects) => rects.every(Boolean) && Math.max(...rects.map((rect) => rect.top)) - Math.min(...rects.map((rect) => rect.top)) <= 1
-    && Math.max(...rects.map((rect) => rect.height)) - Math.min(...rects.map((rect) => rect.height)) <= 1
-  if (!aligned(report.controls)) throw new Error(`X/Y/Series shared controls are misaligned: ${JSON.stringify(report.controls)}`)
-  if (!aligned(report.timeControls) || !aligned(report.timeLabels)) throw new Error(`Time column/range field geometry differs: ${JSON.stringify(report)}`)
+  const aligned = (rects) =>
+    rects.every(Boolean) &&
+    Math.max(...rects.map((rect) => rect.top)) -
+      Math.min(...rects.map((rect) => rect.top)) <=
+      1 &&
+    Math.max(...rects.map((rect) => rect.height)) -
+      Math.min(...rects.map((rect) => rect.height)) <=
+      1
+  if (!aligned(report.controls))
+    throw new Error(
+      `X/Y/Series shared controls are misaligned: ${JSON.stringify(report.controls)}`,
+    )
+  if (!aligned(report.timeControls) || !aligned(report.timeLabels))
+    throw new Error(
+      `Time column/range field geometry differs: ${JSON.stringify(report)}`,
+    )
 }
 
 async function openTimeRangePicker(win) {
@@ -849,7 +1161,9 @@ async function openTimeRangePicker(win) {
   })()`)
   if (!opened) throw new Error('Builder Time range trigger is unavailable')
 
-  await waitForRendererState(win, `(() => {
+  await waitForRendererState(
+    win,
+    `(() => {
     const dialog = [...document.querySelectorAll('[role="dialog"]')].find((candidate) => candidate.querySelector('#time-range-title'))
     if (!dialog) return false
     const bounds = dialog.getBoundingClientRect()
@@ -861,7 +1175,9 @@ async function openTimeRangePicker(win) {
       && Boolean(dialog.querySelector('[data-time-range-region="presets"]'))
       && Boolean(dialog.querySelector('[data-time-range-region="editor"]'))
       && Boolean(dialog.querySelector('[data-time-range-region="actions"]'))
-  })()`, 'open Builder Time range picker')
+  })()`,
+    'open Builder Time range picker',
+  )
 
   const report = await win.webContents.executeJavaScript(`(() => {
     const dialog = [...document.querySelectorAll('[role="dialog"]')].find((candidate) => candidate.querySelector('#time-range-title'))
@@ -879,8 +1195,19 @@ async function openTimeRangePicker(win) {
     }
   })()`)
 
-  if (!report.open || !report.visible || report.title !== 'Time range' || !report.presets || !report.editor || !report.actions || !report.hasCancel || !report.hasConfirm) {
-    throw new Error(`Open Time range picker preview is incomplete: ${JSON.stringify(report)}`)
+  if (
+    !report.open ||
+    !report.visible ||
+    report.title !== 'Time range' ||
+    !report.presets ||
+    !report.editor ||
+    !report.actions ||
+    !report.hasCancel ||
+    !report.hasConfirm
+  ) {
+    throw new Error(
+      `Open Time range picker preview is incomplete: ${JSON.stringify(report)}`,
+    )
   }
 }
 
@@ -890,7 +1217,11 @@ async function closeTimeRangePicker(win) {
     const cancel = dialog && [...dialog.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Cancel')
     cancel?.click()
   })()`)
-  await waitForRendererState(win, `!([...document.querySelectorAll('[role="dialog"]')].some((candidate) => candidate.querySelector('#time-range-title')))`, 'closed Builder Time range picker')
+  await waitForRendererState(
+    win,
+    `!([...document.querySelectorAll('[role="dialog"]')].some((candidate) => candidate.querySelector('#time-range-title')))`,
+    'closed Builder Time range picker',
+  )
 }
 
 async function configureOverflowingTimeRangePicker(win) {
@@ -924,14 +1255,25 @@ async function configureOverflowingTimeRangePicker(win) {
     }
   })()`)
   // Eight recurring rows plus the range's start and end boundary inputs.
-  if (report.timeInputs !== 18 || !report.editorOverflow || report.editorOverflowY !== 'auto' || report.presetsOverflowY !== 'auto' || !report.footerVisible) {
-    throw new Error(`Overflowing Time range picker preview is incomplete: ${JSON.stringify(report)}`)
+  if (
+    report.timeInputs !== 18 ||
+    !report.editorOverflow ||
+    report.editorOverflowY !== 'auto' ||
+    report.presetsOverflowY !== 'auto' ||
+    !report.footerVisible
+  ) {
+    throw new Error(
+      `Overflowing Time range picker preview is incomplete: ${JSON.stringify(report)}`,
+    )
   }
 }
 
 async function verifyCompactAxisScale(win) {
-  const width = await win.webContents.executeJavaScript(`document.querySelector('[data-field][data-field-name="Value axis scale"] [data-popover-trigger]')?.getBoundingClientRect().width`)
-  if (width < 90 || width > 110) throw new Error(`Value axis scale is not compact: ${JSON.stringify(width)}`)
+  const width = await win.webContents.executeJavaScript(
+    `document.querySelector('[data-field][data-field-name="Value axis scale"] [data-popover-trigger]')?.getBoundingClientRect().width`,
+  )
+  if (width < 90 || width > 110)
+    throw new Error(`Value axis scale is not compact: ${JSON.stringify(width)}`)
 }
 
 async function verifyCompactTableSearch(win) {
@@ -940,7 +1282,13 @@ async function verifyCompactTableSearch(win) {
     const input = field?.querySelector('input')
     return { present: Boolean(input), accessible: input?.getAttribute('aria-labelledby') || input?.labels?.length > 0, hiddenLabel: field?.getAttribute('data-label-visibility') === 'sr-only', toolbarOverflow: document.querySelector('[data-result-toolbar]')?.scrollWidth > document.querySelector('[data-result-toolbar]')?.clientWidth }
   })()`)
-  if (!report.present || !report.accessible || !report.hiddenLabel || report.toolbarOverflow) throw new Error(`Result-table search regression: ${JSON.stringify(report)}`)
+  if (
+    !report.present ||
+    !report.accessible ||
+    !report.hiddenLabel ||
+    report.toolbarOverflow
+  )
+    throw new Error(`Result-table search regression: ${JSON.stringify(report)}`)
 }
 
 async function dragDivider(win, selector, deltaX, deltaY) {
@@ -949,9 +1297,27 @@ async function dragDivider(win, selector, deltaX, deltaY) {
     return bounds ? { x: Math.round(bounds.left + bounds.width / 2), y: Math.round(bounds.top + bounds.height / 2) } : null
   })()`)
   if (!point) throw new Error(`Missing divider ${selector}`)
-  win.webContents.sendInputEvent({ type: 'mouseDown', x: point.x, y: point.y, button: 'left', clickCount: 1 })
-  win.webContents.sendInputEvent({ type: 'mouseMove', x: point.x + deltaX, y: point.y + deltaY, movementX: deltaX, movementY: deltaY })
-  win.webContents.sendInputEvent({ type: 'mouseUp', x: point.x + deltaX, y: point.y + deltaY, button: 'left', clickCount: 1 })
+  win.webContents.sendInputEvent({
+    type: 'mouseDown',
+    x: point.x,
+    y: point.y,
+    button: 'left',
+    clickCount: 1,
+  })
+  win.webContents.sendInputEvent({
+    type: 'mouseMove',
+    x: point.x + deltaX,
+    y: point.y + deltaY,
+    movementX: deltaX,
+    movementY: deltaY,
+  })
+  win.webContents.sendInputEvent({
+    type: 'mouseUp',
+    x: point.x + deltaX,
+    y: point.y + deltaY,
+    button: 'left',
+    clickCount: 1,
+  })
   await sleep(200)
 }
 
@@ -960,35 +1326,87 @@ async function verifyInterruptedDragCleanup(win) {
     const bounds = document.querySelector('.sidebar-resizer').getBoundingClientRect()
     return { x: Math.round(bounds.left + bounds.width / 2), y: Math.round(bounds.top + 80) }
   })()`)
-  win.webContents.sendInputEvent({ type: 'mouseDown', x: point.x, y: point.y, button: 'left', clickCount: 1 })
-  win.webContents.sendInputEvent({ type: 'mouseMove', x: point.x + 24, y: point.y, movementX: 24, movementY: 0 })
+  win.webContents.sendInputEvent({
+    type: 'mouseDown',
+    x: point.x,
+    y: point.y,
+    button: 'left',
+    clickCount: 1,
+  })
+  win.webContents.sendInputEvent({
+    type: 'mouseMove',
+    x: point.x + 24,
+    y: point.y,
+    movementX: 24,
+    movementY: 0,
+  })
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const active = await win.webContents.executeJavaScript(`document.body.classList.contains('resizing-column')`)
+    const active = await win.webContents.executeJavaScript(
+      `document.body.classList.contains('resizing-column')`,
+    )
     if (active) break
-    if (attempt === 19) throw new Error('Sidebar drag did not start before blur test')
+    if (attempt === 19)
+      throw new Error('Sidebar drag did not start before blur test')
     await sleep(25)
   }
-  await win.webContents.executeJavaScript(`window.dispatchEvent(new Event('blur'))`)
-  const blurClean = await win.webContents.executeJavaScript(`!document.body.classList.contains('resizing-column')`)
-  if (!blurClean) throw new Error('Sidebar drag remained active after window blur')
+  await win.webContents.executeJavaScript(
+    `window.dispatchEvent(new Event('blur'))`,
+  )
+  const blurClean = await win.webContents.executeJavaScript(
+    `!document.body.classList.contains('resizing-column')`,
+  )
+  if (!blurClean)
+    throw new Error('Sidebar drag remained active after window blur')
 
-  win.webContents.sendInputEvent({ type: 'mouseUp', x: point.x + 24, y: point.y, button: 'left', clickCount: 1 })
+  win.webContents.sendInputEvent({
+    type: 'mouseUp',
+    x: point.x + 24,
+    y: point.y,
+    button: 'left',
+    clickCount: 1,
+  })
   const nextPoint = await win.webContents.executeJavaScript(`(() => {
     const bounds = document.querySelector('.sidebar-resizer').getBoundingClientRect()
     return { x: Math.round(bounds.left + bounds.width / 2), y: Math.round(bounds.top + 80) }
   })()`)
-  win.webContents.sendInputEvent({ type: 'mouseDown', x: nextPoint.x, y: nextPoint.y, button: 'left', clickCount: 1 })
+  win.webContents.sendInputEvent({
+    type: 'mouseDown',
+    x: nextPoint.x,
+    y: nextPoint.y,
+    button: 'left',
+    clickCount: 1,
+  })
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const active = await win.webContents.executeJavaScript(`document.body.classList.contains('resizing-column')`)
+    const active = await win.webContents.executeJavaScript(
+      `document.body.classList.contains('resizing-column')`,
+    )
     if (active) break
-    if (attempt === 19) throw new Error('A second sidebar drag could not start after blur cleanup')
+    if (attempt === 19)
+      throw new Error(
+        'A second sidebar drag could not start after blur cleanup',
+      )
     await sleep(25)
   }
-  win.webContents.sendInputEvent({ type: 'mouseMove', x: win.getContentSize()[0] + 50, y: nextPoint.y, movementX: 100, movementY: 0 })
-  win.webContents.sendInputEvent({ type: 'mouseUp', x: win.getContentSize()[0] + 50, y: nextPoint.y, button: 'left', clickCount: 1 })
+  win.webContents.sendInputEvent({
+    type: 'mouseMove',
+    x: win.getContentSize()[0] + 50,
+    y: nextPoint.y,
+    movementX: 100,
+    movementY: 0,
+  })
+  win.webContents.sendInputEvent({
+    type: 'mouseUp',
+    x: win.getContentSize()[0] + 50,
+    y: nextPoint.y,
+    button: 'left',
+    clickCount: 1,
+  })
   await sleep(100)
-  const releaseClean = await win.webContents.executeJavaScript(`!document.body.classList.contains('resizing-column')`)
-  if (!releaseClean) throw new Error('Sidebar drag remained active after an outside release')
+  const releaseClean = await win.webContents.executeJavaScript(
+    `!document.body.classList.contains('resizing-column')`,
+  )
+  if (!releaseClean)
+    throw new Error('Sidebar drag remained active after an outside release')
 }
 
 async function configureLongObjectTree(win) {
@@ -1006,57 +1424,84 @@ async function configureLongObjectTree(win) {
     }] }], 'loaded')
   })()`)
   await sleep(250)
-  await win.webContents.executeJavaScript(`(() => { const row = document.querySelector('[role="tree"] > [role="treeitem"] > button'); if (row?.parentElement?.getAttribute('aria-expanded') === 'false') row.click() })()`)
+  await win.webContents.executeJavaScript(
+    `(() => { const row = document.querySelector('[role="tree"] > [role="treeitem"] > button'); if (row?.parentElement?.getAttribute('aria-expanded') === 'false') row.click() })()`,
+  )
   await sleep(400)
-  await win.webContents.executeJavaScript(`(() => { const row = document.querySelector('[role="tree"] button[aria-label^="Expand"], [role="tree"] button[aria-label^="Collapse"]'); if (row?.closest('[role="treeitem"]')?.getAttribute('aria-expanded') === 'false') row.click() })()`)
+  await win.webContents.executeJavaScript(
+    `(() => { const row = document.querySelector('[role="tree"] button[aria-label^="Expand"], [role="tree"] button[aria-label^="Collapse"]'); if (row?.closest('[role="treeitem"]')?.getAttribute('aria-expanded') === 'false') row.click() })()`,
+  )
   await sleep(400)
 }
 
 app.whenReady().then(async () => {
   ipcMain.handle('connections:list', async () => [])
-  ipcMain.handle('ai:settings:get', () => ({ ok: true, value: { provider: 'openrouter', model: '', hasApiKey: false } }))
+  ipcMain.handle('ai:settings:get', () => ({
+    ok: true,
+    value: { provider: 'openrouter', model: '', hasApiKey: false },
+  }))
   ipcMain.handle('query:run', async (_event, _connectionId, query) => ({
     ok: true,
-    result:
-      builderFixtureResult(query) ??
-      ({
-        columns: [
-          {
-            name: 'time_bucket',
-            dataTypeID: 1184,
-            dataTypeName: 'timestamptz',
-            logicalType: 'timestamp',
-          },
-          {
-            name: 'series',
-            dataTypeID: 25,
-            dataTypeName: 'text',
-            logicalType: 'string',
-          },
-          {
-            name: 'count',
-            dataTypeID: 20,
-            dataTypeName: 'int8',
-            logicalType: 'number',
-          },
-        ],
-        rows: Array.from({ length: 12 }, (_, index) => ({
-          time_bucket: new Date(Date.UTC(2026, index, 1)),
-          series: index % 2 ? 'France' : 'Germany',
-          count: 900 + index * 125,
-        })),
-        rowCount: 12,
-        durationMs: 12,
-      }),
+    result: builderFixtureResult(query) ?? {
+      columns: [
+        {
+          name: 'time_bucket',
+          dataTypeID: 1184,
+          dataTypeName: 'timestamptz',
+          logicalType: 'timestamp',
+        },
+        {
+          name: 'series',
+          dataTypeID: 25,
+          dataTypeName: 'text',
+          logicalType: 'string',
+        },
+        {
+          name: 'count',
+          dataTypeID: 20,
+          dataTypeName: 'int8',
+          logicalType: 'number',
+        },
+      ],
+      rows: Array.from({ length: 12 }, (_, index) => ({
+        time_bucket: new Date(Date.UTC(2026, index, 1)),
+        series: index % 2 ? 'France' : 'Germany',
+        count: 900 + index * 125,
+      })),
+      rowCount: 12,
+      durationMs: 12,
+    },
   }))
-  ipcMain.handle('connections:prometheus:metric-labels', async () => ['continent', 'environment', 'service', 'le', '__name__'])
-  ipcMain.handle('connections:prometheus:label-values', async (_event, _id, _metric, label) => label === 'environment' ? ['production', 'staging'] : label === 'continent' ? ['Europe', 'Asia'] : ['api', 'worker'])
-  ipcMain.handle('connections:prometheus:format-query', async (_event, _id, query) => query)
+  ipcMain.handle('connections:prometheus:metric-labels', async () => [
+    'continent',
+    'environment',
+    'service',
+    'le',
+    '__name__',
+  ])
+  ipcMain.handle(
+    'connections:prometheus:label-values',
+    async (_event, _id, _metric, label) =>
+      label === 'environment'
+        ? ['production', 'staging']
+        : label === 'continent'
+          ? ['Europe', 'Asia']
+          : ['api', 'worker'],
+  )
+  ipcMain.handle(
+    'connections:prometheus:format-query',
+    async (_event, _id, query) => query,
+  )
   ipcMain.handle('gcx:resolve-grafana-handoff', async (_event, request) => ({
     baseUrl: 'https://grafana.example.test',
     orgId: 1,
     datasourceUid: request?.datasourceUid ?? 'sample-metrics',
-    datasourceType: request?.signal === 'tempo' ? 'tempo' : request?.signal === 'loki' ? 'loki' : 'prometheus'
+    datasourceType:
+      request?.signal === 'tempo'
+        ? 'tempo'
+        : request?.signal === 'loki'
+          ? 'loki'
+          : 'prometheus',
   }))
 
   const win = new BrowserWindow({
@@ -1068,8 +1513,8 @@ app.whenReady().then(async () => {
       preload: resolve(root, 'out/preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
-    }
+      sandbox: false,
+    },
   })
 
   try {
@@ -1079,7 +1524,9 @@ app.whenReady().then(async () => {
     await seedPreviewData(win)
 
     if (captureKind === 'documentation') {
-      await win.webContents.executeJavaScript(`window.__datakoalaDocumentationCapture = true`)
+      await win.webContents.executeJavaScript(
+        `window.__datakoalaDocumentationCapture = true`,
+      )
       await rm(outputDir, { recursive: true, force: true })
       await mkdir(outputDir, { recursive: true })
       await seedDocumentationData(win)
@@ -1092,9 +1539,15 @@ app.whenReady().then(async () => {
 
       await configureDocumentationSql(win, 'sql', 'table')
       await expandDocumentationRelation(win)
-      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().addResultFilter('sql', { id: 'docs-france', column: 'series', operator: 'equals', value: 'France' })`)
+      await win.webContents.executeJavaScript(
+        `window.__datakoalaStore.getState().addResultFilter('sql', { id: 'docs-france', column: 'series', operator: 'equals', value: 'France' })`,
+      )
       await waitForTable(win)
-      await waitForRendererState(win, `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'SQL' && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Table' && document.querySelectorAll('table tbody tr').length === 12`, 'filtered SQL documentation table')
+      await waitForRendererState(
+        win,
+        `document.querySelector('[aria-label="Query mode"] .active')?.textContent?.trim() === 'SQL' && document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Table' && document.querySelectorAll('table tbody tr').length === 12`,
+        'filtered SQL documentation table',
+      )
       await assertDocumentationSourceTree(win, 'sql')
       await capture(win, 'docs-sql.png')
 
@@ -1107,25 +1560,56 @@ app.whenReady().then(async () => {
 
       await configureDocumentationPrometheus(win)
       await dragDivider(win, '.sidebar-resizer', 110, 0)
-      await win.webContents.executeJavaScript(`(() => { const schema = [...document.querySelectorAll('[role="treeitem"]')].find((item) => item.textContent?.includes('Prometheus')); if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('button')?.click() })()`)
-      await waitForRendererState(win, `document.querySelector('[data-connection-live="true"]')?.innerText.includes('Service metrics') && document.querySelector('[role="status"][data-state="connected"]')?.innerText.includes('Service metrics') && document.body.innerText.includes('http_request_duration_seconds_bucket')`, 'connected Prometheus metric tree')
+      await win.webContents.executeJavaScript(
+        `(() => { const schema = [...document.querySelectorAll('[role="treeitem"]')].find((item) => item.textContent?.includes('Prometheus')); if (schema?.getAttribute('aria-expanded') === 'false') schema.querySelector('button')?.click() })()`,
+      )
+      await waitForRendererState(
+        win,
+        `document.querySelector('[data-connection-live="true"]')?.innerText.includes('Service metrics') && document.querySelector('[role="status"][data-state="connected"]')?.innerText.includes('Service metrics') && document.body.innerText.includes('http_request_duration_seconds_bucket')`,
+        'connected Prometheus metric tree',
+      )
       await capture(win, 'docs-prometheus.png')
       await dragDivider(win, '.sidebar-resizer', -110, 0)
 
       await configureDocumentationSunburst(win)
       await capture(win, 'docs-visualization.png')
 
-      await win.webContents.executeJavaScript(`window.__datakoalaStore.setState({ profiles: ${JSON.stringify(syntheticSources)} })`)
-      await waitForRendererState(win, `${syntheticSources.map((profile) => `document.body.innerText.includes(${JSON.stringify(profile.name)})`).join(' && ')}`, 'all documentation datasource names')
-      await win.webContents.executeJavaScript(`[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('new connection'))?.click()`)
-      await waitForRendererState(win, `document.querySelector('[role="dialog"]') && document.body.innerText.includes('Choose a connection type')`, 'datasource picker dialog')
-      const sourcesReport = await win.webContents.executeJavaScript(`({ names: ${JSON.stringify(syntheticSources.map((profile) => profile.name))}.filter((name) => document.body.innerText.includes(name)), dialog: Boolean(document.querySelector('[role="dialog"]')) })`)
-      if (sourcesReport.names.length !== syntheticSources.length || !sourcesReport.dialog) throw new Error(`Datasource documentation assertion failed: ${JSON.stringify(sourcesReport)}`)
+      await win.webContents.executeJavaScript(
+        `window.__datakoalaStore.setState({ profiles: ${JSON.stringify(syntheticSources)} })`,
+      )
+      await waitForRendererState(
+        win,
+        `${syntheticSources.map((profile) => `document.body.innerText.includes(${JSON.stringify(profile.name)})`).join(' && ')}`,
+        'all documentation datasource names',
+      )
+      await win.webContents.executeJavaScript(
+        `[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('new connection'))?.click()`,
+      )
+      await waitForRendererState(
+        win,
+        `document.querySelector('[role="dialog"]') && document.body.innerText.includes('Choose a connection type')`,
+        'datasource picker dialog',
+      )
+      const sourcesReport = await win.webContents.executeJavaScript(
+        `({ names: ${JSON.stringify(syntheticSources.map((profile) => profile.name))}.filter((name) => document.body.innerText.includes(name)), dialog: Boolean(document.querySelector('[role="dialog"]')) })`,
+      )
+      if (
+        sourcesReport.names.length !== syntheticSources.length ||
+        !sourcesReport.dialog
+      )
+        throw new Error(
+          `Datasource documentation assertion failed: ${JSON.stringify(sourcesReport)}`,
+        )
       await capture(win, 'docs-data-sources.png')
 
-      const actual = (await readdir(outputDir)).filter((name) => name.endsWith('.png')).sort()
+      const actual = (await readdir(outputDir))
+        .filter((name) => name.endsWith('.png'))
+        .sort()
       const expected = [...documentationScreenshots].sort()
-      if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`Documentation screenshot set mismatch. Expected ${expected.join(', ')}, received ${actual.join(', ')}`)
+      if (JSON.stringify(actual) !== JSON.stringify(expected))
+        throw new Error(
+          `Documentation screenshot set mismatch. Expected ${expected.join(', ')}, received ${actual.join(', ')}`,
+        )
       app.exit(0)
       return
     }
@@ -1134,7 +1618,9 @@ app.whenReady().then(async () => {
     await assertCompactObjectFilter(win, 'Filter database objects')
     await assertVisibleSeriesField(win)
     await verifyCompactAxisScale(win)
-    await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().clearResultFilters('sql')`)
+    await win.webContents.executeJavaScript(
+      `window.__datakoalaStore.getState().clearResultFilters('sql')`,
+    )
     await capture(win, 'sql-default.png')
     await verifyHtmlLegend(win)
     await verifyLegendExport(win)
@@ -1150,7 +1636,10 @@ app.whenReady().then(async () => {
     await capture(win, 'prometheus-toolbar-narrow.png')
     win.setSize(1440, 900)
     await configurePrometheusBuilder(win)
-    await seedPrometheusPreviewResult(win, 'continent', ['Europe', 'North America'])
+    await seedPrometheusPreviewResult(win, 'continent', [
+      'Europe',
+      'North America',
+    ])
     await capture(win, 'prometheus-builder.png')
     win.setSize(760, 760)
     await sleep(350)
@@ -1166,21 +1655,32 @@ app.whenReady().then(async () => {
     await capture(win, 'sql-resized-panes.png')
     await verifyInterruptedDragCleanup(win)
 
-    await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setSql(Array.from({ length: 80 }, (_, i) =>
+    await win.webContents
+      .executeJavaScript(`window.__datakoalaStore.getState().setSql(Array.from({ length: 80 }, (_, i) =>
       'select ' + (i + 1) + ' as deliberately_long_query_line_' + (i + 1) + ';').join('\\n'))`)
-    await waitForRendererState(win, `document.querySelector('.cm-content')?.textContent?.includes('deliberately_long_query_line_80')`, 'long SQL query rendering')
-    await win.webContents.executeJavaScript(`(() => { const scroller = document.querySelector('.cm-scroller'); if (scroller) scroller.scrollTop = scroller.scrollHeight })()`)
+    await waitForRendererState(
+      win,
+      `document.querySelector('.cm-content')?.textContent?.includes('deliberately_long_query_line_80')`,
+      'long SQL query rendering',
+    )
+    await win.webContents.executeJavaScript(
+      `(() => { const scroller = document.querySelector('.cm-scroller'); if (scroller) scroller.scrollTop = scroller.scrollHeight })()`,
+    )
     await capture(win, 'sql-long-query-scroll.png')
 
     await configureLongObjectTree(win)
     await capture(win, 'sql-wide-sidebar-long-names.png')
 
-    await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().clearResultFilters('sql')`)
+    await win.webContents.executeJavaScript(
+      `window.__datakoalaStore.getState().clearResultFilters('sql')`,
+    )
     await dragDivider(win, '.editor-resizer', 0, -1000)
     win.setSize(1000, 640)
     await sleep(350)
     await verifyResponsiveChartPicker(win)
-    await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setVisualization('sql', { seriesColumn: 'series', seriesColumns: [] })`)
+    await win.webContents.executeJavaScript(
+      `window.__datakoalaStore.getState().setVisualization('sql', { seriesColumn: 'series', seriesColumns: [] })`,
+    )
     await verifyHtmlLegend(win, true)
     await assertPreviewReady(win, 'sql-narrow-short-tooltip.png')
     await showChartTooltip(win, 'sql-narrow-short-tooltip.png')
@@ -1193,7 +1693,11 @@ app.whenReady().then(async () => {
     await configureDocumentationSql(win, 'builder', 'line')
     await verifySeriesTriggerAlignment(win)
     await configureBuilderControls(win, 'temporal-series')
-    await waitForRendererState(win, `document.querySelector('[data-builder-form] [data-field][data-field-name="Time range"]')`, 'shared Builder time-range field')
+    await waitForRendererState(
+      win,
+      `document.querySelector('[data-builder-form] [data-field][data-field-name="Time range"]')`,
+      'shared Builder time-range field',
+    )
     await verifySharedFieldGeometry(win)
     await assertCanonicalCaptureState(win, 'Builder temporal Series preview')
     await capture(win, 'builder-temporal-series.png')
@@ -1204,7 +1708,10 @@ app.whenReady().then(async () => {
     await closeTimeRangePicker(win)
 
     await configureOverflowingTimeRangePicker(win)
-    await assertCanonicalCaptureState(win, 'Overflowing Builder Time range preview')
+    await assertCanonicalCaptureState(
+      win,
+      'Overflowing Builder Time range preview',
+    )
     await capture(win, 'builder-time-range-overflow.png')
     await closeTimeRangePicker(win)
 

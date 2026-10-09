@@ -2,7 +2,6 @@ import { formatCompactNumber } from './compactNumber.ts'
 import type { ChartSeries, ResultView } from './resultVisualization.ts'
 import { summarizeTooltipRows } from './chartTooltip.ts'
 import { prepareLogScaleSeries, type ValueAxisScale } from './chartAxisScale.ts'
-import type { ChartAnomaly } from './chartAnomalies.ts'
 import type { HierarchyNode } from './chartHierarchy.ts'
 import { formatDisplayValue, type DisplayUnit } from './displayUnit.ts'
 
@@ -117,13 +116,21 @@ const escapeHtml = (value: unknown) =>
       ]!,
   )
 
+export interface ChartAiAnomalyTooltip {
+  seriesName: string
+  originalIndex: number
+  title: string
+  reason: string
+  severity?: 'low' | 'medium' | 'high'
+}
+
 export function buildChartTooltipFormatter(
   formatLabel: (value: unknown) => string,
   hoveredSeriesIdentity?: string | (() => string | undefined),
   originalSeries?: readonly ChartSeries[],
   visibility: Readonly<Record<string, boolean>> = {},
-  anomalies: readonly ChartAnomaly[] = [],
   formatValue: (value: unknown) => string = formatChartNumber,
+  aiAnomalies: readonly ChartAiAnomalyTooltip[] = [],
 ) {
   return (input: unknown): string => {
     const params = (Array.isArray(input) ? input : [input]).filter(
@@ -131,10 +138,35 @@ export function buildChartTooltipFormatter(
         Boolean(item) && typeof item === 'object',
     )
     if (!params.length) return ''
-    const axisValue = params[0].axisValue ?? params[0].name
-    const dataIndex = params.find(
-      (param) => typeof param.dataIndex === 'number',
-    )?.dataIndex
+    const markerData = params
+      .map(
+        (param) =>
+          param.data as
+            | {
+                aiAnomalyOverlay?: unknown
+                originalIndex?: unknown
+                sourceSeriesName?: unknown
+                value?: unknown
+              }
+            | undefined,
+      )
+      .find((data) => data?.aiAnomalyOverlay === true)
+    const markerValue = Array.isArray(markerData?.value)
+      ? markerData.value[0]
+      : undefined
+    const axisValue = markerValue ?? params[0].axisValue ?? params[0].name
+    const dataIndex =
+      typeof markerData?.originalIndex === 'number'
+        ? markerData.originalIndex
+        : params.find((param) => typeof param.dataIndex === 'number')?.dataIndex
+    const hoveredIdentity =
+      typeof hoveredSeriesIdentity === 'function'
+        ? hoveredSeriesIdentity()
+        : hoveredSeriesIdentity
+    const anomalySeriesIdentity =
+      typeof markerData?.sourceSeriesName === 'string'
+        ? markerData.sourceSeriesName
+        : hoveredIdentity
     const colors = new Map(
       params.map((param) => [
         typeof param.seriesName === 'string' ? param.seriesName : '',
@@ -175,29 +207,25 @@ export function buildChartTooltipFormatter(
             ? row.value
             : null,
       })),
-      typeof hoveredSeriesIdentity === 'function'
-        ? hoveredSeriesIdentity()
-        : hoveredSeriesIdentity,
+      hoveredIdentity,
     )
-    const atPoint =
-      typeof dataIndex === 'number'
-        ? anomalies.filter((anomaly) => anomaly.dataIndex === dataIndex)
-        : []
-    const rows = summary.rows.map((row) => {
-      const anomaly = atPoint.find((item) => item.seriesName === row.identity)
-      return `<div class="chart-tooltip-row${row.hovered ? ' chart-tooltip-row-hovered' : ''}"><span class="chart-tooltip-marker" style="background:${escapeHtml(row.color ?? '#9aa0b0')}"></span><span class="chart-tooltip-series" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><strong>${escapeHtml(formatValue(row.value))}</strong>${anomaly ? `<span class="chart-tooltip-anomaly">Anomaly ${anomaly.direction === 'above' ? '↑' : '↓'}</span>` : ''}</div>`
-    })
-    const hovered = atPoint.find(
-      (item) =>
-        item.seriesName ===
-        (typeof hoveredSeriesIdentity === 'function'
-          ? hoveredSeriesIdentity()
-          : hoveredSeriesIdentity),
+    const rows = summary.rows.map(
+      (row) =>
+        `<div class="chart-tooltip-row${row.hovered ? ' chart-tooltip-row-hovered' : ''}"><span class="chart-tooltip-marker" style="background:${escapeHtml(row.color ?? '#9aa0b0')}"></span><span class="chart-tooltip-series" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><strong>${escapeHtml(formatValue(row.value))}</strong></div>`,
     )
-    const detail = hovered
-      ? `<div class="chart-tooltip-more">Rolling median ${escapeHtml(formatValue(hovered.median))} · deviation ${hovered.value - hovered.median >= 0 ? '+' : ''}${escapeHtml(formatValue(hovered.value - hovered.median))}</div>`
+    const anomaly =
+      typeof dataIndex === 'number' && anomalySeriesIdentity
+        ? aiAnomalies.find(
+            (item) =>
+              item.seriesName === anomalySeriesIdentity &&
+              item.originalIndex === dataIndex &&
+              visibility[item.seriesName] !== false,
+          )
+        : undefined
+    const anomalyDetails = anomaly
+      ? `<div class="chart-tooltip-anomaly"><div class="chart-tooltip-anomaly-heading">${anomaly.severity ? `AI anomaly · ${escapeHtml(anomaly.severity)}` : 'AI anomaly'}</div><strong>${escapeHtml(anomaly.title)}</strong><div class="chart-tooltip-anomaly-reason">${escapeHtml(anomaly.reason)}</div></div>`
       : ''
-    return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(formatLabel(axisValue))}</div>${rows.join('')}${detail}${summary.omitted ? `<div class="chart-tooltip-more">${summary.omitted} more</div>` : ''}</div>`
+    return `<div class="chart-tooltip-content"><div class="chart-tooltip-heading">${escapeHtml(formatLabel(axisValue))}</div>${rows.join('')}${summary.omitted ? `<div class="chart-tooltip-more">${summary.omitted} more</div>` : ''}${anomalyDetails}</div>`
   }
 }
 
@@ -228,10 +256,11 @@ interface PresentationInput {
   displayUnit?: DisplayUnit
   valueAxisScale?: ValueAxisScale
   visibility?: Readonly<Record<string, boolean>>
-  anomalies?: readonly ChartAnomaly[]
   hoveredSeriesIdentity?: string | (() => string | undefined)
   rangeSelectionEnabled?: boolean
   hierarchy?: HierarchyNode[]
+  aiAnomalies?: readonly ChartAiAnomalyTooltip[]
+  showAiAnomalies?: boolean
 }
 
 export function buildChartPresentationOptions(
@@ -331,6 +360,14 @@ export function buildChartPresentationOptions(
     input.valueAxisScale === 'log'
       ? prepareLogScaleSeries(input.series, input.visibility).series
       : input.series
+  const tooltipFormatter = buildChartTooltipFormatter(
+    formatLabel,
+    input.hoveredSeriesIdentity,
+    input.series,
+    input.visibility,
+    formatValue,
+    input.showAiAnomalies ? input.aiAnomalies : [],
+  )
   return {
     useUTC: true,
     backgroundColor: 'transparent',
@@ -363,14 +400,7 @@ export function buildChartPresentationOptions(
         },
       },
       position: positionChartTooltip,
-      formatter: buildChartTooltipFormatter(
-        formatLabel,
-        input.hoveredSeriesIdentity,
-        input.series,
-        input.visibility,
-        input.anomalies,
-        formatValue,
-      ),
+      formatter: tooltipFormatter,
       backgroundColor: '#161922',
       borderColor: '#2a2f3d',
       borderWidth: 1,
@@ -413,53 +443,75 @@ export function buildChartPresentationOptions(
           },
         }
       : {}),
-    series: renderedSeries.map((series, index) => ({
-      ...series,
-      missing: undefined,
-      itemStyle: { color: chartSeriesColor(index) },
-      lineStyle: { color: chartSeriesColor(index) },
-      type: input.view === 'area' ? 'line' : input.view,
-      data: temporal
-        ? series.data.map((value, index) => [temporalXValues[index], value])
-        : series.data,
-      stack:
-        (input.view === 'bar' || input.view === 'area') && input.hasSeriesColumn
-          ? 'total'
-          : undefined,
-      areaStyle: input.view === 'area' ? { opacity: 0.3 } : undefined,
-      smooth: input.view === 'line' || input.view === 'area',
-      connectNulls: false,
-      showSymbol: input.view === 'line',
-      symbolSize: input.view === 'scatter' ? 8 : 6,
-      markPoint:
-        input.view === 'line'
-          ? {
-              silent: true,
-              symbol: 'circle',
-              symbolSize: 13,
-              label: { show: false },
-              itemStyle: {
-                color: 'transparent',
-                borderColor: '#f59e0b',
-                borderWidth: 3,
-              },
-              data: (input.anomalies ?? [])
-                .filter(
-                  (anomaly) =>
-                    anomaly.seriesName === series.name &&
-                    (input.valueAxisScale !== 'log' || anomaly.value > 0),
-                )
-                .map((anomaly) => ({
-                  coord: [
-                    temporal
-                      ? temporalXValues[anomaly.dataIndex]
-                      : anomaly.dataIndex,
-                    anomaly.value,
-                  ],
-                  name: 'Anomaly',
-                })),
-            }
-          : undefined,
-    })),
+    series: [
+      ...renderedSeries.map((series, index) => ({
+        ...series,
+        missing: undefined,
+        itemStyle: { color: chartSeriesColor(index) },
+        lineStyle: { color: chartSeriesColor(index) },
+        type: input.view === 'area' ? 'line' : input.view,
+        data: temporal
+          ? series.data.map((value, index) => [temporalXValues[index], value])
+          : series.data,
+        stack:
+          (input.view === 'bar' || input.view === 'area') &&
+          input.hasSeriesColumn
+            ? 'total'
+            : undefined,
+        areaStyle: input.view === 'area' ? { opacity: 0.3 } : undefined,
+        smooth: input.view === 'line' || input.view === 'area',
+        connectNulls: false,
+        showSymbol: input.view === 'line',
+        symbolSize: input.view === 'scatter' ? 8 : 6,
+      })),
+      ...(input.showAiAnomalies
+        ? input.series.flatMap((series) => {
+            const data = (input.aiAnomalies ?? [])
+              .filter(
+                (anomaly) =>
+                  anomaly.seriesName === series.name &&
+                  anomaly.originalIndex >= 0 &&
+                  anomaly.originalIndex < series.data.length &&
+                  input.visibility?.[series.name] !== false &&
+                  typeof series.data[anomaly.originalIndex] === 'number' &&
+                  (input.valueAxisScale !== 'log' ||
+                    (series.data[anomaly.originalIndex] as number) > 0),
+              )
+              .map((anomaly) => ({
+                value: [
+                  temporal
+                    ? temporalXValues[anomaly.originalIndex]
+                    : input.labels[anomaly.originalIndex],
+                  series.data[anomaly.originalIndex],
+                ],
+                originalIndex: anomaly.originalIndex,
+                sourceSeriesName: series.name,
+                aiAnomalyOverlay: true,
+              }))
+            return data.length
+              ? [
+                  {
+                    name: `__datakoala_ai_anomaly__:${series.name}`,
+                    type: 'scatter',
+                    aiAnomalyOverlay: true,
+                    tooltip: {
+                      trigger: 'item',
+                      formatter: tooltipFormatter,
+                    },
+                    symbol: 'circle',
+                    symbolSize: 14,
+                    z: 10,
+                    itemStyle: {
+                      color: 'rgba(0, 0, 0, 0)',
+                      borderColor: '#ff4d4f',
+                      borderWidth: 2,
+                    },
+                    data,
+                  },
+                ]
+              : []
+          })
+        : []),
+    ],
   }
 }

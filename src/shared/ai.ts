@@ -34,6 +34,37 @@ export interface AiQueryContext {
   relations: AiRelationContext[]
   availableRelations?: AiRelationCatalogEntry[]
 }
+export interface AiAnomalyChartContext {
+  chartType: string
+  xColumn: string
+  valueColumn: string
+  series: Array<{
+    name: string
+    originalPointCount: number
+    validPointCount: number
+    sampleCoverage: number
+    samplingMethod: 'all-points' | 'bucket-extrema'
+    points: Array<{ x: string | number; y: number }>
+  }>
+}
+export interface AiAnomalyAnalysisRequest {
+  requestId: string
+  chart: AiAnomalyChartContext
+}
+export interface AiDetectedAnomaly {
+  seriesIndex: number
+  pointIndex: number
+  title: string
+  reason: string
+  severity?: 'low' | 'medium' | 'high'
+}
+export interface AiAnomalyAnalysis {
+  summary: string
+  anomalies: AiDetectedAnomaly[]
+  limitations: string[]
+  followUps: string[]
+}
+
 export interface AiQueryProposalRequest {
   requestId: string
   intent: 'generate' | 'repair'
@@ -182,6 +213,14 @@ export const AI_LIMITS = {
   contextRequestTermCharacters: 80,
   contextRequestReason: 1000,
   builderUnsupportedReason: 2000,
+  anomalySeries: 8,
+  anomalyPointsPerSeries: 32,
+  anomalyMinimumPointsPerSeries: 3,
+  anomalyCount: 12,
+  anomalyTitle: 120,
+  anomalyReason: 400,
+  anomalySummary: 1000,
+  anomalyText: 500,
   planNodes: 80,
   planCharacters: 24000,
   planNodeText: 512,
@@ -195,7 +234,7 @@ export const AI_LIMITS = {
   planSummary: 1200,
 } as const
 export const AI_PRIVACY_NOTICE =
-  'AI requests are sent to OpenRouter. DataKoala may send your prompt, SQL, bounded schema metadata, or a captured execution plan. Database credentials and query result rows are not sent.'
+  'AI requests are sent to OpenRouter. DataKoala may send your prompt, current query or Builder state, SQL, bounded schema metadata, a small capped chart sample for AI anomaly analysis, or a captured execution plan. Database credentials and full query result rows are not sent.'
 
 /**
  * Single product-level availability rule for AI features.

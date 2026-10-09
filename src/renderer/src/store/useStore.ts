@@ -174,7 +174,6 @@ const defaultSqlVisualization = (): VisualizationConfiguration => ({
   seriesColumns: [],
   hierarchyDimensions: [],
   valueAxisScale: 'linear',
-  anomalyDetectionEnabled: false,
 })
 const defaultBuilderVisualization = (): VisualizationConfiguration => ({
   view: 'line',
@@ -185,7 +184,6 @@ const defaultBuilderVisualization = (): VisualizationConfiguration => ({
   seriesColumns: [],
   hierarchyDimensions: [],
   valueAxisScale: 'linear',
-  anomalyDetectionEnabled: false,
 })
 
 let sessionSequence = 0

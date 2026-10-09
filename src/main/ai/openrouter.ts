@@ -1,4 +1,6 @@
 import type {
+  AiAnomalyAnalysis,
+  AiAnomalyAnalysisRequest,
   AiBuilderProposalRequest,
   AiBuilderStep,
   AiModel,
@@ -14,6 +16,7 @@ import {
 } from '../../shared/builderCapabilities.ts'
 import {
   AiError,
+  anomalyAnalysis,
   builderStep,
   planAnalysis,
   queryStep,
@@ -31,6 +34,10 @@ export interface AiProvider {
     request: AiBuilderProposalRequest,
     signal: AbortSignal,
   ): Promise<AiBuilderStep>
+  analyzeAnomalies(
+    request: AiAnomalyAnalysisRequest,
+    signal: AbortSignal,
+  ): Promise<AiAnomalyAnalysis>
   analyzePlan(
     request: AiPlanAnalysisRequest,
     signal: AbortSignal,
@@ -55,6 +62,36 @@ const querySchema = {
     'searchTerms',
     'reason',
   ],
+  additionalProperties: false,
+}
+
+const anomalyAnalysisSchema = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    anomalies: {
+      type: 'array',
+      maxItems: 12,
+      items: {
+        type: 'object',
+        properties: {
+          seriesIndex: { type: 'integer' },
+          pointIndex: { type: 'integer' },
+          title: { type: 'string' },
+          reason: { type: 'string' },
+          severity: {
+            type: ['string', 'null'],
+            enum: ['low', 'medium', 'high', null],
+          },
+        },
+        required: ['seriesIndex', 'pointIndex', 'title', 'reason', 'severity'],
+        additionalProperties: false,
+      },
+    },
+    limitations: { type: 'array', maxItems: 8, items: { type: 'string' } },
+    followUps: { type: 'array', maxItems: 8, items: { type: 'string' } },
+  },
+  required: ['summary', 'anomalies', 'limitations', 'followUps'],
   additionalProperties: false,
 }
 
@@ -418,6 +455,28 @@ export class OpenRouterProvider implements AiProvider {
       builderSchema,
       (value) => builderStep(value, request),
       'The model returned an invalid Builder proposal. Try again or choose another model.',
+    )
+  }
+
+  analyzeAnomalies(
+    request: AiAnomalyAnalysisRequest,
+    signal: AbortSignal,
+  ): Promise<AiAnomalyAnalysis> {
+    return this.complete(
+      [
+        {
+          role: 'system',
+          content:
+            'Analyze only the exact bounded chart sample supplied by the user. Return a brief summary and an anomalies array with zero-based seriesIndex and pointIndex references into the supplied series and points arrays. Each anomaly must refer to a real supplied point and include a short, meaningful title and one or two concise sentences explaining the evidence. Prefer clear comparisons with nearby or baseline values when supported. Avoid repeating exact X/Y values already shown separately by the UI. Do not invent statistical confidence, causation, or evidence; state uncertainty when the sample is insufficient. Keep sampling caveats in limitations and sample coverage rather than repeating them in every explanation. Longer series are sampled by chronological buckets retaining endpoints, minima, and maxima; use point counts and sampleCoverage to explain limits, and do not claim unsampled points were examined. If evidence is insufficient or no point is noteworthy, return an empty anomalies array. Never invent a point, coordinate, value, or reference. Do not execute queries.',
+        },
+        { role: 'user', content: JSON.stringify(request.chart) },
+      ],
+      signal,
+      1800,
+      'anomaly_analysis',
+      anomalyAnalysisSchema,
+      (value) => anomalyAnalysis(value, request),
+      'The model returned an invalid anomaly analysis. Try again or choose another model.',
     )
   }
 

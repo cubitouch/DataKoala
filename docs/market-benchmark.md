@@ -21,7 +21,7 @@ No single reviewed product combines all of the following in one focused workflow
 - SQL editing and a transparent visual query Builder;
 - independent time filtering, rather than requiring the X axis to be time;
 - immediate table-to-chart exploration;
-- client-side rolling median/MAD anomaly highlighting;
+- optional AI-assisted chart anomaly analysis;
 - read-only, local-first desktop operation;
 - persistent query tabs without deploying a BI service.
 
@@ -45,22 +45,22 @@ The benchmark distinguishes shipped functionality from work that is still planne
 | Result table and chart exploration                               | Available        |
 | SQLite database files                                            | In progress      |
 | Schema-aware CodeMirror completion                               | Planned          |
-| Rolling median/MAD anomaly detection                             | Available        |
+| AI-assisted chart anomaly analysis                               | Available        |
 | Excel files                                                      | Planned          |
 | BigQuery                                                         | Longer-term plan |
 
 ## Competitive landscape
 
-| Product                       | Main overlap                                                                     | Where it is stronger                                                                               | Where DataKoala can differentiate                                                                                     |
-| ----------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **DbGate**                    | PostgreSQL and SQLite, SQL editor, visual query designer, charts and tabs        | Broad database coverage, mature completion, administration, import/export and AI features          | Simpler read-only exploration, direct local-file workflow, purpose-built time-series Builder and anomaly highlighting |
-| **RowLeap**                   | DuckDB desktop application, CSV/SQLite/Parquet, SQL, charts and saved workspaces | Polished file onboarding, autocomplete and natural-language-to-SQL                                 | PostgreSQL connections, visual Builder, richer chart configuration and anomaly detection                              |
-| **ColumnLens**                | Local DuckDB file analysis, SQL, charts and statistics                           | Excel/SQLite/DuckDB/S3 support, large-file positioning, scripting and richer file-specific tooling | PostgreSQL, cross-platform support, visual query generation and a unified database-and-file workflow                  |
-| **DBeaver**                   | PostgreSQL, SQLite, DuckDB, SQL editing, query builder and result charts         | Very broad datasource and administration coverage                                                  | A smaller, faster and less intimidating exploration workflow                                                          |
-| **DataGrip**                  | PostgreSQL, SQLite, DuckDB, schema-aware SQL and result charts                   | Database introspection, completion, refactoring and developer tooling                              | Visual Builder, local-file onboarding, privacy/read-only positioning and anomaly analysis                             |
-| **Beekeeper Studio**          | Modern desktop client for PostgreSQL, SQLite, DuckDB and BigQuery                | Broad connection support, completion, data editing, collaboration and AI shell                     | Visualization-led analysis and a transparent visual Builder                                                           |
-| **DuckDB UI / SQL for Files** | Local DuckDB SQL, file inspection, schema exploration and charts                 | Almost no setup; browser or DuckDB-native access                                                   | PostgreSQL, desktop persistence, visual query construction and more opinionated analytical charts                     |
-| **Metabase**                  | Graphical query builder, generated SQL, charts and CSV uploads                   | Dashboards, drill-through, sharing, permissions and team BI                                        | Local desktop operation, arbitrary-file exploration and no server deployment                                          |
+| Product                       | Main overlap                                                                     | Where it is stronger                                                                               | Where DataKoala can differentiate                                                                                  |
+| ----------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **DbGate**                    | PostgreSQL and SQLite, SQL editor, visual query designer, charts and tabs        | Broad database coverage, mature completion, administration, import/export and AI features          | Simpler read-only exploration, direct local-file workflow, purpose-built time-series Builder and AI chart analysis |
+| **RowLeap**                   | DuckDB desktop application, CSV/SQLite/Parquet, SQL, charts and saved workspaces | Polished file onboarding, autocomplete and natural-language-to-SQL                                 | PostgreSQL connections, visual Builder, richer charts and optional AI anomaly analysis                             |
+| **ColumnLens**                | Local DuckDB file analysis, SQL, charts and statistics                           | Excel/SQLite/DuckDB/S3 support, large-file positioning, scripting and richer file-specific tooling | PostgreSQL, cross-platform support, visual query generation and a unified database-and-file workflow               |
+| **DBeaver**                   | PostgreSQL, SQLite, DuckDB, SQL editing, query builder and result charts         | Very broad datasource and administration coverage                                                  | A smaller, faster and less intimidating exploration workflow                                                       |
+| **DataGrip**                  | PostgreSQL, SQLite, DuckDB, schema-aware SQL and result charts                   | Database introspection, completion, refactoring and developer tooling                              | Visual Builder, local files, privacy/read-only positioning and AI chart analysis                                   |
+| **Beekeeper Studio**          | Modern desktop client for PostgreSQL, SQLite, DuckDB and BigQuery                | Broad connection support, completion, data editing, collaboration and AI shell                     | Visualization-led analysis and a transparent visual Builder                                                        |
+| **DuckDB UI / SQL for Files** | Local DuckDB SQL, file inspection, schema exploration and charts                 | Almost no setup; browser or DuckDB-native access                                                   | PostgreSQL, desktop persistence, visual query construction and more opinionated analytical charts                  |
+| **Metabase**                  | Graphical query builder, generated SQL, charts and CSV uploads                   | Dashboards, drill-through, sharing, permissions and team BI                                        | Local desktop operation, arbitrary-file exploration and no server deployment                                       |
 
 ### DbGate: closest overall competitor
 
@@ -155,7 +155,7 @@ This is a different emphasis from diagram-oriented join designers and step-based
 
 ### 3. Immediate anomaly assistance
 
-Client-side rolling median and MAD highlighting can provide useful analytical guidance without changing the query or requiring a server-side model. None of the reviewed product pages advertises this exact capability in its result charts.
+Optional AI-assisted chart analysis can identify candidate anomalies in a bounded sample without changing the query. Keep it hidden unless OpenRouter is configured, and make the sample and its coverage explicit. None of the reviewed product pages advertises this exact capability in its result charts.
 
 It should be positioned as an exploration accelerator rather than as a comprehensive observability or machine-learning system.
 
@@ -198,7 +198,7 @@ The core promise should remain that a user can connect or open a file and reach 
 2. Add schema/table/column completion to CodeMirror, with dialect-aware suggestions.
 3. Add Excel and strengthen content/type detection for local files.
 4. Polish the path from opening a datasource to a useful starter query and chart.
-5. Implement understandable, reusable rolling median/MAD anomaly controls.
+5. Replace local rolling median/MAD highlighting with bounded, optional AI chart analysis.
 6. Add BigQuery after the provider, metadata and SQL-dialect boundaries are stable.
 7. Add pivots or lightweight result transformations before considering dashboards.
 8. Publish large-file benchmarks and document the privacy/read-only model.

@@ -1,4 +1,6 @@
 import type {
+  AiAnomalyAnalysis,
+  AiAnomalyAnalysisRequest,
   AiBuilderProposalRequest,
   AiBuilderStep,
   AiResult,
@@ -92,6 +94,10 @@ const api = {
       request: AiBuilderProposalRequest,
     ): Promise<AiResult<AiBuilderStep>> =>
       ipcRenderer.invoke(IPC.AI_PROPOSE_BUILDER, request),
+    analyzeAnomalies: (
+      request: AiAnomalyAnalysisRequest,
+    ): Promise<AiResult<AiAnomalyAnalysis>> =>
+      ipcRenderer.invoke(IPC.AI_ANALYZE_ANOMALIES, request),
     analyzePlan: (
       request: AiPlanAnalysisRequest,
     ): Promise<AiResult<AiPlanAnalysis>> =>

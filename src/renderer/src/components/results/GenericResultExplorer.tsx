@@ -11,6 +11,7 @@ import {
 import ReactECharts from 'echarts-for-react'
 import type EChartsReact from 'echarts-for-react'
 import { api } from '@lib/api'
+import { AI_LIMITS, isAiConfigured, type AiAnomalyAnalysis } from '@shared/ai'
 import { buildChartPresentationOptions } from '@lib/chartPresentation'
 import {
   chartSeriesResultFilters,
@@ -87,11 +88,12 @@ import {
   type ComboboxOption,
 } from '@components/ui/combobox'
 import type { ColumnMeta, QueryResult } from '@shared/types'
+import { sampleChartSeries } from '@lib/chartAnomalySampling'
 import {
-  chartAnomalyEligibility,
-  DEFAULT_ANOMALY_OPTIONS,
-  detectChartAnomalies,
-} from '@lib/chartAnomalies'
+  resolveAiAnomalies,
+  type SubmittedAnomalySeries,
+} from '@lib/chartAnomalyMapping'
+import { AiAnomalyDetailsPopover } from './AiAnomalyDetailsPopover'
 import {
   buildHierarchy,
   hierarchyCardinalities,
@@ -211,6 +213,16 @@ export function GenericResultExplorer({
     [seriesVisibility, onSeriesVisibilityChange],
   )
   const [showRunning, setShowRunning] = useState(false)
+  const [aiConfigured, setAiConfigured] = useState(false)
+  const [aiAnalysis, setAiAnalysis] = useState<AiAnomalyAnalysis | null>(null)
+  const [aiSubmittedSamples, setAiSubmittedSamples] = useState<
+    SubmittedAnomalySeries[] | null
+  >(null)
+  const [aiAnomaliesVisible, setAiAnomaliesVisible] = useState(false)
+  const [aiAnalysisError, setAiAnalysisError] = useState('')
+  const [aiAnalyzing, setAiAnalyzing] = useState(false)
+  const aiContextRevision = useRef(0)
+  const aiRequestId = useRef<string | null>(null)
   const [chartLegendWidth, setChartLegendWidth] = useState(readChartLegendWidth)
   const chartCanvasRef = useRef<HTMLDivElement | null>(null)
   const hoveredSeriesIdentity = useRef<string | undefined>(undefined)
@@ -266,6 +278,38 @@ export function GenericResultExplorer({
   )
 
   useEffect(() => {
+    let active = true
+    const refresh = () => {
+      const getSettings = api?.ai?.settings?.get
+      if (!getSettings) {
+        setAiConfigured(false)
+        return
+      }
+      void getSettings()
+        .then((result) => {
+          if (!active) return
+          setAiConfigured(result.ok && isAiConfigured(result.value))
+        })
+        .catch(() => {
+          if (active) setAiConfigured(false)
+        })
+    }
+    refresh()
+    window.addEventListener('datakoala:ai-settings-changed', refresh)
+    return () => {
+      active = false
+      window.removeEventListener('datakoala:ai-settings-changed', refresh)
+    }
+  }, [])
+
+  const cancelAiRequest = useCallback(() => {
+    const requestId = aiRequestId.current
+    if (!requestId) return
+    aiRequestId.current = null
+    if (api?.ai?.cancel) void api.ai.cancel(requestId)
+  }, [])
+
+  useEffect(() => {
     if (!running) {
       setShowRunning(false)
       return
@@ -276,6 +320,16 @@ export function GenericResultExplorer({
     )
     return () => window.clearTimeout(timer)
   }, [running])
+
+  useEffect(() => {
+    if (aiConfigured || !aiRequestId.current) return
+    aiContextRevision.current += 1
+    cancelAiRequest()
+    setAiAnalyzing(false)
+    setAiAnalysis(null)
+    setAiSubmittedSamples(null)
+    setAiAnomaliesVisible(false)
+  }, [aiConfigured, cancelAiRequest])
 
   const effectiveConfiguration = useMemo(
     () =>
@@ -291,6 +345,30 @@ export function GenericResultExplorer({
         : configuration,
     [result, configuration, mode, dimensionControls, externalSeriesColumns],
   )
+  const aiContextKey = JSON.stringify({
+    resultRevision,
+    rowCount: result?.rowCount,
+    view: effectiveConfiguration.view,
+    xColumn: effectiveConfiguration.xColumn,
+    valueColumn: effectiveConfiguration.valueColumn,
+    seriesColumn: effectiveConfiguration.seriesColumn,
+    seriesColumns: effectiveConfiguration.seriesColumns,
+    activeFilters,
+    seriesVisibility,
+    chartTimeDomain,
+    timeBucket,
+  })
+  useEffect(() => {
+    aiContextRevision.current += 1
+    cancelAiRequest()
+    setAiAnalyzing(false)
+    setAiAnalysis(null)
+    setAiSubmittedSamples(null)
+    setAiAnomaliesVisible(false)
+    setAiAnalysisError('')
+  }, [result, aiContextKey, cancelAiRequest])
+  useEffect(() => () => cancelAiRequest(), [cancelAiRequest])
+
   useEffect(() => {
     if (
       dimensionControls === 'result' &&
@@ -404,34 +482,18 @@ export function GenericResultExplorer({
         : null,
     [filteredResult, effectiveConfiguration],
   )
-  const anomalyEligibility = useMemo(
+  const resolvedAiAnomalies = useMemo(
     () =>
-      chartAnomalyEligibility(
-        chart,
-        effectiveConfiguration.view,
-        filteredResult?.columns.find(
-          (column) => column.name === effectiveConfiguration.xColumn,
-        ),
-      ),
-    [
-      chart,
-      effectiveConfiguration.view,
-      effectiveConfiguration.xColumn,
-      filteredResult,
-    ],
-  )
-  const anomalies = useMemo(
-    () =>
-      effectiveConfiguration.anomalyDetectionEnabled &&
-      anomalyEligibility.available &&
-      chart
-        ? detectChartAnomalies(chart.series, DEFAULT_ANOMALY_OPTIONS)
+      aiAnalysis && aiSubmittedSamples && chart
+        ? resolveAiAnomalies(
+            aiAnalysis,
+            aiSubmittedSamples,
+            chart.series,
+            chart.xValues,
+            seriesVisibility,
+          )
         : [],
-    [
-      chart,
-      effectiveConfiguration.anomalyDetectionEnabled,
-      anomalyEligibility.available,
-    ],
+    [aiAnalysis, aiSubmittedSamples, chart, seriesVisibility],
   )
   const temporalRangeSelectionEnabled = Boolean(
     chart?.renderable &&
@@ -515,10 +577,11 @@ export function GenericResultExplorer({
             displayUnit: effectiveConfiguration.displayUnit,
             visibility: seriesVisibility,
             hoveredSeriesIdentity: () => hoveredSeriesIdentity.current,
-            anomalies,
             rangeSelectionEnabled:
               temporalRangeSelectionEnabled && !hierarchical,
             hierarchy,
+            aiAnomalies: resolvedAiAnomalies,
+            showAiAnomalies: aiAnomaliesVisible,
           })
         : null,
     [
@@ -530,9 +593,10 @@ export function GenericResultExplorer({
       activeBuilderTimeBucket,
       effectiveTimeDomain,
       temporalRangeSelectionEnabled,
-      anomalies,
       hierarchy,
       hierarchical,
+      resolvedAiAnomalies,
+      aiAnomaliesVisible,
     ],
   )
   const setHierarchyDimensions = (dimensions: string[]) =>
@@ -560,7 +624,7 @@ export function GenericResultExplorer({
   }
   const chartFingerprint = useMemo(
     () =>
-      `${resultRevision}:${createChartFingerprint(chart, effectiveConfiguration, seriesVisibility)}:${mode}:${activeBuilderTimeBucket ?? ''}:domain=${effectiveTimeDomain ? `${effectiveTimeDomain.min}-${effectiveTimeDomain.max}` : ''}:requested=${configuration.view}/${configuration.xColumn ?? ''}/${configuration.valueColumn ?? ''}/${configuration.aggregation}/${configuration.seriesColumn ?? ''}/${configuration.seriesColumns?.join(',') ?? ''}:hierarchy=${hierarchical ? JSON.stringify(hierarchy) : ''}:anomalies=${anomalies.map((item) => `${item.seriesName}:${item.dataIndex}`).join(',')}`,
+      `${resultRevision}:${createChartFingerprint(chart, effectiveConfiguration, seriesVisibility)}:${mode}:${activeBuilderTimeBucket ?? ''}:domain=${effectiveTimeDomain ? `${effectiveTimeDomain.min}-${effectiveTimeDomain.max}` : ''}:requested=${configuration.view}/${configuration.xColumn ?? ''}/${configuration.valueColumn ?? ''}/${configuration.aggregation}/${configuration.seriesColumn ?? ''}/${configuration.seriesColumns?.join(',') ?? ''}:hierarchy=${hierarchical ? JSON.stringify(hierarchy) : ''}`,
     [
       resultRevision,
       chart,
@@ -572,7 +636,6 @@ export function GenericResultExplorer({
       effectiveTimeDomain,
       hierarchy,
       hierarchical,
-      anomalies,
     ],
   )
   const renderedOption = useMemo(
@@ -802,8 +865,11 @@ export function GenericResultExplorer({
     dataIndex?: number
     seriesIndex?: number
     event?: { event?: MouseEvent; offsetX?: number; offsetY?: number }
+    data?: unknown
   }) => {
     if (
+      (params.data as { aiAnomalyOverlay?: unknown } | undefined)
+        ?.aiAnomalyOverlay === true ||
       params.componentType !== 'series' ||
       !chart?.renderable ||
       !effectiveConfiguration.xColumn ||
@@ -899,13 +965,37 @@ export function GenericResultExplorer({
     if (params.componentType === 'series' && params.seriesName)
       hoveredSeriesIdentity.current = params.seriesName
   }
+  const onChartMouseOver = (params: {
+    componentType?: string
+    seriesName?: string
+    data?: unknown
+  }) => {
+    const data = params.data as
+      { aiAnomalyOverlay?: unknown; sourceSeriesName?: unknown } | undefined
+    if (
+      data?.aiAnomalyOverlay === true &&
+      typeof data.sourceSeriesName === 'string'
+    ) {
+      hoveredSeriesIdentity.current = data.sourceSeriesName
+      return
+    }
+    onSeriesMouseOver(params)
+  }
   const onSeriesMouseOut = (params: {
     componentType?: string
     seriesName?: string
+    data?: unknown
   }) => {
+    const data = params.data as
+      { aiAnomalyOverlay?: unknown; sourceSeriesName?: unknown } | undefined
+    const seriesIdentity =
+      data?.aiAnomalyOverlay === true &&
+      typeof data.sourceSeriesName === 'string'
+        ? data.sourceSeriesName
+        : params.seriesName
     if (
-      params.componentType === 'series' &&
-      params.seriesName === hoveredSeriesIdentity.current
+      seriesIdentity === hoveredSeriesIdentity.current &&
+      params.componentType === 'series'
     )
       hoveredSeriesIdentity.current = undefined
   }
@@ -930,6 +1020,85 @@ export function GenericResultExplorer({
         fingerprint: appliedChart.fingerprint,
       })
   }
+  const analyzeChartWithAi = async () => {
+    if (
+      !chart ||
+      !effectiveConfiguration.xColumn ||
+      !effectiveConfiguration.valueColumn ||
+      !api?.ai?.analyzeAnomalies ||
+      isResultStale
+    )
+      return
+    const requestRevision = aiContextRevision.current
+    const submitted = chart.series
+      .flatMap((item, chartSeriesIndex) => {
+        if (seriesVisibility[item.name] === false) return []
+        const sample = sampleChartSeries(item.name, item.data, chart.xValues)
+        return sample.points.length >= AI_LIMITS.anomalyMinimumPointsPerSeries
+          ? [{ chartSeriesIndex, sample }]
+          : []
+      })
+      .slice(0, AI_LIMITS.anomalySeries)
+    if (!submitted.length) {
+      setAiAnalysis(null)
+      setAiSubmittedSamples(null)
+      setAiAnomaliesVisible(false)
+      setAiAnalysisError(
+        'AI analysis needs at least three numeric points in a visible series.',
+      )
+      return
+    }
+
+    const requestId = crypto.randomUUID()
+    aiRequestId.current = requestId
+    setAiAnalyzing(true)
+    setAiAnalysis(null)
+    setAiSubmittedSamples(null)
+    setAiAnomaliesVisible(false)
+    setAiAnalysisError('')
+    try {
+      const response = await api.ai.analyzeAnomalies({
+        requestId,
+        chart: {
+          chartType: effectiveConfiguration.view,
+          xColumn: effectiveConfiguration.xColumn,
+          valueColumn: effectiveConfiguration.valueColumn,
+          series: submitted.map(({ sample }) => ({
+            ...sample,
+            points: sample.points.map(({ x, y }) => ({ x, y })),
+          })),
+        },
+      })
+      if (
+        aiRequestId.current !== requestId ||
+        aiContextRevision.current !== requestRevision
+      )
+        return
+      if (response.ok) {
+        setAiAnalysis(response.value)
+        setAiSubmittedSamples(submitted)
+        setAiAnomaliesVisible(true)
+      } else {
+        setAiAnalysis(null)
+        setAiSubmittedSamples(null)
+        setAiAnalysisError(response.message)
+      }
+    } catch {
+      if (
+        aiRequestId.current === requestId &&
+        aiContextRevision.current === requestRevision
+      )
+        setAiAnalysisError(
+          'AI analysis failed. Check your connection and try again.',
+        )
+    } finally {
+      if (aiRequestId.current === requestId) {
+        aiRequestId.current = null
+        setAiAnalyzing(false)
+      }
+    }
+  }
+
   const hiddenSeries = seriesIdentities.filter(
     (identity) => seriesVisibility[identity] === false,
   )
@@ -1156,27 +1325,39 @@ export function GenericResultExplorer({
                 />
               </div>
             )}
-            {!hierarchical && (
+            {aiConfigured &&
+              effectiveConfiguration.view === 'line' &&
+              chart?.renderable &&
+              !hierarchical && (
+                <button
+                  className="btn ghost"
+                  disabled={aiAnalyzing || isResultStale}
+                  title="Up to 8 series, 32 points each; preserves bucket minima and maxima."
+                  onClick={() => void analyzeChartWithAi()}
+                >
+                  {aiAnalyzing ? 'Analyzing with AI…' : 'Analyze with AI'}
+                </button>
+              )}
+            {aiAnalysis && aiAnalysis.anomalies.length > 0 && (
               <button
                 className="btn ghost"
-                aria-pressed={Boolean(
-                  effectiveConfiguration.anomalyDetectionEnabled,
-                )}
-                disabled={!anomalyEligibility.available}
-                title={
-                  anomalyEligibility.available
-                    ? 'Uses the previous 12 valid points in each Series. Detection uses linear values, including on Log scale.'
-                    : anomalyEligibility.reason
-                }
-                onClick={() =>
-                  update({
-                    anomalyDetectionEnabled:
-                      !effectiveConfiguration.anomalyDetectionEnabled,
-                  })
-                }
+                type="button"
+                aria-pressed={aiAnomaliesVisible}
+                title="Show or hide the AI-identified anomaly markers and tooltip explanations."
+                onClick={() => setAiAnomaliesVisible((visible) => !visible)}
               >
-                Highlight anomalies
+                Show anomalies
               </button>
+            )}
+            {aiAnalysis && aiSubmittedSamples && (
+              <AiAnomalyDetailsPopover
+                analysis={aiAnalysis}
+                anomalies={resolvedAiAnomalies}
+                samples={aiSubmittedSamples.map(({ sample }) => sample)}
+                valueAxisScale={
+                  effectiveConfiguration.valueAxisScale ?? 'linear'
+                }
+              />
             )}
             <button
               className="btn ghost"
@@ -1199,14 +1380,11 @@ export function GenericResultExplorer({
               {capturing === 'export' ? 'Exporting…' : 'Export PNG'}
             </button>
           </div>
-          {effectiveConfiguration.anomalyDetectionEnabled &&
-            anomalyEligibility.available && (
-              <div className={styles.anomalyStatus} role="status">
-                {anomalies.length
-                  ? `${anomalies.length} ${anomalies.length === 1 ? 'anomaly' : 'anomalies'} detected across ${new Set(anomalies.map((item) => item.seriesName)).size} ${new Set(anomalies.map((item) => item.seriesName)).size === 1 ? 'series' : 'series'}.`
-                  : 'No anomalies detected with the current settings.'}
-              </div>
-            )}
+          {aiAnalysisError && (
+            <div className={styles.aiAnomalyError} role="alert">
+              {aiAnalysisError}
+            </div>
+          )}
           <ResultFilterBar
             filters={activeFilters}
             onRemove={onRemoveFilter}
@@ -1295,7 +1473,7 @@ export function GenericResultExplorer({
                     onEvents={{
                       click: hierarchical ? () => {} : onChartClick,
                       brushEnd: onBrushEnd,
-                      mouseover: onSeriesMouseOver,
+                      mouseover: onChartMouseOver,
                       mouseout: onSeriesMouseOut,
                       finished: onChartFinished,
                     }}

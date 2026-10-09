@@ -9,12 +9,15 @@ import type { Encryption, SecretOwner, SecretStore } from '../secrets/store.ts'
 import { AiService } from './service.ts'
 import { OpenRouterProvider } from './openrouter.ts'
 import {
+  anomalyAnalysis,
+  anomalyAnalysisRequest,
   planAnalysis,
   planAnalysisRequest,
   proposalRequest,
 } from './validation.ts'
 import {
   AI_LIMITS,
+  type AiAnomalyAnalysisRequest,
   type AiBuilderProposalRequest,
   type AiQueryProposalRequest,
   type AiQueryStep,
@@ -135,6 +138,157 @@ const planRequest: AiPlanAnalysisRequest = {
   },
 }
 
+const anomalyRequest: AiAnomalyAnalysisRequest = {
+  requestId: 'anomaly-request',
+  chart: {
+    chartType: 'line',
+    xColumn: 'day',
+    valueColumn: 'count',
+    series: [
+      {
+        name: 'errors',
+        originalPointCount: 3,
+        validPointCount: 3,
+        sampleCoverage: 1,
+        samplingMethod: 'all-points',
+        points: [
+          { x: '2026-10-01', y: 2 },
+          { x: '2026-10-02', y: 3 },
+          { x: '2026-10-03', y: 9 },
+        ],
+      },
+    ],
+  },
+}
+test('AI anomaly response validation rejects ungrounded and duplicate references', () => {
+  const valid = {
+    summary: 'A candidate spike is present.',
+    anomalies: [
+      {
+        seriesIndex: 0,
+        pointIndex: 2,
+        title: 'Candidate spike',
+        reason: 'The sampled value is higher than its neighbors.',
+        severity: 'high',
+      },
+    ],
+    limitations: [],
+    followUps: [],
+  }
+  assert.deepEqual(
+    anomalyAnalysis(valid, anomalyRequest).anomalies,
+    valid.anomalies,
+  )
+  assert.throws(() =>
+    anomalyAnalysis(
+      {
+        ...valid,
+        anomalies: [{ ...valid.anomalies[0], seriesIndex: 1 }],
+      },
+      anomalyRequest,
+    ),
+  )
+  assert.throws(() =>
+    anomalyAnalysis(
+      {
+        ...valid,
+        anomalies: [{ ...valid.anomalies[0], pointIndex: 3 }],
+      },
+      anomalyRequest,
+    ),
+  )
+  assert.throws(() =>
+    anomalyAnalysis(
+      {
+        ...valid,
+        anomalies: [valid.anomalies[0], valid.anomalies[0]],
+      },
+      anomalyRequest,
+    ),
+  )
+})
+
+test('OpenRouter returns a validated structured anomaly analysis from bounded chart context', async () => {
+  let sent: Record<string, unknown> | undefined
+  const provider = new OpenRouterProvider(
+    'key',
+    'model',
+    async (_url, init) => {
+      sent = JSON.parse(String(init?.body))
+      return completion({
+        summary: 'One candidate spike is visible.',
+        anomalies: [
+          {
+            seriesIndex: 0,
+            pointIndex: 2,
+            title: 'Candidate spike',
+            reason:
+              'The final sampled value is higher than the preceding values.',
+            severity: 'high',
+          },
+        ],
+        limitations: ['The sample cannot explain the cause.'],
+        followUps: ['Compare the same period last week.'],
+      })
+    },
+  )
+  const analysis = await provider.analyzeAnomalies(
+    anomalyAnalysisRequest(anomalyRequest),
+    signal(),
+  )
+  assert.equal(analysis.summary, 'One candidate spike is visible.')
+  assert.equal(analysis.anomalies.length, 1)
+  assert.equal((sent?.response_format as { type: string }).type, 'json_schema')
+  const messages = sent?.messages as Array<{ role: string; content: string }>
+  assert.equal(messages[0].role, 'system')
+  assert.match(messages[0].content, /one or two concise sentences/)
+  assert.match(messages[0].content, /Avoid repeating exact X\/Y values/)
+  assert.match(messages[0].content, /Do not invent statistical confidence/)
+  assert.match(JSON.stringify(sent?.messages), /2026-10-01/)
+  assert.match(JSON.stringify(sent?.messages), /sampleCoverage/)
+  const tooMany = {
+    ...anomalyRequest,
+    chart: {
+      ...anomalyRequest.chart,
+      series: Array.from({ length: 9 }, (_, index) => ({
+        name: String(index),
+        originalPointCount: 3,
+        validPointCount: 3,
+        sampleCoverage: 1,
+        samplingMethod: 'all-points',
+        points: [
+          { x: '2026-10-01', y: 2 },
+          { x: '2026-10-02', y: 3 },
+          { x: '2026-10-03', y: 9 },
+        ],
+      })),
+    },
+  }
+  assert.throws(() => anomalyAnalysisRequest(tooMany))
+  assert.throws(() =>
+    anomalyAnalysisRequest({
+      ...anomalyRequest,
+      chart: { ...anomalyRequest.chart, series: [] },
+    }),
+  )
+  assert.throws(() =>
+    anomalyAnalysisRequest({
+      ...anomalyRequest,
+      chart: {
+        ...anomalyRequest.chart,
+        series: [
+          {
+            ...anomalyRequest.chart.series[0],
+            points: anomalyRequest.chart.series[0].points.slice(0, 2),
+            originalPointCount: 2,
+            validPointCount: 2,
+            sampleCoverage: 1,
+          },
+        ],
+      },
+    }),
+  )
+})
 test('OpenRouter models, structured request and proposal parsing use only explicit query context', async () => {
   let sent: Record<string, unknown> | undefined
   const provider = new OpenRouterProvider(
@@ -656,6 +810,12 @@ test('settings preserve the model and blank key; tests do not save; removal dele
       proposeBuilder: async () => {
         throw new Error('not used in query tests')
       },
+      analyzeAnomalies: async () => ({
+        summary: '',
+        anomalies: [],
+        limitations: [],
+        followUps: [],
+      }),
       analyzePlan: async () => ({ summary: '', hints: [] }),
     }))
     await service.saveSettings({ model: 'old', apiKey: 'saved-key' })
@@ -861,6 +1021,12 @@ test('timeout, owner-scoped cancellation, duplicate protection and all completio
       proposeBuilder: async () => {
         throw new Error('not used in query tests')
       },
+      analyzeAnomalies: async () => ({
+        summary: '',
+        anomalies: [],
+        limitations: [],
+        followUps: [],
+      }),
       analyzePlan: async () => ({ summary: '', hints: [] }),
     }),
     25,
