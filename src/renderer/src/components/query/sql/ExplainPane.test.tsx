@@ -190,6 +190,7 @@ describe('Explain node signals and AI performance hints', () => {
     expect(inspector().contains(screen.getByLabelText('Plan signals'))).toBe(
       true,
     )
+    expect(within(inspector()).queryAllByRole('button')).toHaveLength(0)
     expect(details.getByText('Material row estimate mismatch')).toBeTruthy()
     expect(
       details.queryByText('External sort used temporary storage'),
@@ -252,64 +253,21 @@ describe('Explain node signals and AI performance hints', () => {
       ).toBeTruthy()
     })
 
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Select graph node 0.4' }),
+    )
+    expect(graph().dataset.selectedNodeId).toBe('0.4')
+    expect(graph().dataset.highlightedNodeIds).toBe('0.1')
+    expect(graph().dataset.focusNodeId).toBe('0.1')
+    expect(
+      within(inspector()).getByText('Material row estimate mismatch'),
+    ).toBeTruthy()
+    expect(hint.getAttribute('aria-pressed')).toBe('true')
+
     const noActionHint = screen.getByRole('button', {
       name: /A hint without a proposed action/,
     })
     expect(noActionHint.querySelectorAll('strong')).toHaveLength(0)
-  })
-
-  it('selecting a diagnostic clears the AI hint and focuses only its node', async () => {
-    render(<ExplainPane />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Run analysis' }))
-    const hint = await screen.findByRole('button', {
-      name: /AI finds a filtered scan/,
-    })
-    fireEvent.click(hint)
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Select graph node 0.4' }),
-    )
-    const diagnostic = within(inspector()).getByRole('button', {
-      name: /Material row estimate mismatch/,
-    })
-    fireEvent.click(diagnostic)
-
-    await waitFor(() => {
-      expect(hint.getAttribute('aria-pressed')).toBe('false')
-      expect(diagnostic.getAttribute('aria-pressed')).toBe('true')
-      expect(graph().dataset.selectedNodeId).toBe('0.4')
-      expect(graph().dataset.highlightedNodeIds).toBe('0.4')
-      expect(graph().dataset.focusNodeId).toBe('0.4')
-    })
-  })
-
-  it('selecting an AI hint clears the diagnostic highlight and focuses only the hint node', async () => {
-    render(<ExplainPane />)
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Select graph node 0.4' }),
-    )
-    const diagnostic = within(inspector()).getByRole('button', {
-      name: /Material row estimate mismatch/,
-    })
-    fireEvent.click(diagnostic)
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Run analysis' }))
-    const hint = await screen.findByRole('button', {
-      name: /AI finds a filtered scan/,
-    })
-    fireEvent.click(hint)
-
-    await waitFor(() => {
-      expect(
-        within(inspector())
-          .getByRole('button', { name: /Material row estimate mismatch/ })
-          .getAttribute('aria-pressed'),
-      ).toBe('false')
-      expect(hint.getAttribute('aria-pressed')).toBe('true')
-      expect(graph().dataset.selectedNodeId).toBe('0.1')
-      expect(graph().dataset.highlightedNodeIds).toBe('0.1')
-      expect(graph().dataset.focusNodeId).toBe('0.1')
-    })
   })
 
   it('shows Cancel without a duplicate Run action while analysis is busy', async () => {
