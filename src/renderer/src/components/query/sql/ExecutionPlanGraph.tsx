@@ -374,7 +374,7 @@ export function ExecutionPlanGraph({
         const model = graph.getCell(id) as dia.Element | undefined
         if (!model) return
         const view = paper.findViewByModel(model)
-        const body = view?.findNode('body')
+        const body = view?.el.querySelector('rect')
         if (!view || !body) {
           missingView = true
           return
