@@ -5,27 +5,23 @@ import type { BuilderTimeRange } from '@lib/builderTimeRange'
 import { createChartRevision, type ChartRevision } from '@lib/chartReadiness'
 import { prometheusRangeBounds } from '@lib/prometheusTimeRange'
 
+export interface TraceScatterRange {
+  startMs: number
+  endMs: number
+}
+
 interface TraceScatterChartProps {
   option: Record<string, unknown>
   searchRange: BuilderTimeRange
-  onSelectRange: (range: BuilderTimeRange) => void
+  onSelectRange: (range: TraceScatterRange) => void
   onEvents?: Record<string, (value: unknown) => void>
 }
 
-const MINUTE_MS = 60_000
-
-function datePart(value: Date): { date: string; time: string } {
-  return {
-    date: value.toISOString().slice(0, 10),
-    time: value.toISOString().slice(11, 16),
-  }
-}
-
-export function traceScatterCustomRange(
+export function traceScatterLocalRange(
   coordRange: readonly unknown[],
   domainStartMs: number,
   domainEndMs: number,
-): BuilderTimeRange | null {
+): TraceScatterRange | null {
   if (coordRange.length < 2) return null
   const first = Number(coordRange[0])
   const second = Number(coordRange[1])
@@ -39,19 +35,7 @@ export function traceScatterCustomRange(
   )
   if (endMs - startMs < minimumSelectionMs) return null
 
-  const start = new Date(Math.floor(startMs / MINUTE_MS) * MINUTE_MS)
-  const end = new Date(Math.ceil(endMs / MINUTE_MS) * MINUTE_MS)
-  if (end.getTime() <= start.getTime()) end.setTime(start.getTime() + MINUTE_MS)
-  const from = datePart(start)
-  const to = datePart(end)
-  return {
-    kind: 'custom',
-    startDate: from.date,
-    startTime: from.time,
-    endDate: to.date,
-    endTime: to.time,
-    recurringWindows: [],
-  }
+  return { startMs, endMs }
 }
 
 export function TraceScatterChart({
@@ -137,7 +121,7 @@ export function TraceScatterChart({
     const coordRange =
       (value as { areas?: Array<{ coordRange?: unknown[] }> })?.areas?.[0]
         ?.coordRange ?? []
-    const next = traceScatterCustomRange(coordRange, domain.start, domain.end)
+    const next = traceScatterLocalRange(coordRange, domain.start, domain.end)
     const instance = ref.current?.getEchartsInstance()
     instance?.dispatchAction({ type: 'brush', areas: [] })
     enableBrush()

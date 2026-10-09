@@ -6,6 +6,8 @@ import styles from './TraceSearchResults.module.css'
 
 interface TraceSearchResultsProps {
   rows: TraceRow[]
+  fetchedTraceCount?: number
+  locallyFiltered?: boolean
   notice: string
   loading: 'search' | 'trace' | null
   resultView: TraceResultView
@@ -17,6 +19,8 @@ interface TraceSearchResultsProps {
 
 export function TraceSearchResults({
   rows,
+  fetchedTraceCount = rows.length,
+  locallyFiltered = false,
   notice,
   loading,
   resultView,
@@ -25,7 +29,7 @@ export function TraceSearchResults({
   scatterView,
   serviceMapView,
 }: TraceSearchResultsProps) {
-  const hasResults = rows.length > 0
+  const hasResults = fetchedTraceCount > 0
 
   return (
     <div
@@ -78,12 +82,20 @@ export function TraceSearchResults({
           )}
           {hasResults && (
             <strong>
-              {rows.length} traces{loading === 'search' ? ' so far' : ''}
+              {locallyFiltered
+                ? `${rows.length} of ${fetchedTraceCount} retrieved traces`
+                : `${rows.length} traces`}
+              {loading === 'search' ? ' so far' : ''}
             </strong>
           )}
         </div>
       </header>
-      {!hasResults ? (
+      {locallyFiltered && rows.length === 0 ? (
+        <div className={styles.empty}>
+          No retrieved traces in this local interval. Remove the filter to
+          restore results.
+        </div>
+      ) : !hasResults ? (
         <div className={styles.empty}>
           {loading === 'search'
             ? 'Waiting for the first Tempo trace summaries…'
