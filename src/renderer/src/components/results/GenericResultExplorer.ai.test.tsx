@@ -13,6 +13,7 @@ const aiMocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   analyzeAnomalies: vi.fn(),
   cancel: vi.fn(),
+  dispatchAction: vi.fn(),
   chartOptions: null as Record<string, unknown> | null,
 }))
 
@@ -32,6 +33,7 @@ vi.mock('echarts-for-react', async () => {
       aiMocks.chartOptions = option
       React.useImperativeHandle(ref, () => ({
         getEchartsInstance: () => ({
+          dispatchAction: aiMocks.dispatchAction,
           on: vi.fn(),
           off: vi.fn(),
           getZr: () => ({ on: vi.fn(), off: vi.fn() }),
@@ -163,6 +165,7 @@ beforeEach(() => {
   })
   aiMocks.analyzeAnomalies.mockReset().mockResolvedValue(successfulAnalysis)
   aiMocks.cancel.mockReset()
+  aiMocks.dispatchAction.mockReset()
   aiMocks.chartOptions = null
 })
 afterEach(cleanup)
