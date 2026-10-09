@@ -413,9 +413,10 @@ export function ExecutionPlanGraph({
             ? cssColor('--bg-3', '#2b2e36')
             : cssColor('--bg-2', '#202329'),
         )
-        model.attr('root/data-ai-highlighted', String(isHighlighted))
-        model.attr('root/data-selected', String(isSelected))
-        model.attr('root/aria-pressed', String(isSelected))
+        const view = paperRef.current?.findViewByModel(model)
+        view?.el.setAttribute('data-ai-highlighted', String(isHighlighted))
+        view?.el.setAttribute('data-selected', String(isSelected))
+        view?.el.setAttribute('aria-pressed', String(isSelected))
       } catch (error) {
         console.error(
           `Could not update JointJS selection for node ${id}`,
