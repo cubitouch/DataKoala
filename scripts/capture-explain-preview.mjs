@@ -553,7 +553,7 @@ app.whenReady().then(async () => {
       hasSignals: Boolean(document.querySelector('[aria-label="Plan node details"] [aria-label="Plan signals"]'))
     })`)
     if (
-      manualSelection.selectedNodeId !== '0.2' ||
+      manualSelection.selectedNodeId !== '0' ||
       !manualSelection.activeHint ||
       manualSelection.highlightedNodeIds.split(',').length !== 2 ||
       manualSelection.hasSignals
