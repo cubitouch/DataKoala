@@ -214,8 +214,9 @@ app.whenReady().then(async () => {
       },
     })
     win.webContents.on('console-message', (_event, details) => {
-      if (details.level >= 2)
-        console.error(`Renderer console (${details.level}): ${details.message}`)
+      console.error(
+        `Renderer console (${details.level ?? 'unknown'}): ${details.message ?? JSON.stringify(details)}`,
+      )
     })
 
     previewStep = 'load renderer'
@@ -336,14 +337,21 @@ app.whenReady().then(async () => {
       `[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()`,
     )
     previewStep = 'validate initial AI selection'
-    const aiReport = await win.webContents.executeJavaScript(`({
+    const aiReportScript = `({
       calls: ${planAnalysisCalls},
       sql: ${JSON.stringify(capturedPlanRequest?.sql ?? null)},
       mode: ${JSON.stringify(capturedPlanRequest?.mode ?? null)},
       planNodeCount: ${capturedPlanRequest?.plan?.nodes?.length ?? 0},
       highlights: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.highlightedNodeIds?.split(',').filter(Boolean) ?? [],
       capturedQueryNotice: document.body.innerText.includes('This plan belongs to the SQL captured when Explain was run.')
-    })`)
+    })`
+    let aiReport
+    try {
+      aiReport = await win.webContents.executeJavaScript(aiReportScript)
+    } catch (error) {
+      console.error(`Initial AI report script: ${aiReportScript}`)
+      throw error
+    }
     if (
       aiReport.calls !== 1 ||
       !String(aiReport.sql).startsWith('SELECT c.country') ||
