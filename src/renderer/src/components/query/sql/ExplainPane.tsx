@@ -96,7 +96,7 @@ export function ExplainPane() {
           )}
           {tree && (
             <div>
-              <span>Diagnostics</span>
+              <span>Signals</span>
               <strong>{diagnostics.length}</strong>
             </div>
           )}
@@ -182,23 +182,23 @@ export function ExplainPane() {
           </>
         )}
         {diagnostics.length > 0 && (
-          <section
-            className={styles.panel}
-            aria-label="Deterministic diagnostics"
-          >
+          <section className={styles.panel} aria-label="Plan signals">
             <div className={styles.panelHeading}>
               <div>
                 <span className={styles.eyebrow}>From PostgreSQL metrics</span>
-                <h2>Plan diagnostics</h2>
+                <h2>Plan signals</h2>
               </div>
-              <p>Deterministic observations from the captured plan.</p>
+              <p>
+                Deterministic observations. Select a signal to inspect its node;
+                possible next steps are in AI hints.
+              </p>
             </div>
-            <div className={styles.cards}>
+            <div className={styles.signals}>
               {diagnostics.map((diagnostic) => (
                 <button
                   type="button"
                   key={diagnostic.id}
-                  className={`${styles.diagnostic} ${selectedDiagnosticId === diagnostic.id ? styles.activeCard : ''}`}
+                  className={`${styles.signal} ${selectedDiagnosticId === diagnostic.id ? styles.activeCard : ''}`}
                   aria-pressed={selectedDiagnosticId === diagnostic.id}
                   onClick={() => {
                     ai.clearHint()
@@ -209,11 +209,19 @@ export function ExplainPane() {
                     setFocusRequestId((current) => current + 1)
                   }}
                 >
-                  <strong>{diagnostic.title}</strong>
-                  <span>{diagnostic.description}</span>
-                  <small>
-                    {diagnostic.evidence} · node {diagnostic.nodeIds.join(', ')}
-                  </small>
+                  <span className={styles.signalIcon} aria-hidden="true">
+                    {diagnostic.severity === 'warning' ? '⚠' : 'ⓘ'}
+                  </span>
+                  <strong className={styles.signalTitle}>
+                    {diagnostic.title}
+                  </strong>
+                  <span className={styles.signalMetrics}>
+                    {diagnostic.description} · {diagnostic.evidence}
+                  </span>
+                  <span className={styles.signalDestination}>
+                    Node {diagnostic.nodeIds.join(', ')}
+                    <span aria-hidden="true">›</span>
+                  </span>
                 </button>
               ))}
             </div>
