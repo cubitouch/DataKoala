@@ -987,8 +987,7 @@ export function GenericResultExplorer({
     data?: unknown
   }) => {
     const data = params.data as
-      | { aiAnomalyOverlay?: unknown; sourceSeriesName?: unknown }
-      | undefined
+      { aiAnomalyOverlay?: unknown; sourceSeriesName?: unknown } | undefined
     const seriesIdentity =
       data?.aiAnomalyOverlay === true &&
       typeof data.sourceSeriesName === 'string'
