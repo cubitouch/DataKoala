@@ -50,12 +50,12 @@ contributors still need approval after an earlier PR was merged. See
 When an external fork opens or updates a PR, review **Files changed**,
 especially workflow files, install scripts, dependencies, and build/test
 scripts, then use **Approve workflows to run** if safe. Approval allows
-*untrusted code* to execute in a read-only, no-secrets CI context; it is not
+_untrusted code_ to execute in a read-only, no-secrets CI context; it is not
 an endorsement of the changes or permission to merge. See
 [GitHub's approval guidance](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/approve-runs-from-forks).
 
 GitHub allows **any maintainer with write access** to approve these runs;
-it cannot guarantee the repository owner is the *only* approver if others
+it cannot guarantee the repository owner is the _only_ approver if others
 have write access. Keep write permissions restricted accordingly.
 
 Also consider setting **Settings → Actions → General → Workflow permissions**
