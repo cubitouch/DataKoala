@@ -28,6 +28,7 @@ const outputDir = resolve(
 
 process.env.DATAKOALA_SMOKE = '1'
 let densePreview = false
+let queryRequests = 0
 
 const sleep = (ms) =>
   new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
@@ -323,6 +324,81 @@ async function showScatter(win) {
   await sleep(400)
 }
 
+async function validateLocalScatterFilter(win) {
+  const requestsBefore = queryRequests
+  const before = await win.webContents.executeJavaScript(`(() => {
+    const state = window.__datakoalaStore.getState()
+    const tab = state.tabs.find((item) => item.id === state.activeTabId)
+    const chart = document.querySelector('[data-visual-type="scatter"]')
+    const rect = chart.getBoundingClientRect()
+    const [start, end] = chart.getAttribute('data-visual-range').split('..').map(Date.parse)
+    const times = tab.result.rows.map((row) => Number(row.startTimeMs)).sort((a, b) => a - b)
+    const x = (time) => Math.round(rect.left + 72 + (time - start) / (end - start) * (rect.width - 98))
+    return { range: JSON.stringify(tab.tempoTimeRange), rows: JSON.stringify(tab.result.rows),
+      x1: x(times[0] - 30000), x2: x((times[1] + times[2]) / 2), y: Math.round(rect.top + rect.height / 2) }
+  })()`)
+  win.webContents.sendInputEvent({
+    type: 'mouseDown',
+    x: before.x1,
+    y: before.y,
+    button: 'left',
+    clickCount: 1,
+  })
+  win.webContents.sendInputEvent({
+    type: 'mouseMove',
+    x: before.x2,
+    y: before.y,
+    button: 'left',
+  })
+  win.webContents.sendInputEvent({
+    type: 'mouseUp',
+    x: before.x2,
+    y: before.y,
+    button: 'left',
+    clickCount: 1,
+  })
+  await waitFor(
+    win,
+    `document.querySelector('[aria-label="Active result filters"]') && document.querySelector('[data-visual-type="scatter"]')?.getAttribute('data-visual-items') === '2'`,
+    'locally filtered scatter points',
+  )
+  await assertPreviewReady(win, 'Tempo local filter', {
+    selector: '[data-visual-type="scatter"]',
+    description: 'Locally filtered Tempo scatter',
+    minSeries: 1,
+    itemCount: 2,
+  })
+  await mkdir(resolve(outputDir, 'checks'), { recursive: true })
+  await writeFile(
+    resolve(outputDir, 'checks/tempo-local-filter.png'),
+    (await win.webContents.capturePage()).toPNG(),
+  )
+  const after = await win.webContents.executeJavaScript(`(() => {
+    const state = window.__datakoalaStore.getState()
+    const tab = state.tabs.find((item) => item.id === state.activeTabId)
+    return { range: JSON.stringify(tab.tempoTimeRange), rows: JSON.stringify(tab.result.rows), label: document.body.innerText.includes('2 of 5 retrieved traces') }
+  })()`)
+  if (
+    queryRequests !== requestsBefore ||
+    before.range !== after.range ||
+    before.rows !== after.rows ||
+    !after.label
+  )
+    throw new Error(
+      'Tempo brush changed fetched results, query range, or request count',
+    )
+  await win.webContents.executeJavaScript(
+    `document.querySelector('[aria-label^="Remove filter Trace start"]')?.click()`,
+  )
+  await waitFor(
+    win,
+    `!document.querySelector('[aria-label="Active result filters"]') && document.querySelector('[data-visual-type="scatter"]')?.getAttribute('data-visual-items') === '5'`,
+    'restored retrieved scatter points',
+  )
+  if (queryRequests !== requestsBefore)
+    throw new Error('Clearing the local filter fetched more traces')
+}
+
 async function showServiceMap(win) {
   await win.webContents.executeJavaScript(`(() => {
     const group = document.querySelector('[aria-label="Trace search result view"]')
@@ -504,14 +580,17 @@ app.whenReady().then(async () => {
     async (_event, _id, query) => query,
   )
   ipcMain.handle('connections:tempo:attributes', async () => [])
-  ipcMain.handle('query:run', async (_event, _connectionId, query) => ({
-    ok: true,
-    result: densePreview
-      ? (previewDenseTraceResultForId(String(query).trim()) ??
-        previewDenseTraceSearchResult)
-      : (previewTraceResultForId(String(query).trim()) ??
-        previewTraceSearchResult),
-  }))
+  ipcMain.handle('query:run', async (_event, _connectionId, query) => {
+    queryRequests += 1
+    return {
+      ok: true,
+      result: densePreview
+        ? (previewDenseTraceResultForId(String(query).trim()) ??
+          previewDenseTraceSearchResult)
+        : (previewTraceResultForId(String(query).trim()) ??
+          previewTraceSearchResult),
+    }
+  })
 
   const win = new BrowserWindow({
     width: 1440,
@@ -547,6 +626,7 @@ app.whenReady().then(async () => {
     await capture(win, 'tempo-trace-search.png')
     await showScatter(win)
     await capture(win, 'tempo-trace-scatter.png')
+    await validateLocalScatterFilter(win)
     await showServiceMap(win)
     await capture(win, 'tempo-service-map.png')
     await showDenseServiceMap(win)
