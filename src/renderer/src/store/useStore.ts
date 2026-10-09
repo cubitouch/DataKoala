@@ -452,6 +452,21 @@ export function selectProfileConnection(
   return profileId ? state.connectionStateByProfileId[profileId] : undefined
 }
 
+/** Resolves the connection owned by a particular tab without consulting UI selection. */
+export function selectTabConnection(
+  state: Pick<AppState, 'tabs' | 'connectionStateByProfileId'>,
+  tabId: string,
+): ProfileConnectionState | undefined {
+  const tab = selectSession(state, tabId)
+  return selectProfileConnection(state, tab?.connectionProfileId)
+}
+
+export function selectActiveTabConnection(
+  state: Pick<AppState, 'tabs' | 'activeTabId' | 'connectionStateByProfileId'>,
+): ProfileConnectionState | undefined {
+  return selectTabConnection(state, state.activeTabId)
+}
+
 function patchSession(
   state: AppState,
   id: string | undefined,

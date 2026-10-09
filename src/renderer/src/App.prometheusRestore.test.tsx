@@ -15,6 +15,7 @@ import { useStore } from './store/useStore'
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn(),
+  listLive: vi.fn(),
   queryEditorRenders: 0,
   repairEnabled: [] as boolean[],
 }))
@@ -31,6 +32,7 @@ vi.mock('./lib/api', () => ({
     },
     connections: {
       list: mocks.list,
+      listLive: mocks.listLive,
       onStateChanged: vi.fn(() => () => undefined),
       connect: vi.fn(),
       disconnect: vi.fn(),
@@ -136,6 +138,8 @@ beforeEach(() => {
   mocks.queryEditorRenders = 0
   mocks.repairEnabled.length = 0
   mocks.list.mockReset()
+  mocks.listLive.mockReset()
+  mocks.listLive.mockResolvedValue([])
 })
 afterEach(() => {
   cleanup()
@@ -185,11 +189,13 @@ describe('Prometheus workspace restoration', () => {
     expect(initialEditorRenders).toBe(0)
     resolveProfiles([prometheus])
     await screen.findByText('SQL editor mounted')
+    await waitFor(() =>
+      expect(status.textContent).toBe('Cloud metrics · disconnected'),
+    )
     expect(mocks.queryEditorRenders).toBeGreaterThan(initialEditorRenders)
     expect(activeTestSession().connectionProfileId).toBe(prometheus.id)
     expect(useStore.getState().activeProfileId).toBeNull()
     expect(screen.getAllByText('Cloud metrics').length).toBeGreaterThan(0)
-    expect(status.textContent).toBe('Cloud metrics · disconnected')
   })
 
   it('renders the PromQL query surface for an already-active Prometheus connection', () => {
@@ -198,6 +204,14 @@ describe('Prometheus workspace restoration', () => {
       activeProfileId: prometheus.id,
       connected: true,
       connectionStatus: 'connected',
+      connectionStateByProfileId: {
+        [prometheus.id]: {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
+        },
+      },
     })
     patchActiveTestSession({
       connectionProfileId: prometheus.id,
@@ -227,6 +241,14 @@ describe('Prometheus workspace restoration', () => {
       activeProfileId: postgres.id,
       connected: true,
       connectionStatus: 'connected',
+      connectionStateByProfileId: {
+        [postgres.id]: {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: '16',
+        },
+      },
     })
     patchActiveTestSession({
       connectionProfileId: postgres.id,
@@ -256,6 +278,14 @@ describe('Prometheus workspace restoration', () => {
       activeProfileId: bigquery.id,
       connected: true,
       connectionStatus: 'connected',
+      connectionStateByProfileId: {
+        [bigquery.id]: {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
+        },
+      },
     })
     patchActiveTestSession({
       connectionProfileId: bigquery.id,
