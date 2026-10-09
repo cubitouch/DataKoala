@@ -236,6 +236,81 @@ it('keeps restored profile indicators pending until live-session hydration compl
   expect(api.connections.connect).not.toHaveBeenCalled()
 })
 
+it.each(['unavailable', 'fails'] as const)(
+  'shows a hydration failure when live-session lookup %s',
+  async (outcome) => {
+    if (outcome === 'unavailable')
+      vi.mocked(api.connections.listLive!).mockReturnValueOnce(
+        undefined as never,
+      )
+    else
+      vi.mocked(api.connections.listLive!).mockRejectedValueOnce(
+        new Error('IPC unavailable'),
+      )
+
+    const tab = createQuerySession(1, {
+      id: 'restored-tab',
+      connectionProfileId: 'pg',
+    })
+    useStore.setState({
+      profiles: [],
+      tabs: [tab],
+      activeTabId: tab.id,
+      connectionStateByProfileId: {},
+    })
+
+    const { container } = render(
+      <>
+        <ConnectionStatus />
+        <Sidebar />
+      </>,
+    )
+
+    expect(
+      await screen.findByText('Connection status could not be restored.'),
+    ).toBeTruthy()
+    expect(container.querySelector('[data-state]')?.textContent).toBe(
+      'Restoring connection…',
+    )
+    expect(useStore.getState().connectionStateByProfileId.pg).toBeUndefined()
+    expect(api.connections.connect).not.toHaveBeenCalled()
+  },
+)
+
+it("doesn't disable profile B's reconnect control while profile A is connecting", async () => {
+  const tab = createQuerySession(1, {
+    id: 'profile-b-tab',
+    connectionProfileId: 'bq',
+  })
+  useStore.setState({
+    profiles,
+    tabs: [tab],
+    activeTabId: tab.id,
+    activeProfileId: 'pg',
+    connecting: true,
+    connectionStateByProfileId: {
+      pg: {
+        status: 'connecting',
+        generation: 2,
+        error: null,
+        serverVersion: null,
+      },
+      bq: {
+        status: 'error',
+        generation: 4,
+        error: 'Profile B failed',
+        serverVersion: null,
+      },
+    },
+  })
+
+  render(<Sidebar />)
+
+  expect(await screen.findByText('Profile B failed')).toBeTruthy()
+  const reconnect = screen.getByRole('button', { name: 'Reconnect' })
+  expect((reconnect as HTMLButtonElement).disabled).toBe(false)
+})
+
 it.each(['loaded', 'loading'] as const)(
   'does not rehydrate live metadata that is already %s',
   async (status) => {

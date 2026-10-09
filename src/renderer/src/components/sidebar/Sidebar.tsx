@@ -119,7 +119,12 @@ export function Sidebar() {
   const deleteOrigin = useRef<HTMLButtonElement | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
+  const [liveSessionHydrationFailed, setLiveSessionHydrationFailed] =
+    useState(false)
   const activeTabConnection = useStore(selectActiveTabConnection)
+  const activeTabConnecting =
+    activeTabConnection?.status === 'connecting' ||
+    activeTabConnection?.status === 'reconnecting'
   const tabConnected = Boolean(
     activeTabConnectionId &&
     (activeTabConnection?.status === 'connected' ||
@@ -129,8 +134,23 @@ export function Sidebar() {
   const loadProfiles = useCallback(async () => {
     const loadedProfiles = await api.connections.list()
     setProfiles(loadedProfiles)
-    const live = await api.connections.listLive?.()
-    if (!live) return
+    const listLive = api.connections.listLive
+    if (!listLive) {
+      setLiveSessionHydrationFailed(true)
+      return
+    }
+    let live: Awaited<ReturnType<typeof listLive>>
+    try {
+      live = await listLive()
+    } catch {
+      setLiveSessionHydrationFailed(true)
+      return
+    }
+    if (!live) {
+      setLiveSessionHydrationFailed(true)
+      return
+    }
+    setLiveSessionHydrationFailed(false)
     const hydrationSessions = live.filter((session) => {
       const metadata = useStore.getState().metadataByProfileId[session.id]
       return !metadata || metadata.status === 'idle'
@@ -505,6 +525,11 @@ export function Sidebar() {
   return (
     <aside className={styles.sidebar} aria-label="Connections and objects">
       <h3>Connections</h3>
+      {liveSessionHydrationFailed && (
+        <div className={styles.objectStatus} role="status">
+          Connection status could not be restored.
+        </div>
+      )}
       {profiles.map((profile) => {
         const profileConnection = selectProfileConnection(
           { connectionStateByProfileId },
@@ -634,9 +659,9 @@ export function Sidebar() {
           {activeTabConnection.error}
           <button
             onClick={() => void ensureConnectionForTab(activeTabId)}
-            disabled={connecting}
+            disabled={activeTabConnecting}
           >
-            {connecting ? 'Reconnecting…' : 'Reconnect'}
+            {activeTabConnecting ? 'Reconnecting…' : 'Reconnect'}
           </button>
         </div>
       )}
