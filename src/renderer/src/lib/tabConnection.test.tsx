@@ -243,6 +243,68 @@ describe('tab connection lifecycle', () => {
     expect(useStore.getState().connected).toBe(true)
   })
 
+  it('keeps a newer explicit connection after an older tab connection fails', async () => {
+    resetTestStore({
+      profiles,
+      activeProfileId: 'profile-a',
+      connectionStateByProfileId: {
+        'profile-a': {
+          status: 'disconnected',
+          generation: 0,
+          error: null,
+          serverVersion: null,
+        },
+      },
+    })
+    const id = useStore.getState().activeTabId
+    patchActiveTestSession({ connectionProfileId: 'profile-a' })
+
+    let failOlder!: (value: {
+      ok: false
+      error: string
+    }) => void
+    let succeedNewer!: (value: {
+      ok: true
+      id: string
+      generation: number
+      serverVersion: string
+    }) => void
+    connect
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            failOlder = resolve
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            succeedNewer = resolve
+          }),
+      )
+
+    const olderAttempt = ensureConnectionForTab(id)
+    const newerAttempt = useStore.getState().connectProfile(profiles[0])
+    succeedNewer({
+      ok: true,
+      id: 'profile-a',
+      generation: 2,
+      serverVersion: '16-new',
+    })
+    await newerAttempt
+
+    failOlder({ ok: false, error: 'older attempt failed' })
+    expect(await olderAttempt).toBeNull()
+    expect(useStore.getState().connectionStateByProfileId['profile-a']).toEqual(
+      {
+        status: 'connected',
+        generation: 2,
+        error: null,
+        serverVersion: '16-new',
+      },
+    )
+  })
+
   it('keeps async query ownership tied to its tab and profile generation', () => {
     resetTestStore({ profiles })
     const tabA = useStore.getState().activeTabId

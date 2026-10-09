@@ -312,6 +312,10 @@ export function Sidebar() {
       )
     )
       return
+    if (liveSessionHydrationFailed && !profileStatus) {
+      await useStore.getState().connectProfile(profile)
+      return
+    }
     bindTabConnection(activeTabId, profile.id)
     await ensureConnectionForTab(activeTabId, { confirmInterrupt: false })
   }

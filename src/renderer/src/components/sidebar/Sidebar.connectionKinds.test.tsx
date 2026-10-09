@@ -277,6 +277,46 @@ it.each(['unavailable', 'fails'] as const)(
   },
 )
 
+it('allows an explicit profile connection after live-session restoration fails', async () => {
+  vi.mocked(api.connections.listLive!).mockRejectedValueOnce(
+    new Error('IPC unavailable'),
+  )
+  vi.mocked(api.connections.connect).mockResolvedValueOnce({
+    ok: true,
+    id: 'pg',
+    generation: 1,
+    serverVersion: '16',
+  })
+  const tab = createQuerySession(1, {
+    id: 'restored-tab',
+    connectionProfileId: 'pg',
+  })
+  useStore.setState({
+    profiles: [],
+    tabs: [tab],
+    activeTabId: tab.id,
+    connectionStateByProfileId: {},
+  })
+
+  render(
+    <>
+      <ConnectionStatus />
+      <Sidebar />
+    </>,
+  )
+
+  await screen.findByText('Connection status could not be restored.')
+  fireEvent.click(await screen.findByLabelText('Orders, restoring connection'))
+
+  await waitFor(() =>
+    expect(useStore.getState().connectionStateByProfileId.pg).toMatchObject({
+      status: 'connected',
+      generation: 1,
+    }),
+  )
+  expect(api.connections.connect).toHaveBeenCalledWith(profiles[0])
+})
+
 it("doesn't disable profile B's reconnect control while profile A is connecting", async () => {
   const tab = createQuerySession(1, {
     id: 'profile-b-tab',
