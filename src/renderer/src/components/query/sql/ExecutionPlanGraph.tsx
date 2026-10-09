@@ -442,18 +442,17 @@ export function ExecutionPlanGraph({
     const paper = paperRef.current
     const model = graph?.getCell(focusNodeId) as dia.Element | undefined
     if (!host || !paper || !model) return
-    const position = model.position()
-    const size = model.size()
-    const scale = paper.scale().sx
-    try {
+    const frame = window.requestAnimationFrame(() => {
+      if (paperRef.current !== paper || graphRef.current !== graph) return
+      const position = model.position()
+      const size = model.size()
+      const scale = paper.scale().sx
       paper.translate(
         host.clientWidth / 2 - (position.x + size.width / 2) * scale,
         host.clientHeight / 2 - (position.y + size.height / 2) * scale,
       )
-    } catch (error) {
-      console.error(`Could not focus JointJS node ${focusNodeId}`, error)
-      throw error
-    }
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [focusNodeId, focusRequestId, graphKey])
 
   const zoom = (factor: number) => {
