@@ -35,6 +35,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Report code duplication (advisory)
+        run: pnpm report:duplication
+
+      - name: Upload code duplication report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: code-duplication-report
+          path: reports/duplication/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Check changed files for whitespace errors
         if: github.event_name == 'pull_request'
         run: git diff --check "${{ github.event.pull_request.base.sha }}...${{ github.sha }}"

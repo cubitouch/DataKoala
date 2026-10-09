@@ -9,6 +9,7 @@ release/
 /visual-preview/
 docs-site/public/screenshots/
 docs-site/dist/
+/reports/duplication/
 
 # Official DuckDB extensions acquired for the current developer/build platform.
 resources/duckdb-extensions/*/*.duckdb_extension
