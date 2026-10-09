@@ -16,6 +16,7 @@ let aiConfigured = false
 let delayPlanResponse = false
 let pendingPlanResponse
 let cancelledPlanRequests = 0
+let previewStep = 'initialize preview'
 
 async function wait(win, expression, description) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -212,14 +213,21 @@ app.whenReady().then(async () => {
         backgroundThrottling: false,
       },
     })
+    win.webContents.on('console-message', (_event, details) => {
+      if (details.level >= 2)
+        console.error(`Renderer console (${details.level}): ${details.message}`)
+    })
 
+    previewStep = 'load renderer'
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
+    previewStep = 'wait for renderer store'
     await wait(
       win,
       `document.getElementById('root')?.children.length && window.__datakoalaStore`,
       'renderer store',
     )
 
+    previewStep = 'seed EXPLAIN plan'
     await win.webContents.executeJavaScript(`(() => {
       const store = window.__datakoalaStore
       const state = store.getState()
@@ -271,6 +279,7 @@ app.whenReady().then(async () => {
       })
     })()`)
 
+    previewStep = 'wait for JointJS graph'
     await wait(
       win,
       `(() => {
@@ -282,6 +291,7 @@ app.whenReady().then(async () => {
       'JointJS execution-plan graph and Explain summary',
     )
 
+    previewStep = 'configure and run AI analysis'
     await sleep(250)
     const unconfiguredReport = await win.webContents.executeJavaScript(`({
       plan: Boolean(document.querySelector('[aria-label="Execution plan diagram"]')),
@@ -414,6 +424,7 @@ app.whenReady().then(async () => {
         layoutDirection: layout ? getComputedStyle(layout).flexDirection : null,
       }
     })()`)
+    previewStep = 'validate Explain preview report'
     if (
       report.nodeCount < 7 ||
       report.edgeCount !== report.nodeCount - 1 ||
@@ -480,6 +491,7 @@ app.whenReady().then(async () => {
       (await win.webContents.capturePage()).toPNG(),
     )
 
+    previewStep = 'manual graph selection'
     const manualNodeSelected = await win.webContents.executeJavaScript(`(() => {
       const element = document.querySelector('[data-node-id="0.2"]')
       if (!element) return false
@@ -505,6 +517,7 @@ app.whenReady().then(async () => {
         `Manual graph selection did not update the inspector while preserving the AI hint: ${JSON.stringify(manualSelection)}`,
       )
 
+    previewStep = 'deterministic signal selection'
     await win.webContents.executeJavaScript(`(() => {
       document.querySelector('[data-node-id="0.0"]')?.dispatchEvent(
         new MouseEvent('click', { bubbles: true, cancelable: true, view: window }),
@@ -529,6 +542,7 @@ app.whenReady().then(async () => {
         `Selecting a deterministic signal did not exclusively focus its node: ${JSON.stringify(diagnosticSelection)}`,
       )
 
+    previewStep = 'AI selection after diagnostic'
     await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()`,
     )
@@ -550,6 +564,7 @@ app.whenReady().then(async () => {
         `Selecting an AI hint did not clear deterministic signal selection: ${JSON.stringify(aiAfterDiagnostic)}`,
       )
 
+    previewStep = 'second AI hint selection'
     await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.includes('Review the date filter selectivity'))?.click()`,
     )
@@ -569,6 +584,7 @@ app.whenReady().then(async () => {
         `AI hint selection did not focus its plan node: ${JSON.stringify(secondHintSelection)}`,
       )
 
+    previewStep = 'plan replacement cancellation'
     delayPlanResponse = true
     await win.webContents.executeJavaScript(
       `[...document.querySelectorAll('[aria-label="Performance hints"] button')].find((button) => button.textContent?.trim() === 'Run again')?.click()`,
@@ -609,6 +625,7 @@ app.whenReady().then(async () => {
       )
     app.exit(0)
   } catch (error) {
+    console.error(`EXPLAIN preview failed during: ${previewStep}`)
     console.error(error)
     app.exit(1)
   }
