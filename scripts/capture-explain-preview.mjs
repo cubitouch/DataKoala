@@ -213,11 +213,15 @@ app.whenReady().then(async () => {
         backgroundThrottling: false,
       },
     })
-    win.webContents.on('console-message', (_event, details) => {
-      console.error(
-        `Renderer console (${details.level ?? 'unknown'}): ${details.message ?? JSON.stringify(details)}`,
-      )
-    })
+    win.webContents.on(
+      'console-message',
+      (_event, level, message, line, source) => {
+        if (level >= 2)
+          console.error(
+            `Renderer console (${level}): ${message} (${source}:${line})`,
+          )
+      },
+    )
 
     previewStep = 'load renderer'
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
