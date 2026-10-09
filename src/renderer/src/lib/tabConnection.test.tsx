@@ -259,10 +259,7 @@ describe('tab connection lifecycle', () => {
     const id = useStore.getState().activeTabId
     patchActiveTestSession({ connectionProfileId: 'profile-a' })
 
-    let failOlder!: (value: {
-      ok: false
-      error: string
-    }) => void
+    let failOlder!: (value: { ok: false; error: string }) => void
     let succeedNewer!: (value: {
       ok: true
       id: string
