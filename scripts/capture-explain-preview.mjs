@@ -346,8 +346,9 @@ app.whenReady().then(async () => {
     )
     previewStep = 'select first AI hint'
     await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()`,
+      `[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('Join cardinality is underestimated'))?.click()\n//# sourceURL=datakoala-ai-hint-click.js`,
     )
+    await sleep(100)
     previewStep = 'validate initial AI selection'
     const aiReportScript = `({
       calls: ${planAnalysisCalls},
@@ -356,7 +357,7 @@ app.whenReady().then(async () => {
       planNodeCount: ${capturedPlanRequest?.plan?.nodes?.length ?? 0},
       highlights: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.highlightedNodeIds?.split(',').filter(Boolean) ?? [],
       capturedQueryNotice: document.body.innerText.includes('This plan belongs to the SQL captured when Explain was run.')
-    })`
+    })\n//# sourceURL=datakoala-ai-hint-report.js`
     let aiReport
     try {
       aiReport = await win.webContents.executeJavaScript(aiReportScript)
