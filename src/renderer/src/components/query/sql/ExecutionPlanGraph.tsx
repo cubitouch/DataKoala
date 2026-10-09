@@ -466,10 +466,13 @@ export function ExecutionPlanGraph({
       if (paperRef.current !== paper || graphRef.current !== graph) return
       const position = model.position()
       const size = model.size()
-      const scale = paper.scale().sx
-      paper.translate(
-        host.clientWidth / 2 - (position.x + size.width / 2) * scale,
-        host.clientHeight / 2 - (position.y + size.height / 2) * scale,
+      const matrix = paper.matrix()
+      matrix.e = host.clientWidth / 2 - (position.x + size.width / 2) * matrix.a
+      matrix.f =
+        host.clientHeight / 2 - (position.y + size.height / 2) * matrix.d
+      paper.layers.setAttribute(
+        'transform',
+        `matrix(${matrix.a},${matrix.b},${matrix.c},${matrix.d},${matrix.e},${matrix.f})`,
       )
     })
     return () => window.cancelAnimationFrame(frame)
