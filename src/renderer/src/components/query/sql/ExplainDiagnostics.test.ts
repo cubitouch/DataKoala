@@ -24,35 +24,49 @@ describe('getExplainDiagnostics', () => {
     )[0]
     expect(mismatch).toMatchObject({
       title: 'Material row estimate mismatch',
-      description:
-        'PostgreSQL estimated 120 rows and observed 84,000 rows per loop.',
+      description: '120 estimated → 84,000 actual / loop',
       evidence: '700× estimate.',
     })
     expect(mismatch?.description).not.toMatch(/review|check|consider|increase/i)
   })
 
-  it('includes loops in measured work and exposes external sorts with temporary writes', () => {
+  it('surfaces external sorts with temporary writes and reads', () => {
     const diagnostics = getExplainDiagnostics(
       node({
-        actualTotalTime: EXPLAIN_DIAGNOSTIC_LIMITS.highMeasuredWorkMs / 10,
-        loops: 10,
         sortMethod: 'external merge',
         tempWrittenBlocks: 4,
+        tempReadBlocks: 3,
       }),
       true,
     )
-    expect(diagnostics.map((item) => item.title)).toEqual([
-      'High measured work',
-      'External sort used temporary storage',
-    ])
-    expect(diagnostics[0]!.evidence).toMatch(/10 loops/)
-    expect(diagnostics[1]).toMatchObject({
-      description: 'PostgreSQL reported external merge.',
-      evidence: '4 temporary blocks written.',
+    expect(diagnostics).toHaveLength(1)
+    expect(diagnostics[0]).toMatchObject({
+      title: 'External sort used temporary storage',
+      description: 'external merge',
+      evidence: '4 temp blocks written · 3 read',
     })
     expect(
       diagnostics.map(({ description }) => description).join(' '),
     ).not.toMatch(/review|check|consider|increase/i)
+  })
+
+  it('does not create repeated measured-work signals for a slow chain', () => {
+    const chain = node({
+      actualTotalTime: EXPLAIN_DIAGNOSTIC_LIMITS.highMeasuredWorkMs * 2,
+      children: [
+        node({
+          id: '0.0',
+          actualTotalTime: EXPLAIN_DIAGNOSTIC_LIMITS.highMeasuredWorkMs * 2,
+          children: [
+            node({
+              id: '0.0.0',
+              actualTotalTime: EXPLAIN_DIAGNOSTIC_LIMITS.highMeasuredWorkMs * 2,
+            }),
+          ],
+        }),
+      ],
+    })
+    expect(getExplainDiagnostics(chain, true)).toEqual([])
   })
 
   it('does not show runtime diagnostics for plain EXPLAIN', () => {
