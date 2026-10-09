@@ -357,7 +357,8 @@ app.whenReady().then(async () => {
       const svgTexts = [...(longTargetNode?.querySelectorAll('text') ?? [])]
       const rootBackground = getComputedStyle(explainRoot).backgroundColor
       const surfaceBackground = getComputedStyle(surface).backgroundColor
-      const paperBackground = surface?.querySelector('svg rect.joint-background')?.getAttribute('fill')
+      const paper = surface?.querySelector('[class*="paper-background"]')
+      const paperBackground = paper ? getComputedStyle(paper).backgroundColor : ''
       const opaque = (color) => Boolean(color && color !== 'transparent' && !/[,/]\\s*0\\s*\\)?$/.test(color))
       return {
         nodeCount: Number(diagram?.dataset.nodeCount ?? 0),
