@@ -75,6 +75,7 @@ vi.mock('echarts-for-react', async () => {
       )
     },
   )
+  MockChart.displayName = 'MockChart'
   return { default: MockChart }
 })
 vi.mock('@lib/api', () => ({
