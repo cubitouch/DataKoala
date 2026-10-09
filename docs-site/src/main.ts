@@ -21,7 +21,9 @@ const bentoShot = (name: string, alt: string) =>
     <img src="./screenshots/${name}.png" alt="${alt}" loading="lazy">
   </a>`
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
+const app = document.querySelector<HTMLDivElement>('#app')
+if (app && app.children.length === 0) {
+  app.innerHTML = `
   <header class="site-header">
     <nav>
       <a class="brand" href="./">
@@ -232,4 +234,6 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <p>Local-first data exploration for databases, metrics, logs, and traces.</p>
     <span class="footer-links"><a href="${repo}">Repository</a><a href="${repo}/blob/main/LICENSE">AGPL-3.0-or-later</a></span>
   </footer>
+
 `
+}

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://cubitouch.github.io/DataKoala/sitemap.xml
