@@ -62,11 +62,7 @@ jobs:
         run: pnpm lint:imports
 
       - name: Check formatting
-        run: |
-          if ! pnpm format; then
-            pnpm exec prettier .github/workflows/README.md | diff -u .github/workflows/README.md - || true
-            exit 1
-          fi
+        run: pnpm format
 
       - name: Lint TypeScript and React
         run: pnpm lint:ts
