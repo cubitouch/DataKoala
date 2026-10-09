@@ -22,12 +22,12 @@ request code may be installed, built, or tested **only with read-only token
 permissions and without repository secrets**. We use `pull_request`, not
 `pull_request_target`, to validate forked changes.
 
-| Workflow | PR from fork | Write access |
-| --- | --- | --- |
-| `ci.yml` | Quality, tests, and build after required GitHub approval | None |
-| `pages.yml` | Build docs + downloadable artifact after required GitHub approval | Only `deploy` on a push to `main` (`pages: write`, `id-token: write`) |
+| Workflow             | PR from fork                                                          | Write access                                                                                 |
+| -------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `ci.yml`             | Quality, tests, and build after required GitHub approval              | None                                                                                         |
+| `pages.yml`          | Build docs + downloadable artifact after required GitHub approval     | Only `deploy` on a push to `main` (`pages: write`, `id-token: write`)                        |
 | `visual-preview.yml` | Capture images + downloadable artifact after required GitHub approval | Only `publish`, and only for same-repository PRs (`contents: write`, `pull-requests: write`) |
-| `release-macos.yml` | Not triggered by PRs; runs on pushed `v*.*.*` tags | Only `publish-draft-release` (`contents: write`) |
+| `release-macos.yml`  | Not triggered by PRs; runs on pushed `v*.*.*` tags                    | Only `publish-draft-release` (`contents: write`)                                             |
 
 The visual-preview `capture` job no longer skips fork PRs. For fork PRs,
 `publish` deliberately skips: it does **not** push to `visual-previews` or
