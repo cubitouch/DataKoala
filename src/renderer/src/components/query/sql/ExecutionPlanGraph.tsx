@@ -366,65 +366,73 @@ export function ExecutionPlanGraph({
 
   useEffect(() => {
     const graph = graphRef.current
-    if (!graph) return
-    mapped.nodes.forEach(({ id, node }) => {
-      const model = graph.getCell(id) as dia.Element | undefined
-      if (!model) return
-      const isSelected = selectedNodeId === id
-      const isHighlighted = highlighted.has(id)
-      const cardinality = analyze ? compareCardinality(node) : null
-      const materialMismatch =
-        cardinality !== null && cardinality.relation !== 'close'
-      const timing = analyze ? explainNodeTiming(node) : null
-      const highWork =
-        timing?.approxTotalMs !== undefined &&
-        timing.approxTotalMs >= EXPLAIN_DIAGNOSTIC_LIMITS.highMeasuredWorkMs
-      const category = node.nodeType.toLowerCase()
-      const accent =
-        category.includes('join') || category === 'nested loop'
-          ? cssColor('--purple', '#a78bfa')
-          : category.includes('scan')
-            ? cssColor('--accent', '#f0c34e')
-            : cssColor('--blue', '#79a9ff')
-      const emphasis =
-        highWork || materialMismatch
-          ? cssColor('--amber', '#efb44f')
-          : normalNodeStroke()
-      try {
-        model.attr(
-          'body/stroke',
+    const paper = paperRef.current
+    if (!graph || !paper) return
+    const updateSelection = () => {
+      let missingView = false
+      mapped.nodes.forEach(({ id, node }) => {
+        const model = graph.getCell(id) as dia.Element | undefined
+        if (!model) return
+        const view = paper.findViewByModel(model)
+        const body = view?.findNode('body')
+        if (!view || !body) {
+          missingView = true
+          return
+        }
+        const isSelected = selectedNodeId === id
+        const isHighlighted = highlighted.has(id)
+        const cardinality = analyze ? compareCardinality(node) : null
+        const materialMismatch =
+          cardinality !== null && cardinality.relation !== 'close'
+        const timing = analyze ? explainNodeTiming(node) : null
+        const highWork =
+          timing?.approxTotalMs !== undefined &&
+          timing.approxTotalMs >= EXPLAIN_DIAGNOSTIC_LIMITS.highMeasuredWorkMs
+        const category = node.nodeType.toLowerCase()
+        const accent =
+          category.includes('join') || category === 'nested loop'
+            ? cssColor('--purple', '#a78bfa')
+            : category.includes('scan')
+              ? cssColor('--accent', '#f0c34e')
+              : cssColor('--blue', '#79a9ff')
+        const emphasis =
+          highWork || materialMismatch
+            ? cssColor('--amber', '#efb44f')
+            : normalNodeStroke()
+        body.setAttribute(
+          'stroke',
           isSelected
             ? cssColor('--text', '#f2f2f4')
             : isHighlighted
               ? accent
               : emphasis,
         )
-        model.attr(
-          'body/strokeWidth',
-          isSelected
-            ? 3
-            : isHighlighted || highWork || materialMismatch
-              ? 2.5
-              : 1.5,
+        body.setAttribute(
+          'stroke-width',
+          String(
+            isSelected
+              ? 3
+              : isHighlighted || highWork || materialMismatch
+                ? 2.5
+                : 1.5,
+          ),
         )
-        model.attr(
-          'body/fill',
+        body.setAttribute(
+          'fill',
           isHighlighted
             ? cssColor('--bg-3', '#2b2e36')
             : cssColor('--bg-2', '#202329'),
         )
-        const view = paperRef.current?.findViewByModel(model)
-        view?.el.setAttribute('data-ai-highlighted', String(isHighlighted))
-        view?.el.setAttribute('data-selected', String(isSelected))
-        view?.el.setAttribute('aria-pressed', String(isSelected))
-      } catch (error) {
-        console.error(
-          `Could not update JointJS selection for node ${id}`,
-          error,
-        )
-        throw error
-      }
-    })
+        view.el.setAttribute('data-ai-highlighted', String(isHighlighted))
+        view.el.setAttribute('data-selected', String(isSelected))
+        view.el.setAttribute('aria-pressed', String(isSelected))
+      })
+      return missingView
+    }
+    if (updateSelection()) paper.on('render:done', updateSelection)
+    return () => {
+      paper.off('render:done', updateSelection)
+    }
   }, [analyze, highlighted, mapped.nodes, selectedNodeId])
 
   useEffect(() => {
