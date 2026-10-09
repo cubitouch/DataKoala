@@ -1,7 +1,9 @@
-# Connection lifecycle audit — #370, Slice 1
+# Connection lifecycle audit — #370, Slices 1 and 2
 
-Baseline: `e2154e7` (latest main after #343 / #369). This slice changes tests
-and documentation only. Issue #370 remains open; Slice 2 is not implemented.
+Baseline: `e2154e7` (latest main after #343 / #369). Slice 1 at `0708a98`
+contains the audit and reproductions. Slice 2 is stacked on that head: it corrects
+two confirmed defects and selectively shares failure handling and metadata
+validity. Issue #370 remains open; neither PR is merged.
 
 ## Entry points and ownership
 
@@ -15,8 +17,9 @@ calls do not imply interchangeable entry points.
   QueryEditor Run/Explain, SQL Builder execution/discovery/filter actions, and
   Tempo search. It captures the requested tab's profile before awaiting.
   `connectForTab` is private and does not receive a tab ID: it connects a profile.
-  Its interruption check consults the initially active tab, which need not be
-  the requested tab. Callers retain responsibility for asynchronous tab ownership.
+  It no longer consults the active tab or prompts during lazy establishment.
+  The caller that changes a tab's binding retains real switch confirmation;
+  callers also retain responsibility for asynchronous tab ownership.
 - `reconnectActiveProfile(profileId)`: ResultExplorer and Loki error controls
   explicitly pass the owning profile. Despite its name, this does not select the
   currently active profile. It guards connecting/reconnecting, writes reconnecting,
@@ -32,18 +35,18 @@ calls do not imply interchangeable entry points.
 
 ## Lifecycle map
 
-| Step                   | Explicit `connectProfile`                                                                                                           | Lazy `connectForTab` / `ensureConnectionForTab`                                            |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Start                  | Allocates per-profile renderer intent; captures starting generation                                                                 | Captures requested tab profile; checks live/pending/missing state; records profile promise |
-| Target                 | Binds active tab at start unless forced                                                                                             | Does not rebind on completion except canonical-ID remapping                                |
-| API                    | `connections.connect` or forced `connections.reconnect`                                                                             | `connections.connect`                                                                      |
-| Initial status         | connecting/reconnecting; preserves current generation, clears error/version                                                         | connecting; preserves current generation, clears error/version                             |
-| Accept success         | Intent must match; reject response older than actual profile generation                                                             | Reject response older than actual profile generation; return newer ID if still usable      |
-| Reject failure         | Intent must match; ignore if generation advanced or status is connected                                                             | Ignore if generation advanced or status is connected                                       |
-| Superseded success     | Mismatched intent disconnects returned ID **with returned generation**; lower-generation result with current intent is just ignored | Lower-generation result is ignored without disconnect                                      |
-| Metadata               | Writes loading, awaits normalized discovery, validates intent + generation + connected/idle                                         | Writes loading, detaches discovery, validates generation + connected/idle                  |
-| Failure representation | Returned error and exception each write scoped error with retained generation and null version                                      | Same two scoped error branches; returns null                                               |
-| Completion/cleanup     | Promise completes after metadata; intent entry remains as latest token                                                              | Promise completes before metadata; `finally` removes only its own in-flight entry          |
+| Step                   | Explicit `connectProfile`                                                                      | Lazy `connectForTab` / `ensureConnectionForTab`                                            |
+| ---------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Start                  | Allocates per-profile renderer intent; captures starting generation                            | Captures requested tab profile; checks live/pending/missing state; records profile promise |
+| Target                 | Binds active tab at start unless forced                                                        | Does not rebind on completion except canonical-ID remapping                                |
+| API                    | `connections.connect` or forced `connections.reconnect`                                        | `connections.connect`                                                                      |
+| Initial status         | connecting/reconnecting; preserves current generation, clears error/version                    | connecting; preserves current generation, clears error/version                             |
+| Accept success         | Intent must match; reject response older than actual profile generation                        | Reject response older than actual profile generation; return newer ID if still usable      |
+| Reject failure         | Intent must match; ignore if generation advanced or status is connected                        | Ignore if generation advanced or status is connected                                       |
+| Superseded success     | Mismatched intent returns without disconnect; SessionManager owns session cleanup              | Lower-generation result is ignored without disconnect                                      |
+| Metadata               | Writes loading, awaits normalized discovery, validates intent + generation + connected/idle    | Writes loading, detaches discovery, validates generation + connected/idle                  |
+| Failure representation | Returned error and exception each write scoped error with retained generation and null version | Same two scoped error branches; returns null                                               |
+| Completion/cleanup     | Promise completes after metadata; intent entry remains as latest token                         | Promise completes before metadata; `finally` removes only its own in-flight entry          |
 
 Both successes update only the actual profile's connection/metadata entries.
 If IPC returns a canonical ID, both remap **all tabs bound to the requested ID**.
@@ -78,34 +81,39 @@ connection path disconnects unrelated live profiles.
    It is not equivalent to initial connection metadata loading. Sidebar hydration
    and retry discovery also validate profile generation and usable status.
 
-## Duplication inventory and proposed Slice 2 boundary
+## Selective consolidation and retained differences
 
-| Operation                            | Explicit implementation                            | Lazy implementation                             | Identical? / proposed boundary                                                                     | Risk                                                                                                      |
-| ------------------------------------ | -------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Guarded failure transition           | Returned failure + outer catch                     | Returned failure + catch                        | Yes for reachable state; one small store action accepting profile ID, starting generation, message | Explicit intent rejection must stay outside; preserve connected-only status guard and retained generation |
-| Success connection/loading writes    | Scoped connected entry + metadata loading + remap  | Same writes                                     | Similar, but leave separate in first extraction                                                    | Actual-ID mapping, profile-list timing, return values and intent cleanup differ                           |
-| Metadata generation/status predicate | Two branches after intent check                    | Two detached callbacks                          | Same predicate; optionally move a pure predicate into existing connectionLifecycle module          | Do not import tabConnection into store just to reuse its store-reading helper; keep explicit intent check |
-| Metadata fetch/normalization         | `loadConnectionMetadata`                           | `loadConnectionMetadata`                        | Already shared; no new loader needed                                                               | Awaited vs detached completion must remain                                                                |
-| Attempt coordination                 | Explicit intent tokens                             | Status guards + inFlight                        | No; keep separate                                                                                  | Neither generations nor promise deduplication substitutes for intents                                     |
-| Stale successful cleanup             | Generation-scoped disconnect for mismatched intent | No disconnect on older response                 | No; keep separate                                                                                  | Same live generation can be reused by different calls                                                     |
-| Selection/reconnect/confirmation     | Invocation-time binding; force avoids binding      | Caller binding; active-query interruption check | No; keep separate                                                                                  | Background query/tab ownership and reconnect policy                                                       |
+| Operation                    | Slice 2 implementation                                                                                                   | Deliberately retained responsibility                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Guarded failure transition   | `useStore.applyConnectionFailure` implements the one scoped update; four callers replace four duplicated implementations | Explicit intent rejection stays before the call; lazy returns null while explicit returns void           |
+| Metadata validity            | Pure `isUsableProfileConnection(current, generation)` in connectionLifecycle                                             | Explicit intent check, captured profile ID and awaited loading remain; lazy discovery stays detached     |
+| Metadata fetch/normalization | Existing `loadConnectionMetadata`, unchanged                                                                             | No new metadata pipeline or coordination                                                                 |
+| Success/loading writes       | Still implemented in both entry points                                                                                   | Canonical-ID remapping, profile-list refresh timing and return behavior differ                           |
+| Attempt coordination         | Existing explicit intents and lazy status guards/inFlight                                                                | No new registry; the lazy pending/status ordering is unchanged                                           |
+| Session cleanup              | Authoritative SessionManager, unchanged                                                                                  | Renderer ignores superseded responses without disconnecting a reused session                             |
+| Selection/interruption       | Existing Sidebar confirmation before binding                                                                             | Lazy establishment does not switch the requesting tab; obsolete active-tab prompt/helpers/option removed |
 
-**Smallest worthwhile extraction:** centralize the four guarded failure updates
-in an existing-store action, keeping intent checks and API orchestration in their
-entry points. The starting state falls back to generation zero in both flows;
-inside lazy failure writes the fallback is startingGeneration, which is equivalent
-while its guard permits the write. Confirm this equivalence in Slice 2 rather than
-introducing an option to preserve unreachable differences. A separate pure
-metadata validity predicate is optional only if it reduces code without new
-coordination or a circular store import.
+The failure action reads current scoped state atomically inside the store updater.
+It rejects an advanced generation or an already-connected entry, retains the
+current generation when present, and writes the same error/null-serverVersion
+representation. It deliberately keeps the existing **connected-only** failure
+guard; unlike metadata validity, that guard does not treat Idle as Connected.
 
-Do not build a lifecycle runner, shared promise registry, ConnectionManager,
-option-heavy connector, or a shared awaited metadata pipeline. Keep event,
-restoration, refresh, and tab-selection policy separate.
+A correction to the original audit: missing-state generation defaults are not
+always equivalent. If `detachProfile` removes the entry while the request is
+pending, explicit failure originally used 0 and lazy failure used the starting
+generation. The action defaults `missingGeneration` to 0; lazy callers pass their
+starting generation. Four returned/thrown failure tests retain these semantics.
+This scalar fallback is not new coordination or a policy framework. Removing a
+profile's runtime entry during an attempt is not redesigned here.
+
+No lifecycle runner, shared promise registry, ConnectionManager, option-heavy
+connector, or shared awaited metadata pipeline is introduced. Event, restoration,
+refresh, reconnect and tab-selection policies remain separate.
 
 ### Confirmed findings from the final follow-up
 
-#### Same-generation cleanup: confirmed unsafe at the store/API boundary
+#### Same-generation cleanup: confirmed in Slice 1, corrected in Slice 2
 
 `SessionManager.connect()` checks its live-session map before allocating a new
 main-process intent. Reuse returns the **same successful result object**, with the
@@ -115,7 +123,7 @@ a fresh session. `SessionManager.disconnect(id, generation)` closes the current
 session when the generation equals the supplied value. That is correct for a
 requested disconnect, but does not establish that a renderer attempt owns it.
 
-`src/main/adapters/connection-lifecycle-reuse.vitest.ts` bridges the actual renderer
+At Slice 1 head `0708a98`, `src/main/adapters/connection-lifecycle-reuse.vitest.ts` bridged the actual renderer
 `connectProfile` to the actual SessionManager using a fake provider session. Only
 IPC delivery and metadata are mocked; reuse, renderer intents, cleanup and the
 manager's session map execute their production implementations. No live database
@@ -141,27 +149,28 @@ status guards reduce ordinary double-click exposure; this reproduction does not
 claim a specific normal UI click sequence bypasses those guards. The API itself
 provides no exclusivity guarantee, so consolidation must not assume one.
 
-The two committed tests are passing **characterization** cases of current unsafe
-behavior, not safety claims or intentionally failing tests. Slice 2 must replace
-their final absence/close assertions with preservation assertions after the fix.
+Slice 2 converts both characterization schedules into positive preservation
+regressions. They now assert no renderer disconnect or provider close, continued
+reuse/queryability of the newer session, and preservation of another live profile
+with the same generation number. The added second profile requires two adapter
+connections total; repeated same-profile calls still do not reopen it.
 
-**Smallest correction for Slice 2:** remove the renderer-issued disconnect from
+**Correction implemented:** remove the renderer-issued disconnect from
 `connectProfile`'s superseded-intent branch, retaining the intent rejection/return.
 Main-process SessionManager already owns stale adapter-session cleanup and forced
-replacement. Keep that cleanup there. Do not introduce a shared intent registry,
-reuse flag, or ConnectionManager. Preserve canonical-ID handling and per-profile
-isolation. Update the existing distinct-generation renderer cleanup expectation
-rather than deleting that test, and retain main-process replacement/closure tests.
+replacement; it is unchanged. Canonical-ID handling and per-profile isolation
+remain intact. The distinct-generation renderer cleanup case now asserts rejection
+without disconnect; main-process replacement/closure tests remain unchanged.
 A check that only skips cleanup for an already-connected matching generation is
 insufficient: the older-first schedule still has a newer request pending, and a
 first accepted main session may not yet have reached renderer state at all.
 
-#### Background lazy confirmation: confirmed wrong prompt/cancellation, no B mutation
+#### Background lazy confirmation: confirmed in Slice 1, corrected in Slice 2
 
-`ensureConnectionForTab(tabA)` captures A's profile, but `connectForTab` obtains
-its previous profile from `initial.activeTabId`. With B active and running on a
-different live profile, it asks whether to stop B before connecting A. The added
-renderer tests cover declined, accepted and `confirmInterrupt: false` outcomes:
+In Slice 1, `ensureConnectionForTab(tabA)` captured A's profile, but
+`connectForTab` obtained its previous profile from `initial.activeTabId`. With B
+active and running on a different live profile, it asked whether to stop B before
+connecting A. The original reproductions covered these outcomes:
 
 - Decline: A returns null before any connect/status write; A stays disconnected.
   This unnecessarily blocks A's work because of unrelated B's query.
@@ -177,37 +186,37 @@ request starts does not cause this prompt. Existing deferred-completion tests
 cover that different, safe case. This follow-up does not assert that an ordinary
 foreground click routinely triggers the background-start scenario.
 
-**Smallest correction for Slice 2:** keep actual connection-switch confirmation
-at the selection/binding caller (Sidebar already checks before bindTabConnection),
-and remove the active-tab switch-confirmation lookup from the lazy reuse/connect
-path. That path does not rebind the requesting tab: desiredProfileId comes from
+**Correction implemented:** keep actual connection-switch confirmation at the
+selection/binding caller (Sidebar checks before bindTabConnection), and remove the
+active-tab switch-confirmation lookup from the lazy reuse/connect path. That path does not rebind the requesting tab: desiredProfileId comes from
 that same tab synchronously. Mechanically replacing activeTabId with requesting
 Tab A would make previousProfileId equal desiredProfileId, so there is no genuine
 switch to confirm there. Preserve the Sidebar's real switch/interruption policy,
-background tab ownership and scoped result checks. Remove any now-unused private
-confirmation code/options only in that small correction; no new interruption policy
-or generic operation coordinator is needed. This audit PR keeps existing behavior.
+background tab ownership and scoped result checks. The unused private
+confirmation helpers and confirmInterrupt parameter are removed, including the
+Sidebar's obsolete false-option argument. No new interruption policy or generic
+operation coordinator is added. Converted tests prove background A connects
+without a prompt even if window.confirm would decline; B remains running through
+A metadata success/error. New Sidebar tests preserve both accept and decline
+behavior for actual foreground connection switches.
 
-### Minimal Slice 2 plan and extraction prerequisites
+### Slice 2 scope completed
 
-1. Fix the confirmed stale-success ownership error by leaving session cleanup in
-   SessionManager; turn both characterization schedules into preservation tests.
-2. Correct the background-tab confirmation source without changing real explicit
-   selection confirmation. Turn decline/accept characterization into no-unrelated-
-   prompt checks; retain opt-out/call-site coverage as applicable.
-3. Only then extract the four guarded failure writes into one small store action,
-   keeping explicit intent checks outside it and the existing generation/status
-   predicate unchanged. A pure metadata-validity predicate is optional; the fetch
-   and normalization are already shared. Leave success orchestration, awaited vs
-   detached metadata completion, refresh, hydration and tab binding separate.
-4. Rerun main ownership/reuse/replacement and renderer concurrency/tab/metadata
-   suites; compare production LOC and branches against the unchanged baseline.
+1. Superseded renderer intent now rejects the result without closing a main-owned
+   session. Both IPC orderings have positive safety regressions.
+2. Lazy establishment no longer confirms against an unrelated active tab. Genuine
+   binding changes retain their caller's foreground switch policy.
+3. Four failure implementations become one guarded store action. Explicit intent
+   rejection stays outside it; generation/status checks and fallback values remain.
+   The pure metadata-validity predicate is shared without a runtime store import.
+4. Main ownership/reuse/replacement, renderer concurrency/tab/metadata/restoration
+   suites and local checks pass; measurements below show the production reduction.
 
-The failure transition and metadata validity predicate are genuinely identical
-local invariants; cleanup and confirmation are **not** safe shared policies as
-currently written. The confirmed defects must be corrected before extracting any
-shared success/cleanup or interruption orchestration. Mechanical failure extraction
-would not fix them; do not package it as complete lifecycle safety.
+Cleanup and confirmation were not interchangeable policies, so their ownership
+was corrected rather than combined. Failure state and metadata validity are
+shared local invariants. Success orchestration, awaited/detached metadata, initial
+status writes, refresh/hydration and in-flight coordination remain intentionally
+separate. No broader consolidation or generic query in-flight work (#371) is done.
 
 Remaining **inferred/unreproduced** risk: an older lazy failure before newer
 explicit success may still write error while no generation has advanced, because
@@ -219,7 +228,7 @@ no new defect in those paths is claimed here.
 
 ## Reproducible baseline
 
-Production code is unchanged in this PR. Counts include comments and type
+The Slice 1 baseline was unchanged at `0708a98`. Counts include comments and type
 interfaces; nonblank LOC excludes blank lines only. AST branches count `if`,
 conditional expressions, and `catch` clauses (not boolean operators or optional
 chaining). These are repeatable source metrics, not cyclomatic complexity.
@@ -232,6 +241,26 @@ chaining). These are repeatable source metrics, not cyclomatic complexity.
 | lib/connectionMetadata.ts  |           10 |            9 |            0 |             0 |
 | lib/metadataRefresh.ts     |          112 |          109 |            8 |             0 |
 | Total                      |         1750 |         1703 |          118 |             0 |
+
+Slice 2 uses the same counting command and scope:
+
+| Renderer module            | Physical LOC before → after | Nonblank LOC before → after | AST branches before → after |
+| -------------------------- | --------------------------: | --------------------------: | --------------------------: |
+| store/useStore.ts          |                 1292 → 1283 |                 1264 → 1255 |                     84 → 82 |
+| lib/tabConnection.ts       |                   326 → 257 |                   312 → 246 |                     26 → 21 |
+| lib/connectionLifecycle.ts |                     10 → 21 |                      9 → 19 |                       0 → 0 |
+| lib/connectionMetadata.ts  |                     10 → 10 |                       9 → 9 |                       0 → 0 |
+| lib/metadataRefresh.ts     |                   112 → 112 |                   109 → 109 |                       8 → 8 |
+| Total                      |           1750 → 1683 (−67) |           1703 → 1638 (−65) |              118 → 111 (−7) |
+
+The one Sidebar caller argument edit does not change that module's LOC/branches.
+Test/documentation additions are excluded. Guarded failure implementations fall
+from **4 to 1**, with four call sites remaining. Shared lifecycle operations used
+by both entry points increase from **1 to 3**: existing normalized metadata fetch,
+shared failure transition, and pure usable-generation predicate. No new mutable
+coordination state is added. The remaining paired implementations are attempt
+start and success/loading writes; the metadata predicate is one implementation
+called at four completion sites (and the existing async profile-current wrapper).
 
 Focused function counts: connectProfile 143 LOC / 21 branches; connectForTab
 161 LOC / 15 branches; ensureConnectionForTab 34 / 6; reconnectActiveProfile
@@ -267,7 +296,7 @@ accepted-success/loading transition (2), guarded connection failure (4), and
 metadata completion validity check (4). These are logical maintenance sites,
 not byte-identical jscpd clones. Event application is a third, policy-distinct
 connection transition implementation; forced reconnect's pre-write is additional.
-The four failure sites are the primary Slice 2 reduction target (4 → 1).
+Slice 2 achieves the four failure-site reduction (4 → 1).
 
 jscpd baseline: 264 sources, 54,925 analyzed lines, 44 clones, 821 duplicated lines
 (1.49%). Relevant reported clones are the returned/thrown failure branches
@@ -295,8 +324,13 @@ The new fixtures assign tab profiles and connection statuses separately; the
 existing patchActiveTestSession helper is not rewritten. No test is removed.
 New coverage adds 16 UI cases, one additional refresh case and two main cases.
 The original selected UI set passed 125 tests across nine suites; main passed 9 tests.
-The final follow-up adds three background-confirmation UI cases and two integrated
-SessionManager/renderer characterization cases. All original coverage is retained.
+The final Slice 1 follow-up added three background-confirmation cases and two
+integrated SessionManager/renderer characterizations. Slice 2 converts these to
+positive safety tests and retains all original coverage. It also adds two real
+foreground confirmation cases, twelve returned/thrown failure guard/fallback
+cases, and seven pure metadata-validity cases. The affected UI run passes 143
+cases across ten suites; main SessionManager passes nine and the unit/integrated
+selection passes ten across two suites.
 Run the integration cases with `pnpm exec vitest run --config vitest.renderer.config.ts
 src/main/adapters/connection-lifecycle-reuse.vitest.ts` and the confirmation cases
 with `pnpm exec vitest run --config vitest.ui.config.ts

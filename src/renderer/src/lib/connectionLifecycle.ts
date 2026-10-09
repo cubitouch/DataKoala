@@ -8,3 +8,14 @@ export function isCurrentProfileConnectionEvent(
 ): boolean {
   return !current || event.generation >= current.generation
 }
+
+/** Metadata and async work belong only to the captured usable generation. */
+export function isUsableProfileConnection(
+  current: ProfileConnectionState | undefined,
+  generation: number,
+): boolean {
+  return (
+    current?.generation === generation &&
+    (current.status === 'connected' || current.status === 'idle')
+  )
+}

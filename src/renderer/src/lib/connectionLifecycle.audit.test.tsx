@@ -188,7 +188,7 @@ describe('connection lifecycle consolidation safeguards', () => {
     })
   })
 
-  it('scopes superseded explicit-success cleanup to the old generation', async () => {
+  it('ignores superseded explicit success without disconnecting the newer generation', async () => {
     const older = deferred<ConnectResult>()
     mocks.connect
       .mockReturnValueOnce(older.promise)
@@ -197,7 +197,7 @@ describe('connection lifecycle consolidation safeguards', () => {
     await useStore.getState().connectProfile(profile('a'))
     older.resolve(success(1))
     await first
-    expect(mocks.disconnect).toHaveBeenCalledExactlyOnceWith('a', 1)
+    expect(mocks.disconnect).not.toHaveBeenCalled()
     expect(useStore.getState().connectionStateByProfileId.a).toMatchObject({
       status: 'connected',
       generation: 2,
@@ -298,54 +298,118 @@ describe('connection lifecycle consolidation safeguards', () => {
   }
 
   it.each([false, true])(
-    'characterizes background A confirmation against running active B (accept=%s)',
+    'connects background A without asking running active B (confirmation would accept=%s)',
     async (accept) => {
       const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accept)
       const runningB = { ...tabB, running: true }
       useStore.setState({ tabs: [tabA, runningB], activeTabId: tabB.id })
       mocks.connect.mockResolvedValue(success(2))
-      const connected = await ensureConnectionForTab(tabA.id)
-      expect(confirm).toHaveBeenCalledExactlyOnceWith(
-        'A query is still running on the current connection. Running this action on another connection will stop it. Continue?',
+      expect(await ensureConnectionForTab(tabA.id)).toBe('a')
+      expect(confirm).not.toHaveBeenCalled()
+      expect(mocks.connect).toHaveBeenCalledExactlyOnceWith(profile('a'))
+      await vi.waitFor(() =>
+        expect(useStore.getState().metadataByProfileId.a.status).toBe('loaded'),
       )
       expect(useStore.getState().activeTabId).toBe(tabB.id)
       expectBUnchanged(runningB)
       expect(mocks.disconnect).not.toHaveBeenCalled()
-      if (accept) {
-        expect(connected).toBe('a')
-        expect(mocks.connect).toHaveBeenCalledExactlyOnceWith(profile('a'))
-        await vi.waitFor(() =>
-          expect(useStore.getState().metadataByProfileId.a.status).toBe(
-            'loaded',
-          ),
-        )
-      } else {
-        // Declining B's warning blocks A's unrelated work before its status changes.
-        expect(connected).toBeNull()
-        expect(mocks.connect).not.toHaveBeenCalled()
-        expect(useStore.getState().connectionStateByProfileId.a.status).toBe(
-          'disconnected',
-        )
-      }
     },
   )
 
-  it('bypasses the unrelated active-tab interruption prompt when the caller opts out', async () => {
+  it('keeps active B running when background A metadata fails', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const runningB = { ...tabB, running: true }
     useStore.setState({ tabs: [tabA, runningB], activeTabId: tabB.id })
     mocks.connect.mockResolvedValue(success(2))
-    expect(
-      await ensureConnectionForTab(tabA.id, { confirmInterrupt: false }),
-    ).toBe('a')
+    mocks.listObjects.mockRejectedValueOnce(new Error('A metadata unavailable'))
+    expect(await ensureConnectionForTab(tabA.id)).toBe('a')
+    await vi.waitFor(() =>
+      expect(useStore.getState().metadataByProfileId.a).toMatchObject({
+        status: 'error',
+        error: 'A metadata unavailable',
+      }),
+    )
     expect(confirm).not.toHaveBeenCalled()
     expectBUnchanged(runningB)
     expect(useStore.getState().activeTabId).toBe(tabB.id)
-    expect(mocks.disconnect).not.toHaveBeenCalled()
-    await vi.waitFor(() =>
-      expect(useStore.getState().metadataByProfileId.a.status).toBe('loaded'),
+    expect(useStore.getState().connectionStateByProfileId.a.status).toBe(
+      'connected',
     )
+    expect(mocks.disconnect).not.toHaveBeenCalled()
   })
+
+  for (const entry of ['explicit', 'lazy'] as const) {
+    it.each(['returned', 'thrown'] as const)(
+      `preserves ${entry} missing-state generation fallback for %s failure`,
+      async (outcome) => {
+        useStore.setState((state) => ({
+          connectionStateByProfileId: {
+            ...state.connectionStateByProfileId,
+            a: { ...state.connectionStateByProfileId.a, generation: 5 },
+          },
+        }))
+        const request = deferred<ConnectResult>()
+        mocks.connect.mockReturnValueOnce(request.promise)
+        const attempt =
+          entry === 'explicit'
+            ? useStore.getState().connectProfile(profile('a'))
+            : ensureConnectionForTab(tabA.id)
+        useStore.getState().detachProfile('a')
+        if (outcome === 'returned')
+          request.resolve({ ok: false, error: 'offline' })
+        else request.reject(new Error('offline'))
+        await attempt
+        expect(useStore.getState().connectionStateByProfileId.a).toEqual({
+          status: 'error',
+          generation: entry === 'explicit' ? 0 : 5,
+          error: 'offline',
+          serverVersion: null,
+        })
+        expectBUnchanged()
+      },
+    )
+
+    it.each([
+      ['returned', 'connected', 3],
+      ['thrown', 'connected', 3],
+      ['returned', 'error', 4],
+      ['thrown', 'error', 4],
+    ] as const)(
+      `ignores ${entry} %s failure after %s at generation %s`,
+      async (outcome, status, generation) => {
+        useStore.setState((state) => ({
+          connectionStateByProfileId: {
+            ...state.connectionStateByProfileId,
+            a: { ...state.connectionStateByProfileId.a, generation: 3 },
+          },
+        }))
+        const request = deferred<ConnectResult>()
+        mocks.connect.mockReturnValueOnce(request.promise)
+        const attempt =
+          entry === 'explicit'
+            ? useStore.getState().connectProfile(profile('a'))
+            : ensureConnectionForTab(tabA.id)
+        const current = {
+          status,
+          generation,
+          error: status === 'error' ? 'newer failure' : null,
+          serverVersion: 'retained',
+        }
+        useStore.setState((state) => ({
+          connectionStateByProfileId: {
+            ...state.connectionStateByProfileId,
+            a: current,
+          },
+        }))
+        if (outcome === 'returned')
+          request.resolve({ ok: false, error: 'older failure' })
+        else request.reject(new Error('older failure'))
+        await attempt
+        expect(useStore.getState().connectionStateByProfileId.a).toBe(current)
+        expectBUnchanged()
+      },
+    )
+  }
 
   it('does not open a session while hydration has not established connection state', async () => {
     useStore.setState({ connectionStateByProfileId: {} })

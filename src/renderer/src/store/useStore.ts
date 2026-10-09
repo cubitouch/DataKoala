@@ -30,7 +30,10 @@ import {
 import { api } from '@lib/api'
 import { loadConnectionMetadata } from '@lib/connectionMetadata'
 import { refreshConnectionMetadata } from '@lib/metadataRefresh'
-import { isCurrentProfileConnectionEvent } from '@lib/connectionLifecycle'
+import {
+  isCurrentProfileConnectionEvent,
+  isUsableProfileConnection,
+} from '@lib/connectionLifecycle'
 import {
   DEFAULT_PROMQL_BUILDER,
   type PromqlBuilderState,
@@ -288,6 +291,12 @@ export interface AppState {
   setActive: (id: string | null) => void
   detachProfile: (id: string) => void
   applyConnectionEvent: (event: ConnectionStateEvent) => void
+  applyConnectionFailure: (
+    profileId: string,
+    startingGeneration: number,
+    error: string,
+    missingGeneration?: number,
+  ) => void
   connectProfile: (
     profile: DataSourceProfile,
     options?: { force?: boolean },
@@ -548,6 +557,32 @@ export const useStore = create<AppState>((set, get) => ({
         ),
       }
     }),
+  // Entry points retain their existing fallback if scoped state disappears mid-attempt.
+  applyConnectionFailure: (
+    profileId,
+    startingGeneration,
+    error,
+    missingGeneration = 0,
+  ) =>
+    set((state) => {
+      const current = state.connectionStateByProfileId[profileId]
+      if (
+        (current?.generation ?? 0) > startingGeneration ||
+        current?.status === 'connected'
+      )
+        return {}
+      return {
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          [profileId]: {
+            status: 'error',
+            generation: current?.generation ?? missingGeneration,
+            error,
+            serverVersion: null,
+          },
+        },
+      }
+    }),
   connectProfile: async (profile, options) => {
     const intent = ++connectionIntent
     connectionIntents.set(profile.id, intent)
@@ -577,34 +612,16 @@ export const useStore = create<AppState>((set, get) => ({
       const result = await (options?.force
         ? api.connections.reconnect(profile)
         : api.connections.connect(profile))
-      if (connectionIntents.get(profile.id) !== intent) {
-        if (result.ok)
-          await api.connections
-            .disconnect(result.id ?? profile.id, result.generation)
-            .catch(() => undefined)
-        return
-      }
+      // SessionManager owns session replacement/cleanup; a stale response may
+      // reference the same live generation reused by the newer renderer attempt.
+      if (connectionIntents.get(profile.id) !== intent) return
       const actualId = result.id ?? profile.id
       if (!result.ok) {
-        set((state) => ({
-          ...((state.connectionStateByProfileId[profile.id]?.generation ?? 0) >
-            startingGeneration ||
-          state.connectionStateByProfileId[profile.id]?.status === 'connected'
-            ? {}
-            : {
-                connectionStateByProfileId: {
-                  ...state.connectionStateByProfileId,
-                  [profile.id]: {
-                    status: 'error',
-                    generation:
-                      state.connectionStateByProfileId[profile.id]
-                        ?.generation ?? 0,
-                    error: result.error,
-                    serverVersion: null,
-                  },
-                },
-              }),
-        }))
+        get().applyConnectionFailure(
+          profile.id,
+          startingGeneration,
+          result.error,
+        )
         return
       }
       const currentConnection = get().connectionStateByProfileId[actualId]
@@ -646,20 +663,12 @@ export const useStore = create<AppState>((set, get) => ({
         const schemas = await loadConnectionMetadata(actualId)
         if (connectionIntents.get(profile.id) !== intent) return
         const latest = get().connectionStateByProfileId[actualId]
-        if (
-          latest?.generation !== result.generation ||
-          (latest.status !== 'connected' && latest.status !== 'idle')
-        )
-          return
+        if (!isUsableProfileConnection(latest, result.generation)) return
         get().setMetadata(schemas, 'loaded', null, actualId)
       } catch (error) {
         if (connectionIntents.get(profile.id) !== intent) return
         const latest = get().connectionStateByProfileId[actualId]
-        if (
-          latest?.generation !== result.generation ||
-          (latest.status !== 'connected' && latest.status !== 'idle')
-        )
-          return
+        if (!isUsableProfileConnection(latest, result.generation)) return
         get().setMetadata(
           [],
           'error',
@@ -670,25 +679,7 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (error) {
       if (connectionIntents.get(profile.id) !== intent) return
       const message = error instanceof Error ? error.message : String(error)
-      set((state) => ({
-        ...((state.connectionStateByProfileId[profile.id]?.generation ?? 0) >
-          startingGeneration ||
-        state.connectionStateByProfileId[profile.id]?.status === 'connected'
-          ? {}
-          : {
-              connectionStateByProfileId: {
-                ...state.connectionStateByProfileId,
-                [profile.id]: {
-                  status: 'error',
-                  generation:
-                    state.connectionStateByProfileId[profile.id]?.generation ??
-                    0,
-                  error: message,
-                  serverVersion: null,
-                },
-              },
-            }),
-      }))
+      get().applyConnectionFailure(profile.id, startingGeneration, message)
     }
   },
   reconnectActiveProfile: async (profileId: string) => {
