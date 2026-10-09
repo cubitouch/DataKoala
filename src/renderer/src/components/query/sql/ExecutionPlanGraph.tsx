@@ -54,6 +54,10 @@ function cssColor(name: string, fallback: string): string {
   )
 }
 
+function normalNodeStroke(): string {
+  return `color-mix(in srgb, ${cssColor('--border', '#3a3d45')} 55%, ${cssColor('--text-mute', '#858b97')})`
+}
+
 function planNodeAttributes(
   node: ExplainNode,
   analyze: boolean,
@@ -75,7 +79,7 @@ function planNodeAttributes(
       rx: 10,
       ry: 10,
       fill: cssColor('--bg-2', '#202329'),
-      stroke: cssColor('--border', '#3a3d45'),
+      stroke: normalNodeStroke(),
       strokeWidth: 1.5,
     },
     category: {
@@ -385,7 +389,7 @@ export function ExecutionPlanGraph({
       const emphasis =
         highWork || materialMismatch
           ? cssColor('--amber', '#efb44f')
-          : cssColor('--border', '#3a3d45')
+          : normalNodeStroke()
       model.attr(
         'body/stroke',
         isSelected
@@ -452,6 +456,7 @@ export function ExecutionPlanGraph({
       data-edge-count={mapped.edges.length}
       data-selected-node-id={selectedNodeId}
       data-highlighted-node-ids={[...highlighted].join(',')}
+      data-focus-node-id={focusNodeId ?? ''}
     >
       <div className={styles.toolbar} aria-label="Plan diagram navigation">
         <button
