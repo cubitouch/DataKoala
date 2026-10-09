@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LokiExplorer } from './LokiExplorer'
@@ -1264,6 +1265,142 @@ describe('LokiExplorer execution', () => {
       amount: 3,
       unit: 'hour',
     })
+  })
+
+  it('clears only visible raw-log Table filters while preserving the volume selection', async () => {
+    const loadedLogs = {
+      ...patternLogs(),
+      columns: [
+        { name: 'line', dataTypeID: 0, dataTypeName: 'text' },
+        { name: 'severity', dataTypeID: 0, dataTypeName: 'text' },
+      ],
+    }
+    const volume = {
+      ...metric,
+      rows: [0, 1, 2, 3].map((hour) => ({
+        timestamp: new Date(Date.UTC(2026, 0, 1, hour)).toISOString(),
+        value: hour + 1,
+      })),
+      rowCount: 4,
+    }
+    const run = mocks.runLoki
+      .mockResolvedValueOnce(loadedLogs)
+      .mockResolvedValue(volume)
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() =>
+      expect(useStore.getState().tabs[0].result).toEqual(loadedLogs),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(4),
+    )
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 2] }] }))
+    const volumeFilter = useStore.getState().tabs[0].sqlResultFilters[0]
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(2),
+    )
+    const requestCount = run.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }))
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    const filterCell = (column: string) => {
+      const row = screen.getByText('Request 123 completed').closest('tr')!
+      const summary = within(row).getByLabelText(`Filter actions for ${column}`)
+      fireEvent.click(summary)
+      fireEvent.click(
+        within(summary.parentElement!).getByRole('button', {
+          name: 'Filter to this value',
+        }),
+      )
+    }
+    filterCell('line')
+    expect(
+      screen.getAllByRole('button', { name: /Remove filter/ }),
+    ).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Clear all' })).toBeNull()
+    filterCell('severity')
+    expect(
+      screen.getAllByRole('button', { name: /Remove filter/ }),
+    ).toHaveLength(2)
+    expect(useStore.getState().tabs[0].sqlResultFilters).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(useStore.getState().tabs[0].sqlResultFilters).toEqual([volumeFilter])
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    expect(screen.getByText('Request 456 completed')).toBeTruthy()
+    expect(screen.getByText('Worker started normally')).toBeTruthy()
+    expect(run).toHaveBeenCalledTimes(requestCount)
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(2),
+    )
+    expect(
+      screen.getAllByRole('button', { name: /Remove filter/ }),
+    ).toHaveLength(1)
+    expect(useStore.getState().tabs[0].sqlResultFilters).toEqual([volumeFilter])
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(4),
+    )
+  })
+
+  it('retains local volume filters across an explicit query-window change until removed', async () => {
+    const loadedLogs = patternLogs()
+    const volume = {
+      ...metric,
+      rows: [0, 1, 2, 3].map((hour) => ({
+        timestamp: new Date(Date.UTC(2026, 0, 1, hour)).toISOString(),
+        value: hour + 1,
+      })),
+      rowCount: 4,
+    }
+    const refreshed = {
+      ...volume,
+      rows: volume.rows.map((row) => ({
+        ...row,
+        timestamp: row.timestamp.replace('2026-01-01', '2026-01-02'),
+      })),
+    }
+    const run = mocks.runLoki.mockImplementation(async (_id, request) =>
+      request.expression.startsWith('sum ') ? volume : loadedLogs,
+    )
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() =>
+      expect(useStore.getState().tabs[0].result).toEqual(loadedLogs),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(4),
+    )
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 2] }] }))
+    const filters = useStore.getState().tabs[0].sqlResultFilters
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(2),
+    )
+    const previousRequests = run.mock.calls.length
+    run.mockImplementation(async (_id, request) =>
+      request.expression.startsWith('sum ') ? refreshed : loadedLogs,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Time range/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Last 3 hours' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await screen.findByText('No rows match the active filters.')
+    expect(run.mock.calls.length).toBeGreaterThan(previousRequests)
+    expect(useStore.getState().tabs[0].lokiTimeRange).toMatchObject({
+      kind: 'rolling',
+      amount: 3,
+      unit: 'hour',
+    })
+    expect(useStore.getState().tabs[0].sqlResultFilters).toEqual(filters)
+    expect(screen.getByLabelText('Active result filters')).toBeTruthy()
+    const requestsAfterRefresh = run.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toEqual(
+        refreshed.rows.map((row) => [Date.parse(row.timestamp), row.value]),
+      ),
+    )
+    expect(run).toHaveBeenCalledTimes(requestsAfterRefresh)
   })
 
   it('does not continuously re-apply an unchanged Loki trend chart', async () => {

@@ -586,6 +586,10 @@ export function LokiExplorer({
       ),
     [session.sqlResultFilters],
   )
+  const onClearLogResultFilters = useCallback(() => {
+    // Match the Table's visible filter chips; retain hidden volume selections.
+    for (const filter of logResultFilters) onRemoveResultFilter(filter.id)
+  }, [logResultFilters, onRemoveResultFilter])
   const filteredLogRows = useMemo(
     () =>
       result?.resultKind === 'logs'
@@ -881,7 +885,7 @@ export function LokiExplorer({
                   onSeriesVisibilityChange={onSeriesVisibilityChange}
                   onAddFilter={onAddResultFilter}
                   onRemoveFilter={onRemoveResultFilter}
-                  onClearFilters={onClearResultFilters}
+                  onClearFilters={onClearLogResultFilters}
                   onReconnect={() =>
                     connectionId && void reconnectActiveProfile(connectionId)
                   }
