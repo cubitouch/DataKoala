@@ -29,7 +29,7 @@ import { logql } from '@lib/logqlLanguage'
 import { useLokiLabelsResource } from '@lib/useLokiLabelsResource'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
 import { api } from '@lib/api'
-import { isTabConnectionCurrent } from '@lib/tabConnection'
+import { beginQueryOperation, isQueryOperationCurrent } from '@store/useStore'
 import { TimeRangeField } from '@components/query/time-range/TimeRangeField'
 import { LogResultExplorer } from '@components/results/logs/LogResultExplorer'
 import { LogPatternExplorer } from '@components/results/logs/LogPatternExplorer'
@@ -146,7 +146,8 @@ export function LokiExplorer({
   const [trendError, setTrendError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const loading = session.running
+  const displayedError = error ?? session.queryError
   const [patternScope, setPatternScope] = useState<{
     template: string
     memberIds: Set<string>
@@ -167,8 +168,7 @@ export function LokiExplorer({
       hierarchyDimensions: [],
       valueAxisScale: 'linear',
     })
-  const revision = useRef(0),
-    trendRevision = useRef(0),
+  const trendRevision = useRef(0),
     generatedFormatRevision = useRef(0),
     hasRun = useRef(Boolean(session.result)),
     mounted = useRef(true)
@@ -221,11 +221,9 @@ export function LokiExplorer({
   )
   const deactivate = useCallback(() => {
     mounted.current = false
-    revision.current += 1
     trendRevision.current += 1
   }, [])
   const clearLokiTransientState = () => {
-    revision.current++
     trendRevision.current++
     hasRun.current = false
     trendCacheKey.current = null
@@ -233,7 +231,6 @@ export function LokiExplorer({
     setError(null)
     setWarning(null)
     setTrendError(null)
-    setLoading(false)
     setPatternScope(null)
   }
   useEffect(() => {
@@ -279,7 +276,6 @@ export function LokiExplorer({
   }, [canLoadMetadata, connectionId, generated, mode])
   useLayoutEffect(() => {
     const currentSession = selectActiveSession(useStore.getState())
-    revision.current++
     trendRevision.current++
     hasRun.current = Boolean(currentSession.result)
     previousRangeKey.current = JSON.stringify(currentSession.lokiTimeRange)
@@ -288,8 +284,7 @@ export function LokiExplorer({
     setTrendError(null)
     setError(null)
     setWarning(null)
-    setLoading(false)
-  }, [session.id])
+  }, [session.id, connectionId, connectionGeneration, canLoadMetadata])
   useEffect(() => {
     if (!isLokiChartView(resultView)) return
     setTrendVisualization((current) => ({
@@ -328,6 +323,30 @@ export function LokiExplorer({
         queryGroupBy,
       ])
       if (trendCacheKey.current === key && trend) return
+      const sourceResult = useStore
+        .getState()
+        .tabs.find((tab) => tab.id === tabId)?.result
+      const owner = useStore
+        .getState()
+        .tabs.find((tab) => tab.id === tabId)?.queryOperation
+      const requestGeneration = connectionGeneration
+      const publicationIsCurrent = () => {
+        const state = useStore.getState()
+        const tab = state.tabs.find((tab) => tab.id === tabId)
+        const connection = state.connectionStateByProfileId[connectionId]
+        return (
+          isCurrentTab(tabId) &&
+          !tab?.queryError &&
+          (owner
+            ? isQueryOperationCurrent(state, owner)
+            : tab?.result === sourceResult &&
+              !tab?.queryOperation &&
+              tab?.connectionProfileId === connectionId &&
+              connection?.generation === requestGeneration &&
+              (connection.status === 'connected' ||
+                connection.status === 'idle'))
+        )
+      }
       const current = ++trendRevision.current
       setTrendError(null)
       try {
@@ -350,7 +369,8 @@ export function LokiExplorer({
                 `Cardinality probe failed: ${error instanceof Error ? error.message : String(error)}`,
               )
             })
-          if (current !== trendRevision.current || !isCurrentTab(tabId)) return
+          if (current !== trendRevision.current || !publicationIsCurrent())
+            return
           const count = Math.max(
             0,
             ...probe.rows.map((row) => Number(row.value) || 0),
@@ -376,17 +396,17 @@ export function LokiExplorer({
               `Log volume query failed: ${error instanceof Error ? error.message : String(error)}`,
             )
           })
-        if (current !== trendRevision.current || !isCurrentTab(tabId)) return
+        if (current !== trendRevision.current || !publicationIsCurrent()) return
         trendCacheKey.current = key
         setTrend(volume)
       } catch (caught) {
-        if (current === trendRevision.current && isCurrentTab(tabId))
+        if (current === trendRevision.current && publicationIsCurrent())
           setTrendError(
             caught instanceof Error ? caught.message : String(caught),
           )
       }
     },
-    [connectionId, isCurrentTab, trend],
+    [connectionId, connectionGeneration, isCurrentTab, trend],
   )
   const executeExpression = useCallback(
     async (queryExpression: string) => {
@@ -400,16 +420,19 @@ export function LokiExplorer({
           caught instanceof Error ? caught.message : String(caught),
         )
       }
-      const current = ++revision.current
-      const requestGeneration = connectionGeneration
+      const operation = beginQueryOperation(
+        tabId,
+        connectionId,
+        connectionGeneration,
+      )
+      if (!operation) return
       const requestIsCurrent = () =>
-        isTabConnectionCurrent(tabId, connectionId, requestGeneration)
+        isQueryOperationCurrent(useStore.getState(), operation)
       trendRevision.current++
       trendCacheKey.current = null
       lastProcessedTrendKey.current = null
       setTrend(null)
       hasRun.current = true
-      setLoading(true)
       setError(null)
       setTrendError(null)
       setWarning(null)
@@ -429,16 +452,20 @@ export function LokiExplorer({
           step,
           limit,
         })
-        if (current !== revision.current || !requestIsCurrent()) return
-        useStore.getState().completeQuery(main, null, tabId)
+        if (!requestIsCurrent()) return
+        useStore
+          .getState()
+          .completeQuery(main, null, tabId, undefined, operation)
       } catch (caught) {
-        if (current === revision.current && requestIsCurrent()) {
+        if (requestIsCurrent()) {
           useStore
             .getState()
             .completeQuery(
               null,
               caught instanceof Error ? caught.message : String(caught),
               tabId,
+              undefined,
+              operation,
             )
           if (isCurrentTab(tabId)) {
             // Do not allow a trend from a failed main query to become the visible result.
@@ -446,12 +473,8 @@ export function LokiExplorer({
             trendCacheKey.current = null
             setTrend(null)
             setTrendError(null)
-            setError(caught instanceof Error ? caught.message : String(caught))
           }
         }
-      } finally {
-        if (current === revision.current && isCurrentTab(tabId))
-          setLoading(false)
       }
     },
     [
@@ -494,7 +517,13 @@ export function LokiExplorer({
       lastProcessedTrendKey.current = null
       return
     }
-    if (!hasRun.current || result?.resultKind !== 'logs' || !expression.trim())
+    // Background completion can deliver the first logs after this workspace remounts.
+    // Eligibility belongs to the durable result, not the previous mount's run history.
+    if (
+      result?.resultKind !== 'logs' ||
+      session.queryError ||
+      !expression.trim()
+    )
       return
     if (lastProcessedTrendKey.current === trendRefreshKey) return
     lastProcessedTrendKey.current = trendRefreshKey
@@ -502,6 +531,7 @@ export function LokiExplorer({
   }, [
     resultView,
     result?.resultKind,
+    session.queryError,
     expression,
     trendRefreshKey,
     loadTrend,
@@ -803,9 +833,9 @@ export function LokiExplorer({
           {builderDisabledReason}
         </div>
       )}
-      {error && (
+      {displayedError && (
         <div className={`${styles.status} ${styles.error}`} role="alert">
-          {error}
+          {displayedError}
         </div>
       )}
       {canLoadMetadata && labelResource.status === 'error' && (
@@ -854,7 +884,7 @@ export function LokiExplorer({
             <div className={styles.selectedView}>
               {resultView === 'list' ? (
                 <LogResultExplorer
-                  selectionKey={`${session.id}:${revision.current}`}
+                  selectionKey={`${session.id}:${session.resultRevision}`}
                   rows={scopedLogRows}
                   truncated={result.execution?.truncated}
                   limit={limit}

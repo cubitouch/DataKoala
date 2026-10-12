@@ -1576,9 +1576,13 @@ describe('LokiExplorer execution', () => {
 // continuing after unmount is insufficient if its owning session loses delivery.
 describe('#371 Loki lifecycle audit', () => {
   function deferredQuery() {
-    let resolve!: (value: typeof logs | typeof metric) => void
+    let resolve!: (
+      value: typeof logs | typeof metric | ReturnType<typeof patternLogs>,
+    ) => void
     let reject!: (reason: unknown) => void
-    const promise = new Promise<typeof logs | typeof metric>((yes, no) => {
+    const promise = new Promise<
+      typeof logs | typeof metric | ReturnType<typeof patternLogs>
+    >((yes, no) => {
       resolve = yes
       reject = no
     })
@@ -1602,7 +1606,10 @@ describe('#371 Loki lifecycle audit', () => {
     }))
     function Workspace() {
       const id = useStore((state) => state.activeTabId)
-      return <LokiExplorer key={id} connectionId="loki" />
+      const profileId = useStore(
+        (state) => state.tabs.find((tab) => tab.id === id)?.connectionProfileId,
+      )
+      return <LokiExplorer key={id} connectionId={profileId ?? 'loki'} />
     }
     return render(<Workspace />)
   }
@@ -1613,7 +1620,7 @@ describe('#371 Loki lifecycle audit', () => {
   }
 
   // Next slice must call the shared startQuery primitive; never bless local loading.
-  it.fails.each(['logs', 'metrics'] as const)(
+  it.each(['logs', 'metrics'] as const)(
     'represents pending %s on the owning tab',
     async (kind) => {
       renderWorkspace(kind)
@@ -1629,7 +1636,7 @@ describe('#371 Loki lifecycle audit', () => {
   )
 
   // Separate from the indicator reproduction so the delivery assertion executes.
-  it.fails.each([
+  it.each([
     ['logs', 'resolve'],
     ['logs', 'reject'],
     ['metrics', 'resolve'],
@@ -1721,4 +1728,316 @@ describe('#371 Loki lifecycle audit', () => {
       if (change === 'close') expect(session()).toBeUndefined()
     },
   )
+  it.each(['logs', 'metrics'] as const)(
+    'finishes independent %s A/B queries in reverse order',
+    async (kind) => {
+      renderWorkspace(kind)
+      const a = deferredQuery(),
+        b = deferredQuery()
+      await start(a)
+      act(() => useStore.setState({ activeTabId: 'B' }))
+      if (kind === 'metrics')
+        act(() =>
+          useStore.getState().setSql('sum(count_over_time({app="b"}[1m]))'),
+        )
+      mocks.runLoki.mockReturnValueOnce(b.promise)
+      fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+      act(() => useStore.setState({ activeTabId: 'loki-tab' }))
+      expect(session()?.running).toBe(true)
+      expect(screen.getByRole('button', { name: 'Running…' })).toBeTruthy()
+      const value = kind === 'logs' ? logs : metric
+      await act(async () => {
+        b.resolve(value)
+        await b.promise
+      })
+      expect(session('B')?.running).toBe(false)
+      expect(session('B')?.result).toEqual(value)
+      expect(session()?.running).toBe(true)
+      await act(async () => {
+        a.resolve(value)
+        await a.promise
+      })
+      expect(session()?.result).toEqual(value)
+      expect(session()?.running).toBe(false)
+    },
+  )
+
+  it.each(['logs', 'metrics'] as const)(
+    'restores background %s failure presentation',
+    async (kind) => {
+      renderWorkspace(kind)
+      const pending = deferredQuery()
+      await start(pending)
+      act(() => useStore.setState({ activeTabId: 'B' }))
+      await act(async () => {
+        pending.reject(new Error('background failure'))
+        await pending.promise.catch(() => {})
+      })
+      act(() => useStore.setState({ activeTabId: 'loki-tab' }))
+      expect(screen.getByText('background failure')).toBeTruthy()
+      expect(session()?.running).toBe(false)
+    },
+  )
+
+  it.each(['logs', 'metrics'] as const)(
+    'guards remounted %s supersession and old rejection',
+    async (kind) => {
+      for (const outcome of ['resolve', 'reject'] as const) {
+        const workspace = renderWorkspace(kind)
+        const old = deferredQuery(),
+          newer = deferredQuery()
+        mocks.runLoki.mockReturnValueOnce(old.promise)
+        fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+        act(() => useStore.setState({ activeTabId: 'B' }))
+        act(() => useStore.setState({ activeTabId: 'loki-tab' }))
+        mocks.runLoki.mockReturnValueOnce(newer.promise)
+        fireEvent.keyDown(screen.getByLabelText('LogQL editor'), {
+          key: 'Enter',
+          ctrlKey: true,
+        })
+        await act(async () => {
+          if (outcome === 'resolve') old.resolve(logs)
+          else old.reject(new Error('obsolete'))
+          await old.promise.catch(() => {})
+        })
+        expect(session()?.running).toBe(true)
+        expect(session()?.queryError).toBeNull()
+        expect(session()?.result).toBeNull()
+        await act(async () => {
+          newer.resolve(kind === 'logs' ? logs : metric)
+          await newer.promise
+        })
+        expect(session()?.running).toBe(false)
+        workspace.unmount()
+        act(() => useStore.getState().clearActiveResults())
+      }
+    },
+  )
+
+  it.each(['rebind-back', 'reset', 'preset', 'generation'] as const)(
+    'invalidates ownership on %s without clearing newer work',
+    async (change) => {
+      renderWorkspace()
+      const old = deferredQuery(),
+        newer = deferredQuery()
+      await start(old)
+      const owner = session()?.queryOperation
+      act(() => {
+        if (change === 'rebind-back') {
+          bindTabConnection('loki-tab', null)
+          bindTabConnection('loki-tab', 'loki')
+        } else if (change === 'reset') {
+          useStore.getState().resetActiveQuery()
+          useStore.getState().setSql('{app="x"}')
+        } else if (change === 'preset')
+          useStore
+            .getState()
+            .commitLoadedPreset(
+              createQuerySession(1, { sql: '{app="x"}', queryMode: 'sql' }),
+            )
+        else
+          useStore.setState((state) => ({
+            connectionStateByProfileId: {
+              ...state.connectionStateByProfileId,
+              loki: { ...state.connectionStateByProfileId.loki, generation: 2 },
+            },
+          }))
+      })
+      expect(session()?.running).toBe(false)
+      expect(session()?.queryOperation).not.toEqual(owner)
+      mocks.runLoki.mockReturnValueOnce(newer.promise)
+      fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+      await act(async () => {
+        old.reject(new Error('obsolete'))
+        await old.promise.catch(() => {})
+      })
+      expect(session()?.running).toBe(true)
+      expect(session()?.queryError).toBeNull()
+      await act(async () => {
+        newer.resolve(logs)
+        await newer.promise
+      })
+      expect(session()?.result).toEqual(logs)
+    },
+  )
+  it.each(['success', 'failure', 'generation', 'supersede'] as const)(
+    'keeps optional volume independent after primary %s',
+    async (outcome) => {
+      act(() => useStore.getState().setLokiState({ lokiResultView: 'line' }))
+      renderWorkspace()
+      const primary = deferredQuery(),
+        volume = deferredQuery(),
+        newer = deferredQuery()
+      mocks.runLoki.mockImplementation((_id, request) =>
+        request.expression.includes('count_over_time')
+          ? volume.promise
+          : primary.promise,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+      await act(async () => {
+        if (outcome === 'failure') primary.reject(new Error('primary failed'))
+        else primary.resolve(logs)
+        await primary.promise.catch(() => {})
+      })
+      expect(session()?.running).toBe(false)
+      if (outcome !== 'failure') expect(session()?.result).toEqual(logs)
+      if (outcome === 'generation')
+        act(() =>
+          useStore.setState((state) => ({
+            connectionStateByProfileId: {
+              ...state.connectionStateByProfileId,
+              loki: { ...state.connectionStateByProfileId.loki, generation: 2 },
+            },
+          })),
+        )
+      if (outcome === 'supersede') {
+        mocks.runLoki.mockImplementation((_id, request) =>
+          request.expression.includes('count_over_time')
+            ? newer.promise
+            : newer.promise,
+        )
+        fireEvent.keyDown(screen.getByLabelText('LogQL editor'), {
+          key: 'Enter',
+          ctrlKey: true,
+        })
+      }
+      await act(async () => {
+        volume.resolve(metric)
+        await volume.promise
+      })
+      if (outcome === 'success')
+        await waitFor(() =>
+          expect(screen.getByTestId('loki-echarts')).toBeTruthy(),
+        )
+      else expect(screen.queryByTestId('loki-echarts')).toBeNull()
+      if (outcome === 'failure') {
+        expect(session()?.result).toBeNull()
+        expect(session()?.queryError).toBe('primary failed')
+      }
+      if (outcome === 'supersede') {
+        expect(session()?.running).toBe(true)
+        await act(async () => {
+          newer.resolve(logs)
+          await newer.promise
+        })
+      }
+    },
+  )
+
+  it('drops an obsolete cardinality probe before starting its volume request', async () => {
+    act(() =>
+      useStore
+        .getState()
+        .setLokiState({ lokiResultView: 'line', lokiGroupBy: ['app'] }),
+    )
+    renderWorkspace()
+    const probe = deferredQuery()
+    mocks.runLoki.mockImplementation((_id, request) =>
+      request.limit === 1 ? probe.promise : Promise.resolve(logs),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(session()?.running).toBe(false))
+    expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+    act(() => {
+      bindTabConnection('loki-tab', null)
+      bindTabConnection('loki-tab', 'loki')
+    })
+    await act(async () => {
+      probe.resolve(metric)
+      await probe.promise
+    })
+    expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+    expect(session()?.result).toBeNull()
+  })
+  it('generation replacement abandons A while another profile keeps B pending', async () => {
+    renderWorkspace()
+    const a = deferredQuery(),
+      b = deferredQuery()
+    await start(a)
+    act(() => {
+      useStore.setState((state) => ({
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          other: { ...state.connectionStateByProfileId.loki },
+        },
+      }))
+      bindTabConnection('B', 'other')
+      useStore.setState({ activeTabId: 'B' })
+      useStore.getState().setSql('{app="b"}')
+    })
+    mocks.runLoki.mockReturnValueOnce(b.promise)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    act(() =>
+      useStore.setState((state) => ({
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          loki: { ...state.connectionStateByProfileId.loki, generation: 2 },
+        },
+      })),
+    )
+    expect(session()?.running).toBe(false)
+    expect(session('B')?.running).toBe(true)
+    await act(async () => {
+      a.resolve(logs)
+      await a.promise
+    })
+    expect(session()?.result).toBeNull()
+    expect(session('B')?.running).toBe(true)
+    await act(async () => {
+      b.resolve(logs)
+      await b.promise
+    })
+    expect(session('B')?.result).toEqual(logs)
+  })
+  it('loads first-query volume after returning pending and ignores the unmounted volume', async () => {
+    act(() => useStore.getState().setLokiState({ lokiResultView: 'line' }))
+    renderWorkspace()
+    const primary = deferredQuery(),
+      originalVolume = deferredQuery(),
+      currentVolume = deferredQuery()
+    let volumeCalls = 0
+    mocks.runLoki.mockImplementation((_id, request) => {
+      if (!request.expression.includes('count_over_time'))
+        return primary.promise
+      return ++volumeCalls === 1
+        ? originalVolume.promise
+        : currentVolume.promise
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+    act(() => useStore.setState({ activeTabId: 'B' }))
+    act(() => useStore.setState({ activeTabId: 'loki-tab' }))
+    expect(session()?.running).toBe(true)
+    expect(screen.getByRole('button', { name: 'Running…' })).toBeTruthy()
+    expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+    const primaryLogs = patternLogs()
+    await act(async () => {
+      primary.resolve(primaryLogs)
+      await primary.promise
+    })
+    expect(session()?.running).toBe(false)
+    expect(session()?.result).toEqual(primaryLogs)
+    expect(screen.getByRole('button', { name: 'Run' })).toBeTruthy()
+    await waitFor(() => expect(volumeCalls).toBe(2))
+    expect(mocks.runLoki).toHaveBeenCalledTimes(3)
+    const currentMetric = {
+      ...metric,
+      rows: [{ timestamp: metric.rows[0].timestamp, value: 42 }],
+    }
+    await act(async () => {
+      currentVolume.resolve(currentMetric)
+      await currentVolume.promise
+    })
+    await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+    const currentData = chartMock.option?.series[0].data
+    expect(currentData).toEqual([[Date.parse(metric.rows[0].timestamp), 42]])
+    await act(async () => {
+      originalVolume.resolve(metric)
+      await originalVolume.promise
+    })
+    expect(chartMock.option?.series[0].data).toEqual(currentData)
+    expect(session()?.result).toEqual(primaryLogs)
+    expect(session()?.running).toBe(false)
+    expect(mocks.runLoki).toHaveBeenCalledTimes(3)
+  })
 })

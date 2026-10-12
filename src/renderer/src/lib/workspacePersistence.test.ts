@@ -754,6 +754,12 @@ test('restoration clears unobservable pending work for every datasource kind', (
       tabs: Record<string, unknown>[]
     }
     raw.tabs[0].connectionProfileId = `audit-${kind}`
+    raw.tabs[0].queryOperation = {
+      tabId: raw.tabs[0].id,
+      profileId: 'loki',
+      generation: 1,
+      token: 'unobservable',
+    }
     raw.tabs[0].running = true
     raw.tabs[0].activeExplainRequest = 'analyze'
     raw.tabs[0].pendingResult = { rows: [{ obsolete: true }] }
@@ -764,6 +770,7 @@ test('restoration clears unobservable pending work for every datasource kind', (
     const restored = patches[0]
     assert.ok(restored)
     assert.equal(restored.tabs[0].connectionProfileId, `audit-${kind}`)
+    assert.equal(restored.tabs[0].queryOperation ?? null, null)
     assert.equal(restored.tabs[0].running, false)
     assert.equal(restored.tabs[0].activeExplainRequest, null)
     assert.equal(restored.tabs[0].pendingResult, null)

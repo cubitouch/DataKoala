@@ -1,4 +1,7 @@
-# Query lifecycle audit — #371, Slice 1
+# Query lifecycle audit — #371
+
+Slice 1 below is the historical audit. The implemented Slice 2 contract and
+remaining work are recorded at the end of this document.
 
 Baseline: `04bfae2`, latest `main` at checkout. This slice changes tests and this
 report only. It does not change connection policies, query transformations,
@@ -251,3 +254,69 @@ aggregation separately if concurrency demands it. Convert their expected failure
 to normal tests and add the outstanding builder/Explain/visualization cases above.
 This can be two implementation PRs or one small shared-contract PR plus Loki if
 review scope stays clear; the evidence does not mandate three implementation PRs.
+
+## Slice 2 — implemented Loki primary ownership
+
+Based on `d04eb414` after #383. Loki primary logs and metrics now capture a
+`QueryOperation` containing originating tab, profile, generation and unique
+runtime token in `QuerySession.queryOperation`. `beginQueryOperation` validates
+the binding and usable connection before calling existing `startQuery`.
+`completeQuery` accepts an optional operation and atomically guards its result,
+error and pending cleanup through `isQueryOperationCurrent` and `patchSession`.
+Legacy callers remain unchanged for the next slice.
+
+The token survives workspace unmount and stays as the completed primary identity
+so optional volume publication can still identify its originating work. It does
+not itself mean pending: session `running` remains authoritative. A newer start
+replaces the token; closing removes the session; rebind, clear/reset and preset
+transitions discard ownership. A small store subscription invalidates owned
+operations whenever their binding or usable generation disappears, covering
+connection events, explicit reconnect and direct restoration writes. It releases
+only those sessions' running/pending state and leaves legacy execution unchanged.
+This is response abandonment, not backend cancellation.
+
+Loki no longer has a local primary loading flag or request revision/finally
+cleanup. Its Run presentation reads session running, and transport errors read
+session queryError on remount. Local validation errors remain local. Selection
+reset keys use resultRevision. Mounted/active checks remain for local effects;
+switching does not invalidate primary delivery or keep workspaces mounted.
+
+Optional trends retain independent revisions, cache, retry and visible-workspace
+semantics. Publication and probe continuation validate the captured primary token,
+profile and generation, and reject failed primary ownership. Restored historical
+results without tokens use captured result/binding/generation checks. Primary
+completion never waits for volume/probes; primary failure hides volume. Connection
+changes clear local trend state. LogQL, ranges, transformations and charts are
+unchanged.
+
+Workspace serialization already explicitly selects durable fields and parsing
+constructs clean runtime state; tokens are excluded without a new draft schema.
+Restoration regression now injects a token and verifies it is discarded with busy,
+pending result and Explain state, without rerunning work.
+
+All six Loki expected failures are ordinary regressions. Deferred keyed-workspace
+coverage adds logs/metrics reverse-order A/B completion, pending return, background
+failure display, remounted supersession with success/rejection, rebind-back at the
+same generation, reset/preset invalidation, generation isolation across profiles,
+and optional volume/probe interactions. Existing pattern promotion, cache/retry,
+early logs and trend-failure cases remain intact.
+
+Remaining audit debt: **20 expected failures** across SQL/Prometheus (15 ownership/
+generation plus 2 Explain indicator cases) and Tempo (3). No other execution path
+is migrated, and Explain concurrency is unchanged. The next slice should reuse
+the primary contract while adding SQL Builder, stale Prometheus visualization,
+and Explain overlap coverage. Live provider/Electron behavior still requires
+release verification; optional trends remain local and may reload on return.
+
+Release checklist:
+
+- Run background Loki logs and metrics in A/B; return while A is pending and
+  finish B before A. Check each indicator, result and stored failure belongs to
+  its originating tab.
+- Supersede A after switching away/back; late old success/error must leave the
+  newer busy state and result intact.
+- Close, reset, load a preset, rebind away/back and reconnect during A's request;
+  verify obsolete delivery is ignored and unrelated profiles stay usable.
+- Use chart/grouped trends: logs become usable before volume/probe completion;
+  trend failure retains logs and primary failure never displays optional volume.
+- Reload while pending; no busy state or automatic query execution survives.

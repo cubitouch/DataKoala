@@ -99,7 +99,16 @@ export interface ChartConfig {
   timeBucket?: string
 }
 
+export interface QueryOperation {
+  tabId: string
+  profileId: string
+  generation: number
+  token: string
+}
+
 export interface QuerySession {
+  /** Runtime primary-result ownership; never serialized into workspace drafts. */
+  queryOperation?: QueryOperation | null
   id: string
   title: string
   connectionProfileId: string | null
@@ -237,6 +246,7 @@ export function createQuerySession(
     tempoSampleSize: DEFAULT_TRACE_SAMPLE_SIZE,
     tempoResultView: DEFAULT_TRACE_RESULT_VIEW,
     running: false,
+    queryOperation: null,
     queryError: null,
     result: null,
     pendingResult: null,
@@ -361,12 +371,13 @@ export interface AppState {
     error?: string | null,
     tabId?: string,
   ) => void
-  startQuery: (tabId?: string) => void
+  startQuery: (tabId?: string, operation?: QueryOperation) => void
   completeQuery: (
     result: QueryResult | null,
     error?: string | null,
     tabId?: string,
     repairableQuery?: string,
+    operation?: QueryOperation,
   ) => void
   setRunning: (value: boolean, tabId?: string) => void
   setQueryMode: (mode: QueryMode, tabId?: string) => void
@@ -547,6 +558,7 @@ export const useStore = create<AppState>((set, get) => ({
             ? {
                 ...tab,
                 running: false,
+                queryOperation: null,
                 pendingResult: null,
                 isResultStale: Boolean(tab.result),
               }
@@ -813,6 +825,7 @@ export const useStore = create<AppState>((set, get) => ({
       patchSession(state, undefined, (session) => ({
         ...session,
         running: false,
+        queryOperation: null,
         queryError: null,
         repairableQueryError: null,
         result: null,
@@ -875,6 +888,7 @@ export const useStore = create<AppState>((set, get) => ({
           connectionProfileId: session.connectionProfileId,
           manualQueryPristine: false,
           running: false,
+          queryOperation: null,
           queryError: null,
           repairableQueryError: null,
           result: null,
@@ -954,17 +968,20 @@ export const useStore = create<AppState>((set, get) => ({
             },
       ),
     ),
-  startQuery: (tabId) =>
+  startQuery: (tabId, operation) =>
     set((state) =>
       patchSession(state, tabId, (session) => ({
         ...session,
         ...startQueryState(session),
+        queryOperation: operation ?? null,
         repairableQueryError: null,
       })),
     ),
-  completeQuery: (result, error, tabId, repairableQuery) =>
+  completeQuery: (result, error, tabId, repairableQuery, operation) =>
     set((state) =>
       patchSession(state, tabId, (session) => {
+        if (operation && !isQueryOperationCurrent(state, operation))
+          return session
         const next = completeQueryState(session, result, error ?? null)
         return result
           ? {
@@ -1277,3 +1294,58 @@ export const useStore = create<AppState>((set, get) => ({
       })),
     ),
 }))
+
+/** Primary ownership remains valid after completion for optional result attachments. */
+export function isQueryOperationCurrent(
+  state: Pick<AppState, 'tabs' | 'connectionStateByProfileId'>,
+  operation: QueryOperation,
+): boolean {
+  const tab = selectSession(state, operation.tabId)
+  return (
+    tab?.queryOperation?.token === operation.token &&
+    tab.connectionProfileId === operation.profileId &&
+    isUsableProfileConnection(
+      state.connectionStateByProfileId[operation.profileId],
+      operation.generation,
+    )
+  )
+}
+
+export function beginQueryOperation(
+  tabId: string,
+  profileId: string,
+  generation: number,
+): QueryOperation | null {
+  const state = useStore.getState()
+  if (
+    selectSession(state, tabId)?.connectionProfileId !== profileId ||
+    !isUsableProfileConnection(
+      state.connectionStateByProfileId[profileId],
+      generation,
+    )
+  )
+    return null
+  const operation = { tabId, profileId, generation, token: sessionId() }
+  state.startQuery(tabId, operation)
+  return operation
+}
+
+// Connection state can change through events, explicit connect or restoration.
+// Invalidate only session-owned operations; legacy datasource paths stay unchanged.
+useStore.subscribe((state) => {
+  if (
+    !state.tabs.some(
+      (tab) =>
+        tab.queryOperation &&
+        !isQueryOperationCurrent(state, tab.queryOperation),
+    )
+  )
+    return
+  useStore.setState({
+    tabs: state.tabs.map((tab) =>
+      tab.queryOperation && !isQueryOperationCurrent(state, tab.queryOperation)
+        ? { ...tab, queryOperation: null, running: false, pendingResult: null }
+        : tab,
+    ),
+  })
+})
