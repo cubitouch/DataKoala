@@ -1,6 +1,8 @@
 import './styles.css'
 
-const copyButton = document.querySelector<HTMLButtonElement>('[data-copy-install]')
+const copyButton = document.querySelector<HTMLButtonElement>(
+  '[data-copy-install]',
+)
 const copyStatus = document.querySelector<HTMLElement>(
   '[data-copy-install-status]',
 )
