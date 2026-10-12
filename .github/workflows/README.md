@@ -27,7 +27,10 @@ permissions and without repository secrets**. We use `pull_request`, not
 | `ci.yml`             | Quality, tests, and build after required GitHub approval              | None                                                                                         |
 | `pages.yml`          | Build docs + downloadable artifact after required GitHub approval     | Only `deploy` on a push to `main` (`pages: write`, `id-token: write`)                        |
 | `visual-preview.yml` | Capture images + downloadable artifact after required GitHub approval | Only `publish`, and only for same-repository PRs (`contents: write`, `pull-requests: write`) |
-| `release-macos.yml`  | Not triggered by PRs; runs on pushed `v*.*.*` tags                    | Only `publish-draft-release` (`contents: write`)                                             |
+| `source-release.yml` | Not triggered by PRs; validates pushed source tags                    | None (read-only)                                                                             |
+| `release-macos.yml`  | Not triggered by PRs; manual packaging only                           | None (read-only)                                                                             |
+
+Source tags (`vX.Y.Z`) run `source-release.yml` with read-only access to validate the tag against `package.json` and `main`. Neither this check nor publishing a source-only GitHub Release requires an Apple Developer certificate or installer build.
 
 The visual-preview `capture` job no longer skips fork PRs. For fork PRs,
 `publish` deliberately skips: it does **not** push to `visual-previews` or
@@ -73,6 +76,8 @@ permissions they require.
 - Do not automatically publish externally provided artifacts from privileged
   workflows; treat all fork PR output as untrusted.
 - Approval of an Actions run and approval/merging of code are separate
-  decisions. Tag-triggered releases and `main` deployments remain subject
+  decisions. Source release tags only trigger the read-only `source-release.yml`
+  validation job. Publishing a GitHub Release is a separate manual action;
+  source tags never trigger packaging. `main` deployments remain subject
   to GitHub branch/tag protections and environment rules configured outside
   workflow YAML.

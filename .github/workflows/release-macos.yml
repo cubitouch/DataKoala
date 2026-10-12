@@ -1,9 +1,8 @@
-name: Release macOS
+name: Manual macOS packaging (optional)
 
+# Optional test packaging only. Creating a source release never builds installers.
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,7 +25,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - name: Check out release tag
+      - name: Check out selected revision
         uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -41,16 +40,6 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-
-      - name: Verify tag matches package version
-        shell: bash
-        run: |
-          tag_version="${GITHUB_REF_NAME#v}"
-          package_version="$(node -p "require('./package.json').version")"
-          if [ "$tag_version" != "$package_version" ]; then
-            echo "Tag version $tag_version does not match package.json version $package_version" >&2
-            exit 1
-          fi
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -82,8 +71,9 @@ jobs:
       - name: Verify release artifacts
         shell: bash
         run: |
-          test -f "dist/DataKoala-${GITHUB_REF_NAME#v}-${{ matrix.arch }}.dmg"
-          test -f "dist/DataKoala-${GITHUB_REF_NAME#v}-${{ matrix.arch }}.zip"
+          package_version="$(node -p "require('./package.json').version")"
+          test -f "dist/DataKoala-${package_version}-${{ matrix.arch }}.dmg"
+          test -f "dist/DataKoala-${package_version}-${{ matrix.arch }}.zip"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v7
@@ -93,52 +83,4 @@ jobs:
             dist/DataKoala-*.dmg
             dist/DataKoala-*.zip
           if-no-files-found: error
-          retention-days: 7
-
-  publish-draft-release:
-    name: Publish draft GitHub Release
-    needs: build-macos
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@v8
-        with:
-          pattern: datakoala-macos-*
-          path: release-assets
-          merge-multiple: true
-
-      - name: Verify complete release set
-        shell: bash
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          for arch in arm64 x64; do
-            test -f "release-assets/DataKoala-${version}-${arch}.dmg"
-            test -f "release-assets/DataKoala-${version}-${arch}.zip"
-          done
-
-      - name: Generate SHA-256 checksums
-        shell: bash
-        run: |
-          cd release-assets
-          sha256sum DataKoala-*.dmg DataKoala-*.zip > SHA256SUMS.txt
-          cat SHA256SUMS.txt
-
-      - name: Create or update draft release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          tag="$GITHUB_REF_NAME"
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$tag" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            gh release create "$tag" release-assets/* \
-              --repo "$GITHUB_REPOSITORY" \
-              --verify-tag \
-              --draft \
-              --generate-notes \
-              --title "DataKoala $tag"
-          fi
+          retention-days: 14

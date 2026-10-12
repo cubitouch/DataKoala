@@ -149,13 +149,27 @@ For certificate-verifying modes, leave the **CA** field blank to use the system 
 
 Pasted PostgreSQL connection strings support `sslmode=disable`, `require`, `verify-ca`, and `verify-full`. Libpq `allow` and `prefer` are intentionally normalized to TLS-required compatibility behavior with a warning; DataKoala does not implement libpq's TLS-to-plaintext fallback. `sslrootcert=/path/to/file` does not cause DataKoala to read an arbitrary certificate path from a pasted string. Paste the required PEM CA into the CA field instead.
 
-## macOS releases
+## Stable source releases
 
-Version tags matching `vX.Y.Z` build separate native macOS releases for Apple Silicon (`arm64`) and Intel (`x64`). The release workflow produces DMG and ZIP artifacts for both architectures, smoke-tests the packaged applications, generates SHA-256 checksums, and creates a **draft GitHub Release** for manual review before publication.
+DataKoala currently runs from source in Electron dev mode. You don't need an Apple Developer account, a packaged application, or an auto-updater. A **published GitHub Release** is a tested source snapshot identified by an immutable `vX.Y.Z` tag. Ordinary changes to `main` do not affect users of the stable snapshot.
 
-The macOS builds are currently **unsigned and not notarized** because DataKoala does not yet use an Apple Developer ID certificate. macOS Gatekeeper may therefore warn or block the first launch, and managed work Macs may apply stricter organization policies. Do not disable Gatekeeper globally to install DataKoala.
+To install **the latest manually approved release**, with Electron's runtime repaired automatically:
 
-Published builds will be available from [GitHub Releases](../../releases).
+```bash
+git clone https://github.com/cubitouch/DataKoala.git
+cd DataKoala
+corepack enable
+pnpm install:stable
+pnpm dev
+```
+
+**What `pnpm install:stable` does:** checks for local changes, looks up the latest **published, non-prerelease** GitHub Release, fetches its exact tag from the official repository, checks out that tag, runs `pnpm install --frozen-lockfile`, and then runs the README's Electron troubleshooting command `pnpm exec install-electron --no`. It fails instead of silently installing `main` if GitHub cannot verify a published release. The command requires Git, Node 24, pnpm, and a clean checkout.
+
+**Upgrades are opt-in.** Running `pnpm dev` does not download updates. Run `pnpm install:stable` again only when you choose to move to the newest approved release. Older published tags remain available; you can also checkout a specific release manually, install its dependencies, and repair Electron. Back up important settings before downgrading because persistence formats may change.
+
+**No public stable release yet?** The `v0.1.0` GitHub Release is still a draft. Until the first approved release (planned as `v0.2.0`) is published, `pnpm install:stable` correctly fails instead of selecting an unapproved commit. Use the [development instructions](#getting-started) on `main` meanwhile.
+
+Maintainers: see the [source release process](docs/releases.md). Tags only trigger read-only version validation; the existing macOS packaging workflow is optional and manual-only.
 
 ## Development
 
