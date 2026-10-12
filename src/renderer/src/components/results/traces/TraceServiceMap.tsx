@@ -750,6 +750,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       data-visual-finished={
         renderedGraphKey === graphKey && progress.status !== 'loading'
       }
+      data-visual-traces={aggregate.traceCount}
       data-visual-nodes={graph.nodes.length}
       data-visual-edges={graph.edges.length}
     >
@@ -758,8 +759,8 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
           <strong>Service map</strong>
           <span>
             {sampled
-              ? `Representative analysis of ${progress.total} / ${searchTraceCount} search results`
-              : `${progress.total || Math.min(searchTraceCount, sampleLimit)} traces selected for analysis`}
+              ? `${aggregate.traceCount} analyzed · sample of ${progress.total} / ${searchTraceCount} matching traces`
+              : `${aggregate.traceCount} / ${searchTraceCount} matching traces analyzed`}
           </span>
         </div>
         {aggregate.traceCount > 0 && (
@@ -833,7 +834,8 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       {progress.status === 'partial' && (
         <div className={styles.notice}>
           Analysis is partial after {progress.completed}/{progress.total}{' '}
-          fetches. The map uses the traces that loaded successfully.
+          selected traces processed. Statistics use only successfully analyzed
+          traces. Use Re-analyze to load remaining selected traces.
         </div>
       )}
       {progress.status === 'error' && (

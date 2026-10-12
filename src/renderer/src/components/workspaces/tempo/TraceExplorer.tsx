@@ -211,10 +211,9 @@ export function TraceExplorer({
         : [],
     [localRange],
   )
-  // Cohort analysis retains its fetched source; brushing only changes list/scatter presentation.
   const cohortAnalysis = useTraceCohortAnalysis(
     connectionId,
-    searchRows,
+    visibleSearchRows,
     tabId,
     connectionGeneration,
   )
@@ -766,24 +765,23 @@ export function TraceExplorer({
             onRemove={() => setLocalRange(null)}
             onClear={() => setLocalRange(null)}
           />
-          <div className={styles.cohortHint} role="status">
-            {cohortHint}
-            {localRange && (
-              <span>
-                Local filter: {visibleSearchRows.length} of {searchRows.length}{' '}
-                retrieved traces. No additional traces fetched.
-                {resultView === 'service-map' &&
-                  ' Service map uses the full retrieved cohort.'}
-                {spans.length > 0 &&
-                  !visibleSearchRows.some(
-                    (row) =>
-                      canonicalTraceId(row.traceId) ===
-                      canonicalTraceId(spans[0]?.traceId),
-                  ) &&
-                  ' Opened trace is outside the filtered results; its details are retained.'}
-              </span>
+          {cohortHint && (
+            <div className={styles.cohortHint} role="status">
+              {cohortHint}
+            </div>
+          )}
+          {localRange &&
+            spans.length > 0 &&
+            !visibleSearchRows.some(
+              (row) =>
+                canonicalTraceId(row.traceId) ===
+                canonicalTraceId(spans[0]?.traceId),
+            ) && (
+              <div className={styles.cohortHint} role="status">
+                Opened trace is outside the filtered results; its details are
+                retained.
+              </div>
             )}
-          </div>
         </div>
       )}
       {error && (
@@ -866,9 +864,9 @@ export function TraceExplorer({
         />
       ) : (
         <TraceSearchResults
-          rows={resultView === 'service-map' ? searchRows : visibleSearchRows}
+          rows={visibleSearchRows}
           fetchedTraceCount={searchRows.length}
-          locallyFiltered={localRange !== null && resultView !== 'service-map'}
+          locallyFiltered={localRange !== null}
           notice={searchNotice}
           loading={loading}
           resultView={resultView}
@@ -895,7 +893,7 @@ export function TraceExplorer({
               aggregate={cohortAnalysis.aggregate}
               traces={cohortAnalysis.traces}
               progress={cohortAnalysis.progress}
-              searchTraceCount={searchRows.length}
+              searchTraceCount={visibleSearchRows.length}
               sampleLimit={cohortAnalysis.sampleLimit}
               onSampleLimitChange={cohortAnalysis.changeSampleLimit}
               onRetry={cohortAnalysis.retry}

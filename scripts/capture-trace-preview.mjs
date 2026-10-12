@@ -383,16 +383,42 @@ async function validateLocalScatterFilter(win) {
     throw new Error(
       'Tempo brush changed fetched results, query range, or request count',
     )
+  await win.webContents.executeJavaScript(`(() => {
+    const group = document.querySelector('[aria-label="Trace search result view"]')
+    ;[...group.querySelectorAll('button')].find((button) => button.textContent.trim() === 'Service map')?.click()
+  })()`)
+  await waitFor(
+    win,
+    `document.querySelector('[data-trace-service-map]')?.getAttribute('data-visual-traces') === '2' && document.querySelector('[data-trace-service-map]')?.getAttribute('data-visual-finished') === 'true'`,
+    'service map scoped to the selected two traces',
+  )
+  if (queryRequests !== requestsBefore + 2)
+    throw new Error(
+      'Filtered Service map looked up traces outside its two matching results',
+    )
+  await capture(win, 'tempo-service-map.png')
+  const analyzedRequests = queryRequests
   await win.webContents.executeJavaScript(
     `document.querySelector('[aria-label^="Remove filter Trace start"]')?.click()`,
   )
   await waitFor(
     win,
-    `!document.querySelector('[aria-label="Active result filters"]') && document.querySelector('[data-visual-type="scatter"]')?.getAttribute('data-visual-items') === '5'`,
+    `!document.querySelector('[aria-label="Active result filters"]') && document.body.innerText.includes('2 / 5 matching traces analyzed')`,
+    'widened service-map scope with explicit partial coverage',
+  )
+  if (queryRequests !== analyzedRequests)
+    throw new Error('Clearing the filter automatically fetched traces')
+  await win.webContents.executeJavaScript(`(() => {
+    const group = document.querySelector('[aria-label="Trace search result view"]')
+    ;[...group.querySelectorAll('button')].find((button) => button.textContent.trim() === 'Scatter')?.click()
+  })()`)
+  await waitFor(
+    win,
+    `document.querySelector('[data-visual-type="scatter"]')?.getAttribute('data-visual-items') === '5'`,
     'restored retrieved scatter points',
   )
-  if (queryRequests !== requestsBefore)
-    throw new Error('Clearing the local filter fetched more traces')
+  if (queryRequests !== analyzedRequests)
+    throw new Error('Restoring Scatter fetched more traces')
 }
 
 async function showServiceMap(win) {
@@ -623,7 +649,6 @@ app.whenReady().then(async () => {
     await showScatter(win)
     await validateLocalScatterFilter(win)
     await showServiceMap(win)
-    await capture(win, 'tempo-service-map.png')
     await showDenseServiceMap(win)
     await capture(win, 'tempo-service-map-dense.png')
     await restoreStandardSearch(win)

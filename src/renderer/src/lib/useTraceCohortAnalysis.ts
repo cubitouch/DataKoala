@@ -19,7 +19,7 @@ const PROGRESS_BATCH_SIZE = 4
 
 interface CohortState extends TraceCohortAnalysisProgress {
   sourceKey: string
-  traces: TraceCohortTraceSummary[]
+  summaries: Map<string, TraceCohortTraceSummary>
 }
 
 interface CohortSelection {
@@ -30,14 +30,18 @@ interface CohortSelection {
 const initialState = (): CohortState => ({
   status: 'idle',
   sourceKey: '',
+  summaries: new Map(),
   completed: 0,
   total: 0,
   failed: 0,
-  traces: [],
 })
 
+function rowKey(row: TraceRow): string {
+  return `${canonicalTraceId(row.traceId) ?? ''}:${Number(row.startTimeMs) || 0}:${Number(row.durationMs) || 0}`
+}
+
 function sourceKey(rows: TraceRow[], limit: number): string {
-  return `${limit}|${rows.map((row) => `${canonicalTraceId(row.traceId) ?? ''}:${Number(row.startTimeMs) || 0}:${Number(row.durationMs) || 0}`).join(',')}`
+  return `${limit}|${rows.map(rowKey).join(',')}`
 }
 
 function selectRowsAndKey(rows: TraceRow[], limit: number): CohortSelection {
@@ -58,21 +62,65 @@ export function useTraceCohortAnalysis(
   const [sampleLimit, setSampleLimit] = useState(DEFAULT_COHORT_SAMPLE)
   const [state, setState] = useState<CohortState>(initialState)
   const generation = useRef(0)
-  const aggregate = useMemo(
-    () => aggregateTraceCohort(state.traces),
-    [state.traces],
-  )
+  // Only compact full-trace summaries are cached, scoped to this search/session.
+  const cache = useRef(new Map<string, TraceCohortTraceSummary>())
   const currentSelection = useMemo(
     () => selectRowsAndKey(searchRows, sampleLimit),
     [searchRows, sampleLimit],
   )
+  const scopeKey = sourceKey(searchRows, 0)
+  const contextKey = `${connectionId}:${tabId}:${connectionGeneration}`
+  const currentScope = useRef({ scopeKey, contextKey })
+  currentScope.current = { scopeKey, contextKey }
+  const cacheContext = useRef(contextKey)
+  const traces = useMemo(
+    () =>
+      cacheContext.current === contextKey
+        ? currentSelection.rows
+            .map((row) => state.summaries.get(rowKey(row)))
+            .filter((trace): trace is TraceCohortTraceSummary => Boolean(trace))
+        : [],
+    [contextKey, currentSelection, state.summaries],
+  )
+  const aggregate = useMemo(() => aggregateTraceCohort(traces), [traces])
+  const currentRun =
+    state.sourceKey === currentSelection.sourceKey &&
+    cacheContext.current === contextKey
+  const failed = currentRun ? state.failed : 0
+  const progress: TraceCohortAnalysisProgress = {
+    status: currentRun
+      ? state.status
+      : traces.length === currentSelection.rows.length && traces.length > 0
+        ? 'ready'
+        : traces.length
+          ? 'partial'
+          : 'idle',
+    completed: traces.length + failed,
+    total: currentSelection.rows.length,
+    failed,
+  }
 
   const reset = useCallback(() => {
     generation.current += 1
+    cache.current.clear()
     setState(initialState())
   }, [])
 
-  useEffect(() => reset(), [connectionGeneration, connectionId, reset])
+  useEffect(() => {
+    cacheContext.current = contextKey
+    reset()
+  }, [contextKey, reset])
+  // A changed interval cancels old work, but never starts new detail requests.
+  useEffect(() => {
+    generation.current += 1
+    setState({ ...initialState(), summaries: new Map(cache.current) })
+  }, [scopeKey])
+  useEffect(
+    () => () => {
+      generation.current += 1
+    },
+    [],
+  )
 
   const run = useCallback(
     async (requestedLimit = sampleLimit) => {
@@ -88,6 +136,8 @@ export function useTraceCohortAnalysis(
       const key = selection.sourceKey
       const runGeneration = ++generation.current
       const isCurrentConnection = () =>
+        currentScope.current.scopeKey === scopeKey &&
+        currentScope.current.contextKey === contextKey &&
         isTabConnectionCurrent(tabId, connectionId, connectionGeneration) &&
         useStore.getState().activeTabId === tabId
       const started = performance.now()
@@ -95,20 +145,28 @@ export function useTraceCohortAnalysis(
       let completed = 0
       let failed = 0
       let publishedCompleted = 0
-      const traces: TraceCohortTraceSummary[] = []
+      const traces = rows
+        .map((row) => cache.current.get(rowKey(row)))
+        .filter((trace): trace is TraceCohortTraceSummary => Boolean(trace))
+      const pendingRows = rows.filter((row) => !cache.current.has(rowKey(row)))
+      completed = traces.length
 
       if (!rows.length) {
-        setState({ ...initialState(), sourceKey: key })
+        setState({
+          ...initialState(),
+          sourceKey: key,
+          summaries: new Map(cache.current),
+        })
         return
       }
 
       setState({
         status: 'loading',
         sourceKey: key,
-        completed: 0,
+        summaries: new Map(cache.current),
+        completed,
         total: rows.length,
         failed: 0,
-        traces: [],
       })
 
       const publish = (force = false) => {
@@ -124,18 +182,18 @@ export function useTraceCohortAnalysis(
         setState({
           status: 'loading',
           sourceKey: key,
+          summaries: new Map(cache.current),
           completed,
           total: rows.length,
           failed,
-          traces: [...traces],
         })
       }
 
       const worker = async () => {
         while (runGeneration === generation.current) {
           const index = nextIndex++
-          if (index >= rows.length) return
-          const row = rows[index]
+          if (index >= pendingRows.length) return
+          const row = pendingRows[index]
           const traceId = canonicalTraceId(row.traceId)
           if (!traceId) {
             failed += 1
@@ -158,7 +216,9 @@ export function useTraceCohortAnalysis(
               )
             if (runGeneration !== generation.current || !isCurrentConnection())
               return
-            traces.push(summarizeTraceForCohort(result.rows, row))
+            const summary = summarizeTraceForCohort(result.rows, row)
+            cache.current.set(rowKey(row), summary)
+            traces.push(summary)
           } catch {
             if (runGeneration !== generation.current || !isCurrentConnection())
               return
@@ -171,7 +231,7 @@ export function useTraceCohortAnalysis(
 
       await Promise.all(
         Array.from(
-          { length: Math.min(COHORT_FETCH_CONCURRENCY, rows.length) },
+          { length: Math.min(COHORT_FETCH_CONCURRENCY, pendingRows.length) },
           worker,
         ),
       )
@@ -182,10 +242,10 @@ export function useTraceCohortAnalysis(
       setState({
         status,
         sourceKey: key,
+        summaries: new Map(cache.current),
         completed,
         total: rows.length,
         failed,
-        traces: [...traces],
       })
       if (api.tempoPerformanceEnabled)
         console.info(
@@ -205,6 +265,8 @@ export function useTraceCohortAnalysis(
     [
       connectionGeneration,
       connectionId,
+      contextKey,
+      scopeKey,
       currentSelection,
       sampleLimit,
       searchRows,
@@ -214,14 +276,16 @@ export function useTraceCohortAnalysis(
 
   const ensureStarted = useCallback(() => {
     if (
-      state.sourceKey === currentSelection.sourceKey &&
+      (traces.length === currentSelection.rows.length ||
+        state.sourceKey === currentSelection.sourceKey) &&
       state.status !== 'idle' &&
       state.status !== 'error'
     )
       return
     void run(sampleLimit)
   }, [
-    currentSelection.sourceKey,
+    currentSelection,
+    traces.length,
     run,
     sampleLimit,
     state.sourceKey,
@@ -245,19 +309,19 @@ export function useTraceCohortAnalysis(
     generation.current += 1
     setState((current) => ({
       ...current,
-      status: current.traces.length ? 'partial' : 'idle',
+      status: currentSelection.rows.some((row) =>
+        cache.current.has(rowKey(row)),
+      )
+        ? 'partial'
+        : 'idle',
+      summaries: new Map(cache.current),
     }))
-  }, [])
+  }, [currentSelection])
 
   return {
     sampleLimit,
-    progress: {
-      status: state.status,
-      completed: state.completed,
-      total: state.total,
-      failed: state.failed,
-    } satisfies TraceCohortAnalysisProgress,
-    traces: state.traces,
+    progress,
+    traces,
     aggregate,
     reset,
     ensureStarted,

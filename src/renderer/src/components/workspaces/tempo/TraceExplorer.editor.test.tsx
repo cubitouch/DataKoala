@@ -687,39 +687,46 @@ describe('TraceExplorer TraceQL editor', () => {
       rowCount: 0,
       durationMs: 1,
     }
-    vi.mocked(api.query.run)
-      .mockResolvedValueOnce(emptyTrace)
-      .mockResolvedValueOnce(emptyTrace)
+    vi.mocked(api.query.run).mockResolvedValueOnce(emptyTrace)
     select('Service map')
     expect(
-      screen.getByText(/Service map uses the full retrieved cohort/),
-    ).toBeTruthy()
-    expect(screen.getByText('2 traces')).toBeTruthy()
-    await waitFor(() => expect(api.query.run).toHaveBeenCalledTimes(3))
-    expect(
-      vi
-        .mocked(api.query.run)
-        .mock.calls.slice(1)
-        .map((call) => call[1])
-        .sort(),
-    ).toEqual(result.rows.map((row) => row.traceId).sort())
-    select('Scatter')
-    expect(screen.getByTestId('scatter-traces').textContent).toBe(
+      screen.queryByText(
+        /Local filter:|Service map uses the full retrieved cohort/,
+      ),
+    ).toBeNull()
+    expect(screen.getByText('1 of 2 retrieved traces')).toBeTruthy()
+    await waitFor(() => expect(api.query.run).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(api.query.run).mock.calls[1][1]).toBe(
       result.rows[1].traceId,
     )
+    // Clearing the chip while the map is open widens its scope without lookups.
     fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    expect(screen.getByText('2 traces')).toBeTruthy()
+    expect(screen.getByText('1 / 2 matching traces analyzed')).toBeTruthy()
+    expect(api.query.run).toHaveBeenCalledTimes(2)
+    select('Scatter')
     expect(screen.getByTestId('scatter-traces').textContent).toContain(
       result.rows[0].traceId,
     )
     expect(screen.getByTestId('scatter-traces').textContent).toContain(
       result.rows[1].traceId,
     )
-    expect(api.query.run).toHaveBeenCalledTimes(3)
+    select('Different interval')
+    select('Service map')
+    await waitFor(() =>
+      expect(screen.getByText('1 / 1 matching traces analyzed')).toBeTruthy(),
+    )
+    select('Scatter')
+    expect(screen.getByTestId('scatter-traces').textContent).toBe(
+      result.rows[1].traceId,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    expect(api.query.run).toHaveBeenCalledTimes(2)
     select('Refine scatter range')
     select('Run')
     await waitFor(() => expect(screen.getByText('2 traces')).toBeTruthy())
     expect(screen.queryByLabelText('Active result filters')).toBeNull()
-    expect(api.query.run).toHaveBeenCalledTimes(4)
+    expect(api.query.run).toHaveBeenCalledTimes(3)
   })
 
   it('uses inclusive start and exclusive end on fetched millisecond timestamps', () => {
