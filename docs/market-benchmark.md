@@ -1,5 +1,7 @@
 # DataKoala market benchmark
 
+> **Historical research:** Last reviewed 9 August 2026. Competitor comparisons and product positioning are a snapshot; they may not describe the current product or market. For current implemented DataKoala capabilities, see [features](features.md) and the [datasource inventory](architecture/datasource-feature-inventory.md).
+
 _Last reviewed: 9 August 2026_
 
 ## Scope and methodology

@@ -1,5 +1,7 @@
 # Series cardinality performance (#324)
 
+> **Engineering investigation:** This document records issue #324 implementation strategy and point-in-time verification instructions. Recheck current code and tests before assuming pre-merge instructions are still pending. See the [documentation index](README.md).
+
 ## Final strategy
 
 Series-cardinality preflight validates each newly added Series field independently.
