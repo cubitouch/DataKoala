@@ -818,7 +818,7 @@ nav {
 }
 
 .prompt::before {
-  content: '';
+  content: '$';
 }
 
 footer {
