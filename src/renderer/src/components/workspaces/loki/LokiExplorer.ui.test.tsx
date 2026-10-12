@@ -52,6 +52,7 @@ vi.mock('@tanstack/react-virtual', () => ({
   }),
 }))
 import { createQuerySession, useStore } from '@store/useStore'
+import { bindTabConnection } from '@lib/tabConnection'
 import { clearLokiLabelsResources } from '@lib/useLokiLabelsResource'
 import type { LokiLogResult } from '@shared/loki'
 
@@ -1569,4 +1570,155 @@ describe('LokiExplorer execution', () => {
     ).toBe(sentinel)
     expect(screen.queryByLabelText('Log volume trend')).toBeNull()
   })
+})
+
+// #371: App remounts its keyed main shell on tab changes. A transport promise
+// continuing after unmount is insufficient if its owning session loses delivery.
+describe('#371 Loki lifecycle audit', () => {
+  function deferredQuery() {
+    let resolve!: (value: typeof logs | typeof metric) => void
+    let reject!: (reason: unknown) => void
+    const promise = new Promise<typeof logs | typeof metric>((yes, no) => {
+      resolve = yes
+      reject = no
+    })
+    return { promise, resolve, reject }
+  }
+  const session = (id = 'loki-tab') =>
+    useStore.getState().tabs.find((tab) => tab.id === id)
+  function renderWorkspace(kind: 'logs' | 'metrics' = 'logs') {
+    if (kind === 'metrics')
+      useStore.getState().setSql('sum(count_over_time({app="x"}[1m]))')
+    useStore.setState((state) => ({
+      tabs: [
+        ...state.tabs,
+        createQuerySession(2, {
+          id: 'B',
+          connectionProfileId: 'loki',
+          queryMode: 'sql',
+          sql: '{app="b"}',
+        }),
+      ],
+    }))
+    function Workspace() {
+      const id = useStore((state) => state.activeTabId)
+      return <LokiExplorer key={id} connectionId="loki" />
+    }
+    return render(<Workspace />)
+  }
+  async function start(pending: ReturnType<typeof deferredQuery>) {
+    mocks.runLoki.mockReturnValueOnce(pending.promise)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+  }
+
+  // Next slice must call the shared startQuery primitive; never bless local loading.
+  it.fails.each(['logs', 'metrics'] as const)(
+    'represents pending %s on the owning tab',
+    async (kind) => {
+      renderWorkspace(kind)
+      const pending = deferredQuery()
+      await start(pending)
+      const wasRunning = session()?.running
+      await act(async () => {
+        pending.resolve(logs)
+        await pending.promise
+      })
+      expect(wasRunning).toBe(true)
+    },
+  )
+
+  // Separate from the indicator reproduction so the delivery assertion executes.
+  it.fails.each([
+    ['logs', 'resolve'],
+    ['logs', 'reject'],
+    ['metrics', 'resolve'],
+    ['metrics', 'reject'],
+  ] as const)(
+    'delivers background %s %s to A after unmount',
+    async (kind, outcome) => {
+      renderWorkspace(kind)
+      const expected = kind === 'logs' ? logs : metric
+      const pending = deferredQuery()
+      await start(pending)
+      act(() => useStore.setState({ activeTabId: 'B' }))
+      await act(async () => {
+        if (outcome === 'resolve') pending.resolve(expected)
+        else pending.reject(new Error('A failed'))
+        await pending.promise.catch(() => {})
+      })
+      expect(session('B')?.result).toBeNull()
+      expect(session('B')?.queryError).toBeNull()
+      expect(
+        outcome === 'resolve' ? session()?.result : session()?.queryError,
+      ).toEqual(outcome === 'resolve' ? expected : 'A failed')
+    },
+  )
+
+  it.each(['resolve', 'reject'] as const)(
+    'guards same-mount obsolete %s and its cleanup',
+    async (outcome) => {
+      renderWorkspace()
+      const old = deferredQuery(),
+        newer = deferredQuery()
+      await start(old)
+      mocks.runLoki.mockReturnValueOnce(newer.promise)
+      fireEvent.keyDown(screen.getByLabelText('LogQL editor'), {
+        key: 'Enter',
+        ctrlKey: true,
+      })
+      await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(2))
+      await act(async () => {
+        if (outcome === 'resolve') old.resolve(logs)
+        else old.reject(new Error('obsolete'))
+        await old.promise.catch(() => {})
+      })
+      expect(session()?.result).toBeNull()
+      expect(session()?.queryError).toBeNull()
+      expect(
+        screen
+          .getByRole('button', { name: 'Running…' })
+          .hasAttribute('disabled'),
+      ).toBe(true)
+      await act(async () => {
+        newer.resolve(logs)
+        await newer.promise
+      })
+      expect(session()?.result).toEqual(logs)
+      expect(
+        screen.getByRole('button', { name: 'Run' }).hasAttribute('disabled'),
+      ).toBe(false)
+    },
+  )
+
+  it.each(['close', 'rebind', 'generation'] as const)(
+    'does not publish obsolete results after %s',
+    async (change) => {
+      renderWorkspace()
+      const pending = deferredQuery()
+      await start(pending)
+      act(() => {
+        if (change === 'close') useStore.getState().closeTab('loki-tab')
+        else if (change === 'rebind') bindTabConnection('loki-tab', null)
+        else
+          useStore.setState({
+            connectionStateByProfileId: {
+              loki: {
+                status: 'connected',
+                generation: 2,
+                error: null,
+                serverVersion: null,
+              },
+            },
+          })
+      })
+      await act(async () => {
+        pending.resolve(logs)
+        await pending.promise
+      })
+      expect(session()?.result ?? null).toBeNull()
+      expect(session('B')?.result).toBeNull()
+      if (change === 'close') expect(session()).toBeUndefined()
+    },
+  )
 })

@@ -271,3 +271,52 @@ describe('useTempoTraceOpenController', () => {
     ).toBe(true)
   })
 })
+
+// #371: detail loading is local secondary work, unlike the stored search result.
+it('does not deliver a background trace detail into another tab or keep that tab busy', async () => {
+  useStore.setState(useStore.getInitialState(), true)
+  useStore.setState((state) => ({
+    tabs: state.tabs.map((tab) => ({ ...tab, connectionProfileId: 'tempo-1' })),
+    connectionStateByProfileId: {
+      'tempo-1': {
+        status: 'connected',
+        generation: 1,
+        error: null,
+        serverVersion: null,
+      },
+    },
+  }))
+  const pending = deferred<ReturnType<typeof spanResult>>()
+  run.mockReturnValueOnce(pending.promise)
+  const opened = vi.fn(),
+    error = vi.fn()
+  const hook = renderHook(() =>
+    useTempoTraceOpenController({
+      connectionId: 'tempo-1',
+      onError: error,
+      onTraceOpened: opened,
+    }),
+  )
+  let work!: Promise<void>
+  act(() => {
+    work = hook.result.current.openTrace({ candidate: traceId, searchRows: [] })
+  })
+  const owner = useStore.getState().activeTabId
+  expect(
+    useStore.getState().tabs.find((tab) => tab.id === owner)?.running,
+  ).toBe(false)
+  hook.unmount()
+  act(() => useStore.getState().createTab())
+  await act(async () => {
+    pending.resolve(spanResult([{ spanId: 'a' }]))
+    await work
+  })
+  expect(opened).not.toHaveBeenCalled()
+  expect(error).not.toHaveBeenCalled()
+  expect(
+    useStore
+      .getState()
+      .tabs.every((tab) => !tab.running && tab.result === null),
+  ).toBe(true)
+  cleanup()
+})
