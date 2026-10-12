@@ -48,13 +48,26 @@ Requires Node 24, pnpm, and Git. DataKoala uses Node 24 for both local developme
 node --version
 ```
 
+Check that pnpm is available:
+
+```bash
+pnpm --version
+```
+
+If pnpm is missing, install pnpm 11 with npm (which comes with Node):
+
+```bash
+npm install --global pnpm@11
+```
+
+`corepack enable` is optional and not required by DataKoala. Some Node installations do not provide Corepack; an already installed pnpm works directly.
+
 Then clone and run DataKoala:
 
 ```bash
 git clone https://github.com/cubitouch/DataKoala.git
 cd DataKoala
 
-corepack enable
 pnpm install --frozen-lockfile
 pnpm dev
 ```
@@ -158,7 +171,6 @@ To install **the latest manually approved release**, with Electron's runtime rep
 ```bash
 git clone https://github.com/cubitouch/DataKoala.git
 cd DataKoala
-corepack enable
 pnpm install:stable
 pnpm dev
 ```
@@ -167,7 +179,7 @@ pnpm dev
 
 **Upgrades are opt-in.** Running `pnpm dev` does not download updates. Run `pnpm install:stable` again only when you choose to move to the newest approved release. Older published tags remain available; you can also checkout a specific release manually, install its dependencies, and repair Electron. Back up important settings before downgrading because persistence formats may change.
 
-**No public stable release yet?** The `v0.1.0` GitHub Release is still a draft. Until the first approved release (planned as `v0.2.0`) is published, `pnpm install:stable` correctly fails instead of selecting an unapproved commit. Use the [development instructions](#getting-started) on `main` meanwhile.
+**Release status:** `v0.2.0` is the first published stable source release; the older `v0.1.0` Release remains a draft. If GitHub cannot verify a published stable release, `pnpm install:stable` fails safely instead of selecting an unapproved commit.
 
 Maintainers: see the [source release process](docs/releases.md). Tags only trigger read-only version validation; the existing macOS packaging workflow is optional and manual-only.
 

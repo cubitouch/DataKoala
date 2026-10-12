@@ -420,15 +420,42 @@
             </div>
           </div>
           <div class="terminal" aria-label="DataKoala installation commands">
-            <div class="terminal-bar" aria-hidden="true">
-              <span></span><span></span><span></span
-              ><strong>~/DataKoala</strong>
+            <div class="terminal-bar">
+              <span aria-hidden="true"></span><span aria-hidden="true"></span
+              ><span aria-hidden="true"></span><strong>~/DataKoala</strong>
+              <button
+                class="copy-install-button"
+                type="button"
+                aria-label="Copy installation commands"
+                title="Copy installation commands"
+                data-copy-install
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="8" y="8" width="12" height="12" rx="2" />
+                  <path
+                    d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"
+                  />
+                </svg>
+              </button>
+              <span
+                class="copy-install-status"
+                role="status"
+                aria-live="polite"
+                data-copy-install-status
+              ></span>
             </div>
-            <pre><code><span class="prompt">$</span> git clone https://github.com/cubitouch/DataKoala.git
-<span class="prompt">$</span> cd DataKoala
-<span class="prompt">$</span> corepack enable
-<span class="prompt">$</span> pnpm install:stable
-<span class="prompt">$</span> pnpm dev</code></pre>
+            <pre><code><span class="prompt" aria-hidden="true"></span> git clone https://github.com/cubitouch/DataKoala.git
+<span class="prompt" aria-hidden="true"></span> cd DataKoala
+<span class="prompt" aria-hidden="true"></span> pnpm install:stable
+<span class="prompt" aria-hidden="true"></span> pnpm dev</code></pre>
           </div>
         </section>
       </main>

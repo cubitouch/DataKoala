@@ -67,12 +67,11 @@ It must print `v0.2.0`. In a **new clean clone**, run the public `pnpm install:s
 
 ## Installing and upgrading the latest stable source version
 
-Visitors run the same commands on the public site and in the README:
+Visitors need Git, Node 24, and pnpm. The [README setup guide](../README.md#getting-started) explains how to install pnpm with npm if it is missing; Corepack is not required. Run the same commands on the public site and in the README:
 
 ```bash
 git clone https://github.com/cubitouch/DataKoala.git
 cd DataKoala
-corepack enable
 pnpm install:stable
 pnpm dev
 ```
