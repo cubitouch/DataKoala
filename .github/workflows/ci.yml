@@ -62,10 +62,7 @@ jobs:
         run: pnpm lint:imports
 
       - name: Check formatting
-        run: |
-          pnpm exec prettier --write docs-site/index.html docs-site/src/main.ts docs-site/src/styles.css
-          git diff -- docs-site/index.html docs-site/src/main.ts docs-site/src/styles.css
-          pnpm format
+        run: pnpm format
 
       - name: Lint TypeScript and React
         run: pnpm lint:ts
