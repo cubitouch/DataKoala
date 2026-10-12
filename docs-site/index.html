@@ -5,7 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="DataKoala is a local-first desktop workspace for exploring databases, metrics, logs, and traces."
+      content="DataKoala is a local-first desktop data explorer for PostgreSQL, BigQuery, SQLite, and local files. Query metrics, logs, and traces from Prometheus, Loki, and Tempo with SQL, PromQL, LogQL, and TraceQL from one workspace."
+    />
+    <link rel="canonical" href="https://cubitouch.github.io/DataKoala/" />
+    <meta property="og:site_name" content="DataKoala" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:title"
+      content="DataKoala — local-first data exploration"
+    />
+    <meta
+      property="og:description"
+      content="Query databases, metrics, logs, and traces from one focused desktop workspace. PostgreSQL, BigQuery, SQLite, Prometheus, Loki, Tempo — SQL, PromQL, LogQL, TraceQL."
+    />
+    <meta property="og:url" content="https://cubitouch.github.io/DataKoala/" />
+    <meta
+      property="og:image"
+      content="https://cubitouch.github.io/DataKoala/og-image.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="DataKoala — explore data without leaving your desktop"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="DataKoala — local-first data exploration"
+    />
+    <meta
+      name="twitter:description"
+      content="Query databases, metrics, logs, and traces from one focused desktop workspace."
+    />
+    <meta
+      name="twitter:image"
+      content="https://cubitouch.github.io/DataKoala/og-image.png"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,9 +49,406 @@
       rel="stylesheet"
     />
     <title>DataKoala — local-first data exploration</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareSourceCode",
+        "name": "DataKoala",
+        "description": "DataKoala is a local-first desktop workspace for exploring databases, metrics, logs, and traces. Query PostgreSQL, BigQuery, SQLite, and local files, plus Prometheus, Loki, and Tempo signals, with SQL, PromQL, LogQL, and TraceQL.",
+        "url": "https://cubitouch.github.io/DataKoala/",
+        "codeRepository": "https://github.com/cubitouch/DataKoala",
+        "license": "https://spdx.org/licenses/AGPL-3.0-or-later.html",
+        "programmingLanguage": "TypeScript"
+      }
+    </script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <header class="site-header">
+        <nav>
+          <a class="brand" href="./">
+            <span class="brand-mark"
+              ><img
+                src="https://raw.githubusercontent.com/cubitouch/DataKoala/main/build/icon.png"
+                alt=""
+                aria-hidden="true"
+            /></span>
+            <span>DataKoala</span>
+          </a>
+          <div class="nav-links" aria-label="Primary navigation">
+            <a href="#workspace">Product</a>
+            <a href="#why">Why DataKoala</a>
+          </div>
+          <div class="nav-actions">
+            <a
+              class="button button-ghost"
+              href="https://github.com/cubitouch/DataKoala"
+            >
+              <span class="github-mark" aria-hidden="true"
+                ><svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-3.059.664-3.705-1.295-3.705-1.295-.5-1.269-1.219-1.606-1.219-1.606-.998-.682.075-.668.075-.668 1.102.078 1.683 1.132 1.683 1.132.98 1.679 2.572 1.194 3.199.913.098-.71.383-1.194.698-1.469-2.442-.278-5.01-1.221-5.01-5.436 0-1.2.428-2.182 1.13-2.952-.114-.278-.49-1.397.107-2.91 0 0 .92-.295 3.013 1.128A10.5 10.5 0 0 1 12 6.821c.935.004 1.876.126 2.755.37 2.091-1.423 3.01-1.128 3.01-1.128.598 1.513.222 2.632.109 2.91.703.77 1.129 1.752 1.129 2.952 0 4.225-2.572 5.155-5.022 5.427.394.34.746 1.01.746 2.037 0 1.47-.013 2.653-.013 3.014 0 .292.2.623.762.518C19.855 20.974 23 16.865 23 12c0-6.077-4.923-11-11-11Z"
+                  /></svg
+              ></span>
+              <span class="nav-source-label">GitHub</span>
+            </a>
+            <a class="button button-primary" href="#start">Try DataKoala</a>
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow hero-kicker">
+              <span class="eyebrow-dot"></span>OPEN SOURCE · LOCAL-FIRST ·
+              DESKTOP
+            </p>
+            <h1>Explore data <em>without leaving your desktop.</em></h1>
+            <p class="lede">
+              Query databases, metrics, logs, and traces from one focused
+              workspace. Start visually, then drop into SQL, PromQL, LogQL, or
+              TraceQL whenever you want full control.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary button-large" href="#start"
+                >Try DataKoala <span aria-hidden="true">→</span></a
+              >
+              <a
+                class="button button-secondary button-large"
+                href="https://github.com/cubitouch/DataKoala"
+              >
+                <span class="github-mark" aria-hidden="true"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M12 1C5.923 1 1 5.923 1 12c0 4.867 3.149 8.979 7.521 10.436.55.096.756-.233.756-.522 0-.262-.013-1.128-.013-2.049-3.059.664-3.705-1.295-3.705-1.295-.5-1.269-1.219-1.606-1.219-1.606-.998-.682.075-.668.075-.668 1.102.078 1.683 1.132 1.683 1.132.98 1.679 2.572 1.194 3.199.913.098-.71.383-1.194.698-1.469-2.442-.278-5.01-1.221-5.01-5.436 0-1.2.428-2.182 1.13-2.952-.114-.278-.49-1.397.107-2.91 0 0 .92-.295 3.013 1.128A10.5 10.5 0 0 1 12 6.821c.935.004 1.876.126 2.755.37 2.091-1.423 3.01-1.128 3.01-1.128.598 1.513.222 2.632.109 2.91.703.77 1.129 1.752 1.129 2.952 0 4.225-2.572 5.155-5.022 5.427.394.34.746 1.01.746 2.037 0 1.47-.013 2.653-.013 3.014 0 .292.2.623.762.518C19.855 20.974 23 16.865 23 12c0-6.077-4.923-11-11-11Z"
+                    /></svg
+                ></span>
+                <span>View on GitHub</span>
+              </a>
+            </div>
+            <div class="hero-proof" aria-label="DataKoala product principles">
+              <span><i aria-hidden="true"></i>Read-only by default</span>
+              <span><i aria-hidden="true"></i>Data stays at the source</span>
+              <span><i aria-hidden="true"></i>Transparent queries</span>
+            </div>
+          </div>
+
+          <div class="hero-product">
+            <div class="hero-product-glow" aria-hidden="true"></div>
+            <a class="product-window" href="./screenshots/docs-overview.png">
+              <span class="window-bar" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </span>
+              <img
+                src="./screenshots/docs-overview.png"
+                alt="DataKoala visual Builder configured for monthly market activity with a connected PostgreSQL source and five-series chart"
+              />
+            </a>
+          </div>
+        </section>
+
+        <section class="source-strip" aria-label="Supported data sources">
+          <p>ONE WORKSPACE FOR YOUR DATA + OBSERVABILITY STACK</p>
+          <div class="source-list">
+            <span>PostgreSQL</span>
+            <span>BigQuery</span>
+            <span>SQLite</span>
+            <span>CSV / Parquet / JSON</span>
+            <span>Prometheus</span>
+            <span>Loki</span>
+            <span>Tempo</span>
+          </div>
+        </section>
+
+        <section class="workspace" id="workspace">
+          <div class="section-heading">
+            <p class="eyebrow">ONE WORKSPACE</p>
+            <h2>Follow the question,<br />not the tool.</h2>
+            <p>
+              Explore structured data and production signals without rebuilding
+              your context every time the investigation moves to another source.
+            </p>
+          </div>
+
+          <div class="bento-grid">
+            <article class="bento-card bento-card-sql">
+              <div class="bento-copy">
+                <span class="card-index">01</span>
+                <p class="card-kicker">SQL + VISUAL BUILDER</p>
+                <h3>Start where you are comfortable.</h3>
+                <p>
+                  Browse metadata and build queries visually when you want
+                  speed, or write SQL directly when you need full control.
+                </p>
+              </div>
+              <a class="bento-media" href="./screenshots/docs-sql.png">
+                <span class="window-bar" aria-hidden="true">
+                  <i></i><i></i><i></i>
+                </span>
+                <img
+                  src="./screenshots/docs-sql.png"
+                  alt="SQL query beside searchable metadata and filtered market activity results"
+                  loading="lazy"
+                />
+              </a>
+            </article>
+
+            <article class="bento-card bento-card-logs">
+              <div class="bento-copy">
+                <span class="card-index">02</span>
+                <p class="card-kicker">LOKI</p>
+                <h3>Turn noisy logs into a line of inquiry.</h3>
+                <p>
+                  Search, filter, inspect structured fields, and keep the event
+                  context beside the result.
+                </p>
+              </div>
+              <a class="bento-media" href="./screenshots/loki-log-list.png">
+                <span class="window-bar" aria-hidden="true">
+                  <i></i><i></i><i></i>
+                </span>
+                <img
+                  src="./screenshots/loki-log-list.png"
+                  alt="Loki production checkout log list with filters and a selected error event inspector"
+                  loading="lazy"
+                />
+              </a>
+            </article>
+
+            <article class="bento-card bento-card-metrics">
+              <div class="bento-copy">
+                <span class="card-index">03</span>
+                <p class="card-kicker">PROMETHEUS</p>
+                <h3>Understand the shape of a problem.</h3>
+                <p>
+                  Compose PromQL from metadata, grouping, calculations, and time
+                  controls, then move straight into the result.
+                </p>
+              </div>
+              <a class="bento-media" href="./screenshots/docs-prometheus.png">
+                <span class="window-bar" aria-hidden="true">
+                  <i></i><i></i><i></i>
+                </span>
+                <img
+                  src="./screenshots/docs-prometheus.png"
+                  alt="PromQL Builder showing a request-duration percentile query"
+                  loading="lazy"
+                />
+              </a>
+            </article>
+
+            <article class="bento-card bento-card-traces">
+              <div class="bento-copy">
+                <span class="card-index">04</span>
+                <p class="card-kicker">TEMPO</p>
+                <h3>Follow the request to the root cause.</h3>
+                <p>
+                  Search traces, compare latency and status, then inspect the
+                  full waterfall without leaving the workspace.
+                </p>
+              </div>
+              <a class="bento-media" href="./screenshots/tempo-waterfall.png">
+                <span class="window-bar" aria-hidden="true">
+                  <i></i><i></i><i></i>
+                </span>
+                <img
+                  src="./screenshots/tempo-waterfall.png"
+                  alt="Tempo trace waterfall showing checkout spans, timing, status, filters, and a selected payment span"
+                  loading="lazy"
+                />
+              </a>
+            </article>
+          </div>
+        </section>
+
+        <section class="deep-dives">
+          <div class="section-heading section-heading-compact">
+            <p class="eyebrow">GO DEEPER</p>
+            <h2>Keep context as the investigation narrows.</h2>
+          </div>
+
+          <div class="feature">
+            <div class="feature-copy">
+              <p class="eyebrow">LOG PATTERNS</p>
+              <h3>See recurring messages, not a wall of text.</h3>
+              <p>
+                Group loaded Loki logs into explainable templates, compare
+                frequency and severity, inspect representative values, and drill
+                back into matching events.
+              </p>
+            </div>
+            <a class="shot" href="./screenshots/loki-log-patterns.png">
+              <span class="window-bar" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </span>
+              <img
+                src="./screenshots/loki-log-patterns.png"
+                alt="Loki log patterns with an expanded cluster, examples, and variable values"
+                loading="lazy"
+              />
+            </a>
+          </div>
+
+          <div class="feature reverse">
+            <div class="feature-copy">
+              <p class="eyebrow">LOG VOLUME</p>
+              <h3>Move from a spike to the events behind it.</h3>
+              <p>
+                Break down log volume by a discovered label and drag across an
+                interesting window to filter the loaded results locally — no
+                query rerun.
+              </p>
+            </div>
+            <a class="shot" href="./screenshots/loki-log-chart.png">
+              <span class="window-bar" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </span>
+              <img
+                src="./screenshots/loki-log-chart.png"
+                alt="Loki log-volume chart showing a production incident spike and service breakdown"
+                loading="lazy"
+              />
+            </a>
+          </div>
+
+          <div class="feature">
+            <div class="feature-copy">
+              <p class="eyebrow">TEMPO SERVICE MAP</p>
+              <h3>Find bottlenecks across a trace cohort.</h3>
+              <p>
+                Turn Tempo search results into a service map, compare
+                synchronous and async branches, group dense graphs by namespace,
+                and inspect ranked bottleneck candidates.
+              </p>
+            </div>
+            <a class="shot" href="./screenshots/tempo-service-map.png">
+              <span class="window-bar" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </span>
+              <img
+                src="./screenshots/tempo-service-map.png"
+                alt="Tempo synthetic cohort service map and bottlenecks"
+                loading="lazy"
+              />
+            </a>
+          </div>
+
+          <div class="feature reverse">
+            <div class="feature-copy">
+              <p class="eyebrow">RESULT EXPLORER</p>
+              <h3>Make the answer readable.</h3>
+              <p>
+                Move from tables to lines, bars, scatter plots, treemaps, and
+                hierarchy views without exporting your result into another tool
+                first.
+              </p>
+            </div>
+            <a class="shot" href="./screenshots/docs-visualization.png">
+              <span class="window-bar" aria-hidden="true">
+                <i></i><i></i><i></i>
+              </span>
+              <img
+                src="./screenshots/docs-visualization.png"
+                alt="Sunburst visualization of synthetic payments grouped by currency and country"
+                loading="lazy"
+              />
+            </a>
+          </div>
+        </section>
+
+        <section class="principles" id="why">
+          <div class="section-heading">
+            <p class="eyebrow">BUILT FOR THE INVESTIGATOR</p>
+            <h2>
+              Your tools should help you think,<br />not hide what they did.
+            </h2>
+          </div>
+          <div class="principle-grid">
+            <article>
+              <span class="principle-number">01</span>
+              <h3>Local-first</h3>
+              <p>
+                Your data remains on your machine and source services. DataKoala
+                connects to the systems you already use instead of becoming
+                another place to copy data into.
+              </p>
+            </article>
+            <article>
+              <span class="principle-number">02</span>
+              <h3>Transparent</h3>
+              <p>
+                Visual builders produce queries you can inspect and reuse. Drop
+                into raw query mode whenever you need more control.
+              </p>
+            </article>
+            <article>
+              <span class="principle-number">03</span>
+              <h3>Open source</h3>
+              <p>
+                DataKoala is licensed AGPL-3.0-or-later. Inspect the
+                implementation, follow the roadmap, and report the rough edges
+                in public.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="start" id="start">
+          <div class="start-copy">
+            <p class="eyebrow">EARLY BETA</p>
+            <h2>Take it for a spin.</h2>
+            <p>
+              DataKoala currently runs from source and requires Node 24, pnpm,
+              and Git. PostgreSQL, SQLite, and local files need no additional
+              authentication tooling.
+            </p>
+            <div class="start-links">
+              <a href="https://github.com/cubitouch/DataKoala#getting-started"
+                >Full setup guide <span aria-hidden="true">→</span></a
+              >
+              <a href="https://github.com/cubitouch/DataKoala/issues"
+                >Share feedback <span aria-hidden="true">→</span></a
+              >
+            </div>
+          </div>
+          <div class="terminal" aria-label="DataKoala installation commands">
+            <div class="terminal-bar" aria-hidden="true">
+              <span></span><span></span><span></span
+              ><strong>~/DataKoala</strong>
+            </div>
+            <pre><code><span class="prompt">$</span> git clone https://github.com/cubitouch/DataKoala.git
+<span class="prompt">$</span> cd DataKoala
+<span class="prompt">$</span> corepack enable
+<span class="prompt">$</span> pnpm install --frozen-lockfile
+<span class="prompt">$</span> pnpm dev</code></pre>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <a class="brand footer-brand" href="./">
+          <span class="brand-mark"
+            ><img
+              src="https://raw.githubusercontent.com/cubitouch/DataKoala/main/build/icon.png"
+              alt=""
+              aria-hidden="true"
+          /></span>
+          <span>DataKoala</span>
+        </a>
+        <p>
+          Local-first data exploration for databases, metrics, logs, and traces.
+        </p>
+        <span class="footer-links"
+          ><a href="https://github.com/cubitouch/DataKoala">Repository</a
+          ><a href="https://github.com/cubitouch/DataKoala/blob/main/LICENSE"
+            >AGPL-3.0-or-later</a
+          ></span
+        >
+      </footer>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
