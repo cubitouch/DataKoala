@@ -1576,9 +1576,13 @@ describe('LokiExplorer execution', () => {
 // continuing after unmount is insufficient if its owning session loses delivery.
 describe('#371 Loki lifecycle audit', () => {
   function deferredQuery() {
-    let resolve!: (value: typeof logs | typeof metric) => void
+    let resolve!: (
+      value: typeof logs | typeof metric | ReturnType<typeof patternLogs>,
+    ) => void
     let reject!: (reason: unknown) => void
-    const promise = new Promise<typeof logs | typeof metric>((yes, no) => {
+    const promise = new Promise<
+      typeof logs | typeof metric | ReturnType<typeof patternLogs>
+    >((yes, no) => {
       resolve = yes
       reject = no
     })
@@ -1984,5 +1988,56 @@ describe('#371 Loki lifecycle audit', () => {
       await b.promise
     })
     expect(session('B')?.result).toEqual(logs)
+  })
+  it('loads first-query volume after returning pending and ignores the unmounted volume', async () => {
+    act(() => useStore.getState().setLokiState({ lokiResultView: 'line' }))
+    renderWorkspace()
+    const primary = deferredQuery(),
+      originalVolume = deferredQuery(),
+      currentVolume = deferredQuery()
+    let volumeCalls = 0
+    mocks.runLoki.mockImplementation((_id, request) => {
+      if (!request.expression.includes('count_over_time'))
+        return primary.promise
+      return ++volumeCalls === 1
+        ? originalVolume.promise
+        : currentVolume.promise
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+    act(() => useStore.setState({ activeTabId: 'B' }))
+    act(() => useStore.setState({ activeTabId: 'loki-tab' }))
+    expect(session()?.running).toBe(true)
+    expect(screen.getByRole('button', { name: 'Running…' })).toBeTruthy()
+    expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+    const primaryLogs = patternLogs()
+    await act(async () => {
+      primary.resolve(primaryLogs)
+      await primary.promise
+    })
+    expect(session()?.running).toBe(false)
+    expect(session()?.result).toEqual(primaryLogs)
+    expect(screen.getByRole('button', { name: 'Run' })).toBeTruthy()
+    await waitFor(() => expect(volumeCalls).toBe(2))
+    expect(mocks.runLoki).toHaveBeenCalledTimes(3)
+    const currentMetric = {
+      ...metric,
+      rows: [{ timestamp: metric.rows[0].timestamp, value: 42 }],
+    }
+    await act(async () => {
+      currentVolume.resolve(currentMetric)
+      await currentVolume.promise
+    })
+    await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+    const currentData = chartMock.option?.series[0].data
+    expect(currentData).toEqual([[Date.parse(metric.rows[0].timestamp), 42]])
+    await act(async () => {
+      originalVolume.resolve(metric)
+      await originalVolume.promise
+    })
+    expect(chartMock.option?.series[0].data).toEqual(currentData)
+    expect(session()?.result).toEqual(primaryLogs)
+    expect(session()?.running).toBe(false)
+    expect(mocks.runLoki).toHaveBeenCalledTimes(3)
   })
 })

@@ -517,7 +517,13 @@ export function LokiExplorer({
       lastProcessedTrendKey.current = null
       return
     }
-    if (!hasRun.current || result?.resultKind !== 'logs' || !expression.trim())
+    // Background completion can deliver the first logs after this workspace remounts.
+    // Eligibility belongs to the durable result, not the previous mount's run history.
+    if (
+      result?.resultKind !== 'logs' ||
+      session.queryError ||
+      !expression.trim()
+    )
       return
     if (lastProcessedTrendKey.current === trendRefreshKey) return
     lastProcessedTrendKey.current = trendRefreshKey
@@ -525,6 +531,7 @@ export function LokiExplorer({
   }, [
     resultView,
     result?.resultKind,
+    session.queryError,
     expression,
     trendRefreshKey,
     loadTrend,
