@@ -24,6 +24,7 @@ import {
 import { api } from '@lib/api'
 import { isRepairableQueryExecutionError } from '@lib/queryErrors'
 import {
+  beginConnectedQueryOperation,
   ensureConnectionForTab,
   isTabConnectionCurrent,
 } from '@lib/tabConnection'
@@ -189,51 +190,13 @@ export function QueryEditor({
       )
       return
     }
-    const initialConnection =
-      useStore.getState().connectionStateByProfileId[tabConnectionId]
-    const requestContext = selectSession(
-      useStore.getState(),
+    const operation = await beginConnectedQueryOperation(
       requestTabId,
-    )?.queryContextId
-    const requestProfileId = await ensureConnectionForTab(requestTabId)
-    if (
-      selectSession(useStore.getState(), requestTabId)?.queryContextId !==
-        requestContext ||
-      selectSession(useStore.getState(), requestTabId)?.connectionProfileId !==
-        tabConnectionId
-    )
-      return
-    if (!requestProfileId) {
-      const connection =
-        useStore.getState().connectionStateByProfileId[tabConnectionId]
-      setResult(
-        null,
-        connection?.error ??
-          (connection
-            ? 'This connection is not ready to run a query.'
-            : 'Connection status is still being restored.'),
-        requestTabId,
-      )
-      return
-    }
-    if (!isTabConnectionCurrent(requestTabId, requestProfileId)) return
-    if (
-      (initialConnection?.status === 'connected' ||
-        initialConnection?.status === 'idle') &&
-      useStore.getState().connectionStateByProfileId[requestProfileId]
-        ?.generation !== initialConnection.generation
-    )
-      return
-    const requestGeneration =
-      useStore.getState().connectionStateByProfileId[requestProfileId]
-        ?.generation
-    if (requestGeneration === undefined) return
-    const operation = beginQueryOperation(
-      requestTabId,
-      requestProfileId,
-      requestGeneration,
+      tabConnectionId,
+      (message) => setResult(null, message, requestTabId),
     )
     if (!operation) return
+    const requestProfileId = operation.profileId
     let repairableQuery: string | undefined
     try {
       const promoted =

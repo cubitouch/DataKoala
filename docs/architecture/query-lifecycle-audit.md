@@ -353,7 +353,8 @@ pending state independently of Explain; the tab bar aggregates both. A second
 Explain remains blocked by the phase UI. Reset/rebinding may release that phase
 and allow newer work; late old success, error or final cleanup cannot change it.
 
-SQL connection awaits capture the original profile, runtime query context and
+`beginConnectedQueryOperation` shares SQL Run connection preflight: capture the
+original profile, runtime query context and
 initial usable generation, then revalidate them before allocating primary work.
 The context changes on reset, clear, preset loading and rebinding, including an
 away/back transition with the same profile/generation. Explain allocates an
@@ -373,7 +374,10 @@ it never re-executes unobservable requests.
 
 Removed QueryEditor's `runRevisions`, SQL Builder's `queryRevisions`, Tempo's
 `requestRevisions` and its local `searching` boolean/finally authority. Session
-ownership replaces those maps and their duplicated completion predicates.
+ownership replaces those maps and their duplicated completion predicates. The
+shared Run preflight also removes duplicated connection-await validity rules;
+raw execution retains its existing connection-error feedback and Builder retains
+its existing silent connection-failure return.
 Datasource execution APIs, SQL parameters, PromQL defaults and result transforms
 remain in their existing paths. Tempo retains local partial rows/notices/progress;
 a failed visible search keeps partial rows, while remount does not promise durable

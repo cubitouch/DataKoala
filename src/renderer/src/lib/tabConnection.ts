@@ -2,7 +2,12 @@ import type { DataSourceProfile } from '@shared/types'
 import { api } from './api'
 import { loadConnectionMetadata } from './connectionMetadata'
 import { isUsableProfileConnection } from './connectionLifecycle'
-import { selectSession, useStore } from '@store/useStore'
+import {
+  beginQueryOperation,
+  selectSession,
+  useStore,
+  type QueryOperation,
+} from '@store/useStore'
 import {
   defaultQueryModeForDatasource,
   defaultQueryTextForDatasource,
@@ -161,6 +166,50 @@ export async function ensureConnectionForTab(
     if (inFlight.get(desiredProfileId) === promise)
       inFlight.delete(desiredProfileId)
   }
+}
+
+/** Shared Run preflight: connection awaits must not cross a session transition. */
+export async function beginConnectedQueryOperation(
+  tabId: string,
+  profileId: string,
+  onConnectionError?: (message: string) => void,
+): Promise<QueryOperation | null> {
+  const initial = useStore.getState()
+  const session = selectSession(initial, tabId)
+  if (!session || session.connectionProfileId !== profileId) return null
+  const connection = initial.connectionStateByProfileId[profileId]
+  const connectedId = await ensureConnectionForTab(tabId)
+  const current = useStore.getState()
+  const currentSession = selectSession(current, tabId)
+  if (
+    !currentSession ||
+    currentSession.queryContextId !== session.queryContextId ||
+    currentSession.connectionProfileId !== profileId
+  )
+    return null
+  if (!connectedId) {
+    // A failed preflight must not overwrite execution accepted while it awaited.
+    if (
+      currentSession.queryOperation?.token === session.queryOperation?.token
+    ) {
+      const failed = current.connectionStateByProfileId[profileId]
+      onConnectionError?.(
+        failed?.error ??
+          (failed
+            ? 'This connection is not ready to run a query.'
+            : 'Connection status is still being restored.'),
+      )
+    }
+    return null
+  }
+  const generation = current.connectionStateByProfileId[connectedId]?.generation
+  if (
+    generation === undefined ||
+    ((connection?.status === 'connected' || connection?.status === 'idle') &&
+      generation !== connection.generation)
+  )
+    return null
+  return beginQueryOperation(tabId, connectedId, generation)
 }
 
 /** Prevent an async operation from crossing tabs, profiles, or connection generations. */

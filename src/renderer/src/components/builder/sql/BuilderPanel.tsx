@@ -22,7 +22,6 @@ import {
   selectionPatchForColumns,
 } from '@lib/builderRelations'
 import {
-  beginQueryOperation,
   isPrimaryQueryPending,
   isQueryOperationCurrent,
   selectActiveSession,
@@ -31,6 +30,7 @@ import {
   type TimeBucket,
 } from '@store/useStore'
 import {
+  beginConnectedQueryOperation,
   ensureConnectionForTab,
   isTabConnectionCurrent,
 } from '@lib/tabConnection'
@@ -910,42 +910,12 @@ export function BuilderPanel() {
     const requestTabId = tabId
     const requestQuery = generatedQuery
     const requestSql = generatedSql
-    const initialConnection =
-      useStore.getState().connectionStateByProfileId[tabConnectionId]
-    const requestContext = selectSession(
-      useStore.getState(),
+    const operation = await beginConnectedQueryOperation(
       requestTabId,
-    )?.queryContextId
-    const requestProfileId = await ensureConnectionForTab(requestTabId)
-    if (
-      selectSession(useStore.getState(), requestTabId)?.queryContextId !==
-        requestContext ||
-      selectSession(useStore.getState(), requestTabId)?.connectionProfileId !==
-        tabConnectionId
-    )
-      return
-    if (
-      !requestProfileId ||
-      !isTabConnectionCurrent(requestTabId, requestProfileId)
-    )
-      return
-    if (
-      (initialConnection?.status === 'connected' ||
-        initialConnection?.status === 'idle') &&
-      useStore.getState().connectionStateByProfileId[requestProfileId]
-        ?.generation !== initialConnection.generation
-    )
-      return
-    const requestGeneration =
-      useStore.getState().connectionStateByProfileId[requestProfileId]
-        ?.generation
-    if (requestGeneration === undefined) return
-    const operation = beginQueryOperation(
-      requestTabId,
-      requestProfileId,
-      requestGeneration,
+      tabConnectionId,
     )
     if (!operation) return
+    const requestProfileId = operation.profileId
     setHasRun(true, requestTabId)
     try {
       const result: QueryResult = await api.query.run(
