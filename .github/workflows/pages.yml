@@ -45,6 +45,10 @@ jobs:
         run: xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm docs:screenshots
       - name: Build documentation
         run: pnpm docs:build
+      - name: Verify generated documentation and search metadata
+        env:
+          DATAKOALA_DOCS_REQUIRE_SCREENSHOTS: '1'
+        run: pnpm docs:verify
       - name: Upload documentation preview
         uses: actions/upload-artifact@v7
         with:
