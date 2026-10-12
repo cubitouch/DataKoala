@@ -10,8 +10,12 @@ import {
   traceResultStatus,
   type TraceRow,
 } from './traceViewer'
-import { selectSession, useStore } from '@store/useStore'
-import { isTabConnectionCurrent } from './tabConnection'
+import {
+  beginQueryOperation,
+  isQueryOperationCurrent,
+  selectSession,
+  useStore,
+} from '@store/useStore'
 
 interface SearchRequest {
   query: string
@@ -88,8 +92,22 @@ export function useTempoTraceSearchController({
   )
   const [searchProgress, setSearchProgress] =
     useState<TempoSearchProgress | null>(null)
-  const [searching, setSearching] = useState(false)
-  const requestRevisions = useRef(new Map<string, number>())
+  const searching = useStore(
+    (state) => selectSession(state, tabId)?.running ?? false,
+  )
+  const searchError = useStore(
+    (state) => selectSession(state, tabId)?.queryError ?? null,
+  )
+  const storedResult = useStore(
+    (state) => selectSession(state, tabId)?.result ?? null,
+  )
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   useEffect(() => {
     const storedResult =
@@ -97,14 +115,12 @@ export function useTempoTraceSearchController({
     setSearchRows(searchRowsFromResult(storedResult))
     setSearchNotice(storedResult?.notice ?? '')
     setSearchProgress(null)
-    setSearching(false)
-  }, [tabId])
+  }, [tabId, storedResult])
 
   const resetSearch = useCallback(() => {
     setSearchRows([])
     setSearchNotice('')
     setSearchProgress(null)
-    setSearching(false)
   }, [])
 
   const updateSearchRowStatus = useCallback(
@@ -145,24 +161,22 @@ export function useTempoTraceSearchController({
       const requestGeneration =
         useStore.getState().connectionStateByProfileId[connectionId]?.generation
       if (requestGeneration === undefined) return
-      if (
-        !isTabConnectionCurrent(requestTabId, connectionId, requestGeneration)
+      const operation = beginQueryOperation(
+        requestTabId,
+        connectionId,
+        requestGeneration,
       )
-        return
-      const requestRevision =
-        (requestRevisions.current.get(requestTabId) ?? 0) + 1
-      requestRevisions.current.set(requestTabId, requestRevision)
+      if (!operation) return
       const isCurrentRequest = () =>
-        requestRevisions.current.get(requestTabId) === requestRevision &&
-        isTabConnectionCurrent(requestTabId, connectionId, requestGeneration)
+        isQueryOperationCurrent(useStore.getState(), operation)
       const isVisibleRequest = () =>
-        isCurrentRequest() && useStore.getState().activeTabId === requestTabId
+        mounted.current &&
+        isCurrentRequest() &&
+        useStore.getState().activeTabId === requestTabId
       const perfStarted = performance.now()
       let firstUsefulResult = false
       onSearchStart?.()
-      useStore.getState().startQuery(requestTabId)
       if (useStore.getState().activeTabId === requestTabId) {
-        setSearching(true)
         setSearchRows([])
         setSearchProgress(null)
         setSearchNotice(
@@ -182,6 +196,7 @@ export function useTempoTraceSearchController({
             ...(sampled ? { sampleSize: Number(sampleSize) } : {}),
           },
           (progress, requestId) => {
+            if (!isCurrentRequest()) return
             if (!firstUsefulResult && progress.rows.length > 0) {
               firstUsefulResult = true
               tempoPerf('search.first-result-renderer', {
@@ -205,7 +220,9 @@ export function useTempoTraceSearchController({
             'TraceQL search returned a trace instead of search results.',
           )
         if (isCurrentRequest()) {
-          useStore.getState().completeQuery(result, null, requestTabId)
+          useStore
+            .getState()
+            .completeQuery(result, null, requestTabId, undefined, operation)
           if (isVisibleRequest()) {
             setSearchRows(result.rows)
             setSearchNotice(result.notice ?? '')
@@ -222,7 +239,9 @@ export function useTempoTraceSearchController({
         const message =
           reason instanceof Error ? reason.message : String(reason)
         if (isCurrentRequest()) {
-          useStore.getState().completeQuery(null, message, requestTabId)
+          useStore
+            .getState()
+            .completeQuery(null, message, requestTabId, undefined, operation)
           if (isVisibleRequest()) {
             setSearchNotice(
               sampled
@@ -233,8 +252,6 @@ export function useTempoTraceSearchController({
             onError(message)
           }
         }
-      } finally {
-        if (isVisibleRequest()) setSearching(false)
       }
     },
     [connectionId, onError, onSearchStart, tabId],
@@ -245,6 +262,7 @@ export function useTempoTraceSearchController({
     searchNotice,
     searchProgress,
     searching,
+    searchError,
     runSearch,
     resetSearch,
     updateSearchRowStatus,

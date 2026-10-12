@@ -419,7 +419,7 @@ describe('#371 Tempo search lifecycle', () => {
   )
 
   // Session-owned operation identity must survive controller replacement.
-  it.fails.each(['resolve', 'reject'] as const)(
+  it.each(['resolve', 'reject'] as const)(
     'rejects obsolete %s across same-tab remount',
     async (outcome) => {
       const a = mount(),
@@ -446,7 +446,7 @@ describe('#371 Tempo search lifecycle', () => {
     },
   )
 
-  it.fails('abandons pending state after generation replacement', async () => {
+  it('abandons pending state after generation replacement', async () => {
     const hook = mount(),
       pending = deferred<ReturnType<typeof result>>()
     const work = start(hook, pending)
@@ -467,5 +467,68 @@ describe('#371 Tempo search lifecycle', () => {
       await work
     })
     expect(session('A')?.running).toBe(false)
+  })
+  it('shows pending state on return and adopts the background final result', async () => {
+    const original = mount(),
+      pending = deferred<ReturnType<typeof result>>()
+    const work = start(original, pending)
+    original.unmount()
+    act(() => useStore.setState({ activeTabId: 'B' }))
+    act(() => useStore.setState({ activeTabId: 'A' }))
+    const returned = mount()
+    expect(returned.result.current.searching).toBe(true)
+    expect(run).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      pending.resolve(result([{ traceId: 'final' }]))
+      await work
+    })
+    expect(returned.result.current.searching).toBe(false)
+    expect(returned.result.current.searchRows).toEqual([{ traceId: 'final' }])
+  })
+
+  it('rejects stale progress after remount and same-hook supersession', async () => {
+    const original = mount(),
+      old = deferred<ReturnType<typeof result>>()
+    const oldWork = start(original, old)
+    const oldProgress = run.mock.calls[0][4]
+    original.unmount()
+    const current = mount(),
+      next = deferred<ReturnType<typeof result>>()
+    const nextWork = start(current, next)
+    const nextProgress = run.mock.calls[1][4]
+    act(() => oldProgress(progress([{ traceId: 'old' }]), 'old'))
+    expect(current.result.current.searchRows).toEqual([])
+    act(() => nextProgress(progress([{ traceId: 'partial' }]), 'next'))
+    expect(current.result.current.searchRows).toEqual([{ traceId: 'partial' }])
+    const newest = deferred<ReturnType<typeof result>>()
+    const newestWork = start(current, newest)
+    act(() => nextProgress(progress([{ traceId: 'stale' }]), 'next'))
+    expect(current.result.current.searchRows).toEqual([])
+    expect(current.result.current.searchProgress).toBeNull()
+    await act(async () => {
+      old.resolve(result([]))
+      next.reject(new Error('obsolete'))
+      await Promise.all([oldWork, nextWork])
+    })
+    expect(current.result.current.searching).toBe(true)
+    await act(async () => {
+      newest.resolve(result([{ traceId: 'newest' }]))
+      await newestWork
+    })
+    expect(current.result.current.searchRows).toEqual([{ traceId: 'newest' }])
+  })
+  it('presents the originating failure after a pending search remounts', async () => {
+    const original = mount(),
+      pending = deferred<ReturnType<typeof result>>()
+    const work = start(original, pending)
+    original.unmount()
+    const returned = mount()
+    await act(async () => {
+      pending.reject(new Error('provider failed'))
+      await work
+    })
+    expect(returned.result.current.searching).toBe(false)
+    expect(returned.result.current.searchError).toBe('provider failed')
+    expect(session('B')?.queryError).toBeNull()
   })
 })

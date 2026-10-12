@@ -176,6 +176,7 @@ export function TraceExplorer({
     searchNotice,
     searchProgress,
     searching,
+    searchError,
     runSearch,
     resetSearch,
     updateSearchRowStatus,
@@ -784,9 +785,9 @@ export function TraceExplorer({
             )}
         </div>
       )}
-      {error && (
+      {(error || searchError) && (
         <div className={styles.error} role="alert" style={{ gridRow: 4 }}>
-          {error}
+          {error || searchError}
         </div>
       )}
       {loading === 'trace' && (

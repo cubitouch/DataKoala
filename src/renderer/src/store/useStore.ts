@@ -104,11 +104,16 @@ export interface QueryOperation {
   profileId: string
   generation: number
   token: string
+  slot?: 'primary' | 'explain'
 }
 
 export interface QuerySession {
   /** Runtime primary-result ownership; never serialized into workspace drafts. */
   queryOperation?: QueryOperation | null
+  explainOperation?: QueryOperation | null
+  pendingQueryOperations?: string[]
+  /** Runtime identity for binding/reset transitions, including connection awaits. */
+  queryContextId?: string
   id: string
   title: string
   connectionProfileId: string | null
@@ -247,6 +252,9 @@ export function createQuerySession(
     tempoResultView: DEFAULT_TRACE_RESULT_VIEW,
     running: false,
     queryOperation: null,
+    explainOperation: null,
+    pendingQueryOperations: [],
+    queryContextId: sessionId(),
     queryError: null,
     result: null,
     pendingResult: null,
@@ -558,7 +566,11 @@ export const useStore = create<AppState>((set, get) => ({
             ? {
                 ...tab,
                 running: false,
+                activeExplainRequest: null,
                 queryOperation: null,
+                explainOperation: null,
+                pendingQueryOperations: [],
+                queryContextId: sessionId(),
                 pendingResult: null,
                 isResultStale: Boolean(tab.result),
               }
@@ -826,6 +838,9 @@ export const useStore = create<AppState>((set, get) => ({
         ...session,
         running: false,
         queryOperation: null,
+        explainOperation: null,
+        pendingQueryOperations: [],
+        queryContextId: sessionId(),
         queryError: null,
         repairableQueryError: null,
         result: null,
@@ -889,6 +904,9 @@ export const useStore = create<AppState>((set, get) => ({
           manualQueryPristine: false,
           running: false,
           queryOperation: null,
+          explainOperation: null,
+          pendingQueryOperations: [],
+          queryContextId: sessionId(),
           queryError: null,
           repairableQueryError: null,
           result: null,
@@ -974,6 +992,12 @@ export const useStore = create<AppState>((set, get) => ({
         ...session,
         ...startQueryState(session),
         queryOperation: operation ?? null,
+        pendingQueryOperations: [
+          ...(session.pendingQueryOperations ?? []).filter(
+            (token) => token !== session.queryOperation?.token,
+          ),
+          ...(operation ? [operation.token] : []),
+        ],
         repairableQueryError: null,
       })),
     ),
@@ -982,7 +1006,14 @@ export const useStore = create<AppState>((set, get) => ({
       patchSession(state, tabId, (session) => {
         if (operation && !isQueryOperationCurrent(state, operation))
           return session
-        const next = completeQueryState(session, result, error ?? null)
+        const pendingQueryOperations = (
+          session.pendingQueryOperations ?? []
+        ).filter((token) => token !== operation?.token)
+        const next = {
+          ...completeQueryState(session, result, error ?? null),
+          pendingQueryOperations,
+          running: pendingQueryOperations.length > 0,
+        }
         return result
           ? {
               ...session,
@@ -1295,6 +1326,15 @@ export const useStore = create<AppState>((set, get) => ({
     ),
 }))
 
+/** Workspace Run presentation is independent of Explain's pending slot. */
+export function isPrimaryQueryPending(session: QuerySession): boolean {
+  return session.queryOperation
+    ? (session.pendingQueryOperations ?? []).includes(
+        session.queryOperation.token,
+      )
+    : session.running && !session.activeExplainRequest
+}
+
 /** Primary ownership remains valid after completion for optional result attachments. */
 export function isQueryOperationCurrent(
   state: Pick<AppState, 'tabs' | 'connectionStateByProfileId'>,
@@ -1302,8 +1342,10 @@ export function isQueryOperationCurrent(
 ): boolean {
   const tab = selectSession(state, operation.tabId)
   return (
-    tab?.queryOperation?.token === operation.token &&
-    tab.connectionProfileId === operation.profileId &&
+    Boolean(tab) &&
+    (operation.slot === 'explain' ? tab?.explainOperation : tab?.queryOperation)
+      ?.token === operation.token &&
+    tab?.connectionProfileId === operation.profileId &&
     isUsableProfileConnection(
       state.connectionStateByProfileId[operation.profileId],
       operation.generation,
@@ -1315,6 +1357,7 @@ export function beginQueryOperation(
   tabId: string,
   profileId: string,
   generation: number,
+  slot: 'primary' | 'explain' = 'primary',
 ): QueryOperation | null {
   const state = useStore.getState()
   if (
@@ -1325,27 +1368,87 @@ export function beginQueryOperation(
     )
   )
     return null
-  const operation = { tabId, profileId, generation, token: sessionId() }
-  state.startQuery(tabId, operation)
+  const operation: QueryOperation = {
+    tabId,
+    profileId,
+    generation,
+    token: sessionId(),
+    slot,
+  }
+  if (slot === 'primary') state.startQuery(tabId, operation)
+  else
+    useStore.setState((current) =>
+      patchSession(current, tabId, (session) => ({
+        ...session,
+        explainOperation: operation,
+        pendingQueryOperations: [
+          ...(session.pendingQueryOperations ?? []).filter(
+            (token) => token !== session.explainOperation?.token,
+          ),
+          operation.token,
+        ],
+        running: true,
+      })),
+    )
   return operation
 }
 
+/** Finish only the Explain slot; Run may still own pending work. */
+export function completeExplainOperation(operation: QueryOperation): void {
+  useStore.setState((state) =>
+    patchSession(state, operation.tabId, (session) => {
+      if (!isQueryOperationCurrent(state, operation)) return session
+      const pendingQueryOperations = (
+        session.pendingQueryOperations ?? []
+      ).filter((token) => token !== operation.token)
+      return {
+        ...session,
+        pendingQueryOperations,
+        running: pendingQueryOperations.length > 0,
+        activeExplainRequest: null,
+      }
+    }),
+  )
+}
+
 // Connection state can change through events, explicit connect or restoration.
-// Invalidate only session-owned operations; legacy datasource paths stay unchanged.
-useStore.subscribe((state) => {
+useStore.subscribe((state, previous) => {
+  const bindingChanged = (tab: QuerySession) => {
+    const before = selectSession(previous, tab.id)
+    return before && before.connectionProfileId !== tab.connectionProfileId
+  }
+  const invalid = (operation: QueryOperation | null | undefined) =>
+    operation && !isQueryOperationCurrent(state, operation)
   if (
     !state.tabs.some(
       (tab) =>
-        tab.queryOperation &&
-        !isQueryOperationCurrent(state, tab.queryOperation),
+        bindingChanged(tab) ||
+        invalid(tab.queryOperation) ||
+        invalid(tab.explainOperation),
     )
   )
     return
   useStore.setState({
-    tabs: state.tabs.map((tab) =>
-      tab.queryOperation && !isQueryOperationCurrent(state, tab.queryOperation)
-        ? { ...tab, queryOperation: null, running: false, pendingResult: null }
-        : tab,
-    ),
+    tabs: state.tabs.map((tab) => {
+      const rebound = bindingChanged(tab)
+      const primary = rebound || invalid(tab.queryOperation)
+      const explain = rebound || invalid(tab.explainOperation)
+      if (!primary && !explain) return tab
+      const pendingQueryOperations = (tab.pendingQueryOperations ?? []).filter(
+        (token) =>
+          !(primary && token === tab.queryOperation?.token) &&
+          !(explain && token === tab.explainOperation?.token),
+      )
+      return {
+        ...tab,
+        queryContextId: rebound ? sessionId() : tab.queryContextId,
+        queryOperation: primary ? null : tab.queryOperation,
+        explainOperation: explain ? null : tab.explainOperation,
+        pendingQueryOperations,
+        running: pendingQueryOperations.length > 0,
+        pendingResult: primary ? null : tab.pendingResult,
+        activeExplainRequest: explain ? null : tab.activeExplainRequest,
+      }
+    }),
   })
 })

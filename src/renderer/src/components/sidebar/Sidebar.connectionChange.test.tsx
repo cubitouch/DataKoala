@@ -57,7 +57,11 @@ vi.mock('@lib/api', () => ({
 }))
 
 import { Sidebar } from './Sidebar'
-import { selectActiveSession, useStore } from '@store/useStore'
+import {
+  beginQueryOperation,
+  selectActiveSession,
+  useStore,
+} from '@store/useStore'
 import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 
 const profiles: ConnectionProfile[] = [
@@ -129,9 +133,13 @@ describe('Sidebar connection changes', () => {
       })
       patchActiveTestSession({
         connectionProfileId: 'profile-a',
-        running: true,
         result,
       })
+      beginQueryOperation(
+        selectActiveSession(useStore.getState()).id,
+        'profile-a',
+        1,
+      )
       const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accept)
       render(<Sidebar />)
       await waitFor(() =>

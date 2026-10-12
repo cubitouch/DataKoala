@@ -966,6 +966,7 @@ export function readWorkspaceDraft(
 function restoredSession(draft: QuerySessionDraft): QuerySession {
   return {
     id: draft.id,
+    queryContextId: crypto.randomUUID(),
     title: draft.title,
     connectionProfileId: draft.connectionProfileId,
     sql: draft.sql,

@@ -12,6 +12,10 @@ import {
 import { sql as sqlExtension } from '@codemirror/lang-sql'
 import { PromQLExtension } from '@prometheus-io/codemirror-promql'
 import {
+  beginQueryOperation,
+  isPrimaryQueryPending,
+  completeExplainOperation,
+  isQueryOperationCurrent,
   selectActiveSession,
   selectActiveTabConnection,
   selectSession,
@@ -20,6 +24,7 @@ import {
 import { api } from '@lib/api'
 import { isRepairableQueryExecutionError } from '@lib/queryErrors'
 import {
+  beginConnectedQueryOperation,
   ensureConnectionForTab,
   isTabConnectionCurrent,
 } from '@lib/tabConnection'
@@ -97,8 +102,7 @@ export function QueryEditor({
   const connecting =
     activeTabConnection?.status === 'connecting' ||
     activeTabConnection?.status === 'reconnecting'
-  const running = useStore((s) => selectActiveSession(s).running)
-  const startQuery = useStore((s) => s.startQuery)
+  const running = useStore((s) => isPrimaryQueryPending(selectActiveSession(s)))
   const completeQuery = useStore((s) => s.completeQuery)
   const setResult = useStore((s) => s.setResult)
   const setVisualization = useStore((s) => s.setVisualization)
@@ -138,7 +142,6 @@ export function QueryEditor({
     (s) => selectActiveSession(s).queryFilterRevision.sql,
   )
   const initialFilterRevision = useRef(new Map<string, number>())
-  const runRevisions = useRef(new Map<string, number>())
 
   const extensions = useMemo(() => {
     if (language.kind === 'promql') return [new PromQLExtension().asExtension()]
@@ -187,28 +190,13 @@ export function QueryEditor({
       )
       return
     }
-    const requestProfileId = await ensureConnectionForTab(requestTabId)
-    if (!requestProfileId) {
-      const connection =
-        useStore.getState().connectionStateByProfileId[tabConnectionId]
-      setResult(
-        null,
-        connection?.error ??
-          (connection
-            ? 'This connection is not ready to run a query.'
-            : 'Connection status is still being restored.'),
-        requestTabId,
-      )
-      return
-    }
-    if (!isTabConnectionCurrent(requestTabId, requestProfileId)) return
-    const requestGeneration =
-      useStore.getState().connectionStateByProfileId[requestProfileId]
-        ?.generation
-    if (requestGeneration === undefined) return
-    const revision = (runRevisions.current.get(requestTabId) ?? 0) + 1
-    runRevisions.current.set(requestTabId, revision)
-    startQuery(requestTabId)
+    const operation = await beginConnectedQueryOperation(
+      requestTabId,
+      tabConnectionId,
+      (message) => setResult(null, message, requestTabId),
+    )
+    if (!operation) return
+    const requestProfileId = operation.profileId
     let repairableQuery: string | undefined
     try {
       const promoted =
@@ -256,6 +244,7 @@ export function QueryEditor({
         execution.parameters,
         promRange,
       )
+      if (!isQueryOperationCurrent(useStore.getState(), operation)) return
       if (language.kind === 'promql') {
         const seriesColumns = builderMode
           ? (requestSession?.promqlBuilder.groupBy ?? [])
@@ -275,29 +264,16 @@ export function QueryEditor({
           requestTabId,
         )
       }
-      if (
-        runRevisions.current.get(requestTabId) === revision &&
-        isTabConnectionCurrent(
-          requestTabId,
-          requestProfileId,
-          requestGeneration,
-        )
-      )
-        completeQuery(res, null, requestTabId)
+      if (isQueryOperationCurrent(useStore.getState(), operation))
+        completeQuery(res, null, requestTabId, undefined, operation)
     } catch (e) {
-      if (
-        runRevisions.current.get(requestTabId) === revision &&
-        isTabConnectionCurrent(
-          requestTabId,
-          requestProfileId,
-          requestGeneration,
-        )
-      )
+      if (isQueryOperationCurrent(useStore.getState(), operation))
         completeQuery(
           null,
           e instanceof Error ? e.message : String(e),
           requestTabId,
           isRepairableQueryExecutionError(e) ? repairableQuery : undefined,
+          operation,
         )
     }
   }, [
@@ -308,7 +284,6 @@ export function QueryEditor({
     filters,
     setResult,
     tabConnectionId,
-    startQuery,
     language.kind,
     dialect,
     builderMode,
@@ -333,36 +308,66 @@ export function QueryEditor({
     const requestTabId = tabId
     const requestSql = sql
     const snapshot = { query: requestSql, mode }
-    setActiveExplainRequest(mode, requestTabId)
-    setShowExplain(true, requestTabId)
+    const requestContext = selectSession(
+      useStore.getState(),
+      requestTabId,
+    )?.queryContextId
+    const initialGeneration =
+      useStore.getState().connectionStateByProfileId[tabConnectionId]
+        ?.generation
+    let operation =
+      initialGeneration === undefined
+        ? null
+        : beginQueryOperation(
+            requestTabId,
+            tabConnectionId,
+            initialGeneration,
+            'explain',
+          )
+    if (operation) {
+      setActiveExplainRequest(mode, requestTabId)
+      setShowExplain(true, requestTabId)
+    }
     const requestProfileId = await ensureConnectionForTab(requestTabId)
+    if (
+      selectSession(useStore.getState(), requestTabId)?.queryContextId !==
+        requestContext ||
+      selectSession(useStore.getState(), requestTabId)?.connectionProfileId !==
+        tabConnectionId
+    )
+      return
     if (
       !requestProfileId ||
       !isTabConnectionCurrent(requestTabId, requestProfileId)
     ) {
-      setActiveExplainRequest(null, requestTabId)
+      if (operation) completeExplainOperation(operation)
       return
     }
     const requestGeneration =
       useStore.getState().connectionStateByProfileId[requestProfileId]
         ?.generation
     if (requestGeneration === undefined) {
-      setActiveExplainRequest(null, requestTabId)
+      if (operation) completeExplainOperation(operation)
       return
     }
+    if (operation && !isQueryOperationCurrent(useStore.getState(), operation))
+      return
+    operation ??= beginQueryOperation(
+      requestTabId,
+      requestProfileId,
+      requestGeneration,
+      'explain',
+    )
+    if (!operation) return
+    setActiveExplainRequest(mode, requestTabId)
+    setShowExplain(true, requestTabId)
     try {
       const res = await api.query.explain(
         requestProfileId,
         requestSql,
         mode === 'analyze',
       )
-      if (
-        isTabConnectionCurrent(
-          requestTabId,
-          requestProfileId,
-          requestGeneration,
-        )
-      )
+      if (isQueryOperationCurrent(useStore.getState(), operation))
         setExplain(
           res.text,
           requestTabId,
@@ -375,16 +380,10 @@ export function QueryEditor({
         )
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
-      if (
-        isTabConnectionCurrent(
-          requestTabId,
-          requestProfileId,
-          requestGeneration,
-        )
-      )
+      if (isQueryOperationCurrent(useStore.getState(), operation))
         setExplain(message, requestTabId, snapshot)
     } finally {
-      setActiveExplainRequest(null, requestTabId)
+      completeExplainOperation(operation)
     }
   }
 
