@@ -743,7 +743,7 @@ nav {
   background: #111419;
 }
 
-.terminal-bar > span[aria-hidden="true"] {
+.terminal-bar > span[aria-hidden='true'] {
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -788,7 +788,7 @@ nav {
   outline-offset: 2px;
 }
 
-.copy-install-button[data-copied="true"] {
+.copy-install-button[data-copied='true'] {
   color: var(--accent);
 }
 
@@ -815,11 +815,273 @@ nav {
 .prompt {
   color: var(--accent);
   user-select: none;
-  -webkit-user-select: none;
 }
 
 .prompt::before {
-  content: "$";
+  content: '
+}
+
+footer {
+  display: grid;
+  border-top: 1px solid var(--border-soft);
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 30px;
+  padding: 34px 0 52px;
+  color: #747b86;
+}
+
+.footer-brand {
+  font-size: 16px;
+}
+
+.footer-brand .brand-mark {
+  width: 27px;
+  height: 27px;
+  border-radius: 8px;
+}
+
+.footer-brand .brand-mark img {
+  width: 21px;
+  height: 21px;
+  object-fit: contain;
+}
+
+footer p {
+  margin: 0;
+  text-align: center;
+}
+
+.footer-links {
+  justify-self: end;
+}
+
+.footer-links a {
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  color: #fff;
+}
+
+@media (width <= 980px) {
+  nav {
+    grid-template-columns: 1fr auto;
+  }
+
+  .nav-links {
+    display: none;
+  }
+
+  .bento-card-sql,
+  .bento-card-logs,
+  .bento-card-metrics,
+  .bento-card-traces {
+    grid-column: span 6;
+  }
+
+  .feature,
+  .feature.reverse {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .feature.reverse > .feature-copy {
+    order: 0;
+  }
+
+  .feature-copy {
+    max-width: 680px;
+  }
+
+  .principle-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .principle-grid article {
+    min-height: 0;
+  }
+
+  .principle-number {
+    margin-bottom: 38px;
+  }
+
+  .start {
+    grid-template-columns: 1fr;
+  }
+
+  footer {
+    grid-template-columns: 1fr auto;
+  }
+
+  footer p {
+    display: none;
+  }
+}
+
+@media (width <= 720px) {
+  nav,
+  main,
+  footer {
+    width: min(100% - 28px, 1280px);
+  }
+
+  .site-header {
+    padding: 0;
+  }
+
+  nav {
+    min-height: 64px;
+    padding: 0;
+  }
+
+  .nav-source-label {
+    display: none;
+  }
+
+  .nav-actions .button-ghost {
+    width: 40px;
+    padding: 0;
+  }
+
+  .hero {
+    margin-top: 0;
+    padding: 88px 0 62px;
+  }
+
+  .hero::before {
+    background: radial-gradient(circle, rgb(255 212 59 / 9%), transparent 66%);
+  }
+
+  .hero h1 {
+    margin-top: 20px;
+    font-size: clamp(48px, 14vw, 68px);
+  }
+
+  .lede {
+    font-size: 17px;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+  }
+
+  .hero-actions .button {
+    width: min(100%, 280px);
+  }
+
+  .hero-proof {
+    gap: 10px 18px;
+    margin-bottom: 40px;
+  }
+
+  .source-strip {
+    padding-block: 26px;
+  }
+
+  .workspace,
+  .deep-dives,
+  .principles {
+    padding-top: 88px;
+  }
+
+  .section-heading {
+    margin-bottom: 34px;
+  }
+
+  .section-heading h2 {
+    font-size: clamp(38px, 11vw, 52px);
+  }
+
+  .section-heading > p:last-child {
+    font-size: 16px;
+  }
+
+  .bento-card-sql,
+  .bento-card-logs,
+  .bento-card-metrics,
+  .bento-card-traces {
+    grid-column: 1 / -1;
+  }
+
+  .bento-card {
+    min-height: 0;
+  }
+
+  .bento-copy {
+    padding: 26px 24px 23px;
+  }
+
+  .card-index {
+    margin-bottom: 22px;
+  }
+
+  .bento-media {
+    margin: 0 12px;
+  }
+
+  .feature {
+    padding: 54px 0;
+  }
+
+  .feature h3 {
+    font-size: 31px;
+  }
+
+  .principle-grid article {
+    padding: 28px;
+  }
+
+  .start {
+    margin: 98px 0 72px;
+    padding: 28px;
+  }
+
+  .start pre {
+    padding: 20px;
+    font-size: 11px;
+  }
+
+  footer {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .footer-links {
+    justify-self: start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (width <= 430px) {
+  .nav-actions .button-primary {
+    display: none;
+  }
+
+  .hero-kicker {
+    font-size: 9px;
+  }
+
+  .hero h1 {
+    font-size: 45px;
+  }
+
+  .hero-proof {
+    align-items: flex-start;
+    flex-direction: column;
+    width: fit-content;
+    margin-inline: auto;
+  }
+
+  .source-list {
+    justify-content: flex-start;
+  }
+
+  .start {
+    padding: 24px 18px;
+  }
+}
+;
 }
 
 footer {
