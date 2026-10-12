@@ -738,3 +738,34 @@ test('obsolete Loki range history is ignored without changing the saved query ra
     false,
   )
 })
+
+// #371: renderer promises/progress subscriptions cannot be reattached on reload.
+test('restoration clears unobservable pending work for every datasource kind', () => {
+  for (const kind of [
+    'postgres',
+    'bigquery',
+    'local-files',
+    'sqlite-file',
+    'prometheus',
+    'loki',
+    'tempo',
+  ]) {
+    const raw = JSON.parse(serializeWorkspaceDraft(state())) as {
+      tabs: Record<string, unknown>[]
+    }
+    raw.tabs[0].connectionProfileId = `audit-${kind}`
+    raw.tabs[0].running = true
+    raw.tabs[0].activeExplainRequest = 'analyze'
+    raw.tabs[0].pendingResult = { rows: [{ obsolete: true }] }
+    const storage = new MemoryStorage()
+    storage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(raw))
+    const patches: WorkspaceRestorePatch[] = []
+    restoreWorkspaceDraft((patch) => patches.push(patch), storage)
+    const restored = patches[0]
+    assert.ok(restored)
+    assert.equal(restored.tabs[0].connectionProfileId, `audit-${kind}`)
+    assert.equal(restored.tabs[0].running, false)
+    assert.equal(restored.tabs[0].activeExplainRequest, null)
+    assert.equal(restored.tabs[0].pendingResult, null)
+  }
+})

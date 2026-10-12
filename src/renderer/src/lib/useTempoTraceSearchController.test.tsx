@@ -8,7 +8,12 @@ vi.mock('./api', () => ({
 }))
 
 import { useTempoTraceSearchController } from './useTempoTraceSearchController'
-import { selectActiveSession, useStore } from '@store/useStore'
+import {
+  createQuerySession,
+  selectActiveSession,
+  useStore,
+} from '@store/useStore'
+import { bindTabConnection } from './tabConnection'
 
 const range = { kind: 'rolling', amount: 1, unit: 'hour' } as const
 const progress = (rows: Record<string, unknown>[]) => ({
@@ -284,5 +289,183 @@ describe('useTempoTraceSearchController', () => {
         'TraceQL search returned a trace instead of search results.',
       ),
     )
+  })
+})
+
+// #371: requests must survive the same unmount that App's keyed shell performs.
+describe('#371 Tempo search lifecycle', () => {
+  beforeEach(() => {
+    run.mockReset()
+    useStore.setState(useStore.getInitialState(), true)
+    useStore.setState({
+      tabs: ['A', 'B'].map((id, i) =>
+        createQuerySession(i + 1, { id, connectionProfileId: 'tempo-1' }),
+      ),
+      activeTabId: 'A',
+      connectionStateByProfileId: {
+        'tempo-1': {
+          status: 'connected',
+          generation: 1,
+          error: null,
+          serverVersion: null,
+        },
+      },
+    })
+  })
+  afterEach(cleanup)
+  const session = (id: string) =>
+    useStore.getState().tabs.find((tab) => tab.id === id)
+  function mount() {
+    return renderHook(() =>
+      useTempoTraceSearchController({
+        connectionId: 'tempo-1',
+        onError: vi.fn(),
+      }),
+    )
+  }
+  function start(
+    hook: ReturnType<typeof mount>,
+    pending: ReturnType<typeof deferred<ReturnType<typeof result>>>,
+  ) {
+    run.mockReturnValueOnce(pending.promise)
+    let work!: Promise<void>
+    act(() => {
+      work = hook.result.current.runSearch({
+        query: '{}',
+        sampleSize: 'all',
+        range,
+      })
+    })
+    return work
+  }
+
+  it.each(['resolve', 'reject'] as const)(
+    'delivers %s to background A after unmount',
+    async (outcome) => {
+      const hook = mount(),
+        pending = deferred<ReturnType<typeof result>>()
+      const work = start(hook, pending)
+      hook.unmount()
+      act(() => useStore.setState({ activeTabId: 'B' }))
+      expect(session('A')?.running).toBe(true)
+      await act(async () => {
+        if (outcome === 'resolve') pending.resolve(result([{ traceId: 'a' }]))
+        else pending.reject(new Error('A failed'))
+        await work
+      })
+      expect(session('A')?.running).toBe(false)
+      expect(
+        outcome === 'resolve'
+          ? session('A')?.result?.rows
+          : session('A')?.queryError,
+      ).toEqual(outcome === 'resolve' ? [{ traceId: 'a' }] : 'A failed')
+      expect(session('B')?.result).toBeNull()
+      expect(session('B')?.queryError).toBeNull()
+    },
+  )
+
+  it('finishes independently in reverse order after remounting B', async () => {
+    const a = mount(),
+      first = deferred<ReturnType<typeof result>>()
+    const workA = start(a, first)
+    a.unmount()
+    act(() => useStore.setState({ activeTabId: 'B' }))
+    const b = mount(),
+      second = deferred<ReturnType<typeof result>>()
+    const workB = start(b, second)
+    await act(async () => {
+      second.resolve(result([{ traceId: 'b' }]))
+      await workB
+    })
+    expect(session('A')?.running).toBe(true)
+    expect(session('B')?.running).toBe(false)
+    await act(async () => {
+      first.resolve(result([{ traceId: 'a' }]))
+      await workA
+    })
+    expect(session('A')?.result?.rows).toEqual([{ traceId: 'a' }])
+    expect(session('B')?.result?.rows).toEqual([{ traceId: 'b' }])
+  })
+
+  it.each(['close', 'rebind', 'generation'] as const)(
+    'rejects obsolete completion after %s',
+    async (change) => {
+      const hook = mount(),
+        pending = deferred<ReturnType<typeof result>>()
+      const work = start(hook, pending)
+      act(() => {
+        if (change === 'close') useStore.getState().closeTab('A')
+        else if (change === 'rebind') bindTabConnection('A', null)
+        else
+          useStore.setState({
+            connectionStateByProfileId: {
+              'tempo-1': {
+                status: 'connected',
+                generation: 2,
+                error: null,
+                serverVersion: null,
+              },
+            },
+          })
+      })
+      await act(async () => {
+        pending.resolve(result([{ traceId: 'obsolete' }]))
+        await work
+      })
+      expect(session('A')?.result ?? null).toBeNull()
+      expect(session('B')?.result).toBeNull()
+      if (change === 'close') expect(session('A')).toBeUndefined()
+    },
+  )
+
+  // Session-owned operation identity must survive controller replacement.
+  it.fails.each(['resolve', 'reject'] as const)(
+    'rejects obsolete %s across same-tab remount',
+    async (outcome) => {
+      const a = mount(),
+        old = deferred<ReturnType<typeof result>>()
+      const oldWork = start(a, old)
+      a.unmount()
+      const newerHook = mount(),
+        newer = deferred<ReturnType<typeof result>>()
+      const newWork = start(newerHook, newer)
+      await act(async () => {
+        if (outcome === 'resolve')
+          old.resolve(result([{ traceId: 'obsolete' }]))
+        else old.reject(new Error('obsolete failure'))
+        await oldWork
+      })
+      const afterOld = session('A')
+      await act(async () => {
+        newer.resolve(result([{ traceId: 'newer' }]))
+        await newWork
+      })
+      expect(afterOld?.running).toBe(true)
+      expect(afterOld?.result).toBeNull()
+      expect(afterOld?.queryError).toBeNull()
+    },
+  )
+
+  it.fails('abandons pending state after generation replacement', async () => {
+    const hook = mount(),
+      pending = deferred<ReturnType<typeof result>>()
+    const work = start(hook, pending)
+    act(() =>
+      useStore.setState({
+        connectionStateByProfileId: {
+          'tempo-1': {
+            status: 'connected',
+            generation: 2,
+            error: null,
+            serverVersion: null,
+          },
+        },
+      }),
+    )
+    await act(async () => {
+      pending.resolve(result([]))
+      await work
+    })
+    expect(session('A')?.running).toBe(false)
   })
 })
