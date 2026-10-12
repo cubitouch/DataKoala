@@ -233,6 +233,7 @@ export function bindTabConnection(
         ...freshDefaults,
         connectionProfileId: profileId,
         running: false,
+        queryOperation: null,
         queryError: null,
         repairableQueryError: null,
         result: null,
