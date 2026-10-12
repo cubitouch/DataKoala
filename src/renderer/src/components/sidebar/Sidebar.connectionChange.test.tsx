@@ -46,6 +46,7 @@ vi.mock('@lib/api', () => ({
           readonly: true,
         },
       ]),
+      listLive: vi.fn(async () => []),
       connect,
       disconnect,
       listObjects,
@@ -109,7 +110,62 @@ describe('Sidebar connection changes', () => {
     cleanup()
     resetTestStore()
     vi.clearAllMocks()
+    vi.restoreAllMocks()
   })
+
+  it.each([false, true])(
+    'retains foreground switch confirmation for a running query (accept=%s)',
+    async (accept) => {
+      resetTestStore({
+        profiles,
+        connectionStateByProfileId: {
+          'profile-a': {
+            status: 'connected',
+            generation: 1,
+            error: null,
+            serverVersion: '16',
+          },
+        },
+      })
+      patchActiveTestSession({
+        connectionProfileId: 'profile-a',
+        running: true,
+        result,
+      })
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(accept)
+      render(<Sidebar />)
+      await waitFor(() =>
+        expect(
+          useStore.getState().connectionStateByProfileId['profile-b']?.status,
+        ).toBe('disconnected'),
+      )
+      const before = selectActiveSession(useStore.getState())
+      fireEvent.click(screen.getByText('Database B'))
+      expect(confirm).toHaveBeenCalledExactlyOnceWith(
+        'A query is still running on the current connection. Switching connections will stop it. Continue?',
+      )
+      if (accept) {
+        await waitFor(() =>
+          expect(
+            useStore.getState().connectionStateByProfileId['profile-b'].status,
+          ).toBe('connected'),
+        )
+        expect(selectActiveSession(useStore.getState())).toMatchObject({
+          connectionProfileId: 'profile-b',
+          running: false,
+          result: null,
+        })
+        expect(connect).toHaveBeenCalledExactlyOnceWith(profiles[1])
+      } else {
+        expect(selectActiveSession(useStore.getState())).toBe(before)
+        expect(connect).not.toHaveBeenCalled()
+      }
+      expect(
+        useStore.getState().connectionStateByProfileId['profile-a'].status,
+      ).toBe('connected')
+      expect(disconnect).not.toHaveBeenCalled()
+    },
+  )
 
   it('clears result-derived state when the active tab changes connection but preserves its draft', async () => {
     resetTestStore({

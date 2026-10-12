@@ -1,5 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import type { BigQueryProfile, ConnectResult } from '../../shared/types'
+import type {
+  BigQueryProfile,
+  ConnectResult,
+  DataSourceProfile,
+} from '../../shared/types'
 import type { DataSourceAdapter, DataSourceSession } from '../data-source'
 import { AdapterRegistry } from '../data-source'
 import { SessionManager } from '../db'
@@ -35,10 +39,9 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-// Passing characterization of an unsafe current behavior; Slice 2 must change
-// the final absence assertion to preservation after fixing stale cleanup.
+// Real SessionManager reuse must survive obsolete renderer response delivery.
 it.each(['older-first', 'newer-first'] as const)(
-  'characterizes shared-generation cleanup with %s IPC delivery using the real SessionManager',
+  'preserves the reused session with %s IPC delivery using the real SessionManager',
   async (order) => {
     mocks.listObjects.mockResolvedValue([])
     const close = vi.fn(async () => undefined)
@@ -56,17 +59,24 @@ it.each(['older-first', 'newer-first'] as const)(
       describeRelation: vi.fn(async () => []),
       close,
     }
+    const otherClose = vi.fn(async () => undefined)
+    const otherSession: DataSourceSession = {
+      ...session,
+      info: { profileId: 'other', provider: 'bigquery' },
+      close: otherClose,
+    }
     const adapter: DataSourceAdapter = {
       kind: 'bigquery',
       test: vi.fn(async () => ({ ok: true as const })),
-      connect: vi.fn(async () => ({
+      connect: vi.fn(async (value: DataSourceProfile) => ({
         result: { ok: true as const, generation: 7 },
-        session,
+        session: value.id === profile.id ? session : otherSession,
       })),
     }
     const manager = new SessionManager(new AdapterRegistry().register(adapter))
     try {
       const liveResult = await manager.connect(profile)
+      await manager.connect({ ...profile, id: 'other' })
       const olderReady = deferred<ConnectResult>()
       const newerReady = deferred<ConnectResult>()
       const releaseOlder = deferred<void>()
@@ -103,7 +113,7 @@ it.each(['older-first', 'newer-first'] as const)(
       expect(await olderReady.promise).toBe(liveResult)
       const newer = useStore.getState().connectProfile(profile)
       expect(await newerReady.promise).toBe(liveResult)
-      expect(adapter.connect).toHaveBeenCalledTimes(1)
+      expect(adapter.connect).toHaveBeenCalledTimes(2)
       if (order === 'newer-first') {
         releaseNewer.resolve()
         await newer
@@ -118,10 +128,16 @@ it.each(['older-first', 'newer-first'] as const)(
         releaseNewer.resolve()
         await newer
       }
-      expect(mocks.disconnect).toHaveBeenCalledExactlyOnceWith(profile.id, 7)
-      expect(close).toHaveBeenCalledTimes(1)
-      expect(manager.get(profile.id)).toBeUndefined()
-      expect(manager.listLive()).toEqual([])
+      expect(mocks.disconnect).not.toHaveBeenCalled()
+      expect(close).not.toHaveBeenCalled()
+      expect(otherClose).not.toHaveBeenCalled()
+      expect(manager.get(profile.id)).toBe(session)
+      expect(manager.get('other')).toBe(otherSession)
+      expect(manager.listLive()).toEqual([
+        { id: profile.id, generation: 7, serverVersion: undefined },
+        { id: 'other', generation: 7, serverVersion: undefined },
+      ])
+      await manager.get(profile.id)!.query({ sql: 'select 1' })
       expect(useStore.getState().connectionStateByProfileId.same).toMatchObject(
         { status: 'connected', generation: 7 },
       )
