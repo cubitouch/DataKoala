@@ -16,6 +16,8 @@ const aiMocks = vi.hoisted(() => ({
   cancel: vi.fn(),
 }))
 
+const queryMocks = vi.hoisted(() => ({ run: vi.fn(), runLoki: vi.fn() }))
+
 const chartMock = vi.hoisted(() => ({
   brush: null as
     null | ((params: { areas: { coordRange: number[] }[] }) => void),
@@ -36,6 +38,7 @@ vi.mock('echarts-for-react', () => ({
 }))
 vi.mock('@lib/api', () => ({
   api: {
+    query: queryMocks,
     clipboardImage: vi.fn(),
     export: { saveBinary: vi.fn() },
     ai: {
@@ -50,6 +53,13 @@ import {
   GenericResultExplorer,
   type GenericResultExplorerProps,
 } from './GenericResultExplorer'
+import { ResultExplorer } from './ResultExplorer'
+import { useStore } from '@store/useStore'
+import {
+  activeTestSession,
+  patchActiveTestSession,
+  resetTestStore,
+} from '@test/sessionTestUtils'
 import { createResultFilter, type ResultFilter } from '@lib/resultFilters'
 import type { VisualizationConfiguration } from '@lib/resultVisualization'
 import type { QueryResult } from '@shared/types'
@@ -303,3 +313,91 @@ it('keeps SQL temporal selections local, cumulative, and removable', async () =>
   await waitFor(() => expect(chartMock.option?.series).toEqual(fullSeries))
   expect(temporal).toEqual(original)
 })
+
+for (const kind of ['sql', 'prometheus'] as const) {
+  it(`keeps ${kind} brush filters tab-scoped and preserved on refresh without queries`, async () => {
+    resetTestStore({
+      profiles:
+        kind === 'prometheus'
+          ? [
+              {
+                id: 'metrics',
+                name: 'Metrics',
+                kind: 'prometheus',
+                version: 1,
+                readonly: true,
+                transport: { kind: 'gcx', datasourceUid: 'metrics' },
+              },
+            ]
+          : [],
+    })
+    const temporal: QueryResult = {
+      ...result,
+      columns: [
+        { name: 'timestamp', dataTypeID: 0, dataTypeName: 'timestamp' },
+        result.columns[1],
+      ],
+      rows: [0, 1, 2, 3].map((hour) => ({
+        timestamp: new Date(Date.UTC(2026, 0, 1, hour)).toISOString(),
+        value: hour + 1,
+      })),
+      rowCount: 4,
+    }
+    patchActiveTestSession({
+      connectionProfileId: kind === 'prometheus' ? 'metrics' : null,
+      result: temporal,
+      resultRevision: 1,
+      sqlVisualization: {
+        ...configuration,
+        view: 'line',
+        xColumn: 'timestamp',
+      },
+    })
+    const a = activeTestSession().id
+    render(<ResultExplorer mode="sql" />)
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(4),
+    )
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [2, 1] }] }))
+    expect(activeTestSession().sqlResultFilters[0]).toMatchObject({
+      column: 'timestamp',
+      operator: 'range',
+      startInclusive: '2026-01-01T01:00:00.000Z',
+      endExclusive: '2026-01-01T03:00:00.000Z',
+    })
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(2),
+    )
+    const filters = activeTestSession().sqlResultFilters
+    act(() =>
+      useStore.getState().setResult({ ...temporal, durationMs: 5 }, null, a),
+    )
+    expect(activeTestSession().sqlResultFilters).toEqual(filters)
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 1] }] }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(1),
+    )
+    fireEvent.click(screen.getAllByRole('button', { name: /Remove filter/ })[1])
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(2),
+    )
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [0, 0] }] }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(4),
+    )
+    const retainedBrush = chartMock.brush
+    act(() => useStore.getState().createTab())
+    const b = activeTestSession().id
+    act(() => retainedBrush?.({ areas: [{ coordRange: [0, 1] }] }))
+    expect(activeTestSession().id).toBe(b)
+    expect(activeTestSession().sqlResultFilters).toEqual([])
+    expect(
+      useStore.getState().tabs.find((tab) => tab.id === a)?.sqlResultFilters,
+    ).toHaveLength(1)
+    expect(queryMocks.run).not.toHaveBeenCalled()
+    expect(queryMocks.runLoki).not.toHaveBeenCalled()
+    cleanup()
+    resetTestStore()
+  })
+}

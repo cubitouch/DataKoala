@@ -88,6 +88,45 @@ describe('traceScatterLocalRange', () => {
     ).toEqual({ startMs: domainStart + 1234, endMs: domainStart + 15678 })
   })
 
+  it('rejects invalid, zero-width and wholly out-of-domain selections', () => {
+    for (const coordinates of [
+      [],
+      [NaN, domainEnd],
+      [domainStart, Infinity],
+      ['invalid', domainEnd],
+      [domainStart, domainStart],
+      [domainStart - 2000, domainStart - 1000],
+      [domainEnd + 1000, domainEnd + 2000],
+    ]) {
+      expect(
+        traceScatterLocalRange(coordinates, domainStart, domainEnd),
+      ).toBeNull()
+    }
+  })
+
+  it('applies the minimum width after clamping, including the exact threshold', () => {
+    const minimum = (domainEnd - domainStart) * 0.002
+    expect(
+      traceScatterLocalRange(
+        [domainStart - minimum, domainStart + minimum - 1],
+        domainStart,
+        domainEnd,
+      ),
+    ).toBeNull()
+    expect(
+      traceScatterLocalRange(
+        [domainStart - minimum, domainStart + minimum],
+        domainStart,
+        domainEnd,
+      ),
+    ).toEqual({ startMs: domainStart, endMs: domainStart + minimum })
+    expect(traceScatterLocalRange([0, 999], 0, 10_000)).toBeNull()
+    expect(traceScatterLocalRange([1000, 0], 0, 10_000)).toEqual({
+      startMs: 0,
+      endMs: 1000,
+    })
+  })
+
   it('rejects tiny accidental selections', () => {
     expect(
       traceScatterLocalRange(
