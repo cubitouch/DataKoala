@@ -82,7 +82,8 @@
     "check:duplication": "jscpd",
     "report:duplication": "jscpd --reporters console,json,html --summary",
     "format:fix": "prettier --write .",
-    "install:stable": "node scripts/install-stable.mjs"
+    "install:stable": "node scripts/install-stable.mjs",
+    "docs:verify": "node docs-site/scripts/verify-docs-build.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
