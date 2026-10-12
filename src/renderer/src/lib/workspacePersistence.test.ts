@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'vitest'
 import type { ResultFilter } from './resultFilters.ts'
 import { defaultTempoBuilder } from './tempoQueryState.ts'
+import { buildLokiQuery } from '@shared/loki-builder'
+import { buildLokiTrendExpressions } from '@shared/loki-trend'
 import {
   LEGACY_WORKSPACE_STORAGE_KEY,
   WORKSPACE_STORAGE_KEY,
@@ -224,6 +226,46 @@ const state = (): WorkspacePersistableState => ({
     tab('tab-b', 'Scratch', 'analytics', 'select 42;'),
   ],
 })
+
+for (const label of ['level', 'severity', 'log_level'])
+  test(`workspace preserves indexed ${label} grouping and independent filtering`, () => {
+    for (const levels of [[], ['ERROR', 'WARN']]) {
+      const current = state()
+      current.tabs[0].lokiGroupBy = [
+        label,
+        'service_name',
+        'missing_saved_label',
+      ]
+      current.tabs[0].lokiBuilder = {
+        labelMatchers: [
+          { label: 'service_name', operator: '=', value: 'checkout' },
+          ...(levels.length
+            ? [{ label, operator: '=~' as const, value: '', values: levels }]
+            : []),
+        ],
+        lineFilters: [],
+        parsers: [],
+        fieldFilters: [],
+      }
+      const restored = parseWorkspaceDraft(serializeWorkspaceDraft(current))
+      assert.ok(restored)
+      const result = restored.tabs[0]
+      assert.deepEqual(result.lokiGroupBy, current.tabs[0].lokiGroupBy)
+      assert.deepEqual(result.lokiBuilder, current.tabs[0].lokiBuilder)
+      const expression = levels.length
+        ? `{service_name="checkout", ${label}=~"(?i)^(?:ERROR|WARN)$"}`
+        : '{service_name="checkout"}'
+      assert.equal(
+        buildLokiTrendExpressions(
+          buildLokiQuery(result.lokiBuilder),
+          '30s',
+          result.lokiGroupBy,
+          'logs',
+        )?.trend,
+        `sum by (${label}, service_name, missing_saved_label) (count_over_time((${expression})[30s]))`,
+      )
+    }
+  })
 
 const categoricalState = (): WorkspacePersistableState => {
   const current = tab('tab-category', 'Count by status', 'prod', 'select 1;')

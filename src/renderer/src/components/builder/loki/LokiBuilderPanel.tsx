@@ -153,6 +153,15 @@ export function LokiBuilderPanel({
   const visibleLabels = [...new Set(labels)]
     .filter((label) => !internal(label) && label !== severityLabel)
     .sort()
+  const groupingOptions = [
+    ...new Set([...labels, ...(severityLabel ? [severityLabel] : [])]),
+  ]
+    .filter((label) => !internal(label))
+    .sort()
+    .map((label) => ({
+      value: label,
+      label: label === severityLabel ? 'Level' : label,
+    }))
   const preserved = value.labelMatchers.filter((matcher) => !editable(matcher))
   const matchers = [
     ...new Map(
@@ -296,7 +305,7 @@ export function LokiBuilderPanel({
           <MultiCombobox
             label="Group by"
             values={groupBy}
-            options={visibleLabels.map((label) => ({ value: label, label }))}
+            options={groupingOptions}
             onChange={(next) =>
               onGroupByChange(
                 [...new Set(next)].filter((label) => !internal(label)),
