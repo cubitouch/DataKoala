@@ -818,7 +818,7 @@ nav {
 }
 
 .prompt::before {
-  content: '
+  content: '';
 }
 
 footer {
@@ -1080,8 +1080,6 @@ footer p {
   .start {
     padding: 24px 18px;
   }
-}
-;
 }
 
 footer {
