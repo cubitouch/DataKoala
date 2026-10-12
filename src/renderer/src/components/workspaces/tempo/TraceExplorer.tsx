@@ -1,3 +1,5 @@
+import { ResultFilterBar } from '@components/results/filters/ResultFilterBar'
+import { createResultRangeFilter } from '@lib/resultFilters'
 import { TextInput } from '@components/ui/TextInput'
 import {
   type FormEvent,
@@ -11,7 +13,10 @@ import {
 import type { TempoAttribute } from '@shared/tempo'
 import { selectActiveSession, useStore } from '@store/useStore'
 import { TimeRangeField } from '@components/query/time-range/TimeRangeField'
-import { TraceScatterChart } from '@components/results/traces/TraceScatterChart'
+import {
+  TraceScatterChart,
+  type TraceScatterRange,
+} from '@components/results/traces/TraceScatterChart'
 import { TraceServiceMap } from '@components/results/traces/TraceServiceMap'
 import { TraceBuilderPanel } from '@components/builder/tempo/TraceBuilderPanel'
 import { Combobox } from '@components/ui/combobox'
@@ -23,7 +28,11 @@ import {
   type TraceBuilderState,
   type TraceSampleSize,
 } from '@lib/traceBuilder'
-import { traceResultStatus, type TraceRow } from '@lib/traceViewer'
+import {
+  canonicalTraceId,
+  traceResultStatus,
+  type TraceRow,
+} from '@lib/traceViewer'
 import styles from './TraceExplorer.module.css'
 import { traceql as traceqlSupport } from '@lib/traceqlLanguage'
 import { formatTraceql } from '@lib/formatTraceql'
@@ -118,6 +127,7 @@ export function TraceExplorer({
   const setSql = useStore((state) => state.setSql)
   const setQueryMode = useStore((state) => state.setQueryMode)
   const setTempoState = useStore((state) => state.setTempoState)
+  const [localRange, setLocalRange] = useState<TraceScatterRange | null>(null)
   const [traceId, setTraceId] = useState('')
   const [selectedSpanId, setSelectedSpanId] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -174,9 +184,36 @@ export function TraceExplorer({
     onError: setError,
     onSearchStart: resetForSearch,
   })
+  const visibleSearchRows = useMemo(
+    () =>
+      localRange
+        ? searchRows.filter((row) => {
+            const timestamp = Number(row.startTimeMs)
+            return (
+              Number.isFinite(timestamp) &&
+              timestamp >= localRange.startMs &&
+              timestamp < localRange.endMs
+            )
+          })
+        : searchRows,
+    [searchRows, localRange],
+  )
+  const localFilters = useMemo(
+    () =>
+      localRange
+        ? [
+            createResultRangeFilter(
+              'Trace start',
+              new Date(localRange.startMs).toISOString(),
+              new Date(localRange.endMs).toISOString(),
+            ),
+          ]
+        : [],
+    [localRange],
+  )
   const cohortAnalysis = useTraceCohortAnalysis(
     connectionId,
-    searchRows,
+    visibleSearchRows,
     tabId,
     connectionGeneration,
   )
@@ -193,6 +230,7 @@ export function TraceExplorer({
   const activeTraceql = mode === 'builder' ? formattedBuilderTraceql : traceql
 
   function resetForSearch() {
+    setLocalRange(null)
     cohortAnalysis.reset()
     if (resultView === 'service-map')
       setTempoState({ tempoResultView: 'list' }, tabId)
@@ -228,6 +266,11 @@ export function TraceExplorer({
   }
 
   useEffect(() => {
+    setLocalRange(null)
+  }, [searchRange, connectionGeneration])
+
+  useEffect(() => {
+    setLocalRange(null)
     resetTrace()
     setTraceId('')
     setSelectedSpanId('')
@@ -473,7 +516,7 @@ export function TraceExplorer({
         symbolSize: 11,
         itemStyle: { color: group.color },
         emphasis: { scale: 1.45 },
-        data: searchRows
+        data: visibleSearchRows
           .filter((row) => traceResultStatus(row) === group.key)
           .map((row) => ({
             value: [number(row.startTimeMs), number(row.durationMs)],
@@ -486,7 +529,7 @@ export function TraceExplorer({
           })),
       })),
     }
-  }, [searchRows])
+  }, [visibleSearchRows])
 
   const scatterEvents = useMemo(
     () => ({
@@ -556,6 +599,7 @@ export function TraceExplorer({
   const clearTempoTransientState = () => {
     cohortAnalysis.reset()
     resetSearch()
+    setLocalRange(null)
     resetTrace()
     setTraceId('')
     setSelectedSpanId('')
@@ -714,9 +758,30 @@ export function TraceExplorer({
       </div>
 
       {resizeHandle}
-      {cohortHint && (
-        <div className={styles.cohortHint} role="status" style={{ gridRow: 3 }}>
-          {cohortHint}
+      {(cohortHint || localRange) && (
+        <div style={{ gridRow: 3 }}>
+          <ResultFilterBar
+            filters={localFilters}
+            onRemove={() => setLocalRange(null)}
+            onClear={() => setLocalRange(null)}
+          />
+          {cohortHint && (
+            <div className={styles.cohortHint} role="status">
+              {cohortHint}
+            </div>
+          )}
+          {localRange &&
+            spans.length > 0 &&
+            !visibleSearchRows.some(
+              (row) =>
+                canonicalTraceId(row.traceId) ===
+                canonicalTraceId(spans[0]?.traceId),
+            ) && (
+              <div className={styles.cohortHint} role="status">
+                Opened trace is outside the filtered results; its details are
+                retained.
+              </div>
+            )}
         </div>
       )}
       {error && (
@@ -799,14 +864,16 @@ export function TraceExplorer({
         />
       ) : (
         <TraceSearchResults
-          rows={searchRows}
+          rows={visibleSearchRows}
+          fetchedTraceCount={searchRows.length}
+          locallyFiltered={localRange !== null}
           notice={searchNotice}
           loading={loading}
           resultView={resultView}
           onResultViewChange={changeResultView}
           listView={
             <TraceSearchList
-              rows={searchRows}
+              rows={visibleSearchRows}
               disabled={loading !== null}
               onOpenTrace={(candidate) =>
                 void openTrace({ candidate, searchRows })
@@ -818,14 +885,7 @@ export function TraceExplorer({
               option={scatterOption}
               searchRange={searchRange}
               onEvents={scatterEvents}
-              onSelectRange={(next) => {
-                setTempoState({ tempoTimeRange: next }, tabId)
-                void runSearch({
-                  query: activeTraceql,
-                  sampleSize,
-                  range: next,
-                })
-              }}
+              onSelectRange={setLocalRange}
             />
           }
           serviceMapView={
@@ -833,7 +893,7 @@ export function TraceExplorer({
               aggregate={cohortAnalysis.aggregate}
               traces={cohortAnalysis.traces}
               progress={cohortAnalysis.progress}
-              searchTraceCount={searchRows.length}
+              searchTraceCount={visibleSearchRows.length}
               sampleLimit={cohortAnalysis.sampleLimit}
               onSampleLimitChange={cohortAnalysis.changeSampleLimit}
               onRetry={cohortAnalysis.retry}
