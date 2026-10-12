@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LokiExplorer } from './LokiExplorer'
@@ -16,7 +17,12 @@ const mocks = vi.hoisted(() => ({
   notify: vi.fn(),
 }))
 const copyTextToClipboard = vi.hoisted(() => vi.fn())
-const chartMock = vi.hoisted(() => ({ renders: 0 }))
+const chartMock = vi.hoisted(() => ({
+  renders: 0,
+  brush: null as
+    null | ((params: { areas: { coordRange: number[] }[] }) => void),
+  option: null as null | { series: { name: string; data: unknown[] }[] },
+}))
 vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
 vi.mock('@lib/api', () => ({
   api: {
@@ -55,7 +61,15 @@ vi.mock('@uiw/react-codemirror', () => ({
   ),
 }))
 vi.mock('echarts-for-react', () => ({
-  default: () => {
+  default: ({
+    option,
+    onEvents,
+  }: {
+    option: typeof chartMock.option
+    onEvents: { brushEnd: NonNullable<typeof chartMock.brush> }
+  }) => {
+    chartMock.option = option
+    chartMock.brush = onEvents.brushEnd
     chartMock.renders += 1
     return <div data-testid="loki-echarts" />
   },
@@ -151,6 +165,8 @@ beforeEach(() => {
   mocks.notify.mockReset()
   copyTextToClipboard.mockReset()
   chartMock.renders = 0
+  chartMock.brush = null
+  chartMock.option = null
 })
 
 describe('LokiExplorer execution', () => {
@@ -1127,6 +1143,264 @@ describe('LokiExplorer execution', () => {
     ).toBeNull()
     expect(document.querySelector('[data-result-explorer]')).toBeTruthy()
     await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+  })
+
+  it('filters fetched multi-series volume locally and restores it without querying', async () => {
+    const timestamps = [0, 1, 2, 3].map((hour) =>
+      new Date(Date.UTC(2026, 0, 1, hour)).toISOString(),
+    )
+    const volume = {
+      ...metric,
+      columns: [
+        ...metric.columns,
+        { name: 'app', dataTypeID: 0, dataTypeName: 'text' },
+      ],
+      rows: timestamps.flatMap((timestamp, index) => [
+        { timestamp, value: index + 1, app: 'checkout' },
+        { timestamp, value: (index + 1) * 10, app: 'worker' },
+      ]),
+      rowCount: 8,
+    }
+    const original = structuredClone(volume)
+    const tab = useStore.getState().tabs[0]
+    useStore.getState().setLokiState({ lokiGroupBy: ['app'] }, tab.id)
+    const before = useStore.getState().tabs[0]
+    const loadedLogs = patternLogs()
+    const run = mocks.runLoki
+      .mockResolvedValueOnce(loadedLogs)
+      .mockResolvedValueOnce(metric)
+      .mockResolvedValueOnce(volume)
+    render(<LokiExplorer connectionId="loki" />)
+    const pickerValue = screen.getByRole('button', {
+      name: /Time range/,
+    }).textContent
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    await waitFor(() => expect(chartMock.option?.series).toHaveLength(2))
+    const fullSeries = structuredClone(chartMock.option?.series)
+    expect(fullSeries).toHaveLength(2)
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 2] }] }))
+    expect(screen.getByLabelText('Active result filters')).toBeTruthy()
+    expect(useStore.getState().tabs[0].sqlResultFilters).toHaveLength(1)
+    await waitFor(() =>
+      expect(
+        chartMock.option?.series
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((series) =>
+            series.data.map((point) => (point as [unknown, number])[1]),
+          ),
+      ).toEqual([
+        [2, 3],
+        [20, 30],
+      ]),
+    )
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 1] }] }))
+    expect(useStore.getState().tabs[0].sqlResultFilters).toHaveLength(2)
+    await waitFor(() =>
+      expect(
+        chartMock.option?.series
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((series) =>
+            series.data.map((point) => (point as [unknown, number])[1]),
+          ),
+      ).toEqual([[3], [30]]),
+    )
+    fireEvent.click(screen.getAllByRole('button', { name: /Remove filter/ })[1])
+    await waitFor(() =>
+      expect(
+        chartMock.option?.series
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((series) =>
+            series.data.map((point) => (point as [unknown, number])[1]),
+          ),
+      ).toEqual([
+        [2, 3],
+        [20, 30],
+      ]),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    await waitFor(() => expect(chartMock.option?.series).toEqual(fullSeries))
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [0, 2] }] }))
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 1] }] }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+    await waitFor(() => expect(chartMock.option?.series).toEqual(fullSeries))
+    expect(run).toHaveBeenCalledTimes(3)
+    mocks.runLoki.mockResolvedValue(volume)
+    fireEvent.click(screen.getByRole('button', { name: 'Area' }))
+    const after = useStore.getState().tabs[0]
+    expect(after.lokiTimeRange).toEqual(before.lokiTimeRange)
+    expect(after.lokiBuilder).toEqual(before.lokiBuilder)
+    expect(after.lokiGroupBy).toEqual(['app'])
+    expect(after.sql).toBe(before.sql)
+    expect(after.result).toEqual(loadedLogs)
+    expect(volume).toEqual(original)
+    expect(screen.getByRole('button', { name: /Time range/ }).textContent).toBe(
+      pickerValue,
+    )
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reset range' })).toBeNull()
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 2] }] }))
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    expect(screen.getByText(/^3 loaded/)).toBeTruthy()
+    expect(useStore.getState().tabs[0].sqlResultFilters).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    expect(
+      screen.getByRole('button', { name: /Request.*<number>.*completed/ }),
+    ).toBeTruthy()
+    expect(useStore.getState().tabs[0].result).toEqual(loadedLogs)
+    fireEvent.click(screen.getByRole('button', { name: /Time range/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Last 3 hours' }))
+    const requestsBeforeRangeChange = run.mock.calls.length
+    mocks.runLoki.mockResolvedValue(logs)
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() =>
+      expect(run.mock.calls.length).toBeGreaterThan(requestsBeforeRangeChange),
+    )
+    expect(useStore.getState().tabs[0].lokiTimeRange).toMatchObject({
+      kind: 'rolling',
+      amount: 3,
+      unit: 'hour',
+    })
+  })
+
+  it('clears only visible raw-log Table filters while preserving the volume selection', async () => {
+    const loadedLogs = {
+      ...patternLogs(),
+      columns: [
+        { name: 'line', dataTypeID: 0, dataTypeName: 'text' },
+        { name: 'severity', dataTypeID: 0, dataTypeName: 'text' },
+      ],
+    }
+    const volume = {
+      ...metric,
+      rows: [0, 1, 2, 3].map((hour) => ({
+        timestamp: new Date(Date.UTC(2026, 0, 1, hour)).toISOString(),
+        value: hour + 1,
+      })),
+      rowCount: 4,
+    }
+    const run = mocks.runLoki
+      .mockResolvedValueOnce(loadedLogs)
+      .mockResolvedValue(volume)
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() =>
+      expect(useStore.getState().tabs[0].result).toEqual(loadedLogs),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(4),
+    )
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 2] }] }))
+    const volumeFilter = useStore.getState().tabs[0].sqlResultFilters[0]
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(2),
+    )
+    const requestCount = run.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }))
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    const filterCell = (column: string) => {
+      const row = screen.getByText('Request 123 completed').closest('tr')!
+      const summary = within(row).getByLabelText(`Filter actions for ${column}`)
+      fireEvent.click(summary)
+      fireEvent.click(
+        within(summary.parentElement!).getByRole('button', {
+          name: 'Filter to this value',
+        }),
+      )
+    }
+    filterCell('line')
+    expect(
+      screen.getAllByRole('button', { name: /Remove filter/ }),
+    ).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Clear all' })).toBeNull()
+    filterCell('severity')
+    expect(
+      screen.getAllByRole('button', { name: /Remove filter/ }),
+    ).toHaveLength(2)
+    expect(useStore.getState().tabs[0].sqlResultFilters).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+    expect(useStore.getState().tabs[0].sqlResultFilters).toEqual([volumeFilter])
+    expect(screen.queryByLabelText('Active result filters')).toBeNull()
+    expect(screen.getByText('Request 456 completed')).toBeTruthy()
+    expect(screen.getByText('Worker started normally')).toBeTruthy()
+    expect(run).toHaveBeenCalledTimes(requestCount)
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(2),
+    )
+    expect(
+      screen.getAllByRole('button', { name: /Remove filter/ }),
+    ).toHaveLength(1)
+    expect(useStore.getState().tabs[0].sqlResultFilters).toEqual([volumeFilter])
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(4),
+    )
+  })
+
+  it('retains local volume filters across an explicit query-window change until removed', async () => {
+    const loadedLogs = patternLogs()
+    const volume = {
+      ...metric,
+      rows: [0, 1, 2, 3].map((hour) => ({
+        timestamp: new Date(Date.UTC(2026, 0, 1, hour)).toISOString(),
+        value: hour + 1,
+      })),
+      rowCount: 4,
+    }
+    const refreshed = {
+      ...volume,
+      rows: volume.rows.map((row) => ({
+        ...row,
+        timestamp: row.timestamp.replace('2026-01-01', '2026-01-02'),
+      })),
+    }
+    const run = mocks.runLoki.mockImplementation(async (_id, request) =>
+      request.expression.startsWith('sum ') ? volume : loadedLogs,
+    )
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await waitFor(() =>
+      expect(useStore.getState().tabs[0].result).toEqual(loadedLogs),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(4),
+    )
+    act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 2] }] }))
+    const filters = useStore.getState().tabs[0].sqlResultFilters
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toHaveLength(2),
+    )
+    const previousRequests = run.mock.calls.length
+    run.mockImplementation(async (_id, request) =>
+      request.expression.startsWith('sum ') ? refreshed : loadedLogs,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Time range/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Last 3 hours' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await screen.findByText('No rows match the active filters.')
+    expect(run.mock.calls.length).toBeGreaterThan(previousRequests)
+    expect(useStore.getState().tabs[0].lokiTimeRange).toMatchObject({
+      kind: 'rolling',
+      amount: 3,
+      unit: 'hour',
+    })
+    expect(useStore.getState().tabs[0].sqlResultFilters).toEqual(filters)
+    expect(screen.getByLabelText('Active result filters')).toBeTruthy()
+    const requestsAfterRefresh = run.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+    await waitFor(() =>
+      expect(chartMock.option?.series[0].data).toEqual(
+        refreshed.rows.map((row) => [Date.parse(row.timestamp), row.value]),
+      ),
+    )
+    expect(run).toHaveBeenCalledTimes(requestsAfterRefresh)
   })
 
   it('does not continuously re-apply an unchanged Loki trend chart', async () => {

@@ -62,7 +62,7 @@ async function seedWorkspace(win) {
           ],
           lineFilters: [{ operator: '|=', value: 'timeout' }], parsers: [], fieldFilters: []
         },
-        lokiResultLimit: 48, lokiGroupBy: ['service_name', 'severity'], lokiRangeHistory: [], lokiResultView: 'list'
+        lokiResultLimit: 48, lokiGroupBy: ['service_name', 'severity'], lokiResultView: 'list'
       } : tab)
     })
   })()`)

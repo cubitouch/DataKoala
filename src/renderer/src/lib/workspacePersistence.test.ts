@@ -120,7 +120,6 @@ const tab = (
   lokiResultLimit: id === 'tab-b' ? 250 : 1000,
   lokiResultView: id === 'tab-b' ? ('line' as const) : ('list' as const),
   lokiGroupBy: ['service_name'],
-  lokiRangeHistory: [],
   tempoBuilder: {
     ...defaultTempoBuilder(),
     service: id,
@@ -723,4 +722,19 @@ test('display units round-trip through workspace persistence', () => {
     unit: 'min',
   })
   assert.equal(restored?.tabs[1].sqlVisualization.displayUnit, undefined)
+})
+
+test('obsolete Loki range history is ignored without changing the saved query range', () => {
+  const raw = JSON.parse(serializeWorkspaceDraft(state()))
+  raw.tabs[0].lokiRangeHistory = [{ kind: 'all' }]
+  raw.tabs[1].lokiRangeHistory = { malformed: true }
+  const restored = parseWorkspaceDraft(JSON.stringify(raw))
+  assert.ok(restored)
+  assert.deepEqual(restored.tabs[0].lokiTimeRange, raw.tabs[0].lokiTimeRange)
+  for (const tab of restored.tabs)
+    assert.equal('lokiRangeHistory' in tab, false)
+  assert.equal(
+    serializeWorkspaceDraft(state()).includes('lokiRangeHistory'),
+    false,
+  )
 })

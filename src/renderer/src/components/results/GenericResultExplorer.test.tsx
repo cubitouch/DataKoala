@@ -2,6 +2,7 @@ import { useState } from 'react'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -15,8 +16,23 @@ const aiMocks = vi.hoisted(() => ({
   cancel: vi.fn(),
 }))
 
+const chartMock = vi.hoisted(() => ({
+  brush: null as
+    null | ((params: { areas: { coordRange: number[] }[] }) => void),
+  option: null as null | { series: { data: unknown[] }[] },
+}))
 vi.mock('echarts-for-react', () => ({
-  default: () => <div data-testid="chart" />,
+  default: ({
+    option,
+    onEvents,
+  }: {
+    option: typeof chartMock.option
+    onEvents: { brushEnd: NonNullable<typeof chartMock.brush> }
+  }) => {
+    chartMock.option = option
+    chartMock.brush = onEvents.brushEnd
+    return <div data-testid="chart" />
+  },
 }))
 vi.mock('@lib/api', () => ({
   api: {
@@ -34,7 +50,7 @@ import {
   GenericResultExplorer,
   type GenericResultExplorerProps,
 } from './GenericResultExplorer'
-import { createResultFilter } from '@lib/resultFilters'
+import { createResultFilter, type ResultFilter } from '@lib/resultFilters'
 import type { VisualizationConfiguration } from '@lib/resultVisualization'
 import type { QueryResult } from '@shared/types'
 
@@ -77,6 +93,8 @@ const props = (
 })
 
 beforeEach(() => {
+  chartMock.option = null
+  chartMock.brush = null
   aiMocks.getSettings.mockReset()
   aiMocks.analyzeAnomalies.mockReset()
   aiMocks.cancel.mockReset()
@@ -229,3 +247,59 @@ for (const mode of ['sql', 'builder'] as const) {
     expect(alpha.getAttribute('aria-pressed')).toBe('true')
   })
 }
+
+it('keeps SQL temporal selections local, cumulative, and removable', async () => {
+  const temporal = {
+    ...result,
+    columns: [
+      { name: 'timestamp', dataTypeID: 0, dataTypeName: 'timestamp' },
+      result.columns[1],
+    ],
+    rows: [0, 1, 2, 3].map((hour) => ({
+      timestamp: new Date(Date.UTC(2026, 0, 1, hour)).toISOString(),
+      value: hour + 1,
+    })),
+    rowCount: 4,
+  }
+  const original = structuredClone(temporal)
+  function Harness() {
+    const [filters, setFilters] = useState<ResultFilter[]>([])
+    return (
+      <GenericResultExplorer
+        {...props({
+          result: temporal,
+          configuration: {
+            ...configuration,
+            view: 'line',
+            xColumn: 'timestamp',
+          },
+          activeFilters: filters,
+          onAddFilter: (filter) =>
+            setFilters((current) => [...current, filter]),
+          onRemoveFilter: (id) =>
+            setFilters((current) =>
+              current.filter((filter) => filter.id !== id),
+            ),
+          onClearFilters: () => setFilters([]),
+        })}
+      />
+    )
+  }
+  render(<Harness />)
+  await waitFor(() => expect(chartMock.option?.series[0].data).toHaveLength(4))
+  const fullSeries = structuredClone(chartMock.option?.series)
+  act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 2] }] }))
+  expect(screen.getByLabelText('Active result filters')).toBeTruthy()
+  await waitFor(() => expect(chartMock.option?.series[0].data).toHaveLength(2))
+  act(() => chartMock.brush?.({ areas: [{ coordRange: [1, 1] }] }))
+  expect(screen.getAllByRole('button', { name: /Remove filter/ })).toHaveLength(
+    2,
+  )
+  await waitFor(() => expect(chartMock.option?.series[0].data).toHaveLength(1))
+  fireEvent.click(screen.getAllByRole('button', { name: /Remove filter/ })[1])
+  await waitFor(() => expect(chartMock.option?.series[0].data).toHaveLength(2))
+  act(() => chartMock.brush?.({ areas: [{ coordRange: [0, 0] }] }))
+  fireEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+  await waitFor(() => expect(chartMock.option?.series).toEqual(fullSeries))
+  expect(temporal).toEqual(original)
+})
