@@ -5,8 +5,48 @@ import { prometheusPresetAdapter } from './prometheusPresetAdapter'
 import { lokiPresetAdapter } from './lokiPresetAdapter'
 import { tempoPresetAdapter } from './tempoPresetAdapter'
 import { testSession } from './testUtils'
+import { buildLokiQuery } from '@shared/loki-builder'
+import { buildLokiTrendExpressions } from '@shared/loki-trend'
 
 describe('datasource preset adapters', () => {
+  it.each(['level', 'severity', 'log_level'])(
+    'round-trips real Loki %s grouping independently of its filter',
+    (label) => {
+      for (const levels of [[], ['ERROR', 'WARN']]) {
+        const source = testSession({
+          queryMode: 'builder',
+          lokiGroupBy: [label, 'service_name', 'missing_saved_label'],
+        })
+        source.lokiBuilder.labelMatchers = [
+          { label: 'service_name', operator: '=', value: 'checkout' },
+          ...(levels.length
+            ? [{ label, operator: '=~' as const, value: '', values: levels }]
+            : []),
+        ]
+        const payload = lokiPresetAdapter.parse(
+          JSON.parse(JSON.stringify(lokiPresetAdapter.capture(source))),
+        )
+        expect(payload).not.toBeNull()
+        const restored = lokiPresetAdapter.apply(testSession(), payload!)
+        expect(restored.lokiGroupBy).toEqual(source.lokiGroupBy)
+        expect(restored.lokiBuilder).toEqual(source.lokiBuilder)
+        const expression = levels.length
+          ? `{service_name="checkout", ${label}=~"(?i)^(?:ERROR|WARN)$"}`
+          : '{service_name="checkout"}'
+        expect(
+          buildLokiTrendExpressions(
+            buildLokiQuery(restored.lokiBuilder),
+            '30s',
+            restored.lokiGroupBy,
+            'logs',
+          )?.trend,
+        ).toBe(
+          `sum by (${label}, service_name, missing_saved_label) (count_over_time((${expression})[30s]))`,
+        )
+      }
+    },
+  )
+
   it.each(['postgres', 'bigquery', 'local-files', 'sqlite-file'])(
     'round-trips SQL raw and structured Builder definitions for %s',
     () => {

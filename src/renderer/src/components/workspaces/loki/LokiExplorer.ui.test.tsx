@@ -55,6 +55,8 @@ import { createQuerySession, useStore } from '@store/useStore'
 import { bindTabConnection } from '@lib/tabConnection'
 import { clearLokiLabelsResources } from '@lib/useLokiLabelsResource'
 import type { LokiLogResult } from '@shared/loki'
+import { buildLokiQuery } from '@shared/loki-builder'
+import { buildLokiTrendExpressions } from '@shared/loki-trend'
 
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value }: { value: string }) => (
@@ -171,6 +173,112 @@ beforeEach(() => {
 })
 
 describe('LokiExplorer execution', () => {
+  it.each(['level', 'severity', 'log_level'])(
+    'groups by indexed %s independently of Level filtering',
+    async (severityLabel) => {
+      mocks.labels.mockResolvedValue([
+        severityLabel,
+        severityLabel,
+        'service_name',
+      ])
+      const tab = createQuerySession(1, {
+        id: 'level-grouping',
+        connectionProfileId: 'loki',
+        queryMode: 'builder',
+      })
+      tab.lokiBuilder.labelMatchers = [
+        { label: 'service_name', operator: '=', value: 'checkout' },
+      ]
+      useStore.setState({ tabs: [tab], activeTabId: tab.id })
+      const workspace = render(<LokiExplorer connectionId="loki" />)
+      const trend = () => {
+        const current = useStore.getState().tabs[0]
+        return buildLokiTrendExpressions(
+          buildLokiQuery(current.lokiBuilder),
+          '30s',
+          current.lokiGroupBy,
+          'logs',
+        )?.trend
+      }
+      const group = await screen.findByRole('combobox', { name: /Group by:/ })
+      await waitFor(() => expect(group.hasAttribute('disabled')).toBe(false))
+      fireEvent.click(group)
+      expect(
+        await screen.findAllByRole('option', { name: 'Level' }),
+      ).toHaveLength(1)
+      expect(screen.queryByRole('option', { name: severityLabel })).toBeNull()
+      fireEvent.click(screen.getByRole('option', { name: 'Level' }))
+      expect(useStore.getState().tabs[0].lokiGroupBy).toEqual([severityLabel])
+      expect(trend()).toBe(
+        `sum by (${severityLabel}) (count_over_time(({service_name="checkout"})[30s]))`,
+      )
+      fireEvent.click(screen.getByRole('option', { name: 'service_name' }))
+      fireEvent.click(group)
+
+      const level = screen.getByRole('combobox', { name: /Level:/ })
+      expect(level.textContent).toContain('All levels')
+      fireEvent.click(level)
+      fireEvent.click(await screen.findByRole('option', { name: 'ERROR' }))
+      fireEvent.click(screen.getByRole('option', { name: 'WARN' }))
+      expect(useStore.getState().tabs[0].lokiGroupBy).toEqual([
+        severityLabel,
+        'service_name',
+      ])
+      const filtered = `{service_name="checkout", ${severityLabel}=~"(?i)^(?:ERROR|WARN)$"}`
+      expect(trend()).toBe(
+        `sum by (${severityLabel}, service_name) (count_over_time((${filtered})[30s]))`,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Clear all' }))
+      expect(trend()).toBe(
+        `sum by (${severityLabel}, service_name) (count_over_time(({service_name="checkout"})[30s]))`,
+      )
+      fireEvent.click(screen.getByRole('option', { name: 'ERROR' }))
+      fireEvent.click(level)
+      fireEvent.click(group)
+      fireEvent.click(screen.getByRole('option', { name: 'Level' }))
+      expect(trend()).toBe(
+        `sum by (service_name) (count_over_time(({service_name="checkout", ${severityLabel}=~"(?i)^(?:ERROR)$"})[30s]))`,
+      )
+      fireEvent.click(screen.getByRole('option', { name: 'Level' }))
+      fireEvent.click(group)
+
+      workspace.unmount()
+      render(<LokiExplorer connectionId="loki" />)
+      await waitFor(() =>
+        expect(
+          screen
+            .getByRole('combobox', { name: /Group by:/ })
+            .getAttribute('aria-label'),
+        ).toContain('Level'),
+      )
+      expect(trend()).toBe(
+        `sum by (service_name, ${severityLabel}) (count_over_time(({service_name="checkout", ${severityLabel}=~"(?i)^(?:ERROR)$"})[30s]))`,
+      )
+      expect(mocks.runLoki).not.toHaveBeenCalled()
+    },
+  )
+
+  it('does not offer synthetic Level grouping without an indexed severity label', async () => {
+    const tab = createQuerySession(1, {
+      id: 'no-level-grouping',
+      connectionProfileId: 'loki',
+      queryMode: 'builder',
+    })
+    tab.lokiGroupBy = ['missing_saved_label']
+    useStore.setState({ tabs: [tab], activeTabId: tab.id })
+    render(<LokiExplorer connectionId="loki" />)
+    const group = await screen.findByRole('combobox', { name: /Group by:/ })
+    await waitFor(() => expect(group.hasAttribute('disabled')).toBe(false))
+    fireEvent.click(group)
+    expect(await screen.findByRole('option', { name: 'app' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'Level' })).toBeNull()
+    fireEvent.click(screen.getByRole('option', { name: 'app' }))
+    expect(useStore.getState().tabs[0].lokiGroupBy).toEqual([
+      'missing_saved_label',
+      'app',
+    ])
+  })
+
   it('selects indexed levels before the first query and preserves other filters when cleared', async () => {
     mocks.labels.mockResolvedValue(['level', 'service_name'])
     const tab = createQuerySession(1, {
