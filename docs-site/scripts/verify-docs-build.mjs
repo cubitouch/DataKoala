@@ -49,6 +49,28 @@ check(
   /href="https:\/\/github\.com\/cubitouch\/DataKoala"/.test(html),
 )
 
+// The install commands must remain crawlable and selectable as plain text.
+// Decorative prompts are CSS-generated and must never become copied text.
+check(
+  'one-click install copy control',
+  /data-copy-install(?:\s|>)/.test(html) &&
+    /aria-label="Copy installation commands"/.test(html),
+)
+check(
+  'installation commands present in static HTML',
+  [
+    'git clone https://github.com/cubitouch/DataKoala.git',
+    'cd DataKoala',
+    'pnpm install:stable',
+    'pnpm dev',
+  ].every((command) => html.includes(command)),
+)
+check(
+  'shell prompts are decorative, not literal text',
+  (html.match(/<span class="prompt" aria-hidden="true"><\/span>/g) ?? [])
+    .length === 4,
+)
+
 // 2. Canonical / social / structured data.
 check(
   'canonical',
