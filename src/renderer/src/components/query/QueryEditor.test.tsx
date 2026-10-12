@@ -102,6 +102,7 @@ vi.mock('./ModeSwitch', () => ({
   ModeSwitch: () => <div aria-label="Query mode" />,
 }))
 
+import { BuilderPanel } from '@components/builder/sql/BuilderPanel'
 import { QueryEditor } from './QueryEditor'
 import { ExplainPane } from '@components/query/sql/ExplainPane'
 import { AiQueryRepair } from '@components/ai/AiQueryRepair'
@@ -110,6 +111,7 @@ import {
   activeTestSession,
   patchActiveTestSession,
   resetTestStore,
+  setActiveTestMetadata,
 } from '@test/sessionTestUtils'
 import { createQuerySession, useStore } from '@store/useStore'
 import { bindTabConnection } from '@lib/tabConnection'
@@ -1356,7 +1358,7 @@ describe('QueryEditor Explain loading states', () => {
 
       fireEvent.click(screen.getByRole('button', { name: action }))
       await waitFor(() => expect(explain).toHaveBeenCalledTimes(1))
-      expect(activeTestSession().running).toBe(false)
+      expect(activeTestSession().running).toBe(true)
       expect(reset.hasAttribute('disabled')).toBe(true)
       fireEvent.click(reset)
       expect(screen.queryByRole('dialog')).toBeNull()
@@ -1972,7 +1974,7 @@ describe.each([
   'sqlite-file',
   'prometheus',
 ] as const)('#371 %s query lifecycle', (kind) => {
-  function setup() {
+  function setup(mode: 'sql' | 'builder' = 'sql') {
     const base = { id: 'audit-profile', name: 'Audit', readonly: true as const }
     const profile: DataSourceProfile =
       kind === 'postgres'
@@ -2026,18 +2028,61 @@ describe.each([
         createQuerySession(i + 1, {
           id,
           connectionProfileId: profile.id,
-          queryMode: 'sql',
+          queryMode: mode,
           sql: kind === 'prometheus' ? 'up' : 'select 1',
         }),
       ),
       activeTabId: 'A',
     })
+    if (mode === 'builder') {
+      setActiveTestMetadata(
+        [
+          {
+            name: 'public',
+            isSystem: false,
+            relations: [
+              {
+                name: 'events',
+                schema: 'public',
+                kind: 'r',
+                qualifiedName: 'public.events',
+                columnsStatus: 'loaded',
+                columns: [{ name: 'created_at', dataTypeName: 'timestamp' }],
+              },
+            ],
+          },
+        ],
+        'loaded',
+        null,
+        profile.id,
+      )
+      patchActiveTestSession({
+        builder: {
+          ...activeTestSession().builder,
+          table: { schema: 'public', name: 'events' },
+          timeColumn: 'created_at',
+          timeBucket: 'hour',
+        },
+        builderVisualization: {
+          ...activeTestSession().builderVisualization,
+          xColumn: 'created_at',
+          aggregation: 'count',
+        },
+      })
+    }
     function Workspace() {
       const id = useStore((state) => state.activeTabId)
+      const mode = useStore(
+        (state) => state.tabs.find((tab) => tab.id === id)?.queryMode,
+      )
       return (
         <>
           <QueryTabs />
-          <QueryEditor key={id} />
+          {mode === 'builder' && kind !== 'prometheus' ? (
+            <BuilderPanel key={id} />
+          ) : (
+            <QueryEditor key={id} />
+          )}
         </>
       )
     }
@@ -2198,9 +2243,7 @@ describe.each([
     expect(session('B')?.result).toBeNull()
   })
 
-  // Follow-up: move operation identity into the session so remounted controllers
-  // cannot accept old work or clear the newer operation's pending state.
-  it.fails.each(['resolve', 'reject'] as const)(
+  it.each(['resolve', 'reject'] as const)(
     'rejects old %s after A remounts and starts newer work',
     async (outcome) => {
       setup()
@@ -2223,7 +2266,7 @@ describe.each([
         else old.reject(new Error('obsolete failure'))
         await old.promise.catch(() => {})
       })
-      // Settle every deferred request before asserting, including on expected failure.
+      // Settle every deferred request before asserting the captured stale state.
       const pendingAfterOld = session('A')?.running
       const oldResult = session('A')?.result
       const oldError = session('A')?.queryError
@@ -2237,30 +2280,194 @@ describe.each([
     },
   )
 
-  it.fails(
-    'abandons pending state when only the connection generation is replaced',
-    async () => {
+  it('abandons pending state when only the connection generation is replaced', async () => {
+    setup()
+    const pending = deferred<typeof response>()
+    await start(pending)
+    act(() =>
+      useStore.setState((state) => ({
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          'audit-profile': {
+            status: 'connected',
+            generation: 2,
+            error: null,
+            serverVersion: null,
+          },
+        },
+      })),
+    )
+    await act(async () => {
+      pending.resolve(response)
+      await pending.promise
+    })
+    expect(session('A')?.running).toBe(false)
+  })
+  it.each(['rebind-back', 'reset', 'clear', 'preset', 'generation'] as const)(
+    'keeps newer Run pending after %s and late rejection',
+    async (change) => {
+      setup()
+      const old = deferred<typeof response>(),
+        newer = deferred<typeof response>()
+      await start(old)
+      act(() => {
+        if (change === 'rebind-back') {
+          bindTabConnection('A', null)
+          bindTabConnection('A', 'audit-profile')
+        } else if (change === 'reset') useStore.getState().resetActiveQuery()
+        else if (change === 'clear') useStore.getState().clearActiveResults()
+        else if (change === 'preset')
+          useStore
+            .getState()
+            .commitLoadedPreset(
+              createQuerySession(1, { queryMode: 'sql' }),
+              'A',
+            )
+        else
+          useStore.setState((state) => ({
+            connectionStateByProfileId: {
+              ...state.connectionStateByProfileId,
+              'audit-profile': {
+                ...state.connectionStateByProfileId['audit-profile'],
+                generation: 2,
+              },
+            },
+          }))
+        useStore
+          .getState()
+          .setSql(kind === 'prometheus' ? 'up' : 'select 2', 'A')
+      })
+      await start(newer)
+      await act(async () => {
+        old.reject(new Error('obsolete'))
+        await old.promise.catch(() => {})
+      })
+      expect(session('A')?.running).toBe(true)
+      expect(session('A')?.queryError).toBeNull()
+      expect(session('A')?.result).toBeNull()
+      await act(async () => {
+        newer.resolve(response)
+        await newer.promise
+      })
+      expect(session('A')?.running).toBe(false)
+      expect(session('A')?.result).toEqual(response)
+    },
+  )
+
+  if (kind === 'prometheus')
+    it('does not apply stale visualization defaults', async () => {
+      setup()
+      const old = deferred<typeof response>(),
+        newer = deferred<typeof response>()
+      await start(old)
+      act(() => useStore.setState({ activeTabId: 'B' }))
+      act(() => useStore.setState({ activeTabId: 'A' }))
+      runQuery.mockReturnValueOnce(newer.promise)
+      fireEvent.keyDown(screen.getByLabelText('PromQL editor'), {
+        key: 'Enter',
+        ctrlKey: true,
+      })
+      await waitFor(() => expect(runQuery).toHaveBeenCalledTimes(2))
+      act(() =>
+        useStore
+          .getState()
+          .setVisualization(
+            'sql',
+            { view: 'bar', xColumn: 'chosen', aggregation: 'average' },
+            'A',
+          ),
+      )
+      const chosen = session('A')?.sqlVisualization
+      await act(async () => {
+        old.resolve(response)
+        await old.promise
+      })
+      expect(session('A')?.sqlVisualization).toEqual(chosen)
+      await act(async () => {
+        newer.resolve(response)
+        await newer.promise
+      })
+    })
+
+  if (kind !== 'prometheus')
+    it.each([
+      ['builder', 'builder'],
+      ['builder', 'sql'],
+      ['sql', 'builder'],
+    ] as const)(
+      'shares primary ownership after remount and %s → %s transition',
+      async (from, mode) => {
+        setup('builder')
+        if (from === 'sql')
+          act(() => useStore.getState().setQueryMode('sql', 'A'))
+        const old = deferred<typeof response>(),
+          newer = deferred<typeof response>()
+        await start(old)
+        act(() => useStore.setState({ activeTabId: 'B' }))
+        act(() => useStore.setState({ activeTabId: 'A' }))
+        act(() => useStore.getState().setQueryMode(mode, 'A'))
+        runQuery.mockReturnValueOnce(newer.promise)
+        fireEvent.keyDown(
+          mode === 'sql'
+            ? screen.getByLabelText('SQL editor')
+            : document.querySelector('[data-builder-panel]')!,
+          { key: 'Enter', ctrlKey: true },
+        )
+        await waitFor(() => expect(runQuery).toHaveBeenCalledTimes(2))
+        await act(async () => {
+          old.resolve(response)
+          await old.promise
+        })
+        expect(session('A')?.running).toBe(true)
+        expect(session('A')?.result).toBeNull()
+        await act(async () => {
+          newer.resolve({ ...response, rows: [{ owner: 'newer' }] })
+          await newer.promise
+        })
+        expect(session('A')?.running).toBe(false)
+        expect(session('A')?.result?.rows).toEqual([{ owner: 'newer' }])
+      },
+    )
+  it.each(['reset', 'rebind-back', 'generation'] as const)(
+    'revalidates ownership after the connection await across %s',
+    async (change) => {
       setup()
       const pending = deferred<typeof response>()
-      await start(pending)
-      act(() =>
-        useStore.setState((state) => ({
-          connectionStateByProfileId: {
-            ...state.connectionStateByProfileId,
-            'audit-profile': {
-              status: 'connected',
-              generation: 2,
-              error: null,
-              serverVersion: null,
+      runQuery.mockReturnValueOnce(pending.promise)
+      fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+      act(() => {
+        if (change === 'reset') useStore.getState().resetActiveQuery()
+        else if (change === 'rebind-back') {
+          bindTabConnection('A', null)
+          bindTabConnection('A', 'audit-profile')
+        } else
+          useStore.setState((state) => ({
+            connectionStateByProfileId: {
+              ...state.connectionStateByProfileId,
+              'audit-profile': {
+                ...state.connectionStateByProfileId['audit-profile'],
+                generation: 2,
+              },
             },
-          },
-        })),
+          }))
+      })
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(runQuery).not.toHaveBeenCalled()
+      act(() =>
+        useStore
+          .getState()
+          .setSql(kind === 'prometheus' ? 'up' : 'select 2', 'A'),
       )
+      fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+      await waitFor(() => expect(runQuery).toHaveBeenCalledTimes(1))
       await act(async () => {
         pending.resolve(response)
         await pending.promise
       })
       expect(session('A')?.running).toBe(false)
+      expect(session('A')?.result).toEqual(response)
     },
   )
 })
@@ -2294,8 +2501,7 @@ describe('#371 PostgreSQL Explain lifecycle', () => {
       ).toBeNull()
     },
   )
-  // Explain is user initiated top-level work, but only activeExplainRequest is set.
-  it.fails.each(['Explain', 'Explain Analyze'])(
+  it.each(['Explain', 'Explain Analyze'])(
     'represents pending %s in tab.running',
     async (action) => {
       setup()
@@ -2309,6 +2515,132 @@ describe('#371 PostgreSQL Explain lifecycle', () => {
         await pending.promise
       })
       expect(wasRunning).toBe(true)
+    },
+  )
+  it.each(['Run', 'Explain'] as const)(
+    'preserves the other pending slot when %s completes first',
+    async (first) => {
+      setup()
+      const primary = deferred<{
+        columns: never[]
+        rows: never[]
+        rowCount: number
+        durationMs: number
+      }>()
+      const plan = deferred<{ text: string }>()
+      runQuery.mockReturnValueOnce(primary.promise)
+      explain.mockReturnValueOnce(plan.promise)
+      fireEvent.click(screen.getByRole('button', { name: 'Explain' }))
+      await waitFor(() => expect(explain).toHaveBeenCalledTimes(1))
+      // Run remains supported while Explain is pending, including the keyboard path.
+      fireEvent.keyDown(screen.getByLabelText('SQL editor'), {
+        key: 'Enter',
+        ctrlKey: true,
+      })
+      await waitFor(() => expect(runQuery).toHaveBeenCalledTimes(1))
+      expect(activeTestSession().pendingQueryOperations).toHaveLength(2)
+      await act(async () => {
+        if (first === 'Run') {
+          primary.resolve({ columns: [], rows: [], rowCount: 0, durationMs: 1 })
+          await primary.promise
+        } else {
+          plan.resolve({ text: 'plan' })
+          await plan.promise
+        }
+      })
+      expect(activeTestSession().running).toBe(true)
+      expect(activeTestSession().activeExplainRequest).toBe(
+        first === 'Run' ? 'explain' : null,
+      )
+      await act(async () => {
+        if (first === 'Run') {
+          plan.resolve({ text: 'plan' })
+          await plan.promise
+        } else {
+          primary.resolve({ columns: [], rows: [], rowCount: 0, durationMs: 1 })
+          await primary.promise
+        }
+      })
+      expect(activeTestSession().running).toBe(false)
+      expect(activeTestSession().explainText).toBe('plan')
+      expect(activeTestSession().result).not.toBeNull()
+    },
+  )
+
+  it.each(['reset', 'rebind', 'generation', 'failure'] as const)(
+    'guards a newer Explain after %s against old success and rejection',
+    async (change) => {
+      for (const outcome of ['resolve', 'reject']) {
+        const id = setup()
+        const old = deferred<{ text: string }>(),
+          newer = deferred<{ text: string }>()
+        explain.mockReturnValueOnce(old.promise)
+        fireEvent.click(screen.getByRole('button', { name: 'Explain' }))
+        await waitFor(() =>
+          expect(activeTestSession().activeExplainRequest).toBe('explain'),
+        )
+        act(() => {
+          if (change === 'reset') useStore.getState().resetActiveQuery()
+          else if (change === 'rebind') {
+            bindTabConnection(id, null)
+            bindTabConnection(id, 'profile-1')
+          } else if (change === 'failure') {
+            useStore.getState().applyConnectionEvent({
+              profileId: 'profile-1',
+              generation: 1,
+              state: 'disconnected',
+              expected: true,
+              message: 'Disconnected for test',
+              code: null,
+              timestamp: 1,
+              recoverable: true,
+            })
+          } else
+            useStore.setState((state) => ({
+              connectionStateByProfileId: {
+                ...state.connectionStateByProfileId,
+                'profile-1': {
+                  ...state.connectionStateByProfileId['profile-1'],
+                  generation: 2,
+                },
+              },
+            }))
+          useStore.setState((state) => ({
+            connectionStateByProfileId: {
+              ...state.connectionStateByProfileId,
+              'profile-1': {
+                ...state.connectionStateByProfileId['profile-1'],
+                status: 'connected',
+                error: null,
+              },
+            },
+          }))
+          useStore.getState().setSql('select 2', id)
+        })
+        explain.mockReturnValueOnce(newer.promise)
+        fireEvent.click(screen.getByRole('button', { name: 'Explain Analyze' }))
+        await waitFor(() =>
+          expect(activeTestSession().activeExplainRequest).toBe('analyze'),
+        )
+        await act(async () => {
+          if (outcome === 'resolve') old.resolve({ text: 'obsolete plan' })
+          else old.reject(new Error('obsolete plan error'))
+          await old.promise.catch(() => {})
+        })
+        expect(activeTestSession().activeExplainRequest).toBe('analyze')
+        expect(activeTestSession().running).toBe(true)
+        expect(activeTestSession().explainText).not.toBe('obsolete plan')
+        expect(activeTestSession().explainText).not.toBe('obsolete plan error')
+        await act(async () => {
+          newer.resolve({ text: 'current plan' })
+          await newer.promise
+        })
+        expect(activeTestSession().explainText).toBe('current plan')
+        expect(activeTestSession().explainSnapshot?.query).toBe('select 2')
+        expect(activeTestSession().running).toBe(false)
+        cleanup()
+        explain.mockClear()
+      }
     },
   )
 })

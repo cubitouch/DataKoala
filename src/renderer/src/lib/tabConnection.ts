@@ -234,6 +234,8 @@ export function bindTabConnection(
         connectionProfileId: profileId,
         running: false,
         queryOperation: null,
+        explainOperation: null,
+        pendingQueryOperations: [],
         queryError: null,
         repairableQueryError: null,
         result: null,

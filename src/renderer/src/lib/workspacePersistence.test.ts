@@ -760,6 +760,16 @@ test('restoration clears unobservable pending work for every datasource kind', (
       generation: 1,
       token: 'unobservable',
     }
+    raw.tabs[0].explainOperation = {
+      ...(raw.tabs[0].queryOperation as object),
+      slot: 'explain',
+      token: 'explain-unobservable',
+    }
+    raw.tabs[0].pendingQueryOperations = [
+      'unobservable',
+      'explain-unobservable',
+    ]
+    raw.tabs[0].queryContextId = 'old-runtime-context'
     raw.tabs[0].running = true
     raw.tabs[0].activeExplainRequest = 'analyze'
     raw.tabs[0].pendingResult = { rows: [{ obsolete: true }] }
@@ -771,6 +781,9 @@ test('restoration clears unobservable pending work for every datasource kind', (
     assert.ok(restored)
     assert.equal(restored.tabs[0].connectionProfileId, `audit-${kind}`)
     assert.equal(restored.tabs[0].queryOperation ?? null, null)
+    assert.equal(restored.tabs[0].explainOperation ?? null, null)
+    assert.deepEqual(restored.tabs[0].pendingQueryOperations ?? [], [])
+    assert.notEqual(restored.tabs[0].queryContextId, 'old-runtime-context')
     assert.equal(restored.tabs[0].running, false)
     assert.equal(restored.tabs[0].activeExplainRequest, null)
     assert.equal(restored.tabs[0].pendingResult, null)

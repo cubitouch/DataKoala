@@ -320,3 +320,87 @@ Release checklist:
 - Use chart/grouped trends: logs become usable before volume/probe completion;
   trend failure retains logs and primary failure never displays optional volume.
 - Reload while pending; no busy state or automatic query execution survives.
+
+## Slice 3 — shared primary and Explain ownership
+
+Based on `1a07839` after #384. The matrix above records the historical audit;
+this section supersedes its SQL/Prometheus/Tempo and Explain defect entries.
+All **20 remaining expected failures** are now ordinary passing regressions.
+No expected failure is deferred from this slice.
+
+### Final contract and overlap policy
+
+`QueryOperation` still captures tab, profile, generation and a unique runtime
+token. Its optional `slot` defaults to primary for existing Loki attachments.
+`queryOperation` owns the primary result; `explainOperation` independently owns
+the plan. `pendingQueryOperations` contains only pending tokens, and tab
+`running` reflects whether any remain. Completion removes only its own token.
+Completed primary ownership remains valid for Loki volume publication. Pending
+state and ownership are deliberately separate: a retained token is not a spinner.
+
+| Operation                                                           | Ownership / pending / completion                                                                                                                            |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SQL raw and Builder, all four SQL kinds                             | Shared primary slot, latest-wins across component remounts and raw/Builder transitions; guarded originating-session result/error delivery                   |
+| Prometheus raw and Builder                                          | Same primary slot; visualization defaults publish only after the operation guard                                                                            |
+| Loki logs and metrics                                               | Existing primary ownership and independent optional trends preserved                                                                                        |
+| Tempo search                                                        | Same primary slot; progressive callbacks additionally require a mounted, visible owner; remount reads session pending state and adopts final results/errors |
+| PostgreSQL Explain/Analyze                                          | Independent Explain slot; phase UI remains `activeExplainRequest`; guarded result, snapshot, error and final cleanup                                        |
+| Metadata, optional volume/probes, trace details and cohort analysis | Existing local resource policies; no top-level pending token added                                                                                          |
+
+Run and Explain may overlap, retaining the existing supported execution policy.
+Finishing either leaves the other pending. Workspace Run controls read primary
+pending state independently of Explain; the tab bar aggregates both. A second
+Explain remains blocked by the phase UI. Reset/rebinding may release that phase
+and allow newer work; late old success, error or final cleanup cannot change it.
+
+SQL connection awaits capture the original profile, runtime query context and
+initial usable generation, then revalidate them before allocating primary work.
+The context changes on reset, clear, preset loading and rebinding, including an
+away/back transition with the same profile/generation. Explain allocates an
+operation synchronously when the connection is already usable, preserving its
+immediate phase presentation; after any connection await it validates that owner
+before invoking the provider. Newly established connections still run on demand.
+No reconnect policy, query retry or cancellation IPC is introduced.
+
+The existing store subscription now invalidates each obsolete output slot and
+releases only its pending token. Generation replacement, connection failure,
+close and binding transitions cannot clear other profiles or newer operations.
+Draft serialization remains allow-listed. Restoration creates a fresh runtime
+context and drops operation ownership, pending tokens, phases and result state;
+it never re-executes unobservable requests.
+
+### Simplification and evidence
+
+Removed QueryEditor's `runRevisions`, SQL Builder's `queryRevisions`, Tempo's
+`requestRevisions` and its local `searching` boolean/finally authority. Session
+ownership replaces those maps and their duplicated completion predicates.
+Datasource execution APIs, SQL parameters, PromQL defaults and result transforms
+remain in their existing paths. Tempo retains local partial rows/notices/progress;
+a failed visible search keeps partial rows, while remount does not promise durable
+partial progress. Final session errors are available to the returned workspace.
+
+Added deferred regressions for SQL Builder remount and both raw/Builder transition
+directions, all SQL kinds; Run/Explain overlap in both completion orders; obsolete
+Explain success/rejection after reset/rebind/generation/failure; stale Prometheus
+visualization; Tempo stale progress and pending-return presentation/final delivery;
+preflight connection-await invalidation; and newer executions following
+reset/clear/preset/rebind-back/generation changes. A shared-store two-profile,
+two-slot regression verifies selective abandonment and late cleanup. Restoration
+coverage injects both slots and pending tokens and verifies sanitization.
+Existing Loki pending-remount volume, optional trend independence, retry, patterns
+and primary-failure suppression coverage remains intact.
+
+### Acceptance and release handoff
+
+The renderer implementation and automated ownership criteria of #371 are covered.
+The issue remains open: review, applicable CI/documentation/visual preview and the
+live manual release scenarios in #382 are still required. Native concurrency,
+provider errors and real Electron behavior are not established by mocked renderer
+transports. Backend cancellation remains unavailable. Tempo trace drill-down and
+persistent partial results remain outside this slice.
+
+Run #382 RC-01/RC-02 and RC-07–RC-12 once, then the deduplicated Slice 3 extensions:
+SQL Builder/remount/transitions, Explain overlap and old cleanup, stale Prometheus
+visualization, Tempo progress/loading/failure on return. All manual results remain
+pending. Use safe read-only fixtures and controlled latency; record unavailable
+provider scenarios as untested, never passed.

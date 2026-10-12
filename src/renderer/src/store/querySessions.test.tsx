@@ -355,3 +355,68 @@ describe('query session model', () => {
     )
   })
 })
+
+it('isolates both pending output slots across profile replacement and late cleanup', async () => {
+  const {
+    createQuerySession,
+    useStore,
+    selectSession,
+    beginQueryOperation,
+    completeExplainOperation,
+  } = await setup()
+  useStore.setState({
+    tabs: ['A', 'B'].map((id, index) =>
+      createQuerySession(index + 1, { id, connectionProfileId: id }),
+    ),
+    activeTabId: 'A',
+    connectionStateByProfileId: {
+      A: {
+        status: 'connected',
+        generation: 1,
+        error: null,
+        serverVersion: null,
+      },
+      B: {
+        status: 'connected',
+        generation: 1,
+        error: null,
+        serverVersion: null,
+      },
+    },
+  })
+  const oldRun = beginQueryOperation('A', 'A', 1)!
+  const oldExplain = beginQueryOperation('A', 'A', 1, 'explain')!
+  useStore.getState().setActiveExplainRequest('analyze', 'A')
+  const bRun = beginQueryOperation('B', 'B', 1)!
+  const bExplain = beginQueryOperation('B', 'B', 1, 'explain')!
+  useStore.getState().setActiveExplainRequest('explain', 'B')
+  useStore.setState((state) => ({
+    connectionStateByProfileId: {
+      ...state.connectionStateByProfileId,
+      A: { ...state.connectionStateByProfileId.A, generation: 2 },
+    },
+  }))
+  expect(selectSession(useStore.getState(), 'A')?.running).toBe(false)
+  expect(
+    selectSession(useStore.getState(), 'A')?.activeExplainRequest,
+  ).toBeNull()
+  const nextRun = beginQueryOperation('A', 'A', 2)!
+  const nextExplain = beginQueryOperation('A', 'A', 2, 'explain')!
+  useStore.getState().setActiveExplainRequest('explain', 'A')
+  useStore.getState().completeQuery(resultA, null, 'A', undefined, oldRun)
+  completeExplainOperation(oldExplain)
+  expect(
+    selectSession(useStore.getState(), 'A')?.pendingQueryOperations,
+  ).toEqual([nextRun.token, nextExplain.token])
+  expect(
+    selectSession(useStore.getState(), 'B')?.pendingQueryOperations,
+  ).toEqual([bRun.token, bExplain.token])
+  expect(selectSession(useStore.getState(), 'B')?.activeExplainRequest).toBe(
+    'explain',
+  )
+  useStore.getState().completeQuery(resultA, null, 'A', undefined, nextRun)
+  expect(selectSession(useStore.getState(), 'A')?.running).toBe(true)
+  completeExplainOperation(nextExplain)
+  expect(selectSession(useStore.getState(), 'A')?.running).toBe(false)
+  expect(selectSession(useStore.getState(), 'B')?.running).toBe(true)
+})

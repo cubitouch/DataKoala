@@ -22,6 +22,9 @@ import {
   selectionPatchForColumns,
 } from '@lib/builderRelations'
 import {
+  beginQueryOperation,
+  isPrimaryQueryPending,
+  isQueryOperationCurrent,
   selectActiveSession,
   selectSession,
   useStore,
@@ -117,8 +120,9 @@ export function BuilderPanel() {
   const setVisualization = useStore((state) => state.setVisualization)
   const setSql = useStore((state) => state.setSql)
   const setMode = useStore((state) => state.setQueryMode)
-  const running = useStore((state) => selectActiveSession(state).running)
-  const startQuery = useStore((state) => state.startQuery)
+  const running = useStore((state) =>
+    isPrimaryQueryPending(selectActiveSession(state)),
+  )
   const completeQuery = useStore((state) => state.completeQuery)
   const setHasRun = useStore((state) => state.setBuilderHasRun)
   const metadata = useStore((state) =>
@@ -142,7 +146,6 @@ export function BuilderPanel() {
   const removeResultFilter = useStore((state) => state.removeResultFilter)
   const clearFilterNotice = useStore((state) => state.clearBuilderFilterNotice)
   const previousExecution = useRef(new Map<string, string>())
-  const queryRevisions = useRef(new Map<string, number>())
   const probeGuard = useRef(new SeriesCardinalityProbeGuard())
   const [seriesProbe, setSeriesProbe] = useState<{
     status: 'checking' | 'error'
@@ -907,19 +910,42 @@ export function BuilderPanel() {
     const requestTabId = tabId
     const requestQuery = generatedQuery
     const requestSql = generatedSql
+    const initialConnection =
+      useStore.getState().connectionStateByProfileId[tabConnectionId]
+    const requestContext = selectSession(
+      useStore.getState(),
+      requestTabId,
+    )?.queryContextId
     const requestProfileId = await ensureConnectionForTab(requestTabId)
+    if (
+      selectSession(useStore.getState(), requestTabId)?.queryContextId !==
+        requestContext ||
+      selectSession(useStore.getState(), requestTabId)?.connectionProfileId !==
+        tabConnectionId
+    )
+      return
     if (
       !requestProfileId ||
       !isTabConnectionCurrent(requestTabId, requestProfileId)
+    )
+      return
+    if (
+      (initialConnection?.status === 'connected' ||
+        initialConnection?.status === 'idle') &&
+      useStore.getState().connectionStateByProfileId[requestProfileId]
+        ?.generation !== initialConnection.generation
     )
       return
     const requestGeneration =
       useStore.getState().connectionStateByProfileId[requestProfileId]
         ?.generation
     if (requestGeneration === undefined) return
-    const revision = (queryRevisions.current.get(requestTabId) ?? 0) + 1
-    queryRevisions.current.set(requestTabId, revision)
-    startQuery(requestTabId)
+    const operation = beginQueryOperation(
+      requestTabId,
+      requestProfileId,
+      requestGeneration,
+    )
+    if (!operation) return
     setHasRun(true, requestTabId)
     try {
       const result: QueryResult = await api.query.run(
@@ -927,28 +953,16 @@ export function BuilderPanel() {
         requestSql,
         requestQuery?.parameters ?? [],
       )
-      if (
-        queryRevisions.current.get(requestTabId) === revision &&
-        isTabConnectionCurrent(
-          requestTabId,
-          requestProfileId,
-          requestGeneration,
-        )
-      )
-        completeQuery(result, null, requestTabId)
+      if (isQueryOperationCurrent(useStore.getState(), operation))
+        completeQuery(result, null, requestTabId, undefined, operation)
     } catch (error) {
-      if (
-        queryRevisions.current.get(requestTabId) === revision &&
-        isTabConnectionCurrent(
-          requestTabId,
-          requestProfileId,
-          requestGeneration,
-        )
-      )
+      if (isQueryOperationCurrent(useStore.getState(), operation))
         completeQuery(
           null,
           error instanceof Error ? error.message : String(error),
           requestTabId,
+          undefined,
+          operation,
         )
     }
   }, [
@@ -958,7 +972,6 @@ export function BuilderPanel() {
     metadataRefreshing,
     tabId,
     generatedQuery,
-    startQuery,
     setHasRun,
     completeQuery,
   ])
