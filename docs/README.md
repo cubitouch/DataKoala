@@ -13,6 +13,8 @@ This directory contains product, architecture, engineering, and release document
 | [Styling](engineering/styling.md)                               | CSS ownership and component-scoping conventions                                                          |
 | [Code duplication](engineering/code-duplication.md)             | jscpd baseline and interpretation                                                                        |
 
+Current Phase 2B ownership and pending release scenarios: [Chart anomaly lifecycle](architecture/chart-anomaly-lifecycle-audit.md).
+
 ## Historical investigations (`history/`)
 
 These are evidence and design records. Read the baseline/date and subsequent appendices before using a finding as a statement of current behavior.
