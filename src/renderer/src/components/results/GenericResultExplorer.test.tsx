@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useImperativeHandle, type Ref } from 'react'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -18,21 +18,68 @@ const aiMocks = vi.hoisted(() => ({
 
 const queryMocks = vi.hoisted(() => ({ run: vi.fn(), runLoki: vi.fn() }))
 
+type HoverEvent = {
+  componentType?: string
+  seriesName?: string
+  data?: unknown
+}
+
 const chartMock = vi.hoisted(() => ({
+  dispatchAction: vi.fn(),
+  globalout: null as null | (() => void),
+  mouseover: null as null | ((event: HoverEvent) => void),
+  mouseout: null as null | ((event: HoverEvent) => void),
   brush: null as
     null | ((params: { areas: { coordRange: number[] }[] }) => void),
+  click: null as
+    | null
+    | ((params: {
+        componentType?: string
+        dataIndex?: number
+        seriesIndex?: number
+      }) => void),
   option: null as null | { series: { data: unknown[] }[] },
 }))
 vi.mock('echarts-for-react', () => ({
-  default: ({
+  default: function MockChart({
     option,
     onEvents,
+    ref,
   }: {
+    ref: Ref<unknown>
     option: typeof chartMock.option
-    onEvents: { brushEnd: NonNullable<typeof chartMock.brush> }
-  }) => {
+    onEvents: {
+      brushEnd: NonNullable<typeof chartMock.brush>
+      click: NonNullable<typeof chartMock.click>
+      mouseover: NonNullable<typeof chartMock.mouseover>
+      mouseout: NonNullable<typeof chartMock.mouseout>
+    }
+  }) {
+    useImperativeHandle(
+      ref,
+      () => ({
+        getEchartsInstance: () => ({
+          dispatchAction: chartMock.dispatchAction,
+          getDom: () => ({
+            getBoundingClientRect: () => ({ left: 0, top: 0 }),
+          }),
+          getZr: () => ({
+            on: (_event: string, handler: () => void) => {
+              chartMock.globalout = handler
+            },
+            off: () => {
+              chartMock.globalout = null
+            },
+          }),
+        }),
+      }),
+      [],
+    )
+    chartMock.mouseover = onEvents.mouseover
+    chartMock.mouseout = onEvents.mouseout
     chartMock.option = option
     chartMock.brush = onEvents.brushEnd
+    chartMock.click = onEvents.click
     return <div data-testid="chart" />
   },
 }))
@@ -105,6 +152,7 @@ const props = (
 beforeEach(() => {
   chartMock.option = null
   chartMock.brush = null
+  chartMock.click = null
   aiMocks.getSettings.mockReset()
   aiMocks.analyzeAnomalies.mockReset()
   aiMocks.cancel.mockReset()
@@ -227,6 +275,7 @@ for (const mode of ['sql', 'builder'] as const) {
       ],
       rowCount: 2,
     }
+    const onAddFilter = vi.fn()
     function Harness() {
       const [visibility, setVisibility] = useState<Record<string, boolean>>({})
       return (
@@ -241,6 +290,7 @@ for (const mode of ['sql', 'builder'] as const) {
             },
             seriesVisibility: visibility,
             onSeriesVisibilityChange: setVisibility,
+            onAddFilter,
           })}
         />
       )
@@ -249,6 +299,23 @@ for (const mode of ['sql', 'builder'] as const) {
     const alpha = await screen.findByRole('button', { name: 'Alpha' })
     fireEvent.click(alpha)
     expect(alpha.getAttribute('aria-pressed')).toBe('false')
+    act(() =>
+      chartMock.click?.({
+        componentType: 'series',
+        dataIndex: 0,
+        seriesIndex: 0,
+      }),
+    )
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Filter to this series' }),
+    )
+    expect(onAddFilter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        column: 'service',
+        operator: 'equals',
+        value: 'Beta',
+      }),
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Show all' }))
     expect(alpha.getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: 'Isolate Beta' }))
@@ -401,3 +468,173 @@ for (const kind of ['sql', 'prometheus'] as const) {
     resetTestStore()
   })
 }
+
+it('translates click menus into local point filters and clears them', async () => {
+  resetTestStore()
+  patchActiveTestSession({
+    result,
+    resultRevision: 1,
+    sqlVisualization: { ...configuration, view: 'bar' },
+  })
+  render(<ResultExplorer mode="sql" />)
+  await waitFor(() => expect(chartMock.option?.series[0].data).toHaveLength(1))
+  act(() =>
+    chartMock.click?.({
+      componentType: 'series',
+      dataIndex: 0,
+      seriesIndex: 0,
+    }),
+  )
+  fireEvent.click(
+    screen.getByRole('menuitem', { name: 'Filter to this category value' }),
+  )
+  expect(activeTestSession().sqlResultFilters[0]).toMatchObject({
+    column: 'category',
+    operator: 'equals',
+    value: 'A',
+  })
+  expect(screen.queryByRole('menu')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
+  expect(activeTestSession().sqlResultFilters).toEqual([])
+  expect(queryMocks.run).not.toHaveBeenCalled()
+  expect(queryMocks.runLoki).not.toHaveBeenCalled()
+  cleanup()
+  resetTestStore()
+})
+
+it('dismisses point context on result, chart and tab changes and keeps retained clicks bound to A', async () => {
+  resetTestStore()
+  patchActiveTestSession({
+    result,
+    resultRevision: 1,
+    sqlVisualization: { ...configuration, view: 'bar' },
+  })
+  const a = activeTestSession().id
+  render(<ResultExplorer mode="sql" />)
+  await waitFor(() => expect(chartMock.option?.series[0].data).toHaveLength(1))
+  const click = () =>
+    act(() =>
+      chartMock.click?.({
+        componentType: 'series',
+        dataIndex: 0,
+        seriesIndex: 0,
+      }),
+    )
+  click()
+  expect(screen.getByRole('menu')).toBeTruthy()
+  act(() =>
+    useStore.getState().setResult({ ...result, durationMs: 4 }, null, a),
+  )
+  expect(screen.queryByRole('menu')).toBeNull()
+  click()
+  fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+  expect(screen.queryByRole('menu')).toBeNull()
+  click()
+  const retainedClick = chartMock.click
+  act(() => {
+    useStore.getState().createTab()
+    patchActiveTestSession({
+      result,
+      resultRevision: 1,
+      sqlVisualization: { ...configuration, view: 'bar' },
+    })
+  })
+  expect(screen.queryByRole('menu')).toBeNull()
+  act(() =>
+    retainedClick?.({ componentType: 'series', dataIndex: 0, seriesIndex: 0 }),
+  )
+  fireEvent.click(
+    screen.getByRole('menuitem', { name: 'Filter to this category value' }),
+  )
+  expect(activeTestSession().sqlResultFilters).toEqual([])
+  expect(
+    useStore.getState().tabs.find((tab) => tab.id === a)?.sqlResultFilters[0],
+  ).toMatchObject({ column: 'category', value: 'A' })
+  expect(queryMocks.run).not.toHaveBeenCalled()
+  cleanup()
+  resetTestStore()
+})
+
+it('reactivates the brush cursor for repeated valid selections', async () => {
+  const temporal = {
+    ...result,
+    columns: [
+      { name: 'timestamp', dataTypeID: 0, dataTypeName: 'timestamp' },
+      result.columns[1],
+    ],
+    rows: [0, 1, 2].map((hour) => ({
+      timestamp: new Date(Date.UTC(2026, 0, 1, hour)).toISOString(),
+      value: hour,
+    })),
+    rowCount: 3,
+  }
+  const onAddFilter = vi.fn()
+  render(
+    <GenericResultExplorer
+      {...props({
+        result: temporal,
+        configuration: { ...configuration, view: 'line', xColumn: 'timestamp' },
+        onAddFilter,
+      })}
+    />,
+  )
+  await waitFor(() => expect(chartMock.option?.series[0].data).toHaveLength(3))
+  chartMock.dispatchAction.mockClear()
+  act(() => chartMock.brush?.({ areas: [{ coordRange: [0, 1] }] }))
+  act(() => chartMock.brush?.({ areas: [{ coordRange: [2, 1] }] }))
+  expect(onAddFilter).toHaveBeenCalledTimes(2)
+  expect(chartMock.dispatchAction.mock.calls.map(([action]) => action)).toEqual(
+    [
+      { type: 'brush', areas: [] },
+      {
+        type: 'takeGlobalCursor',
+        key: 'brush',
+        brushOption: { brushType: 'lineX', brushMode: 'single' },
+      },
+      { type: 'brush', areas: [] },
+      {
+        type: 'takeGlobalCursor',
+        key: 'brush',
+        brushOption: { brushType: 'lineX', brushMode: 'single' },
+      },
+    ],
+  )
+})
+
+it('uses hovered source identity in tooltip highlights and clears only matching mouse-out', async () => {
+  render(
+    <GenericResultExplorer
+      {...props({ configuration: { ...configuration, view: 'line' } })}
+    />,
+  )
+  await waitFor(() => expect(chartMock.option?.series[0].data).toHaveLength(1))
+  const formatter = (
+    chartMock.option as unknown as {
+      tooltip: { formatter: (rows: unknown[]) => string }
+    }
+  ).tooltip.formatter
+  const rows = [
+    { seriesName: 'value', value: 2, color: '#fff', axisValue: 'A' },
+  ]
+  act(() =>
+    chartMock.mouseover?.({ componentType: 'series', seriesName: 'value' }),
+  )
+  expect(formatter(rows)).toContain('chart-tooltip-row-hovered')
+  act(() =>
+    chartMock.mouseout?.({ componentType: 'series', seriesName: 'other' }),
+  )
+  expect(formatter(rows)).toContain('chart-tooltip-row-hovered')
+  act(() =>
+    chartMock.mouseout?.({ componentType: 'series', seriesName: 'value' }),
+  )
+  expect(formatter(rows)).not.toContain('chart-tooltip-row-hovered')
+  act(() =>
+    chartMock.mouseover?.({
+      componentType: 'series',
+      data: { aiAnomalyOverlay: true, sourceSeriesName: 'value' },
+    }),
+  )
+  expect(formatter(rows)).toContain('chart-tooltip-row-hovered')
+  act(() => chartMock.globalout?.())
+  expect(formatter(rows)).not.toContain('chart-tooltip-row-hovered')
+})

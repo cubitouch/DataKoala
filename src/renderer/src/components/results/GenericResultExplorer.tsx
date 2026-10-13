@@ -1,3 +1,4 @@
+import { chartClickContext } from '@lib/chartInteractions'
 import type { DisplayUnit } from '@lib/displayUnit'
 import {
   useCallback,
@@ -14,8 +15,7 @@ import { api } from '@lib/api'
 import { AI_LIMITS, isAiConfigured, type AiAnomalyAnalysis } from '@shared/ai'
 import { buildChartPresentationOptions } from '@lib/chartPresentation'
 import {
-  chartSeriesResultFilters,
-  timeBucketRange,
+  chartPointActionFilters,
   type ChartPointContext,
 } from '@lib/chartPointFilters'
 import {
@@ -25,13 +25,11 @@ import {
   isTemporalChartValues,
 } from '@lib/chartRangeSelection'
 import {
-  createResultFilter,
   createResultRangeFilter,
   filterQueryResult,
   type ResultFilter,
 } from '@lib/resultFilters'
 import {
-  decodeBuilderSeriesTuple,
   deriveEffectiveVisualization,
   numericColumns,
   pivotRowsForChart,
@@ -244,8 +242,13 @@ export function GenericResultExplorer({
   const previousVisibility = useRef(seriesVisibility)
   const [pointMenu, setPointMenu] = useState<{
     context: ChartPointContext
+    addFilter: GenericResultExplorerProps['onAddFilter']
     position: { x: number; y: number }
   } | null>(null)
+  // A point menu belongs to the displayed result and its originating session.
+  useEffect(() => {
+    setPointMenu(null)
+  }, [result, resultRevision, configuration, onAddFilter])
   const [renderedRevision, setRenderedRevision] =
     useState<ChartRevision | null>(null)
   const [capturing, setCapturing] = useState<'copy' | 'export' | null>(null)
@@ -858,45 +861,21 @@ export function GenericResultExplorer({
     event?: { event?: MouseEvent; offsetX?: number; offsetY?: number }
     data?: unknown
   }) => {
-    if (
-      (params.data as { aiAnomalyOverlay?: unknown } | undefined)
-        ?.aiAnomalyOverlay === true ||
-      params.componentType !== 'series' ||
-      !chart?.renderable ||
-      !effectiveConfiguration.xColumn ||
-      params.dataIndex == null ||
-      params.seriesIndex == null
+    const context = chartClickContext(
+      params,
+      chart,
+      effectiveConfiguration,
+      activeBuilderTimeBucket,
     )
-      return
-    const xValue = chart.xValues[params.dataIndex]
-    const seriesValue = chart.seriesValues[params.seriesIndex] ?? null
-    const tuple = decodeBuilderSeriesTuple(seriesValue)
-    const directSeriesColumn =
-      effectiveConfiguration.seriesColumn &&
-      effectiveConfiguration.seriesColumn !== 'series'
-        ? effectiveConfiguration.seriesColumn
-        : null
-    const seriesFilters =
-      tuple?.map(({ column, value }) => ({ column, value })) ??
-      (directSeriesColumn
-        ? [{ column: directSeriesColumn, value: seriesValue }]
-        : undefined)
+    if (!context) return
     const native = params.event?.event
     const bounds = ref.current
       ?.getEchartsInstance()
       .getDom()
       .getBoundingClientRect()
     setPointMenu({
-      context: {
-        xColumn: effectiveConfiguration.xColumn,
-        xValue,
-        seriesColumn:
-          effectiveConfiguration.seriesColumn ??
-          (effectiveConfiguration.seriesColumns?.length ? 'series' : null),
-        seriesValue,
-        seriesFilters,
-        timeBucket: activeBuilderTimeBucket,
-      },
+      context,
+      addFilter: onAddFilter,
       position: {
         x:
           native?.clientX ?? (bounds?.left ?? 0) + (params.event?.offsetX ?? 0),
@@ -906,47 +885,8 @@ export function GenericResultExplorer({
   }
   const applyPointAction = (action: ChartFilterAction) => {
     if (!pointMenu) return
-    const { context } = pointMenu
-    if (
-      action === 'includeSeries' ||
-      action === 'excludeSeries' ||
-      action === 'includeSeriesAndX'
-    ) {
-      const include = action !== 'excludeSeries'
-      for (const filter of chartSeriesResultFilters(context, include))
-        onAddFilter(filter)
-    }
-    if (
-      action === 'includeX' ||
-      action === 'excludeX' ||
-      action === 'includeSeriesAndX'
-    ) {
-      const exclude = action === 'excludeX'
-      if (context.timeBucket) {
-        const range = timeBucketRange(context.xValue, context.timeBucket)
-        if (range)
-          onAddFilter(
-            createResultRangeFilter(
-              context.xColumn,
-              range.startInclusive,
-              range.endExclusive,
-              exclude,
-            ),
-          )
-      } else {
-        const operator: 'equals' | 'notEquals' | 'isNull' | 'isNotNull' =
-          context.xValue == null
-            ? exclude
-              ? 'isNotNull'
-              : 'isNull'
-            : exclude
-              ? 'notEquals'
-              : 'equals'
-        onAddFilter(
-          createResultFilter(context.xColumn, operator, context.xValue),
-        )
-      }
-    }
+    for (const filter of chartPointActionFilters(pointMenu.context, action))
+      pointMenu.addFilter(filter)
     dismissPointMenu()
   }
   const onSeriesMouseOver = (params: {
