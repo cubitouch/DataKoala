@@ -2,12 +2,8 @@ import { useEffect, useRef } from 'react'
 import type { ChartPointContext } from '@lib/chartPointFilters'
 import styles from './ChartFilterPopover.module.css'
 
-export type ChartFilterAction =
-  | 'includeSeries'
-  | 'excludeSeries'
-  | 'includeX'
-  | 'excludeX'
-  | 'includeSeriesAndX'
+import type { ChartFilterAction } from '@lib/chartPointFilters'
+export type { ChartFilterAction } from '@lib/chartPointFilters'
 
 export function ChartFilterPopover({
   context,

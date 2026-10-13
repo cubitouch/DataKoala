@@ -1,5 +1,9 @@
 import type { TimeBucket } from '@store/useStore'
-import { createResultFilter, type ResultFilter } from './resultFilters.ts'
+import {
+  createResultFilter,
+  createResultRangeFilter,
+  type ResultFilter,
+} from './resultFilters.ts'
 
 export interface ChartSeriesFilterValue {
   column: string
@@ -115,4 +119,60 @@ export function timeBucketRange(
     startInclusive: start.toISOString(),
     endExclusive: end.toISOString(),
   }
+}
+
+export type ChartFilterAction =
+  | 'includeSeries'
+  | 'excludeSeries'
+  | 'includeX'
+  | 'excludeX'
+  | 'includeSeriesAndX'
+
+/** Preserve action order and composite-series exclusion semantics. */
+export function chartPointActionFilters(
+  context: ChartPointContext,
+  action: ChartFilterAction,
+): ResultFilter[] {
+  const filters: ResultFilter[] = []
+  if (
+    action === 'includeSeries' ||
+    action === 'excludeSeries' ||
+    action === 'includeSeriesAndX'
+  ) {
+    const include = action !== 'excludeSeries'
+    for (const filter of chartSeriesResultFilters(context, include))
+      filters.push(filter)
+  }
+  if (
+    action === 'includeX' ||
+    action === 'excludeX' ||
+    action === 'includeSeriesAndX'
+  ) {
+    const exclude = action === 'excludeX'
+    if (context.timeBucket) {
+      const range = timeBucketRange(context.xValue, context.timeBucket)
+      if (range)
+        filters.push(
+          createResultRangeFilter(
+            context.xColumn,
+            range.startInclusive,
+            range.endExclusive,
+            exclude,
+          ),
+        )
+    } else {
+      const operator: 'equals' | 'notEquals' | 'isNull' | 'isNotNull' =
+        context.xValue == null
+          ? exclude
+            ? 'isNotNull'
+            : 'isNull'
+          : exclude
+            ? 'notEquals'
+            : 'equals'
+      filters.push(
+        createResultFilter(context.xColumn, operator, context.xValue),
+      )
+    }
+  }
+  return filters
 }
