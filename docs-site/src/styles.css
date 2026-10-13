@@ -1133,6 +1133,7 @@ footer p {
   align-self: stretch;
   overflow: hidden;
   margin: auto 10px 10px;
+  width: calc(100% - 20px);
   border: 1px solid #343942;
   border-radius: 10px;
   background: #0c0e11;
@@ -1141,8 +1142,8 @@ footer p {
 
 .journey-media img {
   display: block;
-  width: 120%;
-  max-width: none;
+  width: 100%;
+  max-width: 100%;
   height: auto;
 }
 
@@ -1153,14 +1154,20 @@ footer p {
 .sharing-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--border);
 }
 
 .sharing-grid article {
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 28px;
-  background: #111318;
+  position: relative;
+  min-height: 290px;
+  border: 0;
+  border-radius: 0;
+  padding: 32px;
+  background: #101217;
 }
 
 .sharing-grid h3 {
@@ -1249,34 +1256,8 @@ footer p {
   }
 }
 
-.journey-media {
-  width: calc(100% - 20px);
-}
-
-.journey-media img {
-  width: 100%;
-  max-width: 100%;
-}
-
 .journey-card:nth-child(2) .journey-media {
   margin-bottom: 14px;
-}
-
-.sharing-grid {
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  background: var(--border);
-}
-
-.sharing-grid article {
-  position: relative;
-  min-height: 290px;
-  border: 0;
-  border-radius: 0;
-  padding: 32px;
-  background: #101217;
 }
 
 .sharing-grid article:hover {
