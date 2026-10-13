@@ -2,6 +2,9 @@ import assert from 'node:assert/strict'
 import { test } from 'vitest'
 import type { QueryResult } from '@shared/types'
 import {
+  selectVisualizationSeries,
+  selectVisualizationView,
+  reorderHierarchyDimensions,
   builderSeriesTupleLabel,
   decodeBuilderSeriesTuple,
   deriveEffectiveVisualization,
@@ -348,4 +351,97 @@ test('Builder without Series has no visual breakdown', () => {
   const effective = deriveEffectiveVisualization(input, config(), 'builder', [])
   assert.equal(effective.seriesColumn, null)
   assert.deepEqual(effective.seriesColumns, [])
+})
+
+test('series transitions preserve unrelated fields and exact serialization', () => {
+  const original = config({
+    displayUnit: { family: 'time', unit: 'ms' },
+    valueAxisScale: 'log',
+    hierarchyDimensions: ['a', 'b'],
+    aggregation: 'average',
+  })
+  for (const values of [[], ['a'], ['a', 'b']]) {
+    const next = selectVisualizationSeries(original, values)
+    assert.deepEqual(next, {
+      ...original,
+      seriesColumn: values.length > 1 ? null : (values[0] ?? null),
+      seriesColumns: values.length > 1 ? values : [],
+    })
+    assert.equal(
+      JSON.stringify(next),
+      JSON.stringify({
+        ...original,
+        seriesColumn: values.length > 1 ? null : (values[0] ?? null),
+        seriesColumns: values.length > 1 ? values : [],
+      }),
+    )
+  }
+  assert.equal(original.seriesColumn, 'series')
+})
+
+test('view transitions preserve axes/aggregation/units and reconcile only hierarchy entry', () => {
+  const original = config({
+    hierarchyDimensions: ['b', 'missing', 'a'],
+    valueAxisScale: 'log',
+  })
+  for (const view of [
+    'table',
+    'line',
+    'area',
+    'bar',
+    'scatter',
+    'treemap',
+    'sunburst',
+  ] as const) {
+    assert.deepEqual(
+      selectVisualizationView(original, view, ['a', 'b'], ['a']),
+      {
+        ...original,
+        view,
+        hierarchyDimensions:
+          view === 'treemap' || view === 'sunburst'
+            ? ['b', 'a']
+            : original.hierarchyDimensions,
+      },
+    )
+  }
+  assert.deepEqual(
+    selectVisualizationView(config(), 'treemap', ['a'], ['a'])
+      .hierarchyDimensions,
+    ['a'],
+  )
+  assert.deepEqual(
+    selectVisualizationView(
+      config({ hierarchyDimensions: [] }),
+      'sunburst',
+      ['a'],
+      ['a'],
+    ).hierarchyDimensions,
+    ['a'],
+  )
+  assert.deepEqual(
+    selectVisualizationView(
+      config({ hierarchyDimensions: ['missing'] }),
+      'treemap',
+      ['a'],
+      ['a'],
+    ).hierarchyDimensions,
+    ['a'],
+  )
+})
+
+test('hierarchy reorder is immutable and rejects invalid or missing indexes', () => {
+  const order = ['a', 'b', 'c']
+  assert.deepEqual(reorderHierarchyDimensions(order, 1, -1), ['b', 'a', 'c'])
+  assert.deepEqual(reorderHierarchyDimensions(order, 1, 1), ['a', 'c', 'b'])
+  for (const [index, offset] of [
+    [0, -1],
+    [2, 1],
+    [-1, 1],
+    [3, -1],
+    [0.5, 1],
+    [NaN, 1],
+  ])
+    assert.equal(reorderHierarchyDimensions(order, index, offset), order)
+  assert.deepEqual(order, ['a', 'b', 'c'])
 })

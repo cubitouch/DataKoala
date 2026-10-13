@@ -26,6 +26,10 @@ type HoverEvent = {
 
 const chartMock = vi.hoisted(() => ({
   dispatchAction: vi.fn(),
+  finished: null as null | (() => void),
+  image: vi.fn(() => 'data:image/png;base64,VISIBLE'),
+  save: vi.fn(),
+  write: vi.fn(),
   globalout: null as null | (() => void),
   mouseover: null as null | ((event: HoverEvent) => void),
   mouseout: null as null | ((event: HoverEvent) => void),
@@ -49,6 +53,7 @@ vi.mock('echarts-for-react', () => ({
     ref: Ref<unknown>
     option: typeof chartMock.option
     onEvents: {
+      finished: () => void
       brushEnd: NonNullable<typeof chartMock.brush>
       click: NonNullable<typeof chartMock.click>
       mouseover: NonNullable<typeof chartMock.mouseover>
@@ -60,6 +65,7 @@ vi.mock('echarts-for-react', () => ({
       () => ({
         getEchartsInstance: () => ({
           dispatchAction: chartMock.dispatchAction,
+          getDataURL: chartMock.image,
           getDom: () => ({
             getBoundingClientRect: () => ({ left: 0, top: 0 }),
           }),
@@ -75,6 +81,7 @@ vi.mock('echarts-for-react', () => ({
       }),
       [],
     )
+    chartMock.finished = onEvents.finished
     chartMock.mouseover = onEvents.mouseover
     chartMock.mouseout = onEvents.mouseout
     chartMock.option = option
@@ -86,8 +93,8 @@ vi.mock('echarts-for-react', () => ({
 vi.mock('@lib/api', () => ({
   api: {
     query: queryMocks,
-    clipboardImage: vi.fn(),
-    export: { saveBinary: vi.fn() },
+    clipboardImage: { writePng: chartMock.write },
+    export: { saveBinary: chartMock.save },
     ai: {
       settings: { get: aiMocks.getSettings },
       analyzeAnomalies: aiMocks.analyzeAnomalies,
@@ -637,4 +644,57 @@ it('uses hovered source identity in tooltip highlights and clears only matching 
   expect(formatter(rows)).toContain('chart-tooltip-row-hovered')
   act(() => chartMock.globalout?.())
   expect(formatter(rows)).not.toContain('chart-tooltip-row-hovered')
+})
+
+it('exports the finished visible chart and applies view changes to the owning tab without queries', async () => {
+  resetTestStore()
+  const a = useStore.getState().activeTabId
+  patchActiveTestSession({
+    result,
+    resultRevision: 1,
+    sqlVisualization: { ...configuration, view: 'line' },
+  })
+  chartMock.save.mockResolvedValue('/chart.png')
+  const { container } = render(<ResultExplorer mode="sql" />)
+  await waitFor(() => expect(chartMock.option).not.toBeNull())
+  act(() => chartMock.finished?.())
+  await waitFor(() =>
+    expect(
+      (screen.getByRole('button', { name: 'Export PNG' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Export PNG' }))
+  await waitFor(() =>
+    expect(chartMock.save).toHaveBeenCalledWith({
+      defaultName: 'datakoala_chart.png',
+      base64: 'VISIBLE',
+      extensions: ['png'],
+    }),
+  )
+  for (const view of ['Area', 'Bar', 'Scatter', 'Line']) {
+    fireEvent.click(screen.getByRole('button', { name: view }))
+    await waitFor(() =>
+      expect(
+        container
+          .querySelector('[data-visual-type]')
+          ?.getAttribute('data-visual-type'),
+      ).toBe(view.toLowerCase()),
+    )
+    expect(
+      useStore.getState().tabs.find((tab) => tab.id === a)?.sqlVisualization
+        .view,
+    ).toBe(view.toLowerCase())
+  }
+  act(() => {
+    useStore.getState().createTab()
+    patchActiveTestSession({ result, resultRevision: 1 })
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Bar' }))
+  expect(activeTestSession().sqlVisualization.view).toBe('bar')
+  expect(
+    useStore.getState().tabs.find((tab) => tab.id === a)?.sqlVisualization.view,
+  ).toBe('line')
+  expect(queryMocks.run).not.toHaveBeenCalled()
+  expect(queryMocks.runLoki).not.toHaveBeenCalled()
 })

@@ -13,6 +13,7 @@ import ReactECharts from 'echarts-for-react'
 import type EChartsReact from 'echarts-for-react'
 import { api } from '@lib/api'
 import { isAiConfigured } from '@shared/ai'
+import { useChartExport } from './useChartExport'
 import { useChartAnomalyAnalysis } from './useChartAnomalyAnalysis'
 import { buildChartPresentationOptions } from '@lib/chartPresentation'
 import {
@@ -36,6 +37,9 @@ import {
   pivotRowsForChart,
   reconcileHierarchyDimensions,
   visualizationConfigurationsEqual,
+  selectVisualizationSeries,
+  selectVisualizationView,
+  reorderHierarchyDimensions,
   type ValueAxisScale,
   type VisualizationConfiguration,
 } from '@lib/resultVisualization'
@@ -45,14 +49,7 @@ import {
   type ChartFilterAction,
 } from './filters/ChartFilterPopover'
 import { ResultFilterBar } from './filters/ResultFilterBar'
-import {
-  captureChartPng,
-  chartCapturePixelRatio,
-  copyChartPng,
-  exportChartPng,
-  isChartActionDisabled,
-} from '@lib/chartImage'
-import { notifyChartCopyResult } from '@lib/chartCopyNotification'
+import { isChartActionDisabled } from '@lib/chartImage'
 import {
   ChartReadinessController,
   createChartRevision,
@@ -239,9 +236,6 @@ export function GenericResultExplorer({
   }, [result, resultRevision, configuration, onAddFilter])
   const [renderedRevision, setRenderedRevision] =
     useState<ChartRevision | null>(null)
-  const [capturing, setCapturing] = useState<'copy' | 'export' | null>(null)
-  const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
-  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const readiness = useRef(new ChartReadinessController())
   const animationPolicy = useRef(new ChartAnimationPolicy())
 
@@ -258,7 +252,6 @@ export function GenericResultExplorer({
 
   useEffect(
     () => () => {
-      if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
       chartEvents.current?.detach()
       if (applicationFrame.current !== null)
         cancelAnimationFrame(applicationFrame.current)
@@ -524,11 +517,7 @@ export function GenericResultExplorer({
     onConfigurationChange({ ...configuration, ...patch })
   }
   const updateSeries = (values: string[]) =>
-    update(
-      values.length > 1
-        ? { seriesColumn: null, seriesColumns: values }
-        : { seriesColumn: values[0] ?? null, seriesColumns: [] },
-    )
+    onConfigurationChange(selectVisualizationSeries(configuration, values))
   const hierarchical =
     effectiveConfiguration.view === 'treemap' ||
     effectiveConfiguration.view === 'sunburst'
@@ -579,26 +568,18 @@ export function GenericResultExplorer({
   )
   const setHierarchyDimensions = (dimensions: string[]) =>
     update({ hierarchyDimensions: dimensions })
-  const chooseView = (view: typeof effectiveConfiguration.view) => {
-    const enteringHierarchy = view === 'treemap' || view === 'sunburst'
-    const savedHierarchy = reconcileHierarchyDimensions(
-      configuration.hierarchyDimensions,
-      availableHierarchyDimensions,
+  const chooseView = (view: typeof effectiveConfiguration.view) =>
+    onConfigurationChange(
+      selectVisualizationView(
+        configuration,
+        view,
+        availableHierarchyDimensions,
+        suggestedHierarchyDimensions,
+      ),
     )
-    const hierarchyOrder = configuration.hierarchyDimensions?.length
-      ? savedHierarchy
-      : suggestedHierarchyDimensions
-    update({
-      view,
-      ...(enteringHierarchy ? { hierarchyDimensions: hierarchyOrder } : {}),
-    })
-  }
   const moveHierarchyDimension = (index: number, offset: number) => {
-    const next = [...hierarchyDimensions]
-    const target = index + offset
-    if (target < 0 || target >= next.length) return
-    ;[next[index], next[target]] = [next[target], next[index]]
-    setHierarchyDimensions(next)
+    const next = reorderHierarchyDimensions(hierarchyDimensions, index, offset)
+    if (next !== hierarchyDimensions) setHierarchyDimensions(next)
   }
   const chartFingerprint = useMemo(
     () =>
@@ -751,56 +732,20 @@ export function GenericResultExplorer({
     aggregation: configuration.aggregation,
     resultRevision,
   })
-  const image = async (revision: ChartRevision) => {
-    const instance = ref.current?.getEchartsInstance()
-    if (!instance) throw new Error('Chart is not available')
-    const png = await captureChartPng(
-      instance,
-      chartCapturePixelRatio(window.devicePixelRatio),
-      hierarchical ? [] : legendEntries,
-      seriesVisibility,
-    )
-    if (!readiness.current.isCurrentRevision(revision))
-      throw new Error('Chart changed while capturing')
-    return png
-  }
-  const feedback = (message: string) => {
-    if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
-    setCopyFeedback(message)
-    feedbackTimer.current = setTimeout(() => setCopyFeedback(null), 1800)
-  }
-  const copyChart = async () => {
-    if (!chartRendered || capturing || !appliedChart) return
-    const revision = appliedChart.revision
-    setCapturing('copy')
-    try {
-      const ok = await copyChartPng(await image(revision), api.clipboardImage)
-      notifyChartCopyResult(ok)
-      if (!ok) console.error('[chart] Clipboard image write was rejected')
-    } catch (error) {
-      console.error('[chart] Could not copy chart', error)
-      notifyChartCopyResult(false)
-    } finally {
-      setCapturing(null)
-    }
-  }
-  const exportPng = async () => {
-    if (!chartRendered || capturing || !appliedChart) return
-    const revision = appliedChart.revision
-    setCapturing('export')
-    try {
-      const outcome = await exportChartPng(
-        () => image(revision),
-        api.export.saveBinary,
-      )
-      if (outcome === 'saved') feedback('Chart exported')
-    } catch (error) {
-      console.error('[chart] Could not export chart', error)
-      feedback('Could not export chart')
-    } finally {
-      setCapturing(null)
-    }
-  }
+  const exportContext = useMemo(
+    () => ({ chartRevision, renderedOption, result, owner: onAddFilter }),
+    [chartRevision, renderedOption, result, onAddFilter],
+  )
+  const exportReady = chartRendered && appliedChart?.revision === chartRevision
+  const { capturing, copyFeedback, copyChart, exportPng } = useChartExport({
+    context: exportContext,
+    ready: exportReady,
+    revision: appliedChart?.revision ?? null,
+    readiness: readiness.current,
+    getInstance: () => ref.current?.getEchartsInstance() ?? null,
+    legend: hierarchical ? [] : legendEntries,
+    visibility: seriesVisibility,
+  })
   const dismissPointMenu = useCallback(() => setPointMenu(null), [])
   const onBrushEnd = (params: {
     areas?: Array<{ coordRange?: unknown[] }>
@@ -1191,20 +1136,14 @@ export function GenericResultExplorer({
             )}
             <button
               className="btn ghost"
-              disabled={isChartActionDisabled(
-                chartRendered,
-                capturing !== null,
-              )}
+              disabled={isChartActionDisabled(exportReady, capturing !== null)}
               onClick={copyChart}
             >
               {capturing === 'copy' ? 'Copying…' : 'Copy chart'}
             </button>
             <button
               className="btn ghost"
-              disabled={isChartActionDisabled(
-                chartRendered,
-                capturing !== null,
-              )}
+              disabled={isChartActionDisabled(exportReady, capturing !== null)}
               onClick={exportPng}
             >
               {capturing === 'export' ? 'Exporting…' : 'Export PNG'}
