@@ -13,17 +13,17 @@ This directory contains product, architecture, engineering, and release document
 | [Styling](styling.md) | CSS ownership and component-scoping conventions |
 | [Code duplication](engineering/code-duplication.md) | jscpd baseline and interpretation |
 
-## Architectural and performance investigations
+## Historical investigations (`history/`)
 
 These are evidence and design records. Read the baseline/date and subsequent appendices before using a finding as a statement of current behavior.
 
 | Document | Scope |
 | --- | --- |
-| [Connection lifecycle audit](architecture/connection-lifecycle-audit.md) | Issue #370, connection ownership and race conditions |
-| [Query lifecycle audit](architecture/query-lifecycle-audit.md) | Issue #371, in-flight queries, tab switching and lifecycle parity |
-| [Series cardinality performance](series-cardinality-performance.md) | Issue #324, provider-specific cardinality probes and historical manual checks |
-| [Tempo performance baseline](development/tempo-performance-baseline.md) | Issue #96, measurement methodology and instrumentation |
-| [Market benchmark](market-benchmark.md) | Historical positioning research, last reviewed August 2026 |
+| [Connection lifecycle audit](history/connection-lifecycle-audit.md) | Issue #370, connection ownership and race conditions |
+| [Query lifecycle audit](history/query-lifecycle-audit.md) | Issue #371, in-flight queries, tab switching and lifecycle parity |
+| [Series cardinality performance](history/series-cardinality-performance.md) | Issue #324, provider-specific cardinality probes and historical manual checks |
+| [Tempo performance baseline](history/tempo-performance-baseline.md) | Issue #96, measurement methodology and instrumentation |
+| [Market benchmark](history/market-benchmark.md) | Historical positioning research, last reviewed August 2026 |
 
 ## Maintenance guidelines
 
