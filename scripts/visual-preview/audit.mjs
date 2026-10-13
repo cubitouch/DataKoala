@@ -54,7 +54,7 @@ export function validateAuditObservation(name, observation) {
   if (observation.zoom !== 1 || observation.scale !== 1) throw new Error(`${name}: incomparable zoom/device scale`)
 }
 
-export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
+export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDivider }) {
   await mkdir(outputDir, { recursive: true })
   // Clear only files owned by this mode, never regression/documentation output.
   for (const name of [...auditScreenshots, ...auditComparisonFiles, 'measurements.json', 'review.html']) await rm(resolve(outputDir, name), { force: true })
@@ -129,12 +129,15 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
       tab.resultRevision=(state.tabs[0]?.resultRevision??0)+1;
       let schemas=kind==='prometheus'?[{name:'Metrics',isSystem:false,relations:[{schema:'Metrics',name:'up',qualifiedName:'Metrics.up',kind:'metric',columnsStatus:'idle',details:{kind:'metric',type:'gauge',help:'Example metric'}}]}]:${JSON.stringify(auditSchemas)};
       if(kind!=='prometheus') schemas=schemas.map(schema=>({...schema,relations:schema.relations.filter(r=>kind==='tempo'?r.kind==='service':r.kind==='r')}));
-      store.setState({profiles:[profile],tabs:[tab],activeTabId:tab.id,sidebarWidth:240,editorHeight:260,connectionStateByProfileId:{[profile.id]:{status:'connected',generation:1,error:null,serverVersion:kind==='postgres'?'17':null}},metadataByProfileId:{[profile.id]:{schemas,status:'loaded',error:null,isStale:false}}});
+      store.setState({profiles:[profile],tabs:[tab],activeTabId:tab.id,connectionStateByProfileId:{[profile.id]:{status:'connected',generation:1,error:null,serverVersion:kind==='postgres'?'17':null}},metadataByProfileId:{[profile.id]:{schemas,status:'loaded',error:null,isStale:false}}});
     })()`)
     await waitFor(win, `window.__datakoalaStore.getState().activeTabId === 'audit-tab-${kind}' && document.body.innerText.includes('Example ${kind}')`, `seed ${kind}`)
     await settle()
     win.webContents.sendInputEvent({ type:'mouseMove', x:1,y:1 })
     await delay(100)
+    const bounds=await evaluate(`(() => { const handle=document.querySelector('.editor-resizer')?.getBoundingClientRect(), main=document.querySelector('.main')?.getBoundingClientRect(); return handle && main ? {delta:main.top+300-handle.top}:null })()`)
+    if(!bounds) throw Error('Missing real editor resize handle')
+    if(Math.abs(bounds.delta)>1) await dragDivider(win,'.editor-resizer',0,Math.round(bounds.delta))
   }
   const listSelectors = { logs:'[aria-label="Log results"]', patterns:'[aria-label="Log patterns"]', traces:'[aria-label="Trace search result view"]' }
   const rowSelectors = { logs:'[aria-label="Log results"] button[aria-selected]', patterns:'[data-pattern-row] button', traces:'button[class*="traceResult_"]' }
@@ -142,6 +145,10 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
 
   for (const [viewport, dimensions] of Object.entries(auditViewports)) {
     win.setContentSize(...dimensions)
+    await settle()
+    const sidebarDelta=await evaluate(`240-document.querySelector('[aria-label="Resize sidebar"]').getBoundingClientRect().left`)
+    if(Math.abs(sidebarDelta)>1) await dragDivider(win,'[aria-label="Resize sidebar"]',Math.round(sidebarDelta),0)
+    await waitFor(win, `Math.abs(document.querySelector('[aria-label="Resize sidebar"]').getBoundingClientRect().left-240)<=1`, 'fixed sidebar width')
     for (const kind of auditKinds) for (const mode of ['raw','builder']) {
       await seed(kind, mode)
       await waitFor(win, `[...document.querySelectorAll('[aria-label="Query mode"] button')].some(b=>b.getAttribute('aria-pressed')==='true' && b.textContent.trim() === ${JSON.stringify(mode==='builder'?'Builder':kind==='tempo'?'TraceQL':kind==='loki'?'LogQL':kind==='prometheus'?'PromQL':'SQL')})`, `${kind} ${mode} mode`)
@@ -181,16 +188,30 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     }
     for (const kind of ['postgres','loki','tempo']) {
       await seed(kind,'raw','fresh')
-      await observe(`${kind}-fresh-${viewport}.png`,'.main','not queried',viewport==='desktop'?'feedback':null)
+      await observe(`${kind}-fresh-${viewport}.png`,'.main','not queried')
       queryOutcome='loading';await clickText('Run','document.querySelector("[data-query-toolbar]")')
       await waitFor(win, `window.__datakoalaStore.getState().tabs[0].running`, `${kind} pending query`)
       await observe(`${kind}-loading-${viewport}.png`,'.main','actual unresolved IPC request')
       if(!releaseQuery) await delay(200)
       if(!releaseQuery) throw Error(`${kind} request never reached mocked IPC`)
       releaseQuery();releaseQuery=null;await waitFor(win, `!window.__datakoalaStore.getState().tabs[0].running`,`${kind} completion`)
+      if(kind==='postgres') {
+        await clickText('Bar', `document.querySelector(${JSON.stringify('[role="toolbar"][aria-label="Result view"]')})`)
+        await assertPreviewReady(win, `postgres-error-chart-${viewport}.png`,{selector:'[data-result-chart-canvas]',description:'settled chart before failure',minSeries:1,minItems:3})
+      }
       queryOutcome='error';await clickText('Run','document.querySelector("[data-query-toolbar]")')
       await waitFor(win, `document.body.innerText.includes('Synthetic provider unavailable')`,`${kind} failure`)
-      await observe(`${kind}-error-${viewport}.png`,'.main','actual provider failure with previous result retained',viewport==='desktop'?'feedback':null)
+      if(kind==='postgres') {
+        const beforeCalls=queryCalls
+        const chartVisibleDuringError=await evaluate('Boolean(document.querySelector("[data-result-chart-canvas] canvas"))')
+        await observe(`postgres-error-chart-${viewport}.png`,'.main','previously settled chart retained after failure',viewport==='desktop'?'feedback':null)
+        await clickText('Table', `document.querySelector(${JSON.stringify('[role="toolbar"][aria-label="Result view"]')})`)
+        await settle()
+        const tableVisibleDuringError=await evaluate('Boolean(document.querySelector("[data-result-table-pane] table"))')
+        if(queryCalls!==beforeCalls) throw Error('Error-view switch unexpectedly ran query')
+        observations.push({family:'error-retention',viewport,retainedRows:await evaluate('window.__datakoalaStore.getState().tabs[0].result.rows.length'),tableVisibleDuringError,chartVisibleDuringError})
+      }
+      await observe(`${kind}-error-${viewport}.png`,'.main','actual failure; retained result display is view-specific',viewport==='desktop'?'feedback':null)
       queryOutcome='success';await clickText('Run','document.querySelector("[data-query-toolbar]")')
       await waitFor(win, `!window.__datakoalaStore.getState().tabs[0].running && !document.body.innerText.includes('Synthetic provider unavailable')`,`${kind} explicit retry`)
       await observe(`${kind}-retry-${viewport}.png`,'.main','explicit Run recovers')

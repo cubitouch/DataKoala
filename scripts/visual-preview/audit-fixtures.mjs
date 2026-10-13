@@ -29,6 +29,7 @@ for (const viewport of Object.keys(auditViewports)) {
   for (const kind of auditKinds) for (const mode of ['raw', 'builder']) auditScreenshots.push(`${kind}-${mode}-${viewport}.png`)
   for (const list of ['logs', 'patterns', 'traces']) for (const state of ['default', 'hover', 'focus', 'open', 'scroll', 'empty']) auditScreenshots.push(`${list}-${state}-${viewport}.png`)
   for (const kind of ['postgres', 'loki', 'tempo']) for (const state of ['fresh', 'loading', 'error', 'retry']) auditScreenshots.push(`${kind}-${state}-${viewport}.png`)
+  auditScreenshots.push(`postgres-error-chart-${viewport}.png`)
   for (const state of ['partial','partial-complete']) auditScreenshots.push(`tempo-${state}-${viewport}.png`)
   for (const kind of ['postgres','loki','tempo']) for (const state of ['default','changed']) auditScreenshots.push(`views-${kind}-${state}-${viewport}.png`)
   for (const kind of ['postgres','tempo']) for (const state of ['loading','error','settled']) auditScreenshots.push(`metadata-${kind}-${state}-${viewport}.png`)

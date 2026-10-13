@@ -1543,7 +1543,7 @@ app.whenReady().then(async () => {
     await waitForRenderer(win)
     if (captureKind === 'audit') {
       const { runVisualAudit } = await import('./audit.mjs')
-      await runVisualAudit({ win, outputDir, waitFor: waitForRendererState, capture })
+      await runVisualAudit({ win, outputDir, waitFor: waitForRendererState, capture, dragDivider })
       app.quit()
       return
     }

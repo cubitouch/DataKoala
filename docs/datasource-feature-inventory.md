@@ -6,7 +6,7 @@
 
 This is a **source-guided audit**, not a live seven-datasource manual test. `Present` means an implementation entry point or relevant UI was found, **not** that execution has been tested end to end. `Conditional` means dependent on result representation, profile configuration or other conditions. `Verify` identifies behavior requiring further tests. `N/A` means deliberately not supported. Features and workflows in unmerged PRs are not counted as delivered. Issue #371 is completed (#383/#384/#386); #365 is completed through #404. Manual release acceptance remains pending in #382.
 
-**UX ownership:** `Shared` = same user contract/control; `Hybrid` = shared shell/pattern, datasource-specific semantics; `Unique` = meaningful datasource-specific experience. This column describes UX, not proof of a single implementation. See the [Phase 1 convergence audit](architecture/ux-implementation-convergence-audit.md) for independent UX/implementation classifications, all 32 baseline Hybrid decisions, caller evidence, runtime limits and ranked follow-ups. `Shared pattern/convention` likewise does not promise component reuse.
+**UX ownership:** `Shared` = same user contract/control; `Hybrid` = shared shell/pattern, datasource-specific semantics; `Unique` = meaningful datasource-specific experience. This column describes UX, not proof of a single implementation. See the [Phase 1 convergence audit](architecture/ux-implementation-convergence-audit.md) for independent UX/implementation classifications, all 32 baseline Hybrid decisions, caller evidence, runtime limits and ranked follow-ups. Its Phase 1B visual coverage and V-01–V-12 ledger reassess Shared, Unique and unlisted patterns through real-renderer comparisons and DOM/interaction measurements. `Shared pattern/convention` likewise does not promise component reuse.
 
 **Kinds:** `PG` PostgreSQL; `BQ` BigQuery; `LF` local-files/DuckDB; `SQ` SQLite via DuckDB; `PM` Prometheus; `LK` Loki; `TP` Tempo. `SQL4` = PG/BQ/LF/SQ; `OBS3` = PM/LK/TP; `ALL` = all seven.
 
@@ -243,17 +243,18 @@ This is a **source-guided audit**, not a live seven-datasource manual test. `Pre
 
 The [evidence ledger and coverage map](architecture/ux-implementation-convergence-audit.md) are authoritative for Phase 1 of #391. No proposed follow-up is implemented by the audit. Existing Shared and Unique entries were sampled by callers, not accepted solely from labels. Navigation aliases (e.g. S18/R20, S25/X04, R21/X08) are retained, not counted as separate duplication.
 
-| Priority | Topic / ledger                                                           | Current decision                                                                                       |
-| -------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| 1        | Raw Loki Format ownership / UX-05                                        | Two reproduced draft/other-tab overwrites; targeted correctness fix recommended before v0.2.1          |
-| 2        | Loki inspector copy recovery / UX-07                                     | Direct clipboard bypass; reuse transport/error feedback before release                                 |
-| 3        | PromQL accessible copy label / UX-06                                     | Shared CopySqlButton already supports language; correct QueryEditor caller before release              |
-| 4        | Tempo result view picker / UX-08                                         | Share shell only; preserve map loading guard and trace engines; optional bounded pre-release alignment |
-| 5        | Modal lifecycle and backdrop / UX-09                                     | Custom connection/delete vs shared reset/preset/settings; defer broad focus/wizard migration           |
-| —        | Query lifecycle, Level grouping, async caches / UX-01/03/11              | Completed by #384/#385/#386/#396/#397; frozen-candidate acceptance pending                             |
-| —        | Raw editor/toolbar, generated query, generic results / UX-04/15          | Already shared; leave intact                                                                           |
-| —        | Selector keyboard, resize, AI composer, gcx form shells / UX-12/14/19/21 | Confirmed partial duplication, defer narrowly scoped follow-ups; preserve semantic owners              |
-| —        | Persistence, filters, capability validation / UX-10/16/19                | Intentional contracts; no new shared framework                                                         |
+| Priority | Topic / ledger                                                        | Current decision                                                                                                                     |
+| -------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 1        | Raw Loki Format ownership / UX-05                                     | Existing two reproduced overwrites; correctness fix recommended before release                                                       |
+| 2        | Nested Modal/Popover Escape / V-02                                    | Settings selector Escape dismisses parent too; targeted shared ownership fix before release                                          |
+| 3        | Openable log/pattern/trace rows / V-01, #405                          | Real 42/58/68 px row-density and chevron difference; one composable shell, not three CSS patches; plan after release unless selected |
+| 4        | Tempo detail toolbar containment / V-04                               | Pane652 in window900 clips timing action by35 px; small container-responsive fix before release                                      |
+| 5        | Loki clipboard recovery / V-07                                        | Actual synthetic denial produces unhandled rejection/no feedback; existing helper reuse before release                               |
+| —        | PromQL Copy label / V-08                                              | Confirmed current DOM mismatch; small caller fix candidate                                                                           |
+| —        | Result picker, error retention and inspector chrome / V-05/06/09      | Confirmed current presentation differences; scoped alignment or product-policy decisions                                             |
+| —        | Connection modal focus/backdrop / V-03                                | Actual Tab/Escape divergence across custom forms; broader migration deferred                                                         |
+| —        | Shared raw toolbar/Builder field chrome / V-10/11                     | Visually consistent where compared; leave shared primitives intact                                                                   |
+| —        | AI composer, keyboard/resize mechanics, gcx forms / V-12, UX-12/14/21 | Preserve capability/geometry/UID semantics; defer targeted reuse, not universal components                                           |
 
 ### Cross-cutting interaction index
 
@@ -268,6 +269,15 @@ These entries are patterns, not new datasource capabilities. Full evidence/accep
 | N05 | AI composer and review shell / SQL raw and Builder                 | Same JSX pattern; separate capability hooks/grounding retained; UX-19                    |
 | N06 | Loaded-record clipboard failure/retry / logs, JSON, query, CSV     | Shared text helper bypassed by LK; payload/feedback styles intentionally distinct; UX-07 |
 | N07 | Result view switch chrome / generic, LK, TP                        | ChartPicker vs TraceSearchResults buttons; engine semantics distinct; UX-08              |
+
+### Additional visual component patterns
+
+| ID  | Pattern / ledger                            | Current conclusion                                                                                               |
+| --- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| N08 | Openable list rows / V-01, #405             | Unique data presentations contain a shared scan/open shell; log/pattern primitives do not own common row density |
+| N09 | Nested overlay Escape / V-02                | Already-shared Modal/Popover compose incorrectly in Settings; tested parent dismissal                            |
+| N10 | Secondary toolbar pane containment / V-04   | Viewport media query misses a narrow pane inside a wide window                                                   |
+| N11 | Retained result while failed/loading / V-06 | Shared store retains data; shared Table/chart parent still presents it differently                               |
 
 ## K. Scenario navigation (not a separate release acceptance matrix)
 
