@@ -259,3 +259,19 @@ test('demoted and cleared filters resume client semantics', () => {
     { status: 'other' },
   ])
 })
+
+test('evaluates offset timestamps with inclusive start and exclusive end at millisecond precision', () => {
+  const rows = [
+    { time: '2026-08-01T02:00:00.000+02:00' },
+    { time: new Date('2026-08-01T00:00:00.001Z') },
+    { time: '2026-08-01T00:00:00.002Z' },
+    { time: 'invalid' },
+  ]
+  const filter = createResultRangeFilter(
+    'time',
+    '2026-08-01T00:00:00.000Z',
+    '2026-08-01T00:00:00.002Z',
+  )
+  assert.deepEqual(applyResultFilters(rows, [filter]), rows.slice(0, 2))
+  assert.equal(applyResultFilters(rows, []), rows)
+})

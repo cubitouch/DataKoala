@@ -199,3 +199,29 @@ test('rejects non-temporal and malformed brush ranges', () => {
   assert.equal(chartTimeSelectionRange([0, 1], ['a', 'b']), null)
   assert.equal(chartTimeSelectionRange([0], ['2026-08-01T00:00:00Z']), null)
 })
+
+test('keeps real-time selection boundaries unclamped and millisecond-precise', () => {
+  const start = Date.parse('2026-08-01T00:00:00Z')
+  const values = [new Date(start), new Date(start + 1000)]
+  assert.deepEqual(chartTimeSelectionRange([start - 1, start + 1001], values), {
+    startInclusive: new Date(start - 1).toISOString(),
+    endExclusive: new Date(start + 1001).toISOString(),
+  })
+  assert.deepEqual(chartTimeSelectionRange([start + 1, start + 2], values), {
+    startInclusive: new Date(start + 1).toISOString(),
+    endExclusive: new Date(start + 2).toISOString(),
+  })
+  assert.equal(chartTimeSelectionRange([start + 1, start + 1], values), null)
+})
+
+test('rejects invalid real-time boundaries and preserves explicit timezone offsets', () => {
+  const values = ['2026-08-01T02:00:00+02:00', '2026-08-01T03:00:00+02:00']
+  for (const invalid of [NaN, Infinity, -Infinity, 'invalid', new Date(NaN)]) {
+    assert.equal(chartTimeSelectionRange([invalid, values[1]], values), null)
+    assert.equal(chartTimeSelectionRange([values[0], invalid], values), null)
+  }
+  assert.deepEqual(chartTimeSelectionRange([1, 0], values), {
+    startInclusive: '2026-08-01T00:00:00.000Z',
+    endExclusive: '2026-08-01T01:00:00.001Z',
+  })
+})
