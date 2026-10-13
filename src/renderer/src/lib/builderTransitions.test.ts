@@ -7,7 +7,13 @@ import {
   type ResultFilter,
 } from './resultFilters.ts'
 import { encodeBuilderSeriesTuple } from './resultVisualization.ts'
-import { transitionBuilderState } from './builderTransitions.ts'
+import {
+  transitionBuilderState,
+  builderRelationSelectionPatch,
+  builderTimeSourcePatch,
+  builderAxisFilterIds,
+} from './builderTransitions.ts'
+import { generateBuilderQuery } from './builderSql.ts'
 import { SEVEN_DAYS, type BuilderTimeRange } from './builderTimeRange.ts'
 
 const ALL_TIME: BuilderTimeRange = { kind: 'all' }
@@ -229,4 +235,116 @@ test('promoted minute filters survive harmless and dataset-filter changes, and a
   assert.equal(tableChanged.builder.timeRange, undefined)
   assert.equal(tableChanged.removedDescriptions.length, 1)
   assert.match(tableChanged.removedDescriptions[0], /Removed filter/)
+})
+
+// Selection patches are deliberately applied through the existing store transition.
+test('explicit relation reset clears dependencies and promoted filters without mutating input', () => {
+  const original = state([tupleFilter()])
+  const before = structuredClone(original)
+  for (const table of [
+    null,
+    baseBuilder.table,
+    { schema: 'archive', name: 'events' },
+  ]) {
+    const patch = builderRelationSelectionPatch(table)
+    const result = transitionBuilderState(original, patch)
+    assert.deepEqual(result.builder, {
+      table,
+      timeColumn: null,
+      timeBucket: 'day',
+      timeRange: undefined,
+      seriesColumns: [],
+    })
+    assert.deepEqual(result.builderResultFilters, [])
+    assert.deepEqual(original, before)
+  }
+  const first = builderRelationSelectionPatch(null)
+  first.seriesColumns!.push('local')
+  assert.deepEqual(builderRelationSelectionPatch(null).seriesColumns, [])
+})
+
+test('time-source selection preserves explicit ranges and unrelated ordered grouping', () => {
+  const builder = {
+    ...baseBuilder,
+    seriesColumns: ['device', 'country'],
+    timeRange: ALL_TIME,
+  }
+  const before = structuredClone(builder)
+  const selected = transitionBuilderState(
+    { builder, builderResultFilters: [] },
+    builderTimeSourcePatch(builder, 'received_at'),
+  ).builder
+  assert.deepEqual(selected.timeRange, ALL_TIME)
+  assert.deepEqual(selected.seriesColumns, ['device', 'country'])
+  assert.deepEqual(selected.table, builder.table)
+  assert.equal(selected.timeBucket, builder.timeBucket)
+  const cleared = transitionBuilderState(
+    { builder, builderResultFilters: [] },
+    builderTimeSourcePatch(builder, null),
+  ).builder
+  assert.equal(cleared.timeRange, undefined)
+  assert.deepEqual(
+    builderTimeSourcePatch({ ...builder, timeRange: undefined }, 'created_at')
+      .timeRange,
+    SEVEN_DAYS,
+  )
+  assert.deepEqual(builder, before)
+  assert.deepEqual(JSON.parse(JSON.stringify(selected)), { ...selected })
+})
+
+test('axis invalidation selects dependencies without changing surviving filter operators or values', () => {
+  const filters = [
+    createResultFilter('count', 'equals', 5),
+    createResultRangeFilter('value', '10', '20'),
+    createResultFilter('country', 'notEquals', 'France'),
+    createResultRangeFilter('time_bucket', '2026-01-01', '2026-01-02'),
+    tupleFilter(),
+  ]
+  const before = structuredClone(filters)
+  assert.deepEqual(
+    builderAxisFilterIds(filters, 'metric'),
+    filters.slice(0, 2).map((f) => f.id),
+  )
+  assert.deepEqual(
+    builderAxisFilterIds(filters, 'x', 'country'),
+    filters.slice(2).map((f) => f.id),
+  )
+  assert.deepEqual(builderAxisFilterIds(filters, 'x'), [])
+  assert.deepEqual(builderAxisFilterIds([], 'metric'), [])
+  assert.deepEqual(filters, before)
+})
+
+test('time-source transition produces equivalent SQL and parameters to the former inline patch', () => {
+  const patch = builderTimeSourcePatch(baseBuilder, 'received_at')
+  const next = transitionBuilderState(state([]), patch).builder
+  const expected = generateBuilderQuery({
+    ...baseBuilder,
+    timeColumn: 'received_at',
+    timeRange: baseBuilder.timeRange,
+    xColumn: 'country',
+    xColumnDataType: 'text',
+    aggregation: 'count',
+  })
+  const actual = generateBuilderQuery({
+    ...next,
+    table: next.table!,
+    xColumn: 'country',
+    xColumnDataType: 'text',
+    aggregation: 'count',
+  })
+  assert.deepEqual(actual, expected)
+  assert.match(actual.sql, /"received_at" >= CURRENT_TIMESTAMP/)
+  const reset = transitionBuilderState(
+    state([]),
+    builderRelationSelectionPatch({ schema: 'archive', name: 'sessions' }),
+  ).builder
+  assert.throws(
+    () =>
+      generateBuilderQuery({
+        ...reset,
+        table: reset.table!,
+        aggregation: 'count',
+      }),
+    /Choose an X axis/,
+  )
 })

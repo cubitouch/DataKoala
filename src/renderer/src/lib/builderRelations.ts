@@ -5,6 +5,7 @@ import type {
 } from '@shared/types'
 import type { VisualizationConfiguration } from './resultVisualization.ts'
 import type { BuilderQueryState } from '@store/useStore'
+import { builderRelationSelectionPatch } from './builderTransitions.ts'
 
 /** A collision-safe identity for a relation (qualified names are not collision-safe). */
 export function relationIdentity(relation: {
@@ -66,11 +67,7 @@ export function selectBuilderRelationState<T extends BuilderRelationState>(
     ...state,
     builder: {
       ...state.builder,
-      table,
-      timeColumn: null,
-      timeBucket: 'day',
-      timeRange: undefined,
-      seriesColumns: [],
+      ...builderRelationSelectionPatch(table),
     },
     builderHasRun: false,
     ...(visualization ? { builderVisualization: visualization } : {}),

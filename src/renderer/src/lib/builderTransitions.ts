@@ -3,6 +3,7 @@ import {
   compatibleTimeBucket,
   MINUTE_BUCKET_UNAVAILABLE_REASON,
   normalizeBuilderTimeRange,
+  SEVEN_DAYS,
 } from './builderTimeRange.ts'
 import { decodeBuilderSeriesTuple } from './resultVisualization.ts'
 import type { ResultFilter } from './resultFilters'
@@ -168,3 +169,47 @@ export function transitionBuilderState(
 export const clearedBuilderFiltersMessage = (
   descriptions: string[],
 ): string | null => (descriptions.length ? descriptions.join(' ') : null)
+
+/** Explicit relation selection resets dependent query selections, even on reselection.
+ * Metadata/sidebar selection keeps its existing same-relation no-op separately.
+ */
+export function builderRelationSelectionPatch(
+  table: BuilderQueryState['table'],
+): Partial<BuilderQueryState> {
+  return {
+    table,
+    timeColumn: null,
+    timeBucket: 'day',
+    timeRange: undefined,
+    seriesColumns: [],
+  }
+}
+
+/** Preserve an explicit range when replacing the dataset time source. */
+export function builderTimeSourcePatch(
+  builder: BuilderQueryState,
+  timeColumn: BuilderQueryState['timeColumn'],
+): Partial<BuilderQueryState> {
+  return {
+    timeColumn,
+    timeRange: timeColumn ? (builder.timeRange ?? SEVEN_DAYS) : undefined,
+  }
+}
+
+/** Result-derived dependencies only; filters themselves retain their values/operators. */
+export function builderAxisFilterIds(
+  filters: readonly ResultFilter[],
+  axis: 'metric' | 'x',
+  selectedX: string | null = null,
+): string[] {
+  return filters
+    .filter((filter) =>
+      axis === 'metric'
+        ? filter.column === 'count' || filter.column === 'value'
+        : Boolean(selectedX) &&
+          (filter.column === 'time_bucket' ||
+            filter.column === selectedX ||
+            filter.provenance?.sourceColumn === selectedX),
+    )
+    .map((filter) => filter.id)
+}
