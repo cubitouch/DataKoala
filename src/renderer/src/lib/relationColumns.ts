@@ -27,20 +27,20 @@ export function ensureRelationColumns(
     return Promise.resolve(current.columns ?? [])
   if (current?.columnsStatus === 'error' && !retry)
     return Promise.resolve(undefined)
-  const key = `${profileId}\0${relation.qualifiedName}`
+  const initialConnection =
+    useStore.getState().connectionStateByProfileId[profileId]
+  if (
+    !initialConnection ||
+    (initialConnection.status !== 'connected' &&
+      initialConnection.status !== 'idle')
+  )
+    return Promise.resolve(undefined)
+  const generation = initialConnection.generation
+  const key = `${profileId}\0${generation}\0${relation.qualifiedName}`
   const existing = pending.get(key)
   if (existing) return existing
 
   const request = (async () => {
-    const initialConnection =
-      useStore.getState().connectionStateByProfileId[profileId]
-    if (
-      !initialConnection ||
-      (initialConnection.status !== 'connected' &&
-        initialConnection.status !== 'idle')
-    )
-      return undefined
-    const generation = initialConnection.generation
     useStore
       .getState()
       .setRelationColumns(
@@ -95,10 +95,10 @@ export function ensureRelationColumns(
           profileId,
         )
       return undefined
-    } finally {
-      pending.delete(key)
     }
-  })()
+  })().finally(() => {
+    if (pending.get(key) === request) pending.delete(key)
+  })
   pending.set(key, request)
   return request
 }

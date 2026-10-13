@@ -291,16 +291,53 @@ it.each(['success', 'error'] as const)(
   },
 )
 
-// #365 Phase 3A: confirmed gap; convert to an ordinary test with the narrow fix.
-it.fails(
-  'starts fresh metadata work for a replacement generation while old refresh is pending',
-  async () => {
+// #365 D1 regression: replacement generations must start fresh work.
+it('starts fresh metadata work for a replacement generation while old refresh is pending', async () => {
+  connectedState()
+  let finishOld!: () => void
+  mocks.refresh
+    .mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishOld = resolve
+      }),
+    )
+    .mockResolvedValue(undefined)
+  mocks.listObjects.mockResolvedValue([])
+  const old = useStore.getState().refreshMetadata('profile-a')
+  useStore.setState((state) => ({
+    connectionStateByProfileId: {
+      ...state.connectionStateByProfileId,
+      'profile-a': {
+        ...state.connectionStateByProfileId['profile-a'],
+        generation: 8,
+      },
+    },
+  }))
+  const replacement = useStore.getState().refreshMetadata('profile-a')
+  const callsBeforeOldCompletion = mocks.refresh.mock.calls.length
+  finishOld()
+  await Promise.all([old, replacement])
+  expect(callsBeforeOldCompletion).toBe(2)
+})
+
+it.each(['success', 'error'] as const)(
+  'keeps replacement refresh registered after obsolete %s and stops stale discovery',
+  async (outcome) => {
     connectedState()
     let finishOld!: () => void
+    let failOld!: (error: Error) => void
+    let finishNew!: () => void
+    mocks.refresh.mockReset()
     mocks.refresh
       .mockReturnValueOnce(
-        new Promise<void>((resolve) => {
+        new Promise<void>((resolve, reject) => {
           finishOld = resolve
+          failOld = reject
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          finishNew = resolve
         }),
       )
       .mockResolvedValue(undefined)
@@ -313,12 +350,111 @@ it.fails(
           ...state.connectionStateByProfileId['profile-a'],
           generation: 8,
         },
+        'profile-b': {
+          ...state.connectionStateByProfileId['profile-a'],
+          generation: 2,
+        },
       },
     }))
     const replacement = useStore.getState().refreshMetadata('profile-a')
-    const callsBeforeOldCompletion = mocks.refresh.mock.calls.length
-    finishOld()
-    await Promise.all([old, replacement])
-    expect(callsBeforeOldCompletion).toBe(2)
+    if (outcome === 'success') finishOld()
+    else failOld(new Error('obsolete refresh'))
+    await old
+    expect(mocks.listObjects).not.toHaveBeenCalled()
+    expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+      schemas: oldSchemas,
+      refreshing: true,
+      refreshError: null,
+    })
+    const joined = useStore.getState().refreshMetadata('profile-a')
+    expect(mocks.refresh).toHaveBeenCalledTimes(2)
+    await useStore.getState().refreshMetadata('profile-b')
+    expect(mocks.refresh).toHaveBeenCalledTimes(3)
+    expect(mocks.listObjects).toHaveBeenCalledExactlyOnceWith('profile-b')
+    finishNew()
+    await Promise.all([replacement, joined])
+    expect(mocks.listObjects).toHaveBeenCalledTimes(2)
+    expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+      schemas: [],
+      refreshing: false,
+      revision: 1,
+    })
+  },
+)
+
+it.each(['success', 'error'] as const)(
+  'discards obsolete discovery %s while replacement discovery remains pending',
+  async (outcome) => {
+    connectedState()
+    let finishOld!: (
+      objects: Array<{ schema: string; name: string; kind: 'r' }>,
+    ) => void
+    let failOld!: (error: Error) => void
+    let failNew!: (error: Error) => void
+    let startedOld!: () => void
+    let startedNew!: () => void
+    const oldStarted = new Promise<void>((resolve) => {
+      startedOld = resolve
+    })
+    const newStarted = new Promise<void>((resolve) => {
+      startedNew = resolve
+    })
+    mocks.refresh.mockReset()
+    mocks.refresh.mockResolvedValue(undefined)
+    mocks.listObjects.mockReset()
+    mocks.listObjects
+      .mockImplementationOnce(() => {
+        startedOld()
+        return new Promise((resolve, reject) => {
+          finishOld = resolve
+          failOld = reject
+        })
+      })
+      .mockImplementationOnce(() => {
+        startedNew()
+        return new Promise((_, reject) => {
+          failNew = reject
+        })
+      })
+      .mockResolvedValue([])
+    const old = useStore.getState().refreshMetadata('profile-a')
+    await oldStarted
+    useStore.setState((state) => ({
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        'profile-a': {
+          ...state.connectionStateByProfileId['profile-a'],
+          generation: 8,
+        },
+      },
+    }))
+    const replacement = useStore.getState().refreshMetadata('profile-a')
+    await newStarted
+    if (outcome === 'success')
+      finishOld([{ schema: 'public', name: 'obsolete', kind: 'r' }])
+    else failOld(new Error('obsolete discovery'))
+    await old
+    expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+      schemas: oldSchemas,
+      refreshing: true,
+      refreshError: null,
+    })
+    const joined = useStore.getState().refreshMetadata('profile-a')
+    expect(mocks.refresh).toHaveBeenCalledTimes(2)
+    failNew(new Error('current discovery'))
+    await Promise.all([replacement, joined])
+    expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+      schemas: oldSchemas,
+      refreshing: false,
+      refreshError: 'current discovery',
+    })
+    await useStore.getState().refreshMetadata('profile-a')
+    expect(mocks.refresh).toHaveBeenCalledTimes(3)
+    expect(useStore.getState().metadataByProfileId['profile-a']).toMatchObject({
+      schemas: [],
+      refreshing: false,
+      refreshError: null,
+      revision: 1,
+    })
   },
 )

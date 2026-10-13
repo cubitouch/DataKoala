@@ -130,3 +130,56 @@ describe('ensureRelationColumns', () => {
     ).toBeUndefined()
   })
 })
+
+it.each(['old-first', 'new-first'] as const)(
+  'starts replacement-generation columns independently (%s)',
+  async (order) => {
+    let finishOld!: (
+      columns: Array<{ name: string; dataTypeName: string }>,
+    ) => void
+    let finishNew!: (
+      columns: Array<{ name: string; dataTypeName: string }>,
+    ) => void
+    describeTable
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishOld = resolve
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishNew = resolve
+        }),
+      )
+    const old = ensureRelationColumns('p1', relation)
+    useStore.setState((state) => ({
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        p1: { ...state.connectionStateByProfileId.p1, generation: 2 },
+      },
+    }))
+    const replacement = ensureRelationColumns('p1', relation)
+    expect(describeTable).toHaveBeenCalledTimes(2)
+    expect(replacement).not.toBe(old)
+    const columns = [{ name: 'current_id', dataTypeName: 'integer' }]
+    if (order === 'old-first') {
+      finishOld([{ name: 'stale_id', dataTypeName: 'integer' }])
+      await expect(old).resolves.toBeUndefined()
+      expect(ensureRelationColumns('p1', relation)).toBe(replacement)
+      expect(describeTable).toHaveBeenCalledTimes(2)
+      finishNew(columns)
+    } else {
+      finishNew(columns)
+      await replacement
+      finishOld([{ name: 'stale_id', dataTypeName: 'integer' }])
+    }
+    await expect(old).resolves.toBeUndefined()
+    await expect(replacement).resolves.toEqual(columns)
+    expect(
+      useStore.getState().metadataByProfileId.p1.schemas[0].relations[0]
+        .columns,
+    ).toEqual(columns)
+    await ensureRelationColumns('p1', relation)
+    expect(describeTable).toHaveBeenCalledTimes(2)
+  },
+)

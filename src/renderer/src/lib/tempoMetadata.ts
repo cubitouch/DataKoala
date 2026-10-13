@@ -37,7 +37,7 @@ export function tempoAttributes(
       ].sort((a, b) => a.traceql.localeCompare(b.traceql)),
     )
     .catch((error: unknown) => {
-      attributeRequests.delete(key)
+      if (attributeRequests.get(key) === request) attributeRequests.delete(key)
       throw error
     })
   attributeRequests.set(key, request)
@@ -63,7 +63,7 @@ export function tempoAttributeValues(
       [...new Set(values)].sort((left, right) => left.localeCompare(right)),
     )
     .catch((error: unknown) => {
-      valueRequests.delete(key)
+      if (valueRequests.get(key) === request) valueRequests.delete(key)
       throw error
     })
   valueRequests.set(key, request)
