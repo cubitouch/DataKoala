@@ -4,7 +4,10 @@ import { invalidateLokiMetadata } from './lokiMetadata'
 import { invalidateTempoMetadata } from './tempoMetadata'
 import type { AppState } from '@store/useStore'
 
-const inFlight = new Map<string, Promise<void>>()
+const inFlight = new Map<
+  string,
+  { generation: number; promise: Promise<void> }
+>()
 
 /** Refresh a live session in place, retaining all usable metadata until replacement succeeds. */
 type StoreAccess = {
@@ -16,13 +19,13 @@ export function refreshConnectionMetadata(
   profileId: string,
   store: StoreAccess,
 ): Promise<void> {
-  const joined = inFlight.get(profileId)
-  if (joined) return joined
   const initial = store.getState()
   const connection = initial.connectionStateByProfileId[profileId]
   if (connection?.status !== 'connected' && connection?.status !== 'idle')
     return Promise.resolve()
   const generation = connection.generation
+  const joined = inFlight.get(profileId)
+  if (joined?.generation === generation) return joined.promise
   store.setState((state) => {
     const old = state.metadataByProfileId[profileId]
     return {
@@ -44,6 +47,13 @@ export function refreshConnectionMetadata(
   const promise = (async () => {
     try {
       await api.connections.refreshMetadata(profileId)
+      const afterRefresh =
+        store.getState().connectionStateByProfileId[profileId]
+      if (
+        afterRefresh?.generation !== generation ||
+        (afterRefresh.status !== 'connected' && afterRefresh.status !== 'idle')
+      )
+        return
       const schemas = await loadConnectionMetadata(profileId)
       const current = store.getState()
       const currentConnection = current.connectionStateByProfileId[profileId]
@@ -103,10 +113,10 @@ export function refreshConnectionMetadata(
           },
         }
       })
-    } finally {
-      inFlight.delete(profileId)
     }
-  })()
-  inFlight.set(profileId, promise)
+  })().finally(() => {
+    if (inFlight.get(profileId)?.promise === promise) inFlight.delete(profileId)
+  })
+  inFlight.set(profileId, { generation, promise })
   return promise
 }

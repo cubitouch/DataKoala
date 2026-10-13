@@ -20,7 +20,7 @@ export function lokiLabels(
   const pending = api.connections.loki
     .labels(connectionId, request)
     .catch((error) => {
-      cache.delete(cacheKey)
+      if (cache.get(cacheKey) === pending) cache.delete(cacheKey)
       throw error
     })
   cache.set(cacheKey, pending)
@@ -45,7 +45,7 @@ export function lokiLabelValues(
   const pending = api.connections.loki
     .labelValues(connectionId, label, request)
     .catch((error) => {
-      cache.delete(cacheKey)
+      if (cache.get(cacheKey) === pending) cache.delete(cacheKey)
       throw error
     })
   cache.set(cacheKey, pending)

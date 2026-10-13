@@ -260,3 +260,65 @@ Record frozen candidate SHA, provider, exact actions and evidence; use controlle
 read-only latency/faults, never production load to force races. **No manual
 acceptance is passed by this PR.** #365 Phase 3A remains subject to review; this
 PR does not check off 3B/3C, close the roadmap or publish the release.
+
+## D1/D2 correction — Phase 3B
+
+Baseline for the targeted correction: `main` `699d614`, including #395 and #396.
+The original inventory/diagnoses above remain historical evidence.
+
+### Request ownership before and after
+
+Refresh is a profile-level operation invoked by the store's `refreshMetadata`
+action. It calls backend refresh, then the shared normalized object loader;
+successful publication invalidates Loki/Tempo caches. Previously the registry
+joined by profile before checking connection eligibility. It now reads the usable
+connection first and joins only an entry with the same generation. A replacement
+generation replaces the registry entry and starts independent discovery. Old
+refresh completion checks generation/status before beginning object discovery,
+and existing success/error publication checks still reject obsolete work.
+Final cleanup compares the exact promise, so old settlement cannot remove the
+replacement. Loaded schemas survive refresh and current failure; retry and
+profile independence retain their existing contracts.
+
+Lazy relation columns serve Sidebar, SQL Builder, QueryEditor and AI context.
+Previously pending work used profile/relation identity although publication
+already checked connection generation. Both new deterministic old-first and
+new-first tests failed against unchanged production code (two failures, three
+existing passes): the replacement joined the old request and no second describe
+call occurred. The pending key now includes profile/generation/qualified relation.
+Its final cleanup is promise-conditional; publication/error behavior and loaded
+column reuse are unchanged. This is a narrow confirmed joining correction,
+not a new metadata store or cache invalidation policy.
+
+Loki labels/values cache promises by profile, interval, selector and label.
+Tempo attributes/values use profile, generation, optional query and attribute;
+their existing normalization is retained. Explicit invalidation removes matching
+profile entries, and clear/reset removes all entries. Previously rejection
+unconditionally removed a key, losing a pending or completed replacement.
+All four catches now remove only the rejecting promise's own entry. A current
+failure still evicts itself and permits retry; old failures propagate to their
+original callers without evicting another owner's cache. Success caching,
+profile isolation, keys, returned shapes and IPC are unchanged.
+
+### Regression evidence and release boundary
+
+The five D1/D2 expected-failure cases from #395 are ordinary regressions with
+their original assertions retained. Added deferred tests cover obsolete success
+and failure during refresh and object discovery, no stale discovery continuation,
+replacement registration/coalescing, profile B, current failure/retry, lazy-column
+replacement in both orders, and all four cache paths while replacement remains
+pending. Cache tests also verify independent profiles and no third read-induced
+backend call. Existing D3 ordinary tests from #396 remain unchanged. There are
+zero D1/D2/D3 expected failures.
+
+No shared asynchronous request primitive was necessary. Logical generation
+suppression does not cancel issued backend work. Relation revision replacement
+within one generation, low-level Loki generation boundaries, Prometheus cache
+reset overlap and the lower-priority coverage questions above remain outside
+this correction; no broader architecture rewrite is justified by these findings.
+
+Manual RC-10 refresh/reconnect/columns and RC-11/16 provider metadata refresh,
+invalidation and retry remain **pending** in #382. D2's exact rejection race is
+automated and requires no duplicate manual stress test. Record frozen RC SHA,
+datasource/provider, actions, outcomes and evidence during release acceptance.
+No manual case is marked passed by this correction.

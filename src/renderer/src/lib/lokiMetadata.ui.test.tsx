@@ -67,7 +67,7 @@ describe('Loki dependent metadata', () => {
 })
 
 // #365 Phase 3A: invalidated promise rejection must not evict a newer cache entry.
-it.fails.each(['labels', 'values'] as const)(
+it.each(['labels', 'values'] as const)(
   'preserves replacement Loki %s cache after old rejection',
   async (operation) => {
     clearLokiMetadataCache()
@@ -97,5 +97,51 @@ it.fails.each(['labels', 'values'] as const)(
     await reused
     expect(backend).toHaveBeenCalledTimes(2)
     expect(reused).toBe(replacement)
+  },
+)
+
+it.each(['labels', 'values'] as const)(
+  'preserves pending replacement %s and profile isolation, and retries current failure',
+  async (operation) => {
+    clearLokiMetadataCache()
+    mocks.labels.mockReset()
+    mocks.labelValues.mockReset()
+    const backend = operation === 'labels' ? mocks.labels : mocks.labelValues
+    let rejectOld!: (error: Error) => void
+    let rejectNew!: (error: Error) => void
+    backend
+      .mockReturnValueOnce(
+        new Promise((_, reject) => {
+          rejectOld = reject
+        }),
+      )
+      .mockResolvedValueOnce([])
+      .mockReturnValueOnce(
+        new Promise((_, reject) => {
+          rejectNew = reject
+        }),
+      )
+      .mockResolvedValue([])
+    const read = (profile = 'a') =>
+      operation === 'labels'
+        ? lokiLabels(profile, { start: 'a', end: 'b' })
+        : lokiLabelValues(profile, 'service', { start: 'a', end: 'b' })
+    const old = read()
+    const oldRejected = expect(old).rejects.toThrow('old')
+    const other = read('b')
+    await other
+    invalidateLokiMetadata('a')
+    const replacement = read()
+    const newRejected = expect(replacement).rejects.toThrow('current')
+    rejectOld(new Error('old'))
+    await oldRejected
+    expect(read()).toBe(replacement)
+    expect(read('b')).toBe(other)
+    expect(backend).toHaveBeenCalledTimes(3)
+    rejectNew(new Error('current'))
+    await newRejected
+    await expect(read()).resolves.toEqual([])
+    expect(backend).toHaveBeenCalledTimes(4)
+    expect(read('b')).toBe(other)
   },
 )

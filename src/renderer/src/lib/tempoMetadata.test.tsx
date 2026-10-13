@@ -102,7 +102,7 @@ describe('Tempo metadata cache', () => {
 })
 
 // #365 Phase 3A: invalidated promise rejection must not evict a newer cache entry.
-it.fails.each(['attributes', 'values'] as const)(
+it.each(['attributes', 'values'] as const)(
   'preserves replacement Tempo %s cache after old rejection',
   async (operation) => {
     resetTempoMetadataCache()
@@ -132,5 +132,51 @@ it.fails.each(['attributes', 'values'] as const)(
     await reused
     expect(backend).toHaveBeenCalledTimes(2)
     expect(reused).toBe(replacement)
+  },
+)
+
+it.each(['attributes', 'values'] as const)(
+  'preserves pending replacement %s and profile isolation, and retries current failure',
+  async (operation) => {
+    resetTempoMetadataCache()
+    attributes.mockReset()
+    attributeValues.mockReset()
+    const backend = operation === 'attributes' ? attributes : attributeValues
+    let rejectOld!: (error: Error) => void
+    let rejectNew!: (error: Error) => void
+    backend
+      .mockReturnValueOnce(
+        new Promise((_, reject) => {
+          rejectOld = reject
+        }),
+      )
+      .mockResolvedValueOnce([])
+      .mockReturnValueOnce(
+        new Promise((_, reject) => {
+          rejectNew = reject
+        }),
+      )
+      .mockResolvedValue([])
+    const read = (profile = 'a') =>
+      operation === 'attributes'
+        ? tempoAttributes(profile, 1)
+        : tempoAttributeValues(profile, 1, 'span.messaging.system')
+    const old = read()
+    const oldRejected = expect(old).rejects.toThrow('old')
+    const other = read('b')
+    await other
+    invalidateTempoMetadata('a')
+    const replacement = read()
+    const newRejected = expect(replacement).rejects.toThrow('current')
+    rejectOld(new Error('old'))
+    await oldRejected
+    expect(read()).toBe(replacement)
+    expect(read('b')).toBe(other)
+    expect(backend).toHaveBeenCalledTimes(3)
+    rejectNew(new Error('current'))
+    await newRejected
+    await expect(read()).resolves.toEqual([])
+    expect(backend).toHaveBeenCalledTimes(4)
+    expect(read('b')).toBe(other)
   },
 )
