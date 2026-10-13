@@ -168,200 +168,23 @@
         </section>
 
         <section class="workspace" id="workspace">
-          <div class="section-heading">
-            <p class="eyebrow">ONE WORKSPACE</p>
-            <h2>Follow the question,<br />not the tool.</h2>
-            <p>
-              Explore structured data and production signals without rebuilding
-              your context every time the investigation moves to another source.
-            </p>
-          </div>
-
-          <div class="bento-grid">
-            <article class="bento-card bento-card-sql">
-              <div class="bento-copy">
-                <span class="card-index">01</span>
-                <p class="card-kicker">SQL + VISUAL BUILDER</p>
-                <h3>Start where you are comfortable.</h3>
-                <p>
-                  Browse metadata and build queries visually when you want
-                  speed, or write SQL directly when you need full control.
-                </p>
-              </div>
-              <a class="bento-media" href="./screenshots/docs-sql.png">
-                <span class="window-bar" aria-hidden="true">
-                  <i></i><i></i><i></i>
-                </span>
-                <img
-                  src="./screenshots/docs-sql.png"
-                  alt="SQL query beside searchable metadata and filtered market activity results"
-                  loading="lazy"
-                />
-              </a>
-            </article>
-
-            <article class="bento-card bento-card-logs">
-              <div class="bento-copy">
-                <span class="card-index">02</span>
-                <p class="card-kicker">LOKI</p>
-                <h3>Turn noisy logs into a line of inquiry.</h3>
-                <p>
-                  Search, filter, inspect structured fields, and keep the event
-                  context beside the result.
-                </p>
-              </div>
-              <a class="bento-media" href="./screenshots/loki-log-list.png">
-                <span class="window-bar" aria-hidden="true">
-                  <i></i><i></i><i></i>
-                </span>
-                <img
-                  src="./screenshots/loki-log-list.png"
-                  alt="Loki production checkout log list with filters and a selected error event inspector"
-                  loading="lazy"
-                />
-              </a>
-            </article>
-
-            <article class="bento-card bento-card-metrics">
-              <div class="bento-copy">
-                <span class="card-index">03</span>
-                <p class="card-kicker">PROMETHEUS</p>
-                <h3>Understand the shape of a problem.</h3>
-                <p>
-                  Compose PromQL from metadata, grouping, calculations, and time
-                  controls, then move straight into the result.
-                </p>
-              </div>
-              <a class="bento-media" href="./screenshots/docs-prometheus.png">
-                <span class="window-bar" aria-hidden="true">
-                  <i></i><i></i><i></i>
-                </span>
-                <img
-                  src="./screenshots/docs-prometheus.png"
-                  alt="PromQL Builder showing a request-duration percentile query"
-                  loading="lazy"
-                />
-              </a>
-            </article>
-
-            <article class="bento-card bento-card-traces">
-              <div class="bento-copy">
-                <span class="card-index">04</span>
-                <p class="card-kicker">TEMPO</p>
-                <h3>Follow the request to the root cause.</h3>
-                <p>
-                  Search traces, compare latency and status, then inspect the
-                  full waterfall without leaving the workspace.
-                </p>
-              </div>
-              <a class="bento-media" href="./screenshots/tempo-waterfall.png">
-                <span class="window-bar" aria-hidden="true">
-                  <i></i><i></i><i></i>
-                </span>
-                <img
-                  src="./screenshots/tempo-waterfall.png"
-                  alt="Tempo trace waterfall showing checkout spans, timing, status, filters, and a selected payment span"
-                  loading="lazy"
-                />
-              </a>
-            </article>
-          </div>
-        </section>
-
-        <section class="deep-dives">
-          <div class="section-heading section-heading-compact">
-            <p class="eyebrow">GO DEEPER</p>
-            <h2>Keep context as the investigation narrows.</h2>
-          </div>
-
-          <div class="feature">
-            <div class="feature-copy">
-              <p class="eyebrow">LOG PATTERNS</p>
-              <h3>See recurring messages, not a wall of text.</h3>
-              <p>
-                Group loaded Loki logs into explainable templates, compare
-                frequency and severity, inspect representative values, and drill
-                back into matching events.
-              </p>
-            </div>
-            <a class="shot" href="./screenshots/loki-log-patterns.png">
-              <span class="window-bar" aria-hidden="true">
-                <i></i><i></i><i></i>
-              </span>
-              <img
-                src="./screenshots/loki-log-patterns.png"
-                alt="Loki log patterns with an expanded cluster, examples, and variable values"
-                loading="lazy"
-              />
-            </a>
-          </div>
-
-          <div class="feature reverse">
-            <div class="feature-copy">
-              <p class="eyebrow">LOG VOLUME</p>
-              <h3>Move from a spike to the events behind it.</h3>
-              <p>
-                Break down log volume by a discovered label and drag across an
-                interesting window to filter the loaded results locally — no
-                query rerun.
-              </p>
-            </div>
-            <a class="shot" href="./screenshots/loki-log-chart.png">
-              <span class="window-bar" aria-hidden="true">
-                <i></i><i></i><i></i>
-              </span>
-              <img
-                src="./screenshots/loki-log-chart.png"
-                alt="Loki log-volume chart showing a production incident spike and service breakdown"
-                loading="lazy"
-              />
-            </a>
-          </div>
-
-          <div class="feature">
-            <div class="feature-copy">
-              <p class="eyebrow">TEMPO SERVICE MAP</p>
-              <h3>Find bottlenecks across a trace cohort.</h3>
-              <p>
-                Turn Tempo search results into a service map, compare
-                synchronous and async branches, group dense graphs by namespace,
-                and inspect ranked bottleneck candidates.
-              </p>
-            </div>
-            <a class="shot" href="./screenshots/tempo-service-map.png">
-              <span class="window-bar" aria-hidden="true">
-                <i></i><i></i><i></i>
-              </span>
-              <img
-                src="./screenshots/tempo-service-map.png"
-                alt="Tempo synthetic cohort service map and bottlenecks"
-                loading="lazy"
-              />
-            </a>
-          </div>
-
-          <div class="feature reverse">
-            <div class="feature-copy">
-              <p class="eyebrow">RESULT EXPLORER</p>
-              <h3>Make the answer readable.</h3>
-              <p>
-                Move from tables to lines, bars, scatter plots, treemaps, and
-                hierarchy views without exporting your result into another tool
-                first.
-              </p>
-            </div>
-            <a class="shot" href="./screenshots/docs-visualization.png">
-              <span class="window-bar" aria-hidden="true">
-                <i></i><i></i><i></i>
-              </span>
-              <img
-                src="./screenshots/docs-visualization.png"
-                alt="Sunburst visualization of synthetic payments grouped by currency and country"
-                loading="lazy"
-              />
-            </a>
-          </div>
-        </section>
+<div class="section-heading"><p class="eyebrow">FROM QUESTION TO ANSWER</p><h2>Follow the question,<br />not the tool.</h2><p>Build an analytical query visually, take over in SQL when it gets complex, and turn the result into something you can understand at a glance.</p></div>
+<div class="journey-grid"><article class="journey-card"><div class="journey-copy"><span class="card-index">01</span><p class="card-kicker">BUILD</p><h3>Start with the Builder.</h3><p>Explore tables, choose dimensions and aggregations, and generate SQL without starting from a blank editor.</p></div><a class="journey-media" href="./screenshots/docs-overview.png"><span class="window-bar" aria-hidden="true"><i></i><i></i><i></i></span><img src="./screenshots/docs-overview.png" alt="SQL Builder with selected tables, dimensions and generated chart" loading="lazy" /></a></article>
+<article class="journey-card"><div class="journey-copy"><span class="card-index">02</span><p class="card-kicker">EJECT TO SQL</p><h3>Take full control.</h3><p>Switch to the SQL editor when a question needs joins, custom expressions or more complex logic. Keep the query visible and editable.</p></div><a class="journey-media" href="./screenshots/docs-sql.png"><span class="window-bar" aria-hidden="true"><i></i><i></i><i></i></span><img src="./screenshots/docs-sql.png" alt="SQL editor with a custom query and tabular results" loading="lazy" /></a></article>
+<article class="journey-card"><div class="journey-copy"><span class="card-index">03</span><p class="card-kicker">VISUALIZE</p><h3>See the answer.</h3><p>Move from query results to a bar chart; compare categories, inspect values and iterate without leaving your workspace.</p></div><a class="journey-media" href="./screenshots/docs-builder.png"><span class="window-bar" aria-hidden="true"><i></i><i></i><i></i></span><img src="./screenshots/docs-builder.png" alt="Bar chart generated from SQL query results" loading="lazy" /></a></article></div>
+</section>
+<section class="workspace observability">
+<div class="section-heading"><p class="eyebrow">GRAFANA DATA SOURCES · POWERED BY GCX</p><h2>Observe systems through data.</h2><p>Explore metrics, logs, and traces from Grafana-backed data sources in one focused desktop workspace.</p></div>
+<div class="journey-grid"><article class="journey-card"><div class="journey-copy"><span class="card-index">01</span><p class="card-kicker">PROMETHEUS</p><h3>Follow a metric trend.</h3><p>Explore time-series behavior with PromQL and discover changes worth investigating.</p></div><a class="journey-media" href="./screenshots/docs-prometheus.png"><span class="window-bar" aria-hidden="true"><i></i><i></i><i></i></span><img src="./screenshots/docs-prometheus.png" alt="Prometheus metric exploration with a PromQL Builder" loading="lazy" /></a></article>
+<article class="journey-card"><div class="journey-copy"><span class="card-index">02</span><p class="card-kicker">LOKI</p><h3>Find the volume spike.</h3><p>Break down log volume over time, then narrow your investigation to the interesting interval.</p></div><a class="journey-media" href="./screenshots/loki-log-chart.png"><span class="window-bar" aria-hidden="true"><i></i><i></i><i></i></span><img src="./screenshots/loki-log-chart.png" alt="Loki log volume chart broken down by services" loading="lazy" /></a></article>
+<article class="journey-card"><div class="journey-copy"><span class="card-index">03</span><p class="card-kicker">TEMPO</p><h3>Inspect the trace.</h3><p>Follow the spans behind a slow request and inspect its waterfall to see where time was spent.</p></div><a class="journey-media" href="./screenshots/tempo-waterfall.png"><span class="window-bar" aria-hidden="true"><i></i><i></i><i></i></span><img src="./screenshots/tempo-waterfall.png" alt="Tempo trace waterfall and selected span details" loading="lazy" /></a></article></div>
+</section>
+<section class="sharing"><div class="section-heading"><p class="eyebrow">SHARE YOUR FINDINGS</p><h2>Take the answer with you.</h2><p>Share the evidence without turning your exploration into a reporting project.</p></div><div class="sharing-grid"><article><h3>Open in Grafana</h3><p>Hand off supported observability queries with their time range.</p></article><article><h3>Capture a screenshot</h3><p>Copy or export supported visualizations for discussions and reports.</p></article><article><h3>Copy or export CSV</h3><p>Take filtered, sorted table results into the tool of your choice.</p></article></div></section>
+<section class="deep-dives"><div class="section-heading section-heading-compact"><p class="eyebrow">EXPLORE FURTHER</p><h2>Stay close to the details.</h2></div>
+<div class="feature  "><div class="feature-copy"><p class="eyebrow">CONNECTIONS</p><h3>Connect to the data you already have.</h3><p>Create and manage connections to PostgreSQL, BigQuery, SQLite, local files and Grafana-backed observability sources.</p></div><a class="shot" href="./screenshots/docs-data-sources.png"><span class="window-bar" aria-hidden="true"><i></i><i></i><i></i></span><img src="./screenshots/docs-data-sources.png" alt="DataKoala connection and datasource selection interface" loading="lazy" /></a></div>
+<div class="feature reverse feature-chart"><div class="feature-copy"><p class="eyebrow">VISUALIZATIONS</p><h3>Find the right shape for the answer.</h3><p>Switch between line, bar, area, scatter, treemap and sunburst charts. Explore hierarchical results without losing the original query.</p></div><a class="shot" href="./screenshots/docs-visualization.png"><span class="window-bar" aria-hidden="true"><i></i><i></i><i></i></span><img src="./screenshots/docs-visualization.png" alt="Sunburst chart of nested synthetic payment categories" loading="lazy" /></a></div>
+<div class="feature  "><div class="feature-copy"><p class="eyebrow">STRUCTURED DATA</p><h3>Look inside complex values.</h3><p>Inspect structured data and nested fields in context, including JSON values and parsed log metadata, rather than flattening everything first.</p></div><a class="shot" href="./screenshots/loki-log-list.png"><span class="window-bar" aria-hidden="true"><i></i><i></i><i></i></span><img src="./screenshots/loki-log-list.png" alt="Log event inspector displaying structured fields and detailed values" loading="lazy" /></a></div>
+</section>
 
         <section class="principles" id="why">
           <div class="section-heading">
