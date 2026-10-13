@@ -365,3 +365,42 @@ describe('Explain node signals and AI performance hints', () => {
     resolveAnalysis({ ok: true, value: { summary: '', hints: [] } })
   })
 })
+
+it.each(['success', 'failure'] as const)(
+  'ignores late plan analysis %s after replacement and allows explicit recovery',
+  async (outcome) => {
+    let finish!: (value: unknown) => void
+    analyzePlan.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    render(<ExplainPane />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Run analysis' }))
+    const requestId = analyzePlan.mock.calls[0][0].requestId
+    act(() =>
+      patchActiveTestSession({
+        explainTree: { ...tree, plan: 'replacement plan' },
+        explainSnapshot: { query: 'SELECT 1', mode: 'explain' },
+      }),
+    )
+    await waitFor(() => expect(cancelPlan).toHaveBeenCalledWith(requestId))
+    await act(async () =>
+      finish(
+        outcome === 'success'
+          ? { ok: true, value: { summary: 'obsolete analysis', hints: [] } }
+          : { ok: false, code: 'provider', message: 'obsolete error' },
+      ),
+    )
+    expect(screen.queryByText('obsolete analysis')).toBeNull()
+    expect(screen.queryByText('obsolete error')).toBeNull()
+    expect(analyzePlan).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Run analysis' }))
+    expect(await screen.findByText('Review the scan.')).toBeTruthy()
+    expect(analyzePlan.mock.calls[1][0]).toMatchObject({
+      sql: 'SELECT 1',
+      mode: 'explain',
+    })
+  },
+)
