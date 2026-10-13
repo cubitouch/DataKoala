@@ -290,3 +290,35 @@ it.each(['success', 'error'] as const)(
     })
   },
 )
+
+// #365 Phase 3A: confirmed gap; convert to an ordinary test with the narrow fix.
+it.fails(
+  'starts fresh metadata work for a replacement generation while old refresh is pending',
+  async () => {
+    connectedState()
+    let finishOld!: () => void
+    mocks.refresh
+      .mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          finishOld = resolve
+        }),
+      )
+      .mockResolvedValue(undefined)
+    mocks.listObjects.mockResolvedValue([])
+    const old = useStore.getState().refreshMetadata('profile-a')
+    useStore.setState((state) => ({
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        'profile-a': {
+          ...state.connectionStateByProfileId['profile-a'],
+          generation: 8,
+        },
+      },
+    }))
+    const replacement = useStore.getState().refreshMetadata('profile-a')
+    const callsBeforeOldCompletion = mocks.refresh.mock.calls.length
+    finishOld()
+    await Promise.all([old, replacement])
+    expect(callsBeforeOldCompletion).toBe(2)
+  },
+)
