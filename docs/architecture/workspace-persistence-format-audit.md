@@ -1,4 +1,4 @@
-# Workspace format and migration ownership (Phase 5A)
+# Workspace format, storage and restoration ownership (Phases 5A/5B)
 
 Baseline: main `c5fc56b` (merged #399). Scope: #365 Phase 5A and #382.
 Independent of Phase 4B; no Builder, query lifecycle or persisted type changes.
@@ -86,15 +86,91 @@ Current canonical fixtures retain deterministic bytes. Frozen state/filter tests
 prove serialization and legacy filter conversion do not mutate their inputs.
 Separate preset and store/UI suites guard restored preset drafts and adjacent flows.
 
-## Phase 5B and limitations
+## Phase 5B — storage and cold restoration
 
-Browser access, safe reads, repeated same-key fallback, storage exceptions,
-debounce/flush, subscriptions, restoration orchestration, cold-session allocation
-and initialization ownership remain in the facade for Phase 5B. The existing schema
-is permissive in some optional fields and does not preserve arbitrary unknown
-fields; this refactor does not tighten or relax it. Fixtures establish supported
-shapes, not compatibility with every externally modified snapshot. Native packaged
-restart and real-provider testing remain release acceptance tasks.
+Baseline: main `a9ab2f4`, including #400 and #401. Before Phase 5B, the
+facade still owned browser access, storage orchestration and cold allocation.
+The remaining boundaries now follow their side effects and inputs:
+
+| Responsibility                                                                                     | Owner after Phase 5B                                      |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Browser storage detection, safe reads, ordered snapshot fallback                                   | `workspaceStorage.ts`                                     |
+| Best-effort writes, 150 ms debounce, explicit lifecycle flush, subscriptions/disposal              | `workspaceStorage.ts`                                     |
+| Validated draft → ordered cold `QuerySession` tabs, fresh runtime context IDs, active-tab recovery | `workspaceRestoration.ts`                                 |
+| Read → allocate → apply exactly one caller-supplied store patch                                    | `workspacePersistence.ts` facade                          |
+| Envelope validation/serialization and historical conversions                                       | Unchanged `workspaceFormat.ts` / `workspaceMigrations.ts` |
+
+The facade retains its exports, signatures and storage defaults. It composes reads
+with `workspaceRestorePatch`; it does not import the store at runtime. The new
+restoration module consumes validated nonempty drafts and returns existing
+`QuerySession` objects, not another authoritative session model. Saved tab IDs
+remain stable; only runtime `queryContextId` is regenerated per allocation.
+Connection records, live connection state and credentials are outside this patch.
+Startup remains in `main.tsx`, before React mounts; `App.tsx` and store ownership
+are unchanged. No automatic Run, Explain or reconnect is introduced.
+
+### Existing storage failure/recovery contract
+
+- Absent `window`, disabled localStorage access or explicit null storage returns
+  no draft and makes persistence startup a no-op without subscriptions/listeners.
+  Storage is detected once at startup; later availability does not attach a writer.
+- Each read suppresses its exception independently. Preserve current v2 read,
+  repeated same-key legacy-alias v2 read, then v1 fallback in that exact order.
+  A transient first-read failure may recover on the second same-key read.
+- Reads and cold restoration never write, delete or eagerly migrate stored data.
+  Corrupt/unsupported current input may fall back to supported v1 data. Without
+  usable input the facade does not apply a patch, preserving caller defaults.
+- Startup caches the current raw bytes but does not schedule an initial write.
+  Store notifications reset a 150 ms timer; completion serializes the latest state,
+  skips equal bytes, and advances the cache only after a successful `setItem`.
+- Write/quota failures remain silent and best-effort: no autonomous retry, queue,
+  durability promise or user notification. A later edit or flush retries if bytes
+  still differ. Disposal flushes before unsubscribing/removing both lifecycle
+  listeners, preserving order. Flush cancels an outstanding timer.
+- `beforeunload`, `pagehide` and disposal flush even without a scheduled edit. Thus
+  unsupported future data remains intact during read/startup, but the existing
+  write policy can replace it on a later edit/flush. This refactor deliberately
+  does not invent future-version protection or loss-recovery guarantees.
+
+### Regression evidence and limits
+
+The nine #400 golden fixtures and their baseline JSON remain unchanged. Through
+the stable facade they still compare full parsed drafts, cold patches (normalizing
+only randomized context IDs), exact serialized bytes, historical conversion and
+subsequent parses. They include multi-tab/profile references, independent raw and
+Builder drafts, Prometheus/Loki/Tempo drafts, promoted filters and visualizations,
+active-tab fallback, defaults, empty/corrupt/future input and historical outcomes.
+
+Deterministic fake-timer/storage/event tests add unavailable/disabled startup,
+read exceptions, fallback precedence, write and quota failures, later recovery,
+coalescing at the default 150 ms boundary, explicit flush before completion,
+disposal flushing/unsubscription/listener removal and future-version write policy.
+The previous debounce test now uses controlled timers instead of sleeps. A frozen
+validated-draft test checks cold allocation without mutation and fresh context IDs
+on repeated restoration. The existing app restoration test now asserts zero Run,
+Explain and reconnect calls after profile loading while disconnected.
+
+No additional extraction is justified: timer, cache, subscription and lifecycle
+listeners share one writer lifetime; splitting them would obscure ownership.
+The facade's read/allocate/apply sequence is small and explicit. Packaged restart,
+real storage failure and provider acceptance remain pending in #382.
+
+### Phase 5B local validation (Linux x64, Node 24.19.0)
+
+- Focused persistence: 1 file / 41 tests passed, including all nine golden cases.
+- Focused store/session/App restoration: 4 files / 23 tests passed.
+- Full UI: 100 files / 962 tests passed.
+- `pnpm verify`: renderer controls, production/full dead-code, import boundaries,
+  formatting, TS/React/CSS lint, all three typechecks, `pnpm test` and build passed.
+  Main/shared: 463 passed, 5 skipped; renderer: 621 passed; script tests: 13 passed.
+- `pnpm check:duplication`: passed (advisory 39 clones, 1.31% lines).
+- Initial test run lacked the official SQLite extension; after
+  `pnpm prepare:sqlite-extension` succeeded, the full renderer suite passed.
+- `pnpm verify` then stopped at `pnpm smoke`: the harness targets the macOS
+  `Electron.app/Contents/MacOS/Electron` executable, absent on this Linux host.
+  `smoke:db` and `smoke:flow` were not reached; native/macOS packaged restart,
+  provider and real-storage acceptance are not claimed. GitHub CI results belong
+  in the draft PR handoff; these local checks do not establish human acceptance.
 
 ## Release acceptance extension (all pending)
 
