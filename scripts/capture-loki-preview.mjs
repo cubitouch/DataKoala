@@ -247,7 +247,8 @@ app.whenReady().then(async () => {
       'rendered Loki trend',
     )
     await assertVisibleSeriesField(win)
-    await waitFor(win,
+    await waitFor(
+      win,
       `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Bar'`,
       'Loki grouped-volume bar chart',
     )
