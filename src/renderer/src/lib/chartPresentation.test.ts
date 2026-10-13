@@ -663,3 +663,41 @@ test('anomaly tooltip explanation is series-specific and escapes model text', ()
   ).formatter
   assert.doesNotMatch(hiddenFormatter(rows), /AI anomaly|Spike|Error spike/)
 })
+
+test('intraday axes show UTC time while multi-day axes and tooltips retain dates', () => {
+  const labels = ['2026-08-19T16:00:00Z', '2026-08-19T17:00:00Z']
+  const input = {
+    labels,
+    series: [{ name: 'Errors', data: [12, 20] }],
+    view: 'bar' as const,
+    mode: 'sql' as const,
+    hasSeriesColumn: true,
+  }
+  const options = buildChartPresentationOptions(input)
+  const axis = options.xAxis as {
+    axisLabel: { formatter: (value: unknown) => string }
+  }
+  assert.equal(axis.axisLabel.formatter(Date.parse(labels[0])), '16:00')
+  const tooltip = options.tooltip as { formatter: (value: unknown) => string }
+  assert.match(
+    tooltip.formatter([
+      {
+        axisValue: Date.parse(labels[0]),
+        seriesName: 'Errors',
+        value: [Date.parse(labels[0]), 12],
+      },
+    ]),
+    /19 Aug/,
+  )
+  const multi = buildChartPresentationOptions({
+    ...input,
+    timeDomain: {
+      min: Date.parse(labels[0]),
+      max: Date.parse('2026-08-20T17:00:00Z'),
+    },
+  })
+  assert.match(
+    (multi.xAxis as typeof axis).axisLabel.formatter(Date.parse(labels[0])),
+    /19 Aug/,
+  )
+})

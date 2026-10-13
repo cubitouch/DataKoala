@@ -45,3 +45,33 @@ test('PostgreSQL visual preview fixtures never embed saved passwords', () => {
   assert.ok(postgresProfiles.length > 0)
   for (const profile of postgresProfiles) assert.equal(profile.password, '')
 })
+
+test('public Loki volume covers one hour with 60 grouped buckets and a spike', async () => {
+  const { previewLokiTrendResult } = await import('./loki-fixtures.mjs')
+  const times = [...new Set(previewLokiTrendResult.rows.map(row => Date.parse(row.timestamp)))].sort((a,b) => a-b)
+  assert.equal(times.length, 60)
+  assert.equal(times.at(-1) - times[0], 59 * 60_000)
+  assert.equal(previewLokiTrendResult.rows.length, 180)
+  const errors = previewLokiTrendResult.rows.filter(row => row.severity === 'ERROR').map(row => row.value)
+  assert.ok(Math.max(...errors) > errors[0] * 10)
+  assert.ok(errors.at(-1) < Math.max(...errors) / 5)
+})
+
+test('public Tempo cohort is separate from the five-trace filter regression', async () => {
+  const { documentationTraceSearchResult: publicResult, previewTraceSearchResult: regression } = await import('./trace-fixtures.mjs')
+  assert.equal(regression.rows.length, 5)
+  assert.equal(publicResult.rows.length, 48)
+  assert.equal(new Set(publicResult.rows.map(row => row.traceId)).size, 48)
+  assert.deepEqual([...new Set(publicResult.rows.map(row => row.status))].sort(), ['error', 'ok'])
+  assert.ok(publicResult.rows.filter(row => row.durationMs >= 1500).length >= 5)
+})
+
+test('Grafana sharing artwork is local and inherits the accent color', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const html = await readFile(new URL('../../docs-site/index.html', import.meta.url), 'utf8')
+  const css = await readFile(new URL('../../docs-site/src/styles.css', import.meta.url), 'utf8')
+  assert.doesNotMatch(html, /cdn\.simpleicons\.org\/grafana/)
+  assert.match(html, /svg\s+class="provider-logo"/)
+  assert.match(css, /\.share-icon\s*\{[^}]*color: var\(--accent\)/s)
+  assert.match(css, /\.share-icon svg.provider-logo\s*\{[^}]*fill: currentcolor/s)
+})

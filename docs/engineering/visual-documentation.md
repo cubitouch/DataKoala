@@ -25,3 +25,11 @@ On a desktop with a display, `pnpm docs:screenshots` can run without `xvfb-run`.
 Every documentation scenario must assert its visible semantic state immediately before capture—not only that a canvas or filename exists. Check the active mode/view, selected controls, expected row or series count, absence of stale filters/results, and any dialog content that the screenshot is meant to demonstrate. Charts run without animation in the controlled smoke process so capture cannot sample an ECharts transition.
 
 The visual-preview workflow continues to publish PR-only review artifacts to `visual-previews`. The Pages workflow validates screenshots and the site on pull requests but deploys nothing. Only a push to `main` generates the canonical site artifact and deploys it with the official Pages actions. The repository owner may first need to select **Settings → Pages → Source → GitHub Actions**.
+
+## Public SQL, log-volume and trace-cohort images
+
+`docs-sql-area.png` uses the same monthly market data as the Builder starter, with Builder controls visible and the Area view selected. The capture asserts mode, chart configuration and rendered counts before writing it.
+
+The shared Loki capture writes `loki-log-chart.png` with 60 one-minute buckets across 16:00–17:00 UTC and three stacked series. Intraday chart axes use time-only UTC labels; tooltips retain the date and ranges crossing UTC midnight retain date labels.
+
+The shared Tempo capture continues to write the two-point `tempo-trace-scatter.png` local-filter regression. A separate deterministic 48-trace cohort, with both statuses and slower outliers, writes `tempo-trace-cohort.png` for the website only after the existing regression sequence completes. The Visual Preview manifest publishes both images. Neither generated image is committed by hand.

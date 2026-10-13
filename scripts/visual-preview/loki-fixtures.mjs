@@ -50,14 +50,15 @@ export const previewLokiLogResult = {
 }
 
 const trendStart = Date.parse('2026-08-19T16:00:00.000Z')
-const volumes = [8, 9, 7, 11, 10, 12, 14, 18, 24, 47, 93, 168, 224, 181, 126, 72, 39, 25, 18, 14, 12, 10, 9, 8]
+const volumes = Array.from({ length: 60 }, (_, index) =>
+  Math.round(12 + index % 5 * 2 + 220 * Math.exp(-(((index - 32) / 5) ** 2))))
 export const previewLokiTrendResult = {
   resultKind: 'metrics',
   columns: columns(['timestamp', 'value', 'service_name', 'severity']),
   rows: volumes.flatMap((value, index) => [
-    { timestamp: new Date(trendStart + index * 150_000).toISOString(), value: Math.round(value * .64), service_name: 'checkout-api', severity: 'ERROR' },
-    { timestamp: new Date(trendStart + index * 150_000).toISOString(), value: Math.round(value * .24), service_name: 'checkout-api', severity: 'WARN' },
-    { timestamp: new Date(trendStart + index * 150_000).toISOString(), value: Math.round(value * .12), service_name: 'payment-worker', severity: 'INFO' }
+    { timestamp: new Date(trendStart + index * 60_000).toISOString(), value: Math.round(value * .64), service_name: 'checkout-api', severity: 'ERROR' },
+    { timestamp: new Date(trendStart + index * 60_000).toISOString(), value: Math.round(value * .24), service_name: 'checkout-api', severity: 'WARN' },
+    { timestamp: new Date(trendStart + index * 60_000).toISOString(), value: Math.round(value * .12), service_name: 'payment-worker', severity: 'INFO' }
   ]),
   rowCount: volumes.length * 3,
   durationMs: 49,

@@ -29,6 +29,7 @@ env:
     tempo-trace-builder.png
     tempo-trace-search.png
     tempo-trace-scatter.png
+    tempo-trace-cohort.png
     tempo-service-map.png
     tempo-service-map-dense.png
     tempo-service-map-fullscreen.png
@@ -203,6 +204,7 @@ jobs:
               'prometheus-builder-narrow.png': 'Prometheus Builder — narrow responsive layout',
               'tempo-trace-builder.png': 'Tempo Builder — synthetic TraceQL query shell',
               'tempo-trace-search.png': 'Tempo — synthetic trace search',
+              'tempo-trace-cohort.png': 'Tempo — representative 48-trace public cohort with slow outliers',
               'tempo-trace-scatter.png': 'Tempo — synthetic traces by time, duration, and status',
               'tempo-service-map.png': 'Tempo — synthetic cohort service map and bottlenecks',
               'tempo-service-map-dense.png': 'Tempo — synthetic dense 60-service cohort map',

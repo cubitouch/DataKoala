@@ -1579,12 +1579,25 @@ app.whenReady().then(async () => {
       )
       await assertDocumentationSourceTree(win, 'sql')
       await capture(win, 'docs-sql.png')
-      await configureDocumentationSql(win, 'sql', 'area')
-      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setVisualization('sql', { view: 'area', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: 'series', aggregation: 'sum' })`)
+      await configureDocumentationSql(win, 'builder', 'area')
+      await win.webContents.executeJavaScript(`(() => {
+        const store = window.__datakoalaStore
+        const state = store.getState()
+        store.setState({ tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? { ...tab, builder: { ...tab.builder, timeRange: { kind: 'all' } } } : tab) })
+      })()`)
+      await finalizeDocumentationBuilder(win, 'area')
+      // Changing the range exercises the normal Builder refresh. Restore the public
+      // fixture after that refresh, rather than capturing its generic IPC result.
+      await waitForRendererState(win, `!window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId)?.running`, 'settled Builder range refresh')
+      await seedDocumentationData(win)
+      await assertDocumentationSourceTree(win, 'builder')
       await waitForRendererState(win,
         `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Area' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`,
-        'SQL area chart')
+        'Builder area chart')
+      await waitForRendererState(win, `document.querySelector('.builder-pane')?.innerText.includes('All time')`, 'All time Builder range')
       await sleep(600)
+      await assertDocumentationSourceTree(win, 'builder')
+      await assertPreviewReady(win, 'docs-sql-area.png')
       await capture(win, 'docs-sql-area.png')
 
       await configureDocumentationSql(win, 'builder', 'bar')

@@ -247,6 +247,17 @@ app.whenReady().then(async () => {
       'rendered Loki trend',
     )
     await assertVisibleSeriesField(win)
+    const bucketCount = new Set(
+      previewLokiTrendResult.rows.map((row) => row.timestamp),
+    ).size
+    if (bucketCount !== 60)
+      throw new Error(`Expected 60 Loki buckets, received ${bucketCount}`)
+    await assertPreviewReady(win, 'Loki 60-bucket stacked bars', {
+      selector: '[data-visual-type="bar"]',
+      description: 'Loki grouped hourly volume',
+      minSeries: 3,
+      itemCount: 180,
+    })
     await waitFor(
       win,
       `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Bar'`,

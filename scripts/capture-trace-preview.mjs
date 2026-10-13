@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  documentationTraceSearchResult,
   previewTraceId,
   previewTraceResultForId,
   previewTraceSearchResult,
@@ -658,6 +659,30 @@ app.whenReady().then(async () => {
     await selectHotspotSpan(win)
     await capture(win, 'tempo-waterfall.png')
     await validateCloseAndSelectedSpanCohort(win)
+    await seedTraceWorkspace(win)
+    await win.webContents.executeJavaScript(`(() => {
+      const store = window.__datakoalaStore
+      const state = store.getState()
+      store.setState({ tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? {
+        ...tab,
+        tempoTimeRange: { kind: 'custom', startDate: '2026-08-19', startTime: '16:00', endDate: '2026-08-19', endTime: '17:00', recurringWindows: [] }
+      } : tab) })
+      store.getState().setResult(${JSON.stringify(documentationTraceSearchResult)}, null)
+    })()`)
+    await showScatter(win)
+    await waitFor(
+      win,
+      `document.querySelector('[data-visual-type="scatter"]')?.getAttribute('data-visual-items') === '48' && !document.querySelector('[aria-label="Active result filters"]')`,
+      'representative unfiltered 48-trace cohort',
+    )
+    await assertPreviewReady(win, 'tempo-trace-cohort.png', {
+      selector: '[data-visual-type="scatter"]',
+      description: 'Public Tempo cohort',
+      minSeries: 2,
+      itemCount: 48,
+    })
+    await capture(win, 'tempo-trace-cohort.png')
+
     app.exit(0)
   } catch (error) {
     console.error(error)
