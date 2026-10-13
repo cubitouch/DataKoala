@@ -8,6 +8,11 @@ import {
 } from '@shared/types'
 import { api } from '@lib/api'
 import {
+  builderAxisFilterIds,
+  builderRelationSelectionPatch,
+  builderTimeSourcePatch,
+} from '@lib/builderTransitions'
+import {
   BUILDER_AGGREGATIONS,
   generateBuilderQuery,
   isBuilderTemporalDataType,
@@ -567,24 +572,9 @@ export function BuilderPanel() {
       keywords: [column.name, column.dataTypeName],
     }))
 
-  const clearMetricFilters = () => {
-    const removed = filters.filter(
-      (filter) => filter.column === 'count' || filter.column === 'value',
-    )
-    for (const filter of removed)
-      removeResultFilter('builder', filter.id, tabId)
-    return removed.length
-  }
-  const clearXAxisFilters = () => {
-    if (!selectedX) return 0
-    const removed = filters.filter(
-      (filter) =>
-        filter.column === 'time_bucket' ||
-        filter.column === selectedX ||
-        filter.provenance?.sourceColumn === selectedX,
-    )
-    for (const filter of removed)
-      removeResultFilter('builder', filter.id, tabId)
+  const clearAxisFilters = (axis: 'metric' | 'x') => {
+    const removed = builderAxisFilterIds(filters, axis, selectedX)
+    for (const id of removed) removeResultFilter('builder', id, tabId)
     return removed.length
   }
   const resetAxisModel = () => {
@@ -605,16 +595,7 @@ export function BuilderPanel() {
     setSeriesProbe(null)
     setAxisNotice(null)
     setSelectedSchema(schema)
-    setBuilder(
-      {
-        table: null,
-        timeColumn: null,
-        timeBucket: 'day',
-        timeRange: undefined,
-        seriesColumns: [],
-      },
-      tabId,
-    )
+    setBuilder(builderRelationSelectionPatch(null), tabId)
     resetAxisModel()
     setHasRun(false, tabId)
   }
@@ -624,16 +605,7 @@ export function BuilderPanel() {
     setAxisNotice(null)
     const table =
       relations.find((relation) => relationIdentity(relation) === value) ?? null
-    setBuilder(
-      {
-        table,
-        timeColumn: null,
-        timeBucket: 'day',
-        timeRange: undefined,
-        seriesColumns: [],
-      },
-      tabId,
-    )
+    setBuilder(builderRelationSelectionPatch(table), tabId)
     resetAxisModel()
     setHasRun(false, tabId)
     if (table) void loadColumns(table)
@@ -641,16 +613,7 @@ export function BuilderPanel() {
   const chooseTimeColumn = (value: string) => {
     probeGuard.current.invalidate()
     setSeriesProbe(null)
-    const nextTimeColumn = value || null
-    setBuilder(
-      {
-        timeColumn: nextTimeColumn,
-        timeRange: nextTimeColumn
-          ? (builder.timeRange ?? SEVEN_DAYS)
-          : undefined,
-      },
-      tabId,
-    )
+    setBuilder(builderTimeSourcePatch(builder, value || null), tabId)
   }
   const chooseXAxis = (value: string) => {
     probeGuard.current.invalidate()
@@ -689,9 +652,9 @@ export function BuilderPanel() {
       notices.push(
         'Changed Time bucket to Day because BigQuery DATE does not support minute or hour buckets.',
       )
-    if (clearXAxisFilters())
+    if (clearAxisFilters('x'))
       notices.push('Cleared filters tied to the previous X axis.')
-    if (clearMetricFilters())
+    if (clearAxisFilters('metric'))
       notices.push(
         'Cleared result filters tied to the previous aggregated Y axis.',
       )
@@ -746,7 +709,7 @@ export function BuilderPanel() {
     )
     if (nextSeries.length !== builder.seriesColumns.length)
       notices.push(`Removed ${nextY} from Series because it is now the Y axis.`)
-    if (clearMetricFilters())
+    if (clearAxisFilters('metric'))
       notices.push(
         'Cleared result filters tied to the previous aggregated Y axis.',
       )
@@ -772,7 +735,7 @@ export function BuilderPanel() {
       notices.push(
         `Cleared Y axis ${selectedY} because Count operates on rows.`,
       )
-    if (clearMetricFilters())
+    if (clearAxisFilters('metric'))
       notices.push('Cleared result filters tied to the previous aggregation.')
     setVisualization(
       'builder',

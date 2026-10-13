@@ -13,17 +13,20 @@ vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value }: { value: string }) => <pre>{value}</pre>,
 }))
 
-const { seriesStatistics, probeSeriesCardinality } = vi.hoisted(() => ({
-  seriesStatistics: vi.fn(async () => ({
-    available: true,
-    estimatedDistinct: 2,
-    source: 'pg_stats' as const,
-  })),
-  probeSeriesCardinality: vi.fn(async () => ({ exceedsHardLimit: false })),
-}))
+const { seriesStatistics, probeSeriesCardinality, runQuery } = vi.hoisted(
+  () => ({
+    runQuery: vi.fn(),
+    seriesStatistics: vi.fn(async () => ({
+      available: true,
+      estimatedDistinct: 2,
+      source: 'pg_stats' as const,
+    })),
+    probeSeriesCardinality: vi.fn(async () => ({ exceedsHardLimit: false })),
+  }),
+)
 vi.mock('@lib/api', () => ({
   api: {
-    query: { seriesStatistics, probeSeriesCardinality },
+    query: { seriesStatistics, probeSeriesCardinality, run: runQuery },
     connections: { describeTable: vi.fn() },
   },
 }))
@@ -36,6 +39,7 @@ import {
 } from '@test/sessionTestUtils'
 import type { DatabaseSchemaNode } from '@shared/types'
 import { useStore } from '@store/useStore'
+import { createResultFilter } from '@lib/resultFilters'
 
 const schemas: DatabaseSchemaNode[] = [
   {
@@ -635,4 +639,52 @@ describe('BuilderPanel axis-first controls', () => {
     expect(screen.getByRole('option', { name: /monthly_sales/ })).toBeTruthy()
     expect(activeTestSession().builder.table).toBeNull()
   })
+})
+
+it('schema/relation replacement resets dependencies without changing the raw draft or running a query', () => {
+  arrange()
+  chooseOrders()
+  chooseXAxis(/created_at, timestamp/)
+  fireEvent.click(screen.getByRole('combobox', { name: /Y axis/ }))
+  fireEvent.click(screen.getByRole('option', { name: /revenue, numeric/ }))
+  act(() => {
+    useStore.getState().setSql('select manual_draft')
+    useStore
+      .getState()
+      .addResultFilter('builder', createResultFilter('value', 'equals', 42))
+  })
+  fireEvent.click(screen.getByRole('combobox', { name: /Schema/ }))
+  fireEvent.click(screen.getByRole('option', { name: /analytics/ }))
+  expect(activeTestSession().builder).toEqual({
+    table: null,
+    timeColumn: null,
+    timeBucket: 'day',
+    timeRange: undefined,
+    seriesColumns: [],
+  })
+  expect(activeTestSession().builderResultFilters).toEqual([])
+  expect(activeTestSession().builderVisualization).toMatchObject({
+    xColumn: null,
+    valueColumn: null,
+    aggregation: 'count',
+    seriesColumns: [],
+  })
+  // Existing schema synchronization clears the local schema on relation reset.
+  fireEvent.click(screen.getByRole('combobox', { name: /Schema/ }))
+  fireEvent.click(screen.getByRole('option', { name: /analytics/ }))
+  fireEvent.click(screen.getByRole('combobox', { name: /Table or view/ }))
+  fireEvent.click(screen.getByRole('option', { name: /monthly_sales/ }))
+  chooseXAxis(/market, text/)
+  expect(activeTestSession().sql).toBe('select manual_draft')
+  expect(runQuery).not.toHaveBeenCalled()
+  const preview = screen.getByText(
+    (_, element) =>
+      element?.tagName === 'PRE' &&
+      element.textContent?.includes('SELECT') === true,
+  )
+  expect(preview.textContent).toContain('"analytics"."monthly_sales"')
+  expect(preview.textContent).toContain('"market"')
+  expect(preview.textContent).not.toContain('revenue')
+  expect(seriesStatistics).not.toHaveBeenCalled()
+  expect(probeSeriesCardinality).not.toHaveBeenCalled()
 })
