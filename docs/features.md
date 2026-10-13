@@ -56,7 +56,7 @@ Supported observability workspaces provide Grafana query/time-range handoff acti
 
 The application is designed around read-only data exploration, with provider-specific protections, connection handling, and secure credential storage where applicable. Check source-specific limitations before using a production system. Saved secrets and query data are handled differently from ordinary profile metadata.
 
-Query lifecycle and connection lifecycle behaviors are documented in [the query audit](architecture/query-lifecycle-audit.md) and [the connection audit](architecture/connection-lifecycle-audit.md); their earlier findings may describe defects since fixed. Consult the latest code and tests for operational guarantees.
+Query lifecycle and connection lifecycle behaviors are documented in [the query audit](history/query-lifecycle-audit.md) and [the connection audit](history/connection-lifecycle-audit.md); their earlier findings may describe defects since fixed. Consult the latest code and tests for operational guarantees.
 
 ## What should be shared?
 
