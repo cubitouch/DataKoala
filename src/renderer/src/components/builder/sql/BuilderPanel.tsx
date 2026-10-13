@@ -33,6 +33,7 @@ import {
   selectSession,
   useStore,
   type TimeBucket,
+  type AppState,
 } from '@store/useStore'
 import {
   beginConnectedQueryOperation,
@@ -97,6 +98,25 @@ const aggregationOptions: ComboboxOption[] = BUILDER_AGGREGATIONS.map(
 )
 const EMPTY_SCHEMAS: DatabaseSchemaNode[] = []
 
+/** The local Series decision belongs to this exact committed Builder context. */
+function builderSeriesOwnerKey(state: AppState): string {
+  const session = selectActiveSession(state)
+  const connection = session.connectionProfileId
+    ? state.connectionStateByProfileId[session.connectionProfileId]
+    : undefined
+  return JSON.stringify([
+    state.activeTabId,
+    session.connectionProfileId,
+    connection?.generation,
+    connection?.status,
+    session.queryContextId,
+    session.builder,
+    session.builderVisualization.xColumn,
+    session.builderVisualization.valueColumn,
+    session.builderVisualization.aggregation,
+  ])
+}
+
 export function BuilderPanel() {
   const tabId = useStore((state) => state.activeTabId)
   const tabConnectionId = useStore(
@@ -137,8 +157,6 @@ export function BuilderPanel() {
   const schemas = metadata?.schemas ?? EMPTY_SCHEMAS
   const metadataStatus = metadata?.status ?? 'idle'
   const storeMetadataError = metadata?.error ?? null
-  const setRelationColumns = useStore((state) => state.setRelationColumns)
-  const [metadataError, setMetadataError] = useState<string | null>(null)
   const [selectedSchema, setSelectedSchema] = useState(
     builder.table?.schema ?? '',
   )
@@ -152,6 +170,7 @@ export function BuilderPanel() {
   const clearFilterNotice = useStore((state) => state.clearBuilderFilterNotice)
   const previousExecution = useRef(new Map<string, string>())
   const probeGuard = useRef(new SeriesCardinalityProbeGuard())
+  const seriesOwnerKey = useStore(builderSeriesOwnerKey)
   const [seriesProbe, setSeriesProbe] = useState<{
     status: 'checking' | 'error'
     message?: string
@@ -321,115 +340,22 @@ export function BuilderPanel() {
       )
         return
       const requestTabId = tabId
-      const requestProfileId = await ensureConnectionForTab(requestTabId)
+      const requestProfileId = selectSession(
+        useStore.getState(),
+        requestTabId,
+      )?.connectionProfileId
+      const connectedProfileId = await ensureConnectionForTab(requestTabId)
       if (
         !requestProfileId ||
+        connectedProfileId !== requestProfileId ||
         !isTabConnectionCurrent(requestTabId, requestProfileId)
       )
         return
-      const requestGeneration =
-        useStore.getState().connectionStateByProfileId[requestProfileId]
-          ?.generation
-      if (requestGeneration === undefined) return
-      const requested = { schema: relation.schema, name: relation.name }
-      const qualifiedName = relation.qualifiedName
-      setMetadataError(null)
-      try {
-        const next = await ensureRelationColumns(
-          requestProfileId,
-          relation,
-          explicitRetry,
-        )
-        if (!next) return
-        let state = useStore.getState()
-        let session = selectSession(state, requestTabId)
-        if (
-          !session ||
-          session.connectionProfileId !== requestProfileId ||
-          !isTabConnectionCurrent(
-            requestTabId,
-            requestProfileId,
-            requestGeneration,
-          )
-        )
-          return
-        const patch = selectionPatchForColumns(
-          requested,
-          session.builder.table,
-          session.builder,
-          next,
-          isTimeColumn,
-        )
-        if (patch) state.setBuilder(patch, requestTabId)
-        state = useStore.getState()
-        session = selectSession(state, requestTabId)
-        if (
-          !session ||
-          !isTabConnectionCurrent(
-            requestTabId,
-            requestProfileId,
-            requestGeneration,
-          )
-        )
-          return
-        const sourceX =
-          session.builderVisualization.xColumn === 'time_bucket'
-            ? session.builder.timeColumn
-            : session.builderVisualization.xColumn
-        const sourceY =
-          session.builderVisualization.aggregation === 'count'
-            ? null
-            : session.builderVisualization.valueColumn
-        const nextX =
-          sourceX && next.some((column) => column.name === sourceX)
-            ? sourceX
-            : null
-        const nextY =
-          sourceY &&
-          next.some(
-            (column) =>
-              column.name === sourceY && isNumericType(column.dataTypeName),
-          )
-            ? sourceY
-            : null
-        if (nextX !== sourceX || nextY !== sourceY) {
-          state.setVisualization(
-            'builder',
-            {
-              xColumn: nextX,
-              valueColumn: nextY,
-              ...(sourceY && !nextY ? { aggregation: 'count' as const } : {}),
-            },
-            requestTabId,
-          )
-        }
-      } catch (error) {
-        if (
-          !isTabConnectionCurrent(
-            requestTabId,
-            requestProfileId,
-            requestGeneration,
-          )
-        )
-          return
-        setRelationColumns(
-          qualifiedName,
-          undefined,
-          'error',
-          String(error),
-          requestProfileId,
-        )
-        const session = selectSession(useStore.getState(), requestTabId)
-        if (
-          session?.connectionProfileId === requestProfileId &&
-          relationIdentity(
-            session.builder.table ?? { schema: '', name: '' },
-          ) === relationIdentity(requested)
-        )
-          setMetadataError(String(error))
-      }
+      // Shared metadata owns publication/error state. The selected-relation
+      // effect above alone validates the current axes and Builder selections.
+      await ensureRelationColumns(requestProfileId, relation, explicitRetry)
     },
-    [tabId, setRelationColumns],
+    [tabId],
   )
   useEffect(() => {
     if (
@@ -483,7 +409,6 @@ export function BuilderPanel() {
     [generatedSql, formatterDialect],
   )
 
-  const effectiveTimeRangeKey = JSON.stringify(effectiveTimeRange)
   useEffect(() => {
     if (builder.table?.schema) setSelectedSchema(builder.table.schema)
     else setSelectedSchema('')
@@ -591,8 +516,6 @@ export function BuilderPanel() {
     )
   }
   const chooseSchema = (schema: string) => {
-    probeGuard.current.invalidate()
-    setSeriesProbe(null)
     setAxisNotice(null)
     setSelectedSchema(schema)
     setBuilder(builderRelationSelectionPatch(null), tabId)
@@ -600,8 +523,6 @@ export function BuilderPanel() {
     setHasRun(false, tabId)
   }
   const chooseTable = (value: string) => {
-    probeGuard.current.invalidate()
-    setSeriesProbe(null)
     setAxisNotice(null)
     const table =
       relations.find((relation) => relationIdentity(relation) === value) ?? null
@@ -611,13 +532,9 @@ export function BuilderPanel() {
     if (table) void loadColumns(table)
   }
   const chooseTimeColumn = (value: string) => {
-    probeGuard.current.invalidate()
-    setSeriesProbe(null)
     setBuilder(builderTimeSourcePatch(builder, value || null), tabId)
   }
   const chooseXAxis = (value: string) => {
-    probeGuard.current.invalidate()
-    setSeriesProbe(null)
     const nextX = value || null
     const nextMetadata = nextX
       ? columns.find((column) => column.name === nextX)
@@ -761,6 +678,7 @@ export function BuilderPanel() {
         )
       : []
   const selectSeries = async (requestedSeriesColumns: string[]) => {
+    if (builderSeriesOwnerKey(useStore.getState()) !== seriesOwnerKey) return
     const nextSeriesColumns = requestedSeriesColumns.filter(
       (column) => column !== selectedX && column !== selectedY,
     )
@@ -795,23 +713,13 @@ export function BuilderPanel() {
       seriesColumns: nextSeriesColumns,
     })
     const operation = probeGuard.current.begin(fingerprint)
-    const retry = () => void selectSeries(nextSeriesColumns)
-    setSeriesProbe({ status: 'checking' })
-    const isCurrent = () => {
-      const current = useStore.getState()
-      const session = selectSession(current, requestTabId)
-      const currentFingerprint = session?.connectionProfileId
-        ? seriesProbeFingerprint({
-            profileId: session.connectionProfileId,
-            builder: session.builder,
-            seriesColumns: nextSeriesColumns,
-          })
-        : null
-      return (
-        currentFingerprint === fingerprint &&
-        probeGuard.current.isCurrent(operation.revision, fingerprint)
-      )
+    const retry = () => {
+      if (isCurrent()) void selectSeries(nextSeriesColumns)
     }
+    setSeriesProbe({ status: 'checking' })
+    const isCurrent = () =>
+      builderSeriesOwnerKey(useStore.getState()) === seriesOwnerKey &&
+      probeGuard.current.isCurrent(operation.revision, fingerprint)
     try {
       const connectedProfileId = await ensureConnectionForTab(requestTabId)
       if (!isCurrent()) return
@@ -855,18 +763,22 @@ export function BuilderPanel() {
     }
   }
   useEffect(() => {
-    probeGuard.current.invalidate()
-    setSeriesProbe(null)
-  }, [
-    tabConnectionId,
-    builder.table?.schema,
-    builder.table?.name,
-    builder.timeColumn,
-    selectedX,
-    builder.timeBucket,
-    effectiveTimeRangeKey,
-  ])
-  useEffect(() => () => probeGuard.current.invalidate(), [])
+    const guard = probeGuard.current
+    let owner = builderSeriesOwnerKey(useStore.getState())
+    // Synchronous invalidation also catches away/back transitions before React
+    // commits, and reset/rebind even when the restored fields look identical.
+    const unsubscribe = useStore.subscribe((state) => {
+      const nextOwner = builderSeriesOwnerKey(state)
+      if (owner === nextOwner) return
+      owner = nextOwner
+      guard.invalidate()
+      setSeriesProbe(null)
+    })
+    return () => {
+      unsubscribe()
+      guard.invalidate()
+    }
+  }, [])
   const run = useCallback(async () => {
     if (!generatedSql || !tabConnectionId || connecting || metadataRefreshing)
       return
@@ -1134,8 +1046,6 @@ export function BuilderPanel() {
                   value={builder.timeBucket}
                   options={timeBucketOptions}
                   onChange={(value) => {
-                    probeGuard.current.invalidate()
-                    setSeriesProbe(null)
                     setBuilder({ timeBucket: value as TimeBucket }, tabId)
                   }}
                 />
@@ -1156,8 +1066,7 @@ export function BuilderPanel() {
         </BuilderForm>
         {selectedRelation?.columnsStatus === 'error' && (
           <div className="inline-error" role="alert">
-            Could not load columns.{' '}
-            {metadataError || selectedRelation.columnsError}
+            Could not load columns. {selectedRelation.columnsError}
             <button
               className="btn ghost"
               type="button"

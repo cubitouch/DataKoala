@@ -13,21 +13,21 @@ vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value }: { value: string }) => <pre>{value}</pre>,
 }))
 
-const { seriesStatistics, probeSeriesCardinality, runQuery } = vi.hoisted(
-  () => ({
+const { seriesStatistics, probeSeriesCardinality, runQuery, describeTable } =
+  vi.hoisted(() => ({
     runQuery: vi.fn(),
+    describeTable: vi.fn(),
     seriesStatistics: vi.fn(async () => ({
       available: true,
       estimatedDistinct: 2,
       source: 'pg_stats' as const,
     })),
     probeSeriesCardinality: vi.fn(async () => ({ exceedsHardLimit: false })),
-  }),
-)
+  }))
 vi.mock('@lib/api', () => ({
   api: {
     query: { seriesStatistics, probeSeriesCardinality, run: runQuery },
-    connections: { describeTable: vi.fn() },
+    connections: { describeTable },
   },
 }))
 import { BuilderPanel } from './BuilderPanel'
@@ -86,6 +86,7 @@ const schemas: DatabaseSchemaNode[] = [
 afterEach(() => {
   cleanup()
   resetTestStore()
+  describeTable.mockReset()
   seriesStatistics.mockReset()
   seriesStatistics.mockImplementation(async () => ({
     available: true,
@@ -687,4 +688,243 @@ it('schema/relation replacement resets dependencies without changing the raw dra
   expect(preview.textContent).not.toContain('revenue')
   expect(seriesStatistics).not.toHaveBeenCalled()
   expect(probeSeriesCardinality).not.toHaveBeenCalled()
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: Error) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+const beginPendingSeries = async () => {
+  fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+  fireEvent.click(screen.getByRole('option', { name: /customer_id/ }))
+  await waitFor(() => expect(probeSeriesCardinality).toHaveBeenCalledTimes(1))
+}
+
+const replaceGeneration = () => {
+  const state = useStore.getState()
+  useStore.setState({
+    connectionStateByProfileId: {
+      ...state.connectionStateByProfileId,
+      p1: { ...state.connectionStateByProfileId.p1, generation: 2 },
+    },
+  })
+}
+
+describe('Builder async ownership', () => {
+  it('does not validate relation B axes against late relation A columns', async () => {
+    const pending =
+      deferred<DatabaseSchemaNode['relations'][number]['columns']>()
+    describeTable.mockReturnValueOnce(pending.promise)
+    arrange()
+    const nextSchemas = structuredClone(schemas)
+    nextSchemas[0].relations[0].columnsStatus = 'idle'
+    nextSchemas[0].relations[0].columns = undefined
+    act(() => {
+      setActiveTestMetadata(nextSchemas, 'loaded', null, 'p1')
+      patchActiveTestSession({
+        builder: {
+          ...activeTestSession().builder,
+          table: { schema: 'demo_shop', name: 'orders' },
+        },
+      })
+    })
+    await waitFor(() => expect(describeTable).toHaveBeenCalledTimes(1))
+    act(() => {
+      patchActiveTestSession({
+        builder: {
+          ...activeTestSession().builder,
+          table: { schema: 'analytics', name: 'monthly_sales' },
+        },
+        builderVisualization: {
+          ...activeTestSession().builderVisualization,
+          xColumn: 'market',
+          valueColumn: 'revenue',
+          aggregation: 'sum',
+        },
+      })
+    })
+    await act(async () =>
+      pending.resolve([{ name: 'old_only', dataTypeName: 'text' }]),
+    )
+    expect(activeTestSession().builderVisualization).toMatchObject({
+      xColumn: 'market',
+      valueColumn: 'revenue',
+      aggregation: 'sum',
+    })
+    expect(
+      useStore.getState().metadataByProfileId.p1.schemas[0].relations[0]
+        .columnsStatus,
+    ).toBe('loaded')
+    expect(runQuery).not.toHaveBeenCalled()
+  })
+
+  it.each(['success', 'error'] as const)(
+    'abandons old-generation probe %s and allows a new probe',
+    async (outcome) => {
+      const pending = deferred<{ exceedsHardLimit: boolean }>()
+      probeSeriesCardinality.mockReturnValueOnce(pending.promise)
+      arrange()
+      chooseOrders()
+      chooseXAxis(/created_at/)
+      await beginPendingSeries()
+      act(replaceGeneration)
+      await act(async () => {
+        if (outcome === 'success') pending.resolve({ exceedsHardLimit: false })
+        else pending.reject(new Error('old connection'))
+      })
+      expect(activeTestSession().builder.seriesColumns).toEqual([])
+      expect(screen.queryByText('Checking cardinality…')).toBeNull()
+      expect(
+        screen.queryByText('Could not check Series cardinality.'),
+      ).toBeNull()
+      fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+      fireEvent.click(screen.getByRole('option', { name: /region, text/ }))
+      await waitFor(() =>
+        expect(activeTestSession().builder.seriesColumns).toEqual(['region']),
+      )
+      expect(runQuery).not.toHaveBeenCalled()
+    },
+  )
+
+  it('abandons a probe when changing Y to the candidate Series field', async () => {
+    const pending = deferred<{ exceedsHardLimit: boolean }>()
+    probeSeriesCardinality.mockReturnValueOnce(pending.promise)
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /revenue, numeric/ }))
+    await waitFor(() => expect(probeSeriesCardinality).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('combobox', { name: /Y axis/ }))
+    fireEvent.click(screen.getByRole('option', { name: /revenue, numeric/ }))
+    await act(async () => pending.resolve({ exceedsHardLimit: false }))
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
+    expect(activeTestSession().builderVisualization.valueColumn).toBe('revenue')
+  })
+
+  it('abandons a probe when reusing the component for an identical tab B', async () => {
+    const pending = deferred<{ exceedsHardLimit: boolean }>()
+    probeSeriesCardinality.mockReturnValueOnce(pending.promise)
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    const tabA = activeTestSession()
+    await beginPendingSeries()
+    act(() =>
+      useStore.setState({
+        tabs: [tabA, { ...tabA, id: 'tab-b' }],
+        activeTabId: 'tab-b',
+      }),
+    )
+    await act(async () => pending.resolve({ exceedsHardLimit: false }))
+    expect(
+      useStore.getState().tabs.map((tab) => tab.builder.seriesColumns),
+    ).toEqual([[], []])
+    expect(screen.queryByText('Checking cardinality…')).toBeNull()
+    expect(runQuery).not.toHaveBeenCalled()
+  })
+})
+
+describe('Builder transient probe abandonment', () => {
+  it('invalidates away/back changes before React commits and keeps newer loading', async () => {
+    const old = deferred<{ exceedsHardLimit: boolean }>()
+    const current = deferred<{ exceedsHardLimit: boolean }>()
+    probeSeriesCardinality
+      .mockReturnValueOnce(old.promise)
+      .mockReturnValueOnce(current.promise)
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    await beginPendingSeries()
+    act(() => {
+      const builder = activeTestSession().builder
+      patchActiveTestSession({ builder: { ...builder, timeBucket: 'hour' } })
+      patchActiveTestSession({ builder })
+    })
+    expect(screen.queryByText('Checking cardinality…')).toBeNull()
+    fireEvent.click(screen.getByRole('combobox', { name: /Series/ }))
+    fireEvent.click(screen.getByRole('option', { name: /region, text/ }))
+    await waitFor(() => expect(probeSeriesCardinality).toHaveBeenCalledTimes(2))
+    await act(async () => old.reject(new Error('old failure')))
+    expect(screen.getByText('Checking cardinality…')).toBeTruthy()
+    expect(screen.queryByText('Could not check Series cardinality.')).toBeNull()
+    await act(async () => current.resolve({ exceedsHardLimit: false }))
+    expect(activeTestSession().builder.seriesColumns).toEqual(['region'])
+    expect(runQuery).not.toHaveBeenCalled()
+  })
+
+  it('rejects a retained retry immediately after owner replacement', async () => {
+    probeSeriesCardinality.mockRejectedValueOnce(new Error('retryable'))
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    await beginPendingSeries()
+    const retry = await screen.findByRole('button', { name: 'Retry' })
+    act(() => {
+      replaceGeneration()
+      // The old DOM handler is still retained before the React commit.
+      fireEvent.click(retry)
+    })
+    await act(async () => Promise.resolve())
+    expect(probeSeriesCardinality).toHaveBeenCalledTimes(1)
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
+  })
+
+  it('lets a current failed probe retry successfully', async () => {
+    probeSeriesCardinality.mockRejectedValueOnce(new Error('retryable'))
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    await beginPendingSeries()
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+    await waitFor(() =>
+      expect(activeTestSession().builder.seriesColumns).toEqual([
+        'customer_id',
+      ]),
+    )
+    expect(probeSeriesCardinality).toHaveBeenCalledTimes(2)
+    expect(runQuery).not.toHaveBeenCalled()
+  })
+
+  it.each(['success', 'error'] as const)(
+    'ignores probe %s after unmount/remount',
+    async (outcome) => {
+      const pending = deferred<{ exceedsHardLimit: boolean }>()
+      probeSeriesCardinality.mockReturnValueOnce(pending.promise)
+      const view = arrange()
+      chooseOrders()
+      chooseXAxis(/created_at/)
+      await beginPendingSeries()
+      view.unmount()
+      render(<BuilderPanel />)
+      await act(async () => {
+        if (outcome === 'success') pending.resolve({ exceedsHardLimit: false })
+        else pending.reject(new Error('abandoned'))
+      })
+      expect(activeTestSession().builder.seriesColumns).toEqual([])
+      expect(screen.queryByText('Checking cardinality…')).toBeNull()
+      expect(
+        screen.queryByText('Could not check Series cardinality.'),
+      ).toBeNull()
+    },
+  )
+
+  it('ignores a probe after reset restores the same visible configuration', async () => {
+    const pending = deferred<{ exceedsHardLimit: boolean }>()
+    probeSeriesCardinality.mockReturnValueOnce(pending.promise)
+    arrange()
+    chooseOrders()
+    chooseXAxis(/created_at/)
+    await beginPendingSeries()
+    act(() => patchActiveTestSession({ queryContextId: 'reset-context' }))
+    await act(async () => pending.resolve({ exceedsHardLimit: false }))
+    expect(activeTestSession().builder.seriesColumns).toEqual([])
+    expect(screen.queryByText('Checking cardinality…')).toBeNull()
+  })
 })
