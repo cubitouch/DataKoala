@@ -67,7 +67,7 @@ A successful run is **generation evidence**, not a reviewed UX verdict.
 
 The Visual preview workflow runs this extra mode only on branches named `audit/*`.
 It uploads the separate `datakoala-ux-audit-pr-N` artifact, including partial
-evidence after a failed audit run. It publishes only contact sheets and the DOM
+evidence after a failed audit run. It publishes contact sheets, four key diagnostic frames and the DOM
 report under `visual-previews/pr-N/audit/`. The ordinary regression manifest and
 public documentation screenshot list remain unchanged. Full comparisons stay in
 the PR artifact; no audit image is added to the public Pages website.

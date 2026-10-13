@@ -187,7 +187,7 @@ jobs:
           done <<< "$PREVIEW_FILES"
           if [ -d visual-audit ]; then
             mkdir -p "$publish_dir/audit"
-            for filename in compare-lists.png compare-toolbar.png compare-dialogs.png compare-feedback.png compare-selectors.png compare-detail.png measurements.json; do
+            for filename in compare-lists.png compare-toolbar.png compare-dialogs.png compare-feedback.png compare-selectors.png compare-detail.png traces-open-narrow.png nested-settings-escape-desktop.png postgres-error-chart-desktop.png postgres-error-desktop.png measurements.json; do
               test -f "visual-audit/$filename"
               cp "visual-audit/$filename" "$publish_dir/audit/$filename"
             done
