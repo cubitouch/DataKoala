@@ -1,3 +1,5 @@
+import compatibilityFixtures from './fixtures/workspace-compatibility.json'
+import { legacyPromqlFilters } from './workspaceMigrations.ts'
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
 import type { ResultFilter } from './resultFilters.ts'
@@ -12,6 +14,8 @@ import {
   restoreWorkspaceDraft,
   serializeWorkspaceDraft,
   startWorkspacePersistence,
+  workspaceDraftFromState,
+  type QuerySessionDraft,
   type WorkspacePersistableState,
   type WorkspaceRestorePatch,
   type WorkspaceStorage,
@@ -830,4 +834,92 @@ test('restoration clears unobservable pending work for every datasource kind', (
     assert.equal(restored.tabs[0].activeExplainRequest, null)
     assert.equal(restored.tabs[0].pendingResult, null)
   }
+})
+
+// Captured from main c5fc56b before extraction, using the existing state fixture.
+for (const fixture of compatibilityFixtures) {
+  test(`baseline compatibility: ${fixture.name}`, () => {
+    const storage = new MemoryStorage()
+    const key = fixture.name.endsWith('v1')
+      ? LEGACY_WORKSPACE_STORAGE_KEY
+      : WORKSPACE_STORAGE_KEY
+    storage.values.set(key, fixture.raw)
+    const draft = readWorkspaceDraft(storage)
+    assert.deepEqual(JSON.parse(JSON.stringify(draft)), fixture.expected)
+    const patches: WorkspaceRestorePatch[] = []
+    restoreWorkspaceDraft((patch) => patches.push(patch), storage)
+    const patch = patches[0]
+    if (patch) {
+      for (const tab of patch.tabs) tab.queryContextId = 'fresh-context'
+      assert.deepEqual(JSON.parse(JSON.stringify(patch)), fixture.restored)
+      assert.equal(serializeWorkspaceDraft(patch), fixture.serialized)
+      const restoredAgain = parseWorkspaceDraft(serializeWorkspaceDraft(patch))
+      assert.deepEqual(
+        JSON.parse(JSON.stringify(restoredAgain)),
+        fixture.reparsed,
+      )
+    } else assert.equal(fixture.restored, null)
+    assert.equal(storage.values.get(key), fixture.raw)
+  })
+}
+
+function freezeDeep<T>(value: T): T {
+  if (value && typeof value === 'object') {
+    for (const child of Object.values(value)) freezeDeep(child)
+    Object.freeze(value)
+  }
+  return value
+}
+
+test('serialization and historical normalization do not mutate frozen inputs', () => {
+  const input = freezeDeep(state())
+  const before = JSON.stringify(input)
+  serializeWorkspaceDraft(input)
+  const drafts: QuerySessionDraft[] = workspaceDraftFromState(input).tabs
+  assert.equal(drafts[0].id, input.tabs[0].id)
+  assert.equal(JSON.stringify(input), before)
+  const filters = freezeDeep([
+    { label: 'env', values: ['prod', 'prod'] },
+    { label: 'service', operator: '=', value: 'api' },
+  ])
+  const filtersBefore = JSON.stringify(filters)
+  assert.deepEqual(legacyPromqlFilters(filters), [
+    { label: 'env', values: ['prod'] },
+    { label: 'service', values: ['api'] },
+  ])
+  assert.equal(JSON.stringify(filters), filtersBefore)
+})
+
+test('empty serialization and storage fallback keep the existing recovery contract', () => {
+  assert.equal(
+    serializeWorkspaceDraft({ activeTabId: 'absent', tabs: [] }),
+    '{"version":2,"activeTabId":"","tabs":[]}',
+  )
+  const storage = new MemoryStorage()
+  storage.values.set(WORKSPACE_STORAGE_KEY, '{broken')
+  const legacy = compatibilityFixtures.find(
+    (fixture) => fixture.name === 'legacy-v1',
+  )!
+  storage.values.set(LEGACY_WORKSPACE_STORAGE_KEY, legacy.raw)
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(readWorkspaceDraft(storage))),
+    legacy.expected,
+  )
+  storage.values.set(
+    WORKSPACE_STORAGE_KEY,
+    compatibilityFixtures.find((fixture) => fixture.name === 'future')!.raw,
+  )
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(readWorkspaceDraft(storage))),
+    legacy.expected,
+  )
+  storage.values.set(WORKSPACE_STORAGE_KEY, serializeWorkspaceDraft(state()))
+  assert.equal(readWorkspaceDraft(storage)?.activeTabId, 'tab-b')
+})
+
+test('current live-session serialization matches pre-extraction bytes', () => {
+  const current = compatibilityFixtures.find(
+    (fixture) => fixture.name === 'current-v2',
+  )!
+  assert.equal(serializeWorkspaceDraft(state()), current.raw)
 })

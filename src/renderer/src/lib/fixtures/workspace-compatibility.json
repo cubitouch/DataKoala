@@ -1,0 +1,4099 @@
+[
+  {
+    "name": "current-v2",
+    "raw": "{\"version\":2,\"activeTabId\":\"tab-b\",\"tabs\":[{\"id\":\"tab-a\",\"title\":\"Orders by country\",\"connectionProfileId\":\"prod\",\"queryMode\":\"builder\",\"sql\":\"select * from orders;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":3,\"unit\":\"hour\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-a\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"list\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"tab-a\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[{\"attribute\":\"resource.cluster\",\"scope\":\"resource\",\"mode\":\"include\",\"values\":[\"tab-a\"]}],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":6,\"unit\":\"hour\"},\"tempoSampleSize\":\"100\",\"tempoResultView\":\"service-map\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"valueAxisScale\":\"log\",\"hierarchyDimensions\":[]},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"promoted-country\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]},{\"id\":\"tab-b\",\"title\":\"Scratch\",\"connectionProfileId\":\"analytics\",\"queryMode\":\"sql\",\"sql\":\"select 42;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":15,\"unit\":\"minute\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-b\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":250,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"line\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"tab-b\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[{\"attribute\":\"resource.cluster\",\"scope\":\"resource\",\"mode\":\"include\",\"values\":[\"tab-b\"]}],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":30,\"unit\":\"minute\"},\"tempoSampleSize\":\"500\",\"tempoResultView\":\"scatter\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"valueAxisScale\":\"log\",\"hierarchyDimensions\":[]},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"promoted-country\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]}]}",
+    "expected": {
+      "activeTabId": "tab-b",
+      "tabs": [
+        {
+          "id": "tab-a",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "queryMode": "builder",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 3,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-a",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-a"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 6,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "100",
+          "tempoResultView": "service-map",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        },
+        {
+          "id": "tab-b",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "queryMode": "sql",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 15,
+            "unit": "minute"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 250,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-b",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-b"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 30,
+            "unit": "minute"
+          },
+          "tempoSampleSize": "500",
+          "tempoResultView": "scatter",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "restored": {
+      "tabs": [
+        {
+          "id": "tab-a",
+          "queryContextId": "fresh-context",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 3,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-a",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-a"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 6,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "100",
+          "tempoResultView": "service-map",
+          "running": false,
+          "queryError": null,
+          "repairableQueryError": null,
+          "result": null,
+          "pendingResult": null,
+          "resultRevision": 0,
+          "lastSuccessfulResultRevision": 0,
+          "isResultStale": false,
+          "queryMode": "builder",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "builderHasRun": false,
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "sqlResultFilters": [],
+          "builderResultFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ],
+          "queryFilterRevision": {
+            "sql": 0,
+            "builder": 0
+          },
+          "builderFilterNotice": null,
+          "explainText": null,
+          "explainTree": null,
+          "explainSnapshot": null,
+          "showExplain": false,
+          "activeExplainRequest": null,
+          "seriesVisibility": {}
+        },
+        {
+          "id": "tab-b",
+          "queryContextId": "fresh-context",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 15,
+            "unit": "minute"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 250,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-b",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-b"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 30,
+            "unit": "minute"
+          },
+          "tempoSampleSize": "500",
+          "tempoResultView": "scatter",
+          "running": false,
+          "queryError": null,
+          "repairableQueryError": null,
+          "result": null,
+          "pendingResult": null,
+          "resultRevision": 0,
+          "lastSuccessfulResultRevision": 0,
+          "isResultStale": false,
+          "queryMode": "sql",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "builderHasRun": false,
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "sqlResultFilters": [],
+          "builderResultFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ],
+          "queryFilterRevision": {
+            "sql": 0,
+            "builder": 0
+          },
+          "builderFilterNotice": null,
+          "explainText": null,
+          "explainTree": null,
+          "explainSnapshot": null,
+          "showExplain": false,
+          "activeExplainRequest": null,
+          "seriesVisibility": {}
+        }
+      ],
+      "activeTabId": "tab-b"
+    },
+    "serialized": "{\"version\":2,\"activeTabId\":\"tab-b\",\"tabs\":[{\"id\":\"tab-a\",\"title\":\"Orders by country\",\"connectionProfileId\":\"prod\",\"queryMode\":\"builder\",\"sql\":\"select * from orders;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"labelValues\":{},\"groupBy\":[],\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":3,\"unit\":\"hour\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-a\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"list\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"tab-a\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"minDurationMs\":\"\",\"spanKind\":\"any\",\"protocol\":\"any\",\"status\":\"any\",\"advancedFilters\":[{\"attribute\":\"resource.cluster\",\"scope\":\"resource\",\"mode\":\"include\",\"values\":[\"tab-a\"]}]},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":6,\"unit\":\"hour\"},\"tempoSampleSize\":\"100\",\"tempoResultView\":\"service-map\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[],\"valueAxisScale\":\"log\"},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]},{\"id\":\"tab-b\",\"title\":\"Scratch\",\"connectionProfileId\":\"analytics\",\"queryMode\":\"sql\",\"sql\":\"select 42;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"labelValues\":{},\"groupBy\":[],\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":15,\"unit\":\"minute\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-b\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":250,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"line\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"tab-b\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"minDurationMs\":\"\",\"spanKind\":\"any\",\"protocol\":\"any\",\"status\":\"any\",\"advancedFilters\":[{\"attribute\":\"resource.cluster\",\"scope\":\"resource\",\"mode\":\"include\",\"values\":[\"tab-b\"]}]},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":30,\"unit\":\"minute\"},\"tempoSampleSize\":\"500\",\"tempoResultView\":\"scatter\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[],\"valueAxisScale\":\"log\"},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]}]}",
+    "reparsed": {
+      "activeTabId": "tab-b",
+      "tabs": [
+        {
+          "id": "tab-a",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "queryMode": "builder",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 3,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-a",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-a"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 6,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "100",
+          "tempoResultView": "service-map",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        },
+        {
+          "id": "tab-b",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "queryMode": "sql",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 15,
+            "unit": "minute"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 250,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-b",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-b"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 30,
+            "unit": "minute"
+          },
+          "tempoSampleSize": "500",
+          "tempoResultView": "scatter",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "historical-v2",
+    "raw": "{\"version\":2,\"activeTabId\":\"tab-b\",\"tabs\":[{\"id\":\"tab-a\",\"title\":\"Orders by country\",\"connectionProfileId\":\"prod\",\"queryMode\":\"builder\",\"sql\":\"select * from orders;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"requests_total\",\"calculation\":\"avg\",\"filters\":[{\"label\":\"env\",\"values\":[\"prod\",\"prod\"]},{\"label\":\"service\",\"operator\":\"=\",\"value\":\"api\"},{\"label\":\"ignored\",\"operator\":\"!=\",\"value\":\"x\"}]},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":3,\"unit\":\"hour\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-a\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiResultView\":\"chart\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"valueAxisScale\":\"log\",\"hierarchyDimensions\":[]},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"time_bucket\",\"valueColumn\":\"count\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"promoted-country\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}],\"lokiBreakdown\":\"level\"},{\"id\":\"tab-b\",\"title\":\"Scratch\",\"connectionProfileId\":\"analytics\",\"queryMode\":\"sql\",\"sql\":\"select 42;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"requests_total\",\"calculation\":\"avg\",\"filters\":[{\"label\":\"env\",\"values\":[\"prod\",\"prod\"]},{\"label\":\"service\",\"operator\":\"=\",\"value\":\"api\"},{\"label\":\"ignored\",\"operator\":\"!=\",\"value\":\"x\"}]},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":15,\"unit\":\"minute\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-b\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":250,\"lokiResultView\":\"chart\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"valueAxisScale\":\"log\",\"hierarchyDimensions\":[]},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"time_bucket\",\"valueColumn\":\"count\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"promoted-country\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}],\"lokiBreakdown\":\"level\"}]}",
+    "expected": {
+      "activeTabId": "tab-b",
+      "tabs": [
+        {
+          "id": "tab-a",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "queryMode": "builder",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "requests_total",
+            "filterBy": ["env", "service"],
+            "labelValues": {
+              "env": ["prod"],
+              "service": ["api"]
+            },
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "avg",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 3,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["level"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "advancedFilters": [],
+            "status": "any",
+            "minDurationMs": ""
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "250",
+          "tempoResultView": "list",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        },
+        {
+          "id": "tab-b",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "queryMode": "sql",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "requests_total",
+            "filterBy": ["env", "service"],
+            "labelValues": {
+              "env": ["prod"],
+              "service": ["api"]
+            },
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "avg",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 15,
+            "unit": "minute"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 250,
+          "lokiGroupBy": ["level"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "advancedFilters": [],
+            "status": "any",
+            "minDurationMs": ""
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "250",
+          "tempoResultView": "list",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "restored": {
+      "tabs": [
+        {
+          "id": "tab-a",
+          "queryContextId": "fresh-context",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "requests_total",
+            "filterBy": ["env", "service"],
+            "labelValues": {
+              "env": ["prod"],
+              "service": ["api"]
+            },
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "avg",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 3,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["level"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "advancedFilters": [],
+            "status": "any",
+            "minDurationMs": ""
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "250",
+          "tempoResultView": "list",
+          "running": false,
+          "queryError": null,
+          "repairableQueryError": null,
+          "result": null,
+          "pendingResult": null,
+          "resultRevision": 0,
+          "lastSuccessfulResultRevision": 0,
+          "isResultStale": false,
+          "queryMode": "builder",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "builderHasRun": false,
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "sqlResultFilters": [],
+          "builderResultFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ],
+          "queryFilterRevision": {
+            "sql": 0,
+            "builder": 0
+          },
+          "builderFilterNotice": null,
+          "explainText": null,
+          "explainTree": null,
+          "explainSnapshot": null,
+          "showExplain": false,
+          "activeExplainRequest": null,
+          "seriesVisibility": {}
+        },
+        {
+          "id": "tab-b",
+          "queryContextId": "fresh-context",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "requests_total",
+            "filterBy": ["env", "service"],
+            "labelValues": {
+              "env": ["prod"],
+              "service": ["api"]
+            },
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "avg",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 15,
+            "unit": "minute"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 250,
+          "lokiGroupBy": ["level"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "advancedFilters": [],
+            "status": "any",
+            "minDurationMs": ""
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "250",
+          "tempoResultView": "list",
+          "running": false,
+          "queryError": null,
+          "repairableQueryError": null,
+          "result": null,
+          "pendingResult": null,
+          "resultRevision": 0,
+          "lastSuccessfulResultRevision": 0,
+          "isResultStale": false,
+          "queryMode": "sql",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "builderHasRun": false,
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "sqlResultFilters": [],
+          "builderResultFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ],
+          "queryFilterRevision": {
+            "sql": 0,
+            "builder": 0
+          },
+          "builderFilterNotice": null,
+          "explainText": null,
+          "explainTree": null,
+          "explainSnapshot": null,
+          "showExplain": false,
+          "activeExplainRequest": null,
+          "seriesVisibility": {}
+        }
+      ],
+      "activeTabId": "tab-b"
+    },
+    "serialized": "{\"version\":2,\"activeTabId\":\"tab-b\",\"tabs\":[{\"id\":\"tab-a\",\"title\":\"Orders by country\",\"connectionProfileId\":\"prod\",\"queryMode\":\"builder\",\"sql\":\"select * from orders;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"requests_total\",\"filterBy\":[\"env\",\"service\"],\"labelValues\":{\"env\":[\"prod\"],\"service\":[\"api\"]},\"groupBy\":[],\"calculation\":\"raw\",\"aggregation\":\"avg\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":3,\"unit\":\"hour\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-a\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[\"level\"],\"lokiResultView\":\"line\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"tempoSampleSize\":\"250\",\"tempoResultView\":\"list\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[],\"valueAxisScale\":\"log\"},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]},{\"id\":\"tab-b\",\"title\":\"Scratch\",\"connectionProfileId\":\"analytics\",\"queryMode\":\"sql\",\"sql\":\"select 42;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"requests_total\",\"filterBy\":[\"env\",\"service\"],\"labelValues\":{\"env\":[\"prod\"],\"service\":[\"api\"]},\"groupBy\":[],\"calculation\":\"raw\",\"aggregation\":\"avg\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":15,\"unit\":\"minute\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-b\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":250,\"lokiGroupBy\":[\"level\"],\"lokiResultView\":\"line\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"tempoSampleSize\":\"250\",\"tempoResultView\":\"list\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[],\"valueAxisScale\":\"log\"},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]}]}",
+    "reparsed": {
+      "activeTabId": "tab-b",
+      "tabs": [
+        {
+          "id": "tab-a",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "queryMode": "builder",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "requests_total",
+            "filterBy": ["env", "service"],
+            "labelValues": {
+              "env": ["prod"],
+              "service": ["api"]
+            },
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "avg",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 3,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["level"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": []
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "250",
+          "tempoResultView": "list",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        },
+        {
+          "id": "tab-b",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "queryMode": "sql",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "requests_total",
+            "filterBy": ["env", "service"],
+            "labelValues": {
+              "env": ["prod"],
+              "service": ["api"]
+            },
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "avg",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 15,
+            "unit": "minute"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 250,
+          "lokiGroupBy": ["level"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": []
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "250",
+          "tempoResultView": "list",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "early-axis-v2",
+    "raw": "{\"version\":2,\"activeTabId\":\"tab-b\",\"tabs\":[{\"id\":\"tab-a\",\"title\":\"Orders by country\",\"connectionProfileId\":\"prod\",\"queryMode\":\"builder\",\"sql\":\"select * from orders;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":3,\"unit\":\"hour\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-a\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"list\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"tab-a\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[{\"attribute\":\"resource.cluster\",\"scope\":\"resource\",\"mode\":\"include\",\"values\":[\"tab-a\"]}],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":6,\"unit\":\"hour\"},\"tempoSampleSize\":\"100\",\"tempoResultView\":\"service-map\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"valueAxisScale\":\"log\",\"hierarchyDimensions\":[]},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"promoted-country\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]},{\"id\":\"tab-b\",\"title\":\"Scratch\",\"connectionProfileId\":\"analytics\",\"queryMode\":\"sql\",\"sql\":\"select 42;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":15,\"unit\":\"minute\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-b\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":250,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"line\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"tab-b\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[{\"attribute\":\"resource.cluster\",\"scope\":\"resource\",\"mode\":\"include\",\"values\":[\"tab-b\"]}],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":30,\"unit\":\"minute\"},\"tempoSampleSize\":\"500\",\"tempoResultView\":\"scatter\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"valueAxisScale\":\"log\",\"hierarchyDimensions\":[]},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"promoted-country\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]}]}",
+    "expected": {
+      "activeTabId": "tab-b",
+      "tabs": [
+        {
+          "id": "tab-a",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "queryMode": "builder",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 3,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-a",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-a"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 6,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "100",
+          "tempoResultView": "service-map",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        },
+        {
+          "id": "tab-b",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "queryMode": "sql",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 15,
+            "unit": "minute"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 250,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-b",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-b"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 30,
+            "unit": "minute"
+          },
+          "tempoSampleSize": "500",
+          "tempoResultView": "scatter",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "restored": {
+      "tabs": [
+        {
+          "id": "tab-a",
+          "queryContextId": "fresh-context",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 3,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-a",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-a"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 6,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "100",
+          "tempoResultView": "service-map",
+          "running": false,
+          "queryError": null,
+          "repairableQueryError": null,
+          "result": null,
+          "pendingResult": null,
+          "resultRevision": 0,
+          "lastSuccessfulResultRevision": 0,
+          "isResultStale": false,
+          "queryMode": "builder",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "builderHasRun": false,
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "sqlResultFilters": [],
+          "builderResultFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ],
+          "queryFilterRevision": {
+            "sql": 0,
+            "builder": 0
+          },
+          "builderFilterNotice": null,
+          "explainText": null,
+          "explainTree": null,
+          "explainSnapshot": null,
+          "showExplain": false,
+          "activeExplainRequest": null,
+          "seriesVisibility": {}
+        },
+        {
+          "id": "tab-b",
+          "queryContextId": "fresh-context",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 15,
+            "unit": "minute"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 250,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-b",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-b"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 30,
+            "unit": "minute"
+          },
+          "tempoSampleSize": "500",
+          "tempoResultView": "scatter",
+          "running": false,
+          "queryError": null,
+          "repairableQueryError": null,
+          "result": null,
+          "pendingResult": null,
+          "resultRevision": 0,
+          "lastSuccessfulResultRevision": 0,
+          "isResultStale": false,
+          "queryMode": "sql",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "builderHasRun": false,
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "sqlResultFilters": [],
+          "builderResultFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ],
+          "queryFilterRevision": {
+            "sql": 0,
+            "builder": 0
+          },
+          "builderFilterNotice": null,
+          "explainText": null,
+          "explainTree": null,
+          "explainSnapshot": null,
+          "showExplain": false,
+          "activeExplainRequest": null,
+          "seriesVisibility": {}
+        }
+      ],
+      "activeTabId": "tab-b"
+    },
+    "serialized": "{\"version\":2,\"activeTabId\":\"tab-b\",\"tabs\":[{\"id\":\"tab-a\",\"title\":\"Orders by country\",\"connectionProfileId\":\"prod\",\"queryMode\":\"builder\",\"sql\":\"select * from orders;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"labelValues\":{},\"groupBy\":[],\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":3,\"unit\":\"hour\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-a\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"list\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"tab-a\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"minDurationMs\":\"\",\"spanKind\":\"any\",\"protocol\":\"any\",\"status\":\"any\",\"advancedFilters\":[{\"attribute\":\"resource.cluster\",\"scope\":\"resource\",\"mode\":\"include\",\"values\":[\"tab-a\"]}]},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":6,\"unit\":\"hour\"},\"tempoSampleSize\":\"100\",\"tempoResultView\":\"service-map\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[],\"valueAxisScale\":\"log\"},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]},{\"id\":\"tab-b\",\"title\":\"Scratch\",\"connectionProfileId\":\"analytics\",\"queryMode\":\"sql\",\"sql\":\"select 42;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"labelValues\":{},\"groupBy\":[],\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":15,\"unit\":\"minute\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-b\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":250,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"line\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"tab-b\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"minDurationMs\":\"\",\"spanKind\":\"any\",\"protocol\":\"any\",\"status\":\"any\",\"advancedFilters\":[{\"attribute\":\"resource.cluster\",\"scope\":\"resource\",\"mode\":\"include\",\"values\":[\"tab-b\"]}]},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":30,\"unit\":\"minute\"},\"tempoSampleSize\":\"500\",\"tempoResultView\":\"scatter\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[],\"valueAxisScale\":\"log\"},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]}]}",
+    "reparsed": {
+      "activeTabId": "tab-b",
+      "tabs": [
+        {
+          "id": "tab-a",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "queryMode": "builder",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 3,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-a",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-a"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 6,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "100",
+          "tempoResultView": "service-map",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        },
+        {
+          "id": "tab-b",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "queryMode": "sql",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "30s",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 15,
+            "unit": "minute"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 250,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "tab-b",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": [
+              {
+                "attribute": "resource.cluster",
+                "scope": "resource",
+                "mode": "include",
+                "values": ["tab-b"]
+              }
+            ]
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 30,
+            "unit": "minute"
+          },
+          "tempoSampleSize": "500",
+          "tempoResultView": "scatter",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": [
+            {
+              "id": "result-filter:%7B%22mode%22%3A%22builder%22%2C%22targetKind%22%3A%22source-column%22%2C%22table%22%3A%7B%22schema%22%3A%22analytics%22%2C%22name%22%3A%22events%22%7D%2C%22resultAlias%22%3A%22series%22%2C%22sourceColumn%22%3A%22country%22%2C%22sourceColumns%22%3A%5B%22country%22%5D%2C%22timeColumn%22%3A%22created_at%22%2C%22timeBucket%22%3A%22hour%22%7D%00equals%00string%3AFR",
+              "column": "country",
+              "operator": "equals",
+              "value": "FR",
+              "execution": "query",
+              "provenance": {
+                "mode": "builder",
+                "resultAlias": "series",
+                "table": {
+                  "schema": "analytics",
+                  "name": "events"
+                },
+                "sourceColumns": ["country"],
+                "sourceColumn": "country",
+                "timeColumn": "created_at",
+                "timeBucket": "hour",
+                "sourceKind": "single-column",
+                "targetKind": "source-column",
+                "displayLabel": "country"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "legacy-v1",
+    "raw": "{\"version\":1,\"draft\":{\"queryMode\":\"builder\",\"sql\":\"select legacy;\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"valueAxisScale\":\"log\",\"hierarchyDimensions\":[]},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"time_bucket\",\"valueColumn\":\"count\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"}}}",
+    "expected": {
+      "activeTabId": "migrated-query-1",
+      "tabs": [
+        {
+          "id": "migrated-query-1",
+          "title": "Query 1",
+          "connectionProfileId": null,
+          "queryMode": "builder",
+          "sql": "select legacy;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "auto",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "groupBy": [],
+            "labelValues": {},
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95,
+            "histogramKindOverride": "auto"
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [],
+            "lineFilters": [],
+            "parsers": [],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": [],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "advancedFilters": [],
+            "status": "any",
+            "minDurationMs": ""
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "250",
+          "tempoResultView": "list",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "rolling",
+              "amount": 7,
+              "unit": "day"
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": []
+        }
+      ]
+    },
+    "restored": {
+      "tabs": [
+        {
+          "id": "migrated-query-1",
+          "queryContextId": "fresh-context",
+          "title": "Query 1",
+          "connectionProfileId": null,
+          "sql": "select legacy;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "auto",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "groupBy": [],
+            "labelValues": {},
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95,
+            "histogramKindOverride": "auto"
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [],
+            "lineFilters": [],
+            "parsers": [],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": [],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "advancedFilters": [],
+            "status": "any",
+            "minDurationMs": ""
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "250",
+          "tempoResultView": "list",
+          "running": false,
+          "queryError": null,
+          "repairableQueryError": null,
+          "result": null,
+          "pendingResult": null,
+          "resultRevision": 0,
+          "lastSuccessfulResultRevision": 0,
+          "isResultStale": false,
+          "queryMode": "builder",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "rolling",
+              "amount": 7,
+              "unit": "day"
+            }
+          },
+          "builderHasRun": false,
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "sqlResultFilters": [],
+          "builderResultFilters": [],
+          "queryFilterRevision": {
+            "sql": 0,
+            "builder": 0
+          },
+          "builderFilterNotice": null,
+          "explainText": null,
+          "explainTree": null,
+          "explainSnapshot": null,
+          "showExplain": false,
+          "activeExplainRequest": null,
+          "seriesVisibility": {}
+        }
+      ],
+      "activeTabId": "migrated-query-1"
+    },
+    "serialized": "{\"version\":2,\"activeTabId\":\"migrated-query-1\",\"tabs\":[{\"id\":\"migrated-query-1\",\"title\":\"Query 1\",\"connectionProfileId\":null,\"queryMode\":\"builder\",\"sql\":\"select legacy;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"auto\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95,\"histogramKindOverride\":\"auto\"},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"lokiBuilder\":{\"labelMatchers\":[],\"lineFilters\":[],\"parsers\":[],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[],\"lokiResultView\":\"list\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"tempoSampleSize\":\"250\",\"tempoResultView\":\"list\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"rolling\",\"amount\":7,\"unit\":\"day\"},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[],\"valueAxisScale\":\"log\"},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[]}]}",
+    "reparsed": {
+      "activeTabId": "migrated-query-1",
+      "tabs": [
+        {
+          "id": "migrated-query-1",
+          "title": "Query 1",
+          "connectionProfileId": null,
+          "queryMode": "builder",
+          "sql": "select legacy;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "auto",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [],
+            "lineFilters": [],
+            "parsers": [],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": [],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": []
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "250",
+          "tempoResultView": "list",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "rolling",
+              "amount": 7,
+              "unit": "day"
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "log"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "optional-v2",
+    "raw": "{\"version\":2,\"activeTabId\":\"missing\",\"tabs\":[{\"id\":\"tab-a\",\"title\":\"Orders by country\",\"connectionProfileId\":\"prod\",\"queryMode\":\"builder\",\"sql\":\"select * from orders;\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-a\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":-1,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"list\",\"tempoBuilder\":{\"service\":42},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":6,\"unit\":\"hour\"},\"tempoSampleSize\":\"100\",\"tempoResultView\":\"service-map\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"unknown\":\"ignored\"},{\"id\":\"tab-b\",\"title\":\"Scratch\",\"connectionProfileId\":\"analytics\",\"queryMode\":\"sql\",\"sql\":\"select 42;\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-b\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":-1,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"line\",\"tempoBuilder\":{\"service\":42},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":30,\"unit\":\"minute\"},\"tempoSampleSize\":\"500\",\"tempoResultView\":\"scatter\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"unknown\":\"ignored\"}],\"unknown\":{\"retained\":false}}",
+    "expected": {
+      "activeTabId": "tab-a",
+      "tabs": [
+        {
+          "id": "tab-a",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "queryMode": "builder",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "auto",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "advancedFilters": [],
+            "status": "any",
+            "minDurationMs": ""
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 6,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "100",
+          "tempoResultView": "service-map",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": [],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "linear"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": []
+        },
+        {
+          "id": "tab-b",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "queryMode": "sql",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "auto",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "advancedFilters": [],
+            "status": "any",
+            "minDurationMs": ""
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 30,
+            "unit": "minute"
+          },
+          "tempoSampleSize": "500",
+          "tempoResultView": "scatter",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": [],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "linear"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": []
+        }
+      ]
+    },
+    "restored": {
+      "tabs": [
+        {
+          "id": "tab-a",
+          "queryContextId": "fresh-context",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "auto",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "advancedFilters": [],
+            "status": "any",
+            "minDurationMs": ""
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 6,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "100",
+          "tempoResultView": "service-map",
+          "running": false,
+          "queryError": null,
+          "repairableQueryError": null,
+          "result": null,
+          "pendingResult": null,
+          "resultRevision": 0,
+          "lastSuccessfulResultRevision": 0,
+          "isResultStale": false,
+          "queryMode": "builder",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "builderHasRun": false,
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": [],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "linear"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "sqlResultFilters": [],
+          "builderResultFilters": [],
+          "queryFilterRevision": {
+            "sql": 0,
+            "builder": 0
+          },
+          "builderFilterNotice": null,
+          "explainText": null,
+          "explainTree": null,
+          "explainSnapshot": null,
+          "showExplain": false,
+          "activeExplainRequest": null,
+          "seriesVisibility": {}
+        },
+        {
+          "id": "tab-b",
+          "queryContextId": "fresh-context",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "auto",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "advancedFilters": [],
+            "status": "any",
+            "minDurationMs": ""
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 30,
+            "unit": "minute"
+          },
+          "tempoSampleSize": "500",
+          "tempoResultView": "scatter",
+          "running": false,
+          "queryError": null,
+          "repairableQueryError": null,
+          "result": null,
+          "pendingResult": null,
+          "resultRevision": 0,
+          "lastSuccessfulResultRevision": 0,
+          "isResultStale": false,
+          "queryMode": "sql",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "builderHasRun": false,
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": [],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "linear"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "sqlResultFilters": [],
+          "builderResultFilters": [],
+          "queryFilterRevision": {
+            "sql": 0,
+            "builder": 0
+          },
+          "builderFilterNotice": null,
+          "explainText": null,
+          "explainTree": null,
+          "explainSnapshot": null,
+          "showExplain": false,
+          "activeExplainRequest": null,
+          "seriesVisibility": {}
+        }
+      ],
+      "activeTabId": "tab-a"
+    },
+    "serialized": "{\"version\":2,\"activeTabId\":\"tab-a\",\"tabs\":[{\"id\":\"tab-a\",\"title\":\"Orders by country\",\"connectionProfileId\":\"prod\",\"queryMode\":\"builder\",\"sql\":\"select * from orders;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"auto\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"labelValues\":{},\"groupBy\":[],\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-a\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"list\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":6,\"unit\":\"hour\"},\"tempoSampleSize\":\"100\",\"tempoResultView\":\"service-map\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[],\"hierarchyDimensions\":[],\"valueAxisScale\":\"linear\"},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[]},{\"id\":\"tab-b\",\"title\":\"Scratch\",\"connectionProfileId\":\"analytics\",\"queryMode\":\"sql\",\"sql\":\"select 42;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"auto\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"labelValues\":{},\"groupBy\":[],\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-b\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"line\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":30,\"unit\":\"minute\"},\"tempoSampleSize\":\"500\",\"tempoResultView\":\"scatter\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[],\"hierarchyDimensions\":[],\"valueAxisScale\":\"linear\"},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[]}]}",
+    "reparsed": {
+      "activeTabId": "tab-a",
+      "tabs": [
+        {
+          "id": "tab-a",
+          "title": "Orders by country",
+          "connectionProfileId": "prod",
+          "queryMode": "builder",
+          "sql": "select * from orders;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "auto",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-a"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "list",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": []
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 6,
+            "unit": "hour"
+          },
+          "tempoSampleSize": "100",
+          "tempoResultView": "service-map",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": [],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "linear"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": []
+        },
+        {
+          "id": "tab-b",
+          "title": "Scratch",
+          "connectionProfileId": "analytics",
+          "queryMode": "sql",
+          "sql": "select 42;",
+          "prometheusTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "prometheusStep": "auto",
+          "promqlBuilder": {
+            "metric": "",
+            "filterBy": [],
+            "labelValues": {},
+            "groupBy": [],
+            "calculation": "raw",
+            "aggregation": "none",
+            "window": "5m",
+            "percentile": 0.95
+          },
+          "lokiTimeRange": {
+            "kind": "rolling",
+            "amount": 1,
+            "unit": "hour"
+          },
+          "lokiBuilder": {
+            "labelMatchers": [
+              {
+                "label": "service_name",
+                "operator": "=",
+                "value": "tab-b"
+              }
+            ],
+            "lineFilters": [
+              {
+                "operator": "|=",
+                "value": "error"
+              }
+            ],
+            "parsers": [
+              {
+                "kind": "json"
+              }
+            ],
+            "fieldFilters": []
+          },
+          "lokiResultLimit": 1000,
+          "lokiGroupBy": ["service_name"],
+          "lokiResultView": "line",
+          "tempoBuilder": {
+            "serviceNamespace": "",
+            "service": "",
+            "httpMethod": "",
+            "endpoint": "",
+            "rpcSystem": "",
+            "rpcService": "",
+            "rpcMethod": "",
+            "messagingSystem": "",
+            "messagingDestination": "",
+            "messagingOperation": "",
+            "dbSystem": "",
+            "dbOperation": "",
+            "spanName": "",
+            "minDurationMs": "",
+            "spanKind": "any",
+            "protocol": "any",
+            "status": "any",
+            "advancedFilters": []
+          },
+          "tempoTimeRange": {
+            "kind": "rolling",
+            "amount": 30,
+            "unit": "minute"
+          },
+          "tempoSampleSize": "500",
+          "tempoResultView": "scatter",
+          "builder": {
+            "table": {
+              "schema": "analytics",
+              "name": "events"
+            },
+            "timeColumn": "created_at",
+            "timeBucket": "hour",
+            "seriesColumns": ["country", "device"],
+            "timeRange": {
+              "kind": "custom",
+              "startDate": "2026-08-01",
+              "startTime": "08:00",
+              "endDate": "2026-08-02",
+              "endTime": "18:00",
+              "recurringWindows": [
+                {
+                  "id": "workday",
+                  "from": "09:00",
+                  "to": "17:00"
+                }
+              ]
+            }
+          },
+          "sqlVisualization": {
+            "view": "bar",
+            "xColumn": "created_at",
+            "valueColumn": "amount",
+            "aggregation": "sum",
+            "seriesColumn": null,
+            "seriesColumns": [],
+            "hierarchyDimensions": [],
+            "valueAxisScale": "linear"
+          },
+          "builderVisualization": {
+            "view": "line",
+            "xColumn": "created_at",
+            "valueColumn": null,
+            "aggregation": "count",
+            "seriesColumn": null,
+            "seriesColumns": ["country", "device"],
+            "hierarchyDimensions": ["device", "country"],
+            "valueAxisScale": "linear"
+          },
+          "builderQueryFilters": []
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty-v2",
+    "raw": "{\"version\":2,\"activeTabId\":\"\",\"tabs\":[]}",
+    "expected": null,
+    "restored": null,
+    "serialized": null,
+    "reparsed": null
+  },
+  {
+    "name": "future",
+    "raw": "{\"version\":99,\"activeTabId\":\"tab-b\",\"tabs\":[{\"id\":\"tab-a\",\"title\":\"Orders by country\",\"connectionProfileId\":\"prod\",\"queryMode\":\"builder\",\"sql\":\"select * from orders;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":3,\"unit\":\"hour\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-a\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"list\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"tab-a\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[{\"attribute\":\"resource.cluster\",\"scope\":\"resource\",\"mode\":\"include\",\"values\":[\"tab-a\"]}],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":6,\"unit\":\"hour\"},\"tempoSampleSize\":\"100\",\"tempoResultView\":\"service-map\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"valueAxisScale\":\"log\",\"hierarchyDimensions\":[]},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"promoted-country\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]},{\"id\":\"tab-b\",\"title\":\"Scratch\",\"connectionProfileId\":\"analytics\",\"queryMode\":\"sql\",\"sql\":\"select 42;\",\"prometheusTimeRange\":{\"kind\":\"rolling\",\"amount\":1,\"unit\":\"hour\"},\"prometheusStep\":\"30s\",\"promqlBuilder\":{\"metric\":\"\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95},\"lokiTimeRange\":{\"kind\":\"rolling\",\"amount\":15,\"unit\":\"minute\"},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"tab-b\"}],\"lineFilters\":[{\"operator\":\"|=\",\"value\":\"error\"}],\"parsers\":[{\"kind\":\"json\"}],\"fieldFilters\":[]},\"lokiResultLimit\":250,\"lokiGroupBy\":[\"service_name\"],\"lokiResultView\":\"line\",\"tempoBuilder\":{\"serviceNamespace\":\"\",\"service\":\"tab-b\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[{\"attribute\":\"resource.cluster\",\"scope\":\"resource\",\"mode\":\"include\",\"values\":[\"tab-b\"]}],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"rolling\",\"amount\":30,\"unit\":\"minute\"},\"tempoSampleSize\":\"500\",\"tempoResultView\":\"scatter\",\"builder\":{\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"xColumn\":\"created_at\",\"timeColumn\":\"created_at\",\"seriesColumns\":[\"country\",\"device\"],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-01\",\"startTime\":\"08:00\",\"endDate\":\"2026-08-02\",\"endTime\":\"18:00\",\"recurringWindows\":[{\"id\":\"workday\",\"from\":\"09:00\",\"to\":\"17:00\"}]},\"timeBucket\":\"hour\"},\"sqlVisualization\":{\"view\":\"bar\",\"xColumn\":\"created_at\",\"valueColumn\":\"amount\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"valueAxisScale\":\"log\",\"hierarchyDimensions\":[]},\"builderVisualization\":{\"view\":\"line\",\"xColumn\":\"created_at\",\"valueColumn\":null,\"aggregation\":\"count\",\"seriesColumn\":null,\"seriesColumns\":[\"country\",\"device\"],\"hierarchyDimensions\":[\"device\",\"country\"],\"valueAxisScale\":\"linear\"},\"builderQueryFilters\":[{\"id\":\"promoted-country\",\"column\":\"country\",\"operator\":\"equals\",\"value\":\"FR\",\"execution\":\"query\",\"provenance\":{\"mode\":\"builder\",\"resultAlias\":\"series\",\"table\":{\"schema\":\"analytics\",\"name\":\"events\"},\"sourceColumns\":[\"country\"],\"sourceColumn\":\"country\",\"timeColumn\":\"created_at\",\"timeBucket\":\"hour\",\"sourceKind\":\"single-column\",\"targetKind\":\"source-column\",\"displayLabel\":\"country\"}}]}]}",
+    "expected": null,
+    "restored": null,
+    "serialized": null,
+    "reparsed": null
+  },
+  {
+    "name": "corrupt",
+    "raw": "{broken",
+    "expected": null,
+    "restored": null,
+    "serialized": null,
+    "reparsed": null
+  },
+  {
+    "name": "incomplete-v1",
+    "raw": "{\"version\":1,\"draft\":{\"sql\":\"select 1\"}}",
+    "expected": null,
+    "restored": null,
+    "serialized": null,
+    "reparsed": null
+  }
+]
