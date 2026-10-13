@@ -15,6 +15,8 @@ This directory contains product, architecture, engineering, and release document
 
 Current Phase 2B ownership and pending release scenarios: [Chart anomaly lifecycle](architecture/chart-anomaly-lifecycle-audit.md).
 
+Current Phase 3A reassessment and reproduced follow-up gaps: [Async ownership](architecture/async-ownership-reassessment.md).
+
 ## Historical investigations (`history/`)
 
 These are evidence and design records. Read the baseline/date and subsequent appendices before using a finding as a statement of current behavior.

@@ -10,6 +10,7 @@ vi.mock('./api', () => ({
 
 import {
   resetTempoMetadataCache,
+  invalidateTempoMetadata,
   tempoAttributes,
   tempoAttributeValues,
 } from './tempoMetadata'
@@ -99,3 +100,37 @@ describe('Tempo metadata cache', () => {
     ).resolves.toEqual(['kafka'])
   })
 })
+
+// #365 Phase 3A: invalidated promise rejection must not evict a newer cache entry.
+it.fails.each(['attributes', 'values'] as const)(
+  'preserves replacement Tempo %s cache after old rejection',
+  async (operation) => {
+    resetTempoMetadataCache()
+    attributes.mockReset()
+    attributeValues.mockReset()
+    let rejectOld!: (error: Error) => void
+    const backend = operation === 'attributes' ? attributes : attributeValues
+    backend
+      .mockReturnValueOnce(
+        new Promise((_, reject) => {
+          rejectOld = reject
+        }),
+      )
+      .mockResolvedValue([])
+    const read = () =>
+      operation === 'attributes'
+        ? tempoAttributes('tempo-a', 1)
+        : tempoAttributeValues('tempo-a', 1, 'span.messaging.system')
+    const old = read()
+    const rejected = expect(old).rejects.toThrow('old metadata')
+    invalidateTempoMetadata('tempo-a')
+    const replacement = read()
+    await replacement
+    rejectOld(new Error('old metadata'))
+    await rejected
+    const reused = read()
+    await reused
+    expect(backend).toHaveBeenCalledTimes(2)
+    expect(reused).toBe(replacement)
+  },
+)

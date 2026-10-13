@@ -218,6 +218,120 @@ describe('useTempoTraceOpenController', () => {
     expect(hook.result.current.traceLoading).toBe(false)
   })
 
+  it.each(['success', 'failure'] as const)(
+    'preserves newer detail and loading when an older %s completes',
+    async (outcome) => {
+      const old = deferred<ReturnType<typeof spanResult>>()
+      const next = deferred<ReturnType<typeof spanResult>>()
+      run.mockReturnValueOnce(old.promise).mockReturnValueOnce(next.promise)
+      const onError = vi.fn(),
+        onTraceOpened = vi.fn()
+      const hook = renderHook(() =>
+        useTempoTraceOpenController({
+          connectionId: 'tempo-1',
+          onError,
+          onTraceOpened,
+        }),
+      )
+      let oldWork!: Promise<void>, nextWork!: Promise<void>
+      act(() => {
+        oldWork = hook.result.current.openTrace({
+          candidate: 'ab',
+          searchRows: [],
+        })
+      })
+      act(() => {
+        nextWork = hook.result.current.openTrace({
+          candidate: 'cd',
+          searchRows: [],
+        })
+      })
+      await act(async () => {
+        if (outcome === 'success') old.resolve(spanResult([{ spanId: 'old' }]))
+        else old.reject(new Error('old detail'))
+        await oldWork
+      })
+      expect(hook.result.current.traceLoading).toBe(true)
+      expect(hook.result.current.spans).toEqual([])
+      expect(onError).not.toHaveBeenCalled()
+      expect(onTraceOpened).not.toHaveBeenCalled()
+      await act(async () => {
+        next.resolve(spanResult([{ spanId: 'new' }]))
+        await nextWork
+      })
+      expect(hook.result.current.traceLoading).toBe(false)
+      expect(hook.result.current.spans).toEqual([{ spanId: 'new' }])
+      expect(onTraceOpened).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  // #365 Phase 3A: local detail work must end at reset/unmount, not just tab change.
+  it.fails.each(['success', 'failure'] as const)(
+    'ignores detail %s after reset without a replacement request',
+    async (outcome) => {
+      const pending = deferred<ReturnType<typeof spanResult>>()
+      run.mockReturnValueOnce(pending.promise)
+      const onError = vi.fn(),
+        onTraceOpened = vi.fn()
+      const hook = renderHook(() =>
+        useTempoTraceOpenController({
+          connectionId: 'tempo-1',
+          onError,
+          onTraceOpened,
+        }),
+      )
+      let work!: Promise<void>
+      act(() => {
+        work = hook.result.current.openTrace({
+          candidate: 'ab',
+          searchRows: [],
+        })
+      })
+      act(() => hook.result.current.resetTrace())
+      await act(async () => {
+        if (outcome === 'success')
+          pending.resolve(spanResult([{ spanId: 'obsolete' }]))
+        else pending.reject(new Error('obsolete detail failure'))
+        await work
+      })
+      expect(hook.result.current.spans).toEqual([])
+      expect(onTraceOpened).not.toHaveBeenCalled()
+      expect(onError).not.toHaveBeenCalled()
+      expect(hook.result.current.traceLoading).toBe(false)
+    },
+  )
+
+  it.fails(
+    'ignores detail callbacks after unmount while its originating tab remains active',
+    async () => {
+      const pending = deferred<ReturnType<typeof spanResult>>()
+      run.mockReturnValueOnce(pending.promise)
+      const onError = vi.fn(),
+        onTraceOpened = vi.fn()
+      const hook = renderHook(() =>
+        useTempoTraceOpenController({
+          connectionId: 'tempo-1',
+          onError,
+          onTraceOpened,
+        }),
+      )
+      let work!: Promise<void>
+      act(() => {
+        work = hook.result.current.openTrace({
+          candidate: 'ab',
+          searchRows: [],
+        })
+      })
+      hook.unmount()
+      await act(async () => {
+        pending.resolve(spanResult([{ spanId: 'obsolete' }]))
+        await work
+      })
+      expect(onTraceOpened).not.toHaveBeenCalled()
+      expect(onError).not.toHaveBeenCalled()
+    },
+  )
+
   it('tracks loading while pending and preserves renderer/rendered instrumentation semantics', async () => {
     const pending = deferred<ReturnType<typeof spanResult>>()
     run.mockReturnValue(pending.promise)
