@@ -16,7 +16,8 @@ to the existing domain module, together with bounded hierarchy reordering. Keep
 simple patch spreading, axis/unit/scale dispatch and dimension assignment in the UI:
 extracting those one-line operations would merely relocate complexity. Do not
 change inference, normalization or persistence. In particular, saved nonempty but
-invalid hierarchy selections reconcile to empty rather than adopting suggestions.
+invalid hierarchy selections reconcile to the available series order, appending missing
+available dimensions, rather than adopting cardinality-based suggestions.
 
 Capture already uses `chartImage`: hide pointer state, await paint, get PNG, compose
 all legend labels, preserve pixel ratio/background, write clipboard or save binary

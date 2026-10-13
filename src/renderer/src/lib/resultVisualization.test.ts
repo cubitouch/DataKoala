@@ -426,7 +426,7 @@ test('view transitions preserve axes/aggregation/units and reconcile only hierar
       ['a'],
       ['a'],
     ).hierarchyDimensions,
-    [],
+    ['a'],
   )
 })
 
