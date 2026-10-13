@@ -356,6 +356,26 @@ export function buildChartPresentationOptions(
   const formatLabel = precision
     ? (value: unknown) => formatTimeBucketLabel(value, precision)
     : (value: unknown) => String(value)
+  // A short UTC intraday axis needs only the time; tooltips retain the date.
+  const axisTimes = domain ? [domain.min, domain.max] : temporalXValues
+  const sameUtcDay =
+    axisTimes.length > 1 &&
+    axisTimes.every(
+      (time) =>
+        new Date(time).toISOString().slice(0, 10) ===
+        new Date(axisTimes[0]).toISOString().slice(0, 10),
+    )
+  const formatAxisLabel =
+    temporal &&
+    sameUtcDay &&
+    ['minute', 'hour', 'datetime'].includes(precision!)
+      ? (value: unknown) => {
+          const date = dateValue(value)
+          return date
+            ? `${two(date.getUTCHours())}:${two(date.getUTCMinutes())}`
+            : String(value)
+        }
+      : formatLabel
   const renderedSeries =
     input.valueAxisScale === 'log'
       ? prepareLogScaleSeries(input.series, input.visibility).series
@@ -419,12 +439,12 @@ export function buildChartPresentationOptions(
           // default. When every bar lies outside a bounded domain (for example while
           // a previous result is stale), its inferred band can collapse visible ticks.
           ...(temporalBarOutsideDomain ? { containShape: false } : {}),
-          axisLabel: { color: '#9aa0b0', formatter: formatLabel },
+          axisLabel: { color: '#9aa0b0', formatter: formatAxisLabel },
         }
       : {
           type: 'category',
           data: input.labels,
-          axisLabel: { color: '#9aa0b0', formatter: formatLabel },
+          axisLabel: { color: '#9aa0b0', formatter: formatAxisLabel },
         },
     yAxis: {
       type: input.valueAxisScale === 'log' ? 'log' : 'value',

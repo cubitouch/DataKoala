@@ -144,3 +144,18 @@ export function previewTraceResultForId(traceId) {
     execution: { provider: 'tempo', durationMs: 20 + Math.round(profile.durationMs / 100), rowCount: spans.length }
   }
 }
+
+// Separate public cohort: leave the five-trace brush regression unchanged.
+export const documentationTraceSearchResult = {
+  ...previewTraceSearchResult,
+  rows: Array.from({ length: 48 }, (_, index) => ({
+    traceId: (0x200 + index).toString(16).padStart(32, '0'),
+    rootService: 'service-01', rootOperation: 'POST /example',
+    startTimeMs: Date.parse('2026-08-19T16:01:00Z') + index * 73_000,
+    durationMs: index % 9 === 0 ? 1500 + index * 21 : 320 + (index * 137) % 620,
+    matchedSpans: 12 + index % 5,
+    status: index % 7 === 0 || index % 9 === 0 ? 'error' : 'ok'
+  })),
+  rowCount: 48,
+  execution: { provider: 'tempo', durationMs: 74, rowCount: 48 }
+}

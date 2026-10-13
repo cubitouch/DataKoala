@@ -29,6 +29,7 @@ env:
     tempo-trace-builder.png
     tempo-trace-search.png
     tempo-trace-scatter.png
+    tempo-trace-cohort.png
     tempo-service-map.png
     tempo-service-map-dense.png
     tempo-service-map-fullscreen.png

@@ -1,3 +1,4 @@
+import { providerArtwork } from './providerArtwork'
 import type { DataSourceKind } from '@shared/types'
 
 export type PickerKind = DataSourceKind | 'excel'
@@ -144,31 +145,26 @@ export function SourceIcon({
         <path d="m16.1 16.1 4.3 4.3M7.6 13.8v-3M10.8 13.8V7.5M14 13.8V9.4" />
       </svg>
     )
-  if (type === 'prometheus')
+  if (type === 'prometheus' || type === 'loki' || type === 'tempo') {
+    const artwork = providerArtwork[type]
     return (
-      <svg {...common}>
-        <path d="M12 3v4M6.3 5.3l2.8 2.8M17.7 5.3l-2.8 2.8M4 11h4M16 11h4" />
-        <path d="M7 13a5 5 0 0 0 10 0M9 18h6M10 21h4" />
+      <svg
+        {...common}
+        viewBox={artwork.viewBox}
+        fill="currentColor"
+        stroke="none"
+        data-provider-logo={type}
+      >
+        {artwork.paths.map((d, index) => (
+          <path key={index} d={d} />
+        ))}
+        {artwork.polygons.map((points, index) => (
+          <polygon key={index} points={points} />
+        ))}
       </svg>
     )
-  if (type === 'tempo')
-    return (
-      <svg {...common}>
-        <path d="M4 6h5M4 12h8M4 18h4" />
-        <circle cx="12" cy="6" r="2" />
-        <circle cx="15" cy="12" r="2" />
-        <circle cx="11" cy="18" r="2" />
-        <path d="m13.5 7.5 1 2.5M14 13.7l-2 2.6" />
-      </svg>
-    )
-  if (type === 'loki')
-    return (
-      <svg {...common}>
-        <path d="M5 5h14M5 10h14M5 15h14M5 20h9" />
-        <circle cx="8" cy="5" r="1" />
-        <circle cx="16" cy="10" r="1" />
-      </svg>
-    )
+  }
+
   return (
     <svg {...common}>
       <path d="M8 4h11v16H8M8 8h11M8 12h11M8 16h11M13 8v12" />

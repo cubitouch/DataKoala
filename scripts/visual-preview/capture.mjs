@@ -1579,12 +1579,15 @@ app.whenReady().then(async () => {
       )
       await assertDocumentationSourceTree(win, 'sql')
       await capture(win, 'docs-sql.png')
-      await configureDocumentationSql(win, 'sql', 'area')
-      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setVisualization('sql', { view: 'area', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: 'series', aggregation: 'sum' })`)
+      await configureDocumentationSql(win, 'builder', 'area')
+      await finalizeDocumentationBuilder(win, 'area')
+      await assertDocumentationSourceTree(win, 'builder')
       await waitForRendererState(win,
         `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Area' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`,
-        'SQL area chart')
+        'Builder area chart')
       await sleep(600)
+      await assertDocumentationSourceTree(win, 'builder')
+      await assertPreviewReady(win, 'docs-sql-area.png')
       await capture(win, 'docs-sql-area.png')
 
       await configureDocumentationSql(win, 'builder', 'bar')
