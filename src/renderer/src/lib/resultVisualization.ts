@@ -484,3 +484,57 @@ export function formatXAxisValue(value: unknown, temporal = false): string {
         .replace(/\.000Z$/, 'Z')
     : String(value)
 }
+
+/** Preserve the existing single-column representation for zero/one selections. */
+export function selectVisualizationSeries(
+  configuration: VisualizationConfiguration,
+  values: string[],
+): VisualizationConfiguration {
+  return {
+    ...configuration,
+    ...(values.length > 1
+      ? { seriesColumn: null, seriesColumns: values }
+      : { seriesColumn: values[0] ?? null, seriesColumns: [] }),
+  }
+}
+
+export function selectVisualizationView(
+  configuration: VisualizationConfiguration,
+  view: ResultView,
+  availableHierarchyDimensions: string[],
+  suggestedHierarchyDimensions: string[],
+): VisualizationConfiguration {
+  const enteringHierarchy = view === 'treemap' || view === 'sunburst'
+  const hierarchyOrder = configuration.hierarchyDimensions?.length
+    ? reconcileHierarchyDimensions(
+        configuration.hierarchyDimensions,
+        availableHierarchyDimensions,
+      )
+    : suggestedHierarchyDimensions
+  return {
+    ...configuration,
+    view,
+    ...(enteringHierarchy ? { hierarchyDimensions: hierarchyOrder } : {}),
+  }
+}
+
+/** Invalid movement leaves the original order untouched. */
+export function reorderHierarchyDimensions(
+  dimensions: string[],
+  index: number,
+  offset: number,
+): string[] {
+  const target = index + offset
+  if (
+    !Number.isInteger(index) ||
+    !Number.isInteger(target) ||
+    index < 0 ||
+    index >= dimensions.length ||
+    target < 0 ||
+    target >= dimensions.length
+  )
+    return dimensions
+  const next = [...dimensions]
+  ;[next[index], next[target]] = [next[target], next[index]]
+  return next
+}
