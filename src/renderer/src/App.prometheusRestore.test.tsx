@@ -12,6 +12,7 @@ import {
   WORKSPACE_STORAGE_KEY,
 } from './lib/workspacePersistence'
 import { useStore } from './store/useStore'
+import { api } from './lib/api'
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn(),
@@ -135,6 +136,9 @@ function persistedWorkspaceStorage(): {
 beforeEach(() => {
   resetTestStore()
   localStorage.clear()
+  vi.mocked(api.query.run).mockClear()
+  vi.mocked(api.query.explain).mockClear()
+  vi.mocked(api.connections.connect).mockClear()
   mocks.queryEditorRenders = 0
   mocks.repairEnabled.length = 0
   mocks.list.mockReset()
@@ -198,6 +202,9 @@ describe('Prometheus workspace restoration', () => {
       useStore.getState().connectionStateByProfileId[prometheus.id]?.status,
     ).toBe('disconnected')
     expect(screen.getAllByText('Cloud metrics').length).toBeGreaterThan(0)
+    expect(api.query.run).not.toHaveBeenCalled()
+    expect(api.query.explain).not.toHaveBeenCalled()
+    expect(api.connections.connect).not.toHaveBeenCalled()
   })
 
   it('renders the PromQL query surface for an already-active Prometheus connection', () => {

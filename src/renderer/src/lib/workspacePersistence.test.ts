@@ -1,7 +1,8 @@
 import compatibilityFixtures from './fixtures/workspace-compatibility.json'
 import { legacyPromqlFilters } from './workspaceMigrations.ts'
 import assert from 'node:assert/strict'
-import { test } from 'vitest'
+import { afterEach, test, vi } from 'vitest'
+import { workspaceRestorePatch } from './workspaceRestoration.ts'
 import type { ResultFilter } from './resultFilters.ts'
 import { defaultTempoBuilder } from './tempoQueryState.ts'
 import { buildLokiQuery } from '@shared/loki-builder'
@@ -665,7 +666,8 @@ test('invalid, duplicate or incompatible persisted state fails closed and stale 
   )
 })
 
-test('automatic persistence debounces edits, ignores runtime-only churn and flushes on page hide', async () => {
+test('automatic persistence debounces edits, ignores runtime-only churn and flushes on page hide', () => {
+  vi.useFakeTimers()
   const storage = new MemoryStorage()
   const target = new FakeEventTarget()
   let current = state()
@@ -687,7 +689,7 @@ test('automatic persistence debounces edits, ignores runtime-only churn and flus
     ),
   }
   for (const listener of listeners) listener(current)
-  await new Promise((resolve) => setTimeout(resolve, 5))
+  vi.advanceTimersByTime(1)
   assert.equal(storage.writes, 0)
 
   current = {
@@ -697,7 +699,7 @@ test('automatic persistence debounces edits, ignores runtime-only churn and flus
     ),
   }
   for (const listener of listeners) listener(current)
-  await new Promise((resolve) => setTimeout(resolve, 5))
+  vi.advanceTimersByTime(1)
   assert.equal(storage.writes, 1)
   assert.equal(readWorkspaceDraft(storage)?.tabs[0].sql, 'select changed;')
 
@@ -922,4 +924,240 @@ test('current live-session serialization matches pre-extraction bytes', () => {
     (fixture) => fixture.name === 'current-v2',
   )!
   assert.equal(serializeWorkspaceDraft(state()), current.raw)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
+
+test('unavailable browser storage leaves startup cold and does not subscribe', () => {
+  for (const browser of [
+    undefined,
+    Object.defineProperty({}, 'localStorage', {
+      get() {
+        throw new Error('disabled')
+      },
+    }),
+  ]) {
+    vi.stubGlobal('window', browser)
+    const apply = vi.fn()
+    const subscribe = vi.fn()
+    const getState = vi.fn(state)
+    assert.equal(readWorkspaceDraft(), null)
+    assert.equal(restoreWorkspaceDraft(apply), null)
+    startWorkspacePersistence(getState, subscribe)()
+    assert.equal(apply.mock.calls.length, 0)
+    assert.equal(subscribe.mock.calls.length, 0)
+    assert.equal(getState.mock.calls.length, 0)
+  }
+  const subscribe = vi.fn()
+  startWorkspacePersistence(state, subscribe, { storage: null })()
+  assert.equal(subscribe.mock.calls.length, 0)
+})
+
+test('read failures preserve ordered fallback and never write during restoration', () => {
+  const legacy = compatibilityFixtures.find((f) => f.name === 'legacy-v1')!
+  const reads: string[] = []
+  const storage = {
+    getItem(key: string) {
+      reads.push(key)
+      if (key === WORKSPACE_STORAGE_KEY) throw new Error('read blocked')
+      return legacy.raw
+    },
+    setItem: vi.fn(),
+  }
+  const apply = vi.fn()
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(restoreWorkspaceDraft(apply, storage))),
+    legacy.expected,
+  )
+  assert.deepEqual(reads, [
+    WORKSPACE_STORAGE_KEY,
+    WORKSPACE_STORAGE_KEY,
+    LEGACY_WORKSPACE_STORAGE_KEY,
+  ])
+  assert.equal(apply.mock.calls.length, 1)
+  assert.equal(storage.setItem.mock.calls.length, 0)
+  storage.getItem = (key) => {
+    reads.push(key)
+    throw new Error('all reads blocked')
+  }
+  assert.equal(restoreWorkspaceDraft(apply, storage), null)
+  assert.equal(apply.mock.calls.length, 1)
+})
+
+test('same-key retry and valid current snapshot retain precedence over v1', () => {
+  const current = compatibilityFixtures.find((f) => f.name === 'current-v2')!
+  const legacy = compatibilityFixtures.find((f) => f.name === 'legacy-v1')!
+  const reads: string[] = []
+  const storage = {
+    getItem(key: string) {
+      reads.push(key)
+      if (reads.length === 1) return '{broken'
+      return key === WORKSPACE_STORAGE_KEY ? current.raw : legacy.raw
+    },
+    setItem: vi.fn(),
+  }
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(readWorkspaceDraft(storage))),
+    current.expected,
+  )
+  assert.deepEqual(reads, [WORKSPACE_STORAGE_KEY, WORKSPACE_STORAGE_KEY])
+})
+
+for (const failure of [
+  new Error('write disabled'),
+  new DOMException('quota', 'QuotaExceededError'),
+]) {
+  test(`failed write retries on subsequent edit or lifecycle flush: ${failure.name}`, () => {
+    vi.useFakeTimers()
+    let current = state()
+    const values = new Map([
+      [WORKSPACE_STORAGE_KEY, serializeWorkspaceDraft(current)],
+    ])
+    let failing = true
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: vi.fn((key: string, value: string) => {
+        if (failing) throw failure
+        values.set(key, value)
+      }),
+    }
+    const target = new FakeEventTarget()
+    const listeners = new Set<(next: WorkspacePersistableState) => void>()
+    const stop = startWorkspacePersistence(
+      () => current,
+      (listener) => {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      },
+      { storage, target },
+    )
+    current = { ...current, activeTabId: 'tab-a' }
+    const edit = () => {
+      for (const listener of listeners) listener(current)
+    }
+    edit()
+    vi.advanceTimersByTime(150)
+    assert.equal(storage.setItem.mock.calls.length, 1)
+    assert.equal(readWorkspaceDraft(storage)?.activeTabId, 'tab-b')
+    vi.advanceTimersByTime(1000)
+    assert.equal(storage.setItem.mock.calls.length, 1) // No autonomous retry.
+    edit()
+    vi.advanceTimersByTime(150)
+    assert.equal(storage.setItem.mock.calls.length, 2)
+    failing = false
+    target.dispatch('beforeunload')
+    assert.equal(storage.setItem.mock.calls.length, 3)
+    assert.equal(readWorkspaceDraft(storage)?.activeTabId, 'tab-a')
+    stop()
+    assert.equal(storage.setItem.mock.calls.length, 3)
+  })
+}
+
+test('default debounce coalesces latest state, flush cancels timers and disposal removes listeners', () => {
+  vi.useFakeTimers()
+  let current = state()
+  const storage = new MemoryStorage()
+  const target = new FakeEventTarget()
+  const listeners = new Set<(next: WorkspacePersistableState) => void>()
+  const stop = startWorkspacePersistence(
+    () => current,
+    (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    { storage, target },
+  )
+  const edit = (sql: string) => {
+    current = {
+      ...current,
+      tabs: current.tabs.map((tab, index) =>
+        index === 0 ? { ...tab, sql } : tab,
+      ),
+    }
+    for (const listener of listeners) listener(current)
+  }
+  assert.equal(storage.writes, 0) // No startup rewrite.
+  edit('first')
+  vi.advanceTimersByTime(149)
+  edit('latest')
+  vi.advanceTimersByTime(149)
+  assert.equal(storage.writes, 0)
+  vi.advanceTimersByTime(1)
+  assert.equal(storage.writes, 1)
+  assert.equal(readWorkspaceDraft(storage)?.tabs[0].sql, 'latest')
+  edit('flush')
+  target.dispatch('beforeunload')
+  assert.equal(storage.writes, 2)
+  assert.equal(vi.getTimerCount(), 0)
+  target.dispatch('pagehide')
+  assert.equal(storage.writes, 2)
+  edit('dispose')
+  stop()
+  assert.equal(storage.writes, 3)
+  assert.equal(readWorkspaceDraft(storage)?.tabs[0].sql, 'dispose')
+  assert.equal(listeners.size, 0)
+  assert.equal(vi.getTimerCount(), 0)
+  for (const handlers of target.listeners.values())
+    assert.equal(handlers.size, 0)
+  current = { ...current, activeTabId: 'tab-a' }
+  target.dispatch('pagehide')
+  vi.advanceTimersByTime(1000)
+  assert.equal(storage.writes, 3)
+})
+
+test('future input stays intact until the existing edit/flush write policy applies', () => {
+  vi.useFakeTimers()
+  const storage = new MemoryStorage()
+  const future = compatibilityFixtures.find((f) => f.name === 'future')!.raw
+  storage.values.set(WORKSPACE_STORAGE_KEY, future)
+  const apply = vi.fn()
+  assert.equal(restoreWorkspaceDraft(apply, storage), null)
+  assert.equal(apply.mock.calls.length, 0)
+  const target = new FakeEventTarget()
+  const stop = startWorkspacePersistence(state, () => () => undefined, {
+    storage,
+    target,
+  })
+  vi.advanceTimersByTime(1000)
+  assert.equal(storage.values.get(WORKSPACE_STORAGE_KEY), future)
+  assert.equal(storage.writes, 0)
+  target.dispatch('pagehide')
+  assert.equal(
+    storage.values.get(WORKSPACE_STORAGE_KEY),
+    serializeWorkspaceDraft(state()),
+  )
+  stop()
+})
+
+test('cold transformation preserves validated drafts with fresh runtime identities on each allocation', () => {
+  const draft = freezeDeep(
+    parseWorkspaceDraft(serializeWorkspaceDraft(state()))!,
+  )
+  const before = JSON.stringify(draft)
+  const first = workspaceRestorePatch(draft)
+  const second = workspaceRestorePatch(draft)
+  assert.equal(JSON.stringify(draft), before)
+  assert.deepEqual(
+    first.tabs.map((tab) => tab.id),
+    draft.tabs.map((tab) => tab.id),
+  )
+  assert.equal(first.activeTabId, 'tab-b')
+  for (let i = 0; i < first.tabs.length; i++) {
+    assert.notEqual(first.tabs[i].queryContextId, second.tabs[i].queryContextId)
+    assert.equal(
+      first.tabs[i].connectionProfileId,
+      draft.tabs[i].connectionProfileId,
+    )
+    assert.equal(first.tabs[i].running, false)
+    assert.equal(first.tabs[i].result, null)
+    assert.equal(first.tabs[i].explainText, null)
+    assert.equal(first.tabs[i].activeExplainRequest, null)
+  }
+  assert.equal(
+    workspaceRestorePatch({ ...draft, activeTabId: 'missing' }).activeTabId,
+    draft.tabs[0].id,
+  )
 })
