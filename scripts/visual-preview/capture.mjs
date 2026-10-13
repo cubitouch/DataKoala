@@ -1586,6 +1586,10 @@ app.whenReady().then(async () => {
         store.setState({ tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? { ...tab, builder: { ...tab.builder, timeRange: { kind: 'all' } } } : tab) })
       })()`)
       await finalizeDocumentationBuilder(win, 'area')
+      // Changing the range exercises the normal Builder refresh. Restore the public
+      // fixture after that refresh, rather than capturing its generic IPC result.
+      await waitForRendererState(win, `!window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId)?.running`, 'settled Builder range refresh')
+      await seedDocumentationData(win)
       await assertDocumentationSourceTree(win, 'builder')
       await waitForRendererState(win,
         `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Area' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`,
