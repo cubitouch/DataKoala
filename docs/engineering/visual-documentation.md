@@ -1,6 +1,6 @@
 # Visual previews and product documentation
 
-DataKoala has one real-renderer capture harness with two outputs. The default **regression** run creates assertion-heavy PR images for layout review. `DATAKOALA_PREVIEW_KIND=documentation` creates the six curated, public **documentation** images consumed by the Vite site. Documentation images are not copied wholesale from regression output.
+DataKoala has one real-renderer capture harness with three isolated outputs. The default **regression** run creates assertion-heavy PR images for layout review. `DATAKOALA_PREVIEW_KIND=documentation` creates the six curated, public **documentation** images consumed by the Vite site. Documentation images are not copied wholesale from regression output.
 
 Deterministic public fixture definitions and the expected documentation file list live in `scripts/visual-preview/fixtures.mjs`. Shared Electron launch, renderer waits, interactions, capture helpers, and the two intentionally small scenario sequences live in `scripts/visual-preview/capture.mjs`; `scripts/capture-visual-preview.mjs` remains the stable workflow entry point. The harness enables the existing `DATAKOALA_SMOKE` seam only inside its controlled Electron process. It never needs a live database or metrics service.
 
@@ -33,3 +33,47 @@ The visual-preview workflow continues to publish PR-only review artifacts to `vi
 The shared Loki capture writes `loki-log-chart.png` with 60 one-minute buckets across 16:00–17:00 UTC and three stacked series. Intraday chart axes use time-only UTC labels; tooltips retain the date and ranges crossing UTC midnight retain date labels.
 
 The shared Tempo capture continues to write the two-point `tempo-trace-scatter.png` local-filter regression. A separate deterministic 48-trace cohort, with both statuses and slower outliers, writes `tempo-trace-cohort.png` for the website only after the existing regression sequence completes. The Visual Preview manifest publishes both images. Neither generated image is committed by hand.
+
+## UX convergence audit mode (PR-only)
+
+`DATAKOALA_PREVIEW_KIND=audit` uses the same `capture.mjs` Electron launcher,
+BrowserWindow, preload, renderer wait and capture function. Its public fixtures,
+strict screenshot manifest and captions live in `audit-fixtures.mjs`; focused
+scenarios, DOM observations and artifact index live in `audit.mjs`. No production
+renderer path or CSS is changed to improve an audit screenshot.
+
+```bash
+pnpm build
+TZ=UTC DATAKOALA_PREVIEW_KIND=audit DATAKOALA_PREVIEW_OUTPUT=visual-audit \
+  xvfb-run --auto-servernum --server-args='-screen 0 1600x1800x24' \
+  pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+```
+
+On a desktop, omit the Xvfb wrapper. Captures use 1440×900 and 900×900 content
+viewports, zoom/device scale 1 and fixed public timestamps. Native keyboard and
+pointer events exercise hover/focus/Enter, Escape and Tab; synthetic IPC controls
+provider loading/failure/retry and progressive Tempo batches. Metadata loading
+and error presentations are explicitly state-injected, not claimed as exercised
+provider retry. Clipboard failures/successes are synthetic browser API outcomes,
+not native OS permission tests.
+
+Every screenshot requires a positive-sized semantic target, an asserted intended
+state and a manifest/caption entry. Selected charts additionally use existing
+finished/populated semantic-report assertions. `measurements.json` includes
+source head, geometry/styles, overflow, current focus, rendered row counts and
+interaction outcomes. `review.html` is a self-contained index. Six contact sheets
+use scale-1 crops; they never resize individual components to make them match.
+A successful run is **generation evidence**, not a reviewed UX verdict.
+
+The Visual preview workflow runs this extra mode only on branches named `audit/*`.
+It uploads the separate `datakoala-ux-audit-pr-N` artifact, including partial
+evidence after a failed audit run. It publishes only contact sheets and the DOM
+report under `visual-previews/pr-N/audit/`. The ordinary regression manifest and
+public documentation screenshot list remain unchanged. Full comparisons stay in
+the PR artifact; no audit image is added to the public Pages website.
+
+When adding a state, update the audit manifest and captions, assert the actual
+view/semantic state before capture, execute the relevant transitions, and inspect
+the resulting images. Record **Visually verified**, **Behavior verified**,
+**Source-only** and **Unverified** separately in the audit. Preserve deliberate
+source-specific content, density, domain behavior and capability exceptions.

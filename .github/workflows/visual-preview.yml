@@ -108,6 +108,22 @@ jobs:
       - name: Capture AI settings and proposal previews (mocked provider)
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x1000x24' pnpm exec electron --no-sandbox scripts/capture-ai-preview.mjs
 
+      - name: Capture UX convergence audit (separate artifact)
+        if: startsWith(github.head_ref, 'audit/')
+        env:
+          TZ: UTC
+          DATAKOALA_AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: DATAKOALA_PREVIEW_KIND=audit DATAKOALA_PREVIEW_OUTPUT=visual-audit xvfb-run --auto-servernum --server-args='-screen 0 1600x1800x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+
+      - name: Upload UX audit evidence
+        if: always() && startsWith(github.head_ref, 'audit/')
+        uses: actions/upload-artifact@v7
+        with:
+          name: datakoala-ux-audit-pr-${{ github.event.pull_request.number }}
+          path: visual-audit/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Validate preview image set
         shell: bash
         run: |
@@ -143,6 +159,13 @@ jobs:
           name: datakoala-visual-preview-pr-${{ github.event.pull_request.number }}
           path: visual-preview
 
+      - name: Download audit evidence
+        if: startsWith(github.head_ref, 'audit/')
+        uses: actions/download-artifact@v8
+        with:
+          name: datakoala-ux-audit-pr-${{ github.event.pull_request.number }}
+          path: visual-audit
+
       - name: Check out preview branch
         uses: actions/checkout@v7
         with:
@@ -162,6 +185,13 @@ jobs:
             test -f "visual-preview/$filename"
             cp "visual-preview/$filename" "$publish_dir/$filename"
           done <<< "$PREVIEW_FILES"
+          if [ -d visual-audit ]; then
+            mkdir -p "$publish_dir/audit"
+            for filename in compare-lists.png compare-toolbar.png compare-dialogs.png compare-feedback.png compare-selectors.png compare-detail.png measurements.json; do
+              test -f "visual-audit/$filename"
+              cp "visual-audit/$filename" "$publish_dir/audit/$filename"
+            done
+          fi
           cd preview-publish
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -182,7 +212,7 @@ jobs:
               fi
               echo "Preview branch advanced during push; retrying (${attempt}/4)"
               sleep $((attempt * 2))
-            done
+              done
           fi
 
       - name: Create or update PR comment
@@ -192,6 +222,7 @@ jobs:
         with:
           script: |
             const marker = '<!-- datakoala-visual-preview -->'
+            const auditNote = context.payload.pull_request.head.ref.startsWith('audit/') ? `The separate **datakoala-ux-audit-pr-${context.issue.number}** artifact contains audit-only comparisons, full screenshots, measurements and a self-contained review index. Generation is not a claim of visual review or consistency.` : ''
             const headSha = context.payload.pull_request.head.sha
             const baseSha = context.payload.pull_request.base.sha
             const mergeSha = context.sha
@@ -252,6 +283,8 @@ jobs:
             Base: \`${context.payload.pull_request.base.ref}\` @ \`${baseSha.slice(0, 7)}\`
 
             ${previews}
+
+            ${auditNote}
 
             All ${files.length} full-resolution PNGs are also available from this workflow run's **Artifacts** section.`
 

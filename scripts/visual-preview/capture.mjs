@@ -1519,6 +1519,11 @@ app.whenReady().then(async () => {
           : 'prometheus',
   }))
 
+  if (captureKind === 'audit') {
+    const { installAuditIpc } = await import('./audit.mjs')
+    installAuditIpc(ipcMain)
+  }
+
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -1536,6 +1541,12 @@ app.whenReady().then(async () => {
     await mkdir(outputDir, { recursive: true })
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
     await waitForRenderer(win)
+    if (captureKind === 'audit') {
+      const { runVisualAudit } = await import('./audit.mjs')
+      await runVisualAudit({ win, outputDir, waitFor: waitForRendererState, capture })
+      app.quit()
+      return
+    }
     await seedPreviewData(win)
 
     if (captureKind === 'documentation') {

@@ -75,3 +75,30 @@ test('Grafana sharing artwork is local and inherits the accent color', async () 
   assert.match(css, /\.share-icon\s*\{[^}]*color: var\(--accent\)/s)
   assert.match(css, /\.share-icon svg.provider-logo\s*\{[^}]*fill: currentcolor/s)
 })
+
+
+// Pure contracts for the audit-only mode; Electron execution is validated in CI.
+const { auditScreenshots, auditComparisonFiles, auditCaptions, auditLogResult, auditTraceResult } = await import('./audit-fixtures.mjs')
+const { validateAuditObservation } = await import('./audit.mjs')
+test('audit filenames are unique, captioned and isolated from canonical previews', () => {
+  const names = [...auditScreenshots, ...auditComparisonFiles]
+  assert.equal(new Set(names).size, names.length)
+  for (const name of names) {
+    assert.ok(auditCaptions[name])
+    assert.ok(!name.startsWith('docs-'))
+  }
+})
+test('audit captures reject invisible targets and unequal capture scale', () => {
+  const observation = { target: { width: 500, height: 42 }, zoom: 1, scale: 1 }
+  assert.doesNotThrow(() => validateAuditObservation(auditScreenshots[0], observation))
+  assert.throws(() => validateAuditObservation(auditScreenshots[0], { ...observation, target: null }), /visible target/)
+  assert.throws(() => validateAuditObservation(auditScreenshots[0], { ...observation, scale: 2 }), /scale/)
+  assert.throws(() => validateAuditObservation('unexpected.png', observation), /Unknown/)
+})
+test('list fixtures contain fixed timestamps, overflowing text and a virtualized-size log cohort', () => {
+  assert.equal(auditLogResult.rows.length, 240)
+  assert.equal(auditTraceResult.rows.length, 5)
+  assert.ok(auditLogResult.rows.some(row => row.line.length > 500))
+  assert.ok(auditTraceResult.rows.some(row => row.rootOperation.length > 500))
+  assert.equal(auditLogResult.rows[0].timestampMs, Date.UTC(2026, 7, 19, 16, 30))
+})

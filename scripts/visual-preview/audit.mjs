@@ -1,0 +1,312 @@
+/** Audit-only scenarios. The canonical capture.mjs owns Electron/window lifetime. */
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { assertPreviewReady } from './assertions.mjs'
+import {
+  auditCaptions, auditComparisonFiles, auditKinds, auditLogResult, auditProfiles,
+  auditRange, auditSchemas, auditScreenshots, auditSpanResult, auditSqlResult,
+  auditTraceResult, auditViewports,
+} from './audit-fixtures.mjs'
+
+let queryOutcome = 'success'
+let releaseQuery = null
+let queryCalls = 0
+const delay = (ms) => new Promise((done) => setTimeout(done, ms))
+
+export function installAuditIpc(ipc) {
+  const handle = (channel, fn) => { ipc.removeHandler(channel); ipc.handle(channel, fn) }
+  const result = async (id, sql, event, request) => {
+    queryCalls += 1
+    const outcome = queryOutcome
+    if (outcome === 'loading') {
+      if (String(id).includes('tempo') && request?.progressRequestId && !request.sampleSize) event.sender.send('query:progress', { requestId:request.progressRequestId, progress:{provider:'tempo',coveredMs:1800000,totalMs:3600000,completedChunks:1,pendingChunks:1,queriesCompleted:1,tracesFound:2,rows:auditTraceResult.rows.slice(0,2)} })
+      await new Promise((done) => { releaseQuery = done })
+    }
+    if (outcome === 'error') return { ok: false, message: 'Synthetic provider unavailable. Try Run again.', kind: 'connection' }
+    return { ok: true, result: String(id).includes('tempo') ? (/^[a-f0-9]{32}$/.test(String(sql).trim()) ? auditSpanResult : auditTraceResult) : auditSqlResult }
+  }
+  handle('query:run', (event, id, sql, _parameters, request) => result(id, sql, event, request))
+  handle('query:run-loki', async (_event, id, request) => {
+    const value = await result(id, request.expression)
+    if (!value.ok) throw new Error(value.message)
+    return auditLogResult
+  })
+  handle('connections:loki:labels', () => ['service_name', 'environment', 'severity'])
+  handle('connections:loki:label-values', () => ['example', 'example-service'])
+  handle('connections:loki:format-query', (_event, _id, query) => query)
+  handle('connections:tempo:attributes', () => [])
+  handle('connections:tempo:attribute-values', () => ['example'])
+  for (const kind of ['prometheus', 'tempo', 'loki']) handle(`connections:${kind}:${kind === 'loki' ? 'discover' : 'discover-datasources'}`, () => [{ uid: `example-${kind}`, name: `Example ${kind}`, type: kind }])
+  handle('connections:bigquery:discover-projects', () => [{ projectId: 'example-project', name: 'Example project' }])
+  handle('connections:bigquery:discover-defaults', () => ({ projectId: 'example-project', billingProject: 'example-project', location: 'EU' }))
+  handle('connections:bigquery:list-datasets', () => [{ datasetId: 'example', projectId: 'example-project' }])
+  handle('connection:describe-table', () => auditSqlResult.columns)
+  handle('connection:list-objects', () => [])
+  handle('connection:test', () => ({ ok: true, serverVersion: '17' }))
+  handle('ai:models', () => ({ ok: true, value: [{ id: 'example-model', name: 'Example model' }] }))
+  handle('ai:cancel', () => ({ ok: true, value: null }))
+}
+
+// A capture must have an asserted live target; never infer success from a PNG alone.
+export function validateAuditObservation(name, observation) {
+  if (!auditScreenshots.includes(name)) throw new Error(`Unknown audit screenshot: ${name}`)
+  if (!observation.target || observation.target.width <= 0 || observation.target.height <= 0) throw new Error(`${name}: missing visible target`)
+  if (observation.zoom !== 1 || observation.scale !== 1) throw new Error(`${name}: incomparable zoom/device scale`)
+}
+
+export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
+  await mkdir(outputDir, { recursive: true })
+  // Clear only files owned by this mode, never regression/documentation output.
+  for (const name of [...auditScreenshots, ...auditComparisonFiles, 'measurements.json', 'review.html']) await rm(resolve(outputDir, name), { force: true })
+  win.show()
+  win.focus()
+  win.webContents.setZoomFactor(1)
+  const observations = []
+  const contacts = { lists: [], toolbar: [], dialogs: [], feedback: [], selectors: [], detail: [] }
+  const evaluate = (expression) => win.webContents.executeJavaScript(expression)
+  const settle = () => evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+  const select = (selector) => `document.querySelector(${JSON.stringify(selector)})`
+  const click = async (selector) => {
+    await waitFor(win, select(selector), `click target ${selector}`)
+    await evaluate(`${select(selector)}.click()`)
+    await settle()
+  }
+  const clickText = async (label, scope = 'document') => {
+    const expression = `[...${scope}.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(label)})`
+    await waitFor(win, expression, `button ${label}`)
+    await evaluate(`${expression}.click()`)
+    await settle()
+  }
+  const key = async (keyCode, modifiers = []) => {
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+    if (keyCode === 'Enter') win.webContents.sendInputEvent({ type: 'char', keyCode: '\r' })
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
+    await settle()
+  }
+  const type = async (selector, value) => {
+    await evaluate(`(() => { const input = ${select(selector)}; if (!input) throw Error('Missing input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); })()`)
+    await settle()
+  }
+  const observe = async (filename, selector, state, group) => {
+    await waitFor(win, `${select(selector)}?.getBoundingClientRect().height > 0`, filename)
+    await settle()
+    const data = await evaluate(`(() => {
+      const geometry = element => { if (!element) return null; const r=element.getBoundingClientRect(), s=getComputedStyle(element); return { tag: element.tagName, role: element.getAttribute('role'), label: element.getAttribute('aria-label'), text: element.textContent.trim().slice(0,100), x:r.x,y:r.y,width:r.width,height:r.height,padding:s.padding,gap:s.gap,font:s.fontFamily,fontSize:s.fontSize,lineHeight:s.lineHeight,background:s.backgroundColor,border:s.border,outline:s.outline,zIndex:s.zIndex,backdropFilter:s.backdropFilter,borderRadius:s.borderRadius,overflow:s.overflow,whiteSpace:s.whiteSpace,scrollWidth:element.scrollWidth,clientWidth:element.clientWidth,scrollHeight:element.scrollHeight,clientHeight:element.clientHeight,selected:element.getAttribute('aria-selected'),pressed:element.getAttribute('aria-pressed'),disabled:element.disabled===true,hover:element.matches(':hover'),focusVisible:element.matches(':focus-visible'),svg:element.querySelectorAll('svg').length } }
+      const target = ${select(selector)}
+      const first = target?.querySelector('button')
+      return { target:geometry(target), overlay:geometry(target.parentElement), children:[...target.querySelectorAll('button,input,[role="combobox"],h2,h3,code,time,[data-severity],svg')].slice(0,65).map(geometry), active:geometry(document.activeElement), targetContainsFocus:target.contains(document.activeElement), renderedRows:target.querySelectorAll('article,button[class*=traceResult_]').length, scrollables:[...target.querySelectorAll('div')].filter(e=>e.scrollHeight>e.clientHeight+2 && ['auto','scroll'].includes(getComputedStyle(e).overflowY)).map(geometry).slice(0,3), documentOverflow:document.documentElement.scrollWidth-innerWidth, pane:geometry(document.querySelector('.main')), bodyText:document.body.innerText.slice(-900), firstRow:first ? {button:geometry(first), wrapper:geometry(first.parentElement),content:geometry(first.querySelector('code') ?? first.querySelector('span:not([data-log-row-chevron])')), trailing:geometry(first.lastElementChild)} : null }
+    })()`)
+    const observation = { filename, state, viewport: win.getContentSize(), zoom: win.webContents.getZoomFactor(), scale: await evaluate('devicePixelRatio'), ...data }
+    validateAuditObservation(filename, observation)
+    observations.push(observation)
+    await writeFile(resolve(outputDir, 'measurements.json'), JSON.stringify({ observations }, null, 2))
+    await capture(win, filename)
+    if (group) {
+      const r = observation.target
+      const clip = { x: Math.max(0, Math.floor(r.x)), y: Math.max(0, Math.floor(r.y + (group === 'feedback' ? 260 : 0))), width: Math.min(Math.floor(r.width), win.getContentSize()[0]-Math.max(0,Math.floor(r.x))), height: Math.min(group === 'dialogs' ? 240 : group === 'feedback' ? 220 : 150, Math.ceil(r.height), win.getContentSize()[1]-Math.max(0,Math.floor(r.y))) }
+      const image = await win.webContents.capturePage(clip)
+      contacts[group].push({ filename, width:clip.width, height:clip.height, data:image.toDataURL() })
+    }
+    console.log(`AUDIT ${filename}: ${Math.round(data.target.width)}x${Math.round(data.target.height)}`)
+  }
+  const seed = async (kind, mode = 'raw', result = 'default', view = 'list') => {
+    queryOutcome = 'success'
+    await evaluate(`(() => {
+      const store=window.__datakoalaStore, state=store.getState();
+      window.__auditBaseTab ??= JSON.parse(JSON.stringify(state.tabs[0]));
+      const tab=JSON.parse(JSON.stringify(window.__auditBaseTab));
+      const kind=${JSON.stringify(kind)}, profile=${JSON.stringify(auditProfiles[kind])};
+      tab.id='audit-tab-'+kind; tab.title='Visual audit'; tab.connectionProfileId=profile.id; tab.queryMode=${JSON.stringify(mode === 'builder' ? 'builder' : 'sql')};
+      tab.running=false;tab.pendingQuery=null;tab.pendingResult=null;tab.pendingLokiQuery=null;tab.activeExplainRequest=null;tab.queryError=null;tab.result=null;tab.sqlResultFilters=[];tab.builderResultFilters=[];
+      tab.sql=kind==='tempo'?'{ true }':kind==='loki'?'{service_name="example-service"}':kind==='prometheus'?'up':'select category, value from example.events';
+      tab.builder={...tab.builder,table:{schema:'example',name:'events'},seriesColumns:[]};tab.builderHasRun=true;
+      const config={...tab.sqlVisualization,view:'table',xColumn:'category',valueColumn:'value',seriesColumns:[],seriesColumn:null};tab.sqlVisualization=config;tab.builderVisualization=config;
+      tab.promqlBuilder={...tab.promqlBuilder,metric:'up'};
+      tab.lokiBuilder={labelMatchers:[{label:'service_name',operator:'=',value:'example-service'}],lineFilters:[],parsers:[],fieldFilters:[]};tab.lokiResultView=${JSON.stringify(view)};
+      tab.tempoBuilder={...tab.tempoBuilder,serviceNamespace:'example',service:'example-service'};tab.tempoResultView='list';tab.tempoSampleSize='250';
+      tab.tempoTimeRange=${JSON.stringify(auditRange)};tab.lokiTimeRange=${JSON.stringify(auditRange)};tab.prometheusTimeRange=${JSON.stringify(auditRange)};
+      if (${JSON.stringify(result)} === 'default') tab.result=kind==='tempo'?${JSON.stringify(auditTraceResult)}:kind==='loki'?${JSON.stringify(auditLogResult)}:${JSON.stringify(auditSqlResult)};
+      tab.resultRevision=(state.tabs[0]?.resultRevision??0)+1;
+      let schemas=kind==='prometheus'?[{name:'Metrics',isSystem:false,relations:[{schema:'Metrics',name:'up',qualifiedName:'Metrics.up',kind:'metric',columnsStatus:'idle',details:{kind:'metric',type:'gauge',help:'Example metric'}}]}]:${JSON.stringify(auditSchemas)};
+      if(kind!=='prometheus') schemas=schemas.map(schema=>({...schema,relations:schema.relations.filter(r=>kind==='tempo'?r.kind==='service':r.kind==='r')}));
+      store.setState({profiles:[profile],tabs:[tab],activeTabId:tab.id,sidebarWidth:240,editorHeight:260,connectionStateByProfileId:{[profile.id]:{status:'connected',generation:1,error:null,serverVersion:kind==='postgres'?'17':null}},metadataByProfileId:{[profile.id]:{schemas,status:'loaded',error:null,isStale:false}}});
+    })()`)
+    await waitFor(win, `window.__datakoalaStore.getState().activeTabId === 'audit-tab-${kind}' && document.body.innerText.includes('Example ${kind}')`, `seed ${kind}`)
+    await settle()
+    win.webContents.sendInputEvent({ type:'mouseMove', x:1,y:1 })
+    await delay(100)
+  }
+  const listSelectors = { logs:'[aria-label="Log results"]', patterns:'[aria-label="Log patterns"]', traces:'[aria-label="Trace search result view"]' }
+  const rowSelectors = { logs:'[aria-label="Log results"] button[aria-selected]', patterns:'[data-pattern-row] button', traces:'button[class*="traceResult_"]' }
+  const listTarget = { ...listSelectors, traces:'div[class*="traceList_"]' }
+
+  for (const [viewport, dimensions] of Object.entries(auditViewports)) {
+    win.setContentSize(...dimensions)
+    for (const kind of auditKinds) for (const mode of ['raw','builder']) {
+      await seed(kind, mode)
+      await waitFor(win, `[...document.querySelectorAll('[aria-label="Query mode"] button')].some(b=>b.getAttribute('aria-pressed')==='true' && b.textContent.trim() === ${JSON.stringify(mode==='builder'?'Builder':kind==='tempo'?'TraceQL':kind==='loki'?'LogQL':kind==='prometheus'?'PromQL':'SQL')})`, `${kind} ${mode} mode`)
+      const language=kind==='tempo'?'TraceQL':kind==='loki'?'LogQL':kind==='prometheus'?'PromQL':'SQL'
+      await waitFor(win, mode==='raw'?`document.querySelector('[aria-label=\"${language} editor\"]')`:kind==='loki'?`document.querySelector('[data-loki-builder]')`:kind==='tempo'?`document.querySelector('[data-tempo-builder]')`:kind==='prometheus'?`document.querySelector('.promql-builder-form')`:`document.querySelector('.builder-pane')`, `${kind} rendered ${mode} component`)
+      await observe(`${kind}-${mode}-${viewport}.png`, '[data-query-toolbar]', `${mode} populated`, viewport==='desktop' && mode==='raw' && ['postgres','loki','tempo'].includes(kind) ? 'toolbar' : null)
+    }
+    for (const list of ['logs','patterns','traces']) {
+      const kind=list==='traces'?'tempo':'loki'
+      await seed(kind,'raw','default',list==='patterns'?'patterns':'list')
+      const row=rowSelectors[list], target=listTarget[list]
+      await waitFor(win, select(row), `${list} actual openable row`)
+      await observe(`${list}-default-${viewport}.png`,target,'unselected + one-line and overflowing text','lists')
+      const point=await evaluate(`(() => { const r=${select(row)}.getBoundingClientRect(); return { x:Math.round(r.x+20), y:Math.round(r.y+r.height/2) } })()`)
+      win.webContents.sendInputEvent({ type:'mouseMove', ...point }); await delay(80)
+      await waitFor(win, `${select(row)}.matches(':hover')`, `${list} hover state`)
+      await observe(`${list}-hover-${viewport}.png`,target,'native pointer hover')
+      win.webContents.sendInputEvent({ type:'mouseMove', x:1,y:1 })
+      await key('Tab'); await evaluate(`${select(row)}.focus()`); await settle()
+      await waitFor(win, `${select(row)}.matches(':focus-visible')`, `${list} keyboard focus visible`)
+      await observe(`${list}-focus-${viewport}.png`,target,'keyboard modality + row focus',viewport==='desktop'?'lists':null)
+      await key('Enter')
+      await waitFor(win, list==='traces'?`document.body.innerText.includes('Search trace spans')`:list==='patterns'?`document.querySelector('[data-pattern-inspector]')`:`document.querySelector('[aria-label="Selected log details"]')`,`${list} Enter opens actual detail`)
+      await observe(`${list}-open-${viewport}.png`,list==='traces'?'[class*="traceView_"]':target,'native Enter opens detail','detail')
+      if(list==='traces') await clickText('← Search results')
+      else await click(`[aria-label="Close ${list==='patterns'?'pattern':'log'} details"]`)
+      await evaluate(`(() => { const row=${select(row)}; const scroller=${list==='patterns'?'document.querySelector("[data-pattern-scroller]")':list==='logs'?'row.closest("div[class*=logScroller]")':'row.parentElement'}; scroller.scrollTop=scroller.scrollHeight; })()`)
+      await settle();await delay(80)
+      await observe(`${list}-scroll-${viewport}.png`,target,'scrolled loaded list; virtualization where supported')
+      await seed(kind,'raw', 'fresh',list==='patterns'?'patterns':'list')
+      if(list==='traces') await observe(`${list}-empty-${viewport}.png`,'[class*="searchResults_"]','no fetched traces')
+      else {
+        await evaluate(`window.__datakoalaStore.getState().setResult(${JSON.stringify({...auditLogResult,rows:[],logRows:[],rowCount:0})},null)`)
+        await settle()
+        await observe(`${list}-empty-${viewport}.png`,target,'loaded zero logs')
+      }
+    }
+    for (const kind of ['postgres','loki','tempo']) {
+      await seed(kind,'raw','fresh')
+      await observe(`${kind}-fresh-${viewport}.png`,'.main','not queried',viewport==='desktop'?'feedback':null)
+      queryOutcome='loading';await clickText('Run','document.querySelector("[data-query-toolbar]")')
+      await waitFor(win, `window.__datakoalaStore.getState().tabs[0].running`, `${kind} pending query`)
+      await observe(`${kind}-loading-${viewport}.png`,'.main','actual unresolved IPC request')
+      if(!releaseQuery) await delay(200)
+      if(!releaseQuery) throw Error(`${kind} request never reached mocked IPC`)
+      releaseQuery();releaseQuery=null;await waitFor(win, `!window.__datakoalaStore.getState().tabs[0].running`,`${kind} completion`)
+      queryOutcome='error';await clickText('Run','document.querySelector("[data-query-toolbar]")')
+      await waitFor(win, `document.body.innerText.includes('Synthetic provider unavailable')`,`${kind} failure`)
+      await observe(`${kind}-error-${viewport}.png`,'.main','actual provider failure with previous result retained',viewport==='desktop'?'feedback':null)
+      queryOutcome='success';await clickText('Run','document.querySelector("[data-query-toolbar]")')
+      await waitFor(win, `!window.__datakoalaStore.getState().tabs[0].running && !document.body.innerText.includes('Synthetic provider unavailable')`,`${kind} explicit retry`)
+      await observe(`${kind}-retry-${viewport}.png`,'.main','explicit Run recovers')
+    }
+    await seed('tempo','raw','fresh')
+    await evaluate(`window.__datakoalaStore.getState().setTempoState({tempoSampleSize:'all'})`)
+    queryOutcome='loading';await clickText('Run','document.querySelector("[data-query-toolbar]")')
+    await waitFor(win, `document.querySelector('progress') && document.body.innerText.includes('2 traces so far')`, 'real progressive batch')
+    await observe(`tempo-partial-${viewport}.png`,'.main','actual IPC progress batch + pending continuation')
+    observations.push({family:'progress',viewport,mapDisabled:await evaluate(`[...document.querySelector('[aria-label="Trace search result view"]').querySelectorAll('button')].find(b=>b.textContent.trim()==='Service map').disabled`),rowsDisabled:await evaluate(`[...document.querySelectorAll('button[class*="traceResult_"]')].every(b=>b.disabled)`)} )
+    releaseQuery();releaseQuery=null
+    await waitFor(win, `!window.__datakoalaStore.getState().tabs[0].running && document.body.innerText.includes('5 traces')`, 'progress completion')
+    await observe(`tempo-partial-complete-${viewport}.png`,'.main','progress finalized to five summaries')
+    for (const kind of ['postgres','loki','tempo']) {
+      await seed(kind,'raw')
+      const target=kind==='tempo'?'[aria-label="Trace search result view"]':'[role="toolbar"][aria-label="Result view"]'
+      await observe(`views-${kind}-default-${viewport}.png`,target,'current selected view')
+      const beforeCalls=queryCalls
+      const next=kind==='tempo'?'Scatter':kind==='loki'?'Patterns':'Table'
+      if(kind==='postgres') await clickText('Bar',`document.querySelector(${JSON.stringify(target)})`)
+      else await clickText(next,`document.querySelector(${JSON.stringify(target)})`)
+      await waitFor(win, `${select(target)}.querySelector('[aria-pressed="true"]').textContent.trim() === ${JSON.stringify(kind==='postgres'?'Bar':next)}`,`${kind} view transition`)
+      if(kind==='postgres' || kind==='tempo') await assertPreviewReady(win, `views-${kind}-changed-${viewport}.png`, {selector:kind==='postgres'?'[data-result-chart-canvas]':'[data-visual-type=\"scatter\"]',description:'audit selected chart',minSeries:1,minItems:3})
+      if(queryCalls!==beforeCalls) throw Error(`${kind} view change unexpectedly executed a query`)
+      observations.push({family:'view',kind,viewport,queryCallsBefore:beforeCalls,queryCallsAfter:queryCalls})
+      await observe(`views-${kind}-changed-${viewport}.png`,target,'view switched through actual control')
+    }
+    for (const kind of ['postgres','tempo']) {
+      await seed(kind,'builder')
+      const target=kind==='postgres'?'.builder-pane':'[data-tempo-builder]'
+      for(const status of ['loading','error','settled']) {
+        await evaluate(`(() => { const store=window.__datakoalaStore; const state=store.getState(),id=state.tabs[0].connectionProfileId; store.setState({metadataByProfileId:{...state.metadataByProfileId,[id]:{...state.metadataByProfileId[id],status:${JSON.stringify(status==='settled'?'loaded':status)},error:${JSON.stringify(status==='error'?'Synthetic metadata unavailable':null)}}}}) })()`)
+        await settle()
+        if(status==='error') await waitFor(win, `document.body.innerText.includes('Synthetic metadata unavailable')`,`${kind} metadata error`)
+        await observe(`metadata-${kind}-${status}-${viewport}.png`,target,'injected metadata presentation; retry is not executed')
+      }
+    }
+    for(const surface of ['query','log']) {
+      await waitFor(win, `!document.body.innerText.includes('Copied to clipboard')`, 'previous copy feedback cleared')
+      await seed(surface==='query'?'postgres':'loki','raw')
+      if(surface==='log') await click(rowSelectors.logs)
+      await evaluate(`(() => { window.__auditClipboardRejections=[]; if(!window.__auditClipboardObserver) { window.__auditClipboardObserver=true; window.addEventListener('unhandledrejection',e=>{ if(e.reason?.message==='Synthetic clipboard denied') { window.__auditClipboardRejections.push(e.reason.message); e.preventDefault() } }); } Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(Error('Synthetic clipboard denied'))}}) })()`)
+      const selector=surface==='query'?'[aria-label="Copy SQL to clipboard"]':'[aria-label="Copy message"]'
+      await click(selector)
+      await waitFor(win, surface==='query'?`document.body.innerText.includes('Could not copy')`:`window.__auditClipboardRejections.length>0`, `${surface} denied clipboard`)
+      await observe(`clipboard-${surface}-error-${viewport}.png`,surface==='query'?'[role="alert"]':'[aria-label="Selected log details"]','synthetic clipboard denial through actual caller')
+      observations.push({family:'clipboard',surface,viewport,state:'error',unhandled:await evaluate('window.__auditClipboardRejections.length'),notification:await evaluate(`[...document.querySelectorAll('[role="alert"],[role="status"]')].some(e=>e.innerText.includes('copy'))`)})
+      await evaluate(`Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.resolve()}})`)
+      await click(selector)
+      if(surface==='query') await waitFor(win, `document.body.innerText.includes('Copied to clipboard')`, 'copy success feedback')
+      await observe(`clipboard-${surface}-success-${viewport}.png`,surface==='query'?'[role="status"][aria-live="polite"]:not([data-state])':'[aria-label="Selected log details"]','synthetic successful clipboard retry through actual caller')
+    }
+    for (const dialog of ['picker',...auditKinds,'settings','reset','presets']) {
+      await seed('postgres','raw')
+      if(['settings','reset','presets'].includes(dialog)) await clickText(dialog==='settings'?'Settings':dialog==='reset'?'Reset':'Presets')
+      else {
+        await clickText('+ new connection')
+        if(dialog!=='picker') await click(`[role="radio"]:nth-child(${({postgres:1,'local-files':2,'sqlite-file':3,bigquery:4,prometheus:5,tempo:6,loki:7})[dialog]})`)
+      }
+      await waitFor(win, `document.querySelector('[role="dialog"]')`,`${dialog} dialog`)
+      await delay(120)
+      await observe(`dialog-${dialog}-${viewport}.png`,'[role="dialog"]','initial dialog',['postgres','settings','reset'].includes(dialog)?'dialogs':null)
+      if(['settings','loki'].includes(dialog)) {
+        await click('[role="dialog"] button[role="combobox"]')
+        await waitFor(win, `document.querySelector('[role="listbox"]')`, `${dialog} nested selector`)
+        await observe(`nested-${dialog}-options-${viewport}.png`,'[role="listbox"]','nested selector opened in dialog')
+        await key('Escape')
+        const parentRemains=await evaluate(`Boolean(document.querySelector('[role="dialog"]'))`)
+        observations.push({family:'nested-overlay',dialog,viewport,childClosed:await evaluate(`!document.querySelector('[role="listbox"]')`),parentRemains})
+        await observe(`nested-${dialog}-escape-${viewport}.png`,parentRemains?'[role="dialog"]':'.main','native Escape from nested selector')
+        if(!parentRemains) { await clickText('Settings'); await waitFor(win, `document.querySelector('[role="dialog"]')`, 'reopened settings for standalone modal checks') }
+      }
+      const report={ family:'dialog',dialog,viewport }
+      await evaluate(`(() => { const buttons=[...document.querySelector('[role="dialog"]').querySelectorAll('button:not(:disabled),input:not(:disabled)')]; buttons.at(-1).focus() })()`)
+      await key('Tab')
+      report.tabRemainsInside=await evaluate(`document.querySelector('[role="dialog"]').contains(document.activeElement)`)
+      await key('Escape')
+      report.escapeDismissed=await evaluate(`!document.querySelector('[role="dialog"]')`)
+      if(!report.escapeDismissed) await clickText('Cancel','document.querySelector("[role=dialog]")')
+      report.returnFocus=await evaluate('document.activeElement?.textContent?.trim()')
+      observations.push(report)
+    }
+    for(const kind of ['postgres','prometheus','loki','tempo']) {
+      await seed(kind,'builder')
+      const root=kind==='postgres'?'.builder-pane':kind==='prometheus'?'.promql-builder-form':kind==='loki'?'[data-loki-builder]':'[data-tempo-builder]'
+      const combo=`${root} button[role="combobox"]`
+      await click(combo)
+      await waitFor(win, `document.querySelector('[role="listbox"]')`,`${kind} options`)
+      await observe(`selector-${kind}-options-${viewport}.png`,'[role="listbox"]','opened selector',viewport==='desktop'?'selectors':null)
+      const input='[data-popover-overlay] input'
+      await waitFor(win, select(input),`${kind} option search`)
+      await type(input,'no-matching-audit-option')
+      await waitFor(win, `document.querySelector('[role="listbox"]').innerText.includes('No') || document.querySelector('[role="listbox"]').querySelectorAll('[role="option"]').length===0`,`${kind} empty option search`)
+      await observe(`selector-${kind}-no-options-${viewport}.png`,'[role="listbox"]','search has no matching options')
+      await key('Escape')
+      observations.push({family:'selector',kind,viewport,escapeDismissed:await evaluate(`!document.querySelector('[role="listbox"]')`),returnFocus:await evaluate('document.activeElement?.getAttribute("role")')})
+    }
+  }
+  const htmlEscape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
+  for(const [group,items] of Object.entries(contacts)) {
+    const html=`<!doctype html><meta charset="utf-8"><style>body{margin:0;background:#fff;color:#111;font:14px system-ui}figure{margin:0 12px 12px}figcaption{height:24px}img{display:block;max-width:none}</style><h2>${group} — actual pixels at scale 1; cropped, never resized</h2>${items.map(item=>`<figure><figcaption>${htmlEscape(item.filename)} (${item.width} × ${item.height} crop)</figcaption><img src="${item.data}" width="${item.width}" height="${item.height}"></figure>`).join('')}`
+    await win.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent(html))
+    win.setContentSize(1440,Math.min(1800,70+items.reduce((sum,item)=>sum+item.height+36,0)))
+    await settle();const image=await win.webContents.capturePage();await writeFile(resolve(outputDir,`compare-${group}.png`),image.toPNG())
+  }
+  const report={ schemaVersion:1,sourceHead:process.env.DATAKOALA_AUDIT_HEAD??'local-working-tree',timezone:await evaluate('Intl.DateTimeFormat().resolvedOptions().timeZone'),viewports:auditViewports,captions:auditCaptions,observations }
+  await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify(report,null,2)+'\n')
+  // Self-contained review index: crops and full screenshots stay private to the PR artifact.
+  const sections=[]
+  for(const name of [...auditComparisonFiles,...auditScreenshots]) {
+    const png=await readFile(resolve(outputDir,name))
+    sections.push(`<details ${name.startsWith('compare')?'open':''}><summary>${htmlEscape(auditCaptions[name])}</summary><img alt="${htmlEscape(auditCaptions[name])}" src="data:image/png;base64,${png.toString('base64')}"></details>`)
+  }
+  await writeFile(resolve(outputDir,'review.html'),`<!doctype html><meta charset="utf-8"><title>DataKoala visual convergence audit</title><style>body{font:14px system-ui}img{max-width:100%;height:auto}details{margin:16px 0}</style><h1>Current-renderer audit</h1><p>Source ${htmlEscape(report.sourceHead)}. Images generated, review status must be recorded separately. Measurements in measurements.json.</p>${sections.join('')}`)
+  const actual=(await readdir(outputDir)).filter(name=>name.endsWith('.png')).sort()
+  const expected=[...auditScreenshots,...auditComparisonFiles].sort()
+  if(JSON.stringify(actual)!==JSON.stringify(expected)) throw Error('Audit screenshot manifest mismatch')
+  console.log(`AUDIT_OK ${actual.length} images; ${observations.length} measured states/interactions`)
+}
