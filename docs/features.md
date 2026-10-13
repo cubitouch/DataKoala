@@ -6,15 +6,15 @@ DataKoala is a local-first desktop application for querying and exploring relati
 
 ## Datasources
 
-| Kind | Primary workflow | Language / engine |
-| --- | --- | --- |
-| PostgreSQL | Query relational tables, inspect schemas, build analytics, and optionally Explain / Analyze | SQL / PostgreSQL |
-| BigQuery | Query datasets, build analytical queries, inspect results | GoogleSQL / BigQuery |
-| Local files | Query CSV, TSV, Parquet, JSON, and JSONL data using DuckDB | SQL / DuckDB |
-| SQLite files | Explore SQLite files through the DuckDB integration | SQL / DuckDB |
-| Prometheus | Explore metrics and time series using raw expressions or visual Builder | PromQL |
-| Loki | Explore logs, log patterns and volume, using raw expressions or visual Builder | LogQL |
-| Tempo | Explore traces, spans, and service relationships using raw expressions or visual Builder | TraceQL |
+| Kind         | Primary workflow                                                                            | Language / engine    |
+| ------------ | ------------------------------------------------------------------------------------------- | -------------------- |
+| PostgreSQL   | Query relational tables, inspect schemas, build analytics, and optionally Explain / Analyze | SQL / PostgreSQL     |
+| BigQuery     | Query datasets, build analytical queries, inspect results                                   | GoogleSQL / BigQuery |
+| Local files  | Query CSV, TSV, Parquet, JSON, and JSONL data using DuckDB                                  | SQL / DuckDB         |
+| SQLite files | Explore SQLite files through the DuckDB integration                                         | SQL / DuckDB         |
+| Prometheus   | Explore metrics and time series using raw expressions or visual Builder                     | PromQL               |
+| Loki         | Explore logs, log patterns and volume, using raw expressions or visual Builder              | LogQL                |
+| Tempo        | Explore traces, spans, and service relationships using raw expressions or visual Builder    | TraceQL              |
 
 The adapters and Builders differ by datasource: a visually similar control does not imply identical query semantics.
 

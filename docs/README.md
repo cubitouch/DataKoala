@@ -1,29 +1,29 @@
 # DataKoala documentation
 
-This directory contains product, architecture, engineering, and release documentation. Start with the maintained references below; investigation reports record a *point-in-time* analysis, not necessarily the current implementation.
+This directory contains product, architecture, engineering, and release documentation. Start with the maintained references below; investigation reports record a _point-in-time_ analysis, not necessarily the current implementation.
 
 ## Maintained references
 
-| Document | Purpose |
-| --- | --- |
-| [Feature overview](features.md) | Concise description of the currently available workflows; consult the inventory for detail |
+| Document                                                        | Purpose                                                                                                  |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [Feature overview](features.md)                                 | Concise description of the currently available workflows; consult the inventory for detail               |
 | [Datasource feature inventory](datasource-feature-inventory.md) | Source-guided feature matrix, implementation entry points, UX ownership decisions, and verification gaps |
-| [Releases](engineering/releases.md) | Source releases, tagging, installation, and upgrade process |
-| [Visual documentation](engineering/visual-documentation.md) | Screenshots, visual previews, and site-publishing workflow |
-| [Styling](engineering/styling.md) | CSS ownership and component-scoping conventions |
-| [Code duplication](engineering/code-duplication.md) | jscpd baseline and interpretation |
+| [Releases](engineering/releases.md)                             | Source releases, tagging, installation, and upgrade process                                              |
+| [Visual documentation](engineering/visual-documentation.md)     | Screenshots, visual previews, and site-publishing workflow                                               |
+| [Styling](engineering/styling.md)                               | CSS ownership and component-scoping conventions                                                          |
+| [Code duplication](engineering/code-duplication.md)             | jscpd baseline and interpretation                                                                        |
 
 ## Historical investigations (`history/`)
 
 These are evidence and design records. Read the baseline/date and subsequent appendices before using a finding as a statement of current behavior.
 
-| Document | Scope |
-| --- | --- |
-| [Connection lifecycle audit](history/connection-lifecycle-audit.md) | Issue #370, connection ownership and race conditions |
-| [Query lifecycle audit](history/query-lifecycle-audit.md) | Issue #371, in-flight queries, tab switching and lifecycle parity |
+| Document                                                                    | Scope                                                                         |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [Connection lifecycle audit](history/connection-lifecycle-audit.md)         | Issue #370, connection ownership and race conditions                          |
+| [Query lifecycle audit](history/query-lifecycle-audit.md)                   | Issue #371, in-flight queries, tab switching and lifecycle parity             |
 | [Series cardinality performance](history/series-cardinality-performance.md) | Issue #324, provider-specific cardinality probes and historical manual checks |
-| [Tempo performance baseline](history/tempo-performance-baseline.md) | Issue #96, measurement methodology and instrumentation |
-| [Market benchmark](history/market-benchmark.md) | Historical positioning research, last reviewed August 2026 |
+| [Tempo performance baseline](history/tempo-performance-baseline.md)         | Issue #96, measurement methodology and instrumentation                        |
+| [Market benchmark](history/market-benchmark.md)                             | Historical positioning research, last reviewed August 2026                    |
 
 ## Maintenance guidelines
 
