@@ -12,7 +12,8 @@ import {
 import ReactECharts from 'echarts-for-react'
 import type EChartsReact from 'echarts-for-react'
 import { api } from '@lib/api'
-import { AI_LIMITS, isAiConfigured, type AiAnomalyAnalysis } from '@shared/ai'
+import { isAiConfigured } from '@shared/ai'
+import { useChartAnomalyAnalysis } from './useChartAnomalyAnalysis'
 import { buildChartPresentationOptions } from '@lib/chartPresentation'
 import {
   chartPointActionFilters,
@@ -86,11 +87,7 @@ import {
   type ComboboxOption,
 } from '@components/ui/combobox'
 import type { ColumnMeta, QueryResult } from '@shared/types'
-import { sampleChartSeries } from '@lib/chartAnomalySampling'
-import {
-  resolveAiAnomalies,
-  type SubmittedAnomalySeries,
-} from '@lib/chartAnomalyMapping'
+import { resolveAiAnomalies } from '@lib/chartAnomalyMapping'
 import { AiAnomalyDetailsPopover } from './AiAnomalyDetailsPopover'
 import {
   buildHierarchy,
@@ -210,15 +207,6 @@ export function GenericResultExplorer({
   )
   const [showRunning, setShowRunning] = useState(false)
   const [aiConfigured, setAiConfigured] = useState(false)
-  const [aiAnalysis, setAiAnalysis] = useState<AiAnomalyAnalysis | null>(null)
-  const [aiSubmittedSamples, setAiSubmittedSamples] = useState<
-    SubmittedAnomalySeries[] | null
-  >(null)
-  const [aiAnomaliesVisible, setAiAnomaliesVisible] = useState(false)
-  const [aiAnalysisError, setAiAnalysisError] = useState('')
-  const [aiAnalyzing, setAiAnalyzing] = useState(false)
-  const aiContextRevision = useRef(0)
-  const aiRequestId = useRef<string | null>(null)
   const [chartLegendWidth, setChartLegendWidth] = useState(readChartLegendWidth)
   const chartCanvasRef = useRef<HTMLDivElement | null>(null)
   const hoveredSeriesIdentity = useRef<string | undefined>(undefined)
@@ -303,13 +291,6 @@ export function GenericResultExplorer({
     }
   }, [])
 
-  const cancelAiRequest = useCallback(() => {
-    const requestId = aiRequestId.current
-    if (!requestId) return
-    aiRequestId.current = null
-    if (api?.ai?.cancel) void api.ai.cancel(requestId)
-  }, [])
-
   useEffect(() => {
     if (!running) {
       setShowRunning(false)
@@ -321,16 +302,6 @@ export function GenericResultExplorer({
     )
     return () => window.clearTimeout(timer)
   }, [running])
-
-  useEffect(() => {
-    if (aiConfigured || !aiRequestId.current) return
-    aiContextRevision.current += 1
-    cancelAiRequest()
-    setAiAnalyzing(false)
-    setAiAnalysis(null)
-    setAiSubmittedSamples(null)
-    setAiAnomaliesVisible(false)
-  }, [aiConfigured, cancelAiRequest])
 
   const effectiveConfiguration = useMemo(
     () =>
@@ -358,17 +329,6 @@ export function GenericResultExplorer({
     chartTimeDomain,
     timeBucket,
   })
-  useEffect(() => {
-    aiContextRevision.current += 1
-    cancelAiRequest()
-    setAiAnalyzing(false)
-    setAiAnalysis(null)
-    setAiSubmittedSamples(null)
-    setAiAnomaliesVisible(false)
-    setAiAnalysisError('')
-  }, [result, aiContextKey, cancelAiRequest])
-  useEffect(() => () => cancelAiRequest(), [cancelAiRequest])
-
   useEffect(() => {
     if (
       dimensionControls === 'result' &&
@@ -482,6 +442,24 @@ export function GenericResultExplorer({
         : null,
     [filteredResult, effectiveConfiguration],
   )
+  const {
+    analysis: aiAnalysis,
+    submittedSamples: aiSubmittedSamples,
+    anomaliesVisible: aiAnomaliesVisible,
+    error: aiAnalysisError,
+    analyzing: aiAnalyzing,
+    analyze: analyzeChartWithAi,
+    setAnomaliesVisible: setAiAnomaliesVisible,
+  } = useChartAnomalyAnalysis({
+    result,
+    owner: onAddFilter,
+    contextKey: aiContextKey,
+    configured: aiConfigured,
+    chart,
+    configuration: effectiveConfiguration,
+    seriesVisibility,
+    isResultStale,
+  })
   const resolvedAiAnomalies = useMemo(
     () =>
       aiAnalysis && aiSubmittedSamples && chart
@@ -951,85 +929,6 @@ export function GenericResultExplorer({
         fingerprint: appliedChart.fingerprint,
       })
   }
-  const analyzeChartWithAi = async () => {
-    if (
-      !chart ||
-      !effectiveConfiguration.xColumn ||
-      !effectiveConfiguration.valueColumn ||
-      !api?.ai?.analyzeAnomalies ||
-      isResultStale
-    )
-      return
-    const requestRevision = aiContextRevision.current
-    const submitted = chart.series
-      .flatMap((item, chartSeriesIndex) => {
-        if (seriesVisibility[item.name] === false) return []
-        const sample = sampleChartSeries(item.name, item.data, chart.xValues)
-        return sample.points.length >= AI_LIMITS.anomalyMinimumPointsPerSeries
-          ? [{ chartSeriesIndex, sample }]
-          : []
-      })
-      .slice(0, AI_LIMITS.anomalySeries)
-    if (!submitted.length) {
-      setAiAnalysis(null)
-      setAiSubmittedSamples(null)
-      setAiAnomaliesVisible(false)
-      setAiAnalysisError(
-        'AI analysis needs at least three numeric points in a visible series.',
-      )
-      return
-    }
-
-    const requestId = crypto.randomUUID()
-    aiRequestId.current = requestId
-    setAiAnalyzing(true)
-    setAiAnalysis(null)
-    setAiSubmittedSamples(null)
-    setAiAnomaliesVisible(false)
-    setAiAnalysisError('')
-    try {
-      const response = await api.ai.analyzeAnomalies({
-        requestId,
-        chart: {
-          chartType: effectiveConfiguration.view,
-          xColumn: effectiveConfiguration.xColumn,
-          valueColumn: effectiveConfiguration.valueColumn,
-          series: submitted.map(({ sample }) => ({
-            ...sample,
-            points: sample.points.map(({ x, y }) => ({ x, y })),
-          })),
-        },
-      })
-      if (
-        aiRequestId.current !== requestId ||
-        aiContextRevision.current !== requestRevision
-      )
-        return
-      if (response.ok) {
-        setAiAnalysis(response.value)
-        setAiSubmittedSamples(submitted)
-        setAiAnomaliesVisible(true)
-      } else {
-        setAiAnalysis(null)
-        setAiSubmittedSamples(null)
-        setAiAnalysisError(response.message)
-      }
-    } catch {
-      if (
-        aiRequestId.current === requestId &&
-        aiContextRevision.current === requestRevision
-      )
-        setAiAnalysisError(
-          'AI analysis failed. Check your connection and try again.',
-        )
-    } finally {
-      if (aiRequestId.current === requestId) {
-        aiRequestId.current = null
-        setAiAnalyzing(false)
-      }
-    }
-  }
-
   const hiddenSeries = seriesIdentities.filter(
     (identity) => seriesVisibility[identity] === false,
   )

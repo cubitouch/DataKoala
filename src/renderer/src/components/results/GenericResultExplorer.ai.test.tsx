@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Ref } from 'react'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -96,6 +97,13 @@ vi.mock('@lib/api', () => ({
 }))
 
 import { GenericResultExplorer } from './GenericResultExplorer'
+import { ResultExplorer } from './ResultExplorer'
+import { useStore } from '@store/useStore'
+import {
+  activeTestSession,
+  patchActiveTestSession,
+  resetTestStore,
+} from '@test/sessionTestUtils'
 import type { GenericResultExplorerProps } from './GenericResultExplorer'
 import type { QueryResult } from '@shared/types'
 import type { VisualizationConfiguration } from '@lib/resultVisualization'
@@ -139,6 +147,7 @@ const multiSeriesConfiguration: VisualizationConfiguration = {
   ...configuration,
   seriesColumn: 'series',
 }
+const owner = vi.fn()
 const props = (
   overrides: Partial<GenericResultExplorerProps> = {},
 ): GenericResultExplorerProps => ({
@@ -153,7 +162,7 @@ const props = (
   activeFilters: [],
   onConfigurationChange: vi.fn(),
   onSeriesVisibilityChange: vi.fn(),
-  onAddFilter: vi.fn(),
+  onAddFilter: owner,
   onRemoveFilter: vi.fn(),
   onClearFilters: vi.fn(),
   ...overrides,
@@ -679,4 +688,89 @@ describe('AI chart anomaly analysis', () => {
     )
     expect(screen.queryByText('A spike and drop are visible.')).toBeNull()
   })
+})
+
+it('isolates pending AI work across real sessions even with identical result identities', async () => {
+  resetTestStore()
+  patchActiveTestSession({
+    result,
+    resultRevision: 1,
+    sqlVisualization: configuration,
+  })
+  const a = activeTestSession().id
+  let finish!: (value: unknown) => void
+  aiMocks.analyzeAnomalies.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+  )
+  const view = render(<ResultExplorer mode="sql" />)
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Analyze with AI' }),
+  )
+  const requestId = aiMocks.analyzeAnomalies.mock.calls[0][0].requestId
+  act(() => {
+    useStore.getState().createTab()
+    patchActiveTestSession({
+      result,
+      resultRevision: 1,
+      sqlVisualization: configuration,
+    })
+  })
+  expect(aiMocks.cancel).toHaveBeenCalledWith(requestId)
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Analyze with AI' }),
+  )
+  expect(
+    await screen.findByRole('button', { name: 'AI details (2)' }),
+  ).toBeTruthy()
+  await act(async () =>
+    finish({ ok: false, code: 'provider', message: 'Obsolete A failure' }),
+  )
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByRole('button', { name: 'AI details (2)' })).toBeTruthy()
+  await act(async () => {
+    await useStore.getState().activateTab(a)
+  })
+  expect(screen.queryByRole('button', { name: 'AI details (2)' })).toBeNull()
+  expect(aiMocks.analyzeAnomalies).toHaveBeenCalledTimes(2)
+  expect(activeTestSession().result).toBe(result)
+  expect(activeTestSession().resultRevision).toBe(1)
+  view.unmount()
+  resetTestStore()
+})
+
+it('offers a visible retry after failure and clears the old error', async () => {
+  aiMocks.analyzeAnomalies.mockRejectedValueOnce(new Error('offline'))
+  render(<GenericResultExplorer {...props()} />)
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Analyze with AI' }),
+  )
+  expect((await screen.findByRole('alert')).textContent).toContain('try again')
+  fireEvent.click(screen.getByRole('button', { name: 'Analyze with AI' }))
+  expect(
+    await screen.findByRole('button', { name: 'AI details (2)' }),
+  ).toBeTruthy()
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(aiMocks.analyzeAnomalies).toHaveBeenCalledTimes(2)
+})
+
+it('preserves existing invalidation on chart type changes without another AI request', async () => {
+  const base = props()
+  const view = render(<GenericResultExplorer {...base} />)
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Analyze with AI' }),
+  )
+  expect(
+    await screen.findByRole('button', { name: 'AI details (2)' }),
+  ).toBeTruthy()
+  view.rerender(
+    <GenericResultExplorer
+      {...base}
+      configuration={{ ...configuration, view: 'area' }}
+    />,
+  )
+  expect(screen.queryByRole('button', { name: 'AI details (2)' })).toBeNull()
+  expect(aiMocks.analyzeAnomalies).toHaveBeenCalledOnce()
 })
