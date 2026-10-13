@@ -1,5 +1,7 @@
 # Query lifecycle audit — #371
 
+> **Historical audit notice (October 2026):** This document preserves findings and plans from its original baseline. Statements about open issues, unmerged PRs, or unfixed behavior reflect that point in time; consult current `main`, merged PRs, and tests before treating them as current status. The [documentation index](../README.md) distinguishes maintained references from investigations.
+
 Slice 1 below is the historical audit. The implemented Slice 2 contract and
 remaining work are recorded at the end of this document.
 

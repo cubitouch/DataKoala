@@ -236,8 +236,8 @@ This is a **source-guided audit**, not a live seven-datasource manual test. `Pre
 - `ChartPicker.tsx`: list, table, patterns, bar, line, area, scatter, treemap and sunburst are defined, but workspaces restrict available choices.
 - `LokiBuilderPanel.tsx`: has both a Level filter and Group by selection; #359 is the intended decoupling.
 - `TraceBuilderPanel.tsx`: many service/protocol-specific controls make its Builder meaningfully distinct from SQL/PromQL/LogQL.
-- `docs/architecture/query-lifecycle-audit.md`: records historical shared-session and local request coordination disparities; reconcile against current main and merged #383/#384 before implementing remaining #371 slices.
-- `docs/features.md` is older than the implementation in several respects (e.g. declares BigQuery planned and only three chart types); **do not use as the feature truth source** until updated.
+- `docs/history/query-lifecycle-audit.md`: records historical shared-session and local request coordination disparities; reconcile against current main and merged #383/#384 before implementing remaining #371 slices.
+- `docs/features.md` is a maintained high-level overview. Use this inventory for granular per-datasource evidence and verification statuses.
 
 ## J. Audit candidates / decisions, in priority order
 
@@ -281,7 +281,7 @@ This is a **source-guided audit**, not a live seven-datasource manual test. `Pre
 - [Loki workspace](https://github.com/cubitouch/DataKoala/blob/main/src/renderer/src/components/workspaces/loki/LokiExplorer.tsx)
 - [Tempo workspace](https://github.com/cubitouch/DataKoala/blob/main/src/renderer/src/components/workspaces/tempo/TraceExplorer.tsx)
 - [Presets](https://github.com/cubitouch/DataKoala/blob/main/src/renderer/src/components/query/PresetManagerAction.tsx)
-- [Existing lifecycle audit](https://github.com/cubitouch/DataKoala/blob/main/docs/architecture/query-lifecycle-audit.md)
-- [Existing feature document — needs synchronization](https://github.com/cubitouch/DataKoala/blob/main/docs/features.md)
+- [Existing lifecycle audit](https://github.com/cubitouch/DataKoala/blob/main/docs/history/query-lifecycle-audit.md)
+- [Current feature overview](https://github.com/cubitouch/DataKoala/blob/main/docs/features.md)
 
 **Representative test paths already observed through source/code references:** `src/renderer/src/components/results/GenericResultExplorer.test.tsx`, `src/renderer/src/components/results/GenericResultExplorer.ai.test.tsx`, `src/renderer/src/components/results/logs/LogResultExplorer.ui.test.tsx`, `src/renderer/src/components/results/logs/LogPatternExplorer.ui.test.tsx`, `src/renderer/src/components/builder/prometheus/PromqlBuilderPanel.test.tsx`, `src/renderer/src/components/builder/tempo/TraceBuilderPanel.test.tsx`, `src/renderer/src/components/workspaces/loki/LokiExplorer.ui.test.tsx`, `src/renderer/src/components/query/QueryEditor.test.tsx`, `src/renderer/src/components/query/PresetManagerAction.test.tsx`. This is a representative list, **not a verified exhaustive test mapping**.

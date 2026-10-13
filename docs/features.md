@@ -1,245 +1,65 @@
 # DataKoala features
 
-_DataKoala is an early-stage desktop application for exploring PostgreSQL databases and local data files with SQL, visual queries, tables and charts._
+DataKoala is a local-first desktop application for querying and exploring relational data and observability sources. This is a **high-level product overview**; the [datasource feature inventory](datasource-feature-inventory.md) records per-source support, implementation entry points, intended UX ownership, and verification gaps.
 
-It is designed for the moment when you have a database or exported dataset and want to understand it quickly, without importing it into a spreadsheet or deploying a BI platform.
+> This page describes user-visible workflows as documented in the repository, not a complete end-to-end manual test of every datasource. Availability depends on connection configuration, backend capabilities, and result shape.
 
-## The core workflow
+## Datasources
 
-1. Connect to PostgreSQL or select one or more local data files.
-2. Write SQL or build an analytical query visually.
-3. Inspect the returned rows in an interactive table.
-4. Turn the result into a chart.
-5. Filter, investigate anomalies and refine the query.
-6. Export the SQL, result data or chart.
+| Kind         | Primary workflow                                                                            | Language / engine    |
+| ------------ | ------------------------------------------------------------------------------------------- | -------------------- |
+| PostgreSQL   | Query relational tables, inspect schemas, build analytics, and optionally Explain / Analyze | SQL / PostgreSQL     |
+| BigQuery     | Query datasets, build analytical queries, inspect results                                   | GoogleSQL / BigQuery |
+| Local files  | Query CSV, TSV, Parquet, JSON, and JSONL data using DuckDB                                  | SQL / DuckDB         |
+| SQLite files | Explore SQLite files through the DuckDB integration                                         | SQL / DuckDB         |
+| Prometheus   | Explore metrics and time series using raw expressions or visual Builder                     | PromQL               |
+| Loki         | Explore logs, log patterns and volume, using raw expressions or visual Builder              | LogQL                |
+| Tempo        | Explore traces, spans, and service relationships using raw expressions or visual Builder    | TraceQL              |
 
-The same result-table and visualization workflow is shared across PostgreSQL and local-file connections.
+The adapters and Builders differ by datasource: a visually similar control does not imply identical query semantics.
 
-## Data sources
+## Common workflows
 
-### PostgreSQL
+- Create, save, edit, connect, reconnect, and remove datasource profiles; browse supported source metadata.
+- Work in multiple query tabs with per-tab state and connection context.
+- Use an editable query or datasource-specific visual Builder; execute and inspect the results.
+- Save and restore exploration presets where supported.
+- Reset a query, Builder state, and results using the shared reset action.
+- Explore compatible tabular results in a table or as line, area, bar, scatter, treemap, or sunburst charts, depending on the datasource and returned shape.
+- Filter and inspect rows, copy or export CSV from the table, and use chart-specific interactions when available.
+- Export or copy supported chart output and query text.
+- Use configured AI assistance for supported query authoring, repair, or visualization scenarios. AI availability is **not** universal across all sources.
 
-DataKoala supports saved PostgreSQL connection profiles with:
+## Datasource-specific experiences
 
-- connection testing before saving;
-- hostname, port, database, username and password fields;
-- explicit PostgreSQL TLS modes with optional custom CA certificates;
-- OS-backed secure storage for saved PostgreSQL passwords;
-- pasted PostgreSQL connection strings;
-- PostgreSQL, JDBC, psql-command and libpq keyword/value formats;
-- passwordless proxy, IAM and pgpass-style connections;
-- database object and column browsing;
-- reconnect and unexpected-disconnection handling.
+### SQL sources
 
-Connections are read-only by default. For PostgreSQL, this is enforced by the database session through default transaction read-only mode rather than by attempting to recognize mutating SQL text. Read-only mode can be disabled explicitly for an individual profile.
+The SQL workspace supports raw SQL and a visual Builder for constructing analytical queries. Schema exploration, query formatting, editor completion, analytical controls, and query execution use provider-aware capabilities and dialects. PostgreSQL separately supports Explain and Analyze; these are not generic capabilities of all SQL providers.
 
-Saved PostgreSQL passwords are encrypted through Electron's OS-backed secure storage and are resolved only in the main process when a connection is tested or opened. Ordinary profile metadata remains in `connections.json`; renderer-facing profiles expose only credential presence/state and never the persisted password. If secure storage is unavailable, DataKoala refuses to persist a new password rather than falling back to plaintext. Passwordless proxy, IAM, `.pgpass`, and trust-based connections remain supported.
+### Prometheus
 
-PostgreSQL TLS can be **Disabled**, **Require TLS** (encrypted but certificate not verified), **Verify CA** (CA/chain verification without hostname verification), or **Verify server identity** (CA/chain plus hostname verification). Verify server identity is the recommended secure mode. A blank CA field uses system trusted roots; a populated field supplies a PEM CA certificate/bundle and must not contain private-key material. Pasted `sslmode=disable|require|verify-ca|verify-full` values map to these modes. Libpq `allow` and `prefer` are treated as TLS-required compatibility modes with a warning rather than allowing plaintext fallback.
+The PromQL Builder supports metric discovery, label selection, rate and range calculations, aggregation and grouping, with time-range and step controls. Charting is oriented toward numerical time series.
 
-### Local files
+### Loki
 
-Local-file connections are powered by an embedded DuckDB runtime. A connection can contain one or more files, each exposed through an editable table alias.
+The Loki workspace supports log search and inspection, indexed label matchers, severity filtering and grouping, parsed fields, log patterns, and log-volume visualizations. An optional volume query can be distinct from the primary log query. Its list, table, patterns and chart representations are intentionally not identical to SQL tables.
 
-Currently supported file families include:
+### Tempo
 
-- CSV and other delimited text, including TSV and TXT;
-- Parquet;
-- JSON;
-- JSON Lines, JSONL and NDJSON.
+The Tempo workspace supports trace discovery and filtering, trace-list inspection, scatter-based exploration, service maps, and detailed trace/span information. Temporal filtering has trace-specific semantics; do not assume SQL-style row filtering.
 
-Selected files can be queried independently or joined together with DuckDB SQL. DataKoala infers schemas, exposes relations and columns through the object browser, and uses the same Builder, results table and charts as PostgreSQL.
+### Observability handoff
 
-Local-file sessions are sandboxed and read-only. Queries may access the selected canonical files while arbitrary file reads, writes, extension loading, attaching databases and persistent secrets are blocked.
+Supported observability workspaces provide Grafana query/time-range handoff actions. The underlying providers and transports may require environment-specific configuration.
 
-## SQL workspace
+## Reliability and safety
 
-The SQL workflow includes:
+The application is designed around read-only data exploration, with provider-specific protections, connection handling, and secure credential storage where applicable. Check source-specific limitations before using a production system. Saved secrets and query data are handled differently from ordinary profile metadata.
 
-- a CodeMirror editor with SQL syntax highlighting;
-- Run and keyboard-shortcut execution;
-- SQL formatting;
-- saved query tabs that survive application restarts;
-- lazy switching between connections;
-- schema, relation and column browsing;
-- clear separation between clearing results and resetting a query;
-- SQL export;
-- PostgreSQL EXPLAIN and EXPLAIN ANALYZE with deterministic execution-plan diagrams backed by PostgreSQL structured plan output.
+Query lifecycle and connection lifecycle behaviors are documented in [the query audit](history/query-lifecycle-audit.md) and [the connection audit](history/connection-lifecycle-audit.md); their earlier findings may describe defects since fixed. Consult the latest code and tests for operational guarantees.
 
-Queries and workspace drafts persist locally. Query results and runtime execution state are deliberately not stored as part of the workspace.
+## What should be shared?
 
-## Visual query Builder
+Shared UX should cover tab identity, query progress, error states, common toolbar affordances, table/chart interactions, and persistence contracts where semantics match. Keep SQL dialects, observability query languages, log patterns, trace visualization, metrics controls, and provider-specific capabilities distinct. The [feature inventory](datasource-feature-inventory.md) is the detailed working matrix, not this overview.
 
-Builder provides an alternative to writing SQL by hand while keeping the generated query visible and reusable.
-
-### Datasource and column selection
-
-Builder supports:
-
-- schema and table/view selection;
-- searchable metadata-aware selectors;
-- a dedicated time column for filtering;
-- an X axis that can be temporal, categorical, numeric, boolean or otherwise groupable;
-- an optional numeric Y axis;
-- zero, one or several Series dimensions.
-
-The time column is independent from the X axis. A user can therefore filter a dataset by time while grouping the chart by something else, such as category, region or status.
-
-### Aggregation
-
-Available aggregations include:
-
-- Count without requiring a Y column;
-- Sum;
-- Average;
-- Minimum;
-- Maximum.
-
-Multiple Series columns remain separate dimensions in generated SQL. They are grouped and ordered deterministically, while the visualization layer creates readable combined labels when needed.
-
-### Time controls
-
-Builder includes:
-
-- rolling and custom time ranges;
-- independent start and end boundaries;
-- recurring time windows;
-- Minute, Hour, Day, Week, Month, Quarter and Year buckets;
-- a default recent-time range for new Builder sessions;
-- safeguards that prevent overly dense minute-level queries for long ranges;
-- explicit UTC handling for PostgreSQL timestamp and timestamptz values.
-
-The time bucket appears only when the X axis is temporal. Time filtering remains available for non-temporal X axes.
-
-### Generated SQL
-
-Generated SQL can be:
-
-- previewed without running it;
-- copied;
-- opened in SQL mode;
-- executed with safely materialized parameters.
-
-This keeps Builder transparent: it helps create SQL but does not hide what will be sent to the datasource.
-
-## Results table
-
-Query results can be explored through a table with:
-
-- column sorting;
-- text filtering;
-- null-aware and timestamp-aware rendering;
-- horizontal overflow for wide results;
-- client-side result filters;
-- safe handling of large numeric and structured DuckDB values;
-- bounded rendering for responsiveness.
-
-Native PostgreSQL JSON/JSONB values and conservatively detected JSON-shaped text can be opened in a read-only formatted JSON explorer. The explorer supports scrolling and copying the complete formatted value while safely handling malformed input.
-
-The visible table is intentionally bounded for responsiveness. Exports operate on the complete result retained by the application, subject to datasource result limits.
-
-## Result filtering and query promotion
-
-Filters can begin as client-side exploratory filters without rerunning the query.
-
-When a filter should become part of execution, Apply to SQL promotes compatible filters into parameterized query predicates and reruns the query. This works with both hand-written SQL and Builder queries where the source-column relationship can be preserved safely.
-
-The promotion system understands:
-
-- equality and range filters;
-- null, text, numeric, boolean and temporal values;
-- time-bucket boundaries;
-- single and multiple Series dimensions;
-- source-column provenance across compatible Builder changes.
-
-Unsupported or ambiguous filters remain client-side instead of being silently rewritten into unsafe SQL.
-
-## Charts
-
-DataKoala can visualize query results as:
-
-- bar charts;
-- line charts;
-- area charts.
-
-Chart configuration includes:
-
-- X and Y column selection;
-- Count, Sum, Average, Minimum and Maximum aggregation;
-- optional single or multiple Series dimensions;
-- linear and logarithmic value axes;
-- deterministic category and Series ordering;
-- native scrollable legends beside wide charts, with a compact horizontal row below narrow charts;
-- Series toggles, modifier-click isolation, keyboard-accessible isolate buttons, and Show all;
-- bounded, scrollable tooltips;
-- safeguards for excessive points or high-cardinality Series.
-
-Chart settings are stored per query tab and survive compatible reruns.
-
-## AI chart anomaly analysis
-
-When OpenRouter is configured, **Analyze with AI** is available for line charts. It sends a bounded sample of up to 8 visible series with up to 32 points per series. Longer series retain chronological bucket endpoints, minima, and maxima; the request also includes point counts and sample coverage. The action is hidden when AI is not configured.
-
-AI results reference exact points in the submitted sample. Matching points receive red outlined chart markers, and hovering one shows its series-specific explanation in the tooltip. A **Show anomalies** toggle hides or restores the markers and tooltip explanations without another request. The **AI details** popover contains the summary, flagged values, limitations, follow-up ideas and per-series coverage; unsampled points are identified as not reviewed. No result changes the query or source data, and an empty analysis shows a calm no-candidates message.
-
-## Export and sharing
-
-The current workflow can export or copy:
-
-- generated or hand-written SQL;
-- result data as CSV;
-- charts as real PNG images;
-- chart images directly to the system clipboard;
-- formatted JSON values from the result explorer.
-
-PNG capture preserves chart and legend state while excluding transient hover tooltips and crosshairs. Multi-series exports include the complete legend, including labels outside the current scroll viewport, with wrapped labels and the same series colors. Single-series charts stay compact.
-
-## Persistent desktop workspace
-
-DataKoala retains enough local state to resume an investigation:
-
-- saved connection profiles;
-- named query tabs;
-- SQL and Builder drafts;
-- active datasource and query-mode choices;
-- compatible chart preferences;
-- pane and layout state.
-
-Connections are established lazily when required. Explicit Clear results and Reset query actions make it possible to remove derived state without accidentally discarding the whole workspace.
-
-## Reliability and safety controls
-
-The application includes safeguards for exploratory work:
-
-- PostgreSQL read-only sessions by default;
-- strict local-file query sandboxing;
-- direct read-only SQLite attachments with source-path allowlisting;
-- bounded local-file result sets;
-- chart point and Series-cardinality limits;
-- stale asynchronous response protection;
-- cancellation of superseded connection attempts;
-- graceful handling of dropped database connections;
-- cleanup during disconnect and application shutdown;
-- parameterized Builder queries and promoted filters.
-
-## Technology and distribution
-
-DataKoala is built with Electron, React and TypeScript. PostgreSQL access uses pg, local analytical files use DuckDB, charts use Apache ECharts, and application state is managed with Zustand.
-
-The repository is licensed under the MIT License.
-
-## Current limitations
-
-DataKoala is still an early working prototype. In particular:
-
-- Excel workbooks are not yet supported;
-- BigQuery is planned but not implemented;
-- CodeMirror currently provides syntax highlighting but not schema/table/column autocomplete;
-- PostgreSQL statements have a 30-second timeout;
-- packaged and large-file behavior still needs broader cross-platform release testing.
-
-These limitations should be considered before using the prototype with sensitive credentials or production-critical workflows.
-
-## In one sentence
-
-> DataKoala turns a PostgreSQL database or local data file into an interactive SQL, table and chart workspace—with a transparent visual Builder and optional AI-assisted chart analysis, entirely from a desktop application.
+See the [documentation index](README.md) for release instructions, architectural studies and ongoing engineering guidance.

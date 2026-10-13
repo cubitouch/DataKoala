@@ -1,5 +1,7 @@
 # Connection lifecycle audit — #370, Slices 1 and 2
 
+> **Historical audit notice (October 2026):** This document preserves findings and plans from its original baseline. Statements about open issues, unmerged PRs, or unfixed behavior reflect that point in time; consult current `main`, merged PRs, and tests before treating them as current status. The [documentation index](../README.md) distinguishes maintained references from investigations.
+
 Baseline: `e2154e7` (latest main after #343 / #369). Slice 1 at `0708a98`
 contains the audit and reproductions. Slice 2 is stacked on that head: it corrects
 two confirmed defects and selectively shares failure handling and metadata
