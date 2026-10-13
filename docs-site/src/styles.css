@@ -1149,3 +1149,5 @@ footer p {
   .journey-media { width: calc(100% - 12px); }
   .sharing-grid article { min-height: 0; }
 }
+
+.share-icon img { width: 25px; height: 25px; display: block; object-fit: contain; }
