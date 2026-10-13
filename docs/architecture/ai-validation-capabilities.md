@@ -110,3 +110,156 @@ Phase 6B may consolidate caller imports/tests and reconsider unused utilities
 only with demonstrated benefit. Keep privacy, IPC/provider limits and renderer
 approval/cancellation coverage; do not broaden contracts or introduce another
 validator framework. No Phase 6B work is performed here.
+
+## Phase 6B end-to-end assessment
+
+Audited base: `56bc003` (merged #400, #401, #402 and #403). This phase
+changes tests and documentation only. The thirteen-export facade remains the
+public import path; no obsolete caller or compatibility adapter was found.
+
+### Final ownership and ingress map
+
+| Capability                | Renderer owner / review                                                                              | Preload and IPC                                        | Main request boundary                                   | Provider response boundary                                                                |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| SQL generation and repair | `useAiQueryCopilot`, `useAiQueryRepair`, `workflow.ts`; diff review and explicit Apply, separate Run | `api.ai.proposeQuery` → `AI_PROPOSE`                   | `AiService.proposeQuery` → `proposalRequest`            | `OpenRouterProvider.proposeQuery` → `queryStep`                                           |
+| SQL Builder               | `useAiBuilderCopilot`, `builderWorkflow.ts`; atomic reviewed patch, separate Run                     | `api.ai.proposeBuilder` → `AI_PROPOSE_BUILDER`         | `AiService.proposeBuilder` → `builderProposalRequest`   | `OpenRouterProvider.proposeBuilder` → `builderStep` against submitted state/columns       |
+| Chart anomaly analysis    | `useChartAnomalyAnalysis`; explicit analysis of bounded samples, no query mutation                   | `api.ai.analyzeAnomalies` → `AI_ANALYZE_ANOMALIES`     | `AiService.analyzeAnomalies` → `anomalyAnalysisRequest` | `OpenRouterProvider.analyzeAnomalies` → `anomalyAnalysis` against submitted series/points |
+| Execution-plan hints      | `useAiPlanAnalysis`; captured plan identity and explicit analysis, node inspection only              | `api.ai.analyzePlan` → `AI_ANALYZE_PLAN`               | `AiService.analyzePlan` → `planAnalysisRequest`         | `OpenRouterProvider.analyzePlan` → `planAnalysis` against sanitized submitted node IDs    |
+| Settings / connectivity   | settings modal; draft test separate from Save                                                        | settings, models, test, key-remove and cancel channels | `settingsInput` / `requestId`; secure settings store    | provider HTTP/model-list normalization; connectivity test has no proposal                 |
+
+Preload supplies TypeScript contracts, **not runtime validation**. IPC takes
+`unknown` and delegates to the service. All four capability request validators
+run before settings/key reads and before provider construction/execution.
+`AiService.run` owns request IDs per `event.sender.id`, duplicate rejection,
+16-request concurrency budget, timeout and cleanup. IPC installs one destroyed
+listener per sender and cancels that sender's requests. Cancellation IDs are
+validated and cannot cancel another sender's identical ID.
+
+The production provider owns response validation. Its `complete` method parses
+the outer envelope and bounded inner JSON before dispatching to the capability
+validator; only the normalized result reaches `AiService.result` and IPC.
+`AiProvider` is an internal typed interface: replacing it with another provider
+requires implementing the same response-validation guarantees. The service does
+not independently validate an injected provider's typed return value. Adding a
+second validator here would duplicate the existing boundary, not protect an
+additional untrusted ingress in the current production wiring.
+
+Main cancellation races the operation and returns a safe error even if transport
+ignores abort. Renderer hooks additionally own flight/snapshot identity and
+suppress obsolete success, failure and cleanup after edits, replacement,
+cancellation or unmount. Main-process ownership is per sender, not per tab;
+renderer ownership supplies tab/result/plan isolation. Neither AI IPC nor the
+provider invokes database execution. Apply updates a reviewed draft or Builder
+state; Run remains a separate user action. Analysis publishes annotations or
+hints, not an executable action.
+
+### Duplication decisions
+
+- Retain the facade: every production consumer (`service.ts`, `openrouter.ts`,
+  `settings.ts`) uses it deliberately; its identity test guards the original
+  exports. Direct capability imports would create another caller convention.
+- Retain capability-private key checks: Builder distinguishes allowed and
+  required fields and accepts documented optional/flat temporal fields; anomaly
+  requires an exact field set and preserves different request diagnostics.
+- Retain four explicit service methods: each names its request validator,
+  provider operation and configuration error. The short common orchestration
+  is visible and stable; a dispatch framework would couple unrelated contracts.
+- Retain query/Builder assumptions parsing and response error wrappers locally:
+  similar field limits do not imply interchangeable response schemas or errors.
+- Keep request allowlisting and renderer context construction: the main boundary
+  must independently protect disclosure, even when the renderer already cleans
+  metadata. Plan and repair sanitizers likewise run again in main.
+- Keep small independent fixtures in field-level and integration tests. New IPC
+  fixtures intentionally exercise real service/provider wiring, while existing
+  validator fixtures isolate contracts. Sharing them would obscure which
+  boundary is being exercised; no redundant production implementation exists.
+
+No production mechanism was removed. No further extraction is justified before
+v0.2.1: remaining similarities have distinct contracts or are small explicit
+orchestration. A universal schema/dispatch framework would increase coupling.
+
+### Regression evidence and coverage boundaries
+
+`src/main/ai/ipc.vitest.ts` adds 21 deterministic tests through registered IPC
+handlers, the real service, the real provider and the extracted validators.
+Only Electron registration/encryption, settings reads and HTTP transport are
+stubbed; no real secret, network request or database execution is required.
+The existing renderer Vitest configuration now discovers main AI Vitest tests.
+
+These tests verify malformed IPC rejection before settings/transport work;
+nested budgets and capability-specific unknown request fields; every pair of
+cross-capability responses; unknown response fields; exact capability response
+messages and HTTP authentication errors; explicit recovery with the same ID;
+duplicate IDs; cancellation with an abort-ignoring transport and late invalid
+completion during retry; sender destruction and distinct-owner isolation;
+repair error redaction and generation allowlisting at actual serialization;
+unknown Builder columns, ungrounded chart points and plan nodes; malformed outer
+JSON and the 100,000-character inner-content cap.
+
+`ExplainPane.test.tsx` adds late success/failure after plan replacement and
+explicit recovery against the replacement SQL/mode. Existing AI UI tests already
+exercise query and repair Apply without execution, Reject, keyboard submission,
+limited discovery/retry, Builder atomic Apply and stale review, and anomaly
+session/revision isolation. Existing main tests cover timeouts, secret storage,
+HTTP normalization and extensive negative validator cases. No field-level
+negative tests were deleted or made expected failures.
+
+### Known limits retained
+
+- Query output is a bounded SQL string, not a SQL safety AST. It does not prove
+  read-only statements or identifier grounding. Discovery search restrictions
+  and Builder column grounding are separate contracts; changing SQL acceptance
+  belongs in a separate review.
+- Generation/plan requests rebuild allowlists; repair rejects extra top-level
+  and context fields; Builder/anomaly use their stricter existing schemas. Do
+  not turn those intentional differences into a uniform acceptance rule.
+- Plan sanitization bounds/truncates accepted text and removes fields, rather
+  than rejecting every oversized optional value. SQL, prompts and allowed plan
+  expressions may themselves contain user-entered sensitive literals; error
+  redaction is not a general-purpose SQL/prompt scrubber.
+- Grounding proves reference membership, not the factual accuracy of narrative
+  claims or causality. Chart analysis covers only submitted samples.
+- The structured inner-content limit is checked after transport JSON parsing;
+  this is not an HTTP streaming/body-size limit. No new transport limit is
+  introduced by this architectural assessment.
+- Abort does not guarantee stopped remote computation or avoided charges.
+  Tests use a fake Electron sender and HTTP responses; packaged Electron,
+  preload serialization and a real provider/model remain RC acceptance work.
+
+### Release handoff
+
+Keep #382 **RC-03 and RC-05B pending**. Existing scenarios already cover proposal,
+repair, invalid output, Accept/Reject versus separate Run, Builder validation,
+chart/plan grounding and provider recovery; no additional large matrix is needed.
+On the frozen candidate, record its full SHA, platform, provider/model, fixture,
+exact actions and outcomes. Specifically replace a captured plan while its AI
+analysis is pending, allow the old response/error to settle, then explicitly
+reanalyze: no obsolete hint/error should appear and the new request must use the
+replacement SQL/mode. Deduplicate with the existing stale-analysis checks.
+A draft PR head is not a frozen release candidate; no manual result is claimed.
+
+### Local validation (2026-10-13, Linux x64 / Node 24.19.0)
+
+- Focused main AI tests: **80 passed**, no skips; IPC integration: **21 passed**;
+  focused Explain UI: **6 passed**, including both new stale cases.
+- `pnpm test`: Node **477 passed / 5 skipped / 0 failed** (482 discovered),
+  renderer/main Vitest **642 passed** (81 files), script tests **13 passed**.
+  The five existing `connString.e2e.test.ts` tests skip because no PostgreSQL
+  test database is reachable. The first attempt's SQLite integration failure
+  was resolved by `pnpm prepare:sqlite-extension`; the full rerun passed.
+- `pnpm test:ui`: **964 passed** (100 files), no skips.
+- Typecheck, lint (TypeScript/React and CSS), formatting, renderer controls,
+  import boundaries and both dead-code configurations passed. Knip reports
+  only three existing redundant-entry configuration hints per configuration.
+- Advisory duplication: **39 clones / 1.31% lines** across 277 production files;
+  no production changes in this PR. Findings are not a reason to couple the
+  capability contracts described above.
+- Production build, documentation build and `docs:verify` passed. Documentation
+  verification reports 13 absent local screenshots; no new screenshots claimed.
+- `docs:screenshots` attempted after building: Electron exits with missing X
+  server / `$DISPLAY` (SIGTRAP); no local visual capture is available. The
+  repository renderer smoke script targets a macOS Electron binary, and this
+  environment has no Docker/PostgreSQL fixture. These packaged/display/database
+  checks require CI or the frozen-candidate acceptance environment.
+- Final-head GitHub CI and visual-preview results are recorded in the draft PR.
+  This local report does not substitute for those results or manual acceptance.

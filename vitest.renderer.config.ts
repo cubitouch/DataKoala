@@ -13,7 +13,11 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/renderer/src/**/*.test.ts', 'src/main/adapters/*.vitest.ts'],
+    include: [
+      'src/renderer/src/**/*.test.ts',
+      'src/main/adapters/*.vitest.ts',
+      'src/main/ai/*.vitest.ts',
+    ],
     environment: 'node',
     clearMocks: true,
     restoreMocks: true,
