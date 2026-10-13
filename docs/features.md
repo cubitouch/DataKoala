@@ -1,6 +1,6 @@
 # DataKoala features
 
-DataKoala is a local-first desktop application for querying and exploring relational data and observability sources. This is a **high-level product overview**; the [datasource feature inventory](architecture/datasource-feature-inventory.md) records per-source support, implementation entry points, intended UX ownership, and verification gaps.
+DataKoala is a local-first desktop application for querying and exploring relational data and observability sources. This is a **high-level product overview**; the [datasource feature inventory](datasource-feature-inventory.md) records per-source support, implementation entry points, intended UX ownership, and verification gaps.
 
 > This page describes user-visible workflows as documented in the repository, not a complete end-to-end manual test of every datasource. Availability depends on connection configuration, backend capabilities, and result shape.
 
@@ -60,6 +60,6 @@ Query lifecycle and connection lifecycle behaviors are documented in [the query 
 
 ## What should be shared?
 
-Shared UX should cover tab identity, query progress, error states, common toolbar affordances, table/chart interactions, and persistence contracts where semantics match. Keep SQL dialects, observability query languages, log patterns, trace visualization, metrics controls, and provider-specific capabilities distinct. The [feature inventory](architecture/datasource-feature-inventory.md) is the detailed working matrix, not this overview.
+Shared UX should cover tab identity, query progress, error states, common toolbar affordances, table/chart interactions, and persistence contracts where semantics match. Keep SQL dialects, observability query languages, log patterns, trace visualization, metrics controls, and provider-specific capabilities distinct. The [feature inventory](datasource-feature-inventory.md) is the detailed working matrix, not this overview.
 
 See the [documentation index](README.md) for release instructions, architectural studies and ongoing engineering guidance.

@@ -181,7 +181,7 @@ pnpm dev
 
 **Release status:** `v0.2.0` is the first published stable source release; the older `v0.1.0` Release remains a draft. If GitHub cannot verify a published stable release, `pnpm install:stable` fails safely instead of selecting an unapproved commit.
 
-Maintainers: see the [source release process](docs/releases.md). Tags only trigger read-only version validation; the existing macOS packaging workflow is optional and manual-only.
+Maintainers: see the [source release process](docs/engineering/releases.md). Tags only trigger read-only version validation; the existing macOS packaging workflow is optional and manual-only.
 
 ## Development
 

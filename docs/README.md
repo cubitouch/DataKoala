@@ -7,10 +7,10 @@ This directory contains product, architecture, engineering, and release document
 | Document | Purpose |
 | --- | --- |
 | [Feature overview](features.md) | Concise description of the currently available workflows; consult the inventory for detail |
-| [Datasource feature inventory](architecture/datasource-feature-inventory.md) | Source-guided feature matrix, implementation entry points, UX ownership decisions, and verification gaps |
-| [Releases](releases.md) | Source releases, tagging, installation, and upgrade process |
-| [Visual documentation](visual-documentation.md) | Screenshots, visual previews, and site-publishing workflow |
-| [Styling](styling.md) | CSS ownership and component-scoping conventions |
+| [Datasource feature inventory](datasource-feature-inventory.md) | Source-guided feature matrix, implementation entry points, UX ownership decisions, and verification gaps |
+| [Releases](engineering/releases.md) | Source releases, tagging, installation, and upgrade process |
+| [Visual documentation](engineering/visual-documentation.md) | Screenshots, visual previews, and site-publishing workflow |
+| [Styling](engineering/styling.md) | CSS ownership and component-scoping conventions |
 | [Code duplication](engineering/code-duplication.md) | jscpd baseline and interpretation |
 
 ## Historical investigations (`history/`)
