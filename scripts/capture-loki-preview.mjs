@@ -236,7 +236,7 @@ app.whenReady().then(async () => {
     await assertPreviewReady(win, 'loki-log-patterns.png')
     await writeFile(patternsPath, (await win.webContents.capturePage()).toPNG())
     await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Line')?.click()`,
+      `[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Bar')?.click()`,
     )
     for (let attempt = 0; attempt < 80 && !trendFinished; attempt += 1)
       await sleep(100)
@@ -247,6 +247,11 @@ app.whenReady().then(async () => {
       'rendered Loki trend',
     )
     await assertVisibleSeriesField(win)
+    await waitFor(
+      win,
+      `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Bar'`,
+      'Loki grouped-volume bar chart',
+    )
     await sleep(400)
     const chartPath = resolve(outputDir, 'loki-log-chart.png')
     await assertPreviewReady(win, 'loki-log-chart.png')

@@ -1551,6 +1551,20 @@ app.whenReady().then(async () => {
       await assertDocumentationSourceTree(win, 'builder')
       await assertDocumentationChart(win, 'docs-overview.png')
       await capture(win, 'docs-overview.png')
+      // A single series is a clearer beginning than the five-series hero.
+      await win.webContents.executeJavaScript(`(() => {
+        const store = window.__datakoalaStore
+        const current = store.getState()
+        const tab = current.tabs.find((item) => item.id === current.activeTabId)
+        const rows = tab.result.rows.filter((row) => row.series === 'France')
+        store.getState().setResult({ ...tab.result, rows, rowCount: rows.length }, null)
+      })()`)
+      await waitForRendererState(win,
+        `document.querySelectorAll('[data-result-chart-canvas] canvas').length === 1 && new Set(window.__datakoalaStore.getState().tabs.find((tab) => tab.id === window.__datakoalaStore.getState().activeTabId).result.rows.map((row) => row.series)).size === 1`,
+        'single-series Builder capture')
+      await sleep(400)
+      await capture(win, 'docs-builder-start.png')
+      await seedDocumentationData(win)
 
       await configureDocumentationSql(win, 'sql', 'table')
       await expandDocumentationRelation(win)
@@ -1565,6 +1579,13 @@ app.whenReady().then(async () => {
       )
       await assertDocumentationSourceTree(win, 'sql')
       await capture(win, 'docs-sql.png')
+      await configureDocumentationSql(win, 'sql', 'area')
+      await win.webContents.executeJavaScript(`window.__datakoalaStore.getState().setVisualization('sql', { view: 'area', xColumn: 'time_bucket', valueColumn: 'count', seriesColumn: 'series', aggregation: 'sum' })`)
+      await waitForRendererState(win,
+        `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Area' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`,
+        'SQL area chart')
+      await sleep(600)
+      await capture(win, 'docs-sql-area.png')
 
       await configureDocumentationSql(win, 'builder', 'bar')
       await expandDocumentationRelation(win)
@@ -1588,6 +1609,12 @@ app.whenReady().then(async () => {
 
       await configureDocumentationSunburst(win)
       await capture(win, 'docs-visualization.png')
+      // Favor chart space in the raw-SQL story while keeping the editor visible.
+      await dragDivider(win, '.editor-resizer', 0, -135)
+      await waitForRendererState(win,
+        `Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`,
+        'expanded SQL Sunburst chart')
+      await capture(win, 'docs-sql-sunburst.png')
 
       await win.webContents.executeJavaScript(
         `window.__datakoalaStore.setState({ profiles: ${JSON.stringify(syntheticSources)} })`,

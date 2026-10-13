@@ -1,6 +1,9 @@
 /** Public, deterministic artifacts produced by the real-renderer capture harness. */
 export const documentationScreenshots = [
   'docs-overview.png',
+  'docs-builder-start.png',
+  'docs-sql-area.png',
+  'docs-sql-sunburst.png',
   'docs-sql.png',
   'docs-builder.png',
   'docs-prometheus.png',
