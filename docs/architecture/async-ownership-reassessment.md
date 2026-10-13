@@ -166,6 +166,30 @@ Test detail replacement ordering, reset/search/preset, same-tab removal/remount,
 rebind-away/back and generation change; ensure discarded completion cannot leave
 visible detail loading stuck. Keep details transient and outside primary slots.
 
+### D3 correction — Phase 3C
+
+The targeted correction advances the local detail revision on `resetTrace()` and
+mounted-effect cleanup. A mounted-lifetime guard rejects retained `openTrace`
+actions before validation, callbacks or backend dispatch and gates completion.
+The captured session `queryContextId` additionally rejects replacement/rebind
+away and back even when tab, profile and generation match again. Existing
+profile/generation and active-tab guards remain in place. Reset clears local
+loading/spans immediately; obsolete `finally` cannot clear replacement loading.
+Render timing is abandoned with its owner, and status notification rechecks
+ownership after the opened callback.
+
+The three D3 expected failures are now ordinary passing regressions. Deferred
+fixtures additionally cover reset/replacement success and failure while newer
+loading is active, explicit recovery, same-tab unmount/remount, retained valid
+and invalid actions after removal, profile/generation/context replacement and
+rebind away/back. Both original out-of-order cases remain unchanged.
+`TraceExplorer` already resets details on new search, preset/transient reset and
+workspace context change; no caller migration is required. Primary searches,
+results/persistence, sampling, cohort/map analysis, span filters, waterfall,
+IPC and error wording are unchanged. This is logical invalidation only: issued
+backend requests continue. D1/D2 remain separate unresolved metadata fixes.
+Manual release acceptance remains pending under #382 RC-16.
+
 ## Duplication versus justified differences
 
 | Candidate                                        | Actual callers / duplication                                                                                                                             | Decision and complexity/dependency impact                                                                                                                                                                                                                                                                        |

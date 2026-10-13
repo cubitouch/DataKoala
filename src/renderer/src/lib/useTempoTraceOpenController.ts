@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { QueryResult } from '@shared/types'
 import { api } from './api'
 import { isTabConnectionCurrent } from './tabConnection'
-import { useStore } from '@store/useStore'
+import { selectSession, useStore } from '@store/useStore'
 import { tempoTraceLookupRequest } from './traceCohort'
 import {
   canonicalTraceId,
@@ -47,11 +47,22 @@ export function useTempoTraceOpenController({
     spanCount: number
   } | null>(null)
   const requestRevision = useRef(0)
+  const mounted = useRef(false)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      requestRevision.current += 1
+      traceRenderTiming.current = null
+    }
+  }, [])
 
   useEffect(() => {
     const timing = traceRenderTiming.current
     if (!timing || spans.length !== timing.spanCount) return
     const frame = requestAnimationFrame(() => {
+      if (!mounted.current || traceRenderTiming.current !== timing) return
       tempoPerf('trace.rendered', {
         requestId: timing.requestId,
         elapsedMs: performance.now() - timing.started,
@@ -64,6 +75,8 @@ export function useTempoTraceOpenController({
   }, [spans])
 
   const resetTrace = useCallback(() => {
+    requestRevision.current += 1
+    if (!mounted.current) return
     setSpans([])
     setTraceLoading(false)
     traceRenderTiming.current = null
@@ -71,6 +84,7 @@ export function useTempoTraceOpenController({
 
   const openTrace = useCallback(
     async ({ candidate, searchRows }: OpenTraceRequest) => {
+      if (!mounted.current) return
       const request = canonicalTraceId(candidate)
       if (!request) {
         onError(
@@ -82,6 +96,10 @@ export function useTempoTraceOpenController({
       onOpenStart?.(request)
       setTraceLoading(true)
       const tabId = useStore.getState().activeTabId
+      const queryContextId = selectSession(
+        useStore.getState(),
+        tabId,
+      )?.queryContextId
       const requestGeneration =
         useStore.getState().connectionStateByProfileId[connectionId]?.generation
       if (
@@ -93,7 +111,10 @@ export function useTempoTraceOpenController({
       }
       const revision = ++requestRevision.current
       const isCurrentRequest = () =>
+        mounted.current &&
         revision === requestRevision.current &&
+        selectSession(useStore.getState(), tabId)?.queryContextId ===
+          queryContextId &&
         isTabConnectionCurrent(tabId, connectionId, requestGeneration)
       const isVisibleRequest = () =>
         isCurrentRequest() && useStore.getState().activeTabId === tabId
@@ -131,7 +152,8 @@ export function useTempoTraceOpenController({
         setSpans(result.rows)
         onTraceOpened?.()
         const status = openedTraceStatus(result.rows)
-        if (status !== 'unknown') onTraceStatusResolved?.(request, status)
+        if (isVisibleRequest() && status !== 'unknown')
+          onTraceStatusResolved?.(request, status)
       } catch (reason) {
         if (isVisibleRequest())
           onError(reason instanceof Error ? reason.message : String(reason))

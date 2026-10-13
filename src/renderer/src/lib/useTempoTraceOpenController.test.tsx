@@ -8,6 +8,7 @@ const { run, api } = vi.hoisted(() => {
 })
 vi.mock('./api', () => ({ api }))
 
+import { bindTabConnection } from './tabConnection'
 import { tempoTraceLookupRequest } from './traceCohort'
 import { useTempoTraceOpenController } from './useTempoTraceOpenController'
 import { useStore } from '@store/useStore'
@@ -266,7 +267,7 @@ describe('useTempoTraceOpenController', () => {
   )
 
   // #365 Phase 3A: local detail work must end at reset/unmount, not just tab change.
-  it.fails.each(['success', 'failure'] as const)(
+  it.each(['success', 'failure'] as const)(
     'ignores detail %s after reset without a replacement request',
     async (outcome) => {
       const pending = deferred<ReturnType<typeof spanResult>>()
@@ -301,9 +302,151 @@ describe('useTempoTraceOpenController', () => {
     },
   )
 
-  it.fails(
-    'ignores detail callbacks after unmount while its originating tab remains active',
-    async () => {
+  it('ignores detail callbacks after unmount while its originating tab remains active', async () => {
+    const pending = deferred<ReturnType<typeof spanResult>>()
+    run.mockReturnValueOnce(pending.promise)
+    const onError = vi.fn(),
+      onTraceOpened = vi.fn()
+    const hook = renderHook(() =>
+      useTempoTraceOpenController({
+        connectionId: 'tempo-1',
+        onError,
+        onTraceOpened,
+      }),
+    )
+    let work!: Promise<void>
+    act(() => {
+      work = hook.result.current.openTrace({
+        candidate: 'ab',
+        searchRows: [],
+      })
+    })
+    hook.unmount()
+    await act(async () => {
+      pending.resolve(spanResult([{ spanId: 'obsolete' }]))
+      await work
+    })
+    expect(onTraceOpened).not.toHaveBeenCalled()
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  it.each(['success', 'failure'] as const)(
+    'reset permits a new open while obsolete %s cannot clear its loading',
+    async (outcome) => {
+      const old = deferred<ReturnType<typeof spanResult>>()
+      const next = deferred<ReturnType<typeof spanResult>>()
+      run.mockReturnValueOnce(old.promise).mockReturnValueOnce(next.promise)
+      const onError = vi.fn(),
+        onTraceOpened = vi.fn(),
+        onTraceStatusResolved = vi.fn()
+      const hook = renderHook(() =>
+        useTempoTraceOpenController({
+          connectionId: 'tempo-1',
+          onError,
+          onTraceOpened,
+          onTraceStatusResolved,
+        }),
+      )
+      let oldWork!: Promise<void>, nextWork!: Promise<void>
+      act(() => {
+        oldWork = hook.result.current.openTrace({
+          candidate: 'ab',
+          searchRows: [],
+        })
+      })
+      act(() => hook.result.current.resetTrace())
+      expect(hook.result.current.traceLoading).toBe(false)
+      act(() => {
+        nextWork = hook.result.current.openTrace({
+          candidate: 'cd',
+          searchRows: [],
+        })
+      })
+      await act(async () => {
+        if (outcome === 'success')
+          old.resolve(spanResult([{ spanId: 'old', status: 'error' }]))
+        else old.reject(new Error('obsolete failure'))
+        await oldWork
+      })
+      expect(hook.result.current.traceLoading).toBe(true)
+      expect(hook.result.current.spans).toEqual([])
+      expect(onError).not.toHaveBeenCalled()
+      expect(onTraceOpened).not.toHaveBeenCalled()
+      expect(onTraceStatusResolved).not.toHaveBeenCalled()
+      await act(async () => {
+        next.resolve(spanResult([{ spanId: 'new', status: 'ok' }]))
+        await nextWork
+      })
+      expect(hook.result.current.traceLoading).toBe(false)
+      expect(hook.result.current.spans).toEqual([
+        { spanId: 'new', status: 'ok' },
+      ])
+      expect(onTraceOpened).toHaveBeenCalledTimes(1)
+      expect(onTraceStatusResolved).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it.each(['success', 'failure'] as const)(
+    'same-tab remount owns fresh work independently of removed controller %s',
+    async (outcome) => {
+      const old = deferred<ReturnType<typeof spanResult>>()
+      const next = deferred<ReturnType<typeof spanResult>>()
+      run.mockReturnValueOnce(old.promise).mockReturnValueOnce(next.promise)
+      const onError = vi.fn(),
+        onTraceOpened = vi.fn(),
+        onOpenStart = vi.fn(),
+        onTraceStatusResolved = vi.fn()
+      const options = {
+        connectionId: 'tempo-1',
+        onError,
+        onTraceOpened,
+        onOpenStart,
+        onTraceStatusResolved,
+      }
+      const hook = renderHook(() => useTempoTraceOpenController(options))
+      const retained = hook.result.current.openTrace
+      let oldWork!: Promise<void>, nextWork!: Promise<void>
+      act(() => {
+        oldWork = retained({ candidate: 'ab', searchRows: [] })
+      })
+      hook.unmount()
+      onOpenStart.mockClear()
+      await retained({ candidate: 'cd', searchRows: [] })
+      await retained({ candidate: 'invalid', searchRows: [] })
+      expect(run).toHaveBeenCalledTimes(1)
+      expect(onOpenStart).not.toHaveBeenCalled()
+      expect(onError).not.toHaveBeenCalled()
+      const remount = renderHook(() => useTempoTraceOpenController(options))
+      act(() => {
+        nextWork = remount.result.current.openTrace({
+          candidate: 'cd',
+          searchRows: [],
+        })
+      })
+      await act(async () => {
+        if (outcome === 'success')
+          old.resolve(spanResult([{ spanId: 'old', status: 'error' }]))
+        else old.reject(new Error('removed controller'))
+        await oldWork
+      })
+      expect(remount.result.current.traceLoading).toBe(true)
+      expect(remount.result.current.spans).toEqual([])
+      expect(onError).not.toHaveBeenCalled()
+      expect(onTraceOpened).not.toHaveBeenCalled()
+      expect(onTraceStatusResolved).not.toHaveBeenCalled()
+      await act(async () => {
+        next.resolve(spanResult([{ spanId: 'new' }]))
+        await nextWork
+      })
+      expect(remount.result.current.traceLoading).toBe(false)
+      expect(remount.result.current.spans).toEqual([{ spanId: 'new' }])
+      expect(onTraceOpened).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it.each(['profile', 'generation', 'context', 'rebind-away/back'] as const)(
+    'rejects pending details after %s replacement and allows explicit recovery',
+    async (replacement) => {
       const pending = deferred<ReturnType<typeof spanResult>>()
       run.mockReturnValueOnce(pending.promise)
       const onError = vi.fn(),
@@ -322,13 +465,56 @@ describe('useTempoTraceOpenController', () => {
           searchRows: [],
         })
       })
-      hook.unmount()
+      act(() => {
+        useStore.setState((state) => ({
+          tabs: state.tabs.map((tab) => ({
+            ...tab,
+            ...(replacement === 'profile'
+              ? { connectionProfileId: 'tempo-2' }
+              : {}),
+            ...(replacement === 'context'
+              ? { queryContextId: 'replacement' }
+              : {}),
+          })),
+          connectionStateByProfileId: {
+            ...state.connectionStateByProfileId,
+            'tempo-1': {
+              ...state.connectionStateByProfileId['tempo-1'],
+              generation: replacement === 'generation' ? 2 : 1,
+            },
+          },
+        }))
+      })
+      if (replacement === 'rebind-away/back') {
+        act(() => {
+          const tabId = useStore.getState().activeTabId
+          bindTabConnection(tabId, 'tempo-2')
+          bindTabConnection(tabId, 'tempo-1')
+        })
+      }
       await act(async () => {
-        pending.resolve(spanResult([{ spanId: 'obsolete' }]))
+        pending.resolve(spanResult([{ spanId: 'old' }]))
         await work
       })
       expect(onTraceOpened).not.toHaveBeenCalled()
       expect(onError).not.toHaveBeenCalled()
+      expect(hook.result.current.spans).toEqual([])
+      act(() => hook.result.current.resetTrace())
+      expect(hook.result.current.traceLoading).toBe(false)
+      act(() =>
+        useStore.setState((state) => ({
+          tabs: state.tabs.map((tab) => ({
+            ...tab,
+            connectionProfileId: 'tempo-1',
+          })),
+        })),
+      )
+      run.mockResolvedValueOnce(spanResult([{ spanId: 'recovered' }]))
+      await act(() =>
+        hook.result.current.openTrace({ candidate: 'cd', searchRows: [] }),
+      )
+      expect(hook.result.current.spans).toEqual([{ spanId: 'recovered' }])
+      expect(onTraceOpened).toHaveBeenCalledTimes(1)
     },
   )
 
