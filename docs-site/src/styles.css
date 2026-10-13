@@ -1110,3 +1110,42 @@ footer p {
  .sharing { padding-top: 90px; }
  .feature-chart .shot img { min-height: 0; }
 }
+
+/* Desktop editorial overlap: the center screenshot leads without covering copy. */
+@media (width >= 981px) {
+  .journey-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.13fr) minmax(0, 1fr);
+    gap: 0;
+    align-items: stretch;
+    padding-block: 24px;
+  }
+  .journey-card { position: relative; margin-block: 18px; }
+  .journey-card:first-child { border-radius: 20px 0 0 20px; }
+  .journey-card:last-child { border-radius: 0 20px 20px 0; }
+  .journey-card:nth-child(2) {
+    z-index: 2;
+    margin: 0 -10px;
+    border-radius: 20px;
+    border-color: #464d58;
+    box-shadow: 0 25px 80px rgb(0 0 0 / 52%);
+  }
+}
+.journey-media { width: calc(100% - 20px); }
+.journey-media img { width: 100%; max-width: 100%; }
+.journey-card:nth-child(2) .journey-media { margin-bottom: 14px; }
+.sharing-grid { gap: 1px; overflow: hidden; border: 1px solid var(--border); border-radius: 22px; background: var(--border); }
+.sharing-grid article { position: relative; min-height: 290px; border: 0; border-radius: 0; padding: 32px; background: #101217; }
+.sharing-grid article:hover { background: #13161b; }
+.share-icon { display: inline-flex; width: 42px; height: 42px; align-items: center; justify-content: center; margin-bottom: 26px; border: 1px solid #474232; border-radius: 10px; color: var(--accent); }
+.share-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.sharing-grid .principle-number { position: absolute; top: 42px; right: 32px; margin: 0; }
+@media (width <= 980px) {
+  .journey-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .journey-card:nth-child(2) { z-index: 1; }
+  .journey-media { width: calc(100% - 12px); }
+}
+@media (width <= 720px) {
+  .journey-grid, .sharing-grid { grid-template-columns: 1fr; }
+  .journey-media { width: calc(100% - 12px); }
+  .sharing-grid article { min-height: 0; }
+}
