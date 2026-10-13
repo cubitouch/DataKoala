@@ -1580,11 +1580,17 @@ app.whenReady().then(async () => {
       await assertDocumentationSourceTree(win, 'sql')
       await capture(win, 'docs-sql.png')
       await configureDocumentationSql(win, 'builder', 'area')
+      await win.webContents.executeJavaScript(`(() => {
+        const store = window.__datakoalaStore
+        const state = store.getState()
+        store.setState({ tabs: state.tabs.map((tab) => tab.id === state.activeTabId ? { ...tab, builder: { ...tab.builder, timeRange: { kind: 'all' } } } : tab) })
+      })()`)
       await finalizeDocumentationBuilder(win, 'area')
       await assertDocumentationSourceTree(win, 'builder')
       await waitForRendererState(win,
         `document.querySelector('[role="toolbar"][aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Area' && Boolean(document.querySelector('[data-result-chart-canvas] canvas'))`,
         'Builder area chart')
+      await waitForRendererState(win, `document.querySelector('.builder-pane')?.innerText.includes('All time')`, 'All time Builder range')
       await sleep(600)
       await assertDocumentationSourceTree(win, 'builder')
       await assertPreviewReady(win, 'docs-sql-area.png')
