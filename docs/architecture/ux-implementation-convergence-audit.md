@@ -90,7 +90,7 @@ alone does not verify the user interactions above or live datasource behavior.
 UX and implementation are independent columns. “Same” is the intended/source-visible
 interaction, not a claim of identical pixels. Each row is one distinct contract;
 IDs are audit-local, not replacements for inventory IDs. The next section supplies
-all 31 original Hybrid decisions.
+all 32 baseline Hybrid decisions.
 
 | ID / interaction contract / surfaces / inventory                                                                                             | UX parity                                                                                                                                               | Implementation parity / concrete ownership and evidence                                                                                                                                                                                                                                 | Decision / benefit                                                                                             | Risk / priority and confidence / acceptance                                                                                                                                                                                                                               |
 | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -116,7 +116,12 @@ all 31 original Hybrid decisions.
 | UX-20 Diagram image/Excalidraw vs chart PNG vs native export; PG plans/TP map/charts; X12/R21                                                | Same verbs, **intentional** graph vs bitmap payload                                                                                                     | TraceServiceMap owns PNG/Excalidraw via traceServiceMapExport; ExplainPane copies text/JSON via clipboardText, while ExecutionPlanGraph has no image/Excalidraw action; charts use useChartExport/chartImage/clipboardImage. Trace map and plan tests; native output unverified         | Keep engines/projections; don't generalize all exports                                                         | Medium risk; unchanged, high confidence. Graph payload fidelity, failure/retry, native paste and Save verified at RC                                                                                                                                                      |
 | UX-21 gcx connection selection/context and Grafana override; OBS3; P01/L01/T01                                                               | Partly divergent; **intentional** LK manual UID fallback and TP UID optional for query                                                                  | Three custom forms share inputs/header/CSS/URL normalizer, but separate discover/validate/test/save. PM only saved context, no editable context input; LK/TP context edits/revision/active guard. Connection tests; jscpd finds repeated override/message/action shell                  | Share small Grafana fields eventually; verify PM product contract before aligning context/UID policy           | Medium credentials/discovery risk; defer, high confidence structure, medium intent. Hidden visited wizard, stale discovery, save validation and each UID exception                                                                                                        |
 
-## All 31 original Hybrid entries reconciled
+## All 32 baseline Hybrid entries reconciled
+
+The instructions and #391 refer to 31 Hybrid entries, but counting exact Hybrid
+rows at the recorded baseline yields **32 unique IDs**. Every one appears below;
+none was omitted to match the stated count. This is a taxonomy-count correction,
+not an additional feature or a renamed ID.
 
 These rows preserve original IDs even when implementation is converged. Hybrid
 is an interaction/domain classification, not a duplication count. Full paths are
@@ -159,7 +164,7 @@ provided above; `src/shared/` and `src/main/` are explicit when relevant.
 
 X12 was overly broad: Excalidraw/image diagram copying exists for Tempo Service Map;
 PG plan copy is text/JSON, not equivalent graph export. Availability differs
-intentionally and the inventory now says so. Original 31 Hybrid IDs are unique. Navigation aliases are deliberate overlaps:
+intentionally and the inventory now says so. Original 32 Hybrid IDs are unique. Navigation aliases are deliberate overlaps:
 S18/R20, S25/X04, T17/R10, S06/X06, S20/R05/X07, R21/X08, R22/X05,
 P17/L26/T24/X09 and A19's source-specific persistence scenarios. Do not count
 these as separate implementations or opportunities. There is no need to renumber
@@ -176,7 +181,7 @@ fields/search/detail/service map. Their domain models remain intentional; reuse
 exists in inputs, selectors, generated query, search and feedback where listed.
 
 Missing inventory patterns are recorded as N01–N07 rather than pretending the
-31 Hybrid rows exhaust scope: async raw formatting ownership, equivalent modal
+32 Hybrid rows exhaust scope: async raw formatting ownership, equivalent modal
 focus/layering, selector keyboard policy, pointer resize mechanics, AI composer
 shell, loaded-record copy recovery and result view switch chrome. Existing X10/L18
 mention payload copying but omit recovery ownership; this is a newly discovered
