@@ -771,9 +771,10 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await observe('cap10-editor-bigquery-desktop.png', editorSelector, 'Populated BigQuery CodeMirror editor using GoogleSQL identifier quoting')
       observations.push({ family: 'cap10', viewport, scenario: 'completion-source', fixtureSchemas: ['public', 'analytics', 'example-project.analytics', 'example-project.reporting'], focusedTests: ['sqlAutocomplete.test.tsx: completion schema retains relations but delegates all columns to contextual completion', 'sqlAutocomplete.test.tsx: BigQuery project.dataset namespaces are nested without merging duplicate tables', 'sqlAutocomplete.test.tsx: GoogleSQL built-in schema completion never applies ANSI double quotes', 'sqlAutocomplete.test.tsx: contextual completion is the single typed column provider'], rendererPopup: 'unverified: prior attempt at sourceHead 66fb59bd did not open the CodeMirror popup with native Electron Ctrl+Space; no visual claim' })
 
+      const originalPostgres = 'SELECT category, value FROM public.events WHERE value > 2'
+      await configureEditor('postgres', originalPostgres, pgSchemas)
       const beforeFormat = queryCalls
       await clickText('Format', '[data-query-toolbar]')
-      const originalPostgres = 'SELECT category, value FROM public.events WHERE value > 2'
       await waitFor(win, 'window.__datakoalaStore.getState().tabs[0].sql !== ' + rendererValue(originalPostgres), 'CAP-10 PostgreSQL local formatting')
       const formattedPostgres = await evaluate('window.__datakoalaStore.getState().tabs[0].sql')
       if (!formattedPostgres.includes('\\n') || !formattedPostgres.includes('FROM public.events') || !formattedPostgres.includes('WHERE value > 2')) throw Error('CAP-10 Format output did not preserve expected SQL structure: ' + JSON.stringify(formattedPostgres))
