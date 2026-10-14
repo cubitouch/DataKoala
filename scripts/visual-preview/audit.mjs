@@ -146,6 +146,10 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     observations.push(observation)
     await writeFile(resolve(outputDir, 'measurements.json'), JSON.stringify({ observations }, null, 2))
     await capture(win, filename)
+    if (filename === 'cap09-resized-workspace-desktop.png') {
+      const png = await win.webContents.capturePage()
+      console.log(`CAP09_PNG_BASE64 ${png.toPNG().toString('base64')}`)
+    }
     if (group) {
       const r = observation.target
       const clip = { x: Math.max(0, Math.floor(r.x)), y: Math.max(0, Math.floor(r.y + (group === 'feedback' ? 260 : 0))), width: Math.min(Math.floor(r.width), win.getContentSize()[0]-Math.max(0,Math.floor(r.x))), height: Math.min(group === 'dialogs' ? 240 : group === 'feedback' ? 220 : 150, Math.ceil(r.height), win.getContentSize()[1]-Math.max(0,Math.floor(r.y))) }
@@ -870,5 +874,6 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const actual=(await readdir(outputDir)).filter(name=>name.endsWith('.png')).sort()
   const expected=[...auditScreenshots,...auditComparisonFiles].sort()
   if(JSON.stringify(actual)!==JSON.stringify(expected)) throw Error('Audit screenshot manifest mismatch')
+  console.log(`CAP09_MEASUREMENTS ${JSON.stringify(observations.filter(o=>o.family==='notification-feedback'||o.family==='workspace-splitter'))}`)
   console.log(`AUDIT_OK ${actual.length} images; ${observations.length} measured states/interactions`)
 }
