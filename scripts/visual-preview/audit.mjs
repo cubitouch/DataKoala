@@ -50,7 +50,7 @@ export function installAuditIpc(ipc) {
   handle('connections:bigquery:discover-defaults', () => ({ projectId: 'example-project', billingProject: 'example-project', location: 'EU' }))
   handle('connections:bigquery:list-datasets', () => [{ datasetId: 'example', projectId: 'example-project' }])
   handle('connection:describe-table', () => auditSqlResult.columns)
-  handle('connection:list-objects', () => { if (cap05Ipc.active) { cap05Ipc.listCalls++; return auditSchemas } return [] })
+  handle('connection:list-objects', () => { if (cap05Ipc.active) { cap05Ipc.listCalls++; return auditSchemas.flatMap(schema => schema.relations.filter(relation => relation.kind === 'r').map(relation => ({ ...relation, schema: schema.name }))) } return [] })
   handle('connection:test', (_event, profile) => {
     if (cap02Ipc.active) cap02Ipc.tests.push({id:profile.id,host:profile.host,readonly:profile.readonly})
     if (cap04Ipc.mode) cap04Ipc.tests.push({kind:profile.kind,transport:profile.transport,grafana:profile.grafana??null})
