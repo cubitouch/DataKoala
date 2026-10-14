@@ -57,8 +57,8 @@ export function installAuditIpc(ipc) {
     cap02Ipc.saves.push({id:profile.id,host:profile.host,readonly:profile.readonly})
     return { ...profile, password: '' }
   })
-  handle('connections:choose-files', () => { cap03Ipc.chooseFiles++; return ['/samples/Region.csv','/samples/region.CSV','/samples/details.parquet','/samples/Region.csv'] })
-  handle('connections:choose-sqlite-file', () => { cap03Ipc.chooseSqlite++; return '/samples/example.sqlite3' })
+  handle('connection:choose-files', () => { cap03Ipc.chooseFiles++; return ['/samples/Region.csv','/samples/region.CSV','/samples/details.parquet','/samples/Region.csv'] })
+  handle('connection:choose-sqlite-file', () => { cap03Ipc.chooseSqlite++; return '/samples/example.sqlite3' })
   handle('connections:remove', (_event, id) => {
     if (!cap02Ipc.active) throw Error('Unexpected profile removal outside CAP-02')
     cap02Ipc.removes.push(id)
