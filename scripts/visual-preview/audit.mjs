@@ -815,7 +815,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       cap10Ipc.active = true
       const beforeRun = queryCalls
       await clickText('Run', '[data-query-toolbar]')
-      await waitFor(win, 'queryCalls === ' + (beforeRun + 1) + ' && !window.__datakoalaStore.getState().tabs[0].running', 'CAP-10 single mocked Run dispatch')
+      await waitFor(win, '!window.__datakoalaStore.getState().tabs[0].running && window.__datakoalaStore.getState().tabs[0].result?.rows?.length === 3', 'CAP-10 single mocked Run dispatch')
       if (queryCalls !== beforeRun + 1 || cap10Ipc.calls.length !== 1 || cap10Ipc.calls[0].id !== auditProfiles.postgres.id || cap10Ipc.calls[0].sql !== runSql) throw Error('CAP-10 Run did not send exactly one current PG query: ' + JSON.stringify(cap10Ipc.calls))
       cap10Ipc.active = false
       const afterRun = queryCalls
