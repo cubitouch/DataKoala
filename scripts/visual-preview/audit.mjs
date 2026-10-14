@@ -9,6 +9,8 @@ import {
   auditTraceResult, auditViewports,
 } from './audit-fixtures.mjs'
 
+// Audit-only, sanitized observations. All CAP-02 mutations remain in the synthetic IPC boundary.
+const cap02Ipc = { active: false, tests: [], saves: [], removes: [] }
 let queryOutcome = 'success'
 let releaseQuery = null
 let queryCalls = 0
@@ -43,7 +45,20 @@ export function installAuditIpc(ipc) {
   handle('connections:bigquery:list-datasets', () => [{ datasetId: 'example', projectId: 'example-project' }])
   handle('connection:describe-table', () => auditSqlResult.columns)
   handle('connection:list-objects', () => [])
-  handle('connection:test', () => ({ ok: true, serverVersion: '17' }))
+  handle('connection:test', (_event, profile) => {
+    if (cap02Ipc.active) cap02Ipc.tests.push({id:profile.id,host:profile.host,readonly:profile.readonly})
+    return { ok: true, serverVersion: '17' }
+  })
+  handle('connections:upsert', (_event, profile) => {
+    if (!cap02Ipc.active) throw Error('Unexpected profile save outside CAP-02')
+    cap02Ipc.saves.push({id:profile.id,host:profile.host,readonly:profile.readonly})
+    return { ...profile, password: '' }
+  })
+  handle('connections:remove', (_event, id) => {
+    if (!cap02Ipc.active) throw Error('Unexpected profile removal outside CAP-02')
+    cap02Ipc.removes.push(id)
+    return true
+  })
   handle('ai:models', () => ({ ok: true, value: [{ id: 'example-model', name: 'Example model' }] }))
   handle('ai:cancel', () => ({ ok: true, value: null }))
 }
@@ -348,6 +363,97 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await settle()
       await observe('cap01-pg-tls-desktop.png','[role="dialog"]','Verify server identity selected; optional CA field and preview')
       observations.push({family:'cap01',viewport,scenario:'verify-full',tlsMode:'verify-full',caFieldVisible:true,rawCertificateStored:false})
+    }
+    if (viewport === 'desktop') {
+      // CAP-02 uses a saved synthetic profile but performs actual sidebar/form events.
+      // Never use a real password, persistent connection or database.
+      const profile = {
+        ...auditProfiles.postgres,
+        id: 'audit-postgres',
+        name: 'Example PG audit profile',
+        host: 'pg-audit.example',
+        port: 5432,
+        database: 'audit_db',
+        user: 'audit_reader',
+        password: '',
+        hasPassword: true,
+        credentialState: 'secure',
+        tlsMode: 'disable',
+        readonly: true,
+      }
+      const resetSavedProfile = async () => {
+        await seed('postgres', 'raw')
+        await evaluate(`window.__datakoalaStore.setState({profiles:[${rendererValue(profile)}]})`)
+        await waitFor(win, `document.querySelector('button[aria-label="Edit connection Example PG audit profile"]')`, 'CAP-02 saved profile sidebar')
+      }
+      cap02Ipc.active = true
+      cap02Ipc.tests.length = 0
+      cap02Ipc.saves.length = 0
+      cap02Ipc.removes.length = 0
+      await clickText('Cancel','[role="dialog"]')
+      await resetSavedProfile()
+
+      // A02: existing-profile edit, not a new-profile wizard. Password is never exposed.
+      await click('button[aria-label="Edit connection Example PG audit profile"]')
+      await waitFor(win, `document.querySelector('#postgres-connection-title')?.textContent === 'Edit PostgreSQL connection'`, 'CAP-02 edit heading')
+      await waitFor(win, `document.querySelector('#profile-name')?.value === 'Example PG audit profile' && document.querySelector('#connection-host')?.value === 'pg-audit.example' && document.querySelector('#connection-database')?.value === 'audit_db' && document.querySelector('#connection-user')?.value === 'audit_reader' && document.querySelector('#connection-port')?.value === '5432' && document.querySelector('#connection-password')?.type === 'password' && document.querySelector('#connection-password')?.value === '' && document.querySelector('#connection-password')?.placeholder.includes('Saved securely') && document.querySelector('[role="dialog"] input[type="checkbox"]')?.checked === true`, 'CAP-02 populated edit with masked saved credential')
+      await observe('cap02-pg-edit-desktop.png','[role="dialog"]','selected saved PG form with masked password and initial readonly')
+      const beforeCancelSaves = cap02Ipc.saves.length
+      await clickText('Cancel','[role="dialog"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-02 edit cancel closes')
+      if (cap02Ipc.saves.length !== beforeCancelSaves) throw Error('CAP-02 Cancel unexpectedly saved')
+      await waitFor(win, `window.__datakoalaStore.getState().profiles.some(p => p.id === 'audit-postgres' && p.host === 'pg-audit.example')`, 'CAP-02 Cancel preserves saved profile')
+      observations.push({family:'cap02',viewport,scenario:'edit-cancel',saved:false,profileId:'audit-postgres'})
+
+      // C05: actual checkbox toggle and edited Host passed to mocked Test + Save.
+      await click('button[aria-label="Edit connection Example PG audit profile"]')
+      await waitFor(win, `document.querySelector('#postgres-connection-title')?.textContent === 'Edit PostgreSQL connection'`, 'CAP-02 edit reopened')
+      await evaluate(`${select('[role="dialog"] input[type="checkbox"]')}.scrollIntoView({block:'center'})`)
+      await click('[role="dialog"] input[type="checkbox"]')
+      await waitFor(win, `document.querySelector('[role="dialog"] input[type="checkbox"]')?.checked === false`, 'CAP-02 actual unchecked read-only')
+      // Actual React change event, as for CAP-01's successful paste path.
+      await evaluate(`(() => {
+        const input=${select('#connection-host')}
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${rendererValue('pg-edited.example')})
+        input.dispatchEvent(new Event('input',{bubbles:true}))
+        input.dispatchEvent(new Event('change',{bubbles:true}))
+      })()`)
+      await waitFor(win, `document.querySelector('#connection-host')?.value === 'pg-edited.example' && document.querySelector('[role="dialog"] input[type="checkbox"]')?.checked === false`, 'CAP-02 edited host and read-only false')
+      await observe('cap02-pg-readonly-desktop.png','[role="dialog"]','actual unchecked read-only checkbox and edited host')
+      await clickText('Test','[role="dialog"]')
+      await waitFor(win, `document.body.innerText.includes('Connected — server 17')`, 'CAP-02 mocked Test success')
+      if (!cap02Ipc.tests.some(p => p.id === 'audit-postgres' && p.host === 'pg-edited.example' && p.readonly === false)) throw Error('CAP-02 Test did not preserve id/edited draft/read-only')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-02 Save closes')
+      if (!cap02Ipc.saves.some(p => p.id === 'audit-postgres' && p.host === 'pg-edited.example' && p.readonly === false)) throw Error('CAP-02 Save did not preserve id/edited draft/read-only')
+      observations.push({family:'cap02',viewport,scenario:'edit-test-save',profileId:'audit-postgres',host:'pg-edited.example',initialReadonly:true,testReadonly:false,saveReadonly:false,maskedPassword:true})
+
+      // A03: named delete confirmation, Escape focus return, Cancel preservation,
+      // and explicit controlled Delete (no real connection/persistence mutation).
+      await resetSavedProfile()
+      const deleteButton = 'button[aria-label="Delete connection Example PG audit profile"]'
+      await click(deleteButton)
+      await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent === 'Delete connection?' && document.querySelector('[role="dialog"]')?.innerText.includes('Example PG audit profile')`, 'CAP-02 named delete target')
+      await waitFor(win, `document.activeElement?.textContent?.trim() === 'Cancel'`, 'CAP-02 initial Cancel focus')
+      await observe('cap02-pg-delete-desktop.png','[role="dialog"]','named delete confirmation with focused Cancel')
+      await key('Escape')
+      await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-02 Escape dismisses delete')
+      await waitFor(win, `document.activeElement?.getAttribute('aria-label') === 'Delete connection Example PG audit profile'`, 'CAP-02 Escape restores delete origin focus')
+      if (cap02Ipc.removes.length !== 0) throw Error('CAP-02 Escape unexpectedly removed profile')
+      await click(deleteButton)
+      await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent === 'Delete connection?'`, 'CAP-02 delete reopened')
+      await clickText('Cancel','[role="dialog"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-02 Cancel dismisses delete')
+      await waitFor(win, `document.activeElement?.getAttribute('aria-label') === 'Delete connection Example PG audit profile'`, 'CAP-02 Cancel returns focus')
+      if (cap02Ipc.removes.length !== 0) throw Error('CAP-02 Cancel unexpectedly removed profile')
+      await waitFor(win, `window.__datakoalaStore.getState().profiles.some(p => p.id === 'audit-postgres')`, 'CAP-02 Cancel retains profile')
+      await click(deleteButton)
+      await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent === 'Delete connection?'`, 'CAP-02 confirm dialog reopened')
+      await clickText('Delete connection','[role="dialog"]')
+      await waitFor(win, `!window.__datakoalaStore.getState().profiles.some(p => p.id === 'audit-postgres')`, 'CAP-02 confirmed removal from renderer')
+      if (cap02Ipc.removes.length !== 1 || cap02Ipc.removes[0] !== 'audit-postgres') throw Error('CAP-02 wrong or repeated delete target')
+      observations.push({family:'cap02',viewport,scenario:'delete',profileId:'audit-postgres',cancelRemoved:false,escapeRestoredFocus:true,cancelRestoredFocus:true,confirmedRemoveCalls:1,rendererProfileRemoved:true})
+      cap02Ipc.active = false
     }
   }
   const htmlEscape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
