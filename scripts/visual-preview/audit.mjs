@@ -821,7 +821,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       const generatedSelector = '[data-generated-query-panel] [aria-label="Generated SQL query"]'
       const generatedExpression = 'document.querySelector(' + rendererValue(generatedSelector) + ')'
       await waitFor(win, generatedExpression + '?.textContent.trim().length > 0', 'CAP-10 generated SQL preview')
-      const generatedSql = await evaluate(generatedExpression + '?.innerText.trim()')
+      const generatedSql = await evaluate(generatedExpression + '?.querySelector(".cm-content")?.innerText.trim()')
       if (!generatedSql?.includes('SELECT') || !generatedSql.includes('events')) throw Error('CAP-10 generated SQL preview is incomplete: ' + String(generatedSql))
       await observe('cap10-generated-sql-desktop.png', '[data-generated-query-panel]', 'SQL Builder generated query disclosure, preview and actions')
       const beforeGeneratedActions = queryCalls
