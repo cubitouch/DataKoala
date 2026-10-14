@@ -626,7 +626,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
         input.dispatchEvent(new Event('change',{bubbles:true}))
       })()`)
       await waitFor(win, `document.querySelector(${rendererValue(filterInput)})?.value === 'events' && document.querySelector('[role="tree"]')?.innerText.includes('events')`, 'CAP-05 visible SQL filter result')
-      await observe('cap05-pg-filter-desktop.png','.sidebar','actual token search filters PG tree')
+      await observe('cap05-pg-filter-desktop.png','aside[aria-label="Connections and objects"]','actual token search filters PG tree')
       await evaluate(`(() => {
         const input=${select(filterInput)}
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'')
@@ -648,7 +648,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await clickText('Retry')
       await waitFor(win, `window.__datakoalaStore.getState().metadataByProfileId['audit-postgres']?.status === 'loaded' && document.body.innerText.includes('events')`, 'CAP-05 real retry loaded')
       if (cap05Ipc.listCalls !== initialCalls+1) throw Error('CAP-05 retry did not invoke exactly one metadata request')
-      await observe('cap05-pg-retry-desktop.png','.sidebar','actual Retry click recovered SQL schema/relations')
+      await observe('cap05-pg-retry-desktop.png','aside[aria-label="Connections and objects"]','actual Retry click recovered SQL schema/relations')
       observations.push({family:'cap05',viewport,scenario:'pg-error-retry',initialError:'injected',retryAction:'clicked',listObjectCalls:cap05Ipc.listCalls,recovered:true,profile:'audit-postgres'})
       cap05Ipc.active=false
     }
