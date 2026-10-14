@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceHead": "8cb39aa471ba75191fa4f9e4fa8f9d6055cdaaab",
+  "sourceHead": "1ca7411e446d2b00bb19ea5812c1c979a0feb7df",
   "timezone": "UTC",
   "viewports": {
     "desktop": [
@@ -69203,6 +69203,14 @@
       "synthetic": true
     },
     {
+      "family": "cap03",
+      "viewport": "desktop",
+      "scenario": "bq-test-save",
+      "billingProject": "example-project",
+      "billingCap": "1024",
+      "providerCall": "mocked"
+    },
+    {
       "filename": "cap03-local-files-alias-desktop.png",
       "state": "Local files chooser selected distinct files with collision aliases",
       "viewport": [
@@ -69892,6 +69900,17 @@
       "chooserCalls": 1
     },
     {
+      "family": "cap03",
+      "viewport": "desktop",
+      "scenario": "local-files-test-save",
+      "chooserCalls": 2,
+      "keptFiles": 2,
+      "aliasEdited": true,
+      "oneRemoved": true,
+      "readonly": true,
+      "providerCall": "mocked"
+    },
+    {
       "filename": "cap03-sqlite-selection-desktop.png",
       "state": "single SQLite selection after real chooser click",
       "viewport": [
@@ -70381,6 +70400,14 @@
       "path": "/samples/example.sqlite3",
       "readonly": true,
       "chooserCalls": 1
+    },
+    {
+      "family": "cap03",
+      "viewport": "desktop",
+      "scenario": "sqlite-test-save",
+      "path": "/samples/example.sqlite3",
+      "readonly": true,
+      "providerCall": "mocked"
     },
     {
       "filename": "postgres-raw-narrow.png",
