@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceHead": "459a6e03341ef14fc8f56f5d97576f896874e235",
+  "sourceHead": "1521a01404cd8b27bce8d99d25643f4b88c7a015",
   "timezone": "UTC",
   "viewports": {
     "desktop": [
@@ -73598,7 +73598,7 @@
       "viewport": "desktop",
       "scenario": "new-rename-background-running",
       "originalTab": "audit-tab-postgres",
-      "newTab": "5830a1b5-1357-49cb-98a8-307ed0c4459d",
+      "newTab": "4599653f-e4f2-4899-b681-0882d4f32a94",
       "newTitle": "Audit B",
       "profileId": "audit-postgres",
       "runningInjected": true,
@@ -74466,9 +74466,9 @@
         "disabled": false,
         "hover": false,
         "focusVisible": false,
-        "svg": 0
+        "svg": 7
       },
-      "bodyText": " audit\nExample postgres\n×\nUnaffected tab\nExample postgres\n×\n+\nExample postgres · PostgreSQL 17\nCONNECTIONS\nExample postgres\nPostgreSQL\n+ new connection\nSettings\nOBJECTS\nFilter database objects\n▾\nexample\n▸\nevents\ntable\nSQL\nBuilder\nPresets\nReset\nCopy\nRun\nSchema\nSchema:\nexample\nexample\nTable or view\nTable or view:\nevents\nevents\nTime column\nTime column:\nNo date/time columns\nNo date/time columns\nTime range\nNo date/time columns\nX axis\nX axis:\ncategory\ncategory\nY axis\nY axis:\ni\nvalue\nvalue\nOptional for Count\nSeries\nSeries:\nNo breakdown\nNo breakdown\nAggregation\nAggregation:\nSum\nSum\nGenerated SQL\nCopy\nOpen in SQL mode\nSelect a table and X axis, then run the query to explore the grouped result.\nLoaded preset “CAP08 Loki labels”.\nReset exploration?\n\nThis will clear the query, Builder state, and current results in “Visual audit”. Your connection and time range will be kept.\n\nCancel\nReset exploration",
+      "bodyText": "peration with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context\n⋮\n\t\n17\n⋮\n\n\nDatabase connection refused\n⋮\n\t\n3\n⋮\nLoaded preset “CAP08 Loki labels”.\nReset exploration?\n\nThis will clear the query, Builder state, and current results in “Visual audit”. Your connection and time range will be kept.\n\nCancel\nReset exploration",
       "firstRow": {
         "button": {
           "tag": "BUTTON",
@@ -75345,7 +75345,7 @@
           "endTime": "17:00",
           "recurringWindows": []
         },
-        "other": "{\"id\":\"audit-cap08-other-tab\",\"title\":\"Unaffected tab\",\"connectionProfileId\":\"audit-postgres\",\"sql\":\"select 99\",\"manualQueryPristine\":true,\"prometheusTimeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-19\",\"startTime\":\"16:00\",\"endDate\":\"2026-08-19\",\"endTime\":\"17:00\",\"recurringWindows\":[]},\"prometheusStep\":\"auto\",\"promqlBuilder\":{\"metric\":\"up\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95,\"histogramKindOverride\":\"auto\"},\"lokiTimeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-19\",\"startTime\":\"16:00\",\"endDate\":\"2026-08-19\",\"endTime\":\"17:00\",\"recurringWindows\":[]},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"example-service\"}],\"lineFilters\":[],\"parsers\":[],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[],\"lokiResultView\":\"list\",\"tempoBuilder\":{\"serviceNamespace\":\"example\",\"service\":\"example-service\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-19\",\"startTime\":\"16:00\",\"endDate\":\"2026-08-19\",\"endTime\":\"17:00\",\"recurringWindows\":[]},\"tempoSampleSize\":\"250\",\"tempoResultView\":\"list\",\"running\":false,\"queryOperation\":null,\"explainOperation\":null,\"pendingQueryOperations\":[],\"queryContextId\":\"38bfc5e5-1e03-41a7-b90e-74a7567aeb35\",\"queryError\":null,\"result\":{\"columns\":[{\"name\":\"category\",\"dataTypeID\":25,\"dataTypeName\":\"text\",\"logicalType\":\"string\"},{\"name\":\"value\",\"dataTypeID\":23,\"dataTypeName\":\"int4\",\"logicalType\":\"number\"}],\"rows\":[{\"category\":\"Request completed normally\",\"value\":42},{\"category\":\"Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context \",\"value\":17},{\"category\":\"Database connection refused\",\"value\":3}],\"rowCount\":3,\"durationMs\":7},\"pendingResult\":{\"columns\":[{\"name\":\"category\",\"dataTypeID\":25,\"dataTypeName\":\"text\",\"logicalType\":\"string\"},{\"name\":\"value\",\"dataTypeID\":23,\"dataTypeName\":\"int4\",\"logicalType\":\"number\"}],\"rows\":[{\"category\":\"Request completed normally\",\"value\":42},{\"category\":\"Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context \",\"value\":17},{\"category\":\"Database connection refused\",\"value\":3}],\"rowCount\":3,\"durationMs\":7},\"resultRevision\":1,\"lastSuccessfulResultRevision\":0,\"isResultStale\":false,\"queryMode\":\"builder\",\"builder\":{\"table\":{\"schema\":\"example\",\"name\":\"events\"},\"timeColumn\":\"event_time\",\"timeBucket\":\"day\",\"seriesColumns\":[],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-19\",\"startTime\":\"16:00\",\"endDate\":\"2026-08-19\",\"endTime\":\"17:00\",\"recurringWindows\":[]}},\"builderHasRun\":false,\"sqlVisualization\":{\"view\":\"table\",\"xColumn\":\"category\",\"valueColumn\":\"value\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[],\"hierarchyDimensions\":[],\"valueAxisScale\":\"linear\"},\"builderVisualization\":{\"view\":\"table\",\"xColumn\":\"category\",\"valueColumn\":\"value\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[],\"hierarchyDimensions\":[],\"valueAxisScale\":\"linear\"},\"sqlResultFilters\":[],\"builderResultFilters\":[{\"column\":\"category\",\"operator\":\"contains\",\"value\":\"error\",\"execution\":\"presentation\"}],\"queryFilterRevision\":{\"sql\":0,\"builder\":0},\"builderFilterNotice\":null,\"explainText\":null,\"explainTree\":null,\"explainSnapshot\":null,\"showExplain\":false,\"activeExplainRequest\":null,\"seriesVisibility\":{\"value\":true},\"pendingQuery\":null,\"pendingLokiQuery\":null}"
+        "other": "{\"id\":\"audit-cap08-other-tab\",\"title\":\"Unaffected tab\",\"connectionProfileId\":\"audit-postgres\",\"sql\":\"select 99\",\"manualQueryPristine\":true,\"prometheusTimeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-19\",\"startTime\":\"16:00\",\"endDate\":\"2026-08-19\",\"endTime\":\"17:00\",\"recurringWindows\":[]},\"prometheusStep\":\"auto\",\"promqlBuilder\":{\"metric\":\"up\",\"filterBy\":[],\"groupBy\":[],\"labelValues\":{},\"calculation\":\"raw\",\"aggregation\":\"none\",\"window\":\"5m\",\"percentile\":0.95,\"histogramKindOverride\":\"auto\"},\"lokiTimeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-19\",\"startTime\":\"16:00\",\"endDate\":\"2026-08-19\",\"endTime\":\"17:00\",\"recurringWindows\":[]},\"lokiBuilder\":{\"labelMatchers\":[{\"label\":\"service_name\",\"operator\":\"=\",\"value\":\"example-service\"}],\"lineFilters\":[],\"parsers\":[],\"fieldFilters\":[]},\"lokiResultLimit\":1000,\"lokiGroupBy\":[],\"lokiResultView\":\"list\",\"tempoBuilder\":{\"serviceNamespace\":\"example\",\"service\":\"example-service\",\"spanKind\":\"any\",\"protocol\":\"any\",\"httpMethod\":\"\",\"endpoint\":\"\",\"rpcSystem\":\"\",\"rpcService\":\"\",\"rpcMethod\":\"\",\"messagingSystem\":\"\",\"messagingDestination\":\"\",\"messagingOperation\":\"\",\"dbSystem\":\"\",\"dbOperation\":\"\",\"spanName\":\"\",\"advancedFilters\":[],\"status\":\"any\",\"minDurationMs\":\"\"},\"tempoTimeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-19\",\"startTime\":\"16:00\",\"endDate\":\"2026-08-19\",\"endTime\":\"17:00\",\"recurringWindows\":[]},\"tempoSampleSize\":\"250\",\"tempoResultView\":\"list\",\"running\":false,\"queryOperation\":null,\"explainOperation\":null,\"pendingQueryOperations\":[],\"queryContextId\":\"f3a4389f-a099-4597-8887-5af446e25502\",\"queryError\":null,\"result\":{\"columns\":[{\"name\":\"category\",\"dataTypeID\":25,\"dataTypeName\":\"text\",\"logicalType\":\"string\"},{\"name\":\"value\",\"dataTypeID\":23,\"dataTypeName\":\"int4\",\"logicalType\":\"number\"}],\"rows\":[{\"category\":\"Request completed normally\",\"value\":42},{\"category\":\"Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context Overflowing operation with detailed diagnostic context \",\"value\":17},{\"category\":\"Database connection refused\",\"value\":3}],\"rowCount\":3,\"durationMs\":7},\"pendingResult\":null,\"resultRevision\":1,\"lastSuccessfulResultRevision\":0,\"isResultStale\":false,\"queryMode\":\"builder\",\"builder\":{\"table\":{\"schema\":\"example\",\"name\":\"events\"},\"timeColumn\":\"event_time\",\"timeBucket\":\"day\",\"seriesColumns\":[],\"timeRange\":{\"kind\":\"custom\",\"startDate\":\"2026-08-19\",\"startTime\":\"16:00\",\"endDate\":\"2026-08-19\",\"endTime\":\"17:00\",\"recurringWindows\":[]}},\"builderHasRun\":false,\"sqlVisualization\":{\"view\":\"table\",\"xColumn\":\"category\",\"valueColumn\":\"value\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[],\"hierarchyDimensions\":[],\"valueAxisScale\":\"linear\"},\"builderVisualization\":{\"view\":\"table\",\"xColumn\":\"category\",\"valueColumn\":\"value\",\"aggregation\":\"sum\",\"seriesColumn\":null,\"seriesColumns\":[],\"hierarchyDimensions\":[],\"valueAxisScale\":\"linear\"},\"sqlResultFilters\":[],\"builderResultFilters\":[{\"column\":\"category\",\"operator\":\"contains\",\"value\":\"error\",\"execution\":\"presentation\"}],\"queryFilterRevision\":{\"sql\":0,\"builder\":0},\"builderFilterNotice\":null,\"explainText\":null,\"explainTree\":null,\"explainSnapshot\":null,\"showExplain\":false,\"activeExplainRequest\":null,\"seriesVisibility\":{},\"pendingQuery\":null,\"pendingLokiQuery\":null}"
       },
       "noQueryExecution": true
     },
@@ -117548,8 +117548,8 @@
       "family": "view",
       "kind": "postgres",
       "viewport": "narrow",
-      "queryCallsBefore": 22,
-      "queryCallsAfter": 22
+      "queryCallsBefore": 23,
+      "queryCallsAfter": 23
     },
     {
       "filename": "views-postgres-changed-narrow.png",
@@ -119177,8 +119177,8 @@
       "family": "view",
       "kind": "loki",
       "viewport": "narrow",
-      "queryCallsBefore": 22,
-      "queryCallsAfter": 22
+      "queryCallsBefore": 23,
+      "queryCallsAfter": 23
     },
     {
       "filename": "views-loki-changed-narrow.png",
@@ -120379,8 +120379,8 @@
       "family": "view",
       "kind": "tempo",
       "viewport": "narrow",
-      "queryCallsBefore": 22,
-      "queryCallsAfter": 22
+      "queryCallsBefore": 23,
+      "queryCallsAfter": 23
     },
     {
       "filename": "views-tempo-changed-narrow.png",
