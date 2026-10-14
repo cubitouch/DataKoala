@@ -490,7 +490,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await startForm(4)
       await waitFor(win, `document.querySelector('#bigquery-connection-title')?.textContent === 'BigQuery'`, 'CAP-03 BigQuery form')
       await setInput('#bq-name', 'Example BQ audit')
-      await clickText('Advanced','[role="dialog"]')
+      await click('[role="dialog"] details summary')
       await click('[role="dialog"] input[type="checkbox"]')
       await setInput('#bq-max','1024')
       await waitFor(win, `document.querySelector('#bq-max')?.value === '1024' && document.querySelector('#bq-max')?.disabled === false && document.querySelector('[role="dialog"] input[type="checkbox"]')?.checked === true`, 'CAP-03 BQ billing cap active')
