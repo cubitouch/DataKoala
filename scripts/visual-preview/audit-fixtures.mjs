@@ -55,6 +55,15 @@ auditScreenshots.push(
   'cap05-pg-filter-desktop.png',
   'cap05-pg-retry-desktop.png',
   'cap07-tabs-running-desktop.png',
+  // CAP-08: populated preset manager and non-empty Reset confirmation/cleared workspace.
+  'cap08-preset-list-desktop.png',
+  'cap08-reset-confirm-desktop.png',
+  'cap08-reset-cleared-desktop.png',
 )
 export const auditComparisonFiles = ['compare-lists.png', 'compare-toolbar.png', 'compare-dialogs.png', 'compare-feedback.png', 'compare-selectors.png', 'compare-detail.png']
 export const auditCaptions = Object.fromEntries([...auditScreenshots, ...auditComparisonFiles].map((file) => [file, file.replace('.png', '').replaceAll('-', ' ')]))
+Object.assign(auditCaptions, {
+  'cap08-preset-list-desktop.png': 'CAP-08 PostgreSQL preset manager after create, rename, and confirmed targeted delete',
+  'cap08-reset-confirm-desktop.png': 'CAP-08 PostgreSQL Reset confirmation with a populated Builder and result',
+  'cap08-reset-cleared-desktop.png': 'CAP-08 PostgreSQL workspace after confirming Reset; connection and time range retained',
+})

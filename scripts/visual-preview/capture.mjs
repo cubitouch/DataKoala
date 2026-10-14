@@ -1535,6 +1535,7 @@ app.whenReady().then(async () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      ...(captureKind === 'audit' ? { partition: 'datakoala-ux-audit' } : {}),
     },
   })
 

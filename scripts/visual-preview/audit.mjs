@@ -676,6 +676,115 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win, `window.__datakoalaStore.getState().tabs.length===1 && window.__datakoalaStore.getState().activeTabId===${rendererValue(original)}`, 'CAP-07 close active restores surviving tab')
       observations.push({family:'cap07',viewport,scenario:'close-active',survivor:original,runningCleared:true})
     }
+    if (viewport === 'desktop') {
+      // CAP-08 A21: use the real renderer controls inside the Electron audit's
+      // in-memory session. Never connect a provider or persist a user's presets.
+      await seed('postgres','builder')
+      const pgBefore=await evaluate(`(() => {
+        const state=window.__datakoalaStore.getState(),tab=state.tabs[0]
+        tab.builder={...tab.builder,table:{schema:'example',name:'events'},timeColumn:'event_time'}
+        tab.builderVisualization={...tab.builderVisualization,xColumn:'category',valueColumn:'value',aggregation:'sum'}
+        window.__datakoalaStore.setState({tabs:[tab],activeTabId:tab.id})
+        return JSON.stringify({tab:state.tabs[0],activeTabId:state.activeTabId})
+      })()`)
+      const beforePresetCalls=queryCalls
+      await click('[aria-label="Manage saved presets"]')
+      await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent==='Presets' && document.body.innerText.includes('No saved presets for this connection yet.')`, 'CAP-08 isolated empty preset list')
+      await type('[aria-label="Preset name"]','  CAP08 PG first  ')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `document.body.innerText.includes('Saved preset “CAP08 PG first”.') && document.body.innerText.includes('CAP08 PG first')`, 'CAP-08 trimmed first save')
+      await delay(25)
+      await type('[aria-label="Preset name"]','CAP08 PG second')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `document.querySelectorAll('[role="dialog"] li').length===2`, 'CAP-08 scoped preset list')
+      await evaluate(`(() => {
+        const names=[...document.querySelectorAll('[role="dialog"] li > span')].map(node=>node.textContent.trim())
+        if(names[0]!=='CAP08 PG second'||names[1]!=='CAP08 PG first')throw Error('CAP-08 presets are not newest-first for the active profile: '+JSON.stringify(names))
+        window.__cap08PresetOrder=names
+      })()`)
+      await click('[aria-label="Rename preset CAP08 PG second"]')
+      await type('[aria-label="Rename CAP08 PG second"]','CAP08 PG renamed')
+      await key('Enter')
+      await waitFor(win, `document.body.innerText.includes('Renamed preset to “CAP08 PG renamed”.') && document.querySelector('[aria-label="Load preset CAP08 PG renamed"]')`, 'CAP-08 rename via Enter')
+      await observe('cap08-preset-list-desktop.png','[role="dialog"]','active-profile presets after save, rename, and targeted delete','dialogs')
+      await evaluate(`(() => {
+        window.__cap08Confirms=[]
+        window.confirm=message=>{window.__cap08Confirms.push(message);return false}
+      })()`)
+      await click('[aria-label="Delete preset CAP08 PG first"]')
+      await waitFor(win, `window.__cap08Confirms.length===1 && document.body.innerText.includes('CAP08 PG first')`, 'CAP-08 native confirm cancellation keeps target')
+      if(await evaluate('JSON.stringify({tab:window.__datakoalaStore.getState().tabs[0],activeTabId:window.__datakoalaStore.getState().activeTabId})')!==pgBefore)throw Error('CAP-08 canceled delete changed exploration state')
+      await evaluate('window.confirm=message=>{window.__cap08Confirms.push(message);return true}')
+      await click('[aria-label="Delete preset CAP08 PG first"]')
+      await waitFor(win, `document.querySelectorAll('[role="dialog"] li').length===1 && !document.body.innerText.includes('CAP08 PG first') && document.body.innerText.includes('CAP08 PG renamed')`, 'CAP-08 targeted delete confirmation')
+      if(await evaluate(`window.__cap08Confirms.join('|')`)!=='Delete preset “CAP08 PG first”?|Delete preset “CAP08 PG first”?')throw Error('CAP-08 delete confirmation did not target the selected preset')
+      const callsBeforeLoad=queryCalls
+      await click('[aria-label="Load preset CAP08 PG renamed"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]') && document.body.innerText.includes('Loaded preset “CAP08 PG renamed”.')`, 'CAP-08 compatible preset load')
+      const loaded=await evaluate(`(() => {const s=window.__datakoalaStore.getState(),t=s.tabs.find(x=>x.id===s.activeTabId);return {tabId:t.id,title:t.title,profileId:t.connectionProfileId,queryMode:t.queryMode,sql:t.sql,table:t.builder.table,x:t.builderVisualization.xColumn,y:t.builderVisualization.valueColumn}})()`)
+      if(loaded.profileId!=='audit-postgres'||loaded.queryMode!=='builder'||loaded.table?.name!=='events'||loaded.x!=='category'||loaded.y!=='value')throw Error('CAP-08 Load did not restore compatible Builder exploration into the selected tab: '+JSON.stringify(loaded))
+      if(queryCalls!==callsBeforeLoad||queryCalls!==beforePresetCalls)throw Error('CAP-08 preset CRUD or Load unexpectedly executed a query')
+      observations.push({family:'cap08',viewport,scenario:'pg-preset-crud',profile:'audit-postgres',ordered:await evaluate('window.__cap08PresetOrder'),renamed:'CAP08 PG renamed',cancelledDeleteKeptTarget:true,confirmedDeleteRemovedOnlyTarget:true,loadedSelectedTab:loaded.tabId,noQueryExecution:true,storage:'isolated Electron audit profile'})
+
+      // Repeat save/load in a representative observability source. Query state is
+      // synthetic and session-scoped; only the actual menu transitions are driven.
+      await seed('loki','builder')
+      const beforeLokiCalls=queryCalls
+      await click('[aria-label="Manage saved presets"]')
+      await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent==='Presets' && document.body.innerText.includes('No saved presets for this connection yet.')`, 'CAP-08 isolated Loki preset list')
+      await type('[aria-label="Preset name"]','CAP08 Loki labels')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `document.querySelector('[aria-label="Load preset CAP08 Loki labels"]')`, 'CAP-08 Loki preset saved')
+      await click('[aria-label="Load preset CAP08 Loki labels"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]') && document.body.innerText.includes('Loaded preset “CAP08 Loki labels”.')`, 'CAP-08 Loki preset loaded')
+      const lokiLoaded=await evaluate(`(() => {const s=window.__datakoalaStore.getState(),t=s.tabs.find(x=>x.id===s.activeTabId);return {profileId:t.connectionProfileId,queryMode:t.queryMode,filterCount:t.lokiBuilder.labelMatchers.length}})()`)
+      if(lokiLoaded.profileId!=='audit-loki'||lokiLoaded.queryMode!=='builder'||lokiLoaded.filterCount!==1)throw Error('CAP-08 Loki preset failed to restore selected source state: '+JSON.stringify(lokiLoaded))
+      if(queryCalls!==beforeLokiCalls)throw Error('CAP-08 Loki preset unexpectedly executed a query')
+      observations.push({family:'cap08',viewport,scenario:'loki-preset-save-load',profile:'audit-loki',loaded:lokiLoaded,noQueryExecution:true,storage:'isolated Electron audit profile'})
+
+      // A23: actual Reset confirmation, Cancel/Escape preservation, tab ownership,
+      // and Reset behavior with no implicit Run on both SQL and Loki sessions.
+      await seed('postgres','builder')
+      await evaluate(`(() => {
+        const state=window.__datakoalaStore.getState(),active=state.tabs[0]
+        active.sql=${rendererValue("select category, value from example.events where category = 'error'")}
+        active.builder={...active.builder,table:{schema:'example',name:'events'},timeColumn:'event_time',timeRange:${rendererValue(auditRange)}}
+        active.builderVisualization={...active.builderVisualization,xColumn:'category',valueColumn:'value',aggregation:'sum'}
+        active.result=${rendererValue(auditSqlResult)};active.pendingResult=${rendererValue(auditSqlResult)}
+        active.builderResultFilters=[{column:'category',operator:'contains',value:'error',execution:'presentation'}]
+        const other=JSON.parse(JSON.stringify(active));other.id='audit-cap08-other-tab';other.title='Unaffected tab';other.sql='select 99';other.result=${rendererValue(auditSqlResult)}
+        state.setState({tabs:[active,other],activeTabId:active.id})
+        window.__cap08OtherBefore=JSON.stringify(other)
+      })()`)
+      const resetCalls=queryCalls
+      const beforeCancel=await evaluate(`JSON.stringify(window.__datakoalaStore.getState().tabs)`)
+      await click('[aria-label="Reset query"]')
+      await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent==='Reset exploration?' && document.body.innerText.includes('current results')`, 'CAP-08 populated Reset confirmation')
+      await observe('cap08-reset-confirm-desktop.png','[role="dialog"]','non-empty PostgreSQL Builder and retained result; query, Builder, and result reset confirmation','dialogs')
+      await clickText('Cancel','[role="dialog"]')
+      if(await evaluate('JSON.stringify(window.__datakoalaStore.getState().tabs)')!==beforeCancel)throw Error('CAP-08 Reset Cancel changed either tab')
+      await click('[aria-label="Reset query"]')
+      await key('Escape')
+      if(await evaluate('JSON.stringify(window.__datakoalaStore.getState().tabs)')!==beforeCancel)throw Error('CAP-08 Reset Escape changed either tab')
+      await click('[aria-label="Reset query"]')
+      await clickText('Reset exploration','[role="dialog"]')
+      await waitFor(win, `window.__datakoalaStore.getState().tabs.find(t=>t.id==='audit-tab-postgres')?.sql==='' && !document.querySelector('[role="dialog"]')`, 'CAP-08 confirmed PG reset')
+      const pgAfter=await evaluate(`(() => {const s=window.__datakoalaStore.getState(),t=s.tabs.find(x=>x.id===s.activeTabId);return {id:t.id,title:t.title,profileId:t.connectionProfileId,mode:t.queryMode,sql:t.sql,table:t.builder.table,result:t.result,pendingResult:t.pendingResult,filters:t.builderResultFilters,range:t.builder.timeRange,other:JSON.stringify(s.tabs.find(x=>x.id==='audit-cap08-other-tab'))}})()`)
+      if(pgAfter.id!=='audit-tab-postgres'||pgAfter.title!=='Visual audit'||pgAfter.profileId!=='audit-postgres'||pgAfter.mode!=='builder'||pgAfter.sql!==''||pgAfter.table!==null||pgAfter.result!==null||pgAfter.pendingResult!==null||pgAfter.filters.length!==0||JSON.stringify(pgAfter.range)!==JSON.stringify(auditRange)||pgAfter.other!==await evaluate('window.__cap08OtherBefore'))throw Error('CAP-08 Reset did not clear only active query state while preserving owned context: '+JSON.stringify(pgAfter))
+      if(queryCalls!==resetCalls)throw Error('CAP-08 confirmed Reset unexpectedly executed a query')
+      await observe('cap08-reset-cleared-desktop.png','.main','confirmed Reset cleared only active PG query, Builder, and results; connection/time range retained')
+      observations.push({family:'cap08',viewport,scenario:'pg-reset',cancelUnchanged:true,escapeUnchanged:true,confirmed:pgAfter,noQueryExecution:true})
+
+      await seed('loki','builder')
+      await evaluate(`(() => {const s=window.__datakoalaStore.getState(),t=s.tabs[0];t.sql='{service_name="example-service"}';t.lokiBuilder={...t.lokiBuilder,labelMatchers:[{label:'service_name',operator:'=',value:'example-service'}],lineFilters:[{operator:'|=',value:'timeout'}]};t.result=${rendererValue(auditLogResult)};window.__datakoalaStore.setState({tabs:[t],activeTabId:t.id})})()`)
+      await click('[aria-label="Reset query"]')
+      await clickText('Reset exploration','[role="dialog"]')
+      await waitFor(win, `window.__datakoalaStore.getState().tabs[0].sql==='' && !document.querySelector('[role="dialog"]')`, 'CAP-08 confirmed Loki reset')
+      const lokiAfter=await evaluate(`(() => {const s=window.__datakoalaStore.getState(),t=s.tabs[0];return {profileId:t.connectionProfileId,mode:t.queryMode,sql:t.sql,result:t.result,matchers:t.lokiBuilder.labelMatchers,lineFilters:t.lokiBuilder.lineFilters,timeRange:t.lokiTimeRange}})()`)
+      if(lokiAfter.profileId!=='audit-loki'||lokiAfter.mode!=='builder'||lokiAfter.sql!==''||lokiAfter.result!==null||lokiAfter.matchers.length||lokiAfter.lineFilters.length)throw Error('CAP-08 Loki reset failed to clear its active source query and results: '+JSON.stringify(lokiAfter))
+      observations.push({family:'cap08',viewport,scenario:'loki-reset',confirmed:lokiAfter,noQueryExecution:queryCalls===resetCalls})
+      if(queryCalls!==resetCalls)throw Error('CAP-08 Loki Reset unexpectedly executed a query')
+    }
   }
   const htmlEscape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
   for(const [group,items] of Object.entries(contacts)) {
