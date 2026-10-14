@@ -699,12 +699,12 @@ function registerIpc(): void {
   )
   ipcMain.handle(IPC.CLIPBOARD_WRITE_EXCALIDRAW, (_event, value: unknown) =>
     writeExcalidrawClipboard(value, {
-        // Excalidraw's clipboard envelope is text/plain when no ClipboardEvent exists.
-        writeText: (text) => clipboard.writeText(text),
-        readText: () => clipboard.readText(),
-        logError: (error) =>
-          console.error('[clipboard] Could not write Excalidraw scene', error),
-      }),
+      // Excalidraw's clipboard envelope is text/plain when no ClipboardEvent exists.
+      writeText: (text) => clipboard.writeText(text),
+      readText: () => clipboard.readText(),
+      logError: (error) =>
+        console.error('[clipboard] Could not write Excalidraw scene', error),
+    }),
   )
   ipcMain.handle(IPC.CONNECTION_TEST, async (_e, profile: DataSourceProfile) =>
     db.testConnection(await connectionProfiles.resolveForConnection(profile)),
