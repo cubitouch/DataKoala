@@ -112,9 +112,10 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     await settle()
   }
   const key = async (keyCode, modifiers = []) => {
-    win.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+    const electronKeyCode = keyCode.startsWith('Arrow') ? keyCode.slice(5) : keyCode
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: electronKeyCode, modifiers })
     if (keyCode === 'Enter') win.webContents.sendInputEvent({ type: 'char', keyCode: '\r' })
-    win.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: electronKeyCode, modifiers })
     await settle()
   }
   const type = async (selector, value) => {
