@@ -5,6 +5,7 @@ import {
   ipcMain,
   dialog,
   clipboard,
+  ClipboardItem,
   nativeImage,
   shell,
 } from 'electron'
@@ -24,6 +25,7 @@ import {
 import type { ConnectionProfile, DataSourceProfile } from '@shared/types'
 import { MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH } from '@shared/layoutDimensions'
 import { writePngDataUrl } from './clipboard-image'
+import { writeExcalidrawClipboard } from './clipboard-excalidraw'
 import { createGracefulShutdown } from './gracefulShutdown'
 import { smokeDuckDB } from './adapters/local-files-adapter'
 import type { SqliteFileProfile } from '@shared/types'
@@ -683,37 +685,26 @@ function registerIpc(): void {
   ipcMain.handle(IPC.CLIPBOARD_WRITE_PNG, (_event, dataUrl: unknown) =>
     writePngDataUrl(dataUrl, {
       createFromBuffer: (buffer) => nativeImage.createFromBuffer(buffer),
-      writeImage: (image) =>
-        clipboard.writeImage(image as Electron.NativeImage),
+      writePng: (bytes) =>
+        clipboard.write([
+          new ClipboardItem({
+            'image/png': new Blob([Uint8Array.from(bytes)], {
+              type: 'image/png',
+            }),
+          }),
+        ]),
       logError: (error) =>
         console.error('[clipboard] Could not write chart PNG', error),
     }),
   )
-  ipcMain.handle(
-    IPC.CLIPBOARD_WRITE_EXCALIDRAW,
-    async (_event, value: unknown) => {
-      if (typeof value !== 'string' || value.length > 20_000_000)
-        return { ok: false as const }
-      try {
-        const parsed = JSON.parse(value) as {
-          type?: unknown
-          elements?: unknown
-        }
-        if (
-          parsed.type !== 'excalidraw/clipboard' ||
-          !Array.isArray(parsed.elements)
-        ) {
-          return { ok: false as const }
-        }
-        // Excalidraw's own copy implementation falls back to text/plain JSON
-        // using the excalidraw/clipboard envelope when no ClipboardEvent exists.
-        await clipboard.writeText(value)
-        return { ok: (await clipboard.readText()) === value }
-      } catch (error) {
-        console.error('[clipboard] Could not write Excalidraw scene', error)
-        return { ok: false as const }
-      }
-    },
+  ipcMain.handle(IPC.CLIPBOARD_WRITE_EXCALIDRAW, (_event, value: unknown) =>
+    writeExcalidrawClipboard(value, {
+      // Excalidraw's clipboard envelope is text/plain when no ClipboardEvent exists.
+      writeText: (text) => clipboard.writeText(text),
+      readText: () => clipboard.readText(),
+      logError: (error) =>
+        console.error('[clipboard] Could not write Excalidraw scene', error),
+    }),
   )
   ipcMain.handle(IPC.CONNECTION_TEST, async (_e, profile: DataSourceProfile) =>
     db.testConnection(await connectionProfiles.resolveForConnection(profile)),

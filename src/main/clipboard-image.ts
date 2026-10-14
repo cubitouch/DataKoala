@@ -9,15 +9,15 @@ export interface NativeImageLike {
 
 export interface ClipboardImageDependencies {
   createFromBuffer(buffer: Buffer): NativeImageLike
-  writeImage(image: NativeImageLike): void
+  writePng(bytes: Buffer): Promise<void>
   logError(error: unknown): void
 }
 
-/** Validate and write only a real PNG data URL; no text clipboard fallback exists. */
-export function writePngDataUrl(
+/** Validate a real PNG before an awaited clipboard write; never report early success. */
+export async function writePngDataUrl(
   dataUrl: unknown,
   dependencies: ClipboardImageDependencies,
-): ClipboardImageResult {
+): Promise<ClipboardImageResult> {
   try {
     if (typeof dataUrl !== 'string' || dataUrl.length > MAX_PNG_BYTES * 1.4)
       return { ok: false }
@@ -35,7 +35,7 @@ export function writePngDataUrl(
       return { ok: false }
     const image = dependencies.createFromBuffer(bytes)
     if (image.isEmpty()) return { ok: false }
-    dependencies.writeImage(image)
+    await dependencies.writePng(bytes)
     return { ok: true }
   } catch (error) {
     dependencies.logError(error)
