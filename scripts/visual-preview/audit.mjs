@@ -788,7 +788,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win, `window.__datakoalaStore.getState().tabs.find(t=>t.id==='audit-tab-postgres')?.sql==='' && !document.querySelector('[role="dialog"]')`, 'CAP-08 confirmed PG reset')
       const pgAfter=await evaluate(`(() => {const s=window.__datakoalaStore.getState(),t=s.tabs.find(x=>x.id===s.activeTabId);return {id:t.id,title:t.title,profileId:t.connectionProfileId,mode:t.queryMode,sql:t.sql,table:t.builder.table,result:t.result,pendingResult:t.pendingResult,filters:t.builderResultFilters,range:t.builder.timeRange,other:JSON.stringify(s.tabs.find(x=>x.id==='audit-cap08-other-tab'))}})()`)
       if(pgAfter.id!=='audit-tab-postgres'||pgAfter.title!=='Visual audit'||pgAfter.profileId!=='audit-postgres'||pgAfter.mode!=='builder'||pgAfter.sql!==''||pgAfter.table!==null||pgAfter.result!==null||pgAfter.pendingResult!==null||pgAfter.filters.length!==0||JSON.stringify(pgAfter.range)!==JSON.stringify(auditRange)||pgAfter.other!==await evaluate('window.__cap08OtherBefore'))throw Error('CAP-08 Reset did not clear only active query state while preserving owned context: '+JSON.stringify(pgAfter))
-      if(queryCalls!==resetCalls)throw Error('CAP-08 confirmed Reset unexpectedly executed a query')
+      if(queryCalls!==resetCalls)throw Error(`CAP-08 confirmed Reset unexpectedly executed a query: ${resetCalls} -> ${queryCalls}`)
       await observe('cap08-reset-cleared-desktop.png','.main','confirmed Reset cleared only active PG query, Builder, and results; connection/time range retained')
       observations.push({family:'cap08',viewport,scenario:'pg-reset',cancelUnchanged:true,escapeUnchanged:true,confirmed:pgAfter,noQueryExecution:true})
 
