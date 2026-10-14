@@ -119,6 +119,16 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     await evaluate(`(() => { const input = ${select(selector)}; if (!input) throw Error('Missing input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${rendererValue(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); })()`)
     await settle()
   }
+  const typeLabel = async (label, value) => {
+    await evaluate(`(() => {
+      const fieldLabel=[...document.querySelectorAll('label')].find(node=>node.textContent.trim()===${rendererValue(label)})
+      const input=fieldLabel?.htmlFor ? document.getElementById(fieldLabel.htmlFor) : fieldLabel?.querySelector('input')
+      if (!(input instanceof HTMLInputElement)) throw Error('Missing labeled input: '+${rendererValue(label)})
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${rendererValue(value)})
+      input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}))
+    })()`)
+    await settle()
+  }
   const observe = async (filename, selector, state, group) => {
     await waitFor(win, `${select(selector)}?.getBoundingClientRect().height > 0`, filename)
     await settle()
@@ -696,11 +706,11 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       const beforePresetCalls=queryCalls
       await click('[aria-label="Manage saved presets"]')
       await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent==='Presets' && document.body.innerText.includes('No saved presets for this connection yet.')`, 'CAP-08 isolated empty preset list')
-      await type('[aria-label="Preset name"]','  CAP08 PG first  ')
+      await typeLabel('Preset name','  CAP08 PG first  ')
       await clickText('Save','[role="dialog"]')
       await waitFor(win, `document.body.innerText.includes('Saved preset “CAP08 PG first”.') && document.body.innerText.includes('CAP08 PG first')`, 'CAP-08 trimmed first save')
       await delay(25)
-      await type('[aria-label="Preset name"]','CAP08 PG second')
+      await typeLabel('Preset name','CAP08 PG second')
       await clickText('Save','[role="dialog"]')
       await waitFor(win, `document.querySelectorAll('[role="dialog"] li').length===2`, 'CAP-08 scoped preset list')
       await evaluate(`(() => {
@@ -709,7 +719,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
         window.__cap08PresetOrder=names
       })()`)
       await click('[aria-label="Rename preset CAP08 PG second"]')
-      await type('[aria-label="Rename CAP08 PG second"]','CAP08 PG renamed')
+      await typeLabel('Rename CAP08 PG second','CAP08 PG renamed')
       await key('Enter')
       await waitFor(win, `document.body.innerText.includes('Renamed preset to “CAP08 PG renamed”.') && document.querySelector('[aria-label="Load preset CAP08 PG renamed"]')`, 'CAP-08 rename via Enter')
       await observe('cap08-preset-list-desktop.png','[role="dialog"]','active-profile presets after save and rename; both targeted delete choices visible','dialogs')
@@ -738,7 +748,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       const beforeLokiCalls=queryCalls
       await click('[aria-label="Manage saved presets"]')
       await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent==='Presets' && document.body.innerText.includes('No saved presets for this connection yet.')`, 'CAP-08 isolated Loki preset list')
-      await type('[aria-label="Preset name"]','CAP08 Loki labels')
+      await typeLabel('Preset name','CAP08 Loki labels')
       await clickText('Save','[role="dialog"]')
       await waitFor(win, `document.querySelector('[aria-label="Load preset CAP08 Loki labels"]')`, 'CAP-08 Loki preset saved')
       await click('[aria-label="Load preset CAP08 Loki labels"]')
