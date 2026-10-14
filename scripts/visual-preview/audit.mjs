@@ -151,7 +151,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     }
     console.log(`AUDIT ${filename}: ${Math.round(data.target.width)}x${Math.round(data.target.height)}`)
   }
-  const seed = async (kind, mode = 'raw', result = 'default', view = 'list') => {
+  const seed = async (kind, mode = 'raw', result = 'default', view = 'list', builderHasRun = true) => {
     queryOutcome = 'success'
     await evaluate(`(() => {
       const store=window.__datakoalaStore, state=store.getState();
@@ -161,7 +161,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       tab.id='audit-tab-'+kind; tab.title='Visual audit'; tab.connectionProfileId=profile.id; tab.queryMode=${rendererValue(mode === 'builder' ? 'builder' : 'sql')};
       tab.running=false;tab.pendingQuery=null;tab.pendingResult=null;tab.pendingLokiQuery=null;tab.activeExplainRequest=null;tab.queryError=null;tab.result=null;tab.sqlResultFilters=[];tab.builderResultFilters=[];
       tab.sql=kind==='tempo'?'{ true }':kind==='loki'?'{service_name="example-service"}':kind==='prometheus'?'up':'select category, value from example.events';
-      tab.builder={...tab.builder,table:{schema:'example',name:'events'},seriesColumns:[]};tab.builderHasRun=true;
+      tab.builder={...tab.builder,table:{schema:'example',name:'events'},seriesColumns:[]};tab.builderHasRun=${rendererValue(builderHasRun)};
       const config={...tab.sqlVisualization,view:'table',xColumn:'category',valueColumn:'value',seriesColumns:[],seriesColumn:null};tab.sqlVisualization=config;tab.builderVisualization=config;
       tab.promqlBuilder={...tab.promqlBuilder,metric:'up'};
       tab.lokiBuilder={labelMatchers:[{label:'service_name',operator:'=',value:'example-service'}],lineFilters:[],parsers:[],fieldFilters:[]};tab.lokiResultView=${rendererValue(view)};
@@ -629,7 +629,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       cap04Ipc.mode = ''
     }
     if (viewport === 'desktop') {
-      await seed('postgres','builder')
+      await seed('postgres','builder','default','list',false)
       const filterInput='input[placeholder="Filter objects…"]'
       await waitFor(win, `document.querySelector(${rendererValue(filterInput)})`, 'CAP-05 PG filter exists')
       await evaluate(`(() => {
@@ -694,7 +694,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
       // in-memory session. Never connect a provider or persist a user's presets.
       console.log('CAP08 step: seed PostgreSQL Builder session')
-      await seed('postgres','builder')
+      await seed('postgres','builder','default','list',false)
       console.log('CAP08 step: prepare populated preset session')
       const pgBefore=await evaluate(`(() => {
         const state=window.__datakoalaStore.getState(),tab=state.tabs[0]
