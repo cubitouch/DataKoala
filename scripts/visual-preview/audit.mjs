@@ -18,12 +18,14 @@ let queryOutcome = 'success'
 let releaseQuery = null
 let queryCalls = 0
 let cap08Stage = null
+const cap10Ipc = { active: false, calls: [] }
 const delay = (ms) => new Promise((done) => setTimeout(done, ms))
 
 export function installAuditIpc(ipc) {
   const handle = (channel, fn) => { ipc.removeHandler(channel); ipc.handle(channel, fn) }
-  const result = async (id, sql, event, request) => {
+  const result = async (id, sql, event, request, parameters = []) => {
     queryCalls += 1
+    if (cap10Ipc.active) cap10Ipc.calls.push({ id, sql, parameters, request: request ?? null })
     if (cap08Stage) console.log(`CAP08 query at ${cap08Stage}: ${id}`)
     const outcome = queryOutcome
     if (outcome === 'loading') {
@@ -33,7 +35,7 @@ export function installAuditIpc(ipc) {
     if (outcome === 'error') return { ok: false, message: 'Synthetic provider unavailable. Try Run again.', kind: 'connection' }
     return { ok: true, result: String(id).includes('tempo') ? (/^[a-f0-9]{32}$/.test(String(sql).trim()) ? auditSpanResult : auditTraceResult) : auditSqlResult }
   }
-  handle('query:run', (event, id, sql, _parameters, request) => result(id, sql, event, request))
+  handle('query:run', (event, id, sql, parameters, request) => result(id, sql, event, request, parameters))
   handle('query:run-loki', async (_event, id, request) => {
     const value = await result(id, request.expression)
     if (!value.ok) throw new Error(value.message)
@@ -150,6 +152,10 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     if (filename === 'cap09-resized-workspace-desktop.png') {
       const png = await win.webContents.capturePage()
       console.log(`CAP09_PNG_BASE64 ${png.toPNG().toString('base64')}`)
+    }
+    if (filename.startsWith('cap10-')) {
+      const png = await win.webContents.capturePage()
+      console.log('CAP10_PNG_BASE64 ' + filename + ' ' + png.toPNG().toString('base64'))
     }
     if (group) {
       const r = observation.target
@@ -734,6 +740,114 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await click(`[aria-label="Close Audit B"]`)
       await waitFor(win, `window.__datakoalaStore.getState().tabs.length===1 && window.__datakoalaStore.getState().activeTabId===${rendererValue(original)}`, 'CAP-07 close active restores surviving tab')
       observations.push({family:'cap07',viewport,scenario:'close-active',survivor:original,runningCleared:true})
+    }
+    if (viewport === 'desktop') {
+      // CAP-10: actual CodeMirror completion, formatting, Run, copy, and Builder handoff.
+      // All metadata and query replies stay in the isolated audit Electron process.
+      console.log('CAP10 start: SQL editor, completion, formatting, run, copy, and generated preview')
+      const completionColumns = auditSqlResult.columns
+      const pgCompletionSchemas = [
+        { name: 'public', isSystem: false, relations: [{ schema: 'public', name: 'events', qualifiedName: 'public.events', kind: 'r', columnsStatus: 'loaded', columns: completionColumns }] },
+        { name: 'analytics', isSystem: false, relations: [{ schema: 'analytics', name: 'events', qualifiedName: 'analytics.events', kind: 'r', columnsStatus: 'loaded', columns: completionColumns }] },
+      ]
+      const bqCompletionSchemas = [
+        { name: 'example-project.analytics', isSystem: false, relations: [{ schema: 'example-project.analytics', name: 'events', qualifiedName: 'example-project.analytics.events', kind: 'r', columnsStatus: 'loaded', columns: completionColumns }] },
+        { name: 'example-project.reporting', isSystem: false, relations: [{ schema: 'example-project.reporting', name: 'events', qualifiedName: 'example-project.reporting.events', kind: 'r', columnsStatus: 'loaded', columns: completionColumns }] },
+      ]
+      const editorSelector = '[aria-label="SQL editor"]'
+      const editorExpression = 'document.querySelector(' + rendererValue(editorSelector) + ')'
+      const configureEditor = async (kind, query, schemas) => {
+        await seed(kind, 'raw', 'fresh')
+        await evaluate('(() => { const store=window.__datakoalaStore, state=store.getState(), tab=state.tabs[0], profileId=' + rendererValue(auditProfiles[kind].id) + '; tab.sql=' + rendererValue(query) + '; store.setState({tabs:[tab],activeTabId:tab.id,metadataByProfileId:{...state.metadataByProfileId,[profileId]:{...state.metadataByProfileId[profileId],schemas:' + rendererValue(schemas) + ',status:"loaded",error:null,isStale:false}}}) })()')
+        await settle()
+        await waitFor(win, editorExpression + '?.textContent.includes(' + rendererValue(query.slice(-Math.min(18, query.length))) + ')', kind + ' seeded editor document')
+      }
+      const focusAndComplete = async () => {
+        await evaluate(editorExpression + '?.focus()')
+        await key('End', ['control'])
+        await key('Space', ['control'])
+        await waitFor(win, 'document.querySelector(".cm-tooltip-autocomplete .cm-completionLabel")', 'CodeMirror completion popup')
+      }
+
+      await configureEditor('postgres', 'SELECT * FROM public.', pgCompletionSchemas)
+      await focusAndComplete()
+      const pgCandidates = await evaluate('[...document.querySelectorAll(".cm-tooltip-autocomplete .cm-completionLabel")].map(node=>node.textContent.trim())')
+      if (!pgCandidates.includes('events')) throw Error('CAP-10 PostgreSQL qualified relation completion omitted events: ' + JSON.stringify(pgCandidates))
+      await observe('cap10-completion-postgres-desktop.png', '.cm-tooltip-autocomplete', 'PostgreSQL CodeMirror completion for an explicitly qualified relation')
+      await key('Enter')
+      await waitFor(win, editorExpression + '?.textContent.includes("public.events")', 'CAP-10 PostgreSQL relation inserted')
+      const pgCompletionInserted = await evaluate(editorExpression + '?.textContent')
+      if (!pgCompletionInserted.includes('public.events')) throw Error('CAP-10 PostgreSQL completion did not insert the qualified relation')
+
+      await configureEditor('bigquery', 'SELECT * FROM ', bqCompletionSchemas)
+      await focusAndComplete()
+      const bqCandidates = await evaluate('[...document.querySelectorAll(".cm-tooltip-autocomplete .cm-completionLabel")].map(node=>node.textContent.trim())')
+      if (!bqCandidates.includes('example-project')) throw Error('CAP-10 BigQuery project completion missing: ' + JSON.stringify(bqCandidates))
+      await observe('cap10-completion-bigquery-desktop.png', '.cm-tooltip-autocomplete', 'BigQuery CodeMirror completion offers the project namespace')
+      await key('Enter')
+      await waitFor(win, editorExpression + '?.textContent.includes(String.fromCharCode(96) + "example-project" + String.fromCharCode(96))', 'CAP-10 GoogleSQL project identifier inserted')
+      const bqCompletionInserted = await evaluate(editorExpression + '?.textContent')
+      if (!bqCompletionInserted.includes(String.fromCharCode(96) + 'example-project' + String.fromCharCode(96))) throw Error('CAP-10 GoogleSQL completion did not use backtick quoting')
+
+      await configureEditor('postgres', 'select category,value from public.events where value>2', pgCompletionSchemas)
+      const beforeFormat = queryCalls
+      await clickText('Format', '[data-query-toolbar]')
+      const formattedPostgres = 'SELECT category, value\nFROM public.events\nWHERE value > 2'
+      await waitFor(win, 'window.__datakoalaStore.getState().tabs[0].sql === ' + rendererValue(formattedPostgres), 'CAP-10 PostgreSQL local formatting')
+      if (queryCalls !== beforeFormat) throw Error('CAP-10 Format unexpectedly executed SQL')
+      await observe('cap10-formatted-postgres-desktop.png', editorSelector, 'PostgreSQL query after in-place Format without execution')
+      observations.push({ family: 'cap10', viewport, scenario: 'format-postgres', sql: formattedPostgres, noQueryExecution: true, source: 'formatSql with PostgreSQL formatter dialect' })
+
+      await configureEditor('postgres', '   ', pgCompletionSchemas)
+      const beforeEmptyRun = queryCalls
+      const emptyRunState = await evaluate('(() => { const button=[...document.querySelectorAll("[data-query-toolbar] button")].find(node=>node.textContent.trim()==="Run"); return button?{exists:true,disabled:button.disabled}:null })()')
+      if (!emptyRunState?.exists) throw Error('CAP-10 empty-query Run control is missing')
+      if (!emptyRunState.disabled) {
+        await clickText('Run', '[data-query-toolbar]')
+        await waitFor(win, 'document.body.innerText.includes("Nothing to run — the editor is empty.")', 'CAP-10 empty query feedback')
+      }
+      if (queryCalls !== beforeEmptyRun) throw Error('CAP-10 empty query dispatched to provider IPC')
+      observations.push({ family: 'cap10', viewport, scenario: 'empty-run', run: emptyRunState, feedback: emptyRunState.disabled ? 'unavailable' : 'Nothing to run — the editor is empty.', providerCalls: 0 })
+
+      const runSql = 'select 9 as audit_cap10_run'
+      await configureEditor('postgres', runSql, pgCompletionSchemas)
+      cap10Ipc.calls.length = 0
+      cap10Ipc.active = true
+      const beforeRun = queryCalls
+      await clickText('Run', '[data-query-toolbar]')
+      await waitFor(win, 'queryCalls === ' + (beforeRun + 1) + ' && !window.__datakoalaStore.getState().tabs[0].running', 'CAP-10 single mocked Run dispatch')
+      if (queryCalls !== beforeRun + 1 || cap10Ipc.calls.length !== 1 || cap10Ipc.calls[0].id !== auditProfiles.postgres.id || cap10Ipc.calls[0].sql !== runSql) throw Error('CAP-10 Run did not send exactly one current PG query: ' + JSON.stringify(cap10Ipc.calls))
+      cap10Ipc.active = false
+      const afterRun = queryCalls
+      observations.push({ family: 'cap10', viewport, scenario: 'run-postgres', selectedProfile: cap10Ipc.calls[0].id, sql: cap10Ipc.calls[0].sql, exactDispatchCount: 1, syntheticResultRows: 3, liveProvider: false })
+
+      await evaluate("(() => { window.__cap10Clipboard=[]; Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText(value){window.__cap10Clipboard.push(value);return Promise.resolve()}}}) })()")
+      const rawCopySql = 'SELECT copied_value FROM public.events'
+      await configureEditor('postgres', rawCopySql, pgCompletionSchemas)
+      await click('[data-query-toolbar] [aria-label="Copy SQL to clipboard"]')
+      await waitFor(win, 'window.__cap10Clipboard.at(-1) === ' + rendererValue(rawCopySql), 'CAP-10 raw SQL clipboard payload')
+      if (queryCalls !== afterRun) throw Error('CAP-10 Copy unexpectedly executed SQL')
+      const rawCopyFeedback = await evaluate('document.body.innerText.includes("Copied to clipboard")')
+      if (!rawCopyFeedback) throw Error('CAP-10 raw Copy SQL did not report success')
+      observations.push({ family: 'cap10', viewport, scenario: 'copy-raw-postgres', payload: rawCopySql, feedback: 'Copied to clipboard', clipboard: 'synthetic navigator.clipboard; native OS not tested', noQueryExecution: true })
+
+      await seed('postgres', 'builder', 'fresh')
+      await evaluate('(() => { const store=window.__datakoalaStore,state=store.getState(),tab=state.tabs[0]; tab.builder={...tab.builder,table:{schema:"example",name:"events"}}; tab.builderVisualization={...tab.builderVisualization,xColumn:"category",valueColumn:"value",aggregation:"sum"}; tab.builderHasRun=false; store.setState({tabs:[tab],activeTabId:tab.id}) })()')
+      await click('[data-generated-query-panel] summary')
+      const generatedSelector = '[data-generated-query-panel] [aria-label="Generated SQL query"]'
+      const generatedExpression = 'document.querySelector(' + rendererValue(generatedSelector) + ')'
+      await waitFor(win, generatedExpression + '?.textContent.trim().length > 0', 'CAP-10 generated SQL preview')
+      const generatedSql = await evaluate(generatedExpression + '?.innerText.trim()')
+      if (!generatedSql?.includes('SELECT') || !generatedSql.includes('events')) throw Error('CAP-10 generated SQL preview is incomplete: ' + String(generatedSql))
+      await observe('cap10-generated-sql-desktop.png', '[data-generated-query-panel]', 'SQL Builder generated query disclosure, preview and actions')
+      const beforeGeneratedActions = queryCalls
+      await click('[data-generated-query-panel] [aria-label="Copy SQL to clipboard"]')
+      await waitFor(win, 'window.__cap10Clipboard.at(-1) === ' + rendererValue(generatedSql), 'CAP-10 generated SQL exact clipboard payload')
+      await clickText('Open in SQL mode', '[data-generated-query-panel]')
+      await waitFor(win, 'window.__datakoalaStore.getState().tabs[0].queryMode === "sql" && window.__datakoalaStore.getState().tabs[0].sql.trim() === ' + rendererValue(generatedSql), 'CAP-10 generated query opened in editor draft')
+      if (queryCalls !== beforeGeneratedActions) throw Error('CAP-10 generated preview/copy/open unexpectedly executed SQL')
+      observations.push({ family: 'cap10', viewport, scenario: 'builder-generated-query', sql: generatedSql, copiedExactPayload: true, openInEditorUpdatesDraft: true, noQueryExecution: true, nativeClipboard: 'not tested' })
+      console.log('CAP10 observations: ' + JSON.stringify(observations.filter(item => item.family === 'cap10')))
     }
     if (viewport === 'desktop') {
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
