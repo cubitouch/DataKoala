@@ -2,6 +2,7 @@
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { assertPreviewReady } from './assertions.mjs'
+import { rendererValue } from './renderer-value.mjs'
 import {
   auditCaptions, auditComparisonFiles, auditKinds, auditLogResult, auditProfiles,
   auditRange, auditSchemas, auditScreenshots, auditSpanResult, auditSqlResult,
@@ -65,14 +66,15 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const contacts = { lists: [], toolbar: [], dialogs: [], feedback: [], selectors: [], detail: [] }
   const evaluate = (expression) => win.webContents.executeJavaScript(expression)
   const settle = () => evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-  const select = (selector) => `document.querySelector(${JSON.stringify(selector)})`
+  const select = (selector) => `document.querySelector(${rendererValue(selector)})`
   const click = async (selector) => {
     await waitFor(win, select(selector), `click target ${selector}`)
     await evaluate(`${select(selector)}.click()`)
     await settle()
   }
-  const clickText = async (label, scope = 'document') => {
-    const expression = `[...${scope}.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(label)})`
+  const clickText = async (label, scopeSelector = null) => {
+    const scope = scopeSelector === null ? 'document' : select(scopeSelector)
+    const expression = `[...${scope}.querySelectorAll('button')].find(button => button.textContent.trim() === ${rendererValue(label)})`
     await waitFor(win, expression, `button ${label}`)
     await evaluate(`${expression}.click()`)
     await settle()
@@ -84,7 +86,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     await settle()
   }
   const type = async (selector, value) => {
-    await evaluate(`(() => { const input = ${select(selector)}; if (!input) throw Error('Missing input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); })()`)
+    await evaluate(`(() => { const input = ${select(selector)}; if (!input) throw Error('Missing input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${rendererValue(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); })()`)
     await settle()
   }
   const observe = async (filename, selector, state, group) => {
@@ -115,23 +117,23 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       const store=window.__datakoalaStore, state=store.getState();
       window.__auditBaseTab ??= JSON.parse(JSON.stringify(state.tabs[0]));
       const tab=JSON.parse(JSON.stringify(window.__auditBaseTab));
-      const kind=${JSON.stringify(kind)}, profile=${JSON.stringify(auditProfiles[kind])};
-      tab.id='audit-tab-'+kind; tab.title='Visual audit'; tab.connectionProfileId=profile.id; tab.queryMode=${JSON.stringify(mode === 'builder' ? 'builder' : 'sql')};
+      const kind=${rendererValue(kind)}, profile=${rendererValue(auditProfiles[kind])};
+      tab.id='audit-tab-'+kind; tab.title='Visual audit'; tab.connectionProfileId=profile.id; tab.queryMode=${rendererValue(mode === 'builder' ? 'builder' : 'sql')};
       tab.running=false;tab.pendingQuery=null;tab.pendingResult=null;tab.pendingLokiQuery=null;tab.activeExplainRequest=null;tab.queryError=null;tab.result=null;tab.sqlResultFilters=[];tab.builderResultFilters=[];
       tab.sql=kind==='tempo'?'{ true }':kind==='loki'?'{service_name="example-service"}':kind==='prometheus'?'up':'select category, value from example.events';
       tab.builder={...tab.builder,table:{schema:'example',name:'events'},seriesColumns:[]};tab.builderHasRun=true;
       const config={...tab.sqlVisualization,view:'table',xColumn:'category',valueColumn:'value',seriesColumns:[],seriesColumn:null};tab.sqlVisualization=config;tab.builderVisualization=config;
       tab.promqlBuilder={...tab.promqlBuilder,metric:'up'};
-      tab.lokiBuilder={labelMatchers:[{label:'service_name',operator:'=',value:'example-service'}],lineFilters:[],parsers:[],fieldFilters:[]};tab.lokiResultView=${JSON.stringify(view)};
+      tab.lokiBuilder={labelMatchers:[{label:'service_name',operator:'=',value:'example-service'}],lineFilters:[],parsers:[],fieldFilters:[]};tab.lokiResultView=${rendererValue(view)};
       tab.tempoBuilder={...tab.tempoBuilder,serviceNamespace:'example',service:'example-service'};tab.tempoResultView='list';tab.tempoSampleSize='250';
-      tab.tempoTimeRange=${JSON.stringify(auditRange)};tab.lokiTimeRange=${JSON.stringify(auditRange)};tab.prometheusTimeRange=${JSON.stringify(auditRange)};
-      if (${JSON.stringify(result)} === 'default') tab.result=kind==='tempo'?${JSON.stringify(auditTraceResult)}:kind==='loki'?${JSON.stringify(auditLogResult)}:${JSON.stringify(auditSqlResult)};
+      tab.tempoTimeRange=${rendererValue(auditRange)};tab.lokiTimeRange=${rendererValue(auditRange)};tab.prometheusTimeRange=${rendererValue(auditRange)};
+      if (${rendererValue(result)} === 'default') tab.result=kind==='tempo'?${rendererValue(auditTraceResult)}:kind==='loki'?${rendererValue(auditLogResult)}:${rendererValue(auditSqlResult)};
       tab.resultRevision=(state.tabs[0]?.resultRevision??0)+1;
-      let schemas=kind==='prometheus'?[{name:'Metrics',isSystem:false,relations:[{schema:'Metrics',name:'up',qualifiedName:'Metrics.up',kind:'metric',columnsStatus:'idle',details:{kind:'metric',type:'gauge',help:'Example metric'}}]}]:${JSON.stringify(auditSchemas)};
+      let schemas=kind==='prometheus'?[{name:'Metrics',isSystem:false,relations:[{schema:'Metrics',name:'up',qualifiedName:'Metrics.up',kind:'metric',columnsStatus:'idle',details:{kind:'metric',type:'gauge',help:'Example metric'}}]}]:${rendererValue(auditSchemas)};
       if(kind!=='prometheus') schemas=schemas.map(schema=>({...schema,relations:schema.relations.filter(r=>kind==='tempo'?r.kind==='service':r.kind==='r')}));
       store.setState({profiles:[profile],tabs:[tab],activeTabId:tab.id,connectionStateByProfileId:{[profile.id]:{status:'connected',generation:1,error:null,serverVersion:kind==='postgres'?'17':null}},metadataByProfileId:{[profile.id]:{schemas,status:'loaded',error:null,isStale:false}}});
     })()`)
-    await waitFor(win, `window.__datakoalaStore.getState().activeTabId === 'audit-tab-${kind}' && document.body.innerText.includes('Example ${kind}')`, `seed ${kind}`)
+    await waitFor(win, `window.__datakoalaStore.getState().activeTabId === ${rendererValue('audit-tab-'+kind)} && document.body.innerText.includes(${rendererValue('Example '+kind)})`, `seed ${kind}`)
     await settle()
     win.webContents.sendInputEvent({ type:'mouseMove', x:1,y:1 })
     await delay(100)
@@ -151,9 +153,9 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     await waitFor(win, `Math.abs(document.querySelector('[aria-label="Resize sidebar"]').getBoundingClientRect().left-240)<=1`, 'fixed sidebar width')
     for (const kind of auditKinds) for (const mode of ['raw','builder']) {
       await seed(kind, mode)
-      await waitFor(win, `[...document.querySelectorAll('[aria-label="Query mode"] button')].some(b=>b.getAttribute('aria-pressed')==='true' && b.textContent.trim() === ${JSON.stringify(mode==='builder'?'Builder':kind==='tempo'?'TraceQL':kind==='loki'?'LogQL':kind==='prometheus'?'PromQL':'SQL')})`, `${kind} ${mode} mode`)
+      await waitFor(win, `[...document.querySelectorAll('[aria-label="Query mode"] button')].some(b=>b.getAttribute('aria-pressed')==='true' && b.textContent.trim() === ${rendererValue(mode==='builder'?'Builder':kind==='tempo'?'TraceQL':kind==='loki'?'LogQL':kind==='prometheus'?'PromQL':'SQL')})`, `${kind} ${mode} mode`)
       const language=kind==='tempo'?'TraceQL':kind==='loki'?'LogQL':kind==='prometheus'?'PromQL':'SQL'
-      await waitFor(win, mode==='raw'?`document.querySelector('[aria-label=\"${language} editor\"]')`:kind==='loki'?`document.querySelector('[data-loki-builder]')`:kind==='tempo'?`document.querySelector('[data-tempo-builder]')`:kind==='prometheus'?`document.querySelector('.promql-builder-form')`:`document.querySelector('.builder-pane')`, `${kind} rendered ${mode} component`)
+      await waitFor(win, mode==='raw'?select(`[aria-label="${language} editor"]`):kind==='loki'?`document.querySelector('[data-loki-builder]')`:kind==='tempo'?`document.querySelector('[data-tempo-builder]')`:kind==='prometheus'?`document.querySelector('.promql-builder-form')`:`document.querySelector('.builder-pane')`, `${kind} rendered ${mode} component`)
       await observe(`${kind}-${mode}-${viewport}.png`, '[data-query-toolbar]', `${mode} populated`, viewport==='desktop' && mode==='raw' && ['postgres','loki','tempo'].includes(kind) ? 'toolbar' : null)
     }
     for (const list of ['logs','patterns','traces']) {
@@ -181,7 +183,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await seed(kind,'raw', 'fresh',list==='patterns'?'patterns':'list')
       if(list==='traces') await observe(`${list}-empty-${viewport}.png`,'[class*="searchResults_"]','no fetched traces')
       else {
-        await evaluate(`window.__datakoalaStore.getState().setResult(${JSON.stringify({...auditLogResult,rows:[],logRows:[],rowCount:0})},null)`)
+        await evaluate(`window.__datakoalaStore.getState().setResult(${rendererValue({...auditLogResult,rows:[],logRows:[],rowCount:0})},null)`)
         await settle()
         await observe(`${list}-empty-${viewport}.png`,target,'loaded zero logs')
       }
@@ -189,36 +191,36 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     for (const kind of ['postgres','loki','tempo']) {
       await seed(kind,'raw','fresh')
       await observe(`${kind}-fresh-${viewport}.png`,'.main','not queried')
-      queryOutcome='loading';await clickText('Run','document.querySelector("[data-query-toolbar]")')
+      queryOutcome='loading';await clickText('Run','[data-query-toolbar]')
       await waitFor(win, `window.__datakoalaStore.getState().tabs[0].running`, `${kind} pending query`)
       await observe(`${kind}-loading-${viewport}.png`,'.main','actual unresolved IPC request')
       if(!releaseQuery) await delay(200)
       if(!releaseQuery) throw Error(`${kind} request never reached mocked IPC`)
       releaseQuery();releaseQuery=null;await waitFor(win, `!window.__datakoalaStore.getState().tabs[0].running`,`${kind} completion`)
       if(kind==='postgres') {
-        await clickText('Bar', `document.querySelector(${JSON.stringify('[role="toolbar"][aria-label="Result view"]')})`)
+        await clickText('Bar', '[role="toolbar"][aria-label="Result view"]')
         await assertPreviewReady(win, `postgres-error-chart-${viewport}.png`,{selector:'[data-result-chart-canvas]',description:'settled chart before failure',minSeries:1,minItems:3})
       }
-      queryOutcome='error';await clickText('Run','document.querySelector("[data-query-toolbar]")')
+      queryOutcome='error';await clickText('Run','[data-query-toolbar]')
       await waitFor(win, `document.body.innerText.includes('Synthetic provider unavailable')`,`${kind} failure`)
       if(kind==='postgres') {
         const beforeCalls=queryCalls
         const chartVisibleDuringError=await evaluate('Boolean(document.querySelector("[data-result-chart-canvas] canvas"))')
         await observe(`postgres-error-chart-${viewport}.png`,'.main','previously settled chart retained after failure',viewport==='desktop'?'feedback':null)
-        await clickText('Table', `document.querySelector(${JSON.stringify('[role="toolbar"][aria-label="Result view"]')})`)
+        await clickText('Table', '[role="toolbar"][aria-label="Result view"]')
         await settle()
         const tableVisibleDuringError=await evaluate('Boolean(document.querySelector("[data-result-table-pane] table"))')
         if(queryCalls!==beforeCalls) throw Error('Error-view switch unexpectedly ran query')
         observations.push({family:'error-retention',viewport,retainedRows:await evaluate('window.__datakoalaStore.getState().tabs[0].result.rows.length'),tableVisibleDuringError,chartVisibleDuringError})
       }
       await observe(`${kind}-error-${viewport}.png`,'.main','actual failure; retained result display is view-specific',viewport==='desktop'?'feedback':null)
-      queryOutcome='success';await clickText('Run','document.querySelector("[data-query-toolbar]")')
+      queryOutcome='success';await clickText('Run','[data-query-toolbar]')
       await waitFor(win, `!window.__datakoalaStore.getState().tabs[0].running && !document.body.innerText.includes('Synthetic provider unavailable')`,`${kind} explicit retry`)
       await observe(`${kind}-retry-${viewport}.png`,'.main','explicit Run recovers')
     }
     await seed('tempo','raw','fresh')
     await evaluate(`window.__datakoalaStore.getState().setTempoState({tempoSampleSize:'all'})`)
-    queryOutcome='loading';await clickText('Run','document.querySelector("[data-query-toolbar]")')
+    queryOutcome='loading';await clickText('Run','[data-query-toolbar]')
     await waitFor(win, `document.querySelector('progress') && document.body.innerText.includes('2 traces so far')`, 'real progressive batch')
     await observe(`tempo-partial-${viewport}.png`,'.main','actual IPC progress batch + pending continuation')
     observations.push({family:'progress',viewport,mapDisabled:await evaluate(`[...document.querySelector('[aria-label="Trace search result view"]').querySelectorAll('button')].find(b=>b.textContent.trim()==='Service map').disabled`),rowsDisabled:await evaluate(`[...document.querySelectorAll('button[class*="traceResult_"]')].every(b=>b.disabled)`)} )
@@ -231,9 +233,9 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await observe(`views-${kind}-default-${viewport}.png`,target,'current selected view')
       const beforeCalls=queryCalls
       const next=kind==='tempo'?'Scatter':kind==='loki'?'Patterns':'Table'
-      if(kind==='postgres') await clickText('Bar',`document.querySelector(${JSON.stringify(target)})`)
-      else await clickText(next,`document.querySelector(${JSON.stringify(target)})`)
-      await waitFor(win, `${select(target)}.querySelector('[aria-pressed="true"]').textContent.trim() === ${JSON.stringify(kind==='postgres'?'Bar':next)}`,`${kind} view transition`)
+      if(kind==='postgres') await clickText('Bar',target)
+      else await clickText(next,target)
+      await waitFor(win, `${select(target)}.querySelector('[aria-pressed="true"]').textContent.trim() === ${rendererValue(kind==='postgres'?'Bar':next)}`,`${kind} view transition`)
       if(kind==='postgres' || kind==='tempo') await assertPreviewReady(win, `views-${kind}-changed-${viewport}.png`, {selector:kind==='postgres'?'[data-result-chart-canvas]':'[data-visual-type=\"scatter\"]',description:'audit selected chart',minSeries:1,minItems:3})
       if(queryCalls!==beforeCalls) throw Error(`${kind} view change unexpectedly executed a query`)
       observations.push({family:'view',kind,viewport,queryCallsBefore:beforeCalls,queryCallsAfter:queryCalls})
@@ -243,7 +245,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await seed(kind,'builder')
       const target=kind==='postgres'?'.builder-pane':'[data-tempo-builder]'
       for(const status of ['loading','error','settled']) {
-        await evaluate(`(() => { const store=window.__datakoalaStore; const state=store.getState(),id=state.tabs[0].connectionProfileId; store.setState({metadataByProfileId:{...state.metadataByProfileId,[id]:{...state.metadataByProfileId[id],status:${JSON.stringify(status==='settled'?'loaded':status)},error:${JSON.stringify(status==='error'?'Synthetic metadata unavailable':null)}}}}) })()`)
+        await evaluate(`(() => { const store=window.__datakoalaStore; const state=store.getState(),id=state.tabs[0].connectionProfileId; store.setState({metadataByProfileId:{...state.metadataByProfileId,[id]:{...state.metadataByProfileId[id],status:${rendererValue(status==='settled'?'loaded':status)},error:${rendererValue(status==='error'?'Synthetic metadata unavailable':null)}}}}) })()`)
         await settle()
         if(status==='error') await waitFor(win, `document.body.innerText.includes('Synthetic metadata unavailable')`,`${kind} metadata error`)
         await observe(`metadata-${kind}-${status}-${viewport}.png`,target,'injected metadata presentation; retry is not executed')
@@ -290,7 +292,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       report.tabRemainsInside=await evaluate(`document.querySelector('[role="dialog"]').contains(document.activeElement)`)
       await key('Escape')
       report.escapeDismissed=await evaluate(`!document.querySelector('[role="dialog"]')`)
-      if(!report.escapeDismissed) await clickText('Cancel','document.querySelector("[role=dialog]")')
+      if(!report.escapeDismissed) await clickText('Cancel','[role=dialog]')
       report.returnFocus=await evaluate('document.activeElement?.textContent?.trim()')
       observations.push(report)
     }

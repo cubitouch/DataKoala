@@ -77,3 +77,8 @@ view/semantic state before capture, execute the relevant transitions, and inspec
 the resulting images. Record **Visually verified**, **Behavior verified**,
 **Source-only** and **Unverified** separately in the audit. Preserve deliberate
 source-specific content, density, domain behavior and capability exceptions.
+
+Renderer expression values use `renderer-value.mjs`; operation source remains
+owned by the harness. Encode complete data values/selectors, never accept a raw
+expression as a configurable scope. See the [CodeQL boundary review](visual-preview-security-review.md)
+for per-alert source analysis, encoding guarantees and regression coverage.

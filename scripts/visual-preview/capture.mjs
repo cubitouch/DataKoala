@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { documentationScreenshots, syntheticSources } from './fixtures.mjs'
+import { rendererValue } from './renderer-value.mjs'
 import {
   assertEditorResizeHandle,
   assertCompactObjectFilter,
@@ -1299,7 +1300,7 @@ async function verifyCompactTableSearch(win) {
 
 async function dragDivider(win, selector, deltaX, deltaY) {
   const point = await win.webContents.executeJavaScript(`(() => {
-    const bounds = document.querySelector('${selector}')?.getBoundingClientRect()
+    const bounds = document.querySelector(${rendererValue(selector)})?.getBoundingClientRect()
     return bounds ? { x: Math.round(bounds.left + bounds.width / 2), y: Math.round(bounds.top + bounds.height / 2) } : null
   })()`)
   if (!point) throw new Error(`Missing divider ${selector}`)
