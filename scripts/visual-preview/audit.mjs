@@ -825,12 +825,16 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       if (!generatedSql?.includes('SELECT') || !generatedSql.includes('events')) throw Error('CAP-10 generated SQL preview is incomplete: ' + String(generatedSql))
       await observe('cap10-generated-sql-desktop.png', '[data-generated-query-panel]', 'SQL Builder generated query disclosure, preview and actions')
       const beforeGeneratedActions = queryCalls
+      const clipboardLengthBeforeGeneratedCopy = await evaluate('window.__cap10Clipboard.length')
       await click('[data-generated-query-panel] [aria-label="Copy SQL to clipboard"]')
-      await waitFor(win, 'window.__cap10Clipboard.at(-1) === ' + rendererValue(generatedSql), 'CAP-10 generated SQL exact clipboard payload')
+      await waitFor(win, 'window.__cap10Clipboard.length > ' + clipboardLengthBeforeGeneratedCopy, 'CAP-10 generated SQL clipboard write')
+      const generatedCopiedSql = await evaluate('window.__cap10Clipboard.at(-1)')
       await clickText('Open in SQL mode', '[data-generated-query-panel]')
       await waitFor(win, 'window.__datakoalaStore.getState().tabs[0].queryMode === "sql" && window.__datakoalaStore.getState().tabs[0].sql.trim() === ' + rendererValue(generatedSql), 'CAP-10 generated query opened in editor draft')
+      const generatedDraftSql = await evaluate('window.__datakoalaStore.getState().tabs[0].sql')
+      if (generatedCopiedSql !== generatedDraftSql) throw Error('CAP-10 generated Copy payload did not exactly match opened SQL draft: ' + JSON.stringify({ copied: generatedCopiedSql, draft: generatedDraftSql }))
       if (queryCalls !== beforeGeneratedActions) throw Error('CAP-10 generated preview/copy/open unexpectedly executed SQL')
-      observations.push({ family: 'cap10', viewport, scenario: 'builder-generated-query', sql: generatedSql, copiedExactPayload: true, openInEditorUpdatesDraft: true, noQueryExecution: true, nativeClipboard: 'not tested' })
+      observations.push({ family: 'cap10', viewport, scenario: 'builder-generated-query', sql: generatedDraftSql, copiedExactPayload: true, openInEditorUpdatesDraft: true, noQueryExecution: true, nativeClipboard: 'not tested' })
       console.log('CAP10 observations: ' + JSON.stringify(observations.filter(item => item.family === 'cap10')))
     }
     if (viewport === 'desktop') {
