@@ -97,8 +97,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     console.error(`Audit renderer evaluation failed: ${expression.slice(0, 180)}`, error)
     throw error
   })
-  const settle = () => evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-  const select = (selector) => `document.querySelector(${rendererValue(selector)})`
+  const settle = () => evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')  const select = (selector) => `document.querySelector(${rendererValue(selector)})`
   const click = async (selector) => {
     await waitFor(win, select(selector), `click target ${selector}`)
     await evaluate(`${select(selector)}.click()`)
@@ -197,8 +196,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await seed(kind, mode)
       await waitFor(win, `[...document.querySelectorAll('[aria-label="Query mode"] button')].some(b=>b.getAttribute('aria-pressed')==='true' && b.textContent.trim() === ${rendererValue(mode==='builder'?'Builder':kind==='tempo'?'TraceQL':kind==='loki'?'LogQL':kind==='prometheus'?'PromQL':'SQL')})`, `${kind} ${mode} mode`)
       const language=kind==='tempo'?'TraceQL':kind==='loki'?'LogQL':kind==='prometheus'?'PromQL':'SQL'
-      await waitFor(win, mode==='raw'?select(`[aria-label="${language} editor"]`):kind==='loki'?`document.querySelector('[data-loki-builder]')`:kind==='tempo'?`document.querySelector('[data-tempo-builder]')`:kind==='prometheus'?`document.querySelector('.promql-builder-form')`:`document.querySelector('.builder-pane')`, `${kind} rendered ${mode} component`)
-      await observe(`${kind}-${mode}-${viewport}.png`, '[data-query-toolbar]', `${mode} populated`, viewport==='desktop' && mode==='raw' && ['postgres','loki','tempo'].includes(kind) ? 'toolbar' : null)
+      await waitFor(win, mode==='raw'?select(`[aria-label="${language} editor"]`):kind==='loki'?`document.querySelector('[data-loki-builder]')`:kind==='tempo'?`document.querySelector('[data-tempo-builder]')`:kind==='prometheus'?`document.querySelector('.promql-builder-form')`:`document.querySelector('.builder-pane')`, `${kind} rendered ${mode} component`)      await observe(`${kind}-${mode}-${viewport}.png`, '[data-query-toolbar]', `${mode} populated`, viewport==='desktop' && mode==='raw' && ['postgres','loki','tempo'].includes(kind) ? 'toolbar' : null)
     }
     for (const list of ['logs','patterns','traces']) {
       const kind=list==='traces'?'tempo':'loki'
@@ -297,8 +295,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win, `!document.body.innerText.includes('Copied to clipboard')`, 'previous copy feedback cleared')
       await seed(surface==='query'?'postgres':'loki','raw')
       if(surface==='log') await click(rowSelectors.logs)
-      await evaluate(`(() => { window.__auditClipboardRejections=[]; if(!window.__auditClipboardObserver) { window.__auditClipboardObserver=true; window.addEventListener('unhandledrejection',e=>{ if(e.reason?.message==='Synthetic clipboard denied') { window.__auditClipboardRejections.push(e.reason.message); e.preventDefault() } }); } Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(Error('Synthetic clipboard denied'))}}) })()`)
-      const selector=surface==='query'?'[aria-label="Copy SQL to clipboard"]':'[aria-label="Copy message"]'
+      await evaluate(`(() => { window.__auditClipboardRejections=[]; if(!window.__auditClipboardObserver) { window.__auditClipboardObserver=true; window.addEventListener('unhandledrejection',e=>{ if(e.reason?.message==='Synthetic clipboard denied') { window.__auditClipboardRejections.push(e.reason.message); e.preventDefault() } }); } Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(Error('Synthetic clipboard denied'))}}) })()`)      const selector=surface==='query'?'[aria-label="Copy SQL to clipboard"]':'[aria-label="Copy message"]'
       await click(selector)
       await waitFor(win, surface==='query'?`document.body.innerText.includes('Could not copy')`:`window.__auditClipboardRejections.length>0`, `${surface} denied clipboard`)
       const failure=await evaluate(`(() => { const node=[...document.querySelectorAll('[role="alert"],[role="status"]')].find(e=>e.textContent.includes('Could not copy')); return node?{text:node.textContent.trim(),role:node.getAttribute('role'),live:node.getAttribute('aria-live')}:null })()`)
@@ -316,13 +313,13 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     }
     if(viewport==='desktop') {
       await seed('postgres','raw')
-      const layout=()=>evaluate(`(() => { const rect=s=>document.querySelector(s)?.getBoundingClientRect(); const sidebar=rect('.sidebar'),workspace=rect('.workspace'),main=rect('.main'),handle=document.querySelector('[aria-label="Resize sidebar"]'),editorHandle=document.querySelector('.editor-resizer'),editor=rect('[data-query-editor]'),results=rect('[data-result-explorer]'); return {sidebarWidth:Math.round(sidebar?.width??0),sidebarValue:Number(handle?.getAttribute('aria-valuenow')),sidebarMin:Number(handle?.getAttribute('aria-valuemin')),sidebarMax:Number(handle?.getAttribute('aria-valuemax')),editorValue:Number(editorHandle?.getAttribute('aria-valuenow')),editorMin:Number(editorHandle?.getAttribute('aria-valuemin')),editorMax:Number(editorHandle?.getAttribute('aria-valuemax')),editorTop:Math.round(editor?.top??0),editorBottom:Math.round(editor?.bottom??0),resultsTop:Math.round(results?.top??0),resultsBottom:Math.round(results?.bottom??0),mainLeft:Math.round(main?.left??0),mainRight:Math.round(main?.right??0),workspaceRight:Math.round(workspace?.right??0),rowsVisible:Boolean(editor&&results&&editor.width>0&&results.width>0&&editor.height>0&&results.height>0)} })()`)
+      const layout=()=>evaluate(`(() => { const rect=s=>document.querySelector(s)?.getBoundingClientRect(); const sidebar=rect('.sidebar'),workspace=rect('.workspace'),main=rect('.main'),handle=document.querySelector('[aria-label="Resize sidebar"]'),editorHandle=document.querySelector('.editor-resizer'),editor=rect('[data-query-editor]'),results=rect('[data-result-explorer]'); return {sidebarWidth:Math.round(sidebar?.width??0),sidebarRight:Math.round(sidebar?.right??0),sidebarValue:Number(handle?.getAttribute('aria-valuenow')),sidebarMin:Number(handle?.getAttribute('aria-valuemin')),sidebarMax:Number(handle?.getAttribute('aria-valuemax')),editorValue:Number(editorHandle?.getAttribute('aria-valuenow')),editorMin:Number(editorHandle?.getAttribute('aria-valuemin')),editorMax:Number(editorHandle?.getAttribute('aria-valuemax')),editorTop:Math.round(editor?.top??0),editorBottom:Math.round(editor?.bottom??0),resultsTop:Math.round(results?.top??0),resultsBottom:Math.round(results?.bottom??0),mainLeft:Math.round(main?.left??0),mainRight:Math.round(main?.right??0),workspaceRight:Math.round(workspace?.right??0),rowsVisible:Boolean(editor&&results&&editor.width>0&&results.width>0&&editor.height>0&&results.height>0)} })()`)
       const before=await layout()
       await dragDivider(win,'[aria-label="Resize sidebar"]',80,0)
       await dragDivider(win,'.editor-resizer',0,64)
       const pointer=await layout()
       if(pointer.sidebarValue!==before.sidebarValue+80||pointer.editorValue!==before.editorValue+64) throw Error(`CAP-09 pointer splitter delta mismatch: ${JSON.stringify({before,pointer})}`)
-      if(pointer.editorBottom>pointer.resultsTop+2||pointer.mainLeft>pointer.editorTop||pointer.mainRight>pointer.workspaceRight||!pointer.rowsVisible) throw Error(`CAP-09 split workspace overlaps or became unusable: ${JSON.stringify(pointer)}`)
+      if(pointer.editorBottom>pointer.resultsTop+2||pointer.sidebarRight>pointer.mainLeft+2||pointer.mainRight>pointer.workspaceRight||!pointer.rowsVisible) throw Error(`CAP-09 split workspace overlaps or became unusable: ${JSON.stringify(pointer)}`)
       await evaluate(`document.querySelector('[aria-label="Resize sidebar"]').focus()`)
       await key('ArrowLeft')
       await evaluate(`document.querySelector('.editor-resizer').focus()`)
@@ -398,7 +395,6 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await click('[role="radio"]:nth-child(1)')
       await waitFor(win, `document.querySelector('#postgres-connection-title')?.textContent === 'PostgreSQL'`, 'CAP-01 PG form')
       await waitFor(win, `document.querySelector('#connection-password')?.type === 'password'`, 'CAP-01 masked password')
-
       await clickText('Save','[role="dialog"]')
       await waitFor(win, `document.querySelector('#profile-name')?.getAttribute('aria-invalid') === 'true' && document.body.innerText.includes('Database is required')`, 'CAP-01 required fields')
       await waitFor(win, `document.activeElement?.id === 'profile-name'`, 'CAP-01 invalid Save focuses first error')
@@ -498,7 +494,6 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-02 Save closes')
       if (!cap02Ipc.saves.some(p => p.id === 'audit-postgres' && p.host === 'pg-edited.example' && p.readonly === false)) throw Error('CAP-02 Save did not preserve id/edited draft/read-only')
       observations.push({family:'cap02',viewport,scenario:'edit-test-save',profileId:'audit-postgres',host:'pg-edited.example',initialReadonly:true,testReadonly:false,saveReadonly:false,maskedPassword:true})
-
       // A03: named delete confirmation, Escape focus return, Cancel preservation,
       // and explicit controlled Delete (no real connection/persistence mutation).
       await resetSavedProfile()
@@ -597,8 +592,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await clickText('Choose database…','[role="dialog"]')
       await waitFor(win, `document.querySelector('[role="dialog"]')?.innerText.includes('/samples/example.sqlite3')`, 'CAP-03 selected SQLite path')
       await observe('cap03-sqlite-selection-desktop.png','[role="dialog"]','single SQLite selection after real chooser click')
-      await clickText('Test','[role="dialog"]')
-      await waitFor(win, `document.body.innerText.includes('SQLite database opened directly in read-only mode')`, 'CAP-03 synthetic SQLite Test')
+      await clickText('Test','[role="dialog"]')      await waitFor(win, `document.body.innerText.includes('SQLite database opened directly in read-only mode')`, 'CAP-03 synthetic SQLite Test')
       if (!cap03Ipc.tests.some(p=>p.kind==='sqlite-file' && p.path==='/samples/example.sqlite3' && p.readonly===true)) throw Error('CAP-03 SQLite Test payload wrong')
       observations.push({family:'cap03',viewport,scenario:'sqlite-selected',path:'/samples/example.sqlite3',readonly:true,chooserCalls:cap03Ipc.chooseSqlite})
       await clickText('Save','[role="dialog"]')
@@ -697,8 +691,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win, `document.body.innerText.includes('Synthetic initial discovery failed') && [...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Retry')`, 'CAP-05 injected initial error')
       const initialCalls=cap05Ipc.listCalls
       await clickText('Retry')
-      await waitFor(win, `window.__datakoalaStore.getState().metadataByProfileId['audit-postgres']?.status === 'loaded' && document.body.innerText.includes('events')`, 'CAP-05 real retry loaded')
-      if (cap05Ipc.listCalls !== initialCalls+1) throw Error('CAP-05 retry did not invoke exactly one metadata request')
+      await waitFor(win, `window.__datakoalaStore.getState().metadataByProfileId['audit-postgres']?.status === 'loaded' && document.body.innerText.includes('events')`, 'CAP-05 real retry loaded')      if (cap05Ipc.listCalls !== initialCalls+1) throw Error('CAP-05 retry did not invoke exactly one metadata request')
       await observe('cap05-pg-retry-desktop.png','aside[aria-label="Connections and objects"]','actual Retry click recovered SQL schema/relations')
       observations.push({family:'cap05',viewport,scenario:'pg-error-retry',initialError:'injected',retryAction:'clicked',listObjectCalls:cap05Ipc.listCalls,recovered:true,profile:'audit-postgres'})
       cap05Ipc.active=false
@@ -797,8 +790,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       if(queryCalls!==beforeLokiCalls)throw Error('CAP-08 Loki preset unexpectedly executed a query')
       observations.push({family:'cap08',viewport,scenario:'loki-preset-save-load',profile:'audit-loki',loaded:lokiLoaded,noQueryExecution:true,storage:'isolated Electron audit profile'})
 
-      // A23: actual Reset confirmation, Cancel/Escape preservation, tab ownership,
-      // and Reset behavior with no implicit Run on both SQL and Loki sessions.
+      // A23: actual Reset confirmation, Cancel/Escape preservation, tab ownership,      // and Reset behavior with no implicit Run on both SQL and Loki sessions.
       await seed('postgres','builder','fresh','list',false)
       cap08Stage='PG Reset fixture setup'
       await evaluate(`(() => {
