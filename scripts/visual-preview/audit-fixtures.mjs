@@ -38,5 +38,11 @@ for (const viewport of Object.keys(auditViewports)) {
   for (const dialog of ['picker', ...auditKinds, 'settings', 'reset', 'presets']) auditScreenshots.push(`dialog-${dialog}-${viewport}.png`)
   for (const kind of ['postgres', 'prometheus', 'loki', 'tempo']) for (const state of ['options', 'no-options']) auditScreenshots.push(`selector-${kind}-${state}-${viewport}.png`)
 }
+// CAP-01 covers only otherwise missing PostgreSQL substates at the normal desktop viewport.
+auditScreenshots.push(
+  'cap01-pg-validation-desktop.png',
+  'cap01-pg-string-desktop.png',
+  'cap01-pg-tls-desktop.png',
+)
 export const auditComparisonFiles = ['compare-lists.png', 'compare-toolbar.png', 'compare-dialogs.png', 'compare-feedback.png', 'compare-selectors.png', 'compare-detail.png']
 export const auditCaptions = Object.fromEntries([...auditScreenshots, ...auditComparisonFiles].map((file) => [file, file.replace('.png', '').replaceAll('-', ' ')]))
