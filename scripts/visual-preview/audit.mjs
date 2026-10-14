@@ -12,6 +12,7 @@ import {
 // Audit-only, sanitized observations. All CAP-02 mutations remain in the synthetic IPC boundary.
 const cap02Ipc = { active: false, tests: [], saves: [], removes: [] }
 const cap03Ipc = { active: false, tests: [], saves: [], chooseFiles: 0, chooseSqlite: 0 }
+const cap04Ipc = { mode: '', tests: [], saves: [], discovery: [] }
 let queryOutcome = 'success'
 let releaseQuery = null
 let queryCalls = 0
@@ -40,7 +41,10 @@ export function installAuditIpc(ipc) {
   handle('connections:loki:format-query', (_event, _id, query) => query)
   handle('connections:tempo:attributes', () => [])
   handle('connections:tempo:attribute-values', () => ['example'])
-  for (const kind of ['prometheus', 'tempo', 'loki']) handle(`connections:${kind}:${kind === 'loki' ? 'discover' : 'discover-datasources'}`, () => [{ uid: `example-${kind}`, name: `Example ${kind}`, type: kind }])
+  for (const kind of ['prometheus', 'tempo', 'loki']) handle(`connections:${kind}:${kind === 'loki' ? 'discover' : 'discover-datasources'}`, (_event, transport) => {
+    if (cap04Ipc.mode) cap04Ipc.discovery.push({kind,context:transport?.context??null})
+    return cap04Ipc.mode === kind ? [] : [{ uid: `example-${kind}`, name: `Example ${kind}`, type: kind }]
+  })
   handle('connections:bigquery:discover-projects', () => [{ projectId: 'example-project', name: 'Example project' }])
   handle('connections:bigquery:discover-defaults', () => ({ projectId: 'example-project', billingProject: 'example-project', location: 'EU' }))
   handle('connections:bigquery:list-datasets', () => [{ datasetId: 'example', projectId: 'example-project' }])
@@ -48,10 +52,12 @@ export function installAuditIpc(ipc) {
   handle('connection:list-objects', () => [])
   handle('connection:test', (_event, profile) => {
     if (cap02Ipc.active) cap02Ipc.tests.push({id:profile.id,host:profile.host,readonly:profile.readonly})
+    if (cap04Ipc.mode) cap04Ipc.tests.push({kind:profile.kind,transport:profile.transport,grafana:profile.grafana??null})
     if (cap03Ipc.active) cap03Ipc.tests.push({kind:profile.kind,name:profile.name,readonly:profile.readonly,files:profile.files, path:profile.path, billingProject:profile.billingProject,maximumBytesBilled:profile.maximumBytesBilled})
     return { ok: true, serverVersion: '17' }
   })
   handle('connections:upsert', (_event, profile) => {
+    if (cap04Ipc.mode) { cap04Ipc.saves.push({kind:profile.kind,transport:profile.transport,grafana:profile.grafana??null}); return profile }
     if (cap03Ipc.active) { cap03Ipc.saves.push({kind:profile.kind,name:profile.name,readonly:profile.readonly,files:profile.files,path:profile.path,billingProject:profile.billingProject,maximumBytesBilled:profile.maximumBytesBilled}); return profile }
     if (!cap02Ipc.active) throw Error('Unexpected profile save outside CAP-02')
     cap02Ipc.saves.push({id:profile.id,host:profile.host,readonly:profile.readonly})
@@ -549,6 +555,61 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       observations.push({family:'cap03',viewport,scenario:'sqlite-test-save',path:'/samples/example.sqlite3',readonly:true,providerCall:'mocked'})
 
       cap03Ipc.active = false
+    }
+    if (viewport === 'desktop') {
+      const openObservability = async (index, title) => {
+        await seed('postgres','raw')
+        await clickText('+ new connection')
+        await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent === 'Choose a connection type'`, 'CAP-04 picker')
+        await click(`[role="radio"]:nth-child(${index})`)
+        await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent === ${rendererValue(title)}`, 'CAP-04 correct datasource form')
+      }
+      const setInput = async (selector,value) => {
+        await evaluate(`(() => {
+          const e=${select(selector)}
+          if(!e) throw Error('CAP-04 input missing')
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${rendererValue(value)})
+          e.dispatchEvent(new Event('input',{bubbles:true}))
+          e.dispatchEvent(new Event('change',{bubbles:true}))
+        })()`)
+      }
+      // P01: the historical dialog covers one selected Prometheus UID. Test the actual
+      // selected UID and saved gcx profile without another redundant screenshot.
+      cap04Ipc.mode = 'record'
+      cap04Ipc.tests.length=0;cap04Ipc.saves.length=0;cap04Ipc.discovery.length=0
+      await openObservability(5,'Prometheus')
+      await waitFor(win, `document.querySelector('[role="dialog"]')?.innerText.includes('Example prometheus')`, 'CAP-04 selected Prometheus datasource')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-04 Prometheus Save')
+      if (!cap04Ipc.saves.some(p=>p.kind==='prometheus'&&p.transport?.datasourceUid==='example-prometheus'&&p.transport?.kind==='gcx')) throw Error('CAP-04 PM selected UID missing in Save')
+      observations.push({family:'cap04',viewport,scenario:'prometheus-selected',datasourceUid:'example-prometheus',savedMock:true})
+      // L01: empty discovery does NOT forbid deliberately entering a manual UID.
+      cap04Ipc.mode = 'loki'
+      await openObservability(6,'Loki')
+      await waitFor(win, `document.querySelector('[role="dialog"]')?.innerText.includes('No Loki datasource found')`, 'CAP-04 empty Loki discovery')
+      await click('[role="dialog"] details summary')
+      await waitFor(win, `document.querySelector('#loki-uid')`, 'CAP-04 manual Loki UID visible')
+      await setInput('#loki-uid','manual-loki-audit')
+      await waitFor(win, `document.querySelector('#loki-uid')?.value === 'manual-loki-audit' && ![...document.querySelectorAll('[role="dialog"] button')].find(b=>b.textContent.trim()==='Save')?.disabled`, 'CAP-04 manual UID enabled')
+      await observe('cap04-loki-fallback-desktop.png','[role="dialog"]','empty Loki discovery with deliberate manual UID')
+      await clickText('Test datasource','[role="dialog"]')
+      await waitFor(win, `document.body.innerText.includes('the manually configured Loki datasource')`, 'CAP-04 manual Loki Test')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-04 manual Loki Save')
+      if (!cap04Ipc.tests.some(p=>p.kind==='loki'&&p.transport?.datasourceUid==='manual-loki-audit') || !cap04Ipc.saves.some(p=>p.kind==='loki'&&p.transport?.datasourceUid==='manual-loki-audit')) throw Error('CAP-04 Loki fallback Test/Save')
+      observations.push({family:'cap04',viewport,scenario:'loki-manual-uid',discovery:'empty',manualUid:'manual-loki-audit',testAndSave:true})
+      // T01: empty discovery still permits normal trace access, not Grafana handoff.
+      cap04Ipc.mode = 'tempo'
+      await openObservability(7,'Tempo')
+      await waitFor(win, `document.querySelector('[role="dialog"]')?.innerText.includes('remain available without Grafana handoff')`, 'CAP-04 Tempo no UID optional')
+      await observe('cap04-tempo-optional-desktop.png','[role="dialog"]','Tempo without discovered UID still query-capable')
+      await clickText('Test trace access','[role="dialog"]')
+      await waitFor(win, `document.body.innerText.includes('Tempo trace access verified')`, 'CAP-04 Tempo synthetic Test without UID')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-04 Tempo Save without UID')
+      if (!cap04Ipc.tests.some(p=>p.kind==='tempo'&&!p.transport?.datasourceUid) || !cap04Ipc.saves.some(p=>p.kind==='tempo'&&!p.transport?.datasourceUid)) throw Error('CAP-04 Tempo optional UID contract')
+      observations.push({family:'cap04',viewport,scenario:'tempo-no-uid',discovery:'empty',testAndSave:true,uidRequired:false})
+      cap04Ipc.mode = ''
     }
   }
   const htmlEscape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
