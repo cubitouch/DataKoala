@@ -588,8 +588,10 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       cap04Ipc.mode = 'loki'
       await openObservability(6,'Loki')
       await waitFor(win, `document.querySelector('[role="dialog"]')?.innerText.includes('No Loki datasource found')`, 'CAP-04 empty Loki discovery')
-      await click('[role="dialog"] details summary')
-      await waitFor(win, `document.querySelector('#loki-uid')`, 'CAP-04 manual Loki UID visible')
+      const manualPanel = '[role="dialog"] details[data-collapsible-title="Advanced — enter a datasource UID manually"]'
+      await waitFor(win, `${select(manualPanel)}`, 'CAP-04 manual UID panel')
+      if (!(await evaluate(`${select(manualPanel)}.open`))) await click(`${manualPanel} summary`)
+      await waitFor(win, `${select(manualPanel)}.open === true && document.querySelector('#loki-uid')?.getBoundingClientRect().height > 0`, 'CAP-04 manual UID visibly expanded')
       await setInput('#loki-uid','manual-loki-audit')
       await waitFor(win, `document.querySelector('#loki-uid')?.value === 'manual-loki-audit' && ![...document.querySelectorAll('[role="dialog"] button')].find(b=>b.textContent.trim()==='Save')?.disabled`, 'CAP-04 manual UID enabled')
       await observe('cap04-loki-fallback-desktop.png','[role="dialog"]','empty Loki discovery with deliberate manual UID')
