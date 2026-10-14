@@ -488,7 +488,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
         await seed('postgres','raw')
         await clickText('+ new connection')
         await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent === 'Choose a connection type'`, 'CAP-03 picker')
-        await click(`[role="radio"]:nth-child(${index})`)
+        await waitFor(win, `[...document.querySelectorAll('[role="radio"]')].some(b=>b.textContent.includes(${rendererValue(title)}))`, 'CAP-04 provider card')
+        await evaluate(`[...document.querySelectorAll('[role="radio"]')].find(b=>b.textContent.includes(${rendererValue(title)})).click()`)
       }
       const setInput = async (selector, value) => {
         await evaluate(`(() => { const input=${select(selector)}; if(!input)throw Error('CAP-03 missing input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${rendererValue(value)}); input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true})) })()`)
