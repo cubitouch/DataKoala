@@ -652,6 +652,30 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       observations.push({family:'cap05',viewport,scenario:'pg-error-retry',initialError:'injected',retryAction:'clicked',listObjectCalls:cap05Ipc.listCalls,recovered:true,profile:'audit-postgres'})
       cap05Ipc.active=false
     }
+    if (viewport === 'desktop') {
+      await seed('postgres','raw')
+      const original=await evaluate('window.__datakoalaStore.getState().activeTabId')
+      await click('[aria-label="New query tab"]')
+      await waitFor(win, `window.__datakoalaStore.getState().tabs.length===2 && window.__datakoalaStore.getState().activeTabId !== ${rendererValue(original)}`, 'CAP-07 actual New tab')
+      const created=await evaluate('window.__datakoalaStore.getState().activeTabId')
+      const newState=await evaluate('(() => { const s=window.__datakoalaStore.getState(),t=s.tabs.find(x=>x.id===s.activeTabId);return {profileId:t.connectionProfileId,running:t.running,queryMode:t.queryMode,title:t.title} })()')
+      if(newState.profileId!=='audit-postgres'||newState.running)throw Error('CAP-07 New tab did not inherit PG/fresh running state')
+      // Actual double-click handler through a genuine composed MouseEvent.
+      await evaluate(`(() => { const el=[...document.querySelectorAll('[role="tab"]')].find(t=>t.querySelector('[aria-selected]')||t.getAttribute('aria-selected')==='true');if(!el)throw Error('CAP-07 selected tab missing');el.querySelector('button').dispatchEvent(new MouseEvent('dblclick',{bubbles:true})) })()`)
+      await waitFor(win, `document.querySelector('input[aria-label="Tab name"]')||document.querySelector('input[id*="tab"]')||document.querySelector('[role="tab"] input')`, 'CAP-07 rename input')
+      await evaluate(`(() => { const e=document.querySelector('[role="tab"] input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'Audit B');e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));e.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})) })()`)
+      await waitFor(win, `window.__datakoalaStore.getState().tabs.some(t=>t.id===${rendererValue(created)} && t.title==='Audit B')`, 'CAP-07 rename committed')
+      // Only the running state is injected; tab creation, renaming and switching are real UI actions.
+      await evaluate(`(() => { const st=window.__datakoalaStore.getState();st.setRunning(true,${rendererValue(original)}) })()`)
+      await waitFor(win, `document.querySelectorAll('[aria-label="Query running"]').length===1 && [...document.querySelectorAll('[role="tab"]')].some(t=>t.getAttribute('aria-selected')==='false'&&t.querySelector('[aria-label="Query running"]'))`, 'CAP-07 background tab running indicator')
+      await observe('cap07-tabs-running-desktop.png','[role="tablist"][aria-label="Query tabs"]','real new tab + rename; synthetic background-tab running indicator')
+      observations.push({family:'cap07',viewport,scenario:'new-rename-background-running',originalTab:original,newTab:created,newTitle:'Audit B',profileId:newState.profileId,runningInjected:true,indicatorOnInactive:true})
+      await evaluate(`window.__datakoalaStore.getState().setRunning(false,${rendererValue(original)})`)
+      await waitFor(win, `document.querySelectorAll('[aria-label="Query running"]').length===0`, 'CAP-07 running cleared')
+      await click(`[aria-label="Close Audit B"]`)
+      await waitFor(win, `window.__datakoalaStore.getState().tabs.length===1 && window.__datakoalaStore.getState().activeTabId===${rendererValue(original)}`, 'CAP-07 close active restores surviving tab')
+      observations.push({family:'cap07',viewport,scenario:'close-active',survivor:original,runningCleared:true})
+    }
   }
   const htmlEscape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
   for(const [group,items] of Object.entries(contacts)) {
