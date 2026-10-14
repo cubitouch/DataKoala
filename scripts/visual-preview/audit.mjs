@@ -731,7 +731,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win, `window.__cap08Confirms.length===1 && document.body.innerText.includes('CAP08 PG first')`, 'CAP-08 native confirm cancellation keeps target')
       const afterCancelledDelete=await evaluate('JSON.stringify({tab:window.__datakoalaStore.getState().tabs[0],activeTabId:window.__datakoalaStore.getState().activeTabId})')
       if(afterCancelledDelete!==pgBefore)throw Error('CAP-08 canceled delete changed exploration state: before='+pgBefore+' after='+afterCancelledDelete)
-      await evaluate('window.confirm=message=>{window.__cap08Confirms.push(message);return true}')
+      await evaluate('(() => { window.confirm=message=>{window.__cap08Confirms.push(message);return true} })()')
       await click('[aria-label="Delete preset CAP08 PG first"]')
       await waitFor(win, `document.querySelectorAll('[role="dialog"] li').length===1 && !document.body.innerText.includes('CAP08 PG first') && document.body.innerText.includes('CAP08 PG renamed')`, 'CAP-08 targeted delete confirmation')
       if(await evaluate(`window.__cap08Confirms.join('|')`)!=='Delete preset “CAP08 PG first”?|Delete preset “CAP08 PG first”?')throw Error('CAP-08 delete confirmation did not target the selected preset')
@@ -798,7 +798,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await clickText('Reset exploration','[role="dialog"]')
       await waitFor(win, `window.__datakoalaStore.getState().tabs[0].sql==='' && !document.querySelector('[role="dialog"]')`, 'CAP-08 confirmed Loki reset')
       const lokiAfter=await evaluate(`(() => {const s=window.__datakoalaStore.getState(),t=s.tabs[0];return {profileId:t.connectionProfileId,mode:t.queryMode,sql:t.sql,result:t.result,matchers:t.lokiBuilder.labelMatchers,lineFilters:t.lokiBuilder.lineFilters,timeRange:t.lokiTimeRange}})()`)
-      if(lokiAfter.profileId!=='audit-loki'||lokiAfter.mode!=='builder'||lokiAfter.sql!==''||lokiAfter.result!==null||lokiAfter.matchers.length||lokiAfter.lineFilters.length)throw Error('CAP-08 Loki reset failed to clear its active source query and results: '+JSON.stringify(lokiAfter))
+      if(lokiAfter.profileId!=='audit-loki'||lokiAfter.mode!=='builder'||lokiAfter.sql!==''||lokiAfter.result!==null||lokiAfter.matchers.length||lokiAfter.lineFilters.length||JSON.stringify(lokiAfter.timeRange)!==JSON.stringify(auditRange))throw Error('CAP-08 Loki reset failed to clear its active source query and results while retaining its time range: '+JSON.stringify(lokiAfter))
       observations.push({family:'cap08',viewport,scenario:'loki-reset',confirmed:lokiAfter,noQueryExecution:queryCalls===resetCalls})
       if(queryCalls!==resetCalls)throw Error('CAP-08 Loki Reset unexpectedly executed a query')
     }
