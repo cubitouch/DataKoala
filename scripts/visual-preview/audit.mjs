@@ -777,7 +777,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await clickText('Format', '[data-query-toolbar]')
       await waitFor(win, 'window.__datakoalaStore.getState().tabs[0].sql !== ' + rendererValue(originalPostgres), 'CAP-10 PostgreSQL local formatting')
       const formattedPostgres = await evaluate('window.__datakoalaStore.getState().tabs[0].sql')
-      if (!formattedPostgres.split(String.fromCharCode(10)).length < 2 || !formattedPostgres.includes('FROM public.events') || !formattedPostgres.includes('WHERE value > 2')) throw Error('CAP-10 Format output did not preserve expected SQL structure: ' + JSON.stringify(formattedPostgres))
+      if (formattedPostgres.split(String.fromCharCode(10)).length < 2 || !formattedPostgres.includes('FROM public.events') || !formattedPostgres.includes('WHERE value > 2')) throw Error('CAP-10 Format output did not preserve expected SQL structure: ' + JSON.stringify(formattedPostgres))
       if (queryCalls !== beforeFormat) throw Error('CAP-10 Format unexpectedly executed SQL')
       await observe('cap10-formatted-postgres-desktop.png', editorSelector, 'PostgreSQL query after in-place Format without execution')
       observations.push({ family: 'cap10', viewport, scenario: 'format-postgres', sql: formattedPostgres, noQueryExecution: true, source: 'formatSql with PostgreSQL formatter dialect' })
