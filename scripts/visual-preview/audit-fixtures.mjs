@@ -63,7 +63,7 @@ auditScreenshots.push(
 export const auditComparisonFiles = ['compare-lists.png', 'compare-toolbar.png', 'compare-dialogs.png', 'compare-feedback.png', 'compare-selectors.png', 'compare-detail.png']
 export const auditCaptions = Object.fromEntries([...auditScreenshots, ...auditComparisonFiles].map((file) => [file, file.replace('.png', '').replaceAll('-', ' ')]))
 Object.assign(auditCaptions, {
-  'cap08-preset-list-desktop.png': 'CAP-08 PostgreSQL preset manager after create, rename, and confirmed targeted delete',
+  'cap08-preset-list-desktop.png': 'CAP-08 PostgreSQL preset manager after create and rename, before delete confirmation',
   'cap08-reset-confirm-desktop.png': 'CAP-08 PostgreSQL Reset confirmation with a populated Builder and result',
   'cap08-reset-cleared-desktop.png': 'CAP-08 PostgreSQL workspace after confirming Reset; connection and time range retained',
 })

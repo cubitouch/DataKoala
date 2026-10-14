@@ -91,7 +91,10 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   win.webContents.setZoomFactor(1)
   const observations = []
   const contacts = { lists: [], toolbar: [], dialogs: [], feedback: [], selectors: [], detail: [] }
-  const evaluate = (expression) => win.webContents.executeJavaScript(expression)
+  const evaluate = (expression) => win.webContents.executeJavaScript(expression).catch((error) => {
+    console.error(`Audit renderer evaluation failed: ${expression.slice(0, 180)}`, error)
+    throw error
+  })
   const settle = () => evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
   const select = (selector) => `document.querySelector(${rendererValue(selector)})`
   const click = async (selector) => {
@@ -670,6 +673,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win, `document.querySelectorAll('[aria-label="Query running"]').length===1 && [...document.querySelectorAll('[role="tab"]')].some(t=>t.getAttribute('aria-selected')==='false'&&t.querySelector('[aria-label="Query running"]'))`, 'CAP-07 background tab running indicator')
       await observe('cap07-tabs-running-desktop.png','[role="tablist"][aria-label="Query tabs"]','real new tab + rename; synthetic background-tab running indicator')
       observations.push({family:'cap07',viewport,scenario:'new-rename-background-running',originalTab:original,newTab:created,newTitle:'Audit B',profileId:newState.profileId,runningInjected:true,indicatorOnInactive:true})
+      console.log('CAP08 boundary: CAP-07 observation complete')
       await evaluate(`window.__datakoalaStore.getState().setRunning(false,${rendererValue(original)})`)
       await waitFor(win, `document.querySelectorAll('[aria-label="Query running"]').length===0`, 'CAP-07 running cleared')
       await click(`[aria-label="Close Audit B"]`)
@@ -679,7 +683,9 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     if (viewport === 'desktop') {
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
       // in-memory session. Never connect a provider or persist a user's presets.
+      console.log('CAP08 step: seed PostgreSQL Builder session')
       await seed('postgres','builder')
+      console.log('CAP08 step: prepare populated preset session')
       const pgBefore=await evaluate(`(() => {
         const state=window.__datakoalaStore.getState(),tab=state.tabs[0]
         tab.builder={...tab.builder,table:{schema:'example',name:'events'},timeColumn:'event_time'}
@@ -706,7 +712,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await type('[aria-label="Rename CAP08 PG second"]','CAP08 PG renamed')
       await key('Enter')
       await waitFor(win, `document.body.innerText.includes('Renamed preset to “CAP08 PG renamed”.') && document.querySelector('[aria-label="Load preset CAP08 PG renamed"]')`, 'CAP-08 rename via Enter')
-      await observe('cap08-preset-list-desktop.png','[role="dialog"]','active-profile presets after save, rename, and targeted delete','dialogs')
+      await observe('cap08-preset-list-desktop.png','[role="dialog"]','active-profile presets after save and rename; both targeted delete choices visible','dialogs')
       await evaluate(`(() => {
         window.__cap08Confirms=[]
         window.confirm=message=>{window.__cap08Confirms.push(message);return false}
