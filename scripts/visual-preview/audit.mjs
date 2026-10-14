@@ -763,19 +763,21 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
 
       // A23: actual Reset confirmation, Cancel/Escape preservation, tab ownership,
       // and Reset behavior with no implicit Run on both SQL and Loki sessions.
-      await seed('postgres','builder','default','list',false)
+      await seed('postgres','builder','fresh','list',false)
       cap08Stage='PG Reset fixture setup'
       await evaluate(`(() => {
         const state=window.__datakoalaStore.getState(),active=state.tabs[0]
         active.sql=${rendererValue("select category, value from example.events where category = 'error'")}
         active.builder={...active.builder,table:{schema:'example',name:'events'},timeColumn:'event_time',timeRange:${rendererValue(auditRange)}}
         active.builderVisualization={...active.builderVisualization,xColumn:'category',valueColumn:'value',aggregation:'sum'}
-        active.result=${rendererValue(auditSqlResult)};active.pendingResult=${rendererValue(auditSqlResult)}
+        active.result=null;active.pendingResult=null
         active.builderResultFilters=[{column:'category',operator:'contains',value:'error',execution:'presentation'}]
         const other=JSON.parse(JSON.stringify(active));other.id='audit-cap08-other-tab';other.title='Unaffected tab';other.sql='select 99';other.result=${rendererValue(auditSqlResult)}
         window.__datakoalaStore.setState({tabs:[active,other],activeTabId:active.id})
         window.__cap08OtherBefore=JSON.stringify(other)
       })()`)
+      await clickText('Run','[data-query-toolbar]')
+      await waitFor(win, `!window.__datakoalaStore.getState().tabs.find(t=>t.id==='audit-tab-postgres')?.running && window.__datakoalaStore.getState().tabs.find(t=>t.id==='audit-tab-postgres')?.result?.rows?.length===3`, 'CAP-08 explicit synthetic setup query with visible result')
       await settle()
       await delay(100)
       const resetCalls=queryCalls
