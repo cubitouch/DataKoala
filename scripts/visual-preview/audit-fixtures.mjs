@@ -43,6 +43,10 @@ auditScreenshots.push(
   'cap01-pg-validation-desktop.png',
   'cap01-pg-string-desktop.png',
   'cap01-pg-tls-desktop.png',
+  // CAP-02: existing-profile edit/delete/read-only; desktop-only, no new viewport matrix.
+  'cap02-pg-edit-desktop.png',
+  'cap02-pg-delete-desktop.png',
+  'cap02-pg-readonly-desktop.png',
 )
 export const auditComparisonFiles = ['compare-lists.png', 'compare-toolbar.png', 'compare-dialogs.png', 'compare-feedback.png', 'compare-selectors.png', 'compare-detail.png']
 export const auditCaptions = Object.fromEntries([...auditScreenshots, ...auditComparisonFiles].map((file) => [file, file.replace('.png', '').replaceAll('-', ' ')]))
