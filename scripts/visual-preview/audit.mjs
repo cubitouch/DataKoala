@@ -17,12 +17,14 @@ const cap05Ipc = { active: false, listCalls: 0 }
 let queryOutcome = 'success'
 let releaseQuery = null
 let queryCalls = 0
+let cap08Stage = null
 const delay = (ms) => new Promise((done) => setTimeout(done, ms))
 
 export function installAuditIpc(ipc) {
   const handle = (channel, fn) => { ipc.removeHandler(channel); ipc.handle(channel, fn) }
   const result = async (id, sql, event, request) => {
     queryCalls += 1
+    if (cap08Stage) console.log(`CAP08 query at ${cap08Stage}: ${id}`)
     const outcome = queryOutcome
     if (outcome === 'loading') {
       if (String(id).includes('tempo') && request?.progressRequestId && !request.sampleSize) event.sender.send('query:progress', { requestId:request.progressRequestId, progress:{provider:'tempo',coveredMs:1800000,totalMs:3600000,completedChunks:1,pendingChunks:1,queriesCompleted:1,tracesFound:2,rows:auditTraceResult.rows.slice(0,2)} })
@@ -774,6 +776,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
         window.__cap08OtherBefore=JSON.stringify(other)
       })()`)
       const resetCalls=queryCalls
+      console.log(`CAP08 PG Reset baseline query count: ${resetCalls}`)
+      cap08Stage='PG Reset open/cancel/Escape'
       const beforeCancel=await evaluate(`JSON.stringify(window.__datakoalaStore.getState().tabs)`)
       await click('[aria-label="Reset query"]')
       await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent==='Reset exploration?' && document.body.innerText.includes('current results')`, 'CAP-08 populated Reset confirmation')
@@ -783,12 +787,14 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await click('[aria-label="Reset query"]')
       await key('Escape')
       if(await evaluate('JSON.stringify(window.__datakoalaStore.getState().tabs)')!==beforeCancel)throw Error('CAP-08 Reset Escape changed either tab')
+      cap08Stage='PG Reset confirm'
       await click('[aria-label="Reset query"]')
       await clickText('Reset exploration','[role="dialog"]')
       await waitFor(win, `window.__datakoalaStore.getState().tabs.find(t=>t.id==='audit-tab-postgres')?.sql==='' && !document.querySelector('[role="dialog"]')`, 'CAP-08 confirmed PG reset')
       const pgAfter=await evaluate(`(() => {const s=window.__datakoalaStore.getState(),t=s.tabs.find(x=>x.id===s.activeTabId);return {id:t.id,title:t.title,profileId:t.connectionProfileId,mode:t.queryMode,sql:t.sql,table:t.builder.table,result:t.result,pendingResult:t.pendingResult,filters:t.builderResultFilters,range:t.builder.timeRange,other:JSON.stringify(s.tabs.find(x=>x.id==='audit-cap08-other-tab'))}})()`)
       if(pgAfter.id!=='audit-tab-postgres'||pgAfter.title!=='Visual audit'||pgAfter.profileId!=='audit-postgres'||pgAfter.mode!=='builder'||pgAfter.sql!==''||pgAfter.table!==null||pgAfter.result!==null||pgAfter.pendingResult!==null||pgAfter.filters.length!==0||JSON.stringify(pgAfter.range)!==JSON.stringify(auditRange)||pgAfter.other!==await evaluate('window.__cap08OtherBefore'))throw Error('CAP-08 Reset did not clear only active query state while preserving owned context: '+JSON.stringify(pgAfter))
       if(queryCalls!==resetCalls)throw Error(`CAP-08 confirmed Reset unexpectedly executed a query: ${resetCalls} -> ${queryCalls}`)
+      cap08Stage=null
       await observe('cap08-reset-cleared-desktop.png','.main','confirmed Reset cleared only active PG query, Builder, and results; connection/time range retained')
       observations.push({family:'cap08',viewport,scenario:'pg-reset',cancelUnchanged:true,escapeUnchanged:true,confirmed:pgAfter,noQueryExecution:true})
 
