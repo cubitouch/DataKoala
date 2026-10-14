@@ -88,7 +88,7 @@
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/lang-sql": "^6.8.0",
-    "@codemirror/language": "^6.12.4",
+    "@codemirror/language": "^6.13.1",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@duckdb/node-api": "1.5.5-r.3",
     "@google-cloud/bigquery": "9.0.2",
