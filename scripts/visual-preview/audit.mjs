@@ -311,6 +311,44 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await key('Escape')
       observations.push({family:'selector',kind,viewport,escapeDismissed:await evaluate(`!document.querySelector('[role="listbox"]')`),returnFocus:await evaluate('document.activeElement?.getAttribute("role")')})
     }
+    if (viewport === 'desktop') {
+      // CAP-01: actual React events through the existing picker and PostgreSQL form.
+      // Use a passwordless public synthetic URI; never capture a credential or PEM.
+      await seed('postgres','raw')
+      await clickText('+ new connection')
+      await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent === 'Choose a connection type'`, 'CAP-01 picker')
+      await click('[role="radio"]:nth-child(1)')
+      await waitFor(win, `document.querySelector('#postgres-connection-title')?.textContent === 'PostgreSQL'`, 'CAP-01 PG form')
+      await waitFor(win, `document.querySelector('#connection-password')?.type === 'password'`, 'CAP-01 masked password')
+
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `document.querySelector('#profile-name')?.getAttribute('aria-invalid') === 'true' && document.body.innerText.includes('Database is required')`, 'CAP-01 required fields')
+      await waitFor(win, `document.activeElement?.id === 'profile-name'`, 'CAP-01 invalid Save focuses first error')
+      await observe('cap01-pg-validation-desktop.png','[role="dialog"]','actual invalid Save with required field feedback and focus')
+
+      // HTMLTextAreaElement's native setter fires a real React onChange without a store shortcut.
+      const pastedUri = 'postgres://audit_user@db.example:5440/reports?sslmode=require'
+      await evaluate(`(() => {
+        const input = ${select('#connection-string')}
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,${rendererValue(pastedUri)})
+        input.dispatchEvent(new Event('input',{bubbles:true}))
+        input.dispatchEvent(new Event('change',{bubbles:true}))
+      })()`)
+      await waitFor(win, `document.querySelector('#connection-host')?.value === 'db.example' && document.querySelector('#connection-port')?.value === '5440' && document.querySelector('#connection-database')?.value === 'reports' && document.querySelector('#connection-user')?.value === 'audit_user'`, 'CAP-01 parsed URI populates fields')
+      await waitFor(win, `document.body.innerText.includes('Parsed') && document.body.innerText.includes('server certificate is not verified') && document.body.innerText.includes('sslmode=require')`, 'CAP-01 parse success, TLS warning, masked preview')
+      await observe('cap01-pg-string-desktop.png','[role="dialog"]','passwordless paste populated form and Require TLS warning')
+      observations.push({family:'cap01',viewport,scenario:'paste-require',format:'postgres',passwordless:true,host:'db.example',port:5440,tlsMode:'require'})
+
+      await click('[role="dialog"] button[role="combobox"]')
+      const verifyIdentityOption = `[...document.querySelectorAll('[role="option"]')].find(element => element.textContent.includes('Verify server identity'))`
+      await waitFor(win, verifyIdentityOption, 'CAP-01 Verify server identity option')
+      await evaluate(`${verifyIdentityOption}.click()`)
+      await waitFor(win, `document.querySelector('#connection-tls-ca') && document.body.innerText.includes('sslmode=verify-full') && !document.body.innerText.includes('server certificate is not verified')`, 'CAP-01 verifying TLS reveals optional CA without compatibility warning')
+      await evaluate(`${select('#connection-tls-ca')}.scrollIntoView({block:'center'})`)
+      await settle()
+      await observe('cap01-pg-tls-desktop.png','[role="dialog"]','Verify server identity selected; optional CA field and preview')
+      observations.push({family:'cap01',viewport,scenario:'verify-full',tlsMode:'verify-full',caFieldVisible:true,rawCertificateStored:false})
+    }
   }
   const htmlEscape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
   for(const [group,items] of Object.entries(contacts)) {
