@@ -398,6 +398,14 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win, `document.querySelector('#postgres-connection-title')?.textContent === 'Edit PostgreSQL connection'`, 'CAP-02 edit heading')
       await waitFor(win, `document.querySelector('#profile-name')?.value === 'Example PG audit profile' && document.querySelector('#connection-host')?.value === 'pg-audit.example' && document.querySelector('#connection-database')?.value === 'audit_db' && document.querySelector('#connection-user')?.value === 'audit_reader' && document.querySelector('#connection-port')?.value === '5432' && document.querySelector('#connection-password')?.type === 'password' && document.querySelector('#connection-password')?.value === '' && document.querySelector('#connection-password')?.placeholder.includes('Saved securely') && document.querySelector('[role="dialog"] input[type="checkbox"]')?.checked === true`, 'CAP-02 populated edit with masked saved credential')
       await observe('cap02-pg-edit-desktop.png','[role="dialog"]','selected saved PG form with masked password and initial readonly')
+      // Cancel an actual unsaved edit, rather than merely closing the untouched form.
+      await evaluate(`(() => {
+        const input=${select('#connection-host')}
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${rendererValue('pg-cancelled.example')})
+        input.dispatchEvent(new Event('input',{bubbles:true}))
+        input.dispatchEvent(new Event('change',{bubbles:true}))
+      })()`)
+      await waitFor(win, `document.querySelector('#connection-host')?.value === 'pg-cancelled.example'`, 'CAP-02 unsaved edit before Cancel')
       const beforeCancelSaves = cap02Ipc.saves.length
       await clickText('Cancel','[role="dialog"]')
       await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-02 edit cancel closes')
@@ -438,21 +446,27 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await observe('cap02-pg-delete-desktop.png','[role="dialog"]','named delete confirmation with focused Cancel')
       await key('Escape')
       await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-02 Escape dismisses delete')
-      await waitFor(win, `document.activeElement?.getAttribute('aria-label') === 'Delete connection Example PG audit profile'`, 'CAP-02 Escape restores delete origin focus')
+      await settle()
+      const escapeFocus = await evaluate(`({ tag:document.activeElement?.tagName, label:document.activeElement?.getAttribute('aria-label'), text:document.activeElement?.textContent?.trim()?.slice(0,60) })`)
+      const escapeRestoredFocus = escapeFocus.label === 'Delete connection Example PG audit profile'
       if (cap02Ipc.removes.length !== 0) throw Error('CAP-02 Escape unexpectedly removed profile')
+      observations.push({family:'cap02',viewport,scenario:'delete-escape',restoredFocus:escapeRestoredFocus,actualFocus:escapeFocus,removed:false})
       await click(deleteButton)
       await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent === 'Delete connection?'`, 'CAP-02 delete reopened')
       await clickText('Cancel','[role="dialog"]')
       await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-02 Cancel dismisses delete')
-      await waitFor(win, `document.activeElement?.getAttribute('aria-label') === 'Delete connection Example PG audit profile'`, 'CAP-02 Cancel returns focus')
+      await settle()
+      const cancelFocus = await evaluate(`({ tag:document.activeElement?.tagName, label:document.activeElement?.getAttribute('aria-label'), text:document.activeElement?.textContent?.trim()?.slice(0,60) })`)
+      const cancelRestoredFocus = cancelFocus.label === 'Delete connection Example PG audit profile'
       if (cap02Ipc.removes.length !== 0) throw Error('CAP-02 Cancel unexpectedly removed profile')
+      observations.push({family:'cap02',viewport,scenario:'delete-cancel',restoredFocus:cancelRestoredFocus,actualFocus:cancelFocus,removed:false})
       await waitFor(win, `window.__datakoalaStore.getState().profiles.some(p => p.id === 'audit-postgres')`, 'CAP-02 Cancel retains profile')
       await click(deleteButton)
       await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent === 'Delete connection?'`, 'CAP-02 confirm dialog reopened')
       await clickText('Delete connection','[role="dialog"]')
       await waitFor(win, `!window.__datakoalaStore.getState().profiles.some(p => p.id === 'audit-postgres')`, 'CAP-02 confirmed removal from renderer')
       if (cap02Ipc.removes.length !== 1 || cap02Ipc.removes[0] !== 'audit-postgres') throw Error('CAP-02 wrong or repeated delete target')
-      observations.push({family:'cap02',viewport,scenario:'delete',profileId:'audit-postgres',cancelRemoved:false,escapeRestoredFocus:true,cancelRestoredFocus:true,confirmedRemoveCalls:1,rendererProfileRemoved:true})
+      observations.push({family:'cap02',viewport,scenario:'delete',profileId:'audit-postgres',cancelRemoved:false,escapeRestoredFocus,cancelRestoredFocus,confirmedRemoveCalls:1,rendererProfileRemoved:true})
       cap02Ipc.active = false
     }
   }
