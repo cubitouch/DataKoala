@@ -60,9 +60,9 @@ auditScreenshots.push(
   'cap08-reset-confirm-desktop.png',
   'cap08-reset-cleared-desktop.png',
   'cap09-resized-workspace-desktop.png',
-  // CAP-10: only missing desktop completion, formatted editor, and generated-preview states.
-  'cap10-completion-postgres-desktop.png',
-  'cap10-completion-bigquery-desktop.png',
+  // CAP-10: populated editors, formatted editor, and generated-preview states.
+  'cap10-editor-postgres-desktop.png',
+  'cap10-editor-bigquery-desktop.png',
   'cap10-formatted-postgres-desktop.png',
   'cap10-generated-sql-desktop.png',
 )
@@ -73,8 +73,8 @@ Object.assign(auditCaptions, {
   'cap08-reset-confirm-desktop.png': 'CAP-08 PostgreSQL Reset confirmation with a populated Builder and result',
   'cap08-reset-cleared-desktop.png': 'CAP-08 PostgreSQL workspace after confirming Reset; connection and time range retained',
   'cap09-resized-workspace-desktop.png': 'CAP-09 PostgreSQL workspace after bounded sidebar and editor resizing',
-  'cap10-completion-postgres-desktop.png': 'CAP-10 PostgreSQL CodeMirror completion for a qualified relation in a bounded two-schema fixture',
-  'cap10-completion-bigquery-desktop.png': 'CAP-10 BigQuery CodeMirror completion for a project namespace with GoogleSQL quoting',
+  'cap10-editor-postgres-desktop.png': 'CAP-10 populated PostgreSQL CodeMirror editor with a bounded two-schema fixture',
+  'cap10-editor-bigquery-desktop.png': 'CAP-10 populated BigQuery CodeMirror editor with GoogleSQL identifier quoting',
   'cap10-formatted-postgres-desktop.png': 'CAP-10 PostgreSQL editor after local formatting; no query was run',
   'cap10-generated-sql-desktop.png': 'CAP-10 SQL Builder generated query disclosure, copy and open-in-editor actions',
 })

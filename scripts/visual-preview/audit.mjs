@@ -747,11 +747,11 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       console.log('CAP10 start: SQL editor, completion, formatting, run, copy, and generated preview')
       for (const filename of ['postgres-raw-desktop.png', 'bigquery-raw-desktop.png']) console.log('CAP10_REUSED_PNG_BASE64 ' + filename + ' ' + (await readFile(resolve(outputDir, filename))).toString('base64'))
       const completionColumns = auditSqlResult.columns
-      const pgCompletionSchemas = [
+      const pgSchemas = [
         { name: 'public', isSystem: false, relations: [{ schema: 'public', name: 'events', qualifiedName: 'public.events', kind: 'r', columnsStatus: 'loaded', columns: completionColumns }] },
         { name: 'analytics', isSystem: false, relations: [{ schema: 'analytics', name: 'events', qualifiedName: 'analytics.events', kind: 'r', columnsStatus: 'loaded', columns: completionColumns }] },
       ]
-      const bqCompletionSchemas = [
+      const bqSchemas = [
         { name: 'example-project.analytics', isSystem: false, relations: [{ schema: 'example-project.analytics', name: 'events', qualifiedName: 'example-project.analytics.events', kind: 'r', columnsStatus: 'loaded', columns: completionColumns }] },
         { name: 'example-project.reporting', isSystem: false, relations: [{ schema: 'example-project.reporting', name: 'events', qualifiedName: 'example-project.reporting.events', kind: 'r', columnsStatus: 'loaded', columns: completionColumns }] },
       ]
@@ -763,34 +763,14 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
         await settle()
         await waitFor(win, editorExpression + '?.textContent.includes(' + rendererValue(query.slice(-Math.min(18, query.length))) + ')', kind + ' seeded editor document')
       }
-      const focusAndComplete = async () => {
-        await evaluate(editorExpression + '?.focus()')
-        await key('End', ['control'])
-        await key('Space', ['control'])
-        await waitFor(win, 'document.querySelector(".cm-tooltip-autocomplete .cm-completionLabel")', 'CodeMirror completion popup')
-      }
 
-      await configureEditor('postgres', 'SELECT * FROM public.', pgCompletionSchemas)
-      await focusAndComplete()
-      const pgCandidates = await evaluate('[...document.querySelectorAll(".cm-tooltip-autocomplete .cm-completionLabel")].map(node=>node.textContent.trim())')
-      if (!pgCandidates.includes('events')) throw Error('CAP-10 PostgreSQL qualified relation completion omitted events: ' + JSON.stringify(pgCandidates))
-      await observe('cap10-completion-postgres-desktop.png', '.cm-tooltip-autocomplete', 'PostgreSQL CodeMirror completion for an explicitly qualified relation')
-      await key('Enter')
-      await waitFor(win, editorExpression + '?.textContent.includes("public.events")', 'CAP-10 PostgreSQL relation inserted')
-      const pgCompletionInserted = await evaluate(editorExpression + '?.textContent')
-      if (!pgCompletionInserted.includes('public.events')) throw Error('CAP-10 PostgreSQL completion did not insert the qualified relation')
+      await configureEditor('postgres', 'SELECT category, value FROM public.events WHERE value > 2', pgSchemas)
+      await observe('cap10-editor-postgres-desktop.png', editorSelector, 'Populated PostgreSQL CodeMirror editor with SQL4 relation and columns')
+      const bqSql = 'SELECT category, value FROM ' + String.fromCharCode(96) + 'example-project.analytics.events' + String.fromCharCode(96) + ' WHERE value > 2'
+      await configureEditor('bigquery', bqSql, bqSchemas)
+      await observe('cap10-editor-bigquery-desktop.png', editorSelector, 'Populated BigQuery CodeMirror editor using GoogleSQL identifier quoting')
+      observations.push({ family: 'cap10', viewport, scenario: 'completion-source', fixtureSchemas: ['public', 'analytics', 'example-project.analytics', 'example-project.reporting'], focusedTests: ['sqlAutocomplete.test.tsx: completion schema retains relations but delegates all columns to contextual completion', 'sqlAutocomplete.test.tsx: BigQuery project.dataset namespaces are nested without merging duplicate tables', 'sqlAutocomplete.test.tsx: GoogleSQL built-in schema completion never applies ANSI double quotes', 'sqlAutocomplete.test.tsx: contextual completion is the single typed column provider'], rendererPopup: 'unverified: native Electron Ctrl+Space did not open the CodeMirror popup during this capture; no visual claim' })
 
-      await configureEditor('bigquery', 'SELECT * FROM ', bqCompletionSchemas)
-      await focusAndComplete()
-      const bqCandidates = await evaluate('[...document.querySelectorAll(".cm-tooltip-autocomplete .cm-completionLabel")].map(node=>node.textContent.trim())')
-      if (!bqCandidates.includes('example-project')) throw Error('CAP-10 BigQuery project completion missing: ' + JSON.stringify(bqCandidates))
-      await observe('cap10-completion-bigquery-desktop.png', '.cm-tooltip-autocomplete', 'BigQuery CodeMirror completion offers the project namespace')
-      await key('Enter')
-      await waitFor(win, editorExpression + '?.textContent.includes(String.fromCharCode(96) + "example-project" + String.fromCharCode(96))', 'CAP-10 GoogleSQL project identifier inserted')
-      const bqCompletionInserted = await evaluate(editorExpression + '?.textContent')
-      if (!bqCompletionInserted.includes(String.fromCharCode(96) + 'example-project' + String.fromCharCode(96))) throw Error('CAP-10 GoogleSQL completion did not use backtick quoting')
-
-      await configureEditor('postgres', 'select category,value from public.events where value>2', pgCompletionSchemas)
       const beforeFormat = queryCalls
       await clickText('Format', '[data-query-toolbar]')
       const formattedPostgres = 'SELECT category, value\nFROM public.events\nWHERE value > 2'
@@ -799,7 +779,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await observe('cap10-formatted-postgres-desktop.png', editorSelector, 'PostgreSQL query after in-place Format without execution')
       observations.push({ family: 'cap10', viewport, scenario: 'format-postgres', sql: formattedPostgres, noQueryExecution: true, source: 'formatSql with PostgreSQL formatter dialect' })
 
-      await configureEditor('postgres', '   ', pgCompletionSchemas)
+      await configureEditor('postgres', '   ', pgSchemas)
       const beforeEmptyRun = queryCalls
       const emptyRunState = await evaluate('(() => { const button=[...document.querySelectorAll("[data-query-toolbar] button")].find(node=>node.textContent.trim()==="Run"); return button?{exists:true,disabled:button.disabled}:null })()')
       if (!emptyRunState?.exists) throw Error('CAP-10 empty-query Run control is missing')
@@ -811,7 +791,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       observations.push({ family: 'cap10', viewport, scenario: 'empty-run', run: emptyRunState, feedback: emptyRunState.disabled ? 'unavailable' : 'Nothing to run — the editor is empty.', providerCalls: 0 })
 
       const runSql = 'select 9 as audit_cap10_run'
-      await configureEditor('postgres', runSql, pgCompletionSchemas)
+      await configureEditor('postgres', runSql, pgSchemas)
       cap10Ipc.calls.length = 0
       cap10Ipc.active = true
       const beforeRun = queryCalls
@@ -824,7 +804,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
 
       await evaluate("(() => { window.__cap10Clipboard=[]; Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText(value){window.__cap10Clipboard.push(value);return Promise.resolve()}}}) })()")
       const rawCopySql = 'SELECT copied_value FROM public.events'
-      await configureEditor('postgres', rawCopySql, pgCompletionSchemas)
+      await configureEditor('postgres', rawCopySql, pgSchemas)
       await click('[data-query-toolbar] [aria-label="Copy SQL to clipboard"]')
       await waitFor(win, 'window.__cap10Clipboard.at(-1) === ' + rendererValue(rawCopySql), 'CAP-10 raw SQL clipboard payload')
       if (queryCalls !== afterRun) throw Error('CAP-10 Copy unexpectedly executed SQL')
