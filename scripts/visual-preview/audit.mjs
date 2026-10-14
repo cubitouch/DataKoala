@@ -759,7 +759,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       const editorExpression = 'document.querySelector(' + rendererValue(editorSelector) + ')'
       const configureEditor = async (kind, query, schemas) => {
         await seed(kind, 'raw', 'fresh')
-        await evaluate('(() => { const store=window.__datakoalaStore, state=store.getState(), tab=state.tabs[0], profileId=' + rendererValue(auditProfiles[kind].id) + '; tab.sql=' + rendererValue(query) + '; store.setState({tabs:[tab],activeTabId:tab.id,metadataByProfileId:{...state.metadataByProfileId,[profileId]:{...state.metadataByProfileId[profileId],schemas:' + rendererValue(schemas) + ',status:"loaded",error:null,isStale:false}}}) })()')
+        await evaluate('(() => { const store=window.__datakoalaStore, state=store.getState(), tab={...state.tabs[0]}, profileId=' + rendererValue(auditProfiles[kind].id) + '; tab.sql=' + rendererValue(query) + '; store.setState({tabs:[tab],activeTabId:tab.id,metadataByProfileId:{...state.metadataByProfileId,[profileId]:{...state.metadataByProfileId[profileId],schemas:' + rendererValue(schemas) + ',status:"loaded",error:null,isStale:false}}}) })()')
         await settle()
         await waitFor(win, editorExpression + '?.textContent.includes(' + rendererValue(query.slice(-Math.min(18, query.length))) + ')', kind + ' seeded editor document')
       }
