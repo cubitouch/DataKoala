@@ -773,7 +773,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
 
       const beforeFormat = queryCalls
       await clickText('Format', '[data-query-toolbar]')
-      const formattedPostgres = 'SELECT category, value\nFROM public.events\nWHERE value > 2'
+      const formattedPostgres = 'SELECT category,\n  value\nFROM public.events\nWHERE value > 2'
       await waitFor(win, 'window.__datakoalaStore.getState().tabs[0].sql === ' + rendererValue(formattedPostgres), 'CAP-10 PostgreSQL local formatting')
       if (queryCalls !== beforeFormat) throw Error('CAP-10 Format unexpectedly executed SQL')
       await observe('cap10-formatted-postgres-desktop.png', editorSelector, 'PostgreSQL query after in-place Format without execution')
