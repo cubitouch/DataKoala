@@ -697,10 +697,8 @@ function registerIpc(): void {
         console.error('[clipboard] Could not write chart PNG', error),
     }),
   )
-  ipcMain.handle(
-    IPC.CLIPBOARD_WRITE_EXCALIDRAW,
-    (_event, value: unknown) =>
-      writeExcalidrawClipboard(value, {
+  ipcMain.handle(IPC.CLIPBOARD_WRITE_EXCALIDRAW, (_event, value: unknown) =>
+    writeExcalidrawClipboard(value, {
         // Excalidraw's clipboard envelope is text/plain when no ClipboardEvent exists.
         writeText: (text) => clipboard.writeText(text),
         readText: () => clipboard.readText(),
