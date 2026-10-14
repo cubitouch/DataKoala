@@ -631,7 +631,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       cap04Ipc.mode = ''
     }
     if (viewport === 'desktop') {
-      await seed('postgres','builder','default','list',false)
+      await seed('postgres','builder')
       const filterInput='input[placeholder="Filter objects…"]'
       await waitFor(win, `document.querySelector(${rendererValue(filterInput)})`, 'CAP-05 PG filter exists')
       await evaluate(`(() => {
@@ -763,7 +763,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
 
       // A23: actual Reset confirmation, Cancel/Escape preservation, tab ownership,
       // and Reset behavior with no implicit Run on both SQL and Loki sessions.
-      await seed('postgres','builder')
+      await seed('postgres','builder','default','list',false)
+      cap08Stage='PG Reset fixture setup'
       await evaluate(`(() => {
         const state=window.__datakoalaStore.getState(),active=state.tabs[0]
         active.sql=${rendererValue("select category, value from example.events where category = 'error'")}
@@ -775,6 +776,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
         window.__datakoalaStore.setState({tabs:[active,other],activeTabId:active.id})
         window.__cap08OtherBefore=JSON.stringify(other)
       })()`)
+      await settle()
+      await delay(100)
       const resetCalls=queryCalls
       console.log(`CAP08 PG Reset baseline query count: ${resetCalls}`)
       cap08Stage='PG Reset open/cancel/Escape'
