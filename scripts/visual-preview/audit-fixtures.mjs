@@ -50,6 +50,8 @@ auditScreenshots.push(
   'cap03-bq-advanced-desktop.png',
   'cap03-local-files-alias-desktop.png',
   'cap03-sqlite-selection-desktop.png',
+  'cap04-loki-fallback-desktop.png',
+  'cap04-tempo-optional-desktop.png',
 )
 export const auditComparisonFiles = ['compare-lists.png', 'compare-toolbar.png', 'compare-dialogs.png', 'compare-feedback.png', 'compare-selectors.png', 'compare-detail.png']
 export const auditCaptions = Object.fromEntries([...auditScreenshots, ...auditComparisonFiles].map((file) => [file, file.replace('.png', '').replaceAll('-', ' ')]))
