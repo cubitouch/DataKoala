@@ -497,7 +497,14 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await evaluate(`${select('#bq-max')}.scrollIntoView({block:'center'})`)
       await observe('cap03-bq-advanced-desktop.png','[role="dialog"]','BigQuery Advanced billing cap opt-in with positive value')
       observations.push({family:'cap03',viewport,scenario:'bq-advanced',billingCap:'1024',enabled:true,synthetic:true})
-      await clickText('Cancel','[role="dialog"]')
+      await clickText('Test','[role="dialog"]')
+      await waitFor(win, `document.body.innerText.includes('Credentials and metadata access verified')`, 'CAP-03 synthetic BQ Test')
+      if (!cap03Ipc.tests.some(p=>p.kind==='bigquery' && p.name==='Example BQ audit' && p.billingProject==='example-project' && p.maximumBytesBilled==='1024' && p.readonly===true)) throw Error('CAP-03 BQ Test payload did not contain billing/cap')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-03 BQ Save closes form')
+      if (!cap03Ipc.saves.some(p=>p.kind==='bigquery' && p.billingProject==='example-project' && p.maximumBytesBilled==='1024')) throw Error('CAP-03 BQ Save did not preserve billing cap')
+      observations.push({family:'cap03',viewport,scenario:'bq-test-save',billingProject:'example-project',billingCap:'1024',providerCall:'mocked'})
+
       await startForm(2)
       await waitFor(win, `document.querySelector('#local-profile-name')?.value === 'Local files'`, 'CAP-03 local file form')
       await clickText('Test','[role="dialog"]')
@@ -508,7 +515,23 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       if (cap03Ipc.chooseFiles !== 1) throw Error('CAP-03 synthetic chooser mismatch')
       await observe('cap03-local-files-alias-desktop.png','[role="dialog"]','Local files chooser selected distinct files with collision aliases')
       observations.push({family:'cap03',viewport,scenario:'local-files',count:3,collisionAlias:'region_2',chooserCalls:cap03Ipc.chooseFiles})
-      await clickText('Cancel','[role="dialog"]')
+      // Re-selecting the same three paths adds no rows; then edit and remove through UI.
+      await clickText('Choose files…','[role="dialog"]')
+      await waitFor(win, `document.querySelectorAll('[role="dialog"] input').length === 4`, 'CAP-03 repeated chooser path dedup')
+      if (cap03Ipc.chooseFiles !== 2) throw Error('CAP-03 repeat chooser was not invoked')
+      await setInput('[role="dialog"] input[value="Region"]', 'region_custom')
+      await waitFor(win, `[...document.querySelectorAll('[role="dialog"] input')].some(e=>e.value === 'region_custom')`, 'CAP-03 alias edited by React event')
+      await click('button[aria-label="Remove /samples/details.parquet"]')
+      await waitFor(win, `document.querySelectorAll('[role="dialog"] input').length === 3`, 'CAP-03 removed one file')
+      await clickText('Test','[role="dialog"]')
+      await waitFor(win, `document.body.innerText.includes('Files loaded successfully with DuckDB')`, 'CAP-03 synthetic local files Test')
+      const localExpected = p => p.kind==='local-files' && p.readonly===true && p.files?.length===2 && p.files.some(f=>f.path==='/samples/Region.csv'&&f.alias==='region_custom') && p.files.some(f=>f.path==='/samples/region.CSV'&&f.alias==='region_2')
+      if (!cap03Ipc.tests.some(localExpected)) throw Error('CAP-03 local files Test payload alias/remove/readonly mismatch')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-03 local file Save')
+      if (!cap03Ipc.saves.some(localExpected)) throw Error('CAP-03 local files Save payload mismatch')
+      observations.push({family:'cap03',viewport,scenario:'local-files-test-save',chooserCalls:2,keptFiles:2,aliasEdited:true,oneRemoved:true,readonly:true,providerCall:'mocked'})
+
       await startForm(3)
       await waitFor(win, `document.querySelector('#sqlite-profile-name')?.value === 'SQLite database'`, 'CAP-03 sqlite form')
       await clickText('Save','[role="dialog"]')
@@ -520,7 +543,11 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win, `document.body.innerText.includes('SQLite database opened directly in read-only mode')`, 'CAP-03 synthetic SQLite Test')
       if (!cap03Ipc.tests.some(p=>p.kind==='sqlite-file' && p.path==='/samples/example.sqlite3' && p.readonly===true)) throw Error('CAP-03 SQLite Test payload wrong')
       observations.push({family:'cap03',viewport,scenario:'sqlite-selected',path:'/samples/example.sqlite3',readonly:true,chooserCalls:cap03Ipc.chooseSqlite})
-      await clickText('Cancel','[role="dialog"]')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `!document.querySelector('[role="dialog"]')`, 'CAP-03 SQLite Save')
+      if (!cap03Ipc.saves.some(p=>p.kind==='sqlite-file' && p.path==='/samples/example.sqlite3' && p.readonly===true)) throw Error('CAP-03 SQLite Save payload mismatch')
+      observations.push({family:'cap03',viewport,scenario:'sqlite-test-save',path:'/samples/example.sqlite3',readonly:true,providerCall:'mocked'})
+
       cap03Ipc.active = false
     }
   }
