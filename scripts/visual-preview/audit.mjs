@@ -818,9 +818,11 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await seed('postgres', 'builder', 'fresh')
       await evaluate('(() => { const store=window.__datakoalaStore,state=store.getState(),tab=state.tabs[0]; tab.builder={...tab.builder,table:{schema:"example",name:"events"}}; tab.builderVisualization={...tab.builderVisualization,xColumn:"category",valueColumn:"value",aggregation:"sum"}; tab.builderHasRun=false; store.setState({tabs:[tab],activeTabId:tab.id}) })()')
       await click('[data-generated-query-panel] summary')
+      const disclosureExpression = 'document.querySelector("[data-generated-query-panel] details")'
+      await waitFor(win, disclosureExpression + '?.open === true', 'CAP-10 generated SQL disclosure expanded')
       const generatedSelector = '[data-generated-query-panel] [aria-label="Generated SQL query"]'
       const generatedExpression = 'document.querySelector(' + rendererValue(generatedSelector) + ')'
-      await waitFor(win, generatedExpression + '?.textContent.trim().length > 0', 'CAP-10 generated SQL preview')
+      await waitFor(win, generatedExpression + '?.querySelector(".cm-content")?.getBoundingClientRect().height > 0 && ' + generatedExpression + '?.querySelector(".cm-content")?.innerText.trim().length > 0', 'CAP-10 visible generated SQL preview')
       const generatedSql = await evaluate(generatedExpression + '?.querySelector(".cm-content")?.innerText.trim()')
       if (!generatedSql?.includes('SELECT') || !generatedSql.includes('events')) throw Error('CAP-10 generated SQL preview is incomplete: ' + String(generatedSql))
       await observe('cap10-generated-sql-desktop.png', '[data-generated-query-panel]', 'SQL Builder generated query disclosure, preview and actions')
