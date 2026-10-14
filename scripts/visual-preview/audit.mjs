@@ -770,7 +770,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
         active.result=${rendererValue(auditSqlResult)};active.pendingResult=${rendererValue(auditSqlResult)}
         active.builderResultFilters=[{column:'category',operator:'contains',value:'error',execution:'presentation'}]
         const other=JSON.parse(JSON.stringify(active));other.id='audit-cap08-other-tab';other.title='Unaffected tab';other.sql='select 99';other.result=${rendererValue(auditSqlResult)}
-        state.setState({tabs:[active,other],activeTabId:active.id})
+        window.__datakoalaStore.setState({tabs:[active,other],activeTabId:active.id})
         window.__cap08OtherBefore=JSON.stringify(other)
       })()`)
       const resetCalls=queryCalls
