@@ -11,6 +11,7 @@ import {
 
 // Audit-only, sanitized observations. All CAP-02 mutations remain in the synthetic IPC boundary.
 const cap02Ipc = { active: false, tests: [], saves: [], removes: [] }
+const cap03Ipc = { active: false, tests: [], saves: [], chooseFiles: 0, chooseSqlite: 0 }
 let queryOutcome = 'success'
 let releaseQuery = null
 let queryCalls = 0
@@ -47,13 +48,17 @@ export function installAuditIpc(ipc) {
   handle('connection:list-objects', () => [])
   handle('connection:test', (_event, profile) => {
     if (cap02Ipc.active) cap02Ipc.tests.push({id:profile.id,host:profile.host,readonly:profile.readonly})
+    if (cap03Ipc.active) cap03Ipc.tests.push({kind:profile.kind,name:profile.name,readonly:profile.readonly,files:profile.files, path:profile.path, billingProject:profile.billingProject,maximumBytesBilled:profile.maximumBytesBilled})
     return { ok: true, serverVersion: '17' }
   })
   handle('connections:upsert', (_event, profile) => {
+    if (cap03Ipc.active) { cap03Ipc.saves.push({kind:profile.kind,name:profile.name,readonly:profile.readonly,files:profile.files,path:profile.path,billingProject:profile.billingProject,maximumBytesBilled:profile.maximumBytesBilled}); return profile }
     if (!cap02Ipc.active) throw Error('Unexpected profile save outside CAP-02')
     cap02Ipc.saves.push({id:profile.id,host:profile.host,readonly:profile.readonly})
     return { ...profile, password: '' }
   })
+  handle('connections:choose-files', () => { cap03Ipc.chooseFiles++; return ['/samples/Region.csv','/samples/region.CSV','/samples/details.parquet','/samples/Region.csv'] })
+  handle('connections:choose-sqlite-file', () => { cap03Ipc.chooseSqlite++; return '/samples/example.sqlite3' })
   handle('connections:remove', (_event, id) => {
     if (!cap02Ipc.active) throw Error('Unexpected profile removal outside CAP-02')
     cap02Ipc.removes.push(id)
@@ -468,6 +473,55 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       if (cap02Ipc.removes.length !== 1 || cap02Ipc.removes[0] !== 'audit-postgres') throw Error('CAP-02 wrong or repeated delete target')
       observations.push({family:'cap02',viewport,scenario:'delete',profileId:'audit-postgres',cancelRemoved:false,escapeRestoredFocus,cancelRestoredFocus,confirmedRemoveCalls:1,rendererProfileRemoved:true})
       cap02Ipc.active = false
+    }
+    if (viewport === 'desktop') {
+      // CAP-03: synthetic IPC, genuine picker and form controls; no native provider/OS access.
+      cap03Ipc.active = true
+      cap03Ipc.tests.length = 0; cap03Ipc.saves.length = 0
+      const startForm = async index => {
+        await seed('postgres','raw')
+        await clickText('+ new connection')
+        await waitFor(win, `document.querySelector('[role="dialog"] h2')?.textContent === 'Choose a connection type'`, 'CAP-03 picker')
+        await click(`[role="radio"]:nth-child(${index})`)
+      }
+      const setInput = async (selector, value) => {
+        await evaluate(`(() => { const input=${select(selector)}; if(!input)throw Error('CAP-03 missing input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${rendererValue(value)}); input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true})) })()`)
+      }
+      await startForm(4)
+      await waitFor(win, `document.querySelector('#bigquery-connection-title')?.textContent === 'BigQuery'`, 'CAP-03 BigQuery form')
+      await setInput('#bq-name', 'Example BQ audit')
+      await clickText('Advanced','[role="dialog"]')
+      await click('[role="dialog"] input[type="checkbox"]')
+      await setInput('#bq-max','1024')
+      await waitFor(win, `document.querySelector('#bq-max')?.value === '1024' && document.querySelector('#bq-max')?.disabled === false && document.querySelector('[role="dialog"] input[type="checkbox"]')?.checked === true`, 'CAP-03 BQ billing cap active')
+      await evaluate(`${select('#bq-max')}.scrollIntoView({block:'center'})`)
+      await observe('cap03-bq-advanced-desktop.png','[role="dialog"]','BigQuery Advanced billing cap opt-in with positive value')
+      observations.push({family:'cap03',viewport,scenario:'bq-advanced',billingCap:'1024',enabled:true,synthetic:true})
+      await clickText('Cancel','[role="dialog"]')
+      await startForm(2)
+      await waitFor(win, `document.querySelector('#local-profile-name')?.value === 'Local files'`, 'CAP-03 local file form')
+      await clickText('Test','[role="dialog"]')
+      await waitFor(win, `document.body.innerText.includes('choose at least one file')`, 'CAP-03 empty files validation')
+      await clickText('Choose files…','[role="dialog"]')
+      await waitFor(win, `document.querySelectorAll('[role="dialog"] input').length >= 4`, 'CAP-03 multiple files listed')
+      await waitFor(win, `[...document.querySelectorAll('[role="dialog"] input')].some(e=>e.value === 'Region_2')`, 'CAP-03 case-insensitive generated alias collision')
+      if (cap03Ipc.chooseFiles !== 1) throw Error('CAP-03 synthetic chooser mismatch')
+      await observe('cap03-local-files-alias-desktop.png','[role="dialog"]','Local files chooser selected distinct files with collision aliases')
+      observations.push({family:'cap03',viewport,scenario:'local-files',count:3,collisionAlias:'Region_2',chooserCalls:cap03Ipc.chooseFiles})
+      await clickText('Cancel','[role="dialog"]')
+      await startForm(3)
+      await waitFor(win, `document.querySelector('#sqlite-profile-name')?.value === 'SQLite database'`, 'CAP-03 sqlite form')
+      await clickText('Save','[role="dialog"]')
+      await waitFor(win, `document.body.innerText.includes('choose one SQLite database file')`, 'CAP-03 SQLite required file error')
+      await clickText('Choose database…','[role="dialog"]')
+      await waitFor(win, `document.querySelector('[role="dialog"]')?.innerText.includes('/samples/example.sqlite3')`, 'CAP-03 selected SQLite path')
+      await observe('cap03-sqlite-selection-desktop.png','[role="dialog"]','single SQLite selection after real chooser click')
+      await clickText('Test','[role="dialog"]')
+      await waitFor(win, `document.body.innerText.includes('SQLite database opened directly in read-only mode')`, 'CAP-03 synthetic SQLite Test')
+      if (!cap03Ipc.tests.some(p=>p.kind==='sqlite-file' && p.path==='/samples/example.sqlite3' && p.readonly===true)) throw Error('CAP-03 SQLite Test payload wrong')
+      observations.push({family:'cap03',viewport,scenario:'sqlite-selected',path:'/samples/example.sqlite3',readonly:true,chooserCalls:cap03Ipc.chooseSqlite})
+      await clickText('Cancel','[role="dialog"]')
+      cap03Ipc.active = false
     }
   }
   const htmlEscape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
