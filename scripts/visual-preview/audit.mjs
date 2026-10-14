@@ -13,6 +13,7 @@ import {
 const cap02Ipc = { active: false, tests: [], saves: [], removes: [] }
 const cap03Ipc = { active: false, tests: [], saves: [], chooseFiles: 0, chooseSqlite: 0 }
 const cap04Ipc = { mode: '', tests: [], saves: [], discovery: [] }
+const cap05Ipc = { active: false, listCalls: 0 }
 let queryOutcome = 'success'
 let releaseQuery = null
 let queryCalls = 0
@@ -49,7 +50,7 @@ export function installAuditIpc(ipc) {
   handle('connections:bigquery:discover-defaults', () => ({ projectId: 'example-project', billingProject: 'example-project', location: 'EU' }))
   handle('connections:bigquery:list-datasets', () => [{ datasetId: 'example', projectId: 'example-project' }])
   handle('connection:describe-table', () => auditSqlResult.columns)
-  handle('connection:list-objects', () => [])
+  handle('connection:list-objects', () => { if (cap05Ipc.active) { cap05Ipc.listCalls++; return auditSchemas } return [] })
   handle('connection:test', (_event, profile) => {
     if (cap02Ipc.active) cap02Ipc.tests.push({id:profile.id,host:profile.host,readonly:profile.readonly})
     if (cap04Ipc.mode) cap04Ipc.tests.push({kind:profile.kind,transport:profile.transport,grafana:profile.grafana??null})
@@ -613,6 +614,43 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       if (!cap04Ipc.tests.some(p=>p.kind==='tempo'&&!p.transport?.datasourceUid) || !cap04Ipc.saves.some(p=>p.kind==='tempo'&&!p.transport?.datasourceUid)) throw Error('CAP-04 Tempo optional UID contract')
       observations.push({family:'cap04',viewport,scenario:'tempo-no-uid',discovery:'empty',testAndSave:true,uidRequired:false})
       cap04Ipc.mode = ''
+    }
+    if (viewport === 'desktop') {
+      await seed('postgres','builder')
+      const filterInput='input[placeholder="Filter objects…"]'
+      await waitFor(win, `document.querySelector(${rendererValue(filterInput)})`, 'CAP-05 PG filter exists')
+      await evaluate(`(() => {
+        const input=${select(filterInput)}
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'events')
+        input.dispatchEvent(new Event('input',{bubbles:true}))
+        input.dispatchEvent(new Event('change',{bubbles:true}))
+      })()`)
+      await waitFor(win, `document.querySelector(${rendererValue(filterInput)})?.value === 'events' && document.querySelector('[role="tree"]')?.innerText.includes('events')`, 'CAP-05 visible SQL filter result')
+      await observe('cap05-pg-filter-desktop.png','.sidebar','actual token search filters PG tree')
+      await evaluate(`(() => {
+        const input=${select(filterInput)}
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'')
+        input.dispatchEvent(new Event('input',{bubbles:true}))
+        input.dispatchEvent(new Event('change',{bubbles:true}))
+      })()`)
+      await waitFor(win, `document.querySelector(${rendererValue(filterInput)})?.value === ''`, 'CAP-05 cleared search')
+      observations.push({family:'cap05',viewport,scenario:'pg-search-clear',query:'events',cleared:true,profile:'audit-postgres'})
+
+      // State injection establishes the *initial* error only. The Retry action
+      // below is a genuine React click and invokes the synthetic list-objects IPC.
+      cap05Ipc.active=true;cap05Ipc.listCalls=0
+      await evaluate(`(() => {
+        const store=window.__datakoalaStore,state=store.getState(),id='audit-postgres'
+        store.setState({metadataByProfileId:{...state.metadataByProfileId,[id]:{schemas:[],status:'error',error:'Synthetic initial discovery failed',refreshing:false,refreshError:null}}})
+      })()`)
+      await waitFor(win, `document.body.innerText.includes('Synthetic initial discovery failed') && [...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Retry')`, 'CAP-05 injected initial error')
+      const initialCalls=cap05Ipc.listCalls
+      await clickText('Retry')
+      await waitFor(win, `window.__datakoalaStore.getState().metadataByProfileId['audit-postgres']?.status === 'loaded' && document.body.innerText.includes('events')`, 'CAP-05 real retry loaded')
+      if (cap05Ipc.listCalls !== initialCalls+1) throw Error('CAP-05 retry did not invoke exactly one metadata request')
+      await observe('cap05-pg-retry-desktop.png','.sidebar','actual Retry click recovered SQL schema/relations')
+      observations.push({family:'cap05',viewport,scenario:'pg-error-retry',initialError:'injected',retryAction:'clicked',listObjectCalls:cap05Ipc.listCalls,recovered:true,profile:'audit-postgres'})
+      cap05Ipc.active=false
     }
   }
   const htmlEscape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
