@@ -745,6 +745,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       // CAP-10: actual CodeMirror completion, formatting, Run, copy, and Builder handoff.
       // All metadata and query replies stay in the isolated audit Electron process.
       console.log('CAP10 start: SQL editor, completion, formatting, run, copy, and generated preview')
+      for (const filename of ['postgres-raw-desktop.png', 'bigquery-raw-desktop.png']) console.log('CAP10_REUSED_PNG_BASE64 ' + filename + ' ' + (await readFile(resolve(outputDir, filename))).toString('base64'))
       const completionColumns = auditSqlResult.columns
       const pgCompletionSchemas = [
         { name: 'public', isSystem: false, relations: [{ schema: 'public', name: 'events', qualifiedName: 'public.events', kind: 'r', columnsStatus: 'loaded', columns: completionColumns }] },
