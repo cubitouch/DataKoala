@@ -54,6 +54,7 @@ auditScreenshots.push(
   'cap04-tempo-optional-desktop.png',
   'cap05-pg-filter-desktop.png',
   'cap05-pg-retry-desktop.png',
+  'cap07-tabs-running-desktop.png',
 )
 export const auditComparisonFiles = ['compare-lists.png', 'compare-toolbar.png', 'compare-dialogs.png', 'compare-feedback.png', 'compare-selectors.png', 'compare-detail.png']
 export const auditCaptions = Object.fromEntries([...auditScreenshots, ...auditComparisonFiles].map((file) => [file, file.replace('.png', '').replaceAll('-', ' ')]))
