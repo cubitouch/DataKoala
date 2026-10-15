@@ -1038,6 +1038,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await seed('postgres','builder','default','list',false)
       await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0],m=s.getState().metadataByProfileId[t.connectionProfileId];const schemas=m.schemas.map(sc=>({...sc,relations:sc.relations.map(r=>({...r,columns:[...r.columns,{name:'created_at',dataTypeName:'timestamptz'}]}))}));s.setState({metadataByProfileId:{[t.connectionProfileId]:{...m,schemas}},tabs:[{...t,builder:{...t.builder,timeColumn:'created_at',seriesColumns:['category']},builderVisualization:{...t.builderVisualization,xColumn:'category',valueColumn:'value',aggregation:'sum',view:'table'}}]})})()`)
       await settle()
+      await evaluate(`window.__datakoalaStore.getState().setBuilderHasRun(true)`)
+      await settle()
       await click(summary13)
       await clickText('Filter to this value',menu13)
       await waitFor(win,`[...document.querySelectorAll('[data-result-filter-chip] button')].some(b=>b.textContent==='Apply to SQL')`,'CAP13 compatible category promotion')
