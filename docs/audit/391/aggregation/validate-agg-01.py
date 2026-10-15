@@ -153,7 +153,7 @@ def main(require_git=False):
     for fid, row in features.items():
         require(row[1:3] == inventory[fid][1:3], 'feature definition/scope drift ' + fid)
         for cell in row[4:7]:
-            require(not re.match(r'^([A-Z_/]+)(?: — |; )\1(?: — |; )', cell),
+            require(not re.match(r'^([A-Z_/]+)(?: — |; )\1\b', cell),
                     'duplicated presentation prefix ' + fid)
 
     manifest = snapshot['manifest']
