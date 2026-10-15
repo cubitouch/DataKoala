@@ -16,11 +16,11 @@
 | ID | Feature | Visual | Behavior | Ownership and named evidence | Open gap |
 |---|---|---|---|---|---|
 | T02 | TraceQL editor/format/copy | SO | BV (mode handoff only) | `TraceExplorer`, shared `QueryCodeEditor`, `CopySqlButton`, `formatTraceql`, `ModeSwitch`; CAP-22 raw handoff/no-run/draft-preservation scenario; existing `TraceExplorer.editor.test.tsx` | Native raw editing, Format and Copy not independently exercised in this batch; live provider unverified |
-| T03 | TraceQL Builder | VV | BV | `TraceBuilderPanel` + `TraceExplorer.updateBuilder`, shared BuilderForm/Row/Field/GeneratedQueryPanel; CAP-22 generated-query and raw-mode transitions | Pending Electron result and full-resolution capture |
-| T05 | Span kind/status/min duration | VV | BV | `TraceBuilderPanel` controls, `traceBuilder.buildTraceql`; CAP-22 span/status/duration/advanced predicate scenario; invalid negative-duration dispatch assertion | Runtime confirmation pending, lower/upper duration and provider acceptance unverified |
-| T06 | Protocol/subsystem | VV | BV | `TraceBuilderPanel` conditional rows, `traceBuilder.buildTraceql`; CAP-22 HTTP↔RPC transition and no-auto-run scenario | Messaging/DB deliberately out of CAP-22 (CAP-23); runtime pending |
-| T07 | HTTP method/route | VV | BV | HTTP detail row and `either` alias generation; CAP-22 GET/POST method, route with quotes, Run request identity/range | Runtime, metadata contract/provider acceptance pending |
-| T08 | RPC system/service/method | VV | BV | RPC detail row and dedicated span RPC keys; CAP-22 RPC transition, quoted service/method, query dispatch/clearing | Runtime and live Tempo parsing unverified |
+| T03 | TraceQL Builder | VV | BV | `TraceBuilderPanel` + `TraceExplorer.updateBuilder`, shared BuilderForm/Row/Field/GeneratedQueryPanel; CAP-22 generated-query and raw-mode transitions | Real renderer, query and five full-resolution screenshots inspected; unrelated provider metadata behaviors remain |
+| T05 | Span kind/status/min duration | VV | BV | `TraceBuilderPanel` controls, `traceBuilder.buildTraceql`; CAP-22 span/status/duration/advanced predicate scenario; invalid negative-duration dispatch assertion | Minimum 450ms and invalid negative bound tested, with blocked Run; other bounds and Tempo acceptance unverified |
+| T06 | Protocol/subsystem | VV | BV | `TraceBuilderPanel` conditional rows, `traceBuilder.buildTraceql`; CAP-22 HTTP↔RPC transition and no-auto-run scenario | HTTP/RPC switching verified; messaging/DB deliberately out of CAP-22 (CAP-23) |
+| T07 | HTTP method/route | VV | BV | HTTP detail row and `either` alias generation; CAP-22 POST method, route with quotes, Run request identity/range | HTTP fields and generated/dispatched expressions verified; live-provider acceptance unverified |
+| T08 | RPC system/service/method | VV | BV | RPC detail row and dedicated span RPC keys; CAP-22 RPC transition, quoted service/method, query dispatch/clearing | RPC generated/dispatched expressions and clearing verified; live Tempo parser and cross-protocol generic-filter policy unverified |
 
 `VV`/`BV` mean the named subbehaviors passed real Electron checks at the generating SHA. T02 remains `SO` visually because raw TraceQL editor itself, Format and Copy were not independently captured/tested. T04 (namespace/service inventory owner) is exercised as **supporting evidence** for the six assigned IDs but remains independently owned by the integration register; do not rewrite it here.
 
@@ -83,7 +83,7 @@ The service selector displayed `Any service`, `checkout-api`, and `invoice-api` 
 
 ## Visual Convergence Atlas candidates
 
-| Candidate | Inventory | Classification pending runtime | Current evidence and owner | Impact / confidence / future direction |
+| Candidate | Inventory | Classification | Evidence and implementation owner | Impact / confidence / future direction |
 |---|---|---|---|---|
 | VC22-01 | T03/T05/T06 | `ALREADY_CONVERGED` (source + inspected Electron) | Shared FieldChrome/Combobox, BuilderForm/Row/Field, GeneratedQueryPanel; UX V-10 and `TraceBuilderPanel` | Shared fields are legible and conform to V-10 in all five frames; high confidence |
 | VC22-02 | T05/T03 | `ALREADY_CONVERGED` (native form validation) | `traceBuilder.buildTraceql` omits invalid duration, `TraceExplorer.submitSearch` checks metadata refresh but not minDuration validity | Although the generator omits negative duration, HTML native `min=0` validation blocks Run: zero query requests. Other invalid state entry paths remain untested; do not call this confirmed defect |
@@ -102,8 +102,6 @@ The classifications above use inspected screenshots and generated/dispatched Tra
 **Previous attempt:** [Visual 38777205376](https://github.com/cubitouch/DataKoala/actions/runs/38777205376), artifact **11994277306**; CAP-18/CAP-20 passed, but CAP-22 stopped after the two initial images because the test incorrectly expected a partial custom service value to commit an existing discovered service. Fixed within CAP-22 via exact-match native Enter testing; the successful generating run supersedes it.
 
 **Remaining gaps:** independently exercised Format/Copy, real delayed/failed/stale metadata requests and empty/missing service cases, additional duration boundaries, and provider acceptance.
-
-
 
 ## Completion gate / integration handoff
 
