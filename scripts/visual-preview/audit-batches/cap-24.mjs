@@ -238,7 +238,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
 
   // T17/T18: switch real view controls, drag a native brush, verify no provider dispatch.
   await assertNoFetch('list-to-scatter', () => clickText('Scatter', 'document.querySelector("[aria-label=\\"Trace search result view\\"]")'))
-  await awaited('document.querySelector("[data-visual-type=scatter][data-visual-finished=true][data-visual-items="5"]")', 'CAP-24 real scatter populated')
+  await awaited('document.querySelector("[data-visual-type=scatter][data-visual-finished=true][data-visual-items=5]")', 'CAP-24 real scatter populated')
   const brushBefore = calls.length
   const canvasRect = await evaluate('(() => {const c=document.querySelector("[data-visual-type=scatter] canvas");if(!c)throw Error("Missing ECharts canvas");const r=c.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})()')
   assert.ok(canvasRect.width > 240 && canvasRect.height > 100, 'ECharts must have meaningful plot size')
