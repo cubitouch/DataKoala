@@ -82,7 +82,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     await settle()
   }
   const labeled = async (label, value) => {
-    await js('(() => {const e=[...document.querySelectorAll("input")].find(e=>e.getAttribute("aria-label")===' + rendererValue(label) + ');if(!e)throw Error("Missing input: "+' + rendererValue(label) + ');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(e,' + rendererValue(value) + ');e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}))})()')
+    await js('(() => {const lab=[...document.querySelectorAll("label")].find(e=>e.textContent.trim()===' + rendererValue(label) + ');const e=lab?.htmlFor?document.getElementById(lab.htmlFor):[...document.querySelectorAll("input")].find(e=>e.getAttribute("aria-label")===' + rendererValue(label) + ');if(!(e instanceof HTMLInputElement))throw Error("Missing labeled input: "+' + rendererValue(label) + ');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(e,' + rendererValue(value) + ');e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}))})()')
     await settle()
   }
   const choose = async (label, option) => {
