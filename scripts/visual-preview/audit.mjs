@@ -1166,7 +1166,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       outcome15='success';await click('[aria-label="Ask"]');await waitReview15()
       if(await sql15()!==original15)throw Error('CAP15 SQL changed before Apply')
       await click('[aria-label="View AI details"]')
-      await waitFor(win,`[...document.querySelectorAll('[data-popover-overlay]')].some(n=>n.innerText.includes('Submitted context') && n.innerText.includes('Limit the public synthetic'))`,'CAP15 submitted context and reasoning')
+      await waitFor(win,`[...document.querySelectorAll('[data-popover-overlay]')].some(n=>n.textContent.includes('Submitted context') && n.textContent.includes('Limit the public synthetic'))`,'CAP15 submitted context and reasoning')
       await key('Escape')
       await clickText('Reject',scope15)
       if(await sql15()!==original15)throw Error('CAP15 Reject changed original SQL')
