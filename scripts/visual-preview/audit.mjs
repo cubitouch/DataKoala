@@ -1035,13 +1035,16 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await click('[aria-label="Remove filter category is NULL"]')
       await waitFor(win,`document.querySelectorAll('[data-result-row-index]').length===3 && !document.querySelector('[data-result-filter-chip]')`,'CAP13 remove local filter')
       if(queryCalls!==before13)throw Error('CAP13 client filtering executed query')
-      await seed('postgres','builder','default')
-      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,builder:{...t.builder,timeColumn:null,seriesColumns:[]},builderVisualization:{...t.builderVisualization,xColumn:'category',valueColumn:'value',aggregation:'sum',view:'table'}}]})})()`)
+      await seed('postgres','builder','default','list',false)
+      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0],m=s.getState().metadataByProfileId[t.connectionProfileId];const schemas=m.schemas.map(sc=>({...sc,relations:sc.relations.map(r=>({...r,columns:[...r.columns,{name:'created_at',dataTypeName:'timestamptz'}]}))}));s.setState({metadataByProfileId:{[t.connectionProfileId]:{...m,schemas}},tabs:[{...t,builder:{...t.builder,timeColumn:'created_at',seriesColumns:['category']},builderVisualization:{...t.builderVisualization,xColumn:'category',valueColumn:'value',aggregation:'sum',view:'table'}}]})})()`)
       await settle()
       await click(summary13)
       await clickText('Filter to this value',menu13)
       await waitFor(win,`[...document.querySelectorAll('[data-result-filter-chip] button')].some(b=>b.textContent==='Apply to SQL')`,'CAP13 compatible category promotion')
       const localBuilder13=queryCalls
+      cap10Ipc.active=true;cap10Ipc.calls=[]
+      await evaluate(`window.__datakoalaStore.getState().setBuilderHasRun(true)`)
+      await settle()
       await clickText('Apply to SQL','[aria-label="Active result filters"]')
       await waitFor(win,`window.__datakoalaStore.getState().tabs[0].builderResultFilters[0]?.execution==='query' && !window.__datakoalaStore.getState().tabs[0].running`,'CAP13 promoted query settled')
       const promoted13=await evaluate(`window.__datakoalaStore.getState().tabs[0].builderResultFilters`)
@@ -1062,7 +1065,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       if(!blocked13.disabled||!blocked13.reason.includes('missing_source'))throw Error('CAP13 missing demotion reason')
       await clickText('Clear all','[aria-label="Active result filters"]')
       await waitFor(win,`!document.querySelector('[data-result-filter-chip]')`,'CAP13 clear chips')
-      observations.push({family:'cap13',viewport,scenario:'cell-local-query-filter',rawLocalQueryDelta:0,rawRows:{before:3,filtered:1,removed:3},focus:{onSummary:onSummary13,onAction:onAction13,escape:escaped13,outsideClick:outside13},promoted:promoted13,promotionQueryDelta:promotionCalls13,demotion:'actual allowed action',nonpromotableValueHidesAction:nonpromotable13,blockedDemotion:blocked13,blockedDemotionSetup:'state-injected source-shaped predicate',clearAll:true,provider:'synthetic IPC only'})
+      observations.push({family:'cap13',viewport,scenario:'cell-local-query-filter',rawLocalQueryDelta:0,rawRows:{before:3,filtered:1,removed:3},focus:{onSummary:onSummary13,onAction:onAction13,escape:escaped13,outsideClick:outside13},promoted:promoted13,promotionQueryDelta:promotionCalls13,promotionRequests:cap10Ipc.calls,demotion:'actual allowed action',nonpromotableValueHidesAction:nonpromotable13,blockedDemotion:blocked13,blockedDemotionSetup:'state-injected source-shaped predicate',clearAll:true,provider:'synthetic IPC only'})
+      cap10Ipc.active=false
     }
     if (viewport === 'desktop') {
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
