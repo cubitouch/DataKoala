@@ -14,6 +14,7 @@ const cap02Ipc = { active: false, tests: [], saves: [], removes: [] }
 const cap03Ipc = { active: false, tests: [], saves: [], chooseFiles: 0, chooseSqlite: 0 }
 const cap04Ipc = { mode: '', tests: [], saves: [], discovery: [] }
 const cap05Ipc = { active: false, listCalls: 0 }
+let auditIpc = null
 let queryOutcome = 'success'
 let releaseQuery = null
 let queryCalls = 0
@@ -25,6 +26,7 @@ const cap14Tree = {id:'0',plan:'Hash Join',nodeType:'Hash Join',planRows:10,tota
 const delay = (ms) => new Promise((done) => setTimeout(done, ms))
 
 export function installAuditIpc(ipc) {
+  auditIpc=ipc
   const handle = (channel, fn) => { ipc.removeHandler(channel); ipc.handle(channel, fn) }
   const result = async (id, sql, event, request, parameters = []) => {
     queryCalls += 1
@@ -35,6 +37,7 @@ export function installAuditIpc(ipc) {
       if (String(id).includes('tempo') && request?.progressRequestId && !request.sampleSize) event.sender.send('query:progress', { requestId:request.progressRequestId, progress:{provider:'tempo',coveredMs:1800000,totalMs:3600000,completedChunks:1,pendingChunks:1,queriesCompleted:1,tracesFound:2,rows:auditTraceResult.rows.slice(0,2)} })
       await new Promise((done) => { releaseQuery = done })
     }
+    if (outcome === 'query-error') return {ok:false,message:'Synthetic SQL error: column missing_column does not exist',kind:'query'}
     if (outcome === 'error') return { ok: false, message: 'Synthetic provider unavailable. Try Run again.', kind: 'connection' }
     return { ok: true, result: String(id).includes('tempo') ? (/^[a-f0-9]{32}$/.test(String(sql).trim()) ? auditSpanResult : auditTraceResult) : auditSqlResult }
   }
@@ -1128,6 +1131,85 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       if(queryCalls!==before14)throw Error('CAP14 ordinary Run unexpectedly invoked')
       observations.push({family:'cap14',viewport,scenario:'explain-analyze-graph',requests:cap14Ipc.calls,busy:busy14,selectedNodeId:'0.1',failure:failure14,closed:true,ordinaryRunDelta:0,staleGeneration:'named QueryEditor/lifecycle tests only',provider:'synthetic deferred IPC; benign SELECT 1 only'})
       cap14Ipc.outcome='success'
+    }
+    if (viewport === 'desktop') {
+      await seed('postgres','raw','default')
+      const before15=queryCalls, requests15=[]
+      let configured15=true,outcome15='success',release15=null,cancels15=0
+      const handle15=(channel,handler)=>{auditIpc.removeHandler(channel);auditIpc.handle(channel,handler)}
+      handle15('ai:settings:get',()=>({ok:true,value:{provider:'openrouter',model:'audit/model',hasApiKey:configured15}}))
+      handle15('ai:cancel',()=>{cancels15++;return{ok:true,value:null}})
+      const original15='SELECT category, value FROM example.events;'
+      const proposed15='SELECT category, value FROM example.events LIMIT 2;'
+      handle15('ai:propose',async (_event,request)=>{
+        requests15.push({intent:request.intent,currentQuery:request.currentQuery,language:request.context?.language,error:request.error??null})
+        const outcome=outcome15
+        if(outcome==='pending')await new Promise(done=>{release15=()=>{release15=null;done()}})
+        if(outcome==='error')return{ok:false,code:'invalid-response',message:'Synthetic invalid AI response'}
+        return{ok:true,value:{kind:'proposal',proposal:{query:proposed15,explanation:'Limit the public synthetic event result to two rows.',assumptions:['The events relation is synthetic.']}}}
+      })
+      await evaluate(`window.dispatchEvent(new Event('datakoala:ai-settings-changed'))`)
+      await waitFor(win,`document.querySelector('[aria-label="SQL AI copilot"]')`,'CAP15 configured copilot')
+      const sql15=()=>evaluate(`window.__datakoalaStore.getState().tabs[0].sql`)
+      const setSql15=async sql=>{await evaluate(`window.__datakoalaStore.getState().setSql(${rendererValue(sql)})`);await settle()}
+      const scope15='[aria-label="SQL AI copilot"]'
+      const prompt15='[data-field-name="AI prompt"] input'
+      const waitReview15=()=>waitFor(win,`document.querySelector('[aria-label="SQL proposal diff"]') && [...document.querySelectorAll(${rendererValue(scope15+' button')})].some(b=>b.textContent==='Apply')`,'CAP15 proposal diff')
+      const waitPending15=async()=>{for(let i=0;!release15&&i<100;i++)await delay(20);if(!release15)throw Error('CAP15 request did not reach deferred IPC')}
+      await setSql15(original15)
+      await type(prompt15,'Show two events')
+      outcome15='pending';await click('[aria-label="Ask"]');await waitPending15()
+      const pending15=await evaluate(`document.querySelector(${rendererValue(scope15)}).innerText.includes('Generating query') && document.querySelector(${rendererValue(prompt15)}).disabled`)
+      if(!pending15)throw Error('CAP15 pending feedback missing')
+      await clickText('Cancel',scope15);release15();await delay(100)
+      if(await sql15()!==original15||await evaluate(`!!document.querySelector('[aria-label="SQL proposal diff"]')`))throw Error('CAP15 cancelled proposal mutated SQL/review')
+      outcome15='success';await click('[aria-label="Ask"]');await waitReview15()
+      if(await sql15()!==original15)throw Error('CAP15 SQL changed before Apply')
+      await click('[aria-label="View AI details"]')
+      await waitFor(win,`[...document.querySelectorAll('[data-popover-overlay]')].some(n=>n.innerText.includes('Submitted context') && n.innerText.includes('Limit the public synthetic'))`,'CAP15 submitted context and reasoning')
+      await key('Escape')
+      await clickText('Reject',scope15)
+      if(await sql15()!==original15)throw Error('CAP15 Reject changed original SQL')
+      await click('[aria-label="Ask"]');await waitReview15();await clickText('Apply',scope15)
+      await waitFor(win,`window.__datakoalaStore.getState().tabs[0].sql===${rendererValue(proposed15)} && document.querySelector(${rendererValue(prompt15)}).value===''`,'CAP15 explicit Apply')
+      if(queryCalls!==before15)throw Error('CAP15 copilot implicitly ran SQL')
+      await setSql15(original15);await type(prompt15,'Show two events');await click('[aria-label="Ask"]');await waitReview15()
+      const manual15='SELECT category FROM example.events;'
+      await setSql15(manual15)
+      await waitFor(win,`[...document.querySelectorAll(${rendererValue(scope15+' button')})].some(b=>b.textContent==='Apply' && b.disabled) && document.querySelector(${rendererValue(scope15)}).innerText.includes('connection changed')`,'CAP15 stale query review')
+      await observe('cap15-stale-query-desktop.png',scope15,'CAP-15 stale proposal after manual SQL edit; Apply disabled, no query execution')
+      await clickText('Reject',scope15)
+      outcome15='error';await click('[aria-label="Ask"]')
+      await waitFor(win,`document.querySelector(${rendererValue(scope15)}).innerText.includes("couldn't produce a usable query")`,'CAP15 model error')
+      if(await sql15()!==manual15||queryCalls!==before15)throw Error('CAP15 model error replaced SQL/executed')
+      // A classified synthetic SQL failure creates the real repair entry point.
+      await setSql15('SELECT missing_column FROM example.events;')
+      queryOutcome='query-error';await clickText('Run','[data-query-toolbar]')
+      await waitFor(win,`[...document.querySelectorAll('button')].some(b=>b.textContent==='Fix with AI') && !window.__datakoalaStore.getState().tabs[0].running`,'CAP15 SQL failure repair entry')
+      queryOutcome='success'
+      const repairBase15=queryCalls,failed15=await sql15()
+      const repairScope15='[aria-label="AI query repair review"]'
+      outcome15='success';await clickText('Fix with AI')
+      await waitFor(win,`document.querySelector(${rendererValue(repairScope15)}) && document.querySelector('[aria-label="SQL proposal diff"]')`,'CAP15 repair diff')
+      const diff15=await evaluate(`document.querySelector('[aria-label="SQL proposal diff"]').textContent`)
+      outcome15='error';await clickText('Try again',repairScope15)
+      await waitFor(win,`document.querySelector(${rendererValue(repairScope15+' [role="alert"]')})?.innerText.includes("couldn't produce a usable repair")`,'CAP15 retry error retains prior diff')
+      if(await sql15()!==failed15||await evaluate(`document.querySelector('[aria-label="SQL proposal diff"]').textContent`)!==diff15)throw Error('CAP15 failed retry destroyed valid diff/SQL')
+      await observe('cap15-repair-retry-error-desktop.png',repairScope15,'CAP-15 repair retry failure preserves previous diff and failed SQL')
+      outcome15='pending';await clickText('Try again',repairScope15);await waitPending15();await clickText('Cancel',repairScope15);release15();await delay(100)
+      if(await sql15()!==failed15)throw Error('CAP15 repair Cancel changed SQL')
+      await clickText('Reject',repairScope15)
+      if(await sql15()!==failed15)throw Error('CAP15 repair Reject changed SQL')
+      outcome15='success';await clickText('Fix with AI')
+      await waitFor(win,`document.querySelector(${rendererValue(repairScope15)})`,'CAP15 second repair')
+      await clickText('Apply',repairScope15)
+      await waitFor(win,`window.__datakoalaStore.getState().tabs[0].sql===${rendererValue(proposed15)}`,'CAP15 explicit repair Apply')
+      if(queryCalls!==repairBase15||repairBase15!==before15+1)throw Error('CAP15 repair implicitly ran SQL')
+      observations.push({family:'cap15',viewport,scenario:'copilot-repair',originalSql:original15,proposedSql:proposed15,pendingDisabled:pending15,rejectPreservedExactOriginal:true,applyExplicit:true,staleManualSql:manual15,staleApplyDisabled:true,modelErrorPreservesSql:true,repairFailedSql:failed15,failedRetryPreservesDiff:true,repairCancelAndRejectPreserveSql:true,cancelRequests:cancels15,requests:requests15,explicitFailureRunDelta:1,implicitRunDelta:0,provider:'synthetic sanitized IPC; no real model',otherDialects:'ordinary preview and named tests only'})
+      configured15=false;await evaluate(`window.dispatchEvent(new Event('datakoala:ai-settings-changed'))`)
+      await waitFor(win,`!document.querySelector('[aria-label="SQL AI copilot"]')`,'CAP15 reset temporary AI settings')
+      auditIpc.removeHandler('ai:settings:get');auditIpc.removeHandler('ai:propose')
+      handle15('ai:cancel',()=>({ok:true,value:null}))
     }
     if (viewport === 'desktop') {
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
