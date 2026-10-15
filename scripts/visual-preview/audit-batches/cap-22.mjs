@@ -64,7 +64,7 @@ const either = (fields, value) =>
   '(' + fields.map((field) => equals(field, value)).join(' || ') + ')'
 const wrap = (conditions) => '{ ' + conditions.join(' && ') + ' }'
 
-export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
+export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDivider }) {
   await mkdir(outputDir, { recursive: true })
   const observations = [], interactions = [], generation = []
   const evalJs = (expr) => win.webContents.executeJavaScript(expr)
@@ -132,6 +132,10 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   win.show(); win.focus(); win.setContentSize(1440, 900); win.webContents.setZoomFactor(1)
   await evalJs('(() => {const s=window.__datakoalaStore,p=' + data(auditProfiles.tempo) + ',t=JSON.parse(JSON.stringify(s.getState().tabs[0]));t.id="cap22";t.title="CAP-22 Tempo";t.connectionProfileId=p.id;t.queryMode="builder";t.sql="{ span:name = \\"raw-only\\" }";t.result=null;t.queryError=null;t.running=false;t.tempoResultView="list";t.tempoSampleSize="100";t.tempoTimeRange=' + data(auditRange) + ';t.tempoBuilder={serviceNamespace:"",service:"",spanKind:"any",protocol:"any",httpMethod:"",endpoint:"",rpcSystem:"",rpcService:"",rpcMethod:"",messagingSystem:"",messagingDestination:"",messagingOperation:"",dbSystem:"",dbOperation:"",spanName:"",advancedFilters:[],status:"any",minDurationMs:""};s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:"connected",generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:' + data(schema()) + ',status:"loaded",error:null,isStale:false,revision:1}}})})()')
   await waitFor(win, 'document.querySelector("[data-tempo-builder]")', 'Tempo Builder mounted')
+  // Match the existing CAP-18 desktop audit framing; ensure advanced fields
+  // and generated query are actually visible instead of clipped at the default 300px.
+  const editorDelta = await evalJs('document.querySelector(".main").getBoundingClientRect().top + 640 - document.querySelector(".editor-resizer").getBoundingClientRect().top')
+  if (Math.abs(editorDelta) > 1) await dragDivider(win, '.editor-resizer', 0, Math.round(editorDelta))
   await click('[data-generated-query-panel] summary')
   await exact('{ span:duration > 300ms }', 'default')
   assertNoRun(0, 'Builder initialization must not run searches')
@@ -148,8 +152,13 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   const filtered = await evalJs('[...document.querySelectorAll("[role=option] [data-combobox-option-label]")].map(e=>e.textContent.trim())')
   assert.deepEqual(filtered, ['checkout-api'])
   await save(screenshots[1], 'Real Service combobox filtered within the selected namespace')
+  // The selector supports custom values: Enter on partial text "checkout"
+  // intentionally creates that exact custom value rather than picking checkout-api.
+  // Use an exact option match to verify native Enter commits a discovered service.
+  await evalJs('(() => {const e=document.querySelector("[role=listbox] input");if(!e)throw Error("Service search input absent");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(e,"checkout-api");e.dispatchEvent(new Event("input",{bubbles:true}));e.focus()})()')
+  await waitFor(win, '[...document.querySelectorAll("[role=option] [data-combobox-option-label]")].some(e=>e.textContent.trim()==="checkout-api")', 'keyboard exact-match option')
   await key('Enter')
-  await waitFor(win, 'window.__datakoalaStore.getState().tabs[0].tempoBuilder.service==="checkout-api"', 'keyboard commits service')
+  await waitFor(win, 'window.__datakoalaStore.getState().tabs[0].tempoBuilder.service==="checkout-api"', 'keyboard commits exact-match service')
   assertNoRun(0, 'Selector navigation cannot execute a trace search')
   await exact(wrap([equals('resource.service.namespace','payments'),equals('resource.service.name','checkout-api'),'span:duration > 300ms']), 'namespace + service')
   interactions.push({ scenario: 'selector', available, filtered, keyboardEnterSelected: (await state()).service, queryRequests: requests.length })
