@@ -61,6 +61,10 @@ auditScreenshots.push(
   'cap08-reset-cleared-desktop.png',
   'cap09-resized-workspace-desktop.png',
   // CAP-10: populated editors, formatted editor, and generated-preview states.
+  'cap17-labels-desktop.png',
+  'cap17-search-desktop.png',
+  'cap17-range-invalid-desktop.png',
+  'cap17-resolution-guard-desktop.png',
   'cap16-counter-desktop.png',
   'cap16-classic-desktop.png',
   'cap16-unknown-desktop.png',

@@ -1299,6 +1299,99 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       capPromIpc.active=false
     }
     if (viewport === 'desktop') {
+      // CAP-17: bounded metadata, actual React controls, counted synthetic query IPC.
+      capPromIpc.active=true;capPromIpc.calls=[]
+      await seed('prometheus','builder','fresh','list',false)
+      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({metadataByProfileId:{'audit-prometheus':{schemas:${rendererValue(auditPromSchemas)},status:'loaded',error:null,isStale:false}},tabs:[{...t,sql:'sum(up)',prometheusStep:'auto',promqlBuilder:{metric:'audit_requests_total',filterBy:[],groupBy:[],labelValues:{},calculation:'rate',aggregation:'sum',window:'5m',percentile:0.95,histogramKindOverride:'auto'}}]})})()`)
+      await settle();await dragDivider(win,'.editor-resizer',0,250)
+      const before17=queryCalls
+      const combo17=async label=>{
+        await waitFor(win,`[...document.querySelectorAll('[role="combobox"]')].some(e=>e.getAttribute('aria-label')?.startsWith(${rendererValue(label+':')}) && !e.disabled)`,'CAP17 enabled '+label)
+        const selector=await evaluate(`(() => {const e=[...document.querySelectorAll('[data-query-toolbar] [role="combobox"],.promql-builder-form [role="combobox"]')].find(e=>e.getAttribute('aria-label')?.startsWith(${rendererValue(label+':')}));if(!e)throw Error('CAP17 missing combo '+${rendererValue(label)});return '#'+CSS.escape(e.id)})()`)
+        await click(selector)
+      }
+      const option17=async label=>{
+        await waitFor(win,`[...document.querySelectorAll('[role="option"]')].some(e=>e.querySelector('[data-combobox-option-label]')?.textContent.trim()===${rendererValue(label)})`,'CAP17 option '+label)
+        await evaluate(`(() => {const e=[...document.querySelectorAll('[role="option"]')].find(e=>e.querySelector('[data-combobox-option-label]')?.textContent.trim()===${rendererValue(label)});e.click()})()`)
+        await settle()
+      }
+      const choose17=async(label,option,multi=false)=>{await combo17(label);await option17(option);if(multi)await key('Escape')}
+      const state17=()=>evaluate(`window.__datakoalaStore.getState().tabs[0].promqlBuilder`)
+      const generated17=()=>evaluate(`document.querySelector('[aria-label="Generated PromQL query"] .cm-content')?.innerText.trim()??''`)
+      const exact17=async expected=>{await waitFor(win,`document.querySelector('[aria-label="Generated PromQL query"] .cm-content')?.innerText.trim()===${rendererValue(expected)}`,'CAP17 exact generated query')}
+      await click('[data-generated-query-panel] summary')
+      await choose17('Rate window','10m')
+      await exact17('sum(rate(audit_requests_total[10m]))')
+      await choose17('Group by','service',true)
+      await choose17('Filter by','environment',true)
+      await choose17('environment values','production',true)
+      await choose17('environment values','staging',true)
+      await choose17('service values','api',true)
+      const independent17='sum by (service) (\n  rate(audit_requests_total{service="api",environment=~"production|staging"}[10m])\n)'
+      await exact17(independent17)
+      const selected17=await state17()
+      if(selected17.groupBy.join()!=='service'||selected17.filterBy.join()!=='environment'||selected17.labelValues.environment.join()!=='production,staging')throw Error('CAP17 independent multi selection failed')
+      await observe('cap17-labels-desktop.png','.promql-builder-form','CAP-17 independent grouping/filter dimensions, shared value matchers and 10m window')
+      // Shared label in both dimensions: removing only one must retain values.
+      await choose17('Filter by','service',true)
+      await choose17('Group by','service',true)
+      const retained17=await state17()
+      if(retained17.groupBy.length||!retained17.filterBy.includes('service')||retained17.labelValues.service?.[0]!=='api')throw Error('CAP17 shared label values lost on one-dimension removal')
+      await choose17('Filter by','service',true)
+      if((await state17()).labelValues.service!==undefined)throw Error('CAP17 removed label values not pruned')
+      await combo17('environment values');await clickText('Clear all','[role="listbox"]');await key('Escape')
+      await exact17('sum(rate(audit_requests_total[10m]))')
+      // No custom values: unknown search leaves no option and no matcher mutation.
+      await combo17('environment values');await type('[aria-label="Search environment values"]','not-a-real-value')
+      await waitFor(win,`document.querySelectorAll('[role="option"]').length===0 && document.querySelector('[role="listbox"]').innerText.includes('No matching options')`,'CAP17 unmatched value guard')
+      await key('Enter');await key('Escape')
+      if((await state17()).labelValues.environment?.length)throw Error('CAP17 unknown search committed an unsupported value')
+      await choose17('Filter by','instance',true)
+      await waitFor(win,`[...document.querySelectorAll('[role="combobox"]')].some(e=>e.getAttribute('aria-label')==='instance values: Select values…' && !e.disabled)`,'CAP17 bounded instance values loaded')
+      await combo17('instance values')
+      await waitFor(win,`document.querySelectorAll('[role="option"]').length===200`,'CAP17 200 bounded options')
+      await type('[aria-label="Search instance values"]','instance-199')
+      await waitFor(win,`document.querySelectorAll('[role="option"]').length===1 && document.querySelector('[role="option"]').textContent.includes('instance-199')`,'CAP17 high cardinality search')
+      await option17('instance-199')
+      await waitFor(win,`document.querySelector('[role="option"]').getAttribute('aria-selected')==='true'`,'CAP17 selected searched option')
+      await observe('cap17-search-desktop.png','[role="listbox"]','CAP-17 search over 200 bounded instance values; exact selected option')
+      await key('Escape')
+      await exact17('sum(rate(audit_requests_total{instance="instance-199"}[10m]))')
+      await combo17('Filter by');await clickText('Clear all','[role="listbox"]');await key('Escape')
+      await exact17('sum(rate(audit_requests_total[10m]))')
+      const cleared17=await state17()
+      if(cleared17.filterBy.length||cleared17.groupBy.length||Object.keys(cleared17.labelValues).length)throw Error('CAP17 clear dimensions retained values')
+      if(queryCalls!==before17||await evaluate(`window.__datakoalaStore.getState().tabs[0].sql`)!=='sum(up)')throw Error('CAP17 controls ran query or changed raw draft')
+      cap10Ipc.active=true;cap10Ipc.calls=[]
+      // Existing fixed UTC custom range, then explicit resolution and Run.
+      await choose17('Resolution','1m')
+      if(queryCalls!==before17)throw Error('CAP17 Resolution unexpectedly fetched')
+      await clickText('Run','[data-query-toolbar]')
+      await waitFor(win,`!window.__datakoalaStore.getState().tabs[0].running && window.__datakoalaStore.getState().tabs[0].lastSuccessfulResultRevision>0`,'CAP17 fixed UTC request')
+      if(cap10Ipc.calls.length!==1||JSON.stringify(cap10Ipc.calls[0].request)!==JSON.stringify({start:'2026-08-19T16:00:00.000Z',end:'2026-08-19T17:00:00.000Z',step:'1m'}))throw Error('CAP17 fixed range/step payload '+JSON.stringify(cap10Ipc.calls))
+      const afterRun17=queryCalls
+      await click('[data-time-range-field] button');await clickText('Clear','[role="dialog"]')
+      await waitFor(win,`[...document.querySelectorAll('[role="dialog"] button')].find(b=>b.textContent==='Confirm')?.disabled && document.querySelector('[role="dialog"] [role="alert"]')`,'CAP17 invalid range disabled Confirm')
+      await observe('cap17-range-invalid-desktop.png','[role="dialog"]','CAP-17 incomplete range visibly guarded before confirmation')
+      await clickText('Cancel','[role="dialog"]')
+      if(JSON.stringify(await evaluate(`window.__datakoalaStore.getState().tabs[0].prometheusTimeRange`))!==JSON.stringify(auditRange))throw Error('CAP17 Cancel changed committed range')
+      await click('[data-time-range-field] button');await clickText('Last 30 days','[role="dialog"]');await clickText('Confirm','[role="dialog"]')
+      await choose17('Resolution','15s')
+      if(queryCalls!==afterRun17)throw Error('CAP17 range/step changes implicitly fetched')
+      await clickText('Run','[data-query-toolbar]')
+      await waitFor(win,`window.__datakoalaStore.getState().tabs[0].queryError?.includes('Too many data points for this Resolution') && !window.__datakoalaStore.getState().tabs[0].running`,'CAP17 unsafe request blocked before IPC')
+      if(cap10Ipc.calls.length!==1)throw Error('CAP17 unsafe resolution reached provider')
+      await observe('cap17-resolution-guard-desktop.png','.main','CAP-17 30-day/15s resolution blocked locally; no provider fetch')
+      await choose17('Resolution','Auto (1h)')
+      await clickText('Run','[data-query-toolbar]')
+      await waitFor(win,`!window.__datakoalaStore.getState().tabs[0].running && !window.__datakoalaStore.getState().tabs[0].queryError && window.__datakoalaStore.getState().tabs[0].result`,'CAP17 Auto recovery')
+      const requests17=cap10Ipc.calls
+      if(requests17.length!==2||requests17[1].request.step!=='1h'||Date.parse(requests17[1].request.end)-Date.parse(requests17[1].request.start)!==30*86400000||requests17.some(r=>r.sql!=='sum(rate(audit_requests_total[10m]))'))throw Error('CAP17 Auto range/request mismatch '+JSON.stringify(requests17))
+      observations.push({family:'cap17',viewport,scenario:'labels-range-resolution',independentQuery:independent17,selected:selected17,sharedLabelRetainedOnSingleDimensionRemoval:true,removedLabelPruned:true,unknownSearchCannotCommit:true,boundedOptions:200,searchedSelected:'instance-199',cleared:cleared17,controlChangesQueryDelta:0,rawDraftPreserved:true,invalidRangeConfirmDisabled:true,cancelRestoresRange:true,unsafeManualRequestDelta:0,explicitRunAttempts:3,queryDelta:queryCalls-before17,requests:requests17,metadataCalls:capPromIpc.calls,provider:'synthetic metadata/query IPC; no live Prometheus; local result view is not query evidence'})
+      if(queryCalls-before17!==2)throw Error('CAP17 exact query count mismatch')
+      cap10Ipc.active=false;capPromIpc.active=false
+    }
+    if (viewport === 'desktop') {
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
       // in-memory session. Never connect a provider or persist a user's presets.
       console.log('CAP08 step: seed PostgreSQL Builder session')
