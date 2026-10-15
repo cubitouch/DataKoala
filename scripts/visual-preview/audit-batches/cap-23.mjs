@@ -65,7 +65,7 @@ const alternatives = (keys, value) => '(' + keys.map(key => equal(key, value)).j
 export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDivider }) {
   await mkdir(outputDir, { recursive: true })
   const observations = [], interactions = []
-  const evaluate = source => win.webContents.executeJavaScript(source)
+  const evaluate = source => win.webContents.executeJavaScript(source).catch(error => { console.error('CAP23_EVAL_FAILED', source.slice(0, 1000), error.message); throw error })
   const settle = () => evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))')
   const state = () => evaluate('window.__datakoalaStore.getState().tabs[0]')
   const click = async selector => {
@@ -125,8 +125,10 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     record(name, { suppressed: true })
   }
 
+  console.log('CAP23_STAGE setup')
   win.show(); win.focus(); win.setContentSize(1440, 900); win.webContents.setZoomFactor(1)
   await evaluate('(() => { const s=window.__datakoalaStore, t=JSON.parse(JSON.stringify(s.getState().tabs[0])),p=' + data(auditProfiles.tempo) + '; t.id="cap23"; t.title="CAP-23"; t.connectionProfileId=p.id; t.queryMode="builder"; t.sql="{ span:name = \\"raw preserved draft\\" }"; t.result=null; t.queryError=null; t.running=false; t.tempoBuilder=' + data(baseBuilder) + '; t.tempoTimeRange=' + data(auditRange) + '; t.tempoSampleSize="250"; t.tempoResultView="list"; s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:"connected",generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:' + data(auditSchemas) + ',status:"loaded",error:null,isStale:false}}}) })()')
+  console.log('CAP23_STAGE seeded')
   await waitFor(win, 'document.querySelector("[data-tempo-builder]")', 'Tempo builder')
   const sidebarDelta = await evaluate('240 - document.querySelector("[aria-label=\\"Resize sidebar\\"]").getBoundingClientRect().left')
   if (Math.abs(sidebarDelta) > 1) await dragDivider(win, '[aria-label="Resize sidebar"]', Math.round(sidebarDelta), 0)
@@ -137,6 +139,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await exact(wrap(), 'baseline')
   await waitFor(win, 'document.querySelector("[role=combobox][aria-label^=\\"Attributes:\\"]")', 'Attributes available')
 
+  console.log('CAP23_STAGE baseline-verified')
   // T09: real subsystem selection, observed discovery, quoted destinations and operation.
   await noDispatch('select-messaging', () => choose('Protocol or subsystem', 'Messaging'))
   await waitFor(win, 'document.querySelector("[role=combobox][aria-label^=\\"Messaging system:\\"]")', 'messaging fields')
