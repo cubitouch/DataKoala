@@ -282,6 +282,9 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   ]
   const countBeforeBoundary = calls.length
   await evaluate('(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,result:' + data(searchResult(boundaryRows)) + ',resultRevision:(t.resultRevision??0)+1}]})})()')
+  await settle()
+  const boundaryDiagnostic = await evaluate('(() => { const t=window.__datakoalaStore.getState().tabs[0];return {activeTab:window.__datakoalaStore.getState().activeTabId,storedResultRows:t.result?.rows.map(row=>({service:row.rootService,start:row.startTimeMs})),selectedView:document.querySelector("[aria-label=\\\"Trace search result view\\\"] [aria-pressed=true]")?.textContent.trim(),visibleRows:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.innerText),filter:document.querySelector("[data-result-filter-chip]")?.innerText} })()')
+  console.log('CAP24_BOUNDARY_DIAGNOSTIC', JSON.stringify(boundaryDiagnostic))
   await awaited('document.querySelectorAll(' + data(rowSelector) + ').length===2 && document.body.innerText.includes("Boundary start included") && document.body.innerText.includes("Inside interval")', 'CAP-24 exact boundary rows')
   const boundaryVisible = await evaluate('[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.innerText)')
   assert.equal(boundaryVisible.length, 2)
