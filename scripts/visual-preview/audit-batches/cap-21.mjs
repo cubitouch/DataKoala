@@ -144,7 +144,6 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   win.show(); win.focus(); win.setContentSize(1440,900); win.webContents.setZoomFactor(1)
   const profile = {...auditProfiles.loki,grafana:{baseUrl:'https://grafana.example.test/',datasourceUid:'loki-audit',datasourceType:'loki',orgId:7}}
   await evaluate('(() => {const s=window.__datakoalaStore, t=JSON.parse(JSON.stringify(s.getState().tabs[0])), p=' + data(profile) + ';t.id="cap21";t.title="CAP-21";t.connectionProfileId=p.id;t.queryMode="builder";t.sql=\'{service_name="raw-draft"}\';t.result=null;t.queryError=null;t.running=false;t.lokiResultView="list";t.lokiGroupBy=["service_name"];t.lokiTimeRange=' + data(auditRange) + ';t.lokiResultLimit=2000;t.lokiBuilder={labelMatchers:[{label:"service_name",operator:"=",value:"example-service"}],lineFilters:[],parsers:[],fieldFilters:[]};s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:"connected",generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:"loaded",error:null,isStale:false}}})})()')
-  console.log('CAP21_BOOT '+JSON.stringify(await evaluate('(() => {const s=window.__datakoalaStore.getState();return {active:s.activeTabId,tabs:s.tabs.map(t=>({id:t.id,profile:t.connectionProfileId,mode:t.queryMode,resultView:t.lokiResultView})),profiles:s.profiles.map(p=>({id:p.id,kind:p.kind})),main:document.querySelector("main")?.getAttribute("aria-label"),builder:Boolean(document.querySelector("[data-loki-builder]")),text:document.body.innerText.slice(0,1000)}})()')))
   await waitFor(win,'document.querySelector("[data-loki-builder]")','loaded Loki Builder')
   const sidebarDelta = await evaluate('240-document.querySelector("[aria-label=\\"Resize sidebar\\"]").getBoundingClientRect().left')
   if(Math.abs(sidebarDelta)>1) await dragDivider(win,'[aria-label="Resize sidebar"]',Math.round(sidebarDelta),0)
@@ -215,11 +214,12 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await view('Area')
   await view('Table')
   assert.equal((await state()).sql,raw)
-  assert.equal(requests.length,beforeRawViews)
+  const rawViewRequests = requests.slice(beforeRawViews)
+  assert.ok(rawViewRequests.every(request => request.kind !== 'primary'), 'view switch must not run primary LogQL')
   const rawLayout = await snapshot()
   assert.ok(rawLayout.editorBounds.width > 500 && rawLayout.editorBounds.height > 50,'raw editor geometry')
-  interactions.push({scenario:'raw editor',rawBefore,rawAfter:raw,layout:rawLayout.editorBounds,viewChangeQueryDelta:0,explicitSubmissionOnly:true})
-  await save(screenshots[2],'Native-edited raw LogQL preserved while switching chart and Table','[aria-label="LogQL editor"]')
+  interactions.push({scenario:'raw editor',rawBefore,rawAfter:raw,layout:rawLayout.editorBounds,viewChangeQueryDelta:rawViewRequests.length,viewChangeQueries:rawViewRequests,primaryReexecutions:0,unsentDraftMayTriggerOptionalTrend:true})
+  await save(screenshots[2],'Native-edited raw LogQL preserved through chart and Table; optional trend requests recorded','[aria-label="LogQL editor"]')
 
   // Restore original builder expression before lifecycle experiments.
   await button('Builder')
