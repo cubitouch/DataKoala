@@ -121,6 +121,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   behavior.push({ scenario: 'default', total: 360, rendered: await count(), requestDelta: 0,
     expectedFirst: records[0].id, firstDisplayed: await js('document.querySelector(\'[aria-label="Log results"] article button\')?.getAttribute("aria-label")') })
 
+  await click('[data-generated-query-panel] summary')
+  await waitFor(win, 'document.querySelector(\'[aria-label="Generated LogQL query"] .cm-content\')', 'generated LogQL editor')
   await labeled('Search loaded logs', 'CAP19 needle')
   await waitFor(win, 'document.querySelector(\'[aria-label="Log results"]\')?.textContent.includes("1 loaded")', 'local search count')
   assert.equal(await loaded(), '1 loaded')
@@ -131,6 +133,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await waitFor(win, 'document.querySelector(\'[aria-label="Log results"]\')?.textContent.includes("360 loaded")', 'search clear')
   const beforeSeverity = responses.length
   await choose('Level', 'ERROR')
+  await waitFor(win, 'document.querySelector(\'[aria-label="Generated LogQL query"] .cm-content\')?.innerText.includes("ERROR")', 'severity LogQL generated')
   const severityExpression = await query()
   assert.match(severityExpression, /severity.*ERROR/i)
   assert.equal(responses.length, beforeSeverity, 'changing Builder Level is not an implicit provider query')
@@ -170,10 +173,12 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
 
   const beforeFilter = responses.length
   await click('[aria-label="Include service_name"]')
+  await waitFor(win, 'document.querySelector(\'[aria-label="Generated LogQL query"] .cm-content\')?.innerText.includes(\'service_name="checkout-api"\')', 'label promoted to LogQL')
   let filteredQuery = await query()
   assert.ok(filteredQuery.includes('service_name="checkout-api"'))
   assert.equal(responses.length, beforeFilter)
   await click('[aria-label="Exclude region"]')
+  await waitFor(win, 'document.querySelector(\'[aria-label="Generated LogQL query"] .cm-content\')?.innerText.includes(\'region!="us-east"\')', 'structured metadata exclusion in LogQL')
   filteredQuery = await query()
   assert.ok(filteredQuery.includes('region!="us-east"'))
   assert.equal(responses.length, beforeFilter, 'inspector include/exclude updates Builder but does not auto-run')
