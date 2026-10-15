@@ -17,7 +17,7 @@ export const screenshots = [
   'cap30-postgres-plan-share-desktop.png',
 ]
 
-const sql = 'SELECT \\'CAP30 O\\'Brien\\' AS "quoted"\nFROM "example"."events";'
+const sql = "SELECT 'CAP30 O''Brien' AS \"quoted\"\nFROM \"example\".\"events\";"
 const promql = 'sum(rate(http_requests_total{service="checkout"}[5m]))'
 const logql = '{service_name="checkout"} |= "CAP30"'
 const traceql = '{ resource.service.name = "checkout" }'
