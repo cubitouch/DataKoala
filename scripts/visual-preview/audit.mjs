@@ -856,7 +856,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
         await click(selector)
       }
       const option11 = async label => {
-        const selector = await evaluate(`(() => {const e=[...document.querySelectorAll('[role="option"]')].find(e=>e.textContent.trim()===${rendererValue(label)});if(!e)throw Error('Missing option '+${rendererValue(label)});return '#'+CSS.escape(e.id)})()`)
+        const selector = await evaluate(`(() => {const e=[...document.querySelectorAll('[role="option"]')].find(e=>e.querySelector('[data-combobox-option-label]')?.textContent.trim()===${rendererValue(label)});if(!e)throw Error('Missing option '+${rendererValue(label)});return '#'+CSS.escape(e.id)})()`)
         await click(selector)
       }
       const choose11 = async (label, option) => {await combo11(label);await option11(option)}
@@ -878,6 +878,13 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await observe('cap11-bucket-disabled-desktop.png','.builder-pane','CAP-11 seven-day temporal X: Minute disabled with rationale')
       await key('Escape')
       await choose11('Time bucket','Hour')
+      await click('[data-time-range-field] button')
+      await clickText('Last hour','[role="dialog"]')
+      await clickText('Confirm','[role="dialog"]')
+      await combo11('Time bucket')
+      const enabled11 = await evaluate(`(() => {const e=[...document.querySelectorAll('[role="option"]')].find(e=>e.querySelector('[data-combobox-option-label]')?.textContent==='Minute');return e && e.getAttribute('aria-disabled')!=='true'})()`)
+      if(!enabled11)throw Error('CAP11 Minute not enabled for Last hour')
+      await option11('Minute')
       await choose11('X axis','category')
       const independent11 = await readSql11()
       const state11 = await evaluate('window.__datakoalaStore.getState().tabs[0]')
