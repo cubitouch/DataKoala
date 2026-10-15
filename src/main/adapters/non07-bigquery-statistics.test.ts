@@ -19,6 +19,7 @@ const profile: BigQueryProfile = {
 type Fixture = {
   queryStatistics?: Record<string, unknown> | null
   dryRunStatistics?: Record<string, unknown>
+  jobStatistics?: Record<string, unknown>
   statementType?: 'SELECT' | 'SCRIPT'
   rows?: Record<string, unknown>[]
   resultStatistics?: Record<string, unknown>
@@ -75,7 +76,10 @@ function fakeClient(fixture: Fixture): {
               throw new Error('metadata unavailable')
             return [
               {
-                statistics: { query: fixture.queryStatistics },
+                statistics: {
+                  query: fixture.queryStatistics,
+                  ...fixture.jobStatistics,
+                },
                 jobReference: { jobId: 'mock-job' },
               },
             ]
@@ -181,8 +185,8 @@ test('NON07 SCRIPT uses parent job statistics and final statement rows without c
         statementType: 'SCRIPT',
         totalBytesProcessed: '4096',
         cacheHit: false,
-        numChildJobs: '3',
       },
+      jobStatistics: { numChildJobs: '3' },
     },
     sql,
   )
