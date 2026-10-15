@@ -103,7 +103,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       throw error
     })
   const settle = () => evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))')
-  const awaited = (expression, description) => waitFor(win, expression, description)
+  const awaited = (expression, description) => waitFor(win, expression, description).catch((error) => { console.error("CAP24_WAIT_FAILED", description, expression, error.message); throw error })
   const rowSelector = 'button[class*="traceResult_"]'
   const countRows = () => evaluate('document.querySelectorAll(' + data(rowSelector) + ').length')
   const state = () => evaluate('window.__datakoalaStore.getState().tabs[0]')
@@ -238,7 +238,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
 
   // T17/T18: switch real view controls, drag a native brush, verify no provider dispatch.
   await assertNoFetch('list-to-scatter', () => clickText('Scatter', 'document.querySelector("[aria-label=\\"Trace search result view\\"]")'))
-  await awaited('document.querySelector("[data-visual-type=scatter][data-visual-finished=true][data-visual-items=5]")', 'CAP-24 real scatter populated')
+  await awaited('(() => {const chart=document.querySelector("[data-visual-type=scatter][data-visual-finished=true]");return chart && chart.getAttribute("data-visual-items")==="5"})()', 'CAP-24 real scatter populated')
   const brushBefore = calls.length
   const canvasRect = await evaluate('(() => {const c=document.querySelector("[data-visual-type=scatter] canvas");if(!c)throw Error("Missing ECharts canvas");const r=c.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})()')
   assert.ok(canvasRect.width > 240 && canvasRect.height > 100, 'ECharts must have meaningful plot size')
