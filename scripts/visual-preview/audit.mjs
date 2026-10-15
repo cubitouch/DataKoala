@@ -970,11 +970,13 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await clickText('Export CSV','[data-result-toolbar]')
       await delay(100)
       if(cap12Ipc.exports.at(-1)?.content!==csvExpected12||cap12Ipc.exports.at(-1)?.defaultName!=='datakoala_results.csv')throw Error('CAP12 matching export payload failed')
+      const sortBeforeResize12=await evaluate(`document.querySelector('[data-result-table-pane] thead').innerText`)
       const widthBefore12=await evaluate(`document.querySelector('[data-result-table-pane] th').getBoundingClientRect().width`)
       await dragDivider(win,'[aria-label="Resize name column"]',-120,0)
+      const sortAfterResize12=await evaluate(`document.querySelector('[data-result-table-pane] thead').innerText`)
       const widthAfter12=await evaluate(`document.querySelector('[data-result-table-pane] th').getBoundingClientRect().width`)
       if(Math.abs(widthBefore12-widthAfter12)<10||widthAfter12<80||widthAfter12>720)throw Error('CAP12 real column resize failed '+JSON.stringify({widthBefore12,widthAfter12}))
-      await observe('cap12-resized-table-desktop.png','[data-result-table-pane]','CAP-12 real pointer column resize retains sorted/filtered table and Copy feedback')
+      await observe('cap12-resized-table-desktop.png','[data-result-table-pane]','CAP-12 native pointer column resize and resulting header sort state with Copy feedback')
       await typeLabel('Filter rows','no-match-12')
       await click('[aria-label="Copy CSV"]')
       await waitFor(win, `window.__cap12Clipboard.at(-1)==='name,value'`, 'CAP12 empty filtered CSV headers')
@@ -994,7 +996,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await delay(100)
       if(cap12Ipc.exports.at(-1)?.content!==expectedLarge12)throw Error('CAP12 all virtual rows export failed')
       if(queryCalls!==before12)throw Error('CAP12 presentation unexpectedly ran a query')
-      observations.push({family:'cap12',viewport,scenario:'table-csv-json',sort:{ascending:asc12,descending:desc12,none:none12},csvExpected:csvExpected12,copyMatchesExport:true,emptyFilteredCsv:'name,value',virtualRows:200,mountedRows:mounted12,fullVirtualPayloadExact:true,resize:{before:widthBefore12,after:widthAfter12},json:{exactFormattedCopy:true,nested:true,scrolled:jsonScroll12,initialFocusInside:jsonFocus12,tabInside:tabInside12,shiftTabInside:shiftInside12,escapeRestoredFocus:true,secondTextTarget:true,malformedAlert:true},nativeClipboard:'unverified',nativeFilesystem:'unverified',noQueryExecution:true})
+      observations.push({family:'cap12',viewport,scenario:'table-csv-json',sort:{ascending:asc12,descending:desc12,none:none12},csvExpected:csvExpected12,copyMatchesExport:true,emptyFilteredCsv:'name,value',virtualRows:200,mountedRows:mounted12,fullVirtualPayloadExact:true,resize:{before:widthBefore12,after:widthAfter12,sortBefore:sortBeforeResize12,sortAfter:sortAfterResize12,sortChanged:sortBeforeResize12!==sortAfterResize12},json:{exactFormattedCopy:true,nested:true,scrolled:jsonScroll12,initialFocusInside:jsonFocus12,tabInside:tabInside12,shiftTabInside:shiftInside12,escapeRestoredFocus:true,secondTextTarget:true,malformedAlert:true},nativeClipboard:'unverified',nativeFilesystem:'unverified',noQueryExecution:true})
       cap12Ipc.active=false
     }
     if (viewport === 'desktop') {
