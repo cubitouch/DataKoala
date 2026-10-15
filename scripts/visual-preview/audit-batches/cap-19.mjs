@@ -220,6 +220,26 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     unhandledRejections: await js('window.__cap19Unhandled'), copyFailureFeedbackAdded: false,
     selectionPreserved: true, renderedAfterScroll: await count(), requestDelta: responses.length - beforeFilter,
     osClipboardAcceptance: 'not tested' })
+  // Reconcile identity when the inspector is explicitly closed/reopened and local search removes its row.
+  await click('[aria-label="Close log details"]')
+  await waitFor(win, '!document.querySelector(\'[aria-label="Selected log details"]\')', 'inspector closed')
+  await js('(() => {const e=document.querySelector(\'[aria-label="Log results"] [class*="logScroller"]\');e.scrollTop=0;e.dispatchEvent(new Event("scroll",{bubbles:true}))})()')
+  await waitFor(win, 'document.querySelector(\'[aria-label="Log results"] article button\')?.getAttribute("aria-label")?.includes("CAP19 needle")', 'first row restored')
+  await click('[aria-label="Log results"] article button')
+  await waitFor(win, 'document.querySelector(\'[aria-label="Selected log details"]\')?.textContent.includes("CAP19 needle")', 'inspector reopened with original row')
+  const retainedWidth = Number(await js('document.querySelector("[data-resizable-detail]").getAttribute("data-detail-width")'))
+  assert.equal(retainedWidth, resizedWidth, 'reopening retains inspector width')
+  await labeled('Search loaded logs', 'cap19-deliberate-nonmatch')
+  await waitFor(win, 'document.querySelector(\'[aria-label="Log results"]\')?.textContent.includes("No matching log entries.")', 'search excludes selected row')
+  await waitFor(win, '!document.querySelector(\'[aria-label="Selected log details"]\')', 'inspector cleared when selected row disappears')
+  await labeled('Search loaded logs', '')
+  await waitFor(win, 'document.querySelector(\'[aria-label="Log results"]\')?.textContent.includes("91 loaded")', 'search restored error cohort')
+  assert.equal(await js('document.querySelector(\'[aria-label="Log results"] [aria-selected="true"]\')'), null, 'selection stays cleared after restoring results')
+  assert.equal(responses.length, beforeFilter)
+  behavior.push({ scenario: 'close-reopen-search-reconciliation', retainedWidth,
+    closeThenReopenSameLog: true, nonmatchingSearchClearsSelection: true,
+    clearSearchRestoresCount: 91, requestDelta: responses.length - beforeFilter })
+
   await writeFile(resolve(outputDir, 'measurements.json'), JSON.stringify({
     sourceHead: process.env.DATAKOALA_AUDIT_HEAD ?? 'UNSPECIFIED',
     timezone: await js('Intl.DateTimeFormat().resolvedOptions().timeZone'),
