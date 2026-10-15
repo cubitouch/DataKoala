@@ -280,6 +280,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await waitFor(win,'!document.body.innerText.includes("Log volume unavailable:")','empty volume distinct from previous error')
   assert.equal((await state()).result.logRows.length,5)
   interactions.push({scenario:'empty optional volume',primaryRows:5,volumeRows:0,errorIsNotPrimary:true,visual:await snapshot()})
+  metricReply = volume
   await view('List')
   rejectPrimary = true
   await button('Run')
@@ -340,6 +341,26 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await expectChart('Line')
   assert.equal(requests.length,callsBeforeLegend)
   interactions.push({scenario:'legend toggle and resize',series:legendBefore.map(v=>v.label),bothRestored:true,widthBefore,widthAfter,providerQueryDelta:0,chartStillPopulated:true})
+
+
+  // Other chart choices are offered by Loki's current capability contract.
+  // Record their actual renderer state, including a non-renderable view if a
+  // hierarchical configuration needs data beyond the current fixture.
+  for (const choice of ['Scatter','Treemap','Sunburst']) {
+    await view(choice)
+    let finished = false
+    try {
+      await waitFor(win,'document.querySelector("[data-visual-type=' + choice.toLowerCase() + '][data-visual-finished=true]")?.querySelector("canvas")','finished '+choice+' chart')
+      finished = true
+    } catch {
+      // Audit-only characterization: a displayed but unrenderable view is evidence, not a setup crash.
+    }
+    const observed = await snapshot()
+    interactions.push({scenario:'additional offered chart',view:choice.toLowerCase(),finished,semantic:observed.chart,visibleState:observed.resultsText})
+    assert.equal(observed.view,choice.toLowerCase(),'offered view must persist its selection')
+  }
+  await view('Line')
+  await expectChart('Line')
 
   // The independent volume may finish while the durable primary operation is still pending.
   holdPrimary = true; holdTrend = false; metricReply = volume
