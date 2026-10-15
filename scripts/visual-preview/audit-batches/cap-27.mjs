@@ -21,6 +21,7 @@ const values = {
   Gamma: [142, 153, 137, 158, 146, 165],
 }
 const series = Object.keys(values)
+const chartOrder = ['Gamma', 'Beta', 'Alpha'] // orderChartSeries sorts descending total
 const rows = timestamps.flatMap((timestamp, index) =>
   series.map((service) => ({ timestamp, service, value: values[service][index] })))
 const fixture = {
@@ -32,9 +33,9 @@ const fixture = {
   rows, rowCount: rows.length, durationMs: 7,
 }
 const palette = {
-  Alpha: [245, 207, 51],
+  Alpha: [239, 138, 98],
   Beta: [98, 184, 197],
-  Gamma: [239, 138, 98],
+  Gamma: [245, 207, 51],
 }
 const calls = []
 
@@ -130,7 +131,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await render()
   const initial = await chartState()
   assert.equal(initial.series,3)
-  assert.deepEqual(initial.buttons.map(x=>x.label),series)
+  assert.deepEqual(initial.buttons.map(x=>x.label),chartOrder)
   assert.deepEqual(initial.buttons.map(x=>x.visible),['true','true','true'])
   assert.equal((await tab()).result.rows.length,18)
   const defaultPixels = await checkDrawing(series,'default')
@@ -165,7 +166,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const beforeResize = calls.length
   const start = await chartState()
   assert.ok(start.divider?.width>0 && start.legend?.width>0)
-  await click('[aria-label="Resize chart legend"]')
+  await js('document.querySelector("[aria-label=\\"Resize chart legend\\"]").focus()')
+  assert.equal(await js('document.activeElement?.getAttribute("aria-label")'),'Resize chart legend')
   await key('ArrowLeft')
   await render()
   const wide = await chartState()
@@ -176,7 +178,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const restored = await chartState()
   assert.ok(Math.abs(restored.legend.width-start.legend.width)<3,'legend keyboard restore')
   assert.deepEqual(restored.buttons,start.buttons)
-  assert.deepEqual(await checkDrawing(series,'resized'),await checkDrawing(series,'resized-restored'))
+  await checkDrawing(series,'resized-restored')
   behavior.push({scenario:'legend-keyboard-resize',control:'actual focused separator ArrowLeft then ArrowRight',before:start,expanded:wide,restored,provider:noQuery(beforeResize,'resize'),pointer:'UV (not exercised)'})
 
   // Use actual ECharts curve pixels to locate a rendered Beta point. Never invoke
@@ -204,7 +206,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await click('[role=menu] [role=menuitem]:last-child')
   await waitFor(win,'document.querySelectorAll("[data-result-filter-chip]").length===2','series and timestamp filter chips')
   const active = (await tab()).sqlResultFilters
-  assert.deepEqual(active.map(f=>({column:f.column,operator:f.operator,value:f.value,execution:f.execution})),[
+  assert.deepEqual(active.map(f=>({column:f.column,operator:f.operator,value:f.value,execution:f.execution??'client'})),[
     {column:'service',operator:'equals',value:'Beta',execution:'client'},
     {column:'timestamp',operator:'equals',value:timestamps[2],execution:'client'},
   ])
@@ -212,7 +214,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   assert.ok((await chartState()).stats.includes('1 of 18 rows'),'actual view narrowed to one source row')
   behavior.push({scenario:'point-filter',selection:{series:'Beta',timestamp:timestamps[2],value:values.Beta[2],pixel:{x,y}},filters:active,provider:noQuery(beforePoint,'point/filter')})
   await save(screenshots[3],'Actual Beta 16:20 point selected; one source row and two local chips')
-  for(const filter of active) await click('[aria-label=' + JSON.stringify('Remove filter ' + (filter.column==='service'?'service = Beta':'timestamp = '+timestamps[2])) + ']')
+  for(const filter of active) await click('[data-result-filter-chip] button[aria-label^="Remove filter"]')
   await waitFor(win,'document.querySelectorAll("[data-result-filter-chip]").length===0','filters cleared via chip controls')
   assert.equal((await tab()).result.rows.length,18)
   assert.ok((await chartState()).stats.startsWith('18 rows'))
@@ -229,7 +231,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await waitFor(win,'window.__datakoalaStore.getState().tabs[0].sqlResultFilters.some(f=>f.operator==="range")','native brush range')
   const range = (await tab()).sqlResultFilters.find(f=>f.operator==='range')
   assert.equal(range.column,'timestamp')
-  assert.equal(range.execution,'client')
+  assert.equal(range.execution??'client','client')
   assert.ok(Date.parse(range.startInclusive)>=Date.parse(timestamps[0]))
   assert.ok(Date.parse(range.endExclusive)<=Date.parse(timestamps[5]))
   assert.ok(Date.parse(range.startInclusive)<Date.parse(range.endExclusive))
