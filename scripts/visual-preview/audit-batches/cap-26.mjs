@@ -111,7 +111,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     const trigger = '[...document.querySelectorAll("[role=combobox]")].find(e=>e.getAttribute("aria-label")?.startsWith(' + data(label + ':') + '))'
     await waitFor(win, trigger, label + ' combobox')
     await js('(' + trigger + ').click()')
-    await waitFor(win, 'document.querySelector("[role=listbox][aria-label=' + data(label) + ']")', label + ' options')
+    await waitFor(win, 'document.querySelector(' + data('[role=listbox][aria-label="' + label + '"]') + ')', label + ' options')
     const target = '[...document.querySelectorAll("[role=option]")].find(e=>e.querySelector("[data-combobox-option-label]")?.textContent.trim()===' + data(option) + ')'
     await waitFor(win, target, label + ': ' + option)
     await js('(' + target + ').click()')
@@ -121,7 +121,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     const trigger = '[...document.querySelectorAll("[role=combobox]")].find(e=>e.getAttribute("aria-label")?.startsWith(' + data(label + ':') + '))'
     await waitFor(win, trigger, label + ' multi-combobox')
     await js('(' + trigger + ').click()')
-    await waitFor(win, 'document.querySelector("[role=listbox][aria-label=' + data(label) + ']")', label + ' options')
+    await waitFor(win, 'document.querySelector(' + data('[role=listbox][aria-label="' + label + '"]') + ')', label + ' options')
     const target = '[...document.querySelectorAll("[role=option]")].find(e=>e.querySelector("[data-combobox-option-label]")?.textContent.trim()===' + data(option) + ')'
     await waitFor(win, target, label + ': ' + option)
     await js('(' + target + ').click()')
@@ -131,8 +131,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const tab = () => js('window.__datakoalaStore.getState().tabs[0]')
   const chart = () => js('(() => {const e=document.querySelector("[data-result-chart-canvas]");return e?{type:e.dataset.visualType,finished:e.dataset.visualFinished==="true",series:Number(e.dataset.visualSeries),items:Number(e.dataset.visualItems),fingerprint:e.dataset.visualFingerprint,expectedFingerprint:e.dataset.visualExpectedFingerprint,config:JSON.parse(e.dataset.visualConfig||"null"),canvas:Boolean(e.querySelector("canvas")),bounds:(()=>{const r=e.getBoundingClientRect();return {width:r.width,height:r.height}})()}:null})()')
   const chartReady = async (name, minSeries = 1) => {
-    await waitFor(win, '(() => {const e=document.querySelector("[data-result-chart-canvas][data-visual-type=' + data(name) +
-      ']");return e?.dataset.visualFinished==="true" && e.dataset.visualFingerprint===e.dataset.visualExpectedFingerprint && !!e.querySelector("canvas")})()', 'finished fresh ' + name)
+    await waitFor(win, '(() => {const e=document.querySelector(' + data('[data-result-chart-canvas][data-visual-type="' + name + '"]') +
+      ');return e?.dataset.visualFinished==="true" && e.dataset.visualFingerprint===e.dataset.visualExpectedFingerprint && !!e.querySelector("canvas")})()', 'finished fresh ' + name)
     const c = await chart()
     assert.equal(c.type, name)
     assert.ok(c.finished && c.canvas && c.bounds.width > 0 && c.bounds.height > 0)
@@ -204,8 +204,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await multi('Series', 'category')
   await view('Treemap')
   const tree = await chartReady('treemap')
-  let hierarchy = await js('[...document.querySelectorAll("[aria-label=\\"Hierarchy order\\"] .unused")].length')
-  hierarchy = (await tab()).sqlVisualization.hierarchyDimensions
+  const hierarchy = (await tab()).sqlVisualization.hierarchyDimensions
   assert.deepEqual(new Set(hierarchy), new Set(['series', 'category']))
   const sums = Object.fromEntries(Object.entries(buckets).map(([s, values]) =>
     [s, Object.fromEntries(Object.entries(values).map(([cat, v]) =>
