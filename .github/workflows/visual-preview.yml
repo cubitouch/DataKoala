@@ -115,6 +115,13 @@ jobs:
           DATAKOALA_AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
         run: DATAKOALA_PREVIEW_KIND=audit DATAKOALA_PREVIEW_OUTPUT=visual-audit xvfb-run --auto-servernum --server-args='-screen 0 1600x1800x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
 
+      - name: Capture standalone audit batches
+        if: startsWith(github.head_ref, 'audit/')
+        env:
+          TZ: UTC
+          DATAKOALA_AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: DATAKOALA_PREVIEW_OUTPUT=visual-audit xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' node scripts/visual-preview/run-audit-batches.mjs
+
       - name: Upload UX audit evidence
         if: always() && startsWith(github.head_ref, 'audit/')
         uses: actions/upload-artifact@v7
