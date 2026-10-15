@@ -5,8 +5,8 @@
 - Inventory: C04, C10, X02; parent #391; integration #406.
 - Integration base: `2525623335f3aa6c4bd946d653135bba6b5fcda8`.
 - Independent branch: `audit/391-non-03-credential-security`.
-- Temporary draft PR: recorded in the PR metadata and completion handoff; targets `audit/391-ux-convergence`, never main.
-- Evidence revision: the commit introducing this report and the two `non03` test files. Final SHA is recorded in the PR/handoff (a commit cannot embed its own SHA).
+- Temporary draft PR: [#414](https://github.com/cubitouch/DataKoala/pull/414), targeting `audit/391-ux-convergence`, never main.
+- Tested evidence commit: `1fdc3a604310622e7f99ef09ba7a6ed374c6b4ac`, introducing this report and both test files. This follow-up changes report metadata only; its final SHA is recorded in the PR/handoff (a commit cannot embed its own SHA).
 - Environment: Linux container, Node 24.19.0, pnpm 11.25.0; frozen-lockfile installation with lifecycle scripts disabled. No Electron process, keychain, Google account, external authentication or real credentials used.
 - Scope: characterization and audit only. Production, shared registers, manifests, fixtures and workflows unchanged. No local lint or formatting command executed, per assignment.
 
@@ -100,7 +100,8 @@ pnpm typecheck
 - Vitest: **23 passed, 2 files** (two new platform-policy tests plus 21 existing actual AI IPC/service/provider-boundary tests).
 - Typecheck: node/web stages passed; test stage fails at inherited `src/renderer/src/components/query/PresetManagerAction.test.tsx:490`, TS2352, PG fixture cast to Prometheus without transport. The exact offending code exists at the base SHA and was not modified. No security-test failure is implied; no fix made outside file ownership.
 - Expected Node module-type warnings are nonfatal. No local lint/format, full suite, native Electron run or screenshots claimed.
-- Draft-PR workflow runs and final SHA are recorded in the completion handoff/PR after publication. Pending workflows are not treated as passed. Existing integration history reports coverage-register formatting failures; that history is not a result for this branch.
+- At tested commit `1fdc3a604310622e7f99ef09ba7a6ed374c6b4ac`, [CI 38759956034](https://github.com/cubitouch/DataKoala/actions/runs/38759956034): Unit tests, UI tests, Production build and DuckDB macOS runtime/package succeeded. Quality failed Check formatting: inherited coverage register plus all three NON-03-owned files. Subsequent lint/typecheck steps skipped. This is not a security-test failure; formatting left to owner as instructed.
+- [Documentation 38759956003](https://github.com/cubitouch/DataKoala/actions/runs/38759956003) succeeded. Visual preview 38759956045 was still running at report update; no new screenshot evidence is required or accepted for NON-03. Report-only follow-up CI is distinct from these tested-commit results.
 
 ## H. Completion disposition
 
