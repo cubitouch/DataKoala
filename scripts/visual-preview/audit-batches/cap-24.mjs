@@ -349,7 +349,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     insideVisible: boundaryFinding.visibleRows.some(row => row.includes('Inside interval')),
     beforeVisible: boundaryFinding.visibleRows.some(row => row.includes('Before interval')),
     afterVisible: boundaryFinding.visibleRows.some(row => row.includes('After interval')),
-    visibleServices: boundaryFinding.visibleRows.map(row => row.split('\\n')[0]),
+    visibleServices: boundaryFinding.visibleRows.map(row => row.split(String.fromCharCode(10))[0]),
   }
   assert.deepEqual(characterizedMembership, {
     startVisible: false,
