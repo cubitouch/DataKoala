@@ -248,7 +248,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   assert.ok(compressed > 0, 'known fixture idle gap must be marked when compression is enabled')
   await button('Use wall-clock scale')
   assert.equal(await count('[data-trace-idle-gap]'), 0, 'wall-clock scale removes visual gap compression')
-  assert.ok((await inspectorText()).includes('80ms'), 'duration label must remain from source data')
+  assert.ok((await inspectorText()).includes('80.0ms'), 'duration label must remain from source data')
   await button('Compress idle gaps')
   assert.ok((await count('[data-trace-idle-gap]')) > 0, 're-enabled compression marks idle gap')
   assertNoRequest(stableBefore, 'local hierarchy/kind/timeline/inspector interactions must not refetch')
