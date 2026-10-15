@@ -159,7 +159,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     const p = profiles[kind]
     await js('(() => {const s=window.__datakoalaStore,t=JSON.parse(JSON.stringify(s.getState().tabs[0])),p=' + data(p) +
       ',q=' + data(query) + ',patch=' + data(patch) +
-      ';Object.assign(t,{id:"cap30-"+p.kind,title:"CAP-30 "+p.kind,connectionProfileId:p.id,queryMode:"sql",sql:q,result:null,queryError:null,running:false,showExplain:false,explainTree:null,explainText:null,explainSnapshot:null,activeExplainRequest:null,tempoResultView:"list",lokiResultView:"list",tempoTimeRange:' + data(auditRange) + ',lokiTimeRange:' + data(auditRange) + ',prometheusTimeRange:' + data(auditRange) + '},patch);s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:"connected",generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:"loaded",error:null,isStale:false,revision:1}}})})()')
+      ';Object.assign(t,{id:"cap30-"+p.kind,title:"CAP-30 "+p.kind,connectionProfileId:p.id,queryMode:p.kind==="loki"?"logql":"sql",sql:q,result:null,queryError:null,running:false,showExplain:false,explainTree:null,explainText:null,explainSnapshot:null,activeExplainRequest:null,tempoResultView:"list",lokiResultView:"list",tempoTimeRange:' + data(auditRange) + ',lokiTimeRange:' + data(auditRange) + ',prometheusTimeRange:' + data(auditRange) + '},patch);s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:"connected",generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:"loaded",error:null,isStale:false,revision:1}}})})()')
     await settle()
   }
   const frame = async (filename, target, description) => {
