@@ -266,11 +266,19 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await waited('[...document.querySelectorAll("[role=menuitem]")].some(b=>b.textContent.includes("Open in Grafana"))', 'Grafana handoff menu')
   await button('Open in Grafana ↗', '[role=menuitem]')
   assert.equal(externalUrls.length, 1)
-  const handoff = decodeURIComponent(externalUrls[0])
-  assert.ok(handoff.startsWith('https://grafana.example.invalid/'), 'configured Grafana host')
-  assert.ok(handoff.includes('example-tempo'), 'Grafana datasource UID')
-  assert.ok(handoff.includes('resource.service.name'), 'Grafana TraceQL query context')
-  assert.ok(handoff.includes('2026-08-19'), 'Grafana time range')
+  const handoff = new URL(externalUrls[0])
+  assert.equal(handoff.origin, 'https://grafana.example.invalid', 'configured Grafana host')
+  assert.equal(handoff.pathname, '/explore', 'Grafana Explore destination')
+  assert.equal(handoff.searchParams.get('orgId'), '1', 'Grafana org context')
+  const pane = JSON.parse(handoff.searchParams.get('panes')).datakoala
+  assert.equal(pane.datasource, 'example-tempo', 'Grafana datasource UID')
+  assert.equal(pane.queries[0].datasource.type, 'tempo', 'Grafana datasource type')
+  assert.equal(pane.queries[0].queryType, 'traceql', 'Grafana query type')
+  assert.equal(pane.queries[0].query, '{ resource.service.name != "legacy-only" }', 'exact active query')
+  assert.deepEqual(pane.range, {
+    from: String(Date.parse('2026-08-19T16:00:00.000Z')),
+    to: String(Date.parse('2026-08-19T17:00:00.000Z')),
+  }, 'Grafana epoch-millisecond UTC range')
   assertNoRequest(handoffBefore, 'Grafana handoff cannot mutate Tempo requests')
   transitions.push({scenario:'grafana-query-handoff',url:externalUrls[0],traceId:ids.a,spanId:spanIds.child,kind:'query-level-not-span-deep-link'})
   // Return to search and exercise an empty *search* (distinct from missing trace lookup).
