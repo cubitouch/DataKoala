@@ -79,7 +79,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const state = () => evaluate('window.__datakoalaStore.getState().tabs[0]')
   const clicked = async expression => { await evaluate(expression); await settle() }
   const button = async label => {
-    const expression = `[...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${data(label)})`
+    const expression = `[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === ${data(label)} || b.textContent.trim() === ${data(label)})`
     await waitFor(win, expression, label + ' button')
     await clicked(`(() => {const b=${expression};if(!b || b.disabled)throw Error('Unavailable button: '+${data(label)});b.click()})()`)
   }
