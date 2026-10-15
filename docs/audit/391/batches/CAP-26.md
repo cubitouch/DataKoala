@@ -31,7 +31,7 @@
 | Inventory ID | Visual | Behavior | Specific evidence and remaining scope |
 | --- | --- | --- | --- |
 | **P16** — Metric result as table/chart | **VV** | **BV** | Prometheus Line screenshot has two label-derived series, 10 input rows, nine plotted non-null items and one-range time axis; Area/Bar/Line switches make zero provider queries. Prometheus Table transition, many-series thresholds and rich missing data remain UV. |
-| **R07** — Bar | **VV** (shared chart shell; Area reference image) | **BV** | PG and PM Bar selection, finished canvas, two series, PG eight aggregated items, zero local-query delta. No dedicated Bar PNG; edge cases UV. |
+| **R07** — Bar | **UV** for Bar pixels; **VV** for picker control | **BV** | PG and PM Bar selection, finished canvas, two series, PG eight aggregated items, zero local-query delta. No dedicated Bar PNG; edge cases UV. |
 | **R08** — Line | **VV** | **BV** | PG selected/finished with two series and eight aggregated marks; Prometheus Line PNG with time bounds and nine non-null items. Gaps partially observed; timezone-boundary cases UV. |
 | **R09** — Area | **VV** | **BV** | PG Area screenshot, two series, eight aggregated buckets; PM Area selected and finished; stacking/null corner cases beyond this fixture UV. |
 | **R10** — Scatter | **VV** | **BV**, **defects** | PG numeric X/Y mapping via real Combobox and populated screenshot; see **VC26-01** (fabricated zero marks) and **VC26-02** (categorical positioning of numeric X). Exact valid scatter mark contract **not accepted**. PM numeric Scatter and separate Tempo trace scatter UV/out of this baseline. |
