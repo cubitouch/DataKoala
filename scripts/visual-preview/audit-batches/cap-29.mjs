@@ -68,7 +68,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     const box=e=>{if(!e)return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}};
     return {modal:!!dialog,popover:!!child,parentIdentity:number(dialog),childIdentity:number(child),active:identity(active),focusInParent:!!dialog?.contains(active),focusInChild:!!child?.contains(active),selected:dialog?.querySelector('[role=combobox]')?.value??null,overlayCount:document.querySelectorAll('[data-modal-backdrop],[data-popover-overlay]').length,escapes:window.__cap29.escapes,events:window.__cap29.events,target:box(dialog),childBounds:box(child),childZ:child?getComputedStyle(child).zIndex:null,backdropZ:dialog?getComputedStyle(dialog.parentElement).zIndex:null,alerts:[...document.querySelectorAll('[role=alert]')].map(e=>e.textContent.trim())}
   })()`)
-  const record = async name => { const entry = { name, ...await state(), ipcCount: calls.length, saves: calls.filter(c => c.channel === 'save').length }; ledger.push(entry); return entry }
+  const record = async name => { const entry = { name, ...await state(), ipcCount: calls.length, saves: calls.filter(c => c.channel === 'save').length }; ledger.push(entry); console.log('CAP29_TRANSITION ' + JSON.stringify(entry)); return entry }
   const open = async () => {
     await button('Settings')
     await wait('document.querySelector("[role=dialog][aria-modal=true]") && !document.querySelector("[role=dialog] [role=combobox]").disabled', 'settings ready')
@@ -102,7 +102,9 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   // Actual native Tab boundary wrapping, rather than a synthetic key event.
   await js('[...document.querySelectorAll("[role=dialog] button:not([disabled])")].at(-1).focus()')
   await key('Tab')
-  assert.equal(await js('document.activeElement===document.querySelector("[role=dialog] input")'), true)
+  // The API-key help button precedes its input in the real field chrome.
+  assert.equal(await js('document.activeElement===document.querySelector("[role=dialog] button:not([disabled])")'), true, 'Tab wraps to the first actual focusable help control')
+  await record('unconfigured-forward-tab-wrap')
   await key('Tab', ['shift'])
   assert.equal(await js('document.activeElement.textContent.trim()'), 'Cancel', 'Disabled Save/Test excluded from reverse focus wrap')
   await record('unconfigured-tab-wrap')
