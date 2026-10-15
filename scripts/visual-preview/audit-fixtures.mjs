@@ -61,6 +61,10 @@ auditScreenshots.push(
   'cap08-reset-cleared-desktop.png',
   'cap09-resized-workspace-desktop.png',
   // CAP-10: populated editors, formatted editor, and generated-preview states.
+  'cap16-counter-desktop.png',
+  'cap16-classic-desktop.png',
+  'cap16-unknown-desktop.png',
+  'cap16-native-desktop.png',
   'cap15-stale-query-desktop.png',
   'cap15-repair-retry-error-desktop.png',
   'cap14-explain-desktop.png',
@@ -95,3 +99,6 @@ Object.assign(auditCaptions, {
   'cap10-formatted-postgres-desktop.png': 'CAP-10 PostgreSQL editor after local formatting; no query was run',
   'cap10-generated-sql-desktop.png': 'CAP-10 SQL Builder generated query disclosure, copy and open-in-editor actions',
 })
+
+// Bounded CAP-16/17 public metric cases; no authenticated metadata.
+export const auditPromSchemas=[{name:'Metrics',isSystem:false,relations:[['audit_requests_total','counter'],['audit_duration_seconds_bucket','histogram'],['audit_mystery',null],['audit_native_latency','histogram']].map(([name,type])=>({schema:'Metrics',name,qualifiedName:name,kind:'metric',columnsStatus:'idle',...(type?{details:{kind:'metric',type}}:{})}))}]

@@ -6,7 +6,7 @@ import { rendererValue } from './renderer-value.mjs'
 import {
   auditCaptions, auditComparisonFiles, auditKinds, auditLogResult, auditProfiles,
   auditRange, auditSchemas, auditScreenshots, auditSpanResult, auditSqlResult,
-  auditTraceResult, auditViewports,
+  auditTraceResult, auditViewports, auditPromSchemas,
 } from './audit-fixtures.mjs'
 
 // Audit-only, sanitized observations. All CAP-02 mutations remain in the synthetic IPC boundary.
@@ -21,6 +21,7 @@ let queryCalls = 0
 let cap08Stage = null
 const cap10Ipc = { active: false, calls: [] }
 const cap12Ipc = { active: false, exports: [] }
+const capPromIpc={active:false,formatFailure:false,calls:[],deferEnvironment:false,releaseEnvironment:null,serviceFailure:false}
 const cap14Ipc = { outcome:'success', calls:[], release:null }
 const cap14Tree = {id:'0',plan:'Hash Join',nodeType:'Hash Join',planRows:10,totalCost:12,actualRows:12,actualTotalTime:3.2,loops:1,children:[{id:'0.0',plan:'Seq Scan',nodeType:'Seq Scan',relation:'events',schema:'example',planRows:10,totalCost:4,actualRows:12,actualTotalTime:1,loops:1},{id:'0.1',plan:'Index Scan',nodeType:'Index Scan',relation:'lookup',schema:'example',index:'lookup_pkey',planRows:10,totalCost:5,actualRows:12,actualTotalTime:1.4,loops:1}]}
 const delay = (ms) => new Promise((done) => setTimeout(done, ms))
@@ -41,6 +42,19 @@ export function installAuditIpc(ipc) {
     if (outcome === 'error') return { ok: false, message: 'Synthetic provider unavailable. Try Run again.', kind: 'connection' }
     return { ok: true, result: String(id).includes('tempo') ? (/^[a-f0-9]{32}$/.test(String(sql).trim()) ? auditSpanResult : auditTraceResult) : auditSqlResult }
   }
+  handle('connections:prometheus:metric-labels',(_event,id,metric)=>{
+    if(!capPromIpc.active)return ['continent','environment','service','le','__name__']
+    capPromIpc.calls.push({kind:'labels',id,metric})
+    return ['environment','service','region','instance',...(metric.endsWith('_bucket')?['le']:[])]
+  })
+  handle('connections:prometheus:label-values',async (_event,id,metric,label)=>{
+    if(!capPromIpc.active)return label==='environment'?['production','staging']:label==='continent'?['Europe','Asia']:['api','worker']
+    capPromIpc.calls.push({kind:'values',id,metric,label})
+    if(label==='environment'&&capPromIpc.deferEnvironment)return new Promise(done=>{capPromIpc.releaseEnvironment=()=>done(['production','staging'])})
+    if(label==='service'&&capPromIpc.serviceFailure)throw Error('Synthetic upstream label values failure')
+    return label==='environment'?['production','staging']:label==='region'?[]:label==='instance'?Array.from({length:200},(_,i)=>'instance-'+String(i).padStart(3,'0')):['api','worker']
+  })
+  handle('connections:prometheus:format-query',(_event,_id,query)=>{if(capPromIpc.active&&capPromIpc.formatFailure)throw Error('Synthetic PromQL formatting failure');return query})
   handle('query:explain',async (_event,id,sql,analyze)=>{
     cap14Ipc.calls.push({id,sql,analyze})
     const outcome=cap14Ipc.outcome
@@ -161,7 +175,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     const observation = { filename, state, viewport: win.getContentSize(), zoom: win.webContents.getZoomFactor(), scale: await evaluate('devicePixelRatio'), ...data }
     validateAuditObservation(filename, observation)
     observations.push(observation)
-    await writeFile(resolve(outputDir, 'measurements.json'), JSON.stringify({ observations }, null, 2))
+    await writeFile(resolve(outputDir, 'measurements.json'), JSON.stringify({schemaVersion:1,sourceHead:process.env.DATAKOALA_AUDIT_HEAD??'local-working-tree',observations}, null, 2))
     await capture(win, filename)
     if (filename === 'cap09-resized-workspace-desktop.png') {
       const png = await win.webContents.capturePage()
@@ -1210,6 +1224,79 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win,`!document.querySelector('[aria-label="SQL AI copilot"]')`,'CAP15 reset temporary AI settings')
       handle15('ai:settings:get',()=>({ok:true,value:{provider:'openrouter',model:'',hasApiKey:false}}));auditIpc.removeHandler('ai:propose')
       handle15('ai:cancel',()=>({ok:true,value:null}))
+    }
+    if (viewport === 'desktop') {
+      capPromIpc.active=true;capPromIpc.calls=[]
+      const before16=queryCalls
+      await seed('prometheus','raw','default')
+      capPromIpc.formatFailure=true
+      await clickText('Format','[data-query-toolbar]')
+      await waitFor(win,`document.body.innerText.includes('Synthetic PromQL formatting failure')`,'CAP16 local format error feedback')
+      capPromIpc.formatFailure=false
+      await seed('prometheus','builder','default')
+      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({metadataByProfileId:{'audit-prometheus':{schemas:${rendererValue(auditPromSchemas)},status:'loaded',error:null,isStale:false}},tabs:[{...t,sql:'sum(up)',promqlBuilder:{metric:'audit_requests_total',filterBy:[],groupBy:[],labelValues:{},calculation:'raw',aggregation:'none',window:'5m',percentile:0.95,histogramKindOverride:'auto'}}]})})()`)
+      await settle()
+      await dragDivider(win,'.editor-resizer',0,200)
+      const combo16=async label=>{
+        const selector=await evaluate(`(() => {const e=[...document.querySelectorAll('[data-query-toolbar] [role="combobox"],.promql-builder-form [role="combobox"]')].find(e=>e.getAttribute('aria-label')?.startsWith(${rendererValue(label+':')})||e.getAttribute('aria-label')===${rendererValue(label)});if(!e)throw Error('Missing combo '+${rendererValue(label)});return '#'+CSS.escape(e.id)})()`)
+        await click(selector)
+      }
+      const option16=async label=>{
+        await waitFor(win,`[...document.querySelectorAll('[role="option"]')].some(e=>e.querySelector('[data-combobox-option-label]')?.textContent.trim()===${rendererValue(label)})`,'CAP16 option '+label)
+        const selector=await evaluate(`(() => {const e=[...document.querySelectorAll('[role="option"]')].find(e=>e.querySelector('[data-combobox-option-label]')?.textContent.trim()===${rendererValue(label)});return '#'+CSS.escape(e.id)})()`)
+        await click(selector)
+      }
+      const choose16=async(label,option)=>{await combo16(label);await option16(option)}
+      await click('[data-generated-query-panel] summary')
+      const generated16=()=>evaluate(`document.querySelector('[aria-label="Generated PromQL query"] .cm-content')?.innerText.trim()??''`)
+      const cases16=[]
+      await choose16('Calculation','Rate')
+      await choose16('Aggregation','Sum')
+      await waitFor(win,`document.querySelector('[aria-label="Generated PromQL query"]')?.innerText.includes('rate(')`,'CAP16 counter Rate')
+      cases16.push({case:'known-counter-rate',query:await generated16()})
+      await waitFor(win,`!document.body.innerText.includes('Synthetic PromQL formatting failure')`,'CAP16 formatter feedback dismissed normally')
+      await observe('cap16-counter-desktop.png','.promql-builder-form','CAP-16 known counter Rate/Sum with generated PromQL')
+      await choose16('Calculation','Increase')
+      if(!(await generated16()).includes('increase('))throw Error('CAP16 Increase query mismatch')
+      cases16.push({case:'known-counter-increase',query:await generated16()})
+      await choose16('Metric','audit_duration_seconds_bucket')
+      await choose16('Calculation','Percentile')
+      await choose16('Percentile','P99')
+      await waitFor(win,`document.querySelector('[aria-label="Generated PromQL query"]')?.innerText.includes('0.99')`,'CAP16 classic P99')
+      const classic16=await generated16()
+      if(!classic16.replace(/\s/g,'').includes('sumby(le)')||!classic16.includes('rate('))throw Error('CAP16 Classic shape mismatch '+classic16)
+      cases16.push({case:'known-classic-P99',query:classic16})
+      await observe('cap16-classic-desktop.png','.promql-builder-form','CAP-16 metadata/label-known Classic histogram P99; le aggregation retained')
+      await choose16('Metric','audit_mystery')
+      await choose16('Calculation','Percentile')
+      await waitFor(win,`document.querySelector('.promql-builder-form').innerText.includes('Choose Classic histogram or Native histogram')`,'CAP16 ambiguous fail closed')
+      if(await generated16()!=='')throw Error('CAP16 unknown histogram generated a query')
+      const unknownRunDisabled16=await evaluate(`[...document.querySelectorAll('[data-query-toolbar] button')].find(b=>b.textContent.trim()==='Run')?.disabled`)
+      if(!unknownRunDisabled16)throw Error('CAP16 unknown histogram Run not guarded')
+      await observe('cap16-unknown-desktop.png','.promql-builder-form','CAP-16 unknown histogram Auto guards generation until an explicit representation')
+      await choose16('Histogram representation','Classic histogram')
+      await choose16('Percentile','P99')
+      const manualClassic16=await generated16()
+      if(!manualClassic16.replace(/\s/g,'').includes('histogram_quantile(0.99')||!manualClassic16.replace(/\s/g,'').includes('sumby(le)'))throw Error('CAP16 manual Classic mismatch')
+      cases16.push({case:'manual-classic',query:manualClassic16})
+      await choose16('Histogram representation','Native histogram')
+      const native16=await generated16()
+      if(!native16.replace(/\s/g,'').includes('histogram_quantile(0.99')||native16.replace(/\s/g,'').includes('by(le)'))throw Error('CAP16 native query mismatch '+native16)
+      cases16.push({case:'manual-native',query:native16})
+      if(await evaluate(`!!document.querySelector('.promql-builder-form [data-field-name="Aggregation"]')`))throw Error('CAP16 native histogram exposed ordinary aggregation')
+      await observe('cap16-native-desktop.png','.promql-builder-form','CAP-16 explicit Native histogram P99; ordinary aggregation omitted')
+      await choose16('Metric','audit_native_latency')
+      await choose16('Calculation','Observation rate')
+      const knownNative16=await generated16()
+      if(!knownNative16.includes('histogram_count'))throw Error('CAP16 known native calculation mismatch '+knownNative16)
+      cases16.push({case:'known-native-observation-rate',query:knownNative16})
+      if(await evaluate(`window.__datakoalaStore.getState().tabs[0].sql`)!=='sum(up)')throw Error('CAP16 Builder overwrote raw draft')
+      await clickText('Open in PromQL mode','[data-generated-query-panel]')
+      await waitFor(win,`window.__datakoalaStore.getState().tabs[0].queryMode==='sql' && document.querySelector('[aria-label="PromQL editor"]')`,'CAP16 explicit generated handoff')
+      const raw16=await evaluate(`window.__datakoalaStore.getState().tabs[0].sql`)
+      if(raw16.trim()!==knownNative16||queryCalls!==before16)throw Error('CAP16 handoff changed query or ran provider')
+      observations.push({family:'cap16',viewport,scenario:'calculation-histogram',cases:cases16,unknownAutoGenerated:false,unknownRunDisabled:unknownRunDisabled16,percentile:0.99,rawDraftPreservedUntilExplicitOpen:true,openedRaw:raw16,queryDelta:0,metadataCalls:capPromIpc.calls,formatFailure:'synthetic API failure observed; formatter correctness named tests only',provider:'synthetic metric metadata and formatter; no Prometheus query'})
+      capPromIpc.active=false
     }
     if (viewport === 'desktop') {
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
