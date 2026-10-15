@@ -57,7 +57,7 @@ export function installAuditIpc(ipc) {
   })
 }
 
-const normalized = (value) => value.replace(/\\s+/g, ' ').trim()
+const normalized = (value) => value.replace(/\s+/g, ' ').trim()
 const q = (value) => JSON.stringify(value.trim())
 const equals = (field, value) => field + ' = ' + q(value)
 const either = (fields, value) =>
