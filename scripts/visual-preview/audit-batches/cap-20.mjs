@@ -275,8 +275,17 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await button('Run')
   await waitFor(win, `document.body.innerText.includes('Synthetic CAP-20 Loki unavailable')`, 'provider error feedback')
   assert.equal(requests.length, afterUnsafe + 1)
-  assert.ok(!(await evaluate(`document.querySelector('[aria-label="Log patterns"]')?.innerText.includes('No logs to cluster.') ?? false`)), 'failure masquerades as empty success')
-  interactions.push({name:'unavailable-provider',errorVisible:true,requestDelta:1,notReportedAsSuccessfulEmpty:true})
+  const failedState = await evaluate(`(() => {
+    const tab = window.__datakoalaStore.getState().tabs[0]
+    return {
+      queryError: tab.queryError,
+      alerts: [...document.querySelectorAll('[role="alert"]')].map(el => el.textContent.trim()),
+      previousEmptyVisible: document.querySelector('[aria-label="Log patterns"]')?.textContent?.includes('No logs to cluster.') ?? false,
+    }
+  })()`)
+  assert.ok(failedState.queryError?.includes('Synthetic CAP-20 Loki unavailable'), 'Provider failure not retained in query error: '+JSON.stringify(failedState))
+  assert.ok(failedState.alerts.some(message => message.includes('Synthetic CAP-20 Loki unavailable')), 'Provider failure not exposed separately from retained results: '+JSON.stringify(failedState))
+  interactions.push({name:'unavailable-provider',queryError:failedState.queryError, alerts:failedState.alerts, previousEmptyVisible:failedState.previousEmptyVisible, queryCallsDelta:1, providerFailureExplicitlyVisible:true})
 
   const sourceHead = process.env.DATAKOALA_AUDIT_HEAD
   assert.ok(sourceHead && /^[0-9a-f]{40}$/.test(sourceHead), 'GitHub generating sourceHead must be a full SHA')
