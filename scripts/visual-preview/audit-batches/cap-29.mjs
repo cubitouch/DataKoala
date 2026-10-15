@@ -116,7 +116,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     const parent = await record('configured-parent-' + trial)
     assert.equal(await js('document.querySelector("input[type=password]").value'), '••••••••••••••••')
     await click('[role=dialog] [role=combobox]')
-    await wait('document.querySelector("[aria-label=\\"Search Model\\"]")===document.activeElement', 'nested search focus')
+    await wait('document.querySelector("[role=listbox][aria-label=Model]")', 'nested list present')
     const nested = await record('nested-open-' + trial)
     assert.equal(nested.parentIdentity, parent.parentIdentity, 'Opening child must preserve parent DOM identity')
     const options = await js('[...document.querySelectorAll("[role=option]")].map(e=>({text:e.textContent,selected:e.getAttribute("aria-selected")}))')
@@ -126,6 +126,15 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     assert.ok(nested.childBounds.x>=0 && nested.childBounds.y>=0 && nested.childBounds.x+nested.childBounds.width<=1440 && nested.childBounds.y+nested.childBounds.height<=900)
     const stacking = await js('(() => {const e=document.querySelector("[data-popover-overlay]"),r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+10,r.y+10))})()')
     assert.equal(stacking,true,'Nested overlay paints above modal')
+    // Observe automatic focus before explicitly placing native pointer focus in
+    // the visible search control for keyboard navigation. Never manufacture a
+    // passing automatic-focus assertion by forcing focus before its snapshot.
+    const searchPoint = await js('(() => {const r=document.querySelector("[data-combobox-search] input").getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()')
+    win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...searchPoint})
+    win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...searchPoint})
+    await settle()
+    assert.equal(await js('document.activeElement===document.querySelector("[data-combobox-search] input")'),true)
+    await record('nested-search-native-focus-' + trial)
     await key('Down')
     assert.ok(await js('document.querySelector("[role=option][data-active=true]").textContent.includes("synthetic/beta")'), 'ArrowDown moves active option')
     await record('nested-arrow-down-' + trial)
