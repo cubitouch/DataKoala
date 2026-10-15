@@ -110,9 +110,9 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     await option(value)
     await settle()
   }
-  const rendered = () => evalJs('document.querySelector("[aria-label=\"Generated TraceQL query\"] .cm-content")?.innerText.trim() ?? ""')
+  const rendered = () => evalJs('document.querySelector(' + data('[aria-label="Generated TraceQL query"] .cm-content') + ')?.innerText.trim() ?? ""')
   const exact = async (expected, context) => {
-    await waitFor(win, 'Boolean(document.querySelector("[aria-label=\\"Generated TraceQL query\\"] .cm-content"))', 'visible Generated TraceQL')
+    await waitFor(win, 'Boolean(document.querySelector(' + data('[aria-label="Generated TraceQL query"] .cm-content') + '))', 'visible Generated TraceQL')
     const actual = await rendered()
     assert.equal(normalized(actual), normalized(expected), context + ' generated TraceQL')
     generation.push({ context, expected, observed: actual, exactAfterWhitespaceNormalization: true })
@@ -120,7 +120,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   }
   const save = async (filename, description) => {
     await settle()
-    const report = await evalJs('(() => {const e=document.querySelector("[aria-label=\"Trace explorer\"]"),r=e.getBoundingClientRect(),b=document.querySelector("[data-tempo-builder]");return {width:innerWidth,height:innerHeight,dpr:devicePixelRatio,target:{x:r.x,y:r.y,width:r.width,height:r.height},documentOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,builderOverflow:b ? b.scrollWidth>b.clientWidth+1 : null,controls:[...document.querySelectorAll("[data-tempo-builder-row]")].map(r=>({kind:r.dataset.tempoBuilderRow,labels:[...r.querySelectorAll("label")].map(x=>x.textContent.trim())})),openedListbox:document.querySelector("[role=listbox]")?.textContent?.trim()??null}})()')
+    const report = await evalJs('(() => {const e=document.querySelector(' + data('[aria-label="Trace explorer"]') + '),r=e.getBoundingClientRect(),b=document.querySelector("[data-tempo-builder]");return {width:innerWidth,height:innerHeight,dpr:devicePixelRatio,target:{x:r.x,y:r.y,width:r.width,height:r.height},documentOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,builderOverflow:b ? b.scrollWidth>b.clientWidth+1 : null,controls:[...document.querySelectorAll("[data-tempo-builder-row]")].map(r=>({kind:r.dataset.tempoBuilderRow,labels:[...r.querySelectorAll("label")].map(x=>x.textContent.trim())})),openedListbox:document.querySelector("[role=listbox]")?.textContent?.trim()??null}})()')
     assert.deepEqual([report.width, report.height, report.dpr], [1440, 900, 1])
     report.zoom = win.webContents.getZoomFactor()
     assert.equal(report.zoom, 1)
@@ -179,7 +179,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
 
   await choose('Protocol or subsystem', 'HTTP / network')
   assert.equal((await state()).protocol, 'http')
-  assert.equal(await evalJs('document.querySelector("[data-tempo-builder] input[placeholder=\"CartService\"]") !== null'), false)
+  assert.equal(await evalJs('document.querySelector(' + data('[data-tempo-builder] input[placeholder="CartService"]') + ') !== null'), false)
   await choose('HTTP method', 'POST')
   const endpoint = '/checkout/"priority"'
   await input('Route / endpoint', endpoint)
@@ -202,7 +202,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   assert.equal(requests[0].options.sampleSize, 100)
 
   await choose('Protocol or subsystem', 'RPC / gRPC')
-  assert.equal(await evalJs('document.querySelector("[data-tempo-builder] input[placeholder=\"/checkout/{id}\"]") !== null'), false)
+  assert.equal(await evalJs('document.querySelector(' + data('[data-tempo-builder] input[placeholder="/checkout/{id}"]') + ') !== null'), false)
   await choose('RPC system', 'gRPC')
   await input('RPC service', 'Billing "V2"')
   await input('RPC method', 'Charge\\Card')
@@ -236,7 +236,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   assertNoRun(2, 'Opening raw mode may not execute')
   await evalJs('window.__datakoalaStore.getState().setSql("{ not valid TraceQL ??? }", "cap22")')
   assert.equal((await tab()).queryMode, 'sql')
-  await button('Builder', 'document.querySelector("[aria-label=\"Query mode\"]")')
+  await button('Builder', 'document.querySelector(' + data('[aria-label="Query mode"]') + ')')
   assert.deepEqual(await state(), builderBeforeMode, 'Raw arbitrary predicates may not mutate Builder state')
   assertNoRun(2, 'Mode transition may not execute')
   interactions.push({ scenario:'raw-mode', generatedDraftCopied:true, arbitraryRawNotImported:true, runDelta:0, rawChangeSetup:'store injection; editor typing not asserted' })
