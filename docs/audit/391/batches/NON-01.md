@@ -6,7 +6,7 @@
 - Inventory: **A04, A05, A07, A08, L25**; visual evidence is **N/A** for this scoped nonvisual contract (not a claim about visible connection-status states).
 - Integration branch: `audit/391-ux-convergence`; **verified base SHA**: `369061f0641cd3ae86c79e9c85998dcef97c8412`.
 - Isolated branch: `audit/391-non-01-lifecycle`; temporary draft PR: recorded in the PR/handoff.
-- Characterization test commit: `0f354a318359327f1efac3345d1075c5cb243dfc` (new `src/renderer/src/lib/NON-01.lifecycle.test.tsx`).
+- Characterization test commits: `0f354a318359327f1efac3345d1075c5cb243dfc` (initial), `b5e37057d4ca7260131cda3edc85e3bff9d75351` (type correction), `5b7de28a05e699471d6ef56ffd82c576a422c341` and `1e1951e41f43e8b98f5ba5a3649781d58dd93435` (cross-flow expected-failure repros).
 - Final report commit SHA: Git commits cannot embed their own final SHA; recorded in PR/handoff.
 - Scope: source and deterministic characterization only. No production code, audit register, feature inventory, other batch report, Electron harness/fixtures, workflows or shared test changed. No local linting or formatting.
 
@@ -24,7 +24,7 @@ Evidence: `BV` is reserved for **executed** deterministic assertions, `SO` for s
 
 ### Existing and new named assertions
 
-New isolated `src/renderer/src/lib/NON-01.lifecycle.test.tsx` introduces eight deterministic cases (two variants in the stale-completion parameterized case):
+New isolated `src/renderer/src/lib/NON-01.lifecycle.test.tsx` introduces **eight ordinary deterministic cases plus two explicitly expected-failing desired-invariant reproductions**:
 1. Old generation A success **or** failure rejected after B stays pending and A generation 5 starts; late callback must not change loading, error or result.
 2. Disconnect during a primary query retains a marked-stale result, rejects obsolete completion and accepts replacement generation.
 3. Preflight pending across A→B→A rebind cannot start obsolete query (context ownership).
@@ -32,6 +32,7 @@ New isolated `src/renderer/src/lib/NON-01.lifecycle.test.tsx` introduces eight d
 5. Simultaneous reconnect actions coalesce; a synthetic failure remains profile-scoped; retry succeeds.
 6. A→B→A binding invalidates old token even with a still-usable original generation.
 7. Unknown initial profile status blocks speculative connect until hydration establishes state.
+8. **Two `it.fails` cases**: older lazy success or failure settles *before* a newer explicit connect returns its generation; desired invariant is newer attempt remains `connecting`. Current source allows the obsolete lazy result to temporarily publish `connected` or `error` under synthetic ordering. These are expected-failure defect reproductions, **not passing safety assertions**.
 
 Existing source-inspected suites: `src/renderer/src/store/useStore.reconnect.test.tsx`, `src/renderer/src/lib/connectionLifecycle.audit.test.tsx`, `src/renderer/src/lib/tabConnection.test.tsx`, `src/renderer/src/store/querySessions.test.tsx`, `src/renderer/src/components/workspaces/loki/LokiExplorer.ui.test.tsx`, `src/main/db.session-manager.test.ts`. These are **named source evidence**, not new executed test results until CI is checked.
 
@@ -57,6 +58,7 @@ All new rows below describe **assertions added**; do not interpret as executed u
 | A08 success | A gen 4 and B gen 4; primary A/B pending | A changes to gen 5; new primary A; old success returns | Neither A current result/loading nor pending B touched; fresh A completion accepted | `NON-01.lifecycle` stale success case |
 | A08 failure | Same | Old promise rejects after A replacement/new primary | Old error cannot replace current message; B stays pending | Same test, failure case |
 | A05 disconnect | A has retained result; primary pending | Connection event disconnected gen 4, obsolete completion; reconnect gen 5 | Old work revoked, retained result marked stale, new completion clears stale flag | `NON-01.lifecycle` disconnect mid-query |
+| A04/A07 cross-flow | A gen 4 disconnected; lazy connect and newer explicit connect overlap | Old lazy success/failure settles before newer explicit generation 5 | Desired: newer `connecting` is authoritative; source instead permits temporary old `connected`/`error`; newer eventual success restores current state | `NON-01.lifecycle` two **expected failures**, pending CI reproduction |
 | A04/A08 preflight | A disconnected, connection await begins | Tab A→B→A before connect resolves successfully | No operation starts from outdated `queryContextId`; B intact | `NON-01.lifecycle` preflight case |
 | A04 background activation | A disconnected; B live; A activates | Switch back to B, A lazy/explicit activation resolves | A is live, B still active and live; no global connection ownership | `NON-01.lifecycle` activation case |
 | A05/A07 reconnect | A live gen 4; first reconnect pending | Duplicate reconnect; first rejects, retry succeeds gen 5 | One initial call; profile-scoped error; successful retry clears error; B unchanged | `NON-01.lifecycle` retry case |
@@ -71,7 +73,7 @@ All new rows below describe **assertions added**; do not interpret as executed u
 - **INTENTIONAL_DIFFERENCE:** Loki optional trend and cardinality probe are local derived presentation work, with stronger visibility/mount/key guards. They must not take ownership of durable primary result/run state, and can be retried after remount.
 - **INTENTIONAL_DIFFERENCE:** Provider adapter transport teardown and retry vary; logical supersession is not physical cancellation.
 - **DUPLICATION/possible follow-up:** Explicit and lazy connect maintain related status, success/metadata pipelines but different intent, coalescing and UI binding semantics. Source-level similarity is **not** enough to unify them; only revisit with a separately demonstrated same-invariant defect.
-- **CONFIRMED DEFECTS:** None newly established by NON-01 at report creation. This does not declare all provider races fixed.
+- **CHARACTERIZED RACE / PENDING EXECUTION:** Earlier lazy success/failure can temporarily publish an obsolete profile status (`connected`/`error`) while newer explicit connection is still pending at the same generation. The current lazy path lacks the explicit connection-intent guard present in `connectProfile`. Two `it.fails` reproductions assert the desired invariant; treat as a **source-predicted renderer race**, becoming a confirmed deterministic defect only after expected failures execute under CI. The final newer success still wins in the test; a live provider/security implication is not established.
 - **UNVERIFIED:** Real auth/expired credentials, transport cancellation, underlying socket reconnect and concurrent profile deletion, profile canonical-ID remap/list ordering, packaged restoration and remount, error accessibility/notification, exact provider error-message sanitization.
 
 ## F. Atlas candidates (nonvisual — no screenshots)
@@ -82,12 +84,13 @@ All new rows below describe **assertions added**; do not interpret as executed u
 | **NON01-02** | A05, A08 | ALREADY_CONVERGED query completion guards; high correctness importance; high source confidence (new runtime assertion pending CI) | `beginQueryOperation`, `completeQuery`, `isQueryOperationCurrent`, subscription, `NON-01.lifecycle.test.tsx` | Store and tab connection preflight; preserve token/context |
 | **NON01-03** | L25, A08 | INTENTIONAL_DIFFERENCE in local optional trend vs durable primary; medium/high importance; high source confidence | `LokiExplorer.loadTrend`, named Loki deferred tests | Loki workspace; no generic unification |
 | **NON01-04** | A04, A07 | UNVERIFIED: all callers' immediate feedback during an already-connecting lazy profile (source returns null); low/medium potential UX impact, low confidence of defect | `ensureConnectionForTab` current connecting shortcut and existing retry test | Tab preflight/UI; test real user action/feedback before recommending change |
+| **NON01-06** | A04, A07, A08 | SOURCE-PREDICTED DEFECT (pending executed `it.fails`): older lazy completion temporarily overwrites newer explicit pending state before generation advances; medium correctness/feedback impact, medium confidence pending CI | `connectForTab` and `connectProfile` guards; two `NON-01.lifecycle.test.tsx` expected-failure scenarios | `tabConnection`/store; future narrow intent coordination, not a general request framework |
 | **NON01-05** | A07; cross-reference NON03-04 / C04 | DIAGNOSTIC INVESTIGATION LEAD, not proven credential leak; medium potential security impact / medium source confidence | PR #414 `docs/audit/391/batches/NON-03.md` NON03-04; `src/main/adapters/postgres.ts` `reasonOf` and `handleUnexpectedDisconnect` | PG main adapter; future synthetic-marker test and diagnostic policy review, distinct from lifecycle correctness |
 
 ## G. CI, commands and provenance
 
 - This environment used the GitHub connection to inspect integration head, source, baseline tests, PR #414 and write only the isolated test/report. It has **no authenticated clone or installed repository/node_modules**; attempting `git ls-remote` from the container failed DNS lookup of `github.com`.
-- New isolated test commit: `0f354a318359327f1efac3345d1075c5cb243dfc`.
+- New isolated test commits: `0f354a3` → `b5e3705` → `5b7de28` → `1e1951e` (latest tests; actual full SHAs in metadata). New cases include **two expected failures** and eight ordinary tests.
 - Recommended focused command on an accessible runner: `pnpm exec vitest run --config vitest.renderer.config.ts src/renderer/src/lib/NON-01.lifecycle.test.tsx src/renderer/src/lib/connectionLifecycle.audit.test.tsx src/renderer/src/lib/tabConnection.test.tsx src/renderer/src/store/useStore.reconnect.test.tsx src/renderer/src/components/workspaces/loki/LokiExplorer.ui.test.tsx`.
 - Relevant main session manager: `node --experimental-strip-types --test src/main/db.session-manager.test.ts`.
 - Workflow ID/result: **pending initial draft PR workflow inspection**. Never infer a pass from an existing test file; report ordinary passes and expected failures separately.
@@ -95,6 +98,6 @@ All new rows below describe **assertions added**; do not interpret as executed u
 
 ## H. Completion disposition
 
-**PARTIAL (at initial report commit)** pending executed focused test results and CI provenance. Source ownership and independent scenario dispositions exist for all five IDs; source-only provider/runtime limitations are explicit. If CI confirms all new and relevant existing assertions, the isolated scoped findings may be labeled `EVIDENCE_COMPLETE` **without** implying live-provider or packaged Electron acceptance. Otherwise retain PARTIAL and identify failing cases in final handoff.
+**PARTIAL (at report update)** pending executed focused test results and CI provenance. New expected-failure repros do **not** establish the desired safe behavior. Source ownership and independent scenario dispositions exist for all five IDs; source-only provider/runtime limitations are explicit. If CI confirms all new and relevant existing assertions, the isolated scoped findings may be labeled `EVIDENCE_COMPLETE` **without** implying live-provider or packaged Electron acceptance. Otherwise retain PARTIAL and identify failing cases in final handoff.
 
 **Do not merge:** integration owner reviews and consolidates into authoritative register. No edits to #406, other batches, shared harness, production UX, Phase 2 or final Atlas by NON-01.
