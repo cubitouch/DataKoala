@@ -241,6 +241,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   assertNoRun(2, 'Mode transition may not execute')
   interactions.push({ scenario:'raw-mode', generatedDraftCopied:true, arbitraryRawNotImported:true, runDelta:0, rawChangeSetup:'store injection; editor typing not asserted' })
 
+  await click('[data-generated-query-panel] summary')
+  await exact(wrap([...base, equals('span.rpc.system', 'grpc'), equals('span.rpc.service', 'Billing "V2"'), ...tail]), 'RPC method cleared after raw-mode transition')
   // Characterize native number-input/form validation: the generator omits
   // negative durations, but HTML min=0 may prevent submission entirely.
   await input('Min duration (ms)', '-1')
