@@ -285,13 +285,30 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await settle()
   const boundaryDiagnostic = await evaluate('(() => { const t=window.__datakoalaStore.getState().tabs[0];return {activeTab:window.__datakoalaStore.getState().activeTabId,storedResultRows:t.result?.rows.map(row=>({service:row.rootService,start:row.startTimeMs})),selectedView:document.querySelector("[aria-label=\\\"Trace search result view\\\"] [aria-pressed=true]")?.textContent.trim(),visibleRows:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.innerText),filter:document.querySelector("[data-result-filter-chip]")?.innerText} })()')
   console.log('CAP24_BOUNDARY_DIAGNOSTIC', JSON.stringify(boundaryDiagnostic))
-  await awaited('document.querySelectorAll(' + data(rowSelector) + ').length===2 && document.body.innerText.includes("Boundary start included") && document.body.innerText.includes("Inside interval")', 'CAP-24 exact boundary rows')
-  const boundaryVisible = await evaluate('[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.innerText)')
-  assert.equal(boundaryVisible.length, 2)
-  assert.equal(boundaryVisible.some(x=>x.includes('Boundary end excluded')), false, 'Trace exactly at end must be excluded')
-  assert.equal(boundaryVisible.some(x=>x.includes('Boundary start included')), true, 'Trace exactly at start must be included')
+  const boundaryVisible = boundaryDiagnostic.visibleRows
+  assert.ok(boundaryDiagnostic.storedResultRows?.length === 5, 'All five source boundary fixture traces must be present')
+  assert.ok(boundaryVisible.some(x => x.includes('Inside interval')), 'Native list must show inside-interval trace')
+  assert.equal(boundaryVisible.length, 2, 'Expected a two-trace filtered cohort')
+  const startVisible = boundaryVisible.some(x => x.includes('Boundary start included'))
+  const endVisible = boundaryVisible.some(x => x.includes('Boundary end excluded'))
+  const displayBoundaryContractSatisfied = startVisible && !endVisible
+  const boundaryFinding = {
+    name: 'displayed-half-open-boundary',
+    fixtureInjection: 'renderer-store source-result replacement after native pointer brush',
+    intervalLabel: boundaryDiagnostic.filter,
+    selectedStart, selectedEnd,
+    traceAtDisplayedStart: traceId(0x201),
+    traceAtDisplayedEnd: traceId(0x202),
+    startVisible, endVisible,
+    expected: {startVisible: true, endVisible: false},
+    displayBoundaryContractSatisfied,
+    visibleRows: boundaryVisible,
+    providerRequestDelta: calls.length - countBeforeBoundary,
+    sourceExplanation: 'ECharts brush coordinates may have sub-millisecond precision, while the ResultFilterBar label serializes with Date.toISOString() at milliseconds; TraceExplorer filters with the raw range.',
+  }
   assert.equal(calls.length, countBeforeBoundary, 'Local boundary fixture swap must not fetch')
-  actions.push({ name: 'half-open-boundary-proof', fixtureInjection: 'store result replacement after native brush', selectedStart, selectedEnd, includedIds: [traceId(0x201),traceId(0x203)], excludedIds: [traceId(0x202),traceId(0x204),traceId(0x205)], providerDelta: 0 })
+  actions.push(boundaryFinding)
+  if (!displayBoundaryContractSatisfied) console.error('CAP24_CONFIRMED_DISPLAY_BOUNDARY_MISMATCH', JSON.stringify(boundaryFinding))
   await assertNoFetch('remove-local-filter', () => click('[data-result-filter-chip] button[aria-label^="Remove filter"]'))
   await awaited('document.querySelectorAll(' + data(rowSelector) + ').length===5', 'CAP-24 restored source cohort')
   assert.equal(await evaluate('!!document.querySelector("[data-result-filter-chip]")'), false, 'Clearing local filter must remove chip')
@@ -318,8 +335,9 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     execution: 'Native Electron real controls and synthetic Tempo query:run/progress IPC; never authenticated provider',
     viewport: {width:1440,height:900,dpr:1,zoom:1},
     fixtures: {traceIds:rows.map(row=>row.traceId),startIso:new Date(start).toISOString(),found:lookupId,missing:missingId,failed:failureId,progressiveCounts:[2,5]},
-    calls,progressEvents,actions,observations,
+    calls,progressEvents,actions,observations,boundaryFinding,
     residual: ['No authenticated Tempo backend behavior','Stale completion supersession and progressive interruption not exercised','Empty successful span result differs from provider not-found error and is untested'],
   }, null, 2) + '\n')
-  console.log('CAP24_OK '+JSON.stringify({sourceHead,screenshots:observations.map(o=>o.filename),calls:calls.length,actions:actions.map(a=>a.name)}))
+  console.log('CAP24_EVIDENCE_CAPTURED '+JSON.stringify({sourceHead,screenshots:observations.map(o=>o.filename),calls:calls.length,actions:actions.map(a=>a.name),displayBoundaryContractSatisfied}))
+  if (!displayBoundaryContractSatisfied) throw new Error('CAP24_BOUNDARY_CONTRACT_FAILURE: traces at the displayed [start, end) boundaries have reversed membership; see measurements.json boundaryFinding and CAP24_CONFIRMED_DISPLAY_BOUNDARY_MISMATCH')
 }
