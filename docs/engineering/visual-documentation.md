@@ -82,3 +82,38 @@ Renderer expression values use `renderer-value.mjs`; operation source remains
 owned by the harness. Encode complete data values/selectors, never accept a raw
 expression as a configurable scope. See the [CodeQL boundary review](visual-preview-security-review.md)
 for per-alert source analysis, encoding guarantees and regression coverage.
+
+## Standalone parallel audit batches
+
+Repository-owned modules in `scripts/visual-preview/audit-batches/` are discovered
+in filename order using `<lowercase-prefix>-<two digits>.mjs`. Helpers, tests,
+directories and symlinks are not entry points. No arbitrary import path is accepted.
+Each module exports `installAuditIpc(ipcMain)`, `runVisualAudit(context)` and a
+`screenshots` array of unique flat PNG filenames. The context uses the existing
+window, renderer wait, capture and divider helpers. All module screenshots are
+1440×900, DPR/zoom 1, with positive semantic targets. Modules own their fixtures
+and assertions, not the canonical audit manifest.
+
+The Visual preview workflow first executes the canonical audit unchanged, then
+`run-audit-batches.mjs` starts a fresh Electron process for every discovered batch.
+Outputs go under `visual-audit/batches/<UPPERCASE-ID>/` in the same existing
+`datakoala-ux-audit-pr-N` artifact. Regression/public documentation filenames and
+published canonical previews are unchanged. Run locally under Xvfb with:
+
+```bash
+TZ=UTC DATAKOALA_AUDIT_HEAD=$(git rev-parse HEAD) \
+  xvfb-run --auto-servernum node scripts/visual-preview/run-audit-batches.mjs
+```
+
+A module writes `measurements.json` with the exact generating `sourceHead` and an
+`observations` array. Every screenshot observation includes `filename`, `dpr: 1`,
+`zoom: 1` and a positive `target.width/height`, plus its own asserted domain state.
+The loader checks the exact PNG set, dimensions and provenance after execution;
+it cannot replace visual review. `status.json` and the aggregate `batches/index.json`
+distinguish success from failure. Failures retain partial evidence, fail the step,
+and do not stop other batches from producing diagnostic evidence. Each child has
+a three-minute execution limit. Missing exports, imports, evidence and unknown
+IDs fail closed. Import/setup failures also exit nonzero and appear in the index.
+
+`node --test scripts/visual-preview/*.test.mjs` covers registry/loading, evidence
+validation and failure propagation, and runs as part of the existing unit CI.

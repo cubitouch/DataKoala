@@ -1520,9 +1520,16 @@ app.whenReady().then(async () => {
           : 'prometheus',
   }))
 
+  let auditBatch = null
   if (captureKind === 'audit') {
-    const { installAuditIpc } = await import('./audit.mjs')
-    installAuditIpc(ipcMain)
+    if (process.env.DATAKOALA_AUDIT_BATCH) {
+      const { loadAuditBatch } = await import('./audit-batch-loader.mjs')
+      auditBatch = await loadAuditBatch(process.env.DATAKOALA_AUDIT_BATCH)
+      auditBatch.module.installAuditIpc(ipcMain)
+    } else {
+      const { installAuditIpc } = await import('./audit.mjs')
+      installAuditIpc(ipcMain)
+    }
   }
 
   const win = new BrowserWindow({
@@ -1544,8 +1551,14 @@ app.whenReady().then(async () => {
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
     await waitForRenderer(win)
     if (captureKind === 'audit') {
-      const { runVisualAudit } = await import('./audit.mjs')
-      await runVisualAudit({ win, outputDir, waitFor: waitForRendererState, capture, dragDivider })
+      const context = { win, outputDir, waitFor: waitForRendererState, capture, dragDivider }
+      if (auditBatch) {
+        const { executeAuditBatch } = await import('./audit-batch-loader.mjs')
+        await executeAuditBatch(auditBatch, context, process.env.DATAKOALA_AUDIT_HEAD)
+      } else {
+        const { runVisualAudit } = await import('./audit.mjs')
+        await runVisualAudit(context)
+      }
       app.quit()
       return
     }
@@ -1808,4 +1821,4 @@ app.whenReady().then(async () => {
     console.error(error)
     app.exit(1)
   }
-})
+}).catch(error => { console.error(error); app.exit(1) })
