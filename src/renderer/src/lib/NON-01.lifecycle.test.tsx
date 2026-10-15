@@ -100,6 +100,45 @@ afterEach(() => {
 
 describe('NON-01 generation and query ownership characterization', () => {
   it.each(['success', 'failure'] as const)(
+    'characterizes older lazy %s briefly publishing while newer explicit connect is pending',
+    async (outcome) => {
+      useStore.setState((state) => ({
+        activeTabId: 'tab-a',
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          a: { ...connection(4), status: 'disconnected' },
+        },
+      }))
+      const old = deferred<ConnectResult>()
+      const newer = deferred<ConnectResult>()
+      mocks.connect
+        .mockReturnValueOnce(old.promise)
+        .mockReturnValueOnce(newer.promise)
+      const lazy = ensureConnectionForTab('tab-a')
+      const explicit = useStore.getState().connectProfile(profile('a'))
+      expect(useStore.getState().connectionStateByProfileId.a.status).toBe(
+        'connecting',
+      )
+      if (outcome === 'success')
+        old.resolve({ ok: true, id: 'a', generation: 4 })
+      else old.reject(new Error('old lazy failure'))
+      await lazy
+      // Characterization of current code, NOT a desired safety invariant:
+      // the older lazy path has no explicit renderer-intent guard.
+      expect(useStore.getState().connectionStateByProfileId.a.status).toBe(
+        outcome === 'success' ? 'connected' : 'error',
+      )
+      newer.resolve({ ok: true, id: 'a', generation: 5 })
+      await explicit
+      expect(useStore.getState().connectionStateByProfileId.a).toMatchObject({
+        status: 'connected',
+        generation: 5,
+        error: null,
+      })
+    },
+  )
+
+  it.each(['success', 'failure'] as const)(
     'discards generation A stale %s without changing B or a newer query',
     async (outcome) => {
       const old = deferred<QueryResult>()
