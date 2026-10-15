@@ -150,7 +150,6 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await noDispatch('select-messaging', () => choose('Protocol or subsystem', 'Messaging'))
   await waited('document.querySelector("[role=combobox][aria-label^=\\"Messaging system:\\"]")', 'messaging fields')
   await waited('document.querySelector("[role=listbox]") === null', 'dismissed listbox')
-  await waited('document.querySelector("[role=combobox][aria-label^=\\"Messaging system:\\"]:not([disabled])', 'messaging selector')
   await choose('Messaging system', 'kafka')
   await input('Destination / topic', 'orders."vip"\\main')
   await choose('Messaging operation', 'Publish')
