@@ -84,8 +84,9 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     await render()
   }
   const key = async code => {
-    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: code })
-    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: code })
+    const electronKeyCode = code.startsWith('Arrow') ? code.slice(5) : code
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: electronKeyCode })
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: electronKeyCode })
     await settle()
   }
   const chartState = () => js('(() => {const c=document.querySelector("[data-result-chart-canvas]"),p=c?.querySelector("[class*=plot]"),l=c?.querySelector("[data-chart-legend]"),d=c?.querySelector("[aria-label=\\"Resize chart legend\\"]"),box=e=>{const r=e?.getBoundingClientRect();return r?{x:r.x,y:r.y,width:r.width,height:r.height}:null};return {type:c?.getAttribute("data-visual-type"),finished:c?.getAttribute("data-visual-finished"),series:Number(c?.getAttribute("data-visual-series")),items:Number(c?.getAttribute("data-visual-items")),configuration:c?.getAttribute("data-visual-config"),fingerprint:c?.getAttribute("data-visual-fingerprint"),expectedFingerprint:c?.getAttribute("data-visual-expected-fingerprint"),legendWidth:getComputedStyle(c).getPropertyValue("--chart-legend-width").trim(),canvas:box(c),plot:box(p),legend:box(l),divider:box(d),buttons:[...l.querySelectorAll("button[aria-pressed]")].map(e=>({label:e.textContent.trim(),visible:e.getAttribute("aria-pressed")})),chips:[...document.querySelectorAll("[data-result-filter-chip]")].map(e=>e.textContent.trim()),stats:document.querySelector("[data-result-chart] [class*=stats]")?.textContent?.trim(),canvasCount:p?.querySelectorAll("canvas").length??0}})()')
