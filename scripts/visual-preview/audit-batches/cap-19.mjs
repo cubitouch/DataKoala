@@ -155,7 +155,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await click('[aria-label="Log results"] article button')
   await waitFor(win, 'document.querySelector(\'[aria-label="Selected log details"]\')', 'selected inspector')
   assert.ok((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes(message))
-  assert.ok((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes('provider'))
+  assert.ok((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes('nested'))
   assert.ok((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes('[object Object]'), 'nested value is stringified with the current implementation')
   const previousWidth = Number(await js('document.querySelector("[data-resizable-detail]").getAttribute("data-detail-width")'))
   await js('document.querySelector(\'[role="separator"][aria-label="Resize Selected log details"]\').focus()')
