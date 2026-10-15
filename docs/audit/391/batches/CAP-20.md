@@ -32,14 +32,14 @@ The standalone module ran in its own actual Electron process with synthetic IPC.
 | --- | --- | --- | --- |
 | Connected Builder, 32 loaded logs (four Request, two Worker, one escaped/blank-severity, one long, 24 distinct) | Click **Run**, then **Patterns** | 28 clusters; descending count; Request 4/32=12.5%, Worker 2/32=6.3%; representative ERROR; denominator all loaded logs | **BV:** `measurements.json` + green standalone process |
 | Default Patterns with 28 groups | Select Request cluster | Selected row, Request template, four logs, 12.5%, examples and variable samples agree | **BV/VV:** screenshot `cap20-patterns-inspector-desktop.png` + keyboard/DOM assertions |
-| Open inspector | Keyboard resize, scroll virtual list, return to top, Escape, reselect | Width grows and persists across close/reopen; selected detail remains on scroll; Escape closes | Module assertions; CI pending |
+| Open inspector | Keyboard resize, scroll virtual list, return to top, Escape, reselect | Width grows and persists across close/reopen; selected detail remains on scroll; Escape closes | **BV:** confirmed in run 38773038498 and `measurements.json` |
 | Selected Request in Builder; no existing line filter | **View logs** | One request with exact `{service_name="example-service"} |= "completed"`; original label selector retained; List with four responses and visible Line contains; no local scope notice | **BV/VV:** screenshot `cap20-patterns-view-logs-desktop.png` + exact observed IPC expression |
-| Builder with saved non-`|=` line filter | **View logs** | Local scope banner, unchanged filters and **zero** requests | Module assertions; CI pending |
-| Builder with multiple saved line filters | **View logs** | Local scope banner, both filters retained, **zero** requests | Module assertions; CI pending |
-| Raw LogQL mode | **View logs** | Local scope rather than silent raw query rewrite, **zero** requests | Module assertions; CI pending |
-| Pattern inspector open | Replace result IDs/messages | Selection invalidates, inspector closes | Module assertions; CI pending |
+| Builder with saved non-`|=` line filter | **View logs** | Local scope banner, unchanged filters and **zero** requests | **BV:** confirmed in run 38773038498 and `measurements.json` |
+| Builder with multiple saved line filters | **View logs** | Local scope banner, both filters retained, **zero** requests | **BV:** confirmed in run 38773038498 and `measurements.json` |
+| Raw LogQL mode | **View logs** | Local scope rather than silent raw query rewrite, **zero** requests | **BV:** confirmed in run 38773038498 and `measurements.json` |
+| Pattern inspector open | Replace result IDs/messages | Selection invalidates, inspector closes | **BV:** confirmed in run 38773038498 and `measurements.json` |
 | Actual loaded empty result | Render Patterns | `0 patterns · 0 loaded logs`, “No logs to cluster.”, no inspector or View logs, no `NaN%` | **BV/VV:** screenshot `cap20-patterns-empty-desktop.png` + zero result assertions |
-| Empty result, synthetic transport failure | Click **Run** | Explicit query error plus an alert reading “Synthetic CAP-20 Loki unavailable”; previous empty result may remain visible but is not silently represented as a successful new response | Module assertions; CI pending |
+| Empty result, synthetic transport failure | Click **Run** | Explicit query error plus an alert reading “Synthetic CAP-20 Loki unavailable”; previous empty result may remain visible but is not silently represented as a successful new response | **BV:** confirmed in run 38773038498 and `measurements.json` |
 
 The deterministic fixture extends the existing `auditLogResult` canonical log shape without editing it. It contains ERROR/INFO/WARN and a **blank string severity** (the production log badge requires a string; an injected `undefined` was invalid test data), an escaped literal, a very long message, 24 distinctive templates and four grouped variable-bearing Request messages. Live malformed provider payloads beyond the valid log-row type were not exercised.
 
@@ -50,9 +50,9 @@ All four original PNGs under `visual-audit/batches/CAP-20/` are 1440×900 (DPR a
 | PNG | Semantic target | Intended assertions | Inspection |
 | --- | --- | --- | --- |
 | `cap20-patterns-default-desktop.png` | `[aria-label="Log patterns"]` | 28 groups, top 4/32 and 2/32, severity and long-text fit | **VV**: inspected full resolution |
-| `cap20-patterns-inspector-desktop.png` | `[aria-label="Selected pattern details"]` | Request examples, variable samples, width after keyboard resize | **Not yet inspected** |
-| `cap20-patterns-view-logs-desktop.png` | `[aria-label="Loki explorer"]` | Builder promoted line filter and four response logs | **Not yet inspected** |
-| `cap20-patterns-empty-desktop.png` | `[aria-label="Log patterns"]` | Distinct genuinely empty result | **Not yet inspected** |
+| `cap20-patterns-inspector-desktop.png` | `[aria-label="Selected pattern details"]` | Request examples, variable samples, width after keyboard resize | **VV:** opened individually, full 1440×900 |
+| `cap20-patterns-view-logs-desktop.png` | `[aria-label="Loki explorer"]` | Builder promoted line filter and four response logs | **VV:** opened individually, full 1440×900 |
+| `cap20-patterns-empty-desktop.png` | `[aria-label="Log patterns"]` | Distinct genuinely empty result | **VV:** opened individually, full 1440×900 |
 
 Source-PNG SHA-256 prefixes in manifest order: default `6551181b82908758`, inspector `5fde255940a696aa`, View logs `0081f4525dc5f2f7`, empty `103fe10998a73563`. Semantic target bounds (x,y,w,h): default (248,433,1192,467), inspector (1005,461,435,439), View logs (248,40,1192,860), empty (248,433,1192,467). All screenshots were individually reviewed for layout, text, selected state, row fit, counts and clipping.
 
