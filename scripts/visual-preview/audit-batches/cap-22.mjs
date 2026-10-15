@@ -241,18 +241,22 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   assertNoRun(2, 'Mode transition may not execute')
   interactions.push({ scenario:'raw-mode', generatedDraftCopied:true, arbitraryRawNotImported:true, runDelta:0, rawChangeSetup:'store injection; editor typing not asserted' })
 
-  // This is an observed, not pre-judged boundary: negative duration is a
-  // technically invalid number-input value yet the Builder can still dispatch.
+  // Characterize native number-input/form validation: the generator omits
+  // negative durations, but HTML min=0 may prevent submission entirely.
   await input('Min duration (ms)', '-1')
   assert.equal((await state()).minDurationMs, '-1')
   const invalidGenerated = await rendered()
-  assert.ok(!invalidGenerated.includes('span:duration'), 'Invalid duration silently omits its predicate')
+  assert.ok(!invalidGenerated.includes('span:duration'), 'Generator omits invalid negative duration')
+  const invalidInputValid = await evalJs('(() => {const e=[...document.querySelectorAll("label")].find(x=>x.textContent.trim()==="Min duration (ms)");return document.getElementById(e?.htmlFor).checkValidity()})()')
   const priorInvalid = requests.length
   await click('[data-tempo-run-query]')
-  await waitFor(win, '!window.__datakoalaStore.getState().tabs[0].running', 'invalid duration dispatched/settled')
-  assert.equal(requests.length, priorInvalid + 1)
-  assert.equal(requests.at(-1).query, invalidGenerated)
-  interactions.push({ scenario:'negative-duration', input:'-1', omittedDuration:true, stillDispatched:true, disposition:'CONFIRMED_DEFECT', dispatchDelta:1 })
+  await settle()
+  const invalidDispatched = requests.length > priorInvalid
+  if (invalidDispatched) {
+    assert.equal(requests.length, priorInvalid + 1)
+    assert.equal(requests.at(-1).query, invalidGenerated)
+  }
+  interactions.push({ scenario:'negative-duration', input:'-1', omittedDuration:true, nativeInputValid:invalidInputValid, dispatched:invalidDispatched, disposition: invalidDispatched ? 'CONFIRMED_DEFECT' : 'ALREADY_CONVERGED', dispatchDelta:requests.length-priorInvalid })
 
   // Metadata replacement is deterministic state injection, NOT evidence of
   // a real provider refresh or stale-response arbitration.
