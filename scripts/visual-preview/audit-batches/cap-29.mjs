@@ -41,7 +41,7 @@ export function installAuditIpc(ipc) {
     return success({ ...settings })
   })
   handle('ai:cancel', () => { calls.push({ channel: 'cancel' }); return success(null) })
-  for (const channel of ['ai:test', 'ai:propose', 'ai:propose-builder', 'ai:analyze-anomalies', 'ai:analyze-plan', 'ai:settings:remove-key'])
+  for (const channel of ['ai:test', 'ai:propose', 'ai:propose-builder', 'ai:analyze-anomalies', 'ai:analyze-plan', 'ai:key:remove'])
     handle(channel, () => { throw Error('CAP-29 forbids provider/secret operation: ' + channel) })
 }
 
@@ -100,7 +100,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   assert.equal(await js('[...document.querySelectorAll("[role=dialog] button")].find(e=>e.textContent.trim()==="Save").disabled'), true)
   await saveImage(screenshots[0], '[role=dialog]')
   // Actual native Tab boundary wrapping, rather than a synthetic key event.
-  await js('document.querySelector("[role=dialog] button:last-child").focus()')
+  await js('[...document.querySelectorAll("[role=dialog] button:not([disabled])")].at(-1).focus()')
   await key('Tab')
   assert.equal(await js('document.activeElement===document.querySelector("[role=dialog] input")'), true)
   await key('Tab', ['shift'])
@@ -124,7 +124,11 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     assert.ok(nested.childBounds.x>=0 && nested.childBounds.y>=0 && nested.childBounds.x+nested.childBounds.width<=1440 && nested.childBounds.y+nested.childBounds.height<=900)
     const stacking = await js('(() => {const e=document.querySelector("[data-popover-overlay]"),r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+10,r.y+10))})()')
     assert.equal(stacking,true,'Nested overlay paints above modal')
-    await key('Down'); await key('Home')
+    await key('Down')
+    assert.ok(await js('document.querySelector("[role=option][data-active=true]").textContent.includes("synthetic/beta")'), 'ArrowDown moves active option')
+    await record('nested-arrow-down-' + trial)
+    await key('Home')
+    assert.ok(await js('document.querySelector("[role=option][data-active=true]").textContent.includes("synthetic/alpha")'), 'Home restores first active option')
     assert.equal((await state()).selected,catalog[0].id,'Navigation does not commit')
     assert.equal(calls.filter(c=>c.channel==='save').length,0,'Navigation never saves')
     if (!trial) await saveImage(screenshots[1], '[data-popover-overlay]')
@@ -138,7 +142,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
       {modal:false,popover:false,overlayCount:0,escapeDelta:1,focus:'Settings'},
       'CAP-29 known Escape defect changed: review and update characterization; never accept arbitrary outcomes')
     assert.equal(settings.model,catalog[0].id)
-    if (!trial) await saveImage(screenshots[2], '.sidebar')
+    if (!trial) await saveImage(screenshots[2], 'aside[aria-label="Connections and objects"]')
     await key('Escape')
     const second = await record('after-second-Escape-' + trial)
     assert.equal(second.modal,false); assert.equal(second.active.text,'Settings')
