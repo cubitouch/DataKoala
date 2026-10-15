@@ -1208,7 +1208,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       observations.push({family:'cap15',viewport,scenario:'copilot-repair',originalSql:original15,proposedSql:proposed15,pendingDisabled:pending15,rejectPreservedExactOriginal:true,applyExplicit:true,staleManualSql:manual15,staleApplyDisabled:true,modelErrorPreservesSql:true,repairFailedSql:failed15,failedRetryPreservesDiff:true,repairCancelAndRejectPreserveSql:true,cancelRequests:cancels15,requests:requests15,explicitFailureRunDelta:1,implicitRunDelta:0,provider:'synthetic sanitized IPC; no real model',otherDialects:'ordinary preview and named tests only'})
       configured15=false;await evaluate(`window.dispatchEvent(new Event('datakoala:ai-settings-changed'))`)
       await waitFor(win,`!document.querySelector('[aria-label="SQL AI copilot"]')`,'CAP15 reset temporary AI settings')
-      auditIpc.removeHandler('ai:settings:get');auditIpc.removeHandler('ai:propose')
+      handle15('ai:settings:get',()=>({ok:true,value:{provider:'openrouter',model:'',hasApiKey:false}}));auditIpc.removeHandler('ai:propose')
       handle15('ai:cancel',()=>({ok:true,value:null}))
     }
     if (viewport === 'desktop') {
