@@ -303,6 +303,96 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   assert.equal(count('primary'),mainCallsBeforeRemount,'remount must not rerun primary')
   interactions.push({scenario:'renderer remount',primaryReexecutions:0,durableRows:5,durableView:'list',optionalTrendLocal:true})
 
+
+  // Characterize the actual Table text-search and CSV copy contract.
+  await view('Table')
+  await waitFor(win,'document.querySelector("[data-result-table-pane] input[placeholder=\\"filter rows…\\"]")','table row search')
+  const tableCalls = requests.length
+  await evaluate('(() => {const e=document.querySelector("[data-result-table-pane] input[placeholder=\\"filter rows…\\"]");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(e,"synthetic event 3");e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}))})()')
+  await waitFor(win,'document.querySelector("[data-result-toolbar]")?.textContent?.includes("1 of 5")','filtered Table row count')
+  await button('Copy CSV')
+  await waitFor(win,'window.__cap21Copied.length >= 2','Table CSV clipboard')
+  const filteredCsv = await evaluate('window.__cap21Copied.at(-1)')
+  assert.ok(filteredCsv.includes('CAP-21 synthetic event 3'), 'CSV must include the filtered row')
+  assert.ok(!filteredCsv.includes('CAP-21 synthetic event 1'), 'CSV must exclude unrelated rows')
+  assert.equal(requests.length,tableCalls,'local filtering/copy must not rerun Loki')
+  interactions.push({scenario:'Table filtered Copy CSV',filter:'synthetic event 3',visibleRows:1,totalRows:5,clipboardText:filteredCsv,providerQueryDelta:0,exportCsvUiPresent:await evaluate('Boolean([...document.querySelectorAll("[data-result-toolbar] button")].find(b=>b.textContent.trim()==="Export CSV"))')})
+  await evaluate('(() => {const e=document.querySelector("[data-result-table-pane] input[placeholder=\\"filter rows…\\"]");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(e,"");e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}))})()')
+  await waitFor(win,'document.querySelector("[data-result-toolbar]")?.textContent?.includes("5 rows")','Table unfiltered')
+
+  // Shared legend toggling and keyboard resize, with all cached volume points retained.
+  await view('Line')
+  await expectChart('Line')
+  await waitFor(win,'document.querySelectorAll("[data-chart-legend] button[aria-pressed]").length === 2','two legend toggles')
+  const legendBefore = await evaluate('[...document.querySelectorAll("[data-chart-legend] button[aria-pressed]")].map(b=>({label:b.textContent.trim(),pressed:b.getAttribute("aria-pressed")}))')
+  assert.ok(legendBefore.every(v=>v.pressed === 'true'))
+  const callsBeforeLegend = requests.length
+  await evaluate('document.querySelector("[data-chart-legend] button[aria-pressed]").click()')
+  await waitFor(win,'document.querySelector("[data-chart-legend] button[aria-pressed]")?.getAttribute("aria-pressed")==="false"','legend toggled off')
+  await evaluate('document.querySelector("[data-chart-legend] button[aria-pressed]").click()')
+  await waitFor(win,'document.querySelector("[data-chart-legend] button[aria-pressed]")?.getAttribute("aria-pressed")==="true"','legend toggled back on')
+  const widthBefore = Number(await evaluate('document.querySelector("[aria-label=\\"Resize chart legend\\"]")?.getAttribute("aria-valuenow")'))
+  await evaluate('document.querySelector("[aria-label=\\"Resize chart legend\\"]").focus()')
+  win.webContents.sendInputEvent({type:'keyDown',keyCode:'Left'})
+  win.webContents.sendInputEvent({type:'keyUp',keyCode:'Left'})
+  await waitFor(win,'Number(document.querySelector("[aria-label=\\"Resize chart legend\\"]")?.getAttribute("aria-valuenow")) > '+widthBefore,'keyboard legend resize')
+  const widthAfter = Number(await evaluate('document.querySelector("[aria-label=\\"Resize chart legend\\"]").getAttribute("aria-valuenow")'))
+  await expectChart('Line')
+  assert.equal(requests.length,callsBeforeLegend)
+  interactions.push({scenario:'legend toggle and resize',series:legendBefore.map(v=>v.label),bothRestored:true,widthBefore,widthAfter,providerQueryDelta:0,chartStillPopulated:true})
+
+  // The independent volume may finish while the durable primary operation is still pending.
+  holdPrimary = true; holdTrend = false; metricReply = volume
+  await button('Run')
+  await waitFor(win,'window.__datakoalaStore.getState().tabs.find(t=>t.id==="cap21")?.running','pending primary operation')
+  await settle()
+  const primaryDeferred = deferred.find(v => v.kind === 'primary')
+  assert.ok(primaryDeferred, 'expected held primary IPC')
+  const primarySequence = primaryDeferred.sequence
+  const trendSequence = requests.filter(r => r.kind === 'trend').at(-1)?.sequence
+  assert.ok(trendSequence > primarySequence, 'optional volume dispatched alongside pending primary')
+  assert.equal((await state()).running,true)
+  holdPrimary = false
+  deferred.splice(deferred.indexOf(primaryDeferred),1)
+  primaryDeferred.resolve(logs)
+  await waitFor(win,'!window.__datakoalaStore.getState().tabs.find(t=>t.id==="cap21")?.running','primary after early optional volume')
+  await expectChart('Line')
+  interactions.push({scenario:'trend settled before primary',primarySequence,trendSequence,primaryWasPending:true,finalRows:(await state()).result.logRows.length,finalChartItems:8})
+
+  // Remount a chart while the optional volume request is held: old completion is stale.
+  holdTrend = true
+  await button('Run')
+  await waitFor(win,'!window.__datakoalaStore.getState().tabs.find(t=>t.id==="cap21")?.running && document.body.innerText.includes("Loading log volume…")','volume pending before remount')
+  await settle()
+  const pendingRemount = deferred.find(v=>v.kind==='trend')
+  assert.ok(pendingRemount,'held trend before remount')
+  deferred.splice(deferred.indexOf(pendingRemount),1)
+  const primaryBeforeReturn = count('primary')
+  await evaluate('window.__datakoalaStore.setState({activeTabId:"cap21-other"})')
+  await waitFor(win,'window.__datakoalaStore.getState().activeTabId==="cap21-other"','unmount current Loki')
+  holdTrend = false
+  await evaluate('window.__datakoalaStore.setState({activeTabId:"cap21"})')
+  await waitFor(win,'window.__datakoalaStore.getState().activeTabId==="cap21" && document.querySelector("[aria-label=\\"Loki explorer\\"]")','remount original Loki')
+  await expectChart('Line')
+  const trendBeforeLate = count('trend')
+  pendingRemount.resolve(staleVolume)
+  await settle()
+  await expectChart('Line')
+  assert.equal(count('primary'),primaryBeforeReturn,'remount cannot rerun primary')
+  assert.equal((await snapshot()).chart.items,8,'old pending volume cannot overwrite remounted chart')
+  interactions.push({scenario:'pending trend through renderer remount',pendingSequence:pendingRemount.sequence,retriedLocalTrendOnRemount:count('trend')===trendBeforeLate,primaryReruns:0,finalChartItems:8})
+
+  // Successful empty primary is different from a provider error and from empty metric volume.
+  await view('List')
+  logReply = { ...logs, rows:[], logRows:[], rowCount:0, execution:{...logs.execution,rowCount:0} }
+  await button('Run')
+  await waitFor(win,'!window.__datakoalaStore.getState().tabs.find(t=>t.id==="cap21")?.running && window.__datakoalaStore.getState().tabs.find(t=>t.id==="cap21")?.result?.logRows?.length===0','empty primary success')
+  const emptyPrimaryState = await snapshot()
+  assert.equal(emptyPrimaryState.queryError,null,'empty result must not masquerade as failure')
+  assert.equal(emptyPrimaryState.resultRows,0)
+  interactions.push({scenario:'empty primary',success:true,rows:0,queryError:null,resultText:emptyPrimaryState.resultsText})
+  logReply=logs
+
   const sourceHead = process.env.DATAKOALA_AUDIT_HEAD
   assert.ok(sourceHead && /^[0-9a-f]{40}$/.test(sourceHead),'full generating source head required')
   await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify({
