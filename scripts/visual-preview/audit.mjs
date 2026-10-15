@@ -1060,14 +1060,14 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await clickText('Filter to this value','[data-result-row-index="0"] td:nth-child(2) details')
       const nonpromotable13=await evaluate(`![...document.querySelectorAll('[data-result-filter-chip] button')].some(b=>b.textContent==='Apply to SQL')`)
       if(!nonpromotable13)throw Error('CAP13 value aggregate wrongly promotable')
-      // Source-shaped query predicate whose source column is absent cannot demote.
-      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,builderHasRun:true,builderResultFilters:[{id:'cap13-missing-source',column:'series',operator:'equals',value:'A',execution:'query',provenance:{mode:'builder',resultAlias:'series',table:t.builder.table,sourceColumns:['missing_source'],sourceColumn:'missing_source',targetKind:'source-column',sourceKind:'single-column',displayLabel:'missing_source'}},{id:'cap13-local',column:'value',operator:'equals',value:4,execution:'client'}]}]})})()`)
+      // The disabled demotion reason is covered by the named controlled UI test.
+      // Do not inject an invalid Builder predicate: generator validation must remain authoritative.
+      const blocked13={evidence:'ResultsTable.controlled.ui.test.tsx uses Builder execution and promotion/demotion callbacks; resultFilterDemotion source',native:'unverified'}
+      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,builderResultFilters:[{id:'cap13-first',column:'value',operator:'equals',value:42,execution:'client'},{id:'cap13-second',column:'category',operator:'isNotNull',execution:'client'}]}]})})()`)
       await settle()
-      const blocked13=await evaluate(`(() => {const b=[...document.querySelectorAll('[data-result-filter-chip] button')].find(b=>b.textContent==='Move to client');return{disabled:b?.disabled,reason:b?.title}})()`)
-      if(!blocked13.disabled||!blocked13.reason.includes('missing_source'))throw Error('CAP13 missing demotion reason '+JSON.stringify(blocked13))
       await clickText('Clear all','[aria-label="Active result filters"]')
       await waitFor(win,`!document.querySelector('[data-result-filter-chip]')`,'CAP13 clear chips')
-      observations.push({family:'cap13',viewport,scenario:'cell-local-query-filter',rawLocalQueryDelta:0,rawRows:{before:3,filtered:1,removed:3},focus:{onSummary:onSummary13,onAction:onAction13,escape:escaped13,outsideClick:outside13},promoted:promoted13,promotionQueryDelta:promotionCalls13,promotionRequests:cap10Ipc.calls,demotion:'actual allowed action',nonpromotableValueHidesAction:nonpromotable13,blockedDemotion:blocked13,blockedDemotionSetup:'state-injected source-shaped predicate',clearAll:true,provider:'synthetic IPC only'})
+      observations.push({family:'cap13',viewport,scenario:'cell-local-query-filter',rawLocalQueryDelta:0,rawRows:{before:3,filtered:1,removed:3},focus:{onSummary:onSummary13,onAction:onAction13,escape:escaped13,outsideClick:outside13},promoted:promoted13,promotionQueryDelta:promotionCalls13,promotionRequests:cap10Ipc.calls,demotion:'actual allowed action',nonpromotableValueHidesAction:nonpromotable13,blockedDemotion:blocked13,blockedDemotionSetup:'named component test only; no invalid predicate injection',clearAll:true,provider:'synthetic IPC only'})
       cap10Ipc.active=false
     }
     if (viewport === 'desktop') {
