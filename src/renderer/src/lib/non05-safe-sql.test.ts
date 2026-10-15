@@ -5,6 +5,7 @@ import {
   generateBuilderQuery,
   materializeSqlParameters,
 } from './builderSql.ts'
+import { encodeBuilderSeriesTuple } from './resultVisualization.ts'
 import {
   createResultFilter,
   createResultRangeFilter,
@@ -149,7 +150,7 @@ test('NON-05: custom time bounds and scalar filters retain parameter ordering by
   }
 })
 
-test('NON-05: tuple filters retain explicit grouping and parameterization', () => {
+test('NON-05: combined scalar filters retain order and parameterization', () => {
   const query = generateBuilderQuery({
     table,
     xColumn: 'status',
@@ -162,6 +163,44 @@ test('NON-05: tuple filters retain explicit grouping and parameterization', () =
   })
   assert.match(query.sql, /WHERE "region" = \$1 AND "status" IS NOT NULL/)
   assert.deepEqual(query.parameters, ['EU'])
+})
+
+test('NON-05: promoted multi-column tuple filters are parenthesized without literal values', () => {
+  const tuple = encodeBuilderSeriesTuple(
+    { region: 'EU', channel: 'web' },
+    ['region', 'channel'],
+  )
+  const query = generateBuilderQuery({
+    table,
+    xColumn: 'status',
+    xColumnDataType: 'text',
+    seriesColumns: ['region', 'channel'],
+    filters: [
+      {
+        id: 'tuple',
+        column: 'series',
+        operator: 'equals',
+        value: tuple,
+        execution: 'query',
+        provenance: {
+          mode: 'builder',
+          resultAlias: 'series',
+          table,
+          sourceColumns: ['region', 'channel'],
+          timeColumn: null,
+          timeBucket: 'day',
+          sourceKind: 'series-tuple',
+          targetKind: 'series-tuple',
+          displayLabel: 'region + channel',
+        },
+      },
+    ],
+  })
+  assert.match(
+    query.sql,
+    /WHERE \("region" IS NOT DISTINCT FROM \$1 AND "channel" IS NOT DISTINCT FROM \$2\)/,
+  )
+  assert.deepEqual(query.parameters, ['EU', 'web'])
 })
 
 test('NON-05: literal materializer handles apostrophes, NULL and finite numbers', () => {
