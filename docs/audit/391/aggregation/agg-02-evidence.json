@@ -99,7 +99,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/architecture/ux-implementation-convergence-audit.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 383,
+          "quote": "| **V-03 — equivalent dialog keyboard/backdrop policy**, connection picker/seven forms vs Settings/Reset/Presets; focus belongs to open dialog                           | `dialog-*` and compare-dialogs. Picker and **all seven forms allow Tab to leave and ignore Escape**; Settings/Reset/Presets trap Tab, dismiss Escape, return trigger focus. Custom form backdrop **55%, z50, no blur**; shared Modal **72%, z1000, 2 px blur**. Form width520 vs Settings900 / Reset460; width difference alone is legitimate content sizing                                                                                                                    | **UX divergent / duplicated lifecycle and partly shared styling.** ConnectionModal and seven forms use custom overlay/header/actions; shared Modal used by other app dialogs. Delete/native confirmations not runtime tested in this pass                                                                                                                                                | Medium/high accessibility value, high confidence; defer broad shell/wizard migration. A targeted common focus/dismissal rule can precede full presentation convergence only with hidden-visited-form/busy-save semantics tested. Avoid one universal modal API. Acceptance: initial focus, Tab/Shift-Tab, top Escape/click-away, return focus, Back/draft retention, pending Test/Save/Cancel, all kinds. Future RC-04 extension                                                                                                                                                                                                                                 |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -174,7 +182,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/architecture/ux-implementation-convergence-audit.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 383,
+          "quote": "| **V-03 — equivalent dialog keyboard/backdrop policy**, connection picker/seven forms vs Settings/Reset/Presets; focus belongs to open dialog                           | `dialog-*` and compare-dialogs. Picker and **all seven forms allow Tab to leave and ignore Escape**; Settings/Reset/Presets trap Tab, dismiss Escape, return trigger focus. Custom form backdrop **55%, z50, no blur**; shared Modal **72%, z1000, 2 px blur**. Form width520 vs Settings900 / Reset460; width difference alone is legitimate content sizing                                                                                                                    | **UX divergent / duplicated lifecycle and partly shared styling.** ConnectionModal and seven forms use custom overlay/header/actions; shared Modal used by other app dialogs. Delete/native confirmations not runtime tested in this pass                                                                                                                                                | Medium/high accessibility value, high confidence; defer broad shell/wizard migration. A targeted common focus/dismissal rule can precede full presentation convergence only with hidden-visited-form/busy-save semantics tested. Avoid one universal modal API. Acceptance: initial focus, Tab/Shift-Tab, top Escape/click-away, return focus, Back/draft retention, pending Test/Save/Cancel, all kinds. Future RC-04 extension                                                                                                                                                                                                                                 |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -249,7 +265,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 308,
+          "quote": "- **A03 `cap02-pg-delete-desktop.png`:** selected profile name is clearly rendered, Cancel gets initial focus. The audit executed native Escape and React Cancel, and **neither removed the synthetic profile**; explicit Confirm yielded **one** mock `connections:remove('audit-postgres')` call and the renderer profile was detached. **Confirmed UX-09 keyboard finding:** after **both Escape and Cancel**, `document.activeElement` was `BODY`, not the originating Delete button. The screenshot itself cannot prove return focus; two `measurements.json` interaction observations record the failure. Existing source had a focus-return attempt using `requestAnimationFrame`, so diagnosis and any fix must be separate. Accessibility impact: focus position is lost for keyboard users; no production change in CAP-02. No claim of real database disconnect/session cleanup."
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -324,7 +348,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/NON-01.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 89,
+          "quote": "| **NON01-06** | A04, A07, A08 | CONFIRMED SYNTHETIC RENDERER DEFECT (`it.fails` × 2 executed): older lazy completion temporarily overwrites newer explicit pending state before generation advances; medium potential correctness/feedback impact, high deterministic confidence, UV live provider impact | `connectForTab` and `connectProfile` guards; two `NON-01.lifecycle.test.tsx` expected-failure scenarios | `tabConnection`/store; future narrow intent coordination, not a general request framework |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -394,7 +426,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -470,7 +503,8 @@
       "comparison": "DISAGREE",
       "findings": [
         "AGG02-03"
-      ]
+      ],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -545,7 +579,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/NON-01.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 89,
+          "quote": "| **NON01-06** | A04, A07, A08 | CONFIRMED SYNTHETIC RENDERER DEFECT (`it.fails` × 2 executed): older lazy completion temporarily overwrites newer explicit pending state before generation advances; medium potential correctness/feedback impact, high deterministic confidence, UV live provider impact | `connectForTab` and `connectProfile` guards; two `NON-01.lifecycle.test.tsx` expected-failure scenarios | `tabConnection`/store; future narrow intent coordination, not a general request framework |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -620,7 +662,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/NON-01.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 89,
+          "quote": "| **NON01-06** | A04, A07, A08 | CONFIRMED SYNTHETIC RENDERER DEFECT (`it.fails` × 2 executed): older lazy completion temporarily overwrites newer explicit pending state before generation advances; medium potential correctness/feedback impact, high deterministic confidence, UV live provider impact | `connectForTab` and `connectProfile` guards; two `NON-01.lifecycle.test.tsx` expected-failure scenarios | `tabConnection`/store; future narrow intent coordination, not a general request framework |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -690,7 +740,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -760,7 +811,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -836,7 +888,8 @@
       "comparison": "DISAGREE",
       "findings": [
         "AGG02-03"
-      ]
+      ],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -906,7 +959,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -982,7 +1036,8 @@
       "comparison": "DISAGREE",
       "findings": [
         "AGG02-03"
-      ]
+      ],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1052,7 +1107,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1122,7 +1178,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1192,7 +1249,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1262,7 +1320,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1332,7 +1391,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1407,7 +1467,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/NON-02.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 89,
+          "quote": "### NON02-01 — Confirmed explicit Prometheus histogram override loss"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -1483,7 +1551,8 @@
       "comparison": "DISAGREE",
       "findings": [
         "AGG02-03"
-      ]
+      ],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1553,7 +1622,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1623,7 +1693,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1693,7 +1764,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1763,7 +1835,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1835,7 +1908,8 @@
       "comparison": "DISAGREE",
       "findings": [
         "AGG02-02"
-      ]
+      ],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1905,7 +1979,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -1964,7 +2039,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2040,7 +2116,8 @@
       "comparison": "DISAGREE",
       "findings": [
         "AGG02-03"
-      ]
+      ],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2110,7 +2187,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2180,7 +2258,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2250,7 +2329,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2320,7 +2400,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2390,7 +2471,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2460,7 +2542,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2530,7 +2613,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2600,7 +2684,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2670,7 +2755,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2740,7 +2826,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2816,7 +2903,8 @@
       "comparison": "DISAGREE",
       "findings": [
         "AGG02-03"
-      ]
+      ],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2886,7 +2974,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -2961,7 +3050,27 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/NON-05.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 81,
+          "quote": "| **NON05-01** | **Confirmed correctness defect (high)** — PG/DuckDB “Open in SQL mode” can alter quoted identifier text containing `$n`, potentially changing the subsequent raw SQL semantics | BV expected failure; `builderSql.materializeSqlParameters` regex, `BuilderPanel.openGeneratedSqlMode` | Use SQL-aware/token-aware materialization or explicit safe representation; verify exact raw/open parity, strings/comments and binding counts |"
+        },
+        {
+          "path": "docs/audit/391/batches/NON-05.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 82,
+          "quote": "| **NON05-02** | **Confirmed correctness defect (high)** — GoogleSQL quoted `?` causes materializer to consume parameter positions or throw during handoff | BV expected failure; same owners | Lexer-aware binding replacement, with BigQuery quoted identifier/literal tests and explicit error UI |"
+        },
+        {
+          "path": "docs/audit/391/batches/NON-05.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 83,
+          "quote": "| **NON05-03** | **Confirmed generated-query identifier mismatch (medium/high)** — GoogleSQL promoted field with embedded `\"` differs between SELECT and WHERE; actual database error/provider interpretation UV | BV expected failure; `builderPromotedFilters` emits PG double quotes, `builderSql` replaces all double quote characters | Quote columns in dialect-aware predicate generator rather than global character replacement; preserve existing tuple/provenance semantics |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -3031,7 +3140,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3101,7 +3211,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3176,7 +3287,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 543,
+          "quote": "- **VC13-01 — CONFIRMED_DEFECT, menu keyboard focus return.** S19/R19/UI-001; filtering/overlay focus. Inspected non-null/null menu and local-filter frames above; native focus trace summary→action→Escape→BODY. Expected dismissal keeps a reachable initiating focus target; actual focus position lost. Owners CellFilterMenu.tsx native details Escape handler, ResultsTable.tsx; controlled UI tests cover action callbacks but not browser focus. High confidence, medium accessibility priority. Compare V-03 custom-dialog and VC12-02 JSON Modal focus policy; distinct menu owner, not a duplicate resize defect. Follow-up: reproduce native keyboard and focus originating summary on dismissal; production fix deferred."
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -3246,7 +3365,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3316,7 +3436,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3386,7 +3507,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3456,7 +3578,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3526,7 +3649,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3596,7 +3720,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3671,7 +3796,21 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/NON-06.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 113,
+          "quote": "| **NON06-02 — confirmed duplicate-selection defect** | S26: duplicate eligible records referenced by current SQL can occupy two of up to eight relation slots | `selectAiRelations` initially slices referenced records without deduping keys; `NON06 characterization: duplicate SQL references…`. **High source confidence; low-to-medium impact**, depends on malformed/duplicate source metadata. Renderer context owner: dedupe at selection, preserve priority. |"
+        },
+        {
+          "path": "docs/audit/391/batches/NON-06.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 112,
+          "quote": "| **NON06-01 — missing guard / expected-failure** | S26: context can complete from an earlier metadata revision while its originating profile metadata has changed; stale schema/model context risk, not confirmed execution | Source `workflow.ts` lacks post-await revision check; `NON06 EXPECTED FAILURE…` synthetic test. **Medium confidence; medium potential impact.** Renderer AI workflow/metadata owner: capture metadata revision/generation and check before column load and before second provider request; coordinate with lazy-loader generation rules. No production fix in this PR. |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -3741,7 +3880,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3811,7 +3951,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3881,7 +4022,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -3951,7 +4093,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4021,7 +4164,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4091,7 +4235,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4161,7 +4306,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4231,7 +4377,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4301,7 +4448,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4371,7 +4519,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4441,7 +4590,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4516,7 +4666,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/NON-03.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 57,
+          "quote": "### NON03-01 — BigQuery provider error text is exposed without redaction"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -4586,7 +4744,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4661,7 +4820,21 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/NON-07.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 84,
+          "quote": "| **NON07-01 — CONFIRMED normalization edge case, lower severity** | Adapter uses `Number(raw)`; `null` and blank values become zero, conflating missing and true zero. Deterministic reproduction. BigQuery adapter owner: validate decimal-string input before coercion, preserve optional absence; no fix within this PR. No proof that normal live BigQuery responses contain these malformed values. |"
+        },
+        {
+          "path": "docs/audit/391/batches/NON-07.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 85,
+          "quote": "| **NON07-02 — CONFIRMED dry-run precision gap** | `estimateQuery` lacks `Number.isSafeInteger` protection present in `executeQuery`, and can silently round Int64 estimates above 2^53−1. Deterministic reproduction. BigQuery adapter owner: retain exact decimal string or explicitly guard/report unrepresentable values after contract review. |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -4731,7 +4904,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4801,7 +4975,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4871,7 +5046,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -4941,7 +5117,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5011,7 +5188,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5081,7 +5259,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5151,7 +5330,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [
@@ -5235,7 +5415,8 @@
       "findings": [
         "AGG02-01",
         "AGG02-03"
-      ]
+      ],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5294,7 +5475,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5364,7 +5546,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5434,7 +5617,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5504,7 +5688,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5574,7 +5759,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5644,7 +5830,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5714,7 +5901,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5784,7 +5972,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5854,7 +6043,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5924,7 +6114,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -5994,7 +6185,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6064,7 +6256,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6134,7 +6327,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6204,7 +6398,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6274,7 +6469,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6344,7 +6540,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6419,7 +6616,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/CAP-18.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 111,
+          "quote": "| VC18-04 | L02; async raw formatting | **Confirmed inherited defect UX-05**: two preserved expected-failure tests reproduce late formatter replacing newer/other-tab draft. Normal successful/failing format/copy additionally passes natively | LokiExplorer raw format versus generated revision guard and QueryEditor applyFormattedQuery | High correctness impact/confidence | Canonical raw34753c0 establishes shell, not race pixels; existing tests establish race | Keep prior recommendation for bounded caller ownership fix; not implemented here |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -6489,7 +6694,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [
@@ -6572,7 +6778,8 @@
       "comparison": "DISAGREE",
       "findings": [
         "AGG02-03"
-      ]
+      ],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6642,7 +6849,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6712,7 +6920,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6782,7 +6991,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6852,7 +7062,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6922,7 +7133,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -6992,7 +7204,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7062,7 +7275,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7132,7 +7346,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7202,7 +7417,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7272,7 +7488,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7342,7 +7559,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7417,7 +7635,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/CAP-19.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 70,
+          "quote": "- **VC19-02 — CONFIRMED_DEFECT (L16; inspectability of nested values).** Source String(value) reduces nested structured metadata/parsed objects to [object Object]; observed in inspector, field-filter and copy-scroll PNGs. Long multiline message remains complete and inspectable. **Owner:** LogResultExplorer.fields. **Impact:** medium when nested values occur; **confidence:** high renderer screenshot/source. Future direction: product-approved structured value disclosure and correct copy payload, borrowing only proven structured-value patterns; do not invent a universal inspector."
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -7487,7 +7713,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7562,7 +7789,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/CAP-19.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 69,
+          "quote": "- **VC19-01 — CONFIRMED_DEFECT, inherited V-07 (L18/X10; clipboard/feedback).** Actual synthetic rejected raw-copy promise causes a captured unhandled rejection and no status/error notification; successful message/raw/field/trace/span payloads are exact, and no query or selection change occurs. Owners LogResultExplorer direct clipboard calls versus CopySqlButton/clipboardText/NotificationArea. Evidence copy-scroll PNG, behavior.copy-scroll, prior V-07. **Impact:** medium/high (silent failure); **confidence:** high native synthetic, OS clipboard acceptance UV. Future direction: bounded reuse of existing copy outcome handling and negative/retry tests, after audit."
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -7632,7 +7867,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7702,7 +7938,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7772,7 +8009,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7842,7 +8080,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7912,7 +8151,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -7982,7 +8222,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8052,7 +8293,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8122,7 +8364,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8192,7 +8435,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8262,7 +8506,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8332,7 +8577,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [
@@ -8409,7 +8655,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8479,7 +8726,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8549,7 +8797,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8619,7 +8868,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8689,7 +8939,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8759,7 +9010,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8829,7 +9081,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8899,7 +9152,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -8969,7 +9223,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9044,7 +9299,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/CAP-23.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 130,
+          "quote": "| **VC23-01** | T13, Tempo query toolbar sample/time presentation; all five original screenshots | **CONFIRMED_VISUAL_DEFECT** for truncated sample-size label at 1440px; range summary also truncated | Low–medium UX impact; high visual confidence. Compare responsive `QueryToolbar`/`TraceExplorer.module.css` sizing with other source toolbars. Preserve value semantics and per-profile persistence; possible bounded label-width/tooltip alignment later. |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -9114,7 +9377,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9184,7 +9448,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9254,7 +9519,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9324,7 +9590,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9399,7 +9666,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/CAP-24.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 113,
+          "quote": "| **VC24-03** | `CONFIRMED_DEFECT` | **V-06**, T18; `TraceScatterChart.traceScatterLocalRange`, `TraceExplorer` and result-range chip formatting; native brush screenshot + measured DOM boundary replacement | **High impact on exact boundary predictability, high confidence**. Fractional brush bounds disagree with whole-millisecond displayed chip; `...0201` excluded at shown start, `...0202` included at shown end. Future isolated fix should normalize/filter/display bounds to the same precision or present actual representable boundaries; retain half-open semantics and add exact native edge regression. No production fix in this PR. |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -9469,7 +9744,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9539,7 +9815,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9609,7 +9886,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9679,7 +9957,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9749,7 +10028,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9819,7 +10099,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9889,7 +10170,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -9964,7 +10246,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 451,
+          "quote": "- **VC12-03 — native resize changes sort target.** R04/R02; table header pointer/click boundary. Inspected filtered frame has value ▲; resized frame has name ▲. Native drag changes first column 775.8125→655.8125 px and unexpectedly activates name sort. **CONFIRMED_DEFECT in this Electron fixture**, high confidence observed pixels/gesture; root-cause attribution medium pending native event tracing. Owners ResultsTable startColumnResize/resizeColumn/finishColumnResize and header onClick. Existing virtualization test passes because fireEvent.pointerDown/move/up does not reproduce browser-synthesized click. Impact: resizing can reorder displayed/exported data. Follow-up should reproduce ordinary native drag/click target handling and assert unchanged sort while preserving clamps/virtualization. No fix in this audit. Additional explicit before/after header measurements added for the final-head rerun."
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -10034,7 +10324,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -10109,7 +10400,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 451,
+          "quote": "- **VC12-03 — native resize changes sort target.** R04/R02; table header pointer/click boundary. Inspected filtered frame has value ▲; resized frame has name ▲. Native drag changes first column 775.8125→655.8125 px and unexpectedly activates name sort. **CONFIRMED_DEFECT in this Electron fixture**, high confidence observed pixels/gesture; root-cause attribution medium pending native event tracing. Owners ResultsTable startColumnResize/resizeColumn/finishColumnResize and header onClick. Existing virtualization test passes because fireEvent.pointerDown/move/up does not reproduce browser-synthesized click. Impact: resizing can reorder displayed/exported data. Follow-up should reproduce ordinary native drag/click target handling and assert unchanged sort while preserving clamps/virtualization. No fix in this audit. Additional explicit before/after header measurements added for the final-head rerun."
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -10179,7 +10478,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -10249,7 +10549,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -10319,7 +10620,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -10389,7 +10691,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -10459,7 +10762,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -10534,7 +10838,21 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/CAP-26.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 92,
+          "quote": "| **VC26-01 — CONFIRMED_DEFECT** | Scatter PNG: **16 raw rows → 32 semantic marks**, including fake zero points for missing X/series pairings. `resultVisualization.pivotRowsForChart` constructs `missing[]` and synthetic zeros; `chartPresentation.buildChartPresentationOptions` strips `missing` and plots the zeros. **R10, R13**. | **High impact, high confidence.** Missing combinations are not measured zero. In Phase 2, retain gaps as non-plotted/null points in Scatter and assert exact scatter mark count and coordinate set. |"
+        },
+        {
+          "path": "docs/audit/391/batches/CAP-26.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 93,
+          "quote": "| **VC26-02 — CONFIRMED_DEFECT** | Scatter PNG: numeric X `duration_ms` values **100, 103, 110, 113…** occupy equally spaced category positions; `buildChartPresentationOptions` uses `xAxis.type='category'` whenever X is not temporal. **R10, R13**. | **High impact, high confidence.** Distances are misrepresented. In Phase 2 use numerical value-axis semantics for a numeric Scatter X, preserving genuine coordinates and tooltip labels. |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -10604,7 +10922,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -10674,7 +10993,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -10749,7 +11069,21 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/CAP-26.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 92,
+          "quote": "| **VC26-01 — CONFIRMED_DEFECT** | Scatter PNG: **16 raw rows → 32 semantic marks**, including fake zero points for missing X/series pairings. `resultVisualization.pivotRowsForChart` constructs `missing[]` and synthetic zeros; `chartPresentation.buildChartPresentationOptions` strips `missing` and plots the zeros. **R10, R13**. | **High impact, high confidence.** Missing combinations are not measured zero. In Phase 2, retain gaps as non-plotted/null points in Scatter and assert exact scatter mark count and coordinate set. |"
+        },
+        {
+          "path": "docs/audit/391/batches/CAP-26.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 93,
+          "quote": "| **VC26-02 — CONFIRMED_DEFECT** | Scatter PNG: numeric X `duration_ms` values **100, 103, 110, 113…** occupy equally spaced category positions; `buildChartPresentationOptions` uses `xAxis.type='category'` whenever X is not temporal. **R10, R13**. | **High impact, high confidence.** Distances are misrepresented. In Phase 2 use numerical value-axis semantics for a numeric Scatter X, preserving genuine coordinates and tooltip labels. |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -10819,7 +11153,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -10889,7 +11224,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -10959,7 +11295,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11029,7 +11366,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11099,7 +11437,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11174,7 +11513,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 543,
+          "quote": "- **VC13-01 — CONFIRMED_DEFECT, menu keyboard focus return.** S19/R19/UI-001; filtering/overlay focus. Inspected non-null/null menu and local-filter frames above; native focus trace summary→action→Escape→BODY. Expected dismissal keeps a reachable initiating focus target; actual focus position lost. Owners CellFilterMenu.tsx native details Escape handler, ResultsTable.tsx; controlled UI tests cover action callbacks but not browser focus. High confidence, medium accessibility priority. Compare V-03 custom-dialog and VC12-02 JSON Modal focus policy; distinct menu owner, not a duplicate resize defect. Follow-up: reproduce native keyboard and focus originating summary on dismissal; production fix deferred."
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -11244,7 +11591,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11314,7 +11662,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11384,7 +11733,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11454,7 +11804,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11524,7 +11875,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11594,7 +11946,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11669,7 +12022,21 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/CAP-29.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 116,
+          "quote": "### VC29-01 — CONFIRMED_DEFECT, nested Escape removes Settings"
+        },
+        {
+          "path": "docs/audit/391/batches/CAP-29.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 131,
+          "quote": "### VC29-03 — CONFIRMED_DEFECT in scoped invocation, failed Save loses focus"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -11739,7 +12106,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11809,7 +12177,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11879,7 +12248,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -11949,7 +12319,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -12024,7 +12395,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/CAP-30.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 120,
+          "quote": "| VC30-02 | CONFIRMED_DEFECT | Prometheus QueryEditor caller, X06/V-08 | High confidence BV: actual PromQL Copy exposes Copy SQL accessible label; pass correct language to existing control |"
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -12094,7 +12473,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -12164,7 +12544,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -12234,7 +12615,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -12309,7 +12691,15 @@
         "failedAcceptance": true
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": [
+        {
+          "path": "docs/audit/391/batches/CAP-19.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 69,
+          "quote": "- **VC19-01 — CONFIRMED_DEFECT, inherited V-07 (L18/X10; clipboard/feedback).** Actual synthetic rejected raw-copy promise causes a captured unhandled rejection and no status/error notification; successful message/raw/field/trace/span payloads are exact, and no query or selection change occurs. Owners LogResultExplorer direct clipboard calls versus CopySqlButton/clipboardText/NotificationArea. Evidence copy-scroll PNG, behavior.copy-scroll, prior V-07. **Impact:** medium/high (silent failure); **confidence:** high native synthetic, OS clipboard acceptance UV. Future direction: bounded reuse of existing copy outcome handling and negative/retry tests, after audit."
+        }
+      ]
     },
     {
       "supplementalSources": [],
@@ -12368,7 +12758,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     },
     {
       "supplementalSources": [],
@@ -12438,7 +12829,8 @@
         "failedAcceptance": false
       },
       "comparison": "AGREE",
-      "findings": []
+      "findings": [],
+      "failureSources": []
     }
   ],
   "batches": [

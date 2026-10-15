@@ -176,6 +176,11 @@ def validate(data):
             path, quote = failures[fid]
             require(entry['productAcceptance'] == 'FAIL' and entry['failureSource']['path'] == path and
                     entry['failureSource']['quote'] == quote, 'failure citation/verdict drift ' + fid)
+        if fid in failures:
+            require(entry['failureSource'] in entry.get('failureSources', []),
+                    'primary failure omitted from detailed citations ' + fid)
+        for detail in entry.get('failureSources', []):
+            check_ref(detail)
         if entry['independent']['behavior'] == 'BV':
             require(bool(entry['executionCitations']), 'BV without execution citation ' + fid)
             for citation in entry['executionCitations']:
