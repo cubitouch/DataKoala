@@ -253,7 +253,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     result:'Rejected query copy shows error and retry succeeds with identical payload'})
 
   await seed('prometheus',promql)
-  await waitFor(win,'[data-query-toolbar] [aria-label="Copy SQL to clipboard"]','PromQL current Copy label')
+  await waitFor(win, 'document.querySelector("[data-query-toolbar] [aria-label=\\"Copy SQL to clipboard\\"]")', 'PromQL current Copy label')
   // Preserve V-08 as an exact known-defect characterization; do not treat mislabeled UI as accepted.
   assert.equal(await js('document.querySelector("[data-query-toolbar] [aria-label=\\"Copy SQL to clipboard\\"]")?.getAttribute("aria-label")'),'Copy SQL to clipboard')
   await verifyCopy({surface:'PromQL raw query (known label defect)',action:'[data-query-toolbar] [aria-label="Copy SQL to clipboard"]',
@@ -263,7 +263,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   await testGrafana('prometheus',promql)
 
   await seed('loki',logql,{result:logs,resultRevision:1})
-  await waitFor(win,'document.querySelector("[aria-label=\\"Log results\\"] article')",'Loki synthetic log row')
+  await waitFor(win, 'document.querySelector("[aria-label=\\"Log results\\"] article")', 'Loki synthetic log row')
   const logCopyAction = await js('[...document.querySelectorAll("[data-query-toolbar] button")].find(b=>b.getAttribute("aria-label")?.includes("Copy"))?.getAttribute("aria-label")')
   assert.ok(logCopyAction,'Loki query copy control is present')
   await verifyCopy({surface:'LogQL raw query',action:'[aria-label="'+logCopyAction+'"]',
