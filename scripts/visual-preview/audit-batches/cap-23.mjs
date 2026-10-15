@@ -166,7 +166,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   // T10: inactive messaging drafts may survive, but must not appear in active Database TraceQL.
   await noDispatch('switch-database', () => choose('Protocol or subsystem', 'Database'))
   assert.equal((await state()).tempoBuilder.messagingSystem, 'kafka', 'Expected inactive draft to be retained')
-  await choose('Database system', 'PostgreSQL')
+  await choose('Database system', 'postgresql')
   await input('DB operation', 'SELECT "audit"')
   const database = wrap(
     alternatives(['span.db.system.name', 'span.db.system'], 'postgresql'),
