@@ -19,6 +19,7 @@ let releaseQuery = null
 let queryCalls = 0
 let cap08Stage = null
 const cap10Ipc = { active: false, calls: [] }
+const cap12Ipc = { active: false, exports: [] }
 const delay = (ms) => new Promise((done) => setTimeout(done, ms))
 
 export function installAuditIpc(ipc) {
@@ -35,6 +36,7 @@ export function installAuditIpc(ipc) {
     if (outcome === 'error') return { ok: false, message: 'Synthetic provider unavailable. Try Run again.', kind: 'connection' }
     return { ok: true, result: String(id).includes('tempo') ? (/^[a-f0-9]{32}$/.test(String(sql).trim()) ? auditSpanResult : auditTraceResult) : auditSqlResult }
   }
+  handle('export:save-text', (_event, opts) => { if (!cap12Ipc.active) throw Error('Unexpected export outside CAP-12'); cap12Ipc.exports.push(opts); return null })
   handle('query:run', (event, id, sql, parameters, request) => result(id, sql, event, request, parameters))
   handle('query:run-loki', async (_event, id, request) => {
     const value = await result(id, request.expression)
@@ -901,6 +903,99 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       // Series/dependent clearing uses named component/store tests; avoid a mocked cardinality claim.
       if(queryCalls!==callsBefore11)throw Error('CAP11 unexpectedly executed query')
       observations.push({family:'cap11',viewport,scenario:'relation-time-x-aggregation',initialSql:initial11,independentSql:independent11,countSql:count11,averageSql:average11,timeColumn:state11.builder.timeColumn,x:state11.builderVisualization.xColumn,minuteUnavailable:unavailable11,noQueryExecution:true,series:'source/named tests only',customRange:'source/named tests only'})
+    }
+    if (viewport === 'desktop') {
+      // CAP-12 owns synthetic export/clipboard only. Never invoke a native save dialog.
+      await seed('postgres','raw','fresh')
+      cap12Ipc.active = true
+      cap12Ipc.exports = []
+      const before12 = queryCalls
+      const nested12 = {user:{id:42,name:'Ada'},items:Array.from({length:70},(_,i)=>({id:i,ok:true,label:'雪'}))}
+      const typed12 = {columns:[{name:'name',dataTypeName:'text'},{name:'value',dataTypeName:'int4'},{name:'at',dataTypeName:'timestamptz'},{name:'payload',dataTypeName:'jsonb'},{name:'notes',dataTypeName:'text'}],rows:[{name:'keep,z',value:2,at:'2026-08-19T16:00:00.000Z',payload:nested12,notes:'{"looks":"json"}'},{name:'keep "a"\n雪',value:1,at:null,payload:{ok:true},notes:'ordinary text'},{name:'excluded '+ 'long text '.repeat(30),value:null,at:null,payload:null,notes:'ordinary'}],rowCount:3,durationMs:7}
+      const setResult12 = async (result, dates=false) => {
+        await evaluate(`(() => {const store=window.__datakoalaStore,t=store.getState().tabs[0],r=${rendererValue(result)};if(${rendererValue(dates)})r.rows[0].at=new Date(r.rows[0].at);store.setState({tabs:[{...t,result:r,resultRevision:t.resultRevision+1,sqlResultFilters:[],queryError:null,running:false,sqlVisualization:{...t.sqlVisualization,view:'table'}}]})})()`)
+        await settle()
+        await waitFor(win, `document.querySelector('[data-result-table-pane] table')`, 'CAP12 table')
+      }
+      await evaluate(`(() => {window.__cap12Clipboard=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__cap12Clipboard.push(text)}}})})()`)
+      await setResult12(typed12,true)
+      await observe('cap12-typed-table-desktop.png','[data-result-table-pane]','CAP-12 typed SQL results: date, numeric/null, long text, native and text JSON')
+      const jsonTrigger12 = '[aria-label="Explore JSON in payload, row 1"]'
+      await evaluate(`document.querySelector(${rendererValue(jsonTrigger12)}).focus()`)
+      await click(jsonTrigger12)
+      await waitFor(win, `document.querySelector('[role="dialog"] pre')?.innerText.includes('"id": 42')`, 'CAP12 nested JSON')
+      const jsonText12 = await evaluate(`document.querySelector('[role="dialog"] pre').innerText`)
+      if(jsonText12!==JSON.stringify(nested12,null,2))throw Error('CAP12 JSON formatted text mismatch')
+      await observe('cap12-json-desktop.png','[role="dialog"]','CAP-12 native JSON inspector with nested object/list and scrollable formatted value')
+      const jsonFocus12 = await evaluate(`document.querySelector('[role="dialog"]').contains(document.activeElement)`)
+      await evaluate(`document.querySelector('[role="dialog"] pre').scrollTop=400`)
+      const jsonScroll12 = await evaluate(`document.querySelector('[role="dialog"] pre').scrollTop`)
+      await clickText('Copy JSON','[role="dialog"]')
+      await waitFor(win, `window.__cap12Clipboard.at(-1)===${rendererValue(JSON.stringify(nested12,null,2))}`, 'CAP12 exact JSON copy')
+      await evaluate(`document.querySelector('[aria-label="Close JSON explorer"]').focus()`)
+      await key('Tab')
+      const tabInside12 = await evaluate(`document.querySelector('[role="dialog"]').contains(document.activeElement)`)
+      await key('Tab',['shift'])
+      const shiftInside12 = await evaluate(`document.querySelector('[role="dialog"]').contains(document.activeElement)`)
+      await key('Escape')
+      await waitFor(win, `!document.querySelector('[role="dialog"]') && document.activeElement===document.querySelector(${rendererValue(jsonTrigger12)})`, 'CAP12 Escape and focus restore')
+      if(!jsonFocus12||!tabInside12||!shiftInside12||jsonScroll12<=0)throw Error('CAP12 JSON focus/scroll failed')
+      await click('[aria-label="Explore JSON in notes, row 1"]')
+      await waitFor(win, `document.querySelector('[role="dialog"] pre')?.innerText===${rendererValue(JSON.stringify({looks:'json'},null,2))}`, 'CAP12 second JSON text target')
+      await click('[aria-label="Close JSON explorer"]')
+      const malformed12={...typed12,rows:[{name:'malformed',value:0,at:null,payload:'{bad',notes:'ordinary text'}],rowCount:1}
+      await setResult12(malformed12)
+      await click(jsonTrigger12)
+      await waitFor(win, `document.querySelector('[role="dialog"] [role="alert"]')?.textContent.includes('could not be formatted')`, 'CAP12 malformed JSON safety')
+      await observe('cap12-json-invalid-desktop.png','[role="dialog"]','CAP-12 malformed native JSON remains raw with explicit formatting alert')
+      await key('Escape')
+      const csv12 = {columns:auditSqlResult.columns.map(c=>({...c,name:c.name==='category'?'name':c.name})),rows:[{name:'keep,z',value:2},{name:'excluded',value:null},{name:'keep "a"\n雪',value:1}],rowCount:3,durationMs:7}
+      await setResult12(csv12)
+      await type('[aria-label="Filter rows"]','')
+      const valueHeader12 = '[data-result-table-pane] th:nth-child(2)'
+      const values12 = () => evaluate(`[...document.querySelectorAll('[data-result-row-index]')].map(r=>r.querySelectorAll('[data-result-cell]')[1]?.firstElementChild?.textContent.trim())`)
+      await click(valueHeader12)
+      const asc12=await values12()
+      await click(valueHeader12)
+      const desc12=await values12()
+      await click(valueHeader12)
+      const none12=await values12()
+      if(asc12.join('|')!=='1|2|␀'||desc12.join('|')!=='␀|2|1'||none12.join('|')!=='2|␀|1')throw Error('CAP12 sort cycle/null mismatch '+JSON.stringify({asc12,desc12,none12}))
+      await type('[aria-label="Filter rows"]','keep')
+      await click(valueHeader12)
+      await observe('cap12-filtered-table-desktop.png','[data-result-table-pane]','CAP-12 local text filter and numeric ascending sort before exact CSV Copy/Export')
+      const csvExpected12='name,value\n"keep ""a""\n雪",1\n"keep,z",2'
+      await click('[aria-label="Copy CSV"]')
+      await waitFor(win, `window.__cap12Clipboard.at(-1)===${rendererValue(csvExpected12)}`, 'CAP12 exact filtered CSV copy')
+      await clickText('Export CSV','[data-result-toolbar]')
+      await delay(100)
+      if(cap12Ipc.exports.at(-1)?.content!==csvExpected12||cap12Ipc.exports.at(-1)?.defaultName!=='datakoala_results.csv')throw Error('CAP12 matching export payload failed')
+      const widthBefore12=await evaluate(`document.querySelector('[data-result-table-pane] th').getBoundingClientRect().width`)
+      await dragDivider(win,'[aria-label="Resize name column"]',-120,0)
+      const widthAfter12=await evaluate(`document.querySelector('[data-result-table-pane] th').getBoundingClientRect().width`)
+      if(Math.abs(widthBefore12-widthAfter12)<10||widthAfter12<80||widthAfter12>720)throw Error('CAP12 real column resize failed '+JSON.stringify({widthBefore12,widthAfter12}))
+      await observe('cap12-resized-table-desktop.png','[data-result-table-pane]','CAP-12 real pointer column resize retains sorted/filtered table and Copy feedback')
+      await type('[aria-label="Filter rows"]','no-match-12')
+      await click('[aria-label="Copy CSV"]')
+      await waitFor(win, `window.__cap12Clipboard.at(-1)==='name,value'`, 'CAP12 empty filtered CSV headers')
+      await clickText('Export CSV','[data-result-toolbar]')
+      await delay(100)
+      if(cap12Ipc.exports.at(-1)?.content!=='name,value')throw Error('CAP12 empty export failed')
+      await type('[aria-label="Filter rows"]','')
+      const large12={...csv12,rows:Array.from({length:200},(_,value)=>({name:'row '+value,value})),rowCount:200}
+      await setResult12(large12)
+      const mounted12=await evaluate(`document.querySelectorAll('[data-result-row-index]').length`)
+      if(mounted12>=200)throw Error('CAP12 virtual cohort not bounded')
+      // New result retains local sort state: ascending from the earlier cycle.
+      const expectedLarge12='name,value\n'+large12.rows.map(r=>r.name+','+r.value).join('\n')
+      await click('[aria-label="Copy CSV"]')
+      await waitFor(win, `window.__cap12Clipboard.at(-1)===${rendererValue(expectedLarge12)}`, 'CAP12 all virtual rows copied')
+      await clickText('Export CSV','[data-result-toolbar]')
+      await delay(100)
+      if(cap12Ipc.exports.at(-1)?.content!==expectedLarge12)throw Error('CAP12 all virtual rows export failed')
+      if(queryCalls!==before12)throw Error('CAP12 presentation unexpectedly ran a query')
+      observations.push({family:'cap12',viewport,scenario:'table-csv-json',sort:{ascending:asc12,descending:desc12,none:none12},csvExpected:csvExpected12,copyMatchesExport:true,emptyFilteredCsv:'name,value',virtualRows:200,mountedRows:mounted12,fullVirtualPayloadExact:true,resize:{before:widthBefore12,after:widthAfter12},json:{exactFormattedCopy:true,nested:true,scrolled:jsonScroll12,initialFocusInside:jsonFocus12,tabInside:tabInside12,shiftTabInside:shiftInside12,escapeRestoredFocus:true,secondTextTarget:true,malformedAlert:true},nativeClipboard:'unverified',nativeFilesystem:'unverified',noQueryExecution:true})
+      cap12Ipc.active=false
     }
     if (viewport === 'desktop') {
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
