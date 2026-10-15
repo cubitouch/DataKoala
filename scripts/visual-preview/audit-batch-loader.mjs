@@ -51,7 +51,7 @@ export async function verifyBatchEvidence(directory, screenshots, sourceHead) {
 export async function executeAuditBatch(batch, context, sourceHead) {
   await mkdir(context.outputDir, { recursive: true })
   // This directory belongs to one module, never the canonical audit output.
-  for (const filename of await readdir(context.outputDir)) await rm(resolve(context.outputDir, filename), { recursive: true, force: true })
+  for (const filename of [...batch.module.screenshots, 'measurements.json', 'status.json']) await rm(resolve(context.outputDir, filename), { force: true })
   try {
     await batch.module.runVisualAudit(context)
     await verifyBatchEvidence(context.outputDir, batch.module.screenshots, sourceHead)

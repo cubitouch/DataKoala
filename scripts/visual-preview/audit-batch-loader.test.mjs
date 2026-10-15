@@ -65,12 +65,12 @@ test('evidence verifies exact manifest, PNG dimensions, provenance and semantic 
   await assert.rejects(verifyBatchEvidence(dir, ['state.png'], 'abc'), /1440x900/)
 })
 test('failed module preserves partial evidence and writes failure status, never success', async t => {
-  const dir = await fixture(t); await writeFile(join(dir, 'stale.png'), 'stale')
-  const batch = { id:'cap-19', module:{ screenshots:[], async runVisualAudit() { await writeFile(join(dir,'partial.png'),'partial'); throw Error('scenario failed') } } }
+  const dir = await fixture(t); await writeFile(join(dir, 'partial.png'), 'stale'); await writeFile(join(dir, 'notes.txt'), 'unrelated')
+  const batch = { id:'cap-19', module:{ screenshots:['partial.png'], async runVisualAudit() { await writeFile(join(dir,'partial.png'),'partial'); throw Error('scenario failed') } } }
   await assert.rejects(executeAuditBatch(batch, {outputDir:dir}, 'abc'), /scenario failed/)
   assert.equal((await readFile(join(dir, 'partial.png'))).toString(), 'partial')
   assert.equal(JSON.parse(await readFile(join(dir,'status.json'))).status, 'failure')
-  await assert.rejects(readFile(join(dir,'stale.png')), {code:'ENOENT'})
+  assert.equal((await readFile(join(dir,'notes.txt'))).toString(), 'unrelated')
 })
 test('a module returning without its measurements is a failure', async t => {
   const dir = await fixture(t)
