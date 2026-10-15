@@ -1,6 +1,6 @@
 # CAP-24 — Tempo trace list, lookup, progressive results and scatter
 
-**Disposition: PARTIAL — confirmed displayed-boundary defect.** Evidence was gathered for T14–T18 and all five full-resolution screenshots were inspected. Do **not** mark CAP-24 `EVIDENCE_COMPLETE`; the displayed `[start, end)` interval does not agree with actual row membership for traces at the displayed boundaries. This audit characterizes the problem but does not modify production UX.
+**Disposition: PARTIAL — confirmed displayed-boundary defect.** The standalone Electron **known-defect characterization passes**, but T18 **product acceptance still FAILS**. Evidence was gathered for T14–T18 and all five full-resolution screenshots were downloaded and individually inspected from the new successful run. Do **not** mark CAP-24 `EVIDENCE_COMPLETE`; the displayed `[start, end)` interval does not agree with actual row membership for traces at the displayed boundaries. This audit characterizes the problem but does not modify production UX.
 
 ## A. Metadata and chain of custody
 
@@ -12,17 +12,19 @@
 | Draft PR | [#430](https://github.com/cubitouch/DataKoala/pull/430) targeting `audit/391-ux-convergence` (never `main`) |
 | Initial standalone-scenario commit | `2b0a3648a84805548b3306d69a0b8ce560bb82cb` |
 | Scenario correction commits | `d424c41032ef45275daf3eaad0a366aa56a45916`, `7930ab65176e42b2233ba564b0a5fe31696f75e6`, `e4c7d84067769a926f24b92833a4fe197fba8990` |
-| Final generating scenario SHA | `1f72ac835989b264bd70b7f6085507f8ed99b87f` |
+| Final generating scenario SHA | `ee031b9d3969bf81f4e6ed36e11314dcaefdd0b3` |
+| Characterization-only correction commits | `9996c078609ddd57fd5c37b793eaf9c4fb465992`, `ee031b9d3969bf81f4e6ed36e11314dcaefdd0b3` |
 | Report commit | The commit introducing this document; exact SHA recorded in PR #430's handoff (cannot self-reference a commit SHA inside its own content) |
-| Visual Preview workflow | [run 38790956402](https://github.com/cubitouch/DataKoala/actions/runs/38790956402), capture job `116615058321` |
-| Audit evidence artifact | [`datakoala-ux-audit-pr-430`, artifact 11999364291](https://github.com/cubitouch/DataKoala/actions/runs/38790956402/artifacts/11999364291) |
-| CI workflow | [run 38790956474](https://github.com/cubitouch/DataKoala/actions/runs/38790956474) |
-| Documentation workflow | [run 38790956430](https://github.com/cubitouch/DataKoala/actions/runs/38790956430) |
-| Actual Actions merge checkout | `1e6abe83dfd7d4cdb3e91a01e0020549c6265233` (`refs/pull/430/merge`, **not** the scenario/source SHA) |
+| Visual Preview workflow | [run 38794494341](https://github.com/cubitouch/DataKoala/actions/runs/38794494341) — **SUCCESS**, capture `116627700460` and publish `116629712842` both successful |
+| Audit evidence artifact | [`datakoala-ux-audit-pr-430`, artifact 12001392707](https://github.com/cubitouch/DataKoala/actions/runs/38794494341/artifacts/12001392707), downloaded and individually inspected |
+| CI workflow | [run 38794493929](https://github.com/cubitouch/DataKoala/actions/runs/38794493929) |
+| Documentation workflow | [run 38794494306](https://github.com/cubitouch/DataKoala/actions/runs/38794494306) — **SUCCESS** |
+| Actual Actions merge checkout | `786f1d2d4ad7b755278427e465b613455afc1e13` (`refs/pull/430/merge`, **not** the scenario/source SHA) |
+| Merge checkout base in that run | `3cadf2e41ada6f02e53b06f9d500d84a928ca292` (later integration-branch snapshot; isolated branch originally forked from `7322aae7…`) |
 | Viewport | 1440 × 900 CSS pixels, DPR = 1, Electron zoom = 1 |
 | Ownership | `scripts/visual-preview/audit-batches/cap-24.mjs` and `docs/audit/391/batches/CAP-24.md` only |
 
-The GitHub Actions runner checked out the synthetic PR merge SHA, but `DATAKOALA_AUDIT_HEAD`, `measurements.json.sourceHead`, `status.json.sourceHead` and `batches/index.json` all identify the actual scenario commit `1f72ac835989b264bd70b7f6085507f8ed99b87f`. The full archive was downloaded and the five CAP-24 images were opened individually, at their native dimensions. No live Tempo endpoint was used.
+The GitHub Actions runner checked out the synthetic PR merge SHA, but `DATAKOALA_AUDIT_HEAD`, `measurements.json.sourceHead`, `status.json.sourceHead` and `batches/index.json` all identify the actual scenario commit `ee031b9d3969bf81f4e6ed36e11314dcaefdd0b3`. The full archive was downloaded and the five CAP-24 images were opened individually, at their native dimensions. No live Tempo endpoint was used.
 
 ## B. Coverage matrix
 
@@ -86,11 +88,11 @@ The actual DOM inspection recorded exactly `Boundary end excluded` and `Inside i
 
 **Interpretation, with an important precision distinction:** `traceScatterLocalRange` retains the ECharts numeric `coordRange`, which may contain fractional milliseconds. `TraceExplorer` compares raw numeric `startTimeMs >= localRange.startMs && startTimeMs < localRange.endMs`. The shared result filter chip, however, shows `new Date(...).toISOString()` bounds rounded/truncated to whole milliseconds. A trace placed precisely at an *advertised* boundary need not fall at the unrounded internal boundary. Thus this audit confirms a **displayed-contract mismatch**, not necessarily incorrect ordering at the unrounded floating-point boundaries. This distinction must be retained in any fix and regression test.
 
-**Acceptance result:** native brush causes no Tempo fetch = **PASS**; local reset restores cohort = **PASS**; displayed exact `[start, end)` boundary membership = **FAIL**. The scenario deliberately throws `CAP24_BOUNDARY_CONTRACT_FAILURE` *after* writing all measurements and five screenshots.
+**Acceptance result:** native brush causes no Tempo fetch = **PASS**; local reset restores cohort = **PASS**; displayed exact `[start, end)` boundary membership = **FAIL**. The scenario now **passes by explicitly characterizing the known defect**, including the precise observed membership and visible source-service identities. The assertion fails if the observed behavior changes; a future production fix MUST replace/update its expected characterization and demonstrate passing `[start, end)` product acceptance. **A successful audit is not a T18 acceptance pass.**
 
 ## F. Screenshot manifest and visual inspection
 
-All files exist in `batches/CAP-24/` within artifact **11999364291**. Individual final-artifact inspections were performed at **1440 × 900**, no resizing; each is RGB PNG, DPR = 1, zoom = 1; `measurements.json` reports positive target rectangle, non-overflowing document, correct source SHA and semantic result state.
+All files exist in `batches/CAP-24/` within artifact **12001392707**. Individual final-artifact inspections were performed at **1440 × 900**, no resizing; each is RGB PNG, DPR = 1, zoom = 1; `measurements.json` reports positive target rectangle, non-overflowing document, correct source SHA and semantic result state.
 
 | PNG | Semantic target | Measured target bounds (x,y,w,h) | Inspection |
 | --- | --- | --- | --- |
@@ -100,7 +102,7 @@ All files exist in `batches/CAP-24/` within artifact **11999364291**. Individual
 | `cap24-scatter-selected-desktop.png` | Populated filtered scatter | (248,475,1192,425) | **VV**: three positioned scatter marks, legible time/duration axes and statuses, visible local `[start,end)` filter chip; no chart overflow. |
 | `cap24-traces-empty-desktop.png` | Completed zero-row search | (248,40,1192,860) | **VV**: no phantom rows, no loading overlay, central empty-state guidance; copy resembles never-searched guidance, a further messaging question. |
 
-The exact five screenshot names match the registered budget. The `status.json` entry is `failure` with `CAP24_BOUNDARY_CONTRACT_FAILURE`; `batches/index.json` likewise has `cap-24` status `failure` and matching `sourceHead`. The index does not repeat the detailed error; `status.json` and workflow log contain it. Passing dimensions and visual inspections alone must **not** be treated as a `VV` warrant for the failed boundary semantics.
+The exact five screenshot names match the registered budget. The `status.json` entry is **`success`** with exact `sourceHead` `ee031b9d3969bf81f4e6ed36e11314dcaefdd0b3`; `batches/index.json` likewise has CAP-24 **`success`**, `error: null`, and the same `sourceHead` as `measurements.json`. The workflow log records `CAP24_KNOWN_DEFECT_CHARACTERIZED` with `productAcceptance: "FAIL"` and the unchanged exact mismatch in `measurements.json.boundaryFinding`. **These success statuses describe execution of the characterization, NOT acceptance of the faulty product behavior.**
 
 ## G. Visual Convergence Atlas candidates (V-01 / V-06)
 
@@ -116,17 +118,17 @@ Every candidate above is an observation/roadmap lead only. There is no shared re
 
 ## H. CI, assertions and acceptance
 
-- **Visual Preview**: run **38790956402** — `capture` **failure deliberately caused by CAP-24 boundary assertion**, after the five PNGs and `measurements.json` were written. Prior standalone CAP-18–CAP-23 modules completed successfully in the same workflow, so this is not a blanket runner failure. Earlier CAP-24 runs failed first on audit-only wait selectors and then exposed the boundary discrepancy; the final generating commit is the only final evidence baseline.
-- **Main CI**: run **38790956474** — **Production build, UI tests, unit tests, DuckDB macOS runtime/package PASS**; **Quality fails at Check formatting** (26 pre-existing warnings elsewhere in this accumulated integration diff). Formatting failure is independent of the synthetic Tempo boundary mismatch. As requested, no local lint or format command was run.
-- **Documentation**: run **38790956430** — build **PASS**, deploy skipped for draft PR.
+- **Visual Preview**: [run **38794494341**](https://github.com/cubitouch/DataKoala/actions/runs/38794494341) — **SUCCESS**, including capture and publish jobs; CAP-24 executed successfully with the explicit known-defect characterization, all five screenshots and `measurements.json` generated, and final artifact **12001392707** downloaded. The preceding failing run **38790956402** remains historical evidence only: its unconditional `CAP24_BOUNDARY_CONTRACT_FAILURE` was removed, **not** the fixture, observed mismatch or failed product acceptance. The generating SHA for the newly inspected images is exclusively `ee031b9d3969bf81f4e6ed36e11314dcaefdd0b3`.
+- **Main CI**: run **38794493929** — **Production build, UI tests, unit tests, DuckDB macOS runtime/package PASS**; **Quality fails at Check formatting** (26 pre-existing warnings elsewhere in this accumulated integration diff). Formatting failure is independent of the synthetic Tempo boundary mismatch. As requested, no local lint or format command was run.
+- **Documentation**: run **38794494306** — build **PASS**, deploy skipped for draft PR.
 - **Assertions verified natively**: exact trace profile and query payloads, search order/visible summary/statuses, row selection and bounded trace lookup, found/not-found/provider error distinction, stable back navigation, two-to-five progressive completion, exact disabled/enabled controls, List/Scatter zero-fetch, native mouse brush and subset, filter-chip removal and cohort reset, empty successful search, failed search alert, positive geometry, DPR and viewport, source provenance.
-- **Assertion failing as expected**: `displayed-half-open-boundary`: start-at-displayed-bound excluded and end-at-displayed-bound included. Exact failing fixtures, visible rows, and request count appear in `measurements.json.boundaryFinding` and workflow log.
+- **Known-defect characterization PASS; product acceptance FAIL**: an exact native assertion expects and verifies the *currently observed* start-at-displayed-bound excluded, end-at-displayed-bound included, inside trace included and outside traces excluded, with exactly `["Boundary end excluded", "Inside interval"]` visible in that order. It fails on unexpectedly changed behavior; a future production fix requires revising this audit assertion to prove the correct displayed `[start, end)` semantics. The unchanged failing fixture, observed membership, product-acceptance `expected` fields and zero provider-call delta remain in `measurements.json.boundaryFinding`.
 - **Not executed**: authenticated Tempo calls; stale or superseded progressive completions; interrupted progressive failure; high-cardinality list virtualization; exact raw floating-point boundary member injection; empty scatter dataset as a *separate* scatter-state screenshot (empty search is visually covered, scatter empty behavior is source-only).
 
 ## I. Final disposition and handoff
 
 **`PARTIAL` — do not advance the central coverage register to `EVIDENCE_COMPLETE`.**
 
-All five specified PNGs were captured and visually reviewed. T14–T17 native baseline scenarios and the zero-extra-fetch part of T18 were verified. The exact displayed `[start,end)` acceptance criterion fails reproducibly: **VC24-03**. The audit preserves the failure, its fixture inputs, and the unrounded-versus-displayed precision distinction without changing production code.
+All five specified PNGs were captured and individually inspected in the new successful workflow. CAP-24 standalone execution is `success` by intentional known-defect characterization, while its report disposition remains **PARTIAL** and T18 product acceptance remains **FAIL**. T14–T17 native baseline scenarios and the zero-extra-fetch part of T18 were verified. The exact displayed `[start,end)` acceptance criterion fails reproducibly: **VC24-03**. The audit preserves the failure, its fixture inputs, and the unrounded-versus-displayed precision distinction without changing production code.
 
 Follow-up, outside CAP-24: address the interval precision/display contract in a separate authorized production slice, rerun native boundary regression and other residual cases, then update the central register only after confirmed acceptance. **Do not merge PR #430 or PR #406 as part of this audit; do not proceed to CAP-25 or Phase 2 here.**
