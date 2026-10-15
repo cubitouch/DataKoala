@@ -37,7 +37,7 @@ const rows = descriptions.map(([line, severity], index) => {
     timestampNs: String(BigInt(timestampMs) * 1000000n),
     line, labels: { service_name: 'example-service', environment: 'example' },
     structuredMetadata: {}, parsedFields: {},
-    ...(severity ? { severity } : { severity: undefined }),
+    severity: severity ?? '',
   }
 })
 const asResult = logRows => ({
