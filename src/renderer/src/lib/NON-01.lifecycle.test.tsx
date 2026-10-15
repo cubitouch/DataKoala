@@ -45,7 +45,7 @@ const deferred = <T,>() => {
 }
 
 const result = (value: string): QueryResult => ({
-  columns: [{ name: 'value', type: 'text' }],
+  columns: [{ name: 'value', dataTypeID: 25, dataTypeName: 'text' }],
   rows: [{ value }],
   rowCount: 1,
   durationMs: 1,
