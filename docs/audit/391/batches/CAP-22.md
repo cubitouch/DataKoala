@@ -1,10 +1,10 @@
 # CAP-22 — Tempo Builder service and protocol controls
 
-**Parent:** [#391](https://github.com/cubitouch/DataKoala/issues/391) · **Integration:** [draft #406](https://github.com/cubitouch/DataKoala/pull/406) · **Temporary draft:** [#423](https://github.com/cubitouch/DataKoala/pull/423)  
-**Integration base:** `9836b7fb0f75c64cd024a36e446ec34cfbde78d1`  
-**CAP branch:** `audit/391-cap-22-tempo-builder`  
-**Scenario commit:** `c7a3c254ac3f4fbd8d70878eb389dff993681cd4` (after selector-expression correction to initial `89edfed604376b958597bacd105feac3d05873b0`)  
-**Final report commit:** recorded in final handoff (self-reference cannot be committed into itself).  
+**Parent:** [#391](https://github.com/cubitouch/DataKoala/issues/391) · **Integration:** [draft #406](https://github.com/cubitouch/DataKoala/pull/406) · **Temporary draft:** [#423](https://github.com/cubitouch/DataKoala/pull/423)
+**Integration base:** `9836b7fb0f75c64cd024a36e446ec34cfbde78d1`
+**CAP branch:** `audit/391-cap-22-tempo-builder`
+**Scenario commits:** `89edfed604376b958597bacd105feac3d05873b0` → `c7a3c254ac3f4fbd8d70878eb389dff993681cd4` → `e1949577ce736633c3b5b8018454076e39e3be61` (native form-validity distinction)
+**Final report commit:** recorded in final handoff (self-reference cannot be committed into itself).
 **Viewport:** Electron 1440×900, DPR/zoom 1; synthetic Tempo IPC, no authenticated service.
 
 ## Disposition
@@ -90,8 +90,8 @@ Each candidate's classification must be revisited after the generated screenshot
 
 ## CI and provenance ledger
 
-- Scenario commits: `89edfed604376b958597bacd105feac3d05873b0` and `c7a3c254ac3f4fbd8d70878eb389dff993681cd4`.
-- At this draft: [CI 38776097031](https://github.com/cubitouch/DataKoala/actions/runs/38776097031), [Visual preview 38776097045](https://github.com/cubitouch/DataKoala/actions/runs/38776097045), [Documentation 38776097013](https://github.com/cubitouch/DataKoala/actions/runs/38776097013) queued on scenario commit.
+- Scenario commits: `89edfed604376b958597bacd105feac3d05873b0`, `c7a3c254ac3f4fbd8d70878eb389dff993681cd4` and `e1949577ce736633c3b5b8018454076e39e3be61`.
+- Current scenario run: [CI 38776599117](https://github.com/cubitouch/DataKoala/actions/runs/38776599117), [Visual preview 38776599080](https://github.com/cubitouch/DataKoala/actions/runs/38776599080), [Documentation 38776599244](https://github.com/cubitouch/DataKoala/actions/runs/38776599244). CI Unit/UI/Build green; Quality failed trailing whitespace in this report (addressed in a subsequent commit). The workflow on this report correction must be checked afresh.
 - Results: **pending**. Artifact name should be `datakoala-ux-audit-pr-423`; **artifact ID unverified**.
 - Exact tests, passed/failed job steps, changes relative to inherited formatting/typecheck failures: pending job logs.
 - `measurements.json`, `status.json`, aggregate `batches/index.json`, five original PNGs and canonical-regression preservation: **not yet inspected**.
