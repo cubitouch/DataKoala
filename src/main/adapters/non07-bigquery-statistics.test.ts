@@ -18,6 +18,7 @@ const profile: BigQueryProfile = {
 
 type Fixture = {
   queryStatistics?: Record<string, unknown> | null
+  dryRunStatistics?: Record<string, unknown>
   statementType?: 'SELECT' | 'SCRIPT'
   rows?: Record<string, unknown>[]
   resultStatistics?: Record<string, unknown>
@@ -45,7 +46,10 @@ function fakeClient(fixture: Fixture): {
           {
             metadata: {
               statistics: {
-                query: { statementType: fixture.statementType ?? 'SELECT' },
+                query: {
+                  statementType: fixture.statementType ?? 'SELECT',
+                  ...fixture.dryRunStatistics,
+                },
               },
             },
           },
@@ -209,4 +213,17 @@ test('NON07 execution failures produce no successful statistics-bearing result',
         error instanceof Error && error.message.includes(message),
     )
   }
+})
+
+test('NON07 EXPECTED FAILURE reproduction: dry-run estimate loses precision above MAX_SAFE_INTEGER', async () => {
+  const fake = fakeClient({
+    dryRunStatistics: { totalBytesProcessed: '9007199254740993' },
+  })
+  const { session } = await new BigQueryAdapter(
+    () => fake.client,
+  ).connect(profile)
+  assert.ok(session?.estimateQuery)
+  const estimate = await session.estimateQuery('SELECT 1')
+  assert.equal(estimate.bytesProcessed, 9007199254740992)
+  assert.equal(Number.isSafeInteger(estimate.bytesProcessed), false)
 })
