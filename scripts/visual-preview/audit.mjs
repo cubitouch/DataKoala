@@ -20,6 +20,8 @@ let queryCalls = 0
 let cap08Stage = null
 const cap10Ipc = { active: false, calls: [] }
 const cap12Ipc = { active: false, exports: [] }
+const cap14Ipc = { outcome:'success', calls:[], release:null }
+const cap14Tree = {id:'0',plan:'Hash Join',nodeType:'Hash Join',planRows:10,totalCost:12,actualRows:12,actualTotalTime:3.2,loops:1,children:[{id:'0.0',plan:'Seq Scan',nodeType:'Seq Scan',relation:'events',schema:'example',planRows:10,totalCost:4,actualRows:12,actualTotalTime:1,loops:1},{id:'0.1',plan:'Index Scan',nodeType:'Index Scan',relation:'lookup',schema:'example',index:'lookup_pkey',planRows:10,totalCost:5,actualRows:12,actualTotalTime:1.4,loops:1}]}
 const delay = (ms) => new Promise((done) => setTimeout(done, ms))
 
 export function installAuditIpc(ipc) {
@@ -36,6 +38,13 @@ export function installAuditIpc(ipc) {
     if (outcome === 'error') return { ok: false, message: 'Synthetic provider unavailable. Try Run again.', kind: 'connection' }
     return { ok: true, result: String(id).includes('tempo') ? (/^[a-f0-9]{32}$/.test(String(sql).trim()) ? auditSpanResult : auditTraceResult) : auditSqlResult }
   }
+  handle('query:explain',async (_event,id,sql,analyze)=>{
+    cap14Ipc.calls.push({id,sql,analyze})
+    const outcome=cap14Ipc.outcome
+    if(outcome==='pending')await new Promise(done=>{cap14Ipc.release=()=>{cap14Ipc.release=null;done()}})
+    if(outcome==='error')throw Error('Synthetic EXPLAIN provider failure')
+    return {text:analyze?'Synthetic analyzed plan':'Synthetic estimated plan',tree:cap14Tree,analyze,planningTimeMs:0.6,...(analyze?{executionTimeMs:3.8}:{})}
+  })
   handle('export:save-text', (_event, opts) => { if (!cap12Ipc.active) throw Error('Unexpected export outside CAP-12'); cap12Ipc.exports.push(opts); return null })
   handle('query:run', (event, id, sql, parameters, request) => result(id, sql, event, request, parameters))
   handle('query:run-loki', async (_event, id, request) => {
@@ -1069,6 +1078,56 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       await waitFor(win,`!document.querySelector('[data-result-filter-chip]')`,'CAP13 clear chips')
       observations.push({family:'cap13',viewport,scenario:'cell-local-query-filter',rawLocalQueryDelta:0,rawRows:{before:3,filtered:1,removed:3},focus:{onSummary:onSummary13,onAction:onAction13,escape:escaped13,outsideClick:outside13},promoted:promoted13,promotionQueryDelta:promotionCalls13,promotionRequests:cap10Ipc.calls,demotion:'actual allowed action',nonpromotableValueHidesAction:nonpromotable13,blockedDemotion:blocked13,blockedDemotionSetup:'named component test only; no invalid predicate injection',clearAll:true,provider:'synthetic IPC only'})
       cap10Ipc.active=false
+    }
+    if (viewport === 'desktop') {
+      await seed('postgres','raw','default')
+      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,sql:'SELECT 1;',showExplain:false,explainTree:null,explainText:null,explainSnapshot:null,activeExplainRequest:null}]})})()`)
+      const before14=queryCalls
+      cap14Ipc.calls=[]
+      const busy14=[]
+      for(const mode of ['explain','analyze']) {
+        cap14Ipc.outcome='pending'
+        await clickText(mode==='explain'?'Explain':'Explain Analyze','[data-query-toolbar]')
+        await waitFor(win,`document.querySelector('[data-testid="explain-loading-overlay"]') && window.__datakoalaStore.getState().tabs[0].activeExplainRequest===${rendererValue(mode)}`,'CAP14 busy '+mode)
+        const state14=await evaluate(`(() => {const t=document.querySelector('[data-query-toolbar]'),p=document.querySelector('[aria-label="Explain results"]');return {mode:${rendererValue(mode)},heading:p.querySelector('h1').innerText,message:p.querySelector('[role="status"]').innerText,buttons:[...t.querySelectorAll('button.explain-action')].map(b=>({text:b.textContent.trim(),disabled:b.disabled})),editorEditable:document.querySelector('[aria-label="SQL editor"] .cm-content')?.getAttribute('contenteditable')}})()`)
+        if(state14.buttons.length!==2||state14.buttons.some(b=>!b.disabled))throw Error('CAP14 busy guards missing')
+        const count14=cap14Ipc.calls.length
+        await evaluate(`document.querySelector('[data-query-toolbar] button.explain-action').click()`)
+        await settle()
+        if(cap14Ipc.calls.length!==count14)throw Error('CAP14 repeated Explain bypassed guard')
+        await clickText('Builder','[aria-label="Query mode"]')
+        if(await evaluate(`window.__datakoalaStore.getState().tabs[0].queryMode!=='sql'`))throw Error('CAP14 mode switch bypassed busy guard')
+        state14.modeSwitchGuard=true
+        busy14.push(state14)
+        for(let i=0;!cap14Ipc.release&&i<50;i++)await delay(20)
+        if(!cap14Ipc.release)throw Error('CAP14 deferred IPC not reached')
+        cap14Ipc.release()
+        await waitFor(win,`!window.__datakoalaStore.getState().tabs[0].activeExplainRequest && document.querySelector('[aria-label="Execution plan diagram"]')?.getAttribute('data-node-count')==='3'`,'CAP14 settled tree')
+        await waitFor(win,`document.querySelector('[data-node-id="0.1"]')`,'CAP14 graph child')
+        const point14=await evaluate(`(() => {const r=document.querySelector('[data-node-id="0.1"]').getBoundingClientRect();return{x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`)
+        win.webContents.sendInputEvent({type:'mouseMove',...point14})
+        win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...point14})
+        win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...point14})
+        await waitFor(win,`document.querySelector('[aria-label="Execution plan diagram"]').getAttribute('data-selected-node-id')==='0.1' && document.querySelector('[aria-label="Plan node details"] h2').innerText==='Index Scan'`,'CAP14 native graph selection')
+        const snapshot14=await evaluate(`window.__datakoalaStore.getState().tabs[0].explainSnapshot`)
+        if(snapshot14.mode!==mode||snapshot14.query!=='SELECT 1;')throw Error('CAP14 snapshot mismatch')
+        if(mode==='analyze'&&snapshot14.executionTimeMs!==3.8)throw Error('CAP14 timing missing')
+        await observe(`cap14-${mode}-desktop.png`,'[aria-label="Explain results"]','CAP-14 '+mode+' response, native selected Index Scan child and inspector')
+        await clickText('Close','[aria-label="Explain results"]')
+        await waitFor(win,`!document.querySelector('[aria-label="Explain results"]')`,'CAP14 return to toolbar')
+      }
+      cap14Ipc.outcome='error'
+      await clickText('Explain Analyze','[data-query-toolbar]')
+      await waitFor(win,`window.__datakoalaStore.getState().tabs[0].explainText==='Synthetic EXPLAIN provider failure' && !window.__datakoalaStore.getState().tabs[0].activeExplainRequest`,'CAP14 injected failure')
+      const failure14=await evaluate(`(() => {const t=window.__datakoalaStore.getState().tabs[0];return{tree:t.explainTree,snapshot:t.explainSnapshot,text:t.explainText}})()`)
+      if(failure14.tree!==null)throw Error('CAP14 failure unexpectedly kept old tree')
+      await click('[aria-label="Explain results"] details summary')
+      await observe('cap14-error-desktop.png','[aria-label="Explain results"]','CAP-14 failure replaces prior plan with disclosed error text; provider is mocked')
+      await clickText('Close','[aria-label="Explain results"]')
+      await waitFor(win,`!document.querySelector('[aria-label="Explain results"]')`,'CAP14 close')
+      if(queryCalls!==before14)throw Error('CAP14 ordinary Run unexpectedly invoked')
+      observations.push({family:'cap14',viewport,scenario:'explain-analyze-graph',requests:cap14Ipc.calls,busy:busy14,selectedNodeId:'0.1',failure:failure14,closed:true,ordinaryRunDelta:0,staleGeneration:'named QueryEditor/lifecycle tests only',provider:'synthetic deferred IPC; benign SELECT 1 only'})
+      cap14Ipc.outcome='success'
     }
     if (viewport === 'desktop') {
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
