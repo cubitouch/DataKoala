@@ -209,6 +209,40 @@ def validate(data):
         require(entry['comparison'] == ('AGREE' if agrees else 'DISAGREE'), 'missing discrepancy ' + fid)
         require(agrees or bool(entry['findings']), 'disputed ID without finding ' + fid)
         require(bool(entry['assessment']) and bool(entry['actualSourceSupport']), 'missing per-ID review ' + fid)
+    if 'closureReview' in data:
+        closure = data['closureReview']
+        expected_upgrades = set('A06 A11 A13 A20 S03 S14 P02 L04'.split())
+        require({c['id'] for c in closure['eightUpgradeSpotChecks']} == expected_upgrades and
+                len(closure['eightUpgradeSpotChecks']) == 8, 'eight closure spot checks required')
+        reviewed_failures = closure['failedAcceptanceReview']
+        require({f['id'] for f in reviewed_failures} == set(failures) and
+                len(reviewed_failures) == len(failures), 'complete failure closure review required')
+        require(next(e for e in entries if e['id'] == 'X11')['independent'] ==
+                dict(visual='UV', behavior='UV'), 'X11 inferred from unrelated query copy')
+        for lineage in closure['recoveryLineage']:
+            bid = lineage['batch']
+            require(lineage['sourceEntries'] == 1 and
+                    lineage['generatingSourceHead'] == batches[bid]['sourceHead'] and
+                    lineage['generatingRun'] == batches[bid]['run'] and
+                    set(lineage['ownedIDs']) == {e['id'] for e in entries if e['expectedOwner'] == bid},
+                    'recovery double count or generating identity drift ' + bid)
+    if 'visualRecovery' in data:
+        recovery = data['visualRecovery']
+        for frame in recovery['supplementalFrames']:
+            require(frame['origin'] == 'HISTORICAL_LOG_ADJACENT_CAPTURE' and
+                    frame['artifactOriginal'] is False and
+                    frame['archiveByteIdentityVerified'] is False,
+                    'adjacent log capture misrepresented as original archive image')
+            require(frame['id'] not in recovery['originalArtifactImagesInspected'],
+                    'adjacent log capture counted as original inspection')
+            require(frame['sourceHead'] == batches[frame['batch']]['sourceHead'],
+                    'historical supplementary capture source drift')
+            require(frame['dimensions'] == [1440, 900] and
+                    re.fullmatch('[0-9a-f]{64}', frame['sha256']) is not None,
+                    'supplementary capture metadata malformed')
+        for published in recovery['publishedMeasurements']:
+            require(published['sourceHead'] == batches[published['batch']]['sourceHead'],
+                    'published historical measurement source drift')
     require(len(data['provisionalLeads']) == 5 and
             {l['id'] for l in data['provisionalLeads']} == {f'UI-{n:03}' for n in range(1, 6)},
             'five provisional leads required')
@@ -226,6 +260,9 @@ def negative_controls(data):
         ('UV upgraded to BV without execution', lambda d: d['ledger'][-2]['independent'].update(behavior='BV')),
         ('independent screenshot inspection without review', lambda d: d['ledger'][0]['screenshotReview'].update(independentlyReopened=True)),
     ]
+    if 'visualRecovery' in data:
+        mutations.append(('adjacent log frame promoted to archive original',
+                          lambda d: d['visualRecovery']['supplementalFrames'][0].update(artifactOriginal=True)))
     for name, mutate in mutations:
         candidate = copy.deepcopy(data)
         mutate(candidate)

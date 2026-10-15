@@ -1,6 +1,6 @@
 # AGG-02 — Independent coverage completeness and evidence challenge
 
-**Final disposition: PARTIAL.** The original 175-ID inventory and 37-source ownership can be independently reconstructed. Nine feature-level classifications differ from AGG-01. All 25 mapped failed-acceptance IDs are preserved. Historical visual provenance remains qualified; no historical screenshot was independently reopened in AGG-02.
+**Final disposition: PARTIAL.** The original 175-ID inventory and 37-source ownership can be independently reconstructed. Nine feature-level classifications differ from AGG-01. All 25 mapped failed-acceptance IDs are preserved. Historical visual provenance remains qualified; zero original archive PNGs were independently reopened; one supplementary historical CAP-09 log frame was inspected, with distinct provenance.
 
 ## A. Execution and independence declaration
 
@@ -40,7 +40,7 @@ Eight scoped behaviors have stronger execution support than AGG-01's SO labels. 
 
 | ID | AGG-01 behavior | Independent behavior and exact scoped assertion |
 | --- | --- | --- |
-| A06 | SO | BV — ConnectionStatus preserves connected text, glow and live semantics |
+| A06 | SO | BV — ConnectionStatus asserts connected text/data-state, polite aria-live and title; CSS glow/native announcement unverified |
 | A11 | SO | BV — Sidebar restores filtered tree and reports failed manual refresh |
 | A13 | SO | BV — relationColumns discards an old-generation response |
 | A20 | SO | BV — ModeSwitch clicks Builder for SQL/PromQL/TraceQL/LogQL labels; separate Explain lock |
@@ -101,7 +101,7 @@ No source disposition is rewritten. The independently parsed declarations remain
 
 ## E. Evidence and screenshot challenge
 
-**AGG-02 independently reopened 0 PNGs.** Remote artifact metadata was obtained for all 30 CAP entries, representing 29 distinct archives because CAP-05/06 share one. All have the expected generating head in artifact workflow metadata. This verifies archive identity/availability, not measurements.json, dimensions, pixels or the author's inspection action.
+**AGG-02 independently reopened 0 original artifact PNGs and 1 supplementary historical log PNG.** Remote artifact metadata was obtained for all 30 CAP entries, representing 29 distinct archives because CAP-05/06 share one. All have the expected generating head in artifact workflow metadata. This verifies archive identity/availability, not measurements.json, dimensions, pixels or the author's inspection action.
 
 | Check | Directly established | Remaining limit |
 | --- | --- | --- |
@@ -204,7 +204,7 @@ VV and BV overlap; these are scoped modality counts, not “fully accepted” fe
 
 Exact differences: A25 loses VV. A06/A11/A13/A20/S03/S14/P02/L04 gain bounded executed-test BV. A11/S03/S14 consequently leave the SO-only group. P03 is now the sole SO-only ID; X11 remains wholly UV. No total was edited to meet a test. L04/T04/P02 use named secondary visual evidence without counting new features or duplicate owners.
 
-Independent corroboration is separated by claim type: all 175 inventory identities/ownership assignments and all 37 source declarations are directly checked against original records; all 37 run identities/conclusions and NON job outcomes were checked remotely; eight specifically disputed executed-test claims were matched to log and source. The remaining historical behavioral claims are source-supported and not reproduced by AGG-02. All 146 retained VV claims remain source-reported original-image review, with zero new independent image inspections. Nine feature modality claims are disputed; X11 is wholly unverified. Missing behavioral proof is distinct from an otherwise traced archive that cannot currently be transferred.
+Independent corroboration is separated by claim type: all 175 inventory identities/ownership assignments and all 37 source declarations are directly checked against original records; all 37 run identities/conclusions and NON job outcomes were checked remotely; eight specifically disputed executed-test claims were matched to log and source. The remaining historical behavioral claims are source-supported and not reproduced by AGG-02. All 146 retained VV claims remain source-reported original-image review, with zero original artifact image inspections; the supplementary log frame is not counted as VV. Nine feature modality claims are disputed; X11 is wholly unverified. Missing behavioral proof is distinct from an otherwise traced archive that cannot currently be transferred.
 
 ## J. AGG-03 and AGG-04 handoff
 
@@ -218,10 +218,53 @@ Before AGG-04 acceptance claims: retain X11 UV, P03 SO, native completion/caret 
 
 **PARTIAL.** Meaningful independent source reconstruction and full 175-ID challenge are complete. Material historical visual-review qualifications and unverified product conditions remain. INDEPENDENTLY_CORROBORATED would overstate this result.
 
-Focused validation: `python docs/audit/391/aggregation/validate-agg-02.py --negative-controls` passes. All six in-memory negative controls reject: missing ID, duplicate ID, fabricated path, failed acceptance promoted to PASS, UV upgraded to BV without execution citation, and independent image-review claim without inspection evidence. Authoritative files are never mutated for negative controls.
+Focused validation: `python docs/audit/391/aggregation/validate-agg-02.py --negative-controls` passes. The original six in-memory negative controls reject: missing ID, duplicate ID, fabricated path, failed acceptance promoted to PASS, UV upgraded to BV without execution citation, and independent image-review claim without inspection evidence. Authoritative files are never mutated for negative controls.
 
 The validator independently reads original Git inventory/assignment/disposition records, exact cited Git bytes and curated failure anchors. It compares AGG-01 only as a baseline after reconstruction. It checks source/test identity, evidence vocabulary, references, per-ID comparisons, all five leads and recomputed totals. Git objects are required; unavailable historical objects fail closed rather than substituting AGG-01's snapshot.
 
 Limits: the human-curated failure-to-feature associations and modality interpretations are review judgments. Stored remote metadata/log excerpts are checked for internal consistency offline; the validator cannot reauthenticate remote results, establish behavior from prose, infer acceptance truth, prove screenshot inspection, or detect every semantically irrelevant citation. A structural PASS is neither BV nor VV. It is not integrated into shared CI/workflows, which are outside permitted scope. Applicable PR CI is reported at the final handoff; Quality failures must remain distinguished from successful test/visual jobs.
 
 Stop after AGG-02. Keep its PR draft; no merge, AGG-03/04 execution, canonical edits, production changes, release acceptance or Phase 2.
+
+## L. Bounded historical recovery and closure review
+
+The recovery changes no classifications or totals: **175 IDs, 37 batches, 146 scoped VV, 172 scoped BV, 1 SO-only, 1 wholly UV, 25 failed IDs; PARTIAL**. Source-reported evidence remains separate from the new inspection in `visualRecovery`; `closureReview` records the bounded review.
+
+### Retrieval paths and original provenance
+
+The originals are PR #406 GitHub Actions artifacts, not replacement captures from PR #439. CAP-06 reuses CAP-05's artifact **11920633396**, run **38617523822**, sourceHead `5aac39dd0d69c3542683f3b0f79fc8931cb31fda`. CAP-09 uses artifact **11932551046**, run **38645215482**, sourceHead `296a6ada15031c4455adc89e58fc5a57ce03243e`. Fresh authenticated artifact API requests returned new signed transfer references; both transfers returned **HTTP 502**. The CAP-09 response explicitly reported `Connection refused` from the transfer proxy. No expired signed URL was reused. Direct fresh GitHub API `/actions/artifacts/{id}/zip` requests returned **401 Requires authentication** because the shell has no GitHub credential. The connected generic fetch rejected the binary endpoint (400 unsupported endpoint); Library materialization rejected the transfer reference (INVALID_ARGUMENT/schema validation). No complete archive was recovered.
+
+CAP-06's six relevant reused manifest names are `prometheus-builder-desktop.png`, `loki-builder-desktop.png`, `tempo-builder-desktop.png`, `selector-prometheus-options-desktop.png`, `selector-loki-options-desktop.png`, and `selector-tempo-options-desktop.png`. None was independently opened here or newly generated by CAP-06. A default builder screen does not substantiate P03's populated metadata detail contract.
+
+Historical published measurements were separately recovered from immutable `pr-406/audit/measurements.json` at commits `bccec5da64c9447bc715916714a7d18b685ecaf5` (CAP-06) and `2c21ede5c2cf29101a08aceb07f7da8cfe326c7c` (CAP-09). Their sourceHeads match the generating commits. CAP-06 reports 251 observations and the six entries above at viewport 1440×900, scale/zoom 1. CAP-09 reports 265 observations including `cap09-resized-workspace-desktop.png` at that viewport. These are reported measurement dimensions, not independently verified original PNG headers. Capture jobs 116036331896 and 116130262607 succeeded, respectively logging `AUDIT_OK 191 images; 251 measured states/interactions` and `AUDIT_OK 196 images; 265 measured states/interactions`. These early batches predate standalone status.json; no such file was inferred.
+
+### Exactly one supplementary image inspected
+
+The full-resolution **1440×900** PNG decoded from CAP-09 job 116130262607's `CAP09_PNG_BASE64` line at `2026-10-14T22:08:21.2134174Z` was individually opened at original resolution. Its SHA-256 is `021adc4398859caaf61ec41d2c881265071614caf83461b42bc5c820a22c2fb3`. It corresponds to the log capture immediately after `cap09-resized-workspace-desktop.png`, but **is not proven byte-identical to that archived PNG**: the exact generating `audit.mjs` calls `capture(win, filename)` and then makes a second `webContents.capturePage()` for the log. It is recorded as `HISTORICAL_LOG_ADJACENT_CAPTURE`, not an inspected artifact original.
+
+The frame shows a readable SQL toolbar/editor, sidebar around 240px, focused yellow splitter near y310, and a three-row category/value result table (42, 17, 3) without visible clipping. The recovered measurement reports final sidebar/editor 240/270, mainLeft 248, editorBottom 310 and resultsTop 318. It also reports pointer 320/364, keyboard 304/348, maxima 520/692 and minima 180/180; the inspected frame shows only the final geometry, not those intermediate states. Pixels do not prove keyboard operation, resize behavior or request invariance. Those remain scoped historical behavioral evidence. **A25 stays UV/BV**, pending the original artifact image/provenance recovery; no VV total is restored.
+
+### Eight successful-execution spot checks
+
+All eight checks were matched anew to successful historical UI job **116153333548**, run **38652171501**, and the exact assertions in the actual checkout `f35a8cfb2f4971ba28cbb73f796fd5eb683a9b7a` (PR source `c148f91906a69529318dec170a7922e4d9fa465e`). The six test-file Git blobs and `vitest.ui.config.ts` match that checkout. Runtime: **Node 24.21.0, pnpm 9.15.9, Vitest 4.1.11, jsdom, Ubuntu 24.04**; the successful job reports 100 files, 965 ordinary passes and two expected failures. Timestamped suite results and exact blob identities are retained in the ledger.
+
+| ID | Narrow behavior proven by successful assertions | Preserved gap |
+| --- | --- | --- |
+| A06 | Connected text, data-state, polite live attribute and title | CSS glow/pixels and native announcement |
+| A11 | Mock refresh rejection preserves cached old_orders and orders filter | Native/provider refresh |
+| A13 | Controlled old-generation column promise returns undefined and does not retain stale columns | Rendered UI/live provider |
+| A20 | Four language cases invoke Builder mode; separate Explain guard | Workspace draft/caret/native keyboard |
+| S03 | EditorState/CompletionContext helper returns id/created_at once, including integer detail | Mounted native completion popup/caret |
+| S14 | Series order, chip removal and X/Y exclusion | Native control and provider cardinality |
+| P02 | Selecting up sets metric while preserving raw PromQL | Authenticated catalog/native search |
+| L04 | Useful labels, hidden internal labels, lazy checkout-api selection and exact service_name matcher | Live provider/stale-generation filtering |
+
+These retain eight bounded BV upgrades; none establishes full native or provider acceptance. A06's earlier broad “glow” wording is narrowed to the actual assertions.
+
+### Failed ledger, recovery lineage and validation boundaries
+
+All **25** unique failed-acceptance IDs were rechecked against their original cited finding or characterization assertion; none lacks both. This is source review, not reproduction of every defect. **A02** is an inherited V-03 custom edit-dialog finding explicitly carried by CAP-02; no separate native edit-mode Tab/Escape assertion was located. **A08** is explicitly mapped by NON01-06 to same-generation intent arbitration; it does not establish failure of every generation-replacement guard. These qualifications are recorded without dropping failures or adding neighboring IDs.
+
+CAP-21's frozen head `bb66ca4dcb83b5edb3a87f93cf3a82221dfd01bd`, run 38780232482, original #422/recovery #427, is one batch owning L22/L23/L24/L26. CAP-23's head `8306fb19cd476d2125153fa297bd00a86f5e63f0`, run 38779965647, original #424/recovery #428, is one batch owning T09–T13. Recovery reports add no duplicate executions or IDs. X11 remains UV/UV; TraceQL query copying is not Tempo identifier copying.
+
+The original six negative controls were rechecked and reject. A seventh rejects promotion of the adjacent log capture to an inspected original. The validator independently reads immutable source Git bytes for inventory, assignments, dispositions and cited failure anchors. Modality vocabulary/totals, nonempty execution references, discrepancy presence, stored remote metadata/log fields, supplementary-image metadata and recovered-measurement records are structural/internal-consistency checks of AGG-02's own ledger. They do not independently authenticate remote logs, inspect PNG bytes or establish semantic relevance; a self-consistent ledger can still contain a mistaken human interpretation. Final-head CI and the exact three-file PR scope are reported in the PR handoff.
