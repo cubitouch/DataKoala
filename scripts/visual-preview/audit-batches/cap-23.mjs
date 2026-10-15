@@ -44,7 +44,8 @@ export function installAuditIpc(ipc) {
     return ['alpha', 'beta']
   })
   handle('query:run', (_event, profileId, query, parameters, options) => {
-    requests.push({ profileId, query, parameters, options })
+    const { progressRequestId: _transportRequestId, ...semanticOptions } = options ?? {}
+    requests.push({ profileId, query, parameters, options: semanticOptions })
     return { ok: true, result: auditTraceResult }
   })
 }
