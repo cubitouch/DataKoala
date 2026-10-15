@@ -147,7 +147,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture,dragDivider}
   const markerGeometry=await inspect('const target=chart.convertToPixel({xAxisIndex:0,yAxisIndex:0},['+data(Date.parse(times[2]))+',180]),control=chart.convertToPixel({xAxisIndex:0,yAxisIndex:0},['+data(Date.parse(times[2]))+',49]);const redAt=p=>{let count=0;for(const canvas of chart.getDom().querySelectorAll("canvas")){const context=canvas.getContext("2d");if(!context)continue;const x=Math.round(p[0]),y=Math.round(p[1]),a=context.getImageData(Math.max(0,x-10),Math.max(0,y-10),21,21).data;for(let i=0;i<a.length;i+=4)if(a[i]>220&&a[i+1]<110&&a[i+2]<115&&a[i+3]>180)count++}return count};return {target,control,targetRedPixels:redAt(target),controlRedPixels:redAt(control)}')
   assert.ok(markerGeometry.targetRedPixels>15,'red ring at exact source coordinate');assert.equal(markerGeometry.controlRedPixels,0,'non-anomalous Beta control has no marker')
   checks.push({label:'marker coordinate geometry',...markerGeometry})
-  assert.ok((await text()).includes('Isolated spike'));assert.ok((await text()).includes('high'))
+  assert.ok((await text()).includes('Isolated spike'));assert.ok(await js('document.querySelector('+data('[aria-label="Flagged points"]')+')?.textContent.includes("high")'));assert.ok((await text()).includes('HIGH'))
   checks.push({label:'AI anomaly identity',revision,request,overlay,control:{series:'Beta',point:request.chart.series.find(s=>s.name==='Beta').points[2]},pixels:await pixelCounts()})
   await frame(screenshots[2],'Native AI details, exact Alpha 16:20/180 and red point marker','[role=dialog]')
   await click('AI details (1)');await click('AI details (1)');await waitText('Alpha · X '+times[2]+' · Y 180');await click('AI details (1)')
