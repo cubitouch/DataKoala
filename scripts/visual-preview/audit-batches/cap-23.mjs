@@ -67,29 +67,35 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const observations = [], interactions = []
   const evaluate = source => win.webContents.executeJavaScript(source).catch(error => { console.error('CAP23_EVAL_FAILED', source.slice(0, 1000), error.message); throw error })
   const settle = () => evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))')
+  const waited = (source, description) => waitFor(win, source, description).catch(error => { console.error('CAP23_WAIT_FAILED', description, source, error.message); throw error })
   const state = () => evaluate('window.__datakoalaStore.getState().tabs[0]')
   const click = async selector => {
-    await waitFor(win, 'document.querySelector(' + data(selector) + ')', selector)
+    await waited('document.querySelector(' + data(selector) + ')', selector)
     await evaluate('document.querySelector(' + data(selector) + ').click()')
     await settle()
   }
   const button = async label => {
     const expression = '[...document.querySelectorAll("button")].find(b => b.textContent.trim() === ' + data(label) + ')'
-    await waitFor(win, expression, label + ' button')
+    await waited(expression, label + ' button')
     await evaluate('(() => { const b = ' + expression + '; if (!b || b.disabled) throw Error("Unavailable button: " + ' + data(label) + '); b.click() })()')
     await settle()
   }
   const choose = async (label, option) => {
+    console.log('CAP23_CHOOSE_START', label, option)
     const trigger = '[...document.querySelectorAll("[role=combobox]")].find(e => e.getAttribute("aria-label")?.startsWith(' + data(label + ':') + '))'
-    await waitFor(win, trigger, label + ' combobox')
+    console.log('CAP23_CHOOSE_WAIT_TRIGGER', label)
+    await waited(trigger, label + ' combobox')
     await evaluate('(() => { const e = ' + trigger + '; if (!e || e.disabled) throw Error("Unavailable combobox"); e.click() })()')
-    await waitFor(win, 'document.querySelector("[role=listbox]")', label + ' listbox')
+    console.log('CAP23_CHOOSE_WAIT_LISTBOX', label)
+    await waited('document.querySelector("[role=listbox]")', label + ' listbox')
     const target = '[...document.querySelectorAll("[role=option]")].find(e => e.querySelector("[data-combobox-option-label]")?.textContent.trim() === ' + data(option) + ')'
-    await waitFor(win, target, option + ' option')
+    console.log('CAP23_CHOOSE_WAIT_OPTION', label, option)
+    await waited(target, option + ' option')
     await evaluate('(() => { const e = ' + target + '; if (!e) throw Error("Option missing"); e.click() })()')
     win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' })
     win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
     await settle()
+    console.log('CAP23_CHOOSE_END', label, option)
   }
   const input = async (label, value) => {
     await evaluate('(() => { const l = [...document.querySelectorAll("label")].find(e => e.textContent.trim() === ' + data(label) + '); const e = document.getElementById(l?.htmlFor); if (!(e instanceof HTMLInputElement)) throw Error("Missing labeled input: " + ' + data(label) + '); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(e, ' + data(value) + '); e.dispatchEvent(new Event("input", {bubbles:true})); e.dispatchEvent(new Event("change", {bubbles:true})) })()')
@@ -97,7 +103,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   }
   const query = () => evaluate('document.querySelector("[aria-label=\\"Generated TraceQL query\\"] .cm-content")?.innerText.trim() ?? ""')
   const exact = async (expected, scenario) => {
-    await waitFor(win, 'document.querySelector("[aria-label=\\"Generated TraceQL query\\"] .cm-content")', 'generated TraceQL')
+    await waited('document.querySelector("[aria-label=\\"Generated TraceQL query\\"] .cm-content")', 'generated TraceQL')
     const actual = compact(await query())
     assert.equal(actual, expected, scenario + ': exact generated TraceQL mismatch')
     return actual
@@ -129,22 +135,22 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   win.show(); win.focus(); win.setContentSize(1440, 900); win.webContents.setZoomFactor(1)
   await evaluate('(() => { const s=window.__datakoalaStore, t=JSON.parse(JSON.stringify(s.getState().tabs[0])),p=' + data(auditProfiles.tempo) + '; t.id="cap23"; t.title="CAP-23"; t.connectionProfileId=p.id; t.queryMode="builder"; t.sql="{ span:name = \\"raw preserved draft\\" }"; t.result=null; t.queryError=null; t.running=false; t.tempoBuilder=' + data(baseBuilder) + '; t.tempoTimeRange=' + data(auditRange) + '; t.tempoSampleSize="250"; t.tempoResultView="list"; s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:"connected",generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:' + data(auditSchemas) + ',status:"loaded",error:null,isStale:false}}}) })()')
   console.log('CAP23_STAGE seeded')
-  await waitFor(win, 'document.querySelector("[data-tempo-builder]")', 'Tempo builder')
+  await waited('document.querySelector("[data-tempo-builder]")', 'Tempo builder')
   const sidebarDelta = await evaluate('240 - document.querySelector("[aria-label=\\"Resize sidebar\\"]").getBoundingClientRect().left')
   if (Math.abs(sidebarDelta) > 1) await dragDivider(win, '[aria-label="Resize sidebar"]', Math.round(sidebarDelta), 0)
   const editorDelta = await evaluate('document.querySelector(".main").getBoundingClientRect().top + 610 - document.querySelector(".editor-resizer").getBoundingClientRect().top')
   if (Math.abs(editorDelta) > 1) await dragDivider(win, '.editor-resizer', 0, Math.round(editorDelta))
   await click('[data-generated-query-panel] summary')
-  await waitFor(win, 'document.querySelector("[aria-label=\\"Generated TraceQL query\\"] .cm-content")', 'generated query editor')
+  await waited('document.querySelector("[aria-label=\\"Generated TraceQL query\\"] .cm-content")', 'generated query editor')
   await exact(wrap(), 'baseline')
-  await waitFor(win, 'document.querySelector("[role=combobox][aria-label^=\\"Attributes:\\"]")', 'Attributes available')
+  await waited('document.querySelector("[role=combobox][aria-label^=\\"Attributes:\\"]")', 'Attributes available')
 
   console.log('CAP23_STAGE baseline-verified')
   // T09: real subsystem selection, observed discovery, quoted destinations and operation.
   await noDispatch('select-messaging', () => choose('Protocol or subsystem', 'Messaging'))
-  await waitFor(win, 'document.querySelector("[role=combobox][aria-label^=\\"Messaging system:\\"]")', 'messaging fields')
-  await waitFor(win, 'document.querySelector("[role=listbox]") === null', 'dismissed listbox')
-  await waitFor(win, 'document.querySelector("[role=combobox][aria-label^=\\"Messaging system:\\"]:not([disabled])', 'messaging selector')
+  await waited('document.querySelector("[role=combobox][aria-label^=\\"Messaging system:\\"]")', 'messaging fields')
+  await waited('document.querySelector("[role=listbox]") === null', 'dismissed listbox')
+  await waited('document.querySelector("[role=combobox][aria-label^=\\"Messaging system:\\"]:not([disabled])', 'messaging selector')
   await choose('Messaging system', 'kafka')
   await input('Destination / topic', 'orders."vip"\\main')
   await choose('Messaging operation', 'Publish')
@@ -220,7 +226,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await save('cap23-tempo-exact-span-desktop.png', 'Exact span name, duration, custom UTC window and sample size')
   const beforeRun = requests.length
   await button('Run')
-  await waitFor(win, '!window.__datakoalaStore.getState().tabs[0].running && window.__datakoalaStore.getState().tabs[0].result', 'sampled Tempo query completed')
+  await waited('!window.__datakoalaStore.getState().tabs[0].running && window.__datakoalaStore.getState().tabs[0].result', 'sampled Tempo query completed')
   assert.equal(requests.length, beforeRun + 1)
   assert.deepEqual(requests.at(-1), {
     profileId: 'audit-tempo', query: exactSpan, parameters: [],
@@ -242,17 +248,17 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   missingOptional = true
   const valuesBefore = discoveries.length
   await evaluate('(() => { const s=window.__datakoalaStore; const v=s.getState().connectionStateByProfileId["audit-tempo"]; s.setState({connectionStateByProfileId:{"audit-tempo":{...v,generation:v.generation+1}}}) })()')
-  await waitFor(win, 'document.querySelector("[data-tempo-builder]")', 'fresh metadata render')
-  await waitFor(win, 'document.querySelector("[role=combobox][aria-label^=\\"Messaging system:\\"]")', 'empty messaging control')
-  await waitFor(win, 'document.querySelector("[role=combobox][aria-label^=\\"Attributes:\\"]")', 'empty attribute control')
-  await waitFor(win, 'document.querySelector("[role=combobox][aria-label^=\\"Messaging system: Any messaging system\\"]")', 'no silent messaging fallback')
-  await waitFor(win, 'document.querySelector("[role=combobox][aria-label^=\\"Attributes: Select attributes\\"]")', 'no stale attribute selections')
+  await waited('document.querySelector("[data-tempo-builder]")', 'fresh metadata render')
+  await waited('document.querySelector("[role=combobox][aria-label^=\\"Messaging system:\\"]")', 'empty messaging control')
+  await waited('document.querySelector("[role=combobox][aria-label^=\\"Attributes:\\"]")', 'empty attribute control')
+  await waited('document.querySelector("[role=combobox][aria-label^=\\"Messaging system: Any messaging system\\"]")', 'no silent messaging fallback')
+  await waited('document.querySelector("[role=combobox][aria-label^=\\"Attributes: Select attributes\\"]")', 'no stale attribute selections')
   assert.ok(discoveries.length > valuesBefore && discoveries.some(d => d.missingOptional), 'No empty synthetic refresh observed')
   await exact(wrap('span.messaging.system != nil'), 'empty-discovery-protocol-fallback')
   await click('[data-collapsible-title="Advanced filters"] summary')
   await click('[data-collapsible-title="Advanced filters"] summary')
   await evaluate('(() => { const e=[...document.querySelectorAll("[role=combobox]")].find(x => x.getAttribute("aria-label")?.startsWith("Attributes:"));if(!e)throw Error("Attributes control absent");e.click() })()')
-  await waitFor(win, 'document.body.innerText.includes("No attributes discovered.")', 'explicit no-attributes state')
+  await waited('document.body.innerText.includes("No attributes discovered.")', 'explicit no-attributes state')
   assert.equal((await state()).tempoBuilder.advancedFilters.length, 0)
   const beforeEmpty = requests.length
   await save('cap23-tempo-no-options-desktop.png', 'No discovered optional attributes, no stale predicates; explicit empty list')
