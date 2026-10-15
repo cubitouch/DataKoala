@@ -1000,6 +1000,71 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       cap12Ipc.active=false
     }
     if (viewport === 'desktop') {
+      await seed('postgres','raw','default')
+      const before13=queryCalls
+      const summary13='[data-result-row-index="0"] [aria-label="Filter actions for category"]'
+      const menu13='[data-result-row-index="0"] td:first-child details'
+      const focus13=()=>evaluate(`(() => {const m=document.querySelector(${rendererValue(menu13)}),a=document.activeElement;return {open:m?.open,tag:a?.tagName,label:a?.getAttribute('aria-label'),text:a?.textContent?.trim().slice(0,80),summary:a===m?.querySelector('summary')}})()`)
+      await evaluate(`${select(summary13)}.focus()`)
+      await key('Enter')
+      await waitFor(win,`${select(menu13)}.open`,'CAP13 non-null menu open')
+      if(!(await evaluate(`${select(menu13)}.innerText.includes('Filter to this value') && ${select(menu13)}.innerText.includes('Exclude this value')`)))throw Error('CAP13 non-null actions')
+      await observe('cap13-cell-menu-desktop.png',menu13,'CAP-13 actual non-null menu opened by native Enter')
+      const onSummary13=await focus13()
+      await key('Tab')
+      const onAction13=await focus13()
+      await key('Escape')
+      const escaped13=await focus13()
+      // Native pointer outside click; <details> does not automatically imply light-dismiss.
+      await click(summary13)
+      const outsidePoint13=await evaluate(`(() => {const r=document.querySelector('[data-query-toolbar]').getBoundingClientRect();return{x:Math.round(r.x+180),y:Math.round(r.y+r.height/2)}})()`)
+      win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...outsidePoint13})
+      win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...outsidePoint13})
+      await settle()
+      const outside13=await focus13()
+      await evaluate(`${select(menu13)}.removeAttribute('open')`)
+      // Controlled null row, independent of production data/provider.
+      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,result:{...t.result,rows:[{category:null,value:1},{category:'A',value:2},{category:'B',value:3}],rowCount:3},resultRevision:t.resultRevision+1}]})})()`)
+      await click(summary13)
+      await waitFor(win,`${select(menu13)}.open && ${select(menu13)}.innerText.includes('Show only NULL') && ${select(menu13)}.innerText.includes('Exclude NULL')`,'CAP13 null actions')
+      await observe('cap13-null-menu-desktop.png',menu13,'CAP-13 null-specific include/exclude actions')
+      await clickText('Show only NULL',menu13)
+      await waitFor(win,`document.querySelectorAll('[data-result-row-index]').length===1 && document.querySelector('[data-result-filter-chip]')?.innerText.includes('category is NULL')`,'CAP13 actual local null filter')
+      if(await evaluate(`document.querySelector('[data-result-filter-chip]').innerText.includes('Apply to SQL')`))throw Error('CAP13 raw mode promotion leaked')
+      await observe('cap13-local-filter-desktop.png','[data-result-table-pane]','CAP-13 client-only null chip, one of three rows, raw SQL has no promotion')
+      await click('[aria-label="Remove filter category is NULL"]')
+      await waitFor(win,`document.querySelectorAll('[data-result-row-index]').length===3 && !document.querySelector('[data-result-filter-chip]')`,'CAP13 remove local filter')
+      if(queryCalls!==before13)throw Error('CAP13 client filtering executed query')
+      await seed('postgres','builder','default')
+      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,builder:{...t.builder,timeColumn:null,seriesColumns:[]},builderVisualization:{...t.builderVisualization,xColumn:'category',valueColumn:'value',aggregation:'sum',view:'table'}}]})})()`)
+      await settle()
+      await click(summary13)
+      await clickText('Filter to this value',menu13)
+      await waitFor(win,`[...document.querySelectorAll('[data-result-filter-chip] button')].some(b=>b.textContent==='Apply to SQL')`,'CAP13 compatible category promotion')
+      const localBuilder13=queryCalls
+      await clickText('Apply to SQL','[aria-label="Active result filters"]')
+      await waitFor(win,`window.__datakoalaStore.getState().tabs[0].builderResultFilters[0]?.execution==='query' && !window.__datakoalaStore.getState().tabs[0].running`,'CAP13 promoted query settled')
+      const promoted13=await evaluate(`window.__datakoalaStore.getState().tabs[0].builderResultFilters`)
+      const promotionCalls13=queryCalls-localBuilder13
+      await observe('cap13-query-filter-desktop.png','[data-result-table-pane]','CAP-13 Builder query-owned chip after Apply to SQL; execution delta recorded separately')
+      await clickText('Move to client','[aria-label="Active result filters"]')
+      await waitFor(win,`window.__datakoalaStore.getState().tabs[0].builderResultFilters[0]?.execution==='client' && !window.__datakoalaStore.getState().tabs[0].running`,'CAP13 demotion')
+      await click('[data-result-filter-chip] button[aria-label^="Remove filter"]')
+      // Nonpromotable value column: UI must omit Apply to SQL.
+      await click('[data-result-row-index="0"] [aria-label="Filter actions for value"]')
+      await clickText('Filter to this value','[data-result-row-index="0"] td:nth-child(2) details')
+      const nonpromotable13=await evaluate(`![...document.querySelectorAll('[data-result-filter-chip] button')].some(b=>b.textContent==='Apply to SQL')`)
+      if(!nonpromotable13)throw Error('CAP13 value aggregate wrongly promotable')
+      // Source-shaped query predicate whose source column is absent cannot demote.
+      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,builderHasRun:false,builderResultFilters:[{id:'cap13-missing-source',column:'series',operator:'equals',value:'A',execution:'query',provenance:{mode:'builder',resultAlias:'series',table:t.builder.table,sourceColumns:['missing_source'],sourceColumn:'missing_source',targetKind:'source-column',sourceKind:'single-column',displayLabel:'missing_source'}},{id:'cap13-local',column:'value',operator:'equals',value:4,execution:'client'}]}]})})()`)
+      await settle()
+      const blocked13=await evaluate(`(() => {const b=[...document.querySelectorAll('[data-result-filter-chip] button')].find(b=>b.textContent==='Move to client');return{disabled:b?.disabled,reason:b?.title}})()`)
+      if(!blocked13.disabled||!blocked13.reason.includes('missing_source'))throw Error('CAP13 missing demotion reason')
+      await clickText('Clear all','[aria-label="Active result filters"]')
+      await waitFor(win,`!document.querySelector('[data-result-filter-chip]')`,'CAP13 clear chips')
+      observations.push({family:'cap13',viewport,scenario:'cell-local-query-filter',rawLocalQueryDelta:0,rawRows:{before:3,filtered:1,removed:3},focus:{onSummary:onSummary13,onAction:onAction13,escape:escaped13,outsideClick:outside13},promoted:promoted13,promotionQueryDelta:promotionCalls13,demotion:'actual allowed action',nonpromotableValueHidesAction:nonpromotable13,blockedDemotion:blocked13,blockedDemotionSetup:'state-injected source-shaped predicate',clearAll:true,provider:'synthetic IPC only'})
+    }
+    if (viewport === 'desktop') {
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
       // in-memory session. Never connect a provider or persist a user's presets.
       console.log('CAP08 step: seed PostgreSQL Builder session')

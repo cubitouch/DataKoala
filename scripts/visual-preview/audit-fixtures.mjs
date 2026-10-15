@@ -61,6 +61,10 @@ auditScreenshots.push(
   'cap08-reset-cleared-desktop.png',
   'cap09-resized-workspace-desktop.png',
   // CAP-10: populated editors, formatted editor, and generated-preview states.
+  'cap13-cell-menu-desktop.png',
+  'cap13-null-menu-desktop.png',
+  'cap13-local-filter-desktop.png',
+  'cap13-query-filter-desktop.png',
   'cap12-typed-table-desktop.png',
   'cap12-json-desktop.png',
   'cap12-json-invalid-desktop.png',
