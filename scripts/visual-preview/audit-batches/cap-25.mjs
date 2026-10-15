@@ -114,7 +114,7 @@ export function installAuditIpc(ipc) {
         execution: { provider: 'tempo', durationMs: 2, rowCount: traces[id].length },
       } }
     }
-    return { ok: true, result: searchResult(id.includes('no-match'), id.includes('empty')) }
+    return { ok: true, result: searchResult(id.includes('legacy-only'), id.includes('cap25-empty')) }
   })
   handle('external:open-url', (_event, url) => {
     externalUrls.push(url)
