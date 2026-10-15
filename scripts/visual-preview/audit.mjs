@@ -1302,7 +1302,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       // CAP-17: bounded metadata, actual React controls, counted synthetic query IPC.
       capPromIpc.active=true;capPromIpc.calls=[]
       await seed('prometheus','builder','fresh','list',false)
-      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({metadataByProfileId:{'audit-prometheus':{schemas:${rendererValue(auditPromSchemas)},status:'loaded',error:null,isStale:false}},tabs:[{...t,sql:'sum(up)',prometheusStep:'auto',promqlBuilder:{metric:'audit_requests_total',filterBy:[],groupBy:[],labelValues:{},calculation:'rate',aggregation:'sum',window:'5m',percentile:0.95,histogramKindOverride:'auto'}}]})})()`)
+      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({metadataByProfileId:{'audit-prometheus':{schemas:${rendererValue(auditPromSchemas)},status:'loaded',error:null,isStale:false}},tabs:[{...t,sql:'sum(up)',prometheusStep:'auto',promqlBuilder:{metric:'audit_requests_total',filterBy:[],groupBy:[],labelValues:{},calculation:'raw',aggregation:'none',window:'5m',percentile:0.95,histogramKindOverride:'auto'}}]})})()`)
       await settle();await dragDivider(win,'.editor-resizer',0,250)
       const before17=queryCalls
       const combo17=async label=>{
@@ -1320,6 +1320,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       const generated17=()=>evaluate(`document.querySelector('[aria-label="Generated PromQL query"] .cm-content')?.innerText.trim()??''`)
       const exact17=async expected=>{await waitFor(win,`document.querySelector('[aria-label="Generated PromQL query"] .cm-content')?.innerText.trim()===${rendererValue(expected)}`,'CAP17 exact generated query')}
       await click('[data-generated-query-panel] summary')
+      await waitFor(win,`[...document.querySelectorAll('[role="combobox"]')].some(e=>e.getAttribute('aria-label')==='Group by: No grouping' && !e.disabled)`,'CAP17 settled counter metadata')
+      await choose17('Calculation','Rate')
       await choose17('Rate window','10m')
       await exact17('sum(rate(audit_requests_total[10m]))')
       await choose17('Group by','service',true)
