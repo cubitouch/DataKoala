@@ -41,7 +41,7 @@ export function installAuditIpc(ipc) {
   handle('ai:analyze-anomalies',async (_e,request)=>{
     aiRequests.push(request)
     if(aiMode==='delayed')return new Promise(done=>{releaseAi=()=>done(response(request))})
-    if(aiMode==='error')return {ok:false,kind:'provider',message:'CAP-28 synthetic AI unavailable. Try Analyze with AI again.'}
+    if(aiMode==='error')return {ok:false,code:'provider',message:'CAP-28 synthetic AI unavailable. Try Analyze with AI again.'}
     return response(request)
   })
   handle('query:run',async (_e,id,query,parameters,options)=>{
@@ -63,6 +63,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture,dragDivider}
   const settle=()=>js('new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))')
   const tab=()=>js('window.__datakoalaStore.getState().tabs[0]')
   const click=async(name,scope='button')=>{
+    console.log('CAP28_CLICK '+name)
     const target='[...document.querySelectorAll('+data(scope)+')].find(e=>!e.disabled&&(e.textContent.trim()==='+data(name)+'||e.getAttribute("aria-label")==='+data(name)+'))'
     await waitFor(win,target,'control '+name);await js('('+target+').click()');await settle()
   }
@@ -75,7 +76,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture,dragDivider}
   // Read the actual mounted ECharts instance through the same audit-only React
   // traversal as the canonical AI preview. No callbacks or chart options injected.
   const inspect=body=>js('(()=>{const root=document.querySelector("[data-result-chart-canvas]");if(!root)return null;for(const e of [root,...root.querySelectorAll("*")]){const key=Object.keys(e).find(k=>k.includes("reactFiber"));let f=key?e[key]:null;while(f){const component=f.stateNode;if(typeof component?.getEchartsInstance==="function"){const chart=component.getEchartsInstance();'+body+'}f=f.return}}throw Error("Mounted ECharts instance missing")})()')
-  const chart=()=>inspect('const o=chart.getOption();return {series:o.series.map(s=>({name:s.name,type:s.type,data:s.data,overlay:s.aiAnomalyOverlay===true})),xAxis:o.xAxis,yAxis:o.yAxis,width:chart.getWidth(),height:chart.getHeight(),finished:root.dataset.visualFinished,fingerprint:root.dataset.visualFingerprint,expected:root.dataset.visualExpectedFingerprint,configuration:root.dataset.visualConfig}')
+  const chart=()=>inspect('const o=chart.getOption();return JSON.parse(JSON.stringify({series:o.series.map(s=>({name:s.name,type:s.type,data:s.data,overlay:s.aiAnomalyOverlay===true})),xAxis:o.xAxis,yAxis:o.yAxis,width:chart.getWidth(),height:chart.getHeight(),finished:root.dataset.visualFinished,fingerprint:root.dataset.visualFingerprint,expected:root.dataset.visualExpectedFingerprint,configuration:root.dataset.visualConfig}))')
   const pixelCounts=()=>js('(()=>{const counts={orange:0,cyan:0,red:0};for(const c of document.querySelectorAll("[data-result-chart-canvas] [class*=plot] canvas")){const a=c.getContext("2d").getImageData(0,0,c.width,c.height).data;for(let i=0;i<a.length;i+=4){if(a[i+3]<180)continue;const r=a[i],g=a[i+1],b=a[i+2];if(Math.abs(r-239)<18&&Math.abs(g-138)<18&&Math.abs(b-98)<18)counts.orange++;if(Math.abs(r-98)<18&&Math.abs(g-184)<18&&Math.abs(b-197)<18)counts.cyan++;if(r>220&&g<110&&b<115)counts.red++}}return counts})()')
   const frame=async(filename,description,selector)=>{
     await settle()
@@ -86,6 +87,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture,dragDivider}
   }
   const noQuery=(before,label)=>{assert.equal(requests.length,before,label);checks.push({label,providerBefore:before,providerAfter:requests.length,delta:0})}
   const run=async(mode)=>{
+    console.log('CAP28_RUN '+mode)
     queryMode=mode;const before=requests.length
     await click('Run','[data-query-toolbar] button')
     if(mode==='loading'){await waitFor(win,'window.__datakoalaStore.getState().tabs[0].running','running query');return}
@@ -105,9 +107,11 @@ export async function runVisualAudit({win,outputDir,waitFor,capture,dragDivider}
   await run('loading');await waitText('Running…')
   checks.push({label:'initial loading',text:await text(),result:(await tab()).result,empty:await js('document.querySelector("[data-result-empty]")?.textContent')})
   assert.equal((await tab()).result,null)
+  assert.ok(!(await text()).includes('Query returned no rows.'),'loading must not claim a completed empty result')
   assert.ok(releaseQuery);releaseQuery();releaseQuery=null
   await waitFor(win,'!window.__datakoalaStore.getState().tabs[0].running','loading completion');await ready()
   const initial=await chart();const revision=(await tab()).resultRevision
+  assert.deepEqual(JSON.parse(initial.configuration).x,'timestamp');assert.equal(JSON.parse(initial.configuration).y,'value');assert.deepEqual(JSON.parse(initial.configuration).series,['service'])
   assert.equal(initial.series.length,2);assert.deepEqual(initial.series.map(s=>s.name).sort(),['Alpha','Beta'])
   const alpha=initial.series.find(s=>s.name==='Alpha');assert.equal(alpha.data[2][1]??alpha.data[2],180)
   const pixels=await pixelCounts();assert.ok(pixels.orange>50&&pixels.cyan>50,'both series drawn')
@@ -140,6 +144,9 @@ export async function runVisualAudit({win,outputDir,waitFor,capture,dragDivider}
   const annotated=await chart();const overlay=annotated.series.find(s=>s.overlay)
   assert.equal(overlay.data.length,1);assert.equal(overlay.data[0].sourceSeriesName,'Alpha');assert.equal(overlay.data[0].originalIndex,2)
   assert.deepEqual(overlay.data[0].value,[Date.parse(times[2]),180]);assert.ok((await pixelCounts()).red>15,'actual red annotation ring drawn')
+  const markerGeometry=await inspect('const target=chart.convertToPixel({xAxisIndex:0,yAxisIndex:0},['+data(Date.parse(times[2]))+',180]),control=chart.convertToPixel({xAxisIndex:0,yAxisIndex:0},['+data(Date.parse(times[2]))+',49]);const redAt=p=>{let count=0;for(const canvas of chart.getDom().querySelectorAll("canvas")){const context=canvas.getContext("2d");if(!context)continue;const x=Math.round(p[0]),y=Math.round(p[1]),a=context.getImageData(Math.max(0,x-10),Math.max(0,y-10),21,21).data;for(let i=0;i<a.length;i+=4)if(a[i]>220&&a[i+1]<110&&a[i+2]<115&&a[i+3]>180)count++}return count};return {target,control,targetRedPixels:redAt(target),controlRedPixels:redAt(control)}')
+  assert.ok(markerGeometry.targetRedPixels>15,'red ring at exact source coordinate');assert.equal(markerGeometry.controlRedPixels,0,'non-anomalous Beta control has no marker')
+  checks.push({label:'marker coordinate geometry',...markerGeometry})
   assert.ok((await text()).includes('Isolated spike'));assert.ok((await text()).includes('high'))
   checks.push({label:'AI anomaly identity',revision,request,overlay,control:{series:'Beta',point:request.chart.series.find(s=>s.name==='Beta').points[2]},pixels:await pixelCounts()})
   await frame(screenshots[2],'Native AI details, exact Alpha 16:20/180 and red point marker','[role=dialog]')
@@ -156,11 +163,18 @@ export async function runVisualAudit({win,outputDir,waitFor,capture,dragDivider}
   assert.ok(revision2>revision);assert.deepEqual((await chart()).series.map(s=>s.name).sort(),['Alpha v2','Beta v2'])
   assert.ok(!(await text()).includes('AI details (1)'));assert.ok(!(await chart()).series.some(s=>s.overlay))
   releaseAi();releaseAi=null;await settle();await settle()
-  assert.ok(!(await chart()).series.some(s=>s.overlay));assert.ok(!(await text()).includes('AI details (1)'))
+  await waitFor(win,'![...document.querySelectorAll("button")].some(e=>e.textContent.includes("Analyzing with AI"))','old AI request no longer loading')
+  assert.ok(!(await chart()).series.some(s=>s.overlay));assert.ok(!(await text()).includes('AI details (1)'));assert.ok(cancellations.includes(delayedId),'old request cancellation owns its request ID')
   checks.push({label:'old AI response invalidated',oldRevision:revision,newRevision:revision2,requestId:delayedId,cancelled:cancellations.includes(delayedId),chart:await chart()})
   const viewBefore=requests.length
+  await click('Alpha v2','[data-chart-legend] button[aria-pressed]');await ready()
   await click('Bar','[aria-label="Result view"] button');await ready();assert.equal((await chart()).series[0].type,'bar')
-  await click('Line','[aria-label="Result view"] button');await ready();noQuery(viewBefore,'view switching')
+  await click('Line','[aria-label="Result view"] button');await ready()
+  assert.equal(await js('[...document.querySelectorAll("[data-chart-legend] button[aria-pressed]")].find(e=>e.textContent.trim()==="Alpha v2")?.getAttribute("aria-pressed")'),'false','legend visibility restored across chart views')
+  await click('Alpha v2','[data-chart-legend] button[aria-pressed]');await ready();noQuery(viewBefore,'view switching and legend restoration')
+  const sizeBefore=await chart();await dragDivider(win,'.editor-resizer',0,24);await ready();const sizeAfter=await chart()
+  assert.ok(sizeAfter.height<sizeBefore.height,'chart responds to real workspace resize');assert.deepEqual(sizeAfter.series,sizeBefore.series);noQuery(viewBefore,'chart resize')
+  checks.push({label:'legend/view restoration and native resize',sizeBefore:{width:sizeBefore.width,height:sizeBefore.height},sizeAfter:{width:sizeAfter.width,height:sizeAfter.height},series:sizeAfter.series.map(s=>s.name)})
   await run('empty');await waitText('Query returned no rows.')
   assert.equal((await tab()).result.rows.length,0)
   assert.ok(await js('[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="Export PNG")?.disabled'))
@@ -169,6 +183,8 @@ export async function runVisualAudit({win,outputDir,waitFor,capture,dragDivider}
   await run('normal');await ready()
   await run('error');await waitText('CAP-28 synthetic SQL error: column missing_column does not exist')
   const failed=await tab();const failureChart=await chart()
+  assert.equal(failed.queryError,'CAP-28 synthetic SQL error: column missing_column does not exist');assert.deepEqual(failed.result.rows,fixture.rows)
+  assert.ok(await js('[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="Export PNG")?.disabled'),'query failure disables export')
   checks.push({label:'query failure',queryError:failed.queryError,revision:failed.resultRevision,rows:failed.result?.rows.length,stale:failed.isResultStale,chart:failureChart,alerts:await js('[...document.querySelectorAll("[role=alert]")].map(e=>e.textContent.trim())'),text:await text()})
   await frame(screenshots[4],'Native SQL failure after successful chart; retained-result behavior characterized','[data-result-explorer]')
   await run('revised');await ready();assert.equal((await tab()).queryError,null)
@@ -178,6 +194,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture,dragDivider}
   // reconciles invalid mappings, so do not invent a user-selectable invalid field.
   await js('(()=>{const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,result:{columns:[{name:"message",logicalType:"string",dataTypeName:"text",dataTypeID:25}],rows:[{message:"No numeric data"}],rowCount:1,durationMs:1},resultRevision:t.resultRevision+1}]})})()')
   await waitText('This result does not contain a numeric column that can be used as a Y axis.')
+  assert.ok(await js('[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="Export PNG")?.disabled'),'unsupported shape disables export')
   checks.push({label:'unsupported nonnumeric shape',injected:true,text:await text(),exportDisabled:await js('[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="Export PNG")?.disabled')})
   await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify({sourceHead:process.env.DATAKOALA_AUDIT_HEAD??'UNSPECIFIED',execution:'real Electron; synthetic IPC; initial session and final unsupported result state injection disclosed',fixture:{times,values,rows:fixture.rows,revision1:revision,revision2},requests,aiRequests,cancellations,exports:exports.map(e=>({mode:e.mode,defaultName:e.options.defaultName,extensions:e.options.extensions,bytes:Buffer.from(e.options.base64,'base64').length})),checks,observations},null,2)+'\n')
   console.log('CAP28_OK '+JSON.stringify({screenshots,providerCount:requests.length,aiCount:aiRequests.length}))
