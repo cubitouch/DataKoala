@@ -362,6 +362,8 @@ No new production UX defect was established in CAP-09. Loki direct clipboard den
 
 The existing `postgres-builder-desktop.png`, `selector-postgres-options-desktop.png` and Phase 1B V-10 selector evidence remain in the reuse set. They are not counted as CAP-11-specific visual proof until the exact dimensional states are inspected. No new CAP-11 renderer interaction or output image is claimed yet; targeted capture and tests are in progress.
 
+CAP-11 recovery checkpoint: three bounded states and actual relation/X/aggregation SQL mutation assertions added; awaiting exact-head CI and individual image inspection. No status upgraded.
+
 **Current task: CAP-11 IN_PROGRESS** — finish SQL Builder dimensional controls; do not begin CAP-12 or final HTML Atlas synthesis.
 
 ### CAP-07 completion — query tabs, running indicator and Raw/Builder (EVIDENCE_COMPLETE, scoped)

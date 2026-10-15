@@ -844,6 +844,58 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
       console.log('CAP10 observations: ' + JSON.stringify(observations.filter(item => item.family === 'cap10')))
     }
     if (viewport === 'desktop') {
+      // CAP-11: deterministic metadata, actual controls, no provider execution.
+      await seed('postgres', 'builder', 'fresh', 'list', false)
+      const callsBefore11 = queryCalls
+      const columns11 = [...auditSqlResult.columns, {name:'created_at',dataTypeName:'timestamp with time zone'}, {name:'region',dataTypeName:'text'}]
+      const schemas11 = [{name:'example',isSystem:false,relations:['events','sales'].map(name=>({schema:'example',name,qualifiedName:'example.'+name,kind:'r',columnsStatus:'loaded',columns:columns11}))}]
+      await evaluate(`(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,builder:{...t.builder,timeColumn:'created_at',timeBucket:'hour',timeRange:{kind:'rolling',amount:7,unit:'day'},seriesColumns:[]},builderVisualization:{...t.builderVisualization,xColumn:'created_at',valueColumn:'value',aggregation:'sum'}}],metadataByProfileId:{'audit-postgres':{schemas:${rendererValue(schemas11)},status:'loaded',error:null,isStale:false}}})})()`)
+      await settle()
+      const combo11 = async label => {
+        const selector = await evaluate(`(() => {const e=[...document.querySelectorAll('.builder-pane [role="combobox"]')].find(e=>e.getAttribute('aria-label')?.startsWith(${rendererValue(label+':')}) || e.getAttribute('aria-label')===${rendererValue(label)});if(!e)throw Error('Missing combo '+${rendererValue(label)});return '#'+CSS.escape(e.id)})()`)
+        await click(selector)
+      }
+      const option11 = async label => {
+        const selector = await evaluate(`(() => {const e=[...document.querySelectorAll('[role="option"]')].find(e=>e.textContent.trim()===${rendererValue(label)});if(!e)throw Error('Missing option '+${rendererValue(label)});return '#'+CSS.escape(e.id)})()`)
+        await click(selector)
+      }
+      const choose11 = async (label, option) => {await combo11(label);await option11(option)}
+      // Use the rendered query's text rather than reconstructing generation in the harness.
+      const readSql11 = () => evaluate(`document.querySelector('[aria-label="Generated SQL query"] .cm-content')?.innerText.trim()`)
+      await click('[data-generated-query-panel] summary')
+      await waitFor(win, `document.querySelector('[aria-label="Generated SQL query"] .cm-content')?.innerText.includes('SELECT')`, 'CAP11 generated SQL')
+      const initial11 = await readSql11()
+      await choose11('Table or view', 'sales')
+      await waitFor(win, `window.__datakoalaStore.getState().tabs[0].builder.table.name==='sales'`, 'CAP11 relation mutation')
+      // Relation selection intentionally invalidates dimensions; reselect through real controls.
+      await choose11('Time column','created_at')
+      await choose11('X axis','created_at')
+      await choose11('Y axis','value')
+      await choose11('Aggregation','Sum')
+      await combo11('Time bucket')
+      const unavailable11 = await evaluate(`(() => {const e=[...document.querySelectorAll('[role="option"]')].find(e=>e.textContent.includes('Minute'));return {text:e?.textContent,disabled:e?.getAttribute('aria-disabled')}})()`)
+      if(unavailable11.disabled!=='true'||!unavailable11.text.includes('24 hours'))throw Error('CAP11 missing Minute rationale')
+      await observe('cap11-bucket-disabled-desktop.png','.builder-pane','CAP-11 seven-day temporal X: Minute disabled with rationale')
+      await key('Escape')
+      await choose11('Time bucket','Hour')
+      await choose11('X axis','category')
+      const independent11 = await readSql11()
+      const state11 = await evaluate('window.__datakoalaStore.getState().tabs[0]')
+      if(state11.builder.timeColumn!=='created_at'||state11.builderVisualization.xColumn!=='category'||!independent11.includes('created_at')||!independent11.includes('sales')||initial11===independent11)throw Error('CAP11 independent temporal filter or SQL mutation failed: '+independent11)
+      await observe('cap11-independent-time-desktop.png','.builder-pane','CAP-11 category X and independent created_at time predicate after relation mutation')
+      await choose11('Aggregation','Count')
+      const count11 = await readSql11()
+      if(!/count\(\*\)/i.test(count11)||await evaluate('window.__datakoalaStore.getState().tabs[0].builderVisualization.valueColumn')!==null)throw Error('CAP11 Count without Y failed')
+      await observe('cap11-count-desktop.png','.builder-pane','CAP-11 Count clears Y and generates COUNT(*)')
+      await choose11('Y axis','value')
+      await choose11('Aggregation','Average')
+      const average11 = await readSql11()
+      if(!/avg\(/i.test(average11))throw Error('CAP11 Average SQL missing')
+      // Series/dependent clearing uses named component/store tests; avoid a mocked cardinality claim.
+      if(queryCalls!==callsBefore11)throw Error('CAP11 unexpectedly executed query')
+      observations.push({family:'cap11',viewport,scenario:'relation-time-x-aggregation',initialSql:initial11,independentSql:independent11,countSql:count11,averageSql:average11,timeColumn:state11.builder.timeColumn,x:state11.builderVisualization.xColumn,minuteUnavailable:unavailable11,noQueryExecution:true,series:'source/named tests only',customRange:'source/named tests only'})
+    }
+    if (viewport === 'desktop') {
       // CAP-08 A21: use the real renderer controls inside the Electron audit's
       // in-memory session. Never connect a provider or persist a user's presets.
       console.log('CAP08 step: seed PostgreSQL Builder session')
