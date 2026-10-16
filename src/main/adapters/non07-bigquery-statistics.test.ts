@@ -10,6 +10,7 @@ const profile: BigQueryProfile = {
   id: 'non07-bigquery',
   name: 'NON-07 BigQuery',
   billingProject: 'test-billing',
+  maximumBytesBilled: '1073741824',
   readonly: true,
 }
 

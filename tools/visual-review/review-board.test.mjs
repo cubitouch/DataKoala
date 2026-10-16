@@ -63,6 +63,27 @@ test('generate reproducible Atlas review data and verify every published screens
   await generateBoard({ write: false, destination })
 })
 
+test('Markdown export escapes backslashes before pipe separators in reviewer notes', () => {
+  const markdown = exportMarkdown({
+    baseline: { integrationHead: 'abc123' },
+    exportedAt: '2026-10-16T00:00:00Z',
+    review: [
+      {
+        id: 'VIS-01',
+        atlasId: 'ATL-001',
+        title: 'A | B',
+        choice: 'Defer',
+        notes: String.raw`backslash\|pipe | path C:\logs\audit` + '\nnext',
+      },
+    ],
+  })
+  assert.ok(
+    markdown.includes(
+      String.raw`| VIS-01 | ATL-001 | A \| B | Defer | backslash\\\|pipe \| path C:\\logs\\audit<br>next |`,
+    ),
+  )
+})
+
 test('four decisions, notes, autosaved JSON reload, import and both exports survive one review workflow', async () => {
   const board = await generateBoard()
   const ids = board.comparisons.map((row) => row.id)

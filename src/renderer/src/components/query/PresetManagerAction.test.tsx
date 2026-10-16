@@ -487,10 +487,14 @@ describe('PresetManagerAction', () => {
 
   it('rejects a preset from another datasource without changing the current tab', () => {
     const repository = new ExplorationPresetRepository(new MemoryStorage())
-    const metricsProfile = {
-      ...sqlProfile,
+    const metricsProfile: DataSourceProfile = {
+      id: sqlProfile.id,
+      name: 'Metrics',
       kind: 'prometheus',
-    } as DataSourceProfile
+      version: 1,
+      readonly: true,
+      transport: { kind: 'gcx' },
+    }
     const metricsSession = createQuerySession(1, {
       connectionProfileId: sqlProfile.id,
       sql: 'up',

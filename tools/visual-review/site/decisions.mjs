@@ -81,6 +81,7 @@ export function importPayload(text, comparisons) {
 export function exportMarkdown(payload) {
   const escape = (value) =>
     String(value ?? '')
+      .replace(/\\/g, '\\\\')
       .replace(/\|/g, '\\|')
       .replace(/\r?\n/g, '<br>')
   const rows = payload.review.map(
