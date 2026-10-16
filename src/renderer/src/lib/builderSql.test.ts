@@ -438,7 +438,7 @@ test('materializes GoogleSQL positional parameters for preview/copy/open parity'
       "Côte d'Ivoire",
       '2026-01-01T00:00:00Z',
     ]),
-    "WHERE `country` = 'Côte d''Ivoire' AND `at` >= '2026-01-01T00:00:00Z'",
+    "WHERE `country` = 'Côte d\\'Ivoire' AND `at` >= '2026-01-01T00:00:00Z'",
   )
 })
 

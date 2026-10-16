@@ -9,9 +9,15 @@ import {
   type ResultFilter,
   type SerializableFilterValue,
 } from './resultFilters.ts'
-import { quotePostgresIdentifier } from '@shared/seriesCardinality.ts'
+import type { SqlDialect } from '@shared/types.ts'
+import {
+  quoteGoogleIdentifier,
+  quotePostgresIdentifier,
+} from '@shared/seriesCardinality.ts'
 
 export interface BuilderFilterContext {
+  dialect?: SqlDialect
+  parameterOffset?: number
   table: { schema: string; name: string }
   /** Real source column selected for the Builder X axis. */
   xColumn: string
@@ -45,18 +51,21 @@ function scalarPredicate(
   expression: string,
   filter: ResultFilter,
   parameters: unknown[],
+  parameter: (index: number) => string,
 ): string | null {
   if (filter.operator === 'isNull') return `${expression} IS NULL`
   if (filter.operator === 'isNotNull') return `${expression} IS NOT NULL`
   if (filter.operator === 'range' || filter.operator === 'notRange') return null
   parameters.push(scalar(scalarFilterValue(filter)))
-  return `${expression} ${filter.operator === 'equals' ? '=' : 'IS DISTINCT FROM'} $${parameters.length}`
+  return `${expression} ${filter.operator === 'equals' ? '=' : 'IS DISTINCT FROM'} ${parameter(parameters.length)}`
 }
 
 function tuplePredicate(
   filter: ResultFilter,
   expectedColumns: readonly string[],
   parameters: unknown[],
+  quote: (value: string) => string,
+  parameter: (index: number) => string,
 ): string | null {
   if (filter.operator !== 'equals' && filter.operator !== 'notEquals')
     return null
@@ -65,7 +74,7 @@ function tuplePredicate(
   if (!tuple) {
     if (expectedColumns.length !== 1) return null
     parameters.push(scalar(rawValue))
-    const comparison = `${quotePostgresIdentifier(expectedColumns[0])} IS NOT DISTINCT FROM $${parameters.length}`
+    const comparison = `${quote(expectedColumns[0])} IS NOT DISTINCT FROM ${parameter(parameters.length)}`
     return filter.operator === 'equals'
       ? `(${comparison})`
       : `NOT (${comparison})`
@@ -79,7 +88,7 @@ function tuplePredicate(
     return null
   const comparisons = tuple.map(({ column, value }) => {
     parameters.push(scalar(value))
-    return `${quotePostgresIdentifier(column)} IS NOT DISTINCT FROM $${parameters.length}`
+    return `${quote(column)} IS NOT DISTINCT FROM ${parameter(parameters.length)}`
   })
   const equality = `(${comparisons.join(' AND ')})`
   return filter.operator === 'equals' ? equality : `NOT ${equality}`
@@ -89,6 +98,18 @@ export function resolveBuilderPromotedFilters(
   filters: ResultFilter[],
   context: BuilderFilterContext,
 ): { sql: string; parameters: unknown[] } | null {
+  const quote =
+    context.dialect === 'google-sql'
+      ? quoteGoogleIdentifier
+      : quotePostgresIdentifier
+  const parameter = (index: number) =>
+    context.dialect === 'google-sql'
+      ? '?'
+      : `$${index + (context.parameterOffset ?? 0)}`
+  const timeParameter = (index: number) =>
+    context.dialect === 'google-sql'
+      ? `CAST(? AS ${context.timeColumnDataType?.toUpperCase() === 'DATE' ? 'DATE' : context.timeColumnDataType?.toUpperCase() === 'DATETIME' ? 'DATETIME' : 'TIMESTAMP'})`
+      : parameter(index)
   const parameters: unknown[] = []
   const predicates: string[] = []
   for (const filter of queryResultFilters(filters)) {
@@ -99,7 +120,13 @@ export function resolveBuilderPromotedFilters(
         const sourceColumn = provenance.sourceColumn
         if (!sourceColumn || !context.seriesColumns.includes(sourceColumn))
           return null
-        const predicate = tuplePredicate(filter, [sourceColumn], parameters)
+        const predicate = tuplePredicate(
+          filter,
+          [sourceColumn],
+          parameters,
+          quote,
+          parameter,
+        )
         if (!predicate) return null
         predicates.push(predicate)
         continue
@@ -113,6 +140,8 @@ export function resolveBuilderPromotedFilters(
         filter,
         context.seriesColumns,
         parameters,
+        quote,
+        parameter,
       )
       if (!predicate) return null
       predicates.push(predicate)
@@ -127,7 +156,7 @@ export function resolveBuilderPromotedFilters(
           provenance.timeBucket !== context.timeBucket)
       )
         return null
-      const source = quotePostgresIdentifier(context.timeColumn)
+      const source = quote(context.timeColumn)
       if (filter.operator === 'range' || filter.operator === 'notRange') {
         if (provenance && provenance.rangeKind !== 'bucket-boundaries')
           return null
@@ -139,11 +168,11 @@ export function resolveBuilderPromotedFilters(
           bound(filter.startInclusive),
           bound(filter.endExclusive),
         )
-        const inside = `${source} >= $${parameters.length - 1} AND ${source} < $${parameters.length}`
+        const inside = `${source} >= ${timeParameter(parameters.length - 1)} AND ${source} < ${timeParameter(parameters.length)}`
         predicates.push(
           filter.operator === 'range'
             ? `(${inside})`
-            : `(${source} IS NULL OR ${source} < $${parameters.length - 1} OR ${source} >= $${parameters.length})`,
+            : `(${source} IS NULL OR ${source} < ${timeParameter(parameters.length - 1)} OR ${source} >= ${timeParameter(parameters.length)})`,
         )
         continue
       }
@@ -166,11 +195,11 @@ export function resolveBuilderPromotedFilters(
         bound(boundaries.startInclusive),
         bound(boundaries.endExclusive),
       )
-      const inside = `${source} >= $${parameters.length - 1} AND ${source} < $${parameters.length}`
+      const inside = `${source} >= ${timeParameter(parameters.length - 1)} AND ${source} < ${timeParameter(parameters.length)}`
       predicates.push(
         filter.operator === 'equals'
           ? `(${inside})`
-          : `(${source} IS NULL OR ${source} < $${parameters.length - 1} OR ${source} >= $${parameters.length})`,
+          : `(${source} IS NULL OR ${source} < ${timeParameter(parameters.length - 1)} OR ${source} >= ${timeParameter(parameters.length)})`,
       )
       continue
     }
@@ -186,9 +215,10 @@ export function resolveBuilderPromotedFilters(
     )
     if (!sourceColumn || (!isXAxis && !isSeries)) return null
     const predicate = scalarPredicate(
-      quotePostgresIdentifier(sourceColumn),
+      quote(sourceColumn),
       filter,
       parameters,
+      parameter,
     )
     if (!predicate) return null
     predicates.push(predicate)

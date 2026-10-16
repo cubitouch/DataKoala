@@ -848,6 +848,7 @@ export function BuilderPanel() {
     const materialized = materializeSqlParameters(
       generatedQuery.sql,
       generatedQuery.parameters,
+      sqlDialectForSourceKind(connectionKind ?? 'postgres'),
     )
     setSql(formatSqlOrOriginal(materialized, formatterDialect), tabId)
     setMode('sql', tabId)

@@ -8,24 +8,25 @@ export function quotePostgresIdentifier(value: string): string {
   return `"${value.replaceAll('"', '""')}"`
 }
 
+export const quoteGoogleIdentifier = (value: string) =>
+  '`' +
+  Array.from(value, (char) => {
+    if (char === '\\' || char === '`') return '\\' + char
+    const code = char.charCodeAt(0)
+    return code < 32 || code === 127
+      ? `\\u${code.toString(16).padStart(4, '0')}`
+      : char
+  }).join('') +
+  '`'
+
 /** Builds a bounded, parameterized probe. Only identifiers are interpolated, after quoting. */
 export function buildSeriesCardinalityProbe(
   request: SeriesCardinalityProbeRequest,
   dialect: SqlDialect = 'postgres',
 ): { sql: string; groupedSql: string; parameters: unknown[] } {
-  const quoteGoogle = (value: string) =>
-    '`' +
-    Array.from(value, (char) => {
-      if (char === '\\' || char === '`') return '\\' + char
-      const code = char.charCodeAt(0)
-      return code < 32 || code === 127
-        ? `\\u${code.toString(16).padStart(4, '0')}`
-        : char
-    }).join('') +
-    '`'
   const quote = (value: string) =>
     dialect === 'google-sql'
-      ? quoteGoogle(value)
+      ? quoteGoogleIdentifier(value)
       : quotePostgresIdentifier(value)
   const column = quote(request.seriesColumn)
   const parameters: unknown[] = []
@@ -97,7 +98,7 @@ export function buildSeriesCardinalityProbe(
   })
   const relation =
     dialect === 'google-sql'
-      ? quoteGoogle(`${request.schema}.${request.table}`)
+      ? quoteGoogleIdentifier(`${request.schema}.${request.table}`)
       : `${quote(request.schema)}.${quote(request.table)}`
   const groupedSql = `SELECT ${column}\n  FROM ${relation}${predicates.length ? `\n  WHERE ${predicates.join(' AND ')}` : ''}\n  GROUP BY ${column}`
   return {

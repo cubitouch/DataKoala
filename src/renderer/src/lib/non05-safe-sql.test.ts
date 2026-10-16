@@ -64,7 +64,7 @@ test('NON-05: GoogleSQL quotes qualified relation and reserved/special column na
   assert.match(query.sql, /\n {2}`été 2026`,/)
   // Characterizes actual generator output. Remote GoogleSQL quoted-identifier
   // grammar is not proved by a source-only string assertion.
-  assert.ok(query.sql.includes('`a``b`'))
+  assert.ok(query.sql.includes('`a\\`b`'))
   assert.doesNotMatch(query.sql, /NULLS LAST/)
 })
 
@@ -245,39 +245,82 @@ test('NON-05: literal materializer handles apostrophes, NULL and finite numbers'
   )
 })
 
-test.fails(
-  'NON-05 finding: PostgreSQL Open in SQL mode must not expand $1 inside quoted identifiers',
-  () => {
-    assert.equal(
-      materializeSqlParameters('SELECT "$1", $1', ['safe']),
-      'SELECT "$1", \'safe\'',
-    )
-  },
-)
+test('NON-05 finding: PostgreSQL Open in SQL mode must not expand $1 inside quoted identifiers', () => {
+  assert.equal(
+    materializeSqlParameters('SELECT "$1", $1', ['safe']),
+    'SELECT "$1", \'safe\'',
+  )
+})
 
-test.fails(
-  'NON-05 finding: GoogleSQL Open in SQL mode must not consume ? inside quoted identifiers',
-  () => {
-    assert.equal(
-      materializeSqlParameters(
-        'SELECT `status?` FROM `p.d.t` WHERE `status?` = ?',
-        ['paid'],
-      ),
-      "SELECT `status?` FROM `p.d.t` WHERE `status?` = 'paid'",
-    )
-  },
-)
+test('NON-05 finding: GoogleSQL Open in SQL mode must not consume ? inside quoted identifiers', () => {
+  assert.equal(
+    materializeSqlParameters(
+      'SELECT `status?` FROM `p.d.t` WHERE `status?` = ?',
+      ['paid'],
+    ),
+    "SELECT `status?` FROM `p.d.t` WHERE `status?` = 'paid'",
+  )
+})
 
-test.fails(
-  'NON-05 finding: GoogleSQL promoted filter must preserve double quotes within identifiers',
-  () => {
+test('NON-05 finding: GoogleSQL promoted filter must preserve double quotes within identifiers', () => {
+  const query = generateBuilderQuery({
+    dialect: 'google-sql',
+    table: { schema: 'project.dataset', name: 'orders' },
+    xColumn: 'a"b',
+    xColumnDataType: 'STRING',
+    filters: [promoted(createResultFilter('a"b', 'equals', 'paid'))],
+  })
+  assert.match(query.sql, /WHERE `a"b` = \?/)
+})
+
+test('materialization preserves quoted placeholder text, comments and escapes', () => {
+  for (const sql of [
+    `SELECT '$1 ?', "a""$1?", $1 -- ? $2\n/* $2 ? */`,
+    `SELECT $$ $1 ? $$, $tag$ $2 ? $tag$, $1`,
+    String.raw`SELECT E'a\' $2 ?', $1`,
+  ]) {
+    assert.equal(
+      materializeSqlParameters(sql, ['bound']),
+      sql.replace(/\$1(?= --|$)/, "'bound'"),
+    )
+  }
+  const google = "SELECT `a\\`?`, 'it\\'s ?', ? /* ? */"
+  assert.equal(
+    materializeSqlParameters(google, ['C:\\path'], 'google-sql'),
+    "SELECT `a\\`?`, 'it\\'s ?', 'C:\\\\path' /* ? */",
+  )
+  assert.equal(materializeSqlParameters('SELECT "?", $1', [7]), 'SELECT "?", 7')
+  assert.equal(
+    materializeSqlParameters('SELECT "no $1 or ?"', []),
+    'SELECT "no $1 or ?"',
+  )
+})
+
+test('promoted quoted placeholders survive offsets and GoogleSQL quoting', () => {
+  for (const dialect of ['postgres', 'duckdb', 'google-sql'] as const) {
     const query = generateBuilderQuery({
-      dialect: 'google-sql',
-      table: { schema: 'project.dataset', name: 'orders' },
-      xColumn: 'a"b',
+      dialect,
+      table,
+      xColumn: 'a"$1?`b',
       xColumnDataType: 'STRING',
-      filters: [promoted(createResultFilter('a"b', 'equals', 'paid'))],
+      filters: [promoted(createResultFilter('a"$1?`b', 'equals', 'paid'))],
     })
-    assert.match(query.sql, /WHERE `a"b` = \?/)
-  },
-)
+    assert.deepEqual(query.parameters, ['paid'])
+    assert.ok(
+      query.sql.includes(
+        dialect === 'google-sql' ? '`a"$1?\\`b` = ?' : '"a""$1?`b" = $1',
+      ),
+    )
+    const materialized = materializeSqlParameters(
+      query.sql,
+      query.parameters,
+      dialect,
+    )
+    assert.ok(materialized.includes("= 'paid'"))
+    assert.ok(
+      materialized.includes(
+        'a"' + (dialect === 'google-sql' ? '' : '"') + '$1?',
+      ),
+    )
+  }
+})
