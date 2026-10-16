@@ -1,0 +1,4716 @@
+{
+  "schemaVersion": 1,
+  "integrationBase": "c08e09e5f8257246696eff1b1dfc60a0c3deabce",
+  "method": "Source line anchors were checked against immutable source commits; Atlas claims challenged with original CAP/NON statements and bounded code reading. No new Electron, provider or image execution.",
+  "originalInventory": {
+    "familyCounts": {
+      "A": 25,
+      "S": 28,
+      "C": 18,
+      "P": 17,
+      "L": 26,
+      "T": 24,
+      "R": 25,
+      "X": 12
+    },
+    "ids": [
+      "A01",
+      "A02",
+      "A03",
+      "A04",
+      "A05",
+      "A06",
+      "A07",
+      "A08",
+      "A09",
+      "A10",
+      "A11",
+      "A12",
+      "A13",
+      "A14",
+      "A15",
+      "A16",
+      "A17",
+      "A18",
+      "A19",
+      "A20",
+      "A21",
+      "A22",
+      "A23",
+      "A24",
+      "A25",
+      "S01",
+      "S02",
+      "S03",
+      "S04",
+      "S05",
+      "S06",
+      "S07",
+      "S08",
+      "S09",
+      "S10",
+      "S11",
+      "S12",
+      "S13",
+      "S14",
+      "S15",
+      "S16",
+      "S17",
+      "S18",
+      "S19",
+      "S20",
+      "S21",
+      "S22",
+      "S23",
+      "S24",
+      "S25",
+      "S26",
+      "S27",
+      "S28",
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07",
+      "C08",
+      "C09",
+      "C10",
+      "C11",
+      "C12",
+      "C13",
+      "C14",
+      "C15",
+      "C16",
+      "C17",
+      "C18",
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12",
+      "P13",
+      "P14",
+      "P15",
+      "P16",
+      "P17",
+      "L01",
+      "L02",
+      "L03",
+      "L04",
+      "L05",
+      "L06",
+      "L07",
+      "L08",
+      "L09",
+      "L10",
+      "L11",
+      "L12",
+      "L13",
+      "L14",
+      "L15",
+      "L16",
+      "L17",
+      "L18",
+      "L19",
+      "L20",
+      "L21",
+      "L22",
+      "L23",
+      "L24",
+      "L25",
+      "L26",
+      "T01",
+      "T02",
+      "T03",
+      "T04",
+      "T05",
+      "T06",
+      "T07",
+      "T08",
+      "T09",
+      "T10",
+      "T11",
+      "T12",
+      "T13",
+      "T14",
+      "T15",
+      "T16",
+      "T17",
+      "T18",
+      "T19",
+      "T20",
+      "T21",
+      "T22",
+      "T23",
+      "T24",
+      "R01",
+      "R02",
+      "R03",
+      "R04",
+      "R05",
+      "R06",
+      "R07",
+      "R08",
+      "R09",
+      "R10",
+      "R11",
+      "R12",
+      "R13",
+      "R14",
+      "R15",
+      "R16",
+      "R17",
+      "R18",
+      "R19",
+      "R20",
+      "R21",
+      "R22",
+      "R23",
+      "R24",
+      "R25",
+      "X01",
+      "X02",
+      "X03",
+      "X04",
+      "X05",
+      "X06",
+      "X07",
+      "X08",
+      "X09",
+      "X10",
+      "X11",
+      "X12"
+    ]
+  },
+  "sourceBatches": [
+    {
+      "id": "CAP-01",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 219,
+        "quote": "### CAP-01 completion — PostgreSQL connection picker/creation, EVIDENCE_COMPLETE (CI limitations below)"
+      },
+      "sourceHead": "d1e3127ba380f75108b296f737b42729ae4dd073",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-02",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 237,
+        "quote": "### CAP-02 completion — saved PostgreSQL edit, delete, read-only (EVIDENCE_COMPLETE)"
+      },
+      "sourceHead": "5a7ac174ef8d1519ee1630f2bbd18692ec40bec6",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-03",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 248,
+        "quote": "### CAP-03 completion — BigQuery, Local Files, SQLite creation forms (EVIDENCE_COMPLETE)"
+      },
+      "sourceHead": "1ca7411e446d2b00bb19ea5812c1c979a0feb7df",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-04",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 260,
+        "quote": "### CAP-04 completion — Observability connection forms (EVIDENCE_COMPLETE)"
+      },
+      "sourceHead": "1184afcf3d7c93a1311080df5fbab9d0df9a4704",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-05",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 272,
+        "quote": "### CAP-05 completion — Sidebar status, metadata, search, refresh and retry (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "5aac39dd0d69c3542683f3b0f79fc8931cb31fda",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-06",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 293,
+        "quote": "### CAP-06 completion — Prometheus metrics, Loki labels, Tempo services (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "5aac39dd0d69c3542683f3b0f79fc8931cb31fda",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-07",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "9ef44d802fca7645781e1aadbe52bf47ce064089",
+        "line": 315,
+        "quote": "### CAP-07 completion — query tabs, running indicator and Raw/Builder (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "9a3484fc3c56f773331b1040300c79a8908199ac",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-08",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 311,
+        "quote": "### CAP-08 completion — preset CRUD and Reset confirmation (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "1521a01404cd8b27bce8d99d25643f4b88c7a015",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-09",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 326,
+        "quote": "### CAP-09 completion — notifications and resizable workspace regions (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "296a6ada15031c4455adc89e58fc5a57ce03243e",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-10",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 341,
+        "quote": "### CAP-10 completion — SQL editor, autocomplete, formatting and generated SQL (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "c148f91906a69529318dec170a7922e4d9fa465e",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-11",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 359,
+        "quote": "### CAP-11 — SQL Builder dimensional and temporal controls (EVIDENCE_COMPLETE)"
+      },
+      "sourceHead": "5ba36d0d26264896aea7149aa2ca0c0cf973821c",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-12",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 371,
+        "quote": "### CAP-12 — Table, CSV and JSON inspector (EVIDENCE_COMPLETE)"
+      },
+      "sourceHead": "a51aaf88148fab5967fa427dedbf81601524ba8e",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-13",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 465,
+        "quote": "### CAP-13 completion — cell menus and local/query filtering (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "199cbafb309a7efa1b23b24e2ed76168baf1aba6",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-14",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 487,
+        "quote": "### CAP-14 completion — PostgreSQL EXPLAIN, ANALYZE and diagram (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "0132a94548b6678f44320d7a7e6bbd093f231e75",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-15",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 506,
+        "quote": "### CAP-15 completion — AI proposals, diff and repair (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "0f022427225a4b222d352ddade7c59f4e1dbe147",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-16",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 527,
+        "quote": "### CAP-16 completion — PromQL calculations and histograms (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "178700809b85add44d88c44799cc12baed76b51d",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-17",
+      "originalRecord": {
+        "path": "docs/architecture/ux-convergence-coverage-register.md",
+        "commit": "e4c036d853e6f5fe6aecd794a2404c7331c5c13e",
+        "line": 549,
+        "quote": "### CAP-17 completion — PromQL labels, range and resolution (EVIDENCE_COMPLETE, scoped)"
+      },
+      "sourceHead": "ec0641ea9f33e16a05e8d23de3b27ac807e62834",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-18",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-18.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-18 — Loki Builder advanced predicates"
+      },
+      "sourceHead": "34753c046b18ba838331a5c3652b8ac429ed7b89",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-19",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-19.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-19 — Loki log list, inspector and copying"
+      },
+      "sourceHead": "345382a72d904e5bc03c668aec9184da9108ddb8",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-20",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-20.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-20 — Loki Patterns list, detail, and View logs"
+      },
+      "sourceHead": "ce088a2bdfcd0f710fc93a15561d05a208badcae",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "CAP-21",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-21.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-21 — Loki volume, views, raw editor and Grafana handoff"
+      },
+      "sourceHead": "bb66ca4dcb83b5edb3a87f93cf3a82221dfd01bd",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "CAP-22",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-22.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-22 — Tempo Builder service and protocol controls"
+      },
+      "sourceHead": "52fd2e08e82446fa37be3930c497b540f5f50dc2",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "CAP-23",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-23.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-23 — Tempo advanced subsystem fields (recovery of #424)"
+      },
+      "sourceHead": "8306fb19cd476d2125153fa297bd00a86f5e63f0",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "CAP-24",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-24.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-24 — Tempo trace list, lookup, progressive results and scatter"
+      },
+      "sourceHead": "ee031b9d3969bf81f4e6ed36e11314dcaefdd0b3",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "CAP-25",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-25.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-25 — Tempo service map, span hierarchy and inspector"
+      },
+      "sourceHead": "e0b3b8e547d711d9f27168ea35d9f285fd46abbb",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "CAP-26",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-26.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-26 — Generic chart view types and configuration"
+      },
+      "sourceHead": "0416e50fbf977aa67f8e6f9762d615452ccd82ad",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "CAP-27",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-27.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-27 — Legend isolation, resize and chart point filters"
+      },
+      "sourceHead": "175d0ead3a66dace3dee7a318fe4d004ae028bac",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "CAP-28",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-28.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-28 — Chart export, AI anomalies and empty/loading/error states"
+      },
+      "sourceHead": "83eeb52e4dfbd3c12979a6888b2d0e9fba22101e",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "CAP-29",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-29.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-29 — AI Settings, model selection and nested Escape"
+      },
+      "sourceHead": "f1ca5d6715973ee52f84ad4ad25abcb30dfbca96",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "CAP-30",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/CAP-30.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# CAP-30 — Clipboard, Grafana and diagram sharing"
+      },
+      "sourceHead": "e9c893853586a3218d4b0c3ed3e103c82d04d9b3",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "NON-01",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/NON-01.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# NON-01 — Connection and query lifecycle races"
+      },
+      "sourceHead": "bd4da52b80f65618a4908529ae4df91cc3b124e3",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "NON-02",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/NON-02.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# NON-02 — Session and preset persistence"
+      },
+      "sourceHead": "c3b9e055b3298911c55e533202048800df5b0001",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "NON-03",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/NON-03.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# NON-03 — Credential storage and provider authentication security"
+      },
+      "sourceHead": "1fdc3a604310622e7f99ef09ba7a6ed374c6b4ac",
+      "disposition": "EVIDENCE_COMPLETE"
+    },
+    {
+      "id": "NON-04",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/NON-04.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# NON-04 — Provider execution and read-only restrictions"
+      },
+      "sourceHead": "ac99126feb212986f4acffcc058172af469fc73e",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "NON-05",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/NON-05.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# NON-05 — Safe generated SQL and dialect boundaries"
+      },
+      "sourceHead": "e50b8f7796382767cd0da424f4996c88a4aa7dc2",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "NON-06",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/NON-06.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# NON-06 — AI metadata context discovery security and correctness"
+      },
+      "sourceHead": "c3ec6f04b87ae3bac4ec343642756e3a09ed41e0",
+      "disposition": "PARTIAL"
+    },
+    {
+      "id": "NON-07",
+      "originalRecord": {
+        "path": "docs/audit/391/batches/NON-07.md",
+        "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+        "line": 1,
+        "quote": "# NON-07 — BigQuery execution-statistics contract"
+      },
+      "sourceHead": "e7b4c978183e7cb832448d2136bfbe064beed9ff",
+      "disposition": "PARTIAL"
+    }
+  ],
+  "candidateIds": [
+    "VC05-01",
+    "VC05-02",
+    "VC05-03",
+    "VC06-01",
+    "VC06-02",
+    "VC07-01",
+    "VC07-02",
+    "VC08-01",
+    "VC08-02",
+    "VC09-01",
+    "VC09-02",
+    "VC10-01",
+    "VC10-02",
+    "VC11-01",
+    "VC12-01",
+    "VC12-02",
+    "VC12-03",
+    "VC12-04",
+    "VC13-01",
+    "VC13-02",
+    "VC13-03",
+    "VC14-01",
+    "VC14-02",
+    "VC15-01",
+    "VC15-02",
+    "VC16-01",
+    "VC16-02",
+    "VC16-03",
+    "VC17-01",
+    "VC17-02",
+    "VC18-01",
+    "VC18-02",
+    "VC18-03",
+    "VC18-04",
+    "VC18-05",
+    "VC19-01",
+    "VC19-02",
+    "VC19-03",
+    "VC19-04",
+    "VC19-05",
+    "VC20-01",
+    "VC20-02",
+    "VC20-03",
+    "VC20-04",
+    "VC21-01",
+    "VC21-02",
+    "VC21-03",
+    "VC21-04",
+    "VC22-01",
+    "VC22-02",
+    "VC22-03",
+    "VC22-04",
+    "VC22-05",
+    "VC23-01",
+    "VC23-02",
+    "VC23-03",
+    "VC23-04",
+    "VC23-05",
+    "VC24-01",
+    "VC24-02",
+    "VC24-03",
+    "VC24-04",
+    "VC24-05",
+    "VC25-01",
+    "VC25-02",
+    "VC25-03",
+    "VC25-04",
+    "VC25-05",
+    "VC25-06",
+    "VC26-01",
+    "VC26-02",
+    "VC26-03",
+    "VC26-04",
+    "VC26-05",
+    "VC27-01",
+    "VC27-02",
+    "VC27-03",
+    "VC27-04",
+    "VC28-01",
+    "VC28-02",
+    "VC28-03",
+    "VC28-04",
+    "VC28-05",
+    "VC29-01",
+    "VC29-03",
+    "VC29-02",
+    "VC29-04",
+    "VC30-01",
+    "VC30-02",
+    "VC30-03",
+    "VC30-04",
+    "VC30-05",
+    "VC30-06",
+    "NON01-06",
+    "NON01-01",
+    "NON01-02",
+    "NON01-03",
+    "NON01-04",
+    "NON01-05",
+    "NON02-01",
+    "NON02-02",
+    "NON02-03",
+    "NON02-04",
+    "NON02-05",
+    "NON03-01",
+    "NON03-02",
+    "NON03-03",
+    "NON03-04",
+    "NON03-05",
+    "NON04-01",
+    "NON04-02",
+    "NON04-03",
+    "NON04-04",
+    "NON04-05",
+    "NON04-06",
+    "NON05-01",
+    "NON05-02",
+    "NON05-03",
+    "NON05-04",
+    "NON05-05",
+    "NON05-06",
+    "NON05-07",
+    "NON06-01",
+    "NON06-02",
+    "NON06-03",
+    "NON06-04",
+    "NON06-05",
+    "NON06-06",
+    "NON06-07",
+    "NON07-01",
+    "NON07-02",
+    "NON07-03",
+    "NON07-04",
+    "NON07-05",
+    "NON07-06",
+    "V-01",
+    "V-02",
+    "V-03",
+    "V-04",
+    "V-05",
+    "V-06",
+    "V-07",
+    "V-08",
+    "V-09",
+    "V-10",
+    "V-11",
+    "V-12"
+  ],
+  "groupReviews": [
+    {
+      "atlas": "ATL-001",
+      "candidates": [
+        "V-01",
+        "VC19-05",
+        "VC20-01",
+        "VC24-01"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Common open/focus affordance; three distinct densities and virtualizers, no shared root cause established.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L381",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-19.md#L73",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-20.md#L73",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L111"
+      ]
+    },
+    {
+      "atlas": "ATL-002",
+      "candidates": [
+        "V-02",
+        "VC29-01"
+      ],
+      "verdict": "VALID_SAME_DEFECT",
+      "reason": "V-02 and VC29-01 describe the same Settings child Escape propagation.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L382",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-29.md#L116"
+      ]
+    },
+    {
+      "atlas": "ATL-006",
+      "candidates": [
+        "V-06",
+        "VC28-04"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Retained SQL/chart state and CAP-28 revision observation motivate one policy decision; Tempo partials remain separate.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L386",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-28.md#L134"
+      ]
+    },
+    {
+      "atlas": "ATL-007",
+      "candidates": [
+        "V-07",
+        "VC19-01",
+        "VC30-03"
+      ],
+      "verdict": "VALID_SAME_DEFECT",
+      "reason": "V-07, VC19-01 and VC30-03 reproduce rejected LogResultExplorer clipboard handling.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L387",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-19.md#L69",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L121"
+      ]
+    },
+    {
+      "atlas": "ATL-008",
+      "candidates": [
+        "V-08",
+        "VC30-02"
+      ],
+      "verdict": "VALID_SAME_DEFECT",
+      "reason": "V-08 and VC30-02 observe the same PromQL accessible name.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L388",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L120"
+      ]
+    },
+    {
+      "atlas": "ATL-010",
+      "candidates": [
+        "V-10",
+        "VC11-01",
+        "VC17-01",
+        "VC18-01",
+        "VC22-01",
+        "VC23-02",
+        "VC29-04"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Existing field/selector presentation across sources; option semantics and metadata loading remain caller owned.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L390",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L433",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L629",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-18.md#L108",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-22.md#L88",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-23.md#L131",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-29.md#L139"
+      ]
+    },
+    {
+      "atlas": "ATL-011",
+      "candidates": [
+        "V-11",
+        "VC07-02",
+        "VC10-01"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Existing raw shell and mode controls; SQL/LogQL grammar and draft lifecycles remain distinct.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L391",
+        "https://github.com/cubitouch/DataKoala/blob/9ef44d802fca7645781e1aadbe52bf47ce064089/docs/architecture/ux-convergence-coverage-register.md#L326",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L421"
+      ]
+    },
+    {
+      "atlas": "ATL-012",
+      "candidates": [
+        "V-12",
+        "VC15-01"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Existing AI review presentation; Apply/Run and capability-specific validation remain distinct.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L392",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L584"
+      ]
+    },
+    {
+      "atlas": "ATL-013",
+      "candidates": [
+        "VC05-01",
+        "VC06-01"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Different metadata hierarchies and option sources, with shared selector chrome.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L351",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L370"
+      ]
+    },
+    {
+      "atlas": "ATL-014",
+      "candidates": [
+        "VC05-03",
+        "VC07-01"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Query running and connection status are separately owned signals.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L353",
+        "https://github.com/cubitouch/DataKoala/blob/9ef44d802fca7645781e1aadbe52bf47ce064089/docs/architecture/ux-convergence-coverage-register.md#L325"
+      ]
+    },
+    {
+      "atlas": "ATL-015",
+      "candidates": [
+        "VC10-02",
+        "VC16-02",
+        "VC30-01"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Shared query-copy transport, preserving distinct language labels and payloads.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L422",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L606",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L119"
+      ]
+    },
+    {
+      "atlas": "ATL-016",
+      "candidates": [
+        "VC09-02",
+        "VC20-02",
+        "VC27-02"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Related resize affordances, but workspace, inspector and legend have separate clamps/persistence.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L403",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-20.md#L74",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-27.md#L112"
+      ]
+    },
+    {
+      "atlas": "ATL-017",
+      "candidates": [
+        "VC13-02",
+        "VC19-03",
+        "VC20-03"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Local presentation filters, promoted SQL predicates and Loki request filters keep separate effects.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L544",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-19.md#L71",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-20.md#L75"
+      ]
+    },
+    {
+      "atlas": "ATL-018",
+      "candidates": [
+        "VC16-01",
+        "VC16-03"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Classic, native and unknown histogram capabilities require distinct guards.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L605",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L607"
+      ]
+    },
+    {
+      "atlas": "ATL-019",
+      "candidates": [
+        "VC21-03",
+        "VC26-03",
+        "VC27-01"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Existing generic chart shell; direct runtime parity across providers remains unverified.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-21.md#L108",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-26.md#L94",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-27.md#L111"
+      ]
+    },
+    {
+      "atlas": "ATL-020",
+      "candidates": [
+        "VC23-01",
+        "VC25-06"
+      ],
+      "verdict": "VALID_SAME_DEFECT",
+      "reason": "VC23-01 and VC25-06 report the same clipped Tempo sample label in subsequent view.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-23.md#L130",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L106"
+      ]
+    },
+    {
+      "atlas": "ATL-024",
+      "candidates": [
+        "NON01-05",
+        "NON03-04"
+      ],
+      "verdict": "RELATED_BUT_INDEPENDENT",
+      "reason": "PG diagnostic logging and BQ provider error propagation are distinct paths; common diagnostic policy does not establish a shared leak.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-01.md#L90",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-03.md#L77"
+      ]
+    },
+    {
+      "atlas": "ATL-025",
+      "candidates": [
+        "NON07-03",
+        "NON07-04"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Both BQ field transport and toolbar visibility feed unresolved UI-002 product decision.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L86",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L87"
+      ]
+    },
+    {
+      "atlas": "ATL-026",
+      "candidates": [
+        "NON05-01",
+        "NON05-02"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "One naive materializer handles both placeholder syntaxes; PG $n and GoogleSQL ? require separate lexical tests.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L81",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L82"
+      ]
+    },
+    {
+      "atlas": "ATL-027",
+      "candidates": [
+        "VC09-01",
+        "VC28-03"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Clipboard toast and query/AI persistent errors are intentionally different recovery channels.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L402",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-28.md#L133"
+      ]
+    },
+    {
+      "atlas": "ATL-028",
+      "candidates": [
+        "VC22-03",
+        "VC23-03"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Tempo protocol-specific controls and inactive drafts share a provider boundary; generic facet policy remains open.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-22.md#L90",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-23.md#L132"
+      ]
+    },
+    {
+      "atlas": "ATL-029",
+      "candidates": [
+        "VC24-02",
+        "VC24-04"
+      ],
+      "verdict": "INCORRECT_MERGE",
+      "reason": "VC24-02 is intentional progressive partial behavior; VC24-04 says an independent local-filter shell is already converged. Keep VC24-02 in ATL-029; give VC24-04 its own ALREADY_CONVERGED entry (proposed ATL-105).",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L112",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L114"
+      ]
+    },
+    {
+      "atlas": "ATL-030",
+      "candidates": [
+        "VC25-01",
+        "VC25-02"
+      ],
+      "verdict": "INCORRECT_MERGE",
+      "reason": "VC25-01 is an intentional Tempo waterfall/inspector distinction; VC25-02 proves a separate already-working selection/close behavior. Keep VC25-01 in ATL-030; move VC25-02 to proposed ATL-106 ALREADY_CONVERGED.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L101",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L102"
+      ]
+    },
+    {
+      "atlas": "ATL-031",
+      "candidates": [
+        "VC30-04",
+        "VC30-05"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Separate diagram/plan export formats are one contrastive payload policy, not a shared serialization routine.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L122",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L123"
+      ]
+    },
+    {
+      "atlas": "ATL-032",
+      "candidates": [
+        "NON04-02",
+        "NON04-04",
+        "NON04-05",
+        "NON05-07"
+      ],
+      "verdict": "RELATED_BUT_INDEPENDENT",
+      "reason": "BQ scripts, PG configuration and DuckDB/local file restrictions are different execution policies; the common entry must retain each source classification.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L75",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L77",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L78",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L87"
+      ]
+    },
+    {
+      "atlas": "ATL-033",
+      "candidates": [
+        "NON03-02",
+        "NON03-05"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Shared encrypted store and presence-versus-usability caveat belong together; migrations differ.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-03.md#L64",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-03.md#L83"
+      ]
+    },
+    {
+      "atlas": "ATL-034",
+      "candidates": [
+        "NON06-04",
+        "NON06-06"
+      ],
+      "verdict": "VALID_SHARED_PATTERN",
+      "reason": "Proposal validation and execution authorization must remain separate capability contracts.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L115",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L117"
+      ]
+    },
+    {
+      "atlas": "ATL-035",
+      "candidates": [
+        "NON07-05",
+        "NON07-06"
+      ],
+      "verdict": "INCORRECT_MERGE",
+      "reason": "NON07-05 describes intentional script-parent accounting; NON07-06 describes already-shared result field transport. Keep NON07-05 in ATL-035 as INTENTIONAL_DIFFERENCE; move NON07-06 to proposed ATL-107 ALREADY_CONVERGED.",
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L88",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L89"
+      ]
+    }
+  ],
+  "atlasReviews": [
+    {
+      "id": "ATL-001",
+      "sourceCandidates": [
+        "V-01",
+        "VC19-05",
+        "VC20-01",
+        "VC24-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L381",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-19.md#L73",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-20.md#L73",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L111"
+      ],
+      "originalStatus": "CONVERGENCE_OPPORTUNITY",
+      "priority": "P2",
+      "inventoryIds": [
+        "L12",
+        "L15",
+        "L19",
+        "L20",
+        "T16"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-13"
+      ],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-002",
+      "sourceCandidates": [
+        "V-02",
+        "VC29-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L382",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-29.md#L116"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "X01"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-05"
+      ],
+      "deduplication": "VALID_SAME_DEFECT",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-003",
+      "sourceCandidates": [
+        "V-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L383"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "A01",
+        "A02",
+        "A03"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-05"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "NEEDS_QUALIFICATION",
+      "reason": "V-03 explicitly excludes delete/native confirmation from its comparison; A03 focus failure is direct CAP-02 evidence, not a V-03 execution. Add the CAP-02 line as independent support and correct V-03 inventory linkage."
+    },
+    {
+      "id": "ATL-004",
+      "sourceCandidates": [
+        "V-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L384"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "T13",
+        "T20"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-21"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-005",
+      "sourceCandidates": [
+        "V-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L385"
+      ],
+      "originalStatus": "CONVERGENCE_OPPORTUNITY",
+      "priority": "P3",
+      "inventoryIds": [
+        "L23",
+        "R07",
+        "T15"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-18"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-006",
+      "sourceCandidates": [
+        "V-06",
+        "VC28-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L386",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-28.md#L134"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "R24",
+        "R25",
+        "T17"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-14"
+      ],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-007",
+      "sourceCandidates": [
+        "V-07",
+        "VC19-01",
+        "VC30-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L387",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-19.md#L69",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L121"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "L18",
+        "X10"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-07"
+      ],
+      "deduplication": "VALID_SAME_DEFECT",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-008",
+      "sourceCandidates": [
+        "V-08",
+        "VC30-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L388",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L120"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P2",
+      "inventoryIds": [
+        "X06"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-07"
+      ],
+      "deduplication": "VALID_SAME_DEFECT",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-009",
+      "sourceCandidates": [
+        "V-09"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L389"
+      ],
+      "originalStatus": "CONVERGENCE_OPPORTUNITY",
+      "priority": "P3",
+      "inventoryIds": [
+        "C06",
+        "L15",
+        "L20",
+        "T20",
+        "T23"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-18"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-010",
+      "sourceCandidates": [
+        "V-10",
+        "VC11-01",
+        "VC17-01",
+        "VC18-01",
+        "VC22-01",
+        "VC23-02",
+        "VC29-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L390",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L433",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L629",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-18.md#L108",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-22.md#L88",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-23.md#L131",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-29.md#L139"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "L03",
+        "L05",
+        "L07",
+        "L08",
+        "P11",
+        "P13",
+        "S08",
+        "S15",
+        "T03",
+        "T05",
+        "T06",
+        "T09",
+        "T10",
+        "T11",
+        "X01"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-011",
+      "sourceCandidates": [
+        "V-11",
+        "VC07-02",
+        "VC10-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L391",
+        "https://github.com/cubitouch/DataKoala/blob/9ef44d802fca7645781e1aadbe52bf47ce064089/docs/architecture/ux-convergence-coverage-register.md#L326",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L421"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "A20",
+        "L02",
+        "S01",
+        "S04",
+        "T02"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-012",
+      "sourceCandidates": [
+        "V-12",
+        "VC15-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L392",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L584"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "R22",
+        "S24",
+        "S25",
+        "X03",
+        "X04"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-013",
+      "sourceCandidates": [
+        "VC05-01",
+        "VC06-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L351",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L370"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "A09",
+        "A13",
+        "L04",
+        "P02",
+        "T04"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-014",
+      "sourceCandidates": [
+        "VC05-03",
+        "VC07-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L353",
+        "https://github.com/cubitouch/DataKoala/blob/9ef44d802fca7645781e1aadbe52bf47ce064089/docs/architecture/ux-convergence-coverage-register.md#L325"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "A06",
+        "A14",
+        "A17",
+        "A18"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-015",
+      "sourceCandidates": [
+        "VC10-02",
+        "VC16-02",
+        "VC30-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L422",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L606",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L119"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "P04",
+        "P05",
+        "S06",
+        "S17",
+        "X06"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-016",
+      "sourceCandidates": [
+        "VC09-02",
+        "VC20-02",
+        "VC27-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L403",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-20.md#L74",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-27.md#L112"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "A25",
+        "L15",
+        "L20",
+        "R17"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-017",
+      "sourceCandidates": [
+        "VC13-02",
+        "VC19-03",
+        "VC20-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L544",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-19.md#L71",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-20.md#L75"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "L09",
+        "L13",
+        "L14",
+        "L17",
+        "L21",
+        "R19",
+        "R20",
+        "S18",
+        "S19"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-018",
+      "sourceCandidates": [
+        "VC16-01",
+        "VC16-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L605",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L607"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "P06",
+        "P07",
+        "P08",
+        "P09"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-019",
+      "sourceCandidates": [
+        "VC21-03",
+        "VC26-03",
+        "VC27-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-21.md#L108",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-26.md#L94",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-27.md#L111"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "L22",
+        "L23",
+        "L24",
+        "P16",
+        "R07",
+        "R15",
+        "R16",
+        "R17"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-020",
+      "sourceCandidates": [
+        "VC23-01",
+        "VC25-06"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-23.md#L130",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L106"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P2",
+      "inventoryIds": [
+        "T13",
+        "T19",
+        "T24"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-21"
+      ],
+      "deduplication": "VALID_SAME_DEFECT",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-021",
+      "sourceCandidates": [
+        "VC26-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-26.md#L92"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "R10",
+        "R13"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-02"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-022",
+      "sourceCandidates": [
+        "VC26-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-26.md#L93"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "R10",
+        "R13"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-02"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-023",
+      "sourceCandidates": [
+        "VC29-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-29.md#L131"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P2",
+      "inventoryIds": [
+        "X01"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-05"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-024",
+      "sourceCandidates": [
+        "NON01-05",
+        "NON03-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-01.md#L90",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-03.md#L77"
+      ],
+      "originalStatus": "TECHNICAL_RISK",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "A07",
+        "C04"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-16"
+      ],
+      "deduplication": "RELATED_BUT_INDEPENDENT",
+      "verdict": "NEEDS_QUALIFICATION",
+      "reason": "Keep PG and BQ diagnostics separately cited and conditional; neither source demonstrates a real credential leak."
+    },
+    {
+      "id": "ATL-025",
+      "sourceCandidates": [
+        "NON07-03",
+        "NON07-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L86",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L87"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "C12"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-15"
+      ],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-026",
+      "sourceCandidates": [
+        "NON05-01",
+        "NON05-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L81",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L82"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "S16"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-01"
+      ],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-027",
+      "sourceCandidates": [
+        "VC09-01",
+        "VC28-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L402",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-28.md#L133"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "A24",
+        "R22",
+        "R25",
+        "X05"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-028",
+      "sourceCandidates": [
+        "VC22-03",
+        "VC23-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-22.md#L90",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-23.md#L132"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "T06",
+        "T07",
+        "T08",
+        "T09",
+        "T10"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-029",
+      "sourceCandidates": [
+        "VC24-02",
+        "VC24-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L112",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L114"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "T15",
+        "T17",
+        "T18"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "INCORRECT_MERGE",
+      "verdict": "SPLIT",
+      "reason": "VC24-02 intentional progressive result and VC24-04 converged filter shell require distinct statuses; proposed ATL-105."
+    },
+    {
+      "id": "ATL-030",
+      "sourceCandidates": [
+        "VC25-01",
+        "VC25-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L101",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L102"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "T20",
+        "T21",
+        "T23"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "INCORRECT_MERGE",
+      "verdict": "SPLIT",
+      "reason": "VC25-01 intentional inspector contract and VC25-02 converged selection/close require distinct statuses; proposed ATL-106."
+    },
+    {
+      "id": "ATL-031",
+      "sourceCandidates": [
+        "VC30-04",
+        "VC30-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L122",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L123"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "C06",
+        "X12"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-032",
+      "sourceCandidates": [
+        "NON04-02",
+        "NON04-04",
+        "NON04-05",
+        "NON05-07"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L75",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L77",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L78",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L87"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "C11",
+        "C15",
+        "C16",
+        "C18",
+        "S16",
+        "S27",
+        "S28"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "RELATED_BUT_INDEPENDENT",
+      "verdict": "NEEDS_QUALIFICATION",
+      "reason": "Mixed provider policies include NON04-05 already shared DuckDB guard; present as a catalog of separate contracts, not one behavioral root."
+    },
+    {
+      "id": "ATL-033",
+      "sourceCandidates": [
+        "NON03-02",
+        "NON03-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-03.md#L64",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-03.md#L83"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "C04",
+        "X02"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-034",
+      "sourceCandidates": [
+        "NON06-04",
+        "NON06-06"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L115",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L117"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "S24",
+        "S26"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "VALID_SHARED_PATTERN",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-035",
+      "sourceCandidates": [
+        "NON07-05",
+        "NON07-06"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L88",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L89"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "C12"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "INCORRECT_MERGE",
+      "verdict": "SPLIT",
+      "reason": "NON07-05 intentional script-parent accounting and NON07-06 converged transport require distinct statuses; proposed ATL-107."
+    },
+    {
+      "id": "ATL-036",
+      "sourceCandidates": [
+        "VC05-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L352"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "A11",
+        "A12"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-037",
+      "sourceCandidates": [
+        "VC06-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L371"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "P03"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-17"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-038",
+      "sourceCandidates": [
+        "VC08-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L388"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "A21",
+        "A23"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-18"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-039",
+      "sourceCandidates": [
+        "VC08-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L389"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "A23",
+        "A24"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-040",
+      "sourceCandidates": [
+        "VC12-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L449"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "R05",
+        "R06",
+        "S20",
+        "X07"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-041",
+      "sourceCandidates": [
+        "VC12-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L450"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "S21"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-042",
+      "sourceCandidates": [
+        "VC12-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L451"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P2",
+      "inventoryIds": [
+        "R02",
+        "R04"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-08"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-043",
+      "sourceCandidates": [
+        "VC12-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L452"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "R01",
+        "S21"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-044",
+      "sourceCandidates": [
+        "VC13-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L543"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P2",
+      "inventoryIds": [
+        "R19",
+        "S19"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-08"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-045",
+      "sourceCandidates": [
+        "VC13-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L545"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "R19",
+        "S19"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-046",
+      "sourceCandidates": [
+        "VC14-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L563"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "C06",
+        "S22",
+        "S23"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-047",
+      "sourceCandidates": [
+        "VC14-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L564"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "S22",
+        "S23"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-048",
+      "sourceCandidates": [
+        "VC15-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L585"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "S24",
+        "X03"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-049",
+      "sourceCandidates": [
+        "VC17-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L630"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "P10",
+        "P14",
+        "P15"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-050",
+      "sourceCandidates": [
+        "VC18-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-18.md#L109"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "L07",
+        "L08"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-051",
+      "sourceCandidates": [
+        "VC18-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-18.md#L110"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "L05",
+        "L06",
+        "L09",
+        "L10"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-052",
+      "sourceCandidates": [
+        "VC18-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-18.md#L111"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "L02"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-19"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-053",
+      "sourceCandidates": [
+        "VC18-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-18.md#L112"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "L11"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-054",
+      "sourceCandidates": [
+        "VC19-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-19.md#L70"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P2",
+      "inventoryIds": [
+        "L16"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-09"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-055",
+      "sourceCandidates": [
+        "VC19-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-19.md#L72"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "L15",
+        "L16"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-056",
+      "sourceCandidates": [
+        "VC20-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-20.md#L76"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "L19",
+        "L21"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-057",
+      "sourceCandidates": [
+        "VC21-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-21.md#L106"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "L02"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-06"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-058",
+      "sourceCandidates": [
+        "VC21-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-21.md#L107"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "L25"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-059",
+      "sourceCandidates": [
+        "VC21-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-21.md#L109"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "L22",
+        "L23",
+        "L24",
+        "L26"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-060",
+      "sourceCandidates": [
+        "VC22-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-22.md#L89"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "T03",
+        "T05"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-061",
+      "sourceCandidates": [
+        "VC22-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-22.md#L91"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "T03",
+        "T06"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-062",
+      "sourceCandidates": [
+        "VC22-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-22.md#L92"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "T06",
+        "T07",
+        "T08"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-063",
+      "sourceCandidates": [
+        "VC23-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-23.md#L133"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "T11"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-064",
+      "sourceCandidates": [
+        "VC23-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-23.md#L134"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "T09",
+        "T11",
+        "T13"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-065",
+      "sourceCandidates": [
+        "VC24-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L113"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "T18"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-03"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-066",
+      "sourceCandidates": [
+        "VC24-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L115"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "T15",
+        "T16"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-067",
+      "sourceCandidates": [
+        "VC25-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L103"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "T19"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-068",
+      "sourceCandidates": [
+        "VC25-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L104"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "T19",
+        "T24"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-17"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-069",
+      "sourceCandidates": [
+        "VC25-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L105"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "T20",
+        "T23"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-070",
+      "sourceCandidates": [
+        "VC26-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-26.md#L95"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "P16",
+        "R08",
+        "R13",
+        "R15"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-071",
+      "sourceCandidates": [
+        "VC26-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-26.md#L96"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "R11",
+        "R14"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-072",
+      "sourceCandidates": [
+        "VC27-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-27.md#L113"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "R18"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-073",
+      "sourceCandidates": [
+        "VC27-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-27.md#L114"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "R16",
+        "R17",
+        "R18"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-17"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-074",
+      "sourceCandidates": [
+        "VC28-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-28.md#L131"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "R21",
+        "X08"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-075",
+      "sourceCandidates": [
+        "VC28-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-28.md#L132"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "R22",
+        "R23",
+        "X05"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-076",
+      "sourceCandidates": [
+        "VC28-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-28.md#L135"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "R21",
+        "R25",
+        "X08"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-18"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-077",
+      "sourceCandidates": [
+        "VC29-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-29.md#L124"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "X01"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-17"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-078",
+      "sourceCandidates": [
+        "VC30-06"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-30.md#L124"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "X06",
+        "X12"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-079",
+      "sourceCandidates": [
+        "NON01-06"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-01.md#L89"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "A04",
+        "A07",
+        "A08"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-04"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-080",
+      "sourceCandidates": [
+        "NON01-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-01.md#L85"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "A04",
+        "A05",
+        "A07"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-081",
+      "sourceCandidates": [
+        "NON01-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-01.md#L86"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "A05",
+        "A08"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-082",
+      "sourceCandidates": [
+        "NON01-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-01.md#L87"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "A08",
+        "L25"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-083",
+      "sourceCandidates": [
+        "NON01-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-01.md#L88"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "A04",
+        "A07"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-084",
+      "sourceCandidates": [
+        "NON02-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-02.md#L89"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P2",
+      "inventoryIds": [
+        "A19"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-10"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-085",
+      "sourceCandidates": [
+        "NON02-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-02.md#L95"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "A22"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-086",
+      "sourceCandidates": [
+        "NON02-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-02.md#L99"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "A19",
+        "A22"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-087",
+      "sourceCandidates": [
+        "NON02-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-02.md#L105"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "A19",
+        "A22"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-088",
+      "sourceCandidates": [
+        "NON02-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-02.md#L111"
+      ],
+      "originalStatus": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "inventoryIds": [
+        "A19",
+        "A22"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-089",
+      "sourceCandidates": [
+        "NON03-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-03.md#L57"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "C10"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-22"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "NEEDS_QUALIFICATION",
+      "reason": "The synthetic upstream marker survives the BQ wrapper; real secret content, Electron display and exploitability remain unproven."
+    },
+    {
+      "id": "ATL-090",
+      "sourceCandidates": [
+        "NON03-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-03.md#L71"
+      ],
+      "originalStatus": "INTENTIONAL_DIFFERENCE",
+      "priority": "P3",
+      "inventoryIds": [
+        "C10"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-091",
+      "sourceCandidates": [
+        "NON04-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L74"
+      ],
+      "originalStatus": "TECHNICAL_RISK",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "S27",
+        "S28"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-16"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-092",
+      "sourceCandidates": [
+        "NON04-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L76"
+      ],
+      "originalStatus": "TECHNICAL_RISK",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "C16",
+        "C18",
+        "S28"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-16"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-093",
+      "sourceCandidates": [
+        "NON04-06"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L79"
+      ],
+      "originalStatus": "TECHNICAL_RISK",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "C15",
+        "C16",
+        "C18"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-16"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-094",
+      "sourceCandidates": [
+        "NON05-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L83"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "S16"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-01"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-095",
+      "sourceCandidates": [
+        "NON05-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L84"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "S16"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-096",
+      "sourceCandidates": [
+        "NON05-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L85"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "S16"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-097",
+      "sourceCandidates": [
+        "NON05-06"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L86"
+      ],
+      "originalStatus": "INSUFFICIENT_EVIDENCE",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "S16"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-098",
+      "sourceCandidates": [
+        "NON06-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L112"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "S26"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-20"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-099",
+      "sourceCandidates": [
+        "NON06-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L113"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P2",
+      "inventoryIds": [
+        "S26"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-12"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-100",
+      "sourceCandidates": [
+        "NON06-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L114"
+      ],
+      "originalStatus": "TECHNICAL_RISK",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "S26"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-12"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "NEEDS_QUALIFICATION",
+      "reason": "Duplicate search terms under existing caps are a low-impact normalization opportunity; no confirmed acceptance requirement demands unique terms."
+    },
+    {
+      "id": "ATL-101",
+      "sourceCandidates": [
+        "NON06-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L116"
+      ],
+      "originalStatus": "TECHNICAL_RISK",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "S26"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [
+        "P2-16"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-102",
+      "sourceCandidates": [
+        "NON06-07"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L118"
+      ],
+      "originalStatus": "POLICY_UNRESOLVED",
+      "priority": "BLOCKED",
+      "inventoryIds": [
+        "S26"
+      ],
+      "confidence": "MEDIUM_SOURCE",
+      "workPackages": [],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-103",
+      "sourceCandidates": [
+        "NON07-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L84"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P2",
+      "inventoryIds": [
+        "C12"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-11"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    },
+    {
+      "id": "ATL-104",
+      "sourceCandidates": [
+        "NON07-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L85"
+      ],
+      "originalStatus": "CONFIRMED_DEFECT",
+      "priority": "P1",
+      "inventoryIds": [
+        "C12"
+      ],
+      "confidence": "HIGH_SOURCE",
+      "workPackages": [
+        "P2-11"
+      ],
+      "deduplication": "SINGLE_CANDIDATE",
+      "verdict": "CONFIRMED",
+      "reason": "Source declaration and scoped classification retained; provider/native acceptance remains limited to cited evidence."
+    }
+  ],
+  "failedAcceptance": [
+    {
+      "id": "A01",
+      "source": [
+        {
+          "path": "docs/architecture/ux-implementation-convergence-audit.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 383
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **V-03 — equivalent dialog keyboard/backdrop policy**, connection picker/seven forms vs Settings/Reset/Presets; focus belongs to open dialog                           | `dialog-*` and compare-dialogs. Picker and **all seven forms allow Tab to leave and ignore Escape**; Settings"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "V-03 picker/new-form keyboard scope; seven forms are source-reported.",
+      "atlas": [
+        "ATL-003"
+      ],
+      "packages": [
+        "P2-05"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "A02",
+      "source": [
+        {
+          "path": "docs/architecture/ux-implementation-convergence-audit.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 383
+        },
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 307
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **V-03 — equivalent dialog keyboard/backdrop policy**, connection picker/seven forms vs Settings/Reset/Presets; focus belongs to open dialog                           | `dialog-*` and compare-dialogs. Picker and **all seven forms allow Tab to leave and ignore Escape**; Settings",
+        "- **A02 `cap02-pg-edit-desktop.png`:** screenshot shows selected existing profile, edit heading, prefilled fields, masked saved password indicator, and initially checked read-only option. Audit drove sidebar Edit, then a harmless Host change and Cancel; asserted **no Save/upsert*"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "V-03 inherited edit-form dialog policy; CAP-02 directly executed edit values/cancel, not a distinct edit focus-trap failure.",
+      "atlas": [
+        "ATL-003"
+      ],
+      "packages": [
+        "P2-05"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "A03",
+      "source": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 308
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "- **A03 `cap02-pg-delete-desktop.png`:** selected profile name is clearly rendered, Cancel gets initial focus. The audit executed native Escape and React Cancel, and **neither removed the synthetic profile**; explicit Confirm yielded **one** mock `connections:remove('audit-postgr"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-02 native Escape/Cancel preserve profile but return focus to BODY; not V-03 dialog execution.",
+      "atlas": [
+        "ATL-003"
+      ],
+      "packages": [
+        "P2-05"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "A04",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/NON-01.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 89
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **NON01-06** | A04, A07, A08 | CONFIRMED SYNTHETIC RENDERER DEFECT (`it.fails` × 2 executed): older lazy completion temporarily overwrites newer explicit pending state before generation advances; medium potential correctness/feedback impact, high deterministic confidence, UV li"
+      ],
+      "evidenceType": "executed expected failure or synthetic characterization",
+      "narrowFailure": "NON-01 same-generation lazy/explicit race only; no real provider cancellation.",
+      "atlas": [
+        "ATL-079"
+      ],
+      "packages": [
+        "P2-04"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "A07",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/NON-01.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 89
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **NON01-06** | A04, A07, A08 | CONFIRMED SYNTHETIC RENDERER DEFECT (`it.fails` × 2 executed): older lazy completion temporarily overwrites newer explicit pending state before generation advances; medium potential correctness/feedback impact, high deterministic confidence, UV li"
+      ],
+      "evidenceType": "executed expected failure or synthetic characterization",
+      "narrowFailure": "NON-01 stale status path, not all connection recovery or diagnostic paths.",
+      "atlas": [
+        "ATL-079"
+      ],
+      "packages": [
+        "P2-04"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "A08",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/NON-01.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 89
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **NON01-06** | A04, A07, A08 | CONFIRMED SYNTHETIC RENDERER DEFECT (`it.fails` × 2 executed): older lazy completion temporarily overwrites newer explicit pending state before generation advances; medium potential correctness/feedback impact, high deterministic confidence, UV li"
+      ],
+      "evidenceType": "executed expected failure or synthetic characterization",
+      "narrowFailure": "NON-01 same-generation intent arbitration; other generation/rebind guards pass.",
+      "atlas": [
+        "ATL-079"
+      ],
+      "packages": [
+        "P2-04"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "A19",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/NON-02.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 89
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "### NON02-01 — Confirmed explicit Prometheus histogram override loss"
+      ],
+      "evidenceType": "executed expected failure or synthetic characterization",
+      "narrowFailure": "NON-02 explicit Prometheus histogram override restore under deterministic fixtures.",
+      "atlas": [
+        "ATL-084"
+      ],
+      "packages": [
+        "P2-10"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "S16",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/NON-05.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 81
+        },
+        {
+          "path": "docs/audit/391/batches/NON-05.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 82
+        },
+        {
+          "path": "docs/audit/391/batches/NON-05.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 83
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **NON05-01** | **Confirmed correctness defect (high)** — PG/DuckDB “Open in SQL mode” can alter quoted identifier text containing `$n`, potentially changing the subsequent raw SQL semantics | BV expected failure; `builderSql.materializeSqlParameters` regex, `BuilderPanel.openGe",
+        "| **NON05-02** | **Confirmed correctness defect (high)** — GoogleSQL quoted `?` causes materializer to consume parameter positions or throw during handoff | BV expected failure; same owners | Lexer-aware binding replacement, with BigQuery quoted identifier/literal tests and expli",
+        "| **NON05-03** | **Confirmed generated-query identifier mismatch (medium/high)** — GoogleSQL promoted field with embedded `\"` differs between SELECT and WHERE; actual database error/provider interpretation UV | BV expected failure; `builderPromotedFilters` emits PG double quotes,"
+      ],
+      "evidenceType": "executed expected failure or synthetic characterization",
+      "narrowFailure": "NON-05 three expected-failure generator/materializer cases; live dialect acceptance UV.",
+      "atlas": [
+        "ATL-026",
+        "ATL-094"
+      ],
+      "packages": [
+        "P2-01"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "S19",
+      "source": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 543
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "- **VC13-01 — CONFIRMED_DEFECT, menu keyboard focus return.** S19/R19/UI-001; filtering/overlay focus. Inspected non-null/null menu and local-filter frames above; native focus trace summary→action→Escape→BODY. Expected dismissal keeps a reachable initiating focus target; actual f"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-13 native Escape focus to BODY; query filter behavior separate.",
+      "atlas": [
+        "ATL-044"
+      ],
+      "packages": [
+        "P2-08"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "S26",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/NON-06.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 113
+        },
+        {
+          "path": "docs/audit/391/batches/NON-06.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 112
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **NON06-02 — confirmed duplicate-selection defect** | S26: duplicate eligible records referenced by current SQL can occupy two of up to eight relation slots | `selectAiRelations` initially slices referenced records without deduping keys; `NON06 characterization: duplicate SQL r",
+        "| **NON06-01 — missing guard / expected-failure** | S26: context can complete from an earlier metadata revision while its originating profile metadata has changed; stale schema/model context risk, not confirmed execution | Source `workflow.ts` lacks post-await revision check; `NO"
+      ],
+      "evidenceType": "executed expected failure or synthetic characterization",
+      "narrowFailure": "NON-06 stale revision expected failure and duplicate relation slot characterization; term duplication is separate optional risk.",
+      "atlas": [
+        "ATL-098",
+        "ATL-099"
+      ],
+      "packages": [
+        "P2-12",
+        "P2-20"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "C10",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/NON-03.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 57
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "### NON03-01 — BigQuery provider error text is exposed without redaction"
+      ],
+      "evidenceType": "executed expected failure or synthetic characterization",
+      "narrowFailure": "NON-03 synthetic upstream marker retained in BQ adapter error; real secret leakage/display UV.",
+      "atlas": [
+        "ATL-089"
+      ],
+      "packages": [
+        "P2-22"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "C12",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/NON-07.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 84
+        },
+        {
+          "path": "docs/audit/391/batches/NON-07.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 85
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **NON07-01 — CONFIRMED normalization edge case, lower severity** | Adapter uses `Number(raw)`; `null` and blank values become zero, conflating missing and true zero. Deterministic reproduction. BigQuery adapter owner: validate decimal-string input before coercion, preserve opti",
+        "| **NON07-02 — CONFIRMED dry-run precision gap** | `estimateQuery` lacks `Number.isSafeInteger` protection present in `executeQuery`, and can silently round Int64 estimates above 2^53−1. Deterministic reproduction. BigQuery adapter owner: retain exact decimal string or explicitly"
+      ],
+      "evidenceType": "executed expected failure or synthetic characterization",
+      "narrowFailure": "NON-07 null/blank zero and unsafe Int64 dry-run rounding, separate deterministic cases.",
+      "atlas": [
+        "ATL-103",
+        "ATL-104"
+      ],
+      "packages": [
+        "P2-11"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "L02",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/CAP-18.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 111
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| VC18-04 | L02; async raw formatting | **Confirmed inherited defect UX-05**: two preserved expected-failure tests reproduce late formatter replacing newer/other-tab draft. Normal successful/failing format/copy additionally passes natively | LokiExplorer raw format versus generat"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-18 formatter expected failures and CAP-21 raw height; distinct contracts.",
+      "atlas": [
+        "ATL-052",
+        "ATL-057"
+      ],
+      "packages": [
+        "P2-06",
+        "P2-19"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "L16",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/CAP-19.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 70
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "- **VC19-02 — CONFIRMED_DEFECT (L16; inspectability of nested values).** Source String(value) reduces nested structured metadata/parsed objects to [object Object]; observed in inspector, field-filter and copy-scroll PNGs. Long multiline message remains complete and inspectable. *"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-19 nested object String(value) renders [object Object].",
+      "atlas": [
+        "ATL-054"
+      ],
+      "packages": [
+        "P2-09"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "L18",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/CAP-19.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 69
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "- **VC19-01 — CONFIRMED_DEFECT, inherited V-07 (L18/X10; clipboard/feedback).** Actual synthetic rejected raw-copy promise causes a captured unhandled rejection and no status/error notification; successful message/raw/field/trace/span payloads are exact, and no query or selection"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-19 synthetic rejected clipboard write; OS permission UV.",
+      "atlas": [
+        "ATL-007"
+      ],
+      "packages": [
+        "P2-07"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "T13",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/CAP-23.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 130
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **VC23-01** | T13, Tempo query toolbar sample/time presentation; all five original screenshots | **CONFIRMED_VISUAL_DEFECT** for truncated sample-size label at 1440px; range summary also truncated | Low–medium UX impact; high visual confidence. Compare responsive `QueryToolbar`"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-23/25 sample label clip; Phase 1B pane overflow is separate.",
+      "atlas": [
+        "ATL-004",
+        "ATL-020"
+      ],
+      "packages": [
+        "P2-21"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "T18",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/CAP-24.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 113
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **VC24-03** | `CONFIRMED_DEFECT` | **V-06**, T18; `TraceScatterChart.traceScatterLocalRange`, `TraceExplorer` and result-range chip formatting; native brush screenshot + measured DOM boundary replacement | **High impact on exact boundary predictability, high confidence**. Fract"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-24 passing known-defect characterization records displayed boundary mismatch; raw fractional semantics separate.",
+      "atlas": [
+        "ATL-065"
+      ],
+      "packages": [
+        "P2-03"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "R02",
+      "source": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 451
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "- **VC12-03 — native resize changes sort target.** R04/R02; table header pointer/click boundary. Inspected filtered frame has value ▲; resized frame has name ▲. Native drag changes first column 775.8125→655.8125 px and unexpectedly activates name sort. **CONFIRMED_DEFECT in this "
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-12 native resize accidentally sorts name; pointer fixture.",
+      "atlas": [
+        "ATL-042"
+      ],
+      "packages": [
+        "P2-08"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "R04",
+      "source": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 451
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "- **VC12-03 — native resize changes sort target.** R04/R02; table header pointer/click boundary. Inspected filtered frame has value ▲; resized frame has name ▲. Native drag changes first column 775.8125→655.8125 px and unexpectedly activates name sort. **CONFIRMED_DEFECT in this "
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-12 same pointer resize-sort failure, not two independent defects.",
+      "atlas": [
+        "ATL-042"
+      ],
+      "packages": [
+        "P2-08"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "R10",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/CAP-26.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 92
+        },
+        {
+          "path": "docs/audit/391/batches/CAP-26.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 93
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **VC26-01 — CONFIRMED_DEFECT** | Scatter PNG: **16 raw rows → 32 semantic marks**, including fake zero points for missing X/series pairings. `resultVisualization.pivotRowsForChart` constructs `missing[]` and synthetic zeros; `chartPresentation.buildChartPresentationOptions` str",
+        "| **VC26-02 — CONFIRMED_DEFECT** | Scatter PNG: numeric X `duration_ms` values **100, 103, 110, 113…** occupy equally spaced category positions; `buildChartPresentationOptions` uses `xAxis.type='category'` whenever X is not temporal. **R10, R13**. | **High impact, high confidence"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-26 zero marks and numeric category spacing, two independent Scatter defects.",
+      "atlas": [
+        "ATL-021",
+        "ATL-022"
+      ],
+      "packages": [
+        "P2-02"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "R13",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/CAP-26.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 92
+        },
+        {
+          "path": "docs/audit/391/batches/CAP-26.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 93
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| **VC26-01 — CONFIRMED_DEFECT** | Scatter PNG: **16 raw rows → 32 semantic marks**, including fake zero points for missing X/series pairings. `resultVisualization.pivotRowsForChart` constructs `missing[]` and synthetic zeros; `chartPresentation.buildChartPresentationOptions` str",
+        "| **VC26-02 — CONFIRMED_DEFECT** | Scatter PNG: numeric X `duration_ms` values **100, 103, 110, 113…** occupy equally spaced category positions; `buildChartPresentationOptions` uses `xAxis.type='category'` whenever X is not temporal. **R10, R13**. | **High impact, high confidence"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-26 same two Scatter defects through mapping.",
+      "atlas": [
+        "ATL-021",
+        "ATL-022"
+      ],
+      "packages": [
+        "P2-02"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "R19",
+      "source": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 543
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "- **VC13-01 — CONFIRMED_DEFECT, menu keyboard focus return.** S19/R19/UI-001; filtering/overlay focus. Inspected non-null/null menu and local-filter frames above; native focus trace summary→action→Escape→BODY. Expected dismissal keeps a reachable initiating focus target; actual f"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-13 native Escape focus to BODY; local filters retained.",
+      "atlas": [
+        "ATL-044"
+      ],
+      "packages": [
+        "P2-08"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "X01",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/CAP-29.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 116
+        },
+        {
+          "path": "docs/audit/391/batches/CAP-29.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 131
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "### VC29-01 — CONFIRMED_DEFECT, nested Escape removes Settings",
+        "### VC29-03 — CONFIRMED_DEFECT in scoped invocation, failed Save loses focus"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-29 nested Escape and failed Save focus, two independent paths.",
+      "atlas": [
+        "ATL-002",
+        "ATL-023"
+      ],
+      "packages": [
+        "P2-05"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "X06",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/CAP-30.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 120
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "| VC30-02 | CONFIRMED_DEFECT | Prometheus QueryEditor caller, X06/V-08 | High confidence BV: actual PromQL Copy exposes Copy SQL accessible label; pass correct language to existing control |"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-30 PromQL Copy SQL accessible name, payload still exact.",
+      "atlas": [
+        "ATL-008"
+      ],
+      "packages": [
+        "P2-07"
+      ],
+      "disposition": "FAILED_SCOPED"
+    },
+    {
+      "id": "X10",
+      "source": [
+        {
+          "path": "docs/audit/391/batches/CAP-19.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 69
+        }
+      ],
+      "sourceAssertionOrFinding": [
+        "- **VC19-01 — CONFIRMED_DEFECT, inherited V-07 (L18/X10; clipboard/feedback).** Actual synthetic rejected raw-copy promise causes a captured unhandled rejection and no status/error notification; successful message/raw/field/trace/span payloads are exact, and no query or selection"
+      ],
+      "evidenceType": "source-reported native/renderer observation",
+      "narrowFailure": "CAP-19/30 same rejected Loki copy failure as L18.",
+      "atlas": [
+        "ATL-007"
+      ],
+      "packages": [
+        "P2-07"
+      ],
+      "disposition": "FAILED_SCOPED"
+    }
+  ],
+  "packageReviews": [
+    {
+      "id": "P2-01",
+      "atlasEntries": [
+        "ATL-026",
+        "ATL-094"
+      ],
+      "originalIds": [
+        "S16"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "M",
+      "dependencies": [],
+      "verdict": "QUALIFY",
+      "assessment": "M plausible. Split dialect parser assertions: quoted identifiers, strings, comments, escapes, positional binding and mismatched count; NON05-03 promoted identifier is a separate generator path. Disposable PG/DuckDB/BQ parity needed for provider syntax.",
+      "sourceFindings": [
+        "NON05-01",
+        "NON05-02",
+        "NON05-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L81",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L82",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-05.md#L83"
+      ]
+    },
+    {
+      "id": "P2-02",
+      "atlasEntries": [
+        "ATL-021",
+        "ATL-022"
+      ],
+      "originalIds": [
+        "R10",
+        "R13"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "M",
+      "dependencies": [],
+      "verdict": "QUALIFY",
+      "assessment": "M plausible. Separate absent combinations from numeric X value-axis work; pivot preserves missing mask, Scatter presentation must not plot synthetic zero. Test irregular numeric spacing, series, tooltip/anomaly indices and unchanged line/bar.",
+      "sourceFindings": [
+        "VC26-01",
+        "VC26-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-26.md#L92",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-26.md#L93"
+      ]
+    },
+    {
+      "id": "P2-03",
+      "atlasEntries": [
+        "ATL-065"
+      ],
+      "originalIds": [
+        "T18"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "M",
+      "dependencies": [],
+      "verdict": "QUALIFY",
+      "assessment": "M plausible. Define rounding/quantization of the displayed millisecond interval before replacing raw half-open comparison. Assert displayed start inclusive/end exclusive and raw fractional behavior independently; update characterization only with fix.",
+      "sourceFindings": [
+        "VC24-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L113"
+      ]
+    },
+    {
+      "id": "P2-04",
+      "atlasEntries": [
+        "ATL-079"
+      ],
+      "originalIds": [
+        "A04",
+        "A07",
+        "A08"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "M",
+      "dependencies": [],
+      "verdict": "CONFIRMED",
+      "assessment": "M plausible. NON-01 deterministic deferred results support same-generation lazy/explicit intent, without claiming network cancellation.",
+      "sourceFindings": [
+        "NON01-06"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-01.md#L89"
+      ]
+    },
+    {
+      "id": "P2-05",
+      "atlasEntries": [
+        "ATL-002",
+        "ATL-003",
+        "ATL-023"
+      ],
+      "originalIds": [
+        "A01",
+        "A02",
+        "A03",
+        "X01"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "M",
+      "dependencies": [],
+      "verdict": "SPLIT",
+      "assessment": "M understates combined surface. Do child Escape in shared overlay coordination first; independent form/picker focus trap and A03 delete return focus second; failed-save focus third. Distinct owners and regressions; no universal modal rewrite.",
+      "sourceFindings": [
+        "V-02",
+        "V-03",
+        "VC29-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L382",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L383",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-29.md#L131"
+      ]
+    },
+    {
+      "id": "P2-06",
+      "atlasEntries": [
+        "ATL-057"
+      ],
+      "originalIds": [
+        "L02"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "CONFIRMED",
+      "assessment": "S plausible. Native pane dimensions and editor scroll in both viewport widths; preserve generated Builder height.",
+      "sourceFindings": [
+        "VC21-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-21.md#L106"
+      ]
+    },
+    {
+      "id": "P2-07",
+      "atlasEntries": [
+        "ATL-007",
+        "ATL-008"
+      ],
+      "originalIds": [
+        "L18",
+        "X06",
+        "X10"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "QUALIFY",
+      "assessment": "S plausible but two independent changes. Log write denial/retry is P1; PromQL accessible name is P2. Separate tests/commits even if packaged together; exact copy bytes retained.",
+      "sourceFindings": [
+        "V-07",
+        "V-08"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L387",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L388"
+      ]
+    },
+    {
+      "id": "P2-08",
+      "atlasEntries": [
+        "ATL-042",
+        "ATL-044"
+      ],
+      "originalIds": [
+        "R02",
+        "R04",
+        "R19",
+        "S19"
+      ],
+      "originalPriority": "P2",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "QUALIFY",
+      "assessment": "S plausible but separate table resize pointer and CellFilterMenu keyboard focus owners. May schedule independently.",
+      "sourceFindings": [
+        "VC12-03",
+        "VC13-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L451",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L543"
+      ]
+    },
+    {
+      "id": "P2-09",
+      "atlasEntries": [
+        "ATL-054"
+      ],
+      "originalIds": [
+        "L16"
+      ],
+      "originalPriority": "P2",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "CONFIRMED",
+      "assessment": "S plausible. Bounded structured display with exact raw copy semantics; include arrays and circular/large defensive cases.",
+      "sourceFindings": [
+        "VC19-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-19.md#L70"
+      ]
+    },
+    {
+      "id": "P2-10",
+      "atlasEntries": [
+        "ATL-084"
+      ],
+      "originalIds": [
+        "A19"
+      ],
+      "originalPriority": "P2",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "QUALIFY",
+      "assessment": "S plausible for serialization, but verify a cold/packaged restart separately before claiming durable native acceptance.",
+      "sourceFindings": [
+        "NON02-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-02.md#L89"
+      ]
+    },
+    {
+      "id": "P2-11",
+      "atlasEntries": [
+        "ATL-103",
+        "ATL-104"
+      ],
+      "originalIds": [
+        "C12"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "QUALIFY",
+      "assessment": "S plausible. Null/blank and unsafe Int64 are separate input classes; preserve absence and precision, and do not infer live malformed provider response.",
+      "sourceFindings": [
+        "NON07-01",
+        "NON07-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L84",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L85"
+      ]
+    },
+    {
+      "id": "P2-12",
+      "atlasEntries": [
+        "ATL-099",
+        "ATL-100"
+      ],
+      "originalIds": [
+        "S26"
+      ],
+      "originalPriority": "P2",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "SPLIT",
+      "assessment": "S plausible for relation dedupe. NON06-03 search-term uniqueness is optional low-impact normalization without a failed contract; decide independently and do not make it a gate for confirmed relation fix.",
+      "sourceFindings": [
+        "NON06-02",
+        "NON06-03"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L113",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L114"
+      ]
+    },
+    {
+      "id": "P2-13",
+      "atlasEntries": [
+        "ATL-001"
+      ],
+      "originalIds": [
+        "L12",
+        "L15",
+        "L19",
+        "L20",
+        "T16"
+      ],
+      "originalPriority": "P2",
+      "relativeSize": "M",
+      "dependencies": [],
+      "verdict": "QUALIFY",
+      "assessment": "M plausible, perhaps larger under three callers. Shared slots/focus only; logs and patterns virtualize at 42/58 px while Tempo renders a nonvirtual 68 px list. Test row count, scroll positions, keyboard and request invariance.",
+      "sourceFindings": [
+        "V-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L381"
+      ]
+    },
+    {
+      "id": "P2-14",
+      "atlasEntries": [
+        "ATL-006"
+      ],
+      "originalIds": [
+        "R24",
+        "R25",
+        "T17"
+      ],
+      "originalPriority": "BLOCKED",
+      "relativeSize": "M",
+      "dependencies": [
+        "product decision / new evidence"
+      ],
+      "verdict": "CONFIRMED",
+      "assessment": "M provisional pending stale/partial product policy; success→failure→view switching alone cannot settle persistence or export eligibility.",
+      "sourceFindings": [
+        "V-06"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L386"
+      ]
+    },
+    {
+      "id": "P2-15",
+      "atlasEntries": [
+        "ATL-025"
+      ],
+      "originalIds": [
+        "C12"
+      ],
+      "originalPriority": "BLOCKED",
+      "relativeSize": "S",
+      "dependencies": [
+        "product decision / new evidence"
+      ],
+      "verdict": "CONFIRMED",
+      "assessment": "S provisional after UI-002 field/units/parent-child decision. IPC transport already exists.",
+      "sourceFindings": [
+        "NON07-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L87"
+      ]
+    },
+    {
+      "id": "P2-16",
+      "atlasEntries": [
+        "ATL-024",
+        "ATL-091",
+        "ATL-092",
+        "ATL-093",
+        "ATL-101"
+      ],
+      "originalIds": [
+        "A07",
+        "C04",
+        "C15",
+        "C16",
+        "C18",
+        "S26",
+        "S27",
+        "S28"
+      ],
+      "originalPriority": "BLOCKED",
+      "relativeSize": "M",
+      "dependencies": [
+        "product decision / new evidence"
+      ],
+      "verdict": "QUALIFY",
+      "assessment": "M may conceal multiple investigations; PG diagnostics, BQ errors, SQL read-only, local-file and AI catalog authorization require independent provider/OS threat fixtures.",
+      "sourceFindings": [
+        "NON04-01",
+        "NON04-03",
+        "NON04-06",
+        "NON06-05",
+        "NON01-05"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L74",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L76",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-04.md#L79",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L116",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-01.md#L90"
+      ]
+    },
+    {
+      "id": "P2-17",
+      "atlasEntries": [
+        "ATL-037",
+        "ATL-068",
+        "ATL-073",
+        "ATL-077"
+      ],
+      "originalIds": [
+        "P03",
+        "R16",
+        "R17",
+        "R18",
+        "T19",
+        "T24",
+        "X01"
+      ],
+      "originalPriority": "BLOCKED",
+      "relativeSize": "M",
+      "dependencies": [
+        "product decision / new evidence"
+      ],
+      "verdict": "QUALIFY",
+      "assessment": "M provisional. Native evidence backlog is not one implementation PR; individual original image/provenance and provider checks should be independently owned.",
+      "sourceFindings": [
+        "VC06-02",
+        "VC25-04",
+        "VC27-04",
+        "VC29-02"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L371",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L104",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-27.md#L114",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-29.md#L124"
+      ]
+    },
+    {
+      "id": "P2-18",
+      "atlasEntries": [
+        "ATL-005",
+        "ATL-009",
+        "ATL-038",
+        "ATL-076"
+      ],
+      "originalIds": [
+        "A21",
+        "A23",
+        "C06",
+        "L15",
+        "L20",
+        "L23",
+        "R07",
+        "R21",
+        "R25",
+        "T15",
+        "T20",
+        "T23",
+        "X08"
+      ],
+      "originalPriority": "BLOCKED",
+      "relativeSize": "M",
+      "dependencies": [
+        "product decision / new evidence"
+      ],
+      "verdict": "QUALIFY",
+      "assessment": "M provisional. Picker, inspector, feedback and resize are separate policy choices; preserve native preset confirmation rather than imposing modal standard.",
+      "sourceFindings": [
+        "VC08-01",
+        "VC28-05",
+        "V-05",
+        "V-09"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-convergence-coverage-register.md#L388",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-28.md#L135",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L385",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L389"
+      ]
+    },
+    {
+      "id": "P2-19",
+      "atlasEntries": [
+        "ATL-052"
+      ],
+      "originalIds": [
+        "L02"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "CONFIRMED",
+      "assessment": "S plausible. Two expected failures should become positive revision/draft invariants, with native handoff.",
+      "sourceFindings": [
+        "VC18-04"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-18.md#L111"
+      ]
+    },
+    {
+      "id": "P2-20",
+      "atlasEntries": [
+        "ATL-098"
+      ],
+      "originalIds": [
+        "S26"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "CONFIRMED",
+      "assessment": "S plausible. Check revision before each async metadata/model request, no stale model call; not authorization of SQL execution.",
+      "sourceFindings": [
+        "NON06-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-06.md#L112"
+      ]
+    },
+    {
+      "id": "P2-21",
+      "atlasEntries": [
+        "ATL-004",
+        "ATL-020"
+      ],
+      "originalIds": [
+        "T13",
+        "T19",
+        "T20",
+        "T24"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "QUALIFY",
+      "assessment": "S plausible if independent pane and sample controls remain bounded; timing action at 652 px and sample text in filtered map have separate measurements.",
+      "sourceFindings": [
+        "V-04",
+        "VC23-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L384",
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-23.md#L130"
+      ]
+    },
+    {
+      "id": "P2-22",
+      "atlasEntries": [
+        "ATL-089"
+      ],
+      "originalIds": [
+        "C10"
+      ],
+      "originalPriority": "P1",
+      "relativeSize": "S",
+      "dependencies": [],
+      "verdict": "REPRIORITIZE",
+      "assessment": "Synthetic marker retention proves error-boundary behavior, not actual sensitive data disclosure. Define provider-message threat/redaction policy and test realistic ADC errors and renderer/log boundaries before a P1 ready fix; a bounded defensive fix can follow.",
+      "sourceFindings": [
+        "NON03-01"
+      ],
+      "sourceCitations": [
+        "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-03.md#L57"
+      ]
+    }
+  ],
+  "provisionalLeads": [
+    {
+      "id": "UI-001",
+      "status": "RESOLVED_CONFIRMED_SCOPED_FOCUS",
+      "sourceCandidate": "VC13-01",
+      "atlasEntry": "ATL-044",
+      "originalIds": [
+        "S19",
+        "R19"
+      ]
+    },
+    {
+      "id": "UI-002",
+      "status": "POLICY_UNRESOLVED",
+      "sourceCandidate": "NON07-04",
+      "atlasEntry": "ATL-025",
+      "originalIds": [
+        "C12"
+      ]
+    },
+    {
+      "id": "UI-003",
+      "status": "RESOLVED_DUPLICATE",
+      "sourceCandidate": "VC12-02",
+      "atlasEntry": "ATL-041",
+      "originalIds": [
+        "S21"
+      ]
+    },
+    {
+      "id": "UI-004",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "sourceCandidate": "VC28-04",
+      "atlasEntry": "ATL-006",
+      "originalIds": [
+        "R17",
+        "R24",
+        "R25"
+      ]
+    },
+    {
+      "id": "UI-005",
+      "status": "RESOLVED_DUPLICATE",
+      "sourceCandidate": "VC15-01",
+      "atlasEntry": "ATL-012",
+      "originalIds": [
+        "S24",
+        "S25",
+        "X03",
+        "X04"
+      ]
+    }
+  ],
+  "proposedAtlasChange": {
+    "split": {
+      "ATL-029": {
+        "keep": [
+          "VC24-02"
+        ],
+        "new": "ATL-105",
+        "move": [
+          "VC24-04"
+        ]
+      },
+      "ATL-030": {
+        "keep": [
+          "VC25-01"
+        ],
+        "new": "ATL-106",
+        "move": [
+          "VC25-02"
+        ]
+      },
+      "ATL-035": {
+        "keep": [
+          "NON07-05"
+        ],
+        "new": "ATL-107",
+        "move": [
+          "NON07-06"
+        ]
+      }
+    },
+    "ifAdopted": {
+      "atlasEntries": 107,
+      "multiCandidateGroups": 25,
+      "duplicateOwnershipSlotsRemoved": 40,
+      "candidates": 147,
+      "failedIds": 25
+    },
+    "notAppliedToAGG03": true
+  },
+  "evidenceLimits": {
+    "CAP06OriginalImagesInspected": 0,
+    "CAP09OriginalImagesInspected": 0,
+    "CAP09SupplementaryFrameInspected": 1,
+    "A25": "UV/BV",
+    "P03": "SO/SO",
+    "X11": "UV/UV"
+  }
+}
