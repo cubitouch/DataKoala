@@ -18,7 +18,10 @@ const promoted = (filter: ResultFilter): ResultFilter => ({
   ...filter,
   execution: 'query',
 })
-const categorical = (dialect: 'postgres' | 'duckdb' | 'google-sql', filters: ResultFilter[] = []) =>
+const categorical = (
+  dialect: 'postgres' | 'duckdb' | 'google-sql',
+  filters: ResultFilter[] = [],
+) =>
   generateBuilderQuery({
     dialect,
     table,
@@ -57,8 +60,8 @@ test('NON-05: GoogleSQL quotes qualified relation and reserved/special column na
     seriesColumns: ['été 2026', 'a`b'],
   })
   assert.match(query.sql, /FROM `billing-prod\.analytics\.order events`/)
-  assert.match(query.sql, /\n  `select`,/)
-  assert.match(query.sql, /\n  `été 2026`,/)
+  assert.match(query.sql, /\n {2}`select`,/)
+  assert.match(query.sql, /\n {2}`été 2026`,/)
   // Characterizes actual generator output. Remote GoogleSQL quoted-identifier
   // grammar is not proved by a source-only string assertion.
   assert.ok(query.sql.includes('`a``b`'))
@@ -103,7 +106,13 @@ test('NON-05: unsupported restored operators are dropped before SQL generation',
   const restored = deserializeResultFilters(
     JSON.stringify([
       { id: 'bad', column: 'status', operator: 'like', value: '%' },
-      { id: 'good', column: 'status', operator: 'equals', value: 'ok', execution: 'query' },
+      {
+        id: 'good',
+        column: 'status',
+        operator: 'equals',
+        value: 'ok',
+        execution: 'query',
+      },
     ]),
   )
   assert.equal(restored.length, 1)
@@ -113,17 +122,27 @@ test('NON-05: unsupported restored operators are dropped before SQL generation',
 })
 
 test('NON-05: unpromotable ranges and unrelated columns fail closed', () => {
-  const badRange = promoted(createResultRangeFilter('status', '2026-01-01', '2026-02-01'))
+  const badRange = promoted(
+    createResultRangeFilter('status', '2026-01-01', '2026-02-01'),
+  )
   assert.throws(() => categorical('postgres', [badRange]), /no longer matches/)
-  const unrelated = promoted(createResultFilter('other_column', 'equals', 'test'))
-  assert.throws(() => categorical('google-sql', [unrelated]), /no longer matches/)
+  const unrelated = promoted(
+    createResultFilter('other_column', 'equals', 'test'),
+  )
+  assert.throws(
+    () => categorical('google-sql', [unrelated]),
+    /no longer matches/,
+  )
 })
 
 test('NON-05: custom time bounds and scalar filters retain parameter ordering by dialect', () => {
   for (const dialect of ['postgres', 'duckdb', 'google-sql'] as const) {
     const query = generateBuilderQuery({
       dialect,
-      table: { schema: dialect === 'google-sql' ? 'project.dataset' : 'main', name: 'logs' },
+      table: {
+        schema: dialect === 'google-sql' ? 'project.dataset' : 'main',
+        name: 'logs',
+      },
       xColumn: 'status',
       xColumnDataType: 'text',
       timeColumn: 'received_at',
@@ -166,10 +185,10 @@ test('NON-05: combined scalar filters retain order and parameterization', () => 
 })
 
 test('NON-05: promoted multi-column tuple filters are parenthesized without literal values', () => {
-  const tuple = encodeBuilderSeriesTuple(
-    { region: 'EU', channel: 'web' },
-    ['region', 'channel'],
-  )
+  const tuple = encodeBuilderSeriesTuple({ region: 'EU', channel: 'web' }, [
+    'region',
+    'channel',
+  ])
   const query = generateBuilderQuery({
     table,
     xColumn: 'status',
@@ -212,7 +231,12 @@ test('NON-05: literal materializer handles apostrophes, NULL and finite numbers'
   assert.equal(formatPostgresLiteral(100n), '100')
   assert.throws(() => formatPostgresLiteral(Infinity), /non-finite/)
   assert.equal(
-    materializeSqlParameters('SELECT $1, $2, $3, $4', ["O'Brien", null, true, 7]),
+    materializeSqlParameters('SELECT $1, $2, $3, $4', [
+      "O'Brien",
+      null,
+      true,
+      7,
+    ]),
     "SELECT 'O''Brien', NULL, TRUE, 7",
   )
   assert.throws(
@@ -221,27 +245,39 @@ test('NON-05: literal materializer handles apostrophes, NULL and finite numbers'
   )
 })
 
-test.fails('NON-05 finding: PostgreSQL Open in SQL mode must not expand $1 inside quoted identifiers', () => {
-  assert.equal(
-    materializeSqlParameters('SELECT "$1", $1', ['safe']),
-    'SELECT "$1", \'safe\'',
-  )
-})
+test.fails(
+  'NON-05 finding: PostgreSQL Open in SQL mode must not expand $1 inside quoted identifiers',
+  () => {
+    assert.equal(
+      materializeSqlParameters('SELECT "$1", $1', ['safe']),
+      'SELECT "$1", \'safe\'',
+    )
+  },
+)
 
-test.fails('NON-05 finding: GoogleSQL Open in SQL mode must not consume ? inside quoted identifiers', () => {
-  assert.equal(
-    materializeSqlParameters('SELECT `status?` FROM `p.d.t` WHERE `status?` = ?', ['paid']),
-    "SELECT `status?` FROM `p.d.t` WHERE `status?` = 'paid'",
-  )
-})
+test.fails(
+  'NON-05 finding: GoogleSQL Open in SQL mode must not consume ? inside quoted identifiers',
+  () => {
+    assert.equal(
+      materializeSqlParameters(
+        'SELECT `status?` FROM `p.d.t` WHERE `status?` = ?',
+        ['paid'],
+      ),
+      "SELECT `status?` FROM `p.d.t` WHERE `status?` = 'paid'",
+    )
+  },
+)
 
-test.fails('NON-05 finding: GoogleSQL promoted filter must preserve double quotes within identifiers', () => {
-  const query = generateBuilderQuery({
-    dialect: 'google-sql',
-    table: { schema: 'project.dataset', name: 'orders' },
-    xColumn: 'a"b',
-    xColumnDataType: 'STRING',
-    filters: [promoted(createResultFilter('a"b', 'equals', 'paid'))],
-  })
-  assert.match(query.sql, /WHERE `a"b` = \?/)
-})
+test.fails(
+  'NON-05 finding: GoogleSQL promoted filter must preserve double quotes within identifiers',
+  () => {
+    const query = generateBuilderQuery({
+      dialect: 'google-sql',
+      table: { schema: 'project.dataset', name: 'orders' },
+      xColumn: 'a"b',
+      xColumnDataType: 'STRING',
+      filters: [promoted(createResultFilter('a"b', 'equals', 'paid'))],
+    })
+    assert.match(query.sql, /WHERE `a"b` = \?/)
+  },
+)

@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { BigQueryProfile, PostgresProfile } from '../../shared/types.ts'
-import {
-  BigQueryAdapter,
-  type BigQueryClientLike,
-} from './bigquery-adapter.ts'
+import { BigQueryAdapter, type BigQueryClientLike } from './bigquery-adapter.ts'
 import { assertReadOnlyBigQueryQuery } from './bigquery-script.ts'
 import { __testing as postgresGuards } from './postgres.ts'
 import { queryFailureKind } from '../query-failure.ts'
@@ -31,31 +28,37 @@ function fakeBigQuery(dryStatementType: string) {
     async createQueryJob(options) {
       jobs.push(options)
       if (options.dryRun)
-        return [{
-          metadata: {
-            statistics: { query: { statementType: dryStatementType } },
+        return [
+          {
+            metadata: {
+              statistics: { query: { statementType: dryStatementType } },
+            },
           },
-        }]
-      return [{
-        async getQueryResults() {
-          return [
-            [{ final_value: 'last SELECT only' }],
-            null,
-            {
-              schema: {
-                fields: [{ name: 'final_value', type: 'STRING' }],
+        ]
+      return [
+        {
+          async getQueryResults() {
+            return [
+              [{ final_value: 'last SELECT only' }],
+              null,
+              {
+                schema: {
+                  fields: [{ name: 'final_value', type: 'STRING' }],
+                },
               },
-            },
-          ]
+            ]
+          },
+          async getMetadata() {
+            return [
+              {
+                statistics: {
+                  query: { totalBytesProcessed: '16', cacheHit: false },
+                },
+              },
+            ]
+          },
         },
-        async getMetadata() {
-          return [{
-            statistics: {
-              query: { totalBytesProcessed: '16', cacheHit: false },
-            },
-          }]
-        },
-      }]
+      ]
     },
   }
   return { client, jobs }
@@ -153,14 +156,16 @@ test('NON-04: PostgreSQL read-only is configured at connection startup only when
     '-c default_transaction_read_only=on',
   )
   assert.equal(
-    postgresGuards.buildPoolConfig(
-      { ...postgresProfile, readonly: false },
-      1,
-    ).options,
+    postgresGuards.buildPoolConfig({ ...postgresProfile, readonly: false }, 1)
+      .options,
     undefined,
   )
   assert.throws(
-    () => postgresGuards.assertReadonly(postgresProfile, 'DELETE FROM synthetic_table'),
+    () =>
+      postgresGuards.assertReadonly(
+        postgresProfile,
+        'DELETE FROM synthetic_table',
+      ),
     /read-only/,
   )
   assert.doesNotThrow(() =>

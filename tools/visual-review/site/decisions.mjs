@@ -7,7 +7,9 @@ export const CHOICES = [
 export const STORAGE_KEY = 'datakoala.vis01.decisions.v1'
 export const SCHEMA_VERSION = 1
 
-function isObject(value) { return value !== null && typeof value === 'object' && !Array.isArray(value) }
+function isObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
 export function normalizeDecisions(input, allowedIds) {
   const validIds = new Set(allowedIds)
   const normalized = {}
@@ -25,29 +27,77 @@ export function readSaved(raw, allowedIds) {
     const parsed = JSON.parse(raw)
     if (parsed?.schemaVersion !== SCHEMA_VERSION) return {}
     return normalizeDecisions(parsed.decisions, allowedIds)
-  } catch { return {} }
+  } catch {
+    return {}
+  }
 }
 export function setDecision(current, id, patch, allowedIds) {
   if (!allowedIds.includes(id)) throw new Error('Unknown comparison ID')
   const row = current[id] ?? { choice: '', notes: '' }
   const next = { ...row, ...patch }
-  if (next.choice && !CHOICES.includes(next.choice)) throw new Error('Unknown review decision')
-  if (typeof next.notes !== 'string' || next.notes.length > 10000) throw new Error('Notes must be text under 10,000 characters')
+  if (next.choice && !CHOICES.includes(next.choice))
+    throw new Error('Unknown review decision')
+  if (typeof next.notes !== 'string' || next.notes.length > 10000)
+    throw new Error('Notes must be text under 10,000 characters')
   return { ...current, [id]: next }
 }
-export function exportPayload(decisions, comparisons, baseline, timestamp = new Date().toISOString()) {
-  const safe = normalizeDecisions(decisions, comparisons.map(x => x.id))
-  return { schemaVersion: SCHEMA_VERSION, kind: 'DataKoala VIS-01 decisions', exportedAt: timestamp, baseline, decisions: safe,
-    review: comparisons.map(({ id, atlasId, title }) => ({ id, atlasId, title, ...safe[id] || { choice: '', notes: '' } })) }
+export function exportPayload(
+  decisions,
+  comparisons,
+  baseline,
+  timestamp = new Date().toISOString(),
+) {
+  const safe = normalizeDecisions(
+    decisions,
+    comparisons.map((x) => x.id),
+  )
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    kind: 'DataKoala VIS-01 decisions',
+    exportedAt: timestamp,
+    baseline,
+    decisions: safe,
+    review: comparisons.map(({ id, atlasId, title }) => ({
+      id,
+      atlasId,
+      title,
+      ...(safe[id] || { choice: '', notes: '' }),
+    })),
+  }
 }
 export function importPayload(text, comparisons) {
   const value = JSON.parse(text)
-  if (!isObject(value) || value.schemaVersion !== SCHEMA_VERSION || !isObject(value.decisions)) throw new Error('Not a VIS-01 decision export')
-  return normalizeDecisions(value.decisions, comparisons.map(x => x.id))
+  if (
+    !isObject(value) ||
+    value.schemaVersion !== SCHEMA_VERSION ||
+    !isObject(value.decisions)
+  )
+    throw new Error('Not a VIS-01 decision export')
+  return normalizeDecisions(
+    value.decisions,
+    comparisons.map((x) => x.id),
+  )
 }
 export function exportMarkdown(payload) {
-  const escape = value => String(value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>')
-  const rows = payload.review.map(row => '| ' + [row.id, row.atlasId, row.title, row.choice || 'Unreviewed', row.notes].map(escape).join(' | ') + ' |')
-  return '# DataKoala VIS-01 review decisions\n\nSource integration HEAD: \`' + payload.baseline.integrationHead +
-    '\`\n\nExported: ' + payload.exportedAt + '\n\n| Review | Atlas | Question | Decision | Notes |\n| --- | --- | --- | --- | --- |\n' + rows.join('\n') + '\n'
+  const escape = (value) =>
+    String(value ?? '')
+      .replace(/\|/g, '\\|')
+      .replace(/\r?\n/g, '<br>')
+  const rows = payload.review.map(
+    (row) =>
+      '| ' +
+      [row.id, row.atlasId, row.title, row.choice || 'Unreviewed', row.notes]
+        .map(escape)
+        .join(' | ') +
+      ' |',
+  )
+  return (
+    '# DataKoala VIS-01 review decisions\n\nSource integration HEAD: \`' +
+    payload.baseline.integrationHead +
+    '\`\n\nExported: ' +
+    payload.exportedAt +
+    '\n\n| Review | Atlas | Question | Decision | Notes |\n| --- | --- | --- | --- | --- |\n' +
+    rows.join('\n') +
+    '\n'
+  )
 }

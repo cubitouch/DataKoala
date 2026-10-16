@@ -21,10 +21,7 @@
       "artifactName": "datakoala-ux-audit-pr-442",
       "captureKind": "Electron audit (synthetic fixture)",
       "scenario": "compare-lists",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": true
     },
@@ -40,10 +37,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "loki-log-patterns",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -59,10 +53,7 @@
       "artifactName": "datakoala-ux-audit-pr-442",
       "captureKind": "Electron audit (synthetic fixture)",
       "scenario": "nested-settings-escape-desktop",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -78,10 +69,7 @@
       "artifactName": "datakoala-ux-audit-pr-442",
       "captureKind": "Electron audit (synthetic fixture)",
       "scenario": "compare-dialogs",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": true
     },
@@ -97,10 +85,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "ai-settings",
-      "viewport": [
-        1440,
-        1000
-      ],
+      "viewport": [1440, 1000],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -116,10 +101,7 @@
       "artifactName": "datakoala-ux-audit-pr-442",
       "captureKind": "Electron audit (synthetic fixture)",
       "scenario": "traces-open-narrow",
-      "viewport": [
-        900,
-        900
-      ],
+      "viewport": [900, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -135,10 +117,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "tempo-trace-builder",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -154,10 +133,7 @@
       "artifactName": "datakoala-ux-audit-pr-442",
       "captureKind": "Electron audit (synthetic fixture)",
       "scenario": "postgres-error-desktop",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -173,10 +149,7 @@
       "artifactName": "datakoala-ux-audit-pr-442",
       "captureKind": "Electron audit (synthetic fixture)",
       "scenario": "postgres-error-chart-desktop",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -192,10 +165,7 @@
       "artifactName": "datakoala-ux-audit-pr-442",
       "captureKind": "Electron audit (synthetic fixture)",
       "scenario": "compare-feedback",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": true
     },
@@ -211,10 +181,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "loki-log-list",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -230,10 +197,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "prometheus-toolbar",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -249,10 +213,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "prometheus-toolbar-narrow",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -268,10 +229,7 @@
       "artifactName": "datakoala-ux-audit-pr-442",
       "captureKind": "Electron audit (synthetic fixture)",
       "scenario": "compare-detail",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": true
     },
@@ -287,10 +245,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "tempo-trace-search",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -306,10 +261,7 @@
       "artifactName": "datakoala-ux-audit-pr-442",
       "captureKind": "Electron audit (synthetic fixture)",
       "scenario": "compare-selectors",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": true
     },
@@ -325,10 +277,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "builder-time-range-open",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -344,10 +293,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "loki-builder-level",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -363,10 +309,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "sql-default",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -382,10 +325,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "tempo-trace-scatter",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -401,10 +341,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "builder-categorical-numeric",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -420,10 +357,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "builder-temporal-series",
-      "viewport": [
-        1440,
-        900
-      ],
+      "viewport": [1440, 900],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     },
@@ -439,10 +373,7 @@
       "artifactName": "datakoala-visual-preview-pr-442",
       "captureKind": "Electron Visual Preview (synthetic fixture)",
       "scenario": "ai-query-repair-error",
-      "viewport": [
-        1440,
-        1000
-      ],
+      "viewport": [1440, 1000],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
     }
@@ -452,10 +383,7 @@
       "id": "VIS-01",
       "atlasId": "ATL-001",
       "title": "Shared openable list rows",
-      "providers": [
-        "Loki",
-        "Tempo"
-      ],
+      "providers": ["Loki", "Tempo"],
       "category": "List composition",
       "question": "Should Logs, Patterns and Tempo use shared open/focus/chevron chrome while keeping their distinct density, data and virtualization?",
       "evidenceGap": "Interaction and keyboard parity require native assertions; the sheet alone cannot prove them.",
@@ -474,10 +402,7 @@
       "id": "VIS-02",
       "atlasId": "ATL-002",
       "title": "Nested Settings Escape",
-      "providers": [
-        "Shared",
-        "Loki"
-      ],
+      "providers": ["Shared", "Loki"],
       "category": "Dialogs and focus",
       "question": "Should Escape dismiss only the topmost child selector and preserve the Settings dialog?",
       "evidenceGap": "A static frame cannot demonstrate actual Escape propagation; use CAP-29 and Phase 1B native event ledgers.",
@@ -496,10 +421,7 @@
       "id": "VIS-03",
       "atlasId": "ATL-003",
       "title": "Connection-dialog keyboard policy",
-      "providers": [
-        "Shared",
-        "PostgreSQL"
-      ],
+      "providers": ["Shared", "PostgreSQL"],
       "category": "Dialogs and focus",
       "question": "Should connection pickers/forms trap Tab, handle Escape and return focus to their invoking controls, with Delete-return focus separately owned?",
       "evidenceGap": "Delete focus is CAP-02 direct evidence, not a V-03 screenshot; screenshots show shell only.",
@@ -518,9 +440,7 @@
       "id": "VIS-04",
       "atlasId": "ATL-004",
       "title": "Tempo narrow toolbar",
-      "providers": [
-        "Tempo"
-      ],
+      "providers": ["Tempo"],
       "category": "Responsive layout",
       "question": "Should Tempo inner-toolbar actions wrap or collapse based on pane width rather than viewport width?",
       "evidenceGap": "Compare native narrow capture and standard builder; quantify overflow in the linked evidence.",
@@ -539,10 +459,7 @@
       "id": "VIS-05",
       "atlasId": "ATL-006",
       "title": "Retained results after failed query",
-      "providers": [
-        "PostgreSQL",
-        "Shared"
-      ],
+      "providers": ["PostgreSQL", "Shared"],
       "category": "Failure and recovery",
       "question": "When a query fails, should previous settled Table and Chart results both remain visible, or both hide with an explicit stale-result indicator?",
       "evidenceGap": "The result-retention discrepancy is policy-unresolved. Screens show state; retained rows also require the execution ledger.",
@@ -561,10 +478,7 @@
       "id": "VIS-06",
       "atlasId": "ATL-007",
       "title": "Log copy failure feedback",
-      "providers": [
-        "Loki",
-        "Shared"
-      ],
+      "providers": ["Loki", "Shared"],
       "category": "Feedback",
       "question": "What bounded visible feedback and retry control should a denied clipboard write produce for Logs, and should it match query copy?",
       "evidenceGap": "Clipboard rejection is a synthetic interaction assertion; a screenshot cannot prove promise handling.",
@@ -583,9 +497,7 @@
       "id": "VIS-07",
       "atlasId": "ATL-008",
       "title": "PromQL copy announcement",
-      "providers": [
-        "Prometheus"
-      ],
+      "providers": ["Prometheus"],
       "category": "Toolbar and labels",
       "question": "Should PromQL Copy consistently say Copy PromQL rather than Copy SQL in both full and narrow modes?",
       "evidenceGap": "Inspect accessible naming against source assertions; pixels alone do not establish screen-reader announcements.",
@@ -604,11 +516,7 @@
       "id": "VIS-08",
       "atlasId": "ATL-009",
       "title": "Inspector panel consistency",
-      "providers": [
-        "Loki",
-        "Tempo",
-        "Shared"
-      ],
+      "providers": ["Loki", "Tempo", "Shared"],
       "category": "Inspector and detail",
       "question": "Which border, density, resize handle and close affordance should be shared between log and trace inspectors?",
       "evidenceGap": "Keep provider-specific detail contents and navigation.",
@@ -627,9 +535,7 @@
       "id": "VIS-09",
       "atlasId": "ATL-020",
       "title": "Tempo sample label clipping",
-      "providers": [
-        "Tempo"
-      ],
+      "providers": ["Tempo"],
       "category": "Responsive layout",
       "question": "How should the Tempo sample limit label behave in a constrained query pane?",
       "evidenceGap": "The narrow screenshot contextualizes the confirmed CAP finding; do not infer numerical sample semantics.",
@@ -648,11 +554,7 @@
       "id": "VIS-10",
       "atlasId": "ATL-005",
       "title": "Result view picker styling",
-      "providers": [
-        "Shared",
-        "Loki",
-        "Tempo"
-      ],
+      "providers": ["Shared", "Loki", "Tempo"],
       "category": "Selectors",
       "question": "Should chart/result-view pickers adopt a consistent menu width, active item and trigger treatment?",
       "evidenceGap": "The right-hand capture is a different picker and is contextual, not evidence of result-view behavior.",
@@ -671,9 +573,7 @@
       "id": "VIS-11",
       "atlasId": "ATL-038",
       "title": "Reset versus delete confirmation",
-      "providers": [
-        "Shared"
-      ],
+      "providers": ["Shared"],
       "category": "Dialogs and focus",
       "question": "Should Presets delete and Reset use the same in-app confirmation, or retain intentionally different confirmation behavior?",
       "evidenceGap": "Original CAP-08 preset-delete/reset screenshots were not published with the selected PR-442 set; recapture the precise confirmation states.",
@@ -692,9 +592,7 @@
       "id": "VIS-12",
       "atlasId": "ATL-054",
       "title": "Nested Loki field rendering",
-      "providers": [
-        "Loki"
-      ],
+      "providers": ["Loki"],
       "category": "Result readability",
       "question": "Should nested log data use expandable structured rendering rather than generic object-to-string conversion?",
       "evidenceGap": "Screens are context only; the nested-value defect needs the specific CAP-21 fixture state.",
@@ -713,10 +611,7 @@
       "id": "VIS-13",
       "atlasId": "ATL-057",
       "title": "Raw LogQL editor height",
-      "providers": [
-        "Loki",
-        "PostgreSQL"
-      ],
+      "providers": ["Loki", "PostgreSQL"],
       "category": "Editor layout",
       "question": "Should raw LogQL use the same available editor-pane height behavior as other raw query editors?",
       "evidenceGap": "Loki Builder is not a raw LogQL screenshot; no directly matching raw editor capture is published here.",
@@ -735,10 +630,7 @@
       "id": "VIS-14",
       "atlasId": "ATL-021",
       "title": "Scatter phantom zeros",
-      "providers": [
-        "Shared",
-        "Tempo"
-      ],
+      "providers": ["Shared", "Tempo"],
       "category": "Charts",
       "question": "Should missing scatter combinations be absent marks rather than manufactured zero points?",
       "evidenceGap": "Neither screenshot depicts the original 16-row/32-mark repro; native defect-specific recapture is required.",
@@ -757,10 +649,7 @@
       "id": "VIS-15",
       "atlasId": "ATL-022",
       "title": "Numeric scatter X scale",
-      "providers": [
-        "Shared",
-        "Tempo"
-      ],
+      "providers": ["Shared", "Tempo"],
       "category": "Charts",
       "question": "Should numeric Scatter X positions reflect proportional values instead of categorical spacing?",
       "evidenceGap": "Comparison is chart-language context, not direct proof of numeric X spacing.",
@@ -779,9 +668,7 @@
       "id": "VIS-16",
       "atlasId": "ATL-065",
       "title": "Tempo displayed brush bounds",
-      "providers": [
-        "Tempo"
-      ],
+      "providers": ["Tempo"],
       "category": "Charts and time",
       "question": "Should displayed brush endpoints match the committed time filter after explicit Date/ISO-compatible quantization?",
       "evidenceGap": "CAP-24 exact failing boundary fixture is not in this published image set. Preserve known-defect classification pending targeted screenshots.",
@@ -800,9 +687,7 @@
       "id": "VIS-17",
       "atlasId": "ATL-076",
       "title": "Chart export feedback and cancellation",
-      "providers": [
-        "Shared"
-      ],
+      "providers": ["Shared"],
       "category": "Feedback",
       "question": "Should cancelled chart exports be silent, or use the same bounded feedback policy as actionable failures?",
       "evidenceGap": "The second frame is another feedback surface, not a chart-export capture; original behavior requires separate evidence.",
@@ -821,10 +706,7 @@
       "id": "VIS-18",
       "atlasId": "ATL-025",
       "title": "BigQuery statistics visibility",
-      "providers": [
-        "BigQuery",
-        "PostgreSQL"
-      ],
+      "providers": ["BigQuery", "PostgreSQL"],
       "category": "Provider policy",
       "question": "Should unavailable BigQuery statistics be hidden, explicitly unavailable, or represented with a provider-specific explanation?",
       "evidenceGap": "No captured BigQuery statistics state is available here. Do not mistake PostgreSQL context for BigQuery evidence.",

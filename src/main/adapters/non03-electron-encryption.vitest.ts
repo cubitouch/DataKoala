@@ -5,7 +5,10 @@ const storage = vi.hoisted(() => ({
   getSelectedStorageBackend: vi.fn(() => 'gnome_libsecret'),
   isAsyncEncryptionAvailable: vi.fn(async () => true),
   encryptStringAsync: vi.fn(async () => Buffer.from('synthetic')),
-  decryptStringAsync: vi.fn(async () => ({ result: 'synthetic', shouldReEncrypt: false })),
+  decryptStringAsync: vi.fn(async () => ({
+    result: 'synthetic',
+    shouldReEncrypt: false,
+  })),
 }))
 vi.mock('electron', () => ({ safeStorage: storage }))
 afterEach(() => vi.restoreAllMocks())

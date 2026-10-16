@@ -1,5 +1,9 @@
 import { expect, test, vi } from 'vitest'
-import type { DatabaseColumnNode, DatabaseRelationNode, DatabaseSchemaNode } from '@shared/types'
+import type {
+  DatabaseColumnNode,
+  DatabaseRelationNode,
+  DatabaseSchemaNode,
+} from '@shared/types'
 import { ensureRelationColumns } from '@lib/relationColumns'
 import { expandAiQueryContext } from './workflow'
 
@@ -36,28 +40,36 @@ const input = {
 }
 const request = { searchTerms: ['device'], reason: 'Find device metadata' }
 
-test.fails('NON06 EXPECTED FAILURE: discovery must refuse columns resolved after the originating profile metadata is replaced', async () => {
-  fixture.state = {
-    metadataByProfileId: { 'profile-a': { schemas } },
-  }
-  let finish: ((value: DatabaseColumnNode[]) => void) | undefined
-  vi.mocked(ensureRelationColumns).mockImplementation(
-    () => new Promise<DatabaseColumnNode[]>((resolve) => { finish = resolve }),
-  )
-  const expansion = expandAiQueryContext(input, request)
-  expect(ensureRelationColumns).toHaveBeenCalledWith('profile-a', relation)
-  // Replace the original profile's metadata while a synthetic describeTable
-  // is still pending. The workflow does not compare a metadata revision here.
-  fixture.state = { metadataByProfileId: { 'profile-a': { schemas: [] } } }
-  finish?.([{ name: 'id', dataTypeName: 'uuid' }])
-  await expect(expansion).rejects.toThrow(/stale|changed|invalidated/i)
-})
+test.fails(
+  'NON06 EXPECTED FAILURE: discovery must refuse columns resolved after the originating profile metadata is replaced',
+  async () => {
+    fixture.state = {
+      metadataByProfileId: { 'profile-a': { schemas } },
+    }
+    let finish: ((value: DatabaseColumnNode[]) => void) | undefined
+    vi.mocked(ensureRelationColumns).mockImplementation(
+      () =>
+        new Promise<DatabaseColumnNode[]>((resolve) => {
+          finish = resolve
+        }),
+    )
+    const expansion = expandAiQueryContext(input, request)
+    expect(ensureRelationColumns).toHaveBeenCalledWith('profile-a', relation)
+    // Replace the original profile's metadata while a synthetic describeTable
+    // is still pending. The workflow does not compare a metadata revision here.
+    fixture.state = { metadataByProfileId: { 'profile-a': { schemas: [] } } }
+    finish?.([{ name: 'id', dataTypeName: 'uuid' }])
+    await expect(expansion).rejects.toThrow(/stale|changed|invalidated/i)
+  },
+)
 
 test('NON06 expansion remains tied to the original profile ID rather than the newly active profile', async () => {
   fixture.state = {
     metadataByProfileId: {
       'profile-a': { schemas },
-      'profile-b': { schemas: [{ name: 'public', isSystem: false, relations: [] }] },
+      'profile-b': {
+        schemas: [{ name: 'public', isSystem: false, relations: [] }],
+      },
     },
   }
   vi.mocked(ensureRelationColumns).mockResolvedValue([

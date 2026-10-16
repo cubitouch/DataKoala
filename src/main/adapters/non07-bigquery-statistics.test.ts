@@ -2,10 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { BigQueryProfile } from '../../shared/types.ts'
 import { toIpcSafeQueryResult } from '../ipc-serialization.ts'
-import {
-  BigQueryAdapter,
-  type BigQueryClientLike,
-} from './bigquery-adapter.ts'
+import { BigQueryAdapter, type BigQueryClientLike } from './bigquery-adapter.ts'
 
 const profile: BigQueryProfile = {
   kind: 'bigquery',
@@ -175,8 +172,7 @@ test('NON07 EXPECTED FAILURE reproduction: null and blank provider byte values c
 })
 
 test('NON07 SCRIPT uses parent job statistics and final statement rows without child-job aggregation', async () => {
-  const sql =
-    'DECLARE x INT64 DEFAULT 1; SET x = 1; SELECT x AS metric;'
+  const sql = 'DECLARE x INT64 DEFAULT 1; SET x = 1; SELECT x AS metric;'
   const { result, calls, metadataReads } = await execute(
     {
       statementType: 'SCRIPT',
@@ -207,9 +203,9 @@ test('NON07 execution failures produce no successful statistics-bearing result',
     ['metadata', 'metadata unavailable'],
   ] as const) {
     const fake = fakeClient({ failure })
-    const { session } = await new BigQueryAdapter(
-      () => fake.client,
-    ).connect(profile)
+    const { session } = await new BigQueryAdapter(() => fake.client).connect(
+      profile,
+    )
     assert.ok(session)
     await assert.rejects(
       session.query({ sql: 'SELECT 1', parameters: [] }),
@@ -223,9 +219,9 @@ test('NON07 EXPECTED FAILURE reproduction: dry-run estimate loses precision abov
   const fake = fakeClient({
     dryRunStatistics: { totalBytesProcessed: '9007199254740993' },
   })
-  const { session } = await new BigQueryAdapter(
-    () => fake.client,
-  ).connect(profile)
+  const { session } = await new BigQueryAdapter(() => fake.client).connect(
+    profile,
+  )
   assert.ok(session?.estimateQuery)
   const estimate = await session.estimateQuery('SELECT 1')
   assert.equal(estimate.bytesProcessed, 9007199254740992)

@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import {
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'vitest'
@@ -9,7 +17,9 @@ import { queryFailureKind } from '../query-failure.ts'
 import { LocalFilesAdapter, quoteLiteral } from './local-files-adapter.ts'
 
 async function fingerprint(path: string): Promise<string> {
-  return createHash('sha256').update(await readFile(path)).digest('hex')
+  return createHash('sha256')
+    .update(await readFile(path))
+    .digest('hex')
 }
 
 test('NON-04: selected symlink, TSV and JSONL are readable without granting neighbouring files', async () => {
@@ -24,7 +34,10 @@ test('NON-04: selected symlink, TSV and JSONL are readable without granting neig
   try {
     await writeFile(original, 'id,label\n1,visible\n')
     await writeFile(tsv, 'id\tlabel\n2\ttabbed\n')
-    await writeFile(jsonl, '{"label":"first","score":1}\n{"label":"second","score":2}\n')
+    await writeFile(
+      jsonl,
+      '{"label":"first","score":1}\n{"label":"second","score":2}\n',
+    )
     await writeFile(unselected, 'secret\nprivate\n')
     await symlink(original, selectedLink)
     await symlink(unselected, unselectedLink)
@@ -59,17 +72,19 @@ test('NON-04: selected symlink, TSV and JSONL are readable without granting neig
       const selected = await session.query({
         sql: "/* comment; */ SELECT ';' AS punctuation, label FROM csv_data",
       })
-      assert.deepEqual(selected.rows, [
-        { punctuation: ';', label: 'visible' },
-      ])
+      assert.deepEqual(selected.rows, [{ punctuation: ';', label: 'visible' }])
       assert.equal(
-        (await session.query({ sql: 'SELECT label FROM tsv_data' })).rows[0].label,
+        (await session.query({ sql: 'SELECT label FROM tsv_data' })).rows[0]
+          .label,
         'tabbed',
       )
       const jsonRows = await session.query({
         sql: 'SELECT label FROM jsonl_data ORDER BY label',
       })
-      assert.deepEqual(jsonRows.rows.map((r) => r.label), ['first', 'second'])
+      assert.deepEqual(
+        jsonRows.rows.map((r) => r.label),
+        ['first', 'second'],
+      )
 
       // An explicitly selected symlink resolves to its canonical allowlisted file.
       const canonical = await realpath(original)
@@ -94,7 +109,7 @@ test('NON-04: selected symlink, TSV and JSONL are readable without granting neig
       for (const sql of [
         'SELECT 1; SELECT 2',
         'DELETE FROM csv_data',
-        'INSERT INTO csv_data VALUES (3, \'not allowed\')',
+        "INSERT INTO csv_data VALUES (3, 'not allowed')",
         `COPY (SELECT 1) TO ${quoteLiteral(exportPath)}`,
         'SET enable_external_access = true',
       ]) {

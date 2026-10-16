@@ -41,7 +41,11 @@ function state(result: QueryResult | null): QueryResultLifecycleState {
 
 test('NON07 BigQuery metadata survives a successful query-result lifecycle unchanged', () => {
   const original = queryResult(0, true)
-  const complete = completeQueryState(startQueryState(state(null)), original, null)
+  const complete = completeQueryState(
+    startQueryState(state(null)),
+    original,
+    null,
+  )
   assert.equal(complete.result, original)
   assert.deepEqual(complete.result?.execution, original.execution)
   assert.equal(complete.result?.execution?.bytesProcessed, 0)
@@ -52,7 +56,10 @@ test('NON07 BigQuery metadata survives a successful query-result lifecycle uncha
 test('NON07 pending BigQuery metadata stays attached to the pending result until promotion', () => {
   const previous = queryResult(20, false)
   const incoming = queryResult(90, true)
-  const pending = deliverQueryResultState(startQueryState(state(previous)), incoming)
+  const pending = deliverQueryResultState(
+    startQueryState(state(previous)),
+    incoming,
+  )
   assert.equal(pending.result, previous)
   assert.equal(pending.pendingResult, incoming)
   assert.equal(pending.result?.execution?.bytesProcessed, 20)

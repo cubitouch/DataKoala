@@ -12,7 +12,10 @@ import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
 const encryption: Encryption = {
   available: async () => true,
   encrypt: async (value) => Buffer.from(value),
-  decrypt: async (value) => ({ result: value.toString(), shouldReEncrypt: false }),
+  decrypt: async (value) => ({
+    result: value.toString(),
+    shouldReEncrypt: false,
+  }),
 }
 
 // Characterization evidence only: this reversible fake is NOT encryption.
@@ -26,7 +29,9 @@ test('NON03 backend failures redact synthetic sensitive exception text and prese
     for (const operation of ['available', 'encrypt', 'decrypt'] as const) {
       const failing = new EncryptedSecretStore(directory, {
         ...encryption,
-        [operation]: async () => { throw new Error('SYNTHETIC_NON03') },
+        [operation]: async () => {
+          throw new Error('SYNTHETIC_NON03')
+        },
       })
       await assert.rejects(
         operation === 'encrypt'
@@ -50,7 +55,11 @@ test('NON03 corrupted AI legacy data is retained, cannot become a key, and can b
   try {
     const path = join(directory, 'ai-secrets.json')
     await writeFile(path, '{SYNTHETIC_BROKEN_LEGACY')
-    const settings = new AiSettingsStore(directory, new EncryptedSecretStore(directory, encryption), encryption)
+    const settings = new AiSettingsStore(
+      directory,
+      new EncryptedSecretStore(directory, encryption),
+      encryption,
+    )
     assert.equal((await settings.get()).hasApiKey, true)
     await assert.rejects(settings.getApiKey(), { code: 'invalid-persistence' })
     assert.equal(await readFile(path, 'utf8'), '{SYNTHETIC_BROKEN_LEGACY')
@@ -62,29 +71,55 @@ test('NON03 corrupted AI legacy data is retained, cannot become a key, and can b
 })
 
 test('NON03 missing ADC and revoked auth fail discovery without creating a dataset client', async () => {
-  for (const message of ['Could not load default credentials', 'invalid_grant: revoked synthetic credential']) {
+  for (const message of [
+    'Could not load default credentials',
+    'invalid_grant: revoked synthetic credential',
+  ]) {
     const failure = new Error(message)
     const service = new BigQueryDiscoveryService(
-      () => { throw new Error('must not construct dataset client') },
+      () => {
+        throw new Error('must not construct dataset client')
+      },
       {
-        getProjectId: async () => { throw failure },
-        getClient: async () => { throw failure },
+        getProjectId: async () => {
+          throw failure
+        },
+        getClient: async () => {
+          throw failure
+        },
       } as never,
     )
-    await assert.rejects(service.discoverDefaults(), (error) => error === failure)
-    await assert.rejects(service.discoverProjects(), (error) => error === failure)
+    await assert.rejects(
+      service.discoverDefaults(),
+      (error) => error === failure,
+    )
+    await assert.rejects(
+      service.discoverProjects(),
+      (error) => error === failure,
+    )
   }
 })
 
 test('NON03 characterization: BigQuery authentication errors retain synthetic provider message text', async () => {
-  const adapter = new BigQueryAdapter(() => ({
-    getDatasets: async () => {
-      throw Object.assign(new Error('credential rejected token=SYNTHETIC_NON03_TOKEN'), { code: 401 })
-    },
-  }) as never)
+  const adapter = new BigQueryAdapter(
+    () =>
+      ({
+        getDatasets: async () => {
+          throw Object.assign(
+            new Error('credential rejected token=SYNTHETIC_NON03_TOKEN'),
+            { code: 401 },
+          )
+        },
+      }) as never,
+  )
   const result = await adapter.test({
-    kind: 'bigquery', version: 1, id: 'non03', name: 'Synthetic',
-    billingProject: 'synthetic-billing', maximumBytesBilled: '', readonly: true,
+    kind: 'bigquery',
+    version: 1,
+    id: 'non03',
+    name: 'Synthetic',
+    billingProject: 'synthetic-billing',
+    maximumBytesBilled: '',
+    readonly: true,
   })
   assert.equal(result.ok, false)
   if (!result.ok) {

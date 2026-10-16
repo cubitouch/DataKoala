@@ -89,53 +89,85 @@ test('NON06 request validation enforces aggregate relation and column caps and s
     schema: 'public',
     name: `item_${i}`,
     kind: 'table',
-    columns: Array.from({ length: AI_LIMITS.columns / AI_LIMITS.relations }, (_, j) => ({
-      name: `col_${j}`,
-      dataType: 'text',
-    })),
+    columns: Array.from(
+      { length: AI_LIMITS.columns / AI_LIMITS.relations },
+      (_, j) => ({
+        name: `col_${j}`,
+        dataType: 'text',
+      }),
+    ),
   }))
-  const accepted = proposalRequest(
-    request({ ...baseContext, relations }),
-  )
+  const accepted = proposalRequest(request({ ...baseContext, relations }))
   assert.equal(accepted.context.relations.length, AI_LIMITS.relations)
   assert.equal(
-    accepted.context.relations.reduce((sum, relation) => sum + relation.columns.length, 0),
+    accepted.context.relations.reduce(
+      (sum, relation) => sum + relation.columns.length,
+      0,
+    ),
     AI_LIMITS.columns,
   )
   assert.throws(
-    () => proposalRequest(request({
-      ...baseContext,
-      relations: [
-        { ...relations[0], columns: [...relations[0].columns, { name: 'extra', dataType: 'text' }] },
-        ...relations.slice(1),
-      ],
-    })),
+    () =>
+      proposalRequest(
+        request({
+          ...baseContext,
+          relations: [
+            {
+              ...relations[0],
+              columns: [
+                ...relations[0].columns,
+                { name: 'extra', dataType: 'text' },
+              ],
+            },
+            ...relations.slice(1),
+          ],
+        }),
+      ),
     /AI schema context is too large/,
   )
   assert.throws(
-    () => proposalRequest(request({ ...baseContext, relations: [...relations, relations[0]] })),
+    () =>
+      proposalRequest(
+        request({ ...baseContext, relations: [...relations, relations[0]] }),
+      ),
     /Invalid SQL AI context/,
   )
   assert.throws(
-    () => proposalRequest(request({
-      ...baseContext,
-      relations: [{ ...relations[0], columns: Array(AI_LIMITS.columnsPerRelation + 1).fill({ name: 'x', dataType: 'text' }) }],
-    })),
+    () =>
+      proposalRequest(
+        request({
+          ...baseContext,
+          relations: [
+            {
+              ...relations[0],
+              columns: Array(AI_LIMITS.columnsPerRelation + 1).fill({
+                name: 'x',
+                dataType: 'text',
+              }),
+            },
+          ],
+        }),
+      ),
     /Invalid AI relation context/,
   )
   const cleaned = proposalRequest({
     ...request({
       ...baseContext,
-      relations: [{
-        ...relations[0],
-        columns: [{ name: 'id', dataType: 'text', values: ['secret'] }],
-        token: 'secret',
-      }],
+      relations: [
+        {
+          ...relations[0],
+          columns: [{ name: 'id', dataType: 'text', values: ['secret'] }],
+          token: 'secret',
+        },
+      ],
       unrelatedPrivateMetadata: 'secret',
     }),
     profileId: 'private-connection',
   })
-  assert.doesNotMatch(JSON.stringify(cleaned), /secret|private-connection|token|values/)
+  assert.doesNotMatch(
+    JSON.stringify(cleaned),
+    /secret|private-connection|token|values/,
+  )
 })
 
 test('NON06 provider rejects malicious discovery before returning a step; no real provider involved', async () => {
@@ -146,14 +178,16 @@ test('NON06 provider rejects malicious discovery before returning a step; no rea
     async () => {
       calls++
       return Response.json({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              ...contextRequest,
-              searchTerms: ['device', 'SELECT password'],
-            }),
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                ...contextRequest,
+                searchTerms: ['device', 'SELECT password'],
+              }),
+            },
           },
-        }],
+        ],
       })
     },
   )

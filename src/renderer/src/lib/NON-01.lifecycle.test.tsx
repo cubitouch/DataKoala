@@ -124,7 +124,8 @@ describe('NON-01 generation and query ownership characterization', () => {
           old.resolve({ ok: true, id: 'a', generation: 4 })
         else old.reject(new Error('old lazy failure'))
         await lazy
-        const intermediate = useStore.getState().connectionStateByProfileId.a.status
+        const intermediate =
+          useStore.getState().connectionStateByProfileId.a.status
         newer.resolve({ ok: true, id: 'a', generation: 5 })
         await explicit
         expect(useStore.getState().connectionStateByProfileId.a).toMatchObject({
@@ -149,9 +150,13 @@ describe('NON-01 generation and query ownership characterization', () => {
       expect(concurrentB).not.toBeNull()
       const completion = old.promise.then(
         (received) =>
-          useStore.getState().completeQuery(received, null, 'tab-a', undefined, first!),
+          useStore
+            .getState()
+            .completeQuery(received, null, 'tab-a', undefined, first!),
         (reason: Error) =>
-          useStore.getState().completeQuery(null, reason.message, 'tab-a', undefined, first!),
+          useStore
+            .getState()
+            .completeQuery(null, reason.message, 'tab-a', undefined, first!),
       )
       useStore.setState((state) => ({
         connectionStateByProfileId: {
@@ -173,7 +178,9 @@ describe('NON-01 generation and query ownership characterization', () => {
       await completion
       expect(tab('tab-a')).toBe(beforeLate)
       expect(tab('tab-b').queryOperation?.token).toBe(concurrentB!.token)
-      useStore.getState().completeQuery(result('fresh'), null, 'tab-a', undefined, second!)
+      useStore
+        .getState()
+        .completeQuery(result('fresh'), null, 'tab-a', undefined, second!)
       expect(tab('tab-a').result).toEqual(result('fresh'))
       expect(tab('tab-a').queryError).toBeNull()
       expect(tab('tab-a').running).toBe(false)
@@ -184,22 +191,33 @@ describe('NON-01 generation and query ownership characterization', () => {
     useStore.getState().setResult(result('retained'), null, 'tab-a')
     const old = beginQueryOperation('tab-a', 'a', 4)!
     useStore.getState().applyConnectionEvent(event(4))
-    expect(useStore.getState().connectionStateByProfileId.a.status).toBe('disconnected')
+    expect(useStore.getState().connectionStateByProfileId.a.status).toBe(
+      'disconnected',
+    )
     expect(tab('tab-a')).toMatchObject({
       running: false,
       queryOperation: null,
       pendingResult: null,
       isResultStale: true,
     })
-    useStore.getState().completeQuery(result('obsolete'), null, 'tab-a', undefined, old)
+    useStore
+      .getState()
+      .completeQuery(result('obsolete'), null, 'tab-a', undefined, old)
     expect(tab('tab-a').result).toEqual(result('retained'))
     expect(tab('tab-a').running).toBe(false)
-    expect(useStore.getState().connectionStateByProfileId.b).toEqual(connection(4))
+    expect(useStore.getState().connectionStateByProfileId.b).toEqual(
+      connection(4),
+    )
     useStore.setState((state) => ({
-      connectionStateByProfileId: { ...state.connectionStateByProfileId, a: connection(5) },
+      connectionStateByProfileId: {
+        ...state.connectionStateByProfileId,
+        a: connection(5),
+      },
     }))
     const next = beginQueryOperation('tab-a', 'a', 5)!
-    useStore.getState().completeQuery(result('recovered'), null, 'tab-a', undefined, next)
+    useStore
+      .getState()
+      .completeQuery(result('recovered'), null, 'tab-a', undefined, next)
     expect(tab('tab-a').result).toEqual(result('recovered'))
     expect(tab('tab-a').isResultStale).toBe(false)
   })
@@ -243,7 +261,9 @@ describe('NON-01 generation and query ownership characterization', () => {
       status: 'connected',
       generation: 5,
     })
-    expect(useStore.getState().connectionStateByProfileId.b).toEqual(connection(4))
+    expect(useStore.getState().connectionStateByProfileId.b).toEqual(
+      connection(4),
+    )
   })
 
   it('deduplicates concurrent reconnects, reports failure, then permits a successful retry', async () => {
@@ -271,7 +291,9 @@ describe('NON-01 generation and query ownership characterization', () => {
       generation: 5,
       error: null,
     })
-    expect(useStore.getState().connectionStateByProfileId.b).toEqual(connection(4))
+    expect(useStore.getState().connectionStateByProfileId.b).toEqual(
+      connection(4),
+    )
   })
 
   it('invalidates a primary token after profile rebind even when the original generation stays usable', () => {
@@ -279,7 +301,9 @@ describe('NON-01 generation and query ownership characterization', () => {
     bindTabConnection('tab-a', 'b')
     bindTabConnection('tab-a', 'a')
     expect(isQueryOperationCurrent(useStore.getState(), first)).toBe(false)
-    useStore.getState().completeQuery(result('wrong-tab'), null, 'tab-a', undefined, first)
+    useStore
+      .getState()
+      .completeQuery(result('wrong-tab'), null, 'tab-a', undefined, first)
     expect(tab('tab-a').result).toBeNull()
     expect(tab('tab-a').running).toBe(false)
     expect(tab('tab-b').connectionProfileId).toBe('b')
