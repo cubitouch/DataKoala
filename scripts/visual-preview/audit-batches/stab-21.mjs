@@ -18,7 +18,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  const button=async label=>{await js(`(()=>{const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===${data(label)});if(!b)throw Error('Missing '+${data(label)});b.focus();b.click()})()`);await settle()}
  const p=auditProfiles.tempo
  await js(`(()=>{const s=window.__datakoalaStore,t=structuredClone(s.getState().tabs[0]),p=${data(p)};Object.assign(t,{id:'stab21',connectionProfileId:p.id,queryMode:'sql',sql:'{ span:duration > 300ms }',result:null,queryError:null,running:false,tempoResultView:'list',tempoSampleSize:'100',tempoTimeRange:${data(auditRange)}});s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:'connected',generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:'loaded',error:null,isStale:false,revision:1}}})})()`)
- win.show();win.setContentSize(1440,900);win.webContents.setZoomFactor(1)
+ win.show();win.focus();win.setContentSize(1440,900);win.webContents.setZoomFactor(1)
  const observations=[]
  // Keep the full 1440x900 capture while resizing the actual query/detail pane to 652px.
  await js("document.querySelector('.main').style.width='652px'");await settle()
@@ -31,7 +31,12 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  const bounds=await js(`(()=>{const pane=document.querySelector('.main').getBoundingClientRect(),toolbar=document.querySelector('[class*=filterToolbar]');return {pane:pane.toJSON(),target:toolbar.getBoundingClientRect().toJSON(),buttons:[...toolbar.querySelectorAll('button')].map(e=>({text:e.textContent,box:e.getBoundingClientRect().toJSON()}))}})()`)
  console.log('STAB21_DETAIL',JSON.stringify(bounds));assert.ok(Math.abs(bounds.pane.width-652)<1)
  for(const b of bounds.buttons) {assert.ok(b.box.x>=bounds.pane.x && b.box.right<=bounds.pane.right+1,b.text+' contained')}
- await button('Use wall-clock scale');await button('Compress idle gaps')
+ await js("[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Use wall-clock scale').focus()")
+ win.webContents.sendInputEvent({type:'keyDown',keyCode:'Return'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'Return'});await settle()
+ assert.ok(await js("[...document.querySelectorAll('button')].some(e=>e.textContent.trim()==='Compress idle gaps')"),'native keyboard activates timing action')
+ const point=await js("(()=>{const r=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Compress idle gaps').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()")
+ win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...point});win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...point});await settle()
+ assert.ok(await js("[...document.querySelectorAll('button')].some(e=>e.textContent.trim()==='Use wall-clock scale')"),'native pointer activates timing action')
  observations.push({filename:screenshots[1],width:1440,height:900,dpr:1,zoom:1,...bounds});await capture(win,screenshots[1])
  await button('← Search results');assert.equal(await js('window.__datakoalaStore.getState().tabs[0].tempoSampleSize'),'100')
  await js("document.querySelector('.main').style.width=''");await settle()
