@@ -80,7 +80,7 @@ export const QueryCodeEditor = forwardRef<
 
   return (
     <div
-      className={`${styles.editor}${className ? ` ${className}` : ''}`}
+      className={`${styles.editor}${height === '100%' ? ` ${styles.fillPane}` : ''}${className ? ` ${className}` : ''}`}
       onKeyDown={onKeyDown}
     >
       <CodeMirror
