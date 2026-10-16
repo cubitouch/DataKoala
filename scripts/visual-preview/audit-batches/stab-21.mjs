@@ -31,8 +31,10 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  const bounds=await js(`(()=>{const pane=document.querySelector('.main').getBoundingClientRect(),toolbar=document.querySelector('[class*=filterToolbar]');return {pane:pane.toJSON(),target:toolbar.getBoundingClientRect().toJSON(),buttons:[...toolbar.querySelectorAll('button')].map(e=>({text:e.textContent,box:e.getBoundingClientRect().toJSON()}))}})()`)
  console.log('STAB21_DETAIL',JSON.stringify(bounds));assert.ok(Math.abs(bounds.pane.width-652)<1)
  for(const b of bounds.buttons) {assert.ok(b.box.x>=bounds.pane.x && b.box.right<=bounds.pane.right+1,b.text+' contained')}
+ win.focus();win.webContents.focus();await settle()
  await js("[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Use wall-clock scale').focus()")
- win.webContents.sendInputEvent({type:'keyDown',keyCode:'Return'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'Return'});await settle()
+ assert.equal(await js("document.activeElement.textContent.trim()"),'Use wall-clock scale')
+ win.webContents.sendInputEvent({type:'keyDown',keyCode:'Return'});win.webContents.sendInputEvent({type:'char',keyCode:'\r'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'Return'});await settle()
  assert.ok(await js("[...document.querySelectorAll('button')].some(e=>e.textContent.trim()==='Compress idle gaps')"),'native keyboard activates timing action')
  const point=await js("(()=>{const r=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Compress idle gaps').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()")
  win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...point});win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...point});await settle()
