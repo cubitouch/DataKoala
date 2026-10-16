@@ -2329,3 +2329,33 @@ describe('#371 Loki lifecycle audit', () => {
     expect(mocks.runLoki).toHaveBeenCalledTimes(3)
   })
 })
+
+it('owns one metadata recovery notice and retains raw draft, filters, range and results through retry', async () => {
+  const diagnostic =
+    'Config ~/.config/gcx/config.yaml changed while loading layered configuration; retry'
+  mocks.labels
+    .mockRejectedValueOnce(new Error(diagnostic))
+    .mockResolvedValueOnce(['app', 'level'])
+  const before = useStore.getState().tabs[0]
+  render(<LokiExplorer connectionId="loki" />)
+  const notice = await screen.findByRole('alert', {
+    name: 'Loki label recovery',
+  })
+  expect(screen.getAllByText(diagnostic)).toHaveLength(1)
+  expect(screen.getAllByRole('button', { name: 'Retry labels' })).toHaveLength(
+    1,
+  )
+  expect(notice.querySelector('details')?.open).toBe(false)
+  expect(useStore.getState().connectionStateByProfileId.loki.status).toBe(
+    'connected',
+  )
+  expect(screen.queryByRole('button', { name: 'Reconnect' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Retry labels' }))
+  await screen.findByText('Loki labels refreshed')
+  const after = useStore.getState().tabs[0]
+  expect(after.sql).toBe(before.sql)
+  expect(after.lokiBuilder).toEqual(before.lokiBuilder)
+  expect(after.lokiTimeRange).toEqual(before.lokiTimeRange)
+  expect(after.result).toBe(before.result)
+  expect(mocks.runLoki).not.toHaveBeenCalled()
+})

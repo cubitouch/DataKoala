@@ -126,7 +126,6 @@ export function LokiBuilderPanel({
   bounds,
   groupBy,
   metadataStatus,
-  metadataError,
   onChange,
   onGroupByChange,
   onOpenLogql,
@@ -235,11 +234,6 @@ export function LokiBuilderPanel({
             showChips
             disabled={!canLoadMetadata}
             loading={canLoadMetadata && metadataStatus === 'loading'}
-            error={
-              canLoadMetadata && metadataStatus === 'error'
-                ? metadataError
-                : null
-            }
             loadingMessage="Loading indexed labels…"
             emptyMessage="No indexed labels in this range"
             placeholder={
@@ -315,11 +309,6 @@ export function LokiBuilderPanel({
             showChips
             disabled={!canLoadMetadata}
             loading={canLoadMetadata && metadataStatus === 'loading'}
-            error={
-              canLoadMetadata && metadataStatus === 'error'
-                ? metadataError
-                : null
-            }
             loadingMessage="Loading indexed labels…"
             emptyMessage="No indexed labels in this range"
             placeholder={

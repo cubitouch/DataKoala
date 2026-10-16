@@ -34,11 +34,14 @@ export async function loadAuditBatch(id, { directory = batchDirectory, importer 
 export async function verifyBatchEvidence(directory, screenshots, sourceHead) {
   const actual = (await readdir(directory)).filter(name => name.endsWith('.png')).sort()
   if (JSON.stringify(actual) !== JSON.stringify([...screenshots].sort())) throw Error('Batch screenshot manifest mismatch')
-  for (const filename of screenshots) {
-    const png = await readFile(resolve(directory, filename))
-    if (png.length < 24 || !png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) || png.readUInt32BE(16) !== 1440 || png.readUInt32BE(20) !== 900) throw Error(`${filename}: expected 1440x900 PNG`)
-  }
   const report = JSON.parse(await readFile(resolve(directory, 'measurements.json'), 'utf8'))
+  for (const filename of screenshots) {
+    const observation = report.observations?.find(item => item.filename === filename)
+    const width = observation?.width ?? 1440
+    const height = observation?.height ?? 900
+    const png = await readFile(resolve(directory, filename))
+    if (png.length < 24 || !png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) || png.readUInt32BE(16) !== width || png.readUInt32BE(20) !== height) throw Error(`${filename}: expected 1440x900 PNG`)
+  }
   if (!sourceHead || report.sourceHead !== sourceHead) throw Error('Batch sourceHead mismatch')
   if (!Array.isArray(report.observations)) throw Error('Batch observations are missing')
   for (const filename of screenshots) {

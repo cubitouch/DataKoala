@@ -107,3 +107,35 @@
   min-width: 0;
   overflow: hidden;
 }
+
+.labelRecovery {
+  flex: none;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  min-width: 0;
+}
+
+.recoveryActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.labelRecovery p {
+  margin: 6px 0;
+}
+
+.labelRecovery summary {
+  cursor: pointer;
+  color: var(--text-mute);
+}
+
+.labelRecovery pre {
+  max-height: 100px;
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
