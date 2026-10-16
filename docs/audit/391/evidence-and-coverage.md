@@ -70,6 +70,12 @@ The 37 original sources comprise 30 CAP and seven NON batches. CAP-01–17 are e
 
 Removed files: **none**. All historical documents remain in the active source tree until a verifiably immutable archive exists. The closeout validator must not report this stage as a successful archival deletion.
 
+## Verified before/after size (non-destructive stage)
+
+The full tracked tree has **806 files before** (pre-closeout commit `7cfc8a3`) and **813 after** (+7), with zero deletions and no production, Electron harness, Atlas or existing VIS-01 changes. The entire PR adds **997 lines** (six audit documents/scripts plus one focused workflow) and deletes zero. This is an intentionally *larger* interim tree, **not** the final requested smaller permanent record.
+
+Within `docs/audit/391/`, the measured LF line count across tracked files changes from **38,615 lines in 31 files** to **39,581 lines in 37 files** (+966 lines, +6 files). Counts include original JSON ledgers and source Markdown; file-line totals were measured from source bytes at the pinned Git tree. A later, separately authorized historical-pruning PR must provide its own after-pruning file/line inventory, after the immutable tag is remotely verified. Do not count this stage as completed pruning.
+
 ## Evidence semantics and trust boundaries
 
 - **Source-backed:** original 175-ID inventory and 37 batch declarations, 147 original candidate IDs/line locations, named failed contracts, and exact original source revision links. Source-text consistency is distinct from rerunning assertions.
