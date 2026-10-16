@@ -304,7 +304,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     displayBoundaryContractSatisfied,
     visibleRows: boundaryVisible,
     providerRequestDelta: calls.length - countBeforeBoundary,
-    sourceExplanation: 'ECharts brush coordinates may have sub-millisecond precision, while the ResultFilterBar label serializes with Date.toISOString() at milliseconds; TraceExplorer filters with the raw range.',
+    sourceExplanation: 'Brush bounds are truncated toward zero after clamping; the chip and local half-open membership share those millisecond bounds.',
   }
   assert.equal(calls.length, countBeforeBoundary, 'Local boundary fixture swap must not fetch')
   actions.push(boundaryFinding)
@@ -339,10 +339,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     residual: ['No authenticated Tempo backend behavior','Stale completion supersession and progressive interruption not exercised','Empty successful span result differs from provider not-found error and is untested'],
   }, null, 2) + '\n')
   console.log('CAP24_EVIDENCE_CAPTURED '+JSON.stringify({sourceHead,screenshots:observations.map(o=>o.filename),calls:calls.length,actions:actions.map(a=>a.name),displayBoundaryContractSatisfied}))
-  // KNOWN-DEFECT CHARACTERIZATION ONLY — a passing audit does NOT mean T18
-  // satisfies the product's advertised half-open [start, end) contract.
-  // When production corrects the displayed precision, update this expected
-  // characterization and replace it with a passing product-acceptance assertion.
+  // Positive regression for the displayed half-open interval; historical reports remain immutable.
   const characterizedMembership = {
     startVisible: boundaryFinding.startVisible,
     endVisible: boundaryFinding.endVisible,
@@ -352,17 +349,17 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     visibleServices: boundaryFinding.visibleRows.map(row => row.split(String.fromCharCode(10))[0]),
   }
   assert.deepEqual(characterizedMembership, {
-    startVisible: false,
-    endVisible: true,
+    startVisible: true,
+    endVisible: false,
     insideVisible: true,
     beforeVisible: false,
     afterVisible: false,
-    visibleServices: ['Boundary end excluded', 'Inside interval'],
-  }, 'CAP-24 known-defect characterization changed. Review the displayed-boundary behavior; a future production fix MUST update this expectation and demonstrate passing [start, end) product acceptance.')
-  assert.equal(displayBoundaryContractSatisfied, false,
-    'CAP-24 must not report passing product acceptance while characterizing VC24-03')
-  console.log('CAP24_KNOWN_DEFECT_CHARACTERIZED '+JSON.stringify({
-    sourceHead, characterizedMembership, productAcceptance: 'FAIL',
-    finding: 'VC24-03 displayed-boundary discrepancy is still present',
+    visibleServices: ['Boundary start included', 'Inside interval'],
+  }, 'CAP-24 displayed bounds must include the start and exclude the end')
+  assert.equal(displayBoundaryContractSatisfied, true,
+    'CAP-24 requires passing displayed [start, end) product acceptance')
+  console.log('CAP24_DISPLAY_BOUNDARY_VERIFIED '+JSON.stringify({
+    sourceHead, characterizedMembership, productAcceptance: 'PASS',
+    finding: 'VC24-03 displayed-boundary regression passes',
   }))
 }
