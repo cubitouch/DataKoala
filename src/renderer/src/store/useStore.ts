@@ -743,6 +743,7 @@ export const useStore = create<AppState>((set, get) => ({
             status,
             error: error ?? null,
             isStale: status === 'loaded' ? false : previous.isStale,
+            revision: (previous.revision ?? 0) + 1,
           },
         },
       }
