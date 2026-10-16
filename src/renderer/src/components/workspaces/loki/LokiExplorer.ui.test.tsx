@@ -173,52 +173,185 @@ beforeEach(() => {
 })
 
 describe('LokiExplorer execution', () => {
-  // #391 audit evidence: remove .fails when the raw formatter owns its tab/draft.
-  it.fails(
-    'preserves a newer raw draft when an older format completes',
-    async () => {
+  it('preserves a newer raw draft when an older format completes', async () => {
+    let resolveFormat!: (query: string) => void
+    mocks.formatQuery.mockImplementation(
+      () => new Promise<string>((resolve) => (resolveFormat = resolve)),
+    )
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledTimes(1))
+    act(() => useStore.getState().setSql('{app="new"}', 'loki-tab'))
+    await act(async () => resolveFormat('{app="x"}\n|= "old"'))
+    expect(useStore.getState().tabs[0].sql).toBe('{app="new"}')
+  })
+
+  it('never publishes raw formatting into another active tab after unmount', async () => {
+    let resolveFormat!: (query: string) => void
+    mocks.formatQuery.mockImplementation(
+      () => new Promise<string>((resolve) => (resolveFormat = resolve)),
+    )
+    const workspace = render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledTimes(1))
+    const other = createQuerySession(2, {
+      id: 'other-tab',
+      connectionProfileId: 'loki',
+      queryMode: 'sql',
+      sql: '{app="other"}',
+    })
+    workspace.unmount()
+    act(() =>
+      useStore.setState((state) => ({
+        tabs: [...state.tabs, other],
+        activeTabId: other.id,
+      })),
+    )
+    await act(async () => resolveFormat('{app="x"}\n|= "old"'))
+    expect(
+      useStore.getState().tabs.find((tab) => tab.id === other.id)?.sql,
+    ).toBe('{app="other"}')
+  })
+
+  it.each(['success', 'failure'] as const)(
+    'ignores stale format %s after a Raw/Builder round-trip',
+    async (outcome) => {
       let resolveFormat!: (query: string) => void
-      mocks.formatQuery.mockImplementation(
-        () => new Promise<string>((resolve) => (resolveFormat = resolve)),
+      let rejectFormat!: (error: Error) => void
+      mocks.formatQuery.mockImplementation((_id, query) =>
+        query === '{app="x"}'
+          ? new Promise<string>((resolve, reject) => {
+              resolveFormat = resolve
+              rejectFormat = reject
+            })
+          : Promise.resolve(query),
       )
       render(<LokiExplorer connectionId="loki" />)
       fireEvent.click(screen.getByRole('button', { name: 'Format' }))
       await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledTimes(1))
-      act(() => useStore.getState().setSql('{app="new"}', 'loki-tab'))
-      await act(async () => resolveFormat('{app="x"}\n|= "old"'))
-      expect(useStore.getState().tabs[0].sql).toBe('{app="new"}')
+      act(() => {
+        useStore.getState().setQueryMode('builder', 'loki-tab')
+        useStore.getState().setQueryMode('sql', 'loki-tab')
+      })
+      await act(async () =>
+        outcome === 'success'
+          ? resolveFormat('stale formatted query')
+          : rejectFormat(new Error('stale formatter failure')),
+      )
+      expect(useStore.getState().tabs[0].sql).toBe('{app="x"}')
+      expect(useStore.getState().tabs[0].queryMode).toBe('sql')
+      expect(mocks.notify).not.toHaveBeenCalled()
+      expect(screen.queryByText(/stale formatter failure/)).toBeNull()
+      expect(mocks.runLoki).not.toHaveBeenCalled()
     },
   )
 
-  it.fails(
-    'never publishes raw formatting into another active tab after unmount',
-    async () => {
-      let resolveFormat!: (query: string) => void
-      mocks.formatQuery.mockImplementation(
-        () => new Promise<string>((resolve) => (resolveFormat = resolve)),
-      )
-      const workspace = render(<LokiExplorer connectionId="loki" />)
-      fireEvent.click(screen.getByRole('button', { name: 'Format' }))
-      await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledTimes(1))
-      const other = createQuerySession(2, {
-        id: 'other-tab',
-        connectionProfileId: 'loki',
-        queryMode: 'sql',
-        sql: '{app="other"}',
-      })
-      workspace.unmount()
-      act(() =>
-        useStore.setState((state) => ({
-          tabs: [...state.tabs, other],
-          activeTabId: other.id,
-        })),
-      )
-      await act(async () => resolveFormat('{app="x"}\n|= "old"'))
-      expect(
-        useStore.getState().tabs.find((tab) => tab.id === other.id)?.sql,
-      ).toBe('{app="other"}')
-    },
-  )
+  it('invalidates formatting when edits return to the same draft before completion', async () => {
+    let finish!: (query: string) => void
+    mocks.formatQuery.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve
+        }),
+    )
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    act(() => {
+      useStore.getState().setSql('{app="new"}', 'loki-tab')
+      useStore.getState().setSql('{app="x"}', 'loki-tab')
+    })
+    await act(async () => finish('stale format'))
+    expect(useStore.getState().tabs[0].sql).toBe('{app="x"}')
+    expect(mocks.notify).not.toHaveBeenCalled()
+  })
+
+  it('only accepts the latest overlapping raw formatting request', async () => {
+    const completions: ((query: string) => void)[] = []
+    mocks.formatQuery.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          completions.push(resolve)
+        }),
+    )
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    await act(async () => completions[0]('obsolete format'))
+    expect(useStore.getState().tabs[0].sql).toBe('{app="x"}')
+    await act(async () => completions[1]('current format'))
+    expect(useStore.getState().tabs[0].sql).toBe('current format')
+    expect(mocks.notify).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not publish formatting after a connection generation changes', async () => {
+    let finish!: (query: string) => void
+    mocks.formatQuery.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve
+        }),
+    )
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    act(() =>
+      useStore.setState((state) => ({
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          loki: { ...state.connectionStateByProfileId.loki, generation: 2 },
+        },
+      })),
+    )
+    await act(async () => finish('old connection format'))
+    expect(useStore.getState().tabs[0].sql).toBe('{app="x"}')
+    expect(mocks.notify).not.toHaveBeenCalled()
+  })
+
+  it('keeps current formatter errors recoverable without changing the raw draft', async () => {
+    mocks.formatQuery
+      .mockRejectedValueOnce(new Error('formatter unavailable'))
+      .mockResolvedValueOnce('{app="x"}\n|= "retry"')
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    await screen.findByText(
+      /Formatting failed; query was not changed.*formatter unavailable/,
+    )
+    expect(useStore.getState().tabs[0].sql).toBe('{app="x"}')
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    await waitFor(() =>
+      expect(useStore.getState().tabs[0].sql).toBe('{app="x"}\n|= "retry"'),
+    )
+    expect(mocks.runLoki).not.toHaveBeenCalled()
+  })
+
+  it('invalidates formatting during an active-tab round-trip without unmount', async () => {
+    let finish!: (query: string) => void
+    mocks.formatQuery.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve
+        }),
+    )
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+    const other = createQuerySession(2, {
+      id: 'other',
+      connectionProfileId: 'loki',
+      sql: '{app="other"}',
+    })
+    act(() => {
+      useStore.setState((state) => ({
+        tabs: [...state.tabs, other],
+        activeTabId: other.id,
+      }))
+      useStore.setState({ activeTabId: 'loki-tab' })
+    })
+    await act(async () => finish('obsolete tab format'))
+    expect(useStore.getState().tabs.map((tab) => tab.sql)).toEqual([
+      '{app="x"}',
+      '{app="other"}',
+    ])
+    expect(mocks.notify).not.toHaveBeenCalled()
+  })
 
   it.each(['level', 'severity', 'log_level'])(
     'groups by indexed %s independently of Level filtering',
