@@ -96,6 +96,9 @@ jobs:
       - name: Capture application previews
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
 
+      - name: Verify LogQL editor pane sizing
+        run: DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=stab-06 DATAKOALA_AUDIT_HEAD=${{ github.event.pull_request.head.sha }} DATAKOALA_PREVIEW_OUTPUT=visual-preview/stab06 xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+
       - name: Capture EXPLAIN ANALYZE plan preview
         run: DATAKOALA_PREVIEW_OUTPUT=visual-preview xvfb-run --auto-servernum --server-args='-screen 0 1440x1000x24' pnpm exec electron --no-sandbox scripts/capture-explain-preview.mjs
 
