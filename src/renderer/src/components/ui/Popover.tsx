@@ -251,12 +251,14 @@ export function Popover({
     }
     const onResize = () => position()
     document.addEventListener('pointerdown', onPointerDown, true)
-    document.addEventListener('keydown', onKeyDown)
+    // Capture before a containing Modal's document bubble listener. The top
+    // popover consumes Escape even when its content is rendered in a portal.
+    document.addEventListener('keydown', onKeyDown, true)
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onResize, true)
     return () => {
       document.removeEventListener('pointerdown', onPointerDown, true)
-      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('keydown', onKeyDown, true)
       window.removeEventListener('resize', onResize)
       window.removeEventListener('scroll', onResize, true)
     }
