@@ -159,16 +159,45 @@ test('NON07 precision boundary omits unsafe processed byte counts rather than ro
   }
 })
 
-test('NON07 EXPECTED FAILURE reproduction: null and blank provider byte values currently become measured zero', async () => {
-  // Intended contract: absent/non-numeric statistics should be unavailable,
-  // not indistinguishable from a genuine 0-byte job. This is a characterization,
-  // deliberately asserting current behavior without fixing production code.
-  for (const totalBytesProcessed of [null, '']) {
+test('NON07 invalid byte statistics remain unavailable through adapter and IPC', async () => {
+  for (const bytes of [
+    null,
+    '',
+    ' ',
+    undefined,
+    'abc',
+    '1.5',
+    '-1',
+    '1e3',
+    '0x10',
+    true,
+    {},
+    [],
+    NaN,
+    Infinity,
+    1.5,
+    -1,
+    '9007199254740993',
+    9007199254740992,
+  ]) {
     const { result } = await execute({
-      queryStatistics: { totalBytesProcessed },
+      queryStatistics: { totalBytesProcessed: bytes },
     })
-    assert.equal(result.execution?.bytesProcessed, 0)
-    assert.notEqual(result.execution?.bytesProcessed, undefined)
+    assert.equal(result.execution?.bytesProcessed, undefined)
+    assert.equal(
+      structuredClone(toIpcSafeQueryResult(result)).execution?.bytesProcessed,
+      undefined,
+    )
+    const fake = fakeClient({
+      dryRunStatistics: { totalBytesProcessed: bytes },
+    })
+    const { session } = await new BigQueryAdapter(() => fake.client).connect(
+      profile,
+    )
+    assert.ok(session?.estimateQuery)
+    assert.deepEqual(structuredClone(await session.estimateQuery('SELECT 1')), {
+      bytesProcessed: undefined,
+    })
   }
 })
 
@@ -216,15 +245,17 @@ test('NON07 execution failures produce no successful statistics-bearing result',
   }
 })
 
-test('NON07 EXPECTED FAILURE reproduction: dry-run estimate loses precision above MAX_SAFE_INTEGER', async () => {
-  const fake = fakeClient({
-    dryRunStatistics: { totalBytesProcessed: '9007199254740993' },
-  })
-  const { session } = await new BigQueryAdapter(() => fake.client).connect(
-    profile,
-  )
-  assert.ok(session?.estimateQuery)
-  const estimate = await session.estimateQuery('SELECT 1')
-  assert.equal(estimate.bytesProcessed, 9007199254740992)
-  assert.equal(Number.isSafeInteger(estimate.bytesProcessed), false)
+test('NON07 valid estimates preserve zero and the safe integer boundary', async () => {
+  for (const bytes of ['0', 0, '1024', '9007199254740991']) {
+    const fake = fakeClient({
+      dryRunStatistics: { totalBytesProcessed: bytes },
+    })
+    const { session } = await new BigQueryAdapter(() => fake.client).connect(
+      profile,
+    )
+    assert.ok(session?.estimateQuery)
+    assert.deepEqual(await session.estimateQuery('SELECT 1'), {
+      bytesProcessed: Number(bytes),
+    })
+  }
 })

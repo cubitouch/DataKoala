@@ -55,6 +55,18 @@ export type BigQueryClientFactory = (options: {
   projectId: string
 }) => BigQueryClientLike
 
+// Byte statistics are optional unsigned decimal integers. Guard before coercion:
+// Number(null/blank) invents zero, and Int64 strings may exceed JS precision.
+function safeByteCount(raw: unknown): number | undefined {
+  if (
+    typeof raw !== 'number' &&
+    (typeof raw !== 'string' || !/^\d+$/.test(raw))
+  )
+    return undefined
+  const value = Number(raw)
+  return Number.isSafeInteger(value) && value >= 0 ? value : undefined
+}
+
 function profile(value: DataSourceProfile): BigQueryProfile {
   if (value.kind !== 'bigquery')
     throw new Error('A BigQuery profile is required.')
@@ -432,7 +444,7 @@ class BigQuerySession implements DataSourceSession {
       dataTypeName: field.type,
     }))
     const durationMs = Date.now() - started
-    const bytes = Number(query.totalBytesProcessed)
+    const bytes = safeByteCount(query.totalBytesProcessed)
     return {
       columns,
       rows: safeRows,
@@ -443,7 +455,7 @@ class BigQuerySession implements DataSourceSession {
         durationMs,
         rowCount: safeRows.length,
         truncated,
-        bytesProcessed: Number.isSafeInteger(bytes) ? bytes : undefined,
+        bytesProcessed: bytes,
         cacheHit: query.cacheHit,
       },
     }
@@ -454,7 +466,7 @@ class BigQuerySession implements DataSourceSession {
       dryRun: true,
     })
     return {
-      bytesProcessed: Number(
+      bytesProcessed: safeByteCount(
         job.metadata?.statistics?.query?.totalBytesProcessed,
       ),
     }
