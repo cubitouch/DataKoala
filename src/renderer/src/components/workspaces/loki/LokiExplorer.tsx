@@ -1,3 +1,4 @@
+import { LokiLabelsNotice } from './LokiLabelsNotice'
 import { TextInput } from '@components/ui/TextInput'
 import {
   type ReactNode,
@@ -875,11 +876,13 @@ export function LokiExplorer({
           {displayedError}
         </div>
       )}
-      {canLoadMetadata && labelResource.status === 'error' && (
-        <div className={styles.status}>
-          Metadata unavailable: {labelResource.error}. Raw LogQL remains
-          available.
-        </div>
+      {canLoadMetadata && (
+        <LokiLabelsNotice
+          key={`${connectionId}:${connectionGeneration}:${session.id}:${rangeKey}`}
+          status={labelResource.status}
+          error={labelResource.error}
+          onRetry={labelResource.retry}
+        />
       )}
       {warning && <div className={styles.status}>{warning}</div>}
       <section className={styles.results} aria-label="Loki query results">

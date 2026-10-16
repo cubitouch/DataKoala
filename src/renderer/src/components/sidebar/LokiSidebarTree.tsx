@@ -54,7 +54,7 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
     canLoadMetadata,
     metadataRevision,
   )
-  const { labels, status, error, bounds } = resource
+  const { labels, status, bounds } = resource
   const lokiTimeRangeKey = JSON.stringify(session.lokiTimeRange)
   const addLabel = (label: string, value?: string) => {
     const current = session.lokiBuilder.labelMatchers.filter(
@@ -226,9 +226,16 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
         </div>
       )}
       {!refreshingLabels && canLoadMetadata && status === 'error' && (
-        <div className={styles.objectError} role="alert">
-          Could not load indexed labels.<small>{error}</small>
-          <button onClick={() => void resource.retry()}>Retry</button>
+        <div className={styles.objectStatus}>
+          <a
+            className={styles.recoveryLink}
+            href="#loki-label-recovery"
+            onClick={() =>
+              document.getElementById('loki-retry-labels')?.focus()
+            }
+          >
+            Labels unavailable · recovery actions
+          </a>
         </div>
       )}
       <div

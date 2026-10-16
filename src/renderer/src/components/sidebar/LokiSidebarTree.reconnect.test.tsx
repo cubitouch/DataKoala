@@ -106,9 +106,13 @@ it('ignores an expanded value request after disconnect and refreshes on reconnec
 it('keeps connected metadata failures actionable', async () => {
   mocks.labels.mockRejectedValue(new Error('upstream denied'))
   render(<LokiSidebarTree connectionId="loki" />)
-  expect(await screen.findByRole('alert')).toBeTruthy()
-  expect(screen.getByText('upstream denied')).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
+  expect(
+    await screen.findByRole('link', {
+      name: 'Labels unavailable · recovery actions',
+    }),
+  ).toBeTruthy()
+  expect(screen.queryByText('upstream denied')).toBeNull()
+  expect(screen.queryByRole('alert')).toBeNull()
 })
 
 it('discovers sidebar values independently of Builder matchers', async () => {

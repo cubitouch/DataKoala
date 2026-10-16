@@ -370,3 +370,11 @@ button.treeRow,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.recoveryLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
