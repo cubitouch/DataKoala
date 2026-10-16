@@ -16,45 +16,45 @@ Correctness priorities include SQL lexical materialization (P2-01), Scatter coor
 
 ## Reconciled coverage
 
-| Measure | Verified count |
-| --- | ---: |
-| Original inventory IDs | 175 |
-| CAP/NON batch sources | 37 |
-| Original Atlas candidate declarations | 147 |
-| Canonical Atlas entries | 107 |
-| Multi-candidate groups | 25 |
-| Extra grouped candidate slots | 40 |
-| Original failed-acceptance IDs | 25 |
-| Provisional leads | 5 |
-| Phase 2 packages (excluding P2-05 planning umbrella) | 25 |
-| Ready proposals / decision-evidence tracks | 19 / 6 |
+| Measure                                              | Verified count |
+| ---------------------------------------------------- | -------------: |
+| Original inventory IDs                               |            175 |
+| CAP/NON batch sources                                |             37 |
+| Original Atlas candidate declarations                |            147 |
+| Canonical Atlas entries                              |            107 |
+| Multi-candidate groups                               |             25 |
+| Extra grouped candidate slots                        |             40 |
+| Original failed-acceptance IDs                       |             25 |
+| Provisional leads                                    |              5 |
+| Phase 2 packages (excluding P2-05 planning umbrella) |             25 |
+| Ready proposals / decision-evidence tracks           |         19 / 6 |
 
 The 37 source batches retain 23 `EVIDENCE_COMPLETE` and 14 `PARTIAL` dispositions, each scoped to its original assertions. AGG-02 separately counted 146 scoped visual and 172 scoped behavioral validations; AGG-01's earlier historical values (147/164) were **not silently reconciled into product-wide passes**. CAP-21 and CAP-23 recovery executions count once each. See the [inventory mappings](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-03-atlas.json) rather than assigning newly invented IDs to unclaimed gaps.
 
-| Atlas classification | Count | Meaning |
-| --- | ---: | --- |
-| `CONVERGENCE_OPPORTUNITY` | 3 | Bounded shared interaction/presentation candidate |
-| `CONFIRMED_DEFECT` | 24 | Scoped failure requiring fix/proof |
-| `POLICY_UNRESOLVED` | 11 | Requires explicit product decision |
-| `ALREADY_CONVERGED` | 20 | Preserve current working convergence |
-| `INTENTIONAL_DIFFERENCE` | 23 | Keep legitimate provider-specific behavior |
-| `TECHNICAL_RISK` | 6 | Bounded technical risk; verify before claiming user impact |
-| `INSUFFICIENT_EVIDENCE` | 20 | Do not infer a failure from partial data |
+| Atlas classification      | Count | Meaning                                                    |
+| ------------------------- | ----: | ---------------------------------------------------------- |
+| `CONVERGENCE_OPPORTUNITY` |     3 | Bounded shared interaction/presentation candidate          |
+| `CONFIRMED_DEFECT`        |    24 | Scoped failure requiring fix/proof                         |
+| `POLICY_UNRESOLVED`       |    11 | Requires explicit product decision                         |
+| `ALREADY_CONVERGED`       |    20 | Preserve current working convergence                       |
+| `INTENTIONAL_DIFFERENCE`  |    23 | Keep legitimate provider-specific behavior                 |
+| `TECHNICAL_RISK`          |     6 | Bounded technical risk; verify before claiming user impact |
+| `INSUFFICIENT_EVIDENCE`   |    20 | Do not infer a failure from partial data                   |
 
 Every canonical finding, candidate-to-primary mapping, original inventory association, source citation, package ownership and link to related entries remains queryable in the retained [`agg-03-atlas.json`](aggregation/agg-03-atlas.json). P2-05a/b/c/d replace one former implementation package; the umbrella is planning-only. REC-01 separated mixed intentional-vs-already-converged ownership (ATL-029/030/035 and ATL-105/106/107).
 
 ## Evidence and acceptance limitations that must survive Phase 2
 
-- **CAP-06 and CAP-09 original screenshot ZIPs were not independently recovered/inspected.** AGG-02 recovered one CAP-09 *log-adjacent* image, not a byte-confirmed original. VIS-01 has 23 committed, Git-verified PNGs and three explicitly missing slots; paired context images often do not reproduce the finding itself.
+- **CAP-06 and CAP-09 original screenshot ZIPs were not independently recovered/inspected.** AGG-02 recovered one CAP-09 _log-adjacent_ image, not a byte-confirmed original. VIS-01 has 23 committed, Git-verified PNGs and three explicitly missing slots; paired context images often do not reproduce the finding itself.
 - **A25 = UV/BV**, **P03 = SO/SO**, **X11 = UV/UV**. In particular, TraceQL query copying is not proof of Tempo identifier copying. Do not promote visual/behavioral qualifications without direct evidence.
 - **UI-002** (BigQuery statistics field/units/parent-child display) remains a product policy decision. **UI-004** (retained-results state) remains insufficient evidence; P2-14 requires a decision.
 - **Known-defect characterizations stay failing product contracts.** A passing CI fixture that asserts today's defect (notably CAP-24 displayed-boundary behavior) is not a passing product acceptance. All 25 original failed-acceptance IDs remain recorded.
-- **Synthetic diagnostic-marker retention in BigQuery** is a scoped finding. Actual credential exposure, renderer/log propagation, Electron display and exploitability were *not* shown. ATL-089/P2-22 remain blocked pending realistic threat/diagnostic policy and provider-boundary tests.
+- **Synthetic diagnostic-marker retention in BigQuery** is a scoped finding. Actual credential exposure, renderer/log propagation, Electron display and exploitability were _not_ shown. ATL-089/P2-22 remain blocked pending realistic threat/diagnostic policy and provider-boundary tests.
 - Native keyboard/focus, packaged restart, OS integration, live PG/BQ/DuckDB/Prometheus/Loki/Tempo provider behavior, authentication and real-world security must be explicitly tested where the proposal requires them. Do not infer equivalence from mock IPC or screenshots alone.
 
 ## Implementation handoff and decision gate
 
-Use the [Phase 2 roadmap](phase-2-roadmap.md) as the **single current planning list**: 19 ready-to-scope proposals, six blocked decision/evidence tracks. Each item retains its exact Atlas IDs, original inventory IDs, dependencies, acceptance contract and regression proof. Ready means *reviewable proposal*, not permission to ship. Distinguish isolated correctness fixes from UX implementation convergence, and preserve already-converged and intentional provider differences.
+Use the [Phase 2 roadmap](phase-2-roadmap.md) as the **single current planning list**: 19 ready-to-scope proposals, six blocked decision/evidence tracks. Each item retains its exact Atlas IDs, original inventory IDs, dependencies, acceptance contract and regression proof. Ready means _reviewable proposal_, not permission to ship. Distinguish isolated correctness fixes from UX implementation convergence, and preserve already-converged and intentional provider differences.
 
 Recommended early correctness tracks: P2-01 → P2-02 → P2-03 → P2-04 → P2-19 → P2-20 (priority order, not technical dependencies). For keyboard convergence implement P2-05a before P2-05b; P2-05c/d are independent. Openable-row convergence P2-13 is compositional only, retaining three domain densities and virtualization differences. Product-owner choices for UI-002/UI-004 and other blocked tracks precede implementation.
 

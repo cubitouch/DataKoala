@@ -2,39 +2,39 @@
 
 **Status:** planning only; no Phase 2 production changes authorized. **Source of truth:** [corrected Atlas](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-03-atlas.json). Original [AGG-03 proposal](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-03.md) was independently reviewed in [AGG-04](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-04.md) and reconciled in [REC-01](https://github.com/cubitouch/DataKoala/pull/442). The authoritative audit synthesis is the [final report](final-report.md).
 
-There are **25 actual packages: 19 implementation-ready *proposals* and six blocked decision/evidence tracks**. The old `P2-05` is only a planning umbrella. Do not count it as a package, collapse the four `P2-05a/b/c/d` contracts, convert a blocked track into a release-ready fix, or infer one code root from shared vocabulary.
+There are **25 actual packages: 19 implementation-ready _proposals_ and six blocked decision/evidence tracks**. The old `P2-05` is only a planning umbrella. Do not count it as a package, collapse the four `P2-05a/b/c/d` contracts, convert a blocked track into a release-ready fix, or infer one code root from shared vocabulary.
 
 ## Overview and sequencing
 
-| Package | State | Priority | Size estimate | Correctness/convergence/decision | Dependencies |
-| --- | --- | --- | --- | --- | --- |
-| [P2-01](#p2-01) | Ready proposal | P1 | M | Correct generated SQL materialization and identifiers | None |
-| [P2-02](#p2-02) | Ready proposal | P1 | M | Repair Scatter missing and numeric coordinates | None |
-| [P2-03](#p2-03) | Ready proposal | P1 | M | Fix displayed Tempo time-selection bounds | None |
-| [P2-04](#p2-04) | Ready proposal | P1 | M | Guard lazy versus explicit connection intent | None |
-| [P2-05a](#p2-05a) | Ready proposal | P1 | S | Coordinate topmost child Escape | None |
-| [P2-05b](#p2-05b) | Ready proposal | P1 | M | Contain connection picker and form focus | P2-05a |
-| [P2-06](#p2-06) | Ready proposal | P1 | S | Correct raw LogQL editor height | None |
-| [P2-07](#p2-07) | Ready proposal | P1 | S | Make rejected log copy recoverable and label PromQL correctly | None |
-| [P2-11](#p2-11) | Ready proposal | P1 | S | Handle BigQuery estimate numeric boundaries | None |
-| [P2-19](#p2-19) | Ready proposal | P1 | S | Prevent late raw LogQL formatter overwrite | None |
-| [P2-20](#p2-20) | Ready proposal | P1 | S | Reject stale AI metadata revisions | None |
-| [P2-21](#p2-21) | Ready proposal | P1 | S | Contain Tempo toolbar and sample label | None |
-| [P2-05c](#p2-05c) | Ready proposal | P2 | S | Restore originating Delete focus | None |
-| [P2-05d](#p2-05d) | Ready proposal | P2 | S | Keep usable focus after failed Settings Save | None |
-| [P2-08](#p2-08) | Ready proposal | P2 | S | Correct table header resize and menu focus | None |
-| [P2-09](#p2-09) | Ready proposal | P2 | S | Render nested Loki values readably | None |
-| [P2-10](#p2-10) | Ready proposal | P2 | S | Preserve histogram override through workspace restore | None |
-| [P2-12](#p2-12) | Ready proposal | P2 | S | Dedupe AI relation selection | None |
-| [P2-13](#p2-13) | Ready proposal | P2 | M | Adopt common openable-row mechanics | None |
-| [P2-14](#p2-14) | Blocked | BLOCKED | M | Decide retained-result visibility and restoration | product decision / new evidence |
-| [P2-15](#p2-15) | Blocked | BLOCKED | S | Define statistics display for BigQuery | product decision / new evidence |
-| [P2-16](#p2-16) | Blocked | BLOCKED | M | Characterize provider security boundaries | product decision / new evidence |
-| [P2-17](#p2-17) | Blocked | BLOCKED | M | Close native evidence gaps | product decision / new evidence |
-| [P2-18](#p2-18) | Blocked | BLOCKED | M | Review dialog, feedback and resize presentation policy | product decision / new evidence |
-| [P2-22](#p2-22) | Blocked | BLOCKED | S | Define BigQuery diagnostic policy before defensive redaction | BigQuery diagnostic threat/redaction policy; Realistic ADC errors and renderer/log-boundary characterization |
+| Package           | State          | Priority | Size estimate | Correctness/convergence/decision                              | Dependencies                                                                                                 |
+| ----------------- | -------------- | -------- | ------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [P2-01](#p2-01)   | Ready proposal | P1       | M             | Correct generated SQL materialization and identifiers         | None                                                                                                         |
+| [P2-02](#p2-02)   | Ready proposal | P1       | M             | Repair Scatter missing and numeric coordinates                | None                                                                                                         |
+| [P2-03](#p2-03)   | Ready proposal | P1       | M             | Fix displayed Tempo time-selection bounds                     | None                                                                                                         |
+| [P2-04](#p2-04)   | Ready proposal | P1       | M             | Guard lazy versus explicit connection intent                  | None                                                                                                         |
+| [P2-05a](#p2-05a) | Ready proposal | P1       | S             | Coordinate topmost child Escape                               | None                                                                                                         |
+| [P2-05b](#p2-05b) | Ready proposal | P1       | M             | Contain connection picker and form focus                      | P2-05a                                                                                                       |
+| [P2-06](#p2-06)   | Ready proposal | P1       | S             | Correct raw LogQL editor height                               | None                                                                                                         |
+| [P2-07](#p2-07)   | Ready proposal | P1       | S             | Make rejected log copy recoverable and label PromQL correctly | None                                                                                                         |
+| [P2-11](#p2-11)   | Ready proposal | P1       | S             | Handle BigQuery estimate numeric boundaries                   | None                                                                                                         |
+| [P2-19](#p2-19)   | Ready proposal | P1       | S             | Prevent late raw LogQL formatter overwrite                    | None                                                                                                         |
+| [P2-20](#p2-20)   | Ready proposal | P1       | S             | Reject stale AI metadata revisions                            | None                                                                                                         |
+| [P2-21](#p2-21)   | Ready proposal | P1       | S             | Contain Tempo toolbar and sample label                        | None                                                                                                         |
+| [P2-05c](#p2-05c) | Ready proposal | P2       | S             | Restore originating Delete focus                              | None                                                                                                         |
+| [P2-05d](#p2-05d) | Ready proposal | P2       | S             | Keep usable focus after failed Settings Save                  | None                                                                                                         |
+| [P2-08](#p2-08)   | Ready proposal | P2       | S             | Correct table header resize and menu focus                    | None                                                                                                         |
+| [P2-09](#p2-09)   | Ready proposal | P2       | S             | Render nested Loki values readably                            | None                                                                                                         |
+| [P2-10](#p2-10)   | Ready proposal | P2       | S             | Preserve histogram override through workspace restore         | None                                                                                                         |
+| [P2-12](#p2-12)   | Ready proposal | P2       | S             | Dedupe AI relation selection                                  | None                                                                                                         |
+| [P2-13](#p2-13)   | Ready proposal | P2       | M             | Adopt common openable-row mechanics                           | None                                                                                                         |
+| [P2-14](#p2-14)   | Blocked        | BLOCKED  | M             | Decide retained-result visibility and restoration             | product decision / new evidence                                                                              |
+| [P2-15](#p2-15)   | Blocked        | BLOCKED  | S             | Define statistics display for BigQuery                        | product decision / new evidence                                                                              |
+| [P2-16](#p2-16)   | Blocked        | BLOCKED  | M             | Characterize provider security boundaries                     | product decision / new evidence                                                                              |
+| [P2-17](#p2-17)   | Blocked        | BLOCKED  | M             | Close native evidence gaps                                    | product decision / new evidence                                                                              |
+| [P2-18](#p2-18)   | Blocked        | BLOCKED  | M             | Review dialog, feedback and resize presentation policy        | product decision / new evidence                                                                              |
+| [P2-22](#p2-22)   | Blocked        | BLOCKED  | S             | Define BigQuery diagnostic policy before defensive redaction  | BigQuery diagnostic threat/redaction policy; Realistic ADC errors and renderer/log-boundary characterization |
 
-**Suggested first pass:** P2-01, P2-02, P2-03, P2-04, P2-19 and P2-20 (scoped correctness), then P2-05a followed by P2-05b (keyboard owner coordination), alongside independent P2-05c/d, P2-06, P2-21, P2-07 and P2-11. Other ready proposals may proceed after local contract review. **P2-13** is real cross-provider *composition* work, not proof of a universal domain row. **P2-14/15/16/17/18/22** are investigations/decisions, not implementation tickets.
+**Suggested first pass:** P2-01, P2-02, P2-03, P2-04, P2-19 and P2-20 (scoped correctness), then P2-05a followed by P2-05b (keyboard owner coordination), alongside independent P2-05c/d, P2-06, P2-21, P2-07 and P2-11. Other ready proposals may proceed after local contract review. **P2-13** is real cross-provider _composition_ work, not proof of a universal domain row. **P2-14/15/16/17/18/22** are investigations/decisions, not implementation tickets.
 
 ## Per-package acceptance and evidence contract
 
@@ -388,11 +388,10 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 **Scope boundary:** No generic credential framework.
 
-
 ## Handoff guardrails
 
 - `P2-05a` is the only formal implementation dependency of `P2-05b`; `P2-05c` and `P2-05d` have separate origin/failure focus contracts. The `P2-05` umbrella is not executable.
 - `P2-03` proposes finite epoch-millisecond `Math.trunc` displayed half-open bounds after ordering/clamping; do not quantize trace event timestamps, or call current CAP-24 characterization a fixed regression.
-- `P2-12` corrects *relation* deduplication. Optional AI search-term dedupe does not gate this fix.
+- `P2-12` corrects _relation_ deduplication. Optional AI search-term dedupe does not gate this fix.
 - `P2-16` is a provider-specific investigation catalogue. It does not establish a common exploit. `P2-22` separately concerns **BigQuery diagnostic-security policy**, with synthetic-only current evidence.
 - Some comparisons are best answered in [VIS-01](../../../tools/visual-review/README.md) before code is planned. Missing images, source-reported native behavior and unresolved policy are explicit reasons to defer.
