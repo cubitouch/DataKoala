@@ -113,6 +113,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   settings = { provider: 'openrouter', model: catalog[0].id, hasApiKey: true }
   for (let trial=0; trial<2; trial++) {
     await open()
+    await select(catalog[1].id) // Unsaved configuration draft must survive child dismissal.
     const parent = await record('configured-parent-' + trial)
     assert.equal(await js('document.querySelector("input[type=password]").value'), '••••••••••••••••')
     await click('[role=dialog] [role=combobox]')
@@ -122,7 +123,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     const options = await js('[...document.querySelectorAll("[role=option]")].map(e=>({text:e.textContent,selected:e.getAttribute("aria-selected")}))')
     assert.equal(options.length, catalog.length)
     for (let i=0;i<catalog.length;i++) assert.ok(options[i].text.includes(catalog[i].id))
-    assert.deepEqual(options.map(o=>o.selected), ['true','false','false'])
+    assert.deepEqual(options.map(o=>o.selected), ['false','true','false'])
     assert.ok(nested.childBounds.x>=0 && nested.childBounds.y>=0 && nested.childBounds.x+nested.childBounds.width<=1440 && nested.childBounds.y+nested.childBounds.height<=900)
     const stacking = await js('(() => {const e=document.querySelector("[data-popover-overlay]"),r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+10,r.y+10))})()')
     assert.equal(stacking,true,'Nested overlay paints above modal')
@@ -135,29 +136,31 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     await settle()
     assert.equal(await js('document.activeElement===document.querySelector("[data-combobox-search] input")'),true)
     await record('nested-search-native-focus-' + trial)
+    await key('Home')
     await key('Down')
     assert.ok(await js('document.querySelector("[role=option][data-active=true]").textContent.includes("synthetic/beta")'), 'ArrowDown moves active option')
     await record('nested-arrow-down-' + trial)
     await key('Home')
     assert.ok(await js('document.querySelector("[role=option][data-active=true]").textContent.includes("synthetic/alpha")'), 'Home restores first active option')
-    assert.equal((await state()).selected,catalog[0].id,'Navigation does not commit')
+    assert.equal((await state()).selected,catalog[1].id,'Navigation does not commit')
     assert.equal(calls.filter(c=>c.channel==='save').length,0,'Navigation never saves')
     if (!trial) await saveImage(screenshots[1], '[data-popover-overlay]')
     const before = await record('before-first-Escape-' + trial)
     await key('Escape')
     await wait('!document.querySelector("[data-popover-overlay]")','first Escape child dismissed')
     const after = await record('after-first-Escape-' + trial)
-    // KNOWN DEFECT V-02 / VC29-01. This exact characterization must change
-    // after a production fix, with parent-preservation/focus acceptance added.
-    assert.deepEqual({modal:after.modal,popover:after.popover,overlayCount:after.overlayCount,escapeDelta:after.escapes-before.escapes,focus:after.active.text},
-      {modal:false,popover:false,overlayCount:0,escapeDelta:1,focus:'Settings'},
-      'CAP-29 known Escape defect changed: review and update characterization; never accept arbitrary outcomes')
+    assert.equal(after.modal,true,'First Escape preserves Settings')
+    assert.equal(after.popover,false)
+    assert.equal(after.parentIdentity,before.parentIdentity,'Parent DOM identity survives')
+    assert.equal(after.selected,catalog[1].id,'Unsaved model draft survives')
+    assert.equal(after.active.role,'combobox','Focus returns to model trigger')
+    assert.equal(after.escapes-before.escapes,1)
     assert.equal(settings.model,catalog[0].id)
-    if (!trial) await saveImage(screenshots[2], 'aside[aria-label="Connections and objects"]')
+    if (!trial) await saveImage(screenshots[2], '[role=dialog]')
     await key('Escape')
     const second = await record('after-second-Escape-' + trial)
     assert.equal(second.modal,false); assert.equal(second.active.text,'Settings')
-    escapeTrials.push({before,after,second,productAcceptance:'FAIL: first Escape must preserve Settings and return focus to model'})
+    escapeTrials.push({before,after,second,productAcceptance:'PASS: child-only Escape, parent identity/draft/focus preserved; second closes parent'})
   }
   await open(); await select(catalog[1].id)
   await record('alternative-draft')
@@ -204,5 +207,5 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   await click('[role=dialog] [role=combobox]'); await button('Cancel')
   const sourceHead=process.env.DATAKOALA_AUDIT_HEAD
   assert.match(sourceHead??'',/^[0-9a-f]{40}$/)
-  await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify({sourceHead,viewport:{width:1440,height:900,dpr:1,zoom:1},fixture:{catalog,secret:'none; configured boolean only'},observations,ledger,escapeTrials,calls,productAcceptance:'FAIL',disposition:'PARTIAL',limitations:['Synthetic IPC persistence only; OS credential encryption remains source-only','Dismissal callback internals not instrumented; DOM disappearance and native event capture observed','No real OpenRouter requests or credentials','Loading screenshot not captured within three-image budget']},null,2)+'\n')
+  await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify({sourceHead,viewport:{width:1440,height:900,dpr:1,zoom:1},fixture:{catalog,secret:'none; configured boolean only'},observations,ledger,escapeTrials,calls,productAcceptance:'PASS for P2-05a only',disposition:'PARTIAL outside P2-05a',limitations:['Synthetic IPC persistence only; OS credential encryption remains source-only','Dismissal callback internals not instrumented; DOM disappearance and native event capture observed','No real OpenRouter requests or credentials','Loading screenshot not captured within three-image budget']},null,2)+'\n')
 }
