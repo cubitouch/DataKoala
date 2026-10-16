@@ -19,7 +19,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  const click=async label=>{await js(`(()=>{const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===${data(label)});if(!b)throw Error('Missing '+${data(label)});b.click()})()`);await settle()}
  win.show();win.setContentSize(1440,900);win.webContents.setZoomFactor(1)
  const p=auditProfiles.loki
- await js(`(()=>{const s=window.__datakoalaStore,t=structuredClone(s.getState().tabs[0]),p=${data(p)};Object.assign(t,{id:'stab32',connectionProfileId:p.id,queryMode:'sql',sql:'{app="preserved"}',lokiBuilder:{labelMatchers:[{label:'app',operator:'=',value:'preserved'}],lineFilters:[],parsers:[],fieldFilters:[]},result:${data(auditLogResult)},queryError:null,running:false,lokiTimeRange:${data(auditRange)},lokiResultView:'list'});s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:'connected',generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:'loaded',error:null,isStale:false}}})})()`)
+ await js(`(()=>{const s=window.__datakoalaStore,t=structuredClone(s.getState().tabs[0]),p=${data(p)};Object.assign(t,{id:'stab32',connectionProfileId:p.id,queryMode:'builder',sql:'{app="preserved"}',lokiBuilder:{labelMatchers:[{label:'app',operator:'=',value:'preserved'}],lineFilters:[],parsers:[],fieldFilters:[]},result:${data(auditLogResult)},queryError:null,running:false,lokiTimeRange:${data(auditRange)},lokiResultView:'list'});s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:'connected',generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:'loaded',error:null,isStale:false}}})})()`)
  await waitFor(win,'document.getElementById("loki-retry-labels")','label failure')
  const original=await js('(()=>{const t=window.__datakoalaStore.getState().tabs[0];return {sql:t.sql,builder:t.lokiBuilder,range:t.lokiTimeRange}})()')
  const observations=[]
@@ -29,7 +29,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  assert.equal(await js('document.querySelector("#loki-label-recovery details").open'),false)
  await save(screenshots[0]);win.setContentSize(900,900);await settle();await save(screenshots[1])
  // Raw execution remains available while label discovery has failed.
- await click('Run');await waitFor(win,'!window.__datakoalaStore.getState().tabs[0].running','raw query completes');assert.equal(queryCalls,1)
+ await click('LogQL');await click('Run');await waitFor(win,'!window.__datakoalaStore.getState().tabs[0].running','raw query completes');assert.equal(queryCalls,1)
  await click('Retry labels');await waitFor(win,'document.getElementById("loki-retry-labels")?.disabled','retry progress');await save(screenshots[2]);assert.equal(labelCalls,2);assert.ok(releaseLabels);releaseLabels()
  await waitFor(win,'document.getElementById("loki-label-recovery")?.textContent.includes("Loki labels refreshed")','recovery success')
  const after=await js('(()=>{const t=window.__datakoalaStore.getState().tabs[0];return {sql:t.sql,builder:t.lokiBuilder,range:t.lokiTimeRange}})()');assert.deepEqual(after,original)
