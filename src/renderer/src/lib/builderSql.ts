@@ -16,7 +16,10 @@ import {
 import { customRangeToQueryBounds } from './customTimeRange.ts'
 import { isPromotableFilter, type ResultFilter } from './resultFilters.ts'
 import { resolveBuilderPromotedFilters } from './builderPromotedFilters.ts'
-import { quotePostgresIdentifier } from '@shared/seriesCardinality.ts'
+import {
+  quoteGoogleIdentifier,
+  quotePostgresIdentifier,
+} from '@shared/seriesCardinality.ts'
 import type { SqlDialect } from '@shared/types.ts'
 
 export { quotePostgresIdentifier as quoteIdentifier } from '@shared/seriesCardinality.ts'
@@ -162,7 +165,7 @@ function quoteIdentifier(
   dialect: SqlDialect = 'postgres',
 ): string {
   return dialect === 'google-sql'
-    ? `\`${value.replaceAll('`', '``')}\``
+    ? quoteGoogleIdentifier(value)
     : quotePostgresIdentifier(value)
 }
 
@@ -247,7 +250,7 @@ export function generateBuilderQuery(input: BuilderSqlInput): {
   const aggregate = aggregateExpression(aggregation, input.valueColumn, dialect)
   const table =
     dialect === 'google-sql'
-      ? `\`${[...input.table.schema.split('.'), input.table.name].map((part) => part.replaceAll('`', '``')).join('.')}\``
+      ? quoteGoogleIdentifier(`${input.table.schema}.${input.table.name}`)
       : `${quotePostgresIdentifier(input.table.schema)}.${quotePostgresIdentifier(input.table.name)}`
   const seriesColumns = (input.seriesColumns ?? []).filter(
     (column) => column !== xColumn && column !== input.valueColumn,
@@ -268,6 +271,8 @@ export function generateBuilderQuery(input: BuilderSqlInput): {
         )
       : { sql: [], parameters: [] }
   const filterPredicates = resolveBuilderPromotedFilters(input.filters ?? [], {
+    dialect,
+    parameterOffset: rangePredicates.parameters.length,
     table: input.table,
     xColumn,
     timeColumn: temporalX ? xColumn : null,
@@ -280,20 +285,7 @@ export function generateBuilderQuery(input: BuilderSqlInput): {
       'A promoted filter no longer matches the Builder dimensions.',
     )
   const parameters = [...rangePredicates.parameters]
-  let offsetSql = filterPredicates.sql.replace(
-    /\$(\d+)\b/g,
-    (_, n: string) => `$${Number(n) + parameters.length}`,
-  )
-  if (dialect === 'google-sql') {
-    offsetSql = offsetSql.replaceAll('"', '`').replace(/\$\d+\b/g, '?')
-    if (temporalX) {
-      const escapedX = x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      offsetSql = offsetSql.replace(
-        new RegExp(`(${escapedX}\\s*(?:>=|<)\\s*)\\?`, 'g'),
-        `$1CAST(? AS ${googleType})`,
-      )
-    }
-  }
+  const offsetSql = filterPredicates.sql
   parameters.push(...filterPredicates.parameters)
   const dimensionPositions = Array.from(
     { length: 1 + quotedSeriesColumns.length },
@@ -361,27 +353,107 @@ export function formatPostgresLiteral(value: unknown): string {
   return `'${text.replaceAll("'", "''")}'`
 }
 
+/** Lex only generated SQL's quoted regions/comments and parameter tokens. */
 export function materializeSqlParameters(
   sql: string,
   parameters: unknown[],
+  dialect?: SqlDialect,
 ): string {
-  if (sql.includes('?')) {
-    let index = 0
-    const materialized = sql.replace(/\?/g, () => {
-      if (index >= parameters.length)
-        throw new Error(
-          `Missing value for query parameter ? at position ${index + 1}.`,
-        )
-      return formatPostgresLiteral(parameters[index++])
-    })
-    if (index !== parameters.length)
-      throw new Error('Too many query parameters were supplied.')
-    return materialized
+  let output = ''
+  let i = 0
+  let positionalIndex = 0
+  const literal = (value: unknown, google: boolean) => {
+    if (!google || typeof value !== 'string')
+      return formatPostgresLiteral(value)
+    // GoogleSQL interprets backslash escapes, unlike standard PostgreSQL strings.
+    return (
+      "'" +
+      value
+        .replaceAll('\\', '\\\\')
+        .replaceAll("'", "\\'")
+        .replaceAll('\n', '\\n')
+        .replaceAll('\r', '\\r')
+        .replaceAll('\t', '\\t') +
+      "'"
+    )
   }
-  return sql.replace(/\$(\d+)\b/g, (placeholder, indexText: string) => {
-    const index = Number(indexText) - 1
-    if (!Number.isInteger(index) || index < 0 || index >= parameters.length)
-      throw new Error(`Missing value for query parameter ${placeholder}.`)
-    return formatPostgresLiteral(parameters[index])
-  })
+  while (i < sql.length) {
+    const start = i
+    const char = sql[i]
+    if (sql.startsWith('--', i) || (dialect === 'google-sql' && char === '#')) {
+      while (i < sql.length && sql[i] !== '\n') i++
+    } else if (sql.startsWith('/*', i)) {
+      i += 2
+      let depth = 1
+      while (i < sql.length && depth) {
+        if (sql.startsWith('/*', i)) {
+          depth++
+          i += 2
+        } else if (sql.startsWith('*/', i)) {
+          depth--
+          i += 2
+        } else i++
+      }
+    } else if (char === '"' || char === "'" || char === '`') {
+      const delimiter =
+        char !== '`' &&
+        dialect === 'google-sql' &&
+        sql.startsWith(char.repeat(3), i)
+          ? char.repeat(3)
+          : char
+      // E-strings in PG and all GoogleSQL strings/identifiers allow escapes.
+      const escaped =
+        dialect === 'google-sql' ||
+        char === '`' ||
+        (char === "'" && /(?:^|[^\w])e$/i.test(sql.slice(0, i)))
+      i += delimiter.length
+      while (i < sql.length) {
+        if (escaped && sql[i] === '\\') {
+          i += 2
+          continue
+        }
+        if (sql.startsWith(delimiter, i)) {
+          i += delimiter.length
+          if (delimiter.length === 1 && sql[i] === char) {
+            i++
+            continue
+          }
+          break
+        }
+        i++
+      }
+    } else {
+      const dollarQuote = sql
+        .slice(i)
+        .match(/^\$(?:[A-Za-z_][A-Za-z_0-9]*)?\$/)?.[0]
+      if (dollarQuote) {
+        const end = sql.indexOf(dollarQuote, i + dollarQuote.length)
+        i = end < 0 ? sql.length : end + dollarQuote.length
+      } else {
+        const numbered = sql.slice(i).match(/^\$(\d+)\b/)
+        const placeholder = char === '?' ? '?' : numbered?.[0]
+        if (placeholder) {
+          const index =
+            char === '?' ? positionalIndex++ : Number(numbered![1]) - 1
+          if (
+            !Number.isInteger(index) ||
+            index < 0 ||
+            index >= parameters.length
+          )
+            throw new Error(`Missing value for query parameter ${placeholder}.`)
+          output += literal(
+            parameters[index],
+            dialect === 'google-sql' || (!dialect && char === '?'),
+          )
+          i += placeholder.length
+          continue
+        }
+        i++
+      }
+    }
+    output += sql.slice(start, i)
+  }
+  if (positionalIndex > 0 && positionalIndex !== parameters.length)
+    throw new Error('Too many query parameters were supplied.')
+  return output
 }
