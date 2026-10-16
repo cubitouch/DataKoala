@@ -701,3 +701,66 @@ test('intraday axes show UTC time while multi-day axes and tooltips retain dates
     /19 Aug/,
   )
 })
+
+test('numeric Scatter preserves uneven coordinates and source indices without plotting gaps', () => {
+  const option = buildChartPresentationOptions({
+    labels: ['1', '2', '100'],
+    xValues: [1, 2, 100],
+    numericX: true,
+    series: [{ name: 'A', data: [4, 0, 8], missing: [false, true, false] }],
+    view: 'scatter',
+    mode: 'sql',
+    hasSeriesColumn: true,
+  })
+  assert.equal((option.xAxis as { type: string }).type, 'value')
+  assert.deepEqual((option.series as { data: unknown[] }[])[0].data, [
+    [1, 4],
+    [2, null],
+    [100, 8],
+  ])
+})
+
+test('Scatter gaps retain original indices for tooltip and point filtering', async () => {
+  const { chartClickContext } = await import('./chartInteractions.ts')
+  const { semanticChartCounts } = await import('./chartSemantic.ts')
+  const series = [
+    { name: 'A', data: [4, null, 8], missing: [false, true, false] },
+  ]
+  const option = buildChartPresentationOptions({
+    labels: ['1', '2', '100'],
+    xValues: [1, 2, 100],
+    numericX: true,
+    series,
+    view: 'scatter',
+    mode: 'sql',
+    hasSeriesColumn: true,
+  })
+  assert.equal(semanticChartCounts(option).items, 2)
+  const event = {
+    componentType: 'series',
+    dataIndex: 2,
+    seriesIndex: 0,
+    value: [100, 8],
+    axisValue: 100,
+    seriesName: 'A',
+  }
+  const context = chartClickContext(
+    event,
+    { renderable: true, xValues: [1, 2, 100], seriesValues: ['A'] },
+    {
+      view: 'scatter',
+      xColumn: 'x',
+      valueColumn: 'y',
+      seriesColumn: 'group',
+      aggregation: 'sum',
+    },
+  )
+  assert.equal(context?.xValue, 100)
+  assert.equal(context?.seriesValue, 'A')
+  const tooltip = (
+    option.tooltip as { formatter: (value: unknown) => string }
+  ).formatter(event)
+  assert.match(tooltip, /100/)
+  assert.match(tooltip, />8</)
+  assert.doesNotMatch(tooltip, />4</)
+})
