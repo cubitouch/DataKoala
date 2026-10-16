@@ -13,6 +13,10 @@ export function LokiLabelsNotice({
   onRetry: () => Promise<void>
 }) {
   const [recovering, setRecovering] = useState(false)
+  const authenticationFailure =
+    /authentication|unauthenticated|login required|not logged|expired|token.*expir/i.test(
+      error ?? '',
+    )
   useEffect(() => {
     if (status === 'error') setRecovering(true)
   }, [status])
@@ -27,7 +31,9 @@ export function LokiLabelsNotice({
       <div className={styles.recoveryActions}>
         <strong>
           {status === 'error'
-            ? "Couldn't refresh Loki labels"
+            ? authenticationFailure
+              ? 'Loki label authentication needs attention'
+              : "Couldn't refresh Loki labels"
             : status === 'loading'
               ? 'Retrying Loki labels…'
               : 'Loki labels refreshed'}
@@ -47,8 +53,9 @@ export function LokiLabelsNotice({
       {status === 'error' && (
         <>
           <p>
-            Label discovery is unavailable. Raw LogQL and loaded results remain
-            usable.
+            {authenticationFailure
+              ? 'Run gcx login, then retry labels. Your draft and loaded results are preserved.'
+              : 'Label discovery is unavailable. Raw LogQL and loaded results remain usable.'}
           </p>
           <details>
             <summary>Technical details</summary>

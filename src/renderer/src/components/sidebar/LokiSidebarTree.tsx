@@ -215,6 +215,7 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
       {!refreshingLabels && canLoadMetadata && status === 'error' && (
         <div className={styles.objectStatus}>
           <a
+            className={styles.recoveryLink}
             href="#loki-label-recovery"
             onClick={() =>
               document.getElementById('loki-retry-labels')?.focus()

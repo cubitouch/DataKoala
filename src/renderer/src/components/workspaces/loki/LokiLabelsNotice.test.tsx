@@ -38,3 +38,18 @@ it('renders retry progress and successful recovery without a remaining error', (
   expect(screen.getByText('Loki labels refreshed')).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Retry labels' })).toBeNull()
 })
+
+it('distinguishes expired authentication from a metadata read race without claiming disconnection', () => {
+  render(
+    <LokiLabelsNotice
+      status="error"
+      error="gcx authentication has expired"
+      onRetry={vi.fn()}
+    />,
+  )
+  expect(
+    screen.getByText('Loki label authentication needs attention'),
+  ).toBeTruthy()
+  expect(screen.getByText(/Run gcx login, then retry labels/)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Reconnect' })).toBeNull()
+})
