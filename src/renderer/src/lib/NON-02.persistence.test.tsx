@@ -204,21 +204,80 @@ describe('NON-02 persistence boundaries', () => {
     expectNoExecution()
   })
 
-  it.fails.each(['classic', 'native'] as const)(
+  it.each(['classic', 'native'] as const)(
     'NON02-01: preserves an explicit %s histogram override through workspace parse',
     (override) => {
-      const tab = testSession()
-      tab.promqlBuilder.histogramKindOverride = override
+      const p: DataSourceProfile = {
+        id: `histogram-${override}`,
+        kind: 'prometheus',
+        name: 'Histograms',
+        version: 1,
+        readonly: true,
+        transport: {
+          kind: 'gcx',
+          context: 'test',
+          datasourceUid: 'prometheus-test',
+        },
+      }
+      const tab = testSession({
+        connectionProfileId: p.id,
+        queryMode: 'builder',
+      })
+      tab.promqlBuilder = {
+        ...tab.promqlBuilder,
+        metric: 'http_request_duration_seconds',
+        calculation: 'percentile',
+        aggregation: 'sum',
+        histogramKindOverride: override,
+      }
+      const other = testSession({
+        id: 'other',
+        connectionProfileId: 'other-profile',
+      })
       const bytes = serializeWorkspaceDraft({
-        tabs: [tab],
+        tabs: [tab, other],
         activeTabId: tab.id,
       })
       expect(
         JSON.parse(bytes).tabs[0].promqlBuilder.histogramKindOverride,
       ).toBe(override)
-      expect(
-        parseWorkspaceDraft(bytes)?.tabs[0].promqlBuilder.histogramKindOverride,
-      ).toBe(override)
+      expect(parseWorkspaceDraft(bytes)?.tabs[0].promqlBuilder).toEqual(
+        tab.promqlBuilder,
+      )
+      const storage = memoryStorage()
+      storage.setItem(WORKSPACE_STORAGE_KEY, bytes)
+      storage.setItem.mockClear()
+      resetTestStore({ profiles: [p] })
+      restoreWorkspaceDraft((patch) => useStore.setState(patch), storage)
+      const cold = useStore.getState()
+      expect(cold.activeTabId).toBe(tab.id)
+      expect(cold.tabs[0]).toMatchObject({
+        id: tab.id,
+        connectionProfileId: p.id,
+        queryMode: 'builder',
+        promqlBuilder: tab.promqlBuilder,
+        running: false,
+        builderHasRun: false,
+        result: null,
+        pendingResult: null,
+      })
+      expect(cold.tabs[1].connectionProfileId).toBe('other-profile')
+      expect(cold.profiles).toEqual([p])
+      expect(cold.connectionStateByProfileId).toEqual({})
+      expect(storage.setItem).not.toHaveBeenCalled()
+      // Save and restore once more from cold state, with new runtime identities.
+      const nextBytes = serializeWorkspaceDraft(cold)
+      const contextId = cold.tabs[0].queryContextId
+      storage.setItem(WORKSPACE_STORAGE_KEY, nextBytes)
+      resetTestStore({ profiles: [p] })
+      restoreWorkspaceDraft((patch) => useStore.setState(patch), storage)
+      expect(useStore.getState().tabs[0].queryContextId).not.toBe(contextId)
+      expect(useStore.getState().tabs[0].promqlBuilder).toEqual(
+        tab.promqlBuilder,
+      )
+      expect(useStore.getState().tabs[0].connectionProfileId).toBe(p.id)
+      expect(useStore.getState().connectionStateByProfileId).toEqual({})
+      expectNoExecution()
     },
   )
 })

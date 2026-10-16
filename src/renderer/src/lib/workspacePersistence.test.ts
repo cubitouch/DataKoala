@@ -1161,3 +1161,29 @@ test('cold transformation preserves validated drafts with fresh runtime identiti
     draft.tabs[0].id,
   )
 })
+
+test('histogram override parsing preserves explicit values and ignores unknown optional values compatibly', () => {
+  for (const value of [
+    'auto',
+    'classic',
+    'native',
+    undefined,
+    null,
+    '',
+    'invalid',
+    42,
+    {},
+    [],
+  ]) {
+    const raw = JSON.parse(serializeWorkspaceDraft(state()))
+    raw.tabs[0].promqlBuilder.histogramKindOverride = value
+    const parsed = parseWorkspaceDraft(JSON.stringify(raw))
+    assert.ok(parsed)
+    assert.equal(
+      parsed.tabs[0].promqlBuilder.histogramKindOverride,
+      ['classic', 'native'].includes(value as string) ? value : undefined,
+    )
+    assert.equal(parsed.tabs[0].connectionProfileId, 'prod')
+    assert.equal(parsed.tabs[1].connectionProfileId, 'analytics')
+  }
+})
