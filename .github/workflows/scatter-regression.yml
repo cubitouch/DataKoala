@@ -32,7 +32,7 @@ jobs:
       - name: Verify populated Scatter through the reusable Electron fixture
         env:
           DATAKOALA_PREVIEW_KIND: audit
-          DATAKOALA_AUDIT_BATCH: CAP-26
+          DATAKOALA_AUDIT_BATCH: cap-26
           DATAKOALA_AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
           DATAKOALA_PREVIEW_OUTPUT: scatter-regression
         run: xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
