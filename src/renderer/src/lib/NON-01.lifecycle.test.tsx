@@ -100,43 +100,39 @@ afterEach(() => {
 
 describe('NON-01 generation and query ownership characterization', () => {
   for (const outcome of ['success', 'failure'] as const) {
-    it.fails(
-      `keeps newer explicit connect in connecting status despite older lazy ${outcome}`,
-      async () => {
-        useStore.setState((state) => ({
-          activeTabId: 'tab-a',
-          connectionStateByProfileId: {
-            ...state.connectionStateByProfileId,
-            a: { ...connection(4), status: 'disconnected' },
-          },
-        }))
-        const old = deferred<ConnectResult>()
-        const newer = deferred<ConnectResult>()
-        mocks.connect
-          .mockReturnValueOnce(old.promise)
-          .mockReturnValueOnce(newer.promise)
-        const lazy = ensureConnectionForTab('tab-a')
-        const explicit = useStore.getState().connectProfile(profile('a'))
-        expect(useStore.getState().connectionStateByProfileId.a.status).toBe(
-          'connecting',
-        )
-        if (outcome === 'success') old.resolve({ ok: true, generation: 4 })
-        else old.reject(new Error('old lazy failure'))
-        await lazy
-        const intermediate =
-          useStore.getState().connectionStateByProfileId.a.status
-        newer.resolve({ ok: true, generation: 5 })
-        await explicit
-        expect(useStore.getState().connectionStateByProfileId.a).toMatchObject({
-          status: 'connected',
-          generation: 5,
-          error: null,
-        })
-        // Desired invariant; currently fails because lazy work has no
-        // renderer-intent guard before the newer connection's generation advances.
-        expect(intermediate).toBe('connecting')
-      },
-    )
+    it(`keeps newer explicit connect in connecting status despite older lazy ${outcome}`, async () => {
+      useStore.setState((state) => ({
+        activeTabId: 'tab-a',
+        connectionStateByProfileId: {
+          ...state.connectionStateByProfileId,
+          a: { ...connection(4), status: 'disconnected' },
+        },
+      }))
+      const old = deferred<ConnectResult>()
+      const newer = deferred<ConnectResult>()
+      mocks.connect
+        .mockReturnValueOnce(old.promise)
+        .mockReturnValueOnce(newer.promise)
+      const lazy = ensureConnectionForTab('tab-a')
+      const explicit = useStore.getState().connectProfile(profile('a'))
+      expect(useStore.getState().connectionStateByProfileId.a.status).toBe(
+        'connecting',
+      )
+      if (outcome === 'success') old.resolve({ ok: true, generation: 4 })
+      else old.reject(new Error('old lazy failure'))
+      await lazy
+      const intermediate =
+        useStore.getState().connectionStateByProfileId.a.status
+      newer.resolve({ ok: true, generation: 5 })
+      await explicit
+      expect(useStore.getState().connectionStateByProfileId.a).toMatchObject({
+        status: 'connected',
+        generation: 5,
+        error: null,
+      })
+      // The explicit request retains pending ownership before its generation advances.
+      expect(intermediate).toBe('connecting')
+    })
   }
 
   it.each(['success', 'failure'] as const)(

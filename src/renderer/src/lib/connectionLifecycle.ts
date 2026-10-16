@@ -19,3 +19,21 @@ export function isUsableProfileConnection(
     (current.status === 'connected' || current.status === 'idle')
   )
 }
+
+// Renderer request ownership is separate from backend connection generations:
+// a newer request owns pending feedback before it has received a generation.
+let connectionIntent = 0
+const connectionIntents = new Map<string, number>()
+
+export function beginConnectionIntent(profileId: string): number {
+  const intent = ++connectionIntent
+  connectionIntents.set(profileId, intent)
+  return intent
+}
+
+export function isConnectionIntentCurrent(
+  profileId: string,
+  intent: number,
+): boolean {
+  return connectionIntents.get(profileId) === intent
+}
