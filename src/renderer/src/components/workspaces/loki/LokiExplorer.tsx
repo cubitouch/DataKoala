@@ -826,6 +826,7 @@ export function LokiExplorer({
             <QueryCodeEditor
               value={query}
               height="100%"
+              fillPane
               extensions={[logql()]}
               onChange={(value) => setSql(value)}
               aria-label="LogQL editor"

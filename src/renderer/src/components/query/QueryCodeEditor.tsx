@@ -22,6 +22,7 @@ export interface QueryCodeEditorProps {
   'aria-label': string
   placeholder?: string
   className?: string
+  fillPane?: boolean
   height?: string
   minHeight?: string
   maxHeight?: string
@@ -41,6 +42,7 @@ export const QueryCodeEditor = forwardRef<
     extensions,
     className,
     height,
+    fillPane = false,
     minHeight,
     maxHeight,
     editable = true,
@@ -80,7 +82,7 @@ export const QueryCodeEditor = forwardRef<
 
   return (
     <div
-      className={`${styles.editor}${height === '100%' ? ` ${styles.fillPane}` : ''}${className ? ` ${className}` : ''}`}
+      className={`${styles.editor}${fillPane ? ` ${styles.fillPane}` : ''}${className ? ` ${className}` : ''}`}
       onKeyDown={onKeyDown}
     >
       <CodeMirror
