@@ -1,7 +1,11 @@
 import type { DataSourceProfile } from '@shared/types'
 import { api } from './api'
 import { loadConnectionMetadata } from './connectionMetadata'
-import { isUsableProfileConnection } from './connectionLifecycle'
+import {
+  beginConnectionIntent,
+  isConnectionIntentCurrent,
+  isUsableProfileConnection,
+} from './connectionLifecycle'
 import {
   beginQueryOperation,
   selectSession,
@@ -23,6 +27,7 @@ async function connectForTab(desiredProfileId: string): Promise<string | null> {
   )
   if (!profile) return null
 
+  const intent = beginConnectionIntent(desiredProfileId)
   const startingGeneration =
     initial.connectionStateByProfileId[desiredProfileId]?.generation ?? 0
   useStore.setState((state) => ({
@@ -40,6 +45,14 @@ async function connectForTab(desiredProfileId: string): Promise<string | null> {
 
   try {
     const result = await api.connections.connect(profile)
+    if (!isConnectionIntentCurrent(desiredProfileId, intent)) {
+      if (!result.ok) return null
+      const latest =
+        useStore.getState().connectionStateByProfileId[desiredProfileId]
+      return latest?.status === 'connected' || latest?.status === 'idle'
+        ? desiredProfileId
+        : null
+    }
     if (!result.ok) {
       useStore
         .getState()
@@ -106,12 +119,18 @@ async function connectForTab(desiredProfileId: string): Promise<string | null> {
     void loadConnectionMetadata(actualId).then(
       (nodes) => {
         const latest = useStore.getState().connectionStateByProfileId[actualId]
-        if (isUsableProfileConnection(latest, generation))
+        if (
+          isConnectionIntentCurrent(desiredProfileId, intent) &&
+          isUsableProfileConnection(latest, generation)
+        )
           useStore.getState().setMetadata(nodes, 'loaded', null, actualId)
       },
       (error: unknown) => {
         const latest = useStore.getState().connectionStateByProfileId[actualId]
-        if (isUsableProfileConnection(latest, generation))
+        if (
+          isConnectionIntentCurrent(desiredProfileId, intent) &&
+          isUsableProfileConnection(latest, generation)
+        )
           useStore
             .getState()
             .setMetadata(
@@ -124,6 +143,7 @@ async function connectForTab(desiredProfileId: string): Promise<string | null> {
     )
     return actualId
   } catch (error) {
+    if (!isConnectionIntentCurrent(desiredProfileId, intent)) return null
     const message = error instanceof Error ? error.message : String(error)
     useStore
       .getState()

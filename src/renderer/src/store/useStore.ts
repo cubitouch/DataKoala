@@ -33,6 +33,8 @@ import { refreshConnectionMetadata } from '@lib/metadataRefresh'
 import {
   isCurrentProfileConnectionEvent,
   isUsableProfileConnection,
+  beginConnectionIntent,
+  isConnectionIntentCurrent,
 } from '@lib/connectionLifecycle'
 import {
   DEFAULT_PROMQL_BUILDER,
@@ -487,9 +489,6 @@ function nextQueryTitle(tabs: QuerySession[]): string {
   return `Query ${index}`
 }
 
-let connectionIntent = 0
-const connectionIntents = new Map<string, number>()
-
 const initialSession = createQuerySession(1)
 
 export const useStore = create<AppState>((set, get) => ({
@@ -605,8 +604,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }),
   connectProfile: async (profile, options) => {
-    const intent = ++connectionIntent
-    connectionIntents.set(profile.id, intent)
+    const intent = beginConnectionIntent(profile.id)
     const startingGeneration =
       get().connectionStateByProfileId[profile.id]?.generation ?? 0
     set((state) => ({
@@ -635,7 +633,7 @@ export const useStore = create<AppState>((set, get) => ({
         : api.connections.connect(profile))
       // SessionManager owns session replacement/cleanup; a stale response may
       // reference the same live generation reused by the newer renderer attempt.
-      if (connectionIntents.get(profile.id) !== intent) return
+      if (!isConnectionIntentCurrent(profile.id, intent)) return
       const actualId = result.id ?? profile.id
       if (!result.ok) {
         get().applyConnectionFailure(
@@ -682,12 +680,12 @@ export const useStore = create<AppState>((set, get) => ({
         set({ profiles: await api.connections.list() })
       try {
         const schemas = await loadConnectionMetadata(actualId)
-        if (connectionIntents.get(profile.id) !== intent) return
+        if (!isConnectionIntentCurrent(profile.id, intent)) return
         const latest = get().connectionStateByProfileId[actualId]
         if (!isUsableProfileConnection(latest, result.generation)) return
         get().setMetadata(schemas, 'loaded', null, actualId)
       } catch (error) {
-        if (connectionIntents.get(profile.id) !== intent) return
+        if (!isConnectionIntentCurrent(profile.id, intent)) return
         const latest = get().connectionStateByProfileId[actualId]
         if (!isUsableProfileConnection(latest, result.generation)) return
         get().setMetadata(
@@ -698,7 +696,7 @@ export const useStore = create<AppState>((set, get) => ({
         )
       }
     } catch (error) {
-      if (connectionIntents.get(profile.id) !== intent) return
+      if (!isConnectionIntentCurrent(profile.id, intent)) return
       const message = error instanceof Error ? error.message : String(error)
       get().applyConnectionFailure(profile.id, startingGeneration, message)
     }
