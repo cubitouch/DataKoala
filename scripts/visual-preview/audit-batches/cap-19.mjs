@@ -206,16 +206,19 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await click('[aria-label="Copy region"]')
   assert.equal(await js('window.__cap19Clipboard.writes.at(-1)'), 'us-east')
   await js('window.__cap19Clipboard.fail=true')
-  const previousFeedback = await js('[...document.querySelectorAll("[role=alert],[role=status]")].map(e=>e.textContent.trim())')
   await click('[aria-label="Copy raw log"]')
   await settle()
   assert.equal(await js('window.__cap19Clipboard.writes.at(-1)'), raw)
   const afterFeedback = await js('[...document.querySelectorAll("[role=alert],[role=status]")].map(e=>e.textContent.trim())')
-  assert.deepEqual(afterFeedback, previousFeedback, 'current direct Loki copy does not expose rejection feedback')
+  assert.equal(afterFeedback.length, 1, 'one actionable copy error')
+  assert.match(afterFeedback[0], /Could not copy.*Try Copy again/)
+  assert.deepEqual(await js('window.__cap19Unhandled'), [], 'clipboard rejection is handled')
   await js('window.__cap19Clipboard.fail=false')
   await click('[aria-label="Copy raw log"]')
   assert.equal(await js('window.__cap19Clipboard.writes.at(-1)'), raw)
   assert.equal(responses.length, beforeFilter)
+  await waitFor(win, `document.querySelector('[role=status]')?.textContent.includes('Copied to clipboard')`, 'copy retry succeeds')
+  assert.equal(await js(`document.querySelectorAll('[role=alert]').length`), 0)
   // Selection stays attached to the log when the virtual viewport moves past it.
   await js('(() => {const e=document.querySelector(\'[aria-label="Log results"] [class*="logScroller"]\');e.scrollTop=e.scrollHeight*.8;e.dispatchEvent(new Event("scroll",{bubbles:true}))})()')
   await waitFor(win, '[...document.querySelectorAll(\'[aria-label="Log results"] article\')].some(e=>Number(e.dataset.index)>15)', 'virtual scrolling')
@@ -223,7 +226,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   assert.ok((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes(message))
   await save(screenshots[4], 'Scrolled virtualization with stable selected inspector after successful and denied synthetic copies')
   behavior.push({ scenario: 'copy-scroll', copies: await js('window.__cap19Clipboard.writes'),
-    unhandledRejections: await js('window.__cap19Unhandled'), copyFailureFeedbackAdded: false,
+    unhandledRejections: await js('window.__cap19Unhandled'), copyFailureFeedbackAdded: true,
     selectionPreserved: true, renderedAfterScroll: await count(), requestDelta: responses.length - beforeFilter,
     osClipboardAcceptance: 'not tested' })
   // Reconcile identity when the inspector is explicitly closed/reopened and local search removes its row.

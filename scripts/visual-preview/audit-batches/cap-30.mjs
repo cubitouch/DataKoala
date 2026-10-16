@@ -253,13 +253,12 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     result:'Rejected query copy shows error and retry succeeds with identical payload'})
 
   await seed('prometheus',promql)
-  await waitFor(win, 'document.querySelector("[data-query-toolbar] [aria-label=\\"Copy SQL to clipboard\\"]")', 'PromQL current Copy label')
-  // Preserve V-08 as an exact known-defect characterization; do not treat mislabeled UI as accepted.
-  assert.equal(await js('document.querySelector("[data-query-toolbar] [aria-label=\\"Copy SQL to clipboard\\"]")?.getAttribute("aria-label")'),'Copy SQL to clipboard')
-  await verifyCopy({surface:'PromQL raw query (known label defect)',action:'[data-query-toolbar] [aria-label="Copy SQL to clipboard"]',
+  await waitFor(win, `document.querySelector('[data-query-toolbar] [aria-label="Copy PromQL to clipboard"]')`, 'PromQL Copy label')
+  assert.equal(await js(`document.querySelector('[data-query-toolbar] [aria-label="Copy SQL to clipboard"]')`),null)
+  await verifyCopy({surface:'PromQL raw query',action:'[data-query-toolbar] [aria-label="Copy PromQL to clipboard"]',
     expected:promql,label:'Copied to clipboard'})
-  defects.push({id:'VC30-02',classification:'CONFIRMED_DEFECT',scope:'X06/V-08',
-    result:'PromQL query copies exactly but accessible action incorrectly says SQL'})
+  defects.push({id:'VC30-02',classification:'FIXED_REGRESSION',scope:'X06/V-08',
+    result:'PromQL query copies exactly and accessible action announces PromQL'})
   await testGrafana('prometheus',promql)
 
   await seed('loki',logql,{result:logs,resultRevision:1})
@@ -277,29 +276,33 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   await frame(screenshots[2],'[aria-label="Selected log details"]',
     'Actual inspector and exact message, raw, trace, span and field copies')
   const beforeRejected = (await copied()).length
-  const priorFeedback = await notifications()
   await js('window.__cap30Clipboard.fail=true')
   await click('[aria-label="Copy raw log"]')
   await waitFor(win,'window.__cap30Clipboard.writes.length==='+(beforeRejected+1),'Loki denial invocation')
-  await waitFor(win,'window.__cap30Unhandled.length===1','Loki unhandled rejection known defect')
+  await waitFor(win,`[...document.querySelectorAll('[role=alert]')].some(e=>e.textContent.includes('Try Copy again'))`,'Loki copy denial feedback')
   assert.equal((await copied()).at(-1),logRaw)
-  assert.deepEqual(await notifications(),priorFeedback,'current Loki clipboard denial has no error feedback')
+  const rejectionFeedback = await notifications()
+  assert.equal(rejectionFeedback.length,1,'one actionable clipboard error')
+  assert.match(rejectionFeedback[0].text,/Could not copy.*Try Copy again/)
   const rejectedCount = await js('window.__cap30Unhandled.length')
-  assert.equal(rejectedCount,1,'known defect must remain characterized, unexpected changes fail')
+  assert.equal(rejectedCount,0,'clipboard rejection must not escape')
   matrix.push({surface:'Loki raw rejection',type:'text/plain',expected:logRaw,
     actual:(await copied()).at(-1),rejected:true,completion:false,
     feedback:await notifications(),unhandled:rejectedCount,
-    providerDelta:0,knownDefect:true})
+    providerDelta:0,knownDefect:false})
   await js('window.__cap30Clipboard.fail=false')
   await click('[aria-label="Copy raw log"]')
   await waitFor(win,'window.__cap30Clipboard.writes.length==='+(beforeRejected+2),'Loki retry')
   assert.equal((await copied()).at(-1),logRaw)
+  await waitFor(win,`document.querySelector('[role=status]')?.textContent.includes('Copied to clipboard')`,'Loki successful retry feedback')
+  assert.equal(await js(`document.querySelectorAll('[role=alert]').length`),0)
+  assert.ok(await js(`document.querySelector('[aria-label="Selected log details"]') !== null`), 'copy failure/retry preserves selected inspector')
   assert.equal(requests.length,0,'Loki copying must not refetch')
   matrix.push({surface:'Loki raw retry',type:'text/plain',expected:logRaw,
     actual:(await copied()).at(-1),rejected:false,completion:true,feedback:await notifications(),
     unhandled:await js('window.__cap30Unhandled.length'),providerDelta:0})
-  defects.push({id:'VC30-03',classification:'CONFIRMED_DEFECT',scope:'X10/V-07',
-    result:'Loki direct clipboard denial triggers one unhandled rejection without feedback; retry writes exact text, no provider refetch'})
+  defects.push({id:'VC30-03',classification:'FIXED_REGRESSION',scope:'X10/V-07',
+    result:'Loki clipboard denial shows one actionable error without unhandled rejection; retry writes exact text, no provider refetch'})
   await testGrafana('loki',logql)
 
   await seed('tempo',traceql)
@@ -374,7 +377,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     fixtures:{sql,promql,logql,traceql,logMessage,logRaw,traceId,spanIds,from,to,plan},
     requests,external,grafana,clipboardMatrix:matrix,diagrams,defects,observations,
     limitations:['Native OS pasteboard and authenticated Grafana not exercised',
-      'Loki rejected direct clipboard is a known product defect; assertions characterize it and fail on unexpected behavior changes',
+      'Loki clipboard denial and retry assert positive recovery; OS pasteboard remains separate',
       'Tempo PNG bytes are decoded and sampled, but no external image paste performed',
       'PostgreSQL plan session seeded deterministically, not generated by executing EXPLAIN',
       'Only current raw-query copy contracts and one absolute UTC range tested'],

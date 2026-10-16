@@ -536,7 +536,10 @@ export function QueryEditor({
                 {formatting ? 'Formatting…' : 'Format'}
               </button>
             )}
-            <CopySqlButton sql={effectiveDisplayQuery} />
+            <CopySqlButton
+              sql={effectiveDisplayQuery}
+              language={language.kind === 'promql' ? 'PromQL' : 'SQL'}
+            />
             {language.kind === 'promql' && (
               <GrafanaHandoffActions
                 profile={

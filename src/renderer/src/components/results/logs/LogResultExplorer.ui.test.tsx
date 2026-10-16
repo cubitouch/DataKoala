@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count }: { count: number }) => ({
@@ -13,6 +20,10 @@ vi.mock('@tanstack/react-virtual', () => ({
   }),
 }))
 import { LogResultExplorer } from './LogResultExplorer'
+import {
+  NotificationArea,
+  NOTIFICATION_EVENT,
+} from '@components/ui/feedback/NotificationArea'
 
 afterEach(() => {
   cleanup()
@@ -257,3 +268,79 @@ it('keeps the resized log inspector width when selecting another log', () => {
     screen.getByRole('complementary', { name: 'Selected log details' }),
   ).toBeTruthy()
 })
+
+it.each([
+  ['Copy message', 'Payment provider timeout after retries'],
+  ['Copy raw log', row.line],
+  ['Copy Trace ID', row.traceId],
+  ['Copy Span ID', 'span-1'],
+  ['Copy service_name', 'checkout-api'],
+  ['Copy region', 'west'],
+  ['Copy attempt', '3'],
+])(
+  'recovers from denied %s once without losing selection or filtering',
+  async (name, payload) => {
+    const writeText = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Clipboard denied'))
+      .mockResolvedValue(undefined)
+    vi.stubGlobal(
+      'navigator',
+      Object.assign(Object.create(navigator), { clipboard: { writeText } }),
+    )
+    const feedback = vi.fn()
+    window.addEventListener(NOTIFICATION_EVENT, feedback)
+    const onFilter = vi.fn()
+    try {
+      render(
+        <>
+          <LogResultExplorer
+            rows={[{ ...row, spanId: 'span-1' }]}
+            limit={100}
+            onFilter={onFilter}
+          />
+          <NotificationArea />
+        </>,
+      )
+      const search = screen.getByRole('textbox', { name: 'Search loaded logs' })
+      fireEvent.change(search, { target: { value: 'timeout' } })
+      const summary = screen.getByRole('button', {
+        name: /Payment provider timeout/,
+      })
+      fireEvent.click(summary)
+      const inspector = screen.getByRole('complementary', {
+        name: 'Selected log details',
+      })
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name })),
+      )
+      await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(1))
+      expect(screen.getByRole('alert').textContent).toMatch(
+        /could not copy.*try.*again/i,
+      )
+      expect(feedback).toHaveBeenCalledTimes(1)
+      expect(writeText).toHaveBeenLastCalledWith(payload)
+      expect(summary.getAttribute('aria-selected')).toBe('true')
+      expect(
+        screen.getByRole('complementary', { name: 'Selected log details' }),
+      ).toBe(inspector)
+      expect((search as HTMLInputElement).value).toBe('timeout')
+      expect(onFilter).not.toHaveBeenCalled()
+      await act(async () =>
+        fireEvent.click(screen.getByRole('button', { name })),
+      )
+      await waitFor(() =>
+        expect(screen.getByRole('status').textContent).toBe(
+          'Copied to clipboard',
+        ),
+      )
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(feedback).toHaveBeenCalledTimes(2)
+      expect(writeText).toHaveBeenCalledTimes(2)
+      expect(writeText).toHaveBeenLastCalledWith(payload)
+      expect(summary.getAttribute('aria-selected')).toBe('true')
+    } finally {
+      window.removeEventListener(NOTIFICATION_EVENT, feedback)
+    }
+  },
+)

@@ -249,6 +249,12 @@ describe('PromQL execution', () => {
     render(<QueryEditor />)
 
     expect(screen.getByLabelText('PromQL editor')).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Copy PromQL to clipboard' }),
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: 'Copy SQL to clipboard' }),
+    ).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     await waitFor(() => expect(runQuery).toHaveBeenCalled())
     const call = runQuery.mock.calls[0]

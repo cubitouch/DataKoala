@@ -11,6 +11,8 @@ import type { LokiFilterSource, LokiLogRow, LokiParserKind } from '@shared/loki'
 import styles from './LogResultExplorer.module.css'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
 import { createTextSearch } from '@lib/textSearch'
+import { copyTextToClipboard } from '@lib/clipboardText'
+import { notify } from '@components/ui/feedback/NotificationArea'
 
 const shortTimestamp = (timestampMs: number) =>
   new Intl.DateTimeFormat('en-GB', {
@@ -55,6 +57,20 @@ function ActionIcon({
       )}
     </svg>
   )
+}
+
+async function copyLogText(text: string): Promise<void> {
+  try {
+    await copyTextToClipboard(text)
+    notify({ message: 'Copied to clipboard' })
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message ? ` ${error.message}` : ''
+    notify({
+      message: `Could not copy to clipboard.${detail} Try Copy again.`,
+      tone: 'error',
+    })
+  }
 }
 
 interface Props {
@@ -162,9 +178,7 @@ export function LogResultExplorer({
                 <button
                   title={`Copy ${key}`}
                   aria-label={`Copy ${key}`}
-                  onClick={() =>
-                    void navigator.clipboard.writeText(String(value))
-                  }
+                  onClick={() => void copyLogText(String(value))}
                 >
                   <ActionIcon kind="copy" />
                 </button>
@@ -221,9 +235,7 @@ export function LogResultExplorer({
             className={styles.iconAction}
             title="Copy message"
             aria-label="Copy message"
-            onClick={() =>
-              void navigator.clipboard.writeText(effectiveLogMessage(selected))
-            }
+            onClick={() => void copyLogText(effectiveLogMessage(selected))}
           >
             <ActionIcon kind="copy" />
           </button>
@@ -231,7 +243,7 @@ export function LogResultExplorer({
             className={styles.iconAction}
             title="Copy raw log"
             aria-label="Copy raw log"
-            onClick={() => void navigator.clipboard.writeText(selected.line)}
+            onClick={() => void copyLogText(selected.line)}
           >
             <ActionIcon kind="raw" />
           </button>
@@ -246,9 +258,7 @@ export function LogResultExplorer({
                   <button
                     title="Copy Trace ID"
                     aria-label="Copy Trace ID"
-                    onClick={() =>
-                      void navigator.clipboard.writeText(selected.traceId!)
-                    }
+                    onClick={() => void copyLogText(selected.traceId!)}
                   >
                     <ActionIcon kind="copy" />
                   </button>
@@ -263,9 +273,7 @@ export function LogResultExplorer({
                   <button
                     title="Copy Span ID"
                     aria-label="Copy Span ID"
-                    onClick={() =>
-                      void navigator.clipboard.writeText(selected.spanId!)
-                    }
+                    onClick={() => void copyLogText(selected.spanId!)}
                   >
                     <ActionIcon kind="copy" />
                   </button>
