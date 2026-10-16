@@ -9,7 +9,13 @@
     "historicalAgg01CandidateReferences": 135,
     "phase1bCandidateReferences": 12,
     "disposition": "ATLAS_COMPLETE",
-    "screenshotReview": "AGG-03 did not reopen original images; filenames and source claims remain attributed"
+    "screenshotReview": "AGG-03 did not reopen original images; filenames and source claims remain attributed",
+    "reconciliation": {
+      "id": "REC-01",
+      "integrationBase": "fecb575ed80bd3821c543b5701aec12dea754b37",
+      "review": "AGG-04 / PR #441 (immutable)",
+      "scope": "AGG04-01/02/03/04 and bounded MINOR 05/06/08; no new behavioral or image verification"
+    }
   },
   "sourceBatches": [
     {
@@ -2243,7 +2249,7 @@
       "suspectedOwner": "See cited source batch and current code ownership",
       "policyDependency": false,
       "relatedCandidates": [],
-      "primaryAtlas": "ATL-029",
+      "primaryAtlas": "ATL-105",
       "secondaryAtlas": [],
       "screenshotReferences": [],
       "confidence": "HIGH_SOURCE",
@@ -2321,7 +2327,7 @@
       "suspectedOwner": "See cited source batch and current code ownership",
       "policyDependency": false,
       "relatedCandidates": [],
-      "primaryAtlas": "ATL-030",
+      "primaryAtlas": "ATL-106",
       "secondaryAtlas": [],
       "screenshotReferences": [],
       "confidence": "HIGH_SOURCE",
@@ -4141,7 +4147,7 @@
       "suspectedOwner": "See cited source batch and current code ownership",
       "policyDependency": false,
       "relatedCandidates": [],
-      "primaryAtlas": "ATL-035",
+      "primaryAtlas": "ATL-107",
       "secondaryAtlas": [],
       "screenshotReferences": [],
       "confidence": "HIGH_SOURCE",
@@ -4223,7 +4229,12 @@
       "secondaryAtlas": [],
       "screenshotReferences": [],
       "confidence": "HIGH_SOURCE",
-      "acceptance": "FAILED_SCOPED"
+      "acceptance": "FAILED_SCOPED",
+      "inventoryEvidenceRoles": {
+        "A01": "DIRECT_FORM_POLICY",
+        "A02": "INHERITED_EDIT_POLICY",
+        "A03": "SECONDARY_CONTEXT_ONLY"
+      }
     },
     {
       "id": "V-04",
@@ -4531,7 +4542,7 @@
         }
       ],
       "relatedEntries": ["ATL-003"],
-      "workPackages": ["P2-05"],
+      "workPackages": ["P2-05a"],
       "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
       "visualEvidence": [],
       "providerSpecificContract": null,
@@ -4544,7 +4555,7 @@
       "status": "CONFIRMED_DEFECT",
       "priority": "P1",
       "sourceCandidates": ["V-03"],
-      "rationale": "Picker and seven forms permit Tab escape and ignore Escape; delete-dialog focus return is a related but separate path.",
+      "rationale": "V-03 directly reports picker/seven-form Tab escape and ignored Escape; its A03 linkage is secondary context only because deletion was excluded. CAP-02 directly reports native Escape and React Cancel preserving the profile but returning focus to BODY. Separate owners and failure paths; no common root cause is asserted.",
       "confidence": "HIGH_SOURCE",
       "inventoryIds": ["A01", "A02", "A03"],
       "sourceCitations": [
@@ -4552,16 +4563,33 @@
           "candidate": "V-03",
           "url": "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/architecture/ux-implementation-convergence-audit.md#L383",
           "batch": "PHASE-1B",
-          "line": 383
+          "line": 383,
+          "inventoryEvidenceRoles": {
+            "A01": "DIRECT_FORM_POLICY",
+            "A02": "INHERITED_EDIT_POLICY",
+            "A03": "SECONDARY_CONTEXT_ONLY"
+          }
         }
       ],
       "relatedEntries": ["ATL-002", "ATL-044"],
-      "workPackages": ["P2-05"],
+      "workPackages": ["P2-05b", "P2-05c"],
       "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
       "visualEvidence": [],
       "providerSpecificContract": null,
       "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
-      "recommendedOwner": "PHASE-1B"
+      "recommendedOwner": "Connection picker/forms (V-03); Sidebar delete overlay (CAP-02)",
+      "directInventoryEvidence": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 308,
+          "quote": "- **A03 `cap02-pg-delete-desktop.png`:** selected profile name is clearly rendered, Cancel gets initial focus. The audit executed native Escape and React Cancel, and **neither removed the synthetic profile**; explicit Confirm yielded **one** mock `connections:remove('audit-postgres')` call and the renderer profile was detached. **Confirmed UX-09 keyboard finding:** after **both Escape and Cancel**, `document.activeElement` was `BODY`, not the originating Delete button. The screenshot itself cannot prove return focus; two `measurements.json` interaction observations record the failure. Existing source had a focus-return attempt using `requestAnimationFrame`, so diagnosis and any fix must be separate. Accessibility impact: focus position is lost for keyboard users; no production change in CAP-02. No claim of real database disconnect/session cleanup.",
+          "inventoryId": "A03",
+          "batch": "CAP-02",
+          "evidenceRole": "DIRECT_FAILURE",
+          "url": "https://github.com/cubitouch/DataKoala/blob/47ad04e82208cdfeae47961ae8916f9d8cd85847/docs/architecture/ux-convergence-coverage-register.md#L308"
+        }
+      ]
     },
     {
       "id": "ATL-004",
@@ -5265,7 +5293,7 @@
         }
       ],
       "relatedEntries": [],
-      "workPackages": ["P2-05"],
+      "workPackages": ["P2-05d"],
       "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
       "visualEvidence": [],
       "providerSpecificContract": null,
@@ -5278,7 +5306,7 @@
       "status": "TECHNICAL_RISK",
       "priority": "BLOCKED",
       "sourceCandidates": ["NON01-05", "NON03-04"],
-      "rationale": "Raw provider messages cross diagnostic paths; investigate policy and real sensitivity without alleging a credential leak.",
+      "rationale": "Comparative catalog of separate source-review leads, not a shared defect/root: NON01-05 cross-references NON03-04 PostgreSQL disconnect diagnostics (SO). BigQuery synthetic wrapper retention is independently owned by ATL-089/P2-22. Neither PG declaration proves a real credential leak.",
       "confidence": "MEDIUM_SOURCE",
       "inventoryIds": ["A07", "C04"],
       "sourceCitations": [
@@ -5301,7 +5329,16 @@
       "visualEvidence": [],
       "providerSpecificContract": null,
       "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
-      "recommendedOwner": "NON-01 / NON-03"
+      "recommendedOwner": "NON-01 / NON-03",
+      "groupingKind": "COMPARATIVE_CATALOG",
+      "providerInvestigations": [
+        {
+          "provider": "PostgreSQL",
+          "sourceCandidates": ["NON01-05", "NON03-04"],
+          "evidence": "Source-reviewed raw diagnostic message path; sensitivity unverified",
+          "nextCheck": "Independent synthetic disconnect-marker and realistic diagnostic policy tests in P2-16; no live password leak assumed."
+        }
+      ]
     },
     {
       "id": "ATL-025",
@@ -5433,63 +5470,51 @@
     },
     {
       "id": "ATL-029",
-      "title": "Tempo partial versus settled result",
+      "title": "Tempo progressive partial-result semantics",
       "status": "INTENTIONAL_DIFFERENCE",
       "priority": "P3",
-      "sourceCandidates": ["VC24-02", "VC24-04"],
-      "rationale": "Progressive partial data and local post-result filters need their own state meaning; the filter bar is already shared.",
+      "sourceCandidates": ["VC24-02"],
+      "rationale": "Tempo partial cohorts retain progressive provenance; List/Scatter stay selectable while row open and Service map are disabled.",
       "confidence": "HIGH_SOURCE",
-      "inventoryIds": ["T15", "T17", "T18"],
+      "inventoryIds": ["T15", "T17"],
       "sourceCitations": [
         {
           "candidate": "VC24-02",
           "url": "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L112",
           "batch": "CAP-24",
           "line": 112
-        },
-        {
-          "candidate": "VC24-04",
-          "url": "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L114",
-          "batch": "CAP-24",
-          "line": 114
         }
       ],
-      "relatedEntries": [],
+      "relatedEntries": ["ATL-105"],
       "workPackages": [],
       "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
       "visualEvidence": [],
-      "providerSpecificContract": "Preserve source-specific query, authentication, result, state and capability semantics; consult original declarations.",
+      "providerSpecificContract": "Tempo partial cohorts retain progressive provenance; List/Scatter stay selectable while row open and Service map are disabled.",
       "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
       "recommendedOwner": "CAP-24"
     },
     {
       "id": "ATL-030",
-      "title": "Opened Tempo inspector semantics",
+      "title": "Tempo waterfall and inspector domain layout",
       "status": "INTENTIONAL_DIFFERENCE",
       "priority": "P3",
-      "sourceCandidates": ["VC25-01", "VC25-02"],
-      "rationale": "Waterfall/span identity and close/back differ from logs; existing selection/inspector behavior is already coherent.",
+      "sourceCandidates": ["VC25-01"],
+      "rationale": "Fixed waterfall/inspector grid preserves trace and span identity, distinct from Loki resizable detail content.",
       "confidence": "HIGH_SOURCE",
-      "inventoryIds": ["T20", "T21", "T23"],
+      "inventoryIds": ["T20", "T23"],
       "sourceCitations": [
         {
           "candidate": "VC25-01",
           "url": "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L101",
           "batch": "CAP-25",
           "line": 101
-        },
-        {
-          "candidate": "VC25-02",
-          "url": "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L102",
-          "batch": "CAP-25",
-          "line": 102
         }
       ],
-      "relatedEntries": [],
+      "relatedEntries": ["ATL-106"],
       "workPackages": [],
       "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
       "visualEvidence": [],
-      "providerSpecificContract": "Preserve source-specific query, authentication, result, state and capability semantics; consult original declarations.",
+      "providerSpecificContract": "Fixed waterfall/inspector grid preserves trace and span identity, distinct from Loki resizable detail content.",
       "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
       "recommendedOwner": "CAP-25"
     },
@@ -5530,7 +5555,7 @@
       "status": "INTENTIONAL_DIFFERENCE",
       "priority": "P3",
       "sourceCandidates": ["NON04-02", "NON04-04", "NON04-05", "NON05-07"],
-      "rationale": "BigQuery scripts, PG configurable execution and shared DuckDB local/SQLite guards preserve distinct provider rules.",
+      "rationale": "Comparative catalog, not one root or one uniform source classification. Retain each original classification and verification level below; the primary INTENTIONAL_DIFFERENCE describes preservation of provider policies only.",
       "confidence": "HIGH_SOURCE",
       "inventoryIds": ["C11", "C15", "C16", "C18", "S16", "S27", "S28"],
       "sourceCitations": [
@@ -5563,9 +5588,40 @@
       "workPackages": [],
       "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
       "visualEvidence": [],
-      "providerSpecificContract": "Preserve source-specific query, authentication, result, state and capability semantics; consult original declarations.",
+      "providerSpecificContract": "Preserve distinct provider execution policies, existing shared dispatch and DuckDB guard reuse; no universal execution/security abstraction or inferred provider acceptance.",
       "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
-      "recommendedOwner": "NON-04 / NON-05"
+      "recommendedOwner": "NON-04 / NON-05",
+      "groupingKind": "COMPARATIVE_CATALOG",
+      "providerInvestigations": [
+        {
+          "sourceCandidates": ["NON04-02"],
+          "provider": "BigQuery / PostgreSQL / DuckDB",
+          "sourceClassification": "Intentional difference / already-converged dispatch",
+          "evidence": "Source and synthetic dispatch/statement tests",
+          "nextCheck": "Independent adapter contracts; no shared permission claim."
+        },
+        {
+          "sourceCandidates": ["NON04-04"],
+          "provider": "BigQuery",
+          "sourceClassification": "Intentional provider behavior / residual verification",
+          "evidence": "Mocked dry-run SCRIPT classification; child guarantees unverified",
+          "nextCheck": "Separate permission-restricted disposable project/child-job investigation if authorized."
+        },
+        {
+          "sourceCandidates": ["NON04-05"],
+          "provider": "Local Files / SQLite via DuckDB",
+          "sourceClassification": "Already-converged shared implementation",
+          "evidence": "Shared classification/result cap with real-adapter tests; OS/file lifecycle boundaries separate",
+          "nextCheck": "Preserve shared guard; investigate setup/path/extension permissions independently in P2-16."
+        },
+        {
+          "sourceCandidates": ["NON05-07"],
+          "provider": "Builder / dialect adapters",
+          "sourceClassification": "Intentional / already converged",
+          "evidence": "BV/SO bounded bound-parameter and separated execution contracts",
+          "nextCheck": "Keep bound execution distinct from materialized preview; no new common parser/authorization."
+        }
+      ]
     },
     {
       "id": "ATL-033",
@@ -5631,11 +5687,11 @@
     },
     {
       "id": "ATL-035",
-      "title": "BigQuery execution field transport",
-      "status": "ALREADY_CONVERGED",
+      "title": "BigQuery script-parent statistics attribution",
+      "status": "INTENTIONAL_DIFFERENCE",
       "priority": "P3",
-      "sourceCandidates": ["NON07-05", "NON07-06"],
-      "rationale": "Generic result transport preserves known fields; script parent accounting must remain distinct from child-job costs.",
+      "sourceCandidates": ["NON07-05"],
+      "rationale": "Script parent statistics describe the parent job, not the final SELECT exact cost or per-child breakout; child enumeration requires a separate contract.",
       "confidence": "HIGH_SOURCE",
       "inventoryIds": ["C12"],
       "sourceCitations": [
@@ -5644,19 +5700,13 @@
           "url": "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L88",
           "batch": "NON-07",
           "line": 88
-        },
-        {
-          "candidate": "NON07-06",
-          "url": "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L89",
-          "batch": "NON-07",
-          "line": 89
         }
       ],
-      "relatedEntries": [],
+      "relatedEntries": ["ATL-107"],
       "workPackages": [],
       "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
       "visualEvidence": [],
-      "providerSpecificContract": null,
+      "providerSpecificContract": "Script parent statistics describe the parent job, not the final SELECT exact cost or per-child breakout; child enumeration requires a separate contract.",
       "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
       "recommendedOwner": "NON-07"
     },
@@ -6400,7 +6450,7 @@
       "status": "CONFIRMED_DEFECT",
       "priority": "P1",
       "sourceCandidates": ["VC24-03"],
-      "rationale": "Source disposition retained for VC24-03; see its original declaration. No shared root cause is asserted from similar presentation alone.",
+      "rationale": "Displayed Date/ISO whole-millisecond bounds differ from raw fractional comparisons. P2-03 names a proposed quantization rule before exact shown-bound acceptance; raw semantics stay separately testable. T18 remains failed.",
       "confidence": "HIGH_SOURCE",
       "inventoryIds": ["T18"],
       "sourceCitations": [
@@ -6996,11 +7046,11 @@
     },
     {
       "id": "ATL-089",
-      "title": "Synthetic upstream sensitive message exposed",
+      "title": "BigQuery synthetic upstream-marker retention",
       "status": "CONFIRMED_DEFECT",
-      "priority": "P1",
+      "priority": "BLOCKED",
       "sourceCandidates": ["NON03-01"],
-      "rationale": "Source disposition retained for NON03-01; see its original declaration. No shared root cause is asserted from similar presentation alone.",
+      "rationale": "CONFIRMED_DEFECT only for the scoped synthetic upstream-marker retention expectation. Actual credential content, renderer display, log propagation and real ADC exposure remain unverified. Policy and realistic-message characterization precede security priority and any bounded defensive redaction fix.",
       "confidence": "HIGH_SOURCE",
       "inventoryIds": ["C10"],
       "sourceCitations": [
@@ -7017,7 +7067,16 @@
       "visualEvidence": [],
       "providerSpecificContract": null,
       "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
-      "recommendedOwner": "NON-03"
+      "recommendedOwner": "NON-03",
+      "evidenceQualification": {
+        "established": "Synthetic upstream-marker retention in adapter error",
+        "notEstablished": [
+          "Real credential exposure",
+          "Electron/UI marker display",
+          "Renderer/log propagation",
+          "Actual exploitability"
+        ]
+      }
     },
     {
       "id": "ATL-090",
@@ -7271,11 +7330,11 @@
     },
     {
       "id": "ATL-100",
-      "title": "insufficient normalization",
+      "title": "Optional AI search-term normalization",
       "status": "TECHNICAL_RISK",
       "priority": "BLOCKED",
       "sourceCandidates": ["NON06-03"],
-      "rationale": "Source disposition retained for NON06-03; see its original declaration. No shared root cause is asserted from similar presentation alone.",
+      "rationale": "Duplicate valid search terms consume some of five slots without bypassing caps. Low-impact optional normalization, no confirmed failed uniqueness contract. P2-12 optional follow-up only; never a gate for the ready relation fix.",
       "confidence": "MEDIUM_SOURCE",
       "inventoryIds": ["S26"],
       "sourceCitations": [
@@ -7292,7 +7351,8 @@
       "visualEvidence": [],
       "providerSpecificContract": null,
       "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
-      "recommendedOwner": "NON-06"
+      "recommendedOwner": "NON-06",
+      "packageRole": "OPTIONAL_FOLLOW_UP_ONLY"
     },
     {
       "id": "ATL-101",
@@ -7388,6 +7448,81 @@
       ],
       "relatedEntries": [],
       "workPackages": ["P2-11"],
+      "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
+      "visualEvidence": [],
+      "providerSpecificContract": null,
+      "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
+      "recommendedOwner": "NON-07"
+    },
+    {
+      "id": "ATL-105",
+      "title": "Shared Tempo local-result filter shell",
+      "status": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "sourceCandidates": ["VC24-04"],
+      "rationale": "Shared ResultFilterBar removes chips and switches List/Scatter cohorts without new requests; the separate displayed precision defect remains ATL-065.",
+      "confidence": "HIGH_SOURCE",
+      "inventoryIds": ["T17", "T18"],
+      "sourceCitations": [
+        {
+          "candidate": "VC24-04",
+          "url": "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-24.md#L114",
+          "batch": "CAP-24",
+          "line": 114
+        }
+      ],
+      "relatedEntries": ["ATL-029"],
+      "workPackages": [],
+      "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
+      "visualEvidence": [],
+      "providerSpecificContract": null,
+      "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
+      "recommendedOwner": "CAP-24"
+    },
+    {
+      "id": "ATL-106",
+      "title": "Tempo selection and inspector close behavior",
+      "status": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "sourceCandidates": ["VC25-02"],
+      "rationale": "Accurate row selection, inspector identity, close/reopen and hidden-kind reconciliation in tested interactions; trace-switch regression remains unverified.",
+      "confidence": "HIGH_SOURCE",
+      "inventoryIds": ["T20", "T21", "T23"],
+      "sourceCitations": [
+        {
+          "candidate": "VC25-02",
+          "url": "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/CAP-25.md#L102",
+          "batch": "CAP-25",
+          "line": 102
+        }
+      ],
+      "relatedEntries": ["ATL-030"],
+      "workPackages": [],
+      "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
+      "visualEvidence": [],
+      "providerSpecificContract": null,
+      "regressionRisk": "Avoid converting synthetic IPC assertions into live-provider or OS claims; check native focus and screenshots where applicable.",
+      "recommendedOwner": "CAP-25"
+    },
+    {
+      "id": "ATL-107",
+      "title": "Shared BigQuery execution-field transport",
+      "status": "ALREADY_CONVERGED",
+      "priority": "P3",
+      "sourceCandidates": ["NON07-06"],
+      "rationale": "Generic QueryResult/IPC/lifecycle preserve execution fields under current-operation guards; retained previous statistics need association labeling before future display work.",
+      "confidence": "HIGH_SOURCE",
+      "inventoryIds": ["C12"],
+      "sourceCitations": [
+        {
+          "candidate": "NON07-06",
+          "url": "https://github.com/cubitouch/DataKoala/blob/53310d908ac720d2025cd3cf043f3d3a1b4996d5/docs/audit/391/batches/NON-07.md#L89",
+          "batch": "NON-07",
+          "line": 89
+        }
+      ],
+      "relatedEntries": ["ATL-035"],
+      "workPackages": [],
       "evidenceProvenance": "SOURCE_REPORTED; AGG-02 remotely corroborated provenance and bounded assertions, not all behavior",
       "visualEvidence": [],
       "providerSpecificContract": null,
@@ -7703,7 +7838,7 @@
     },
     {
       "candidate": "VC24-04",
-      "primaryAtlas": "ATL-029",
+      "primaryAtlas": "ATL-105",
       "secondaryAtlas": []
     },
     {
@@ -7718,7 +7853,7 @@
     },
     {
       "candidate": "VC25-02",
-      "primaryAtlas": "ATL-030",
+      "primaryAtlas": "ATL-106",
       "secondaryAtlas": []
     },
     {
@@ -8068,7 +8203,7 @@
     },
     {
       "candidate": "NON07-06",
-      "primaryAtlas": "ATL-035",
+      "primaryAtlas": "ATL-107",
       "secondaryAtlas": []
     },
     {
@@ -8182,7 +8317,22 @@
         "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
         "line": 308,
         "quote": "- **A03 `cap02-pg-delete-desktop.png`:** selected profile name is clearly rendered, Cancel gets initial focus. The audit executed native Escape and React Cancel, and **neither removed the synthetic profile**; explicit Confirm yielded **one** mock `connections:remove('audit-postgres')` call and the renderer profile was detached. **Confirmed UX-09 keyboard finding:** after **both Escape and Cancel**, `document.activeElement` was `BODY`, not the originating Delete button. The screenshot itself cannot prove return focus; two `measurements.json` interaction observations record the failure. Existing source had a focus-return attempt using `requestAnimationFrame`, so diagnosis and any fix must be separate. Accessibility impact: focus position is lost for keyboard users; no production change in CAP-02. No claim of real database disconnect/session cleanup."
-      }
+      },
+      "candidateEvidenceRoles": {
+        "V-03": "SECONDARY_CONTEXT_ONLY"
+      },
+      "directEvidence": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 308,
+          "quote": "- **A03 `cap02-pg-delete-desktop.png`:** selected profile name is clearly rendered, Cancel gets initial focus. The audit executed native Escape and React Cancel, and **neither removed the synthetic profile**; explicit Confirm yielded **one** mock `connections:remove('audit-postgres')` call and the renderer profile was detached. **Confirmed UX-09 keyboard finding:** after **both Escape and Cancel**, `document.activeElement` was `BODY`, not the originating Delete button. The screenshot itself cannot prove return focus; two `measurements.json` interaction observations record the failure. Existing source had a focus-return attempt using `requestAnimationFrame`, so diagnosis and any fix must be separate. Accessibility impact: focus position is lost for keyboard users; no production change in CAP-02. No claim of real database disconnect/session cleanup.",
+          "inventoryId": "A03",
+          "batch": "CAP-02",
+          "evidenceRole": "DIRECT_FAILURE",
+          "url": "https://github.com/cubitouch/DataKoala/blob/47ad04e82208cdfeae47961ae8916f9d8cd85847/docs/architecture/ux-convergence-coverage-register.md#L308"
+        }
+      ]
     },
     {
       "id": "A04",
@@ -9007,7 +9157,7 @@
         "NON07-05",
         "NON07-06"
       ],
-      "atlasEntries": ["ATL-025", "ATL-035", "ATL-103", "ATL-104"],
+      "atlasEntries": ["ATL-025", "ATL-035", "ATL-103", "ATL-104", "ATL-107"],
       "sourceEvidence": "agg-02-evidence.json#/ledger/64",
       "failureCitation": {
         "path": "docs/audit/391/batches/NON-07.md",
@@ -9832,7 +9982,7 @@
       "behavior": "BV",
       "failedAcceptance": false,
       "sourceCandidates": ["V-06", "VC24-02", "VC24-04"],
-      "atlasEntries": ["ATL-006", "ATL-029"],
+      "atlasEntries": ["ATL-006", "ATL-029", "ATL-105"],
       "sourceEvidence": "agg-02-evidence.json#/ledger/130",
       "failureCitation": null
     },
@@ -9844,7 +9994,7 @@
       "behavior": "BV",
       "failedAcceptance": true,
       "sourceCandidates": ["VC24-03", "VC24-04"],
-      "atlasEntries": ["ATL-029", "ATL-065"],
+      "atlasEntries": ["ATL-065", "ATL-105"],
       "sourceEvidence": "agg-02-evidence.json#/ledger/131",
       "failureCitation": {
         "path": "docs/audit/391/batches/CAP-24.md",
@@ -9873,7 +10023,7 @@
       "behavior": "BV",
       "failedAcceptance": false,
       "sourceCandidates": ["V-04", "V-09", "VC25-01", "VC25-02", "VC25-05"],
-      "atlasEntries": ["ATL-004", "ATL-009", "ATL-030", "ATL-069"],
+      "atlasEntries": ["ATL-004", "ATL-009", "ATL-030", "ATL-069", "ATL-106"],
       "sourceEvidence": "agg-02-evidence.json#/ledger/133",
       "failureCitation": null
     },
@@ -9885,7 +10035,7 @@
       "behavior": "BV",
       "failedAcceptance": false,
       "sourceCandidates": ["VC25-02"],
-      "atlasEntries": ["ATL-030"],
+      "atlasEntries": ["ATL-106"],
       "sourceEvidence": "agg-02-evidence.json#/ledger/134",
       "failureCitation": null
     },
@@ -9909,7 +10059,7 @@
       "behavior": "BV",
       "failedAcceptance": false,
       "sourceCandidates": ["V-09", "VC25-01", "VC25-02", "VC25-05"],
-      "atlasEntries": ["ATL-009", "ATL-030", "ATL-069"],
+      "atlasEntries": ["ATL-009", "ATL-030", "ATL-069", "ATL-106"],
       "sourceEvidence": "agg-02-evidence.json#/ledger/136",
       "failureCitation": null
     },
@@ -10482,7 +10632,22 @@
         "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
         "line": 308,
         "quote": "- **A03 `cap02-pg-delete-desktop.png`:** selected profile name is clearly rendered, Cancel gets initial focus. The audit executed native Escape and React Cancel, and **neither removed the synthetic profile**; explicit Confirm yielded **one** mock `connections:remove('audit-postgres')` call and the renderer profile was detached. **Confirmed UX-09 keyboard finding:** after **both Escape and Cancel**, `document.activeElement` was `BODY`, not the originating Delete button. The screenshot itself cannot prove return focus; two `measurements.json` interaction observations record the failure. Existing source had a focus-return attempt using `requestAnimationFrame`, so diagnosis and any fix must be separate. Accessibility impact: focus position is lost for keyboard users; no production change in CAP-02. No claim of real database disconnect/session cleanup."
-      }
+      },
+      "candidateEvidenceRoles": {
+        "V-03": "SECONDARY_CONTEXT_ONLY"
+      },
+      "directEvidence": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 308,
+          "quote": "- **A03 `cap02-pg-delete-desktop.png`:** selected profile name is clearly rendered, Cancel gets initial focus. The audit executed native Escape and React Cancel, and **neither removed the synthetic profile**; explicit Confirm yielded **one** mock `connections:remove('audit-postgres')` call and the renderer profile was detached. **Confirmed UX-09 keyboard finding:** after **both Escape and Cancel**, `document.activeElement` was `BODY`, not the originating Delete button. The screenshot itself cannot prove return focus; two `measurements.json` interaction observations record the failure. Existing source had a focus-return attempt using `requestAnimationFrame`, so diagnosis and any fix must be separate. Accessibility impact: focus position is lost for keyboard users; no production change in CAP-02. No claim of real database disconnect/session cleanup.",
+          "inventoryId": "A03",
+          "batch": "CAP-02",
+          "evidenceRole": "DIRECT_FAILURE",
+          "url": "https://github.com/cubitouch/DataKoala/blob/47ad04e82208cdfeae47961ae8916f9d8cd85847/docs/architecture/ux-convergence-coverage-register.md#L308"
+        }
+      ]
     },
     {
       "id": "A04",
@@ -10797,15 +10962,16 @@
       "priority": "P1",
       "relativeSize": "M",
       "userProblem": "Selection uses the same displayed-millisecond interval semantics as its visible labels.",
-      "acceptanceContract": "Boundary fixture includes the displayed start and excludes the displayed end; raw fractional boundaries are tested separately.",
-      "testing": "Pure boundary helper assertions and CAP-24 Electron fixture; update known-defect characterization only when contract passes.",
+      "acceptanceContract": "Proposed implementation rule: for finite representable epoch-millisecond bounds, Q(t)=Math.trunc(t), matching Date/ISO TimeClip toward zero. After existing range ordering/clamping, use the same Q(start), Q(end) for the displayed chip and local half-open [Q(start),Q(end)) membership; quantize bounds once, never trace timestamps. Reject an invalid or collapsed interval. This is a proposed future contract, not observed corrected behavior. The fixture includes the displayed start and excludes the displayed end; preserve separate raw fractional helper tests.",
+      "testing": "Separate raw fractional comparison tests from shown-bound membership; cover exact shown start/end, inside/outside, fractional bounds, negative epoch truncation, reversed/clamped inputs and invalid/collapsed intervals. CAP-24 native brush has zero request delta; replace its known-defect expectation only alongside a passing product fix.",
       "outOfScope": "No hidden rounding of the visible discrepancy.",
       "dependencies": [],
       "components": "TraceScatterChart.traceScatterLocalRange; TraceExplorer; result range control",
-      "inScope": "Boundary fixture includes the displayed start and excludes the displayed end; raw fractional boundaries are tested separately.",
+      "inScope": "Proposed implementation rule: for finite representable epoch-millisecond bounds, Q(t)=Math.trunc(t), matching Date/ISO TimeClip toward zero. After existing range ordering/clamping, use the same Q(start), Q(end) for the displayed chip and local half-open [Q(start),Q(end)) membership; quantize bounds once, never trace timestamps. Reject an invalid or collapsed interval. This is a proposed future contract, not observed corrected behavior. The fixture includes the displayed start and excludes the displayed end; preserve separate raw fractional helper tests.",
       "risks": "Preserve provider semantics and native versus synthetic evidence boundaries.",
       "evidenceRequired": "Passing contract assertion at generating commit, focused tests and inspected full-resolution images where visual.",
-      "category": "READY_TO_IMPLEMENT"
+      "category": "READY_TO_IMPLEMENT",
+      "quantizationRule": "Proposed implementation rule: for finite representable epoch-millisecond bounds, Q(t)=Math.trunc(t), matching Date/ISO TimeClip toward zero. After existing range ordering/clamping, use the same Q(start), Q(end) for the displayed chip and local half-open [Q(start),Q(end)) membership; quantize bounds once, never trace timestamps. Reject an invalid or collapsed interval. This is a proposed future contract, not observed corrected behavior."
     },
     {
       "id": "P2-04",
@@ -10827,23 +10993,96 @@
       "category": "READY_TO_IMPLEMENT"
     },
     {
-      "id": "P2-05",
-      "title": "Make modal and selector keyboard dismissal coherent",
-      "atlasEntries": ["ATL-002", "ATL-003", "ATL-023"],
-      "inventoryIds": ["A01", "A02", "A03", "X01"],
-      "sourceFindings": ["V-02", "V-03", "VC29-03"],
+      "id": "P2-05a",
+      "title": "Coordinate topmost child Escape",
+      "atlasEntries": ["ATL-002"],
+      "inventoryIds": ["X01"],
+      "sourceFindings": ["V-02", "VC29-01"],
       "priority": "P1",
-      "relativeSize": "M",
-      "userProblem": "Escape dismisses only the top selector; dialog Tab stays contained and failed Save retains usable focus.",
-      "acceptanceContract": "Settings remains after first child Escape; second Escape closes it; picker/forms trap Tab with focus restoration; failed Save focuses actionable content.",
-      "testing": "CAP-29 native two-Escape/failed-Save and Phase 1B dialog scenarios; focused component tests across form kinds.",
-      "outOfScope": "No broad modal API rewrite or changed form content.",
+      "relativeSize": "S",
+      "userProblem": "Coordinate topmost child Escape",
+      "acceptanceContract": "First Escape closes only the model selector, preserves Settings identity and unsaved draft, and returns focus to the model control; second Escape closes Settings.",
+      "testing": "CAP-29 native first/second Escape with parent identity/draft and focus assertions; Loki nested selector, Reset and Presets regressions.",
+      "outOfScope": "No form migration, delete-focus or Save-error behavior in this slice.",
       "dependencies": [],
-      "components": "ui/Modal; ui/Popover; Combobox; ConnectionModal; AiSettingsModal",
-      "inScope": "Settings remains after first child Escape; second Escape closes it; picker/forms trap Tab with focus restoration; failed Save focuses actionable content.",
+      "components": "ui/Modal; ui/Popover; Combobox; AiSettingsModal",
+      "inScope": "First Escape closes only the model selector, preserves Settings identity and unsaved draft, and returns focus to the model control; second Escape closes Settings.",
       "risks": "Preserve provider semantics and native versus synthetic evidence boundaries.",
       "evidenceRequired": "Passing contract assertion at generating commit, focused tests and inspected full-resolution images where visual.",
-      "category": "READY_TO_IMPLEMENT"
+      "category": "READY_TO_IMPLEMENT",
+      "parentUmbrella": "P2-05"
+    },
+    {
+      "id": "P2-05b",
+      "title": "Contain connection picker and form focus",
+      "atlasEntries": ["ATL-003"],
+      "inventoryIds": ["A01", "A02"],
+      "sourceFindings": ["V-03"],
+      "priority": "P1",
+      "relativeSize": "M",
+      "userProblem": "Contain connection picker and form focus",
+      "acceptanceContract": "Initial focus and Tab/Shift-Tab stay in the active picker/form; top Escape dismisses with trigger focus restored. Hidden visited forms are excluded; Back/drafts and pending Test/Save/Cancel semantics survive across all seven kinds.",
+      "testing": "Phase 1B dialog scenarios and focused form-kind tests; native Electron Tab/Shift-Tab, Escape, Back/draft and busy-state assertions plus original-size captures. A02 inherited edit-policy scope must be tested directly before broad acceptance.",
+      "outOfScope": "No delete overlay, failed Settings Save or provider-content redesign.",
+      "dependencies": ["P2-05a"],
+      "components": "ConnectionModal; seven connection forms; shared focus/overlay primitives",
+      "inScope": "Initial focus and Tab/Shift-Tab stay in the active picker/form; top Escape dismisses with trigger focus restored. Hidden visited forms are excluded; Back/drafts and pending Test/Save/Cancel semantics survive across all seven kinds.",
+      "risks": "Preserve provider semantics and native versus synthetic evidence boundaries.",
+      "evidenceRequired": "Passing contract assertion at generating commit, focused tests and inspected full-resolution images where visual.",
+      "category": "READY_TO_IMPLEMENT",
+      "parentUmbrella": "P2-05"
+    },
+    {
+      "id": "P2-05c",
+      "title": "Restore originating Delete focus",
+      "atlasEntries": ["ATL-003"],
+      "inventoryIds": ["A03"],
+      "sourceFindings": [],
+      "priority": "P2",
+      "relativeSize": "S",
+      "userProblem": "Restore originating Delete focus",
+      "acceptanceContract": "Native Escape and React Cancel preserve the profile and return focus to the originating Delete control; explicit Confirm removes exactly once and uses a deliberate surviving focus target.",
+      "testing": "CAP-02 native Escape and Cancel focus observations plus Sidebar.deleteConnection tests; assert activeElement is the origin, no remove on dismiss, one remove on confirm. No live disconnect acceptance.",
+      "outOfScope": "No connection-form focus trap or broad modal framework.",
+      "dependencies": [],
+      "components": "Sidebar custom delete confirmation; originating Delete trigger",
+      "inScope": "Native Escape and React Cancel preserve the profile and return focus to the originating Delete control; explicit Confirm removes exactly once and uses a deliberate surviving focus target.",
+      "risks": "Preserve provider semantics and native versus synthetic evidence boundaries.",
+      "evidenceRequired": "Passing contract assertion at generating commit, focused tests and inspected full-resolution images where visual.",
+      "category": "READY_TO_IMPLEMENT",
+      "parentUmbrella": "P2-05",
+      "directEvidence": [
+        {
+          "path": "docs/architecture/ux-convergence-coverage-register.md",
+          "commit": "47ad04e82208cdfeae47961ae8916f9d8cd85847",
+          "line": 308,
+          "quote": "- **A03 `cap02-pg-delete-desktop.png`:** selected profile name is clearly rendered, Cancel gets initial focus. The audit executed native Escape and React Cancel, and **neither removed the synthetic profile**; explicit Confirm yielded **one** mock `connections:remove('audit-postgres')` call and the renderer profile was detached. **Confirmed UX-09 keyboard finding:** after **both Escape and Cancel**, `document.activeElement` was `BODY`, not the originating Delete button. The screenshot itself cannot prove return focus; two `measurements.json` interaction observations record the failure. Existing source had a focus-return attempt using `requestAnimationFrame`, so diagnosis and any fix must be separate. Accessibility impact: focus position is lost for keyboard users; no production change in CAP-02. No claim of real database disconnect/session cleanup.",
+          "inventoryId": "A03",
+          "batch": "CAP-02",
+          "evidenceRole": "DIRECT_FAILURE",
+          "url": "https://github.com/cubitouch/DataKoala/blob/47ad04e82208cdfeae47961ae8916f9d8cd85847/docs/architecture/ux-convergence-coverage-register.md#L308"
+        }
+      ]
+    },
+    {
+      "id": "P2-05d",
+      "title": "Keep usable focus after failed Settings Save",
+      "atlasEntries": ["ATL-023"],
+      "inventoryIds": ["X01"],
+      "sourceFindings": ["VC29-03"],
+      "priority": "P2",
+      "relativeSize": "S",
+      "userProblem": "Keep usable focus after failed Settings Save",
+      "acceptanceContract": "After delayed Save rejection, focus is on actionable content inside the same Settings dialog; draft is retained, stored value unchanged, one alert shown, and retry remains usable.",
+      "testing": "CAP-29 failed-save ledger plus native keyboard Save and delayed IPC rejection; assert parent identity, focusInParent, draft/stored values, one alert and successful retry. Error pixels and real keychain remain separately unverified until inspected/exercised.",
+      "outOfScope": "No automatic child-opening focus claim (VC29-02), OS keychain fix or Escape rewrite.",
+      "dependencies": [],
+      "components": "AiSettingsModal.run busy/error lifecycle; shared Modal focus policy",
+      "inScope": "After delayed Save rejection, focus is on actionable content inside the same Settings dialog; draft is retained, stored value unchanged, one alert shown, and retry remains usable.",
+      "risks": "Preserve provider semantics and native versus synthetic evidence boundaries.",
+      "evidenceRequired": "Passing contract assertion at generating commit, focused tests and inspected full-resolution images where visual.",
+      "category": "READY_TO_IMPLEMENT",
+      "parentUmbrella": "P2-05"
     },
     {
       "id": "P2-06",
@@ -10961,22 +11200,31 @@
     },
     {
       "id": "P2-12",
-      "title": "Dedupe AI relation selection and search terms",
-      "atlasEntries": ["ATL-099", "ATL-100"],
+      "title": "Dedupe AI relation selection",
+      "atlasEntries": ["ATL-099"],
       "inventoryIds": ["S26"],
-      "sourceFindings": ["NON06-02", "NON06-03"],
+      "sourceFindings": ["NON06-02"],
       "priority": "P2",
       "relativeSize": "S",
-      "userProblem": "Repeated relation keys do not consume context slots; duplicate search terms do not waste bounded query budget.",
-      "acceptanceContract": "Eight relation slots select unique keys in priority order; five term slots contain unique normalized terms under existing caps.",
-      "testing": "NON-06 deterministic malformed metadata and query-step tests.",
-      "outOfScope": "No catalog authorization-policy decision.",
+      "userProblem": "Duplicate eligible relation records can consume bounded relation slots.",
+      "acceptanceContract": "Up to eight relation slots select unique keys in existing priority order under existing caps.",
+      "testing": "NON-06 malformed/duplicate relation metadata tests: unique keys, priority, caps and existing valid selection.",
+      "outOfScope": "No search-term uniqueness gate or catalog authorization-policy decision.",
       "dependencies": [],
-      "components": "selectAiRelations; queryStep search term validation",
-      "inScope": "Eight relation slots select unique keys in priority order; five term slots contain unique normalized terms under existing caps.",
+      "components": "selectAiRelations",
+      "inScope": "Confirmed relation-slot deduplication only.",
       "risks": "Preserve provider semantics and native versus synthetic evidence boundaries.",
       "evidenceRequired": "Passing contract assertion at generating commit, focused tests and inspected full-resolution images where visual.",
-      "category": "READY_TO_IMPLEMENT"
+      "category": "READY_TO_IMPLEMENT",
+      "optionalFollowUp": {
+        "id": "P2-12-terms",
+        "category": "OPTIONAL_DECISION",
+        "atlasEntries": ["ATL-100"],
+        "sourceFindings": ["NON06-03"],
+        "blocksRelationFix": false,
+        "contract": "Decide independently whether duplicate normalized search terms should consume distinct slots; no existing failed acceptance requires uniqueness.",
+        "testing": "Only if adopted: term normalization, order and five-term/size caps in queryStep tests, separate from relation tests."
+      }
     },
     {
       "id": "P2-13",
@@ -11045,12 +11293,13 @@
         "NON04-03",
         "NON04-06",
         "NON06-05",
-        "NON01-05"
+        "NON01-05",
+        "NON03-04"
       ],
       "priority": "BLOCKED",
       "relativeSize": "M",
       "userProblem": "Determine real read-only, file, catalog and diagnostic boundaries in disposable authorized environments.",
-      "acceptanceContract": "Per-provider threat and test contract establishes whether a supported concern is exploitable before fixes are scoped.",
+      "acceptanceContract": "Comparative planning catalog only: independently scope, own and test each named investigation track; no common defect/root, exploit claim or single implementation acceptance. P2-22 separately owns BQ diagnostics.",
       "testing": "Disposable PG/DuckDB/platform fixtures; main-process tests; no synthetic IPC as live-provider proof.",
       "outOfScope": "No production guard rewrite from source-only risk.",
       "dependencies": ["product decision / new evidence"],
@@ -11058,7 +11307,34 @@
       "inScope": "Per-provider threat and test contract establishes whether a supported concern is exploitable before fixes are scoped.",
       "risks": "Preserve provider semantics and native versus synthetic evidence boundaries.",
       "evidenceRequired": "Recorded decision or direct reproduction before implementation.",
-      "category": "DECISION_OR_EVIDENCE"
+      "category": "DECISION_OR_EVIDENCE",
+      "investigationTracks": [
+        {
+          "id": "PG_DIAGNOSTICS",
+          "sourceFindings": ["NON01-05", "NON03-04"],
+          "contract": "PG-only message/log policy and synthetic disconnect before sensitivity claims; BQ diagnostic policy belongs to P2-22."
+        },
+        {
+          "id": "PG_READ_ONLY",
+          "sourceFindings": ["NON04-01"],
+          "contract": "Disposable PG session/role/protocol enforcement, independent of diagnostic text."
+        },
+        {
+          "id": "DUCKDB_EXECUTION",
+          "sourceFindings": ["NON04-03"],
+          "contract": "Disposable DuckDB EXPLAIN/function/file execution boundary, no PG inference."
+        },
+        {
+          "id": "FILES_AND_EXTENSIONS",
+          "sourceFindings": ["NON04-06"],
+          "contract": "OS-specific selected paths, symlink/WAL and packaged extension lifecycle; independent of shared SQL classification."
+        },
+        {
+          "id": "AI_CATALOG",
+          "sourceFindings": ["NON06-05"],
+          "contract": "Active-profile describeTable/project/dataset authorization; no inference from proposal schema validation."
+        }
+      ]
     },
     {
       "id": "P2-17",
@@ -11171,22 +11447,25 @@
     },
     {
       "id": "P2-22",
-      "title": "Redact sensitive upstream BigQuery error text",
+      "title": "Define BigQuery diagnostic policy before defensive redaction",
       "atlasEntries": ["ATL-089"],
       "inventoryIds": ["C10"],
       "sourceFindings": ["NON03-01"],
-      "priority": "P1",
+      "priority": "BLOCKED",
       "relativeSize": "S",
-      "userProblem": "A synthetic upstream message containing a sensitive marker reaches the error surface.",
-      "acceptanceContract": "Known sensitive fields/markers are not emitted verbatim; actionable nonsecret provider diagnosis remains.",
-      "testing": "NON-03 mocked adapter/error IPC and redaction tests; real credential exposure remains unproven.",
+      "userProblem": "Synthetic upstream-marker retention is established; real credential exposure is not.",
+      "acceptanceContract": "Record realistic missing/revoked/permission ADC error shapes and allowed diagnostic fields; trace adapter, IPC, renderer and logs independently. Approve a bounded redaction contract and assess impact before scheduling a defensive fix or claiming P1 security readiness.",
+      "testing": "Retain NON-03 synthetic characterization as current failed scoped acceptance. Add realistic sanitized error-shape fixtures and renderer/log boundary tests under approved scope; a later fix must exclude approved sensitive fields while retaining actionable project/permission guidance.",
       "outOfScope": "No generic credential framework.",
-      "dependencies": [],
+      "dependencies": [
+        "BigQuery diagnostic threat/redaction policy",
+        "Realistic ADC errors and renderer/log-boundary characterization"
+      ],
       "components": "BigQuery adapter error mapping; IPC diagnostics",
-      "inScope": "Known sensitive fields/markers are not emitted verbatim; actionable nonsecret provider diagnosis remains.",
-      "risks": "Preserve provider semantics and native versus synthetic evidence boundaries.",
-      "evidenceRequired": "Passing contract assertion at generating commit, focused tests and inspected full-resolution images where visual.",
-      "category": "READY_TO_IMPLEMENT"
+      "inScope": "Policy and realistic-error evidence first; bounded defensive fix only after scope review.",
+      "risks": "Do not equate a marker with a real credential or strip useful diagnostics indiscriminately.",
+      "evidenceRequired": "Recorded diagnostic policy and realistic error/boundary evidence before implementation priority is assigned.",
+      "category": "DECISION_OR_EVIDENCE"
     }
   ],
   "discrepancies": [
@@ -11199,13 +11478,57 @@
   "validationSummary": {
     "sourceDerived": [
       "Candidate declarations located in original batch files or historical Phase 1B/CAP-07 record",
-      "37 sources, 175 inventory IDs and 25 failed IDs compared to AGG-02 ledger"
+      "37 sources, 175 inventory IDs and 25 failed IDs compared to AGG-02 ledger",
+      "REC-01 direct CAP-02 A03 line and original candidate declaration-line anchors checked at immutable commits; AGG-02 evidence labels preserved"
     ],
     "internal": [
       "IDs and references unique/resolved",
       "Primary candidate mapping one-to-one",
-      "P1 contracts and intentional differences present"
+      "P1 contracts and intentional differences present",
+      "REC-01 split ownership, package slices/dependencies, optional nonblocking track and recomputed totals",
+      "Priority/readiness and quantization rules remain review judgments, not behavioral verification"
     ],
     "behavioralVerification": "Not performed by AGG-03"
+  },
+  "packageUmbrellas": [
+    {
+      "id": "P2-05",
+      "category": "PLANNING_ONLY",
+      "title": "Make modal and selector keyboard dismissal coherent",
+      "replacesImplementationPackage": "P2-05 at REC-01 integration base",
+      "slices": ["P2-05a", "P2-05b", "P2-05c", "P2-05d"],
+      "ordering": "P2-05a before P2-05b for shared child Escape coordination. P2-05c and P2-05d have no implementation dependency; may run independently. No universal modal rewrite.",
+      "counting": "Planning umbrella excluded from work-package and ready counts; no single effort/acceptance claim."
+    }
+  ],
+  "reconciliationTotals": {
+    "atlasEntries": 107,
+    "multiCandidateGroups": 25,
+    "groupedSlots": 40,
+    "atlasStatuses": {
+      "ALREADY_CONVERGED": 20,
+      "CONFIRMED_DEFECT": 24,
+      "CONVERGENCE_OPPORTUNITY": 3,
+      "INSUFFICIENT_EVIDENCE": 20,
+      "INTENTIONAL_DIFFERENCE": 23,
+      "POLICY_UNRESOLVED": 11,
+      "TECHNICAL_RISK": 6
+    },
+    "atlasPriorities": {
+      "BLOCKED": 38,
+      "P1": 14,
+      "P2": 10,
+      "P3": 45
+    },
+    "workPackages": 25,
+    "packageCategories": {
+      "DECISION_OR_EVIDENCE": 6,
+      "READY_TO_IMPLEMENT": 19
+    },
+    "packagePriorities": {
+      "BLOCKED": 6,
+      "P1": 12,
+      "P2": 7
+    }
   }
 }
