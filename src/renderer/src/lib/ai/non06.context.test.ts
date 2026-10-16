@@ -148,7 +148,7 @@ test('NON06 unknown terms and system-schema relations cannot expand the local me
   ).toEqual([])
 })
 
-test('NON06 characterization: duplicate SQL references can consume initial relation slots', () => {
+test('NON06 duplicate SQL references consume only one initial relation slot', () => {
   const duplicated = relation('orders')
   const data = catalog([
     duplicated,
@@ -156,5 +156,85 @@ test('NON06 characterization: duplicate SQL references can consume initial relat
     ...Array.from({ length: 9 }, (_, i) => relation(`other_${i}`)),
   ])
   const selected = selectAiRelations(data, '', 'select * from orders')
-  expect(selected.filter((item) => item.name === 'orders')).toHaveLength(2)
+  expect(selected.map((item) => item.qualifiedName)).toEqual([
+    'public.orders',
+    'public.other_0',
+    'public.other_1',
+    'public.other_2',
+    'public.other_3',
+    'public.other_4',
+  ])
+})
+
+test('NON06 duplicate fallback and discovery records preserve unique budgets and catalog order', () => {
+  const relations = Array.from({ length: 12 }, (_, i) =>
+    relation(`device_${String(i).padStart(2, '0')}`),
+  )
+  const data = catalog(relations.flatMap((item) => [item, { ...item }]))
+  const initial = selectAiRelations(data, '', '')
+  expect(initial.map((item) => item.name)).toEqual(
+    relations.slice(0, AI_LIMITS.initialRelations).map((item) => item.name),
+  )
+  const expanded = expandAiRelations(data, ['device'], '', initial)
+  expect(expanded.map((item) => item.name)).toEqual(['device_06', 'device_07'])
+  const context = withAiRelationCatalog(
+    { language: { kind: 'sql', dialect: 'postgres' }, relations: [] },
+    data,
+    '',
+    '',
+  )
+  expect(context.availableRelations).toEqual(
+    relations.map(({ schema, name }) => ({ schema, name })),
+  )
+})
+
+test('NON06 duplicate referenced metadata cannot inflate the initial budget or displace prompt matches', () => {
+  const orders = relation('orders')
+  const data = catalog([
+    ...Array.from({ length: 12 }, () => ({ ...orders })),
+    relation('customers'),
+    ...Array.from({ length: 12 }, (_, i) => relation(`other_${i}`)),
+  ])
+  const selected = selectAiRelations(data, 'customers', 'select * from orders')
+  expect(selected).toHaveLength(AI_LIMITS.initialRelations)
+  expect(selected.slice(0, 2).map((item) => item.name)).toEqual([
+    'orders',
+    'customers',
+  ])
+  const query = [
+    'orders',
+    'customers',
+    ...Array.from({ length: 12 }, (_, i) => `other_${i}`),
+  ].join(' ')
+  const full = selectAiRelations(data, 'customers', query)
+  expect(full).toHaveLength(AI_LIMITS.relations)
+  expect(new Set(full.map((item) => item.qualifiedName)).size).toBe(
+    AI_LIMITS.relations,
+  )
+})
+
+test('NON06 malformed or ineligible relation records cannot consume selected slots', () => {
+  const malformed = [
+    null,
+    {},
+    { ...relation('bad'), name: 42 },
+    { ...relation('bad'), schema: null },
+    { ...relation('bad'), qualifiedName: undefined },
+    relation(''),
+    { ...relation('bad'), kind: 'unsupported' },
+  ] as unknown as DatabaseRelationNode[]
+  const data = catalog([
+    ...malformed,
+    relation('orders'),
+    relation('orders'),
+    relation('hidden', 'pg_catalog'),
+  ])
+  expect(
+    selectAiRelations(data, 'orders', '').map((item) => item.qualifiedName),
+  ).toEqual(['public.orders'])
+  expect(
+    expandAiRelations(data, ['orders'], '', []).map(
+      (item) => item.qualifiedName,
+    ),
+  ).toEqual(['public.orders'])
 })

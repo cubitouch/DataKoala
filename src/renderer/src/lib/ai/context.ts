@@ -26,6 +26,13 @@ const eligibleRelations = (schemas: DatabaseSchemaNode[]) =>
     .flatMap((schema) => schema.relations)
     .filter(
       (relation) =>
+        relation != null &&
+        typeof relation.schema === 'string' &&
+        relation.schema.trim().length > 0 &&
+        typeof relation.name === 'string' &&
+        relation.name.trim().length > 0 &&
+        typeof relation.qualifiedName === 'string' &&
+        relation.qualifiedName.trim().length > 0 &&
         ['r', 'v', 'm'].includes(relation.kind) &&
         !isSystemSchema(relation.schema),
     )
@@ -38,6 +45,7 @@ function rankRelations(
   searchText: string,
   currentQuery: string,
 ) {
+  const seen = new Set<string>()
   const words = tokens(searchText),
     queryWords = tokens(currentQuery)
   return eligibleRelations(schemas)
@@ -64,6 +72,12 @@ function rankRelations(
         b.score - a.score ||
         a.relation.qualifiedName.localeCompare(b.relation.qualifiedName),
     )
+    .filter(({ relation }) => {
+      const key = relationKey(relation)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
 }
 
 function fillFallback(
