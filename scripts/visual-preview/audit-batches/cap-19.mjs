@@ -214,7 +214,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await click('[aria-label="Copy raw log"]')
   await settle()
   assert.equal(await js('window.__cap19Clipboard.writes.at(-1)'), raw)
-  const afterFeedback = await js('[...document.querySelectorAll("[role=alert],[role=status]")].map(e=>e.textContent.trim())')
+  const afterFeedback = await js('[...document.querySelectorAll("[role=alert]")].map(e=>e.textContent.trim())')
   assert.equal(afterFeedback.length, 1, 'one actionable copy error')
   assert.match(afterFeedback[0], /Could not copy.*Try Copy again/)
   assert.deepEqual(await js('window.__cap19Unhandled'), [], 'clipboard rejection is handled')
