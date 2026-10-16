@@ -1,3 +1,4 @@
+import { formatLogFieldValue, logFieldCopyText } from '@lib/logFieldValue'
 import { HighlightedText } from '@components/ui/HighlightedText'
 import { TextInput } from '@components/ui/TextInput'
 import { LogRowChevron, LogSeverityBadge } from './LogRowPresentation'
@@ -161,6 +162,7 @@ export function LogResultExplorer({
       {Object.entries(record)
         .filter(([key]) => !isDedicated(key))
         .map(([key, value]) => {
+          const display = formatLogFieldValue(value)
           const parser: LokiParserKind | undefined =
             source === 'parsed-field' &&
             jsonPayload &&
@@ -170,7 +172,26 @@ export function LogResultExplorer({
           return (
             <div className={styles.fieldRow} key={key}>
               <dt>{highlight(key)}</dt>
-              <dd>{highlight(String(value))}</dd>
+              <dd>
+                {display.kind === 'Value' ? (
+                  <>
+                    {highlight(display.text)}
+                    {display.truncated && (
+                      <span> · preview truncated; copy for full value</span>
+                    )}
+                  </>
+                ) : (
+                  <details open className={styles.structuredValue}>
+                    <summary>
+                      {display.kind}
+                      {display.truncated
+                        ? ' · preview truncated; copy for full value'
+                        : ''}
+                    </summary>
+                    <pre>{highlight(display.text)}</pre>
+                  </details>
+                )}
+              </dd>
               <div
                 className={styles.fieldActions}
                 aria-label={`${key} actions`}
@@ -178,7 +199,7 @@ export function LogResultExplorer({
                 <button
                   title={`Copy ${key}`}
                   aria-label={`Copy ${key}`}
-                  onClick={() => void copyLogText(String(value))}
+                  onClick={() => void copyLogText(logFieldCopyText(value))}
                 >
                   <ActionIcon kind="copy" />
                 </button>

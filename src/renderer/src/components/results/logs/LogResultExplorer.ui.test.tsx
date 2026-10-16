@@ -344,3 +344,42 @@ it.each([
     }
   },
 )
+
+it('renders bounded structured values and copies complete JSON without changing selection or filtering semantics', async () => {
+  const nested = {
+    provider: 'gateway',
+    retries: [1, 2, 3],
+    long: 'x'.repeat(4000),
+  }
+  const writeText = vi.fn().mockResolvedValue(undefined)
+  vi.stubGlobal('navigator', { clipboard: { writeText } })
+  const onFilter = vi.fn()
+  render(
+    <LogResultExplorer
+      rows={[{ ...row, parsedFields: { attempt: 3, nested, array: [1, 2] } }]}
+      limit={100}
+      onFilter={onFilter}
+    />,
+  )
+  const log = screen.getByRole('button', { name: /Payment provider timeout/ })
+  fireEvent.click(log)
+  expect(screen.queryByText('[object Object]')).toBeNull()
+  expect(screen.getByText(/"provider": "gateway"/)).toBeTruthy()
+  expect(screen.getByText('Array', { selector: 'summary' })).toBeTruthy()
+  expect(
+    screen.getByText(/preview truncated; copy for full value/),
+  ).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Copy nested' }))
+  await waitFor(() =>
+    expect(writeText).toHaveBeenCalledWith(JSON.stringify(nested)),
+  )
+  expect(log.getAttribute('aria-selected')).toBe('true')
+  fireEvent.click(screen.getByRole('button', { name: 'Include attempt' }))
+  expect(onFilter).toHaveBeenCalledWith(
+    'parsed-field',
+    'attempt',
+    '3',
+    false,
+    'json',
+  )
+})
