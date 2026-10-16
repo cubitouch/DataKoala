@@ -29,3 +29,13 @@ jobs:
           node tools/visual-review/generate.mjs --check
       - name: VIS-01 focused regression and offline-serving tests
         run: node --test tools/visual-review/review-board.test.mjs
+      - name: Temporary authored-document formatting capture (closeout correction)
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+      - name: Install formatter dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Emit scoped Prettier output for applying the review correction
+        run: |
+          pnpm exec prettier --write docs/audit/391/README.md docs/audit/391/final-report.md docs/audit/391/evidence-and-coverage.md docs/audit/391/phase-2-roadmap.md
+          python3 -c 'import base64,pathlib; names="docs/audit/391/README.md docs/audit/391/final-report.md docs/audit/391/evidence-and-coverage.md docs/audit/391/phase-2-roadmap.md".split(); [print("FORMATTED_FILE:"+name+":"+base64.b64encode(pathlib.Path(name).read_bytes()).decode()) for name in names]'
