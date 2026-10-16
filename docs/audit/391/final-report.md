@@ -1,9 +1,9 @@
 # DataKoala #391 — final Phase 1C audit report
 
-**Status: audit analysis complete; product acceptance NOT achieved. Closeout pruning BLOCKED pending a remotely verified immutable evidence tag.**  
-**Current classification source:** post-REC-01 [structured Visual Convergence Atlas](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-03-atlas.json), at the [verified pre-closeout commit](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db).  
-**Historical review:** [AGG-04](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-04.md); [REC-01 PR #442](https://github.com/cubitouch/DataKoala/pull/442).  
-**Visual decisions:** [VIS-01 Review Board](../../../tools/visual-review/README.md) ([PR #443](https://github.com/cubitouch/DataKoala/pull/443)).  
+**Status: audit analysis complete; product acceptance NOT achieved. Closeout pruning BLOCKED pending a remotely verified immutable evidence tag.**
+**Current classification source:** post-REC-01 [structured Visual Convergence Atlas](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-03-atlas.json), at the [verified pre-closeout commit](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db).
+**Historical review:** [AGG-04](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-04.md); [REC-01 PR #442](https://github.com/cubitouch/DataKoala/pull/442).
+**Visual decisions:** [VIS-01 Review Board](../../../tools/visual-review/README.md) ([PR #443](https://github.com/cubitouch/DataKoala/pull/443)).
 **Next steps:** [Phase 2 roadmap](phase-2-roadmap.md) · [Coverage and provenance](evidence-and-coverage.md) · [closeout index](README.md).
 
 ## Executive summary

@@ -179,8 +179,8 @@ def validate_data(a, ledger, manifest):
         "NON07-06": ("ATL-107", "ALREADY_CONVERGED"),
     }
     for c, (id_, status) in expected_splits.items():
-        check(byc[c]["primaryAtlas"] == id_ and bye[id_]["status"] == status and
-              bye[id_]["sourceCandidates"] == [c], f"REC-01 split status {c}", errors)
+        check(byc[c]["primaryAtlas"] == id_ and bye.get(id_, {}).get("status") == status and
+              bye.get(id_, {}).get("sourceCandidates") == [c], f"REC-01 split status {c}", errors)
     direct = bye["ATL-003"].get("directInventoryEvidence", [])
     check(len(direct) == 1 and direct[0].get("inventoryId") == "A03" and
           direct[0].get("evidenceRole") == "DIRECT_FAILURE" and

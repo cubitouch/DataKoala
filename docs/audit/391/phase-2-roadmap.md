@@ -40,8 +40,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-01 — Correct generated SQL materialization and identifiers
 
-**READY_TO_IMPLEMENT · P1 · M**  
-**Atlas:** `ATL-026`, `ATL-094`. **Inventory:** `S16`. **Findings:** `NON05-01`, `NON05-02`, `NON05-03`.  
+**READY_TO_IMPLEMENT · P1 · M**
+**Atlas:** `ATL-026`, `ATL-094`. **Inventory:** `S16`. **Findings:** `NON05-01`, `NON05-02`, `NON05-03`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Quoted placeholder/literal text remains byte-identical as an identifier; only true bound placeholders materialize; promoted BQ fields retain their original quoted identifier.
@@ -54,8 +54,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-02 — Repair Scatter missing and numeric coordinates
 
-**READY_TO_IMPLEMENT · P1 · M**  
-**Atlas:** `ATL-021`, `ATL-022`. **Inventory:** `R10`, `R13`. **Findings:** `VC26-01`, `VC26-02`.  
+**READY_TO_IMPLEMENT · P1 · M**
+**Atlas:** `ATL-021`, `ATL-022`. **Inventory:** `R10`, `R13`. **Findings:** `VC26-01`, `VC26-02`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** 16 raw rows do not produce 32 semantic marks; missing combinations are gaps, and numeric X uses a value axis with faithful coordinates.
@@ -68,8 +68,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-03 — Fix displayed Tempo time-selection bounds
 
-**READY_TO_IMPLEMENT · P1 · M**  
-**Atlas:** `ATL-065`. **Inventory:** `T18`. **Findings:** `VC24-03`.  
+**READY_TO_IMPLEMENT · P1 · M**
+**Atlas:** `ATL-065`. **Inventory:** `T18`. **Findings:** `VC24-03`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Proposed implementation rule: for finite representable epoch-millisecond bounds, Q(t)=Math.trunc(t), matching Date/ISO TimeClip toward zero. After existing range ordering/clamping, use the same Q(start), Q(end) for the displayed chip and local half-open [Q(start),Q(end)) membership; quantize bounds once, never trace timestamps. Reject an invalid or collapsed interval. This is a proposed future contract, not observed corrected behavior. The fixture includes the displayed start and excludes the displayed end; preserve separate raw fractional helper tests.
@@ -82,8 +82,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-04 — Guard lazy versus explicit connection intent
 
-**READY_TO_IMPLEMENT · P1 · M**  
-**Atlas:** `ATL-079`. **Inventory:** `A04`, `A07`, `A08`. **Findings:** `NON01-06`.  
+**READY_TO_IMPLEMENT · P1 · M**
+**Atlas:** `ATL-079`. **Inventory:** `A04`, `A07`, `A08`. **Findings:** `NON01-06`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Pending explicit connect remains pending until its own result; stale lazy success or failure cannot publish current state.
@@ -96,8 +96,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-05a — Coordinate topmost child Escape
 
-**READY_TO_IMPLEMENT · P1 · S**  
-**Atlas:** `ATL-002`. **Inventory:** `X01`. **Findings:** `V-02`, `VC29-01`.  
+**READY_TO_IMPLEMENT · P1 · S**
+**Atlas:** `ATL-002`. **Inventory:** `X01`. **Findings:** `V-02`, `VC29-01`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** First Escape closes only the model selector, preserves Settings identity and unsaved draft, and returns focus to the model control; second Escape closes Settings.
@@ -110,8 +110,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-05b — Contain connection picker and form focus
 
-**READY_TO_IMPLEMENT · P1 · M**  
-**Atlas:** `ATL-003`. **Inventory:** `A01`, `A02`. **Findings:** `V-03`.  
+**READY_TO_IMPLEMENT · P1 · M**
+**Atlas:** `ATL-003`. **Inventory:** `A01`, `A02`. **Findings:** `V-03`.
 **Dependencies:** `P2-05a`.
 
 **Acceptance / decision contract:** Initial focus and Tab/Shift-Tab stay in the active picker/form; top Escape dismisses with trigger focus restored. Hidden visited forms are excluded; Back/drafts and pending Test/Save/Cancel semantics survive across all seven kinds.
@@ -124,8 +124,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-06 — Correct raw LogQL editor height
 
-**READY_TO_IMPLEMENT · P1 · S**  
-**Atlas:** `ATL-057`. **Inventory:** `L02`. **Findings:** `VC21-01`.  
+**READY_TO_IMPLEMENT · P1 · S**
+**Atlas:** `ATL-057`. **Inventory:** `L02`. **Findings:** `VC21-01`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Multiline LogQL editor fills its query pane with native internal scrolling in Raw mode.
@@ -138,8 +138,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-07 — Make rejected log copy recoverable and label PromQL correctly
 
-**READY_TO_IMPLEMENT · P1 · S**  
-**Atlas:** `ATL-007`, `ATL-008`. **Inventory:** `L18`, `X06`, `X10`. **Findings:** `V-07`, `V-08`.  
+**READY_TO_IMPLEMENT · P1 · S**
+**Atlas:** `ATL-007`, `ATL-008`. **Inventory:** `L18`, `X06`, `X10`. **Findings:** `V-07`, `V-08`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Denied log write yields one actionable error, preserves selection, retry succeeds; PromQL announces Copy PromQL.
@@ -152,8 +152,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-11 — Handle BigQuery estimate numeric boundaries
 
-**READY_TO_IMPLEMENT · P1 · S**  
-**Atlas:** `ATL-103`, `ATL-104`. **Inventory:** `C12`. **Findings:** `NON07-01`, `NON07-02`.  
+**READY_TO_IMPLEMENT · P1 · S**
+**Atlas:** `ATL-103`, `ATL-104`. **Inventory:** `C12`. **Findings:** `NON07-01`, `NON07-02`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Null/blank bytes are not zero; unsafe Int64 estimate is guarded or represented exactly.
@@ -166,8 +166,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-19 — Prevent late raw LogQL formatter overwrite
 
-**READY_TO_IMPLEMENT · P1 · S**  
-**Atlas:** `ATL-052`. **Inventory:** `L02`. **Findings:** `VC18-04`.  
+**READY_TO_IMPLEMENT · P1 · S**
+**Atlas:** `ATL-052`. **Inventory:** `L02`. **Findings:** `VC18-04`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Only the matching draft/revision may receive the formatting result; newer edits and mode changes survive.
@@ -180,8 +180,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-20 — Reject stale AI metadata revisions
 
-**READY_TO_IMPLEMENT · P1 · S**  
-**Atlas:** `ATL-098`. **Inventory:** `S26`. **Findings:** `NON06-01`.  
+**READY_TO_IMPLEMENT · P1 · S**
+**Atlas:** `ATL-098`. **Inventory:** `S26`. **Findings:** `NON06-01`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Recheck revision before column load and second provider request; stale context does not reach a model call.
@@ -194,8 +194,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-21 — Contain Tempo toolbar and sample label
 
-**READY_TO_IMPLEMENT · P1 · S**  
-**Atlas:** `ATL-004`, `ATL-020`. **Inventory:** `T13`, `T19`, `T20`, `T24`. **Findings:** `V-04`, `VC23-01`.  
+**READY_TO_IMPLEMENT · P1 · S**
+**Atlas:** `ATL-004`, `ATL-020`. **Inventory:** `T13`, `T19`, `T20`, `T24`. **Findings:** `V-04`, `VC23-01`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** 652 px pane contains timing action and full sample text while preserving exact request value and other controls.
@@ -208,8 +208,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-05c — Restore originating Delete focus
 
-**READY_TO_IMPLEMENT · P2 · S**  
-**Atlas:** `ATL-003`. **Inventory:** `A03`. **Findings:** see direct source evidence.  
+**READY_TO_IMPLEMENT · P2 · S**
+**Atlas:** `ATL-003`. **Inventory:** `A03`. **Findings:** see direct source evidence.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Native Escape and React Cancel preserve the profile and return focus to the originating Delete control; explicit Confirm removes exactly once and uses a deliberate surviving focus target.
@@ -222,8 +222,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-05d — Keep usable focus after failed Settings Save
 
-**READY_TO_IMPLEMENT · P2 · S**  
-**Atlas:** `ATL-023`. **Inventory:** `X01`. **Findings:** `VC29-03`.  
+**READY_TO_IMPLEMENT · P2 · S**
+**Atlas:** `ATL-023`. **Inventory:** `X01`. **Findings:** `VC29-03`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** After delayed Save rejection, focus is on actionable content inside the same Settings dialog; draft is retained, stored value unchanged, one alert shown, and retry remains usable.
@@ -236,8 +236,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-08 — Correct table header resize and menu focus
 
-**READY_TO_IMPLEMENT · P2 · S**  
-**Atlas:** `ATL-042`, `ATL-044`. **Inventory:** `R02`, `R04`, `R19`, `S19`. **Findings:** `VC12-03`, `VC13-01`.  
+**READY_TO_IMPLEMENT · P2 · S**
+**Atlas:** `ATL-042`, `ATL-044`. **Inventory:** `R02`, `R04`, `R19`, `S19`. **Findings:** `VC12-03`, `VC13-01`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Pointer resize leaves sort key/order unchanged; keyboard dismissal focuses initiating summary and keeps filters.
@@ -250,8 +250,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-09 — Render nested Loki values readably
 
-**READY_TO_IMPLEMENT · P2 · S**  
-**Atlas:** `ATL-054`. **Inventory:** `L16`. **Findings:** `VC19-02`.  
+**READY_TO_IMPLEMENT · P2 · S**
+**Atlas:** `ATL-054`. **Inventory:** `L16`. **Findings:** `VC19-02`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Nested objects and arrays render readable bounded content; copy payload remains exact and independent of display formatting.
@@ -264,8 +264,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-10 — Preserve histogram override through workspace restore
 
-**READY_TO_IMPLEMENT · P2 · S**  
-**Atlas:** `ATL-084`. **Inventory:** `A19`. **Findings:** `NON02-01`.  
+**READY_TO_IMPLEMENT · P2 · S**
+**Atlas:** `ATL-084`. **Inventory:** `A19`. **Findings:** `NON02-01`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Round-trip yields the same override and valid profile association without auto Run/connect.
@@ -278,8 +278,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-12 — Dedupe AI relation selection
 
-**READY_TO_IMPLEMENT · P2 · S**  
-**Atlas:** `ATL-099`. **Inventory:** `S26`. **Findings:** `NON06-02`.  
+**READY_TO_IMPLEMENT · P2 · S**
+**Atlas:** `ATL-099`. **Inventory:** `S26`. **Findings:** `NON06-02`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** Up to eight relation slots select unique keys in existing priority order under existing caps.
@@ -292,8 +292,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-13 — Adopt common openable-row mechanics
 
-**READY_TO_IMPLEMENT · P2 · M**  
-**Atlas:** `ATL-001`. **Inventory:** `L12`, `L15`, `L19`, `L20`, `T16`. **Findings:** `V-01`.  
+**READY_TO_IMPLEMENT · P2 · M**
+**Atlas:** `ATL-001`. **Inventory:** `L12`, `L15`, `L19`, `L20`, `T16`. **Findings:** `V-01`.
 **Dependencies:** None declared.
 
 **Acceptance / decision contract:** One composable shell preserves 42/58/68 px domain density, virtualization and content; no extra navigation/requests.
@@ -306,8 +306,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-14 — Decide retained-result visibility and restoration
 
-**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · M**  
-**Atlas:** `ATL-006`. **Inventory:** `R24`, `R25`, `T17`. **Findings:** `V-06`.  
+**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · M**
+**Atlas:** `ATL-006`. **Inventory:** `R24`, `R25`, `T17`. **Findings:** `V-06`.
 **Dependencies:** `product decision / new evidence`.
 
 **Acceptance / decision contract:** Product decision defines current vs retained data, filter/export eligibility and persistence boundaries before implementation.
@@ -320,8 +320,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-15 — Define statistics display for BigQuery
 
-**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · S**  
-**Atlas:** `ATL-025`. **Inventory:** `C12`. **Findings:** `NON07-04`.  
+**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · S**
+**Atlas:** `ATL-025`. **Inventory:** `C12`. **Findings:** `NON07-04`.
 **Dependencies:** `product decision / new evidence`.
 
 **Acceptance / decision contract:** Decision names fields/units/availability and script parent vs child attribution; implementation acceptance follows separately.
@@ -334,8 +334,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-16 — Characterize provider security boundaries
 
-**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · M**  
-**Atlas:** `ATL-024`, `ATL-091`, `ATL-092`, `ATL-093`, `ATL-101`. **Inventory:** `A07`, `C04`, `C15`, `C16`, `C18`, `S26`, `S27`, `S28`. **Findings:** `NON04-01`, `NON04-03`, `NON04-06`, `NON06-05`, `NON01-05`, `NON03-04`.  
+**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · M**
+**Atlas:** `ATL-024`, `ATL-091`, `ATL-092`, `ATL-093`, `ATL-101`. **Inventory:** `A07`, `C04`, `C15`, `C16`, `C18`, `S26`, `S27`, `S28`. **Findings:** `NON04-01`, `NON04-03`, `NON04-06`, `NON06-05`, `NON01-05`, `NON03-04`.
 **Dependencies:** `product decision / new evidence`.
 
 **Acceptance / decision contract:** Comparative planning catalog only: independently scope, own and test each named investigation track; no common defect/root, exploit claim or single implementation acceptance. P2-22 separately owns BQ diagnostics.
@@ -348,8 +348,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-17 — Close native evidence gaps
 
-**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · M**  
-**Atlas:** `ATL-037`, `ATL-068`, `ATL-073`, `ATL-077`. **Inventory:** `P03`, `R16`, `R17`, `R18`, `T19`, `T24`, `X01`. **Findings:** `VC06-02`, `VC25-04`, `VC27-04`, `VC29-02`.  
+**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · M**
+**Atlas:** `ATL-037`, `ATL-068`, `ATL-073`, `ATL-077`. **Inventory:** `P03`, `R16`, `R17`, `R18`, `T19`, `T24`, `X01`. **Findings:** `VC06-02`, `VC25-04`, `VC27-04`, `VC29-02`.
 **Dependencies:** `product decision / new evidence`.
 
 **Acceptance / decision contract:** Named native outcomes and sourceHead-backed original images determine whether follow-up defects exist.
@@ -362,8 +362,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-18 — Review dialog, feedback and resize presentation policy
 
-**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · M**  
-**Atlas:** `ATL-005`, `ATL-009`, `ATL-038`, `ATL-076`. **Inventory:** `A21`, `A23`, `C06`, `L15`, `L20`, `L23`, `R07`, `R21`, `R25`, `T15`, `T20`, `T23`, `X08`. **Findings:** `VC08-01`, `VC28-05`, `V-05`, `V-09`.  
+**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · M**
+**Atlas:** `ATL-005`, `ATL-009`, `ATL-038`, `ATL-076`. **Inventory:** `A21`, `A23`, `C06`, `L15`, `L20`, `L23`, `R07`, `R21`, `R25`, `T15`, `T20`, `T23`, `X08`. **Findings:** `VC08-01`, `VC28-05`, `V-05`, `V-09`.
 **Dependencies:** `product decision / new evidence`.
 
 **Acceptance / decision contract:** Decision preserves native preset confirmation and provider-specific content or states the changed policy explicitly.
@@ -376,8 +376,8 @@ There are **25 actual packages: 19 implementation-ready *proposals* and six bloc
 
 ### P2-22 — Define BigQuery diagnostic policy before defensive redaction
 
-**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · S**  
-**Atlas:** `ATL-089`. **Inventory:** `C10`. **Findings:** `NON03-01`.  
+**DECISION_OR_EVIDENCE — BLOCKED · BLOCKED · S**
+**Atlas:** `ATL-089`. **Inventory:** `C10`. **Findings:** `NON03-01`.
 **Dependencies:** `BigQuery diagnostic threat/redaction policy`, `Realistic ADC errors and renderer/log-boundary characterization`.
 
 **Acceptance / decision contract:** Record realistic missing/revoked/permission ADC error shapes and allowed diagnostic fields; trace adapter, IPC, renderer and logs independently. Approve a bounded redaction contract and assess impact before scheduling a defensive fix or claiming P1 security readiness.
