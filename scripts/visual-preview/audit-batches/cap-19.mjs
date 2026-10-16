@@ -170,9 +170,13 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await js('document.querySelector(\'[aria-label="Selected log details"] [class*="inspectorBody"]\').scrollTop=75')
   await settle()
   assert.ok((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes(message))
+  await js('document.querySelector(\'[aria-label="Selected log details"] details\').scrollIntoView({block:"center"})')
+  await settle()
+  const nestedVisible = await js('(() => {const e=document.querySelector(\'[aria-label="Selected log details"] details\'),body=e.closest(\'[class*="inspectorBody"]\');return {value:e.getBoundingClientRect().toJSON(),viewport:body.getBoundingClientRect().toJSON()}})()')
+  assert.ok(nestedVisible.value.top>=nestedVisible.viewport.top-1 && nestedVisible.value.bottom<=nestedVisible.viewport.bottom+1, 'the complete nested JSON disclosure is visible in the inspector screenshot')
   await save(screenshots[2], 'Target row and inspector, resized right panel, full multiline and nested fields')
   behavior.push({ scenario: 'inspector', selectedId: records[0].id, previousWidth, resizedWidth,
-    nestedPresentation: 'readable JSON', nestedBounds, messageComplete: true })
+    nestedPresentation: 'readable JSON', nestedBounds, nestedVisible, messageComplete: true })
 
   const beforeFilter = responses.length
   await click('[aria-label="Include service_name"]')
