@@ -18,6 +18,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  const button=async label=>{await js(`(()=>{const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===${data(label)});if(!b)throw Error('Missing '+${data(label)});b.focus();b.click()})()`);await settle()}
  const p=auditProfiles.tempo
  await js(`(()=>{const s=window.__datakoalaStore,t=structuredClone(s.getState().tabs[0]),p=${data(p)};Object.assign(t,{id:'stab21',connectionProfileId:p.id,queryMode:'sql',sql:'{ span:duration > 300ms }',result:null,queryError:null,running:false,tempoResultView:'list',tempoSampleSize:'100',tempoTimeRange:${data(auditRange)}});s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:'connected',generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:'loaded',error:null,isStale:false,revision:1}}})})()`)
+ win.show();win.setContentSize(1440,900);win.webContents.setZoomFactor(1)
  const observations=[]
  // Keep the full 1440x900 capture while resizing the actual query/detail pane to 652px.
  await js("document.querySelector('.main').style.width='652px'");await settle()
