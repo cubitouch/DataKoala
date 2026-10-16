@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Final #391 closeout checks. Source anchors and invariants, NOT product acceptance.
 
-Requires a full git checkout (fetch-depth: 0) to check historical source commits.
-Until an immutable remote archive tag exists, --allow-untagged-archive is permitted
-ONLY for non-destructive documentation work. It must never authorize deletion.
+Requires a full Git checkout (fetch-depth: 0) including the annotated historical
+archive tag, verified against its expected peeled commit. Deleted ledgers are read
+from that exact tag, never reconstructed from the current Atlas.
 """
 import argparse
 import copy
@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[3]
 AUDIT = ROOT / "docs/audit/391"
 AGG = AUDIT / "aggregation"
 ATLAS = AGG / "agg-03-atlas.json"
-LEDGER = AGG / "agg-02-evidence.json"
+LEDGER_ARCHIVE = "docs/audit/391/aggregation/agg-02-evidence.json"
 MANIFEST = ROOT / "tools/visual-review/manifest.json"
 BASE = "7cfc8a3b5ac92a471f2a8930599dabe68f9291db"
 TAG = "audit-391-phase-1c-evidence"
@@ -246,18 +246,7 @@ def check_source_anchors(a):
     return errors
 
 
-def check_archive(allow_untagged, a):
-    errors = []
-    try:
-        git("cat-file", "-e", BASE + "^{commit}")
-        resolved = git("rev-parse", "--verify", "refs/tags/" + TAG + "^{commit}")
-        check(resolved == BASE, "archive tag does not resolve to exact source commit", errors)
-        mode = "tag verified"
-    except subprocess.CalledProcessError:
-        if not allow_untagged:
-            errors.append("Immutable archive tag absent/unfetchable: " + TAG)
-        mode = "UNTAGGED non-destructive provisional check" if allow_untagged else "NOT VERIFIED"
-    # Check that exact source tree contains reports, validators and all original paths.
+def archived_paths(a):
     paths = {
         "docs/architecture/ux-convergence-coverage-register.md",
         "docs/architecture/ux-implementation-convergence-audit.md",
@@ -265,7 +254,7 @@ def check_archive(allow_untagged, a):
         "docs/audit/391/aggregation/AGG-02.md",
         "docs/audit/391/aggregation/AGG-03.md",
         "docs/audit/391/aggregation/AGG-04.md",
-        "docs/audit/391/aggregation/agg-02-evidence.json",
+        LEDGER_ARCHIVE,
         "docs/audit/391/aggregation/agg-03-atlas.json",
         "docs/audit/391/aggregation/agg-04-verification.json",
     }
@@ -273,13 +262,31 @@ def check_archive(allow_untagged, a):
     paths |= {b["originalRecord"]["path"] for b in a["sourceBatches"]}
     paths |= {f"docs/audit/391/batches/CAP-{n:02}.md" for n in range(18, 31)}
     paths |= {f"docs/audit/391/batches/NON-{n:02}.md" for n in range(1, 8)}
+    return paths
+
+
+def check_archive(a):
+    errors = []
+    ref = "refs/tags/" + TAG
+    try:
+        kind = git("cat-file", "-t", ref)
+        check(kind == "tag", "historical archive is not an annotated tag", errors)
+        resolved = git("rev-parse", "--verify", ref + "^{commit}")
+        check(resolved == BASE, "annotated tag does not peel to exact source commit", errors)
+        check(git("rev-parse", "--verify", BASE + "^{tree}") ==
+              git("rev-parse", "--verify", ref + "^{tree}"),
+              "archive tree mismatch", errors)
+    except subprocess.CalledProcessError:
+        errors.append("required annotated archive tag unavailable: " + TAG)
+    # The archive commit contains the *pre-consolidation* evidence bytes.
+    paths = archived_paths(a)
     for p in sorted(paths):
         try:
+            git("cat-file", "-e", ref + ":" + p)
             git("cat-file", "-e", BASE + ":" + p)
         except subprocess.CalledProcessError:
-            errors.append("missing at pinned archive commit: " + p)
-    return errors, mode, len(paths)
-
+            errors.append("missing archived source: " + p)
+    return errors, len(paths)
 
 def check_active_paths(manifest):
     errors = []
@@ -362,20 +369,17 @@ def negative_controls(a, ledger, manifest):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--allow-untagged-archive", action="store_true",
-                        help="Provisional NO-DELETION checks only; never a pruning approval")
     parser.add_argument("--negative-controls", action="store_true")
-    parser.add_argument("--no-git-source-check", action="store_true",
-                        help="Local structural debugging; not a complete closeout validation")
     args = parser.parse_args()
     a = json.loads(ATLAS.read_text())
-    ledger = json.loads(LEDGER.read_text())
+    archive_errors, checked = check_archive(a)
+    if archive_errors:
+        print("\n".join("FAIL: " + error for error in archive_errors), file=sys.stderr)
+        raise SystemExit(1)
+    ledger = json.loads(git("show", f"refs/tags/{TAG}:{LEDGER_ARCHIVE}"))
     manifest = json.loads(MANIFEST.read_text())
     errors = validate_data(a, ledger, manifest)
-    if not args.no_git_source_check:
-        errors.extend(check_source_anchors(a))
-    archive_errors, mode, checked = check_archive(args.allow_untagged_archive, a)
-    errors.extend(archive_errors)
+    errors.extend(check_source_anchors(a))
     errors.extend(check_active_paths(manifest))
     if errors:
         print("\n".join("FAIL: " + error for error in errors), file=sys.stderr)
@@ -383,7 +387,7 @@ def main():
     negatives = negative_controls(a, ledger, manifest) if args.negative_controls else 0
     print(f"PASS #391: 175 original IDs / 37 batches / 147 candidates / 107 entries / "
           f"25 failed IDs / 25 packages; {checked} historical paths; {negatives} negative controls")
-    print("Archive:", mode)
+    print(f"Archive: annotated {TAG} -> {BASE}; all {checked} historical paths resolvable")
     print("SOURCE-BACKED: original candidate/batch/A03 lines, independent AGG-02 owners and flags")
     print("STRUCTURAL ONLY: Atlas dispositions, reciprocal mappings, package policies, visual asset identities")
     print("NOT VERIFIED HERE: actual product behavior, source-reported images, native/live-provider or OS acceptance")

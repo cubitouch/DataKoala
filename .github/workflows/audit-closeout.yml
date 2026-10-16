@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: '24'
       - name: Validate source-backed audit record and negative controls
-        run: python3 -B docs/audit/391/validate-closeout.py --negative-controls --allow-untagged-archive
+        run: python3 -B docs/audit/391/validate-closeout.py --negative-controls
       - name: Regenerate frozen VIS-01 board
         run: |
           node tools/visual-review/generate.mjs
