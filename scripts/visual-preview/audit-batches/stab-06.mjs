@@ -10,7 +10,7 @@ export const screenshots = ['stab06-raw-desktop.png', 'stab06-raw-narrow.png']
 export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   const js = code => win.webContents.executeJavaScript(code)
   const settle = () => js('new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))')
-  const profile = auditProfiles.find(p=>p.kind==='loki')
+  const profile = auditProfiles.loki
   const query = '{service_name="example-service"}\n' + Array.from({length:100},(_,i)=>'|= "line '+i+'"').join('\n')
   await js(`(() => {const s=window.__datakoalaStore,t=structuredClone(s.getState().tabs[0]),p=${data(profile)};Object.assign(t,{id:'stab06',connectionProfileId:p.id,queryMode:'sql',sql:${data(query)},result:null,queryError:null,running:false,lokiTimeRange:${data(auditRange)}});s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:'connected',generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:'loaded',error:null,isStale:false}}})})()`)
   await waitFor(win,'document.querySelector(".cm-scroller")','LogQL CodeMirror')
