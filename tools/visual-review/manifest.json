@@ -99,7 +99,7 @@
       "scenario": "ai-settings",
       "viewport": [
         1440,
-        900
+        1000
       ],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
@@ -117,7 +117,7 @@
       "captureKind": "Electron audit (synthetic fixture)",
       "scenario": "traces-open-narrow",
       "viewport": [
-        1440,
+        900,
         900
       ],
       "state": "published_2026_10_16",
@@ -441,7 +441,7 @@
       "scenario": "ai-query-repair-error",
       "viewport": [
         1440,
-        900
+        1000
       ],
       "state": "published_2026_10_16",
       "isComparisonSheet": false
