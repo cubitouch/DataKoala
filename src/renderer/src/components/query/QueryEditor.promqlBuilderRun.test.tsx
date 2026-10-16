@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 
 const {
@@ -202,7 +203,9 @@ describe('PromQL Builder Run availability', () => {
     )
     await new Promise((resolve) => window.setTimeout(resolve, 0))
     fireEvent.click(
-      screen.getByRole('button', { name: 'Copy SQL to clipboard' }),
+      within(
+        document.querySelector('[data-query-toolbar]') as HTMLElement,
+      ).getByRole('button', { name: 'Copy PromQL to clipboard' }),
     )
     await waitFor(() =>
       expect(copyTextToClipboard).toHaveBeenCalledWith(formatted),
@@ -286,8 +289,8 @@ describe('PromQL Builder Run availability', () => {
       ).toBe(true),
     )
     expect(
-      screen
-        .getByRole('button', { name: 'Copy SQL to clipboard' })
+      within(document.querySelector('[data-query-toolbar]') as HTMLElement)
+        .getByRole('button', { name: 'Copy PromQL to clipboard' })
         .hasAttribute('disabled'),
     ).toBe(true)
     expect(
