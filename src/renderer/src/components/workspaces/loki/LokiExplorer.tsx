@@ -170,6 +170,7 @@ export function LokiExplorer({
     })
   const trendRevision = useRef(0),
     generatedFormatRevision = useRef(0),
+    rawFormatRevision = useRef(0),
     hasRun = useRef(Boolean(session.result)),
     mounted = useRef(true)
   const trendCacheKey = useRef<string | null>(null)
@@ -221,6 +222,7 @@ export function LokiExplorer({
   )
   const deactivate = useCallback(() => {
     mounted.current = false
+    rawFormatRevision.current += 1
     trendRevision.current += 1
   }, [])
   const clearLokiTransientState = () => {
@@ -235,7 +237,30 @@ export function LokiExplorer({
   }
   useEffect(() => {
     mounted.current = true
-    return deactivate
+    // Observe store transitions synchronously: edit/undo and Raw/Builder
+    // round-trips invalidate a request even when React batches the renders.
+    const unsubscribe = useStore.subscribe((state, previous) => {
+      const current = selectActiveSession(state)
+      const before = selectActiveSession(previous)
+      const profileId = current.connectionProfileId
+      if (
+        current.id !== before.id ||
+        current.queryContextId !== before.queryContextId ||
+        profileId !== before.connectionProfileId ||
+        current.sql !== before.sql ||
+        current.queryMode !== before.queryMode ||
+        (profileId &&
+          (state.connectionStateByProfileId[profileId]?.generation !==
+            previous.connectionStateByProfileId[profileId]?.generation ||
+            state.connectionStateByProfileId[profileId]?.status !==
+              previous.connectionStateByProfileId[profileId]?.status))
+      )
+        rawFormatRevision.current += 1
+    })
+    return () => {
+      unsubscribe()
+      deactivate()
+    }
   }, [deactivate])
   useEffect(() => {
     const request = ++generatedFormatRevision.current
@@ -575,11 +600,22 @@ export function LokiExplorer({
   }
   const format = async () => {
     if (!canLoadMetadata) return
+    const request = ++rawFormatRevision.current
+    const tabId = session.id
+    const isCurrent = () =>
+      isCurrentTab(tabId) && request === rawFormatRevision.current
     const original = query
+    setError(null)
     try {
-      setSql(await api.connections.loki.formatQuery(connectionId, original))
+      const formatted = await api.connections.loki.formatQuery(
+        connectionId,
+        original,
+      )
+      if (!isCurrent()) return
+      setSql(formatted, tabId)
       notify({ message: 'Formatted', duration: 2600 })
     } catch (caught) {
+      if (!isCurrent()) return
       setError(
         `Formatting failed; query was not changed. ${caught instanceof Error ? caught.message : String(caught)}`,
       )
