@@ -23,3 +23,6 @@ jobs:
           node tools/visual-review/generate.mjs --check
       - name: Focused review board tests (startup, PNG access, decisions round-trip)
         run: node --test tools/visual-review/review-board.test.mjs
+
+      - name: Exercise actual review UI in headless Chromium (if installed)
+        run: node tools/visual-review/browser-smoke.mjs
