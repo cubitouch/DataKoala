@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>DataKoala · Visual Review Board</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="mast">
+    <div><p class="eyebrow">DataKoala / Audit 391 / VIS-01</p><h1>Visual review board<span class="dot">.</span></h1><p class="sub">Real Electron captures. Clear design decisions. No Phase 2 changes.</p></div>
+    <div class="mast-actions"><button id="export-json" type="button">Export JSON</button><button id="export-md" type="button">Export Markdown</button><label for="import" class="button">Import decisions</label><input id="import" type="file" accept=".json,application/json" hidden></div>
+  </header>
+  <main class="workspace">
+    <aside class="sidebar" aria-label="Comparison browser">
+      <div class="side-head"><strong>Review queue</strong><span id="progress">Loading…</span></div>
+      <div class="filters">
+        <label>Search<input id="search" type="search" placeholder="Title, Atlas ID, source…" autocomplete="off"></label>
+        <label>Provider<select id="provider"><option value="">All providers</option></select></label>
+        <label>Category<select id="category"><option value="">All categories</option></select></label>
+        <label>Priority<select id="priority"><option value="">All priorities</option></select></label>
+        <label>Decision<select id="decision-filter"><option value="">All decisions</option><option value="unreviewed">Not decided</option><option value="decided">Decided</option></select></label>
+        <label class="check"><input type="checkbox" id="gaps-only">Missing / incomplete evidence only</label>
+      </div>
+      <div id="queue" role="listbox" aria-label="Comparisons" tabindex="0"></div>
+    </aside>
+    <section class="review" aria-label="Review comparison">
+      <div id="review-content"><p class="loading">Loading evidence…</p></div>
+    </section>
+  </main>
+  <footer><span id="source-info">Source integrity verified by local generator</span><span id="save-status" role="status" aria-live="polite"></span></footer>
+  <dialog id="zoom-dialog" aria-label="Full-resolution screenshot">
+    <div class="zoom-head"><span id="zoom-title"></span><div><a id="zoom-original" target="_blank" rel="noopener">Open original PNG</a><button id="zoom-close" type="button">Close ×</button></div></div>
+    <div class="zoom-body"><img id="zoom-image" alt="Full-resolution Electron screenshot"></div>
+  </dialog>
+  <script type="module" src="/app.mjs"></script>
+</body>
+</html>
