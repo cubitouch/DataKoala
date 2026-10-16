@@ -248,6 +248,9 @@ function parsePromqlBuilder(value: unknown): PromqlBuilderState {
     groupBy: stringArray(value.groupBy) ?? [],
     calculation,
     aggregation,
+    ...(isOneOf(value.histogramKindOverride, ['classic', 'native'] as const)
+      ? { histogramKindOverride: value.histogramKindOverride }
+      : {}),
     window: isOneOf(value.window, windows) ? value.window : '5m',
     percentile:
       typeof value.percentile === 'number' &&
