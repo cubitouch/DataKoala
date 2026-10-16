@@ -72,11 +72,48 @@ The 37 original sources comprise 30 CAP and seven NON batches. CAP-01–17 are e
 
 **Removed:** exactly 32 historical-only files. **Retained:** all executable CAP scenario modules, all evidence mappings, the live Atlas, review board, application, and permanent engineering tests. Removed-file links above and below resolve to the immutable original commit, not deleted relative paths.
 
+## Exact archived source paths
+
+All 32 removed files resolve to their original bytes at the verified immutable commit (in addition to the grouped inventory above):
+
+- [`docs/architecture/ux-convergence-coverage-register.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/architecture/ux-convergence-coverage-register.md)
+- [`docs/architecture/ux-implementation-convergence-audit.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/architecture/ux-implementation-convergence-audit.md)
+- [`docs/audit/391/aggregation/AGG-01.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-01.md)
+- [`docs/audit/391/aggregation/AGG-02.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-02.md)
+- [`docs/audit/391/aggregation/AGG-03.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-03.md)
+- [`docs/audit/391/aggregation/AGG-04.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-04.md)
+- [`docs/audit/391/aggregation/agg-02-evidence.json`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-02-evidence.json)
+- [`docs/audit/391/aggregation/agg-04-verification.json`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-04-verification.json)
+- [`docs/audit/391/aggregation/validate-agg-01.py`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/validate-agg-01.py)
+- [`docs/audit/391/aggregation/validate-agg-02.py`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/validate-agg-02.py)
+- [`docs/audit/391/aggregation/validate-agg-03.py`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/validate-agg-03.py)
+- [`docs/audit/391/aggregation/validate-agg-04.py`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/validate-agg-04.py)
+- [`docs/audit/391/batches/CAP-18.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-18.md)
+- [`docs/audit/391/batches/CAP-19.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-19.md)
+- [`docs/audit/391/batches/CAP-20.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-20.md)
+- [`docs/audit/391/batches/CAP-21.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-21.md)
+- [`docs/audit/391/batches/CAP-22.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-22.md)
+- [`docs/audit/391/batches/CAP-23.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-23.md)
+- [`docs/audit/391/batches/CAP-24.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-24.md)
+- [`docs/audit/391/batches/CAP-25.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-25.md)
+- [`docs/audit/391/batches/CAP-26.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-26.md)
+- [`docs/audit/391/batches/CAP-27.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-27.md)
+- [`docs/audit/391/batches/CAP-28.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-28.md)
+- [`docs/audit/391/batches/CAP-29.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-29.md)
+- [`docs/audit/391/batches/CAP-30.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/CAP-30.md)
+- [`docs/audit/391/batches/NON-01.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/NON-01.md)
+- [`docs/audit/391/batches/NON-02.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/NON-02.md)
+- [`docs/audit/391/batches/NON-03.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/NON-03.md)
+- [`docs/audit/391/batches/NON-04.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/NON-04.md)
+- [`docs/audit/391/batches/NON-05.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/NON-05.md)
+- [`docs/audit/391/batches/NON-06.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/NON-06.md)
+- [`docs/audit/391/batches/NON-07.md`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches/NON-07.md)
+
 ## Before/after source-tree footprint
 
 The initial #406 integration HEAD `7cfc8a3b5ac92a471f2a8930599dabe68f9291db` had 806 tracked files. Immediately before the archival-pruning step, the existing PR #444 had 813 tracked files. Pruning 32 historical-only files, while retaining all newly authored closeout files, yields **781 tracked files** (a net reduction of 25 relative to the integration baseline). This removes approximately 2.72 MB of duplicate active evidence source while preserving Git history and all binary screenshots.
 
-**Verified audit-directory source-line comparison:** the integration baseline contained **31 files / 38,615 LF lines** under `docs/audit/391/`; the non-destructive draft contained **37 files / 39,587 LF lines**; and the consolidated tree contains **7 files / 12,529 LF lines** (including the unchanged 11,534-line structured Atlas). That is **26,086 fewer audit-directory LF lines than the integration baseline**, without losing any original source from the annotated archive. The whole-repository PR diff at this revision shows **1,041 lines added and 28,202 deleted** versus the integration base, for a **27,161-line net reduction**; after this documentation-only sentence update the line counts remain unchanged.
+**Verified audit-directory source-line comparison:** the integration baseline contained **31 files / 38,615 LF lines** under `docs/audit/391/`; the non-destructive draft contained **37 files / 39,587 LF lines**; and the consolidated tree contains **7 files / 12,566 LF lines** (including the unchanged 11,534-line structured Atlas). That is **26,049 fewer audit-directory LF lines than the integration baseline**, without losing any original source from the annotated archive. The whole-repository PR diff is reviewed separately on the final PR head; counts here are measured LF lines of the committed audit-directory sources, not estimates or product acceptance.
 
 ## Evidence semantics and trust boundaries
 
