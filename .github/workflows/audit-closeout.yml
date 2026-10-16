@@ -1,0 +1,31 @@
+name: Audit #391 closeout checks
+
+on:
+  pull_request:
+    branches: [audit/391-ux-convergence]
+    paths:
+      - 'docs/audit/391/**'
+      - 'tools/visual-review/**'
+      - '.github/workflows/audit-closeout.yml'
+  workflow_dispatch:
+
+jobs:
+  closeout:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate source-backed audit record and negative controls
+        run: python3 -B docs/audit/391/validate-closeout.py --negative-controls --allow-untagged-archive
+      - name: Regenerate frozen VIS-01 board
+        run: |
+          node tools/visual-review/generate.mjs
+          node tools/visual-review/generate.mjs --check
+      - name: VIS-01 focused regression and offline-serving tests
+        run: node --test tools/visual-review/review-board.test.mjs
