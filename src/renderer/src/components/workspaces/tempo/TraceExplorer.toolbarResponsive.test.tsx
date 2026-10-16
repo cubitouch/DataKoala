@@ -32,3 +32,26 @@ describe('Tempo query toolbar responsiveness', () => {
     )
   })
 })
+
+it('contains detail timing controls by pane width and reserves space for the complete sample label', () => {
+  const detailCss = readFileSync(
+    resolve(
+      process.cwd(),
+      'src/renderer/src/components/results/traces/TraceResultHeader.module.css',
+    ),
+    'utf8',
+  )
+  const toolbarCss = readFileSync(
+    resolve(
+      process.cwd(),
+      'src/renderer/src/components/workspaces/tempo/TraceExplorer.module.css',
+    ),
+    'utf8',
+  )
+  expect(detailCss).toMatch(
+    /@container\s*\(max-width:\s*760px\)\s*\{\s*\.filterToolbar/,
+  )
+  expect(toolbarCss).toMatch(
+    /\.sampleSize\s*\{[^}]*width:\s*210px;[^}]*flex-shrink:\s*0;/s,
+  )
+})

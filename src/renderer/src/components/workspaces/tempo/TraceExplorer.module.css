@@ -68,7 +68,8 @@
 }
 
 .sampleSize {
-  width: 150px;
+  width: 210px;
+  flex-shrink: 0;
   white-space: nowrap;
 }
 
