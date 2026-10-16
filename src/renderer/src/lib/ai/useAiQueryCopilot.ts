@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '@lib/api'
 import {
   captureAiQuerySnapshot as capture,
+  assertAiQueryContextCurrent,
+  isAiQueryContextCurrent,
   expandAiQueryContext as expand,
   matchesAiQuerySnapshot as matches,
   noAiMetadataMatchMessage as noMatchMessage,
@@ -72,7 +74,12 @@ export function useAiQueryCopilot() {
         pending = flight.current,
         shown = reviewRef.current
       if (pending && !matches(pending.snapshot, now)) pending.stale = true
-      if (shown && !shown.stale && !matches(shown.input.snapshot, now)) {
+      if (
+        shown &&
+        !shown.stale &&
+        (!matches(shown.input.snapshot, now) ||
+          !isAiQueryContextCurrent(shown.input))
+      ) {
         const staleReview = { ...shown, stale: true }
         reviewRef.current = staleReview
         setReview(staleReview)
@@ -172,6 +179,7 @@ export function useAiQueryCopilot() {
         !retry &&
         prepared &&
         prepared.prompt === requestPrompt &&
+        isAiQueryContextCurrent(prepared) &&
         matches(prepared.snapshot, active.snapshot)
           ? prepared
           : await prepare(active.snapshot, requestPrompt)
@@ -186,6 +194,7 @@ export function useAiQueryCopilot() {
       }
       const callProvider = async (requestInput: Prepared) => {
         if (!mounted.current || flight.current !== active) return null
+        assertAiQueryContextCurrent(requestInput)
         setSent(requestInput)
         active.sent = true
         return api.ai.proposeQuery({
@@ -209,7 +218,10 @@ export function useAiQueryCopilot() {
         updateReview({
           input,
           proposal: first.value.proposal,
-          stale: active.stale || !matches(input.snapshot, capture()),
+          stale:
+            active.stale ||
+            !matches(input.snapshot, capture()) ||
+            !isAiQueryContextCurrent(input),
         })
         return
       }
@@ -239,7 +251,10 @@ export function useAiQueryCopilot() {
       updateReview({
         input: expanded,
         proposal: second.value.proposal,
-        stale: active.stale || !matches(expanded.snapshot, capture()),
+        stale:
+          active.stale ||
+          !matches(expanded.snapshot, capture()) ||
+          !isAiQueryContextCurrent(expanded),
       })
     } catch {
       if (mounted.current && flight.current === active)
@@ -257,7 +272,11 @@ export function useAiQueryCopilot() {
   const apply = () => {
     const current = reviewRef.current
     if (flight.current || !current) return
-    if (current.stale || !matches(current.input.snapshot, capture())) {
+    if (
+      current.stale ||
+      !matches(current.input.snapshot, capture()) ||
+      !isAiQueryContextCurrent(current.input)
+    ) {
       updateReview({ ...current, stale: true })
       return
     }

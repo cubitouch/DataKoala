@@ -183,3 +183,78 @@ it.each(['old-first', 'new-first'] as const)(
     expect(describeTable).toHaveBeenCalledTimes(2)
   },
 )
+
+it.each(['old-first', 'new-first'] as const)(
+  'keeps replacement metadata revision columns independent (%s)',
+  async (order) => {
+    let finishOld!: (value: unknown) => void
+    let finishNew!: (value: unknown) => void
+    describeTable
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishOld = resolve
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishNew = resolve
+        }),
+      )
+    const old = ensureRelationColumns('p1', relation)
+    const oldRevision = useStore.getState().metadataByProfileId.p1.revision!
+    useStore
+      .getState()
+      .setMetadata(
+        [{ name: 'public', isSystem: false, relations: [{ ...relation }] }],
+        'loaded',
+        null,
+        'p1',
+      )
+    expect(useStore.getState().metadataByProfileId.p1.revision).toBeGreaterThan(
+      oldRevision,
+    )
+    const current = ensureRelationColumns('p1', relation)
+    expect(describeTable).toHaveBeenCalledTimes(2)
+    expect(current).not.toBe(old)
+    const columns = [{ name: 'new_id', dataTypeName: 'integer' }]
+    if (order === 'old-first') {
+      finishOld([{ name: 'old_id', dataTypeName: 'integer' }])
+      await expect(old).resolves.toBeUndefined()
+      expect(ensureRelationColumns('p1', relation)).toBe(current)
+      finishNew(columns)
+    } else {
+      finishNew(columns)
+      await current
+      finishOld([{ name: 'old_id', dataTypeName: 'integer' }])
+    }
+    await expect(old).resolves.toBeUndefined()
+    await expect(current).resolves.toEqual(columns)
+    expect(
+      useStore.getState().metadataByProfileId.p1.schemas[0].relations[0]
+        .columns,
+    ).toEqual(columns)
+  },
+)
+
+it('ignores a stale column failure after metadata replacement', async () => {
+  let fail!: (error: Error) => void
+  describeTable.mockReturnValueOnce(
+    new Promise((_resolve, reject) => {
+      fail = reject
+    }),
+  )
+  const old = ensureRelationColumns('p1', relation)
+  useStore
+    .getState()
+    .setMetadata(
+      [{ name: 'public', isSystem: false, relations: [{ ...relation }] }],
+      'loaded',
+      null,
+      'p1',
+    )
+  fail(new Error('obsolete column failure'))
+  await expect(old).resolves.toBeUndefined()
+  expect(
+    useStore.getState().metadataByProfileId.p1.schemas[0].relations[0],
+  ).toEqual(relation)
+})

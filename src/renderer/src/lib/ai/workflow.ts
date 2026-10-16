@@ -1,7 +1,10 @@
 import { ensureRelationColumns } from '@lib/relationColumns'
 import { selectActiveSession, useStore } from '@store/useStore'
 import type { AiContextRequest, AiQueryContext } from '@shared/ai'
-import { queryLanguageForSourceKind } from '@shared/types'
+import {
+  queryLanguageForSourceKind,
+  type DatabaseRelationNode,
+} from '@shared/types'
 import {
   appendAiContext,
   buildAiContext,
@@ -20,7 +23,14 @@ export interface AiDiscoveryDetails {
   request: AiContextRequest
   addedRelations: string[]
 }
+interface AiMetadataSnapshot {
+  profileId: string
+  revision: number | undefined
+  generation: number | undefined
+  present: boolean
+}
 export interface AiPreparedContext {
+  metadata: AiMetadataSnapshot
   snapshot: AiQuerySnapshot
   prompt: string
   context: AiQueryContext
@@ -35,6 +45,47 @@ export const matchesAiQuerySnapshot = (
   b: AiQuerySnapshot,
 ) => a.tabId === b.tabId && a.profileId === b.profileId && a.query === b.query
 
+function captureAiMetadataSnapshot(profileId: string): AiMetadataSnapshot {
+  const state = useStore.getState()
+  const metadata = state.metadataByProfileId[profileId]
+  return {
+    profileId,
+    revision: metadata?.revision,
+    generation: state.connectionStateByProfileId[profileId]?.generation,
+    present: metadata !== undefined,
+  }
+}
+
+export function isAiQueryContextCurrent(
+  input: Pick<AiPreparedContext, 'metadata'>,
+): boolean {
+  const current = captureAiMetadataSnapshot(input.metadata.profileId)
+  return (
+    current.revision === input.metadata.revision &&
+    current.generation === input.metadata.generation &&
+    current.present === input.metadata.present
+  )
+}
+
+export function assertAiQueryContextCurrent(
+  input: Pick<AiPreparedContext, 'metadata'>,
+): void {
+  if (!isAiQueryContextCurrent(input))
+    throw new Error(
+      'Connection metadata changed. Refresh metadata and try again.',
+    )
+}
+
+async function loadAiRelationColumns(
+  metadata: AiMetadataSnapshot,
+  relation: DatabaseRelationNode,
+) {
+  assertAiQueryContextCurrent({ metadata })
+  const columns = await ensureRelationColumns(metadata.profileId, relation)
+  assertAiQueryContextCurrent({ metadata })
+  return columns
+}
+
 export async function prepareAiQueryContext(
   snapshot: AiQuerySnapshot,
   rankingText: string,
@@ -45,19 +96,21 @@ export async function prepareAiQueryContext(
   if (!profile) throw new Error('No SQL connection selected.')
   const language = queryLanguageForSourceKind(profile.kind)
   if (language.kind !== 'sql') throw new Error('No SQL connection selected.')
+  const metadata = captureAiMetadataSnapshot(snapshot.profileId)
   const schemas = state.metadataByProfileId[snapshot.profileId]?.schemas ?? []
   const detailedContext = await buildAiContext(
     language.dialect,
     selectAiRelations(schemas, rankingText, snapshot.query),
-    (relation) => ensureRelationColumns(snapshot.profileId!, relation),
+    (relation) => loadAiRelationColumns(metadata, relation),
   )
+  assertAiQueryContextCurrent({ metadata })
   const context = withAiRelationCatalog(
     detailedContext,
     schemas,
     rankingText,
     snapshot.query,
   )
-  return { snapshot, prompt: rankingText, context }
+  return { snapshot, metadata, prompt: rankingText, context }
 }
 
 export async function expandAiQueryContext(
@@ -65,6 +118,7 @@ export async function expandAiQueryContext(
   request: AiContextRequest,
 ): Promise<AiPreparedContext> {
   if (!input.snapshot.profileId) throw new Error('No SQL connection selected.')
+  assertAiQueryContextCurrent(input)
   const schemas =
     useStore.getState().metadataByProfileId[input.snapshot.profileId]
       ?.schemas ?? []
@@ -81,9 +135,10 @@ export async function expandAiQueryContext(
   }
   const expandedContext = candidates.length
     ? await appendAiContext(detailedContext, candidates, (relation) =>
-        ensureRelationColumns(input.snapshot.profileId!, relation),
+        loadAiRelationColumns(input.metadata, relation),
       )
     : detailedContext
+  assertAiQueryContextCurrent(input)
   const context = withAiRelationCatalog(
     expandedContext,
     schemas,

@@ -36,7 +36,8 @@ export function ensureRelationColumns(
   )
     return Promise.resolve(undefined)
   const generation = initialConnection.generation
-  const key = `${profileId}\0${generation}\0${relation.qualifiedName}`
+  const revision = useStore.getState().metadataByProfileId[profileId]?.revision
+  const key = `${profileId}\0${generation}\0${revision}\0${relation.qualifiedName}`
   const existing = pending.get(key)
   if (existing) return existing
 
@@ -60,6 +61,8 @@ export function ensureRelationColumns(
         useStore.getState().connectionStateByProfileId[profileId]
       if (
         currentConnection?.generation !== generation ||
+        useStore.getState().metadataByProfileId[profileId]?.revision !==
+          revision ||
         (currentConnection.status !== 'connected' &&
           currentConnection.status !== 'idle')
       )
@@ -81,6 +84,8 @@ export function ensureRelationColumns(
         useStore.getState().connectionStateByProfileId[profileId]
       if (
         currentConnection?.generation !== generation ||
+        useStore.getState().metadataByProfileId[profileId]?.revision !==
+          revision ||
         (currentConnection.status !== 'connected' &&
           currentConnection.status !== 'idle')
       )

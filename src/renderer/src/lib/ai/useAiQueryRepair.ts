@@ -9,6 +9,8 @@ import {
 } from '@shared/ai'
 import {
   captureAiQuerySnapshot,
+  assertAiQueryContextCurrent,
+  isAiQueryContextCurrent,
   expandAiQueryContext,
   matchesAiQuerySnapshot,
   noAiMetadataMatchMessage,
@@ -131,7 +133,10 @@ export function useAiQueryRepair() {
           tabId: shown.input.snapshot.tabId,
           profileId: shown.input.snapshot.profileId,
         }
-        if (!failureMatches(reviewedFailure)) {
+        if (
+          !failureMatches(reviewedFailure) ||
+          !isAiQueryContextCurrent(shown.input)
+        ) {
           const currentFailure = captureFailure()
           const isNewRepairableFailure =
             !!currentFailure &&
@@ -177,6 +182,7 @@ export function useAiQueryRepair() {
       const callProvider = async () => {
         if (!mounted.current || flight.current !== active || active.stale)
           return null
+        assertAiQueryContextCurrent(input)
         active.sent = true
         setSent(input)
         return api.ai.proposeQuery({
@@ -227,7 +233,11 @@ export function useAiQueryRepair() {
           return
         }
       }
-      updateReview({ input, proposal: response.value.proposal, stale: false })
+      updateReview({
+        input,
+        proposal: response.value.proposal,
+        stale: !isAiQueryContextCurrent(input),
+      })
     } catch {
       if (mounted.current && flight.current === active)
         setError(
@@ -247,6 +257,7 @@ export function useAiQueryRepair() {
       flight.current ||
       !current ||
       current.stale ||
+      !isAiQueryContextCurrent(current.input) ||
       !failureMatches({
         query: current.input.snapshot.query,
         error: current.input.error,
