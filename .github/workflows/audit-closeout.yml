@@ -2,10 +2,8 @@ name: Audit #391 closeout checks
 
 on:
   pull_request:
-    branches: [audit/391-ux-convergence]
     paths:
       - 'docs/audit/391/**'
-      - 'tools/visual-review/**'
       - '.github/workflows/audit-closeout.yml'
   workflow_dispatch:
 
