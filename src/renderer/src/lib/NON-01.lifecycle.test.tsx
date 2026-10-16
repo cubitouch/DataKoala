@@ -121,12 +121,12 @@ describe('NON-01 generation and query ownership characterization', () => {
           'connecting',
         )
         if (outcome === 'success')
-          old.resolve({ ok: true, id: 'a', generation: 4 })
+          old.resolve({ ok: true, generation: 4 })
         else old.reject(new Error('old lazy failure'))
         await lazy
         const intermediate =
           useStore.getState().connectionStateByProfileId.a.status
-        newer.resolve({ ok: true, id: 'a', generation: 5 })
+        newer.resolve({ ok: true, generation: 5 })
         await explicit
         expect(useStore.getState().connectionStateByProfileId.a).toMatchObject({
           status: 'connected',
@@ -234,7 +234,7 @@ describe('NON-01 generation and query ownership characterization', () => {
     const operation = beginConnectedQueryOperation('tab-a', 'a')
     bindTabConnection('tab-a', 'b')
     bindTabConnection('tab-a', 'a')
-    pending.resolve({ ok: true, id: 'a', generation: 5 })
+    pending.resolve({ ok: true, generation: 5 })
     expect(await operation).toBeNull()
     expect(tab('tab-a').queryOperation).toBeNull()
     expect(tab('tab-a').running).toBe(false)
@@ -253,7 +253,7 @@ describe('NON-01 generation and query ownership characterization', () => {
     const activation = useStore.getState().activateTab('tab-a')
     useStore.getState().activateTab('tab-b')
     expect(useStore.getState().activeTabId).toBe('tab-b')
-    pending.resolve({ ok: true, id: 'a', generation: 5 })
+    pending.resolve({ ok: true, generation: 5 })
     await activation
     expect(mocks.connect).toHaveBeenCalledTimes(1)
     expect(useStore.getState().activeTabId).toBe('tab-b')
@@ -270,7 +270,6 @@ describe('NON-01 generation and query ownership characterization', () => {
     const first = deferred<ConnectResult>()
     mocks.reconnect.mockReturnValueOnce(first.promise).mockResolvedValueOnce({
       ok: true,
-      id: 'a',
       generation: 5,
       serverVersion: 'new',
     })
