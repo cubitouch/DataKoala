@@ -156,7 +156,10 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await waitFor(win, 'document.querySelector(\'[aria-label="Selected log details"]\')', 'selected inspector')
   assert.ok((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes(message))
   assert.ok((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes('nested'))
-  assert.ok((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes('[object Object]'), 'nested value is stringified with the current implementation')
+  assert.equal((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes('[object Object]'), false, 'nested values must remain inspectable JSON')
+  assert.ok(await js("[...document.querySelectorAll('details pre')].some(e=>e.textContent.includes('gateway') && e.textContent.includes('retries'))"))
+  const nestedBounds = await js("(()=>{const e=document.querySelector('details pre'),p=e.closest('dd');return {value:e.getBoundingClientRect().toJSON(),parent:p.getBoundingClientRect().toJSON(),scroll:e.scrollHeight,client:e.clientHeight}})()")
+  assert.ok(nestedBounds.value.right <= nestedBounds.parent.right+1, 'structured value stays within inspector')
   const previousWidth = Number(await js('document.querySelector("[data-resizable-detail]").getAttribute("data-detail-width")'))
   await js('document.querySelector(\'[role="separator"][aria-label="Resize Selected log details"]\').focus()')
   win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Left' })
@@ -169,7 +172,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   assert.ok((await js('document.querySelector(\'[aria-label="Selected log details"]\').textContent')).includes(message))
   await save(screenshots[2], 'Target row and inspector, resized right panel, full multiline and nested fields')
   behavior.push({ scenario: 'inspector', selectedId: records[0].id, previousWidth, resizedWidth,
-    nestedPresentation: '[object Object]', messageComplete: true })
+    nestedPresentation: 'readable JSON', nestedBounds, messageComplete: true })
 
   const beforeFilter = responses.length
   await click('[aria-label="Include service_name"]')
@@ -197,6 +200,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   assert.equal(await js('window.__cap19Clipboard.writes.at(-1)'), message)
   await click('[aria-label="Copy raw log"]')
   assert.equal(await js('window.__cap19Clipboard.writes.at(-1)'), raw)
+  await click('[aria-label="Copy nested"]')
+  assert.equal(await js('window.__cap19Clipboard.writes.at(-1)'), JSON.stringify(records[0].parsedFields.nested))
   await click('[aria-label="Copy attempt"]')
   assert.equal(await js('window.__cap19Clipboard.writes.at(-1)'), '3')
   await click('[aria-label="Copy Trace ID"]')

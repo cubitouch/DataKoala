@@ -302,3 +302,23 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+.structuredValue {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.structuredValue summary {
+  cursor: pointer;
+  color: var(--text-mute);
+  overflow-wrap: anywhere;
+}
+
+.structuredValue pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 4px 0;
+  font: inherit;
+}
