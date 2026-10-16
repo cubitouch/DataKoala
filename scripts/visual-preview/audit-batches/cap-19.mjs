@@ -222,7 +222,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await click('[aria-label="Copy raw log"]')
   assert.equal(await js('window.__cap19Clipboard.writes.at(-1)'), raw)
   assert.equal(responses.length, beforeFilter)
-  await waitFor(win, `document.querySelector('[role=status]')?.textContent.includes('Copied to clipboard')`, 'copy retry succeeds')
+  await waitFor(win, `[...document.querySelectorAll('[role=status]')].some(e=>e.textContent.includes('Copied to clipboard'))`, 'copy retry succeeds')
   assert.equal(await js(`document.querySelectorAll('[role=alert]').length`), 0)
   // Selection stays attached to the log when the virtual viewport moves past it.
   await js('(() => {const e=document.querySelector(\'[aria-label="Log results"] [class*="logScroller"]\');e.scrollTop=e.scrollHeight*.8;e.dispatchEvent(new Event("scroll",{bubbles:true}))})()')
