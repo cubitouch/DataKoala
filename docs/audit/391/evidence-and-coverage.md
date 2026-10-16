@@ -76,7 +76,7 @@ The 37 original sources comprise 30 CAP and seven NON batches. CAP-01–17 are e
 
 The initial #406 integration HEAD `7cfc8a3b5ac92a471f2a8930599dabe68f9291db` had 806 tracked files. Immediately before the archival-pruning step, the existing PR #444 had 813 tracked files. Pruning 32 historical-only files, while retaining all newly authored closeout files, yields **781 tracked files** (a net reduction of 25 relative to the integration baseline). This removes approximately 2.72 MB of duplicate active evidence source while preserving Git history and all binary screenshots.
 
-The earlier non-destructive audit tree had **37 files / 39,587 LF lines under `docs/audit/391/`**, versus **31 files / 38,615 LF lines** at integration base. Its historical aggregation/batch material is now absent except for the corrected Atlas. Final line counts should be derived from the actual committed tree and PR diff rather than estimated from this baseline; the PR handoff records the verified final values.
+**Verified audit-directory source-line comparison:** the integration baseline contained **31 files / 38,615 LF lines** under `docs/audit/391/`; the non-destructive draft contained **37 files / 39,587 LF lines**; and the consolidated tree contains **7 files / 12,529 LF lines** (including the unchanged 11,534-line structured Atlas). That is **26,086 fewer audit-directory LF lines than the integration baseline**, without losing any original source from the annotated archive. The whole-repository PR diff at this revision shows **1,041 lines added and 28,202 deleted** versus the integration base, for a **27,161-line net reduction**; after this documentation-only sentence update the line counts remain unchanged.
 
 ## Evidence semantics and trust boundaries
 
