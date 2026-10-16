@@ -34,7 +34,7 @@ The shared Loki capture writes `loki-log-chart.png` with 60 one-minute buckets a
 
 The shared Tempo capture continues to write the two-point `tempo-trace-scatter.png` local-filter regression. A separate deterministic 48-trace cohort, with both statuses and slower outliers, writes `tempo-trace-cohort.png` for the website only after the existing regression sequence completes. The Visual Preview manifest publishes both images. Neither generated image is committed by hand.
 
-## UX convergence audit mode (PR-only)
+## UX convergence audit mode (explicit opt-in)
 
 `DATAKOALA_PREVIEW_KIND=audit` uses the same `capture.mjs` Electron launcher,
 BrowserWindow, preload, renderer wait and capture function. Its public fixtures,
@@ -44,7 +44,8 @@ renderer path or CSS is changed to improve an audit screenshot.
 
 ```bash
 pnpm build
-TZ=UTC DATAKOALA_PREVIEW_KIND=audit DATAKOALA_PREVIEW_OUTPUT=visual-audit \
+TZ=UTC DATAKOALA_AUDIT_HEAD=$(git rev-parse HEAD) \
+  DATAKOALA_PREVIEW_KIND=audit DATAKOALA_PREVIEW_OUTPUT=visual-audit \
   xvfb-run --auto-servernum --server-args='-screen 0 1600x1800x24' \
   pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
 ```
@@ -65,12 +66,35 @@ interaction outcomes. `review.html` is a self-contained index. Six contact sheet
 use scale-1 crops; they never resize individual components to make them match.
 A successful run is **generation evidence**, not a reviewed UX verdict.
 
-The Visual preview workflow runs this extra mode only on branches named `audit/*`.
-It uploads the separate `datakoala-ux-audit-pr-N` artifact, including partial
-evidence after a failed audit run. It publishes contact sheets, four key diagnostic frames and the DOM
-report under `visual-previews/pr-N/audit/`. The ordinary regression manifest and
-public documentation screenshot list remain unchanged. Full comparisons stay in
-the PR artifact; no audit image is added to the public Pages website.
+Automatic pull requests (including `audit/*` branches) capture and publish **only
+normal application previews**. They neither execute nor upload CAP/canonical
+audit captures. Refreshing ordinary previews updates only top-level PNGs;
+existing published `visual-previews/pr-N/audit/` directories, historical
+workflow artifacts and archived audit evidence remain untouched.
+
+The separate **Manual UX audit capture** workflow runs the same canonical
+Electron audit and standalone CAP batches only after explicit dispatch:
+
+```bash
+gh workflow run audit-capture.yml --ref audit/391-ux-convergence -f run_audit=true
+gh run list --workflow audit-capture.yml --branch audit/391-ux-convergence --limit 5
+```
+
+The Boolean `run_audit` input defaults to `false`, which skips audit execution.
+**GitHub requires the workflow file to exist on the default branch** before
+manual dispatch can be used, even when selecting another branch with `--ref`.
+Once available, select a trusted ref in Actions and enable `run_audit`.
+The workflow pins its checkout to the dispatched SHA, has read-only token
+permissions, persists no credentials, and never publishes preview-branch files
+or posts PR comments. It cannot invent a PR number for manual evidence.
+
+Audit artifacts are named `datakoala-ux-audit-run-<run-id>-<attempt>`,
+retained for 14 days and contain available `visual-audit/` files (including
+partial evidence on failure), canonical `measurements.json`, `review.html`
+and `batches/` captures. `DATAKOALA_AUDIT_HEAD` records the exact source
+commit in evidence provenance. Run-specific artifacts are evidence of
+generation, not a declaration of visual verification. Ordinary screenshots,
+public documentation, and VIS-01's 23 curated screenshots are unchanged.
 
 When adding a state, update the audit manifest and captions, assert the actual
 view/semantic state before capture, execute the relevant transitions, and inspect
@@ -94,10 +118,9 @@ window, renderer wait, capture and divider helpers. All module screenshots are
 1440×900, DPR/zoom 1, with positive semantic targets. Modules own their fixtures
 and assertions, not the canonical audit manifest.
 
-The Visual preview workflow first executes the canonical audit unchanged, then
-`run-audit-batches.mjs` starts a fresh Electron process for every discovered batch.
-Outputs go under `visual-audit/batches/<UPPERCASE-ID>/` in the same existing
-`datakoala-ux-audit-pr-N` artifact. Regression/public documentation filenames and
+The manually dispatched audit workflow first executes the canonical audit unchanged,
+then `run-audit-batches.mjs` starts a fresh Electron process for every discovered batch.
+Outputs go under `visual-audit/batches/<UPPERCASE-ID>/` in the run-specific audit artifact. Regression/public documentation filenames and
 published canonical previews are unchanged. Run locally under Xvfb with:
 
 ```bash

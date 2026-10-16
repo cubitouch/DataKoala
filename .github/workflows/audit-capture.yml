@@ -1,0 +1,80 @@
+name: Manual UX audit capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_audit:
+        description: 'Explicitly capture the Phase 1C Electron UX audit and CAP batches'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    if: ${{ inputs.run_audit == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      TZ: UTC
+      DATAKOALA_AUDIT_HEAD: ${{ github.sha }}
+      DATAKOALA_PREVIEW_OUTPUT: visual-audit
+    steps:
+      - name: Check out exact requested source revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify audit source provenance
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$DATAKOALA_AUDIT_HEAD"
+          echo "Audit sourceHead: $DATAKOALA_AUDIT_HEAD"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Ensure Electron display libraries
+        shell: bash
+        run: |
+          if command -v Xvfb >/dev/null && \
+             ldconfig -p | grep -q 'libgtk-3.so.0' && \
+             ldconfig -p | grep -q 'libgbm.so.1' && \
+             ldconfig -p | grep -q 'libnss3.so' && \
+             ldconfig -p | grep -q 'libasound.so.2'; then
+            echo 'Electron display libraries are already available on the runner.'
+          else
+            sudo apt-get update
+            sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
+          fi
+
+      - name: Build application
+        run: pnpm build
+
+      - name: Capture UX convergence audit
+        run: DATAKOALA_PREVIEW_KIND=audit xvfb-run --auto-servernum --server-args='-screen 0 1600x1800x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+
+      - name: Capture standalone audit batches
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' node scripts/visual-preview/run-audit-batches.mjs
+
+      - name: Upload requested audit evidence, including partial failure evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: datakoala-ux-audit-run-${{ github.run_id }}-${{ github.run_attempt }}
+          path: visual-audit/
+          if-no-files-found: warn
+          retention-days: 14
