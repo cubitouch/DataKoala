@@ -7,7 +7,7 @@ export const boardRoot = fileURLToPath(new URL('.', import.meta.url))
 const repositoryRoot = resolve(boardRoot, '../..')
 const manifestFile = resolve(boardRoot, 'manifest.json')
 const atlasFile = resolve(repositoryRoot, 'docs/audit/391/aggregation/agg-03-atlas.json')
-const reportFile = resolve(repositoryRoot, 'docs/audit/391/aggregation/AGG-03.md')
+const atlasArchiveCommit = '7cfc8a3b5ac92a471f2a8930599dabe68f9291db'
 export const outputFile = resolve(boardRoot, 'site/data.json')
 
 function assert(condition, explanation) {
@@ -24,17 +24,19 @@ export function pngDimensions(bytes) {
 export function gitBlobSha(bytes) {
   return createHash('sha1').update(Buffer.from('blob ' + bytes.length + '\0')).update(bytes).digest('hex')
 }
-function findReportLine(source, id) {
+function findAtlasLine(source, id) {
+  // Point to the unchanged, immutable pre-closeout Atlas; no historical MD read.
   const lines = source.split('\n')
-  const n = lines.findIndex(line => line.startsWith('| ' + id + ' '))
-  return n >= 0 ? n + 1 : 1
+  const n = lines.findIndex(line => line.trim() === '"id": "' + id + '",')
+  assert(n >= 0, 'Missing Atlas JSON line for ' + id)
+  return n + 1
 }
 export async function generateBoard({ write = true, destination = outputFile } = {}) {
-  const [manifest, atlas, report] = await Promise.all([
+  const [manifest, atlasSource] = await Promise.all([
     readFile(manifestFile, 'utf8').then(JSON.parse),
-    readFile(atlasFile, 'utf8').then(JSON.parse),
-    readFile(reportFile, 'utf8'),
+    readFile(atlasFile, 'utf8'),
   ])
+  const atlas = JSON.parse(atlasSource)
   assert(manifest.schemaVersion === 1, 'Unsupported manifest')
   assert(atlas.atlasEntries?.length === 107 && atlas.workPackages?.length === 25, 'Expected reconciled Atlas with 107 entries and 25 packages')
   assert(manifest.comparisons.length >= 15, 'Review board must contain at least 15 comparisons')
@@ -71,7 +73,7 @@ export async function generateBoard({ write = true, destination = outputFile } =
       workPackages: atlasEntry.workPackages,
       rationale: atlasEntry.rationale,
       sourceCandidates: atlasEntry.sourceCandidates,
-      atlasUrl: 'https://github.com/cubitouch/DataKoala/blob/' + manifest.baseline.integrationHead + '/docs/audit/391/aggregation/AGG-03.md#L' + findReportLine(report, item.atlasId),
+      atlasUrl: 'https://github.com/cubitouch/DataKoala/blob/' + atlasArchiveCommit + '/docs/audit/391/aggregation/agg-03-atlas.json#L' + findAtlasLine(atlasSource, item.atlasId),
       sourceCitations: atlasEntry.sourceCitations?.map(source => ({ batch: source.batch, url: source.url })) ?? [],
     }
   })

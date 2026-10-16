@@ -18,6 +18,8 @@ test('generate reproducible Atlas review data and verify every published screens
   assert.equal(board.comparisons.length, new Set(board.comparisons.map(row => row.id)).size)
   assert.equal(board.comparisons.filter(row => row.evidenceGap).length, 18)
   assert.ok(board.comparisons.every(row => row.atlasUrl.includes('#L') && row.question.length > 20))
+  assert.ok(board.comparisons.every(row =>
+    row.atlasUrl.includes('/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-03-atlas.json#L')))
   assert.ok(board.comparisons.flatMap(row => row.images).filter(image => image.state === 'published_capture')
     .every(image => image.verified && image.width > 0 && image.height > 0 && /^[0-9a-f]{40}$/.test(image.blobSha) && image.artifactId))
   assert.ok(board.comparisons.flatMap(row => row.images).filter(image => image.state === 'missing')

@@ -34,7 +34,7 @@ No decisions are uploaded to GitHub. Browser storage can be disabled or cleared,
 
 ## Frozen evidence and regeneration
 
-`manifest.json` is the **curated source of truth** for review questions and their two evidence slots. The generator joins it to the corrected `docs/audit/391/aggregation/agg-03-atlas.json` (107 entries, 25 packages) and computes explicit Atlas links, classifications, priorities and source citations.
+`manifest.json` is the **curated source of truth** for review questions and their two evidence slots. The generator joins it to the corrected `docs/audit/391/aggregation/agg-03-atlas.json` (107 entries, 25 packages). Atlas entry links point to JSON lines at the immutable pre-closeout evidence commit; historical AGG-03 Markdown is no longer required locally. Classifications, priorities and source citations still come from the current structured Atlas.
 
 The 23 committed PNGs in `tools/visual-review/images/` are the **exact Git blobs** published under `visual-previews/pr-442/` in the DataKoala repository, not invented images, illustrative replacements, or borrowed unrelated assets. Their content is compared byte-for-byte to the recorded **Git blob SHA-1**, file size and PNG IHDR dimensions each time the board is generated. They were published by the successful [PR #442 Visual Preview workflow](https://github.com/cubitouch/DataKoala/actions/runs/38879154501) for source HEAD `88a74e22c862d97001563736140fe42979496f8f`, in two 14-day artifacts:
 
