@@ -65,11 +65,16 @@ function ValueControl({
     try {
       const found = [
         ...new Set(
-          await lokiLabelValues(connectionId, matcher.label, {
-            start,
-            end,
-            ...(selector ? { selector } : {}),
-          }),
+          await lokiLabelValues(
+            connectionId,
+            matcher.label,
+            {
+              start,
+              end,
+              ...(selector ? { selector } : {}),
+            },
+            connectionGeneration,
+          ),
         ),
       ].sort()
       if (available.current && current === request.current) setValues(found)
@@ -79,7 +84,15 @@ function ValueControl({
     } finally {
       if (available.current && current === request.current) setLoading(false)
     }
-  }, [canLoadMetadata, connectionId, matcher.label, selector, start, end])
+  }, [
+    canLoadMetadata,
+    connectionId,
+    connectionGeneration,
+    matcher.label,
+    selector,
+    start,
+    end,
+  ])
   useEffect(() => {
     if (canLoadMetadata) void load()
     else {

@@ -47,12 +47,16 @@ function resourceFor(key: string, range: BuilderTimeRange): Resource {
 function emit(resource: Resource) {
   for (const listener of resource.listeners) listener()
 }
-function load(resource: Resource, connectionId: string) {
+function load(resource: Resource, connectionId: string, generation: number) {
   if (resource.promise) return resource.promise
   const request = ++resource.request
   resource.snapshot = { ...resource.snapshot, status: 'loading', error: null }
   emit(resource)
-  resource.promise = lokiLabels(connectionId, resource.snapshot.bounds)
+  resource.promise = lokiLabels(
+    connectionId,
+    resource.snapshot.bounds,
+    generation,
+  )
     .then(
       (labels) => {
         if (request === resource.request)
@@ -103,7 +107,7 @@ export function useLokiLabelsResource(
         resource.request++
         resource.promise = undefined
       }
-      void load(resource, connectionId)
+      void load(resource, connectionId, generation)
     } else {
       resource.request++
       resource.promise = undefined
@@ -114,15 +118,15 @@ export function useLokiLabelsResource(
       }
       emit(resource)
     }
-  }, [resource, connectionId, enabled, refreshRevision])
+  }, [resource, connectionId, generation, enabled, refreshRevision])
   return {
     ...snapshot,
     enabled,
     retry: () => {
       if (!enabled) return Promise.resolve()
+      if (resource.promise) return resource.promise
       resource.request++
-      resource.promise = undefined
-      return load(resource, connectionId)
+      return load(resource, connectionId, generation)
     },
   }
 }

@@ -212,3 +212,41 @@ it('shares one fresh request after metadata loading is re-enabled', async () => 
   )
   expect(mocks.labels).toHaveBeenCalledTimes(1)
 })
+
+it('coalesces repeated explicit retry while a retry is pending', async () => {
+  let finish!: (labels: string[]) => void
+  mocks.labels
+    .mockRejectedValueOnce(new Error('persistent failure'))
+    .mockReturnValueOnce(
+      new Promise<string[]>((resolve) => {
+        finish = resolve
+      }),
+    )
+  render(<RetryConsumer />)
+  await screen.findByText('error:persistent failure')
+  await act(async () => {
+    screen.getByRole('button', { name: 'Retry' }).click()
+    screen.getByRole('button', { name: 'Retry' }).click()
+  })
+  expect(mocks.labels).toHaveBeenCalledTimes(2)
+  await act(async () => finish(['recovered']))
+  await screen.findByText('loaded:')
+})
+
+it('generation replacement cannot reuse a pending previous-generation label request', async () => {
+  let finishOld!: (labels: string[]) => void
+  mocks.labels
+    .mockReturnValueOnce(
+      new Promise<string[]>((resolve) => {
+        finishOld = resolve
+      }),
+    )
+    .mockResolvedValueOnce(['current'])
+  const view = render(<LifecycleConsumer enabled generation={1} />)
+  await waitFor(() => expect(mocks.labels).toHaveBeenCalledTimes(1))
+  view.rerender(<LifecycleConsumer enabled generation={2} />)
+  await screen.findByText('loaded::current')
+  await act(async () => finishOld(['obsolete']))
+  expect(screen.getByText('loaded::current')).toBeTruthy()
+  expect(mocks.labels).toHaveBeenCalledTimes(2)
+})

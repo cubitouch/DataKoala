@@ -99,7 +99,12 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
       setValueStatus((current) => ({ ...current, [label]: 'loading' }))
       try {
         const next = visibleLokiMetadata(
-          await lokiLabelValues(connectionId, label, bounds),
+          await lokiLabelValues(
+            connectionId,
+            label,
+            bounds,
+            connectionGeneration,
+          ),
         )
         if (
           !available.current ||
@@ -122,7 +127,15 @@ export function LokiSidebarTree({ connectionId }: { connectionId: string }) {
           setValueStatus((current) => ({ ...current, [label]: 'error' }))
       }
     },
-    [bounds, canLoadMetadata, connectionId, session.id, valueStatus, values],
+    [
+      bounds,
+      canLoadMetadata,
+      connectionId,
+      connectionGeneration,
+      session.id,
+      valueStatus,
+      values,
+    ],
   )
   useEffect(() => {
     revision.current++

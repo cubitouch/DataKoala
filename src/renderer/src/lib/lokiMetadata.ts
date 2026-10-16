@@ -7,6 +7,7 @@ const key = (...values: unknown[]) => JSON.stringify(values)
 export function lokiLabels(
   connectionId: string,
   request: LokiMetadataRequest,
+  generation = 0,
 ): Promise<string[]> {
   const cacheKey = key(
     'labels',
@@ -14,6 +15,7 @@ export function lokiLabels(
     request.start,
     request.end,
     request.selector ?? '',
+    generation,
   )
   const previous = cache.get(cacheKey)
   if (previous) return previous
@@ -31,6 +33,7 @@ export function lokiLabelValues(
   connectionId: string,
   label: string,
   request: LokiMetadataRequest,
+  generation = 0,
 ): Promise<string[]> {
   const cacheKey = key(
     'values',
@@ -39,6 +42,7 @@ export function lokiLabelValues(
     request.end,
     request.selector ?? '',
     label,
+    generation,
   )
   const previous = cache.get(cacheKey)
   if (previous) return previous
