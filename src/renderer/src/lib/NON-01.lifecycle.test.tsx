@@ -120,8 +120,7 @@ describe('NON-01 generation and query ownership characterization', () => {
         expect(useStore.getState().connectionStateByProfileId.a.status).toBe(
           'connecting',
         )
-        if (outcome === 'success')
-          old.resolve({ ok: true, generation: 4 })
+        if (outcome === 'success') old.resolve({ ok: true, generation: 4 })
         else old.reject(new Error('old lazy failure'))
         await lazy
         const intermediate =
