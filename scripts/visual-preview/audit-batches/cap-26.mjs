@@ -192,6 +192,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   await combobox('X axis', 'duration_ms')
   await combobox('Y axis', 'other_value')
   const scatter = await chartReady('scatter', 2)
+  assert.equal(scatter.items, 16, 'Exactly the 16 observed source coordinates are plotted, with no synthetic zero marks')
   assert.equal(scatter.config.x, 'duration_ms')
   assert.equal(scatter.config.y, 'other_value')
   assert.equal(scatter.config.series[0], 'series')

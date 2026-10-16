@@ -246,6 +246,8 @@ export const positionChartTooltip = (
 }
 
 interface PresentationInput {
+  xValues?: unknown[]
+  numericX?: boolean
   labels: string[]
   series: ChartSeries[]
   view: ResultView
@@ -346,6 +348,12 @@ export function buildChartPresentationOptions(
   const temporalXValues = temporal
     ? input.labels.map((label) => dateValue(label)!.getTime())
     : []
+  const numericScatter = input.view === 'scatter' && input.numericX === true
+  const numericXValues = numericScatter
+    ? (input.xValues ?? input.labels).map((value) =>
+        value == null || value === '' ? NaN : Number(value),
+      )
+    : []
   const domain = temporal ? input.timeDomain : undefined
   const temporalBarOutsideDomain = Boolean(
     temporal &&
@@ -441,11 +449,16 @@ export function buildChartPresentationOptions(
           ...(temporalBarOutsideDomain ? { containShape: false } : {}),
           axisLabel: { color: '#9aa0b0', formatter: formatAxisLabel },
         }
-      : {
-          type: 'category',
-          data: input.labels,
-          axisLabel: { color: '#9aa0b0', formatter: formatAxisLabel },
-        },
+      : numericScatter
+        ? {
+            type: 'value',
+            axisLabel: { color: '#9aa0b0', formatter: formatAxisLabel },
+          }
+        : {
+            type: 'category',
+            data: input.labels,
+            axisLabel: { color: '#9aa0b0', formatter: formatAxisLabel },
+          },
     yAxis: {
       type: input.valueAxisScale === 'log' ? 'log' : 'value',
       axisLabel: { color: '#9aa0b0', formatter: formatValue },
@@ -470,9 +483,22 @@ export function buildChartPresentationOptions(
         itemStyle: { color: chartSeriesColor(index) },
         lineStyle: { color: chartSeriesColor(index) },
         type: input.view === 'area' ? 'line' : input.view,
-        data: temporal
-          ? series.data.map((value, index) => [temporalXValues[index], value])
-          : series.data,
+        // Keep null slots so ECharts dataIndex still identifies the source X.
+        data:
+          temporal || numericScatter
+            ? series.data.map((value, index) => [
+                temporal ? temporalXValues[index] : numericXValues[index],
+                input.view === 'scatter' &&
+                (series.missing?.[index] ||
+                  (numericScatter && !Number.isFinite(numericXValues[index])))
+                  ? null
+                  : value,
+              ])
+            : input.view === 'scatter'
+              ? series.data.map((value, index) =>
+                  series.missing?.[index] ? null : value,
+                )
+              : series.data,
         stack:
           (input.view === 'bar' || input.view === 'area') &&
           input.hasSeriesColumn

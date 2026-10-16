@@ -447,7 +447,7 @@ export function pivotRowsForChart(
     values: number[]
     rows: number
   }): number | null => {
-    if (!group) return 0
+    if (!group) return config.view === 'scatter' ? null : 0
     if (config.aggregation === 'count') return group.rows
     if (!group.values.length) return null
     if (config.aggregation === 'average')

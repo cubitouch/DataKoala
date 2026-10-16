@@ -531,6 +531,8 @@ export function GenericResultExplorer({
       (hierarchical || chart?.renderable) && chartReady
         ? buildChartPresentationOptions({
             labels: chart?.labels ?? [],
+            xValues: chart?.xValues,
+            numericX: numeric.includes(effectiveConfiguration.xColumn ?? ''),
             series: chart?.series ?? [],
             view: effectiveConfiguration.view,
             hasSeriesColumn: Boolean(
@@ -554,6 +556,7 @@ export function GenericResultExplorer({
     [
       chart,
       chartReady,
+      numeric,
       effectiveConfiguration,
       seriesVisibility,
       mode,

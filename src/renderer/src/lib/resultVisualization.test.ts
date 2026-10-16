@@ -445,3 +445,38 @@ test('hierarchy reorder is immutable and rejects invalid or missing indexes', ()
     assert.equal(reorderHierarchyDimensions(order, index, offset), order)
   assert.deepEqual(order, ['a', 'b', 'c'])
 })
+
+test('Scatter preserves absent combinations as gaps while other views keep their semantics', () => {
+  const input = result(
+    [
+      ['x', 'numeric'],
+      ['series', 'text'],
+      ['value', 'numeric'],
+    ],
+    Array.from({ length: 16 }, (_, n) => ({
+      x: n * n + 1,
+      series: n % 2 ? 'B' : 'A',
+      value: n,
+    })),
+  )
+  const scatter = pivotRowsForChart(input, config({ view: 'scatter' }))
+  assert.equal(
+    scatter.series.flatMap((s) => s.data).filter((v) => v !== null).length,
+    16,
+  )
+  assert.equal(
+    scatter.series.flatMap((s) => s.data).filter((v) => v === 0).length,
+    1,
+  )
+  assert.ok(
+    scatter.series.every((s) =>
+      s.data.every((v, i) => !s.missing?.[i] || v === null),
+    ),
+  )
+  assert.equal(
+    pivotRowsForChart(input, config({ view: 'bar' }))
+      .series.flatMap((s) => s.data)
+      .filter((v) => v !== null).length,
+    32,
+  )
+})
