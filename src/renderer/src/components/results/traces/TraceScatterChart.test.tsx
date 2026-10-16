@@ -127,6 +127,32 @@ describe('traceScatterLocalRange', () => {
     })
   })
 
+  it.each([
+    [[1000.9, 3000.9], 0, 10000, { startMs: 1000, endMs: 3000 }],
+    [[-1000.9, -3000.9], -10000, 0, { startMs: -3000, endMs: -1000 }],
+    [[-2000.9, 2000.9], -1000.7, 1000.7, { startMs: -1000, endMs: 1000 }],
+  ] as const)(
+    'uses displayed truncated bounds after ordering and clamping: %j',
+    (coords, start, end, expected) => {
+      const range = traceScatterLocalRange(coords, start, end)
+      expect(range).toEqual(expected)
+      const inside = (t: number) => t >= range!.startMs && t < range!.endMs
+      expect(inside(expected.startMs)).toBe(true)
+      expect(inside(expected.endMs)).toBe(false)
+      expect(inside(expected.startMs - 0.1)).toBe(false)
+      expect(inside(expected.endMs - 0.1)).toBe(true)
+    },
+  )
+
+  it.each([
+    [NaN, 10000],
+    [0, Infinity],
+    [10000, 0],
+    [-9e15, 9e15],
+  ])('rejects invalid or unrepresentable domains %j', (start, end) => {
+    expect(traceScatterLocalRange([start, end], start, end)).toBeNull()
+  })
+
   it('rejects tiny accidental selections', () => {
     expect(
       traceScatterLocalRange(

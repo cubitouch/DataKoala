@@ -22,13 +22,21 @@ export function traceScatterLocalRange(
   domainStartMs: number,
   domainEndMs: number,
 ): TraceScatterRange | null {
-  if (coordRange.length < 2) return null
+  if (
+    coordRange.length < 2 ||
+    !Number.isFinite(domainStartMs) ||
+    !Number.isFinite(domainEndMs) ||
+    domainStartMs >= domainEndMs ||
+    Math.abs(domainStartMs) > 8.64e15 ||
+    Math.abs(domainEndMs) > 8.64e15
+  )
+    return null
   const first = Number(coordRange[0])
   const second = Number(coordRange[1])
   if (!Number.isFinite(first) || !Number.isFinite(second) || first === second)
     return null
-  const startMs = Math.max(domainStartMs, Math.min(first, second))
-  const endMs = Math.min(domainEndMs, Math.max(first, second))
+  const startMs = Math.trunc(Math.max(domainStartMs, Math.min(first, second)))
+  const endMs = Math.trunc(Math.min(domainEndMs, Math.max(first, second)))
   const minimumSelectionMs = Math.max(
     1_000,
     (domainEndMs - domainStartMs) * 0.002,
