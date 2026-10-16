@@ -155,8 +155,9 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           publish_dir="preview-publish/pr-${PR_NUMBER}"
-          rm -rf "$publish_dir"
           mkdir -p "$publish_dir"
+          # Update only current preview PNGs; keep archived audit/ assets intact.
+          find "$publish_dir" -maxdepth 1 -type f -name '*.png' -delete
           while IFS= read -r filename; do
             [ -n "$filename" ] || continue
             test -f "visual-preview/$filename"
@@ -182,7 +183,7 @@ jobs:
               fi
               echo "Preview branch advanced during push; retrying (${attempt}/4)"
               sleep $((attempt * 2))
-            done
+              done
           fi
 
       - name: Create or update PR comment
@@ -252,6 +253,7 @@ jobs:
             Base: \`${context.payload.pull_request.base.ref}\` @ \`${baseSha.slice(0, 7)}\`
 
             ${previews}
+
 
             All ${files.length} full-resolution PNGs are also available from this workflow run's **Artifacts** section.`
 

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { validateVisualReport } from './assertions.mjs'
 import { syntheticSources } from './fixtures.mjs'
+import { runInNewContext } from 'node:vm'
+import { rendererValue } from './renderer-value.mjs'
 
 const populated = { selector: '[data-chart]', description: 'fixture chart', minSeries: 1, minItems: 1 }
 const current = { type: 'line', finished: true, series: 1, items: 4, fingerprint: 'current', expectedFingerprint: 'current' }
@@ -74,4 +76,86 @@ test('Grafana sharing artwork is local and inherits the accent color', async () 
   assert.match(html, /svg\s+class="provider-logo"/)
   assert.match(css, /\.share-icon\s*\{[^}]*color: var\(--accent\)/s)
   assert.match(css, /\.share-icon svg.provider-logo\s*\{[^}]*fill: currentcolor/s)
+})
+
+
+// Pure contracts for the audit-only mode; Electron execution is validated in CI.
+const { auditScreenshots, auditComparisonFiles, auditCaptions, auditLogResult, auditTraceResult } = await import('./audit-fixtures.mjs')
+const { validateAuditObservation } = await import('./audit.mjs')
+test('audit filenames are unique, captioned and isolated from canonical previews', () => {
+  const names = [...auditScreenshots, ...auditComparisonFiles]
+  assert.equal(new Set(names).size, names.length)
+  for (const name of names) {
+    assert.ok(auditCaptions[name])
+    assert.ok(!name.startsWith('docs-'))
+  }
+})
+test('audit captures reject invisible targets and unequal capture scale', () => {
+  const observation = { target: { width: 500, height: 42 }, zoom: 1, scale: 1 }
+  assert.doesNotThrow(() => validateAuditObservation(auditScreenshots[0], observation))
+  assert.throws(() => validateAuditObservation(auditScreenshots[0], { ...observation, target: null }), /visible target/)
+  assert.throws(() => validateAuditObservation(auditScreenshots[0], { ...observation, scale: 2 }), /scale/)
+  assert.throws(() => validateAuditObservation('unexpected.png', observation), /Unknown/)
+})
+test('list fixtures contain fixed timestamps, overflowing text and a virtualized-size log cohort', () => {
+  assert.equal(auditLogResult.rows.length, 240)
+  assert.equal(auditTraceResult.rows.length, 5)
+  assert.ok(auditLogResult.rows.some(row => row.line.length > 500))
+  assert.ok(auditTraceResult.rows.some(row => row.rootOperation.length > 500))
+  assert.equal(auditLogResult.rows[0].timestampMs, Date.UTC(2026, 7, 19, 16, 30))
+})
+
+const difficultRendererValues = [
+  '', '"quotes" \'single\' `backticks`', '\\path\\with\\slashes',
+  'new\nline\r\ntab\tNUL\0 café 🐨 \u2028 \u2029',
+  '"); globalThis.unintended = true; //',
+  '${globalThis.unintended = true}',
+  '</script><script>globalThis.unintended = true</script>',
+  '<img src=x onerror="globalThis.unintended = true">',
+  'long'.repeat(25_000),
+]
+
+test('renderer data round-trips difficult strings without executing them', () => {
+  for (const value of difficultRendererValues) {
+    const context = { unintended: false }
+    const encoded = rendererValue(value)
+    assert.doesNotMatch(encoded, /[<>\u2028\u2029]/)
+    assert.equal(runInNewContext(`(${encoded})`, context), value)
+    assert.equal(context.unintended, false)
+  }
+})
+
+test('renderer fixture objects retain nested values and own __proto__ data', () => {
+  const value = JSON.parse('{"__proto__":{"unintended":true},"nested":[]}')
+  value.nested = [...difficultRendererValues, null, true, 42]
+  const result = runInNewContext(`(${rendererValue(value)})`)
+  assert.equal(JSON.stringify(result), JSON.stringify(value))
+  assert.equal(Object.hasOwn(result, '__proto__'), true)
+  assert.equal(result.unintended, undefined)
+})
+
+test('renderer selectors and input text remain data in a fixed operation', () => {
+  const input = { value: '' }
+  let receivedSelector
+  const document = { querySelector: selector => { receivedSelector = selector; return input } }
+  const context = { document, unintended: false }
+  const specialSelector = 'input[data-label="special: [chars] café 🐨"]'
+  for (const value of difficultRendererValues) {
+    runInNewContext(`document.querySelector(${rendererValue(specialSelector)}).value = ${rendererValue(value)}`, context)
+    assert.equal(receivedSelector, specialSelector)
+    assert.equal(input.value, value)
+    assert.equal(context.unintended, false)
+    // The selector spy tests the JS boundary, not CSS parser acceptance.
+    runInNewContext(`document.querySelector(${rendererValue(value)})`, context)
+    assert.equal(receivedSelector, value)
+    assert.equal(context.unintended, false)
+  }
+})
+
+test('renderer values reject data that JSON cannot serialize', () => {
+  for (const value of [undefined, () => {}, Symbol('source'), 1n]) {
+    assert.throws(() => rendererValue(value), TypeError)
+  }
+  const cycle = {}; cycle.self = cycle
+  assert.throws(() => rendererValue(cycle), TypeError)
 })

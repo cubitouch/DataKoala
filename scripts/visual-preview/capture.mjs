@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { documentationScreenshots, syntheticSources } from './fixtures.mjs'
+import { rendererValue } from './renderer-value.mjs'
 import {
   assertEditorResizeHandle,
   assertCompactObjectFilter,
@@ -1299,7 +1300,7 @@ async function verifyCompactTableSearch(win) {
 
 async function dragDivider(win, selector, deltaX, deltaY) {
   const point = await win.webContents.executeJavaScript(`(() => {
-    const bounds = document.querySelector('${selector}')?.getBoundingClientRect()
+    const bounds = document.querySelector(${rendererValue(selector)})?.getBoundingClientRect()
     return bounds ? { x: Math.round(bounds.left + bounds.width / 2), y: Math.round(bounds.top + bounds.height / 2) } : null
   })()`)
   if (!point) throw new Error(`Missing divider ${selector}`)
@@ -1519,6 +1520,18 @@ app.whenReady().then(async () => {
           : 'prometheus',
   }))
 
+  let auditBatch = null
+  if (captureKind === 'audit') {
+    if (process.env.DATAKOALA_AUDIT_BATCH) {
+      const { loadAuditBatch } = await import('./audit-batch-loader.mjs')
+      auditBatch = await loadAuditBatch(process.env.DATAKOALA_AUDIT_BATCH)
+      auditBatch.module.installAuditIpc(ipcMain)
+    } else {
+      const { installAuditIpc } = await import('./audit.mjs')
+      installAuditIpc(ipcMain)
+    }
+  }
+
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -1529,6 +1542,7 @@ app.whenReady().then(async () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      ...(captureKind === 'audit' ? { partition: 'datakoala-ux-audit' } : {}),
     },
   })
 
@@ -1536,6 +1550,18 @@ app.whenReady().then(async () => {
     await mkdir(outputDir, { recursive: true })
     await win.loadFile(resolve(root, 'out/renderer/index.html'))
     await waitForRenderer(win)
+    if (captureKind === 'audit') {
+      const context = { win, outputDir, waitFor: waitForRendererState, capture, dragDivider }
+      if (auditBatch) {
+        const { executeAuditBatch } = await import('./audit-batch-loader.mjs')
+        await executeAuditBatch(auditBatch, context, process.env.DATAKOALA_AUDIT_HEAD)
+      } else {
+        const { runVisualAudit } = await import('./audit.mjs')
+        await runVisualAudit(context)
+      }
+      app.quit()
+      return
+    }
     await seedPreviewData(win)
 
     if (captureKind === 'documentation') {
@@ -1795,4 +1821,4 @@ app.whenReady().then(async () => {
     console.error(error)
     app.exit(1)
   }
-})
+}).catch(error => { console.error(error); app.exit(1) })

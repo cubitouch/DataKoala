@@ -485,6 +485,71 @@ describe('PresetManagerAction', () => {
     expect(setResult).not.toHaveBeenCalled()
   })
 
+  it('rejects a preset from another datasource without changing the current tab', () => {
+    const repository = new ExplorationPresetRepository(new MemoryStorage())
+    const metricsProfile: DataSourceProfile = {
+      id: sqlProfile.id,
+      name: 'Metrics',
+      kind: 'prometheus',
+      version: 1,
+      readonly: true,
+      transport: { kind: 'gcx' },
+    }
+    const metricsSession = createQuerySession(1, {
+      connectionProfileId: sqlProfile.id,
+      sql: 'up',
+    })
+    repository.create(
+      createPresetFromSession({
+        name: 'Metrics only',
+        profile: metricsProfile,
+        session: metricsSession,
+        id: 'metrics-only',
+      }),
+    )
+    const target = createQuerySession(2, {
+      id: 'target-tab',
+      connectionProfileId: sqlProfile.id,
+      queryMode: 'builder',
+      sql: 'select 42',
+    })
+    const startQuery = vi.fn(),
+      completeQuery = vi.fn(),
+      setResult = vi.fn(),
+      onPresetLoaded = vi.fn()
+    resetTestStore({
+      profiles: [sqlProfile],
+      tabs: [target],
+      activeTabId: target.id,
+      startQuery,
+      completeQuery,
+      setResult,
+    })
+    const before = structuredClone(useStore.getState().tabs)
+    render(
+      <PresetManagerAction
+        repository={repository}
+        onPresetLoaded={onPresetLoaded}
+      />,
+    )
+
+    openDialog()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Load preset Metrics only' }),
+    )
+
+    expect(screen.getByRole('dialog', { name: 'Presets' })).toBeTruthy()
+    expect(useStore.getState().tabs).toEqual(before)
+    expect(notify).toHaveBeenCalledWith({
+      message: 'This preset is not compatible with the current connection.',
+      tone: 'error',
+    })
+    expect(onPresetLoaded).not.toHaveBeenCalled()
+    expect(startQuery).not.toHaveBeenCalled()
+    expect(completeQuery).not.toHaveBeenCalled()
+    expect(setResult).not.toHaveBeenCalled()
+  })
+
   it('disables loading while a query is running', () => {
     const repository = new ExplorationPresetRepository(new MemoryStorage())
     seed(repository, 'Wait')

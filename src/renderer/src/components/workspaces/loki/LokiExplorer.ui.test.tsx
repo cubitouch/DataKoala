@@ -173,6 +173,53 @@ beforeEach(() => {
 })
 
 describe('LokiExplorer execution', () => {
+  // #391 audit evidence: remove .fails when the raw formatter owns its tab/draft.
+  it.fails(
+    'preserves a newer raw draft when an older format completes',
+    async () => {
+      let resolveFormat!: (query: string) => void
+      mocks.formatQuery.mockImplementation(
+        () => new Promise<string>((resolve) => (resolveFormat = resolve)),
+      )
+      render(<LokiExplorer connectionId="loki" />)
+      fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+      await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledTimes(1))
+      act(() => useStore.getState().setSql('{app="new"}', 'loki-tab'))
+      await act(async () => resolveFormat('{app="x"}\n|= "old"'))
+      expect(useStore.getState().tabs[0].sql).toBe('{app="new"}')
+    },
+  )
+
+  it.fails(
+    'never publishes raw formatting into another active tab after unmount',
+    async () => {
+      let resolveFormat!: (query: string) => void
+      mocks.formatQuery.mockImplementation(
+        () => new Promise<string>((resolve) => (resolveFormat = resolve)),
+      )
+      const workspace = render(<LokiExplorer connectionId="loki" />)
+      fireEvent.click(screen.getByRole('button', { name: 'Format' }))
+      await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledTimes(1))
+      const other = createQuerySession(2, {
+        id: 'other-tab',
+        connectionProfileId: 'loki',
+        queryMode: 'sql',
+        sql: '{app="other"}',
+      })
+      workspace.unmount()
+      act(() =>
+        useStore.setState((state) => ({
+          tabs: [...state.tabs, other],
+          activeTabId: other.id,
+        })),
+      )
+      await act(async () => resolveFormat('{app="x"}\n|= "old"'))
+      expect(
+        useStore.getState().tabs.find((tab) => tab.id === other.id)?.sql,
+      ).toBe('{app="other"}')
+    },
+  )
+
   it.each(['level', 'severity', 'log_level'])(
     'groups by indexed %s independently of Level filtering',
     async (severityLabel) => {

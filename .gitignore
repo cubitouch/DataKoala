@@ -15,3 +15,6 @@ docs-site/dist/
 resources/duckdb-extensions/*/*.duckdb_extension
 resources/duckdb-extensions/*/*.duckdb_extension.sha256
 .env
+
+# PR-only convergence audit evidence; generated, never committed by hand.
+/visual-audit/
