@@ -31,8 +31,9 @@ export function traceScatterLocalRange(
     Math.abs(domainEndMs) > 8.64e15
   )
     return null
-  const first = Number(coordRange[0])
-  const second = Number(coordRange[1])
+  const first = coordRange[0]
+  const second = coordRange[1]
+  if (typeof first !== 'number' || typeof second !== 'number') return null
   if (!Number.isFinite(first) || !Number.isFinite(second) || first === second)
     return null
   const startMs = Math.trunc(Math.max(domainStartMs, Math.min(first, second)))
