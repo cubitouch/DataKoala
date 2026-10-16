@@ -1,0 +1,25 @@
+name: VIS-01 local review board
+
+on:
+  pull_request:
+    paths:
+      - 'tools/visual-review/**'
+      - '.github/workflows/vis-01-review-board.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  review-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Build and verify curated screenshot data
+        run: |
+          node tools/visual-review/generate.mjs
+          node tools/visual-review/generate.mjs --check
+      - name: Focused review board tests (startup, PNG access, decisions round-trip)
+        run: node --test tools/visual-review/review-board.test.mjs
