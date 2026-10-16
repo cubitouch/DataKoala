@@ -18,3 +18,8 @@
 .editor :global(.cm-scroller) {
   font-family: var(--mono);
 }
+
+.fillPane :global(.cm-theme) {
+  height: 100%;
+  min-height: 0;
+}

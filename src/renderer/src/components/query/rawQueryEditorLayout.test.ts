@@ -27,6 +27,18 @@ describe('shared query editor layout', () => {
 }`)
   })
 
+  it('gives pane-filling editors a complete height chain through the theme wrapper', () => {
+    const css = readRendererFile('components/query/QueryCodeEditor.module.css')
+    const component = readRendererFile('components/query/QueryCodeEditor.tsx')
+    expect(component).toContain('fillPane ?')
+    expect(
+      readRendererFile('components/workspaces/loki/LokiExplorer.tsx'),
+    ).toContain('fillPane')
+    expect(css).toMatch(
+      /\.fillPane :global\(\.cm-theme\)\s*\{[^}]*height:\s*100%;/s,
+    )
+  })
+
   it('does not restyle CodeMirror from Loki or Tempo', () => {
     const loki = readRendererFile(
       'components/workspaces/loki/LokiExplorer.module.css',

@@ -90,3 +90,13 @@ test('successful and empty registries return success with an explicit index', as
   assert.equal(await runAuditBatches({directory:dir,outputDir,sourceHead:'abc',execute:()=>assert.fail()}),true)
   assert.deepEqual(JSON.parse(await readFile(join(outputDir,'index.json'))).batches,[])
 })
+
+test('narrow captures must match their declared natural viewport dimensions', async t => {
+  const dir = await fixture(t)
+  await evidence(dir, { observations:[{filename:'state.png',width:900,height:900,dpr:1,zoom:1,target:{width:652,height:200}}] })
+  const png = await readFile(join(dir,'state.png')); png.writeUInt32BE(900,16)
+  await writeFile(join(dir,'state.png'),png)
+  await verifyBatchEvidence(dir,['state.png'],'abc')
+  png.writeUInt32BE(899,16); await writeFile(join(dir,'state.png'),png)
+  await assert.rejects(verifyBatchEvidence(dir,['state.png'],'abc'))
+})
