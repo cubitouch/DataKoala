@@ -38,7 +38,7 @@ function matches(row) {
   const decided = CHOICES.includes(decisions[row.id]?.choice)
   if ($('decision-filter').value === 'decided' && !decided) return false
   if ($('decision-filter').value === 'unreviewed' && decided) return false
-  if ($('gaps-only').checked && !row.evidenceGap) return false
+  if ($('gaps-only').checked && !row.images.some(image => image.state === 'missing')) return false
   return true
 }
 function renderQueue() {
