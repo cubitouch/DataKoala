@@ -21,7 +21,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  const observations=[]
  // Keep the full 1440x900 capture while resizing the actual query/detail pane to 652px.
  await js("document.querySelector('.main').style.width='652px'");await settle()
- const sample=await js(`(()=>{const e=document.querySelector('[role=combobox][aria-label="Sample size"]'),label=e.querySelector('[class*=triggerLabel]');return {text:label.textContent,width:label.clientWidth,scroll:label.scrollWidth,box:e.getBoundingClientRect().toJSON(),pane:document.querySelector('.main').getBoundingClientRect().toJSON()}})()`)
+ const sample=await js(`(()=>{const e=document.querySelector('[role=combobox][aria-label^="Sample size:"]'),label=e.querySelector('[class*=triggerLabel]');return {text:label.textContent,width:label.clientWidth,scroll:label.scrollWidth,box:e.getBoundingClientRect().toJSON(),pane:document.querySelector('.main').getBoundingClientRect().toJSON()}})()`)
  console.log('STAB21_SAMPLE',JSON.stringify(sample));assert.equal(sample.text,'100 traces');assert.ok(sample.width>=sample.scroll,'sample label must not truncate');assert.ok(sample.box.right<=sample.pane.right+1)
  observations.push({filename:screenshots[0],width:1440,height:900,dpr:1,zoom:1,target:sample.box,sample});await capture(win,screenshots[0])
  await button('Run');await waitFor(win,'document.querySelector("button[class*=traceResult]")','Tempo results')
