@@ -1,7 +1,7 @@
 # DataKoala #391 — final Phase 1C audit report
 
-**Status: audit analysis complete; product acceptance NOT achieved. Closeout pruning BLOCKED pending a remotely verified immutable evidence tag.**
-**Current classification source:** post-REC-01 [structured Visual Convergence Atlas](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-03-atlas.json), at the [verified pre-closeout commit](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db).
+**Status: Phase 1C evidence/analysis closeout complete, historical source tree archived at a verified annotated tag; product acceptance NOT achieved.**
+**Current classification source:** post-REC-01 [structured Visual Convergence Atlas](aggregation/agg-03-atlas.json), unchanged from the [verified archival commit](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db).
 **Historical review:** [AGG-04](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-04.md); [REC-01 PR #442](https://github.com/cubitouch/DataKoala/pull/442).
 **Visual decisions:** [VIS-01 Review Board](../../../tools/visual-review/README.md) ([PR #443](https://github.com/cubitouch/DataKoala/pull/443)).
 **Next steps:** [Phase 2 roadmap](phase-2-roadmap.md) · [Coverage and provenance](evidence-and-coverage.md) · [closeout index](README.md).
@@ -41,7 +41,7 @@ The 37 source batches retain 23 `EVIDENCE_COMPLETE` and 14 `PARTIAL` disposition
 | `TECHNICAL_RISK` | 6 | Bounded technical risk; verify before claiming user impact |
 | `INSUFFICIENT_EVIDENCE` | 20 | Do not infer a failure from partial data |
 
-Every canonical finding, candidate-to-primary mapping, original inventory association, source citation, package ownership and link to related entries remains queryable in [`agg-03-atlas.json`](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-03-atlas.json). P2-05a/b/c/d replace one former implementation package; the umbrella is planning-only. REC-01 separated mixed intentional-vs-already-converged ownership (ATL-029/030/035 and ATL-105/106/107).
+Every canonical finding, candidate-to-primary mapping, original inventory association, source citation, package ownership and link to related entries remains queryable in the retained [`agg-03-atlas.json`](aggregation/agg-03-atlas.json). P2-05a/b/c/d replace one former implementation package; the umbrella is planning-only. REC-01 separated mixed intentional-vs-already-converged ownership (ATL-029/030/035 and ATL-105/106/107).
 
 ## Evidence and acceptance limitations that must survive Phase 2
 
@@ -60,6 +60,8 @@ Recommended early correctness tracks: P2-01 → P2-02 → P2-03 → P2-04 → P2
 
 ## Evidence archive, preservation and closeout state
 
-Full pre-closeout evidence remains at exact [commit `7cfc8a3b5ac92a471f2a8930599dabe68f9291db`](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db) and its remotely verified **retention branch** [`audit/archive-391-phase-1c-evidence`](https://github.com/cubitouch/DataKoala/tree/audit/archive-391-phase-1c-evidence). **This branch can be moved or removed: it is NOT an immutable tag.** The required `audit-391-phase-1c-evidence` tag was absent at preflight, and the available connection cannot create it. Therefore **NO historical documents or validators are deleted in this PR**; the documented file inventory and archive plan are in [Coverage and provenance](evidence-and-coverage.md). Before authorizing a destructive follow-up, create the tag at `7cfc8a3b5ac92a471f2a8930599dabe68f9291db`, verify it from GitHub remotely, and re-run the focused validator without its temporary untagged allowance.
+The remotely verified [annotated tag `audit-391-phase-1c-evidence`](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db) has tag object `29e2f2ee483b1668af536b7e917f6fc6f6e5e412`, peeling to complete original source commit `7cfc8a3b5ac92a471f2a8930599dabe68f9291db`. The original reports, AGG-02 evidence ledger, validators and CAP/NON records can be fetched by their [exact archived paths](evidence-and-coverage.md); no evidence classifications or source texts were rewritten. This tag is distinct from the mutable temporary retention branch and expiring GitHub Actions ZIPs.
 
-All executable Electron runners, fixtures, assertions, standalone CAP modules and Visual Preview workflow remain untouched. VIS-01 generation, its 18 curated comparisons, 23 local PNGs, three missing slots, persistence and exports remain intact. [Deferred harness maintenance](harness-maintenance.md) is expressly out of scope. This closeout is documentation and validation only; it changes neither production behavior nor product acceptance.
+The 32 historical-only files are removed from the active tree; [the file inventory and measured footprint](evidence-and-coverage.md) document their original paths and disposition. The full 107-entry structured Atlas and 25 packages remain active. The strict validator reads AGG-02's original ledger from the tag; it requires the annotated object and expected peeled commit and checks source lines and positive/negative invariants.
+
+All Electron runners, fixtures, assertions, standalone CAP modules, screenshot capture and existing GitHub Actions Visual Preview infrastructure are unchanged. VIS-01 remains functional with 18 curated comparisons, 23 committed PNGs, three explicitly missing slots, local decision persistence and exports. [Deferred harness maintenance](harness-maintenance.md) is intentionally out of scope. Neither Phase 2 production work nor merge of PR #444 or #406 is authorized by this report.

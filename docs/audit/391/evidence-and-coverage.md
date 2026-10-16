@@ -1,14 +1,14 @@
 # DataKoala #391 — evidence and coverage provenance
 
-**Read this before treating a Phase 1C result as product acceptance.** The canonical [structured Atlas](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-03-atlas.json) preserves source declarations, 147 candidate-to-primary mappings, 175 original inventory mappings, 25 failed original IDs, five leads and 25 packages. The independent evidence challenge lives in [AGG-02](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-02.md) and its [ledger](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-02-evidence.json); the independent final challenge in [AGG-04](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-04.md) and its [verification JSON](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-04-verification.json).
+**Read this before treating a Phase 1C result as product acceptance.** The canonical [structured Atlas](aggregation/agg-03-atlas.json) preserves source declarations, 147 candidate-to-primary mappings, 175 original inventory mappings, 25 failed original IDs, five leads and 25 packages. The independent evidence challenge lives in [AGG-02](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-02.md) and its [ledger](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-02-evidence.json); the independent final challenge in [AGG-04](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/AGG-04.md) and its [verification JSON](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation/agg-04-verification.json).
 
-## Preservation reference and blocking condition
+## Annotated archive and verified historical lineage
 
-**Verified original tree commit:** [`7cfc8a3b5ac92a471f2a8930599dabe68f9291db`](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db), also reachable through the [retention branch](https://github.com/cubitouch/DataKoala/tree/audit/archive-391-phase-1c-evidence) created at exactly that SHA. The retention branch is mutable; it is **not** an immutable archive tag. The intended remote tag `audit-391-phase-1c-evidence` did not exist at preflight and tag-writing is unavailable via the connected GitHub actions.
+**Remotely verified annotated tag:** [`audit-391-phase-1c-evidence`](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db). The Git tag object `29e2f2ee483b1668af536b7e917f6fc6f6e5e412` directly names type `commit` with peeled SHA `7cfc8a3b5ac92a471f2a8930599dabe68f9291db`. The immutable commit contains the complete pre-consolidation historical tree. CAP-24, AGG-04, the original CAP-01–17 register and an aggregation validator were independently fetched from the tag before deletion; all 32 pruned files were verified present in the remote tagged tree. The validator resolves every original source path through the tag and rejects a missing, lightweight or misdirected ref.
 
-**Consequence:** destructive consolidation is BLOCKED. No historical evidence tree path is removed here. To enable pruning in a **separate, explicitly reviewed update**, create the tag at `7cfc8a3b5ac92a471f2a8930599dabe68f9291db`, verify the remote ref and check representative retained sources via `git show audit-391-phase-1c-evidence:<path>`. Do not delete unless the tag is fetchable, the validator's archive check passes, no active runtime dependency exists, and every archived file has an exact commit/path link.
+Every original historical pathname remains accessible via an immutable `https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/<path>` link, with 37 per-batch source lines listed below. The 20 standalone batch reports, six aggregation documents/ledgers, four historical validators and two older architecture ledgers are archived rather than deleted from Git history.
 
-**Permanent links remain pinned to the commit SHA, not to mutable branches or expiring GitHub Actions artifacts.** Screenshot ZIP bytes for CAP-06/09 were not recovered and are not claimed to exist in this Git tree. The 23 curated VIS-01 images *are* tracked Git PNGs with per-blob checksums and fixture provenance, while three image slots remain absent.
+**Screenshot distinction:** Git-tracked evidence is archived. CAP-06/CAP-09 original GitHub Actions ZIP screenshots are not verified as archived bytes; one supplementary CAP-09 log-adjacent image does not substitute for an exact original. VIS-01's 23 curated PNGs *are* committed in the active repository, Git-blob-verified and reviewable without the ZIPs, alongside three intentionally missing evidence slots.
 
 ## Exact source accounting
 
@@ -54,27 +54,29 @@ The 37 original sources comprise 30 CAP and seven NON batches. CAP-01–17 are e
 | NON-06 | PARTIAL | [original record](https://github.com/cubitouch/DataKoala/blob/47ad04e82208cdfeae47961ae8916f9d8cd85847/docs/audit/391/batches/NON-06.md#L1) | [`c3ec6f04b87a`](https://github.com/cubitouch/DataKoala/commit/c3ec6f04b87ae3bac4ec343642756e3a09ed41e0) | 38765367153 |
 | NON-07 | PARTIAL | [original record](https://github.com/cubitouch/DataKoala/blob/47ad04e82208cdfeae47961ae8916f9d8cd85847/docs/audit/391/batches/NON-07.md#L1) | [`e7b4c978183e`](https://github.com/cubitouch/DataKoala/commit/e7b4c978183e7cb832448d2136bfbe064beed9ff) | 38769577600 |
 
-## Active and historical document roles
+## Removed, retained and archived inventory
 
-| Paths | Closeout role | Action in this non-destructive PR |
-| --- | --- | --- |
-| `docs/audit/391/final-report.md` and `phase-2-roadmap.md` | Authoritative conclusions and planning | Added |
-| `docs/audit/391/README.md`, `evidence-and-coverage.md`, `harness-maintenance.md` | Entry point, provenance and deferred work | Added |
-| `docs/audit/391/aggregation/agg-03-atlas.json` | Corrected machine-readable current classification | **Retained unchanged**; necessary for VIS-01 |
-| `docs/audit/391/aggregation/AGG-01..04.md`, `agg-02-evidence.json`, `agg-04-verification.json`, `validate-agg-01..04.py` | Historical aggregation checkpoints/validators | Retained pending verified immutable tag and safe dependency review |
-| `docs/audit/391/batches/CAP-18..30.md`, `NON-01..07.md` | Original 20 standalone source reports | Retained pending verified immutable tag |
-| `docs/architecture/ux-convergence-coverage-register.md` | CAP-01–17 embedded original records and 175-ID provenance | Retained; no lossy replacement |
-| `docs/architecture/ux-implementation-convergence-audit.md` | Phase 1B V-01–12 original declarations | Retained as provenance |
-| `scripts/visual-preview/**`, `.github/workflows/visual-preview.yml` and relevant tests | Executable audit regression infrastructure | **Retained without edits** |
-| `tools/visual-review/**` (including 23 PNGs) | VIS-01 app, manifest, provenance, local decisions/tests | **Retained without edits** |
+| Original tracked path(s) | Count | Permanent disposition |
+| --- | ---: | --- |
+| `docs/audit/391/aggregation/AGG-01..04.md` | 4 | [Historical aggregation reports](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation) at tagged commit; removed from active tree |
+| `docs/audit/391/aggregation/agg-02-evidence.json` and `agg-04-verification.json` | 2 | Original source verification ledgers archived at tagged commit; strict validator reads AGG-02 from tag |
+| `docs/audit/391/aggregation/validate-agg-01..04.py` | 4 | Historical-only validators [archived](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/aggregation); replaced by active strict closeout validator |
+| `docs/audit/391/batches/CAP-18..30.md` | 13 | [Original CAP records](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches) archived by exact path |
+| `docs/audit/391/batches/NON-01..07.md` | 7 | [Original NON records](https://github.com/cubitouch/DataKoala/tree/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/audit/391/batches) archived by exact path |
+| `docs/architecture/ux-convergence-coverage-register.md` | 1 | [CAP-01–17 historical embedded source and all original assignments](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/architecture/ux-convergence-coverage-register.md) archived |
+| `docs/architecture/ux-implementation-convergence-audit.md` | 1 | [Phase 1B V-01–12 declarations and baseline observations](https://github.com/cubitouch/DataKoala/blob/7cfc8a3b5ac92a471f2a8930599dabe68f9291db/docs/architecture/ux-implementation-convergence-audit.md) archived |
+| `docs/audit/391/aggregation/agg-03-atlas.json` | 1 | **Retained unchanged**: 107 entries, all 147 candidate mappings, 175 inventory ID mappings, 25 failures, 25 packages, evidence and status qualifications |
+| `docs/audit/391/{README,final-report,phase-2-roadmap,evidence-and-coverage,harness-maintenance}.md` and `validate-closeout.py` | 6 | Retained as final active closeout reference and source-backed validator |
+| `scripts/visual-preview/**`, `.github/workflows/visual-preview.yml` and scenario/unit/UI tests | Unchanged | **Entire executable harness and CI workflow retained**; no refactoring |
+| `tools/visual-review/**` | Unchanged | **VIS-01 retained**: 18 comparisons, 23 real screenshots, three missing slots, persisted decisions and exports |
 
-Removed files: **none**. All historical documents remain in the active source tree until a verifiably immutable archive exists. The closeout validator must not report this stage as a successful archival deletion.
+**Removed:** exactly 32 historical-only files. **Retained:** all executable CAP scenario modules, all evidence mappings, the live Atlas, review board, application, and permanent engineering tests. Removed-file links above and below resolve to the immutable original commit, not deleted relative paths.
 
-## Verified before/after size (non-destructive stage)
+## Before/after source-tree footprint
 
-The full tracked tree has **806 files before** (pre-closeout commit `7cfc8a3`) and **813 after** (+7), with zero deletions and no production, Electron harness, Atlas or existing VIS-01 changes. The entire PR adds **1,003 lines** (six audit documents/scripts plus one focused workflow) and deletes zero. This is an intentionally *larger* interim tree, **not** the final requested smaller permanent record.
+The initial #406 integration HEAD `7cfc8a3b5ac92a471f2a8930599dabe68f9291db` had 806 tracked files. Immediately before the archival-pruning step, the existing PR #444 had 813 tracked files. Pruning 32 historical-only files, while retaining all newly authored closeout files, yields **781 tracked files** (a net reduction of 25 relative to the integration baseline). This removes approximately 2.72 MB of duplicate active evidence source while preserving Git history and all binary screenshots.
 
-Within `docs/audit/391/`, the measured LF line count across tracked files changes from **38,615 lines in 31 files** to **39,587 lines in 37 files** (+972 lines, +6 files). Counts include original JSON ledgers and source Markdown; file-line totals were measured from source bytes at the pinned Git tree. A later, separately authorized historical-pruning PR must provide its own after-pruning file/line inventory, after the immutable tag is remotely verified. Do not count this stage as completed pruning.
+The earlier non-destructive audit tree had **37 files / 39,587 LF lines under `docs/audit/391/`**, versus **31 files / 38,615 LF lines** at integration base. Its historical aggregation/batch material is now absent except for the corrected Atlas. Final line counts should be derived from the actual committed tree and PR diff rather than estimated from this baseline; the PR handoff records the verified final values.
 
 ## Evidence semantics and trust boundaries
 
@@ -87,10 +89,10 @@ Within `docs/audit/391/`, the measured LF line count across tracked files change
 ## Verification commands
 
 ```sh
-python -B docs/audit/391/validate-closeout.py --negative-controls --allow-untagged-archive
+python -B docs/audit/391/validate-closeout.py --negative-controls 
 node tools/visual-review/generate.mjs
 node tools/visual-review/generate.mjs --check
 node --test tools/visual-review/review-board.test.mjs
 ```
 
-The `--allow-untagged-archive` switch is a **temporary non-destructive check** and must be removed before historical pruning. Run the existing Electron Visual Preview workflow on the closeout PR, inspect final-head outcomes and keep production code excluded. See [deferred harness maintenance](harness-maintenance.md).
+The `` switch is a **temporary non-destructive check** and must be removed before historical pruning. The strict validator requires the annotated archive tag and independently checks original source lines and internally consistent mappings; it does not execute product behavior. Confirm the existing Electron Visual Preview workflow on the final PR head and keep production code excluded. See [deferred harness maintenance](harness-maintenance.md).

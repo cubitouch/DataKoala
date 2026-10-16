@@ -309,6 +309,13 @@ def check_active_paths(manifest):
     required += [f"scripts/visual-preview/audit-batches/cap-{n:02}.mjs" for n in range(18, 31)]
     for p in required:
         check((ROOT / p).is_file(), "required executable/document absent: " + p, errors)
+    # Historical-only documentation is now archived; executable CAP modules stay.
+    archived_only = archived_paths(json.loads(ATLAS.read_text())) - {
+        "docs/audit/391/aggregation/agg-03-atlas.json"
+    }
+    for historical in sorted(archived_only):
+        check(not (ROOT / historical).exists(),
+              "historical-only evidence unexpectedly active: " + historical, errors)
     for name, a in manifest["assets"].items():
         p = ROOT / a["path"]
         try:
