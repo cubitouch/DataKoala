@@ -1,4 +1,9 @@
 import {
+  ObservabilityRow,
+  focusedRowRange,
+  OBSERVABILITY_ROW_MIN_HEIGHT,
+} from '@components/ui/ObservabilityRow'
+import {
   DEFAULT_DETAIL_PANEL_WIDTH,
   ResizableDetailPanel,
 } from '@components/ui/ResizableDetailPanel'
@@ -10,7 +15,7 @@ import {
   type LogPatternCluster,
 } from '@shared/log-patterns'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
-import { LogRowChevron, LogSeverityBadge } from './LogRowPresentation'
+import { LogSeverityBadge } from './LogRowPresentation'
 import { representativeLogSeverity } from './logSeverity'
 import styles from './LogPatternExplorer.module.css'
 
@@ -60,6 +65,7 @@ export function LogPatternExplorer({
   onViewLogs: (cluster: LogPatternCluster) => void
 }) {
   const clusters = useMemo(() => clustersFor(rows), [rows])
+  const [focusedId, setFocusedId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [inspectorWidth, setInspectorWidth] = useState(
     DEFAULT_DETAIL_PANEL_WIDTH,
@@ -68,9 +74,14 @@ export function LogPatternExplorer({
   const selected = clusters.find((cluster) => cluster.id === selectedId) ?? null
   const virtualizer = useVirtualizer({
     count: clusters.length,
+    rangeExtractor: (range) =>
+      focusedRowRange(
+        range,
+        clusters.findIndex((item) => item.id === focusedId),
+      ),
     getScrollElement: () => scroller.current,
     getItemKey: (index) => clusters[index].id,
-    estimateSize: () => 58,
+    estimateSize: () => OBSERVABILITY_ROW_MIN_HEIGHT,
     overscan: 6,
     gap: 0,
     initialRect: { width: 800, height: 600 },
@@ -203,32 +214,39 @@ export function LogPatternExplorer({
                 )
                 return (
                   <article
+                    onFocusCapture={() => setFocusedId(cluster.id)}
+                    onBlurCapture={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget))
+                        setFocusedId(null)
+                    }}
                     data-index={item.index}
                     data-pattern-row
+                    ref={virtualizer.measureElement}
                     className={styles.row}
                     key={cluster.id}
                     style={{ transform: `translateY(${item.start}px)` }}
                   >
-                    <button
-                      className={styles.summary}
-                      type="button"
-                      aria-selected={active}
-                      onClick={() => setSelectedId(active ? null : cluster.id)}
+                    <ObservabilityRow
+                      selected={active}
+                      onOpen={() => setSelectedId(active ? null : cluster.id)}
+                      leading={
+                        <>
+                          <span className={styles.metrics} data-pattern-metrics>
+                            <strong>{cluster.count}</strong> logs ·{' '}
+                            {cluster.percentage.toFixed(1)}%
+                          </span>
+                          {representativeSeverity && (
+                            <LogSeverityBadge
+                              severity={representativeSeverity}
+                            />
+                          )}
+                        </>
+                      }
                     >
-                      <span className={styles.metrics} data-pattern-metrics>
-                        <strong>{cluster.count}</strong> logs ·{' '}
-                        {cluster.percentage.toFixed(1)}%
-                      </span>
-                      <span className={styles.severitySlot}>
-                        {representativeSeverity && (
-                          <LogSeverityBadge severity={representativeSeverity} />
-                        )}
-                      </span>
-                      <code data-pattern-template>
+                      <code className={styles.template} data-pattern-template>
                         <PatternTemplate cluster={cluster} />
                       </code>
-                      <LogRowChevron />
-                    </button>
+                    </ObservabilityRow>
                   </article>
                 )
               })}

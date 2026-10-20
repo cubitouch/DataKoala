@@ -12,16 +12,3 @@ export function LogSeverityBadge({ severity }: { severity: string }) {
     </strong>
   )
 }
-
-export function LogRowChevron() {
-  return (
-    <i
-      className={styles.chevron}
-      data-log-row-chevron
-      aria-hidden="true"
-      title="Open details"
-    >
-      ›
-    </i>
-  )
-}

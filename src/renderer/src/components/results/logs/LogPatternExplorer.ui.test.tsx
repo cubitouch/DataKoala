@@ -108,21 +108,19 @@ it('orders metrics, representative severity, pattern, and chevron like Loki list
     '[data-pattern-row] button',
   ) as HTMLButtonElement
   const children = Array.from(patternRow.children)
-
-  expect(children).toHaveLength(4)
-  expect(children[0].hasAttribute('data-pattern-metrics')).toBe(true)
-  expect(children[0].textContent).toBe('2 logs · 100.0%')
-
-  const severity = children[1].querySelector('[data-log-severity]')
+  expect(children).toHaveLength(3)
+  expect(children[0].querySelector('[data-pattern-metrics]')?.textContent).toBe(
+    '2 logs · 100.0%',
+  )
+  const severity = children[0].querySelector('[data-log-severity]')
   expect(severity?.textContent).toBe('ERROR')
   expect(severity?.textContent).not.toMatch(/\d/)
-
-  expect(children[2].hasAttribute('data-pattern-template')).toBe(true)
-  expect(children[2].textContent).toContain('Request')
-  expect(children[2].textContent).toContain('completed')
-
-  expect(children[3].hasAttribute('data-log-row-chevron')).toBe(true)
-  expect(children[3].textContent).toBe('›')
+  expect(
+    children[1].querySelector('[data-pattern-template]')?.textContent,
+  ).toContain('Request')
+  expect(children[1].textContent).toContain('completed')
+  expect(children[2].hasAttribute('data-row-chevron')).toBe(true)
+  expect(children[2].textContent).toBe('›')
 })
 
 it('selects patterns into one resizable inspector and keeps its width across selections', () => {

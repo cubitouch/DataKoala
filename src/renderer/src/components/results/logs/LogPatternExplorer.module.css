@@ -33,41 +33,10 @@
 .row {
   position: absolute;
   inset: 0 0 auto;
-  height: 58px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
 }
 
-.row:hover {
-  background: var(--bg-2);
-}
-
-.summary {
-  width: 100%;
-  height: 57px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  padding: 8px 14px;
-  display: grid;
-  grid-template-columns: 112px 64px minmax(0, 1fr) 18px;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.summary[aria-selected='true'] {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-2));
-  box-shadow: inset 2px 0 var(--accent);
-}
-
-.summary code {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 12px/1.45 var(--mono);
+.template {
+  font: inherit;
 }
 
 .literal {
@@ -90,12 +59,6 @@
 
 .metrics strong {
   color: var(--text);
-}
-
-.severitySlot {
-  display: flex;
-  align-items: center;
-  min-width: 0;
 }
 
 .inspector {
