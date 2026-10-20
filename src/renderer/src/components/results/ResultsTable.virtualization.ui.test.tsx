@@ -176,6 +176,49 @@ describe('ResultsTable virtualization', () => {
     ).toBeLessThan(100)
   })
 
+  it.each(['pointerUp', 'pointerCancel'] as const)(
+    'ignores the browser click retargeted to a header after %s',
+    async (finish) => {
+      window.PointerEvent = MouseEvent as typeof PointerEvent
+      arrange()
+      const headers = screen.getAllByRole('columnheader')
+      fireEvent.click(headers[0])
+      fireEvent.click(headers[0])
+      const sortBefore = headers.map((header) => header.textContent)
+      const firstRow = document.querySelector(
+        '[data-result-row-index="0"]',
+      )?.textContent
+      const handle = screen.getByRole('separator', {
+        name: 'Resize label column',
+      })
+      fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 240 })
+      fireEvent.pointerMove(handle, { pointerId: 1, clientX: 120 })
+      fireEvent[finish](handle, { pointerId: 1, clientX: 120 })
+      // Chromium can target the common ancestor rather than the divider.
+      fireEvent.click(headers[1], { detail: 1 })
+      expect(headers.map((header) => header.textContent)).toEqual(sortBefore)
+      expect(headers[0].getAttribute('aria-sort')).toBe('descending')
+      expect(headers[1].getAttribute('aria-sort')).toBe('none')
+      expect(
+        document.querySelector('[data-result-row-index="0"]')?.textContent,
+      ).toBe(firstRow)
+      fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }))
+      await waitFor(() => expect(saveText).toHaveBeenCalledTimes(1))
+      expect(saveText.mock.calls[0][0].content.split('\n')[1]).toContain(
+        '1499,row-1499',
+      )
+      // A new physical click and keyboard activation still sort.
+      fireEvent.pointerDown(headers[1], { button: 0 })
+      fireEvent.click(headers[1], { detail: 1 })
+      expect(headers[1].getAttribute('aria-sort')).toBe('ascending')
+      headers[1].focus()
+      fireEvent.keyDown(headers[1], { key: 'Enter' })
+      expect(headers[1].getAttribute('aria-sort')).toBe('descending')
+      fireEvent.keyDown(headers[1], { key: ' ' })
+      expect(headers[1].getAttribute('aria-sort')).toBe('none')
+    },
+  )
+
   it('clamps resized columns at the minimum and maximum widths', () => {
     window.PointerEvent = MouseEvent as typeof PointerEvent
     arrange()
