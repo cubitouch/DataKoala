@@ -1,3 +1,4 @@
+import { queryErrorMessage } from '@lib/queryErrors'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { TITLEBAR_HEIGHT } from '@shared/layoutDimensions'
 import { Combobox } from '@components/ui/combobox'
@@ -466,6 +467,7 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
       console.error('[service-map] Could not export SVG', error)
       notify({
         message: 'Could not export SVG. Try Export SVG again.',
+        details: queryErrorMessage(error),
         tone: 'error',
       })
     } finally {

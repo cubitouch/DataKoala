@@ -1,3 +1,4 @@
+import { queryErrorMessage } from '@lib/queryErrors'
 import { clipboardFailure } from '@lib/clipboardFeedback'
 import { TextInput } from '@components/ui/TextInput'
 import {
@@ -285,9 +286,10 @@ export function ResultsTable({
         content: csv,
       })
       if (path !== null) notify({ message: 'Table exported as CSV' })
-    } catch {
+    } catch (error) {
       notify({
         message: 'Could not export CSV. Try Export CSV again.',
+        details: queryErrorMessage(error),
         tone: 'error',
       })
     }

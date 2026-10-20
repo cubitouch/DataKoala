@@ -132,6 +132,7 @@ it('handles export rejection once, preserves filtering and retries without a que
   await waitFor(() =>
     expect(notify).toHaveBeenCalledExactlyOnceWith({
       message: 'Could not export CSV. Try Export CSV again.',
+      details: 'Save denied',
       tone: 'error',
     }),
   )
