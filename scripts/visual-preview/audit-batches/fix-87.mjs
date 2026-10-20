@@ -57,7 +57,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
   assert.equal(await js('window.__fix87copied[0]'),'value\n42')
   const exportButton='[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="Export CSV")'
   await js(exportButton+'.click()')
-  await waitFor(win,'window.__fix87notices.at(-1)?.message.includes("Could not export CSV")','export failure')
+  await waitFor(win,'[...document.querySelectorAll("[role=alert]")].some(e=>e.textContent.includes("Could not export CSV")&&e.querySelector("details summary"))','rendered export failure')
   await js(`(()=>{const summary=document.querySelector('[role=alert] details summary');summary.focus();if(!summary.parentElement.open)summary.click()})()`)
   await js('new Promise(done=>setTimeout(done,3000))')
   assert.equal(await js('document.activeElement===document.querySelector("[role=alert] details summary")'),true,'export Details survives its old default timeout')
