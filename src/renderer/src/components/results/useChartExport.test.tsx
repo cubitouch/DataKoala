@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   write: vi.fn(),
   save: vi.fn(),
   notify: vi.fn(),
+  notifyExport: vi.fn(),
 }))
 vi.mock('@lib/chartImage', async (original) => ({
   ...(await original<typeof import('@lib/chartImage')>()),
@@ -25,6 +26,7 @@ vi.mock('@lib/api', () => ({
 }))
 vi.mock('@lib/chartCopyNotification', () => ({
   notifyChartCopyResult: mocks.notify,
+  notifyChartExportResult: mocks.notifyExport,
 }))
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -54,6 +56,7 @@ beforeEach(() => {
   mocks.write.mockReset().mockResolvedValue({ ok: true })
   mocks.save.mockReset().mockResolvedValue('/chart.png')
   mocks.notify.mockReset()
+  mocks.notifyExport.mockReset()
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 afterEach(() => {
@@ -79,7 +82,7 @@ it('copies PNG and exports the existing filename/format with original capture in
     base64: 'AAAA',
     extensions: ['png'],
   })
-  expect(result.current.copyFeedback).toBe('Chart exported')
+  expect(mocks.notifyExport).toHaveBeenCalledExactlyOnceWith(true)
   expect(result.current.capturing).toBeNull()
 })
 it('does not capture before readiness or after a retained action loses ownership', async () => {
@@ -110,7 +113,7 @@ it.each(['copy', 'export'] as const)(
     await act(run)
     expect(result.current.capturing).toBeNull()
     if (action === 'copy') expect(mocks.notify).toHaveBeenCalledWith(false)
-    else expect(result.current.copyFeedback).toBe('Could not export chart')
+    else expect(mocks.notifyExport).toHaveBeenCalledExactlyOnceWith(false)
     await act(run)
     expect(result.current.capturing).toBeNull()
   },
@@ -144,11 +147,11 @@ it('handles unavailable instance and save failure/cancellation', async () => {
   rerender(props)
   mocks.save.mockRejectedValueOnce(new Error('unavailable'))
   await act(async () => result.current.exportPng())
-  expect(result.current.copyFeedback).toBe('Could not export chart')
+  expect(mocks.notifyExport).toHaveBeenCalledExactlyOnceWith(false)
   mocks.save.mockResolvedValueOnce(null)
   await act(async () => result.current.exportPng())
   expect(result.current.capturing).toBeNull()
-  expect(result.current.copyFeedback).not.toBe('Chart exported')
+  expect(mocks.notifyExport).toHaveBeenCalledTimes(1)
 })
 it('excludes same-turn repeated actions synchronously', async () => {
   const capture = deferred<string>()
@@ -196,6 +199,7 @@ it.each(['resolve', 'reject'] as const)(
     })
     expect(mocks.write).not.toHaveBeenCalled()
     expect(mocks.notify).not.toHaveBeenCalled()
+    expect(mocks.notifyExport).not.toHaveBeenCalled()
     expect(result.current.capturing).toBe('export')
     await act(async () => {
       fresh.resolve('data:image/png;base64,NEW')
@@ -232,6 +236,7 @@ it.each(['copy', 'export'] as const)(
       await pending
     })
     expect(mocks.notify).not.toHaveBeenCalled()
+    expect(mocks.notifyExport).not.toHaveBeenCalled()
   },
 )
 it('rejects obsolete readiness after PNG generation even without context replacement', async () => {
@@ -278,27 +283,37 @@ it.each(['copy', 'export'] as const)(
       await pending
     })
     expect(mocks.notify).not.toHaveBeenCalled()
-    expect(result.current.copyFeedback).toBeNull()
+    expect(mocks.notifyExport).not.toHaveBeenCalled()
+    expect(mocks.notifyExport).not.toHaveBeenCalled()
     expect(result.current.capturing).toBeNull()
   },
 )
-it('discards pending image on unmount and clears feedback timer', async () => {
-  vi.useFakeTimers()
+it('discards pending image on unmount', async () => {
   const capture = deferred<string>()
   const { result, unmount } = renderHook(() => useChartExport(inputProps))
-  await act(async () => result.current.exportPng())
-  expect(vi.getTimerCount()).toBe(1)
   mocks.capture.mockReturnValueOnce(capture.promise)
   let pending!: Promise<void>
   act(() => {
     pending = result.current.copyChart()
   })
   unmount()
-  expect(vi.getTimerCount()).toBe(0)
   await act(async () => {
     capture.resolve('data:image/png;base64,OLD')
     await pending
   })
   expect(mocks.write).not.toHaveBeenCalled()
   expect(mocks.notify).not.toHaveBeenCalled()
+  expect(mocks.notifyExport).not.toHaveBeenCalled()
+})
+
+it('treats native Save cancellation as silent and allows a fresh retry', async () => {
+  mocks.save.mockResolvedValueOnce(null)
+  const props = input()
+  const { result } = renderHook(() => useChartExport(props))
+  await act(async () => result.current.exportPng())
+  expect(mocks.notifyExport).not.toHaveBeenCalled()
+  expect(mocks.notify).not.toHaveBeenCalled()
+  await act(async () => result.current.exportPng())
+  expect(mocks.notifyExport).toHaveBeenCalledExactlyOnceWith(true)
+  expect(mocks.save).toHaveBeenCalledTimes(2)
 })

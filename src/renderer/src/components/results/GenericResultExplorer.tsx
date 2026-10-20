@@ -742,7 +742,7 @@ export function GenericResultExplorer({
     [chartRevision, renderedOption, result, onAddFilter],
   )
   const exportReady = chartRendered && appliedChart?.revision === chartRevision
-  const { capturing, copyFeedback, copyChart, exportPng } = useChartExport({
+  const { capturing, copyChart, exportPng } = useChartExport({
     context: exportContext,
     ready: exportReady,
     revision: appliedChart?.revision ?? null,
@@ -1299,11 +1299,6 @@ export function GenericResultExplorer({
                 </div>
               )}
             </>
-          )}
-          {copyFeedback && (
-            <div className="toast" role="status">
-              {copyFeedback}
-            </div>
           )}
           {pointMenu && (
             <ChartFilterPopover
