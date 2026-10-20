@@ -20,7 +20,7 @@ const { profile, remove, list } = vi.hoisted(() => ({
     database: 'app',
     user: 'reader',
     password: '',
-    tlsMode: 'disable',
+    tlsMode: 'disable' as const,
     readonly: true as const,
   },
   remove: vi.fn(),
