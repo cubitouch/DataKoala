@@ -17,6 +17,9 @@ import {
   useStore,
 } from '@store/useStore'
 
+const FAILED_SEARCH_NOTICE =
+  'Search stopped before completion; incomplete results have been cleared.'
+
 interface SearchRequest {
   query: string
   sampleSize: TraceSampleSize
@@ -110,10 +113,12 @@ export function useTempoTraceSearchController({
   }, [])
 
   useEffect(() => {
-    const storedResult =
-      selectSession(useStore.getState(), tabId)?.result ?? null
+    const session = selectSession(useStore.getState(), tabId)
+    const storedResult = session?.result ?? null
     setSearchRows(searchRowsFromResult(storedResult))
-    setSearchNotice(storedResult?.notice ?? '')
+    setSearchNotice(
+      storedResult?.notice ?? (session?.queryError ? FAILED_SEARCH_NOTICE : ''),
+    )
     setSearchProgress(null)
   }, [tabId, storedResult])
 
@@ -244,11 +249,7 @@ export function useTempoTraceSearchController({
             .completeQuery(null, message, requestTabId, undefined, operation)
           if (isVisibleRequest()) {
             setSearchRows([])
-            setSearchNotice(
-              sampled
-                ? 'Sample search stopped before Tempo returned its bounded result set.'
-                : 'Search stopped before the selected period was fully covered; incomplete results have been cleared.',
-            )
+            setSearchNotice(FAILED_SEARCH_NOTICE)
             setSearchProgress(null)
             onError(message)
           }
