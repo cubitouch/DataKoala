@@ -1881,3 +1881,74 @@ test('first Escape dismisses only the model selector and retains Settings identi
   fireEvent.keyDown(trigger, { key: 'Escape' })
   expect(screen.queryByRole('dialog')).toBeNull()
 })
+
+test.each(['result', 'rejection'] as const)(
+  'delayed Save %s preserves the draft and restores usable Settings focus before retry',
+  async (failure) => {
+    let release!: () => void
+    let persisted = { ...summary }
+    mocks.save
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            release = () =>
+              failure === 'rejection'
+                ? reject(new Error('synthetic storage failure'))
+                : resolve({
+                    ok: false,
+                    code: 'storage',
+                    message: 'Could not save settings. Try again.',
+                  })
+          }),
+      )
+      .mockImplementationOnce(async (draft) => {
+        persisted = { ...summary, model: draft.model }
+        return ok(persisted)
+      })
+    render(<AiSettingsAction />)
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    await screen.findAllByText('saved/model')
+    const parent = screen.getByRole('dialog')
+    const model = screen.getByRole('combobox', { name: /^Model:/ })
+    fireEvent.click(model)
+    fireEvent.click(await screen.findByRole('option', { name: /Other model/ }))
+    await act(async () => {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      )
+    })
+    const key = screen.getByLabelText('API key') as HTMLInputElement
+    fireEvent.change(key, { target: { value: 'synthetic-test-key' } })
+    const save = screen.getByRole('button', {
+      name: 'Save',
+    }) as HTMLButtonElement
+    save.focus()
+    fireEvent.click(save)
+    expect(save.disabled).toBe(true)
+    // jsdom retains disabled focus; simulate Chromium's focus loss while IPC is pending.
+    document.body.tabIndex = -1
+    document.body.focus()
+    document.body.removeAttribute('tabindex')
+    expect(document.activeElement).toBe(document.body)
+    expect(mocks.save).toHaveBeenCalledTimes(1)
+    expect(persisted).toEqual(summary)
+    await act(async () => release())
+    const notice = screen.getByRole('alert')
+    await waitFor(() => expect(document.activeElement).toBe(notice))
+    expect(screen.getByRole('dialog')).toBe(parent)
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(model.textContent).toContain('Other model')
+    expect(key.value).toBe('synthetic-test-key')
+    expect(persisted).toEqual(summary)
+    expect(save.disabled).toBe(false)
+    save.focus()
+    fireEvent.click(save)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(mocks.save).toHaveBeenCalledTimes(2)
+    expect(mocks.save.mock.calls[1][0]).toEqual({
+      model: 'other/model',
+      apiKey: 'synthetic-test-key',
+    })
+    expect(persisted.model).toBe('other/model')
+  },
+)

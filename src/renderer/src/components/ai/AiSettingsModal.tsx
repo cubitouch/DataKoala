@@ -23,6 +23,17 @@ export function AiSettingsModal({
     [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(''),
     [error, setError] = useState('')
+  const errorNotice = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!error || busy) return
+    const notice = errorNotice.current
+    const dialog = notice?.closest('[role="dialog"]')
+    const active = document.activeElement
+    // Disabling the submitting control can send native focus to BODY. Wait
+    // until the operation has settled and enabled controls are committed.
+    if (dialog && (!dialog.contains(active) || active?.matches(':disabled')))
+      notice?.focus()
+  }, [error, busy])
   const requests = useRef(new Set<string>())
   const mounted = useRef(true)
   useEffect(() => {
@@ -169,7 +180,12 @@ export function AiSettingsModal({
         It may use OpenRouter credits and does not save changes.
       </p>
       {error && (
-        <div role="alert" className="inline-error">
+        <div
+          ref={errorNotice}
+          role="alert"
+          tabIndex={-1}
+          className="inline-error"
+        >
           {error}
         </div>
       )}
