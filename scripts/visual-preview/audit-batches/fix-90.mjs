@@ -26,14 +26,14 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   await js(`(() => {const s=window.__datakoalaStore,t=structuredClone(s.getState().tabs[0]),p=${data(auditProfiles.postgres)};Object.assign(t,{id:'fix90',connectionProfileId:p.id,queryMode:'sql',result:${data(fixture)},resultRevision:1,sqlVisualization:{...t.sqlVisualization,view:'bar',xColumn:'name',valueColumn:'value'},queryError:null,running:false});s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:'connected',generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:'loaded',error:null,isStale:false}}});window.__fix90notices=[];window.addEventListener('datakoala:notification',e=>window.__fix90notices.push(e.detail))})()`)
   const run = async () => {
     await waitFor(win, '[...document.querySelectorAll("button")].some(e=>e.textContent.trim()==="Export PNG"&&!e.disabled)', 'ready PNG export')
-    await js('[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="Export PNG").click()')
+    await js('[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="Export PNG").click();new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))')
     await waitFor(win, '[...document.querySelectorAll("button")].some(e=>e.textContent.trim()==="Export PNG"&&!e.disabled)', 'finished PNG export')
   }
   for (const [index, outcome] of ['saved','failed'].entries()) {
     mode = outcome; await run()
     const role = outcome === 'saved' ? 'status' : 'alert'
-    await waitFor(win, `document.querySelector('[role=${role}]')?.textContent.includes(${data(outcome === 'saved' ? 'Chart exported' : 'Could not export chart')})`, 'export feedback')
-    const target = await js(`document.querySelector('[role=${role}]').getBoundingClientRect().toJSON()`)
+    await waitFor(win, `[...document.querySelectorAll('[role=${role}]')].some(e=>e.textContent.includes(${data(outcome === 'saved' ? 'Chart exported' : 'Could not export chart')}))`, 'export feedback')
+    const target = await js(`[...document.querySelectorAll('[role=${role}]')].find(e=>e.textContent.includes(${data(outcome === 'saved' ? 'Chart exported' : 'Could not export chart')})).getBoundingClientRect().toJSON()`)
     assert.equal(await js(`document.querySelectorAll('[role=${role}]').length`),1)
     observations.push({filename:screenshots[index],width:1440,height:900,dpr:1,zoom:1,target})
     await capture(win,screenshots[index])
