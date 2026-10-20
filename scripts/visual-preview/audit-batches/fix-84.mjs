@@ -26,7 +26,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
   const ownership=()=>js(`(()=>{const d=document.querySelector('[role=dialog]'),a=document.activeElement;return {inside:!!d?.contains(a),active:{tag:a.tagName,id:a.id,label:a.getAttribute('aria-label'),text:a.tagName==='INPUT'?null:a.textContent.slice(0,80)},dialogs:document.querySelectorAll('[role=dialog]').length}})()`)
   const traverse=async name=>{
     focused.push({name,phase:'initial',...await ownership()})
-    if(!baseline) assert.equal(focused.at(-1).inside,true,name+' initial focus')
+    if(!baseline) { assert.equal(focused.at(-1).inside,true,name+' initial focus');assert.equal(focused.at(-1).dialogs,1,name+' owns the only portal') }
     for(const modifiers of [[],['shift']])for(let i=0;i<30;i++){
       await key('Tab',modifiers);const state=await ownership();focused.push({name,phase:modifiers.length?'reverse':'forward',...state});if(!baseline)assert.equal(state.inside,true,name+' native Tab ownership')
     }

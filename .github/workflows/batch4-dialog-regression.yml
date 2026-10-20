@@ -14,6 +14,7 @@ jobs:
   capture:
     runs-on: ubuntu-latest
     env:
+      EVIDENCE_ROOT: ${{ github.workspace }}/dialog-evidence
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
@@ -36,12 +37,12 @@ jobs:
           cp scripts/visual-preview/audit-batches/fix-84.mjs ../dialog-baseline/scripts/visual-preview/audit-batches/
           cd ../dialog-baseline
           pnpm build
-          DATAKOALA_BATCH4_BASELINE=1 DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=fix-84 DATAKOALA_AUDIT_HEAD="$BASE_SHA" DATAKOALA_PREVIEW_OUTPUT=../dialog-evidence/before xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+          DATAKOALA_BATCH4_BASELINE=1 DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=fix-84 DATAKOALA_AUDIT_HEAD="$BASE_SHA" DATAKOALA_PREVIEW_OUTPUT="$EVIDENCE_ROOT/before" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
       - run: pnpm build
       - name: Native keyboard and confirmation regressions
-        run: DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=fix-84 DATAKOALA_AUDIT_HEAD="$HEAD_SHA" DATAKOALA_PREVIEW_OUTPUT=../dialog-evidence/after xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+        run: DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=fix-84 DATAKOALA_AUDIT_HEAD="$HEAD_SHA" DATAKOALA_PREVIEW_OUTPUT="$EVIDENCE_ROOT/after" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: batch4-dialog-evidence
-          path: ../dialog-evidence
+          path: dialog-evidence
