@@ -105,6 +105,7 @@ export function ResultsTable({
     startX: number
     startWidth: number
   } | null>(null)
+  const suppressResizeClick = useRef(false)
   const rowIds = useRef(new WeakMap<object, number>())
   const nextRowId = useRef(1)
 
@@ -121,6 +122,7 @@ export function ResultsTable({
     setJsonTarget(null)
     setColumnWidths(null)
     resizeRef.current = null
+    suppressResizeClick.current = false
     setScrollTop(0)
     if (scrollRef.current) scrollRef.current.scrollTop = 0
   }, [mode, resultRevision, result])
@@ -207,7 +209,8 @@ export function ResultsTable({
   ) => {
     event.preventDefault()
     event.stopPropagation()
-    if (!result) return
+    if (!result || event.button !== 0) return
+    suppressResizeClick.current = true
 
     const snappedWidths = Object.fromEntries(
       result.columns.map((column) => {
@@ -411,7 +414,36 @@ export function ResultsTable({
                       if (element) headerRefs.current.set(key, element)
                       else headerRefs.current.delete(key)
                     }}
-                    onClick={() => toggleSort(resultColumnKey(c))}
+                    tabIndex={0}
+                    aria-sort={
+                      sortCol === resultColumnKey(c)
+                        ? sortDir === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
+                    onPointerDownCapture={() => {
+                      // A new gesture is intentional. The click following a resize
+                      // can target this header after pointer capture is released.
+                      suppressResizeClick.current = false
+                    }}
+                    onClick={(event) => {
+                      if (suppressResizeClick.current && event.detail > 0) {
+                        suppressResizeClick.current = false
+                        event.preventDefault()
+                        return
+                      }
+                      toggleSort(resultColumnKey(c))
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        event.target === event.currentTarget &&
+                        (event.key === 'Enter' || event.key === ' ')
+                      ) {
+                        event.preventDefault()
+                        toggleSort(resultColumnKey(c))
+                      }
+                    }}
                   >
                     {c.name}{' '}
                     {sortCol === resultColumnKey(c)

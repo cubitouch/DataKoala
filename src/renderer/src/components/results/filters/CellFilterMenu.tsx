@@ -14,6 +14,7 @@ export function CellFilterMenu({
   onAdd: (filter: ResultFilter) => void
 }) {
   const details = useRef<HTMLDetailsElement>(null)
+  const summary = useRef<HTMLElement>(null)
   const isNull = value === null || value === undefined
   const add = (filter: ResultFilter) => {
     onAdd(filter)
@@ -24,10 +25,16 @@ export function CellFilterMenu({
       className={styles.menu}
       ref={details}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') details.current?.removeAttribute('open')
+        if (event.key === 'Escape' && details.current?.open) {
+          event.preventDefault()
+          event.stopPropagation()
+          details.current.open = false
+          summary.current?.focus()
+        }
       }}
     >
       <summary
+        ref={summary}
         className={styles.summary}
         aria-label={`Filter actions for ${column}`}
       >
