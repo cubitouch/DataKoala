@@ -21,6 +21,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     if (keyCode === 'Enter') win.webContents.sendInputEvent({ type: 'char', keyCode: '\r' })
     win.webContents.sendInputEvent({ type: 'keyUp', keyCode }); await settle()
   }
+  win.show(); win.focus(); win.setContentSize(1440,900); win.webContents.setZoomFactor(1)
+  await settle()
   const result = { columns: [{ name: 'name', dataTypeID: 25, dataTypeName: 'text' }, { name: 'value', dataTypeID: 23, dataTypeName: 'int4' }], rows: Array.from({length: 200}, (_, i) => ({ name: i === 1 ? null : 'row '+(199-i), value: i })), rowCount: 200, durationMs: 7 }
   await js(`(() => {const s=window.__datakoalaStore,t=structuredClone(s.getState().tabs[0]),p=${data(auditProfiles.postgres)};Object.assign(t,{id:'fix94',connectionProfileId:p.id,queryMode:'sql',result:${data(result)},resultRevision:1,sqlResultFilters:[],queryError:null,running:false});s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:'connected',generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:'loaded',error:null,isStale:false}}});window.__fix94copies=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__fix94copies.push(text)}})})()`)
   await waitFor(win, 'document.querySelectorAll("th").length===2', 'table')
