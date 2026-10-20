@@ -124,4 +124,58 @@ describe('GeneratedQueryPanel', () => {
       screen.getByText('Select a table and X axis to preview SQL.'),
     ).toBeTruthy()
   })
+
+  it('updates preview, copy and handoff labels across all query languages without changing query text', async () => {
+    const onOpenInEditor = vi.fn()
+    const cases = [
+      ['SQL', 'select 42;'],
+      ['PromQL', 'sum(rate(requests_total[5m]))'],
+      ['LogQL', '{service_name="api"} |= "error"'],
+      ['TraceQL', '{ span:duration > 300ms }'],
+    ] as const
+    const view = render(
+      <GeneratedQueryPanel
+        language="SQL"
+        value="select 42;"
+        onOpenInEditor={onOpenInEditor}
+      />,
+    )
+    for (const [language, query] of cases) {
+      view.rerender(
+        <GeneratedQueryPanel
+          language={language}
+          value={query}
+          onOpenInEditor={onOpenInEditor}
+        />,
+      )
+      const details = screen
+        .getByText('Generated ' + language)
+        .closest('details')!
+      if (!details.open) fireEvent.click(details.querySelector('summary')!)
+      expect(
+        (
+          screen.getByLabelText(
+            'Generated ' + language + ' query',
+          ) as HTMLTextAreaElement
+        ).value,
+      ).toBe(query)
+      const copy = screen.getByRole('button', {
+        name: 'Copy ' + language + ' to clipboard',
+      })
+      copy.focus()
+      expect(document.activeElement).toBe(copy)
+      fireEvent.click(copy)
+      await waitFor(() =>
+        expect(copyTextToClipboard).toHaveBeenLastCalledWith(query),
+      )
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Open in ' + language + ' mode' }),
+      )
+      expect(details.open).toBe(true)
+      expect(
+        screen.getAllByRole('button', { name: /^Copy .* to clipboard$/ }),
+      ).toHaveLength(1)
+    }
+    expect(onOpenInEditor).toHaveBeenCalledTimes(4)
+  })
 })

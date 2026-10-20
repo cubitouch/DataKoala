@@ -61,18 +61,35 @@ describe('CopySqlButton', () => {
     expect(copyTextToClipboard).not.toHaveBeenCalled()
   })
 
-  it('uses a query-language-neutral accessible label when requested', async () => {
-    copyTextToClipboard.mockResolvedValue(undefined)
-    render(<CopySqlButton sql="{ duration > 100ms }" language="TraceQL" />)
-    fireEvent.click(
-      within(document.body).getByRole('button', {
-        name: 'Copy TraceQL to clipboard',
-      }),
-    )
-    await waitFor(() =>
-      expect(copyTextToClipboard).toHaveBeenCalledWith('{ duration > 100ms }'),
-    )
-  })
+  it.each([
+    ['SQL', 'select 42;'],
+    ['PromQL', 'up'],
+    ['LogQL', '{service_name="api"}'],
+    ['TraceQL', '{ span:duration > 100ms }'],
+  ])(
+    'copies %s exactly with its accessible label and neutral live feedback',
+    async (language, query) => {
+      copyTextToClipboard.mockResolvedValue(undefined)
+      const { container } = render(
+        <>
+          <CopySqlButton sql={query} language={language} />
+          <NotificationArea />
+        </>,
+      )
+      const view = within(container)
+      fireEvent.click(
+        view.getByRole('button', {
+          name: 'Copy ' + language + ' to clipboard',
+        }),
+      )
+      await waitFor(() =>
+        expect(copyTextToClipboard).toHaveBeenCalledExactlyOnceWith(query),
+      )
+      expect((await view.findByRole('status')).textContent).toBe(
+        'Copied to clipboard',
+      )
+    },
+  )
 
   it('keeps the button usable and shows an error when clipboard writing fails', async () => {
     copyTextToClipboard.mockRejectedValue(new Error('denied'))

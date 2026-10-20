@@ -1,13 +1,18 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ModeSwitch } from './ModeSwitch'
 import {
   activeTestSession,
   patchActiveTestSession,
   resetTestStore,
 } from '@test/sessionTestUtils'
-import { useStore } from '@store/useStore'
+import { createQuerySession, useStore } from '@store/useStore'
+import {
+  parseWorkspaceDraft,
+  serializeWorkspaceDraft,
+} from '@lib/workspacePersistence'
+import { workspaceRestorePatch } from '@lib/workspaceRestoration'
 
 afterEach(() => {
   cleanup()
@@ -17,6 +22,9 @@ afterEach(() => {
 describe('ModeSwitch Explain lock', () => {
   it.each([
     ['postgres', 'SQL'],
+    ['bigquery', 'SQL'],
+    ['local-files', 'SQL'],
+    ['sqlite-file', 'SQL'],
     ['prometheus', 'PromQL'],
     ['tempo', 'TraceQL'],
     ['loki', 'LogQL'],
@@ -76,4 +84,48 @@ describe('ModeSwitch Explain lock', () => {
     fireEvent.click(builder)
     expect(activeTestSession().queryMode).toBe('sql')
   })
+})
+
+it('derives terminology from every restored tab and updates it after a profile switch', () => {
+  const cases = [
+    ['postgres', 'SQL'],
+    ['bigquery', 'SQL'],
+    ['local-files', 'SQL'],
+    ['sqlite-file', 'SQL'],
+    ['prometheus', 'PromQL'],
+    ['loki', 'LogQL'],
+    ['tempo', 'TraceQL'],
+  ] as const
+  // Profiles are resolved separately from workspace restoration, as in a cold launch.
+  const profiles = cases.map(([kind]) => ({ id: kind, name: kind, kind }))
+  const tabs = cases.map(([kind]) => ({
+    ...createQuerySession(1, { id: 'tab-' + kind }),
+    connectionProfileId: kind,
+    queryMode: 'sql' as const,
+    sql: 'untouched ' + kind,
+  }))
+  resetTestStore({ profiles: profiles as never, tabs, activeTabId: tabs[0].id })
+  const serialized = serializeWorkspaceDraft(useStore.getState())
+  const draft = parseWorkspaceDraft(serialized)!
+  resetTestStore({
+    profiles: profiles as never,
+    ...workspaceRestorePatch(draft),
+  })
+  render(<ModeSwitch />)
+  for (const [kind, language] of cases) {
+    act(() => {
+      void useStore.getState().activateTab('tab-' + kind)
+    })
+    const plain = screen.getByRole('button', { name: language })
+    expect(plain.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Builder' }))
+    expect(plain.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(plain)
+    expect(activeTestSession().sql).toBe('untouched ' + kind)
+  }
+  // Same mounted control, different active profile: no stale TraceQL label.
+  act(() => patchActiveTestSession({ connectionProfileId: 'loki' }))
+  expect(screen.getByRole('button', { name: 'LogQL' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'TraceQL' })).toBeNull()
+  expect(activeTestSession().sql).toBe('untouched tempo')
 })
