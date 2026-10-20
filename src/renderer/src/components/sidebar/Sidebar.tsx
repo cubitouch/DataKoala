@@ -123,7 +123,7 @@ export function Sidebar() {
       if (deleteFocusFrame.current !== null)
         cancelAnimationFrame(deleteFocusFrame.current)
     },
-    [activeTabId, profiles, showModal],
+    [activeTabId, activeTabConnectionId, profiles, showModal],
   )
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
