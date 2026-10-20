@@ -226,3 +226,43 @@ it('keeps the captured deletion recoverable on failure, then removes exactly onc
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(remove.mock.calls).toEqual([['pg'], ['pg']])
 })
+
+it.each(['success', 'failure'] as const)(
+  'does not deliver an obsolete deletion %s into a replacement target',
+  async (outcome) => {
+    list.mockResolvedValue([
+      profile,
+      { ...profile, id: 'other', name: 'Other Database' },
+    ])
+    let finish!: () => void
+    let fail!: (error: Error) => void
+    remove.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          finish = resolve
+          fail = reject
+        }),
+    )
+    render(<Sidebar />)
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Delete connection Production Database',
+      }),
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete connection' }),
+    )
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('pg'))
+    // Model an external target replacement while storage delivery is pending.
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete connection Other Database' }),
+    )
+    await act(async () => {
+      if (outcome === 'success') finish()
+      else fail(new Error('Obsolete removal error'))
+    })
+    expect(screen.getByRole('dialog').textContent).toContain('Other Database')
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(remove).toHaveBeenCalledTimes(1)
+  },
+)

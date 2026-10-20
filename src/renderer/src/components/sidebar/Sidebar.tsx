@@ -115,6 +115,8 @@ export function Sidebar() {
   const [pendingDelete, setPendingDelete] = useState<DataSourceProfile | null>(
     null,
   )
+  const deleteTarget = useRef(pendingDelete)
+  deleteTarget.current = pendingDelete
   const deleteOrigin = useRef<HTMLButtonElement | null>(null)
   const deleteFocusFrame = useRef<number | null>(null)
   const newConnection = useRef<HTMLButtonElement>(null)
@@ -363,6 +365,7 @@ export function Sidebar() {
       return
     }
     await remove(id)
+    if (deleteTarget.current?.id !== id) return
     deleteOrigin.current = null
     setPendingDelete(null)
     requestAnimationFrame(() => {
@@ -1000,6 +1003,7 @@ export function Sidebar() {
       )}
       {pendingDelete && (
         <DeleteConnectionDialog
+          key={pendingDelete.id}
           profile={pendingDelete}
           onCancel={cancelDelete}
           onConfirm={confirmDelete}
