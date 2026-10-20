@@ -52,3 +52,39 @@ test('surfaces only datasets returned by the provider with list metadata', async
   ])
   assert.deepEqual(options, { projectId: 'data', autoPaginate: true })
 })
+
+// Discovery must preserve the actionable provider diagnosis instead of bare SDK errors.
+test('normalizes project/default/dataset discovery failures without losing their causes', async () => {
+  const cause = Object.assign(
+    new Error('invalid_grant: Token has been expired or revoked'),
+    { code: 401 },
+  )
+  const service = new BigQueryDiscoveryService(
+    () =>
+      ({
+        getDatasets: async () => {
+          throw cause
+        },
+      }) as never,
+    {
+      getClient: async () => {
+        throw cause
+      },
+      getProjectId: async () => {
+        throw cause
+      },
+    } as never,
+  )
+  for (const operation of [
+    () => service.discoverProjects(),
+    () => service.discoverDefaults(),
+    () => service.listDatasets('demo'),
+  ]) {
+    await assert.rejects(operation(), (error) => {
+      assert.ok(error instanceof Error)
+      assert.match(error.message, /expired or was revoked.*Renew ADC/)
+      assert.equal(error.cause, cause)
+      return true
+    })
+  }
+})

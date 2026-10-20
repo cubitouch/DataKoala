@@ -884,3 +884,107 @@ test('BigQuery write policy rejects before dry-run errors can obscure statement 
     assert.equal(queryJobCalls, 0, entry.name)
   }
 })
+
+test('normalizes metadata failures and preserves query classifications for structured code/reason variants', async () => {
+  const auth = { code: '401', response: { data: { error: 'invalid_grant' } } }
+  let failing = false
+  const fake = client()
+  const adapter = new BigQueryAdapter(() => ({
+    ...fake.value,
+    async getDatasets() {
+      if (failing) throw auth
+      return [[]]
+    },
+    dataset() {
+      return {
+        getTables: async () => {
+          throw auth
+        },
+        table: () => ({
+          getMetadata: async () => {
+            throw auth
+          },
+        }),
+      }
+    },
+    createQueryJob: async () => {
+      throw auth
+    },
+  }))
+  const connected = await adapter.connect(profile)
+  assert.equal(connected.result.ok, true)
+  const session = connected.session!
+  failing = true
+  for (const operation of [
+    () => session.listNamespaces(),
+    () => session.listRelations({ name: 'demo.analytics' }),
+    () =>
+      session.describeRelation({ namespace: 'demo.analytics', name: 'orders' }),
+    () => session.estimateQuery!('SELECT 1'),
+  ]) {
+    await assert.rejects(operation(), /expired or was revoked/)
+  }
+  await assert.rejects(session.query({ sql: 'SELECT 1' }), (error) => {
+    assert.equal(queryFailureKind(error), 'connection')
+    assert.match((error as Error).message, /expired or was revoked/)
+    return true
+  })
+})
+
+test('does not misclassify unknown object SQL errors or discard their useful message', async () => {
+  const fake = client()
+  const connected = await new BigQueryAdapter(() => ({
+    ...fake.value,
+    createQueryJob: async () => {
+      throw {
+        code: 400,
+        message: 'Unrecognized name: missing_column at [1:8]',
+        errors: [{ reason: 'invalidQuery' }],
+      }
+    },
+  })).connect(profile)
+  await assert.rejects(
+    connected.session!.query({ sql: 'SELECT missing_column' }),
+    (error) => {
+      assert.equal(queryFailureKind(error), 'query')
+      assert.equal(
+        (error as Error).message,
+        'Unrecognized name: missing_column at [1:8]',
+      )
+      return true
+    },
+  )
+})
+
+test('cardinality probes receive the same authentication classification without retries', async () => {
+  const fake = client()
+  let calls = 0
+  const connected = await new BigQueryAdapter(() => ({
+    ...fake.value,
+    createQueryJob: async () => {
+      calls++
+      throw {
+        errors: [{ reason: 'authError' }],
+        message: 'invalid credentials',
+      }
+    },
+  })).connect(profile)
+  const request = {
+    schema: 'data.analytics',
+    table: 'orders',
+    seriesColumn: 'country',
+    predicates: [],
+  }
+  assert.equal(connected.result.ok, true)
+  for (const operation of [
+    () => connected.session!.querySeriesCardinality!(request),
+    () => connected.session!.querySeriesCardinalityApproximate!(request),
+  ]) {
+    await assert.rejects(operation(), (error) => {
+      assert.equal(queryFailureKind(error), 'connection')
+      assert.match((error as Error).message, /Application Default Credentials/)
+      return true
+    })
+  }
+  assert.equal(calls, 2)
+})

@@ -8,6 +8,7 @@ import type { Encryption } from './secrets/store.ts'
 import { AiSettingsStore } from './ai/settings.ts'
 import { BigQueryDiscoveryService } from './bigquery-discovery.ts'
 import { BigQueryAdapter } from './adapters/bigquery-adapter.ts'
+import { BigQueryProviderError } from './bigquery-errors.ts'
 
 const encryption: Encryption = {
   available: async () => true,
@@ -91,16 +92,18 @@ test('NON03 missing ADC and revoked auth fail discovery without creating a datas
     )
     await assert.rejects(
       service.discoverDefaults(),
-      (error) => error === failure,
+      (error) =>
+        error instanceof BigQueryProviderError && error.cause === failure,
     )
     await assert.rejects(
       service.discoverProjects(),
-      (error) => error === failure,
+      (error) =>
+        error instanceof BigQueryProviderError && error.cause === failure,
     )
   }
 })
 
-test('NON03 characterization: BigQuery authentication errors retain synthetic provider message text', async () => {
+test('NON03 authentication guidance omits unnecessary raw synthetic provider text without claiming credential leakage', async () => {
   const adapter = new BigQueryAdapter(
     () =>
       ({
@@ -124,6 +127,6 @@ test('NON03 characterization: BigQuery authentication errors retain synthetic pr
   assert.equal(result.ok, false)
   if (!result.ok) {
     assert.match(result.error, /Application Default Credentials/)
-    assert.equal(result.error.includes('SYNTHETIC_NON03_TOKEN'), true)
+    assert.equal(result.error.includes('SYNTHETIC_NON03_TOKEN'), false)
   }
 })
