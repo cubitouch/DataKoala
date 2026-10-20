@@ -1,3 +1,4 @@
+import { clipboardFailure } from '@lib/clipboardFeedback'
 import { copyTextToClipboard } from '@lib/clipboardText'
 import { notify } from '@components/ui/feedback/NotificationArea'
 
@@ -21,13 +22,7 @@ export function CopySqlButton({
       await copyTextToClipboard(sql)
       notify({ message: 'Copied to clipboard' })
     } catch (error) {
-      notify({
-        message:
-          error instanceof Error && error.message
-            ? `Could not copy: ${error.message}`
-            : 'Could not copy to clipboard',
-        tone: 'error',
-      })
+      notify(clipboardFailure(error))
     }
   }
 

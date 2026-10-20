@@ -4,6 +4,13 @@ export async function copyTextToClipboard(text: string): Promise<void> {
     return
   }
 
+  const focused = document.activeElement
+  const selection = window.getSelection()
+  const ranges = selection
+    ? Array.from({ length: selection.rangeCount }, (_, index) =>
+        selection.getRangeAt(index).cloneRange(),
+      )
+    : []
   const textarea = document.createElement('textarea')
   textarea.value = text
   textarea.setAttribute('readonly', '')
@@ -18,5 +25,10 @@ export async function copyTextToClipboard(text: string): Promise<void> {
     if (!copied) throw new Error('Copy command failed')
   } finally {
     document.body.removeChild(textarea)
+    if (focused instanceof HTMLElement) focused.focus({ preventScroll: true })
+    if (selection) {
+      selection.removeAllRanges()
+      for (const range of ranges) selection.addRange(range)
+    }
   }
 }

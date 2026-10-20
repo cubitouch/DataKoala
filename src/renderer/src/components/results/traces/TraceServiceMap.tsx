@@ -1,3 +1,4 @@
+import { queryErrorMessage } from '@lib/queryErrors'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { TITLEBAR_HEIGHT } from '@shared/layoutDimensions'
 import { Combobox } from '@components/ui/combobox'
@@ -455,14 +456,20 @@ export function TraceServiceMap(props: TraceServiceMapProps) {
     if (exporting) return
     setExporting('svg')
     try {
-      await api.export.saveText({
+      const path = await api.export.saveText({
         defaultName: 'datakoala_service_map.svg',
         content: canvasRef.current!.svg(),
         extensions: ['svg'],
         filterName: 'SVG',
       })
+      if (path !== null) notify({ message: 'Service map exported as SVG' })
     } catch (error) {
       console.error('[service-map] Could not export SVG', error)
+      notify({
+        message: 'Could not export SVG. Try Export SVG again.',
+        details: queryErrorMessage(error),
+        tone: 'error',
+      })
     } finally {
       setExporting(null)
     }

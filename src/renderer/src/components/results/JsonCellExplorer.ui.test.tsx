@@ -136,12 +136,16 @@ describe('JSON cell explorer', () => {
       screen.getByRole('button', { name: 'Explore JSON in payload, row 1' }),
     )
     fireEvent.click(await screen.findByRole('button', { name: 'Copy JSON' }))
-    await waitFor(() =>
-      expect(screen.getAllByText('Could not copy JSON').length).toBeGreaterThan(
-        0,
-      ),
+    await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(1))
+    expect(screen.getByRole('alert').textContent).toContain(
+      'Could not copy to clipboard',
     )
+    expect(screen.getByRole('status').textContent).toBe('')
     expect(screen.getByRole('dialog')).toBeTruthy()
+    copyTextToClipboard.mockResolvedValueOnce(undefined)
+    fireEvent.click(screen.getByRole('button', { name: 'Copy JSON' }))
+    await screen.findByText('Copied')
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('outside click closes, second cell replaces first, rerun invalidates, and malformed JSON is safe', async () => {

@@ -90,7 +90,10 @@ describe('GrafanaHandoffActions', () => {
 
     await waitFor(() =>
       expect(mocks.notify).toHaveBeenCalledWith({
-        message: 'Could not copy Grafana link: denied',
+        message:
+          'Could not copy to clipboard. Check clipboard permissions. Try Copy again.',
+        details: 'denied',
+        duration: 6000,
         tone: 'error',
       }),
     )

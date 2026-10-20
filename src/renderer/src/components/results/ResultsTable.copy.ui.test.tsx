@@ -118,3 +118,41 @@ it('copies the entire dataset rather than only virtualized rows', async () => {
   expect(csv.split('\n')).toHaveLength(201)
   expect(csv.endsWith('row 199,199')).toBe(true)
 })
+
+it('handles export rejection once, preserves filtering and retries without a query', async () => {
+  vi.mocked(api.export.saveText)
+    .mockRejectedValueOnce(new Error('Save denied'))
+    .mockResolvedValueOnce('/table.csv')
+  renderTable()
+  const input = screen.getByRole('textbox', {
+    name: 'Filter rows',
+  }) as HTMLInputElement
+  fireEvent.change(input, { target: { value: 'keep' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }))
+  await waitFor(() =>
+    expect(notify).toHaveBeenCalledExactlyOnceWith({
+      message: 'Could not export CSV. Try Export CSV again.',
+      details: 'Save denied',
+      tone: 'error',
+    }),
+  )
+  expect(input.value).toBe('keep')
+  fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }))
+  await waitFor(() =>
+    expect(notify).toHaveBeenLastCalledWith({
+      message: 'Table exported as CSV',
+    }),
+  )
+  expect(api.export.saveText).toHaveBeenCalledTimes(2)
+  expect(vi.mocked(api.export.saveText).mock.calls[0]).toEqual(
+    vi.mocked(api.export.saveText).mock.calls[1],
+  )
+})
+
+it('does not notify when the CSV Save dialog is cancelled', async () => {
+  vi.mocked(api.export.saveText).mockResolvedValueOnce(null)
+  renderTable()
+  fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }))
+  await waitFor(() => expect(api.export.saveText).toHaveBeenCalledTimes(1))
+  expect(notify).not.toHaveBeenCalled()
+})
