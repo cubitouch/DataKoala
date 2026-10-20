@@ -184,6 +184,7 @@ describe('ResultsTable virtualization', () => {
       const headers = screen.getAllByRole('columnheader')
       fireEvent.click(headers[0])
       fireEvent.click(headers[0])
+      const sortBefore = headers.map((header) => header.textContent)
       const firstRow = document.querySelector(
         '[data-result-row-index="0"]',
       )?.textContent
@@ -195,6 +196,7 @@ describe('ResultsTable virtualization', () => {
       fireEvent[finish](handle, { pointerId: 1, clientX: 120 })
       // Chromium can target the common ancestor rather than the divider.
       fireEvent.click(headers[1], { detail: 1 })
+      expect(headers.map((header) => header.textContent)).toEqual(sortBefore)
       expect(headers[0].getAttribute('aria-sort')).toBe('descending')
       expect(headers[1].getAttribute('aria-sort')).toBe('none')
       expect(
