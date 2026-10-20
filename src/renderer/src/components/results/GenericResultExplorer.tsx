@@ -503,9 +503,11 @@ export function GenericResultExplorer({
     [seriesIdentities],
   )
   useEffect(() => {
+    // No displayed dataset on failure: retain legend choices for the next run.
+    if (!result) return
     const next = reconcileSeriesVisibility(seriesVisibility, seriesIdentities)
     if (next !== seriesVisibility) onSeriesVisibilityChange(next)
-  }, [seriesIdentities, seriesVisibility, onSeriesVisibilityChange])
+  }, [result, seriesIdentities, seriesVisibility, onSeriesVisibilityChange])
   const logPresentation = useMemo(
     () =>
       effectiveConfiguration.valueAxisScale === 'log'

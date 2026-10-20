@@ -477,3 +477,33 @@ it.each(['line', 'bar', 'table'] as const)(
     expect(activeTestSession().result).toBe(result)
   },
 )
+
+it('#486 preserves hidden-series choices and filters when a chart fails', () => {
+  arrange({
+    sqlResultFilters: [createResultFilter('region', 'notEquals', 'East')],
+    sqlVisualization: {
+      view: 'line',
+      xColumn: 'created_at',
+      valueColumn: 'revenue',
+      aggregation: 'sum',
+      seriesColumn: 'region',
+      seriesColumns: ['region'],
+      valueAxisScale: 'linear',
+    },
+  })
+  const visibility = activeTestSession().seriesVisibility
+  const identities = Object.keys(visibility)
+  expect(identities.length).toBeGreaterThan(1)
+  act(() =>
+    useStore
+      .getState()
+      .setSeriesVisibility({ ...visibility, [identities[0]]: false }),
+  )
+  const before = activeTestSession()
+  expect(before.seriesVisibility[identities[0]]).toBe(false)
+  act(() => useStore.getState().completeQuery(null, 'chart query failed'))
+  expect(activeTestSession().seriesVisibility).toEqual(before.seriesVisibility)
+  expect(activeTestSession().sqlResultFilters).toEqual(before.sqlResultFilters)
+  act(() => useStore.getState().completeQuery(result, null))
+  expect(activeTestSession().seriesVisibility).toEqual(before.seriesVisibility)
+})
