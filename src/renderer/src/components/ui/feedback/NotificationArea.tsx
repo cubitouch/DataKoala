@@ -5,6 +5,7 @@ import styles from './NotificationArea.module.css'
 export type NotificationDetail = {
   message: string
   tone?: 'status' | 'error'
+  details?: string
   duration?: number
 }
 export const NOTIFICATION_EVENT = 'datakoala:notification'
@@ -59,6 +60,12 @@ export function NotificationArea() {
       aria-live={notification.tone === 'error' ? 'assertive' : 'polite'}
     >
       {notification.message}
+      {notification.details && (
+        <details className={styles.details}>
+          <summary>Details</summary>
+          <div>{notification.details}</div>
+        </details>
+      )}
     </div>
   ) : null
 }

@@ -1,3 +1,5 @@
+import { clipboardFailure } from '@lib/clipboardFeedback'
+import { notify } from '@components/ui/feedback/NotificationArea'
 import { useEffect, useMemo, useState } from 'react'
 import { AiPlanContextPopover } from '@components/ai/AiPlanContextPopover'
 import { useAiPlanAnalysis } from '@lib/ai/useAiPlanAnalysis'
@@ -57,8 +59,9 @@ export function ExplainPane() {
       await copyTextToClipboard(value)
       setCopied(`${label} copied`)
       window.setTimeout(() => setCopied(''), 2200)
-    } catch {
-      setCopied('Clipboard access is unavailable')
+    } catch (error) {
+      setCopied('')
+      notify(clipboardFailure(error))
     }
   }
   const highlightedIds = ai.highlightedNodeIds

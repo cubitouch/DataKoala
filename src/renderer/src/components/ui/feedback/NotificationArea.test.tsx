@@ -67,3 +67,19 @@ describe('NotificationArea', () => {
     ).toBeNull()
   })
 })
+
+it('keeps transport details behind a keyboard-accessible disclosure', () => {
+  render(<NotificationArea />)
+  act(() =>
+    notify({
+      message: 'Could not copy to clipboard. Try Copy again.',
+      details: 'Clipboard permission denied',
+      tone: 'error',
+    }),
+  )
+  expect(screen.getAllByRole('alert')).toHaveLength(1)
+  expect(screen.getByText('Details').tagName).toBe('SUMMARY')
+  expect(
+    screen.getByText('Clipboard permission denied').closest('details'),
+  ).toBeTruthy()
+})

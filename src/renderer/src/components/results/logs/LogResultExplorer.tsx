@@ -1,3 +1,4 @@
+import { clipboardFailure } from '@lib/clipboardFeedback'
 import { formatLogFieldValue, logFieldCopyText } from '@lib/logFieldValue'
 import { HighlightedText } from '@components/ui/HighlightedText'
 import { TextInput } from '@components/ui/TextInput'
@@ -65,12 +66,7 @@ async function copyLogText(text: string): Promise<void> {
     await copyTextToClipboard(text)
     notify({ message: 'Copied to clipboard' })
   } catch (error) {
-    const detail =
-      error instanceof Error && error.message ? ` ${error.message}` : ''
-    notify({
-      message: `Could not copy to clipboard.${detail} Try Copy again.`,
-      tone: 'error',
-    })
+    notify(clipboardFailure(error))
   }
 }
 

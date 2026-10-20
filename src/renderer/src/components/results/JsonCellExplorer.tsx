@@ -1,3 +1,4 @@
+import { clipboardFailure } from '@lib/clipboardFeedback'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { copyTextToClipboard } from '@lib/clipboardText'
 import { normalizeJsonCellValue } from '@lib/jsonCell'
@@ -22,6 +23,9 @@ function JsonCellExplorerContent({
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>(
     'idle',
   )
+  const [copyError, setCopyError] = useState<ReturnType<
+    typeof clipboardFailure
+  > | null>(null)
   const display =
     normalized.status === 'valid' ? normalized.formatted : normalized.raw
   useEffect(() => {
@@ -37,7 +41,8 @@ function JsonCellExplorerContent({
     try {
       await copyTextToClipboard(display)
       setCopyState('copied')
-    } catch {
+    } catch (error) {
+      setCopyError(clipboardFailure(error))
       setCopyState('error')
     }
   }
@@ -69,15 +74,17 @@ function JsonCellExplorerContent({
         <code>{display}</code>
       </pre>
       <span className="sr-only" role="status">
-        {copyState === 'copied'
-          ? 'JSON copied to clipboard'
-          : copyState === 'error'
-            ? 'Could not copy JSON'
-            : ''}
+        {copyState === 'copied' ? 'JSON copied to clipboard' : ''}
       </span>
       {copyState === 'error' && (
         <small className={styles.error} role="alert">
-          Could not copy JSON
+          {copyError?.message}
+          {copyError?.details && (
+            <details>
+              <summary>Details</summary>
+              {copyError.details}
+            </details>
+          )}
         </small>
       )}
     </section>

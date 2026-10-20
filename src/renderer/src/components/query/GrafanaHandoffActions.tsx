@@ -1,3 +1,4 @@
+import { clipboardFailure } from '@lib/clipboardFeedback'
 import { useEffect, useState } from 'react'
 import type { BuilderTimeRange } from '@lib/builderTimeRange'
 import type {
@@ -147,13 +148,7 @@ function GrafanaMenu({ url }: { url: string }) {
       await copyTextToClipboard(url)
       notify({ message: 'Grafana link copied' })
     } catch (error) {
-      notify({
-        message:
-          error instanceof Error && error.message
-            ? `Could not copy Grafana link: ${error.message}`
-            : 'Could not copy Grafana link',
-        tone: 'error',
-      })
+      notify(clipboardFailure(error))
     }
   }
 

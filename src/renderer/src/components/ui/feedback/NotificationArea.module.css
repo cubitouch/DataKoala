@@ -1,6 +1,10 @@
 .root {
   position: fixed;
   bottom: 18px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(36rem, calc(100vw - 32px));
+  overflow-wrap: anywhere;
   left: 50%;
   transform: translateX(-50%);
   background: var(--bg-4);
@@ -16,4 +20,10 @@
 .error {
   border-color: color-mix(in srgb, var(--red) 65%, var(--border));
   color: var(--red);
+}
+
+.details {
+  margin-top: 6px;
+  color: var(--text);
+  white-space: pre-wrap;
 }

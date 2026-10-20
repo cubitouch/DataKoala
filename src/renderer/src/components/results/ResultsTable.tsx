@@ -1,3 +1,4 @@
+import { clipboardFailure } from '@lib/clipboardFeedback'
 import { TextInput } from '@components/ui/TextInput'
 import {
   useEffect,
@@ -268,12 +269,8 @@ export function ResultsTable({
         resultToCsv({ ...result, rows, rowCount: rows.length }),
       )
       notify({ message: 'Table copied as CSV' })
-    } catch {
-      notify({
-        message:
-          'Could not copy CSV. Check clipboard permissions and try again.',
-        tone: 'error',
-      })
+    } catch (error) {
+      notify(clipboardFailure(error))
     } finally {
       setCopying(false)
     }
@@ -282,10 +279,18 @@ export function ResultsTable({
   const exportCsv = async () => {
     if (!result) return
     const csv = resultToCsv({ ...result, rows, rowCount: rows.length })
-    await api.export.saveText({
-      defaultName: 'datakoala_results.csv',
-      content: csv,
-    })
+    try {
+      const path = await api.export.saveText({
+        defaultName: 'datakoala_results.csv',
+        content: csv,
+      })
+      if (path !== null) notify({ message: 'Table exported as CSV' })
+    } catch {
+      notify({
+        message: 'Could not export CSV. Try Export CSV again.',
+        tone: 'error',
+      })
+    }
   }
 
   if (running)

@@ -11,6 +11,9 @@ import {
 } from '@testing-library/react'
 import type { ExplainNode } from '@shared/types'
 import { ExplainPane } from './ExplainPane'
+import { NotificationArea } from '@components/ui/feedback/NotificationArea'
+import { copyTextToClipboard } from '@lib/clipboardText'
+vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard: vi.fn() }))
 import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 
 const { getAiSettings, analyzePlan, cancelPlan } = vi.hoisted(() => ({
@@ -404,3 +407,28 @@ it.each(['success', 'failure'] as const)(
     })
   },
 )
+
+it('announces a failed plan copy once and retries with the displayed plan intact', async () => {
+  vi.mocked(copyTextToClipboard)
+    .mockRejectedValueOnce(new Error('Clipboard denied'))
+    .mockResolvedValueOnce(undefined)
+  render(
+    <>
+      <ExplainPane />
+      <NotificationArea />
+    </>,
+  )
+  const button = screen.getByRole('button', { name: 'Copy text plan' })
+  fireEvent.click(button)
+  expect((await screen.findByRole('alert')).textContent).toContain(
+    'Could not copy to clipboard',
+  )
+  expect(screen.getAllByRole('alert')).toHaveLength(1)
+  expect(graph()).toBeTruthy()
+  fireEvent.click(button)
+  await screen.findByText('Text plan copied')
+  expect(copyTextToClipboard).toHaveBeenCalledTimes(2)
+  expect(vi.mocked(copyTextToClipboard).mock.calls.at(-1)?.[0]).toBe(
+    'analyzed plan',
+  )
+})
