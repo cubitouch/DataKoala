@@ -199,3 +199,30 @@ it('still restores the same live control when the sidebar profiles rerender', as
   await waitFor(() => expect(document.activeElement).toBe(origin))
   expect(remove).not.toHaveBeenCalled()
 })
+
+it('keeps the captured deletion recoverable on failure, then removes exactly once on retry', async () => {
+  remove.mockRejectedValueOnce(new Error('Synthetic removal denied'))
+  render(<Sidebar />)
+  fireEvent.click(
+    await screen.findByRole('button', {
+      name: 'Delete connection Production Database',
+    }),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Delete connection' }))
+  expect(await screen.findByRole('alert')).toHaveProperty(
+    'textContent',
+    expect.stringContaining('Synthetic removal denied'),
+  )
+  expect(screen.getByRole('dialog').textContent).toContain(
+    'Production Database',
+  )
+  expect(
+    screen.getByRole('button', {
+      name: 'Delete connection Production Database',
+    }),
+  ).toBeTruthy()
+  list.mockResolvedValue([])
+  fireEvent.click(screen.getByRole('button', { name: 'Delete connection' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(remove.mock.calls).toEqual([['pg'], ['pg']])
+})

@@ -1,3 +1,5 @@
+import { useConnectionOperation } from './useConnectionOperation'
+import { Modal } from '@components/ui/Modal'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ConnectionProfile, PostgresTlsMode } from '@shared/types'
 import {
@@ -85,6 +87,7 @@ export function PostgresConnectionModal({
   onBack,
   active = true,
 }: ConnectionFormProps & { existing: ConnectionProfile | null }) {
+  const operation = useConnectionOperation(active)
   const [draft, setDraft] = useState(() => draftFromProfile(existing ?? blank))
   const [errors, setErrors] = useState<ConnectionDraftErrors>({})
   const [testState, setTestState] = useState<TestState>({ status: 'idle' })
@@ -126,6 +129,7 @@ export function PostgresConnectionModal({
       return next
     })
     if (affectsConnection) {
+      operation.cancel()
       requestRevision.current += 1
       setTestState({ status: 'idle' })
     }
@@ -177,46 +181,69 @@ export function PostgresConnectionModal({
     if (first) requestAnimationFrame(() => fieldRefs.current[first]?.focus())
   }
 
+  useEffect(() => {
+    if (!active) {
+      setSaving(false)
+      setTestState({ status: 'idle' })
+    }
+  }, [active])
   const test = async () => {
-    const built = buildConnectionProfileDraft(draft)
-    if (!built.ok) return showValidation(built.errors)
-    setErrors({})
-    const revision = ++requestRevision.current
-    setTestState({ status: 'testing' })
+    const token = operation.begin()
+    if (!token) return
     try {
-      const res = await api.connections.test(built.profile)
-      if (revision !== requestRevision.current) return
-      if (res?.ok === true)
-        setTestState({
-          status: 'success',
-          message: `Connected — server ${res.serverVersion || 'unknown'}`,
-        })
-      else setTestState({ status: 'error', message: failureMessage(res) })
-    } catch (error) {
-      if (revision === requestRevision.current)
-        setTestState({ status: 'error', message: failureMessage(error) })
+      const built = buildConnectionProfileDraft(draft)
+      if (!built.ok) return showValidation(built.errors)
+      setErrors({})
+      const revision = ++requestRevision.current
+      setTestState({ status: 'testing' })
+      try {
+        const res = await api.connections.test(built.profile)
+        if (!operation.current(token)) return
+        if (revision !== requestRevision.current) return
+        if (res?.ok === true)
+          setTestState({
+            status: 'success',
+            message: `Connected — server ${res.serverVersion || 'unknown'}`,
+          })
+        else setTestState({ status: 'error', message: failureMessage(res) })
+      } catch (error) {
+        if (!operation.current(token)) return
+        if (revision === requestRevision.current)
+          setTestState({ status: 'error', message: failureMessage(error) })
+      }
+    } finally {
+      operation.finish(token)
     }
   }
 
   const cancelTest = () => {
     if (testState.status !== 'testing') return
+    operation.cancel()
     requestRevision.current += 1
     setTestState({ status: 'cancelled', message: 'Connection test cancelled.' })
   }
 
   const save = async () => {
-    const built = buildConnectionProfileDraft(draft, { requireName: true })
-    if (!built.ok) return showValidation(built.errors)
-    setErrors({})
-    setSaving(true)
+    const token = operation.begin()
+    if (!token) return
     try {
-      const saved = await api.connections.upsert(built.profile)
-      onSaved(saved)
-      onClose()
-    } catch (error) {
-      setTestState({ status: 'error', message: failureMessage(error) })
+      const built = buildConnectionProfileDraft(draft, { requireName: true })
+      if (!built.ok) return showValidation(built.errors)
+      setErrors({})
+      setSaving(true)
+      try {
+        const saved = await api.connections.upsert(built.profile)
+        if (!operation.current(token)) return
+        onSaved(saved)
+        onClose()
+      } catch (error) {
+        if (!operation.current(token)) return
+        setTestState({ status: 'error', message: failureMessage(error) })
+      } finally {
+        if (operation.current(token)) setSaving(false)
+      }
     } finally {
-      setSaving(false)
+      operation.finish(token)
     }
   }
 
@@ -232,303 +259,301 @@ export function PostgresConnectionModal({
   })
 
   return (
-    <div className={[styles.modalOverlay].join(' ')} onClick={onClose}>
-      <div
-        className={[styles.modal].join(' ')}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="postgres-connection-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <ConnectionFormHeader
-          kind="postgres"
-          editing={!!existing}
-          onBack={onBack}
+    <Modal
+      open={active}
+      onClose={onClose}
+      labelledBy="postgres-connection-title"
+      restoreFocus={!onBack}
+      dialogClassName={styles.modal}
+    >
+      <ConnectionFormHeader
+        kind="postgres"
+        editing={!!existing}
+        onBack={onBack}
+      />
+      <div className={[styles.field].join(' ')}>
+        <label htmlFor="connection-string">Paste a connection string</label>
+        <textarea
+          id="connection-string"
+          className={[styles.connPaste].join(' ')}
+          value={pasted}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder={EXAMPLE}
+          onChange={(e) => applyConnectionString(e.target.value)}
+          rows={2}
+          aria-invalid={parseError ? true : undefined}
+          aria-describedby={
+            parseError ? 'connection-string-error' : 'connection-string-hint'
+          }
         />
-        <div className={[styles.field].join(' ')}>
-          <label htmlFor="connection-string">Paste a connection string</label>
-          <textarea
-            id="connection-string"
-            className={[styles.connPaste].join(' ')}
-            value={pasted}
-            spellCheck={false}
-            autoComplete="off"
-            placeholder={EXAMPLE}
-            onChange={(e) => applyConnectionString(e.target.value)}
-            rows={2}
-            aria-invalid={parseError ? true : undefined}
-            aria-describedby={
-              parseError ? 'connection-string-error' : 'connection-string-hint'
-            }
-          />
-          <div
-            id="connection-string-hint"
-            className={[styles.pasteHint].join(' ')}
-          >
-            Accepts <code>postgres://…</code>, <code>postgresql://…</code>, a{' '}
-            <code>jdbc:</code> prefix, or libpq <code>host=… dbname=…</code>{' '}
-            form. Fills in the fields below.
-          </div>
-          {parseError && (
-            <div
-              id="connection-string-error"
-              className={[styles.testMsg, styles.err].join(' ')}
-              role="alert"
-            >
-              {parseError}
-            </div>
-          )}
-          {parsedOk && (
-            <div className={[styles.testMsg, styles.ok].join(' ')}>
-              Parsed{parseWarnings.length ? ' with notes' : ''} — check the
-              fields below.
-            </div>
-          )}
-          {parseWarnings.map((w) => (
-            <div key={w} className={[styles.testMsg, styles.warn].join(' ')}>
-              {w}
-            </div>
-          ))}
+        <div
+          id="connection-string-hint"
+          className={[styles.pasteHint].join(' ')}
+        >
+          Accepts <code>postgres://…</code>, <code>postgresql://…</code>, a{' '}
+          <code>jdbc:</code> prefix, or libpq <code>host=… dbname=…</code> form.
+          Fills in the fields below.
         </div>
-        <div className={[styles.modalDivider].join(' ')}>
-          <span>or enter details manually</span>
+        {parseError && (
+          <div
+            id="connection-string-error"
+            className={[styles.testMsg, styles.err].join(' ')}
+            role="alert"
+          >
+            {parseError}
+          </div>
+        )}
+        {parsedOk && (
+          <div className={[styles.testMsg, styles.ok].join(' ')}>
+            Parsed{parseWarnings.length ? ' with notes' : ''} — check the fields
+            below.
+          </div>
+        )}
+        {parseWarnings.map((w) => (
+          <div key={w} className={[styles.testMsg, styles.warn].join(' ')}>
+            {w}
+          </div>
+        ))}
+      </div>
+      <div className={[styles.modalDivider].join(' ')}>
+        <span>or enter details manually</span>
+      </div>
+      <div className={[styles.field].join(' ')}>
+        <TextInput
+          label="Profile name"
+          id="profile-name"
+          {...inputProps('name')}
+          value={draft.name}
+          onValueChange={(text) => set({ name: text })}
+          placeholder="e.g. staging analytics"
+        />
+      </div>
+      <div className={[styles.row].join(' ')}>
+        <div className={[styles.field].join(' ')}>
+          <TextInput
+            label="Host"
+            id="connection-host"
+            {...inputProps('host')}
+            value={draft.host}
+            onValueChange={(text) => set({ host: text })}
+          />
         </div>
         <div className={[styles.field].join(' ')}>
           <TextInput
-            label="Profile name"
-            id="profile-name"
-            {...inputProps('name')}
-            value={draft.name}
-            onValueChange={(text) => set({ name: text })}
-            placeholder="e.g. staging analytics"
+            label="Port"
+            id="connection-port"
+            {...inputProps('port')}
+            inputMode="numeric"
+            value={draft.port}
+            onValueChange={(text) => set({ port: text })}
           />
         </div>
-        <div className={[styles.row].join(' ')}>
-          <div className={[styles.field].join(' ')}>
-            <TextInput
-              label="Host"
-              id="connection-host"
-              {...inputProps('host')}
-              value={draft.host}
-              onValueChange={(text) => set({ host: text })}
-            />
-          </div>
-          <div className={[styles.field].join(' ')}>
-            <TextInput
-              label="Port"
-              id="connection-port"
-              {...inputProps('port')}
-              inputMode="numeric"
-              value={draft.port}
-              onValueChange={(text) => set({ port: text })}
-            />
-          </div>
-        </div>
-        <div className={[styles.row].join(' ')}>
-          <div className={[styles.field].join(' ')}>
-            <TextInput
-              label="Database"
-              id="connection-database"
-              {...inputProps('database')}
-              value={draft.database}
-              onValueChange={(text) => set({ database: text })}
-            />
-          </div>
-          <div className={[styles.field].join(' ')}>
-            <TextInput
-              label="User"
-              id="connection-user"
-              {...inputProps('user')}
-              value={draft.user}
-              onValueChange={(text) => set({ user: text })}
-            />
-          </div>
+      </div>
+      <div className={[styles.row].join(' ')}>
+        <div className={[styles.field].join(' ')}>
+          <TextInput
+            label="Database"
+            id="connection-database"
+            {...inputProps('database')}
+            value={draft.database}
+            onValueChange={(text) => set({ database: text })}
+          />
         </div>
         <div className={[styles.field].join(' ')}>
           <TextInput
-            label="Password"
-            id="connection-password"
-            type="password"
-            value={draft.password}
-            onValueChange={(text) =>
-              set({
-                password: text,
-                hasPassword: text ? true : draft.hasPassword,
-              })
-            }
-            placeholder={
-              draft.hasPassword ? 'Saved securely — leave blank to keep' : ''
-            }
-          />
-          {draft.hasPassword && (
-            <button
-              type="button"
-              className={['btn', 'ghost', styles.savedPasswordAction].join(' ')}
-              onClick={() =>
-                set({
-                  password: '',
-                  hasPassword: false,
-                  credentialState: 'none',
-                })
-              }
-            >
-              Remove saved password
-            </button>
-          )}
-          {draft.credentialState === 'legacy-plaintext' && (
-            <div className={[styles.credentialWarning].join(' ')} role="alert">
-              This saved password is still stored using the legacy plaintext
-              format because secure OS credential storage is unavailable. You
-              can continue using it for this session, remove it, or retry secure
-              storage.
-              <button
-                type="button"
-                className={['btn', 'ghost'].join(' ')}
-                onClick={async () => {
-                  try {
-                    const updated =
-                      await api.connections.retryCredentialMigration(draft.id)
-                    if (updated.kind === 'postgres')
-                      setDraft(draftFromProfile(updated))
-                  } catch (error) {
-                    setTestState({
-                      status: 'error',
-                      message: failureMessage(error),
-                    })
-                  }
-                }}
-              >
-                Retry secure storage
-              </button>
-            </div>
-          )}
-        </div>
-        <div className={[styles.field].join(' ')}>
-          <Combobox
-            id="connection-tls-mode"
-            label="TLS mode"
-            value={draft.tlsMode}
-            options={TLS_MODE_OPTIONS}
-            onChange={(value) => set({ tlsMode: value as PostgresTlsMode })}
-          />
-          {draft.tlsMode === 'require' && (
-            <div className={[styles.tlsWarning].join(' ')} role="alert">
-              The connection is encrypted, but the server certificate is not
-              verified. This compatibility mode does not protect against an
-              active man-in-the-middle attack.
-            </div>
-          )}
-        </div>
-        {(draft.tlsMode === 'verify-ca' || draft.tlsMode === 'verify-full') && (
-          <div className={[styles.field].join(' ')}>
-            <label htmlFor="connection-tls-ca">CA certificate (optional)</label>
-            <textarea
-              id="connection-tls-ca"
-              className={[styles.connPaste, styles.caInput].join(' ')}
-              value={draft.tlsCa ?? ''}
-              spellCheck={false}
-              autoComplete="off"
-              rows={5}
-              onChange={(e) => set({ tlsCa: e.target.value })}
-              aria-describedby="connection-tls-ca-hint"
-            />
-            <div
-              id="connection-tls-ca-hint"
-              className={[styles.pasteHint].join(' ')}
-            >
-              Leave blank to use system trusted certificate authorities. Paste a
-              PEM CA certificate or CA bundle for private/self-signed servers.
-            </div>
-          </div>
-        )}
-        <div className={[styles.checkboxField].join(' ')}>
-          <Checkbox
-            className={styles.checkbox}
-            checked={draft.readonly}
-            onCheckedChange={(checked) => set({ readonly: checked })}
-            label="Read-only (blocks writes)"
+            label="User"
+            id="connection-user"
+            {...inputProps('user')}
+            value={draft.user}
+            onValueChange={(text) => set({ user: text })}
           />
         </div>
-        {preview && (
-          <div
-            className={[styles.field, styles.connectionPreviewField].join(' ')}
-          >
-            <label>Will connect as</label>
-            <div className={[styles.connPreview].join(' ')}>{preview}</div>
-          </div>
-        )}
-        <div aria-live="polite" aria-atomic="true">
-          {testState.status === 'testing' && (
-            <div
-              className={[styles.testMsg, styles.testingStatus].join(' ')}
-              role="status"
-            >
-              <span
-                className={[styles.loadingSpinner].join(' ')}
-                aria-hidden="true"
-              />
-              Testing connection…
-            </div>
-          )}
-          {testState.status !== 'idle' && testState.status !== 'testing' && (
-            <div
-              className={[
-                styles.testMsg,
-                styles.connectionTestResult,
-                testState.status === 'success'
-                  ? styles.ok
-                  : testState.status === 'error'
-                    ? styles.err
-                    : styles.info,
-              ].join(' ')}
-              role={testState.status === 'error' ? 'alert' : 'status'}
-            >
-              {testState.message}
-            </div>
-          )}
-        </div>
-        <div className={[styles.actions].join(' ')}>
+      </div>
+      <div className={[styles.field].join(' ')}>
+        <TextInput
+          label="Password"
+          id="connection-password"
+          type="password"
+          value={draft.password}
+          onValueChange={(text) =>
+            set({
+              password: text,
+              hasPassword: text ? true : draft.hasPassword,
+            })
+          }
+          placeholder={
+            draft.hasPassword ? 'Saved securely — leave blank to keep' : ''
+          }
+        />
+        {draft.hasPassword && (
           <button
             type="button"
-            className={['btn', 'ghost', styles.testButton].join(' ')}
-            onClick={test}
-            disabled={testState.status === 'testing'}
-            aria-busy={testState.status === 'testing'}
+            className={['btn', 'ghost', styles.savedPasswordAction].join(' ')}
+            onClick={() =>
+              set({
+                password: '',
+                hasPassword: false,
+                credentialState: 'none',
+              })
+            }
           >
-            {testState.status === 'testing' && (
-              <span
-                className={[styles.loadingSpinner].join(' ')}
-                aria-hidden="true"
-              />
-            )}
-            {testState.status === 'testing' ? 'Testing…' : 'Test'}
+            Remove saved password
           </button>
-          {testState.status === 'testing' && (
+        )}
+        {draft.credentialState === 'legacy-plaintext' && (
+          <div className={[styles.credentialWarning].join(' ')} role="alert">
+            This saved password is still stored using the legacy plaintext
+            format because secure OS credential storage is unavailable. You can
+            continue using it for this session, remove it, or retry secure
+            storage.
             <button
               type="button"
               className={['btn', 'ghost'].join(' ')}
-              onClick={cancelTest}
+              onClick={async () => {
+                try {
+                  const updated =
+                    await api.connections.retryCredentialMigration(draft.id)
+                  if (updated.kind === 'postgres')
+                    setDraft(draftFromProfile(updated))
+                } catch (error) {
+                  setTestState({
+                    status: 'error',
+                    message: failureMessage(error),
+                  })
+                }
+              }}
             >
-              Cancel test
+              Retry secure storage
             </button>
+          </div>
+        )}
+      </div>
+      <div className={[styles.field].join(' ')}>
+        <Combobox
+          id="connection-tls-mode"
+          label="TLS mode"
+          value={draft.tlsMode}
+          options={TLS_MODE_OPTIONS}
+          onChange={(value) => set({ tlsMode: value as PostgresTlsMode })}
+        />
+        {draft.tlsMode === 'require' && (
+          <div className={[styles.tlsWarning].join(' ')} role="alert">
+            The connection is encrypted, but the server certificate is not
+            verified. This compatibility mode does not protect against an active
+            man-in-the-middle attack.
+          </div>
+        )}
+      </div>
+      {(draft.tlsMode === 'verify-ca' || draft.tlsMode === 'verify-full') && (
+        <div className={[styles.field].join(' ')}>
+          <label htmlFor="connection-tls-ca">CA certificate (optional)</label>
+          <textarea
+            id="connection-tls-ca"
+            className={[styles.connPaste, styles.caInput].join(' ')}
+            value={draft.tlsCa ?? ''}
+            spellCheck={false}
+            autoComplete="off"
+            rows={5}
+            onChange={(e) => set({ tlsCa: e.target.value })}
+            aria-describedby="connection-tls-ca-hint"
+          />
+          <div
+            id="connection-tls-ca-hint"
+            className={[styles.pasteHint].join(' ')}
+          >
+            Leave blank to use system trusted certificate authorities. Paste a
+            PEM CA certificate or CA bundle for private/self-signed servers.
+          </div>
+        </div>
+      )}
+      <div className={[styles.checkboxField].join(' ')}>
+        <Checkbox
+          className={styles.checkbox}
+          checked={draft.readonly}
+          onCheckedChange={(checked) => set({ readonly: checked })}
+          label="Read-only (blocks writes)"
+        />
+      </div>
+      {preview && (
+        <div
+          className={[styles.field, styles.connectionPreviewField].join(' ')}
+        >
+          <label>Will connect as</label>
+          <div className={[styles.connPreview].join(' ')}>{preview}</div>
+        </div>
+      )}
+      <div aria-live="polite" aria-atomic="true">
+        {testState.status === 'testing' && (
+          <div
+            className={[styles.testMsg, styles.testingStatus].join(' ')}
+            role="status"
+          >
+            <span
+              className={[styles.loadingSpinner].join(' ')}
+              aria-hidden="true"
+            />
+            Testing connection…
+          </div>
+        )}
+        {testState.status !== 'idle' && testState.status !== 'testing' && (
+          <div
+            className={[
+              styles.testMsg,
+              styles.connectionTestResult,
+              testState.status === 'success'
+                ? styles.ok
+                : testState.status === 'error'
+                  ? styles.err
+                  : styles.info,
+            ].join(' ')}
+            role={testState.status === 'error' ? 'alert' : 'status'}
+          >
+            {testState.message}
+          </div>
+        )}
+      </div>
+      <div className={[styles.actions].join(' ')}>
+        <button
+          type="button"
+          className={['btn', 'ghost', styles.testButton].join(' ')}
+          onClick={test}
+          disabled={testState.status === 'testing'}
+          aria-busy={testState.status === 'testing'}
+        >
+          {testState.status === 'testing' && (
+            <span
+              className={[styles.loadingSpinner].join(' ')}
+              aria-hidden="true"
+            />
           )}
+          {testState.status === 'testing' ? 'Testing…' : 'Test'}
+        </button>
+        {testState.status === 'testing' && (
           <button
             type="button"
             className={['btn', 'ghost'].join(' ')}
-            onClick={onClose}
+            onClick={cancelTest}
           >
-            Cancel
+            Cancel test
           </button>
-          <button
-            type="button"
-            className={['btn', 'primary'].join(' ')}
-            onClick={save}
-            disabled={saving}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
+        )}
+        <button
+          type="button"
+          className={['btn', 'ghost'].join(' ')}
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={['btn', 'primary'].join(' ')}
+          onClick={save}
+          disabled={saving}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
       </div>
-    </div>
+    </Modal>
   )
 }

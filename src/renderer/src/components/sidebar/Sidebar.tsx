@@ -358,15 +358,21 @@ export function Sidebar() {
   const confirmDelete = async () => {
     if (!pendingDelete) return
     const id = pendingDelete.id
+    if (!profiles.some((profile) => profile.id === id)) {
+      cancelDelete()
+      return
+    }
+    await remove(id)
     deleteOrigin.current = null
     setPendingDelete(null)
-    await remove(id)
-    if (
-      useStore.getState().activeTabId === activeTabId &&
-      !document.querySelector('[role="dialog"]') &&
-      document.activeElement === document.body
-    )
-      newConnection.current?.focus()
+    requestAnimationFrame(() => {
+      if (
+        useStore.getState().activeTabId === activeTabId &&
+        !document.querySelector('[role="dialog"]') &&
+        document.activeElement === document.body
+      )
+        newConnection.current?.focus()
+    })
   }
 
   const toggle = (id: string) =>
@@ -996,7 +1002,7 @@ export function Sidebar() {
         <DeleteConnectionDialog
           profile={pendingDelete}
           onCancel={cancelDelete}
-          onConfirm={() => void confirmDelete()}
+          onConfirm={confirmDelete}
         />
       )}
     </aside>

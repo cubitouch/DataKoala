@@ -1,3 +1,5 @@
+import { useConnectionOperation } from './useConnectionOperation'
+import { Modal } from '@components/ui/Modal'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TempoProfile } from '@shared/types'
 import type { TempoDatasourceOption } from '@shared/tempoDatasource'
@@ -20,6 +22,7 @@ export function TempoConnectionModal({
 }: ConnectionFormProps & { existing: TempoProfile | null }) {
   type DiscoveryState = 'idle' | 'discovering' | 'ready' | 'empty' | 'error'
   const savedUid = existing?.transport.datasourceUid ?? ''
+  const operation = useConnectionOperation(active)
   const [name, setName] = useState(existing?.name ?? 'Tempo')
   const [context, setContext] = useState(existing?.transport.context ?? '')
   const [datasources, setDatasources] = useState<TempoDatasourceOption[]>([])
@@ -144,168 +147,184 @@ export function TempoConnectionModal({
     }
     return null
   }
-  const test = async () => {
-    const error = validate()
-    if (error) return setMessage({ ok: false, text: error })
-    setBusy(true)
-    setMessage(null)
-    try {
-      const result = await api.connections.test(makeProfile())
-      setMessage(
-        result.ok
-          ? {
-              ok: true,
-              text: 'Connected — Tempo trace access verified through gcx.',
-            }
-          : { ok: false, text: result.error },
-      )
-    } catch (error) {
-      setMessage({ ok: false, text: failureMessage(error) })
-    } finally {
+  useEffect(() => {
+    if (!active) {
       setBusy(false)
+    }
+  }, [active])
+  const test = async () => {
+    const token = operation.begin()
+    if (!token) return
+    try {
+      const error = validate()
+      if (error) return setMessage({ ok: false, text: error })
+      setBusy(true)
+      setMessage(null)
+      try {
+        const result = await api.connections.test(makeProfile())
+        if (!operation.current(token)) return
+        setMessage(
+          result.ok
+            ? {
+                ok: true,
+                text: 'Connected — Tempo trace access verified through gcx.',
+              }
+            : { ok: false, text: result.error },
+        )
+      } catch (error) {
+        if (!operation.current(token)) return
+        setMessage({ ok: false, text: failureMessage(error) })
+      } finally {
+        if (operation.current(token)) setBusy(false)
+      }
+    } finally {
+      operation.finish(token)
     }
   }
   const save = async () => {
-    const error = validate()
-    if (error) return setMessage({ ok: false, text: error })
-    setBusy(true)
+    const token = operation.begin()
+    if (!token) return
     try {
-      onSaved(await api.connections.upsert(makeProfile()))
-      onClose()
-    } catch (error) {
-      setMessage({ ok: false, text: failureMessage(error) })
+      const error = validate()
+      if (error) return setMessage({ ok: false, text: error })
+      setMessage(null)
+      setBusy(true)
+      try {
+        const savedProfile = await api.connections.upsert(makeProfile())
+        if (!operation.current(token)) return
+        onSaved(savedProfile)
+        onClose()
+      } catch (error) {
+        if (!operation.current(token)) return
+        setMessage({ ok: false, text: failureMessage(error) })
+      } finally {
+        if (operation.current(token)) setBusy(false)
+      }
     } finally {
-      setBusy(false)
+      operation.finish(token)
     }
   }
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div
-        className={styles.modal}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tempo-connection-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <ConnectionFormHeader
-          kind="tempo"
-          editing={!!existing}
-          onBack={onBack}
+    <Modal
+      open={active}
+      onClose={onClose}
+      labelledBy="tempo-connection-title"
+      restoreFocus={!onBack}
+      dialogClassName={styles.modal}
+    >
+      <ConnectionFormHeader kind="tempo" editing={!!existing} onBack={onBack} />
+      <div className={styles.field}>
+        <TextInput
+          label="Connection name"
+          id="tempo-name"
+          value={name}
+          onValueChange={setName}
         />
-        <div className={styles.field}>
-          <TextInput
-            label="Connection name"
-            id="tempo-name"
-            value={name}
-            onValueChange={setName}
-          />
-        </div>
-        <div className={styles.field}>
-          <TextInput
-            label="gcx context"
-            id="tempo-context"
-            value={context}
-            onValueChange={setContext}
-            onBlur={refreshForContext}
-            placeholder="Current gcx context"
-          />
-          <div className={styles.pasteHint}>
-            Change the context, then leave this field or use Discover again.
-          </div>
-        </div>
-        <div className={styles.field}>
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => void discover(context.trim())}
-            disabled={discoveryState === 'discovering'}
-          >
-            {discoveryState === 'idle' ? 'Discover' : 'Discover again'}
-          </button>
-          <Combobox
-            label="Tempo datasource"
-            value={datasourceUid}
-            onChange={(uid) => {
-              setDatasourceUid(uid)
-              setDatasourceMessage(null)
-            }}
-            loading={discoveryState === 'discovering'}
-            disabled={
-              discoveryState === 'discovering' || datasources.length === 0
-            }
-            placeholder="Select a datasource"
-            options={datasources.map((item) => ({
-              value: item.uid,
-              label: item.name,
-              subtitle: item.type,
-            }))}
-          />
-          <div className={styles.pasteHint}>
-            Optional for DataKoala queries; required for Grafana handoff.
-          </div>
-          {datasourceMessage && (
-            <div
-              className={
-                discoveryState === 'error'
-                  ? [styles.testMsg, styles.err].join(' ')
-                  : styles.discoveryStatus
-              }
-              role={discoveryState === 'error' ? 'alert' : 'status'}
-            >
-              {datasourceMessage}
-            </div>
-          )}
-        </div>
-        <CollapsibleSection title="Grafana handoff override (optional)">
-          <div className={styles.advancedFields}>
-            <TextInput
-              label="Grafana base URL override"
-              value={grafanaUrl}
-              onValueChange={setGrafanaUrl}
-              placeholder="https://example.com/grafana"
-              hint="Leave blank to resolve from the selected gcx context. Navigation only; queries still run through gcx."
-            />
-            <TextInput
-              label="Grafana org ID"
-              inputMode="numeric"
-              value={orgId}
-              onValueChange={setOrgId}
-            />
-          </div>
-        </CollapsibleSection>
-        {message && (
-          <div
-            className={[
-              styles.testMsg,
-              message.ok ? styles.ok : styles.err,
-            ].join(' ')}
-            role={message.ok ? 'status' : 'alert'}
-          >
-            {message.text}
-          </div>
-        )}
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => void test()}
-            disabled={busy}
-          >
-            {busy ? 'Testing…' : 'Test trace access'}
-          </button>
-          <button type="button" className="btn ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => void save()}
-            disabled={busy}
-          >
-            {busy ? 'Working…' : 'Save'}
-          </button>
+      </div>
+      <div className={styles.field}>
+        <TextInput
+          label="gcx context"
+          id="tempo-context"
+          value={context}
+          onValueChange={setContext}
+          onBlur={refreshForContext}
+          placeholder="Current gcx context"
+        />
+        <div className={styles.pasteHint}>
+          Change the context, then leave this field or use Discover again.
         </div>
       </div>
-    </div>
+      <div className={styles.field}>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => void discover(context.trim())}
+          disabled={discoveryState === 'discovering'}
+        >
+          {discoveryState === 'idle' ? 'Discover' : 'Discover again'}
+        </button>
+        <Combobox
+          label="Tempo datasource"
+          value={datasourceUid}
+          onChange={(uid) => {
+            setDatasourceUid(uid)
+            setDatasourceMessage(null)
+          }}
+          loading={discoveryState === 'discovering'}
+          disabled={
+            discoveryState === 'discovering' || datasources.length === 0
+          }
+          placeholder="Select a datasource"
+          options={datasources.map((item) => ({
+            value: item.uid,
+            label: item.name,
+            subtitle: item.type,
+          }))}
+        />
+        <div className={styles.pasteHint}>
+          Optional for DataKoala queries; required for Grafana handoff.
+        </div>
+        {datasourceMessage && (
+          <div
+            className={
+              discoveryState === 'error'
+                ? [styles.testMsg, styles.err].join(' ')
+                : styles.discoveryStatus
+            }
+            role={discoveryState === 'error' ? 'alert' : 'status'}
+          >
+            {datasourceMessage}
+          </div>
+        )}
+      </div>
+      <CollapsibleSection title="Grafana handoff override (optional)">
+        <div className={styles.advancedFields}>
+          <TextInput
+            label="Grafana base URL override"
+            value={grafanaUrl}
+            onValueChange={setGrafanaUrl}
+            placeholder="https://example.com/grafana"
+            hint="Leave blank to resolve from the selected gcx context. Navigation only; queries still run through gcx."
+          />
+          <TextInput
+            label="Grafana org ID"
+            inputMode="numeric"
+            value={orgId}
+            onValueChange={setOrgId}
+          />
+        </div>
+      </CollapsibleSection>
+      {message && (
+        <div
+          className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(
+            ' ',
+          )}
+          role={message.ok ? 'status' : 'alert'}
+        >
+          {message.text}
+        </div>
+      )}
+      <div className={styles.actions}>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => void test()}
+          disabled={busy}
+        >
+          {busy ? 'Testing…' : 'Test trace access'}
+        </button>
+        <button type="button" className="btn ghost" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn primary"
+          onClick={() => void save()}
+          disabled={busy}
+        >
+          {busy ? 'Working…' : 'Save'}
+        </button>
+      </div>
+    </Modal>
   )
 }

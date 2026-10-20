@@ -1,3 +1,5 @@
+import { useConnectionOperation } from './useConnectionOperation'
+import { Modal } from '@components/ui/Modal'
 import { queryErrorMessage } from '@lib/queryErrors'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BigQueryProfile } from '@shared/types'
@@ -23,6 +25,7 @@ export function BigQueryConnectionModal({
   onBack,
   active = true,
 }: ConnectionFormProps & { existing: BigQueryProfile | null }) {
+  const operation = useConnectionOperation(active)
   const [draft, setDraft] = useState(() => ({
     name: existing?.name ?? '',
     billingProject: existing?.billingProject ?? '',
@@ -144,41 +147,68 @@ export function BigQueryConnectionModal({
               BigInt(draft.maximumBytesBilled.trim() || '0') <= 0n)
           ? 'Maximum bytes billed must be a positive decimal integer.'
           : null
+  useEffect(() => {
+    if (!active) {
+      setBusy(false)
+    }
+  }, [active])
   const test = async () => {
-    const error = validate()
-    if (error) return setMessage({ ok: false, text: error })
-    const current = ++revision.current
-    setBusy(true)
-    setMessage(null)
+    const token = operation.begin()
+    if (!token) return
     try {
-      const result = await api.connections.test(makeProfile())
-      if (current === revision.current)
-        setMessage(
-          result.ok
-            ? { ok: true, text: 'Credentials and metadata access verified.' }
-            : { ok: false, text: result.error },
-        )
-    } catch (caught) {
-      if (current === revision.current)
+      const error = validate()
+      if (error) return setMessage({ ok: false, text: error })
+      const current = ++revision.current
+      setBusy(true)
+      setMessage(null)
+      try {
+        const result = await api.connections.test(makeProfile())
+        if (!operation.current(token)) return
+        if (current === revision.current)
+          setMessage(
+            result.ok
+              ? { ok: true, text: 'Credentials and metadata access verified.' }
+              : { ok: false, text: result.error },
+          )
+      } catch (caught) {
+        if (!operation.current(token)) return
+        if (current === revision.current)
+          setMessage({
+            ok: false,
+            text: queryErrorMessage(failureMessage(caught)),
+          })
+      } finally {
+        if (operation.current(token) && current === revision.current)
+          setBusy(false)
+      }
+    } finally {
+      operation.finish(token)
+    }
+  }
+  const save = async () => {
+    const token = operation.begin()
+    if (!token) return
+    try {
+      const error = validate()
+      if (error) return setMessage({ ok: false, text: error })
+      setMessage(null)
+      setBusy(true)
+      try {
+        const savedProfile = await api.connections.upsert(makeProfile())
+        if (!operation.current(token)) return
+        onSaved(savedProfile)
+        onClose()
+      } catch (caught) {
+        if (!operation.current(token)) return
         setMessage({
           ok: false,
           text: queryErrorMessage(failureMessage(caught)),
         })
+      } finally {
+        if (operation.current(token)) setBusy(false)
+      }
     } finally {
-      if (current === revision.current) setBusy(false)
-    }
-  }
-  const save = async () => {
-    const error = validate()
-    if (error) return setMessage({ ok: false, text: error })
-    setBusy(true)
-    try {
-      onSaved(await api.connections.upsert(makeProfile()))
-      onClose()
-    } catch (caught) {
-      setMessage({ ok: false, text: queryErrorMessage(failureMessage(caught)) })
-    } finally {
-      setBusy(false)
+      operation.finish(token)
     }
   }
   const set = (field: keyof typeof draft, value: string) => {
@@ -255,165 +285,162 @@ export function BigQueryConnectionModal({
     (dataset) => dataset.datasetId === draft.defaultDataset,
   )
   return (
-    <div className={[styles.modalOverlay].join(' ')} onClick={onClose}>
-      <div
-        className={[styles.modal].join(' ')}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="bigquery-connection-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <ConnectionFormHeader
-          kind="bigquery"
-          editing={!!existing}
-          onBack={onBack}
+    <Modal
+      open={active}
+      onClose={onClose}
+      labelledBy="bigquery-connection-title"
+      restoreFocus={!onBack}
+      dialogClassName={styles.modal}
+    >
+      <ConnectionFormHeader
+        kind="bigquery"
+        editing={!!existing}
+        onBack={onBack}
+      />
+      <div className={[styles.field].join(' ')}>
+        <TextInput
+          label="Connection name"
+          id="bq-name"
+          value={draft.name}
+          onValueChange={(text) => set('name', text)}
         />
+      </div>
+      <div className={[styles.field].join(' ')}>
+        <TextInput
+          label="Paste BigQuery reference"
+          id="bq-reference"
+          placeholder="project.dataset or projects/project/datasets/dataset"
+          value={reference}
+          onValueChange={applyReference}
+          error={referenceError || undefined}
+        />
+      </div>
+      <div className={[styles.row].join(' ')}>
         <div className={[styles.field].join(' ')}>
-          <TextInput
-            label="Connection name"
-            id="bq-name"
-            value={draft.name}
-            onValueChange={(text) => set('name', text)}
+          <Combobox
+            label="Billing project"
+            value={draft.billingProject}
+            options={projectOptions}
+            onChange={(value) => set('billingProject', value)}
+            searchable
+            allowCustomValue
+            loading={projectLoading}
+            error={projectError}
+            emptyMessage="No accessible projects. Enter a project ID manually."
           />
-        </div>
-        <div className={[styles.field].join(' ')}>
-          <TextInput
-            label="Paste BigQuery reference"
-            id="bq-reference"
-            placeholder="project.dataset or projects/project/datasets/dataset"
-            value={reference}
-            onValueChange={applyReference}
-            error={referenceError || undefined}
-          />
-        </div>
-        <div className={[styles.row].join(' ')}>
-          <div className={[styles.field].join(' ')}>
-            <Combobox
-              label="Billing project"
-              value={draft.billingProject}
-              options={projectOptions}
-              onChange={(value) => set('billingProject', value)}
-              searchable
-              allowCustomValue
-              loading={projectLoading}
-              error={projectError}
-              emptyMessage="No accessible projects. Enter a project ID manually."
-            />
-          </div>
-          <div className={[styles.field].join(' ')}>
-            <Combobox
-              label="Data project"
-              value={draft.defaultProject}
-              options={projectOptions}
-              onChange={setDataProject}
-              searchable
-              allowCustomValue
-              loading={projectLoading}
-              error={projectError}
-              emptyMessage="No accessible projects. Enter a project ID manually."
-            />
-          </div>
         </div>
         <div className={[styles.field].join(' ')}>
           <Combobox
-            label="Dataset"
-            value={draft.defaultDataset}
-            options={datasetOptions}
-            onChange={(value) => set('defaultDataset', value)}
+            label="Data project"
+            value={draft.defaultProject}
+            options={projectOptions}
+            onChange={setDataProject}
             searchable
             allowCustomValue
-            disabled={!draft.defaultProject.trim()}
-            loading={datasetLoading}
-            error={datasetError}
-            placeholder="All datasets"
-            emptyMessage="No datasets found. Enter a dataset ID manually."
-            invalidationKey={draft.defaultProject}
+            loading={projectLoading}
+            error={projectError}
+            emptyMessage="No accessible projects. Enter a project ID manually."
           />
-          {selectedDataset?.location && (
-            <div className={[styles.pasteHint].join(' ')} role="status">
-              Dataset location: <strong>{selectedDataset.location}</strong>
-            </div>
-          )}
-          <div className={[styles.pasteHint].join(' ')}>
-            All accessible datasets remain visible in the object tree. A
-            selection only provides the default SQL context.
-          </div>
-        </div>
-        <div className={styles.bqAdvanced}>
-          <CollapsibleSection title="Advanced">
-            <div className={styles.advancedFields}>
-              <TextInput
-                label="Location override (optional)"
-                id="bq-location"
-                placeholder="e.g. US or europe-west1"
-                value={draft.location}
-                onValueChange={(text) => set('location', text)}
-                hint="Normally leave blank so BigQuery infers the query location from referenced datasets."
-              />
-              <Checkbox
-                checked={limitBytesBilled}
-                onCheckedChange={toggleLimit}
-                label="Limit bytes billed per query"
-              />
-              <TextInput
-                label="Maximum bytes billed"
-                id="bq-max"
-                inputMode="numeric"
-                placeholder="Positive decimal bytes"
-                value={draft.maximumBytesBilled}
-                onValueChange={(text) => set('maximumBytesBilled', text)}
-                disabled={!limitBytesBilled}
-                hint={
-                  limitBytesBilled
-                    ? 'BigQuery rejects jobs whose billed bytes exceed this value.'
-                    : 'No maximumBytesBilled job option will be supplied.'
-                }
-              />
-            </div>
-          </CollapsibleSection>
-        </div>
-        <div className={[styles.testMsg, styles.info].join(' ')}>
-          Authentication uses Google Application Default Credentials (ADC).
-          DataKoala does not import or store service-account JSON, tokens, or
-          credentials.
-        </div>
-        {message && (
-          <div
-            className={[
-              styles.testMsg,
-              message.ok ? styles.ok : styles.err,
-            ].join(' ')}
-            role={message.ok ? 'status' : 'alert'}
-          >
-            {message.text}
-          </div>
-        )}
-        <div className={[styles.actions].join(' ')}>
-          <button
-            type="button"
-            className={['btn', 'ghost'].join(' ')}
-            onClick={() => void test()}
-            disabled={busy}
-          >
-            {busy ? 'Testing…' : 'Test'}
-          </button>
-          <button
-            type="button"
-            className={['btn', 'ghost'].join(' ')}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={['btn', 'primary'].join(' ')}
-            onClick={() => void save()}
-            disabled={busy}
-          >
-            Save
-          </button>
         </div>
       </div>
-    </div>
+      <div className={[styles.field].join(' ')}>
+        <Combobox
+          label="Dataset"
+          value={draft.defaultDataset}
+          options={datasetOptions}
+          onChange={(value) => set('defaultDataset', value)}
+          searchable
+          allowCustomValue
+          disabled={!draft.defaultProject.trim()}
+          loading={datasetLoading}
+          error={datasetError}
+          placeholder="All datasets"
+          emptyMessage="No datasets found. Enter a dataset ID manually."
+          invalidationKey={draft.defaultProject}
+        />
+        {selectedDataset?.location && (
+          <div className={[styles.pasteHint].join(' ')} role="status">
+            Dataset location: <strong>{selectedDataset.location}</strong>
+          </div>
+        )}
+        <div className={[styles.pasteHint].join(' ')}>
+          All accessible datasets remain visible in the object tree. A selection
+          only provides the default SQL context.
+        </div>
+      </div>
+      <div className={styles.bqAdvanced}>
+        <CollapsibleSection title="Advanced">
+          <div className={styles.advancedFields}>
+            <TextInput
+              label="Location override (optional)"
+              id="bq-location"
+              placeholder="e.g. US or europe-west1"
+              value={draft.location}
+              onValueChange={(text) => set('location', text)}
+              hint="Normally leave blank so BigQuery infers the query location from referenced datasets."
+            />
+            <Checkbox
+              checked={limitBytesBilled}
+              onCheckedChange={toggleLimit}
+              label="Limit bytes billed per query"
+            />
+            <TextInput
+              label="Maximum bytes billed"
+              id="bq-max"
+              inputMode="numeric"
+              placeholder="Positive decimal bytes"
+              value={draft.maximumBytesBilled}
+              onValueChange={(text) => set('maximumBytesBilled', text)}
+              disabled={!limitBytesBilled}
+              hint={
+                limitBytesBilled
+                  ? 'BigQuery rejects jobs whose billed bytes exceed this value.'
+                  : 'No maximumBytesBilled job option will be supplied.'
+              }
+            />
+          </div>
+        </CollapsibleSection>
+      </div>
+      <div className={[styles.testMsg, styles.info].join(' ')}>
+        Authentication uses Google Application Default Credentials (ADC).
+        DataKoala does not import or store service-account JSON, tokens, or
+        credentials.
+      </div>
+      {message && (
+        <div
+          className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(
+            ' ',
+          )}
+          role={message.ok ? 'status' : 'alert'}
+        >
+          {message.text}
+        </div>
+      )}
+      <div className={[styles.actions].join(' ')}>
+        <button
+          type="button"
+          className={['btn', 'ghost'].join(' ')}
+          onClick={() => void test()}
+          disabled={busy}
+        >
+          {busy ? 'Testing…' : 'Test'}
+        </button>
+        <button
+          type="button"
+          className={['btn', 'ghost'].join(' ')}
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={['btn', 'primary'].join(' ')}
+          onClick={() => void save()}
+          disabled={busy}
+        >
+          Save
+        </button>
+      </div>
+    </Modal>
   )
 }

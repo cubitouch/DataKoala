@@ -1,3 +1,5 @@
+import { useConnectionOperation } from './useConnectionOperation'
+import { Modal } from '@components/ui/Modal'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LokiProfile } from '@shared/types'
 import type { LokiDatasourceOption } from '@shared/loki'
@@ -20,6 +22,7 @@ export function LokiConnectionModal({
 }: ConnectionFormProps & { existing: LokiProfile | null }) {
   type DiscoveryState = 'idle' | 'discovering' | 'ready' | 'empty' | 'error'
   const savedUid = existing?.transport.datasourceUid ?? ''
+  const operation = useConnectionOperation(active)
   const [name, setName] = useState(existing?.name ?? 'Loki')
   const [context, setContext] = useState(existing?.transport.context ?? '')
   const [selectedUid, setSelectedUid] = useState(savedUid)
@@ -180,58 +183,82 @@ export function LokiConnectionModal({
     datasources.length > 1
       ? 'Choose one of the discovered Loki datasources before continuing.'
       : 'Choose a Loki datasource before continuing.'
-  const test = async () => {
-    if (!effectiveUid)
-      return setMessage({ ok: false, text: missingDatasourceMessage })
-    setBusy(true)
-    setMessage(null)
-    try {
-      const result = await api.connections.test(profile())
-      const datasourceName =
-        selectedDatasource?.name ?? 'the manually configured Loki datasource'
-      setMessage(
-        result.ok
-          ? {
-              ok: true,
-              text: `Connected — ${datasourceName} is available through ${contextLabel}.`,
-            }
-          : { ok: false, text: result.error },
-      )
-    } catch (caught) {
-      setMessage({ ok: false, text: failureMessage(caught) })
-    } finally {
+  useEffect(() => {
+    if (!active) {
       setBusy(false)
+    }
+  }, [active])
+  const test = async () => {
+    const token = operation.begin()
+    if (!token) return
+    try {
+      if (!effectiveUid)
+        return setMessage({ ok: false, text: missingDatasourceMessage })
+      setBusy(true)
+      setMessage(null)
+      try {
+        const result = await api.connections.test(profile())
+        if (!operation.current(token)) return
+        const datasourceName =
+          selectedDatasource?.name ?? 'the manually configured Loki datasource'
+        setMessage(
+          result.ok
+            ? {
+                ok: true,
+                text: `Connected — ${datasourceName} is available through ${contextLabel}.`,
+              }
+            : { ok: false, text: result.error },
+        )
+      } catch (caught) {
+        if (!operation.current(token)) return
+        setMessage({ ok: false, text: failureMessage(caught) })
+      } finally {
+        if (operation.current(token)) setBusy(false)
+      }
+    } finally {
+      operation.finish(token)
     }
   }
   const save = async () => {
-    if (!name.trim())
-      return setMessage({ ok: false, text: 'Connection name is required.' })
-    if (!effectiveUid)
-      return setMessage({ ok: false, text: missingDatasourceMessage })
-    if (grafanaUrl.trim()) {
-      try {
-        normalizeGrafanaBaseUrl(grafanaUrl)
-      } catch (caught) {
-        return setMessage({ ok: false, text: failureMessage(caught) })
-      }
-      if (!/^\d+$/.test(orgId) || Number(orgId) < 1)
-        return setMessage({
-          ok: false,
-          text: 'Grafana org ID must be a positive integer.',
-        })
-      if (!grafanaType)
-        return setMessage({
-          ok: false,
-          text: 'Choose a discovered datasource to configure Grafana handoff.',
-        })
-    }
-    setBusy(true)
+    const token = operation.begin()
+    if (!token) return
     try {
-      onSaved(await api.connections.upsert(profile()))
-      onClose()
-    } catch (caught) {
-      setMessage({ ok: false, text: failureMessage(caught) })
-      setBusy(false)
+      if (!name.trim())
+        return setMessage({ ok: false, text: 'Connection name is required.' })
+      if (!effectiveUid)
+        return setMessage({ ok: false, text: missingDatasourceMessage })
+      if (grafanaUrl.trim()) {
+        try {
+          normalizeGrafanaBaseUrl(grafanaUrl)
+        } catch (caught) {
+          if (!operation.current(token)) return
+          return setMessage({ ok: false, text: failureMessage(caught) })
+        }
+        if (!/^\d+$/.test(orgId) || Number(orgId) < 1)
+          return setMessage({
+            ok: false,
+            text: 'Grafana org ID must be a positive integer.',
+          })
+        if (!grafanaType)
+          return setMessage({
+            ok: false,
+            text: 'Choose a discovered datasource to configure Grafana handoff.',
+          })
+      }
+      setMessage(null)
+      setBusy(true)
+      try {
+        const savedProfile = await api.connections.upsert(profile())
+        if (!operation.current(token)) return
+        onSaved(savedProfile)
+        onClose()
+      } catch (caught) {
+        if (!operation.current(token)) return
+        setMessage({ ok: false, text: failureMessage(caught) })
+        setBusy(false)
+      }
+    } finally {
+      operation.finish(token)
     }
   }
   const datasourceOptions = datasources.map((source) => ({
@@ -253,177 +280,167 @@ export function LokiConnectionModal({
     Boolean(effectiveUid) && discoveryState !== 'discovering'
 
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div
-        className={styles.modal}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="loki-connection-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <ConnectionFormHeader
-          kind="loki"
-          editing={!!existing}
-          onBack={onBack}
+    <Modal
+      open={active}
+      onClose={onClose}
+      labelledBy="loki-connection-title"
+      restoreFocus={!onBack}
+      dialogClassName={styles.modal}
+    >
+      <ConnectionFormHeader kind="loki" editing={!!existing} onBack={onBack} />
+      <div className={styles.field}>
+        <TextInput
+          label="Connection name"
+          id="loki-name"
+          value={name}
+          onValueChange={setName}
         />
-        <div className={styles.field}>
-          <TextInput
-            label="Connection name"
-            id="loki-name"
-            value={name}
-            onValueChange={setName}
-          />
+      </div>
+      <div className={styles.field}>
+        <TextInput
+          label="gcx context"
+          id="loki-context"
+          value={context}
+          onValueChange={setContext}
+          onBlur={refreshForContext}
+          placeholder="Current gcx context"
+        />
+        <div className={styles.pasteHint}>
+          Discovering from: <strong>{contextLabel}</strong>. Change the context,
+          then leave this field or use Discover again.
         </div>
-        <div className={styles.field}>
-          <TextInput
-            label="gcx context"
-            id="loki-context"
-            value={context}
-            onValueChange={setContext}
-            onBlur={refreshForContext}
-            placeholder="Current gcx context"
-          />
-          <div className={styles.pasteHint}>
-            Discovering from: <strong>{contextLabel}</strong>. Change the
-            context, then leave this field or use Discover again.
-          </div>
-        </div>
-        <div className={styles.field}>
-          <div className={styles.discoveryHeading}>
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() => void discover(context.trim())}
-              disabled={discoveryState === 'discovering'}
-            >
-              {discoveryState === 'idle' ? 'Discover' : 'Discover again'}
-            </button>
-          </div>
-          <Combobox
-            label="Loki datasource"
-            value={selectedUid}
-            options={datasourceOptions}
-            onChange={chooseDatasource}
-            searchable
-            disabled={
-              discoveryState === 'discovering' || datasources.length === 0
-            }
-            loading={discoveryState === 'discovering'}
-            placeholder={
-              datasources.length > 1
-                ? 'Choose a Loki datasource'
-                : 'No datasource selected'
-            }
-            emptyMessage="No Loki datasources discovered"
-          />
-          {discoveryMessage && (
-            <div className={styles.discoveryStatus} role="status">
-              {discoveryMessage}
-            </div>
-          )}
-          {discoveryState === 'error' && (
-            <div
-              className={[styles.testMsg, styles.err].join(' ')}
-              role="alert"
-            >
-              <strong>Datasource discovery failed.</strong> {discoveryError}
-              <br />
-              Check that gcx is installed. Run <code>gcx login</code>, or
-              re-authenticate{' '}
-              {context.trim()
-                ? `the ${context.trim()} context`
-                : 'your current gcx context'}
-              .
-            </div>
-          )}
-          {savedDatasourceMissing && (
-            <div className={styles.fieldError} role="status">
-              The saved Loki datasource was not found in {contextLabel}. Its
-              saved ID remains available under Advanced, or choose a different
-              discovered datasource deliberately.
-            </div>
-          )}
-          {datasources.length > 1 && !selectedUid && !manualUid.trim() && (
-            <div className={styles.fieldError}>
-              Selection required: choose one of the discovered Loki datasources.
-            </div>
-          )}
-        </div>
-        <div className={styles.lokiAdvancedStack}>
-          <CollapsibleSection
-            title="Advanced — enter a datasource UID manually"
-            open={manualOpen}
-            onOpenChange={setManualOpen}
-          >
-            <div className={styles.advancedFields}>
-              <TextInput
-                label="Datasource UID"
-                id="loki-uid"
-                value={manualUid}
-                onValueChange={enterManualUid}
-                placeholder="Enter a datasource UID"
-              />
-              <div className={styles.pasteHint}>
-                Use this only when authenticated discovery cannot list the
-                datasource.
-              </div>
-            </div>
-          </CollapsibleSection>
-          <CollapsibleSection title="Grafana handoff override (optional)">
-            <div className={styles.advancedFields}>
-              <TextInput
-                label="Grafana base URL override"
-                value={grafanaUrl}
-                onValueChange={setGrafanaUrl}
-                placeholder="https://example.com/grafana"
-                hint="Leave blank to resolve from the selected gcx context. Navigation only; queries still run through gcx."
-              />
-              <TextInput
-                label="Grafana org ID"
-                inputMode="numeric"
-                value={orgId}
-                onValueChange={setOrgId}
-              />
-            </div>
-          </CollapsibleSection>
-        </div>
-        <div className={[styles.testMsg, styles.info].join(' ')}>
-          Uses your existing gcx authentication. DataKoala never reads, copies,
-          or stores Grafana credentials.
-        </div>
-        {message && (
-          <div
-            className={[
-              styles.testMsg,
-              message.ok ? styles.ok : styles.err,
-            ].join(' ')}
-            role={message.ok ? 'status' : 'alert'}
-          >
-            {message.text}
-          </div>
-        )}
-        <div className={styles.actions}>
+      </div>
+      <div className={styles.field}>
+        <div className={styles.discoveryHeading}>
           <button
             type="button"
             className="btn ghost"
-            onClick={() => void test()}
-            disabled={busy || !canUseDatasource}
+            onClick={() => void discover(context.trim())}
+            disabled={discoveryState === 'discovering'}
           >
-            {busy ? 'Testing…' : 'Test datasource'}
-          </button>
-          <button type="button" className="btn ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => void save()}
-            disabled={busy || !canUseDatasource}
-          >
-            {busy ? 'Working…' : 'Save'}
+            {discoveryState === 'idle' ? 'Discover' : 'Discover again'}
           </button>
         </div>
+        <Combobox
+          label="Loki datasource"
+          value={selectedUid}
+          options={datasourceOptions}
+          onChange={chooseDatasource}
+          searchable
+          disabled={
+            discoveryState === 'discovering' || datasources.length === 0
+          }
+          loading={discoveryState === 'discovering'}
+          placeholder={
+            datasources.length > 1
+              ? 'Choose a Loki datasource'
+              : 'No datasource selected'
+          }
+          emptyMessage="No Loki datasources discovered"
+        />
+        {discoveryMessage && (
+          <div className={styles.discoveryStatus} role="status">
+            {discoveryMessage}
+          </div>
+        )}
+        {discoveryState === 'error' && (
+          <div className={[styles.testMsg, styles.err].join(' ')} role="alert">
+            <strong>Datasource discovery failed.</strong> {discoveryError}
+            <br />
+            Check that gcx is installed. Run <code>gcx login</code>, or
+            re-authenticate{' '}
+            {context.trim()
+              ? `the ${context.trim()} context`
+              : 'your current gcx context'}
+            .
+          </div>
+        )}
+        {savedDatasourceMissing && (
+          <div className={styles.fieldError} role="status">
+            The saved Loki datasource was not found in {contextLabel}. Its saved
+            ID remains available under Advanced, or choose a different
+            discovered datasource deliberately.
+          </div>
+        )}
+        {datasources.length > 1 && !selectedUid && !manualUid.trim() && (
+          <div className={styles.fieldError}>
+            Selection required: choose one of the discovered Loki datasources.
+          </div>
+        )}
       </div>
-    </div>
+      <div className={styles.lokiAdvancedStack}>
+        <CollapsibleSection
+          title="Advanced — enter a datasource UID manually"
+          open={manualOpen}
+          onOpenChange={setManualOpen}
+        >
+          <div className={styles.advancedFields}>
+            <TextInput
+              label="Datasource UID"
+              id="loki-uid"
+              value={manualUid}
+              onValueChange={enterManualUid}
+              placeholder="Enter a datasource UID"
+            />
+            <div className={styles.pasteHint}>
+              Use this only when authenticated discovery cannot list the
+              datasource.
+            </div>
+          </div>
+        </CollapsibleSection>
+        <CollapsibleSection title="Grafana handoff override (optional)">
+          <div className={styles.advancedFields}>
+            <TextInput
+              label="Grafana base URL override"
+              value={grafanaUrl}
+              onValueChange={setGrafanaUrl}
+              placeholder="https://example.com/grafana"
+              hint="Leave blank to resolve from the selected gcx context. Navigation only; queries still run through gcx."
+            />
+            <TextInput
+              label="Grafana org ID"
+              inputMode="numeric"
+              value={orgId}
+              onValueChange={setOrgId}
+            />
+          </div>
+        </CollapsibleSection>
+      </div>
+      <div className={[styles.testMsg, styles.info].join(' ')}>
+        Uses your existing gcx authentication. DataKoala never reads, copies, or
+        stores Grafana credentials.
+      </div>
+      {message && (
+        <div
+          className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(
+            ' ',
+          )}
+          role={message.ok ? 'status' : 'alert'}
+        >
+          {message.text}
+        </div>
+      )}
+      <div className={styles.actions}>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => void test()}
+          disabled={busy || !canUseDatasource}
+        >
+          {busy ? 'Testing…' : 'Test datasource'}
+        </button>
+        <button type="button" className="btn ghost" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn primary"
+          onClick={() => void save()}
+          disabled={busy || !canUseDatasource}
+        >
+          {busy ? 'Working…' : 'Save'}
+        </button>
+      </div>
+    </Modal>
   )
 }

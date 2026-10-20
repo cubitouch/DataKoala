@@ -512,3 +512,53 @@ describe('ConnectionModal canonical connection draft', () => {
     expect(screen.queryByText(/Connected/)).toBeNull()
   })
 })
+
+it('retains the draft but removes the inactive form portal and listener ownership', () => {
+  renderModal()
+  change('Profile name', 'Retained draft')
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Back to connection types' }),
+  )
+  expect(document.querySelectorAll('[role=dialog]')).toHaveLength(1)
+  expect(screen.queryByLabelText('Profile name')).toBeNull()
+  fireEvent.click(screen.getByRole('radio', { name: /PostgreSQL/ }))
+  expect(screen.getByLabelText('Profile name')).toHaveProperty(
+    'value',
+    'Retained draft',
+  )
+  expect(document.querySelectorAll('[data-modal-backdrop]')).toHaveLength(1)
+})
+
+it('does not deliver a pending Save into a replacement edit profile', async () => {
+  let finish!: (value: ConnectionProfile) => void
+  upsert.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+  )
+  const onSaved = vi.fn(),
+    onClose = vi.fn()
+  const view = render(
+    <ConnectionModal existing={existing} onSaved={onSaved} onClose={onClose} />,
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Saving…' }))
+  expect(upsert).toHaveBeenCalledTimes(1)
+  view.rerender(
+    <ConnectionModal
+      existing={{ ...existing, id: 'replacement', name: 'Replacement' }}
+      onSaved={onSaved}
+      onClose={onClose}
+    />,
+  )
+  finish(existing)
+  await waitFor(() =>
+    expect(screen.getByLabelText('Profile name')).toHaveProperty(
+      'value',
+      'Replacement',
+    ),
+  )
+  expect(onSaved).not.toHaveBeenCalled()
+  expect(onClose).not.toHaveBeenCalled()
+})

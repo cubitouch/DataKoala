@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from 'react'
-import { Modal } from '@components/ui/Modal'
+import { useEffect, useRef, useState } from 'react'
+import { ConfirmationDialog } from '@components/ui/ConfirmationDialog'
 import { selectActiveSession, useStore } from '@store/useStore'
 import styles from './QueryUtilityActions.module.css'
 import { PresetManagerAction } from './PresetManagerAction'
@@ -20,7 +20,9 @@ export function QueryUtilityActions({
   const resetQuery = useStore((state) => state.resetActiveQuery)
   const [resetTabId, setResetTabId] = useState<string | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const titleId = useId()
+  useEffect(() => {
+    setResetTabId(null)
+  }, [active.id, active.connectionProfileId])
   const close = () => setResetTabId(null)
 
   return (
@@ -40,42 +42,33 @@ export function QueryUtilityActions({
       >
         Reset
       </button>
-      <Modal
-        open={resetTabId === active.id}
-        onClose={close}
-        labelledBy={titleId}
-        returnFocusRef={triggerRef}
-        dialogClassName={styles.resetDialog}
-      >
-        <h2 id={titleId}>Reset exploration?</h2>
-        <p>
-          This will clear the query, Builder state, and current results in “
-          {active.title}”. Your connection and time range will be kept.
-        </p>
-        <div className={styles.dialogActions}>
-          <button type="button" className="btn ghost" onClick={close}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn danger"
-            disabled={active.running || busy}
-            onClick={() => {
-              if (
-                busy ||
-                useStore.getState().activeTabId !== resetTabId ||
-                selectActiveSession(useStore.getState()).running
-              )
-                return
-              onBeforeReset?.()
-              resetQuery()
-              close()
-            }}
-          >
-            Reset exploration
-          </button>
-        </div>
-      </Modal>
+      {resetTabId === active.id && (
+        <ConfirmationDialog
+          key={resetTabId}
+          title="Reset exploration?"
+          description={
+            <>
+              This will clear the query, Builder state, and current results in “
+              {active.title}”. Your connection and time range will be kept.
+            </>
+          }
+          confirmLabel="Reset exploration"
+          onCancel={close}
+          returnFocusRef={triggerRef}
+          disabled={active.running || busy}
+          onConfirm={() => {
+            if (
+              busy ||
+              useStore.getState().activeTabId !== resetTabId ||
+              selectActiveSession(useStore.getState()).running
+            )
+              return
+            onBeforeReset?.()
+            resetQuery()
+            close()
+          }}
+        />
+      )}
     </div>
   )
 }
