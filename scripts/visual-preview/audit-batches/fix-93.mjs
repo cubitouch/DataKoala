@@ -33,9 +33,11 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
     if(keyCode==='Enter')win.webContents.sendInputEvent({type:'char',keyCode:'\r'})
     win.webContents.sendInputEvent({type:'keyUp',keyCode});await settle()
   }
-  const button=text=>js(`(()=>{const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===${JSON.stringify(text)});if(!b||b.disabled)throw Error('Missing enabled button');b.focus();return true})()`)
+  // Fixed renderer programs: button labels never become executable source.
+  const focusSettings=()=>js(`(()=>{const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Settings');if(!b||b.disabled)throw Error('Missing enabled Settings button');b.focus();return true})()`)
+  const focusSave=()=>js(`(()=>{const b=[...document.querySelectorAll('[role=dialog] button')].find(e=>e.textContent.trim()==='Save');if(!b||b.disabled)throw Error('Missing enabled Save button');b.focus();return true})()`)
   win.show();win.focus();win.setContentSize(1440,900);win.webContents.setZoomFactor(1);await settle()
-  await button('Settings');await key('Enter')
+  await focusSettings();await key('Enter')
   await waitFor(win, `document.querySelector('[role=dialog] [role=combobox]')?.value==='synthetic/alpha'`, 'Settings loaded')
   await js(`window.__fix93parent=document.querySelector('[role=dialog]');document.querySelector('[role=dialog] [role=combobox]').click()`);await settle()
   await js(`[...document.querySelectorAll('[role=option]')].find(e=>e.textContent.includes('Beta')).click()`);await settle()
@@ -43,7 +45,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
   await js(`document.querySelector('[role=dialog] [role=combobox]').click()`);await settle();await key('Escape')
   assert.equal(await js(`document.querySelector('[role=dialog]')===window.__fix93parent && !document.querySelector('[role=listbox]')`),true)
   assert.equal(await js(`document.activeElement===document.querySelector('[role=dialog] [role=combobox]')`),true)
-  await button('Save');await key('Enter')
+  await focusSave();await key('Enter')
   assert.equal(typeof releaseSave,'function','Save remains pending until controlled rejection')
   assert.equal(await js(`[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Save').disabled`),true)
   assert.equal(settings.model,'synthetic/alpha')
@@ -62,7 +64,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
   await shot(screenshots[0])
   // From the focused notice, Tab can reach an enabled action inside Settings.
   await key('Tab');assert.equal(await js('window.__fix93parent.contains(document.activeElement) && !document.activeElement.disabled'),true)
-  fail=false;await button('Save');await key('Enter')
+  fail=false;await focusSave();await key('Enter')
   await waitFor(win, '!document.querySelector("[role=dialog]")','successful retry closes Settings')
   assert.equal(calls.length,2);assert.equal(settings.model,'synthetic/beta')
   await shot(screenshots[1])
