@@ -8,7 +8,7 @@ it('keeps actionable clipboard guidance primary and strips only transport wrappe
     ),
   )
   expect(detail.message).toBe(
-    'Could not copy to clipboard. Check clipboard permissions and try Copy again.',
+    'Could not copy to clipboard. Check clipboard permissions. Try Copy again.',
   )
   expect(detail.details).toBe('Permission denied')
   expect(detail.tone).toBe('error')

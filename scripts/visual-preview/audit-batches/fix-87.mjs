@@ -23,11 +23,11 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
   const observations=[]
   win.show();win.setContentSize(1440,900);win.webContents.setZoomFactor(1)
   const result={columns:[{name:'value',dataTypeID:23,dataTypeName:'int4'}],rows:[{value:42}],rowCount:1,durationMs:1}
-  await js(`(()=>{const s=window.__datakoalaStore,t=structuredClone(s.getState().tabs[0]),p=${data(auditProfiles.postgres)};Object.assign(t,{id:'fix87',connectionProfileId:p.id,queryMode:'sql',sql:'select 42',result:${data(result)},resultRevision:1,sqlVisualization:{...t.sqlVisualization,view:'table'},queryError:null,running:false});s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:'connected',generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:'loaded',error:null,isStale:false}}});window.__fix87notices=[];window.__fix87copied=[];window.__fix87deny=true;window.addEventListener('datakoala:notification',e=>window.__fix87notices.push(e.detail));Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{if(window.__fix87deny)throw Error('Error invoking remote method \\'clipboard:write\\': Error: Clipboard permission denied');window.__fix87copied.push(text)}}})})()`)
-  await waitFor(win,'document.querySelector("[aria-label=\"Copy CSV\"]")','CSV actions')
+  await js(`(()=>{const s=window.__datakoalaStore,t=structuredClone(s.getState().tabs[0]),p=${data(auditProfiles.postgres)};Object.assign(t,{id:'fix87',connectionProfileId:p.id,queryMode:'sql',sql:'select 42',result:${data(result)},resultRevision:1,sqlVisualization:{...t.sqlVisualization,view:'table'},queryError:null,running:false});s.setState({profiles:[p],tabs:[t],activeTabId:t.id,connectionStateByProfileId:{[p.id]:{status:'connected',generation:1,error:null}},metadataByProfileId:{[p.id]:{schemas:[],status:'loaded',error:null,isStale:false}}});window.__fix87notices=[];window.__fix87copied=[];window.__fix87deny=true;window.addEventListener('datakoala:notification',e=>window.__fix87notices.push(e.detail));Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{if(window.__fix87deny)throw Error(${data("Error invoking remote method 'clipboard:write': Error: Clipboard permission denied")});window.__fix87copied.push(text)}}})})()`)
+  await waitFor(win, `document.querySelector('[aria-label="Copy CSV"]')`, 'CSV actions')
   for(const [index,width] of [1440,900].entries()) {
     win.setContentSize(width,900);await settle()
-    await js('document.querySelector("[aria-label=\"Copy CSV\"]").click()')
+    await js(`document.querySelector('[aria-label="Copy CSV"]').click()`)
     await waitFor(win,'[...document.querySelectorAll("[role=alert]")].some(e=>e.textContent.includes("Could not copy to clipboard"))','copy failure')
     const target=await js(`(()=>{const e=[...document.querySelectorAll('[role=alert]')].find(e=>e.textContent.includes('Could not copy to clipboard'));return e.getBoundingClientRect().toJSON()})()`)
     assert.ok(target.x>=0&&target.right<=width,'toast contained in viewport')
@@ -39,7 +39,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
     await capture(win,screenshots[index])
   }
   assert.equal(await js('window.__fix87notices.length'),2)
-  await js('window.__fix87deny=false;document.querySelector("[aria-label=\"Copy CSV\"]").click()')
+  await js(`window.__fix87deny=false;document.querySelector('[aria-label="Copy CSV"]').click()`)
   await waitFor(win,'window.__fix87copied.length===1','safe clipboard retry')
   assert.equal(await js('window.__fix87copied[0]'),'value\n42')
   const exportButton='[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="Export CSV")'

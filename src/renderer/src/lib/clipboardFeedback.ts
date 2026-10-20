@@ -11,7 +11,7 @@ export function clipboardFailure(error: unknown): NotificationDetail {
         : ''
   return {
     message:
-      'Could not copy to clipboard. Check clipboard permissions and try Copy again.',
+      'Could not copy to clipboard. Check clipboard permissions. Try Copy again.',
     tone: 'error',
     duration: 6000,
     ...(raw ? { details: queryErrorMessage(raw) } : {}),

@@ -104,7 +104,7 @@ describe('CopySqlButton', () => {
     fireEvent.click(view.getByRole('button', { name: 'Copy SQL to clipboard' }))
 
     expect((await view.findByRole('alert')).textContent).toContain(
-      'Could not copy to clipboard. Check clipboard permissions and try Copy again.',
+      'Could not copy to clipboard. Check clipboard permissions. Try Copy again.',
     )
     expect(view.getByText('denied')).toBeTruthy()
     expect(view.getAllByRole('alert')).toHaveLength(1)

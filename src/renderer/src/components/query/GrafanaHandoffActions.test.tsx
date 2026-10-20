@@ -91,7 +91,7 @@ describe('GrafanaHandoffActions', () => {
     await waitFor(() =>
       expect(mocks.notify).toHaveBeenCalledWith({
         message:
-          'Could not copy to clipboard. Check clipboard permissions and try Copy again.',
+          'Could not copy to clipboard. Check clipboard permissions. Try Copy again.',
         details: 'denied',
         duration: 6000,
         tone: 'error',
