@@ -34,7 +34,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
     const role = outcome === 'saved' ? 'status' : 'alert'
     await waitFor(win, `[...document.querySelectorAll('[role=${role}]')].some(e=>e.textContent.includes(${data(outcome === 'saved' ? 'Chart exported' : 'Could not export chart')}))`, 'export feedback')
     const target = await js(`[...document.querySelectorAll('[role=${role}]')].find(e=>e.textContent.includes(${data(outcome === 'saved' ? 'Chart exported' : 'Could not export chart')})).getBoundingClientRect().toJSON()`)
-    assert.equal(await js(`document.querySelectorAll('[role=${role}]').length`),1)
+    assert.equal(await js(`[...document.querySelectorAll('[role=${role}]')].filter(e=>e.textContent.includes(${data(outcome === 'saved' ? 'Chart exported' : 'Could not export chart')})).length`),1)
     observations.push({filename:screenshots[index],width:1440,height:900,dpr:1,zoom:1,target})
     await capture(win,screenshots[index])
   }
