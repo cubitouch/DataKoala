@@ -50,7 +50,7 @@ vi.mock('@lib/api', () => ({
 }))
 
 import { Sidebar } from './Sidebar'
-import { resetTestStore } from '@test/sessionTestUtils'
+import { patchActiveTestSession, resetTestStore } from '@test/sessionTestUtils'
 
 beforeEach(() => {
   list.mockReset()
@@ -165,6 +165,24 @@ it('does not restore focus to a removed profile during the pending animation fra
   act(() => useStore.getState().setProfiles([]))
   await new Promise((resolve) => requestAnimationFrame(resolve))
   expect(origin.isConnected).toBe(false)
+  expect(document.activeElement).not.toBe(origin)
+  expect(remove).not.toHaveBeenCalled()
+})
+
+it('cancels a queued focus return when the active profile changes on the same tab', async () => {
+  list.mockResolvedValue([
+    profile,
+    { ...profile, id: 'other', name: 'Other Database' },
+  ])
+  render(<Sidebar />)
+  const origin = await screen.findByRole('button', {
+    name: 'Delete connection Production Database',
+  })
+  fireEvent.click(origin)
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  act(() => patchActiveTestSession({ connectionProfileId: 'other' }))
+  await new Promise((resolve) => requestAnimationFrame(resolve))
+  expect(origin.isConnected).toBe(true)
   expect(document.activeElement).not.toBe(origin)
   expect(remove).not.toHaveBeenCalled()
 })
