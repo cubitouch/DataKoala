@@ -186,3 +186,16 @@ it('cancels a queued focus return when the active profile changes on the same ta
   expect(document.activeElement).not.toBe(origin)
   expect(remove).not.toHaveBeenCalled()
 })
+
+it('still restores the same live control when the sidebar profiles rerender', async () => {
+  const { useStore } = await import('@store/useStore')
+  render(<Sidebar />)
+  const origin = await screen.findByRole('button', {
+    name: 'Delete connection Production Database',
+  })
+  fireEvent.click(origin)
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  act(() => useStore.getState().setProfiles([{ ...profile }]))
+  await waitFor(() => expect(document.activeElement).toBe(origin))
+  expect(remove).not.toHaveBeenCalled()
+})
