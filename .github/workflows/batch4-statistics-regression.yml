@@ -42,7 +42,7 @@ jobs:
           pnpm build
           DATAKOALA_BATCH4_BASELINE=1 DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=fix-91 DATAKOALA_AUDIT_HEAD="$BASE_SHA" DATAKOALA_PREVIEW_OUTPUT="$EVIDENCE_ROOT/before" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
       - run: pnpm build
-      - name: Native keyboard and confirmation regressions
+      - name: Native statistics and query-ownership regressions
         run: DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=fix-91 DATAKOALA_AUDIT_HEAD="$HEAD_SHA" DATAKOALA_PREVIEW_OUTPUT="$EVIDENCE_ROOT/after" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
       - uses: actions/upload-artifact@v7
         if: always()
