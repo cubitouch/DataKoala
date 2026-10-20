@@ -116,6 +116,15 @@ export function Sidebar() {
     null,
   )
   const deleteOrigin = useRef<HTMLButtonElement | null>(null)
+  const deleteFocusFrame = useRef<number | null>(null)
+  const newConnection = useRef<HTMLButtonElement>(null)
+  useEffect(
+    () => () => {
+      if (deleteFocusFrame.current !== null)
+        cancelAnimationFrame(deleteFocusFrame.current)
+    },
+    [activeTabId, profiles, showModal],
+  )
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
   const [liveSessionHydrationFailed, setLiveSessionHydrationFailed] =
@@ -333,13 +342,31 @@ export function Sidebar() {
   }
   const cancelDelete = useCallback(() => {
     setPendingDelete(null)
-    requestAnimationFrame(() => deleteOrigin.current?.focus())
+    const origin = deleteOrigin.current
+    deleteOrigin.current = null
+    deleteFocusFrame.current = requestAnimationFrame(() => {
+      deleteFocusFrame.current = null
+      if (
+        origin?.isConnected &&
+        !origin.disabled &&
+        !document.querySelector('[role="dialog"]') &&
+        document.activeElement === document.body
+      )
+        origin.focus()
+    })
   }, [])
   const confirmDelete = async () => {
     if (!pendingDelete) return
     const id = pendingDelete.id
+    deleteOrigin.current = null
     setPendingDelete(null)
     await remove(id)
+    if (
+      useStore.getState().activeTabId === activeTabId &&
+      !document.querySelector('[role="dialog"]') &&
+      document.activeElement === document.body
+    )
+      newConnection.current?.focus()
   }
 
   const toggle = (id: string) =>
@@ -659,6 +686,8 @@ export function Sidebar() {
                   }
                   onClick={(event) => {
                     event.stopPropagation()
+                    if (deleteFocusFrame.current !== null)
+                      cancelAnimationFrame(deleteFocusFrame.current)
                     deleteOrigin.current = event.currentTarget
                     setPendingDelete(profile)
                   }}
@@ -671,6 +700,7 @@ export function Sidebar() {
         )
       })}
       <button
+        ref={newConnection}
         className={styles.btnAdd}
         onClick={() => {
           setEditing(null)
