@@ -1,3 +1,4 @@
+import { queryErrorMessage } from '@lib/queryErrors'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BigQueryProfile } from '@shared/types'
 import {
@@ -69,10 +70,10 @@ export function BigQueryConnectionModal({
       .then((values: BigQueryDatasetOption[]) => {
         if (current === datasetRevision.current) setDatasets(values)
       })
-      .catch(() => {
+      .catch((caught) => {
         if (current === datasetRevision.current)
           setDatasetError(
-            'Could not discover datasets. You can still enter a dataset ID manually.',
+            `${queryErrorMessage(failureMessage(caught))} You can still enter a dataset ID manually.`,
           )
       })
       .finally(() => {
@@ -86,10 +87,10 @@ export function BigQueryConnectionModal({
       .then((values: BigQueryProjectOption[]) => {
         if (activeNow) setProjects(values)
       })
-      .catch(() => {
+      .catch((caught) => {
         if (activeNow)
           setProjectError(
-            'Could not discover projects. You can still enter a project ID manually.',
+            `${queryErrorMessage(failureMessage(caught))} You can still enter a project ID manually.`,
           )
       })
       .finally(() => {
@@ -159,7 +160,10 @@ export function BigQueryConnectionModal({
         )
     } catch (caught) {
       if (current === revision.current)
-        setMessage({ ok: false, text: failureMessage(caught) })
+        setMessage({
+          ok: false,
+          text: queryErrorMessage(failureMessage(caught)),
+        })
     } finally {
       if (current === revision.current) setBusy(false)
     }
@@ -172,7 +176,7 @@ export function BigQueryConnectionModal({
       onSaved(await api.connections.upsert(makeProfile()))
       onClose()
     } catch (caught) {
-      setMessage({ ok: false, text: failureMessage(caught) })
+      setMessage({ ok: false, text: queryErrorMessage(failureMessage(caught)) })
     } finally {
       setBusy(false)
     }

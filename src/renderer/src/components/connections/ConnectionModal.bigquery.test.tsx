@@ -295,3 +295,69 @@ it('manual unlisted projects work and stale dataset results cannot win', async (
   expect(screen.queryByText('stale')).toBeNull()
   expect(await screen.findByText('current')).toBeTruthy()
 })
+
+it('retains actionable discovery guidance after IPC cleanup and permits manual project entry', async () => {
+  const guidance =
+    'BigQuery authentication has expired or was revoked. Renew Google Application Default Credentials, then reconnect.'
+  mocks.discoverProjects.mockRejectedValueOnce(
+    new Error(
+      `Error invoking remote method 'bigquery:discover-projects': Error: ${guidance}`,
+    ),
+  )
+  renderBigQuery()
+  await screen.findAllByText(new RegExp('authentication has expired'))
+  expect(document.body.textContent).not.toContain(
+    'Error invoking remote method',
+  )
+  expect(document.body.textContent).toContain(
+    'You can still enter a project ID manually.',
+  )
+  const name = screen.getByRole('textbox', { name: 'Connection name' })
+  fireEvent.change(name, { target: { value: 'Retry BQ' } })
+  expect((name as HTMLInputElement).value).toBe('Retry BQ')
+})
+
+it('shows provider test guidance once and permits retry without resetting the draft', async () => {
+  const guidance =
+    'BigQuery billing-project configuration failed. Check Billing project and its active billing account.'
+  mocks.test
+    .mockResolvedValueOnce({ ok: false, error: guidance })
+    .mockResolvedValueOnce({ ok: true })
+  renderBigQuery({
+    kind: 'bigquery',
+    version: 1,
+    id: 'demo',
+    name: 'Demo',
+    billingProject: 'demo-billing',
+    defaultProject: 'demo-data',
+    maximumBytesBilled: '',
+    readonly: true,
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+  await screen.findByText(guidance)
+  expect(screen.getAllByText(guidance)).toHaveLength(1)
+  fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+  await screen.findByText('Credentials and metadata access verified.')
+  expect(mocks.test).toHaveBeenCalledTimes(2)
+  expect(mocks.test.mock.calls[0]).toEqual(mocks.test.mock.calls[1])
+})
+
+it('surfaces dataset permission guidance and strips transport wrappers', async () => {
+  mocks.listDatasets.mockRejectedValueOnce(
+    new Error(
+      "Error invoking remote method 'bigquery:list-datasets': Error: BigQuery permission denied. Check dataset read permissions in Data project.",
+    ),
+  )
+  renderBigQuery({
+    kind: 'bigquery',
+    version: 1,
+    id: 'demo',
+    name: 'Demo',
+    billingProject: 'demo-billing',
+    defaultProject: 'demo-data',
+    maximumBytesBilled: '',
+    readonly: true,
+  })
+  await screen.findByText(/BigQuery permission denied.*dataset ID manually/)
+  expect(document.body.textContent).not.toContain('remote method')
+})

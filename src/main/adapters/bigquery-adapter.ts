@@ -1,4 +1,10 @@
 import {
+  bigQueryErrorInfo,
+  isBigQueryAdcLoadingFailure,
+  friendlyBigQueryError as friendlyError,
+  withBigQueryErrors,
+} from '../bigquery-errors.ts'
+import {
   buildBigQuerySeriesCardinalityApproxProbe,
   buildSeriesCardinalityProbe,
 } from '../../shared/seriesCardinality.ts'
@@ -118,34 +124,11 @@ function parseNamespace(name: string): {
   }
 }
 
-function friendlyError(error: unknown): string {
-  const e = error as {
-    code?: number | string
-    message?: string
-    errors?: { reason?: string }[]
-  }
-  const message = e?.message || String(error)
-  const reason = e?.errors?.[0]?.reason || ''
-  if (
-    e?.code === 401 ||
-    /credential|authentication|unauthenticated/i.test(message)
-  )
-    return `BigQuery authentication failed. Configure Google Application Default Credentials. ${message}`
-  if (
-    reason === 'accessDenied' ||
-    (e?.code === 403 && !/disabled|has not been used/i.test(message))
-  )
-    return `BigQuery permission denied for the configured project. ${message}`
-  if (/disabled|has not been used|not enabled/i.test(message))
-    return `The BigQuery API is disabled for the billing project. ${message}`
-  if (/location/i.test(message))
-    return `BigQuery location mismatch. Check the configured location; queries are not retried elsewhere. ${message}`
-  if (e?.code === 404 || /project.*not found|notFound/i.test(reason))
-    return `BigQuery project was not found or is inaccessible. ${message}`
-  return `BigQuery request failed. ${message}`
-}
-
 const BIGQUERY_CONNECTION_REASONS = new Set([
+  'authError',
+  'invalid_grant',
+  'invalid_rapt',
+  'invalid_client',
   'accessDenied',
   'accessNotConfigured',
   'backendError',
@@ -159,41 +142,39 @@ const BIGQUERY_CONNECTION_REASONS = new Set([
 ])
 
 function isBigQueryConnectionFailure(error: unknown): boolean {
-  const value = error as {
-    code?: number | string
-    message?: string
-    errors?: { reason?: string }[]
-  }
-  const reason = value?.errors?.[0]?.reason ?? ''
+  const { code, reasons, message } = bigQueryErrorInfo(error)
+  if (code === 400 && reasons.includes('invalidQuery')) return false
+  if (isBigQueryAdcLoadingFailure(error)) return true
+  const reason =
+    reasons.find((item) => BIGQUERY_CONNECTION_REASONS.has(item)) ??
+    reasons[0] ??
+    ''
   if (BIGQUERY_CONNECTION_REASONS.has(reason)) return true
 
-  if (typeof value?.code === 'number') {
+  if (typeof code === 'number') {
     if (
-      value.code === 401 ||
-      value.code === 403 ||
-      value.code === 408 ||
-      value.code === 429 ||
-      value.code >= 500
+      code === 401 ||
+      code === 403 ||
+      code === 408 ||
+      code === 429 ||
+      code >= 500
     )
       return true
   } else if (
-    typeof value?.code === 'string' &&
-    /^(ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN)$/i.test(
-      value.code,
-    )
+    typeof code === 'string' &&
+    /^(ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN)$/i.test(code)
   ) {
     return true
   }
 
-  const message = value?.message ?? ''
   if (
-    value?.code === 404 &&
+    code === 404 &&
     /(?:not found:\s*project|project\b.*\b(?:not found|does not exist|inaccessible))/i.test(
       message,
     )
   )
     return true
-  return /credential|authentication|unauthenticated|application default credentials|api (?:is )?(?:disabled|not enabled)|location mismatch/i.test(
+  return /credential|authentication|unauthenticated|application default credentials|invalid_grant|invalid_rapt|api (?:is )?(?:disabled|not enabled)|location mismatch/i.test(
     message,
   )
 }
@@ -202,7 +183,9 @@ function classifyBigQueryQueryError(error: unknown): Error {
   if (error instanceof ClassifiedQueryError) return error
   if (isBigQueryConnectionFailure(error))
     return new QueryConnectionError(friendlyError(error))
-  return error instanceof Error ? error : new Error(String(error))
+  return error instanceof Error
+    ? error
+    : new Error(bigQueryErrorInfo(error).message || friendlyError(error))
 }
 
 function logical(type: string): LogicalType {
@@ -323,10 +306,12 @@ class BigQuerySession implements DataSourceSession {
     }
   }
   async listNamespaces(): Promise<Array<{ name: string }>> {
-    const [datasets] = (await this.client.getDatasets({
-      projectId: this.project(),
-    })) as [any[]]
-    return datasets.map((d: any) => ({ name: `${this.project()}.${d.id}` }))
+    return withBigQueryErrors(async () => {
+      const [datasets] = (await this.client.getDatasets({
+        projectId: this.project(),
+      })) as [any[]]
+      return datasets.map((d: any) => ({ name: `${this.project()}.${d.id}` }))
+    })
   }
   private async listRelationsForNamespace(namespace: {
     name: string
@@ -353,35 +338,39 @@ class BigQuerySession implements DataSourceSession {
     )
   }
   async listRelations(namespace?: { name: string }): Promise<DataRelation[]> {
-    const groups = namespace
-      ? [await this.listRelationsForNamespace(namespace)]
-      : await mapWithConcurrency(
-          await this.listNamespaces(),
-          DATASET_RELATION_CONCURRENCY,
-          (item) => this.listRelationsForNamespace(item),
+    return withBigQueryErrors(async () => {
+      const groups = namespace
+        ? [await this.listRelationsForNamespace(namespace)]
+        : await mapWithConcurrency(
+            await this.listNamespaces(),
+            DATASET_RELATION_CONCURRENCY,
+            (item) => this.listRelationsForNamespace(item),
+          )
+      return groups
+        .flat()
+        .sort(
+          (a, b) =>
+            a.namespace.localeCompare(b.namespace) ||
+            a.name.localeCompare(b.name),
         )
-    return groups
-      .flat()
-      .sort(
-        (a, b) =>
-          a.namespace.localeCompare(b.namespace) ||
-          a.name.localeCompare(b.name),
-      )
+    })
   }
   async describeRelation(ref: {
     namespace: string
     name: string
   }): Promise<DataColumn[]> {
-    const { projectId, datasetId } = parseNamespace(ref.namespace)
-    const [metadata] = await this.client
-      .dataset(datasetId, { projectId })
-      .table(ref.name)
-      .getMetadata()
-    return (metadata.schema?.fields || []).map((field: any) => ({
-      name: field.name,
-      nativeType: field.type,
-      nullable: field.mode !== 'REQUIRED',
-    }))
+    return withBigQueryErrors(async () => {
+      const { projectId, datasetId } = parseNamespace(ref.namespace)
+      const [metadata] = await this.client
+        .dataset(datasetId, { projectId })
+        .table(ref.name)
+        .getMetadata()
+      return (metadata.schema?.fields || []).map((field: any) => ({
+        name: field.name,
+        nativeType: field.type,
+        nullable: field.mode !== 'REQUIRED',
+      }))
+    })
   }
   async query(request: QueryRequest): Promise<QueryResult> {
     try {
@@ -419,57 +408,63 @@ class BigQuerySession implements DataSourceSession {
   private async executeQuery(
     common: ReturnType<BigQuerySession['jobOptions']>,
   ): Promise<QueryResult> {
-    const started = Date.now()
-    const [job] = await this.client.createQueryJob(common)
-    // For a script, BigQuery returns the last executed statement's rows/schema.
-    // The script guard requires that statement to be a read-only query.
-    const [rows, nextQuery, apiResponse] = await job.getQueryResults({
-      maxResults: ROW_LIMIT + 1,
-      autoPaginate: false,
-    })
-    const [metadata] = await job.getMetadata()
-    const query = metadata.statistics?.query || {}
-    const schema = apiResponse?.schema?.fields || []
-    const truncated =
-      rows.length > ROW_LIMIT || Boolean(nextQuery || apiResponse?.pageToken)
-    const safeRows = rows
-      .slice(0, ROW_LIMIT)
-      .map((row: any) => normalizeBigQueryRow(row, schema))
-    const columns: ColumnMeta[] = schema.map((field: any) => ({
-      name: field.name,
-      nativeType: field.type,
-      logicalType: field.mode === 'REPEATED' ? 'list' : logical(field.type),
-      nativeTypeId: field.type,
-      dataTypeID: 0,
-      dataTypeName: field.type,
-    }))
-    const durationMs = Date.now() - started
-    const bytes = safeByteCount(query.totalBytesProcessed)
-    return {
-      columns,
-      rows: safeRows,
-      rowCount: safeRows.length,
-      durationMs,
-      execution: {
-        provider: 'bigquery',
-        durationMs,
+    try {
+      const started = Date.now()
+      const [job] = await this.client.createQueryJob(common)
+      // For a script, BigQuery returns the last executed statement's rows/schema.
+      // The script guard requires that statement to be a read-only query.
+      const [rows, nextQuery, apiResponse] = await job.getQueryResults({
+        maxResults: ROW_LIMIT + 1,
+        autoPaginate: false,
+      })
+      const [metadata] = await job.getMetadata()
+      const query = metadata.statistics?.query || {}
+      const schema = apiResponse?.schema?.fields || []
+      const truncated =
+        rows.length > ROW_LIMIT || Boolean(nextQuery || apiResponse?.pageToken)
+      const safeRows = rows
+        .slice(0, ROW_LIMIT)
+        .map((row: any) => normalizeBigQueryRow(row, schema))
+      const columns: ColumnMeta[] = schema.map((field: any) => ({
+        name: field.name,
+        nativeType: field.type,
+        logicalType: field.mode === 'REPEATED' ? 'list' : logical(field.type),
+        nativeTypeId: field.type,
+        dataTypeID: 0,
+        dataTypeName: field.type,
+      }))
+      const durationMs = Date.now() - started
+      const bytes = safeByteCount(query.totalBytesProcessed)
+      return {
+        columns,
+        rows: safeRows,
         rowCount: safeRows.length,
-        truncated,
-        bytesProcessed: bytes,
-        cacheHit: query.cacheHit,
-      },
+        durationMs,
+        execution: {
+          provider: 'bigquery',
+          durationMs,
+          rowCount: safeRows.length,
+          truncated,
+          bytesProcessed: bytes,
+          cacheHit: query.cacheHit,
+        },
+      }
+    } catch (error) {
+      throw classifyBigQueryQueryError(error)
     }
   }
   async estimateQuery(sql: string) {
-    const [job] = await this.client.createQueryJob({
-      ...this.jobOptions(sql, []),
-      dryRun: true,
+    return withBigQueryErrors(async () => {
+      const [job] = await this.client.createQueryJob({
+        ...this.jobOptions(sql, []),
+        dryRun: true,
+      })
+      return {
+        bytesProcessed: safeByteCount(
+          job.metadata?.statistics?.query?.totalBytesProcessed,
+        ),
+      }
     })
-    return {
-      bytesProcessed: safeByteCount(
-        job.metadata?.statistics?.query?.totalBytesProcessed,
-      ),
-    }
   }
   async close() {}
 }
