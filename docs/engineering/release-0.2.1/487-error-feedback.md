@@ -22,7 +22,10 @@ The small clipboardFeedback utility serves real text-copy call sites only. It
 uses existing leading transport cleanup for disclosed details; it is not a global
 exception transformer. Details are plain React text, never HTML. NotificationArea
 keeps one slot, alert/assertive failure and status/polite success. Its width wraps
-within the viewport. Clipboard fallback now restores original focus/text selection
+within the viewport. Notifications containing Details stay available until Dismiss
+or replacement, even while expanded and keyboard-focused; plain notifications
+retain timed dismissal. Dismiss restores focus to the originating control when
+it is still available. Clipboard fallback now restores original focus/text selection
 on success and failure. No provider operation, query or selection is retried
 implicitly. JSON errors stay inside the modal so the focus boundary is respected.
 
@@ -40,7 +43,9 @@ implicitly. JSON errors stay inside the modal so the focus boundary is respected
    Expect one accurate error, no unhandled rejection. Retry to a writable path;
    expect correct filtered/sorted CSV or SVG. Cancel Save: no new error/success.
 4. At normal/narrow widths inspect wrapping and keyboard opening of Details;
-   screen reader should announce one assertive error and polite success. Forms,
+   screen reader should announce one assertive error and polite success. Leave
+   Details expanded and focused beyond six seconds; it must remain readable.
+   Dismiss with the keyboard and check focus returns to the originating control. Forms,
    connection recovery and query errors should still appear in their own context.
 5. Reuse #453 release steps to check all Loki copy actions preserve selection and
    PromQL's accessible Copy label. Reuse #490 for chart screenshot outcomes.

@@ -27,3 +27,17 @@
   color: var(--text);
   white-space: pre-wrap;
 }
+
+.messageRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.messageRow > span {
+  min-width: 0;
+}
+
+.messageRow > button {
+  flex-shrink: 0;
+}
