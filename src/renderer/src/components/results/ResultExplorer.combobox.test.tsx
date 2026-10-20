@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('echarts-for-react', () => ({
   default: () => <div data-testid="chart" />,
@@ -11,6 +11,7 @@ vi.mock('@components/ai/AiQueryRepair', () => ({
 }))
 
 import { ResultExplorer } from './ResultExplorer'
+import { useStore } from '@store/useStore'
 import { createResultFilter } from '@lib/resultFilters'
 import {
   activeTestSession,
@@ -450,3 +451,29 @@ describe('ResultExplorer hierarchy state', () => {
     ).toEqual(['region', 'extra_0'])
   })
 })
+
+it.each(['line', 'bar', 'table'] as const)(
+  '#486 hides failed %s data and export actions without losing configuration',
+  (view) => {
+    arrange()
+    act(() => useStore.getState().setVisualization('sql', { view }))
+    const before = activeTestSession()
+    act(() => useStore.getState().completeQuery(null, 'B failed'))
+    expect(screen.getByRole('alert').textContent).toContain('B failed')
+    expect(screen.queryByTestId('chart')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Copy CSV' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /Export (CSV|PNG)/ }),
+    ).toBeNull()
+    expect(screen.queryByRole('button', { name: /Copy chart/ })).toBeNull()
+    expect(activeTestSession().sqlVisualization).toEqual(
+      before.sqlVisualization,
+    )
+    expect(activeTestSession().sqlResultFilters).toEqual(
+      before.sqlResultFilters,
+    )
+    act(() => useStore.getState().completeQuery(result, null))
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(activeTestSession().result).toBe(result)
+  },
+)

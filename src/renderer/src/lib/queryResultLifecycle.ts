@@ -33,12 +33,18 @@ export function completeQueryState(
   result: QueryResult | null,
   error: string | null,
 ): QueryResultLifecycleState {
+  // Null without an error is an abandonment, not a failed replacement.
+  // Only an owned failure invalidates the displayed data (and export revision).
+  const nextResult = error ? null : (result ?? state.result)
   return {
     ...state,
     running: false,
     pendingResult: null,
-    result: result ?? state.result,
-    resultRevision: result ? state.resultRevision + 1 : state.resultRevision,
+    result: nextResult,
+    resultRevision:
+      result || nextResult !== state.result
+        ? state.resultRevision + 1
+        : state.resultRevision,
     queryError: error,
   }
 }

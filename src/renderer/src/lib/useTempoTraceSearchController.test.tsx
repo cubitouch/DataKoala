@@ -177,10 +177,10 @@ describe('useTempoTraceSearchController', () => {
     ],
     [
       'all' as const,
-      'Search stopped before the selected period was fully covered; partial results found so far are shown.',
+      'Search stopped before the selected period was fully covered; incomplete results have been cleared.',
     ],
   ])(
-    'retains partial rows after a %s search failure',
+    'clears incomplete rows after a %s search failure',
     async (sampleSize, notice) => {
       const pending = deferred<ReturnType<typeof result>>()
       run.mockReturnValue(pending.promise)
@@ -216,7 +216,7 @@ describe('useTempoTraceSearchController', () => {
         })
         await search
       })
-      expect(hook.result.current.searchRows).toHaveLength(1)
+      expect(hook.result.current.searchRows).toEqual([])
       expect(hook.result.current.searchNotice).toBe(notice)
       expect(hook.result.current.searchProgress).toBeNull()
       expect(hook.result.current.searching).toBe(false)

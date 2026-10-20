@@ -243,10 +243,11 @@ export function useTempoTraceSearchController({
             .getState()
             .completeQuery(null, message, requestTabId, undefined, operation)
           if (isVisibleRequest()) {
+            setSearchRows([])
             setSearchNotice(
               sampled
                 ? 'Sample search stopped before Tempo returned its bounded result set.'
-                : 'Search stopped before the selected period was fully covered; partial results found so far are shown.',
+                : 'Search stopped before the selected period was fully covered; incomplete results have been cleared.',
             )
             setSearchProgress(null)
             onError(message)
