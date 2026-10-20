@@ -123,7 +123,9 @@ test('NON07 ordinary SELECT takes processed bytes and cache flag from executed-j
   assert.equal(result.execution?.truncated, false)
   assert.equal(result.execution?.durationMs, result.durationMs)
   assert.ok(result.durationMs >= 0)
-  assert.equal(Object.hasOwn(result.execution!, 'bytesBilled'), false)
+  assert.equal(result.execution?.bytesBilled, 2048)
+  assert.equal(result.execution?.slotMs, 300)
+  assert.equal(result.execution?.statisticsScope, 'job')
   assert.equal(Object.hasOwn(result.execution!, 'totalSlotMs'), false)
 
   const ipcResult = toIpcSafeQueryResult(result)
@@ -223,6 +225,7 @@ test('NON07 SCRIPT uses parent job statistics and final statement rows without c
   assert.deepEqual(result.rows, [{ metric: 1 }])
   assert.equal(result.execution?.bytesProcessed, 4096)
   assert.equal(result.execution?.cacheHit, false)
+  assert.equal(result.execution?.statisticsScope, 'script')
   assert.equal(Object.hasOwn(result.execution!, 'numChildJobs'), false)
 })
 
@@ -258,4 +261,95 @@ test('NON07 valid estimates preserve zero and the safe integer boundary', async 
       bytesProcessed: Number(bytes),
     })
   }
+})
+
+test('batch4 billing, slot time, total rows and elapsed job duration survive production serialization exactly', async () => {
+  const { result, calls } = await execute({
+    queryStatistics: {
+      totalBytesProcessed: '0',
+      totalBytesBilled: '9007199254740991',
+      totalSlotMs: '0',
+      cacheHit: false,
+    },
+    jobStatistics: { startTime: '100', endTime: '140' },
+    resultStatistics: { totalRows: '9007199254740991', pageToken: 'more' },
+  })
+  const safe = toIpcSafeQueryResult(result)
+  assert.equal(safe.execution?.bytesBilled, Number.MAX_SAFE_INTEGER)
+  assert.equal(safe.execution?.slotMs, 0)
+  assert.equal(safe.execution?.totalRows, Number.MAX_SAFE_INTEGER)
+  assert.equal(safe.execution?.providerDurationMs, 40)
+  assert.equal(safe.execution?.truncated, true)
+  assert.equal(safe.execution?.rowCount, 1)
+  assert.equal(
+    calls.length,
+    2,
+    'one validation dry run and one execution; no cosmetic jobs',
+  )
+})
+
+test('batch4 invalid billing/slot/total row statistics are unavailable instead of fabricated', async () => {
+  for (const value of [
+    undefined,
+    null,
+    '',
+    ' ',
+    '1.2',
+    '-1',
+    -1,
+    false,
+    NaN,
+    Infinity,
+    '1e3',
+    {},
+    [],
+    '9007199254740993',
+    9007199254740992,
+  ]) {
+    const { result } = await execute({
+      queryStatistics: {
+        totalBytesBilled: value,
+        totalSlotMs: value,
+        cacheHit: value,
+      },
+      resultStatistics: { totalRows: value },
+      jobStatistics: { startTime: value, endTime: '200' },
+    })
+    const execution = toIpcSafeQueryResult(result).execution!
+    assert.equal(execution.bytesBilled, undefined)
+    assert.equal(execution.slotMs, undefined)
+    assert.equal(execution.totalRows, undefined)
+    assert.equal(execution.providerDurationMs, undefined)
+    assert.equal(execution.cacheHit, value === false ? false : undefined)
+  }
+})
+
+test('batch4 zero job duration is real; reversed/partial timestamps remain unavailable', async () => {
+  for (const [startTime, endTime, expected] of [
+    ['0', '0', 0],
+    ['10', '9', undefined],
+    [undefined, '9', undefined],
+    ['10', null, undefined],
+  ] as const) {
+    const { result } = await execute({ jobStatistics: { startTime, endTime } })
+    assert.equal(result.execution?.providerDurationMs, expected)
+  }
+})
+
+test('batch4 script scope survives absent executed statement type; final rows never adopt parent counts', async () => {
+  const { result, calls } = await execute(
+    {
+      statementType: 'SCRIPT',
+      queryStatistics: { totalBytesBilled: '1024', totalSlotMs: '300' },
+      jobStatistics: { numChildJobs: '5', totalRows: '999' },
+      resultStatistics: { totalRows: '2' },
+      rows: [{ metric: 1 }, { metric: 2 }],
+    },
+    'DECLARE x INT64 DEFAULT 1; SELECT x AS metric;',
+  )
+  assert.equal(result.execution?.statisticsScope, 'script')
+  assert.equal(result.execution?.bytesBilled, 1024)
+  assert.equal(result.execution?.totalRows, 2)
+  assert.equal(result.rowCount, 2)
+  assert.equal(calls.length, 2)
 })

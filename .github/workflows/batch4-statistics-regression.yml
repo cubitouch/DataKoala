@@ -1,0 +1,51 @@
+name: Batch 4 BigQuery Statistics Regression
+on:
+  pull_request:
+    paths:
+      - 'src/main/adapters/bigquery*'
+      - 'src/main/ipc-serialization*'
+      - 'src/shared/types.ts'
+      - 'src/renderer/src/components/results/**'
+      - 'scripts/visual-preview/bigquery-statistics-fixture.ts'
+      - 'scripts/visual-preview/audit-batches/fix-91.mjs'
+      - '.github/workflows/batch4-statistics-regression.yml'
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    env:
+      EVIDENCE_ROOT: ${{ github.workspace }}/statistics-evidence
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      DATAKOALA_STATS_FIXTURE: ${{ github.workspace }}/../statistics-fixture.json
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
+      - run: node --experimental-strip-types scripts/visual-preview/bigquery-statistics-fixture.ts "$DATAKOALA_STATS_FIXTURE"
+      - name: Capture actual baseline (observation, no defect assertion)
+        run: |
+          git worktree add --detach ../statistics-baseline "$BASE_SHA"
+          ln -s "$PWD/node_modules" ../statistics-baseline/node_modules
+          cp scripts/visual-preview/audit-batches/fix-91.mjs ../statistics-baseline/scripts/visual-preview/audit-batches/
+          cd ../statistics-baseline
+          pnpm build
+          DATAKOALA_BATCH4_BASELINE=1 DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=fix-91 DATAKOALA_AUDIT_HEAD="$BASE_SHA" DATAKOALA_PREVIEW_OUTPUT="$EVIDENCE_ROOT/before" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+      - run: pnpm build
+      - name: Native keyboard and confirmation regressions
+        run: DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=fix-91 DATAKOALA_AUDIT_HEAD="$HEAD_SHA" DATAKOALA_PREVIEW_OUTPUT="$EVIDENCE_ROOT/after" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: batch4-statistics-evidence
+          path: statistics-evidence

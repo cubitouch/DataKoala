@@ -1,5 +1,9 @@
+import { createQuerySession } from '@store/useStore'
+import { serializeWorkspaceDraft, parseWorkspaceDraft } from './workspaceFormat'
+import { workspaceRestorePatch } from './workspaceRestoration'
 import assert from 'node:assert/strict'
-import { test } from 'vitest'
+import { test, vi } from 'vitest'
+vi.mock('@lib/api', () => ({ api: {} }))
 import type { QueryResult } from '@shared/types.ts'
 import {
   completeQueryState,
@@ -24,6 +28,11 @@ function queryResult(
       rowCount: 1,
       truncated: false,
       bytesProcessed,
+      bytesBilled: bytesProcessed,
+      slotMs: 0,
+      providerDurationMs: 0,
+      totalRows: 1,
+      statisticsScope: 'script',
       cacheHit,
     },
   }
@@ -90,4 +99,28 @@ test('NON07 absent and unsafe provider statistics survive as optional metadata, 
   assert.equal(completed.result?.execution?.bytesProcessed, undefined)
   assert.equal(completed.result?.execution?.cacheHit, undefined)
   assert.equal(completed.result?.durationMs, 8)
+})
+
+test('batch4 cold restore preserves the SQL draft but restores neither executed-job statistics nor busy state', () => {
+  const tab = createQuerySession(1, {
+    id: 'stats',
+    sql: 'SELECT 1',
+    connectionProfileId: 'bq',
+  })
+  tab.result = queryResult(1024, false)
+  tab.pendingResult = queryResult(2048, true)
+  tab.running = true
+  const serialized = serializeWorkspaceDraft({
+    tabs: [tab],
+    activeTabId: tab.id,
+  })
+  assert.equal(serialized.includes('bytesBilled'), false)
+  const draft = parseWorkspaceDraft(serialized)
+  assert.ok(draft)
+  const restored = workspaceRestorePatch(draft)
+  assert.equal(restored.tabs[0].sql, 'SELECT 1')
+  assert.equal(restored.tabs[0].connectionProfileId, 'bq')
+  assert.equal(restored.tabs[0].result, null)
+  assert.equal(restored.tabs[0].pendingResult, null)
+  assert.equal(restored.tabs[0].running, false)
 })

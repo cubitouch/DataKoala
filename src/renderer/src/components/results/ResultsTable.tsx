@@ -1,3 +1,4 @@
+import { QueryStatistics } from './QueryStatistics'
 import { queryErrorMessage } from '@lib/queryErrors'
 import { clipboardFailure } from '@lib/clipboardFeedback'
 import { TextInput } from '@components/ui/TextInput'
@@ -331,12 +332,11 @@ export function ResultsTable({
   return (
     <div className={styles.pane} data-result-table-pane>
       <div className={styles.toolbar} data-result-toolbar>
-        <span className={styles.stats}>
-          {activeFilters.length || filter.trim()
-            ? `${rows.length} of ${result.rowCount}`
-            : result.rowCount}{' '}
-          rows · {result.columns.length} cols · {result.durationMs} ms
-        </span>
+        <QueryStatistics
+          className={styles.stats}
+          result={result}
+          visibleRowCount={rows.length}
+        />
         <div className={styles.filterInput}>
           <TextInput
             mode="inline"

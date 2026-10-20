@@ -1,3 +1,4 @@
+import { QueryStatistics } from './QueryStatistics'
 import { chartClickContext } from '@lib/chartInteractions'
 import type { DisplayUnit } from '@lib/displayUnit'
 import {
@@ -1030,12 +1031,11 @@ export function GenericResultExplorer({
       ) : (
         <div className={styles.chart} data-result-chart>
           <div className={styles.chartActions}>
-            <span className={styles.stats}>
-              {activeFilters.length
-                ? `${filteredResult?.rowCount ?? 0} of ${result.rowCount}`
-                : result.rowCount}{' '}
-              rows · {result.columns.length} cols · {result.durationMs} ms
-            </span>
+            <QueryStatistics
+              className={styles.stats}
+              result={result}
+              visibleRowCount={filteredResult?.rowCount ?? result.rowCount}
+            />
             <div className={styles.spacer} />
             {!hierarchical &&
               seriesIdentities.length > 1 &&
