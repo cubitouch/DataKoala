@@ -70,17 +70,18 @@ test('NON07 pending BigQuery metadata stays attached to the pending result until
   assert.equal(promoted.resultRevision, 2)
 })
 
-test('NON07 failed query retains previous result statistics as stale display data, not failed job statistics', () => {
+test('NON07 failed query clears active data and statistics while preserving the original object', () => {
   const previous = queryResult(13, false)
   const failed = completeQueryState(
     startQueryState(state(previous)),
     null,
     'query failed',
   )
-  assert.equal(failed.result, previous)
-  assert.equal(failed.result?.execution?.bytesProcessed, 13)
+  assert.equal(failed.result, null)
+  // The separate original object is intact; active failed data is not exportable.
+  assert.equal(previous.execution?.bytesProcessed, 13)
   assert.equal(failed.queryError, 'query failed')
-  assert.equal(failed.resultRevision, 1)
+  assert.equal(failed.resultRevision, 2)
 })
 
 test('NON07 absent and unsafe provider statistics survive as optional metadata, not UI claims', () => {

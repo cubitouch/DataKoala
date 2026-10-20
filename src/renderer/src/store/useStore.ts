@@ -980,7 +980,9 @@ export const useStore = create<AppState>((set, get) => ({
             }
           : {
               ...session,
-              queryError: error ?? null,
+              ...(error
+                ? completeQueryState(session, null, error)
+                : { queryError: null }),
               repairableQueryError: null,
             },
       ),

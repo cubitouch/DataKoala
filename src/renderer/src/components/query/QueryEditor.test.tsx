@@ -2108,6 +2108,28 @@ describe.each([
     await waitFor(() => expect(session('A')?.running).toBe(true))
   }
 
+  it('#486 clears success A on failure B and recovers on success C', async () => {
+    setup()
+    useStore.getState().completeQuery(response, null, 'A')
+    const failed = deferred<typeof response>()
+    await start(failed)
+    await act(async () => {
+      failed.reject(new Error('B failed'))
+      await failed.promise.catch(() => {})
+    })
+    await waitFor(() => expect(session('A')?.queryError).toBe('B failed'))
+    expect(session('A')?.result).toBeNull()
+    expect(session('A')?.sql).toBe(kind === 'prometheus' ? 'up' : 'select 1')
+    const recovered = deferred<typeof response>()
+    await start(recovered)
+    await act(async () => {
+      recovered.resolve(response)
+      await recovered.promise
+    })
+    await waitFor(() => expect(session('A')?.result).toEqual(response))
+    expect(session('A')?.queryError).toBeNull()
+  })
+
   it.each(['resolve', 'reject'] as const)(
     'delivers background %s to A after workspace remount',
     async (outcome) => {

@@ -50,11 +50,43 @@ test('separate and out-of-order delivery cannot expose pending data under the ov
   assert.equal(promoted.running, false)
 })
 
-test('failed completion preserves the displayed revision', () => {
+test('failed completion clears visible and pending data and invalidates the revision', () => {
   const a = startQueryState(initial())
   const failed = completeQueryState(a, null, 'failed')
-  assert.equal(failed.result, a.result)
-  assert.equal(failed.resultRevision, 1)
+  assert.equal(failed.result, null)
+  assert.equal(failed.resultRevision, 2)
   assert.equal(failed.running, false)
   assert.equal(failed.queryError, 'failed')
+})
+
+test('success A → failure B → success C, including failure before any result', () => {
+  const failed = completeQueryState(
+    startQueryState(initial()),
+    null,
+    'B failed',
+  )
+  const recovered = completeQueryState(startQueryState(failed), result(3), null)
+  assert.deepEqual(recovered.result, result(3))
+  assert.equal(recovered.queryError, null)
+  assert.equal(recovered.resultRevision, 3)
+  const empty = completeQueryState(
+    { ...initial(), result: null },
+    null,
+    'first failure',
+  )
+  assert.equal(empty.result, null)
+  assert.equal(empty.queryError, 'first failure')
+})
+
+test('abandonment retains previous data while failure discards pending data', () => {
+  const running = startQueryState(initial())
+  assert.equal(completeQueryState(running, null, null).result, running.result)
+  assert.equal(stopQueryState(running).result, running.result)
+  const failed = completeQueryState(
+    deliverQueryResultState(running, result(2)),
+    null,
+    'failed',
+  )
+  assert.equal(failed.result, null)
+  assert.equal(failed.pendingResult, null)
 })

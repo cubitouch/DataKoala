@@ -173,14 +173,14 @@ describe('useTempoTraceSearchController', () => {
   it.each([
     [
       '250' as const,
-      'Sample search stopped before Tempo returned its bounded result set.',
+      'Search stopped before completion; incomplete results have been cleared.',
     ],
     [
       'all' as const,
-      'Search stopped before the selected period was fully covered; partial results found so far are shown.',
+      'Search stopped before completion; incomplete results have been cleared.',
     ],
   ])(
-    'retains partial rows after a %s search failure',
+    'clears incomplete rows after a %s search failure',
     async (sampleSize, notice) => {
       const pending = deferred<ReturnType<typeof result>>()
       run.mockReturnValue(pending.promise)
@@ -216,7 +216,7 @@ describe('useTempoTraceSearchController', () => {
         })
         await search
       })
-      expect(hook.result.current.searchRows).toHaveLength(1)
+      expect(hook.result.current.searchRows).toEqual([])
       expect(hook.result.current.searchNotice).toBe(notice)
       expect(hook.result.current.searchProgress).toBeNull()
       expect(hook.result.current.searching).toBe(false)
@@ -225,6 +225,39 @@ describe('useTempoTraceSearchController', () => {
       )
     },
   )
+
+  it('#486 retains failure coverage after replacing an earlier success and remounting', async () => {
+    useStore.getState().completeQuery(result([{ traceId: 'previous' }]), null)
+    const pending = deferred<ReturnType<typeof result>>()
+    run.mockReturnValueOnce(pending.promise)
+    const options = { connectionId: 'tempo-1', onError: vi.fn() }
+    const hook = renderHook(() => useTempoTraceSearchController(options))
+    let search!: Promise<void>
+    act(() => {
+      search = hook.result.current.runSearch({
+        query: '{}',
+        sampleSize: 'all',
+        range,
+      })
+    })
+    act(() => run.mock.calls[0][4](progress([{ traceId: 'incomplete' }]), 'B'))
+    await act(async () => {
+      pending.reject(new Error('B failed'))
+      await search
+    })
+    expect(hook.result.current.searchRows).toEqual([])
+    expect(hook.result.current.searchNotice).toBe(
+      'Search stopped before completion; incomplete results have been cleared.',
+    )
+    expect(hook.result.current.searchError).toBe('B failed')
+    hook.unmount()
+    const restored = renderHook(() => useTempoTraceSearchController(options))
+    expect(restored.result.current.searchRows).toEqual([])
+    expect(restored.result.current.searchNotice).toBe(
+      'Search stopped before completion; incomplete results have been cleared.',
+    )
+    expect(run).toHaveBeenCalledTimes(1)
+  })
 
   it('rejects recurring windows before starting an execution', async () => {
     const onError = vi.fn()

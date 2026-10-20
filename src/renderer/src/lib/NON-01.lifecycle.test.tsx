@@ -309,3 +309,21 @@ describe('NON-01 generation and query ownership characterization', () => {
     expect(mocks.connect).not.toHaveBeenCalled()
   })
 })
+
+it('#486 ignores an older failure after newer success and isolates the failed tab', () => {
+  const old = beginQueryOperation('tab-a', 'a', 4)!
+  const next = beginQueryOperation('tab-a', 'a', 4)!
+  useStore
+    .getState()
+    .completeQuery(result('new'), null, 'tab-a', undefined, next)
+  useStore
+    .getState()
+    .completeQuery(null, 'old failure', 'tab-a', undefined, old)
+  expect(tab('tab-a').result).toEqual(result('new'))
+  expect(tab('tab-a').queryError).toBeNull()
+  useStore.getState().setResult(result('B'), null, 'tab-b')
+  useStore.getState().setResult(null, 'current failure', 'tab-a')
+  expect(tab('tab-a').result).toBeNull()
+  expect(tab('tab-a').queryError).toBe('current failure')
+  expect(tab('tab-b').result).toEqual(result('B'))
+})

@@ -1907,6 +1907,31 @@ describe('#371 Loki lifecycle audit', () => {
     await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
   }
 
+  it.each(['logs', 'metrics'] as const)(
+    '#486 clears successful %s on failure and recovers without resetting the draft',
+    async (kind) => {
+      const expected = kind === 'logs' ? logs : metric
+      useStore.getState().completeQuery(expected, null)
+      renderWorkspace(kind)
+      const draft = session()?.sql
+      const pending = deferredQuery()
+      await start(pending)
+      await act(async () => {
+        pending.reject(new Error('B failed'))
+        await pending.promise.catch(() => {})
+      })
+      await waitFor(() => expect(session()?.queryError).toBe('B failed'))
+      expect(session()?.result).toBeNull()
+      expect(session()?.sql).toBe(draft)
+      expect(screen.getByText('B failed')).toBeTruthy()
+      expect(screen.queryByLabelText('Copy CSV')).toBeNull()
+      mocks.runLoki.mockResolvedValueOnce(expected)
+      fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+      await waitFor(() => expect(session()?.result).toEqual(expected))
+      expect(session()?.queryError).toBeNull()
+    },
+  )
+
   // Next slice must call the shared startQuery primitive; never bless local loading.
   it.each(['logs', 'metrics'] as const)(
     'represents pending %s on the owning tab',
