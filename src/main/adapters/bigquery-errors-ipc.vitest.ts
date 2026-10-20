@@ -17,6 +17,13 @@ afterEach(() => vi.unstubAllGlobals())
 
 it.each([
   {
+    failure: new Error(
+      'The incoming JSON object does not contain a client_id field',
+    ),
+    kind: 'connection',
+    expected: /Application Default Credentials.*JSON/,
+  },
+  {
     failure: { code: '401', response: { data: { error: 'invalid_grant' } } },
     kind: 'connection',
     expected: /expired or was revoked/,

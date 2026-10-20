@@ -9,7 +9,10 @@ only connection testing/classified query failures consistently used it. Metadata
 and discovery could expose bare errors; the connection picker then discarded
 project/dataset discovery diagnostics. Numeric string status codes and structured
 OAuth errors also missed classification. Unknown object query errors lost their
-message as `[object Object]`.
+message as `[object Object]`. Known local SDK ADC validation messages (missing
+client_id/client_secret/refresh_token, service-account key/email or impersonation
+fields) now receive ADC JSON guidance and connection classification. Matching is
+restricted to known SDK wording; explicit invalidQuery/400 still takes priority.
 
 A BigQuery-only utility now reads message, status and reason fields, including
 Gaxios OAuth error codes. Auth guidance explains ADC and how to renew/configure it;
@@ -31,6 +34,7 @@ default-project discovery stays optional when project listing/manual entry works
 
 Synthetic tests cover representative SDK/Gaxios fields, malformed/unknown shapes,
 connection testing, namespaces/relations/columns, discovery, query/probe failures,
+actual installed-SDK validation using incomplete synthetic credential JSON,
 existing failure-envelope serialization and renderer API classification, plus
 connection-form guidance and retry. The boundary test uses structuredClone and the
 production serialization functions; it is not a native Electron transport test.

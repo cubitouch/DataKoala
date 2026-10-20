@@ -38,6 +38,25 @@ export function bigQueryErrorInfo(error: unknown) {
   return { code, reasons, message }
 }
 
+/** Known local ADC validation messages from the installed google-auth-library.
+ * Match the SDK wording/fields, never arbitrary JSON errors or SQL identifiers.
+ */
+export function isBigQueryAdcLoadingFailure(error: unknown): boolean {
+  const { code, reasons, message } = bigQueryErrorInfo(error)
+  if (code === 400 && reasons.includes('invalidQuery')) return false
+  return (
+    /^The incoming JSON object does not contain a (?:client_id|client_secret|refresh_token|client_email|private_key|source_credentials|service_account_impersonation_url) field\.?$/.test(
+      message,
+    ) ||
+    /^The incoming JSON object does not have the "(?:authorized_user|impersonated_service_account)" type\.?$/.test(
+      message,
+    ) ||
+    /^Must pass in a JSON object containing (?:the user refresh token|the service account auth settings|an {2}impersonated refresh token)\.?$/.test(
+      message,
+    )
+  )
+}
+
 export function friendlyBigQueryError(error: unknown): string {
   if (error instanceof BigQueryProviderError) return error.message
   const { code, reasons, message } = bigQueryErrorInfo(error)
@@ -47,6 +66,8 @@ export function friendlyBigQueryError(error: unknown): string {
     return message
       ? `BigQuery query failed. ${message}`
       : 'BigQuery query failed. Review the SQL and try again.'
+  if (isBigQueryAdcLoadingFailure(error))
+    return 'BigQuery authentication failed: the Google Application Default Credentials (ADC) JSON is incomplete or invalid. Check GOOGLE_APPLICATION_CREDENTIALS or recreate user ADC with gcloud auth application-default login, then reconnect.'
   const authentication =
     'BigQuery authentication failed. DataKoala uses Google Application Default Credentials (ADC). Review GOOGLE_APPLICATION_CREDENTIALS or run gcloud auth application-default login, then reconnect; gcloud auth login alone does not configure ADC.'
   if (

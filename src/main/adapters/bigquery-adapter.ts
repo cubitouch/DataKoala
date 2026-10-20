@@ -1,5 +1,6 @@
 import {
   bigQueryErrorInfo,
+  isBigQueryAdcLoadingFailure,
   friendlyBigQueryError as friendlyError,
   withBigQueryErrors,
 } from '../bigquery-errors.ts'
@@ -143,6 +144,7 @@ const BIGQUERY_CONNECTION_REASONS = new Set([
 function isBigQueryConnectionFailure(error: unknown): boolean {
   const { code, reasons, message } = bigQueryErrorInfo(error)
   if (code === 400 && reasons.includes('invalidQuery')) return false
+  if (isBigQueryAdcLoadingFailure(error)) return true
   const reason =
     reasons.find((item) => BIGQUERY_CONNECTION_REASONS.has(item)) ??
     reasons[0] ??
