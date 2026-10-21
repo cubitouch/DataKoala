@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useConnectionOperation } from './useConnectionOperation'
+import { Modal } from '@components/ui/Modal'
+import { useEffect, useState } from 'react'
 import type { SqliteFileProfile } from '@shared/types'
 import { api } from '@lib/api'
 import { TextInput } from '@components/ui/TextInput'
@@ -12,7 +14,9 @@ export function SqliteFileConnectionModal({
   onClose,
   onSaved,
   onBack,
+  active = true,
 }: ConnectionFormProps & { existing: SqliteFileProfile | null }) {
+  const operation = useConnectionOperation(active)
   const [name, setName] = useState(existing?.name ?? 'SQLite database')
   const [path, setPath] = useState(existing?.path ?? '')
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
@@ -28,132 +32,158 @@ export function SqliteFileConnectionModal({
     readonly: true,
   })
   const choose = async () => {
+    const token = operation.begin()
+    if (!token) return
     try {
       const selected = await api.connections.chooseSqliteFile()
+      if (!operation.current(token)) return
       if (selected) {
         setPath(selected)
         setMessage(null)
       }
     } catch (error) {
+      if (!operation.current(token)) return
       setMessage({ ok: false, text: failureMessage(error) })
+    } finally {
+      operation.finish(token)
     }
   }
   const validate = () =>
     name.trim() && path
       ? null
       : 'Enter a connection name and choose one SQLite database file.'
-  const test = async () => {
-    const error = validate()
-    if (error) return setMessage({ ok: false, text: error })
-    setBusy(true)
-    try {
-      const result = await api.connections.test(profile())
-      setMessage(
-        result.ok
-          ? {
-              ok: true,
-              text: 'SQLite database opened directly in read-only mode.',
-            }
-          : { ok: false, text: result.error },
-      )
-    } catch (caught) {
-      setMessage({ ok: false, text: failureMessage(caught) })
-    } finally {
+  useEffect(() => {
+    if (!active) {
       setBusy(false)
+    }
+  }, [active])
+  const test = async () => {
+    const token = operation.begin()
+    if (!token) return
+    try {
+      const error = validate()
+      if (error) return setMessage({ ok: false, text: error })
+      setBusy(true)
+      try {
+        const result = await api.connections.test(profile())
+        if (!operation.current(token)) return
+        setMessage(
+          result.ok
+            ? {
+                ok: true,
+                text: 'SQLite database opened directly in read-only mode.',
+              }
+            : { ok: false, text: result.error },
+        )
+      } catch (caught) {
+        if (!operation.current(token)) return
+        setMessage({ ok: false, text: failureMessage(caught) })
+      } finally {
+        if (operation.current(token)) setBusy(false)
+      }
+    } finally {
+      operation.finish(token)
     }
   }
   const save = async () => {
-    const error = validate()
-    if (error) return setMessage({ ok: false, text: error })
-    setBusy(true)
+    const token = operation.begin()
+    if (!token) return
     try {
-      onSaved(await api.connections.upsert(profile()))
-      onClose()
-    } catch (caught) {
-      setMessage({ ok: false, text: failureMessage(caught) })
+      const error = validate()
+      if (error) return setMessage({ ok: false, text: error })
+      setMessage(null)
+      setBusy(true)
+      try {
+        const savedProfile = await api.connections.upsert(profile())
+        if (!operation.current(token)) return
+        onSaved(savedProfile)
+        onClose()
+      } catch (caught) {
+        if (!operation.current(token)) return
+        setMessage({ ok: false, text: failureMessage(caught) })
+      } finally {
+        if (operation.current(token)) setBusy(false)
+      }
     } finally {
-      setBusy(false)
+      operation.finish(token)
     }
   }
   return (
-    <div className={[styles.modalOverlay].join(' ')} onClick={onClose}>
-      <div
-        className={[styles.modal].join(' ')}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sqlite-file-connection-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <ConnectionFormHeader
-          kind="sqlite-file"
-          editing={!!existing}
-          onBack={onBack}
+    <Modal
+      open={active}
+      onClose={onClose}
+      labelledBy="sqlite-file-connection-title"
+      restoreFocus={!onBack}
+      dialogClassName={styles.modal}
+    >
+      <ConnectionFormHeader
+        kind="sqlite-file"
+        editing={!!existing}
+        onBack={onBack}
+      />
+      <div className={[styles.field].join(' ')}>
+        <TextInput
+          label="Connection name"
+          id="sqlite-profile-name"
+          value={name}
+          onValueChange={setName}
         />
-        <div className={[styles.field].join(' ')}>
-          <TextInput
-            label="Connection name"
-            id="sqlite-profile-name"
-            value={name}
-            onValueChange={setName}
-          />
-        </div>
-        <div className={[styles.field].join(' ')}>
-          <label>Database file</label>
-          <button
-            type="button"
-            className={['btn', 'ghost'].join(' ')}
-            onClick={() => void choose()}
-          >
-            Choose database…
-          </button>
-          {path && (
-            <div className={[styles.connPreview].join(' ')} title={path}>
-              {path}
-            </div>
-          )}
-          <div className={[styles.pasteHint].join(' ')}>
-            Select exactly one database file. Its SQLite contents are validated,
-            so the filename extension does not matter. The database is attached
-            directly in read-only mode.
-          </div>
-        </div>
-        {message && (
-          <div
-            className={[
-              styles.testMsg,
-              message.ok ? styles.ok : styles.err,
-            ].join(' ')}
-            role={message.ok ? 'status' : 'alert'}
-          >
-            {message.text}
+      </div>
+      <div className={[styles.field].join(' ')}>
+        <label>Database file</label>
+        <button
+          type="button"
+          className={['btn', 'ghost'].join(' ')}
+          onClick={() => void choose()}
+        >
+          Choose database…
+        </button>
+        {path && (
+          <div className={[styles.connPreview].join(' ')} title={path}>
+            {path}
           </div>
         )}
-        <div className={[styles.actions].join(' ')}>
-          <button
-            type="button"
-            className={['btn', 'ghost'].join(' ')}
-            onClick={() => void test()}
-            disabled={busy}
-          >
-            Test
-          </button>
-          <button
-            type="button"
-            className={['btn', 'ghost'].join(' ')}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={['btn', 'primary'].join(' ')}
-            onClick={() => void save()}
-            disabled={busy}
-          >
-            {busy ? 'Working…' : 'Save'}
-          </button>
+        <div className={[styles.pasteHint].join(' ')}>
+          Select exactly one database file. Its SQLite contents are validated,
+          so the filename extension does not matter. The database is attached
+          directly in read-only mode.
         </div>
       </div>
-    </div>
+      {message && (
+        <div
+          className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(
+            ' ',
+          )}
+          role={message.ok ? 'status' : 'alert'}
+        >
+          {message.text}
+        </div>
+      )}
+      <div className={[styles.actions].join(' ')}>
+        <button
+          type="button"
+          className={['btn', 'ghost'].join(' ')}
+          onClick={() => void test()}
+          disabled={busy}
+        >
+          Test
+        </button>
+        <button
+          type="button"
+          className={['btn', 'ghost'].join(' ')}
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={['btn', 'primary'].join(' ')}
+          onClick={() => void save()}
+          disabled={busy}
+        >
+          {busy ? 'Working…' : 'Save'}
+        </button>
+      </div>
+    </Modal>
   )
 }

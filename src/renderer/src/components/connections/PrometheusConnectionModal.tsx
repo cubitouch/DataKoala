@@ -1,3 +1,5 @@
+import { useConnectionOperation } from './useConnectionOperation'
+import { Modal } from '@components/ui/Modal'
 import { useEffect, useMemo, useState } from 'react'
 import type { PrometheusProfile } from '@shared/types'
 import type { PrometheusDatasourceOption } from '@shared/prometheus'
@@ -16,7 +18,9 @@ export function PrometheusConnectionModal({
   onClose,
   onSaved,
   onBack,
+  active = true,
 }: ConnectionFormProps & { existing: PrometheusProfile | null }) {
+  const operation = useConnectionOperation(active)
   const [name, setName] = useState(existing?.name ?? 'Prometheus')
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
@@ -106,143 +110,162 @@ export function PrometheusConnectionModal({
     }
     return null
   }
-  const test = async () => {
-    const error = validate()
-    if (error) return setMessage({ ok: false, text: error })
-    setBusy(true)
-    setMessage(null)
-    try {
-      const result = await api.connections.prometheus.discover(transport())
-      setGcxVersion(result.gcx?.version ?? null)
-      setMessage({
-        ok: true,
-        text: `Connected — discovered ${result.metricNames.length} metrics${result.metadataAvailable ? ' with metadata' : ''}.`,
-      })
-    } catch (error) {
-      setMessage({ ok: false, text: failureMessage(error) })
-    } finally {
+  useEffect(() => {
+    if (!active) {
       setBusy(false)
+    }
+  }, [active])
+  const test = async () => {
+    const token = operation.begin()
+    if (!token) return
+    try {
+      const error = validate()
+      if (error) return setMessage({ ok: false, text: error })
+      setBusy(true)
+      setMessage(null)
+      try {
+        const result = await api.connections.prometheus.discover(transport())
+        if (!operation.current(token)) return
+        setGcxVersion(result.gcx?.version ?? null)
+        setMessage({
+          ok: true,
+          text: `Connected — discovered ${result.metricNames.length} metrics${result.metadataAvailable ? ' with metadata' : ''}.`,
+        })
+      } catch (error) {
+        if (!operation.current(token)) return
+        setMessage({ ok: false, text: failureMessage(error) })
+      } finally {
+        if (operation.current(token)) setBusy(false)
+      }
+    } finally {
+      operation.finish(token)
     }
   }
   const save = async () => {
-    const error = validate()
-    if (error) return setMessage({ ok: false, text: error })
-    setBusy(true)
+    const token = operation.begin()
+    if (!token) return
     try {
-      const saved = await api.connections.upsert(profile())
-      onSaved(saved)
-      onClose()
-    } catch (error) {
-      setMessage({ ok: false, text: failureMessage(error) })
-      setBusy(false)
+      const error = validate()
+      if (error) return setMessage({ ok: false, text: error })
+      setMessage(null)
+      setBusy(true)
+      try {
+        const saved = await api.connections.upsert(profile())
+        if (!operation.current(token)) return
+        onSaved(saved)
+        onClose()
+      } catch (error) {
+        if (!operation.current(token)) return
+        setMessage({ ok: false, text: failureMessage(error) })
+        setBusy(false)
+      }
+    } finally {
+      operation.finish(token)
     }
   }
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div
-        className={styles.modal}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="prometheus-connection-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <ConnectionFormHeader
-          kind="prometheus"
-          editing={!!existing}
-          onBack={onBack}
+    <Modal
+      open={active}
+      onClose={onClose}
+      labelledBy="prometheus-connection-title"
+      restoreFocus={!onBack}
+      dialogClassName={styles.modal}
+    >
+      <ConnectionFormHeader
+        kind="prometheus"
+        editing={!!existing}
+        onBack={onBack}
+      />
+      <div className={styles.field}>
+        <TextInput
+          label="Connection name"
+          id="prom-name"
+          value={name}
+          onValueChange={setName}
         />
-        <div className={styles.field}>
-          <TextInput
-            label="Connection name"
-            id="prom-name"
-            value={name}
-            onValueChange={setName}
-          />
-        </div>
-        <div className={styles.field}>
-          <label>Connection method</label>
-          <div className={styles.connPreview}>Grafana Cloud via gcx</div>
-        </div>
-        <div className={styles.field}>
-          <Combobox
-            id="prom-datasource"
-            label="Prometheus datasource"
-            value={datasourceUid}
-            onChange={setDatasourceUid}
-            disabled={loadingDatasources}
-            loading={loadingDatasources}
-            placeholder="Select a datasource"
-            options={datasources.map((datasource) => ({
-              value: datasource.uid,
-              label: datasource.name,
-            }))}
-          />
-          {datasourceError && (
-            <div className={styles.pasteHint} role="alert">
-              {datasourceError}
-            </div>
-          )}
-        </div>
-        <CollapsibleSection title="Grafana handoff override (optional)">
-          <div className={styles.advancedFields}>
-            <TextInput
-              label="Grafana base URL override"
-              value={grafanaUrl}
-              onValueChange={setGrafanaUrl}
-              placeholder="https://example.com/grafana"
-              hint="Leave blank to resolve from the selected gcx context. Navigation only; queries still run through gcx."
-            />
-            <TextInput
-              label="Grafana org ID"
-              inputMode="numeric"
-              value={orgId}
-              onValueChange={setOrgId}
-            />
-          </div>
-        </CollapsibleSection>
-        <div className={[styles.testMsg, styles.info].join(' ')}>
-          Uses your existing authenticated gcx context. DataKoala never reads,
-          copies, or stores gcx OAuth credentials.
-          {gcxVersion && (
-            <>
-              {' '}
-              Detected <strong>gcx {gcxVersion}</strong>.
-            </>
-          )}
-        </div>
-        {message && (
-          <div
-            className={[
-              styles.testMsg,
-              message.ok ? styles.ok : styles.err,
-            ].join(' ')}
-            role={message.ok ? 'status' : 'alert'}
-          >
-            {message.text}
+      </div>
+      <div className={styles.field}>
+        <label>Connection method</label>
+        <div className={styles.connPreview}>Grafana Cloud via gcx</div>
+      </div>
+      <div className={styles.field}>
+        <Combobox
+          id="prom-datasource"
+          label="Prometheus datasource"
+          value={datasourceUid}
+          onChange={setDatasourceUid}
+          disabled={loadingDatasources}
+          loading={loadingDatasources}
+          placeholder="Select a datasource"
+          options={datasources.map((datasource) => ({
+            value: datasource.uid,
+            label: datasource.name,
+          }))}
+        />
+        {datasourceError && (
+          <div className={styles.pasteHint} role="alert">
+            {datasourceError}
           </div>
         )}
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => void test()}
-            disabled={busy}
-          >
-            {busy ? 'Working…' : 'Test & discover metrics'}
-          </button>
-          <button type="button" className="btn ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => void save()}
-            disabled={busy}
-          >
-            Save
-          </button>
-        </div>
       </div>
-    </div>
+      <CollapsibleSection title="Grafana handoff override (optional)">
+        <div className={styles.advancedFields}>
+          <TextInput
+            label="Grafana base URL override"
+            value={grafanaUrl}
+            onValueChange={setGrafanaUrl}
+            placeholder="https://example.com/grafana"
+            hint="Leave blank to resolve from the selected gcx context. Navigation only; queries still run through gcx."
+          />
+          <TextInput
+            label="Grafana org ID"
+            inputMode="numeric"
+            value={orgId}
+            onValueChange={setOrgId}
+          />
+        </div>
+      </CollapsibleSection>
+      <div className={[styles.testMsg, styles.info].join(' ')}>
+        Uses your existing authenticated gcx context. DataKoala never reads,
+        copies, or stores gcx OAuth credentials.
+        {gcxVersion && (
+          <>
+            {' '}
+            Detected <strong>gcx {gcxVersion}</strong>.
+          </>
+        )}
+      </div>
+      {message && (
+        <div
+          className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(
+            ' ',
+          )}
+          role={message.ok ? 'status' : 'alert'}
+        >
+          {message.text}
+        </div>
+      )}
+      <div className={styles.actions}>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => void test()}
+          disabled={busy}
+        >
+          {busy ? 'Working…' : 'Test & discover metrics'}
+        </button>
+        <button type="button" className="btn ghost" onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn primary"
+          onClick={() => void save()}
+          disabled={busy}
+        >
+          Save
+        </button>
+      </div>
+    </Modal>
   )
 }

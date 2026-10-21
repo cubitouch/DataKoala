@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { Modal } from '@components/ui/Modal'
+import { useEffect, useRef, useState } from 'react'
 import type {
   ConnectionProfile,
   DataSourceKind,
@@ -16,6 +17,20 @@ import type { ConnectionModalProps } from './connectionFormTypes'
 import styles from './ConnectionModal.module.css'
 
 export function ConnectionModal(props: ConnectionModalProps) {
+  const origin = useRef(document.activeElement as HTMLElement | null)
+  useEffect(
+    () => () => {
+      const target = origin.current
+      requestAnimationFrame(() => {
+        if (
+          target?.isConnected &&
+          !document.querySelector('[data-modal-backdrop]')
+        )
+          target.focus()
+      })
+    },
+    [],
+  )
   const [kind, setKind] = useState<DataSourceProfile['kind'] | null>(
     props.existing?.kind ?? null,
   )
@@ -53,75 +68,71 @@ export function ConnectionModal(props: ConnectionModalProps) {
     return (
       <>
         {!kind && (
-          <div
-            className={[styles.modalOverlay].join(' ')}
-            onClick={props.onClose}
+          <Modal
+            open
+            onClose={props.onClose}
+            labelledBy="connection-picker-title"
+            restoreFocus={false}
+            dialogClassName={`${styles.modal} ${styles.connectionPicker}`}
           >
-            <div
-              className={[styles.modal, styles.connectionPicker].join(' ')}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="connection-picker-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className={[styles.wizardSteps].join(' ')}>
-                Step 1 of 2 · Source
-              </div>
-              <h2 id="connection-picker-title">Choose a connection type</h2>
-              <p className={[styles.connectionPickerIntro].join(' ')}>
-                Select where your data lives. You can return here before saving.
-              </p>
-              <div
-                className={[styles.connectionSourceGrid].join(' ')}
-                role="radiogroup"
-                aria-label="Connection types"
-                onKeyDown={onPickerKeyDown}
-              >
-                {CONNECTION_SOURCE_DESCRIPTORS.map((source, index) => {
-                  const disabled = !source.supportsCreate
-                  return (
-                    <button
-                      key={source.kind}
-                      type="button"
-                      role="radio"
-                      aria-checked="false"
-                      aria-disabled={disabled}
-                      disabled={disabled}
-                      tabIndex={disabled ? -1 : index === 0 ? 0 : -1}
-                      className={[styles.connectionSourceCard].join(' ')}
-                      onClick={() =>
-                        !disabled && select(source.kind as DataSourceKind)
-                      }
-                    >
-                      <span className={[styles.sourceIcon].join(' ')}>
-                        <SourceIcon type={source.icon} />
-                      </span>
-                      <span className={[styles.sourceCardCopy].join(' ')}>
-                        <strong>{source.label}</strong>
-                        <span>{source.description}</span>
-                        <small>{source.hint}</small>
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-              <div className={[styles.actions].join(' ')}>
-                <button
-                  type="button"
-                  className={['btn', 'ghost'].join(' ')}
-                  onClick={props.onClose}
-                >
-                  Cancel
-                </button>
-              </div>
+            <div className={[styles.wizardSteps].join(' ')}>
+              Step 1 of 2 · Source
             </div>
-          </div>
+            <h2 id="connection-picker-title">Choose a connection type</h2>
+            <p className={[styles.connectionPickerIntro].join(' ')}>
+              Select where your data lives. You can return here before saving.
+            </p>
+            <div
+              className={[styles.connectionSourceGrid].join(' ')}
+              role="radiogroup"
+              aria-label="Connection types"
+              onKeyDown={onPickerKeyDown}
+            >
+              {CONNECTION_SOURCE_DESCRIPTORS.map((source, index) => {
+                const disabled = !source.supportsCreate
+                return (
+                  <button
+                    key={source.kind}
+                    type="button"
+                    role="radio"
+                    aria-checked="false"
+                    aria-disabled={disabled}
+                    disabled={disabled}
+                    tabIndex={disabled ? -1 : index === 0 ? 0 : -1}
+                    className={[styles.connectionSourceCard].join(' ')}
+                    onClick={() =>
+                      !disabled && select(source.kind as DataSourceKind)
+                    }
+                  >
+                    <span className={[styles.sourceIcon].join(' ')}>
+                      <SourceIcon type={source.icon} />
+                    </span>
+                    <span className={[styles.sourceCardCopy].join(' ')}>
+                      <strong>{source.label}</strong>
+                      <span>{source.description}</span>
+                      <small>{source.hint}</small>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className={[styles.actions].join(' ')}>
+              <button
+                type="button"
+                className={['btn', 'ghost'].join(' ')}
+                onClick={props.onClose}
+              >
+                Cancel
+              </button>
+            </div>
+          </Modal>
         )}
         {visited.map((item) => (
           <div
             key={item}
             className={kind === item ? undefined : styles.wizardFormHidden}
             aria-hidden={kind !== item}
+            inert={kind !== item}
           >
             {item === 'postgres' ? (
               <PostgresConnectionModal
@@ -179,20 +190,45 @@ export function ConnectionModal(props: ConnectionModalProps) {
     )
   }
   return props.existing.kind === 'local-files' ? (
-    <LocalFilesConnectionModal {...props} existing={props.existing} />
+    <LocalFilesConnectionModal
+      {...props}
+      key={props.existing.id}
+      existing={props.existing}
+    />
   ) : props.existing.kind === 'sqlite-file' ? (
-    <SqliteFileConnectionModal {...props} existing={props.existing} />
+    <SqliteFileConnectionModal
+      {...props}
+      key={props.existing.id}
+      existing={props.existing}
+    />
   ) : props.existing.kind === 'bigquery' ? (
-    <BigQueryConnectionModal {...props} existing={props.existing} />
+    <BigQueryConnectionModal
+      {...props}
+      key={props.existing.id}
+      existing={props.existing}
+    />
   ) : props.existing.kind === 'prometheus' ? (
-    <PrometheusConnectionModal {...props} existing={props.existing} />
+    <PrometheusConnectionModal
+      {...props}
+      key={props.existing.id}
+      existing={props.existing}
+    />
   ) : props.existing.kind === 'tempo' ? (
-    <TempoConnectionModal {...props} existing={props.existing} />
+    <TempoConnectionModal
+      {...props}
+      key={props.existing.id}
+      existing={props.existing}
+    />
   ) : props.existing.kind === 'loki' ? (
-    <LokiConnectionModal {...props} existing={props.existing} />
+    <LokiConnectionModal
+      {...props}
+      key={props.existing.id}
+      existing={props.existing}
+    />
   ) : (
     <PostgresConnectionModal
       {...props}
+      key={props.existing.id}
       existing={props.existing as ConnectionProfile}
     />
   )

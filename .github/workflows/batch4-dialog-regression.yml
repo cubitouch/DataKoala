@@ -1,0 +1,108 @@
+name: Batch 4 Dialog Regression
+on:
+  pull_request:
+    paths:
+      - 'src/renderer/src/components/ui/**'
+      - 'src/renderer/src/components/connections/**'
+      - 'src/renderer/src/components/query/QueryUtilityActions*'
+      - 'src/renderer/src/components/sidebar/Sidebar*'
+      - 'scripts/visual-preview/audit-batches/fix-84.mjs'
+      - '.github/workflows/batch4-dialog-regression.yml'
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    env:
+      EVIDENCE_ROOT: ${{ github.workspace }}/dialog-evidence
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
+      - name: Capture actual baseline (observation, no defect assertion)
+        run: |
+          git worktree add --detach ../dialog-baseline "$BASE_SHA"
+          ln -s "$PWD/node_modules" ../dialog-baseline/node_modules
+          cp scripts/visual-preview/audit-batches/fix-84.mjs ../dialog-baseline/scripts/visual-preview/audit-batches/
+          cd ../dialog-baseline
+          pnpm build
+          DATAKOALA_BATCH4_BASELINE=1 DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=fix-84 DATAKOALA_AUDIT_HEAD="$BASE_SHA" DATAKOALA_PREVIEW_OUTPUT="$EVIDENCE_ROOT/before" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+      - run: pnpm build
+      - name: Native keyboard and confirmation regressions
+        run: DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH=fix-84 DATAKOALA_AUDIT_HEAD="$HEAD_SHA" DATAKOALA_PREVIEW_OUTPUT="$EVIDENCE_ROOT/after" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: batch4-dialog-evidence
+          path: dialog-evidence
+  combined:
+    name: Combined Batch 4 validation
+    runs-on: ubuntu-latest
+    env:
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      ROW_SHA: 53b3312473c2e0f42b663edc4cfcdfbdd0ea3155
+      STATISTICS_SHA: fe2cb20ef8ce08d16d2b402832cd12f7ce43b30a
+      DATAKOALA_STATS_FIXTURE: ${{ github.workspace }}/combined-statistics-fixture.json
+      EVIDENCE_ROOT: ${{ github.workspace }}/combined-evidence
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
+      - name: Integrate exact draft heads in an unpublished detached worktree
+        run: |
+          git config user.name 'DataKoala integration check'
+          git config user.email 'integration@invalid'
+          git worktree add --detach ../batch4-combined "$HEAD_SHA"
+          git -C ../batch4-combined merge --no-ff --no-edit "$ROW_SHA"
+          git -C ../batch4-combined merge --no-ff --no-edit "$STATISTICS_SHA"
+          ln -s "$PWD/node_modules" ../batch4-combined/node_modules
+          mkdir -p "$EVIDENCE_ROOT"
+          git -C ../batch4-combined rev-parse HEAD > "$EVIDENCE_ROOT/combined-sha.txt"
+          printf '%s\\n' "$HEAD_SHA" "$ROW_SHA" "$STATISTICS_SHA" > "$EVIDENCE_ROOT/inputs.txt"
+      - name: Validate combined checks, all suites and build
+        working-directory: ../batch4-combined
+        run: |
+          pnpm prepare:sqlite-extension
+          pnpm check:renderer-controls
+          pnpm check:dead-code
+          pnpm lint:imports
+          pnpm format
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm test:ui
+          pnpm build
+          pnpm check:duplication
+      - name: Run all three native contracts on the combined renderer
+        working-directory: ../batch4-combined
+        run: |
+          node --experimental-strip-types scripts/visual-preview/bigquery-statistics-fixture.ts "$DATAKOALA_STATS_FIXTURE"
+          export DATAKOALA_AUDIT_HEAD="$(git rev-parse HEAD)"
+          for batch in fix-84 fix-05 fix-91; do
+            DATAKOALA_PREVIEW_KIND=audit DATAKOALA_AUDIT_BATCH="$batch" DATAKOALA_PREVIEW_OUTPUT="$EVIDENCE_ROOT/$batch" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: batch4-combined-evidence
+          path: combined-evidence

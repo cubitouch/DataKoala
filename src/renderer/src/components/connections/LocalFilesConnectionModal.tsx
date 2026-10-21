@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useConnectionOperation } from './useConnectionOperation'
+import { Modal } from '@components/ui/Modal'
+import { useEffect, useState } from 'react'
 import type { LocalFilesProfile } from '@shared/types'
 import { api } from '@lib/api'
 import { TextInput } from '@components/ui/TextInput'
@@ -18,7 +20,9 @@ export function LocalFilesConnectionModal({
   onClose,
   onSaved,
   onBack,
+  active = true,
 }: ConnectionFormProps & { existing: LocalFilesProfile | null }) {
+  const operation = useConnectionOperation(active)
   const [name, setName] = useState(existing?.name ?? 'Local files')
   const [files, setFiles] = useState(existing?.files ?? [])
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
@@ -34,8 +38,11 @@ export function LocalFilesConnectionModal({
     readonly: true,
   })
   const choose = async () => {
+    const token = operation.begin()
+    if (!token) return
     try {
       const paths = await api.connections.chooseFiles()
+      if (!operation.current(token)) return
       setFiles((current) => {
         const known = new Set(current.map((file) => file.path))
         const aliases = new Set(
@@ -56,151 +63,174 @@ export function LocalFilesConnectionModal({
       })
       setMessage(null)
     } catch (error) {
-      setMessage({ ok: false, text: failureMessage(error) })
-    }
-  }
-  const test = async () => {
-    if (!name.trim() || !files.length)
-      return setMessage({
-        ok: false,
-        text: 'Enter a name and choose at least one file.',
-      })
-    setBusy(true)
-    try {
-      const result = await api.connections.test(profile())
-      setMessage(
-        result.ok
-          ? { ok: true, text: 'Files loaded successfully with DuckDB.' }
-          : { ok: false, text: result.error },
-      )
-    } catch (error) {
+      if (!operation.current(token)) return
       setMessage({ ok: false, text: failureMessage(error) })
     } finally {
+      operation.finish(token)
+    }
+  }
+  useEffect(() => {
+    if (!active) {
       setBusy(false)
+    }
+  }, [active])
+  const test = async () => {
+    const token = operation.begin()
+    if (!token) return
+    try {
+      if (!name.trim() || !files.length)
+        return setMessage({
+          ok: false,
+          text: 'Enter a name and choose at least one file.',
+        })
+      setBusy(true)
+      try {
+        const result = await api.connections.test(profile())
+        if (!operation.current(token)) return
+        setMessage(
+          result.ok
+            ? { ok: true, text: 'Files loaded successfully with DuckDB.' }
+            : { ok: false, text: result.error },
+        )
+      } catch (error) {
+        if (!operation.current(token)) return
+        setMessage({ ok: false, text: failureMessage(error) })
+      } finally {
+        if (operation.current(token)) setBusy(false)
+      }
+    } finally {
+      operation.finish(token)
     }
   }
   const save = async () => {
-    if (!name.trim() || !files.length)
-      return setMessage({
-        ok: false,
-        text: 'Enter a name and choose at least one file.',
-      })
-    setBusy(true)
+    const token = operation.begin()
+    if (!token) return
     try {
-      onSaved(await api.connections.upsert(profile()))
-      onClose()
-    } catch (error) {
-      setMessage({
-        ok: false,
-        text: error instanceof Error ? error.message : String(error),
-      })
+      if (!name.trim() || !files.length)
+        return setMessage({
+          ok: false,
+          text: 'Enter a name and choose at least one file.',
+        })
+      setMessage(null)
+      setBusy(true)
+      try {
+        const savedProfile = await api.connections.upsert(profile())
+        if (!operation.current(token)) return
+        onSaved(savedProfile)
+        onClose()
+      } catch (error) {
+        if (!operation.current(token)) return
+        setMessage({
+          ok: false,
+          text: error instanceof Error ? error.message : String(error),
+        })
+      } finally {
+        if (operation.current(token)) setBusy(false)
+      }
     } finally {
-      setBusy(false)
+      operation.finish(token)
     }
   }
   return (
-    <div className={[styles.modalOverlay].join(' ')} onClick={onClose}>
-      <div
-        className={[styles.modal].join(' ')}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="local-files-connection-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <ConnectionFormHeader
-          kind="local-files"
-          editing={!!existing}
-          onBack={onBack}
+    <Modal
+      open={active}
+      onClose={onClose}
+      labelledBy="local-files-connection-title"
+      restoreFocus={!onBack}
+      dialogClassName={styles.modal}
+    >
+      <ConnectionFormHeader
+        kind="local-files"
+        editing={!!existing}
+        onBack={onBack}
+      />
+      <div className={[styles.field].join(' ')}>
+        <TextInput
+          label="Connection name"
+          id="local-profile-name"
+          value={name}
+          onValueChange={setName}
         />
-        <div className={[styles.field].join(' ')}>
-          <TextInput
-            label="Connection name"
-            id="local-profile-name"
-            value={name}
-            onValueChange={setName}
-          />
-        </div>
-        <div className={[styles.field].join(' ')}>
-          <label>Data files</label>
-          <button
-            type="button"
-            className={['btn', 'ghost'].join(' ')}
-            onClick={() => void choose()}
-          >
-            Choose files…
-          </button>
-          <div className={[styles.pasteHint].join(' ')}>
-            CSV, TSV, Parquet, JSON, JSONL, and NDJSON. Each file is exposed as
-            a read-only SQL view.
-          </div>
-        </div>
-        {files.map((file, index) => (
-          <div
-            className={[styles.row, styles.fileConnectionRow].join(' ')}
-            key={file.path}
-          >
-            <div className={[styles.field].join(' ')}>
-              <TextInput
-                label={`Table alias for ${file.path}`}
-                value={file.alias}
-                onValueChange={(text) =>
-                  setFiles((current) =>
-                    current.map((item, i) =>
-                      i === index ? { ...item, alias: text } : item,
-                    ),
-                  )
-                }
-              />
-            </div>
-            <button
-              type="button"
-              className={['btn', 'ghost'].join(' ')}
-              aria-label={`Remove ${file.path}`}
-              onClick={() =>
-                setFiles((current) => current.filter((_, i) => i !== index))
-              }
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-        {message && (
-          <div
-            className={[
-              styles.testMsg,
-              message.ok ? styles.ok : styles.err,
-            ].join(' ')}
-            role={message.ok ? 'status' : 'alert'}
-          >
-            {message.text}
-          </div>
-        )}
-        <div className={[styles.actions].join(' ')}>
-          <button
-            type="button"
-            className={['btn', 'ghost'].join(' ')}
-            onClick={() => void test()}
-            disabled={busy}
-          >
-            Test
-          </button>
-          <button
-            type="button"
-            className={['btn', 'ghost'].join(' ')}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={['btn', 'primary'].join(' ')}
-            onClick={() => void save()}
-            disabled={busy}
-          >
-            {busy ? 'Working…' : 'Save'}
-          </button>
+      </div>
+      <div className={[styles.field].join(' ')}>
+        <label>Data files</label>
+        <button
+          type="button"
+          className={['btn', 'ghost'].join(' ')}
+          onClick={() => void choose()}
+        >
+          Choose files…
+        </button>
+        <div className={[styles.pasteHint].join(' ')}>
+          CSV, TSV, Parquet, JSON, JSONL, and NDJSON. Each file is exposed as a
+          read-only SQL view.
         </div>
       </div>
-    </div>
+      {files.map((file, index) => (
+        <div
+          className={[styles.row, styles.fileConnectionRow].join(' ')}
+          key={file.path}
+        >
+          <div className={[styles.field].join(' ')}>
+            <TextInput
+              label={`Table alias for ${file.path}`}
+              value={file.alias}
+              onValueChange={(text) =>
+                setFiles((current) =>
+                  current.map((item, i) =>
+                    i === index ? { ...item, alias: text } : item,
+                  ),
+                )
+              }
+            />
+          </div>
+          <button
+            type="button"
+            className={['btn', 'ghost'].join(' ')}
+            aria-label={`Remove ${file.path}`}
+            onClick={() =>
+              setFiles((current) => current.filter((_, i) => i !== index))
+            }
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      {message && (
+        <div
+          className={[styles.testMsg, message.ok ? styles.ok : styles.err].join(
+            ' ',
+          )}
+          role={message.ok ? 'status' : 'alert'}
+        >
+          {message.text}
+        </div>
+      )}
+      <div className={[styles.actions].join(' ')}>
+        <button
+          type="button"
+          className={['btn', 'ghost'].join(' ')}
+          onClick={() => void test()}
+          disabled={busy}
+        >
+          Test
+        </button>
+        <button
+          type="button"
+          className={['btn', 'ghost'].join(' ')}
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={['btn', 'primary'].join(' ')}
+          onClick={() => void save()}
+          disabled={busy}
+        >
+          {busy ? 'Working…' : 'Save'}
+        </button>
+      </div>
+    </Modal>
   )
 }
