@@ -1,8 +1,13 @@
+import {
+  ObservabilityRow,
+  focusedRowRange,
+  OBSERVABILITY_ROW_MIN_HEIGHT,
+} from '@components/ui/ObservabilityRow'
 import { clipboardFailure } from '@lib/clipboardFeedback'
 import { formatLogFieldValue, logFieldCopyText } from '@lib/logFieldValue'
 import { HighlightedText } from '@components/ui/HighlightedText'
 import { TextInput } from '@components/ui/TextInput'
-import { LogRowChevron, LogSeverityBadge } from './LogRowPresentation'
+import { LogSeverityBadge } from './LogRowPresentation'
 import {
   DEFAULT_DETAIL_PANEL_WIDTH,
   ResizableDetailPanel,
@@ -92,6 +97,7 @@ export function LogResultExplorer({
   onFilter,
 }: Props) {
   const [search, setSearch] = useState('')
+  const [focusedId, setFocusedId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [inspectorWidth, setInspectorWidth] = useState(
     DEFAULT_DETAIL_PANEL_WIDTH,
@@ -122,8 +128,14 @@ export function LogResultExplorer({
   const selected = visible.find((row) => row.id === selectedId) ?? null
   const virtual = useVirtualizer({
     count: visible.length,
+    rangeExtractor: (range) =>
+      focusedRowRange(
+        range,
+        visible.findIndex((item) => item.id === focusedId),
+      ),
     getScrollElement: () => parent.current,
-    estimateSize: () => 42,
+    getItemKey: (index) => visible[index].id,
+    estimateSize: () => OBSERVABILITY_ROW_MIN_HEIGHT,
     overscan: 8,
   })
   useEffect(() => {
@@ -351,24 +363,36 @@ export function LogResultExplorer({
                   message = effectiveLogMessage(row)
                 return (
                   <article
+                    onFocusCapture={() => setFocusedId(row.id)}
+                    onBlurCapture={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget))
+                        setFocusedId(null)
+                    }}
                     key={row.id}
+                    ref={virtual.measureElement}
                     data-index={item.index}
                     className={styles.logRow}
                     style={{ transform: `translateY(${item.start}px)` }}
                   >
-                    <button
-                      className={styles.logSummary}
-                      aria-label={`${shortTimestamp(row.timestampMs)}, ${row.severity.toUpperCase()}, ${message}`}
-                      aria-selected={active}
-                      onClick={() => setSelectedId(active ? null : row.id)}
+                    <ObservabilityRow
+                      label={`${shortTimestamp(row.timestampMs)}, ${row.severity.toUpperCase()}, ${message}`}
+                      selected={active}
+                      onOpen={() => setSelectedId(active ? null : row.id)}
+                      leading={
+                        <>
+                          <time
+                            className={styles.timestamp}
+                            dateTime={iso}
+                            title={iso}
+                          >
+                            {shortTimestamp(row.timestampMs)}
+                          </time>
+                          <LogSeverityBadge severity={row.severity} />
+                        </>
+                      }
                     >
-                      <time dateTime={iso} title={iso}>
-                        {shortTimestamp(row.timestampMs)}
-                      </time>
-                      <LogSeverityBadge severity={row.severity} />
-                      <span>{highlight(message)}</span>
-                      <LogRowChevron />
-                    </button>
+                      {highlight(message)}
+                    </ObservabilityRow>
                   </article>
                 )
               })}

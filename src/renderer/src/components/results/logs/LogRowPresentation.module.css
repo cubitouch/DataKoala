@@ -28,14 +28,3 @@
 .severityBadge[data-severity='DEBUG'] {
   color: var(--text-mute);
 }
-
-.chevron {
-  justify-self: end;
-  color: var(--text-mute);
-  font: 18px/1 var(--sans);
-  font-style: normal;
-}
-
-button:hover > .chevron {
-  color: var(--text);
-}
