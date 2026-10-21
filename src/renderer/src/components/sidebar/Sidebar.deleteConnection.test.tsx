@@ -249,9 +249,7 @@ it.each(['success', 'failure'] as const)(
         name: 'Delete connection Production Database',
       }),
     )
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Delete connection' }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Delete connection' }))
     await waitFor(() => expect(remove).toHaveBeenCalledWith('pg'))
     // Model an external target replacement while storage delivery is pending.
     fireEvent.click(
