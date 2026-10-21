@@ -242,6 +242,15 @@ export interface QueryExecutionInfo {
   rowCount?: number
   truncated?: boolean
   bytesProcessed?: number
+  bytesBilled?: number
+  /** Provider-reported accumulated slot milliseconds, not elapsed time. */
+  slotMs?: number
+  /** Provider job endTime - startTime; excludes client transfer time. */
+  providerDurationMs?: number
+  /** Total rows in the provider result set, before DataKoala's cap. */
+  totalRows?: number
+  /** BigQuery metadata belongs to the submitted job, not a final script child. */
+  statisticsScope?: 'job' | 'script'
   cacheHit?: boolean
   notice?: string
   /** Opaque Tempo performance correlation ID, when diagnostics are enabled. */

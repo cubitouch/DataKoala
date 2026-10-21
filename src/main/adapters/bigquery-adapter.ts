@@ -386,7 +386,7 @@ class BigQuerySession implements DataSourceSession {
         throw new QueryValidationError(
           'BigQuery connections are read-only. Use SELECT queries or DECLARE/SET scripts ending with a SELECT; write statements are not supported.',
         )
-      return await this.executeQuery(common)
+      return await this.executeQuery(common, statementType === 'SCRIPT')
     } catch (error) {
       throw classifyBigQueryQueryError(error)
     }
@@ -407,6 +407,7 @@ class BigQuerySession implements DataSourceSession {
   }
   private async executeQuery(
     common: ReturnType<BigQuerySession['jobOptions']>,
+    script = false,
   ): Promise<QueryResult> {
     try {
       const started = Date.now()
@@ -420,8 +421,12 @@ class BigQuerySession implements DataSourceSession {
       const [metadata] = await job.getMetadata()
       const query = metadata.statistics?.query || {}
       const schema = apiResponse?.schema?.fields || []
+      const totalRows = safeByteCount(apiResponse?.totalRows)
       const truncated =
-        rows.length > ROW_LIMIT || Boolean(nextQuery || apiResponse?.pageToken)
+        rows.length > ROW_LIMIT ||
+        Boolean(nextQuery || apiResponse?.pageToken) ||
+        (totalRows !== undefined &&
+          totalRows > Math.min(rows.length, ROW_LIMIT))
       const safeRows = rows
         .slice(0, ROW_LIMIT)
         .map((row: any) => normalizeBigQueryRow(row, schema))
@@ -435,6 +440,12 @@ class BigQuerySession implements DataSourceSession {
       }))
       const durationMs = Date.now() - started
       const bytes = safeByteCount(query.totalBytesProcessed)
+      const startedAt = safeByteCount(metadata.statistics?.startTime)
+      const endedAt = safeByteCount(metadata.statistics?.endTime)
+      const providerDurationMs =
+        startedAt !== undefined && endedAt !== undefined && endedAt >= startedAt
+          ? endedAt - startedAt
+          : undefined
       return {
         columns,
         rows: safeRows,
@@ -446,7 +457,18 @@ class BigQuerySession implements DataSourceSession {
           rowCount: safeRows.length,
           truncated,
           bytesProcessed: bytes,
-          cacheHit: query.cacheHit,
+          bytesBilled: safeByteCount(query.totalBytesBilled),
+          slotMs: safeByteCount(query.totalSlotMs),
+          providerDurationMs,
+          totalRows,
+          statisticsScope:
+            script ||
+            query.statementType === 'SCRIPT' ||
+            metadata.statistics?.scriptStatistics
+              ? 'script'
+              : 'job',
+          cacheHit:
+            typeof query.cacheHit === 'boolean' ? query.cacheHit : undefined,
         },
       }
     } catch (error) {
