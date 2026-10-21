@@ -178,8 +178,8 @@ export function BigQueryConnectionModal({
             text: queryErrorMessage(failureMessage(caught)),
           })
       } finally {
-        if (operation.current(token) && current === revision.current)
-          setBusy(false)
+        // Edits invalidate the result, not ownership of the pending request.
+        if (operation.current(token)) setBusy(false)
       }
     } finally {
       operation.finish(token)
@@ -214,13 +214,11 @@ export function BigQueryConnectionModal({
   const set = (field: keyof typeof draft, value: string) => {
     untouched.current = false
     revision.current++
-    setBusy(false)
     setMessage(null)
     setDraft((valueNow) => ({ ...valueNow, [field]: value }))
   }
   const toggleLimit = (enabled: boolean) => {
     revision.current++
-    setBusy(false)
     setMessage(null)
     setLimitBytesBilled(enabled)
     setDraft((current) => {
@@ -238,7 +236,6 @@ export function BigQueryConnectionModal({
   const setDataProject = (value: string, dataset = '') => {
     untouched.current = false
     revision.current++
-    setBusy(false)
     setMessage(null)
     setDraft((current) => ({
       ...current,

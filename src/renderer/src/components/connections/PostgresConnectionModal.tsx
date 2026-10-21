@@ -129,7 +129,8 @@ export function PostgresConnectionModal({
       return next
     })
     if (affectsConnection) {
-      operation.cancel()
+      // Edits invalidate Test delivery, but Save still owns its captured draft.
+      if (testState.status === 'testing') operation.cancel()
       requestRevision.current += 1
       setTestState({ status: 'idle' })
     }
@@ -518,7 +519,7 @@ export function PostgresConnectionModal({
           type="button"
           className={['btn', 'ghost', styles.testButton].join(' ')}
           onClick={test}
-          disabled={testState.status === 'testing'}
+          disabled={saving || testState.status === 'testing'}
           aria-busy={testState.status === 'testing'}
         >
           {testState.status === 'testing' && (
@@ -549,7 +550,7 @@ export function PostgresConnectionModal({
           type="button"
           className={['btn', 'primary'].join(' ')}
           onClick={save}
-          disabled={saving}
+          disabled={saving || testState.status === 'testing'}
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
