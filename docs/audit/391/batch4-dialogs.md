@@ -1,6 +1,8 @@
 # Batch 4 dialogs — #484 / #485 / #489
 
-Base: `09df6c957f7db113ed04f8a9a48f9affb872d628`. Three issues share one shell/focus contract, so this is one independent draft PR. No dependency upgrades, persistence changes or provider cancellation.
+**Implementation merged:** PR #506, `38bac2bd526e83bb53464c531a15ff109e7b135c`, 2026-10-21 (Europe/Paris). **All consolidated manual acceptance remains Pending.**
+
+Base: `09df6c957f7db113ed04f8a9a48f9affb872d628`. Three issues share one shell/focus contract and were implemented together in PR #506. No dependency upgrades, persistence changes or provider cancellation.
 
 ## Inventory and characterization
 
@@ -52,4 +54,4 @@ Reuse RC-04/10/18/19/20/21/22. Record exact package/full SHA, OS, provider, Pass
 6. Delete a disposable saved connection; Cancel/Escape returns to the exact Delete control. Inject a recoverable storage failure where available: confirmation retains its named target/error, then retry removes only that ID once. Success focuses new connection; if the original target disappears, no other target is substituted.
 7. Repeat at narrow width, with long target names, removed invoking controls and busy operations. Expected: readable scrolling, accessible actions and contained focus; no loss of unrelated drafts. Run the packaged upgrade/restart checks under RC-19/21 separately.
 
-Nothing is merged/released; all manual acceptance remains Pending.
+Implementation is merged; no release has been published. All manual acceptance remains Pending.
