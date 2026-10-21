@@ -1,6 +1,8 @@
 # Batch 4 shared observability rows — #405
 
-Base: `09df6c957f7db113ed04f8a9a48f9affb872d628`. Independent draft; no dialog/statistics prerequisites.
+**Implementation merged:** PR #507, `f6327fefa9e844e48bd11cd1638b73d7a4e496de`, 2026-10-21 (Europe/Paris). **All consolidated manual acceptance remains Pending.**
+
+Base: `09df6c957f7db113ed04f8a9a48f9affb872d628`. Implemented independently in PR #507; no dialog/statistics prerequisites.
 
 ## Inventory and shared API
 
@@ -33,4 +35,4 @@ Reuse RC-07/09/11/16/18/20/21/22; record exact package/SHA, OS/provider, Pass/Fa
 5. Load representative large log and pattern lists. Focus a row, scroll far enough to recycle neighbors, then activate it. Expected: bounded rendered rows, stable identity, correct inspector, no jump to another item or lost scroll position. Filter away the item and confirm no stale action.
 6. Repeat range/filter changes, rerun/failure/reset/preset, and Tempo trace return/navigation. Expected: no stale detail/results, no extra requests or ordering/persistence changes. Reuse packaged RC-21 and provider RC-22 outcomes.
 
-Nothing is merged/released; all manual acceptance remains Pending.
+Implementation is merged; no release has been published. All manual acceptance remains Pending.

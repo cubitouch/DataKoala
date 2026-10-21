@@ -1,6 +1,8 @@
 # Batch 4 truthful BigQuery statistics — #491
 
-Base: `09df6c957f7db113ed04f8a9a48f9affb872d628`. Independent draft PR, no unmerged prerequisites. No additional provider requests, implicit retries, billing changes or persistence format changes.
+**Implementation merged:** PR #508, `cff67567263123d6ad86a65289d24c4536d2d6de`, 2026-10-21 (Europe/Paris). **All consolidated manual acceptance remains Pending.**
+
+Base: `09df6c957f7db113ed04f8a9a48f9affb872d628`. Implemented independently in PR #508, with no unmerged prerequisites. No additional provider requests, implicit retries, billing changes or persistence format changes.
 
 ## Inventory and metric mapping
 
@@ -52,4 +54,4 @@ Reuse RC-02/04/10/13/17/20/21/22. Record actual package/full SHA, OS, project/lo
 6. Inspect Table and a supported chart at normal/narrow widths, including true zero, unavailable metadata and long numeric values using fixtures if a provider can't reproduce them. Expected: equivalent header location, readable units/scope, wrapping with reachable actions, no fabricated zeros. Missing data is omitted, not inferred.
 7. Save the draft/workspace, quit and relaunch the exact package. Expected: draft/profile retained, no old statistics or busy state and no surprise Run. Repeat the existing missing/malformed ADC and genuine SQL-error recovery smoke to preserve #505. Reuse RC-19/21 packaged checks rather than counting CI fixtures as human acceptance.
 
-Nothing is merged/released; all manual and live acceptance remains Pending.
+Implementation is merged; no release has been published. All manual and live acceptance remains Pending.
