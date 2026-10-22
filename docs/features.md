@@ -36,6 +36,8 @@ The adapters and Builders differ by datasource: a visually similar control does 
 
 The SQL workspace supports raw SQL and a visual Builder for constructing analytical queries. Schema exploration, query formatting, editor completion, analytical controls, and query execution use provider-aware capabilities and dialects. PostgreSQL separately supports Explain and Analyze; these are not generic capabilities of all SQL providers.
 
+A PostgreSQL profile can also open and keep a Teleport (`tsh`) tunnel for the connection's lifetime through an **Advanced** tab, with `tsh`-driven database-service discovery and clear handling of a missing or expired `tsh login`. See [`docs/architecture/pre-connect-command.md`](architecture/pre-connect-command.md).
+
 ### Prometheus
 
 The PromQL Builder supports metric discovery, label selection, rate and range calculations, aggregation and grouping, with time-range and step controls. Charting is oriented toward numerical time series.

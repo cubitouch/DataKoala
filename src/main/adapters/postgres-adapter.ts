@@ -15,6 +15,14 @@ import {
   disconnectAll,
   onConnectionStateChanged as onPostgresStateChanged,
 } from './postgres.ts'
+import {
+  SupersededError,
+  TeleportTunnelManager,
+} from '../preconnect/teleport-manager.ts'
+import {
+  applyTeleportTunnel,
+  resolveTeleportConfig,
+} from '../preconnect/effective-profile.ts'
 
 function postgresProfile(profile: DataSourceProfile): PostgresProfile {
   if (profile.kind !== 'postgres')
@@ -22,23 +30,87 @@ function postgresProfile(profile: DataSourceProfile): PostgresProfile {
   return profile
 }
 
+function reasonOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+/** Shared across profiles; the manager keys tunnels by profile id internally. */
+const sharedTunnels = new TeleportTunnelManager()
+
+type TunnelManager = Pick<TeleportTunnelManager, 'start' | 'stop' | 'stopAll'>
+
+/**
+ * Test runs against a throwaway tunnel key so it never disturbs a live
+ * connection's own tunnel, which is keyed by the plain profile id.
+ */
+export function testTunnelKey(profileId: string): string {
+  return `${profileId}::test`
+}
+
+function tunnelReason(error: unknown): string {
+  if (error instanceof SupersededError)
+    return 'This connection attempt was superseded by a newer connection.'
+  return reasonOf(error)
+}
+
 export class PostgresAdapter implements DataSourceAdapter {
   readonly kind = 'postgres' as const
+  private readonly tunnels: TunnelManager
 
-  test(profile: DataSourceProfile) {
-    return testConnection(postgresProfile(profile)).then((result) =>
-      result.ok
+  constructor(tunnels: TunnelManager = sharedTunnels) {
+    this.tunnels = tunnels
+  }
+
+  async test(profile: DataSourceProfile) {
+    const pgProfile = postgresProfile(profile)
+    const preConnect = resolveTeleportConfig(pgProfile)
+    const tunnelId = testTunnelKey(pgProfile.id)
+    let generation: number | undefined
+    if (preConnect) {
+      try {
+        generation = await this.tunnels.start(tunnelId, preConnect)
+      } catch (error) {
+        return { ok: false as const, error: tunnelReason(error) }
+      }
+    }
+    try {
+      const target = preConnect
+        ? applyTeleportTunnel(pgProfile, preConnect)
+        : pgProfile
+      const result = await testConnection(target)
+      return result.ok
         ? {
             ...result,
             sourceInfo: { label: 'PostgreSQL', version: result.serverVersion },
           }
-        : result,
-    )
+        : result
+    } finally {
+      if (preConnect) await this.tunnels.stop(tunnelId, generation)
+    }
   }
 
   async connect(profile: DataSourceProfile) {
     const pgProfile = postgresProfile(profile)
-    const postgresResult = await connectPostgres(pgProfile)
+    const preConnect = resolveTeleportConfig(pgProfile)
+    let tunnelGeneration: number | undefined
+    if (preConnect) {
+      try {
+        tunnelGeneration = await this.tunnels.start(pgProfile.id, preConnect)
+      } catch (error) {
+        return { result: { ok: false as const, error: tunnelReason(error) } }
+      }
+    }
+
+    const target = preConnect
+      ? applyTeleportTunnel(pgProfile, preConnect)
+      : pgProfile
+    let postgresResult
+    try {
+      postgresResult = await connectPostgres(target)
+    } catch (error) {
+      if (preConnect) await this.tunnels.stop(pgProfile.id, tunnelGeneration)
+      return { result: { ok: false as const, error: reasonOf(error) } }
+    }
     const result = postgresResult.ok
       ? {
           ...postgresResult,
@@ -48,7 +120,10 @@ export class PostgresAdapter implements DataSourceAdapter {
           },
         }
       : postgresResult
-    if (!result.ok) return { result }
+    if (!result.ok) {
+      if (preConnect) await this.tunnels.stop(pgProfile.id, tunnelGeneration)
+      return { result }
+    }
     const session: DataSourceSession = {
       info: {
         profileId: pgProfile.id,
@@ -89,7 +164,10 @@ export class PostgresAdapter implements DataSourceAdapter {
         ),
       explain: (sql, analyze = false) =>
         explainQuery(pgProfile.id, sql, analyze),
-      close: () => disconnect(pgProfile.id, result.generation),
+      close: async () => {
+        await disconnect(pgProfile.id, result.generation)
+        if (preConnect) await this.tunnels.stop(pgProfile.id, tunnelGeneration)
+      },
     }
     return { result, session }
   }
@@ -100,11 +178,14 @@ export class PostgresAdapter implements DataSourceAdapter {
     onPostgresStateChanged(listener)
   }
 
-  cancelConnect(profileId: string): Promise<void> {
-    return disconnect(profileId)
+  async cancelConnect(profileId: string): Promise<void> {
+    await disconnect(profileId)
+    await this.tunnels.stop(profileId)
   }
-  shutdown(): Promise<void> {
-    return disconnectAll()
+
+  async shutdown(): Promise<void> {
+    await disconnectAll()
+    await this.tunnels.stopAll()
   }
 }
 

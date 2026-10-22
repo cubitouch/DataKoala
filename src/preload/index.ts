@@ -49,6 +49,7 @@ import type {
   PrometheusTransportConfig,
   TempoTransportConfig,
 } from '@shared/types'
+import type { TeleportDiscoverResult } from '@shared/teleport'
 import type { TempoDatasourceOption } from '@shared/tempoDatasource'
 import type { LokiTransportConfig } from '@shared/types'
 import type {
@@ -163,6 +164,12 @@ const api = {
         ipcRenderer.invoke(IPC.BIGQUERY_LIST_DATASETS, projectId),
       discoverDefaults: (): Promise<BigQueryDiscoveryDefaults> =>
         ipcRenderer.invoke(IPC.BIGQUERY_DISCOVER_DEFAULTS),
+    },
+    teleport: {
+      discover: (options?: {
+        tshPath?: string
+      }): Promise<TeleportDiscoverResult> =>
+        ipcRenderer.invoke(IPC.CONNECTION_TELEPORT_DISCOVER, options),
     },
     prometheus: {
       discover: (

@@ -7,6 +7,7 @@ import {
   buildConnectionString,
   DEFAULT_PORT,
 } from '@shared/connString'
+import { formatProxyDbCommand } from '@shared/teleport'
 import { api } from '@lib/api'
 import { Checkbox } from '@components/ui/Checkbox'
 import { Combobox } from '@components/ui/combobox'
@@ -14,6 +15,7 @@ import { TextInput } from '@components/ui/TextInput'
 import {
   buildConnectionProfileDraft,
   draftFromProfile,
+  DEFAULT_TUNNEL_PORT,
   type ConnectionDraft,
   type ConnectionDraftErrors,
   type ConnectionDraftField,
@@ -40,6 +42,8 @@ const blank: ConnectionProfile = {
   readonly: true,
 }
 const EXAMPLE = 'postgres://user@localhost:5432/mydb'
+/** Shown as the effective host while a tunnel is on (the tunnel binds loopback). */
+const TUNNEL_HOST_LABEL = 'localhost'
 const connectionFields = new Set<keyof ConnectionDraft>([
   'host',
   'port',
@@ -48,6 +52,10 @@ const connectionFields = new Set<keyof ConnectionDraft>([
   'password',
   'tlsMode',
   'tlsCa',
+  'teleportEnabled',
+  'teleportDbService',
+  'teleportTunnelPort',
+  'teleportTshPath',
 ])
 const fieldOrder: ConnectionDraftField[] = [
   'name',
@@ -55,6 +63,8 @@ const fieldOrder: ConnectionDraftField[] = [
   'port',
   'database',
   'user',
+  'teleportDbService',
+  'teleportTunnelPort',
 ]
 
 const TLS_MODE_OPTIONS = [
@@ -79,6 +89,7 @@ type TestState =
   | { status: 'idle' }
   | { status: 'testing' }
   | { status: 'success' | 'error' | 'cancelled'; message: string }
+type Tab = 'connection' | 'advanced'
 
 export function PostgresConnectionModal({
   existing,
@@ -96,6 +107,11 @@ export function PostgresConnectionModal({
   const [parseError, setParseError] = useState<string | null>(null)
   const [parseWarnings, setParseWarnings] = useState<string[]>([])
   const [parsedOk, setParsedOk] = useState(false)
+  const [tab, setTab] = useState<Tab>('connection')
+  const [serviceOptions, setServiceOptions] = useState<string[]>([])
+  const [serviceLoading, setServiceLoading] = useState(false)
+  const [serviceError, setServiceError] = useState<string | null>(null)
+  const [serviceLoaded, setServiceLoaded] = useState(false)
   const requestRevision = useRef(0)
   const fieldRefs = useRef<
     Partial<Record<ConnectionDraftField, HTMLInputElement | null>>
@@ -179,8 +195,45 @@ export function PostgresConnectionModal({
       message: 'Check the highlighted connection details.',
     })
     const first = fieldOrder.find((field) => nextErrors[field])
-    if (first) requestAnimationFrame(() => fieldRefs.current[first]?.focus())
+    if (!first) return
+    // The offending field may live on the other tab, so surface that tab before
+    // focusing it; otherwise the message points at nothing visible.
+    setTab(first.startsWith('teleport') ? 'advanced' : 'connection')
+    requestAnimationFrame(() => fieldRefs.current[first]?.focus())
   }
+
+  /**
+   * Discovery runs in the background, once, the first time the service dropdown
+   * is opened. It never assumes `tsh` is installed; failures show inline and the
+   * field stays free-text.
+   */
+  const loadServices = async () => {
+    if (serviceLoaded || serviceLoading) return
+    setServiceLoading(true)
+    setServiceError(null)
+    try {
+      const tshPath = draft.teleportTshPath.trim()
+      const res = await api.connections.teleport.discover(
+        tshPath ? { tshPath } : undefined,
+      )
+      if (!res.ok) {
+        setServiceError(res.error)
+        return
+      }
+      setServiceOptions(res.databases.map((database) => database.name))
+      setServiceLoaded(true)
+    } catch (error) {
+      setServiceError(failureMessage(error))
+    } finally {
+      setServiceLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    setServiceOptions([])
+    setServiceLoaded(false)
+    setServiceError(null)
+  }, [draft.teleportTshPath])
 
   useEffect(() => {
     if (!active) {
@@ -248,10 +301,41 @@ export function PostgresConnectionModal({
     }
   }
 
+  const tunnel = draft.teleportEnabled
+  // What a tunnel overrides, shown in the disabled fields; the draft keeps the
+  // original values so turning the tunnel off restores them.
+  const effective = tunnel
+    ? {
+        host: TUNNEL_HOST_LABEL,
+        port: draft.teleportTunnelPort,
+        password: '',
+        tlsMode: 'disable',
+      }
+    : {
+        host: draft.host,
+        port: draft.port,
+        password: draft.password,
+        tlsMode: draft.tlsMode,
+      }
   const normalized = useMemo(() => buildConnectionProfileDraft(draft), [draft])
   const preview = normalized.ok
     ? buildConnectionString(normalized.profile, { maskPassword: true })
     : ''
+  const teleportCommand = useMemo(() => {
+    if (!tunnel || !draft.teleportDbService.trim()) return ''
+    return formatProxyDbCommand({
+      mode: 'teleport',
+      dbService: draft.teleportDbService.trim(),
+      ...(draft.user.trim() ? { dbUser: draft.user.trim() } : {}),
+      ...(draft.database.trim() ? { dbName: draft.database.trim() } : {}),
+      ...(draft.teleportTshPath.trim()
+        ? { tshPath: draft.teleportTshPath.trim() }
+        : {}),
+      tunnelPort:
+        Number(draft.teleportTunnelPort.trim()) || DEFAULT_TUNNEL_PORT,
+    })
+  }, [draft, tunnel])
+
   const inputProps = (field: ConnectionDraftField) => ({
     ref: (node: HTMLInputElement | null) => {
       fieldRefs.current[field] = node
@@ -272,218 +356,364 @@ export function PostgresConnectionModal({
         editing={!!existing}
         onBack={onBack}
       />
-      <div className={[styles.field].join(' ')}>
-        <label htmlFor="connection-string">Paste a connection string</label>
-        <textarea
-          id="connection-string"
-          className={[styles.connPaste].join(' ')}
-          value={pasted}
-          spellCheck={false}
-          autoComplete="off"
-          placeholder={EXAMPLE}
-          onChange={(e) => applyConnectionString(e.target.value)}
-          rows={2}
-          aria-invalid={parseError ? true : undefined}
-          aria-describedby={
-            parseError ? 'connection-string-error' : 'connection-string-hint'
-          }
-        />
-        <div
-          id="connection-string-hint"
-          className={[styles.pasteHint].join(' ')}
+      <div
+        className={styles.tabs}
+        role="tablist"
+        aria-label="Connection settings"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'connection'}
+          className={[styles.tab, tab === 'connection' && styles.tabActive]
+            .filter(Boolean)
+            .join(' ')}
+          onClick={() => setTab('connection')}
         >
-          Accepts <code>postgres://…</code>, <code>postgresql://…</code>, a{' '}
-          <code>jdbc:</code> prefix, or libpq <code>host=… dbname=…</code> form.
-          Fills in the fields below.
-        </div>
-        {parseError && (
-          <div
-            id="connection-string-error"
-            className={[styles.testMsg, styles.err].join(' ')}
-            role="alert"
-          >
-            {parseError}
+          Connection
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'advanced'}
+          className={[styles.tab, tab === 'advanced' && styles.tabActive]
+            .filter(Boolean)
+            .join(' ')}
+          onClick={() => setTab('advanced')}
+        >
+          Advanced
+        </button>
+      </div>
+
+      {tab === 'connection' && (
+        <div role="tabpanel" aria-label="Connection">
+          {tunnel && (
+            <div className={styles.tunnelNote} role="note">
+              A Teleport tunnel is enabled on the Advanced tab. The greyed-out
+              fields below are ignored: Database and User are the Teleport
+              database name and user.
+            </div>
+          )}
+          <div className={[styles.field].join(' ')}>
+            <label htmlFor="connection-string">Paste a connection string</label>
+            <textarea
+              id="connection-string"
+              className={[styles.connPaste].join(' ')}
+              value={pasted}
+              spellCheck={false}
+              autoComplete="off"
+              placeholder={EXAMPLE}
+              disabled={tunnel}
+              onChange={(e) => applyConnectionString(e.target.value)}
+              rows={2}
+              aria-invalid={parseError ? true : undefined}
+              aria-describedby={
+                parseError
+                  ? 'connection-string-error'
+                  : 'connection-string-hint'
+              }
+            />
+            <div
+              id="connection-string-hint"
+              className={[styles.pasteHint].join(' ')}
+            >
+              Accepts <code>postgres://…</code>, <code>postgresql://…</code>, a{' '}
+              <code>jdbc:</code> prefix, or libpq <code>host=… dbname=…</code>{' '}
+              form. Fills in the fields below.
+            </div>
+            {parseError && (
+              <div
+                id="connection-string-error"
+                className={[styles.testMsg, styles.err].join(' ')}
+                role="alert"
+              >
+                {parseError}
+              </div>
+            )}
+            {parsedOk && (
+              <div className={[styles.testMsg, styles.ok].join(' ')}>
+                Parsed{parseWarnings.length ? ' with notes' : ''} — check the
+                fields below.
+              </div>
+            )}
+            {parseWarnings.map((w) => (
+              <div key={w} className={[styles.testMsg, styles.warn].join(' ')}>
+                {w}
+              </div>
+            ))}
           </div>
-        )}
-        {parsedOk && (
-          <div className={[styles.testMsg, styles.ok].join(' ')}>
-            Parsed{parseWarnings.length ? ' with notes' : ''} — check the fields
-            below.
+          <div className={[styles.modalDivider].join(' ')}>
+            <span>or enter details manually</span>
           </div>
-        )}
-        {parseWarnings.map((w) => (
-          <div key={w} className={[styles.testMsg, styles.warn].join(' ')}>
-            {w}
+          <div className={[styles.field].join(' ')}>
+            <TextInput
+              label="Profile name"
+              id="profile-name"
+              {...inputProps('name')}
+              value={draft.name}
+              onValueChange={(text) => set({ name: text })}
+              placeholder="e.g. staging analytics"
+            />
           </div>
-        ))}
-      </div>
-      <div className={[styles.modalDivider].join(' ')}>
-        <span>or enter details manually</span>
-      </div>
-      <div className={[styles.field].join(' ')}>
-        <TextInput
-          label="Profile name"
-          id="profile-name"
-          {...inputProps('name')}
-          value={draft.name}
-          onValueChange={(text) => set({ name: text })}
-          placeholder="e.g. staging analytics"
-        />
-      </div>
-      <div className={[styles.row].join(' ')}>
-        <div className={[styles.field].join(' ')}>
-          <TextInput
-            label="Host"
-            id="connection-host"
-            {...inputProps('host')}
-            value={draft.host}
-            onValueChange={(text) => set({ host: text })}
-          />
-        </div>
-        <div className={[styles.field].join(' ')}>
-          <TextInput
-            label="Port"
-            id="connection-port"
-            {...inputProps('port')}
-            inputMode="numeric"
-            value={draft.port}
-            onValueChange={(text) => set({ port: text })}
-          />
-        </div>
-      </div>
-      <div className={[styles.row].join(' ')}>
-        <div className={[styles.field].join(' ')}>
-          <TextInput
-            label="Database"
-            id="connection-database"
-            {...inputProps('database')}
-            value={draft.database}
-            onValueChange={(text) => set({ database: text })}
-          />
-        </div>
-        <div className={[styles.field].join(' ')}>
-          <TextInput
-            label="User"
-            id="connection-user"
-            {...inputProps('user')}
-            value={draft.user}
-            onValueChange={(text) => set({ user: text })}
-          />
-        </div>
-      </div>
-      <div className={[styles.field].join(' ')}>
-        <TextInput
-          label="Password"
-          id="connection-password"
-          type="password"
-          value={draft.password}
-          onValueChange={(text) =>
-            set({
-              password: text,
-              hasPassword: text ? true : draft.hasPassword,
-            })
-          }
-          placeholder={
-            draft.hasPassword ? 'Saved securely — leave blank to keep' : ''
-          }
-        />
-        {draft.hasPassword && (
-          <button
-            type="button"
-            className={['btn', 'ghost', styles.savedPasswordAction].join(' ')}
-            onClick={() =>
-              set({
-                password: '',
-                hasPassword: false,
-                credentialState: 'none',
-              })
-            }
-          >
-            Remove saved password
-          </button>
-        )}
-        {draft.credentialState === 'legacy-plaintext' && (
-          <div className={[styles.credentialWarning].join(' ')} role="alert">
-            This saved password is still stored using the legacy plaintext
-            format because secure OS credential storage is unavailable. You can
-            continue using it for this session, remove it, or retry secure
-            storage.
-            <button
-              type="button"
-              className={['btn', 'ghost'].join(' ')}
-              onClick={async () => {
-                try {
-                  const updated =
-                    await api.connections.retryCredentialMigration(draft.id)
-                  if (updated.kind === 'postgres')
-                    setDraft(draftFromProfile(updated))
-                } catch (error) {
-                  setTestState({
-                    status: 'error',
-                    message: failureMessage(error),
+          <div className={[styles.row].join(' ')}>
+            <div className={[styles.field].join(' ')}>
+              <TextInput
+                label="Host"
+                id="connection-host"
+                {...inputProps('host')}
+                value={effective.host}
+                disabled={tunnel}
+                onValueChange={(text) => set({ host: text })}
+              />
+            </div>
+            <div className={[styles.field].join(' ')}>
+              <TextInput
+                label="Port"
+                id="connection-port"
+                {...inputProps('port')}
+                inputMode="numeric"
+                value={effective.port}
+                disabled={tunnel}
+                onValueChange={(text) => set({ port: text })}
+              />
+            </div>
+          </div>
+          <div className={[styles.row].join(' ')}>
+            <div className={[styles.field].join(' ')}>
+              <TextInput
+                label="Database"
+                id="connection-database"
+                {...inputProps('database')}
+                value={draft.database}
+                onValueChange={(text) => set({ database: text })}
+              />
+            </div>
+            <div className={[styles.field].join(' ')}>
+              <TextInput
+                label="User"
+                id="connection-user"
+                {...inputProps('user')}
+                value={draft.user}
+                onValueChange={(text) => set({ user: text })}
+              />
+            </div>
+          </div>
+          <div className={[styles.field].join(' ')}>
+            <TextInput
+              label="Password"
+              id="connection-password"
+              type="password"
+              value={effective.password}
+              disabled={tunnel}
+              onValueChange={(text) =>
+                set({
+                  password: text,
+                  hasPassword: text ? true : draft.hasPassword,
+                })
+              }
+              placeholder={
+                draft.hasPassword && !tunnel
+                  ? 'Saved securely — leave blank to keep'
+                  : ''
+              }
+            />
+            {draft.hasPassword && !tunnel && (
+              <button
+                type="button"
+                className={['btn', 'ghost', styles.savedPasswordAction].join(
+                  ' ',
+                )}
+                onClick={() =>
+                  set({
+                    password: '',
+                    hasPassword: false,
+                    credentialState: 'none',
                   })
                 }
-              }}
+              >
+                Remove saved password
+              </button>
+            )}
+            {draft.credentialState === 'legacy-plaintext' && !tunnel && (
+              <div
+                className={[styles.credentialWarning].join(' ')}
+                role="alert"
+              >
+                This saved password is still stored using the legacy plaintext
+                format because secure OS credential storage is unavailable. You
+                can continue using it for this session, remove it, or retry
+                secure storage.
+                <button
+                  type="button"
+                  className={['btn', 'ghost'].join(' ')}
+                  onClick={async () => {
+                    try {
+                      const updated =
+                        await api.connections.retryCredentialMigration(draft.id)
+                      if (updated.kind === 'postgres')
+                        setDraft(draftFromProfile(updated))
+                    } catch (error) {
+                      setTestState({
+                        status: 'error',
+                        message: failureMessage(error),
+                      })
+                    }
+                  }}
+                >
+                  Retry secure storage
+                </button>
+              </div>
+            )}
+          </div>
+          <div className={[styles.field].join(' ')}>
+            <Combobox
+              id="connection-tls-mode"
+              label="TLS mode"
+              value={effective.tlsMode}
+              options={TLS_MODE_OPTIONS}
+              disabled={tunnel}
+              onChange={(value) => set({ tlsMode: value as PostgresTlsMode })}
+            />
+            {!tunnel && draft.tlsMode === 'require' && (
+              <div className={[styles.tlsWarning].join(' ')} role="alert">
+                The connection is encrypted, but the server certificate is not
+                verified. This compatibility mode does not protect against an
+                active man-in-the-middle attack.
+              </div>
+            )}
+          </div>
+          {!tunnel &&
+            (draft.tlsMode === 'verify-ca' ||
+              draft.tlsMode === 'verify-full') && (
+              <div className={[styles.field].join(' ')}>
+                <label htmlFor="connection-tls-ca">
+                  CA certificate (optional)
+                </label>
+                <textarea
+                  id="connection-tls-ca"
+                  className={[styles.connPaste, styles.caInput].join(' ')}
+                  value={draft.tlsCa ?? ''}
+                  spellCheck={false}
+                  autoComplete="off"
+                  rows={5}
+                  onChange={(e) => set({ tlsCa: e.target.value })}
+                  aria-describedby="connection-tls-ca-hint"
+                />
+                <div
+                  id="connection-tls-ca-hint"
+                  className={[styles.pasteHint].join(' ')}
+                >
+                  Leave blank to use system trusted certificate authorities.
+                  Paste a PEM CA certificate or CA bundle for
+                  private/self-signed servers.
+                </div>
+              </div>
+            )}
+          <div className={[styles.checkboxField].join(' ')}>
+            <Checkbox
+              className={styles.checkbox}
+              checked={draft.readonly}
+              onCheckedChange={(checked) => set({ readonly: checked })}
+              label="Read-only (blocks writes)"
+            />
+          </div>
+          {!tunnel && preview && (
+            <div
+              className={[styles.field, styles.connectionPreviewField].join(
+                ' ',
+              )}
             >
-              Retry secure storage
-            </button>
-          </div>
-        )}
-      </div>
-      <div className={[styles.field].join(' ')}>
-        <Combobox
-          id="connection-tls-mode"
-          label="TLS mode"
-          value={draft.tlsMode}
-          options={TLS_MODE_OPTIONS}
-          onChange={(value) => set({ tlsMode: value as PostgresTlsMode })}
-        />
-        {draft.tlsMode === 'require' && (
-          <div className={[styles.tlsWarning].join(' ')} role="alert">
-            The connection is encrypted, but the server certificate is not
-            verified. This compatibility mode does not protect against an active
-            man-in-the-middle attack.
-          </div>
-        )}
-      </div>
-      {(draft.tlsMode === 'verify-ca' || draft.tlsMode === 'verify-full') && (
-        <div className={[styles.field].join(' ')}>
-          <label htmlFor="connection-tls-ca">CA certificate (optional)</label>
-          <textarea
-            id="connection-tls-ca"
-            className={[styles.connPaste, styles.caInput].join(' ')}
-            value={draft.tlsCa ?? ''}
-            spellCheck={false}
-            autoComplete="off"
-            rows={5}
-            onChange={(e) => set({ tlsCa: e.target.value })}
-            aria-describedby="connection-tls-ca-hint"
-          />
-          <div
-            id="connection-tls-ca-hint"
-            className={[styles.pasteHint].join(' ')}
-          >
-            Leave blank to use system trusted certificate authorities. Paste a
-            PEM CA certificate or CA bundle for private/self-signed servers.
+              <label>Will connect as</label>
+              <div className={[styles.connPreview].join(' ')}>{preview}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'advanced' && (
+        <div role="tabpanel" aria-label="Advanced">
+          <div className={styles.teleportSection}>
+            <Checkbox
+              className={styles.checkbox}
+              checked={tunnel}
+              onCheckedChange={(checked) => set({ teleportEnabled: checked })}
+              label="Open a Teleport tunnel"
+            />
+            {tunnel && (
+              <div className={styles.advancedFields}>
+                <div className={[styles.field].join(' ')}>
+                  <Combobox
+                    id="teleport-db-service"
+                    label="Teleport database service"
+                    value={draft.teleportDbService}
+                    options={serviceOptions.map((name) => ({
+                      value: name,
+                      label: name,
+                    }))}
+                    onChange={(name) => set({ teleportDbService: name })}
+                    onOpenChange={(open) => {
+                      if (open) void loadServices()
+                    }}
+                    placeholder="Search or type a service…"
+                    searchable
+                    allowCustomValue
+                    loading={serviceLoading}
+                    error={errors.teleportDbService ?? null}
+                    loadingMessage="Discovering databases from tsh…"
+                    emptyMessage="No databases found — type a service name"
+                  />
+                  {serviceError && (
+                    <div
+                      className={[styles.testMsg, styles.err].join(' ')}
+                      role="alert"
+                    >
+                      {serviceError}
+                    </div>
+                  )}
+                </div>
+                <div className={[styles.row].join(' ')}>
+                  <div className={[styles.field].join(' ')}>
+                    <TextInput
+                      label="Tunnel port"
+                      id="teleport-tunnel-port"
+                      {...inputProps('teleportTunnelPort')}
+                      inputMode="numeric"
+                      value={draft.teleportTunnelPort}
+                      onValueChange={(text) =>
+                        set({ teleportTunnelPort: text })
+                      }
+                    />
+                  </div>
+                  <div className={[styles.field].join(' ')}>
+                    <TextInput
+                      label="tsh path (optional)"
+                      id="teleport-tsh-path"
+                      value={draft.teleportTshPath}
+                      onValueChange={(text) => set({ teleportTshPath: text })}
+                      placeholder="tsh"
+                    />
+                  </div>
+                </div>
+                <div className={[styles.pasteHint].join(' ')}>
+                  Requires an active <code>tsh login</code>. DataKoala runs{' '}
+                  <code>tsh proxy db --tunnel</code> with the Database and User
+                  from the Connection tab; host, port, TLS and password are
+                  managed by Teleport.
+                </div>
+                {teleportCommand && (
+                  <div className={[styles.field].join(' ')}>
+                    <label>Command</label>
+                    <div className={[styles.connPreview].join(' ')}>
+                      {teleportCommand}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
-      <div className={[styles.checkboxField].join(' ')}>
-        <Checkbox
-          className={styles.checkbox}
-          checked={draft.readonly}
-          onCheckedChange={(checked) => set({ readonly: checked })}
-          label="Read-only (blocks writes)"
-        />
-      </div>
-      {preview && (
-        <div
-          className={[styles.field, styles.connectionPreviewField].join(' ')}
-        >
-          <label>Will connect as</label>
-          <div className={[styles.connPreview].join(' ')}>{preview}</div>
-        </div>
-      )}
+
       <div aria-live="polite" aria-atomic="true">
         {testState.status === 'testing' && (
           <div

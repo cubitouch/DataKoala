@@ -119,6 +119,32 @@ interface ProfileV1Base extends ProfileBase {
 export type PostgresTlsMode =
   'disable' | 'require' | 'verify-ca' | 'verify-full'
 
+/**
+ * Opens a Teleport database tunnel (`tsh proxy db`) and keeps it alive for the
+ * lifetime of the connection. Holds no credentials: Teleport authentication is
+ * expected to already exist through `tsh login`.
+ */
+export interface TeleportPreConnect {
+  mode: 'teleport'
+  /** Absolute path to `tsh`; when omitted the binary is resolved from PATH. */
+  tshPath?: string
+  /** Teleport database service name (the positional `tsh proxy db` argument). */
+  dbService: string
+  dbUser?: string
+  dbName?: string
+  cluster?: string
+  /** Teleport proxy address, e.g. `example.teleport.sh:443`. */
+  proxy?: string
+  /** Teleport login (`-l`) when it differs from the default. */
+  login?: string
+  /** Local port the tunnel binds; the pool connects to 127.0.0.1:<tunnelPort>. */
+  tunnelPort: number
+  /** Restart the tunnel with backoff if it drops while connected. */
+  keepalive?: boolean
+  /** Readiness timeout in milliseconds. */
+  timeoutMs?: number
+}
+
 export interface PostgresProfile extends ProfileBase {
   kind: 'postgres'
   version: 2
@@ -134,6 +160,8 @@ export interface PostgresProfile extends ProfileBase {
   tlsMode: PostgresTlsMode
   /** Optional PEM CA certificate or CA bundle for certificate-verifying TLS modes. */
   tlsCa?: string
+  /** Optional Teleport tunnel opened before each connection. */
+  preConnect?: TeleportPreConnect
   /** readonly by default; the app never issues writes. */
   readonly: boolean
 }

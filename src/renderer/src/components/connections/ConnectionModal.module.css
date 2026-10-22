@@ -405,3 +405,66 @@
   font-size: 11px;
   line-height: 1.45;
 }
+
+.postgresModal {
+  width: min(560px, calc(100vw - 28px));
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 6px 10px;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.tabActive {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.tunnelNote {
+  margin-bottom: 12px;
+  padding: 8px 9px;
+  color: var(--text-dim);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.teleportSection {
+  margin-top: 4px;
+  padding: 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.teleportSection code,
+.advancedFields code {
+  padding: 1px 4px;
+  background: var(--bg-4);
+  border-radius: 3px;
+  font-family: var(--mono);
+}

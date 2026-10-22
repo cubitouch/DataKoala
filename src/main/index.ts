@@ -14,6 +14,7 @@ import { dirname, resolve } from 'node:path'
 import * as db from './db'
 import { ConnectionProfileStore } from './connections-store'
 import { registerConnectionProfileIpc } from './connection-profile-ipc'
+import { discoverTeleportDatabases } from './preconnect/teleport-discovery'
 import { EncryptedSecretStore } from './secrets/store'
 import { createElectronEncryption } from './secrets/electron-encryption'
 import { IPC } from '@shared/ipc-channels'
@@ -711,6 +712,11 @@ function registerIpc(): void {
   )
   ipcMain.handle(IPC.BIGQUERY_DISCOVER_PROJECTS, () =>
     bigQueryDiscovery.discoverProjects(),
+  )
+  ipcMain.handle(
+    IPC.CONNECTION_TELEPORT_DISCOVER,
+    (_e, options?: { tshPath?: string }) =>
+      discoverTeleportDatabases(options ?? {}),
   )
   ipcMain.handle(IPC.BIGQUERY_DISCOVER_DEFAULTS, () =>
     bigQueryDiscovery.discoverDefaults(),
