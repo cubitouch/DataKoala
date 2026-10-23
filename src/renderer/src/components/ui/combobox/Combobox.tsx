@@ -29,6 +29,7 @@ interface Props extends FieldFeedbackProps {
   loadingMessage?: string
   invalidationKey?: unknown
   allowCustomValue?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 const optionId = (prefix: string, value: string) =>
@@ -59,6 +60,7 @@ export function Combobox({
   loadingMessage = 'Loading…',
   invalidationKey,
   allowCustomValue = false,
+  onOpenChange,
 }: Props) {
   const reactId = useId()
   const menuId = `${reactId}-listbox`
@@ -68,6 +70,10 @@ export function Combobox({
       ? { value, label: value, subtitle: 'Manually entered' }
       : undefined)
   const [open, setOpen] = useState(false)
+  const changeOpen = (next: boolean) => {
+    setOpen(next)
+    onOpenChange?.(next)
+  }
   const [query, setQuery] = useState('')
   const [activeValue, setActiveValue] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -123,13 +129,13 @@ export function Combobox({
     const custom = query.trim()
     if (!custom) return
     onChange(custom)
-    setOpen(false)
+    changeOpen(false)
     window.requestAnimationFrame(() => triggerRef.current?.focus())
   }
   const commit = (option = active) => {
     if (!option || option.disabled) return
     onChange(option.value)
-    setOpen(false)
+    changeOpen(false)
     window.requestAnimationFrame(() => triggerRef.current?.focus())
   }
   const onMenuKeyDown = (event: React.KeyboardEvent) => {
@@ -165,11 +171,11 @@ export function Combobox({
       return
     }
     if (event.key === 'Escape') {
-      setOpen(false)
+      changeOpen(false)
       return
     }
     if (event.key === 'Tab') {
-      setOpen(false)
+      changeOpen(false)
       return
     }
     if (!searchable && isTypingKey(event)) {
@@ -197,12 +203,12 @@ export function Combobox({
   const onTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      setOpen(true)
+      changeOpen(true)
       return
     }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
-      setOpen(true)
+      changeOpen(true)
       setActiveValue(
         (event.key === 'ArrowDown' ? enabled[0] : enabled.at(-1))?.value ??
           null,
@@ -210,12 +216,12 @@ export function Combobox({
       return
     }
     if (event.key === 'Escape') {
-      setOpen(false)
+      changeOpen(false)
       return
     }
     if (searchable && isTypingKey(event)) {
       event.preventDefault()
-      setOpen(true)
+      changeOpen(true)
       setQuery(event.key)
     }
   }
@@ -242,7 +248,7 @@ export function Combobox({
             triggerClassName={error ? styles.errorTrigger : undefined}
             maxHeight={360}
             open={open}
-            onOpenChange={setOpen}
+            onOpenChange={changeOpen}
             disabled={disabled}
             invalidationKey={invalidationKey}
             ariaLabel={`${label}: ${selected?.label ?? placeholder}`}

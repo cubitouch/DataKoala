@@ -18,6 +18,7 @@ const {
   discoverDefaults,
   listDatasets,
   retryCredentialMigration,
+  discoverTeleport,
 } = vi.hoisted(() => ({
   testConnection: vi.fn(),
   upsert: vi.fn(),
@@ -27,6 +28,7 @@ const {
   discoverDefaults: vi.fn(),
   listDatasets: vi.fn(),
   retryCredentialMigration: vi.fn(),
+  discoverTeleport: vi.fn(),
 }))
 vi.mock('@lib/api', () => ({
   api: {
@@ -37,6 +39,7 @@ vi.mock('@lib/api', () => ({
       chooseFiles,
       retryCredentialMigration,
       bigquery: { discoverProjects, discoverDefaults, listDatasets },
+      teleport: { discover: discoverTeleport },
     },
   },
 }))
@@ -88,9 +91,11 @@ beforeEach(() => {
   listDatasets.mockReset()
   listDatasets.mockResolvedValue([])
   retryCredentialMigration.mockReset()
+  discoverTeleport.mockReset()
+  discoverTeleport.mockResolvedValue({ ok: true, databases: [] })
 })
 afterEach(cleanup)
-
+Element.prototype.scrollIntoView = vi.fn()
 describe('ConnectionModal canonical connection draft', () => {
   it('represents a saved password without putting it in the input', async () => {
     renderModal(existing)
@@ -511,54 +516,314 @@ describe('ConnectionModal canonical connection draft', () => {
     change('Host', 'another.host')
     expect(screen.queryByText(/Connected/)).toBeNull()
   })
-})
 
-it('retains the draft but removes the inactive form portal and listener ownership', () => {
-  renderModal()
-  change('Profile name', 'Retained draft')
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Back to connection types' }),
-  )
-  expect(document.querySelectorAll('[role=dialog]')).toHaveLength(1)
-  expect(screen.queryByLabelText('Profile name')).toBeNull()
-  fireEvent.click(screen.getByRole('radio', { name: /PostgreSQL/ }))
-  expect(screen.getByLabelText('Profile name')).toHaveProperty(
-    'value',
-    'Retained draft',
-  )
-  expect(document.querySelectorAll('[data-modal-backdrop]')).toHaveLength(1)
-})
-
-it('does not deliver a pending Save into a replacement edit profile', async () => {
-  let finish!: (value: ConnectionProfile) => void
-  upsert.mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        finish = resolve
-      }),
-  )
-  const onSaved = vi.fn(),
-    onClose = vi.fn()
-  const view = render(
-    <ConnectionModal existing={existing} onSaved={onSaved} onClose={onClose} />,
-  )
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Saving…' }))
-  expect(upsert).toHaveBeenCalledTimes(1)
-  view.rerender(
-    <ConnectionModal
-      existing={{ ...existing, id: 'replacement', name: 'Replacement' }}
-      onSaved={onSaved}
-      onClose={onClose}
-    />,
-  )
-  finish(existing)
-  await waitFor(() =>
+  it('retains the draft but removes the inactive form portal and listener ownership', () => {
+    renderModal()
+    change('Profile name', 'Retained draft')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Back to connection types' }),
+    )
+    expect(document.querySelectorAll('[role=dialog]')).toHaveLength(1)
+    expect(screen.queryByLabelText('Profile name')).toBeNull()
+    fireEvent.click(screen.getByRole('radio', { name: /PostgreSQL/ }))
     expect(screen.getByLabelText('Profile name')).toHaveProperty(
       'value',
-      'Replacement',
-    ),
-  )
-  expect(onSaved).not.toHaveBeenCalled()
-  expect(onClose).not.toHaveBeenCalled()
+      'Retained draft',
+    )
+    expect(document.querySelectorAll('[data-modal-backdrop]')).toHaveLength(1)
+  })
+
+  it('does not deliver a pending Save into a replacement edit profile', async () => {
+    let finish!: (value: ConnectionProfile) => void
+    upsert.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const onSaved = vi.fn(),
+      onClose = vi.fn()
+    const view = render(
+      <ConnectionModal
+        existing={existing}
+        onSaved={onSaved}
+        onClose={onClose}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Saving…' }))
+    expect(upsert).toHaveBeenCalledTimes(1)
+    view.rerender(
+      <ConnectionModal
+        existing={{ ...existing, id: 'replacement', name: 'Replacement' }}
+        onSaved={onSaved}
+        onClose={onClose}
+      />,
+    )
+    finish(existing)
+    await waitFor(() =>
+      expect(screen.getByLabelText('Profile name')).toHaveProperty(
+        'value',
+        'Replacement',
+      ),
+    )
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
+describe('ConnectionModal Teleport pre-connect', () => {
+  const openAdvanced = () =>
+    fireEvent.click(screen.getByRole('tab', { name: 'Advanced' }))
+  const openConnection = () =>
+    fireEvent.click(screen.getByRole('tab', { name: 'Connection' }))
+  const enableTunnel = () =>
+    fireEvent.click(screen.getByLabelText('Open a Teleport tunnel'))
+  /** Types a service name into the searchable combobox and commits it. */
+  const setService = (name: string) => {
+    fireEvent.click(
+      screen.getByRole('combobox', { name: /Teleport database service:/ }),
+    )
+    const search = screen.getByLabelText('Search Teleport database service')
+    fireEvent.change(search, { target: { value: name } })
+    fireEvent.keyDown(search, { key: 'Enter' })
+  }
+
+  it('sends Teleport settings to Test as preConnect', async () => {
+    renderModal(existing)
+    openAdvanced()
+    enableTunnel()
+    setService('example-postgres')
+    change('Tunnel port', '15433')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    await waitFor(() =>
+      expect(testConnection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'postgres',
+          id: 'profile-1',
+          preConnect: expect.objectContaining({
+            mode: 'teleport',
+            dbService: 'example-postgres',
+            tunnelPort: 15433,
+          }),
+        }),
+      ),
+    )
+  })
+
+  it('previews the tsh proxy command from the shared user and database', () => {
+    renderModal(existing)
+    openAdvanced()
+    enableTunnel()
+    setService('example-postgres')
+    expect(
+      screen.getByText(
+        'tsh proxy db --tunnel -p 5433 -u old_user -n old_db example-postgres',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('disables the overridden fields and notes it on the Connection tab', () => {
+    renderModal(existing)
+    openAdvanced()
+    enableTunnel()
+    openConnection()
+
+    expect(screen.getByLabelText('Host')).toHaveProperty('disabled', true)
+    expect(screen.getByLabelText('Port')).toHaveProperty('disabled', true)
+    expect(screen.getByLabelText('Password')).toHaveProperty('disabled', true)
+    // User and Database stay editable: they are the Teleport user and name.
+    expect(screen.getByLabelText('User')).toHaveProperty('disabled', false)
+    expect(screen.getByLabelText('Database')).toHaveProperty('disabled', false)
+    expect(screen.getByText(/Teleport tunnel is enabled/i)).toBeTruthy()
+  })
+
+  it('shows the tunnel-derived host and port in the disabled fields', () => {
+    renderModal(existing)
+    openAdvanced()
+    enableTunnel()
+    change('Tunnel port', '15433')
+    openConnection()
+    expect(screen.getByLabelText('Host')).toHaveProperty('value', 'localhost')
+    expect(screen.getByLabelText('Port')).toHaveProperty('value', '15433')
+
+    openAdvanced()
+    change('Tunnel port', '15499')
+    openConnection()
+    expect(screen.getByLabelText('Port')).toHaveProperty('value', '15499')
+
+    // Turning the tunnel off restores the original profile values.
+    openAdvanced()
+    enableTunnel()
+    openConnection()
+    expect(screen.getByLabelText('Host')).toHaveProperty('value', 'old.host')
+    expect(screen.getByLabelText('Port')).toHaveProperty('value', '5432')
+  })
+
+  const openServiceDropdown = () =>
+    fireEvent.click(
+      screen.getByRole('combobox', { name: /Teleport database service:/ }),
+    )
+
+  it('discovers services when the dropdown opens and selects one', async () => {
+    discoverTeleport.mockResolvedValue({
+      ok: true,
+      databases: [{ name: 'pg-a' }, { name: 'pg-b' }],
+    })
+    renderModal(existing)
+    openAdvanced()
+    enableTunnel()
+    openServiceDropdown()
+
+    await waitFor(() => expect(discoverTeleport).toHaveBeenCalled())
+    fireEvent.click(await screen.findByRole('option', { name: 'pg-b' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    await waitFor(() =>
+      expect(testConnection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          preConnect: expect.objectContaining({ dbService: 'pg-b' }),
+        }),
+      ),
+    )
+  })
+
+  it('filters the discovered services as you type', async () => {
+    discoverTeleport.mockResolvedValue({
+      ok: true,
+      databases: [{ name: 'alpha-db' }, { name: 'beta-db' }],
+    })
+    renderModal(existing)
+    openAdvanced()
+    enableTunnel()
+    openServiceDropdown()
+    await screen.findByRole('option', { name: 'alpha-db' })
+
+    fireEvent.change(
+      screen.getByLabelText('Search Teleport database service'),
+      { target: { value: 'beta' } },
+    )
+    expect(screen.queryByRole('option', { name: 'alpha-db' })).toBeNull()
+    expect(screen.getByRole('option', { name: 'beta-db' })).toBeTruthy()
+  })
+
+  it('accepts a manually typed service name', async () => {
+    discoverTeleport.mockResolvedValue({ ok: true, databases: [] })
+    renderModal(existing)
+    openAdvanced()
+    enableTunnel()
+    openServiceDropdown()
+
+    const search = await screen.findByLabelText(
+      'Search Teleport database service',
+    )
+    fireEvent.change(search, { target: { value: 'my-custom-db' } })
+    fireEvent.keyDown(search, { key: 'Enter' })
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    await waitFor(() =>
+      expect(testConnection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          preConnect: expect.objectContaining({ dbService: 'my-custom-db' }),
+        }),
+      ),
+    )
+  })
+
+  it('surfaces a missing tsh when discovery fails', async () => {
+    discoverTeleport.mockResolvedValue({
+      ok: false,
+      code: 'TSH_NOT_FOUND',
+      error: 'Could not find "tsh".',
+    })
+    renderModal(existing)
+    openAdvanced()
+    enableTunnel()
+    openServiceDropdown()
+    expect(await screen.findByText('Could not find "tsh".')).toBeTruthy()
+  })
+
+  it('blocks Test on a missing Teleport database service and reveals Advanced', async () => {
+    renderModal(existing)
+    openAdvanced()
+    enableTunnel()
+    openConnection()
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+
+    expect(
+      await screen.findByText('Teleport database service is required'),
+    ).toBeTruthy()
+    expect(testConnection).not.toHaveBeenCalled()
+    expect(
+      screen
+        .getByRole('tab', { name: 'Advanced' })
+        .getAttribute('aria-selected'),
+    ).toBe('true')
+  })
+
+  it('drops Host and Port from validation but keeps User and Database', async () => {
+    renderModal()
+    change('Host', '')
+    change('Port', '')
+    change('Database', 'example_db')
+    openAdvanced()
+    enableTunnel()
+    setService('example-postgres')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    await waitFor(() =>
+      expect(testConnection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          host: '',
+          port: 5432,
+          database: 'example_db',
+          preConnect: expect.objectContaining({
+            dbService: 'example-postgres',
+          }),
+        }),
+      ),
+    )
+  })
+
+  it('still requires a Database while the tunnel is on', async () => {
+    renderModal()
+    change('Database', '')
+    openAdvanced()
+    enableTunnel()
+    setService('example-postgres')
+    openConnection()
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+
+    expect(await screen.findByText('Database is required')).toBeTruthy()
+    expect(testConnection).not.toHaveBeenCalled()
+  })
+
+  it('round-trips saved Teleport settings into the Advanced tab', () => {
+    renderModal({
+      ...existing,
+      preConnect: {
+        mode: 'teleport',
+        dbService: 'example-postgres',
+        tshPath: '/opt/teleport/tsh',
+        tunnelPort: 15433,
+      },
+    })
+    openAdvanced()
+    expect(screen.getByLabelText('Open a Teleport tunnel')).toHaveProperty(
+      'checked',
+      true,
+    )
+    expect(
+      screen.getByRole('combobox', {
+        name: /Teleport database service: example-postgres/,
+      }),
+    ).toBeTruthy()
+    expect(screen.getByLabelText('Tunnel port')).toHaveProperty(
+      'value',
+      '15433',
+    )
+    expect(screen.getByLabelText('tsh path (optional)')).toHaveProperty(
+      'value',
+      '/opt/teleport/tsh',
+    )
+  })
 })

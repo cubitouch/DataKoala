@@ -95,6 +95,7 @@ This is a **source-guided audit**, not a live seven-datasource manual test. `Pre
 | C16 | Read-only DuckDB file sandbox        | LF    | local-files-adapter; Present                      | Unique   | Arbitrary external file access     |
 | C17 | SQLite single database file          | SQ    | SqliteFileConnectionModal; Present                | Unique   | Invalid path and locks             |
 | C18 | Read-only SQLite via DuckDB          | SQ    | sqlite-file-adapter; Present                      | Unique   | Read restriction and schema        |
+| C19 | PG Teleport (tsh) pre-connect tunnel | PG    | PostgresProfile, TeleportTunnelManager; Present   | Unique   | Login/expiry, tunnel drop          |
 
 ## D. Prometheus
 
