@@ -303,6 +303,7 @@ app.whenReady().then(async () => {
     )
 
     if (process.env.DATAKOALA_EXPLAIN_LAYOUT_ONLY === '1') {
+      await mkdir(output, { recursive: true })
       // Presentation comparison deliberately precedes AI focus/panning, whose
       // virtualized offscreen nodes differ between the old and new heights.
       await wait(
