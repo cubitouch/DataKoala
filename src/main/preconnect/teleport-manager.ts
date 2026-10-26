@@ -468,13 +468,14 @@ export class TeleportTunnelManager {
         }),
       ])
     } catch (error) {
-      if (!(error instanceof SupersededError)) killProcessTree(child, 'SIGTERM')
-      managed.child = null
+      // Keep ownership until bounded TERM/KILL cleanup completes, including a
+      // readiness timeout against a helper which ignores SIGTERM.
+      await this.terminate(managed)
       throw error
     }
 
     if (!this.current(profileId, managed, intent)) {
-      killProcessTree(child, 'SIGTERM')
+      await this.terminate(managed)
       throw new SupersededError()
     }
 
@@ -623,8 +624,7 @@ export class TeleportTunnelManager {
       'restarting',
       'The Teleport tunnel stopped responding. Reconnecting…',
     )
-    if (managed.child) killProcessTree(managed.child, 'SIGTERM')
-    managed.child = null
+    await this.terminate(managed)
     this.scheduleRestart(
       managed,
       profileId,
@@ -644,7 +644,7 @@ export class TeleportTunnelManager {
       managed.restartTimer = null
     }
     await this.terminate(managed)
-    this.tunnels.delete(profileId)
+    if (this.tunnels.get(profileId) === managed) this.tunnels.delete(profileId)
     const code = error instanceof PreConnectError ? error.code : null
     this.setState(managed, profileId, 'failed', messageOf(error), code)
   }
@@ -653,8 +653,9 @@ export class TeleportTunnelManager {
     const child = managed.child
     managed.child = null
     if (!child) return
+    const exited = this.waitForExit(child, this.deps.killGraceMs)
     killProcessTree(child, 'SIGTERM')
-    await this.waitForExit(child, this.deps.killGraceMs)
+    await exited
     killProcessTree(child, 'SIGKILL')
   }
 
