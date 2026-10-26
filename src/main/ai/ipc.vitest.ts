@@ -1,3 +1,8 @@
+import { createQuerySession, useStore } from '@store/useStore'
+import {
+  captureAiBuilderSnapshot,
+  prepareAiBuilderContext,
+} from '@lib/ai/builderWorkflow'
 import { EventEmitter } from 'node:events'
 import { beforeEach, afterEach, expect, test, vi } from 'vitest'
 import { IPC } from '../../shared/ipc-channels'
@@ -13,6 +18,7 @@ const harness = vi.hoisted(() => ({
   settings: vi.fn(async () => ({ model: 'test/model', hasApiKey: true })),
   key: vi.fn(async () => 'synthetic-key'),
 }))
+vi.mock('@lib/api', () => ({ api: {} }))
 vi.mock('electron', () => ({
   app: { getPath: () => '/unused-test-directory' },
   ipcMain: {
@@ -397,4 +403,102 @@ test('structured content cap and malformed outer JSON reject before publication'
     message:
       'OpenRouter returned an invalid response. Try again or choose another model.',
   })
+})
+
+test('renderer-built incomplete temporal request reaches provider through main IPC, but malformed temporal context does not', async () => {
+  const tab = createQuerySession(1, {
+    id: 'builder-boundary',
+    connectionProfileId: 'pg',
+    queryMode: 'builder',
+  })
+  tab.builder.table = { schema: 'public', name: 'events' }
+  tab.builderVisualization = {
+    ...tab.builderVisualization,
+    xColumn: null,
+    valueColumn: null,
+    aggregation: 'sum',
+  }
+  useStore.setState({
+    tabs: [tab],
+    activeTabId: tab.id,
+    profiles: [
+      {
+        kind: 'postgres',
+        version: 2,
+        id: 'pg',
+        name: 'Synthetic',
+        host: '127.0.0.1',
+        port: 1,
+        database: 'synthetic',
+        user: 'reader',
+        password: '',
+        readonly: true,
+        tlsMode: 'disable',
+      },
+    ],
+    metadataByProfileId: {
+      pg: {
+        status: 'loaded',
+        error: null,
+        schemas: [
+          {
+            name: 'public',
+            isSystem: false,
+            relations: [
+              {
+                schema: 'public',
+                name: 'events',
+                qualifiedName: 'public.events',
+                kind: 'r',
+                columnsStatus: 'loaded',
+                columns: [
+                  {
+                    name: 'creation_datetime',
+                    dataTypeName: 'timestamptz',
+                    nullable: false,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    },
+  })
+  const snapshot = captureAiBuilderSnapshot()!
+  const prepared = prepareAiBuilderContext(snapshot, 'creation_datetime please')
+  const input = {
+    requestId: 'renderer-to-main',
+    prompt: prepared.prompt,
+    state: prepared.snapshot.state,
+    columns: prepared.columns,
+  }
+  fetcher.mockResolvedValueOnce(
+    completion({
+      ...cases[1].wire,
+      patch: { timeColumn: 'creation_datetime', aggregation: 'count' },
+    }),
+  )
+  expect(await invoke(IPC.AI_PROPOSE_BUILDER, input)).toMatchObject({
+    ok: true,
+    value: {
+      kind: 'proposal',
+      proposal: {
+        patch: { timeColumn: 'creation_datetime', aggregation: 'count' },
+      },
+    },
+  })
+  expect(fetcher).toHaveBeenCalledTimes(1)
+  const invalid = {
+    ...input,
+    requestId: 'invalid-time',
+    state: { ...input.state, timeColumn: 'creation_datetime' },
+    columns: [{ name: 'creation_datetime', dataType: 'text' }],
+  }
+  expect(await invoke(IPC.AI_PROPOSE_BUILDER, invalid)).toMatchObject({
+    ok: false,
+    code: 'validation',
+    message: expect.stringContaining('column metadata'),
+  })
+  expect(fetcher).toHaveBeenCalledTimes(1)
 })
