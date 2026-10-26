@@ -1,3 +1,5 @@
+import { useId, useRef, useState } from 'react'
+import { Modal } from '@components/ui/Modal'
 import type { QueryResult } from '@shared/types'
 import styles from './QueryStatistics.module.css'
 
@@ -14,6 +16,9 @@ export function QueryStatistics({
   visibleRowCount?: number
   className?: string
 }) {
+  const [detailsResult, setDetailsResult] = useState<QueryResult | null>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const titleId = useId()
   const execution = result.execution
   const rows =
     visibleRowCount === result.rowCount
@@ -55,10 +60,48 @@ export function QueryStatistics({
       <span>
         {rows} returned {script ? 'final-statement ' : ''}rows ·{' '}
         {result.columns.length} cols
+        {count(result.durationMs) ? ` · ${result.durationMs} ms request` : ''}
+        {execution.truncated ? ' · capped' : ''}
       </span>
-      {metrics.map((metric) => (
-        <span key={metric}>{metric}</span>
-      ))}
+      <button
+        ref={trigger}
+        type="button"
+        className="btn ghost"
+        aria-label="Query statistics"
+        onClick={() => setDetailsResult(result)}
+      >
+        Query statistics
+      </button>
+      <Modal
+        open={detailsResult === result}
+        labelledBy={titleId}
+        returnFocusRef={trigger}
+        onClose={() => setDetailsResult(null)}
+      >
+        <h2 id={titleId}>Query statistics</h2>
+        <p>
+          {rows} returned {script ? 'final-statement ' : ''}rows ·{' '}
+          {result.columns.length} cols
+        </p>
+        {script && (
+          <p>
+            Processing, billing and elapsed metrics describe the parent Script
+            job; output rows describe its final statement.
+          </p>
+        )}
+        <ul className={styles.details}>
+          {metrics.map((metric) => (
+            <li key={metric}>{metric}</li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => setDetailsResult(null)}
+        >
+          Close
+        </button>
+      </Modal>
     </span>
   )
 }

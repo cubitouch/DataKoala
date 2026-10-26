@@ -104,7 +104,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     })
   const settle = () => evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))')
   const awaited = (expression, description) => waitFor(win, expression, description).catch((error) => { console.error("CAP24_WAIT_FAILED", description, expression, error.message); throw error })
-  const rowSelector = 'button[class*="traceResult_"]'
+  const rowSelector = '[class*="traceList"] [data-observability-row] > button'
   const countRows = () => evaluate('document.querySelectorAll(' + data(rowSelector) + ').length')
   const state = () => evaluate('window.__datakoalaStore.getState().tabs[0]')
   const click = async (selector) => {
@@ -130,7 +130,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   }
   const observe = async (filename, description, selector = '[aria-label="Trace explorer"]') => {
     await settle()
-    const geometry = await evaluate('(() => {const el=document.querySelector(' + data(selector) + '),r=el?.getBoundingClientRect();return {width:innerWidth,height:innerHeight,dpr:devicePixelRatio,target:r?{x:r.x,y:r.y,width:r.width,height:r.height}:null,overflow:document.documentElement.scrollWidth>innerWidth+1,visibleRows:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.innerText.slice(0,240)),selectedView:document.querySelector("[aria-label=\\"Trace search result view\\"] [aria-pressed=true]")?.textContent.trim()??null,filter:document.querySelector("[data-result-filter-chip]")?.innerText??null,progress:document.querySelector("progress[aria-label^=\\"Tempo search\\"]")?.getAttribute("aria-label")??null,alerts:[...document.querySelectorAll("[role=alert]")].map(e=>e.innerText),content:el?.innerText.slice(-2000)??""}})()')
+    const geometry = await evaluate('(() => {const el=document.querySelector(' + data(selector) + '),r=el?.getBoundingClientRect();return {width:innerWidth,height:innerHeight,dpr:devicePixelRatio,target:r?{x:r.x,y:r.y,width:r.width,height:r.height}:null,overflow:document.documentElement.scrollWidth>innerWidth+1,visibleRows:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.innerText.slice(0,240)),selectedView:document.querySelector("[aria-label=\\"Result view\\"] [aria-pressed=true]")?.textContent.trim()??null,filter:document.querySelector("[data-result-filter-chip]")?.innerText??null,progress:document.querySelector("progress[aria-label^=\\"Tempo search\\"]")?.getAttribute("aria-label")??null,alerts:[...document.querySelectorAll("[role=alert]")].map(e=>e.innerText),content:el?.innerText.slice(-2000)??""}})()')
     assert.deepEqual([geometry.width, geometry.height, geometry.dpr], [1440, 900, 1], filename + ' viewport')
     const zoom = win.webContents.getZoomFactor()
     assert.equal(zoom, 1, filename + ' zoom')
@@ -146,7 +146,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     await capture(win, filename)
     return snapshot
   }
-  const buttonState = () => evaluate('(() => {const view=document.querySelector("[aria-label=\\"Trace search result view\\"]");return {run:document.querySelector("[data-tempo-run-query]")?.disabled,sample:[...document.querySelectorAll("[role=combobox]")].find(e=>e.getAttribute("aria-label")?.startsWith("Sample size:"))?.disabled,open:document.querySelector("#trace-id")?.closest("form")?.querySelector("button[type=submit]")?.disabled,list:[...view?.querySelectorAll("button")??[]].find(e=>e.textContent.trim()==="List")?.disabled,scatter:[...view?.querySelectorAll("button")??[]].find(e=>e.textContent.trim()==="Scatter")?.disabled,map:[...view?.querySelectorAll("button")??[]].find(e=>e.textContent.trim()==="Service map")?.disabled,rows:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.disabled)}})()')
+  const buttonState = () => evaluate('(() => {const view=document.querySelector("[aria-label=\\"Result view\\"]");return {run:document.querySelector("[data-tempo-run-query]")?.disabled,sample:[...document.querySelectorAll("[role=combobox]")].find(e=>e.getAttribute("aria-label")?.startsWith("Sample size:"))?.disabled,open:document.querySelector("#trace-id")?.closest("form")?.querySelector("button[type=submit]")?.disabled,list:[...view?.querySelectorAll("button")??[]].find(e=>e.textContent.trim()==="List")?.disabled,scatter:[...view?.querySelectorAll("button")??[]].find(e=>e.textContent.trim()==="Scatter")?.disabled,map:[...view?.querySelectorAll("button")??[]].find(e=>e.textContent.trim()==="Service map")?.disabled,rows:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.disabled)}})()')
   const run = async () => {
     const prior = calls.length
     await click('[data-tempo-run-query]')
@@ -237,7 +237,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   actions.push({ name: 'two-to-five-completion', pending, completed, partialRows: 2, finalRows: 5, request: calls.at(-1) })
 
   // T17/T18: switch real view controls, drag a native brush, verify no provider dispatch.
-  await assertNoFetch('list-to-scatter', () => clickText('Scatter', 'document.querySelector("[aria-label=\\"Trace search result view\\"]")'))
+  await assertNoFetch('list-to-scatter', () => clickText('Scatter', 'document.querySelector("[aria-label=\\"Result view\\"]")'))
   await awaited('(() => {const chart=document.querySelector("[data-visual-type=scatter][data-visual-finished=true]");return chart && chart.getAttribute("data-visual-items")==="5"})()', 'CAP-24 real scatter populated')
   const brushBefore = calls.length
   const canvasRect = await evaluate('(() => {const c=document.querySelector("[data-visual-type=scatter] canvas");if(!c)throw Error("Missing ECharts canvas");const r=c.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})()')
@@ -262,13 +262,15 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const selectedEnd = Date.parse(match[2])
   assert.ok(Number.isFinite(selectedStart) && selectedEnd > selectedStart, 'Native selected interval valid')
   const visibleScatter = Number(await evaluate('document.querySelector("[data-visual-type=scatter]").getAttribute("data-visual-items")'))
+  const renderedRange = await evaluate('document.querySelector("[data-visual-type=scatter]").getAttribute("data-visual-range")')
+  assert.equal(renderedRange, new Date(selectedStart).toISOString()+'..'+new Date(selectedEnd).toISOString(), 'Scatter fits selected native interval')
   const expected = rows.filter(row => row.startTimeMs >= selectedStart && row.startTimeMs < selectedEnd).length
   assert.equal(visibleScatter, expected, 'Actual scatter marks reflect half-open local cohort')
   assert.ok(visibleScatter > 0 && visibleScatter < 5, 'Native brush should select a nontrivial subset')
   await observe('cap24-scatter-selected-desktop.png', 'Native chart brush, displayed [start,end) filter and matching subset', '[data-trace-scatter]')
   actions.push({ name: 'native-brush', interval: { startMs: selectedStart, endMs: selectedEnd, startInclusive: match[1], endExclusive: match[2] }, visibleScatter, includedIds: rows.filter(row => row.startTimeMs >= selectedStart && row.startTimeMs < selectedEnd).map(row => row.traceId), requestCountBefore: brushBefore, requestCountAfter: calls.length })
 
-  await assertNoFetch('scatter-to-list-after-brush', () => clickText('List', 'document.querySelector("[aria-label=\\"Trace search result view\\"]")'))
+  await assertNoFetch('scatter-to-list-after-brush', () => clickText('List', 'document.querySelector("[aria-label=\\"Result view\\"]")'))
   assert.equal(await countRows(), expected, 'List and scatter must share filtered cohort')
 
   // Inject a deterministic *source* result at exactly both selected boundaries.
@@ -283,7 +285,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const countBeforeBoundary = calls.length
   await evaluate('(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,result:' + data(searchResult(boundaryRows)) + ',resultRevision:(t.resultRevision??0)+1}]})})()')
   await settle()
-  const boundaryDiagnostic = await evaluate('(() => { const t=window.__datakoalaStore.getState().tabs[0];return {activeTab:window.__datakoalaStore.getState().activeTabId,storedResultRows:t.result?.rows.map(row=>({service:row.rootService,start:row.startTimeMs})),selectedView:document.querySelector("[aria-label=\\\"Trace search result view\\\"] [aria-pressed=true]")?.textContent.trim(),visibleRows:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.innerText),filter:document.querySelector("[data-result-filter-chip]")?.innerText} })()')
+  const boundaryDiagnostic = await evaluate('(() => { const t=window.__datakoalaStore.getState().tabs[0];return {activeTab:window.__datakoalaStore.getState().activeTabId,storedResultRows:t.result?.rows.map(row=>({service:row.rootService,start:row.startTimeMs})),selectedView:document.querySelector("[aria-label=\\\"Result view\\\"] [aria-pressed=true]")?.textContent.trim(),visibleRows:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.innerText),visibleServices:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.querySelector("[class*=resultIdentity] strong")?.textContent),filter:document.querySelector("[data-result-filter-chip]")?.innerText} })()')
   console.log('CAP24_BOUNDARY_DIAGNOSTIC', JSON.stringify(boundaryDiagnostic))
   const boundaryVisible = boundaryDiagnostic.visibleRows
   assert.ok(boundaryDiagnostic.storedResultRows?.length === 5, 'All five source boundary fixture traces must be present')
@@ -303,6 +305,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     expected: {startVisible: true, endVisible: false},
     displayBoundaryContractSatisfied,
     visibleRows: boundaryVisible,
+    visibleServices: boundaryDiagnostic.visibleServices,
     providerRequestDelta: calls.length - countBeforeBoundary,
     sourceExplanation: 'Brush bounds are truncated toward zero after clamping; the chip and local half-open membership share those millisecond bounds.',
   }
@@ -346,7 +349,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     insideVisible: boundaryFinding.visibleRows.some(row => row.includes('Inside interval')),
     beforeVisible: boundaryFinding.visibleRows.some(row => row.includes('Before interval')),
     afterVisible: boundaryFinding.visibleRows.some(row => row.includes('After interval')),
-    visibleServices: boundaryFinding.visibleRows.map(row => row.split(String.fromCharCode(10))[0]),
+    visibleServices: boundaryFinding.visibleServices,
   }
   assert.deepEqual(characterizedMembership, {
     startVisible: true,

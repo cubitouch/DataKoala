@@ -13,6 +13,7 @@ export function ObservabilityRow({
   selected = false,
   disabled = false,
   label,
+  singleLine = false,
 }: {
   leading?: ReactNode
   children: ReactNode
@@ -23,6 +24,7 @@ export function ObservabilityRow({
   selected?: boolean
   disabled?: boolean
   label?: string
+  singleLine?: boolean
 }) {
   const contents = (
     <>
@@ -44,7 +46,7 @@ export function ObservabilityRow({
   )
   return (
     <div
-      className={styles.row}
+      className={`${styles.row}${singleLine ? ` ${styles.singleLine}` : ''}`}
       data-observability-row
       data-selected={selected || undefined}
     >

@@ -30,28 +30,30 @@ export function TraceSearchList({
             onOpen={traceId ? () => onOpenTrace(traceId) : undefined}
             disabled={disabled}
             leading={
-              <span
-                className={`${styles.resultStatus} ${status === 'error' ? styles.resultStatusError : status === 'ok' ? styles.resultStatusOk : styles.resultStatusUnknown}`}
-                aria-label={
-                  status === 'error'
-                    ? 'Error trace'
-                    : status === 'ok'
-                      ? 'Successful trace'
-                      : 'Trace status unknown'
-                }
-              />
+              <>
+                <span className={styles.timestamp}>
+                  {traceDateTimeLabel(traceNumber(row.startTimeMs))}
+                </span>
+                <span
+                  className={`${styles.resultStatus} ${status === 'error' ? styles.resultStatusError : status === 'ok' ? styles.resultStatusOk : styles.resultStatusUnknown}`}
+                  aria-label={
+                    status === 'error'
+                      ? 'Error trace'
+                      : status === 'ok'
+                        ? 'Successful trace'
+                        : 'Trace status unknown'
+                  }
+                />
+              </>
             }
             trailing={
               <span className={styles.resultMeta}>
                 <strong>
                   {traceDurationLabel(traceNumber(row.durationMs))}
                 </strong>
-                <span>{traceDateTimeLabel(traceNumber(row.startTimeMs))}</span>
-                <span>
-                  {traceNumber(row.matchedSpans)
-                    ? `${traceNumber(row.matchedSpans)} matched spans`
-                    : traceId}
-                </span>
+                {traceNumber(row.matchedSpans) > 0 && (
+                  <span>{traceNumber(row.matchedSpans)} matched spans</span>
+                )}
               </span>
             }
           >

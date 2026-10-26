@@ -313,13 +313,13 @@ async function searchTraces(win) {
 
 async function showScatter(win) {
   await win.webContents.executeJavaScript(`(() => {
-    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const group = document.querySelector('[aria-label="Result view"]')
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Scatter')
     button?.click()
   })()`)
   await waitFor(
     win,
-    `document.querySelector('[data-trace-scatter] canvas') && document.querySelector('[aria-label="Trace search result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Scatter'`,
+    `document.querySelector('[data-trace-scatter] canvas') && document.querySelector('[aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'Scatter'`,
     'Tempo scatter results',
   )
   await sleep(400)
@@ -385,7 +385,7 @@ async function validateLocalScatterFilter(win) {
       'Tempo brush changed fetched results, query range, or request count',
     )
   await win.webContents.executeJavaScript(`(() => {
-    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const group = document.querySelector('[aria-label="Result view"]')
     ;[...group.querySelectorAll('button')].find((button) => button.textContent.trim() === 'Service map')?.click()
   })()`)
   await waitFor(
@@ -410,7 +410,7 @@ async function validateLocalScatterFilter(win) {
   if (queryRequests !== analyzedRequests)
     throw new Error('Clearing the filter automatically fetched traces')
   await win.webContents.executeJavaScript(`(() => {
-    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const group = document.querySelector('[aria-label="Result view"]')
     ;[...group.querySelectorAll('button')].find((button) => button.textContent.trim() === 'Scatter')?.click()
   })()`)
   await waitFor(
@@ -424,7 +424,7 @@ async function validateLocalScatterFilter(win) {
 
 async function showServiceMap(win) {
   await win.webContents.executeJavaScript(`(() => {
-    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const group = document.querySelector('[aria-label="Result view"]')
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Service map')
     button?.click()
   })()`)
@@ -445,7 +445,7 @@ async function showDenseServiceMap(win) {
     'dense Tempo search results',
   )
   await win.webContents.executeJavaScript(`(() => {
-    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const group = document.querySelector('[aria-label="Result view"]')
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Service map')
     button?.click()
   })()`)
@@ -473,13 +473,13 @@ async function restoreStandardSearch(win) {
 
 async function showList(win) {
   await win.webContents.executeJavaScript(`(() => {
-    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const group = document.querySelector('[aria-label="Result view"]')
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'List')
     button?.click()
   })()`)
   await waitFor(
     win,
-    `document.querySelector('[aria-label="Trace search result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'List' && document.body.innerText.includes('16 matched spans')`,
+    `document.querySelector('[aria-label="Result view"] button[aria-pressed="true"]')?.textContent?.trim() === 'List' && document.body.innerText.includes('16 matched spans')`,
     'Tempo list results restored',
   )
 }
@@ -587,7 +587,7 @@ async function validateCloseAndSelectedSpanCohort(win) {
       aria('Status') === 'Status: Error' &&
       input('Exact span / operation name') === 'POST /example' &&
       document.body.innerText.includes('5 traces') &&
-      document.querySelector('[aria-label="Trace search result view"]');
+      document.querySelector('[aria-label="Result view"]');
   })()`,
     'selected synthetic HTTP span cohort seed and automatic search results',
   )

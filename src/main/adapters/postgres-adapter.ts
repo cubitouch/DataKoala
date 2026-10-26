@@ -165,8 +165,12 @@ export class PostgresAdapter implements DataSourceAdapter {
       explain: (sql, analyze = false) =>
         explainQuery(pgProfile.id, sql, analyze),
       close: async () => {
-        await disconnect(pgProfile.id, result.generation)
-        if (preConnect) await this.tunnels.stop(pgProfile.id, tunnelGeneration)
+        try {
+          await disconnect(pgProfile.id, result.generation)
+        } finally {
+          if (preConnect)
+            await this.tunnels.stop(pgProfile.id, tunnelGeneration)
+        }
       },
     }
     return { result, session }
@@ -179,13 +183,19 @@ export class PostgresAdapter implements DataSourceAdapter {
   }
 
   async cancelConnect(profileId: string): Promise<void> {
-    await disconnect(profileId)
-    await this.tunnels.stop(profileId)
+    try {
+      await disconnect(profileId)
+    } finally {
+      await this.tunnels.stop(profileId)
+    }
   }
 
   async shutdown(): Promise<void> {
-    await disconnectAll()
-    await this.tunnels.stopAll()
+    try {
+      await disconnectAll()
+    } finally {
+      await this.tunnels.stopAll()
+    }
   }
 }
 

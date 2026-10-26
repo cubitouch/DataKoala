@@ -110,6 +110,17 @@ export interface QueryOperation {
 }
 
 export interface QuerySession {
+  /** Runtime optional Loki volume; excluded by explicit workspace draft serialization. */
+  lokiVolume?: {
+    key: string
+    token: string
+    pending: boolean
+    bounds: { start: string; end: string }
+    result: import('@shared/loki').LokiQueryResult | null
+    error: string | null
+    warning: string | null
+  }
+
   /** Runtime primary-result ownership; never serialized into workspace drafts. */
   queryOperation?: QueryOperation | null
   explainOperation?: QueryOperation | null

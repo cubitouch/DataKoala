@@ -1764,7 +1764,7 @@ describe('LokiExplorer execution', () => {
     await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
   })
 
-  it('retries a failed log-volume request after leaving and returning to Chart', async () => {
+  it('retries a failed log-volume request through its explicit Retry action', async () => {
     const run = mocks.runLoki
       .mockResolvedValueOnce(logs)
       .mockRejectedValueOnce(new Error('trend unavailable'))
@@ -1781,8 +1781,7 @@ describe('LokiExplorer execution', () => {
       ),
     ).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'List' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Retry log volume' }))
 
     await waitFor(() => expect(run).toHaveBeenCalledTimes(3))
     await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
@@ -2302,56 +2301,33 @@ describe('#371 Loki lifecycle audit', () => {
     })
     expect(session('B')?.result).toEqual(logs)
   })
-  it('loads first-query volume after returning pending and ignores the unmounted volume', async () => {
+  it('retains the single pending volume across tab remount and delivers it to its owner', async () => {
     act(() => useStore.getState().setLokiState({ lokiResultView: 'line' }))
     renderWorkspace()
     const primary = deferredQuery(),
-      originalVolume = deferredQuery(),
-      currentVolume = deferredQuery()
-    let volumeCalls = 0
-    mocks.runLoki.mockImplementation((_id, request) => {
-      if (!request.expression.includes('count_over_time'))
-        return primary.promise
-      return ++volumeCalls === 1
-        ? originalVolume.promise
-        : currentVolume.promise
-    })
+      volume = deferredQuery()
+    mocks.runLoki.mockImplementation((_id, request) =>
+      request.expression.includes('count_over_time')
+        ? volume.promise
+        : primary.promise,
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
     expect(mocks.runLoki).toHaveBeenCalledTimes(2)
     act(() => useStore.setState({ activeTabId: 'B' }))
-    act(() => useStore.setState({ activeTabId: 'loki-tab' }))
-    expect(session()?.running).toBe(true)
-    expect(screen.getByRole('button', { name: 'Running…' })).toBeTruthy()
-    expect(mocks.runLoki).toHaveBeenCalledTimes(2)
-    const primaryLogs = patternLogs()
     await act(async () => {
-      primary.resolve(primaryLogs)
+      volume.resolve(metric)
+      await volume.promise
+      primary.resolve(patternLogs())
       await primary.promise
     })
-    expect(session()?.running).toBe(false)
-    expect(session()?.result).toEqual(primaryLogs)
-    expect(screen.getByRole('button', { name: 'Run' })).toBeTruthy()
-    await waitFor(() => expect(volumeCalls).toBe(2))
-    expect(mocks.runLoki).toHaveBeenCalledTimes(3)
-    const currentMetric = {
-      ...metric,
-      rows: [{ timestamp: metric.rows[0].timestamp, value: 42 }],
-    }
-    await act(async () => {
-      currentVolume.resolve(currentMetric)
-      await currentVolume.promise
-    })
+    expect(session()?.lokiVolume?.result).toEqual(metric)
+    expect(session('B')?.lokiVolume).toBeUndefined()
+    act(() => useStore.setState({ activeTabId: 'loki-tab' }))
     await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
-    const currentData = chartMock.option?.series[0].data
-    expect(currentData).toEqual([[Date.parse(metric.rows[0].timestamp), 42]])
-    await act(async () => {
-      originalVolume.resolve(metric)
-      await originalVolume.promise
-    })
-    expect(chartMock.option?.series[0].data).toEqual(currentData)
-    expect(session()?.result).toEqual(primaryLogs)
-    expect(session()?.running).toBe(false)
-    expect(mocks.runLoki).toHaveBeenCalledTimes(3)
+    expect(chartMock.option?.series[0].data).toEqual([
+      [Date.parse(metric.rows[0].timestamp), 2],
+    ])
+    expect(mocks.runLoki).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -2383,4 +2359,32 @@ it('owns one metadata recovery notice and retains raw draft, filters, range and 
   expect(after.lokiTimeRange).toEqual(before.lokiTimeRange)
   expect(after.result).toBe(before.result)
   expect(mocks.runLoki).not.toHaveBeenCalled()
+})
+
+it('reuses loaded and pending rolling-range volume across repeated view switches without primary/volume/probe requests', async () => {
+  let resolveVolume!: (value: typeof metric) => void
+  const pending = new Promise<typeof metric>((resolve) => {
+    resolveVolume = resolve
+  })
+  mocks.runLoki.mockResolvedValueOnce(logs).mockReturnValueOnce(pending)
+  render(<LokiExplorer connectionId="loki" />)
+  fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+  await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+  fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+  await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(2))
+  for (const view of ['List', 'Line', 'Patterns', 'Area'])
+    fireEvent.click(screen.getByRole('button', { name: view }))
+  expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+  await act(async () => {
+    resolveVolume(metric)
+    await pending
+  })
+  await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+  const bounds = useStore.getState().tabs[0].lokiVolume?.bounds
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  for (const view of ['List', 'Line', 'Patterns', 'Bar'])
+    fireEvent.click(screen.getByRole('button', { name: view }))
+  await waitFor(() => expect(screen.getByTestId('loki-echarts')).toBeTruthy())
+  expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+  expect(useStore.getState().tabs[0].lokiVolume?.bounds).toBe(bounds)
 })

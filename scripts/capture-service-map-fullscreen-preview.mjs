@@ -85,7 +85,7 @@ async function runDenseSearch(win) {
     'dense Tempo search results',
   )
   await win.webContents.executeJavaScript(`(() => {
-    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const group = document.querySelector('[aria-label="Result view"]')
     ;[...(group?.querySelectorAll('button') ?? [])].find((button) => button.textContent?.trim() === 'Service map')?.click()
   })()`)
   await waitFor(

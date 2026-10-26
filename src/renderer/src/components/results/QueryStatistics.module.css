@@ -11,3 +11,11 @@
 .statistics > span {
   min-width: 0;
 }
+
+.details {
+  display: grid;
+  gap: 10px;
+  padding-left: 20px;
+  font: 12px/1.5 var(--mono);
+  overflow-wrap: anywhere;
+}

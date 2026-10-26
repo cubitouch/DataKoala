@@ -1,3 +1,4 @@
+import { ChartPicker } from '@components/results/ChartPicker'
 import type { ReactNode } from 'react'
 import type { TraceRow } from '@lib/traceViewer'
 import type { TraceResultView } from '@lib/tempoQueryState'
@@ -46,39 +47,12 @@ export function TraceSearchResults({
         </div>
         <div className={styles.resultsHeaderActions}>
           {hasResults && (
-            <div
-              className={styles.resultViewSwitch}
-              role="group"
-              aria-label="Trace search result view"
-            >
-              <button
-                type="button"
-                className={resultView === 'list' ? styles.modeActive : ''}
-                aria-pressed={resultView === 'list'}
-                onClick={() => onResultViewChange('list')}
-              >
-                List
-              </button>
-              <button
-                type="button"
-                className={resultView === 'scatter' ? styles.modeActive : ''}
-                aria-pressed={resultView === 'scatter'}
-                onClick={() => onResultViewChange('scatter')}
-              >
-                Scatter
-              </button>
-              <button
-                type="button"
-                className={
-                  resultView === 'service-map' ? styles.modeActive : ''
-                }
-                aria-pressed={resultView === 'service-map'}
-                disabled={loading === 'search'}
-                onClick={() => onResultViewChange('service-map')}
-              >
-                Service map
-              </button>
-            </div>
+            <ChartPicker
+              value={resultView}
+              onChange={onResultViewChange}
+              availableViews={['list', 'scatter', 'service-map']}
+              disabledViews={loading === 'search' ? ['service-map'] : []}
+            />
           )}
           {hasResults && (
             <strong>
@@ -90,7 +64,7 @@ export function TraceSearchResults({
           )}
         </div>
       </header>
-      {locallyFiltered && rows.length === 0 ? (
+      {locallyFiltered && rows.length === 0 && resultView !== 'scatter' ? (
         <div className={styles.empty}>
           No retrieved traces in this local interval. Remove the filter to
           restore results.
@@ -103,6 +77,12 @@ export function TraceSearchResults({
         </div>
       ) : resultView === 'scatter' ? (
         <div className={styles.scatter} data-trace-scatter="">
+          {locallyFiltered && rows.length === 0 && (
+            <p role="status">
+              No retrieved traces in this local interval. Remove the filter to
+              restore results.
+            </p>
+          )}
           {scatterView}
         </div>
       ) : resultView === 'service-map' ? (

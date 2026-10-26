@@ -7,7 +7,7 @@ import { clipboardFailure } from '@lib/clipboardFeedback'
 import { formatLogFieldValue, logFieldCopyText } from '@lib/logFieldValue'
 import { HighlightedText } from '@components/ui/HighlightedText'
 import { TextInput } from '@components/ui/TextInput'
-import { LogSeverityBadge } from './LogRowPresentation'
+import { LogSeverityBadge, LogSeverityCell } from './LogRowPresentation'
 import {
   DEFAULT_DETAIL_PANEL_WIDTH,
   ResizableDetailPanel,
@@ -375,6 +375,7 @@ export function LogResultExplorer({
                     style={{ transform: `translateY(${item.start}px)` }}
                   >
                     <ObservabilityRow
+                      singleLine
                       label={`${shortTimestamp(row.timestampMs)}, ${row.severity.toUpperCase()}, ${message}`}
                       selected={active}
                       onOpen={() => setSelectedId(active ? null : row.id)}
@@ -387,7 +388,7 @@ export function LogResultExplorer({
                           >
                             {shortTimestamp(row.timestampMs)}
                           </time>
-                          <LogSeverityBadge severity={row.severity} />
+                          <LogSeverityCell severity={row.severity} />
                         </>
                       }
                     >

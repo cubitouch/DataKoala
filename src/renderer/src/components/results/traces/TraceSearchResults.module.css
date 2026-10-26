@@ -40,34 +40,6 @@
   color: var(--text-mute);
 }
 
-.resultViewSwitch {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-}
-
-.resultViewSwitch button {
-  min-height: 26px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-mute);
-  cursor: pointer;
-}
-
-.resultViewSwitch button:hover,
-.resultViewSwitch button:focus-visible {
-  color: var(--text);
-}
-
-.resultViewSwitch .modeActive {
-  background: var(--bg-3);
-  color: var(--text);
-}
-
 .empty {
   flex: 1;
   display: grid;

@@ -59,7 +59,7 @@
 
 @media (width <= 900px) {
   .root {
-    min-height: 340px;
+    min-height: clamp(340px, 60vh, 900px);
   }
 
   .canvas {
