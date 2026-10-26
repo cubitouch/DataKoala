@@ -1,4 +1,4 @@
-import { ChartPicker } from '../ChartPicker'
+import { ChartPicker } from '@components/results/ChartPicker'
 import type { ReactNode } from 'react'
 import type { TraceRow } from '@lib/traceViewer'
 import type { TraceResultView } from '@lib/tempoQueryState'
