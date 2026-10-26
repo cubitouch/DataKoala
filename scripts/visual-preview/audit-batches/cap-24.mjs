@@ -104,7 +104,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     })
   const settle = () => evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))')
   const awaited = (expression, description) => waitFor(win, expression, description).catch((error) => { console.error("CAP24_WAIT_FAILED", description, expression, error.message); throw error })
-  const rowSelector = 'button[class*="traceResult_"]'
+  const rowSelector = '[class*="traceList"] [data-observability-row] > button'
   const countRows = () => evaluate('document.querySelectorAll(' + data(rowSelector) + ').length')
   const state = () => evaluate('window.__datakoalaStore.getState().tabs[0]')
   const click = async (selector) => {
