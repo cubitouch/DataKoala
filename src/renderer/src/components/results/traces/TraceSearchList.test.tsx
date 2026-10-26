@@ -58,3 +58,34 @@ describe('TraceSearchList', () => {
       expect((result as HTMLButtonElement).disabled).toBe(true)
   })
 })
+
+it('keeps time first and only retains IDs needed as missing-operation fallbacks', () => {
+  const onOpenTrace = vi.fn()
+  render(
+    <TraceSearchList
+      rows={[
+        {
+          traceId: 'normal-id',
+          rootService: 'service',
+          rootOperation: 'operation',
+          startTimeMs: 1234,
+          durationMs: 4,
+        },
+        { traceId: 'fallback-id', startTimeMs: 5678, durationMs: 5 },
+      ]}
+      disabled={false}
+      onOpenTrace={onOpenTrace}
+    />,
+  )
+  const buttons = screen.getAllByRole('button')
+  expect(buttons[0].textContent).not.toContain('normal-id')
+  expect(screen.getAllByText('fallback-id')).toHaveLength(1)
+  expect(buttons[0].querySelector('[class*=timestamp]')?.textContent).toBe(
+    buttons[0].textContent?.slice(
+      0,
+      buttons[0].querySelector('[class*=timestamp]')!.textContent!.length,
+    ),
+  )
+  fireEvent.click(buttons[1])
+  expect(onOpenTrace).toHaveBeenCalledWith('fallback-id')
+})

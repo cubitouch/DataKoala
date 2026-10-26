@@ -1,3 +1,4 @@
+import { ChartPicker } from '../ChartPicker'
 import type { ReactNode } from 'react'
 import type { TraceRow } from '@lib/traceViewer'
 import type { TraceResultView } from '@lib/tempoQueryState'
@@ -46,39 +47,12 @@ export function TraceSearchResults({
         </div>
         <div className={styles.resultsHeaderActions}>
           {hasResults && (
-            <div
-              className={styles.resultViewSwitch}
-              role="group"
-              aria-label="Trace search result view"
-            >
-              <button
-                type="button"
-                className={resultView === 'list' ? styles.modeActive : ''}
-                aria-pressed={resultView === 'list'}
-                onClick={() => onResultViewChange('list')}
-              >
-                List
-              </button>
-              <button
-                type="button"
-                className={resultView === 'scatter' ? styles.modeActive : ''}
-                aria-pressed={resultView === 'scatter'}
-                onClick={() => onResultViewChange('scatter')}
-              >
-                Scatter
-              </button>
-              <button
-                type="button"
-                className={
-                  resultView === 'service-map' ? styles.modeActive : ''
-                }
-                aria-pressed={resultView === 'service-map'}
-                disabled={loading === 'search'}
-                onClick={() => onResultViewChange('service-map')}
-              >
-                Service map
-              </button>
-            </div>
+            <ChartPicker
+              value={resultView}
+              onChange={onResultViewChange}
+              availableViews={['list', 'scatter', 'service-map']}
+              disabledViews={loading === 'search' ? ['service-map'] : []}
+            />
           )}
           {hasResults && (
             <strong>
