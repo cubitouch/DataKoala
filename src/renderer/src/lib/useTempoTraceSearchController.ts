@@ -17,6 +17,12 @@ import {
   useStore,
 } from '@store/useStore'
 
+// Runtime-only bounds belong to the loaded result, including relative searches.
+const boundsByResult = new WeakMap<
+  QueryResult,
+  { startMs: number; endMs: number }
+>()
+
 const FAILED_SEARCH_NOTICE =
   'Search stopped before completion; incomplete results have been cleared.'
 
@@ -87,6 +93,11 @@ export function useTempoTraceSearchController({
   const tabId = useStore((state) => state.activeTabId)
   const initialStoredResult =
     selectSession(useStore.getState(), tabId)?.result ?? null
+  const [searchBounds, setSearchBounds] = useState(() =>
+    initialStoredResult
+      ? (boundsByResult.get(initialStoredResult) ?? null)
+      : null,
+  )
   const [searchRows, setSearchRows] = useState<TraceRow[]>(() =>
     searchRowsFromResult(initialStoredResult),
   )
@@ -115,6 +126,9 @@ export function useTempoTraceSearchController({
   useEffect(() => {
     const session = selectSession(useStore.getState(), tabId)
     const storedResult = session?.result ?? null
+    setSearchBounds(
+      storedResult ? (boundsByResult.get(storedResult) ?? null) : null,
+    )
     setSearchRows(searchRowsFromResult(storedResult))
     setSearchNotice(
       storedResult?.notice ?? (session?.queryError ? FAILED_SEARCH_NOTICE : ''),
@@ -182,6 +196,10 @@ export function useTempoTraceSearchController({
       let firstUsefulResult = false
       onSearchStart?.()
       if (useStore.getState().activeTabId === requestTabId) {
+        setSearchBounds({
+          startMs: Date.parse(range.start),
+          endMs: Date.parse(range.end),
+        })
         setSearchRows([])
         setSearchProgress(null)
         setSearchNotice(
@@ -225,6 +243,10 @@ export function useTempoTraceSearchController({
             'TraceQL search returned a trace instead of search results.',
           )
         if (isCurrentRequest()) {
+          boundsByResult.set(result, {
+            startMs: Date.parse(range.start),
+            endMs: Date.parse(range.end),
+          })
           useStore
             .getState()
             .completeQuery(result, null, requestTabId, undefined, operation)
@@ -260,6 +282,7 @@ export function useTempoTraceSearchController({
   )
 
   return {
+    searchBounds,
     searchRows,
     searchNotice,
     searchProgress,
