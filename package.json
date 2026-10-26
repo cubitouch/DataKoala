@@ -97,7 +97,7 @@
     "@joint/core": "^4.3.3",
     "@joint/layout-directed-graph": "^4.3.0",
     "@joint/react": "^4.3.6",
-    "@lezer/common": "^1.5.2",
+    "@lezer/common": "^1.5.3",
     "@lezer/highlight": "^1.2.3",
     "@lezer/lr": "^1.4.10",
     "@prometheus-io/codemirror-promql": "0.313.3",
