@@ -25,6 +25,9 @@ export async function runVisualAudit({win, outputDir, waitFor, capture}) {
     await click('Cancel')
   }
   await inspect(screenshots[0],1440)
+  await waitFor(win, '!document.querySelector("[role=dialog]")', 'closed create form')
+  await js(`window.__datakoalaStore.setState({profiles:[${JSON.stringify(auditProfiles.postgres)}]})`)
+  await waitFor(win, `document.querySelector('[aria-label="Edit connection ${auditProfiles.postgres.name}"]')`, 'saved synthetic profile')
   await js(`document.querySelector('[aria-label="Edit connection ${auditProfiles.postgres.name}"]').click()`)
   await inspect(screenshots[1],900)
   await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify({sourceHead:process.env.DATAKOALA_AUDIT_HEAD,observations,liveTeleport:'Pending'},null,2))
