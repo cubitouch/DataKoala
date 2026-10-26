@@ -1241,7 +1241,21 @@ export function GenericResultExplorer({
                   <ReactECharts
                     ref={setChartRef}
                     option={appliedChart?.option}
-                    onChartReady={onChartFinished}
+                    onChartReady={(instance) => {
+                      // echarts-for-react initializes asynchronously and may replace
+                      // the provisional instance observed by the ref/effect.
+                      chartEvents.current?.attach(instance)
+                      if (temporalRangeSelectionEnabled)
+                        instance.dispatchAction({
+                          type: 'takeGlobalCursor',
+                          key: 'brush',
+                          brushOption: {
+                            brushType: 'lineX',
+                            brushMode: 'single',
+                          },
+                        })
+                      onChartFinished()
+                    }}
                     theme="dark"
                     notMerge
                     onEvents={{

@@ -25,6 +25,7 @@ type HoverEvent = {
 }
 
 const chartMock = vi.hoisted(() => ({
+  ready: null as null | ((instance: unknown) => void),
   dispatchAction: vi.fn(),
   finished: null as null | (() => void),
   image: vi.fn(() => 'data:image/png;base64,VISIBLE'),
@@ -48,8 +49,10 @@ vi.mock('echarts-for-react', () => ({
   default: function MockChart({
     option,
     onEvents,
+    onChartReady,
     ref,
   }: {
+    onChartReady: (instance: unknown) => void
     ref: Ref<unknown>
     option: typeof chartMock.option
     onEvents: {
@@ -81,6 +84,7 @@ vi.mock('echarts-for-react', () => ({
       }),
       [],
     )
+    chartMock.ready = onChartReady
     chartMock.finished = onEvents.finished
     chartMock.mouseover = onEvents.mouseover
     chartMock.mouseout = onEvents.mouseout
@@ -157,6 +161,7 @@ const props = (
 })
 
 beforeEach(() => {
+  chartMock.ready = null
   chartMock.option = null
   chartMock.brush = null
   chartMock.click = null
@@ -697,4 +702,39 @@ it('exports the finished visible chart and applies view changes to the owning ta
   ).toBe('line')
   expect(queryMocks.run).not.toHaveBeenCalled()
   expect(queryMocks.runLoki).not.toHaveBeenCalled()
+})
+
+it('initializes brushing and hover ownership on the final asynchronous chart instance before any picker click', async () => {
+  const temporal = {
+    ...result,
+    columns: [
+      { name: 'timestamp', dataTypeID: 0, dataTypeName: 'timestamp' },
+      result.columns[1],
+    ],
+    rows: [0, 1, 2].map((hour) => ({
+      timestamp: new Date(Date.UTC(2026, 0, 1, hour)).toISOString(),
+      value: hour,
+    })),
+    rowCount: 3,
+  }
+  render(
+    <GenericResultExplorer
+      {...props({
+        result: temporal,
+        configuration: { ...configuration, view: 'line', xColumn: 'timestamp' },
+      })}
+    />,
+  )
+  await waitFor(() => expect(chartMock.ready).toBeTypeOf('function'))
+  const dispatchAction = vi.fn(),
+    on = vi.fn(),
+    off = vi.fn()
+  act(() => chartMock.ready?.({ dispatchAction, getZr: () => ({ on, off }) }))
+  expect(dispatchAction).toHaveBeenCalledWith({
+    type: 'takeGlobalCursor',
+    key: 'brush',
+    brushOption: { brushType: 'lineX', brushMode: 'single' },
+  })
+  expect(on).toHaveBeenCalledWith('globalout', expect.any(Function))
+  expect(queryMocks.run).not.toHaveBeenCalled()
 })
