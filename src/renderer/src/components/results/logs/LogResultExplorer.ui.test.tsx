@@ -383,3 +383,24 @@ it('renders bounded structured values and copies complete JSON without changing 
     'json',
   )
 })
+
+it('keeps full original multiline content for the inspector and copy', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  })
+  const message = 'First line\nSecond line ' + 'long context '.repeat(40)
+  render(
+    <LogResultExplorer
+      rows={[{ ...row, line: message, severity: '' }]}
+      limit={100}
+      onFilter={vi.fn()}
+    />,
+  )
+  const item = screen.getByRole('button', { name: /First line/ })
+  fireEvent.click(item)
+  expect(screen.getByRole('button', { name: 'Copy message' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Copy message' }))
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith(message))
+})

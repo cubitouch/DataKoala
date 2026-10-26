@@ -15,7 +15,7 @@ import {
   type LogPatternCluster,
 } from '@shared/log-patterns'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
-import { LogSeverityBadge } from './LogRowPresentation'
+import { LogSeverityBadge, LogSeverityCell } from './LogRowPresentation'
 import { representativeLogSeverity } from './logSeverity'
 import styles from './LogPatternExplorer.module.css'
 
@@ -227,6 +227,7 @@ export function LogPatternExplorer({
                     style={{ transform: `translateY(${item.start}px)` }}
                   >
                     <ObservabilityRow
+                      singleLine
                       selected={active}
                       onOpen={() => setSelectedId(active ? null : cluster.id)}
                       leading={
@@ -235,11 +236,7 @@ export function LogPatternExplorer({
                             <strong>{cluster.count}</strong> logs ·{' '}
                             {cluster.percentage.toFixed(1)}%
                           </span>
-                          {representativeSeverity && (
-                            <LogSeverityBadge
-                              severity={representativeSeverity}
-                            />
-                          )}
+                          <LogSeverityCell severity={representativeSeverity} />
                         </>
                       }
                     >
