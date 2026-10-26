@@ -439,6 +439,7 @@ test('renderer-built incomplete temporal request reaches provider through main I
     metadataByProfileId: {
       pg: {
         status: 'loaded',
+        isStale: false,
         error: null,
         schemas: [
           {
