@@ -283,7 +283,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const countBeforeBoundary = calls.length
   await evaluate('(() => {const s=window.__datakoalaStore,t=s.getState().tabs[0];s.setState({tabs:[{...t,result:' + data(searchResult(boundaryRows)) + ',resultRevision:(t.resultRevision??0)+1}]})})()')
   await settle()
-  const boundaryDiagnostic = await evaluate('(() => { const t=window.__datakoalaStore.getState().tabs[0];return {activeTab:window.__datakoalaStore.getState().activeTabId,storedResultRows:t.result?.rows.map(row=>({service:row.rootService,start:row.startTimeMs})),selectedView:document.querySelector("[aria-label=\\\"Result view\\\"] [aria-pressed=true]")?.textContent.trim(),visibleRows:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.innerText),filter:document.querySelector("[data-result-filter-chip]")?.innerText} })()')
+  const boundaryDiagnostic = await evaluate('(() => { const t=window.__datakoalaStore.getState().tabs[0];return {activeTab:window.__datakoalaStore.getState().activeTabId,storedResultRows:t.result?.rows.map(row=>({service:row.rootService,start:row.startTimeMs})),selectedView:document.querySelector("[aria-label=\\\"Result view\\\"] [aria-pressed=true]")?.textContent.trim(),visibleRows:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.innerText),visibleServices:[...document.querySelectorAll(' + data(rowSelector) + ')].map(e=>e.querySelector("[class*=resultIdentity] strong")?.textContent),filter:document.querySelector("[data-result-filter-chip]")?.innerText} })()')
   console.log('CAP24_BOUNDARY_DIAGNOSTIC', JSON.stringify(boundaryDiagnostic))
   const boundaryVisible = boundaryDiagnostic.visibleRows
   assert.ok(boundaryDiagnostic.storedResultRows?.length === 5, 'All five source boundary fixture traces must be present')
@@ -303,6 +303,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     expected: {startVisible: true, endVisible: false},
     displayBoundaryContractSatisfied,
     visibleRows: boundaryVisible,
+    visibleServices: boundaryDiagnostic.visibleServices,
     providerRequestDelta: calls.length - countBeforeBoundary,
     sourceExplanation: 'Brush bounds are truncated toward zero after clamping; the chip and local half-open membership share those millisecond bounds.',
   }
@@ -346,7 +347,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     insideVisible: boundaryFinding.visibleRows.some(row => row.includes('Inside interval')),
     beforeVisible: boundaryFinding.visibleRows.some(row => row.includes('Before interval')),
     afterVisible: boundaryFinding.visibleRows.some(row => row.includes('After interval')),
-    visibleServices: boundaryFinding.visibleRows.map(row => row.split(String.fromCharCode(10))[0]),
+    visibleServices: boundaryFinding.visibleServices,
   }
   assert.deepEqual(characterizedMembership, {
     startVisible: true,
