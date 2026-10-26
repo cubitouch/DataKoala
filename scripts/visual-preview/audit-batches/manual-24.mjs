@@ -26,13 +26,14 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}){
   await waitFor(win,'document.querySelector("[data-result-filter-chip]")','first native drag '+transition)
   matrix.push({transition,requests:requests.length,filter:await js('document.querySelector("[data-result-filter-chip]").textContent')})
  }
- const clear=async()=>{await js(`document.querySelector('[data-result-filter-chip] button[title], [data-result-filter-chip] button[aria-label^="Remove"]').click()`);await settle()}
+ const clear=async()=>{await js(`document.querySelector('[data-result-filter-chip] button[aria-label^="Remove"]').click()`);await settle()}
  await brush('initial-query-completion')
  const shot=async filename=>{const target=await js(`document.querySelector('[data-result-chart-canvas]').getBoundingClientRect().toJSON()`);observations.push({filename,width:1440,height:900,dpr:1,zoom:1,target});await capture(win,filename)}
  await shot(screenshots[0]);await clear();await brush('repeat-after-clear');await clear()
  await js(`window.__datakoalaStore.setState({activeTabId:'brush-B'})`);await settle();await js(`window.__datakoalaStore.setState({activeTabId:'brush-A'})`)
  await brush('tab-return');await shot(screenshots[1]);await clear()
- await js(`window.__datakoalaStore.getState().completeQuery(${data({...result,durationMs:2})},null,'brush-A')`);await brush('result-replacement')
+ await js(`window.__datakoalaStore.getState().completeQuery(${data({...result,durationMs:2})},null,'brush-A')`);await brush('result-replacement');await clear()
+ for(const view of ['area','bar']){await js(`(()=>{const s=window.__datakoalaStore;s.getState().setVisualization('sql',{...s.getState().tabs[0].sqlVisualization,view:${data(view)}},'brush-A')})()`);await brush('type-'+view);await clear()}
  assert.equal(requests.length,0)
  await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify({sourceHead:process.env.DATAKOALA_AUDIT_HEAD,observations,matrix,providers:'synthetic SQL only; Loki/Tempo/live matrix Pending',humanAcceptance:'Pending'},null,2))
 }

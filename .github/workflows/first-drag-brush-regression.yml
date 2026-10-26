@@ -28,6 +28,25 @@ jobs:
       - name: Install display dependencies
         run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
       - run: pnpm build
+      - name: Observe first-drag behavior on the base with the same fixture
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          DATAKOALA_PREVIEW_KIND: audit
+          DATAKOALA_AUDIT_BATCH: manual-24
+        run: |
+          git fetch origin "$BASE_SHA" --depth=1
+          brush_before="$RUNNER_TEMP/brush-before"
+          git worktree add --detach "$brush_before" "$BASE_SHA"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$brush_before/node_modules"
+          cp scripts/visual-preview/audit-batches/manual-24.mjs "$brush_before/scripts/visual-preview/audit-batches/"
+          cd "$brush_before"
+          pnpm exec electron-vite build
+          mkdir -p "$GITHUB_WORKSPACE/first-drag-brush-regression/before"
+          set +e
+          DATAKOALA_AUDIT_HEAD="$BASE_SHA" DATAKOALA_PREVIEW_OUTPUT="$GITHUB_WORKSPACE/first-drag-brush-regression/before" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs > "$GITHUB_WORKSPACE/first-drag-brush-regression/before/capture.log" 2>&1
+          brush_base_exit=$?
+          printf '%s\n' "$brush_base_exit" > "$GITHUB_WORKSPACE/first-drag-brush-regression/before/exit-code.txt"
+          exit 0
       - name: Verify native stabilization contract
         env:
           DATAKOALA_PREVIEW_KIND: audit
