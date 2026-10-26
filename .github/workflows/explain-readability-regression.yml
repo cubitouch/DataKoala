@@ -31,15 +31,21 @@ jobs:
       - name: Capture base branching plan with identical native fixture
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          DATAKOALA_EXPLAIN_LAYOUT_ONLY: '1'
+          DATAKOALA_AUDIT_HEAD: ${{ github.event.pull_request.base.sha }}
         run: |
           git fetch origin "$BASE_SHA" --depth=1
           explain_before="$RUNNER_TEMP/explain-before"
           git worktree add --detach "$explain_before" "$BASE_SHA"
           ln -s "$GITHUB_WORKSPACE/node_modules" "$explain_before/node_modules"
+          cp scripts/capture-explain-preview.mjs "$explain_before/scripts/capture-explain-preview.mjs"
           cd "$explain_before"
           pnpm exec electron-vite build
           DATAKOALA_PREVIEW_OUTPUT="$GITHUB_WORKSPACE/explain-readability-regression/before" xvfb-run --auto-servernum --server-args='-screen 0 1440x1000x24' pnpm exec electron --no-sandbox scripts/capture-explain-preview.mjs
       - name: Capture readable branching plan on final head
+        env:
+          DATAKOALA_EXPLAIN_LAYOUT_ONLY: '1'
+          DATAKOALA_AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
         run: DATAKOALA_PREVIEW_OUTPUT=explain-readability-regression/after xvfb-run --auto-servernum --server-args='-screen 0 1440x1000x24' pnpm exec electron --no-sandbox scripts/capture-explain-preview.mjs
       - uses: actions/upload-artifact@v7
         if: always()
