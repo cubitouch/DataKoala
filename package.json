@@ -107,7 +107,7 @@
     "echarts-for-react": "^3.0.2",
     "google-auth-library": "11.1.0",
     "pg": "^8.23.0",
-    "react": "^19.2.8",
+    "react": "^19.3.1",
     "react-dom": "^19.2.8",
     "sql-formatter": "^15.8.2",
     "zustand": "^5.0.15"
@@ -117,7 +117,7 @@
     "@testing-library/react": "16.3.3",
     "@types/node": "^24.13.6",
     "@types/pg": "^8.23.1",
-    "@types/react": "^19.2.18",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^4.3.3",
     "electron": "^44.7.0",
