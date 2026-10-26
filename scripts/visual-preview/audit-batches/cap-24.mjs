@@ -104,7 +104,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     })
   const settle = () => evaluate('new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))')
   const awaited = (expression, description) => waitFor(win, expression, description).catch((error) => { console.error("CAP24_WAIT_FAILED", description, expression, error.message); throw error })
-  const rowSelector = 'button[class*="traceResult_"]'
+  const rowSelector = '[class*="traceList"] [data-observability-row] > button'
   const countRows = () => evaluate('document.querySelectorAll(' + data(rowSelector) + ').length')
   const state = () => evaluate('window.__datakoalaStore.getState().tabs[0]')
   const click = async (selector) => {
@@ -262,6 +262,8 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
   const selectedEnd = Date.parse(match[2])
   assert.ok(Number.isFinite(selectedStart) && selectedEnd > selectedStart, 'Native selected interval valid')
   const visibleScatter = Number(await evaluate('document.querySelector("[data-visual-type=scatter]").getAttribute("data-visual-items")'))
+  const renderedRange = await evaluate('document.querySelector("[data-visual-type=scatter]").getAttribute("data-visual-range")')
+  assert.equal(renderedRange, new Date(selectedStart).toISOString()+'..'+new Date(selectedEnd).toISOString(), 'Scatter fits selected native interval')
   const expected = rows.filter(row => row.startTimeMs >= selectedStart && row.startTimeMs < selectedEnd).length
   assert.equal(visibleScatter, expected, 'Actual scatter marks reflect half-open local cohort')
   assert.ok(visibleScatter > 0 && visibleScatter < 5, 'Native brush should select a nontrivial subset')

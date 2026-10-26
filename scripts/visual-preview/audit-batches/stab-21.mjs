@@ -25,9 +25,9 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  const sample=await js(`(()=>{const e=document.querySelector('[role=combobox][aria-label^="Sample size:"]'),label=e.querySelector('[class*=triggerLabel]');return {text:label.textContent,width:label.clientWidth,scroll:label.scrollWidth,box:e.getBoundingClientRect().toJSON(),pane:document.querySelector('.main').getBoundingClientRect().toJSON()}})()`)
  console.log('STAB21_SAMPLE',JSON.stringify(sample));assert.equal(sample.text,'100 traces');assert.ok(sample.width>=sample.scroll,'sample label must not truncate');assert.ok(sample.box.right<=sample.pane.right+1)
  observations.push({filename:screenshots[0],width:1440,height:900,dpr:1,zoom:1,target:sample.box,sample});await capture(win,screenshots[0])
- await button('Run');await waitFor(win,'document.querySelector("button[class*=traceResult]")','Tempo results')
+ await button('Run');await waitFor(win,'document.querySelector("[class*=traceList] [data-observability-row] > button")','Tempo results')
  assert.equal(requests[0].request.sampleSize,100,'submitted sample quantity unchanged')
- await js('document.querySelector("button[class*=traceResult]").click()');await waitFor(win,'[...document.querySelectorAll("button")].some(e=>e.textContent.includes("wall-clock"))','trace detail')
+ await js('document.querySelector("[class*=traceList] [data-observability-row] > button").click()');await waitFor(win,'[...document.querySelectorAll("button")].some(e=>e.textContent.includes("wall-clock"))','trace detail')
  const bounds=await js(`(()=>{const pane=document.querySelector('.main').getBoundingClientRect(),toolbar=document.querySelector('[class*=filterToolbar]');return {pane:pane.toJSON(),target:toolbar.getBoundingClientRect().toJSON(),buttons:[...toolbar.querySelectorAll('button')].map(e=>({text:e.textContent,box:e.getBoundingClientRect().toJSON()}))}})()`)
  console.log('STAB21_DETAIL',JSON.stringify(bounds));assert.ok(Math.abs(bounds.pane.width-652)<1)
  for(const b of bounds.buttons) {assert.ok(b.box.x>=bounds.pane.x && b.box.right<=bounds.pane.right+1,b.text+' contained')}
