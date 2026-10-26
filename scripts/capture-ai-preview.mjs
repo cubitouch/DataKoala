@@ -773,9 +773,15 @@ app.whenReady().then(async () => {
       store.setState({tabs:[...state.tabs,other],activeTabId:other.id})
     })()`)
     await wait(win, `!document.body.innerText.includes('AI details (2)')`)
-    await win.webContents.executeJavaScript(`window.__datakoalaStore.setState({activeTabId:window.__anomalyOrigin})`)
-    await wait(win, `[...document.querySelectorAll('button[aria-pressed="true"]')].some(button=>button.textContent.includes('Show anomalies')) && document.body.innerText.includes('AI details (2)')`)
-    if(anomalyAnalysisRuns!==1 || queryRuns!==0)throw new Error('Returning to analyzed tab dispatched AI/query work')
+    await win.webContents.executeJavaScript(
+      `window.__datakoalaStore.setState({activeTabId:window.__anomalyOrigin})`,
+    )
+    await wait(
+      win,
+      `[...document.querySelectorAll('button[aria-pressed="true"]')].some(button=>button.textContent.includes('Show anomalies')) && document.body.innerText.includes('AI details (2)')`,
+    )
+    if (anomalyAnalysisRuns !== 1 || queryRuns !== 0)
+      throw new Error('Returning to analyzed tab dispatched AI/query work')
     win.setSize(1100, 700)
     await settlePaint(win)
     await settlePaint(win)
