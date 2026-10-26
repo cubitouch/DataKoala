@@ -75,6 +75,7 @@ export function QueryStatistics({
       <Modal
         open={detailsResult === result}
         labelledBy={titleId}
+        dialogClassName={styles.statisticsDialog}
         returnFocusRef={trigger}
         onClose={() => setDetailsResult(null)}
       >
@@ -96,7 +97,7 @@ export function QueryStatistics({
         </ul>
         <button
           type="button"
-          className="btn ghost"
+          className={`btn ghost ${styles.close}`}
           onClick={() => setDetailsResult(null)}
         >
           Close
