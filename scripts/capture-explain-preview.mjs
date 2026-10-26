@@ -302,6 +302,66 @@ app.whenReady().then(async () => {
       'JointJS execution-plan graph and Explain summary',
     )
 
+    if (process.env.DATAKOALA_EXPLAIN_LAYOUT_ONLY === '1') {
+      // Presentation comparison deliberately precedes AI focus/panning, whose
+      // virtualized offscreen nodes differ between the old and new heights.
+      await wait(
+        win,
+        `document.querySelector('[data-node-id="0"] rect')`,
+        'initial rendered root card',
+      )
+      const measurements = []
+      for (const [name, width, height] of [
+        ['tall', 1440, 1000],
+        ['narrow', 900, 900],
+        ['short', 1440, 650],
+      ]) {
+        win.setContentSize(width, height)
+        await win.webContents.executeJavaScript(
+          'new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))',
+        )
+        if (name !== 'tall') {
+          await win.webContents.executeJavaScript(
+            `[...document.querySelectorAll('button')].find(button=>button.textContent.trim()==='Fit plan').click()`,
+          )
+          await win.webContents.executeJavaScript(
+            'new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))',
+          )
+        }
+        const geometry = await win.webContents.executeJavaScript(`(() => {
+          const diagram=document.querySelector('[aria-label="Execution plan diagram"]'),r=diagram.getBoundingClientRect()
+          return {width:innerWidth,height:innerHeight,diagram:{x:r.x,y:r.y,width:r.width,height:r.height},declaredNodes:Number(diagram.dataset.nodeCount),renderedNodes:diagram.querySelectorAll('[data-node-id]').length}
+        })()`)
+        if (
+          geometry.declaredNodes !== 7 ||
+          geometry.renderedNodes === 0 ||
+          geometry.diagram.width < 280 ||
+          geometry.diagram.height < 300
+        )
+          throw Error('Invalid layout capture ' + JSON.stringify(geometry))
+        measurements.push({ name, ...geometry })
+        await writeFile(
+          resolve(output, 'explain-layout-' + name + '.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        )
+      }
+      await writeFile(
+        resolve(output, 'layout-measurements.json'),
+        JSON.stringify(
+          {
+            sourceHead: process.env.DATAKOALA_AUDIT_HEAD,
+            measurements,
+            transport: 'synthetic plan; actual native JointJS rendering',
+            humanAcceptance: 'Pending',
+          },
+          null,
+          2,
+        ),
+      )
+      app.quit()
+      return
+    }
+
     previewStep = 'configure and run AI analysis'
     await sleep(250)
     previewStep = 'inspect unconfigured Explain state'
