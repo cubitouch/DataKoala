@@ -51,6 +51,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 process.env.APP_ROOT = resolve(__dirname, '../..')
 
 let mainWindow: BrowserWindow | null = null
+if (process.env.DATAKOALA_SMOKE && process.env.DATAKOALA_SMOKE_USER_DATA) {
+  app.setPath('userData', process.env.DATAKOALA_SMOKE_USER_DATA)
+}
 const userDataDirectory = app.getPath('userData')
 const connectionProfiles = new ConnectionProfileStore(
   userDataDirectory,
@@ -99,12 +102,16 @@ function createWindow(): void {
     })
     win.webContents.on('did-finish-load', async () => {
       try {
-        const report = await win.webContents.executeJavaScript(`(() => {
+        const report = await win.webContents.executeJavaScript(`(async () => {
+          for (let attempt = 0; attempt < 100; attempt++) {
+            if (document.querySelector('.builder-pane') && window.datakoala) break
+            await new Promise((resolve) => setTimeout(resolve, 50))
+          }
           const root = document.getElementById('root')
           return JSON.stringify({
             mounted: !!root && root.children.length > 0,
             hasTitlebar: !!document.querySelector('.titlebar'),
-            hasSidebar: !!document.querySelector('aside[aria-label="Connections and database objects"]'),
+            hasSidebar: !!document.querySelector('aside[aria-label="Connections and objects"]'),
             hasBuilder: !!document.querySelector('.builder-pane'),
             bridge: typeof window.datakoala === 'object' && window.datakoala !== null,
             text: (document.body.innerText || '').slice(0, 300)
@@ -151,14 +158,26 @@ function createWindow(): void {
             durationMs: 7
           }, null)
           store.getState().setVisualization('sql', { view: 'line', xColumn: 'day', valueColumn: 'total', seriesColumn: 'region', aggregation: 'sum' })
-          await new Promise((r) => setTimeout(r, 900))
+          for (let attempt = 0; attempt < 100; attempt++) {
+            if (document.querySelector('[data-result-chart-canvas][data-visual-finished="true"] canvas')) break
+            await new Promise((resolve) => setTimeout(resolve, 50))
+          }
           const canvas = document.querySelector('[data-result-chart-canvas] canvas')
-          const rowCells = document.querySelectorAll('[data-result-table-pane] table tbody tr').length
+          const chartReady = !!document.querySelector('[data-result-chart-canvas][data-visual-finished="true"] canvas')
           let png = null
           if (canvas) png = canvas.toDataURL('image/png')
+          const tableButton = [...document.querySelectorAll('[role="toolbar"][aria-label="Result view"] button')].find((button) => button.textContent.trim() === 'Table')
+          if (!tableButton) return JSON.stringify({ error: 'Table view action missing' })
+          tableButton.click()
+          for (let attempt = 0; attempt < 100; attempt++) {
+            if (document.querySelectorAll('[data-result-table-pane] table tbody tr').length === 20) break
+            await new Promise((resolve) => setTimeout(resolve, 50))
+          }
+          const rowCells = document.querySelectorAll('[data-result-table-pane] table tbody tr').length
           return JSON.stringify({
             tableRows: rowCells,
             hasCanvas: !!canvas,
+            chartReady,
             canvasW: canvas ? canvas.width : 0,
             canvasH: canvas ? canvas.height : 0,
             pngPrefix: png ? png.slice(0, 22) : null,
@@ -173,7 +192,7 @@ function createWindow(): void {
           console.log('SMOKE_FAIL ' + c.error)
           return app.exit(1)
         }
-        if (!c.hasCanvas) {
+        if (!c.hasCanvas || !c.chartReady) {
           console.log('SMOKE_FAIL chart canvas never rendered')
           return app.exit(1)
         }
@@ -204,12 +223,21 @@ function createWindow(): void {
 
         const connReport = await win.webContents
           .executeJavaScript(`(async () => {
-          const click = (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-          const addBtn = [...document.querySelectorAll('.btn-add')][0]
+          const waitFor = async (read, label) => {
+            for (let attempt = 0; attempt < 100; attempt++) {
+              const result = read()
+              if (result) return result
+              await new Promise((resolve) => setTimeout(resolve, 50))
+            }
+            throw new Error('Timed out waiting for ' + label)
+          }
+          const addBtn = [...document.querySelectorAll('aside button')].find((button) => button.textContent.trim() === '+ new connection')
           if (!addBtn) return JSON.stringify({ error: 'no "new connection" button' })
-          click(addBtn)
-          await new Promise((r) => setTimeout(r, 250))
-          const box = document.querySelector('textarea.conn-paste')
+          addBtn.click()
+          const postgres = await waitFor(() => [...document.querySelectorAll('[role="dialog"] button[role="radio"]')].find((button) => button.querySelector('strong')?.textContent === 'PostgreSQL'), 'PostgreSQL source choice')
+          postgres.click()
+          const dialog = await waitFor(() => document.querySelector('[role="dialog"][aria-labelledby="postgres-connection-title"]'), 'PostgreSQL form')
+          const box = dialog.querySelector('#connection-string')
           if (!box) return JSON.stringify({ error: 'paste box not rendered' })
           const setNative = (el, value) => {
             const proto = Object.getPrototypeOf(el)
@@ -218,26 +246,18 @@ function createWindow(): void {
             el.dispatchEvent(new Event('input', { bubbles: true }))
           }
           setNative(box, 'postgres://demo-reader%40proxy-test.example@localhost:55432/demo_shop')
-          await new Promise((r) => setTimeout(r, 250))
-          const val = (label) => {
-            for (const f of document.querySelectorAll('.modal .field')) {
-              const l = f.querySelector('label')
-              if (l && l.textContent.trim().toLowerCase().startsWith(label)) {
-                const i = f.querySelector('input')
-                if (i) return i.value
-              }
-            }
-            return null
-          }
+          await waitFor(() => dialog.querySelector('#connection-user')?.value === 'demo-reader@proxy-test.example', 'parsed connection fields')
+          const val = (id) => dialog.querySelector('#' + id)?.value ?? null
+          const text = dialog.textContent || ''
           return JSON.stringify({
-            host: val('host'),
-            port: val('port'),
-            database: val('database'),
-            user: val('user'),
-            name: val('profile name'),
-            preview: (document.querySelector('.conn-preview')?.textContent || ''),
-            warnings: [...document.querySelectorAll('.modal .test-msg.warn')].map((n) => n.textContent),
-            parsedOk: !!document.querySelector('.modal .test-msg.ok')
+            host: val('connection-host'),
+            port: val('connection-port'),
+            database: val('connection-database'),
+            user: val('connection-user'),
+            name: val('profile-name'),
+            preview: text,
+            passwordlessWarning: /passwordless/i.test(text),
+            parsedOk: text.includes('Parsed with notes') || text.includes('Parsed —')
           })
         })()`)
         const cn = JSON.parse(connReport)
@@ -265,11 +285,8 @@ function createWindow(): void {
           console.log('SMOKE_FAIL paste box did not report a successful parse')
           return app.exit(1)
         }
-        if (!cn.warnings.some((w: string) => /passwordless/i.test(w))) {
-          console.log(
-            'SMOKE_FAIL expected a passwordless warning, got: ' +
-              JSON.stringify(cn.warnings),
-          )
+        if (!cn.passwordlessWarning) {
+          console.log('SMOKE_FAIL expected a passwordless warning')
           return app.exit(1)
         }
         if (!cn.preview.includes('demo-reader%40proxy-test.example')) {

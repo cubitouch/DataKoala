@@ -183,6 +183,9 @@ jobs:
       - name: Build and smoke DuckDB in Electron
         run: pnpm prepare:sqlite-extension && pnpm build && pnpm smoke:duckdb && pnpm smoke:sqlite && pnpm smoke:sqlite:electron
 
+      - name: Smoke renderer, chart and connection form in Electron
+        run: pnpm smoke
+
       - name: Package unpacked application
         run: pnpm package
 
