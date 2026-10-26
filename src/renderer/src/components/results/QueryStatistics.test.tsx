@@ -1,9 +1,11 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { QueryResult } from '@shared/types'
 import { QueryStatistics } from './QueryStatistics'
 import { ResultsTable } from './ResultsTable'
 afterEach(cleanup)
+const open = () =>
+  fireEvent.click(screen.getByRole('button', { name: 'Query statistics' }))
 const result: QueryResult = {
   columns: [],
   rows: [],
@@ -24,6 +26,10 @@ const result: QueryResult = {
 }
 it('displays real zero and false with distinct units and labels', () => {
   render(<QueryStatistics result={result} />)
+  expect(
+    screen.getByText('0 returned rows · 0 cols · 0 ms request'),
+  ).toBeTruthy()
+  open()
   for (const text of [
     '0 returned rows · 0 cols',
     '0 total rows',
@@ -51,6 +57,7 @@ it('omits malformed and unsafe metadata rather than inventing zeroes', () => {
       }}
     />,
   )
+  open()
   expect(
     screen.queryByText(/B billed|B processed|slot-ms|cache miss|total rows/),
   ).toBeNull()
@@ -72,6 +79,7 @@ it('labels script parent statistics separately from final-statement row counts',
       visibleRowCount={3}
     />,
   )
+  open()
   expect(
     screen.getByText('3 of 10 returned final-statement rows · 0 cols'),
   ).toBeTruthy()
@@ -92,6 +100,8 @@ it('retains ordinary SQL stats and exposes BigQuery metadata in the production t
     onClearFilters: vi.fn(),
   }
   const view = render(<ResultsTable {...props} />)
+  expect(screen.queryByText('Job: 0 B billed')).toBeNull()
+  open()
   expect(screen.getByText('Job: 0 B billed')).toBeTruthy()
   view.rerender(<ResultsTable {...props} error="Failure B" />)
   expect(screen.queryByText('Job: 0 B billed')).toBeNull()
@@ -104,9 +114,28 @@ it('retains ordinary SQL stats and exposes BigQuery metadata in the production t
       }}
     />,
   )
+  expect(screen.queryByRole('dialog')).toBeNull()
+  open()
   expect(screen.getByText('Job: 123 B billed')).toBeTruthy()
   view.rerender(
     <ResultsTable {...props} rawResult={{ ...result, execution: undefined }} />,
   )
   expect(screen.getByText('0 rows · 0 cols · 0 ms')).toBeTruthy()
+})
+
+it('closes on Escape, returns focus, and retires open details on result replacement', async () => {
+  const view = render(<QueryStatistics result={result} />)
+  const trigger = screen.getByRole('button', { name: 'Query statistics' })
+  trigger.focus()
+  open()
+  expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true)
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+  expect(screen.queryByRole('dialog')).toBeNull()
+  await new Promise((resolve) => requestAnimationFrame(resolve))
+  expect(document.activeElement).toBe(trigger)
+  open()
+  view.rerender(<QueryStatistics result={{ ...result, durationMs: 3 }} />)
+  expect(screen.queryByRole('dialog')).toBeNull()
+  open()
+  expect(screen.getAllByText(/3 ms request/).length).toBeGreaterThan(0)
 })
