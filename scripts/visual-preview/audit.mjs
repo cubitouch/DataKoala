@@ -223,7 +223,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     if(!bounds) throw Error('Missing real editor resize handle')
     if(Math.abs(bounds.delta)>1) await dragDivider(win,'.editor-resizer',0,Math.round(bounds.delta))
   }
-  const listSelectors = { logs:'[aria-label="Log results"]', patterns:'[aria-label="Log patterns"]', traces:'[aria-label="Trace search result view"]' }
+  const listSelectors = { logs:'[aria-label="Log results"]', patterns:'[aria-label="Log patterns"]', traces:'[aria-label="Result view"]' }
   const rowSelectors = { logs:'[aria-label="Log results"] button[aria-selected]', patterns:'[data-pattern-row] button', traces:'button[class*="traceResult_"]' }
   const listTarget = { ...listSelectors, traces:'div[class*="traceList_"]' }
 
@@ -303,15 +303,15 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture, dragDiv
     await seed('tempo','raw','fresh')
     await evaluate(`window.__datakoalaStore.getState().setTempoState({tempoSampleSize:'all'})`)
     queryOutcome='loading';await clickText('Run','[data-query-toolbar]')
-    await waitFor(win, `document.querySelector('progress') && document.body.innerText.includes('2 traces so far')`, 'real progressive batch')
+    await waitFor(win, `document.querySelector('progress') && (/^2 (sampled )?traces so far$/.test(document.querySelector('[data-trace-count]')?.textContent.trim()??''))`, 'real progressive batch')
     await observe(`tempo-partial-${viewport}.png`,'.main','actual IPC progress batch + pending continuation')
-    observations.push({family:'progress',viewport,mapDisabled:await evaluate(`[...document.querySelector('[aria-label="Trace search result view"]').querySelectorAll('button')].find(b=>b.textContent.trim()==='Service map').disabled`),rowsDisabled:await evaluate(`[...document.querySelectorAll('button[class*="traceResult_"]')].every(b=>b.disabled)`)} )
+    observations.push({family:'progress',viewport,mapDisabled:await evaluate(`[...document.querySelector('[aria-label="Result view"]').querySelectorAll('button')].find(b=>b.textContent.trim()==='Service map').disabled`),rowsDisabled:await evaluate(`[...document.querySelectorAll('button[class*="traceResult_"]')].every(b=>b.disabled)`)} )
     releaseQuery();releaseQuery=null
-    await waitFor(win, `!window.__datakoalaStore.getState().tabs[0].running && document.body.innerText.includes('5 traces')`, 'progress completion')
+    await waitFor(win, `!window.__datakoalaStore.getState().tabs[0].running && (/^5 (sampled )?traces$/.test(document.querySelector('[data-trace-count]')?.textContent.trim()??''))`, 'progress completion')
     await observe(`tempo-partial-complete-${viewport}.png`,'.main','progress finalized to five summaries')
     for (const kind of ['postgres','loki','tempo']) {
       await seed(kind,'raw')
-      const target=kind==='tempo'?'[aria-label="Trace search result view"]':'[role="toolbar"][aria-label="Result view"]'
+      const target=kind==='tempo'?'[aria-label="Result view"]':'[role="toolbar"][aria-label="Result view"]'
       await observe(`views-${kind}-default-${viewport}.png`,target,'current selected view')
       const beforeCalls=queryCalls
       const next=kind==='tempo'?'Scatter':kind==='loki'?'Patterns':'Table'

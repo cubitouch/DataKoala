@@ -1,3 +1,4 @@
+import { ChartPicker } from '@components/results/ChartPicker'
 import type { ReactNode } from 'react'
 import type { TraceRow } from '@lib/traceViewer'
 import type { TraceResultView } from '@lib/tempoQueryState'
@@ -8,6 +9,7 @@ interface TraceSearchResultsProps {
   rows: TraceRow[]
   fetchedTraceCount?: number
   locallyFiltered?: boolean
+  sampled?: boolean
   notice: string
   loading: 'search' | 'trace' | null
   resultView: TraceResultView
@@ -21,6 +23,7 @@ export function TraceSearchResults({
   rows,
   fetchedTraceCount = rows.length,
   locallyFiltered = false,
+  sampled = false,
   notice,
   loading,
   resultView,
@@ -37,59 +40,32 @@ export function TraceSearchResults({
       aria-busy={loading !== null}
       style={{ gridRow: 5 }}
     >
-      <header className={styles.resultsHeader}>
-        <div>
-          <h2>Trace search</h2>
-          <p>
-            {notice || 'Use the Builder or TraceQL to find candidate traces.'}
-          </p>
-        </div>
-        <div className={styles.resultsHeaderActions}>
-          {hasResults && (
-            <div
-              className={styles.resultViewSwitch}
-              role="group"
-              aria-label="Trace search result view"
+      <div className={styles.viewBar} data-trace-view-bar>
+        <ChartPicker
+          value={resultView}
+          onChange={onResultViewChange}
+          availableViews={['list', 'scatter', 'service-map']}
+          disabledViews={loading === 'search' ? ['service-map'] : []}
+          endContent={
+            <strong
+              className={styles.count}
+              data-trace-count
+              title={notice || undefined}
             >
-              <button
-                type="button"
-                className={resultView === 'list' ? styles.modeActive : ''}
-                aria-pressed={resultView === 'list'}
-                onClick={() => onResultViewChange('list')}
-              >
-                List
-              </button>
-              <button
-                type="button"
-                className={resultView === 'scatter' ? styles.modeActive : ''}
-                aria-pressed={resultView === 'scatter'}
-                onClick={() => onResultViewChange('scatter')}
-              >
-                Scatter
-              </button>
-              <button
-                type="button"
-                className={
-                  resultView === 'service-map' ? styles.modeActive : ''
-                }
-                aria-pressed={resultView === 'service-map'}
-                disabled={loading === 'search'}
-                onClick={() => onResultViewChange('service-map')}
-              >
-                Service map
-              </button>
-            </div>
-          )}
-          {hasResults && (
-            <strong>
-              {locallyFiltered
-                ? `${rows.length} of ${fetchedTraceCount} retrieved traces`
-                : `${rows.length} traces`}
+              {rows.length} {sampled ? 'sampled ' : ''}
+              {rows.length === 1 ? 'trace' : 'traces'}
               {loading === 'search' ? ' so far' : ''}
             </strong>
-          )}
-        </div>
-      </header>
+          }
+        />
+      </div>
+      {loading !== 'search' &&
+        notice &&
+        !notice.startsWith('Tempo search ·') && (
+          <p className={styles.notice} role="status">
+            {notice}
+          </p>
+        )}
       {locallyFiltered && rows.length === 0 && resultView !== 'scatter' ? (
         <div className={styles.empty}>
           No retrieved traces in this local interval. Remove the filter to

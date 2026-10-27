@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { ResultView } from '@lib/resultVisualization'
 import styles from './ChartPicker.module.css'
 
-export type ChartPickerView = ResultView | 'list' | 'patterns'
+export type ChartPickerView = ResultView | 'list' | 'patterns' | 'service-map'
 const views: Array<{ view: ChartPickerView; label: string; path: ReactNode }> =
   [
     {
@@ -72,6 +72,18 @@ const views: Array<{ view: ChartPickerView; label: string; path: ReactNode }> =
       ),
     },
     {
+      view: 'service-map',
+      label: 'Service map',
+      path: (
+        <>
+          <circle cx="12" cy="5" r="3" />
+          <circle cx="5" cy="18" r="3" />
+          <circle cx="19" cy="18" r="3" />
+          <path d="M10.5 8 6.5 15M13.5 8l4 7" />
+        </>
+      ),
+    },
+    {
       view: 'treemap',
       label: 'Treemap',
       path: (
@@ -98,14 +110,21 @@ export function ChartPicker<T extends ChartPickerView>({
   value,
   onChange,
   availableViews,
+  disabledViews,
+  endContent,
 }: {
   value: T
   onChange: (view: T) => void
   availableViews?: readonly T[]
+  disabledViews?: readonly T[]
+  endContent?: ReactNode
 }) {
   const visible = availableViews
     ? views.filter(({ view }) => availableViews.includes(view as T))
-    : views.filter(({ view }) => view !== 'list' && view !== 'patterns')
+    : views.filter(
+        ({ view }) =>
+          view !== 'list' && view !== 'patterns' && view !== 'service-map',
+      )
   return (
     <div className={styles.root} role="toolbar" aria-label="Result view">
       <span className={styles.label}>View</span>
@@ -117,6 +136,7 @@ export function ChartPicker<T extends ChartPickerView>({
           aria-label={label}
           title={label}
           aria-pressed={value === view}
+          disabled={disabledViews?.includes(view as T)}
           onClick={() => onChange(view as T)}
         >
           <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
@@ -125,6 +145,7 @@ export function ChartPicker<T extends ChartPickerView>({
           <span className={styles.viewLabel}>{label}</span>
         </button>
       ))}
+      {endContent && <div className={styles.endContent}>{endContent}</div>}
     </div>
   )
 }

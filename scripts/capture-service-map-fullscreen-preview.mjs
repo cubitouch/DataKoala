@@ -81,13 +81,16 @@ async function runDenseSearch(win) {
   )
   await waitFor(
     win,
-    `document.body.innerText.includes('20 traces') && document.body.innerText.includes('synthetic-gateway')`,
+    `document.body.innerText.includes('20 sampled traces') && document.body.innerText.includes('synthetic-gateway')`,
     'dense Tempo search results',
   )
   await win.webContents.executeJavaScript(`(() => {
-    const group = document.querySelector('[aria-label="Trace search result view"]')
+    const group = document.querySelector('[aria-label="Result view"]')
     ;[...(group?.querySelectorAll('button') ?? [])].find((button) => button.textContent?.trim() === 'Service map')?.click()
   })()`)
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('[data-trace-service-map] button')].find(b=>b.textContent.trim()==='Re-analyze').click()`,
+  )
   await waitFor(
     win,
     `(() => {

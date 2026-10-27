@@ -595,7 +595,6 @@ export function TraceExplorer({
 
   const changeResultView = (next: TraceResultView) => {
     setTempoState({ tempoResultView: next }, tabId)
-    if (next === 'service-map') cohortAnalysis.ensureStarted()
   }
 
   const clearTempoTransientState = () => {
@@ -869,6 +868,7 @@ export function TraceExplorer({
           rows={visibleSearchRows}
           fetchedTraceCount={searchRows.length}
           locallyFiltered={localRange !== null}
+          sampled={sampledSearch}
           notice={searchNotice}
           loading={loading}
           resultView={resultView}

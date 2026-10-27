@@ -5,6 +5,8 @@ on:
     paths:
       - 'src/renderer/src/components/workspaces/tempo/**'
       - 'src/renderer/src/components/results/traces/TraceResultHeader*'
+      - 'src/renderer/src/components/results/traces/TraceSearchResults*'
+      - 'src/renderer/src/components/results/ChartPicker*'
       - 'scripts/visual-preview/audit-batches/stab-21.mjs'
       - '.github/workflows/tempo-toolbar-regression.yml'
 
@@ -28,12 +30,28 @@ jobs:
       - name: Install display dependencies
         run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
       - run: pnpm build
+      - name: Capture prior draft result header
+        env:
+          BEFORE_SHA: 1add1ce5f5857c25573827c221220a7a5b293998
+          DATAKOALA_PREVIEW_KIND: audit
+          DATAKOALA_AUDIT_BATCH: stab-21
+          DATAKOALA_TEMPO_BAR_BASELINE: '1'
+          DATAKOALA_AUDIT_HEAD: 1add1ce5f5857c25573827c221220a7a5b293998
+        run: |
+          git fetch origin "$BEFORE_SHA" --depth=1
+          previous="$RUNNER_TEMP/tempo-bar-before"
+          git worktree add --detach "$previous" "$BEFORE_SHA"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$previous/node_modules"
+          cp scripts/visual-preview/audit-batches/stab-21.mjs "$previous/scripts/visual-preview/audit-batches/stab-21.mjs"
+          cd "$previous"
+          pnpm exec electron-vite build
+          DATAKOALA_PREVIEW_OUTPUT="$GITHUB_WORKSPACE/tempo-toolbar-regression/before" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
       - name: Verify native stabilization contract
         env:
           DATAKOALA_PREVIEW_KIND: audit
           DATAKOALA_AUDIT_BATCH: stab-21
           DATAKOALA_AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
-          DATAKOALA_PREVIEW_OUTPUT: tempo-toolbar-regression
+          DATAKOALA_PREVIEW_OUTPUT: tempo-toolbar-regression/after
         run: xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
       - uses: actions/upload-artifact@v7
         if: always()
