@@ -233,8 +233,21 @@ export function LogPatternExplorer({
                       leading={
                         <>
                           <span className={styles.metrics} data-pattern-metrics>
-                            <strong>{cluster.count}</strong> logs ·{' '}
-                            {cluster.percentage.toFixed(1)}%
+                            <strong
+                              className={styles.count}
+                              data-pattern-count
+                              title={`${cluster.count} logs`}
+                            >
+                              {cluster.count}
+                            </strong>
+                            <span> logs · </span>
+                            <span
+                              className={styles.percentage}
+                              data-pattern-percentage
+                              title={`${cluster.percentage}%`}
+                            >
+                              {cluster.percentage.toFixed(1)}%
+                            </span>
                           </span>
                           <LogSeverityCell severity={representativeSeverity} />
                         </>

@@ -134,9 +134,8 @@
 
 .planLayout {
   display: flex;
-  flex: 1 0 auto;
-  min-height: clamp(380px, 65vh, 1000px);
-  align-items: stretch;
+  flex: 0 0 auto;
+  align-items: flex-start;
   gap: 12px;
   min-width: 0;
 }

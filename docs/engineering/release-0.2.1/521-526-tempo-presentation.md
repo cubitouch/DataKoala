@@ -1,9 +1,11 @@
-# Tempo presentation — #521 / #526
+# Tempo time-first rows and dedicated View bar — #521/#526
 
-Base: `673650015b828d6c0b44a163f1672f348010eb66`.
+Refreshed main: `d51abb4ed247371bc678c4c6262876c9b93cbf2d`. Owner clarification replaces the original busy title/notice/actions header with a genuine full-width result-view bar.
 
-Trace timestamps now lead each row with unchanged formatting. The trailing ID column is removed; operation fallbacks, internal identity and details retain the ID. Status, duration and matched-span counts remain.
+View and Tempo-only List/Scatter/Service map options sit at the left; only the visible cohort's trace count sits at the far right. Sampled counts retain a concise sampled qualifier, and pending counts say so far; routine provider range/query metrics leave the visible header and remain discoverable on the count title. Genuine non-routine notices/errors and existing search progress stay in status surfaces. There is no second metrics strip. Zero local cohorts show zero while retaining Scatter and its fitted interval. Newly merged #535 behavior is preserved.
 
-Tempo uses the existing View toolbar with only List, Scatter and Service map. The shared picker gains the map icon and an optional disabled list to preserve the prior search-in-progress policy. Default SQL/Loki choices are unchanged. No provider or map-analysis behavior changed.
+Shared icons/labels/selected state remain, in List/Scatter/Service map order; defaults for SQL/Loki are unchanged. The native no-request assertion exposed the old automatic full-trace fetch in changeResultView. View selection now only changes the view; initial map analysis uses the existing explicit Re-analyze action. Populated map previews click that action explicitly while retaining semantic/request assertions. Keyboard activation does not search or analyze a map, and Service map remains gated during searches. Time-first rows and removal of the dedicated trailing ID remain intact; single-trace duration/span/service/error details are unchanged.
 
-Retest canonical V07 and W01–W06: normal/missing-root rows, long service/operation names at desktop and narrow widths, pointer/Enter/Space opening, ID in details/copy, all three views and an existing SQL/Loki picker. Preserve coverage and local-filter summary while switching; verify zero primary requests and no automatic map analysis. Native rendering and human acceptance Pending (local Electron socket restrictions).
+Focused UI tests retain semantic cohort/count/filter, boundary and provider-call assertions. Native before/after evidence captures the previous busy header and all three corrected views at 1440×900 and 900×900, measuring left picker and right count edges, keyboard activation and unchanged search count. Existing progressive/empty/Scatter/reverse/clear and correct trace opening/detail assertions remain. Final artifacts/checks are linked in the PR receipt.
+
+Retest extension V04–V07/W01–W06/C01/C02: left View/right count in all views → filtered/zero/pending state → keyboard and trace opening. Reuse existing Tempo/Scatter evidence; no complete provider matrix rerun for this layout. Human/live acceptance remains Pending against an exact selected candidate. No merge/tag/release.

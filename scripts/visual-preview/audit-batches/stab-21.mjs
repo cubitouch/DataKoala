@@ -5,12 +5,12 @@ import { resolve } from 'node:path'
 import { installAuditIpc as installBase } from '../audit.mjs'
 import { auditProfiles, auditRange, auditTraceResult, auditSpanResult } from '../audit-fixtures.mjs'
 import { rendererValue as data } from '../renderer-value.mjs'
-export const screenshots=['stab21-tempo-toolbar.png','stab21-tempo-detail-narrow.png']
+export const screenshots=['stab21-tempo-toolbar.png','stab21-tempo-detail-narrow.png',...(process.env.DATAKOALA_TEMPO_BAR_BASELINE==='1'?['tempo-before-results.png']:['desktop','narrow'].flatMap(size=>['List','Scatter','Service map'].map(view=>'tempo-view-'+size+'-'+view.toLowerCase().replace(' ','-')+'.png')))]
 const requests=[]
 export function installAuditIpc(ipc) {
  installBase(ipc);requests.length=0
  ipc.removeHandler('query:run')
- ipc.handle('query:run',(_event,id,query,parameters,request)=>{requests.push({id,query,request});return {ok:true,result:/^[a-f0-9]{32}$/.test(query.trim())?auditSpanResult:auditTraceResult}})
+ ipc.handle('query:run',(_event,id,query,parameters,request)=>{requests.push({id,query,request});return {ok:true,result:/^[a-f0-9]{32}$/.test(query.trim())?auditSpanResult:{...auditTraceResult,notice:'Tempo search · synthetic range · 5 returned · 1 search query'}}})
 }
 export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  const js=code=>win.webContents.executeJavaScript(code)
@@ -27,6 +27,25 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  observations.push({filename:screenshots[0],width:1440,height:900,dpr:1,zoom:1,target:sample.box,sample});await capture(win,screenshots[0])
  await button('Run');await waitFor(win,'document.querySelector("[class*=traceList] [data-observability-row] > button")','Tempo results')
  assert.equal(requests[0].request.sampleSize,100,'submitted sample quantity unchanged')
+ const viewGeometry=[]
+ if(process.env.DATAKOALA_TEMPO_BAR_BASELINE==='1'){await js("document.querySelector('.main').style.width=''");await settle();const target=await js(`document.querySelector('[class*=resultsHeader]').getBoundingClientRect().toJSON()`);observations.push({filename:'tempo-before-results.png',width:1440,height:900,dpr:1,zoom:1,target});await capture(win,'tempo-before-results.png')}
+ else for(const [size,width] of [['desktop',1440],['narrow',900]]){
+  await js("document.querySelector('.main').style.width=''");win.setContentSize(width,900);await settle()
+  for(const label of ['List','Scatter','Service map']){
+   await js(`document.querySelector('[aria-label="Result view"] button[aria-label="${label}"]').focus()`)
+   win.webContents.sendInputEvent({type:'keyDown',keyCode:'Return'});win.webContents.sendInputEvent({type:'char',keyCode:'\r'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'Return'});await settle()
+   await waitFor(win,`document.querySelector('[aria-label="Result view"] button[aria-label="${label}"][aria-pressed="true"]')`,'keyboard view '+label)
+   const report=await js(`(()=>{const bar=document.querySelector('[data-trace-view-bar]'),count=bar.querySelector('[data-trace-count]'),picker=bar.querySelector('[role=toolbar]');return{bar:bar.getBoundingClientRect().toJSON(),count:count.getBoundingClientRect().toJSON(),picker:picker.getBoundingClientRect().toJSON(),text:count.textContent.trim(),buttons:[...picker.querySelectorAll('button')].map(b=>({label:b.getAttribute('aria-label'),box:b.getBoundingClientRect().toJSON()})),headings:[...bar.querySelectorAll('h2')].length}})()`)
+   assert.equal(report.text,'5 sampled traces');assert.equal(report.headings,0)
+   assert.ok(Math.abs(report.count.right-(report.bar.right-14))<2,'count reaches right edge')
+   assert.ok(Math.abs(report.picker.x-(report.bar.x+14))<2,'View starts at left')
+   for(const button of report.buttons)assert.ok(button.box.x>=report.bar.x&&button.box.right<=report.bar.right,button.label+' contained')
+   assert.equal(requests.length,1,'view/keyboard changes do not search or analyze a map')
+   const filename='tempo-view-'+size+'-'+label.toLowerCase().replace(' ','-')+'.png'
+   observations.push({filename,width,height:900,dpr:1,zoom:1,target:report.bar});viewGeometry.push({size,label,...report});await capture(win,filename)
+  }
+ }
+ await button('List');win.setContentSize(1440,900);await js("document.querySelector('.main').style.width='652px'");await settle()
  await js('document.querySelector("[class*=traceList] [data-observability-row] > button").click()');await waitFor(win,'[...document.querySelectorAll("button")].some(e=>e.textContent.includes("wall-clock"))','trace detail')
  const bounds=await js(`(()=>{const pane=document.querySelector('.main').getBoundingClientRect(),toolbar=document.querySelector('[class*=filterToolbar]');return {pane:pane.toJSON(),target:toolbar.getBoundingClientRect().toJSON(),buttons:[...toolbar.querySelectorAll('button')].map(e=>({text:e.textContent,box:e.getBoundingClientRect().toJSON()}))}})()`)
  console.log('STAB21_DETAIL',JSON.stringify(bounds));assert.ok(Math.abs(bounds.pane.width-652)<1)
@@ -42,5 +61,5 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
  observations.push({filename:screenshots[1],width:1440,height:900,dpr:1,zoom:1,...bounds});await capture(win,screenshots[1])
  await button('← Search results');assert.equal(await js('window.__datakoalaStore.getState().tabs[0].tempoSampleSize'),'100')
  await js("document.querySelector('.main').style.width=''");await settle()
- await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify({sourceHead:process.env.DATAKOALA_AUDIT_HEAD,observations,requests},null,2))
+ await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify({sourceHead:process.env.DATAKOALA_AUDIT_HEAD,observations,viewGeometry,requests},null,2))
 }

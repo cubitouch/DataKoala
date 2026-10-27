@@ -306,7 +306,7 @@ async function searchTraces(win) {
   await clickRun(win)
   await waitFor(
     win,
-    `document.body.innerText.includes('5 traces') && document.body.innerText.includes('POST /example') && document.body.innerText.includes('1.48s') && document.body.innerText.includes('16 matched spans') && document.querySelector('[aria-label="Successful trace"]') && document.querySelector('[aria-label="Error trace"]')`,
+    `document.body.innerText.includes('5 sampled traces') && document.body.innerText.includes('POST /example') && document.body.innerText.includes('1.48s') && document.body.innerText.includes('16 matched spans') && document.querySelector('[aria-label="Successful trace"]') && document.querySelector('[aria-label="Error trace"]')`,
     'synthetic Tempo list results with statuses',
   )
 }
@@ -373,7 +373,7 @@ async function validateLocalScatterFilter(win) {
   const after = await win.webContents.executeJavaScript(`(() => {
     const state = window.__datakoalaStore.getState()
     const tab = state.tabs.find((item) => item.id === state.activeTabId)
-    return { range: JSON.stringify(tab.tempoTimeRange), rows: JSON.stringify(tab.result.rows), label: document.body.innerText.includes('2 of 5 retrieved traces') }
+    return { range: JSON.stringify(tab.tempoTimeRange), rows: JSON.stringify(tab.result.rows), label: document.querySelector('[data-trace-count]')?.textContent.trim()==='2 sampled traces' }
   })()`)
   if (
     queryRequests !== requestsBefore ||
@@ -388,6 +388,9 @@ async function validateLocalScatterFilter(win) {
     const group = document.querySelector('[aria-label="Result view"]')
     ;[...group.querySelectorAll('button')].find((button) => button.textContent.trim() === 'Service map')?.click()
   })()`)
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('[data-trace-service-map] button')].find(b=>b.textContent.trim()==='Re-analyze').click()`,
+  )
   await waitFor(
     win,
     `document.querySelector('[data-trace-service-map]')?.getAttribute('data-visual-traces') === '2' && document.querySelector('[data-trace-service-map]')?.getAttribute('data-visual-finished') === 'true'`,
@@ -428,6 +431,9 @@ async function showServiceMap(win) {
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Service map')
     button?.click()
   })()`)
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('[data-trace-service-map] button')].find(b=>b.textContent.trim()==='Re-analyze').click()`,
+  )
   await waitFor(
     win,
     `document.querySelector('[data-trace-service-map] [data-joint-service-map] svg') && document.body.innerText.includes('Bottleneck candidates') && document.body.innerText.includes('service-03') && document.body.innerText.includes('slow traces')`,
@@ -441,7 +447,7 @@ async function showDenseServiceMap(win) {
   await clickRun(win)
   await waitFor(
     win,
-    `document.body.innerText.includes('20 traces') && document.body.innerText.includes('synthetic-gateway')`,
+    `document.body.innerText.includes('20 sampled traces') && document.body.innerText.includes('synthetic-gateway')`,
     'dense Tempo search results',
   )
   await win.webContents.executeJavaScript(`(() => {
@@ -449,6 +455,9 @@ async function showDenseServiceMap(win) {
     const button = [...(group?.querySelectorAll('button') ?? [])].find((candidate) => candidate.textContent?.trim() === 'Service map')
     button?.click()
   })()`)
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('[data-trace-service-map] button')].find(b=>b.textContent.trim()==='Re-analyze').click()`,
+  )
   await waitFor(
     win,
     `(() => {
@@ -466,7 +475,7 @@ async function restoreStandardSearch(win) {
   await clickRun(win)
   await waitFor(
     win,
-    `document.body.innerText.includes('5 traces') && document.body.innerText.includes('1.48s')`,
+    `document.body.innerText.includes('5 sampled traces') && document.body.innerText.includes('1.48s')`,
     'restored standard Tempo search',
   )
 }
@@ -586,7 +595,7 @@ async function validateCloseAndSelectedSpanCohort(win) {
       input('Route / endpoint') === '/dependency-b' &&
       aria('Status') === 'Status: Error' &&
       input('Exact span / operation name') === 'POST /example' &&
-      document.body.innerText.includes('5 traces') &&
+      document.body.innerText.includes('5 sampled traces') &&
       document.querySelector('[aria-label="Result view"]');
   })()`,
     'selected synthetic HTTP span cohort seed and automatic search results',

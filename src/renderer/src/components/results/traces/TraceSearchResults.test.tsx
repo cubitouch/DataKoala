@@ -28,10 +28,23 @@ function renderResults(
 }
 
 describe('TraceSearchResults', () => {
-  it('renders the heading, notice, completed trace count, and only the active List content', () => {
+  it('renders a dedicated picker/count bar, preserves a non-routine notice, and shows only active List content', () => {
     renderResults()
+    expect(
+      Array.from(
+        document.querySelectorAll(
+          '[data-trace-view-bar] [role=toolbar] button',
+        ),
+      ).map((b) => b.getAttribute('aria-label')),
+    ).toEqual(['List', 'Scatter', 'Service map'])
 
-    expect(screen.getByRole('heading', { name: 'Trace search' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Trace search' })).toBeNull()
+    expect(
+      document.querySelector('[data-trace-view-bar] [role=toolbar]'),
+    ).toBeTruthy()
+    expect(document.querySelector('[data-trace-count]')?.textContent).toBe(
+      '2 traces',
+    )
     expect(screen.getByText('Tempo returned candidate traces.')).toBeTruthy()
     expect(screen.getByText('2 traces')).toBeTruthy()
     expect(
@@ -91,9 +104,7 @@ describe('TraceSearchResults', () => {
       />,
     )
 
-    expect(
-      screen.getByText('Use the Builder or TraceQL to find candidate traces.'),
-    ).toBeTruthy()
+    expect(screen.getByText('0 traces')).toBeTruthy()
     expect(
       screen.getByText(
         'Search for a trace by service, operation, status or duration; use Trace ID above when you already know the exact trace.',
@@ -118,8 +129,36 @@ describe('TraceSearchResults', () => {
     expect(
       screen.getByText('Waiting for the first Tempo trace summaries…'),
     ).toBeTruthy()
+    expect(screen.getByRole('toolbar', { name: 'Result view' })).toBeTruthy()
     expect(
-      screen.queryByRole('group', { name: 'Trace search result view' }),
-    ).toBeNull()
+      (screen.getByRole('button', { name: 'Service map' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
   })
+})
+
+it('keeps only the visible sampled count in the bar, hides routine metrics and retains a zero-filter Scatter', () => {
+  render(
+    <TraceSearchResults
+      rows={[]}
+      fetchedTraceCount={20}
+      locallyFiltered
+      sampled
+      notice="Tempo search · complete period · 20 returned · 3 queries"
+      loading={null}
+      resultView="scatter"
+      onResultViewChange={vi.fn()}
+      listView={null}
+      scatterView={<div>Empty scatter retained</div>}
+      serviceMapView={null}
+    />,
+  )
+  expect(document.querySelector('[data-trace-count]')?.textContent).toBe(
+    '0 sampled traces',
+  )
+  expect(screen.queryByText(/complete period/)).toBeNull()
+  expect(screen.getByText('Empty scatter retained')).toBeTruthy()
+  expect(screen.getByRole('status').textContent).toContain(
+    'No retrieved traces',
+  )
 })
