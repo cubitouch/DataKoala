@@ -42,6 +42,11 @@ describe('TraceSearchResults', () => {
     expect(
       document.querySelector('[data-trace-view-bar] [role=toolbar]'),
     ).toBeTruthy()
+    expect(
+      screen
+        .getByRole('toolbar', { name: 'Result view' })
+        .contains(document.querySelector('[data-trace-count]')),
+    ).toBe(true)
     expect(document.querySelector('[data-trace-count]')?.textContent).toBe(
       '2 traces',
     )

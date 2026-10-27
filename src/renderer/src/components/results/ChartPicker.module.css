@@ -17,6 +17,11 @@
   font-size: 11px;
 }
 
+.endContent {
+  margin-left: auto;
+  padding-left: 12px;
+}
+
 .button {
   display: inline-flex;
   align-items: center;

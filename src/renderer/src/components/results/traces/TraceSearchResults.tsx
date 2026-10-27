@@ -46,16 +46,18 @@ export function TraceSearchResults({
           onChange={onResultViewChange}
           availableViews={['list', 'scatter', 'service-map']}
           disabledViews={loading === 'search' ? ['service-map'] : []}
+          endContent={
+            <strong
+              className={styles.count}
+              data-trace-count
+              title={notice || undefined}
+            >
+              {rows.length} {sampled ? 'sampled ' : ''}
+              {rows.length === 1 ? 'trace' : 'traces'}
+              {loading === 'search' ? ' so far' : ''}
+            </strong>
+          }
         />
-        <strong
-          className={styles.count}
-          data-trace-count
-          title={notice || undefined}
-        >
-          {rows.length} {sampled ? 'sampled ' : ''}
-          {rows.length === 1 ? 'trace' : 'traces'}
-          {loading === 'search' ? ' so far' : ''}
-        </strong>
       </div>
       {loading !== 'search' &&
         notice &&

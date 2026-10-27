@@ -32,11 +32,11 @@ jobs:
       - run: pnpm build
       - name: Capture prior draft result header
         env:
-          BEFORE_SHA: e266b6c9accc748522b12633c82603c710c3b3a1
+          BEFORE_SHA: 1add1ce5f5857c25573827c221220a7a5b293998
           DATAKOALA_PREVIEW_KIND: audit
           DATAKOALA_AUDIT_BATCH: stab-21
           DATAKOALA_TEMPO_BAR_BASELINE: '1'
-          DATAKOALA_AUDIT_HEAD: e266b6c9accc748522b12633c82603c710c3b3a1
+          DATAKOALA_AUDIT_HEAD: 1add1ce5f5857c25573827c221220a7a5b293998
         run: |
           git fetch origin "$BEFORE_SHA" --depth=1
           previous="$RUNNER_TEMP/tempo-bar-before"

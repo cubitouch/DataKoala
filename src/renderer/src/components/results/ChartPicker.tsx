@@ -111,11 +111,13 @@ export function ChartPicker<T extends ChartPickerView>({
   onChange,
   availableViews,
   disabledViews,
+  endContent,
 }: {
   value: T
   onChange: (view: T) => void
   availableViews?: readonly T[]
   disabledViews?: readonly T[]
+  endContent?: ReactNode
 }) {
   const visible = availableViews
     ? views.filter(({ view }) => availableViews.includes(view as T))
@@ -143,6 +145,7 @@ export function ChartPicker<T extends ChartPickerView>({
           <span className={styles.viewLabel}>{label}</span>
         </button>
       ))}
+      {endContent && <div className={styles.endContent}>{endContent}</div>}
     </div>
   )
 }
