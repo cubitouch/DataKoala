@@ -64,6 +64,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
   await js(`window.__datakoalaStore.setState({activeTabId:'volume-B'})`);await settle()
   releaseVolume();await waitFor(win,'window.__datakoalaStore.getState().tabs[0].lokiVolume?.result?.resultKind === "metrics"','inactive completion')
   await js(`window.__datakoalaStore.setState({activeTabId:'volume-A'})`);await ready();await formatted();await ready();assert.deepEqual(counts(),{primary:2,probe:0,volume:2});await shot(screenshots[1])
+  observations.push(...await runLokiViewTransitionAudit({ipc:auditIpc,win,outputDir,waitFor,capture}))
   await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify({sourceHead:process.env.DATAKOALA_AUDIT_HEAD,observations,transitions,finalCounts:counts(),calls,transport:'synthetic Loki IPC; real Electron/ECharts',humanAcceptance:'Pending'},null,2))
-  await runLokiViewTransitionAudit({ipc:auditIpc,win,outputDir,waitFor,capture})
+
 }

@@ -367,19 +367,21 @@ describe('LokiExplorer execution', () => {
     fireEvent.click(screen.getByRole('combobox', { name: /X axis:/ }))
     fireEvent.click(await screen.findByRole('option', { name: /^value/ }))
     await waitFor(() => expect(chartMock.option?.xAxis?.data).toEqual(['2']))
-    for (const view of ['Table', 'Patterns', 'Bar'])
-      fireEvent.click(screen.getByRole('button', { name: view }))
-    await waitFor(() =>
-      expect((chartMock.option?.series[0] as { type?: string })?.type).toBe(
-        'bar',
-      ),
-    )
-    expect(
-      screen.getByRole('combobox', { name: /X axis:/ }).textContent,
-    ).toContain('value')
-    expect(chartMock.option?.xAxis?.data).toEqual(['2'])
-    expect(chartMock.option?.series[0].data).toEqual([2])
-    expect(document.querySelector('[data-result-table-pane]')).toBeNull()
+    for (const kind of ['Bar', 'Line', 'Bar']) {
+      for (const view of ['Table', 'Patterns', kind])
+        fireEvent.click(screen.getByRole('button', { name: view }))
+      await waitFor(() =>
+        expect((chartMock.option?.series[0] as { type?: string })?.type).toBe(
+          kind.toLowerCase(),
+        ),
+      )
+      expect(
+        screen.getByRole('combobox', { name: /X axis:/ }).textContent,
+      ).toContain('value')
+      expect(chartMock.option?.xAxis?.data).toEqual(['2'])
+      expect(chartMock.option?.series[0].data).toEqual([2])
+      expect(document.querySelector('[data-result-table-pane]')).toBeNull()
+    }
     expect(mocks.runLoki).toHaveBeenCalledTimes(2)
   })
 

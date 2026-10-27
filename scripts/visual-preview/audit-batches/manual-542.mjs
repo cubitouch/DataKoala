@@ -316,4 +316,5 @@ export async function runLokiViewTransitionAudit({
       2,
     ),
   )
+  return observations
 }
