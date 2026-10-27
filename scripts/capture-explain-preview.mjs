@@ -326,15 +326,13 @@ app.whenReady().then(async () => {
           js(
             'new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))',
           )
-        const selector =
-          '[role=separator][aria-label="Resize execution plan diagram"]'
         const geometry = () =>
           js(
-            `(()=>{const h=document.querySelector(${JSON.stringify(selector)}),d=document.querySelector('[aria-label="Execution plan diagram"]'),svg=d.querySelector('svg');return {height:Number(h.getAttribute('aria-valuenow')),min:Number(h.getAttribute('aria-valuemin')),max:Number(h.getAttribute('aria-valuemax')),canvas:d.getBoundingClientRect().toJSON(),svg:svg.getBoundingClientRect().toJSON(),transform:d.querySelector('.joint-layers')?.getAttribute('transform'),selected:d.dataset.selectedNodeId}})()`,
+            `(()=>{const h=document.querySelector('[role=separator][aria-label="Resize execution plan diagram"]'),d=document.querySelector('[aria-label="Execution plan diagram"]'),svg=d.querySelector('svg');return {height:Number(h.getAttribute('aria-valuenow')),min:Number(h.getAttribute('aria-valuemin')),max:Number(h.getAttribute('aria-valuemax')),canvas:d.getBoundingClientRect().toJSON(),svg:svg.getBoundingClientRect().toJSON(),transform:d.querySelector('.joint-layers')?.getAttribute('transform'),selected:d.dataset.selectedNodeId}})()`,
           )
         await wait(
           win,
-          `document.querySelector(${JSON.stringify(selector)})`,
+          `document.querySelector('[role=separator][aria-label="Resize execution plan diagram"]')`,
           'visible height separator',
         )
         await js(
@@ -358,7 +356,7 @@ app.whenReady().then(async () => {
           ['taller', 150],
         ]) {
           const box = await js(
-            `document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().toJSON()`,
+            `document.querySelector('[role=separator][aria-label="Resize execution plan diagram"]').getBoundingClientRect().toJSON()`,
           )
           const x = Math.round(box.x + box.width / 2),
             y = Math.round(box.y + box.height / 2)
@@ -409,7 +407,9 @@ app.whenReady().then(async () => {
             (await win.webContents.capturePage()).toPNG(),
           )
         }
-        await js(`document.querySelector(${JSON.stringify(selector)}).focus()`)
+        await js(
+          `document.querySelector('[role=separator][aria-label="Resize execution plan diagram"]').focus()`,
+        )
         const key = async (keyCode) => {
           win.webContents.sendInputEvent({ type: 'keyDown', keyCode })
           win.webContents.sendInputEvent({ type: 'keyUp', keyCode })
@@ -638,10 +638,6 @@ app.whenReady().then(async () => {
     await sleep(100)
     previewStep = 'validate initial AI selection'
     const aiReportScript = `({
-      calls: ${planAnalysisCalls},
-      sql: ${JSON.stringify(capturedPlanRequest?.sql ?? null)},
-      mode: ${JSON.stringify(capturedPlanRequest?.mode ?? null)},
-      planNodeCount: ${capturedPlanRequest?.plan?.nodes?.length ?? 0},
       selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.selectedNodeId,
       focusNodeId: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.focusNodeId,
       highlights: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.highlightedNodeIds?.split(',').filter(Boolean) ?? [],
@@ -650,7 +646,13 @@ app.whenReady().then(async () => {
     })\n//# sourceURL=datakoala-ai-hint-report.js`
     let aiReport
     try {
-      aiReport = await win.webContents.executeJavaScript(aiReportScript)
+      aiReport = {
+        calls: planAnalysisCalls,
+        sql: capturedPlanRequest?.sql ?? null,
+        mode: capturedPlanRequest?.mode ?? null,
+        planNodeCount: capturedPlanRequest?.plan?.nodes?.length ?? 0,
+        ...(await win.webContents.executeJavaScript(aiReportScript)),
+      }
     } catch (error) {
       console.error(`Initial AI report script: ${aiReportScript}`)
       throw error
