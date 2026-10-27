@@ -11,3 +11,39 @@
 .statistics > span {
   min-width: 0;
 }
+
+.details {
+  display: grid;
+  gap: 10px;
+  padding-left: 20px;
+  font: 12px/1.5 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.statisticsDialog {
+  width: min(560px, calc(100vw - 32px));
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 18px;
+  gap: 14px;
+  overflow: auto;
+}
+
+.statisticsDialog h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.statisticsDialog p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.statisticsDialog .details {
+  margin: 0;
+}
+
+.close {
+  align-self: flex-end;
+}
