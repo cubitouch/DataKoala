@@ -7,6 +7,7 @@ import { copyTextToClipboard } from '@lib/clipboardText'
 import { selectActiveSession, useStore } from '@store/useStore'
 import { getExplainDiagnostics } from './ExplainDiagnostics'
 import { ExecutionPlanGraph } from './ExecutionPlanGraph'
+import { ResizablePlanArea } from './ResizablePlanArea'
 import { PlanNodeInspector } from './PlanNodeInspector'
 import styles from './ExplainPane.module.css'
 
@@ -140,15 +141,17 @@ export function ExplainPane() {
           )}
           {tree && selected && (
             <div className={styles.planLayout}>
-              <ExecutionPlanGraph
-                tree={tree}
-                analyze={analyze}
-                selectedNodeId={selectedId}
-                highlightedNodeIds={highlightedIds}
-                focusNodeId={focusNodeId}
-                focusRequestId={focusRequestId}
-                onSelectNode={(id) => setSelectedNodeId(id)}
-              />
+              <ResizablePlanArea>
+                <ExecutionPlanGraph
+                  tree={tree}
+                  analyze={analyze}
+                  selectedNodeId={selectedId}
+                  highlightedNodeIds={highlightedIds}
+                  focusNodeId={focusNodeId}
+                  focusRequestId={focusRequestId}
+                  onSelectNode={(id) => setSelectedNodeId(id)}
+                />
+              </ResizablePlanArea>
               <PlanNodeInspector
                 node={selected}
                 analyze={analyze}

@@ -25,8 +25,8 @@ export interface ExecutionPlanGraphProps {
 }
 
 const NODE_WIDTH = 280
-const NODE_HEIGHT = 176
-const RANK_GAP = 76
+const NODE_HEIGHT = 166
+const RANK_GAP = 44
 const SIBLING_GAP = 44
 const GRAPH_PADDING = 36
 
@@ -72,7 +72,22 @@ function planNodeAttributes(
     ...textStyle,
     x: 14,
     fill: cssColor('--text-dim', '#b5bbc5'),
-    fontSize: 10,
+    fontSize: 12,
+  }
+  const lines = [
+    'target',
+    'estimatedRows',
+    'actualRows',
+    'ratio',
+    'work',
+  ] as const
+  const linePositions = new Map<string, number>()
+  let nextY = 62
+  for (const key of lines) {
+    if (content[key]) {
+      linePositions.set(key, nextY)
+      nextY += 20
+    }
   }
   return {
     body: {
@@ -92,7 +107,7 @@ function planNodeAttributes(
       x: 14,
       y: 19,
       fill: cssColor('--text-mute', '#858b97'),
-      fontSize: 9,
+      fontSize: 11,
       fontWeight: 700,
       letterSpacing: 0.7,
     },
@@ -102,7 +117,7 @@ function planNodeAttributes(
       x: 14,
       y: 42,
       fill: cssColor('--text', '#f2f2f4'),
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: 700,
     },
     target: {
@@ -110,27 +125,27 @@ function planNodeAttributes(
       text: content.target ?? '',
       display: content.target ? 'block' : 'none',
       x: 14,
-      y: 63,
+      y: linePositions.get('target') ?? 0,
       fill: cssColor('--text-dim', '#b5bbc5'),
-      fontSize: 10,
+      fontSize: 12,
     },
     estimatedRows: {
       ...metricStyle,
       text: content.estimatedRows ?? '',
       display: content.estimatedRows ? 'block' : 'none',
-      y: 91,
+      y: linePositions.get('estimatedRows') ?? 0,
     },
     actualRows: {
       ...metricStyle,
       text: content.actualRows ?? '',
       display: content.actualRows ? 'block' : 'none',
-      y: 111,
+      y: linePositions.get('actualRows') ?? 0,
     },
     ratio: {
       ...metricStyle,
       text: content.ratio ?? '',
       display: content.ratio ? 'block' : 'none',
-      y: 131,
+      y: linePositions.get('ratio') ?? 0,
       fill: content.ratio
         ? cssColor('--amber', '#efb44f')
         : cssColor('--text-dim', '#b5bbc5'),
@@ -139,7 +154,7 @@ function planNodeAttributes(
       ...metricStyle,
       text: content.work ?? '',
       display: content.work ? 'block' : 'none',
-      y: 151,
+      y: linePositions.get('work') ?? 0,
       fill: analyze
         ? cssColor('--blue', '#79a9ff')
         : cssColor('--text-mute', '#858b97'),
@@ -220,7 +235,18 @@ export function ExecutionPlanGraph({
       return new ExecutionPlanNode({
         id,
         position: positions.get(id),
-        size: { width: NODE_WIDTH, height: NODE_HEIGHT },
+        size: {
+          width: NODE_WIDTH,
+          height:
+            66 +
+            ['target', 'estimatedRows', 'actualRows', 'ratio', 'work'].filter(
+              (key) =>
+                executionPlanNodeContent(node, analyze)[
+                  key as keyof ReturnType<typeof executionPlanNodeContent>
+                ],
+            ).length *
+              20,
+        },
         attrs: {
           root: {
             cursor: 'pointer',
@@ -318,12 +344,20 @@ export function ExecutionPlanGraph({
     window.addEventListener('pointermove', panMove)
     window.addEventListener('pointerup', panEnd)
 
-    const fit = () =>
-      paper.scaleContentToFit({
-        padding: GRAPH_PADDING,
-        minScale: 0.22,
-        maxScale: 1.15,
-      })
+    // Start at readable scale at the root; Fit plan remains an explicit overview.
+    const fit = () => {
+      const bounds = graph.getBBox()
+      if (!bounds) return
+      const scale = Math.min(
+        1,
+        Math.max(0.85, (host.clientWidth - GRAPH_PADDING * 2) / bounds.width),
+      )
+      paper.scale(scale, scale)
+      paper.translate(
+        (host.clientWidth - bounds.width * scale) / 2 - bounds.x * scale,
+        GRAPH_PADDING - bounds.y * scale,
+      )
+    }
     const wheel = (event: WheelEvent) => {
       event.preventDefault()
       const scale = paper.scale().sx

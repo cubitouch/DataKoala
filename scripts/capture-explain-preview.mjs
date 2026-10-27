@@ -17,6 +17,7 @@ let delayPlanResponse = false
 let pendingPlanResponse
 let cancelledPlanRequests = 0
 let previewStep = 'initialize preview'
+let unexpectedQueryCalls = 0
 
 async function wait(win, expression, description) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -302,6 +303,294 @@ app.whenReady().then(async () => {
       'JointJS execution-plan graph and Explain summary',
     )
 
+    if (process.env.DATAKOALA_EXPLAIN_LAYOUT_ONLY === '1') {
+      await mkdir(output, { recursive: true })
+      // Presentation comparison deliberately precedes AI focus/panning, whose
+      // virtualized offscreen nodes differ between the old and new heights.
+      await wait(
+        win,
+        `document.querySelector('[data-node-id="0"] rect')`,
+        'initial rendered root card',
+      )
+      const measurements = []
+      if (process.env.DATAKOALA_EXPLAIN_RESIZE === '1') {
+        for (const channel of ['query:run', 'query:explain']) {
+          ipcMain.removeHandler(channel)
+          ipcMain.handle(channel, () => {
+            unexpectedQueryCalls++
+            throw Error('Unexpected execution during resize')
+          })
+        }
+        const js = (code) => win.webContents.executeJavaScript(code)
+        const settle = () =>
+          js(
+            'new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))',
+          )
+        const geometry = () =>
+          js(
+            `(()=>{const h=document.querySelector('[role=separator][aria-label="Resize execution plan diagram"]'),d=document.querySelector('[aria-label="Execution plan diagram"]'),svg=d.querySelector('svg');return {height:Number(h.getAttribute('aria-valuenow')),min:Number(h.getAttribute('aria-valuemin')),max:Number(h.getAttribute('aria-valuemax')),canvas:d.getBoundingClientRect().toJSON(),svg:svg.getBoundingClientRect().toJSON(),transform:d.querySelector('.joint-layers')?.getAttribute('transform'),selected:d.dataset.selectedNodeId}})()`,
+          )
+        await wait(
+          win,
+          `document.querySelector('[role=separator][aria-label="Resize execution plan diagram"]')`,
+          'visible height separator',
+        )
+        await js(
+          `document.querySelector('[aria-label="Execution plan diagram"] [data-node-id="0.0"]').focus()`,
+        )
+        win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Return' })
+        win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' })
+        await settle()
+        win.setContentSize(1440, 1000)
+        await settle()
+        const canvasReady = () =>
+          wait(
+            win,
+            `(()=>{const d=document.querySelector('[aria-label="Execution plan diagram"]'),s=d?.querySelector('svg');return d&&s&&Math.abs(d.getBoundingClientRect().height-s.getBoundingClientRect().height)<3})()`,
+            'JointJS SVG matches resized canvas',
+          )
+        await canvasReady()
+        const initial = await geometry()
+        for (const [name, delta] of [
+          ['shorter', -200],
+          ['taller', 150],
+        ]) {
+          const box = await js(
+            `document.querySelector('[role=separator][aria-label="Resize execution plan diagram"]').getBoundingClientRect().toJSON()`,
+          )
+          const x = Math.round(box.x + box.width / 2),
+            y = Math.round(box.y + box.height / 2)
+          win.webContents.sendInputEvent({ type: 'mouseMove', x, y })
+          win.webContents.sendInputEvent({
+            type: 'mouseDown',
+            button: 'left',
+            clickCount: 1,
+            x,
+            y,
+          })
+          for (const part of [0.25, 0.5, 0.75, 1])
+            win.webContents.sendInputEvent({
+              type: 'mouseMove',
+              button: 'left',
+              x,
+              y: Math.round(y + delta * part),
+            })
+          win.webContents.sendInputEvent({
+            type: 'mouseUp',
+            button: 'left',
+            x,
+            y: y + delta,
+          })
+          await settle()
+          await canvasReady()
+          const result = await geometry(),
+            expected =
+              name === 'shorter' ? initial.height - 200 : initial.height - 50
+          if (
+            Math.abs(result.height - expected) > 2 ||
+            Math.abs(result.canvas.height - result.height) > 3 ||
+            Math.abs(result.svg.height - result.canvas.height) > 3 ||
+            result.transform !== initial.transform ||
+            result.selected !== initial.selected
+          )
+            throw Error(
+              'Resize changed wrong geometry/transform/selection ' +
+                JSON.stringify({ initial, result, expected }),
+            )
+          measurements.push({
+            name: 'pointer-' + name,
+            viewport: [1440, 1000],
+            ...result,
+          })
+          await writeFile(
+            resolve(output, 'explain-resized-' + name + '.png'),
+            (await win.webContents.capturePage()).toPNG(),
+          )
+        }
+        await js(
+          `document.querySelector('[role=separator][aria-label="Resize execution plan diagram"]').focus()`,
+        )
+        const key = async (keyCode) => {
+          win.webContents.sendInputEvent({ type: 'keyDown', keyCode })
+          win.webContents.sendInputEvent({ type: 'keyUp', keyCode })
+          await settle()
+        }
+        await key('Home')
+        const min = await geometry()
+        await key('Up')
+        if ((await geometry()).height !== min.min)
+          throw Error('Minimum clamp failed')
+        await key('Down')
+        if ((await geometry()).height !== min.min + 24)
+          throw Error('Keyboard height step failed')
+        await key('End')
+        const max = await geometry()
+        if (max.height !== max.max) throw Error('Maximum clamp failed')
+        win.setContentSize(1440, 650)
+        await settle()
+        await canvasReady()
+        const shrunk = await geometry()
+        if (shrunk.height > shrunk.max || shrunk.max >= max.max)
+          throw Error('Window shrink failed to clamp')
+        measurements.push({
+          name: 'keyboard-and-window-shrink',
+          min,
+          max,
+          shrunk,
+        })
+        await js(
+          `[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Fit plan').click()`,
+        )
+        await settle()
+        const before = await geometry()
+        await js(
+          `document.querySelector('[data-node-id="0"]')?.dispatchEvent(new MouseEvent('click',{bubbles:true}))`,
+        )
+        await settle()
+        if ((await geometry()).height !== before.height)
+          throw Error('Node selection reset chosen size')
+        if (planAnalysisCalls !== 0 || unexpectedQueryCalls !== 0)
+          throw Error('Resize executed a query or AI request')
+      }
+      for (const [name, width, height] of [
+        ['tall', 1440, 1000],
+        ['narrow', 900, 900],
+        ['short', 1440, 650],
+      ]) {
+        win.setContentSize(width, height)
+        await win.webContents.executeJavaScript(
+          'new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))',
+        )
+        if (name !== 'tall') {
+          await win.webContents.executeJavaScript(
+            `[...document.querySelectorAll('button')].find(button=>button.textContent.trim()==='Fit plan').click()`,
+          )
+          await win.webContents.executeJavaScript(
+            'new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))',
+          )
+        }
+        const geometry = await win.webContents.executeJavaScript(`(() => {
+          const diagram=document.querySelector('[aria-label="Execution plan diagram"]'),r=diagram.getBoundingClientRect()
+          return {width:innerWidth,height:innerHeight,diagram:{x:r.x,y:r.y,width:r.width,height:r.height},declaredNodes:Number(diagram.dataset.nodeCount),renderedNodes:diagram.querySelectorAll('[data-node-id]').length}
+        })()`)
+        if (
+          geometry.declaredNodes !== 7 ||
+          geometry.renderedNodes === 0 ||
+          geometry.diagram.width < 280 ||
+          geometry.diagram.height < 300
+        )
+          throw Error('Invalid layout capture ' + JSON.stringify(geometry))
+        measurements.push({ name, ...geometry })
+        await writeFile(
+          resolve(output, 'explain-layout-' + name + '.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        )
+      }
+      if (process.env.DATAKOALA_EXPLAIN_RESIZE === '1') {
+        const js = (code) => win.webContents.executeJavaScript(code)
+        const settle = () =>
+          js(
+            'new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))',
+          )
+        const chosen = await js(
+          `Number(document.querySelector('[data-plan-height]').dataset.planHeight)`,
+        )
+        await js(
+          `(()=>{const s=window.__datakoalaStore;s.setState({tabs:s.getState().tabs.map(t=>({...t,explainTree:{...t.explainTree,children:[]}}))})})()`,
+        )
+        await wait(
+          win,
+          `document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.nodeCount==='1'`,
+          'short plan',
+        )
+        await settle()
+        if (
+          (await js(
+            `Number(document.querySelector('[data-plan-height]').dataset.planHeight)`,
+          )) !== chosen
+        )
+          throw Error('Short plan replacement reset height')
+        await js(
+          `document.querySelector('button[aria-label="Zoom in"]').click()`,
+        )
+        const box = await js(
+          `document.querySelector('[aria-label="Execution plan diagram"]').getBoundingClientRect().toJSON()`,
+        )
+        const transform = () =>
+          js(
+            `document.querySelector('[aria-label="Execution plan diagram"] .joint-layers')?.getAttribute('transform')`,
+          )
+        const beforePan = await transform(),
+          x = Math.round(box.x + box.width * 0.85),
+          y = Math.round(box.y + 80)
+        win.webContents.sendInputEvent({ type: 'mouseMove', x, y })
+        win.webContents.sendInputEvent({
+          type: 'mouseDown',
+          button: 'left',
+          clickCount: 1,
+          x,
+          y,
+        })
+        win.webContents.sendInputEvent({
+          type: 'mouseMove',
+          button: 'left',
+          x: x - 50,
+          y: y + 30,
+        })
+        win.webContents.sendInputEvent({
+          type: 'mouseUp',
+          button: 'left',
+          x: x - 50,
+          y: y + 30,
+        })
+        await settle()
+        const afterPan = await transform()
+        if (!beforePan || beforePan === afterPan)
+          throw Error('Native pan did not change graph transform')
+        await js(
+          `[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Fit plan').click()`,
+        )
+        await settle()
+        if (
+          (await js(
+            `Number(document.querySelector('[data-plan-height]').dataset.planHeight)`,
+          )) !== chosen ||
+          planAnalysisCalls ||
+          unexpectedQueryCalls
+        )
+          throw Error('Pan/Fit/short plan changed height or executed work')
+        measurements.push({
+          name: 'short-plan-pan-fit',
+          height: chosen,
+          beforePan,
+          afterPan,
+          queryCalls: unexpectedQueryCalls,
+          aiCalls: planAnalysisCalls,
+        })
+        await writeFile(
+          resolve(output, 'explain-short-plan-resized.png'),
+          (await win.webContents.capturePage()).toPNG(),
+        )
+      }
+      await writeFile(
+        resolve(output, 'layout-measurements.json'),
+        JSON.stringify(
+          {
+            sourceHead: process.env.DATAKOALA_AUDIT_HEAD,
+            measurements,
+            unexpectedQueryCalls,
+            planAnalysisCalls,
+            transport: 'synthetic plan; actual native JointJS rendering',
+            humanAcceptance: 'Pending',
+          },
+          null,
+          2,
+        ),
+      )
+      app.quit()
+      return
+    }
+
     previewStep = 'configure and run AI analysis'
     await sleep(250)
     previewStep = 'inspect unconfigured Explain state'
@@ -349,10 +638,6 @@ app.whenReady().then(async () => {
     await sleep(100)
     previewStep = 'validate initial AI selection'
     const aiReportScript = `({
-      calls: ${planAnalysisCalls},
-      sql: ${JSON.stringify(capturedPlanRequest?.sql ?? null)},
-      mode: ${JSON.stringify(capturedPlanRequest?.mode ?? null)},
-      planNodeCount: ${capturedPlanRequest?.plan?.nodes?.length ?? 0},
       selectedNodeId: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.selectedNodeId,
       focusNodeId: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.focusNodeId,
       highlights: document.querySelector('[aria-label="Execution plan diagram"]')?.dataset.highlightedNodeIds?.split(',').filter(Boolean) ?? [],
@@ -361,7 +646,13 @@ app.whenReady().then(async () => {
     })\n//# sourceURL=datakoala-ai-hint-report.js`
     let aiReport
     try {
-      aiReport = await win.webContents.executeJavaScript(aiReportScript)
+      aiReport = {
+        calls: planAnalysisCalls,
+        sql: capturedPlanRequest?.sql ?? null,
+        mode: capturedPlanRequest?.mode ?? null,
+        planNodeCount: capturedPlanRequest?.plan?.nodes?.length ?? 0,
+        ...(await win.webContents.executeJavaScript(aiReportScript)),
+      }
     } catch (error) {
       console.error(`Initial AI report script: ${aiReportScript}`)
       throw error

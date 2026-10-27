@@ -1,0 +1,32 @@
+.root {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.graph {
+  display: flex;
+  min-width: 0;
+}
+
+.separator {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-2);
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.separator:hover,
+.separator:focus-visible {
+  color: var(--text);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}

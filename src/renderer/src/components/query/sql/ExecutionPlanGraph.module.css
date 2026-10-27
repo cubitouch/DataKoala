@@ -3,7 +3,7 @@
   display: flex;
   flex: 1;
   min-width: 0;
-  min-height: 380px;
+  min-height: 0;
   flex-direction: column;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -30,7 +30,7 @@
 .canvas {
   position: relative;
   flex: 1;
-  min-height: 340px;
+  min-height: 0;
   overflow: hidden;
   background: var(--bg);
   touch-action: none;
@@ -55,14 +55,4 @@
 .paper :global([data-node-id]:focus-visible rect) {
   stroke: var(--text);
   stroke-width: 3px;
-}
-
-@media (width <= 900px) {
-  .root {
-    min-height: 340px;
-  }
-
-  .canvas {
-    min-height: 300px;
-  }
 }

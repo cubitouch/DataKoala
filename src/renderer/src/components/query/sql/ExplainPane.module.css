@@ -134,7 +134,8 @@
 
 .planLayout {
   display: flex;
-  align-items: stretch;
+  flex: 0 0 auto;
+  align-items: flex-start;
   gap: 12px;
   min-width: 0;
 }
