@@ -131,6 +131,8 @@ function resultColumnToComboboxOption(column: ColumnMeta): ComboboxOption {
 }
 
 export interface GenericResultExplorerProps {
+  analysisOwnerTabId?: string
+  analysisOwnerScope?: string
   mode: 'sql' | 'builder'
   dimensionControls?: 'result' | 'external'
   hasRun?: boolean
@@ -163,6 +165,8 @@ export interface GenericResultExplorerProps {
   onReconnect?: () => void
 }
 export function GenericResultExplorer({
+  analysisOwnerTabId,
+  analysisOwnerScope,
   mode,
   dimensionControls = 'result',
   hasRun = true,
@@ -205,6 +209,7 @@ export function GenericResultExplorer({
   )
   const [showRunning, setShowRunning] = useState(false)
   const [aiConfigured, setAiConfigured] = useState(false)
+  const [aiSettingsReady, setAiSettingsReady] = useState(false)
   const [chartLegendWidth, setChartLegendWidth] = useState(readChartLegendWidth)
   const chartCanvasRef = useRef<HTMLDivElement | null>(null)
   const hoveredSeriesIdentity = useRef<string | undefined>(undefined)
@@ -266,15 +271,20 @@ export function GenericResultExplorer({
       const getSettings = api?.ai?.settings?.get
       if (!getSettings) {
         setAiConfigured(false)
+        setAiSettingsReady(true)
         return
       }
       void getSettings()
         .then((result) => {
           if (!active) return
           setAiConfigured(result.ok && isAiConfigured(result.value))
+          setAiSettingsReady(true)
         })
         .catch(() => {
-          if (active) setAiConfigured(false)
+          if (active) {
+            setAiConfigured(false)
+            setAiSettingsReady(true)
+          }
         })
     }
     refresh()
@@ -320,7 +330,6 @@ export function GenericResultExplorer({
     seriesColumn: effectiveConfiguration.seriesColumn,
     seriesColumns: effectiveConfiguration.seriesColumns,
     activeFilters,
-    chartTimeDomain,
     timeBucket,
   })
   useEffect(() => {
@@ -443,10 +452,14 @@ export function GenericResultExplorer({
     error: aiAnalysisError,
     analyzing: aiAnalyzing,
     analyze: analyzeChartWithAi,
+    cancel: cancelChartAnalysis,
     setAnomaliesVisible: setAiAnomaliesVisible,
   } = useChartAnomalyAnalysis({
     result,
     owner: onAddFilter,
+    ownerTabId: analysisOwnerTabId,
+    ownerScope: analysisOwnerScope,
+    settingsReady: aiSettingsReady,
     contextKey: aiContextKey,
     configured: aiConfigured,
     chart,
@@ -1118,6 +1131,15 @@ export function GenericResultExplorer({
                   {aiAnalyzing ? 'Analyzing with AI…' : 'Analyze with AI'}
                 </button>
               )}
+            {aiAnalyzing && (
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={cancelChartAnalysis}
+              >
+                Cancel analysis
+              </button>
+            )}
             {aiAnalysis && aiAnalysis.anomalies.length > 0 && (
               <button
                 className="btn ghost"

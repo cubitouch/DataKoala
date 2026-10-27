@@ -1,3 +1,5 @@
+import { createQuerySession, useStore } from '@store/useStore'
+import { resolveAiAnomalies } from '@lib/chartAnomalyMapping'
 // @vitest-environment jsdom
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -298,3 +300,129 @@ it('invalidates a replacement even when no visible series has enough points', as
   expect(result.current.analysis).toBeNull()
   expect(result.current.error).toContain('three numeric points')
 })
+
+function seedOwners() {
+  const a = createQuerySession(1, { id: 'analysis-A' }),
+    b = createQuerySession(2, { id: 'analysis-B' })
+  a.result = input.result
+  a.resultRevision = 1
+  b.result = { ...input.result }
+  b.resultRevision = 1
+  useStore.setState({ tabs: [a, b], activeTabId: a.id })
+}
+it('retains completed owner analysis, exact sample mapping and visibility across unmount/return', async () => {
+  seedOwners()
+  const props = { ...input, ownerTabId: 'analysis-A' }
+  const first = renderHook(() => useChartAnomalyAnalysis(props))
+  await act(async () => first.result.current.analyze())
+  const samples = first.result.current.submittedSamples
+  act(() => first.result.current.setAnomaliesVisible(() => false))
+  first.unmount()
+  const returned = renderHook(() =>
+    useChartAnomalyAnalysis({ ...props, owner: {} }),
+  )
+  expect(returned.result.current.analysis).toEqual(success.ok && success.value)
+  expect(returned.result.current.submittedSamples).toBe(samples)
+  expect(returned.result.current.anomaliesVisible).toBe(false)
+  act(() => returned.result.current.setAnomaliesVisible(() => true))
+  expect(
+    resolveAiAnomalies(
+      returned.result.current.analysis!,
+      samples!,
+      input.chart.series,
+      input.chart.xValues,
+      {},
+    ),
+  ).toMatchObject([{ originalIndex: 1, x: 20, y: 100 }])
+  expect(mocks.analyze).toHaveBeenCalledTimes(1)
+  expect(mocks.cancel).not.toHaveBeenCalled()
+})
+it('keeps A/B independent and publishes delayed inactive A completion without another AI call', async () => {
+  seedOwners()
+  const pending = deferred()
+  mocks.analyze.mockReturnValueOnce(pending.promise)
+  const a = renderHook(() =>
+    useChartAnomalyAnalysis({ ...input, ownerTabId: 'analysis-A' }),
+  )
+  let flight!: Promise<void>
+  act(() => {
+    flight = a.result.current.analyze()
+  })
+  a.unmount()
+  const bResult = useStore.getState().tabs[1].result
+  const b = renderHook(() =>
+    useChartAnomalyAnalysis({
+      ...input,
+      result: bResult,
+      ownerTabId: 'analysis-B',
+    }),
+  )
+  await act(async () => b.result.current.analyze())
+  await act(async () => {
+    pending.resolve({
+      ...success,
+      ...(success.ok ? { value: { ...success.value, summary: 'A only' } } : {}),
+    })
+    await flight
+  })
+  expect(b.result.current.analysis?.summary).toBe('Current analysis')
+  b.unmount()
+  const returned = renderHook(() =>
+    useChartAnomalyAnalysis({
+      ...input,
+      ownerTabId: 'analysis-A',
+      configured: false,
+      settingsReady: false,
+    }),
+  )
+  expect(returned.result.current.analysis?.summary).toBe('A only')
+  expect(returned.result.current.analyzing).toBe(false)
+  expect(mocks.analyze).toHaveBeenCalledTimes(2)
+  expect(mocks.cancel).not.toHaveBeenCalled()
+})
+it.each(['replacement', 'removal'])(
+  'retires an inactive owner on %s and ignores its late completion',
+  async (kind) => {
+    seedOwners()
+    const pending = deferred()
+    mocks.analyze.mockReturnValueOnce(pending.promise)
+    const view = renderHook(() =>
+      useChartAnomalyAnalysis({ ...input, ownerTabId: 'analysis-A' }),
+    )
+    let flight!: Promise<void>
+    act(() => {
+      flight = view.result.current.analyze()
+    })
+    view.unmount()
+    act(() =>
+      useStore.setState((state) => ({
+        tabs:
+          kind === 'removal'
+            ? state.tabs.filter((tab) => tab.id !== 'analysis-A')
+            : state.tabs.map((tab) =>
+                tab.id === 'analysis-A'
+                  ? { ...tab, result: { ...input.result }, resultRevision: 2 }
+                  : tab,
+              ),
+      })),
+    )
+    expect(mocks.cancel).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      pending.resolve(success)
+      await flight
+    })
+    if (kind === 'replacement') {
+      const returned = renderHook(() =>
+        useChartAnomalyAnalysis({
+          ...input,
+          result: useStore.getState().tabs[0].result,
+          contextKey: 'replacement',
+          ownerTabId: 'analysis-A',
+        }),
+      )
+      expect(returned.result.current.analysis).toBeNull()
+      await act(async () => returned.result.current.analyze())
+      expect(returned.result.current.analysis).not.toBeNull()
+    }
+  },
+)
