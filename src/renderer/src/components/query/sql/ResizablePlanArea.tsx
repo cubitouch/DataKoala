@@ -26,7 +26,10 @@ export function ResizablePlanArea({ children }: { children: ReactNode }) {
     const element = root.current
     const measure = () => {
       const top = element?.getBoundingClientRect().top ?? 0
-      const max = Math.max(120, Math.floor(window.innerHeight - top - 60))
+      const max = Math.max(
+        120,
+        Math.floor(window.innerHeight - Math.max(0, top) - 60),
+      )
       const min = Math.min(240, max)
       setBounds((previous) =>
         previous.min === min && previous.max === max ? previous : { min, max },

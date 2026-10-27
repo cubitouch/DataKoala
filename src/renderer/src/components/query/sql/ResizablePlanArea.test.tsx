@@ -39,6 +39,13 @@ it('resizes the actual graph slot with keys, preserves it on rerender, and clamp
   })
   act(() => window.dispatchEvent(new Event('resize')))
   expect(value(handle)).toBeLessThanOrEqual(360)
+  // A graph scrolled above the viewport must not acquire a larger resize cap.
+  const position = vi
+    .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    .mockReturnValue({ top: -500 } as DOMRect)
+  act(() => window.dispatchEvent(new Event('resize')))
+  expect(Number(handle.getAttribute('aria-valuemax'))).toBeLessThanOrEqual(360)
+  position.mockRestore()
   fireEvent.keyDown(handle, { key: 'Home' })
   fireEvent.keyDown(handle, { key: 'ArrowUp' })
   expect(value(handle)).toBe(Number(handle.getAttribute('aria-valuemin')))
