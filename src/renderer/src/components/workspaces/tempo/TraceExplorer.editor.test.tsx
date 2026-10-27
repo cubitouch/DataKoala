@@ -697,6 +697,8 @@ describe('TraceExplorer TraceQL editor', () => {
       ),
     ).toBeNull()
     expect(screen.getByText('1 sampled trace')).toBeTruthy()
+    expect(api.query.run).toHaveBeenCalledTimes(1)
+    select('Re-analyze')
     await waitFor(() => expect(api.query.run).toHaveBeenCalledTimes(2))
     expect(vi.mocked(api.query.run).mock.calls[1][1]).toBe(
       result.rows[1].traceId,

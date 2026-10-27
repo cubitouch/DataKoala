@@ -31,11 +31,11 @@ describe('TraceSearchResults', () => {
   it('renders a dedicated picker/count bar, preserves a non-routine notice, and shows only active List content', () => {
     renderResults()
     expect(
-      [
-        ...document.querySelectorAll(
+      Array.from(
+        document.querySelectorAll(
           '[data-trace-view-bar] [role=toolbar] button',
         ),
-      ].map((b) => b.getAttribute('aria-label')),
+      ).map((b) => b.getAttribute('aria-label')),
     ).toEqual(['List', 'Scatter', 'Service map'])
 
     expect(screen.queryByRole('heading', { name: 'Trace search' })).toBeNull()

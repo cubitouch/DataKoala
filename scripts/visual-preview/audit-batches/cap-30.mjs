@@ -316,6 +316,7 @@ export async function runVisualAudit({ win, outputDir, waitFor, capture }) {
   await waitFor(win,'!window.__datakoalaStore.getState().tabs[0].running','Tempo synthetic Run')
   await waitFor(win,'document.querySelectorAll("button[class*=traceResult]").length===1','Tempo one trace')
   await button('Service map')
+  await button('Re-analyze')
   await waitFor(win,'document.querySelector("[data-trace-service-map]")?.dataset.visualFinished==="true"','Tempo graph ready')
   const graph = await js('(() => {const e=document.querySelector("[data-trace-service-map]");return {nodes:Number(e.dataset.visualNodes),edges:Number(e.dataset.visualEdges),traces:Number(e.dataset.visualTraces),svgText:e.querySelector("[data-joint-service-map] svg")?.textContent ?? ""}})()')
   assert.deepEqual([graph.traces,graph.nodes,graph.edges],[1,3,2])
