@@ -172,6 +172,7 @@ export function TraceExplorer({
         updateSearchRowStatus(openedTraceId, status),
     })
   const {
+    searchBounds,
     searchRows,
     searchNotice,
     searchProgress,
@@ -885,6 +886,8 @@ export function TraceExplorer({
             <TraceScatterChart
               option={scatterOption}
               searchRange={searchRange}
+              loadedRange={searchBounds}
+              localRange={localRange}
               onEvents={scatterEvents}
               onSelectRange={setLocalRange}
             />

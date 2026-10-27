@@ -763,6 +763,25 @@ app.whenReady().then(async () => {
       win,
       `[...document.querySelectorAll('button[aria-pressed="true"]')].some((button) => button.textContent.includes('Show anomalies')) && [...document.querySelectorAll('button')].some((button) => button.textContent.includes('AI details (2)'))`,
     )
+    // #528: the production query-tab consumer must restore the same overlay
+    // and submitted point mapping after a real workspace unmount/return.
+    await win.webContents.executeJavaScript(`(() => {
+      const store=window.__datakoalaStore,state=store.getState()
+      window.__anomalyOrigin=state.activeTabId
+      const origin=state.tabs.find(tab=>tab.id===state.activeTabId)
+      const other={...origin,id:'anomaly-unrelated',title:'Unrelated tab',queryContextId:'anomaly-other-context',queryOperation:null,result:null,resultRevision:0,running:false}
+      store.setState({tabs:[...state.tabs,other],activeTabId:other.id})
+    })()`)
+    await wait(win, `!document.body.innerText.includes('AI details (2)')`)
+    await win.webContents.executeJavaScript(
+      `window.__datakoalaStore.setState({activeTabId:window.__anomalyOrigin})`,
+    )
+    await wait(
+      win,
+      `[...document.querySelectorAll('button[aria-pressed="true"]')].some(button=>button.textContent.includes('Show anomalies')) && document.body.innerText.includes('AI details (2)')`,
+    )
+    if (anomalyAnalysisRuns !== 1 || queryRuns !== 0)
+      throw new Error('Returning to analyzed tab dispatched AI/query work')
     win.setSize(1100, 700)
     await settlePaint(win)
     await settlePaint(win)

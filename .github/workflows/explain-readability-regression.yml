@@ -5,6 +5,7 @@ on:
     paths:
       - 'src/renderer/src/components/query/sql/ExplainPane*'
       - 'src/renderer/src/components/query/sql/ExecutionPlanGraph*'
+      - 'src/renderer/src/components/query/sql/ResizablePlanArea*'
       - 'scripts/capture-explain-preview.mjs'
       - '.github/workflows/explain-readability-regression.yml'
 
@@ -45,6 +46,7 @@ jobs:
       - name: Capture readable branching plan on final head
         env:
           DATAKOALA_EXPLAIN_LAYOUT_ONLY: '1'
+          DATAKOALA_EXPLAIN_RESIZE: '1'
           DATAKOALA_AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
         run: DATAKOALA_PREVIEW_OUTPUT=explain-readability-regression/after xvfb-run --auto-servernum --server-args='-screen 0 1440x1000x24' pnpm exec electron --no-sandbox scripts/capture-explain-preview.mjs
       - uses: actions/upload-artifact@v7

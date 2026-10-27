@@ -13,6 +13,8 @@ export interface TraceScatterRange {
 interface TraceScatterChartProps {
   option: Record<string, unknown>
   searchRange: BuilderTimeRange
+  loadedRange?: TraceScatterRange | null
+  localRange?: TraceScatterRange | null
   onSelectRange: (range: TraceScatterRange) => void
   onEvents?: Record<string, (value: unknown) => void>
 }
@@ -50,20 +52,31 @@ export function traceScatterLocalRange(
 export function TraceScatterChart({
   option,
   searchRange,
+  loadedRange,
+  localRange,
   onSelectRange,
   onEvents = {},
 }: TraceScatterChartProps) {
   const ref = useRef<EChartsReact | null>(null)
   const [finishedRevision, setFinishedRevision] =
     useState<ChartRevision | null>(null)
-  const domain = useMemo(() => {
+  const originalDomain = useMemo(() => {
+    if (loadedRange)
+      return { start: loadedRange.startMs, end: loadedRange.endMs }
     try {
       const bounds = prometheusRangeBounds(searchRange)
       return { start: Date.parse(bounds.start), end: Date.parse(bounds.end) }
     } catch {
       return null
     }
-  }, [searchRange])
+  }, [searchRange, loadedRange])
+  const domain = useMemo(
+    () =>
+      localRange
+        ? { start: localRange.startMs, end: localRange.endMs }
+        : originalDomain,
+    [localRange, originalDomain],
+  )
   const renderedOption = useMemo(
     () => ({
       ...option,

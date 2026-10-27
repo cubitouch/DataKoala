@@ -185,6 +185,19 @@ export function builderProposalRequest(
 ): AiBuilderProposalRequest {
   try {
     const input = record(value)
+    if (
+      typeof input.prompt === 'string' &&
+      input.prompt.length > AI_LIMITS.prompt
+    )
+      throw new AiError(
+        'validation',
+        'Builder AI prompt is too long. Shorten the request and try again.',
+      )
+    if (JSON.stringify(input).length > AI_LIMITS.contextCharacters)
+      throw new AiError(
+        'validation',
+        'Builder AI context is too large. Use fewer columns or a shorter request.',
+      )
     exactKeys(
       input,
       ['requestId', 'prompt', 'state', 'columns'],
@@ -216,13 +229,19 @@ export function builderProposalRequest(
       state: cleanBuilderState(input.state),
       columns,
     }
-    if (JSON.stringify(request).length > AI_LIMITS.contextCharacters)
-      throw new Error()
-    validateBuilderTarget(request.state, request.columns)
+    // Current controls may be incomplete; proposals still require a valid target.
+    validateBuilderTarget(request.state, request.columns, false)
     return request
   } catch (error) {
-    if (error instanceof AiError) throw error
-    throw new AiError('validation', 'Invalid or oversized Builder AI request.')
+    if (
+      error instanceof AiError &&
+      error.message !== 'Invalid or oversized AI input.'
+    )
+      throw error
+    throw new AiError(
+      'validation',
+      'Invalid Builder AI fields or column metadata. Refresh the selected relation and check its axes and time column.',
+    )
   }
 }
 
@@ -259,6 +278,7 @@ const cleanBuilderPatch = (value: unknown): AiBuilderPatch => {
 const validateBuilderTarget = (
   target: AiBuilderState,
   columns: AiBuilderProposalRequest['columns'],
+  requireComplete = true,
 ) => {
   const byName = new Map(columns.map((column) => [column.name, column]))
   const x = target.xColumn ? byName.get(target.xColumn) : undefined
@@ -268,7 +288,7 @@ const validateBuilderTarget = (
     throw new Error()
   if (
     !BUILDER_AGGREGATIONS.includes(target.aggregation) ||
-    (target.aggregation !== 'count' && !y) ||
+    (requireComplete && target.aggregation !== 'count' && !y) ||
     (target.xColumn && target.xColumn === target.valueColumn)
   )
     throw new Error()
@@ -281,7 +301,10 @@ const validateBuilderTarget = (
   )
     throw new Error()
   if (target.timeRange) {
-    if (!target.timeColumn || validateBuilderTimeRange(target.timeRange))
+    if (
+      (requireComplete && !target.timeColumn) ||
+      validateBuilderTimeRange(target.timeRange)
+    )
       throw new Error()
     if (
       target.timeBucket === 'minute' &&

@@ -375,3 +375,61 @@ test('Builder request rejects attempts to add unrelated request state', () => {
     { code: 'validation' },
   )
 })
+
+test('incomplete current controls are valid context while target proposals remain complete and grounded', () => {
+  const partial = {
+    ...request,
+    prompt: 'creation_datetime please',
+    state: {
+      ...request.state,
+      valueColumn: null,
+      aggregation: 'sum' as const,
+      timeColumn: null,
+      timeRange: undefined,
+    },
+    columns: [
+      ...columns,
+      { name: 'creation_datetime', dataType: 'timestamptz' },
+    ],
+  }
+  assert.doesNotThrow(() => builderProposalRequest(partial))
+  assert.throws(
+    () => builderStep(proposal({ timeColumn: 'creation_datetime' }), partial),
+    { code: 'invalid-response' },
+  )
+  assert.equal(
+    builderStep(
+      proposal({ timeColumn: 'creation_datetime', aggregation: 'count' }),
+      partial,
+    ).kind,
+    'proposal',
+  )
+  assert.throws(
+    () =>
+      builderProposalRequest({
+        ...partial,
+        state: { ...partial.state, timeColumn: 'country' },
+      }),
+    { code: 'validation' },
+  )
+  assert.throws(
+    () =>
+      builderProposalRequest({
+        ...partial,
+        prompt: 'x'.repeat(AI_LIMITS.contextCharacters),
+      }),
+    /too long/,
+  )
+  assert.throws(
+    () =>
+      builderProposalRequest({
+        ...partial,
+        columns: Array.from({ length: 40 }, (_, i) => ({
+          name: `${i}_` + 'x'.repeat(250),
+          dataType: 't'.repeat(256),
+        })),
+        prompt: 'x'.repeat(AI_LIMITS.prompt),
+      }),
+    /context is too large/,
+  )
+})

@@ -38,10 +38,10 @@ const adapter = new BigQueryAdapter(
         return [
           {
             getQueryResults: async () => [
-              [{ metric: 1 }],
+              [{ category: 'A', metric: 1 }, { category: 'B', metric: 2 }, { category: 'C', metric: 3 }],
               { pageToken: 'more' },
               {
-                schema: { fields: [{ name: 'metric', type: 'INT64' }] },
+                schema: { fields: [{ name: 'category', type: 'STRING' }, { name: 'metric', type: 'INT64' }] },
                 totalRows: '12',
               },
             ],

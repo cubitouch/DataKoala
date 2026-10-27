@@ -165,6 +165,8 @@ export function ResultExplorer({
 
   return (
     <GenericResultExplorer
+      analysisOwnerTabId={tabId}
+      analysisOwnerScope={mode}
       mode={mode}
       dimensionControls={dimensionControls}
       hasRun={hasRun}
