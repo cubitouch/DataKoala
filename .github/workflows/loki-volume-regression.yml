@@ -6,6 +6,7 @@ on:
       - 'src/renderer/src/components/workspaces/loki/**'
       - 'src/renderer/src/store/**'
       - 'scripts/visual-preview/audit-batches/manual-25.mjs'
+      - 'scripts/visual-preview/audit-batches/manual-542.mjs'
       - '.github/workflows/loki-volume-regression.yml'
 
 permissions:
@@ -28,12 +29,28 @@ jobs:
       - name: Install display dependencies
         run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libgbm1 libnss3 libasound2t64
       - run: pnpm build
+      - name: Capture affected base with identical transition fixtures
+        env:
+          BEFORE_SHA: 25c19a2efbd69a7f99560b987256db07aac25b1a
+          DATAKOALA_VIEW542_BASELINE: '1'
+          DATAKOALA_PREVIEW_KIND: audit
+          DATAKOALA_AUDIT_BATCH: manual-25
+          DATAKOALA_AUDIT_HEAD: 25c19a2efbd69a7f99560b987256db07aac25b1a
+        run: |
+          git fetch origin "$BEFORE_SHA" --depth=1
+          previous="$RUNNER_TEMP/loki542-before"
+          git worktree add --detach "$previous" "$BEFORE_SHA"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$previous/node_modules"
+          cp scripts/visual-preview/audit-batches/manual-{25,542}.mjs "$previous/scripts/visual-preview/audit-batches/"
+          cd "$previous"
+          pnpm exec electron-vite build
+          DATAKOALA_PREVIEW_OUTPUT="$GITHUB_WORKSPACE/loki-volume-regression/before" xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
       - name: Verify counted loaded and pending native view returns
         env:
           DATAKOALA_PREVIEW_KIND: audit
           DATAKOALA_AUDIT_BATCH: manual-25
           DATAKOALA_AUDIT_HEAD: ${{ github.event.pull_request.head.sha }}
-          DATAKOALA_PREVIEW_OUTPUT: loki-volume-regression
+          DATAKOALA_PREVIEW_OUTPUT: loki-volume-regression/after
         run: xvfb-run --auto-servernum --server-args='-screen 0 1440x900x24' pnpm exec electron --no-sandbox scripts/capture-visual-preview.mjs
       - uses: actions/upload-artifact@v7
         if: always()

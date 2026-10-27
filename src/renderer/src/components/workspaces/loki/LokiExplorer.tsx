@@ -63,6 +63,24 @@ const unfilteredUnavailable =
 // Loki owns its chart dimensions, so provide one stable empty adapter value rather than
 // falling through to the component's per-render [] default.
 const EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS: string[] = []
+const DEFAULT_TREND_CONFIGURATION: Omit<VisualizationConfiguration, 'view'> = {
+  xColumn: 'timestamp',
+  valueColumn: 'value',
+  aggregation: 'sum',
+  seriesColumn: null,
+  seriesColumns: [],
+  hierarchyDimensions: [],
+  valueAxisScale: 'linear',
+}
+const LOG_TABLE_CONFIGURATION: VisualizationConfiguration = {
+  ...DEFAULT_TREND_CONFIGURATION,
+  view: 'table',
+  xColumn: 'timestampMs',
+  valueColumn: null,
+}
+// A raw-log table has no chart controls. Its inferred columns must not rewrite
+// the separate numeric volume configuration.
+const ignoreLogTableConfiguration = () => undefined
 function interval(start: string, end: string): string {
   const targetSeconds = Math.max(
     1,
@@ -163,17 +181,9 @@ export function LokiExplorer({
     source: string
     query: string
   } | null>(null)
-  const [trendVisualization, setTrendVisualization] =
-    useState<VisualizationConfiguration>({
-      view: 'line',
-      xColumn: 'timestamp',
-      valueColumn: 'value',
-      aggregation: 'sum',
-      seriesColumn: null,
-      seriesColumns: [],
-      hierarchyDimensions: [],
-      valueAxisScale: 'linear',
-    })
+  const [trendVisualization, setTrendVisualization] = useState<
+    Omit<VisualizationConfiguration, 'view'>
+  >(DEFAULT_TREND_CONFIGURATION)
   const generatedFormatRevision = useRef(0),
     rawFormatRevision = useRef(0),
     hasRun = useRef(Boolean(session.result)),
@@ -321,19 +331,51 @@ export function LokiExplorer({
     setError(null)
     setWarning(null)
   }, [session.id, connectionId, connectionGeneration, canLoadMetadata])
+  useLayoutEffect(() => {
+    setTrendVisualization(DEFAULT_TREND_CONFIGURATION)
+  }, [session.id, connectionId])
   useEffect(() => {
-    if (!isLokiChartView(resultView)) return
     setTrendVisualization((current) => ({
       ...current,
-      view: resultView,
-      xColumn: 'timestamp',
-      valueColumn: 'value',
-      aggregation: 'sum',
       seriesColumn: groupBy.length === 1 ? groupBy[0] : null,
       seriesColumns: groupBy.length > 1 ? groupBy : [],
       hierarchyDimensions: groupBy,
     }))
-  }, [resultView, groupBy, session.id])
+  }, [groupBy, session.id, connectionId])
+  const onTrendVisualizationChange = useCallback(
+    ({ view, ...configuration }: VisualizationConfiguration) => {
+      const current = useStore.getState()
+      const active = selectActiveSession(current)
+      if (
+        !isLokiChartView(view) ||
+        !isCurrentTab(session.id) ||
+        active.connectionProfileId !== connectionId ||
+        active.lokiResultView !== resultView ||
+        current.connectionStateByProfileId[connectionId]?.generation !==
+          connectionGeneration ||
+        active.lokiVolume?.key !== currentVolumeKey ||
+        active.lokiVolume?.result !== trend
+      )
+        return
+      setTrendVisualization(configuration)
+    },
+    [
+      connectionId,
+      connectionGeneration,
+      currentVolumeKey,
+      isCurrentTab,
+      resultView,
+      session.id,
+      trend,
+    ],
+  )
+  const trendConfiguration = useMemo<VisualizationConfiguration>(
+    () => ({
+      ...trendVisualization,
+      view: isLokiChartView(resultView) ? resultView : 'line',
+    }),
+    [trendVisualization, resultView],
+  )
 
   const loadTrend = useCallback(
     async (
@@ -989,11 +1031,11 @@ export function LokiExplorer({
                   error={session.queryError}
                   isResultStale={session.isResultStale}
                   reconnecting={connectionReconnecting}
-                  configuration={{ ...trendVisualization, view: 'table' }}
+                  configuration={LOG_TABLE_CONFIGURATION}
                   seriesVisibility={session.seriesVisibility}
                   activeFilters={logResultFilters}
                   hidePicker
-                  onConfigurationChange={setTrendVisualization}
+                  onConfigurationChange={ignoreLogTableConfiguration}
                   onSeriesVisibilityChange={onSeriesVisibilityChange}
                   onAddFilter={onAddResultFilter}
                   onRemoveFilter={onRemoveResultFilter}
@@ -1034,11 +1076,11 @@ export function LokiExplorer({
                   error={session.queryError}
                   isResultStale={session.isResultStale}
                   reconnecting={connectionReconnecting}
-                  configuration={trendVisualization}
+                  configuration={trendConfiguration}
                   seriesVisibility={session.seriesVisibility}
                   activeFilters={session.sqlResultFilters}
                   hidePicker
-                  onConfigurationChange={setTrendVisualization}
+                  onConfigurationChange={onTrendVisualizationChange}
                   onSeriesVisibilityChange={onSeriesVisibilityChange}
                   onAddFilter={onAddResultFilter}
                   onRemoveFilter={onRemoveResultFilter}
