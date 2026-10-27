@@ -286,3 +286,33 @@ describe('TraceScatterChart brush lifecycle', () => {
     expect(click).toHaveBeenCalledWith(point)
   })
 })
+
+it('fits the active interval and restores frozen loaded bounds without drifting a relative range', () => {
+  const loadedRange = { startMs: 100000, endMs: 3700000 }
+  const rolling = { kind: 'rolling' as const, amount: 1, unit: 'hour' as const }
+  const props = {
+    option,
+    searchRange: rolling,
+    loadedRange,
+    onSelectRange: vi.fn(),
+  }
+  const view = render(<TraceScatterChart {...props} />)
+  expect(chart.props?.option.xAxis).toMatchObject({ min: 100000, max: 3700000 })
+  view.rerender(
+    <TraceScatterChart
+      {...props}
+      localRange={{ startMs: 125678, endMs: 160999 }}
+    />,
+  )
+  expect(chart.props?.option.xAxis).toMatchObject({ min: 125678, max: 160999 })
+  view.rerender(
+    <TraceScatterChart
+      {...props}
+      option={{ series: [] }}
+      localRange={{ startMs: 140000, endMs: 140001 }}
+    />,
+  )
+  expect(chart.props?.option.xAxis).toMatchObject({ min: 140000, max: 140001 })
+  view.rerender(<TraceScatterChart {...props} localRange={null} />)
+  expect(chart.props?.option.xAxis).toMatchObject({ min: 100000, max: 3700000 })
+})
