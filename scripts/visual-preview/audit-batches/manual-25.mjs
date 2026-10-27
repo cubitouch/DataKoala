@@ -4,9 +4,10 @@ import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { installAuditIpc as installBase } from '../audit.mjs'
 import { auditProfiles, auditRange, auditLogResult } from '../audit-fixtures.mjs'
+import { runLokiViewTransitionAudit, transitionScreenshots } from './manual-542.mjs'
 import { rendererValue as data } from '../renderer-value.mjs'
-export const screenshots = ['volume-loaded-return.png', 'volume-pending-return.png', 'volume-bar-after-patterns.png']
-let calls, releaseVolume
+export const screenshots = ['volume-loaded-return.png', 'volume-pending-return.png', 'volume-bar-after-patterns.png', ...transitionScreenshots]
+let calls, releaseVolume, auditIpc
 const metrics = {
   resultKind: 'metrics',
   columns: [{name:'timestamp',dataTypeID:0,dataTypeName:'timestamp'},{name:'value',dataTypeID:0,dataTypeName:'number'}],
@@ -14,7 +15,7 @@ const metrics = {
   rowCount:12,durationMs:1,execution:{provider:'loki',durationMs:1},
 }
 export function installAuditIpc(ipc) {
-  installBase(ipc); calls=[];releaseVolume=null
+  installBase(ipc); calls=[];releaseVolume=null;auditIpc=ipc
   ipc.removeHandler('connections:loki:format-query')
   ipc.handle('connections:loki:format-query', (_event,_id,query)=>query.replace(/\s*\|=/,'\n|='))
   ipc.removeHandler('query:run-loki')
@@ -63,5 +64,7 @@ export async function runVisualAudit({win,outputDir,waitFor,capture}) {
   await js(`window.__datakoalaStore.setState({activeTabId:'volume-B'})`);await settle()
   releaseVolume();await waitFor(win,'window.__datakoalaStore.getState().tabs[0].lokiVolume?.result?.resultKind === "metrics"','inactive completion')
   await js(`window.__datakoalaStore.setState({activeTabId:'volume-A'})`);await ready();await formatted();await ready();assert.deepEqual(counts(),{primary:2,probe:0,volume:2});await shot(screenshots[1])
+  observations.push(...await runLokiViewTransitionAudit({ipc:auditIpc,win,outputDir,waitFor,capture}))
   await writeFile(resolve(outputDir,'measurements.json'),JSON.stringify({sourceHead:process.env.DATAKOALA_AUDIT_HEAD,observations,transitions,finalCounts:counts(),calls,transport:'synthetic Loki IPC; real Electron/ECharts',humanAcceptance:'Pending'},null,2))
+
 }

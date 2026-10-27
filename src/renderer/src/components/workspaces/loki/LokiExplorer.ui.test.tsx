@@ -21,7 +21,10 @@ const chartMock = vi.hoisted(() => ({
   renders: 0,
   brush: null as
     null | ((params: { areas: { coordRange: number[] }[] }) => void),
-  option: null as null | { series: { name: string; data: unknown[] }[] },
+  option: null as null | {
+    series: { name: string; data: unknown[] }[]
+    xAxis?: { data?: unknown[] }
+  },
 }))
 vi.mock('@lib/clipboardText', () => ({ copyTextToClipboard }))
 vi.mock('@lib/api', () => ({
@@ -195,6 +198,188 @@ describe('LokiExplorer execution', () => {
       expect((chartMock.option?.series[0] as { type?: string })?.type).toBe(
         kind.toLowerCase(),
       )
+      expect(document.querySelector('[data-result-table-pane]')).toBeNull()
+    }
+    expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    ['real columns, warm', true, false, false],
+    ['real columns, cold', false, false, false],
+    ['real columns, rapid warm', true, true, false],
+    ['real columns, rapid cold', false, true, false],
+    ['grouped, warm', true, false, true],
+    ['grouped, rapid cold', false, true, true],
+  ] as const)('investigates #542 %s', async (_label, warm, rapid, grouped) => {
+    const loadedLogs = {
+      ...patternLogs(),
+      columns: [
+        { name: 'timestampMs', dataTypeID: 0, dataTypeName: 'timestamp' },
+        { name: 'line', dataTypeID: 0, dataTypeName: 'string' },
+        { name: 'labels', dataTypeID: 0, dataTypeName: 'json' },
+        { name: 'structuredMetadata', dataTypeID: 0, dataTypeName: 'json' },
+        { name: 'parsedFields', dataTypeID: 0, dataTypeName: 'json' },
+      ],
+    }
+    const volume = {
+      ...metric,
+      columns: [
+        ...metric.columns,
+        ...(grouped
+          ? [{ name: 'service', dataTypeID: 0, dataTypeName: 'string' }]
+          : []),
+      ],
+      rows: [0, 1, 2].map((index) => ({
+        timestamp: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
+        value: 2 + index,
+        ...(grouped ? { service: index === 2 ? 'worker' : 'api' } : {}),
+      })),
+      rowCount: 3,
+    }
+    if (grouped)
+      act(() => useStore.getState().setLokiState({ lokiGroupBy: ['service'] }))
+    mocks.runLoki.mockImplementation(async (_id, request) =>
+      request.expression.startsWith('count(')
+        ? metric
+        : request.expression.includes('count_over_time')
+          ? volume
+          : loadedLogs,
+    )
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await screen.findByRole('button', { name: 'Table' })
+    if (warm) {
+      fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+      await screen.findByTestId('loki-echarts')
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }))
+    await waitFor(() =>
+      expect(document.querySelector('[data-result-table-pane]')).toBeTruthy(),
+    )
+    if (rapid)
+      act(() => {
+        for (const view of ['Patterns', 'Bar'])
+          fireEvent.click(screen.getByRole('button', { name: view }))
+      })
+    else {
+      fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+      await screen.findByText('2 patterns · 3 loaded logs')
+      fireEvent.click(screen.getByRole('button', { name: 'Bar' }))
+    }
+    await screen.findByTestId('loki-echarts')
+    await waitFor(() =>
+      expect((chartMock.option?.series[0] as { type?: string })?.type).toBe(
+        'bar',
+      ),
+    )
+    expect(document.querySelector('[data-result-table-pane]')).toBeNull()
+    const requests = mocks.runLoki.mock.calls.map(([, request]) =>
+      request.expression.startsWith('count(')
+        ? 'probe'
+        : request.expression.includes('count_over_time')
+          ? 'volume'
+          : 'primary',
+    )
+    expect(requests.filter((kind) => kind === 'primary')).toHaveLength(1)
+    expect(requests.filter((kind) => kind === 'volume')).toHaveLength(1)
+    expect(requests.filter((kind) => kind === 'probe')).toHaveLength(
+      grouped ? 1 : 0,
+    )
+  })
+
+  it.each(['empty', 'no numeric Y', 'raw filter', 'volume filter'] as const)(
+    'investigates #542 chart empty/configuration state: %s',
+    async (kind) => {
+      const loadedLogs = patternLogs()
+      const volume =
+        kind === 'empty'
+          ? { ...metric, rows: [], rowCount: 0 }
+          : kind === 'no numeric Y'
+            ? {
+                ...metric,
+                columns: [metric.columns[0]],
+                rows: [{ timestamp: '2026-01-01T00:00:00Z' }],
+              }
+            : metric
+      mocks.runLoki.mockImplementation(async (_id, request) =>
+        request.expression.includes('count_over_time') ? volume : loadedLogs,
+      )
+      render(<LokiExplorer connectionId="loki" />)
+      fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+      await screen.findByRole('button', { name: 'Table' })
+      if (kind === 'raw filter' || kind === 'volume filter')
+        act(() =>
+          useStore.getState().addResultFilter(
+            'sql',
+            kind === 'raw filter'
+              ? {
+                  id: 'raw-line',
+                  column: 'line',
+                  operator: 'equals',
+                  value: 'Request 123 completed',
+                  execution: 'client',
+                }
+              : {
+                  id: 'volume-range',
+                  column: 'timestamp',
+                  operator: 'range',
+                  startInclusive: '2027-01-01T00:00:00Z',
+                  endExclusive: '2027-01-02T00:00:00Z',
+                  execution: 'client',
+                },
+          ),
+        )
+      const beforeFilters = structuredClone(
+        useStore.getState().tabs[0].sqlResultFilters,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Table' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Bar' }))
+      await screen.findByText(
+        kind === 'empty'
+          ? 'Choose an X axis and Y axis column to render a chart.'
+          : kind === 'no numeric Y'
+            ? 'This result does not contain a numeric column that can be used as a Y axis.'
+            : 'No rows match the active filters.',
+      )
+      expect(document.querySelector('[data-result-table-pane]')).toBeNull()
+      expect(
+        screen
+          .getByRole('button', { name: 'Bar' })
+          .getAttribute('aria-pressed'),
+      ).toBe('true')
+      expect(useStore.getState().tabs[0].sqlResultFilters).toEqual(
+        beforeFilters,
+      )
+      expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+    },
+  )
+
+  it('preserves selected volume axes across Table, Patterns and repeated chart views', async () => {
+    const volume = metric
+    mocks.runLoki.mockImplementation(async (_id, request) =>
+      request.expression.includes('count_over_time') ? volume : patternLogs(),
+    )
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Line' }))
+    await screen.findByTestId('loki-echarts')
+    fireEvent.click(screen.getByRole('combobox', { name: /X axis:/ }))
+    fireEvent.click(await screen.findByRole('option', { name: /^value/ }))
+    await waitFor(() => expect(chartMock.option?.xAxis?.data).toEqual(['2']))
+    for (const kind of ['Bar', 'Line', 'Bar']) {
+      for (const view of ['Table', 'Patterns', kind])
+        fireEvent.click(screen.getByRole('button', { name: view }))
+      await waitFor(() =>
+        expect((chartMock.option?.series[0] as { type?: string })?.type).toBe(
+          kind.toLowerCase(),
+        ),
+      )
+      expect(
+        screen.getByRole('combobox', { name: /X axis:/ }).textContent,
+      ).toContain('value')
+      expect(chartMock.option?.xAxis?.data).toEqual(['2'])
+      expect(chartMock.option?.series[0].data).toEqual([2])
       expect(document.querySelector('[data-result-table-pane]')).toBeNull()
     }
     expect(mocks.runLoki).toHaveBeenCalledTimes(2)
@@ -1953,6 +2138,72 @@ describe('#371 Loki lifecycle audit', () => {
       expect(mocks.runLoki).toHaveBeenCalledTimes(2)
     },
   )
+
+  it.each([
+    'loaded remount',
+    'pending remount',
+    'pending replacement',
+  ] as const)('investigates #542 %s', async (kind) => {
+    const old = deferredQuery(),
+      newer = deferredQuery()
+    let volumes = 0
+    mocks.runLoki.mockImplementation(async (_id, request) => {
+      if (!request.expression.includes('count_over_time')) return patternLogs()
+      volumes++
+      return kind === 'loaded remount'
+        ? metric
+        : volumes === 1
+          ? old.promise
+          : newer.promise
+    })
+    const workspace = renderWorkspace()
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await screen.findByRole('button', { name: 'Table' })
+    fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+    if (kind === 'loaded remount') await screen.findByTestId('loki-echarts')
+    else await screen.findByText('Loading log volume…')
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }))
+    await waitFor(() =>
+      expect(document.querySelector('[data-result-table-pane]')).toBeTruthy(),
+    )
+    if (kind !== 'pending replacement') {
+      act(() => useStore.setState({ activeTabId: 'B' }))
+      act(() => useStore.setState({ activeTabId: 'loki-tab' }))
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Bar' }))
+    if (kind === 'pending replacement') {
+      fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+      await waitFor(() => expect(volumes).toBe(2))
+      await act(async () =>
+        old.resolve({
+          ...metric,
+          rows: [{ timestamp: '2026-01-01T00:00:00Z', value: 999 }],
+        }),
+      )
+      expect(screen.getByText('Loading log volume…')).toBeTruthy()
+      await act(async () => newer.resolve(metric))
+    } else if (kind === 'pending remount')
+      await act(async () => old.resolve(metric))
+    for (const view of ['Bar', 'Line', 'Table', 'Patterns', 'Bar']) {
+      fireEvent.click(screen.getByRole('button', { name: view }))
+      if (view === 'Bar' || view === 'Line') {
+        await waitFor(() =>
+          expect((chartMock.option?.series[0] as { type?: string })?.type).toBe(
+            view.toLowerCase(),
+          ),
+        )
+        expect(chartMock.option?.series[0].data).toEqual([
+          [Date.parse('2026-01-01T00:00:00Z'), 2],
+        ])
+        expect(document.querySelector('[data-result-table-pane]')).toBeNull()
+      }
+    }
+    expect(mocks.runLoki).toHaveBeenCalledTimes(
+      kind === 'pending replacement' ? 4 : 2,
+    )
+    workspace.unmount()
+  })
 
   function deferredQuery() {
     let resolve!: (
