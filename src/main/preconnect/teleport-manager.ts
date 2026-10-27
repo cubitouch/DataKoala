@@ -93,6 +93,7 @@ interface ManagedTunnel {
   attempt: number
   stopping: boolean
   child: TunnelProcess | null
+  termination?: Promise<void>
   abort: AbortController
   healthTimer: ReturnType<typeof setInterval> | null
   restartTimer: ReturnType<typeof setTimeout> | null
@@ -314,7 +315,6 @@ export class TeleportTunnelManager {
     }
     this.intents.delete(profileId)
     if (!current) return
-    this.tunnels.delete(profileId)
     current.stopping = true
     current.abort.abort()
     this.stopHealth(current)
@@ -323,6 +323,7 @@ export class TeleportTunnelManager {
       current.restartTimer = null
     }
     await this.terminate(current)
+    if (this.tunnels.get(profileId) === current) this.tunnels.delete(profileId)
     this.setState(current, profileId, 'stopped', 'Teleport tunnel closed.')
   }
 
@@ -644,19 +645,33 @@ export class TeleportTunnelManager {
       managed.restartTimer = null
     }
     await this.terminate(managed)
-    if (this.tunnels.get(profileId) === managed) this.tunnels.delete(profileId)
+    if (managed.stopping || this.tunnels.get(profileId) !== managed) return
+    this.tunnels.delete(profileId)
     const code = error instanceof PreConnectError ? error.code : null
     this.setState(managed, profileId, 'failed', messageOf(error), code)
   }
 
-  private async terminate(managed: ManagedTunnel): Promise<void> {
+  private terminate(managed: ManagedTunnel): Promise<void> {
+    if (managed.termination) return managed.termination
     const child = managed.child
-    managed.child = null
-    if (!child) return
-    const exited = this.waitForExit(child, this.deps.killGraceMs)
-    killProcessTree(child, 'SIGTERM')
-    await exited
-    killProcessTree(child, 'SIGKILL')
+    if (!child) return Promise.resolve()
+    // Publish the shared cleanup before signaling: stop/stopAll must join an
+    // existing readiness/health/stop cleanup through escalation and child exit.
+    const termination = Promise.resolve()
+      .then(async () => {
+        const exited = this.waitForExit(child, this.deps.killGraceMs)
+        const reaped = this.waitForExit(child, this.deps.killGraceMs * 2)
+        killProcessTree(child, 'SIGTERM')
+        await exited
+        killProcessTree(child, 'SIGKILL')
+        await reaped
+      })
+      .finally(() => {
+        if (managed.child === child) managed.child = null
+        if (managed.termination === termination) managed.termination = undefined
+      })
+    managed.termination = termination
+    return termination
   }
 
   private waitForExit(child: TunnelProcess, ms: number): Promise<void> {

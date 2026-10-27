@@ -180,12 +180,6 @@ export function LokiExplorer({
     mounted = useRef(true)
   const rangeKey = JSON.stringify(range),
     previousRangeKey = useRef(rangeKey)
-  const trendRefreshKey = JSON.stringify([
-    session.id,
-    resultView,
-    groupBy,
-    rangeKey,
-  ])
   const lastProcessedTrendKey = useRef<string | null>(null)
   const fallbackMatcher =
     labelResource.status === 'loaded' &&
@@ -213,16 +207,19 @@ export function LokiExplorer({
       ? formattedGenerated.query
       : generated
   const expression = mode === 'builder' ? displayedGenerated : query
+  // Formatter whitespace is presentation, not a different Builder context.
+  const volumeExpression = mode === 'builder' ? generated : query
   const currentVolumeKey = JSON.stringify([
     session.id,
     connectionId,
     connectionGeneration,
     session.queryContextId,
     session.queryOperation?.token ?? session.resultRevision,
-    expression,
+    volumeExpression,
     range,
     groupBy,
   ])
+  const trendRefreshKey = JSON.stringify([currentVolumeKey, resultView])
   const volume =
     session.lokiVolume?.key === currentVolumeKey && !session.queryError
       ? session.lokiVolume
@@ -344,6 +341,7 @@ export function LokiExplorer({
       queryExpression: string,
       queryRange: BuilderTimeRange,
       queryGroupBy: string[],
+      queryIdentity = queryExpression,
     ) => {
       try {
         if (logqlResultKind(queryExpression) !== 'logs') return
@@ -359,7 +357,7 @@ export function LokiExplorer({
         connectionGeneration,
         source.queryContextId,
         source.queryOperation?.token ?? source.resultRevision,
-        queryExpression,
+        queryIdentity,
         queryRange,
         queryGroupBy,
       ])
@@ -507,7 +505,13 @@ export function LokiExplorer({
         // the primary result lifecycle wait for it. The chart already has an explicit
         // "Loading log volume…" state while this independent Loki metric query finishes.
         if (shouldLoadTrend)
-          void loadTrend(tabId, queryExpression, range, groupBy)
+          void loadTrend(
+            tabId,
+            queryExpression,
+            range,
+            groupBy,
+            volumeExpression,
+          )
         const main = await api.query.runLoki(connectionId, {
           expression: queryExpression,
           ...bounds,
@@ -548,6 +552,7 @@ export function LokiExplorer({
       isCurrentTab,
       connectionGeneration,
       trendRefreshKey,
+      volumeExpression,
     ],
   )
   const run = useCallback(async () => {
@@ -581,17 +586,17 @@ export function LokiExplorer({
     if (
       result?.resultKind !== 'logs' ||
       session.queryError ||
-      !expression.trim()
+      !volumeExpression.trim()
     )
       return
     if (lastProcessedTrendKey.current === trendRefreshKey) return
     lastProcessedTrendKey.current = trendRefreshKey
-    void loadTrend(session.id, expression, range, groupBy)
+    void loadTrend(session.id, volumeExpression, range, groupBy)
   }, [
     resultView,
     result?.resultKind,
     session.queryError,
-    expression,
+    volumeExpression,
     trendRefreshKey,
     loadTrend,
     session.id,
@@ -1004,7 +1009,12 @@ export function LokiExplorer({
                     type="button"
                     className="btn ghost"
                     onClick={() =>
-                      void loadTrend(session.id, expression, range, groupBy)
+                      void loadTrend(
+                        session.id,
+                        volumeExpression,
+                        range,
+                        groupBy,
+                      )
                     }
                   >
                     Retry log volume
