@@ -633,7 +633,9 @@ describe('TraceExplorer TraceQL editor', () => {
     render(<TraceExplorer connectionId="tempo-1" />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Run' }))
-    await waitFor(() => expect(screen.getByText('2 traces')).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText('2 sampled traces')).toBeTruthy(),
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Scatter' }))
     expect(
       screen
@@ -651,7 +653,7 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(screen.getByTestId('scatter-traces').textContent).toBe(
       result.rows[0].traceId,
     )
-    expect(screen.getByText('1 of 2 retrieved traces')).toBeTruthy()
+    expect(screen.getByText('1 sampled trace')).toBeTruthy()
     expect(activeTestSession().result?.rows).toEqual(result.rows)
     expect(activeTestSession().tempoTimeRange).toEqual(originalRange)
     expect(screen.getByRole('button', { name: /Time range/ }).textContent).toBe(
@@ -694,14 +696,14 @@ describe('TraceExplorer TraceQL editor', () => {
         /Local filter:|Service map uses the full retrieved cohort/,
       ),
     ).toBeNull()
-    expect(screen.getByText('1 of 2 retrieved traces')).toBeTruthy()
+    expect(screen.getByText('1 sampled trace')).toBeTruthy()
     await waitFor(() => expect(api.query.run).toHaveBeenCalledTimes(2))
     expect(vi.mocked(api.query.run).mock.calls[1][1]).toBe(
       result.rows[1].traceId,
     )
     // Clearing the chip while the map is open widens its scope without lookups.
     fireEvent.click(screen.getByRole('button', { name: /Remove filter/ }))
-    expect(screen.getByText('2 traces')).toBeTruthy()
+    expect(screen.getByText('2 sampled traces')).toBeTruthy()
     expect(screen.getByText('1 / 2 matching traces analyzed')).toBeTruthy()
     expect(api.query.run).toHaveBeenCalledTimes(2)
     select('Scatter')
@@ -724,7 +726,9 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(api.query.run).toHaveBeenCalledTimes(2)
     select('Refine scatter range')
     select('Run')
-    await waitFor(() => expect(screen.getByText('2 traces')).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText('2 sampled traces')).toBeTruthy(),
+    )
     expect(screen.queryByLabelText('Active result filters')).toBeNull()
     expect(api.query.run).toHaveBeenCalledTimes(3)
   })
@@ -748,7 +752,7 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(screen.getByTestId('scatter-traces').textContent).toBe(
       [result.rows[1].traceId, result.rows[2].traceId].join(','),
     )
-    expect(screen.getByText('2 of 4 retrieved traces')).toBeTruthy()
+    expect(screen.getByText('2 sampled traces')).toBeTruthy()
     expect(
       screen
         .getByRole('button', { name: /Remove filter/ })
@@ -799,7 +803,7 @@ describe('TraceExplorer TraceQL editor', () => {
       })),
     )
     expect(screen.queryByLabelText('Active result filters')).toBeNull()
-    expect(screen.getByText('1 traces')).toBeTruthy()
+    expect(screen.getByText('1 sampled trace')).toBeTruthy()
     select('Refine scatter range')
     select('Manage saved presets')
     select('Load preset Tempo baseline')
@@ -828,7 +832,9 @@ describe('TraceExplorer TraceQL editor', () => {
     const select = (name: string | RegExp) =>
       fireEvent.click(screen.getByRole('button', { name }))
     select('Run')
-    await waitFor(() => expect(screen.getByText('1 traces')).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText('1 sampled trace')).toBeTruthy(),
+    )
     select('Scatter')
     select('Refine scatter range')
     const firstTab = activeTestSession().id
@@ -839,7 +845,7 @@ describe('TraceExplorer TraceQL editor', () => {
     await act(async () => {
       await useStore.getState().activateTab(firstTab)
     })
-    expect(screen.getByText('1 traces')).toBeTruthy()
+    expect(screen.getByText('1 sampled trace')).toBeTruthy()
     select('Refine scatter range')
     select(/Time range/)
     select('Last day')
@@ -849,7 +855,9 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(api.query.run).toHaveBeenCalledTimes(1)
     select('Run')
     await waitFor(() => expect(api.query.run).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.getByText('1 traces')).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText('1 sampled trace')).toBeTruthy(),
+    )
     const options = vi.mocked(api.query.run).mock.calls[1][3]
     expect(Date.parse(options!.end!) - Date.parse(options!.start!)).toBe(
       24 * 60 * 60 * 1000,
@@ -866,7 +874,9 @@ describe('TraceExplorer TraceQL editor', () => {
     )
     expect(screen.queryByLabelText('Active result filters')).toBeNull()
     select('Run')
-    await waitFor(() => expect(screen.getByText('1 traces')).toBeTruthy())
+    await waitFor(() =>
+      expect(screen.getByText('1 sampled trace')).toBeTruthy(),
+    )
     select('Refine scatter range')
     select('Reset query')
     select('Reset exploration')
@@ -947,7 +957,7 @@ describe('TraceExplorer TraceQL editor', () => {
     expect(
       screen.getByText(/No retrieved traces in this local interval/),
     ).toBeTruthy()
-    expect(screen.getByText('0 of 1 retrieved traces')).toBeTruthy()
+    expect(screen.getByText('0 sampled traces')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Open trace' }))
     await waitFor(() => expect(screen.getByText(searchedTraceId)).toBeTruthy())
     expect(

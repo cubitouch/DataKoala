@@ -18,18 +18,6 @@ const views: Array<{ view: ChartPickerView; label: string; path: ReactNode }> =
       ),
     },
     {
-      view: 'service-map',
-      label: 'Service map',
-      path: (
-        <>
-          <circle cx="12" cy="5" r="3" />
-          <circle cx="5" cy="18" r="3" />
-          <circle cx="19" cy="18" r="3" />
-          <path d="M10.5 8 6.5 15M13.5 8l4 7" />
-        </>
-      ),
-    },
-    {
       view: 'table',
       label: 'Table',
       path: (
@@ -80,6 +68,18 @@ const views: Array<{ view: ChartPickerView; label: string; path: ReactNode }> =
           <circle cx="11" cy="10" r="2" />
           <circle cx="17" cy="6" r="2" />
           <circle cx="18" cy="15" r="2" />
+        </>
+      ),
+    },
+    {
+      view: 'service-map',
+      label: 'Service map',
+      path: (
+        <>
+          <circle cx="12" cy="5" r="3" />
+          <circle cx="5" cy="18" r="3" />
+          <circle cx="19" cy="18" r="3" />
+          <path d="M10.5 8 6.5 15M13.5 8l4 7" />
         </>
       ),
     },

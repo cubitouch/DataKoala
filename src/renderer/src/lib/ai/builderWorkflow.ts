@@ -181,6 +181,8 @@ export function prepareAiBuilderContext(
     const candidate = [...columns, next]
     if (
       JSON.stringify({
+        // Reserve the complete IPC envelope, including its bounded request ID.
+        requestId: 'x'.repeat(128),
         prompt,
         state: snapshot.state,
         columns: candidate,

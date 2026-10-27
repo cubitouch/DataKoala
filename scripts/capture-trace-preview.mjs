@@ -373,7 +373,7 @@ async function validateLocalScatterFilter(win) {
   const after = await win.webContents.executeJavaScript(`(() => {
     const state = window.__datakoalaStore.getState()
     const tab = state.tabs.find((item) => item.id === state.activeTabId)
-    return { range: JSON.stringify(tab.tempoTimeRange), rows: JSON.stringify(tab.result.rows), label: document.body.innerText.includes('2 of 5 retrieved traces') }
+    return { range: JSON.stringify(tab.tempoTimeRange), rows: JSON.stringify(tab.result.rows), label: document.querySelector('[data-trace-count]')?.textContent.trim()==='2 traces' }
   })()`)
   if (
     queryRequests !== requestsBefore ||

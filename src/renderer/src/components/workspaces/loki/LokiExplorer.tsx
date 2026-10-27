@@ -937,6 +937,8 @@ export function LokiExplorer({
                 />
               ) : resultView === 'table' ? (
                 <GenericResultExplorer
+                  analysisOwnerTabId={session.id}
+                  analysisOwnerScope="loki"
                   mode="sql"
                   dimensionControls="result"
                   externalSeriesColumns={EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS}
@@ -966,6 +968,8 @@ export function LokiExplorer({
                 </div>
               ) : trend?.resultKind === 'metrics' ? (
                 <GenericResultExplorer
+                  analysisOwnerTabId={session.id}
+                  analysisOwnerScope="loki"
                   mode="sql"
                   dimensionControls="result"
                   externalSeriesColumns={EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS}
@@ -996,6 +1000,8 @@ export function LokiExplorer({
           </>
         ) : result?.resultKind === 'metrics' ? (
           <GenericResultExplorer
+            analysisOwnerTabId={session.id}
+            analysisOwnerScope="loki"
             mode="sql"
             dimensionControls="result"
             externalSeriesColumns={EMPTY_LOKI_EXTERNAL_SERIES_COLUMNS}

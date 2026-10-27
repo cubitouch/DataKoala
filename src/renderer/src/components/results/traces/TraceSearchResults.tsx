@@ -9,6 +9,7 @@ interface TraceSearchResultsProps {
   rows: TraceRow[]
   fetchedTraceCount?: number
   locallyFiltered?: boolean
+  sampled?: boolean
   notice: string
   loading: 'search' | 'trace' | null
   resultView: TraceResultView
@@ -22,6 +23,7 @@ export function TraceSearchResults({
   rows,
   fetchedTraceCount = rows.length,
   locallyFiltered = false,
+  sampled = false,
   notice,
   loading,
   resultView,
@@ -38,33 +40,31 @@ export function TraceSearchResults({
       aria-busy={loading !== null}
       style={{ gridRow: 5 }}
     >
-      <header className={styles.resultsHeader}>
-        <div>
-          <h2>Trace search</h2>
-          <p>
-            {notice || 'Use the Builder or TraceQL to find candidate traces.'}
+      <div className={styles.viewBar} data-trace-view-bar>
+        <ChartPicker
+          value={resultView}
+          onChange={onResultViewChange}
+          availableViews={['list', 'scatter', 'service-map']}
+          disabledViews={loading === 'search' ? ['service-map'] : []}
+        />
+        <strong
+          className={styles.count}
+          data-trace-count
+          title={notice || undefined}
+        >
+          {rows.length} {sampled ? 'sampled ' : ''}
+          {rows.length === 1 ? 'trace' : 'traces'}
+          {loading === 'search' ? ' so far' : ''}
+        </strong>
+      </div>
+      {loading !== 'search' &&
+        notice &&
+        !notice.startsWith('Tempo search ·') && (
+          <p className={styles.notice} role="status">
+            {notice}
           </p>
-        </div>
-        <div className={styles.resultsHeaderActions}>
-          {hasResults && (
-            <ChartPicker
-              value={resultView}
-              onChange={onResultViewChange}
-              availableViews={['list', 'scatter', 'service-map']}
-              disabledViews={loading === 'search' ? ['service-map'] : []}
-            />
-          )}
-          {hasResults && (
-            <strong>
-              {locallyFiltered
-                ? `${rows.length} of ${fetchedTraceCount} retrieved traces`
-                : `${rows.length} traces`}
-              {loading === 'search' ? ' so far' : ''}
-            </strong>
-          )}
-        </div>
-      </header>
-      {locallyFiltered && rows.length === 0 ? (
+        )}
+      {locallyFiltered && rows.length === 0 && resultView !== 'scatter' ? (
         <div className={styles.empty}>
           No retrieved traces in this local interval. Remove the filter to
           restore results.
@@ -77,6 +77,12 @@ export function TraceSearchResults({
         </div>
       ) : resultView === 'scatter' ? (
         <div className={styles.scatter} data-trace-scatter="">
+          {locallyFiltered && rows.length === 0 && (
+            <p role="status">
+              No retrieved traces in this local interval. Remove the filter to
+              restore results.
+            </p>
+          )}
           {scatterView}
         </div>
       ) : resultView === 'service-map' ? (
