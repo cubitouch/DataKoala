@@ -330,7 +330,7 @@ app.whenReady().then(async () => {
           '[role=separator][aria-label="Resize execution plan diagram"]'
         const geometry = () =>
           js(
-            `(()=>{const h=document.querySelector(${JSON.stringify(selector)}),d=document.querySelector('[aria-label="Execution plan diagram"]'),svg=d.querySelector('svg');return {height:Number(h.getAttribute('aria-valuenow')),min:Number(h.getAttribute('aria-valuemin')),max:Number(h.getAttribute('aria-valuemax')),canvas:d.getBoundingClientRect().toJSON(),svg:svg.getBoundingClientRect().toJSON(),transform:d.querySelector('.joint-viewport')?.getAttribute('transform'),selected:d.dataset.selectedNodeId}})()`,
+            `(()=>{const h=document.querySelector(${JSON.stringify(selector)}),d=document.querySelector('[aria-label="Execution plan diagram"]'),svg=d.querySelector('svg');return {height:Number(h.getAttribute('aria-valuenow')),min:Number(h.getAttribute('aria-valuemin')),max:Number(h.getAttribute('aria-valuemax')),canvas:d.getBoundingClientRect().toJSON(),svg:svg.getBoundingClientRect().toJSON(),transform:d.querySelector('.joint-layers')?.getAttribute('transform'),selected:d.dataset.selectedNodeId}})()`,
           )
         await wait(
           win,
@@ -343,6 +343,15 @@ app.whenReady().then(async () => {
         win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Return' })
         win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' })
         await settle()
+        win.setContentSize(1440, 1000)
+        await settle()
+        const canvasReady = () =>
+          wait(
+            win,
+            `(()=>{const d=document.querySelector('[aria-label="Execution plan diagram"]'),s=d?.querySelector('svg');return d&&s&&Math.abs(d.getBoundingClientRect().height-s.getBoundingClientRect().height)<3})()`,
+            'JointJS SVG matches resized canvas',
+          )
+        await canvasReady()
         const initial = await geometry()
         for (const [name, delta] of [
           ['shorter', -200],
@@ -375,6 +384,7 @@ app.whenReady().then(async () => {
             y: y + delta,
           })
           await settle()
+          await canvasReady()
           const result = await geometry(),
             expected =
               name === 'shorter' ? initial.height - 200 : initial.height - 50
@@ -418,6 +428,7 @@ app.whenReady().then(async () => {
         if (max.height !== max.max) throw Error('Maximum clamp failed')
         win.setContentSize(1440, 650)
         await settle()
+        await canvasReady()
         const shrunk = await geometry()
         if (shrunk.height > shrunk.max || shrunk.max >= max.max)
           throw Error('Window shrink failed to clamp')
@@ -507,7 +518,7 @@ app.whenReady().then(async () => {
         )
         const transform = () =>
           js(
-            `document.querySelector('[aria-label="Execution plan diagram"] .joint-viewport')?.getAttribute('transform')`,
+            `document.querySelector('[aria-label="Execution plan diagram"] .joint-layers')?.getAttribute('transform')`,
           )
         const beforePan = await transform(),
           x = Math.round(box.x + box.width * 0.85),
