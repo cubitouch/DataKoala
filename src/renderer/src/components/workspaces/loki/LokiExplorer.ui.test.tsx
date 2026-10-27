@@ -2388,3 +2388,20 @@ it('reuses loaded and pending rolling-range volume across repeated view switches
   expect(mocks.runLoki).toHaveBeenCalledTimes(2)
   expect(useStore.getState().tabs[0].lokiVolume?.bounds).toBe(bounds)
 })
+
+it('does not dispatch or reject optional volume after an invalid draft and view return', async () => {
+  mocks.runLoki.mockResolvedValueOnce(logs).mockResolvedValueOnce(metric)
+  render(<LokiExplorer connectionId="loki" />)
+  fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+  await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(1))
+  fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+  await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(2))
+  act(() => useStore.getState().setSql('{app=', 'loki-tab'))
+  fireEvent.click(screen.getByRole('button', { name: 'List' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Line' }))
+  await act(async () => {
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+})
