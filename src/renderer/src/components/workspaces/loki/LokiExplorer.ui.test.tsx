@@ -173,6 +173,33 @@ beforeEach(() => {
 })
 
 describe('LokiExplorer execution', () => {
+  it('renders the selected volume chart after Table then Patterns across repeated view cycles', async () => {
+    mocks.runLoki.mockImplementation(async (_id, request) =>
+      request.expression.includes('count_over_time') ? metric : patternLogs(),
+    )
+    render(<LokiExplorer connectionId="loki" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+    await screen.findByRole('button', { name: 'Table' })
+    for (const kind of ['Bar', 'Line', 'Bar']) {
+      fireEvent.click(screen.getByRole('button', { name: 'Table' }))
+      await waitFor(() =>
+        expect(document.querySelector('[data-result-table-pane]')).toBeTruthy(),
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Patterns' }))
+      await screen.findByText('2 patterns · 3 loaded logs')
+      fireEvent.click(screen.getByRole('button', { name: kind }))
+      await screen.findByTestId('loki-echarts')
+      expect(
+        screen.getByRole('button', { name: kind }).getAttribute('aria-pressed'),
+      ).toBe('true')
+      expect((chartMock.option?.series[0] as { type?: string })?.type).toBe(
+        kind.toLowerCase(),
+      )
+      expect(document.querySelector('[data-result-table-pane]')).toBeNull()
+    }
+    expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+  })
+
   it('preserves a newer raw draft when an older format completes', async () => {
     let resolveFormat!: (query: string) => void
     mocks.formatQuery.mockImplementation(
@@ -1862,6 +1889,71 @@ describe('LokiExplorer execution', () => {
 // #371: App remounts its keyed main shell on tab changes. A transport promise
 // continuing after unmount is insufficient if its owning session loses delivery.
 describe('#371 Loki lifecycle audit', () => {
+  it.each(['loaded', 'pending'] as const)(
+    'reuses %s Builder volume across delayed newline formatting on tab return',
+    async (status) => {
+      const tab = useStore.getState().tabs[0]
+      useStore.getState().setLokiState({
+        lokiBuilder: {
+          ...tab.lokiBuilder,
+          labelMatchers: [{ label: 'app', operator: '=', value: 'x' }],
+          lineFilters: [{ operator: '|=', value: 'needle' }],
+        },
+        lokiResultView: 'line',
+      })
+      useStore.getState().setQueryMode('builder')
+      let finishFormat!: (query: string) => void
+      let returnedQuery = ''
+      mocks.formatQuery
+        .mockImplementationOnce(async (_id, query: string) =>
+          query.replace(/\s*\|=/, '\n|='),
+        )
+        .mockImplementationOnce((_id, query: string) => {
+          returnedQuery = query
+          return new Promise<string>((resolve) => {
+            finishFormat = resolve
+          })
+        })
+      const volume = deferredQuery()
+      mocks.runLoki.mockImplementation((_id, request) =>
+        request.expression.includes('count_over_time')
+          ? volume.promise
+          : Promise.resolve(logs),
+      )
+      renderWorkspace()
+      await waitFor(() => expect(mocks.formatQuery).toHaveBeenCalledTimes(1))
+      fireEvent.click(screen.getByRole('button', { name: 'Run' }))
+      await waitFor(() => expect(mocks.runLoki).toHaveBeenCalledTimes(2))
+      expect(
+        mocks.runLoki.mock.calls.some(([, request]) =>
+          request.expression.includes('\n|='),
+        ),
+      ).toBe(true)
+      if (status === 'loaded') {
+        await act(async () => {
+          volume.resolve(metric)
+          await volume.promise
+        })
+        await screen.findByTestId('loki-echarts')
+      }
+      act(() => useStore.setState({ activeTabId: 'B' }))
+      if (status === 'pending')
+        await act(async () => {
+          volume.resolve(metric)
+          await volume.promise
+        })
+      act(() => useStore.setState({ activeTabId: 'loki-tab' }))
+      await waitFor(() => expect(finishFormat).toBeTypeOf('function'))
+      expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+      await act(async () =>
+        finishFormat(returnedQuery.replace(/\s*\|=/, '\n|=')),
+      )
+      await screen.findByTestId('loki-echarts')
+      expect(screen.queryByText('Loading log volume…')).toBeNull()
+      expect(mocks.runLoki).toHaveBeenCalledTimes(2)
+    },
+  )
+
   function deferredQuery() {
     let resolve!: (
       value: typeof logs | typeof metric | ReturnType<typeof patternLogs>,
