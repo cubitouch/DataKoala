@@ -100,3 +100,16 @@ button.content:disabled {
     overflow-wrap: anywhere;
   }
 }
+
+.singleLine .main {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.singleLine .leading {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  max-width: none;
+  white-space: nowrap;
+}

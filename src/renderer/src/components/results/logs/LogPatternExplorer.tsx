@@ -15,7 +15,7 @@ import {
   type LogPatternCluster,
 } from '@shared/log-patterns'
 import { effectiveLogMessage } from '@lib/lokiLogMessage'
-import { LogSeverityBadge } from './LogRowPresentation'
+import { LogSeverityBadge, LogSeverityCell } from './LogRowPresentation'
 import { representativeLogSeverity } from './logSeverity'
 import styles from './LogPatternExplorer.module.css'
 
@@ -227,19 +227,29 @@ export function LogPatternExplorer({
                     style={{ transform: `translateY(${item.start}px)` }}
                   >
                     <ObservabilityRow
+                      singleLine
                       selected={active}
                       onOpen={() => setSelectedId(active ? null : cluster.id)}
                       leading={
                         <>
                           <span className={styles.metrics} data-pattern-metrics>
-                            <strong>{cluster.count}</strong> logs ·{' '}
-                            {cluster.percentage.toFixed(1)}%
+                            <strong
+                              className={styles.count}
+                              data-pattern-count
+                              title={`${cluster.count} logs`}
+                            >
+                              {cluster.count}
+                            </strong>
+                            <span> logs · </span>
+                            <span
+                              className={styles.percentage}
+                              data-pattern-percentage
+                              title={`${cluster.percentage}%`}
+                            >
+                              {cluster.percentage.toFixed(1)}%
+                            </span>
                           </span>
-                          {representativeSeverity && (
-                            <LogSeverityBadge
-                              severity={representativeSeverity}
-                            />
-                          )}
+                          <LogSeverityCell severity={representativeSeverity} />
                         </>
                       }
                     >

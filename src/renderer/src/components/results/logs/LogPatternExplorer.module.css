@@ -36,6 +36,7 @@
 }
 
 .template {
+  white-space: nowrap;
   font: inherit;
 }
 
@@ -51,14 +52,33 @@
 }
 
 .metrics {
+  display: inline-grid;
+  grid-template-columns: 5ch 6ch 6ch;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
   min-width: 0;
   white-space: nowrap;
   color: var(--text-dim);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.count,
+.percentage {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: right;
+  text-overflow: ellipsis;
 }
 
 .metrics strong {
   color: var(--text);
+}
+
+.row :global([data-observability-row]) > button {
+  gap: 8px;
 }
 
 .inspector {
