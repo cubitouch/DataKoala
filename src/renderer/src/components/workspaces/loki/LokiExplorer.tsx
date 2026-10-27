@@ -345,7 +345,11 @@ export function LokiExplorer({
       queryRange: BuilderTimeRange,
       queryGroupBy: string[],
     ) => {
-      if (logqlResultKind(queryExpression) !== 'logs') return
+      try {
+        if (logqlResultKind(queryExpression) !== 'logs') return
+      } catch {
+        return
+      }
       const state = useStore.getState()
       const source = state.tabs.find((tab) => tab.id === tabId)
       if (!source) return
