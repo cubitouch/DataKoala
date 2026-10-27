@@ -718,7 +718,7 @@ it('isolates pending AI work across real sessions even with identical result ide
       sqlVisualization: configuration,
     })
   })
-  expect(aiMocks.cancel).toHaveBeenCalledWith(requestId)
+  expect(aiMocks.cancel).not.toHaveBeenCalledWith(requestId)
   fireEvent.click(
     await screen.findByRole('button', { name: 'Analyze with AI' }),
   )
@@ -726,7 +726,7 @@ it('isolates pending AI work across real sessions even with identical result ide
     await screen.findByRole('button', { name: 'AI details (2)' }),
   ).toBeTruthy()
   await act(async () =>
-    finish({ ok: false, code: 'provider', message: 'Obsolete A failure' }),
+    finish({ ok: false, code: 'provider', message: 'A provider failure' }),
   )
   expect(screen.queryByRole('alert')).toBeNull()
   expect(screen.getByRole('button', { name: 'AI details (2)' })).toBeTruthy()
@@ -734,6 +734,7 @@ it('isolates pending AI work across real sessions even with identical result ide
     await useStore.getState().activateTab(a)
   })
   expect(screen.queryByRole('button', { name: 'AI details (2)' })).toBeNull()
+  expect(screen.getByRole('alert').textContent).toContain('A provider failure')
   expect(aiMocks.analyzeAnomalies).toHaveBeenCalledTimes(2)
   expect(activeTestSession().result).toBe(result)
   expect(activeTestSession().resultRevision).toBe(1)

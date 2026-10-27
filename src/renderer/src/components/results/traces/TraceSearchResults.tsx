@@ -90,7 +90,7 @@ export function TraceSearchResults({
           )}
         </div>
       </header>
-      {locallyFiltered && rows.length === 0 ? (
+      {locallyFiltered && rows.length === 0 && resultView !== 'scatter' ? (
         <div className={styles.empty}>
           No retrieved traces in this local interval. Remove the filter to
           restore results.
@@ -103,6 +103,12 @@ export function TraceSearchResults({
         </div>
       ) : resultView === 'scatter' ? (
         <div className={styles.scatter} data-trace-scatter="">
+          {locallyFiltered && rows.length === 0 && (
+            <p role="status">
+              No retrieved traces in this local interval. Remove the filter to
+              restore results.
+            </p>
+          )}
           {scatterView}
         </div>
       ) : resultView === 'service-map' ? (

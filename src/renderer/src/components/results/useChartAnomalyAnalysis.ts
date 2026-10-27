@@ -1,5 +1,6 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { api } from '@lib/api'
+import { useStore } from '@store/useStore'
 import { AI_LIMITS, type AiAnomalyAnalysis } from '@shared/ai'
 import type { QueryResult } from '@shared/types'
 import type {
@@ -23,63 +24,166 @@ const emptyState: AnalysisState = {
   analyzing: false,
   error: '',
 }
+interface Resource {
+  result: QueryResult | null
+  contextKey: string
+  owner: unknown
+  state: AnalysisState
+  requestId: string | null
+  alive: boolean
+  listeners: Set<() => void>
+  source?: {
+    tabId: string
+    profileId: string | null
+    queryContextId: string | undefined
+    result: QueryResult | null
+    resultRevision: number
+    generation: number | undefined
+  }
+}
+// Runtime only: no AI payload enters workspace/profile serialization.
+const tabResources = new Map<string, Resource>()
+const emit = (resource: Resource) => {
+  for (const listener of resource.listeners) listener()
+}
+const update = (resource: Resource, state: AnalysisState) => {
+  resource.state = state
+  emit(resource)
+}
+function cancelRequest(resource: Resource) {
+  const id = resource.requestId
+  resource.requestId = null
+  if (id && api?.ai?.cancel) void api.ai.cancel(id)
+}
+function retire(resource: Resource) {
+  resource.alive = false
+  cancelRequest(resource)
+  update(resource, emptyState)
+}
+function sourceIsCurrent(resource: Resource) {
+  const source = resource.source
+  if (!source) return resource.alive
+  const state = useStore.getState(),
+    tab = state.tabs.find((item) => item.id === source.tabId)
+  return Boolean(
+    tab &&
+    tab.connectionProfileId === source.profileId &&
+    tab.queryContextId === source.queryContextId &&
+    tab.result === source.result &&
+    tab.resultRevision === source.resultRevision &&
+    (!source.profileId ||
+      state.connectionStateByProfileId[source.profileId]?.generation ===
+        source.generation),
+  )
+}
+// Closing/resetting/rebinding/replacing inactive owners also retires their work.
+useStore.subscribe(() => {
+  for (const [key, resource] of tabResources)
+    if (!sourceIsCurrent(resource)) {
+      tabResources.delete(key)
+      retire(resource)
+    }
+})
 
-/** Component-owned analysis, independent of durable session query operations. */
+/** Tab-owned runtime analysis; standalone consumers retain component lifetime. */
 export function useChartAnomalyAnalysis({
   result,
   owner,
+  ownerTabId,
+  ownerScope = 'result',
   contextKey,
   configured,
+  settingsReady = true,
   chart,
   configuration,
   seriesVisibility,
   isResultStale,
 }: {
   result: QueryResult | null
-  /** Existing tab-bound callback identity, supplied by the owning workspace. */
   owner: unknown
-  /** Data/revision identity; excludes series visibility and axis presentation. */
+  ownerTabId?: string
+  ownerScope?: string
   contextKey: string
   configured: boolean
+  settingsReady?: boolean
   chart: PivotedResult | null
   configuration: VisualizationConfiguration
   seriesVisibility: Record<string, boolean>
   isResultStale: boolean
 }) {
-  const context = useMemo(
-    () => ({ result, contextKey, owner }),
-    [result, contextKey, owner],
+  const key = ownerTabId ? JSON.stringify([ownerTabId, ownerScope]) : null
+  const contextOwner = ownerTabId ?? owner
+  const resource = useMemo(() => {
+    const previous = key ? tabResources.get(key) : undefined
+    if (
+      previous?.alive &&
+      previous.result === result &&
+      previous.contextKey === contextKey &&
+      sourceIsCurrent(previous)
+    )
+      return previous
+    const store = useStore.getState(),
+      tab = ownerTabId
+        ? store.tabs.find((item) => item.id === ownerTabId)
+        : undefined
+    return {
+      result,
+      contextKey,
+      owner: contextOwner,
+      state: emptyState,
+      requestId: null,
+      alive: true,
+      listeners: new Set(),
+      ...(tab
+        ? {
+            source: {
+              tabId: tab.id,
+              profileId: tab.connectionProfileId,
+              queryContextId: tab.queryContextId,
+              result: tab.result,
+              resultRevision: tab.resultRevision,
+              generation: tab.connectionProfileId
+                ? store.connectionStateByProfileId[tab.connectionProfileId]
+                    ?.generation
+                : undefined,
+            },
+          }
+        : {}),
+    } as Resource
+  }, [key, result, contextKey, contextOwner, ownerTabId])
+  const activeResource = useRef<Resource | null>(null)
+  const state = useSyncExternalStore(
+    (listener) => {
+      resource.listeners.add(listener)
+      return () => {
+        resource.listeners.delete(listener)
+      }
+    },
+    () => resource.state,
   )
-  const activeContext = useRef<typeof context | null>(null)
-  const requestId = useRef<string | null>(null)
-  const [state, setState] = useState({ context, ...emptyState })
-
-  const cancel = useCallback(() => {
-    const id = requestId.current
-    requestId.current = null
-    if (id && api?.ai?.cancel) void api.ai.cancel(id)
-  }, [])
-
-  // Invalidate at commit, before promise completions can target the new data.
-  // Tagging state also prevents old annotations appearing in the new render.
   useLayoutEffect(() => {
-    activeContext.current = context
-    setState({ context, ...emptyState })
-    return () => {
-      activeContext.current = null
-      cancel()
+    activeResource.current = resource
+    resource.alive = true
+    if (key) {
+      const previous = tabResources.get(key)
+      if (previous && previous !== resource) retire(previous)
+      tabResources.set(key, resource)
     }
-  }, [context, cancel])
-
+    return () => {
+      activeResource.current = null
+      if (!key) retire(resource)
+    }
+  }, [key, resource])
   useLayoutEffect(() => {
-    if (configured || !requestId.current) return
-    cancel()
-    setState({ context, ...emptyState })
-  }, [configured, context, cancel])
-
+    if (configured || !settingsReady || !resource.requestId) return
+    cancelRequest(resource)
+    update(resource, emptyState)
+  }, [configured, settingsReady, resource])
   const analyze = async () => {
     if (
-      activeContext.current !== context ||
+      activeResource.current !== resource ||
+      !resource.alive ||
+      !sourceIsCurrent(resource) ||
       !configured ||
       !chart ||
       !configuration.xColumn ||
@@ -88,8 +192,7 @@ export function useChartAnomalyAnalysis({
       isResultStale
     )
       return
-    // A replacement invalidates the prior request even if sampling now fails.
-    cancel()
+    cancelRequest(resource)
     const submitted = chart.series
       .flatMap((item, chartSeriesIndex) => {
         if (seriesVisibility[item.name] === false) return []
@@ -100,8 +203,7 @@ export function useChartAnomalyAnalysis({
       })
       .slice(0, AI_LIMITS.anomalySeries)
     if (!submitted.length) {
-      setState({
-        context,
+      update(resource, {
         ...emptyState,
         error:
           'AI analysis needs at least three numeric points in a visible series.',
@@ -109,10 +211,10 @@ export function useChartAnomalyAnalysis({
       return
     }
     const id = crypto.randomUUID()
-    requestId.current = id
+    resource.requestId = id
     const current = () =>
-      requestId.current === id && activeContext.current === context
-    setState({ context, ...emptyState, analyzing: true })
+      resource.alive && resource.requestId === id && sourceIsCurrent(resource)
+    update(resource, { ...emptyState, analyzing: true })
     try {
       const response = await api.ai.analyzeAnomalies({
         requestId: id,
@@ -127,8 +229,7 @@ export function useChartAnomalyAnalysis({
         },
       })
       if (!current()) return
-      setState({
-        context,
+      update(resource, {
         ...emptyState,
         ...(response.ok
           ? {
@@ -140,31 +241,25 @@ export function useChartAnomalyAnalysis({
       })
     } catch {
       if (current())
-        setState({
-          context,
+        update(resource, {
           ...emptyState,
           error: 'AI analysis failed. Check your connection and try again.',
         })
     } finally {
-      // Stale completion cannot clear a newer request's loading state.
-      if (current()) requestId.current = null
+      if (current()) resource.requestId = null
     }
   }
-  const setAnomaliesVisible = (update: (visible: boolean) => boolean) => {
-    if (activeContext.current !== context) return
-    setState((previous) => ({
-      ...previous,
-      anomaliesVisible: update(previous.anomaliesVisible),
-    }))
+  const setAnomaliesVisible = (change: (visible: boolean) => boolean) => {
+    if (activeResource.current !== resource || !resource.alive) return
+    update(resource, {
+      ...resource.state,
+      anomaliesVisible: change(resource.state.anomaliesVisible),
+    })
   }
-  const visibleState = state.context === context ? state : emptyState
-  return {
-    analysis: visibleState.analysis,
-    submittedSamples: visibleState.submittedSamples,
-    anomaliesVisible: visibleState.anomaliesVisible,
-    analyzing: visibleState.analyzing,
-    error: visibleState.error,
-    analyze,
-    setAnomaliesVisible,
+  const cancel = () => {
+    if (activeResource.current !== resource) return
+    cancelRequest(resource)
+    update(resource, emptyState)
   }
+  return { ...state, analyze, cancel, setAnomaliesVisible }
 }

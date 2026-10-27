@@ -468,3 +468,7 @@
   border-radius: 3px;
   font-family: var(--mono);
 }
+
+.teleportSection > .advancedFields {
+  margin-top: 12px;
+}
